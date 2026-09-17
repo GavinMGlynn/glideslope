@@ -5,8 +5,8 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Nothing is used yet.** No aircraft, dataset, imagery, font or sound is in the
-repository or fetched by any code.
+**One thing is used: the Cessna 172P flight model from JSBSim.** No dataset,
+imagery, visual model, font or sound is used or fetched yet.
 
 ## The rule
 
@@ -15,6 +15,25 @@ its pinned version (a commit, a dataset release, or a URL plus SHA-256), its
 licence, and the attribution text it requires. Terms are quoted from the source
 at that point, not paraphrased from memory.
 
+## In use
+
+### JSBSim's Cessna 172P
+
+| | |
+| --- | --- |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`) |
+| Files | `aircraft/c172p/` (the model, its reset files and its notes), `engine/eng_io320.xml`, `engine/prop_75in2f.xml` |
+| Licence | LGPL-2.1, as the JSBSim repository; the text ships as `licenses/JSBSim.txt` |
+| Where it goes | Copied at configure time into `data/jsbsim/` beside the programs, in the build tree and in every package |
+
+The model file's own header says: "This model was created using publicly
+available data, publicly available technical reports, textbooks, and guesses.
+It contains no proprietary or restricted data. If this model has been validated
+at all, it would be only to the extent that it seems to "fly right", and that it
+possibly complies with published, publicly known, performance data (maximum
+speed, endurance, etc.). Thus, this model is meant for educational and
+entertainment purposes only."
+
 ## Planned sources
 
 These are named in `REQUIREMENTS.md`. Their entries are filled in when they are
@@ -22,7 +41,7 @@ first used.
 
 | Source | For | Phase | Terms known now |
 | --- | --- | --- | --- |
-| JSBSim aircraft models | Flight dynamics | 1 | To be recorded per model |
+| Further JSBSim aircraft models | Flight dynamics | 5 | Recorded per model, as above |
 | Copernicus DEM | Collision terrain and default visual terrain | 2 | To be recorded |
 | Open imagery | Default visual imagery | 2 | Source not yet chosen |
 | OpenStreetMap | Buildings | Tail | ODbL; source of the building data not yet chosen |

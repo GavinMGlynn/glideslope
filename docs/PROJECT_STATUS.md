@@ -21,9 +21,10 @@ anything proved elsewhere names the CI run.
 
 ## The honest summary, 2026-09-17
 
-**Nothing flies yet.** There is a build, and all it produces is a simulation
-library that knows its own version and a command-line tool that prints it. There
-is no flight model, no renderer, no terrain and no server.
+**Nothing flies yet.** JSBSim is built and linked, and `glideslope_cli` loads
+the Cessna 172P from its model files and prints what they say — but nothing
+steps the flight model forward yet. There is no renderer, no terrain and no
+server.
 
 **Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
 else is built on, one line per item, each verified:
@@ -38,15 +39,18 @@ else is built on, one line per item, each verified:
 6. a package per platform that runs from wherever it is unpacked;
 7. these documents.
 
-Every check above was also made to fail on purpose, and was seen to. **Phase 1
-— the flight model — has not started.**
+Every check above was also made to fail on purpose, and was seen to.
+
+**Phase 1, the feel, has started.** JSBSim is pinned and builds on Linux,
+waiting on CI for macOS and Windows. Nothing else in the phase exists yet.
 
 ## Gaps
 
 Everything in `COMPLETION_PLAN.md`. The ones worth naming first, because they
 are the risks the phase order is built around:
 
-- **No flight model.** JSBSim is not pinned or built.
+- **No flight.** JSBSim loads an aircraft, but nothing runs it: no time step,
+  no controls, no flight.
 - **No way to set and resume an aircraft's state.** JSBSim has no single
   snapshot and restore call, and client prediction depends on one existing.
 - **No terrain.** Neither the Copernicus DEM reader nor the Cesium-to-SDL_GPU
@@ -55,6 +59,59 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### JSBSim, pinned and built, 2026-09-17 — Linux so far
+
+**What is missing first:** JSBSim has only been built locally. macOS and Windows
+build it for the first time in CI on this commit, and its packages have not been
+made since it arrived.
+
+**What exists.** `ext/jsbsim` is JSBSim v1.3.1 (`3b25f25`), built by
+`cmake/Jsbsim.cmake` from its `src/` directory only, statically, with its
+headers as system headers and the sanitizers applied in the sanitized presets.
+The project now enables C as well as C++, for JSBSim's bundled expat.
+`ext/README.md` says why each of those choices was made.
+
+- `glideslope_sim` links `libJSBSim`. `glideslope::sim::Aircraft` loads a model
+  through `FGFDMExec`, keeping JSBSim's headers out of its own, and reports the
+  model's figures. JSBSim's own output is turned off unless `JSBSIM_DEBUG` asks
+  for it; it still prints to standard error when a model fails to load.
+- `glideslope_platform` is new: `data_directory()` finds `data/` beside the
+  running program, through `/proc/self/exe`, `_NSGetExecutablePath` or
+  `GetModuleFileNameW`.
+- The Cessna 172P's files — `aircraft/c172p/`, `engine/eng_io320.xml` and
+  `engine/prop_75in2f.xml` — are copied at configure time into `data/jsbsim/` in
+  the build tree, and installed into packages. Which aircraft are copied is a
+  CMake list for now, which Phase 5 replaces with data.
+- `glideslope_cli aircraft c172p` prints the model's name, description, wing
+  area (174.0 sq ft), wingspan (35.8 ft), chord (4.9 ft), empty weight
+  (1500.0 lb) and engine count (1). An aircraft with no files exits 1 naming
+  it.
+- Packages now carry the aircraft data and `licenses/JSBSim.txt`,
+  `licenses/expat.txt` and `licenses/GeographicLib.txt`, and nothing else of
+  JSBSim's: our install rules are the `glideslope` component, and CPack packages
+  that component alone. The `package` workflow now also runs
+  `glideslope_cli aircraft c172p` out of each unpacked copy, and checks the
+  Linux tarball's licences.
+
+**Tests, 13 now:**
+
+- `the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files` — reads
+  the wing area, span, chord, empty weight and engine count straight out of
+  `c172p.xml`, independently of JSBSim, requires each element's unit to be the
+  one the CLI prints in, and compares all five with the CLI's output.
+- `the_cli_refuses_an_aircraft_it_has_no_files_for` — exit 1, naming it.
+
+**Watched to fail:** reading wing area from the tail's property failed the
+figures test ("the CLI says 21.9, the file says 174"); making the refusal exit
+0 failed the refusal test.
+
+**Verified locally:** `linux-release` and the sanitized `linux-debug`, with
+JSBSim sanitized too, each pass 13 of 13, with no sanitizer reports. JSBSim
+builds in about 19 seconds of wall time. The layering check still passes with
+`src/sim/` including JSBSim's headers, and a local package made with
+`cpack --preset linux-release` unpacks to a folder whose
+`glideslope_cli aircraft c172p` works.
 
 ### The living documents, honest, 2026-09-17 — Phase 0 complete
 

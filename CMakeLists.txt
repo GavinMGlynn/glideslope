@@ -3,7 +3,9 @@ cmake_minimum_required(VERSION 3.28)
 project(glideslope
     VERSION     0.1.0
     DESCRIPTION "Glideslope - a multiplayer flight simulator in C++"
-    LANGUAGES   CXX)
+    # C++ is the project. C is here for JSBSim's bundled copy of expat, the XML
+    # parser its model files are read with; nothing of ours is written in C.
+    LANGUAGES   C CXX)
 
 # ---------------------------------------------------------------------------
 # **The C++ runtime goes inside the executable on Windows.**
@@ -59,14 +61,18 @@ function(glideslope_configure target)
     glideslope_sanitize(${target})
 endfunction()
 
+# JSBSim, from ext/jsbsim - see cmake/Jsbsim.cmake.
+include(Jsbsim)
+
 # ---------------------------------------------------------------------------
 # The simulation
 #
 # **Links no presentation.** No window, renderer, input or audio, so the
-# headless CLI and the server can both link it. Today it knows only its own
-# version; JSBSim arrives in Phase 1.
+# headless CLI and the server can both link it. It links JSBSim, which is a
+# flight model and nothing else.
 # ---------------------------------------------------------------------------
 add_library(glideslope_sim STATIC
+    src/sim/aircraft.cpp
     src/sim/version.cpp)
 
 # One include root, so every #include names the layer it crosses:
@@ -74,17 +80,27 @@ add_library(glideslope_sim STATIC
 target_include_directories(glideslope_sim PUBLIC src)
 target_compile_definitions(glideslope_sim PRIVATE
     GLIDESLOPE_VERSION="${PROJECT_VERSION}")
+target_link_libraries(glideslope_sim PUBLIC libJSBSim)
 glideslope_configure(glideslope_sim)
 
 # ...and links none, checked once every target_link_libraries below has run.
 cmake_language(DEFER CALL glideslope_check_sim_links glideslope_sim)
 
 # ---------------------------------------------------------------------------
+# The platform layer - where things are on this machine. Paths only, today;
+# input and sockets arrive with the phases that need them.
+# ---------------------------------------------------------------------------
+add_library(glideslope_platform STATIC
+    src/platform/paths.cpp)
+target_include_directories(glideslope_platform PUBLIC src)
+glideslope_configure(glideslope_platform)
+
+# ---------------------------------------------------------------------------
 # glideslope_cli - the simulation with no window.
 # ---------------------------------------------------------------------------
 add_executable(glideslope_cli
     src/frontend/cli/main.cpp)
-target_link_libraries(glideslope_cli PRIVATE glideslope_sim)
+target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_platform)
 glideslope_configure(glideslope_cli)
 
 # ---------------------------------------------------------------------------
@@ -96,8 +112,20 @@ glideslope_configure(glideslope_cli)
 # by side in it. `cpack --preset <platform>-release` makes one, and
 # .github/workflows/package.yml unpacks it somewhere else and runs it.
 # ---------------------------------------------------------------------------
-install(TARGETS glideslope_cli RUNTIME DESTINATION .)
-install(FILES LICENSE README.md DESTINATION .)
+# Everything of ours is installed as the `glideslope` component, and CPack is
+# told to package that component alone. JSBSim's src/ carries install rules for
+# its own library, headers and program, which do not belong in a download.
+install(TARGETS glideslope_cli RUNTIME DESTINATION . COMPONENT glideslope)
+install(FILES LICENSE README.md DESTINATION . COMPONENT glideslope)
+install(DIRECTORY "${GLIDESLOPE_DATA_DIR}/" DESTINATION data COMPONENT glideslope)
+foreach(_licence IN LISTS GLIDESLOPE_JSBSIM_LICENCES)
+    string(REPLACE "=" ";" _pair "${_licence}")
+    list(GET _pair 0 _from)
+    list(GET _pair 1 _as)
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/ext/jsbsim/${_from}"
+            DESTINATION licenses RENAME "${_as}" COMPONENT glideslope)
+endforeach()
+set(CPACK_INSTALL_CMAKE_PROJECTS "${CMAKE_CURRENT_BINARY_DIR};glideslope;glideslope;/")
 
 set(CPACK_PACKAGE_NAME              "glideslope")
 set(CPACK_PACKAGE_VENDOR            "Gavin Glynn")

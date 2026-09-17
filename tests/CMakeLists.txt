@@ -53,8 +53,8 @@ add_test(NAME every_compiler_is_refused_below_its_floor_and_accepted_at_it
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform_gate.cmake)
 
 # ---------------------------------------------------------------------------
-# glideslope_cli's whole surface, today: every argument it accepts, none, and
-# one it does not.
+# glideslope_cli's whole surface, today: every command it accepts, none, one it
+# does not, and an aircraft with no files.
 # ---------------------------------------------------------------------------
 add_test(NAME the_cli_reports_the_project_version
     COMMAND ${CMAKE_COMMAND}
@@ -72,6 +72,18 @@ add_test(NAME the_cli_with_no_arguments_prints_its_usage_and_fails
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DEXIT=2
         -DSTDERR_MATCHES=^usage:
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DMODEL=c172p
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/aircraft_figures.cmake)
+
+add_test(NAME the_cli_refuses_an_aircraft_it_has_no_files_for
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=aircraft no_such_aircraft"
+        -DEXIT=1 "-DSTDERR_MATCHES=could not load aircraft 'no_such_aircraft'"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_an_argument_it_does_not_know

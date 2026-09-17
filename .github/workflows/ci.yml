@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with: { submodules: true }
 
       - name: Install dependencies
         env:
@@ -94,6 +95,7 @@ jobs:
             gcc-toolset-14-gcc-c++
 
       - uses: actions/checkout@v5
+        with: { submodules: true }
 
       # **The compiler gate against a real old compiler**, not a described one.
       # Rocky 9's own g++ is GCC 11; the configure must stop and say what it
@@ -122,6 +124,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with: { submodules: true }
 
       - name: Install ninja
         run: brew install ninja
@@ -154,6 +157,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
+        with: { submodules: true }
 
       - uses: ilammy/msvc-dev-cmd@v1
         with: { arch: x64 }
