@@ -279,8 +279,8 @@ double Dem::at_units(std::int64_t latitude, std::int64_t longitude, int depth) {
     DemCell cell;
     // A tile holds its north edge and not its south one, so a latitude exactly
     // on a whole degree is the northern row of the tile below it.
-    cell.latitude = static_cast<int>(std::clamp<std::int64_t>(
-        floor_div(latitude - 1, units_per_degree), -90, 89));
+    cell.latitude = static_cast<int>(
+        std::clamp<std::int64_t>(floor_div(latitude - 1, units_per_degree), -90, 89));
     cell.longitude = static_cast<int>(floor_div(longitude, units_per_degree));
     const Tile& t = tile(cell);
     const auto row =
