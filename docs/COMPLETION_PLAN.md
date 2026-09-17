@@ -35,8 +35,10 @@ because it is built on everything before it.
 ## Phase 0 — Foundations
 
 - [ ] **C++20 + CMake/Ninja build**, presets per platform with matching test
-      presets. *Verification: every preset configures, builds and tests on its
-      own platform.*
+      presets. **In progress:** the Linux presets configure, build and test; the
+      macOS and Windows presets have not been run anywhere yet.
+      *Verification: every preset configures, builds and tests on its own
+      platform.*
 - [ ] **64-bit-only and compiler gates.** *Verification: a 32-bit toolchain, and
       each supported compiler one version below its floor, are refused with a
       message naming what was found and what is needed; the configure line names

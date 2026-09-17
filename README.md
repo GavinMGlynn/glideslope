@@ -21,6 +21,17 @@ aircraft to an AI pilot and take it back.
 It is not a scored or competitive game, and what it deliberately does not do is
 in [`docs/FEATURES.md`](docs/FEATURES.md).
 
+## Building
+
+```sh
+cmake --preset linux-release      # or linux-debug, macos-*, windows-*
+cmake --build --preset linux-release
+ctest --preset linux-release
+```
+
+There is nothing to fly yet: the build produces `glideslope_cli`, which reports
+its version.
+
 ## The documents
 
 - [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — the design, and every
