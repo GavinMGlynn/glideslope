@@ -241,6 +241,10 @@ jobs:
     name: Windows x64 (MSVC and clang-cl)
     runs-on: windows-latest
     timeout-minutes: 45
+    # SDL says why it will not use a GPU driver only in its GPU log, which is
+    # quiet by default; a failed frame test then shows the reason.
+    env:
+      SDL_LOGGING: gpu=debug
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -274,8 +278,8 @@ jobs:
           Fetch 'https://sdk.lunarg.com/sdk/download/1.4.357.0/windows/VulkanRT-X64-1.4.357.0-Components.zip' `
                 "$dir\runtime.zip" 'a14672efed15aafc7f5a16572d35cd3a3416eadf670aeee3cdf50ee32d5fbf83'
           7z e "$dir\mesa.7z" "-o$dir" 'x64\vulkan_lvp.dll' 'x64\lvp_icd.x86_64.json' -y | Out-Null
-          7z e "$dir\runtime.zip" "-o$dir" 'VulkanRT-X64-1.4.357.0-Components\x64\vulkan-1.dll' -y | Out-Null
-          foreach ($f in 'vulkan_lvp.dll', 'lvp_icd.x86_64.json', 'vulkan-1.dll') {
+          7z e "$dir\runtime.zip" "-o$dir" 'VulkanRT-X64-1.4.357.0-Components\x64\vulkan-1.dll' 'VulkanRT-X64-1.4.357.0-Components\x64\vulkaninfo.exe' -y | Out-Null
+          foreach ($f in 'vulkan_lvp.dll', 'lvp_icd.x86_64.json', 'vulkan-1.dll', 'vulkaninfo.exe') {
             if (-not (Test-Path "$dir\$f")) {
               7z l "$dir\mesa.7z" | Select-String 'lvp|vulkan'
               throw "$f was not in the archive where expected"
@@ -284,6 +288,10 @@ jobs:
           "VK_DRIVER_FILES=$dir\lvp_icd.x86_64.json" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           $dir | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
           Get-Content "$dir\lvp_icd.x86_64.json"
+          # What the loader finds, before anything is built on it.
+          $env:VK_DRIVER_FILES = "$dir\lvp_icd.x86_64.json"
+          $env:PATH = "$dir;$env:PATH"
+          & "$dir\vulkaninfo.exe" --summary
 
       - name: windows-debug - configure, build, test
         shell: cmd

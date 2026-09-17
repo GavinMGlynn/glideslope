@@ -2,15 +2,21 @@
 
 set(GLIDESLOPE_EXPECT_RUN "${CMAKE_CURRENT_SOURCE_DIR}/cmake/expect_run.cmake")
 
+# For the tests that check a committed asset is what its tool makes.
+find_package(Python3 COMPONENTS Interpreter QUIET)
+
 # ---------------------------------------------------------------------------
 # Unit tests: one executable, one ctest per test, named as sentences. The list
 # below is checked against what the executable holds, both ways.
 # ---------------------------------------------------------------------------
 add_executable(glideslope_tests
     unit/harness.cpp
+    unit/tiff_writer.cpp
+    unit/test_dem.cpp
     unit/test_figures.cpp
     unit/test_fixed_step.cpp
     unit/test_geodesy.cpp
+    unit/test_geoid.cpp
     unit/test_geotiff.cpp
     unit/test_inflate.cpp
     unit/test_flight.cpp
@@ -67,7 +73,17 @@ set(GLIDESLOPE_UNIT_TESTS
     adler32_gives_the_published_checksums
     a_geotiff_in_every_layout_the_reader_takes_reads_back_every_sample
     a_geotiff_the_reader_does_not_take_is_refused_saying_why
-    the_copernicus_dem_tile_south_of_sydney_decodes_to_the_heights_an_independent_decoder_gives)
+    the_copernicus_dem_tile_south_of_sydney_decodes_to_the_heights_an_independent_decoder_gives
+    crc32_gives_the_published_check_value
+    a_zip_archive_reads_back_its_stored_and_deflated_entries_and_refuses_bad_ones
+    a_geoid_grid_interpolates_bilinearly_across_the_date_line_and_to_both_poles
+    the_egm2008_grid_gives_geographiclibs_undulations_within_its_stated_error
+    the_dem_coverage_file_marks_every_cell_the_tile_lists_have
+    dem_tiles_are_named_and_found_as_the_buckets_name_them
+    the_dem_surface_is_continuous_across_tiles_resolutions_and_bands
+    the_dem_surface_is_continuous_across_the_antimeridian_and_to_the_poles
+    the_dem_meets_the_sea_at_zero_between_the_last_sample_and_the_coast
+    the_dem_gives_the_sydney_tiles_heights_at_its_samples_and_between_them)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
@@ -82,9 +98,18 @@ set_tests_properties(the_files_the_tests_download_arrive_with_their_pinned_hashe
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_SETUP downloads)
 set_tests_properties(
     the_copernicus_dem_tile_south_of_sydney_decodes_to_the_heights_an_independent_decoder_gives
+    the_egm2008_grid_gives_geographiclibs_undulations_within_its_stated_error
+    the_dem_gives_the_sydney_tiles_heights_at_its_samples_and_between_them
     PROPERTIES FIXTURES_REQUIRED downloads)
 
-find_package(Python3 COMPONENTS Interpreter QUIET)
+# The committed DEM coverage is what the pinned tile lists make.
+add_test(NAME the_committed_dem_coverage_is_what_the_pinned_tile_lists_make
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DLISTS=${GLIDESLOPE_DOWNLOADS_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dem_coverage.cmake)
+set_tests_properties(the_committed_dem_coverage_is_what_the_pinned_tile_lists_make
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+
 add_test(NAME the_committed_cessna_172p_is_what_its_tuning_script_makes
     COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)

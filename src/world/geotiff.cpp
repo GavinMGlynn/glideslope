@@ -370,40 +370,9 @@ void georeference(GeoTiff& tiff, const std::map<std::uint16_t, Field>& fields) {
 
 } // namespace
 
-FileSource::FileSource(const std::filesystem::path& path)
-    : path_(path), file_(path, std::ios::binary) {
-    if (!file_) {
-        throw GeoTiffError("cannot open " + path.string());
-    }
-    size_ = std::filesystem::file_size(path);
-}
+namespace {
 
-std::uint64_t FileSource::size() const {
-    return size_;
-}
-
-void FileSource::read(std::uint64_t offset, std::span<std::uint8_t> out) const {
-    if (offset > size_ || out.size() > size_ - offset) {
-        throw GeoTiffError(path_.string() + ": a read past the end of the file");
-    }
-    const std::lock_guard lock(mutex_);
-    file_.clear();
-    file_.seekg(static_cast<std::streamoff>(offset));
-    file_.read(reinterpret_cast<char*>(out.data()),
-               static_cast<std::streamsize>(out.size()));
-    if (!file_) {
-        throw GeoTiffError(path_.string() + ": a read failed");
-    }
-}
-
-void MemorySource::read(std::uint64_t offset, std::span<std::uint8_t> out) const {
-    if (offset > bytes_.size() || out.size() > bytes_.size() - offset) {
-        throw GeoTiffError("a read past the end of the data");
-    }
-    std::memcpy(out.data(), bytes_.data() + offset, out.size());
-}
-
-GeoTiff read_geotiff(const ByteSource& source) {
+GeoTiff read_geotiff_from(const ByteSource& source) {
     const Reader reader(source);
     GeoTiff tiff;
     std::uint64_t offset = reader.first_ifd();
@@ -436,8 +405,8 @@ GeoTiff read_geotiff(const ByteSource& source) {
     return tiff;
 }
 
-std::vector<float> read_block(const ByteSource& source, const RasterImage& image,
-                              std::uint32_t across, std::uint32_t down) {
+std::vector<float> read_block_from(const ByteSource& source, const RasterImage& image,
+                                   std::uint32_t across, std::uint32_t down) {
     if (across >= image.blocks_across() || down >= image.blocks_down()) {
         throw GeoTiffError("no block (" + std::to_string(across) + ", " +
                            std::to_string(down) + ")");
@@ -504,6 +473,26 @@ std::vector<float> read_block(const ByteSource& source, const RasterImage& image
         }
     }
     return out;
+}
+
+} // namespace
+
+// A file that ends early, or cannot be read, is a GeoTIFF that cannot be read.
+GeoTiff read_geotiff(const ByteSource& source) {
+    try {
+        return read_geotiff_from(source);
+    } catch (const ByteSourceError& e) {
+        throw GeoTiffError(e.what());
+    }
+}
+
+std::vector<float> read_block(const ByteSource& source, const RasterImage& image,
+                              std::uint32_t across, std::uint32_t down) {
+    try {
+        return read_block_from(source, image, across, down);
+    } catch (const ByteSourceError& e) {
+        throw GeoTiffError(e.what());
+    }
 }
 
 } // namespace glideslope::world

@@ -5,10 +5,11 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Three things are used: a Cessna 172P flight model derived from JSBSim's,
-the Cessna 172P handbook's published figures, and the Copernicus DEM**, which
-the tests fetch one tile of and the program reads. No imagery, visual model,
-font or sound is used or fetched yet.
+**Four things are used: a Cessna 172P flight model derived from JSBSim's,
+the Cessna 172P handbook's published figures, the Copernicus DEM, and the
+EGM2008 geoid grid** - the last two fetched by the tests and read by the
+program, not committed. No imagery, visual model, font or sound is used or
+fetched yet.
 
 ## The rule
 
@@ -52,7 +53,7 @@ entertainment purposes only."
 | Source | The Copernicus DEM GLO-30 Public, as Cloud Optimized GeoTIFFs in the AWS Open Data bucket `copernicus-dem-30m` (<https://copernicus-dem-30m.s3.amazonaws.com/readme.html>) |
 | Version | The bucket names no release. Its objects are dated 2022-05-09; each tile's metadata gives its creation as 2019-10-19 and its heights as "WGS 84 Geoid EGM08". What is used is pinned file by file, by SHA-256 |
 | Pinned | `tests/data/downloads/files.txt`: `Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif` (33-34 S, 151-152 E), 20,882,213 bytes, SHA-256 `6e20871096986cd00fc3903ea95670a0d83860236a0e4f1360ac9ac67def485d` |
-| In the repository | Nothing: the tests fetch the tile into the build tree, or the directory `GLIDESLOPE_DOWNLOADS` names |
+| In the repository | No tile: the tests fetch the tile into the build tree, or the directory `GLIDESLOPE_DOWNLOADS` names. `assets/dem/coverage.txt` says which 1-degree cells have a tile at 30 m, only at 90 m, or none; `tools/make_dem_coverage.py` makes it from both buckets' `tileList.txt` (30 m: 1,110,900 bytes, SHA-256 `10604e3052c98a09e9216f1a8f0a555a04148419757575f783d4937fd44316dc`; 90 m: 1,111,950 bytes, SHA-256 `e5a5efe088e70506bc1007d22006bdcb09b0ec03177b62f9652363c13f49ed97`), and a test checks it still matches them |
 | Licence | "Licence for Copernicus DEM instance COP-DEM-GLO-30-F Global 30m Full, Free & Open", published beside each tile as `INFO/eula_F.pdf` (SHA-256 `32049914c37f14e7d53b48d13d74a49e77c030236e2acc7a0df426f9344feba2`). It grants, free of charge, worldwide and without limit in time, "(a) reproduction; (b) distribution; (c) communication to the General Public; (d) adaptation, modification and combination with other data and information." |
 
 Its Article 6, quoted:
@@ -91,6 +92,23 @@ Its Article 6, quoted:
 shown yet. When the client draws terrain from the DEM, or the server serves
 heights from it, notice (a) is shown with the terrain's attribution, and (c)'s
 sentence goes in the documentation that ships with the program.
+
+### The EGM2008 geoid, GeographicLib's 5-minute grid
+
+| | |
+| --- | --- |
+| Source | GeographicLib's geoid distribution, `egm2008-5.zip` from <https://sourceforge.net/projects/geographiclib/files/geoids-distrib/>, listed on <https://geographiclib.sourceforge.io/C++/doc/geoid.html> |
+| What it is | NGA's Earth Gravitational Model 2008 evaluated on a 5-arc-minute grid, 4320 by 2161 points, quantised to 3 mm; its header says "WGS84 EGM2008, 5-minute grid", dated 2009-08-29, with a maximum bilinear interpolation error of 0.478 m (RMS 0.012 m) |
+| Pinned | `tests/data/downloads/files.txt`: `egm2008-5.zip`, 16,773,259 bytes, SHA-256 `408f05e0c04a9f2e17b9ea2d27123f936e9dea60128bb3411a272f8ddbe318dd` |
+| In the repository | Nothing: fetched, as the DEM is |
+| Use | Converting the DEM's heights above the geoid to heights above the WGS84 ellipsoid (`world/geoid.hpp`) |
+| Licence | **Not stated for the data.** GeographicLib's documentation says of the library: "It is licensed under the MIT License; see LICENSE.txt." Its geoid page, and the zip, state no terms for the grids. The model is NGA's; NGA's EGM2008 page could not be read when this was recorded. Open, below |
+
+## Open questions about terms
+
+- **The EGM2008 grid's terms.** Before a package fetches or ships the geoid
+  grid for its users, the terms of NGA's EGM2008 and of GeographicLib's grids
+  need to be found stated, not assumed. Until then only the tests fetch it.
 
 ## Planned sources
 
