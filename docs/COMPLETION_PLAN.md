@@ -84,21 +84,17 @@ because it is built on everything before it.
       input log and prints a state hash. *Verification: the hash is identical
       run to run on one build, and a deliberate one-line change to the physics
       moves it.*
-- [ ] **Cross-platform flight checks by tolerance.** **In progress:** the
-      comparison and its test exist; its first CI run is the first time the
-      platforms are compared. *Verification: every CI
+- [x] **Cross-platform flight checks by tolerance.** *Verification: every CI
       platform flies the same scripted inputs and agrees with the published
       figures, and with the other platforms, within stated tolerances.*
-- [ ] **The packaged CLI flies.** **In progress:** the `package` workflow runs
-      the selftest from every package; it has not run yet. *Verification: the
+- [x] **The packaged CLI flies.** *Verification: the
       `package` workflow runs `glideslope_cli selftest` out of every unpacked
       artifact.*
 
 ## Phase 2 — The world
 
-- [ ] **Earth-centred, Earth-fixed positions in double precision**, with
-      latitude, longitude and height conversions. **In progress:** proved on
-      Linux; CI proves the other platforms. *Verification: conversions
+- [x] **Earth-centred, Earth-fixed positions in double precision**, with
+      latitude, longitude and height conversions. *Verification: conversions
       round-trip within a millimetre at the poles, the equator, the date line,
       and from below sea level to cruising altitude.*
 - [ ] **A camera-relative floating origin.** *Verification: a still scene

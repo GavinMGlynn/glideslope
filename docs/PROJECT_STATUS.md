@@ -30,7 +30,9 @@ climb, cruise, glide, three stall speeds and a coordinated turn.
 An aircraft's state can be captured and restored into a fresh instance, or
 into one that has flown on, and the restored aircraft tracks the original.
 `glideslope_cli selftest` flies a fixed five-minute input log and prints a hash
-of every state it passed through. There is no renderer, terrain or server.
+of every state it passed through, and every package flies it. The five release
+builds — GCC on two Linux families, AppleClang, MSVC, clang-cl — fly every
+check to the same numbers. There is no renderer, terrain or server.
 
 **Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
 else is built on, one line per item, each verified:
@@ -47,15 +49,13 @@ else is built on, one line per item, each verified:
 
 Every check above was also made to fail on purpose, and was seen to.
 
-**Phase 1, the feel: 5 of 7 items done** — JSBSim pinned and built, a fixed
-120 Hz step driving it, the Cessna 172P flying to its handbook, and state
-capture and set/resume, and the selftest's replay hash, all proved on every
-platform. Cross-platform flight checks are in progress: written and tested
-locally, never yet run across the platforms. The packaged CLI's selftest is
-written into the `package` workflow and has not run.
+**Phase 1, the feel, is complete — 7 of 7 items.** JSBSim pinned and built; a
+fixed 120 Hz step; the Cessna 172P flying to its handbook; state capture and
+set/resume; the selftest's replay hash; the same flights on every platform; and
+a packaged CLI that flies — each proved on every platform.
 
-**Phase 2, the world, has started:** Earth-centred, Earth-fixed positions and
-their conversions exist and are proved on Linux, waiting on CI.
+**Phase 2, the world, has started: 1 of 12 items done** — Earth-centred,
+Earth-fixed positions and their conversions, proved on every platform.
 
 ## Gaps
 
@@ -75,10 +75,10 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Positions on the Earth, 2026-09-17 — Linux so far
+### Positions on the Earth, 2026-09-17
 
-**What is missing first:** these tests have run on Linux only; CI runs them on
-the other platforms with this commit. Nothing uses the conversions yet — the
+**Proved on every platform** by CI run 35223462224 (commit `29ed2f3`), which
+passed all 45 tests in every preset. Nothing uses the conversions yet — the
 simulation keeps JSBSim's positions, and there is no renderer or terrain.
 
 `glideslope_world` is a new library, and `src/world/geodesy.hpp` its first
@@ -111,9 +111,13 @@ check used JSBSim's own axes rather than this project's — the JSBSim test too.
 
 **Verified locally:** `linux-release` passes 45 of 45.
 
-### The packaged CLI flies, 2026-09-17 — not yet run
+### The packaged CLI flies, 2026-09-17
 
-**What is missing first:** the `package` workflow has not run with this change.
+**Proved on every platform.** The `package` workflow's run 35223462263 (commit
+`29ed2f3`) passed all five jobs, each unpacked copy flying the selftest to the
+same hash as the CI build of its platform: `3bf3106980a5ad7b` from the Linux
+tarball in both containers, `6d19773416ce7b3f` on macOS, `d9a3d51b8c2cdd52` on
+Windows.
 
 Every package's check now runs `glideslope_cli selftest` out of the unpacked
 copy — the Linux tarball in the stock Rocky 9 and Ubuntu 24.04 containers, the
@@ -123,11 +127,22 @@ propeller and the selftest log to have travelled with the program, and flies
 five minutes with them. The workflow now also runs when anything under
 `assets/` changes, since that is what a package carries.
 
-### Cross-platform flight checks, 2026-09-17 — not yet run across platforms
+### Cross-platform flight checks, 2026-09-17
 
-**What is missing first:** the platforms have never been compared. This commit's
-CI run is the first; until it passes, nothing here says the platforms fly
-alike.
+**The platforms fly identically, to the precision they print.** CI run
+35223462224 (commit `29ed2f3`) compared the five release builds for the first
+time: every one of the nine figures agreed to its two printed decimals on GCC
+on Ubuntu and Rocky 9, AppleClang, MSVC and clang-cl — a spread of zero against
+the 1% allowed — and the five-minute selftest ended at -34.1073165, 151.2320529,
+1,537.3 ft, heading 335.73°, 110.33 KCAS on all five.
+
+**The hashes still differ**, as they were designed to be allowed to: Linux GCC
+prints `3bf3106980a5ad7b` (the same on Ubuntu and Rocky 9), MSVC and clang-cl
+both `d9a3d51b8c2cdd52`, AppleClang `6d19773416ce7b3f`. So does the development
+machine's own release build (`13253df30045304a`, GCC 14.3.1) from CI's GCC 14.2
+release build, while CI's matches the development machine's sanitized build.
+The bits differ somewhere in five minutes of flight; where the aircraft is, to
+seven decimal places, does not.
 
 **The tolerances, set before any cross-platform number was seen:** every one of
 the nine published figures within 1% of its published value across all five
