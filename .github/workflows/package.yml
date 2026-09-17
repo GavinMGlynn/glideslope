@@ -5,10 +5,11 @@
 # out of the unpacked copy - not "cpack exited zero", which says nothing about
 # whether the program inside can run.
 #
-# What it runs today is `glideslope_cli --version`, whose version must match the
-# one in the package's file name, and `glideslope_cli aircraft c172p`, which only
-# works if the aircraft data travelled with the program. `glideslope_cli
-# selftest` joins them later in Phase 1, and a rendered frame in Phase 2.
+# It runs `glideslope_cli --version`, whose version must match the one in the
+# package's file name; `glideslope_cli aircraft c172p`, which only works if the
+# aircraft data travelled with the program; and `glideslope_cli selftest`, which
+# flies five minutes out of the unpacked copy. A rendered frame joins them in
+# Phase 2.
 #
 # Not on every push: packaging changes when the packaging rules do. On demand,
 # and when the build or this file changes.
@@ -23,6 +24,7 @@ on:
       - 'CMakePresets.json'
       - 'cmake/**'
       - 'ext/**'
+      - 'assets/**'
       - '.gitmodules'
       - '.github/workflows/package.yml'
 
@@ -102,6 +104,7 @@ jobs:
           test "$said" = "glideslope_cli $version" \
             || { echo "::error::expected 'glideslope_cli $version'"; exit 1; }
           ./glideslope_cli aircraft c172p
+          ./glideslope_cli selftest
           # The licences of what is linked in travel with it.
           for licence in JSBSim expat GeographicLib; do
             test -s "licenses/$licence.txt" || { echo "::error::no licenses/$licence.txt"; exit 1; }
@@ -146,6 +149,7 @@ jobs:
           test "$said" = "glideslope_cli $version" \
             || { echo "::error::expected 'glideslope_cli $version'"; exit 1; }
           ./glideslope_cli aircraft c172p
+          ./glideslope_cli selftest
 
       - uses: actions/upload-artifact@v4
         with:
@@ -192,6 +196,8 @@ jobs:
           if ($said -ne "glideslope_cli $version") { throw "expected 'glideslope_cli $version'" }
           & $exe aircraft c172p
           if ($LASTEXITCODE -ne 0) { throw "glideslope_cli aircraft c172p exited $LASTEXITCODE" }
+          & $exe selftest
+          if ($LASTEXITCODE -ne 0) { throw "glideslope_cli selftest exited $LASTEXITCODE" }
 
           # The runner has the Visual C++ redistributable; somebody's computer
           # may not. The runtime is linked in, so the program must not ask for it.

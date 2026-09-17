@@ -51,8 +51,8 @@ Every check above was also made to fail on purpose, and was seen to.
 120 Hz step driving it, the Cessna 172P flying to its handbook, and state
 capture and set/resume, and the selftest's replay hash, all proved on every
 platform. Cross-platform flight checks are in progress: written and tested
-locally, never yet run across the platforms. Not yet: a packaged CLI that
-flies.
+locally, never yet run across the platforms. The packaged CLI's selftest is
+written into the `package` workflow and has not run.
 
 ## Gaps
 
@@ -71,6 +71,18 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### The packaged CLI flies, 2026-09-17 — not yet run
+
+**What is missing first:** the `package` workflow has not run with this change.
+
+Every package's check now runs `glideslope_cli selftest` out of the unpacked
+copy — the Linux tarball in the stock Rocky 9 and Ubuntu 24.04 containers, the
+macOS tarball and the Windows zip from a separate directory — after
+`--version` and `aircraft c172p`. The selftest needs the model, the tuned
+propeller and the selftest log to have travelled with the program, and flies
+five minutes with them. The workflow now also runs when anything under
+`assets/` changes, since that is what a package carries.
 
 ### Cross-platform flight checks, 2026-09-17 — not yet run across platforms
 
@@ -92,9 +104,8 @@ same flights everywhere", needs all four jobs, downloads the five results, and
 runs `tests/cmake/cross_platform_flights.cmake`, which names the five platforms
 and fails if any is missing.
 
-**Its test** —
-`the_cross_platform_check_accepts_platforms_that_agree_and_refuses_one_that_does_not`
-— makes five platforms from this build's own output. Identical, with one
+**Its test**, `the_cross_platform_check_accepts_platforms_that_agree_and_`
+`refuses_one_that_does_not`, makes five platforms from this build's own output. Identical, with one
 platform's climb rate 0.3% higher, they must be accepted; a glide ratio 1.9%
 higher on one, the selftest ending 400 ft north on one, and one platform's
 figures missing must each be refused. **Watched to fail for the right reasons:**

@@ -89,8 +89,10 @@ because it is built on everything before it.
       platforms are compared. *Verification: every CI
       platform flies the same scripted inputs and agrees with the published
       figures, and with the other platforms, within stated tolerances.*
-- [ ] **The packaged CLI flies.** *Verification: the `package` workflow runs
-      `glideslope_cli selftest` out of every unpacked artifact.*
+- [ ] **The packaged CLI flies.** **In progress:** the `package` workflow runs
+      the selftest from every package; it has not run yet. *Verification: the
+      `package` workflow runs `glideslope_cli selftest` out of every unpacked
+      artifact.*
 
 ## Phase 2 — The world
 
