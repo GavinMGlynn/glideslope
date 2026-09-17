@@ -45,10 +45,11 @@ because it is built on everything before it.
       *Verification: a double-to-float narrowing fails the build in every build
       type on every compiler, and a sign conversion does on GCC and Clang.*
 - [ ] **The simulation links no presentation**, checked at configure time.
-      *Verification: every forbidden include placed in `src/sim/` fails the
-      configure naming the file and the line, linking SDL into the simulation
-      fails it too, and `glideslope_cli` links the simulation and nothing
-      presentational.*
+      **In progress:** proved on Linux; the binary check on macOS and Windows
+      is proved by CI. *Verification: every forbidden include placed in
+      `src/sim/` fails the configure naming the file and the line, linking SDL
+      into the simulation fails it too, and `glideslope_cli` links the
+      simulation and nothing presentational.*
 - [x] **CI on Ubuntu, Rocky 9, Windows and macOS**, building and testing every
       preset. *Verification: every job green on `main`.*
 - [ ] **Packaging** — a tarball for Linux and macOS and a zip for Windows, each

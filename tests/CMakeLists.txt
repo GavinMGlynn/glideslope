@@ -12,6 +12,31 @@ add_test(NAME a_32_bit_toolchain_is_refused_on_every_platform
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform_gate.cmake)
 
 # ---------------------------------------------------------------------------
+# The simulation links no presentation: every forbidden include, SDL arriving in
+# the link graph by every route, and what the CLI binary really depends on.
+# ---------------------------------------------------------------------------
+add_test(NAME every_forbidden_include_in_the_simulation_fails_the_configure
+    COMMAND ${CMAKE_COMMAND} -DGLIDESLOPE_ROOT=${PROJECT_SOURCE_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/layering-forbidden -DCASES=forbidden
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/layering_includes.cmake)
+
+add_test(NAME includes_that_only_look_like_presentation_are_allowed_in_the_simulation
+    COMMAND ${CMAKE_COMMAND} -DGLIDESLOPE_ROOT=${PROJECT_SOURCE_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/layering-allowed -DCASES=allowed
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/layering_includes.cmake)
+
+add_test(NAME sdl_linked_into_the_simulation_by_any_route_fails_the_configure
+    COMMAND ${CMAKE_COMMAND} -DGLIDESLOPE_ROOT=${PROJECT_SOURCE_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/layering-links
+        "-DGENERATOR=${CMAKE_GENERATOR}" "-DCXX=${CMAKE_CXX_COMPILER}"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/layering_links.cmake)
+
+add_test(NAME the_cli_links_the_simulation_and_nothing_presentational
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DSYSTEM=${CMAKE_SYSTEM_NAME}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/binary_dependencies.cmake)
+
+# ---------------------------------------------------------------------------
 # Warnings are errors: deliberate mistakes built with the project's own warning
 # set, with this build's generator and compiler, in every build type.
 # ---------------------------------------------------------------------------

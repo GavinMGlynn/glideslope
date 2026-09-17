@@ -32,6 +32,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(CompilerWarnings)
 include(Sanitizers)
+include(Layering)
+
+# src/sim/ includes no presentation - see cmake/Layering.cmake.
+glideslope_check_layering("${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Everything a first-party target gets. Vendored code in ext/ never passes
 # through here.
@@ -56,6 +60,9 @@ target_include_directories(glideslope_sim PUBLIC src)
 target_compile_definitions(glideslope_sim PRIVATE
     GLIDESLOPE_VERSION="${PROJECT_VERSION}")
 glideslope_configure(glideslope_sim)
+
+# ...and links none, checked once every target_link_libraries below has run.
+cmake_language(DEFER CALL glideslope_check_sim_links glideslope_sim)
 
 # ---------------------------------------------------------------------------
 # glideslope_cli - the simulation with no window.
