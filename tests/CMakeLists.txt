@@ -11,6 +11,18 @@ add_test(NAME a_32_bit_toolchain_is_refused_on_every_platform
     COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} -DCASES=pointer-size
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform_gate.cmake)
 
+# ---------------------------------------------------------------------------
+# Warnings are errors: deliberate mistakes built with the project's own warning
+# set, with this build's generator and compiler, in every build type.
+# ---------------------------------------------------------------------------
+add_test(NAME a_narrowing_or_sign_conversion_fails_the_build_in_every_build_type
+    COMMAND ${CMAKE_COMMAND}
+        -DROOT=${PROJECT_SOURCE_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/warnings
+        "-DGENERATOR=${CMAKE_GENERATOR}" "-DCXX=${CMAKE_CXX_COMPILER}"
+        -DCOMPILER_ID=${CMAKE_CXX_COMPILER_ID}
+        -DFRONTEND=${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/warnings_are_errors.cmake)
+
 add_test(NAME every_compiler_is_refused_below_its_floor_and_accepted_at_it
     COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} -DCASES=compiler-floors
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform_gate.cmake)

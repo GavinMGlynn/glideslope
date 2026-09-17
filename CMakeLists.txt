@@ -30,11 +30,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(CompilerWarnings)
 include(Sanitizers)
 
 # Everything a first-party target gets. Vendored code in ext/ never passes
 # through here.
 function(glideslope_configure target)
+    glideslope_warnings(${target})
     glideslope_sanitize(${target})
 endfunction()
 
