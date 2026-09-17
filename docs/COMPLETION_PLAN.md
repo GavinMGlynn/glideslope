@@ -109,6 +109,8 @@ because it is built on everything before it.
       down at sea level, at a high airfield and on a slope rests on the DEM
       surface in each.*
 - [ ] **A window and a GPU device through SDL3** on Vulkan, D3D12 and Metal.
+      **In progress:** a headless frame on Vulkan, proved on Linux; Direct3D 12
+      and Metal have not run, and no window has been opened by a test.
       *Verification: the client writes a frame with `--shot` on every backend
       of every platform that has it.*
 - [ ] **Cesium Native drawing the open-data terrain through SDL_GPU** around one

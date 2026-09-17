@@ -12,6 +12,7 @@ pinned tag or SHA, role, and licence.
 | Submodule | Upstream | Pinned at | Role | Licence |
 | --- | --- | --- | --- | --- |
 | `jsbsim` | JSBSim-Team/jsbsim | `v1.3.1` (`3b25f25`) | **The flight model.** Linked by the simulation; built from its `src/` only | LGPL-2.1 |
+| `sdl` | libsdl-org/SDL | `release-3.4.16` (`fa2c02b`) | **The window, input and GPU.** Linked by the presentation only; `cmake/Layering.cmake` refuses it in the simulation | Zlib |
 
 ### jsbsim
 
@@ -34,13 +35,27 @@ its XML, and **GeographicLib** (MIT). Their licence texts, and JSBSim's, are
 installed into `licenses/` in every package. Building expat is why the project
 enables C as well as C++.
 
+### sdl
+
+`cmake/Sdl.cmake` builds SDL statically, with its tests, examples and install
+rules off. SDL_GPU is the renderer's only graphics API: Vulkan, Direct3D 12 or
+Metal, chosen by SDL or by `--gpu-driver`.
+
+**Building it needs the system's development packages.** On Linux that is
+SDL's own list in `docs/README-linux.md` at the pinned tag;
+`.github/workflows/ci.yml` installs it for Ubuntu and for Rocky 9, and that is
+the copy that is tested.
+SDL fails its configure without XTEST and XScrnSaver rather than building
+without them; on RHEL-family systems the development packages come from EPEL
+and CRB. Running the frame tests needs a Vulkan driver: CI uses Mesa's lavapipe,
+which draws on the CPU.
+
 The aircraft files JSBSim reads at run time are made from this submodule's by
 `tools/make_c172p.py` and committed under `assets/jsbsim/`; see
 `docs/ASSETS.md`.
 
 ## Expected, from `REQUIREMENTS.md`
 
-- **SDL3** — window, input and GPU through SDL_GPU, Phase 2.
 - **Cesium Native** — terrain and imagery streaming, Phase 2.
 - **libcurl and a JSON library** — weather, Phase 3.
 - **SDL_net and libsodium** — the transport, Phase 6.

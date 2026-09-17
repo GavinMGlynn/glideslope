@@ -52,7 +52,17 @@ jobs:
             echo "::error::dnf would not complete in four attempts"
             return 1
           }
-          dnf_run --enablerepo=crb install git cmake ninja-build gcc-toolset-14-gcc-c++
+          # SDL's development packages: the package build compiles the client
+          # too, even though the package does not carry it yet.
+          dnf_run install epel-release
+          dnf_run --enablerepo=crb install git cmake ninja-build gcc-toolset-14-gcc-c++ \
+            libX11-devel libXext-devel libXrandr-devel libXi-devel \
+            libXcursor-devel libXfixes-devel libXScrnSaver-devel libXtst-devel \
+            libxkbcommon-devel \
+            wayland-devel wayland-protocols-devel libdecor-devel \
+            mesa-libGL-devel mesa-libEGL-devel libdrm-devel mesa-libgbm-devel \
+            pulseaudio-libs-devel alsa-lib-devel dbus-devel systemd-devel \
+            libusb1-devel
 
       - uses: actions/checkout@v5
         with: { submodules: true }

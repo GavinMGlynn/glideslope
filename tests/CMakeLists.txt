@@ -68,6 +68,25 @@ add_test(NAME a_32_bit_toolchain_is_refused_on_every_platform
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform_gate.cmake)
 
 # ---------------------------------------------------------------------------
+# The client renders a frame headless on every GPU driver its platform has, and
+# writes what it rendered.
+# ---------------------------------------------------------------------------
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(GLIDESLOPE_GPU_DRIVERS direct3d12 vulkan)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(GLIDESLOPE_GPU_DRIVERS metal)
+else()
+    set(GLIDESLOPE_GPU_DRIVERS vulkan)
+endif()
+foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
+    add_test(NAME the_client_renders_the_sky_headless_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_is_sky.cmake)
+endforeach()
+
+# ---------------------------------------------------------------------------
 # The simulation links no presentation: every forbidden include, SDL arriving in
 # the link graph by every route, and what the CLI binary really depends on.
 # ---------------------------------------------------------------------------

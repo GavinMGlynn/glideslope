@@ -64,6 +64,9 @@ endfunction()
 # JSBSim, from ext/jsbsim - see cmake/Jsbsim.cmake.
 include(Jsbsim)
 
+# SDL3, from ext/sdl - see cmake/Sdl.cmake. Linked by the presentation only.
+include(Sdl)
+
 # ---------------------------------------------------------------------------
 # The data the programs read at run time: assets/, copied to data/ beside them -
 # in the build tree, where the tests run them, and in a package - so a program
@@ -125,6 +128,24 @@ add_library(glideslope_platform STATIC
     src/platform/paths.cpp)
 target_include_directories(glideslope_platform PUBLIC src)
 glideslope_configure(glideslope_platform)
+
+# ---------------------------------------------------------------------------
+# The renderer - SDL_GPU over Vulkan, Direct3D 12 and Metal.
+# ---------------------------------------------------------------------------
+add_library(glideslope_gfx STATIC
+    src/gfx/renderer.cpp)
+target_include_directories(glideslope_gfx PUBLIC src)
+target_link_libraries(glideslope_gfx PUBLIC SDL3::SDL3-static)
+glideslope_configure(glideslope_gfx)
+
+# ---------------------------------------------------------------------------
+# glideslope - the simulator.
+# ---------------------------------------------------------------------------
+add_executable(glideslope
+    src/frontend/client/main.cpp)
+target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_sim glideslope_world
+                                         glideslope_platform)
+glideslope_configure(glideslope)
 
 # ---------------------------------------------------------------------------
 # glideslope_cli - the simulation with no window.

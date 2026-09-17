@@ -48,7 +48,18 @@ jobs:
             return 1
           }
           apt_run update
-          apt_run install -y --no-install-recommends gcc-14 g++-14 ninja-build
+          # SDL's own list, from docs/README-linux.md at the pinned tag - it
+          # fails its configure without XTEST and XScrnSaver rather than doing
+          # without - and Mesa's lavapipe, the software Vulkan driver the
+          # frame tests render on, with the Vulkan loader.
+          apt_run install -y --no-install-recommends gcc-14 g++-14 ninja-build \
+            libx11-dev libxext-dev libxrandr-dev libxi-dev libxcursor-dev \
+            libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev \
+            libwayland-dev wayland-protocols libdecor-0-dev \
+            libgl-dev libegl-dev libdrm-dev libgbm-dev \
+            libpulse-dev libasound2-dev \
+            libdbus-1-dev libudev-dev libusb-1.0-0-dev \
+            mesa-vulkan-drivers libvulkan1
 
       - name: linux-debug - configure, build, test
         env: { CXX: g++-14 }
@@ -102,8 +113,18 @@ jobs:
             echo "::error::dnf would not complete in four attempts"
             return 1
           }
+          # EPEL and CRB for SDL's X11 and Wayland development packages, and
+          # Mesa's lavapipe for the frame tests.
+          dnf_run install epel-release
           dnf_run --enablerepo=crb install git cmake ninja-build gcc-c++ \
-            gcc-toolset-14-gcc-c++
+            gcc-toolset-14-gcc-c++ \
+            libX11-devel libXext-devel libXrandr-devel libXi-devel \
+            libXcursor-devel libXfixes-devel libXScrnSaver-devel libXtst-devel \
+            libxkbcommon-devel \
+            wayland-devel wayland-protocols-devel libdecor-devel \
+            mesa-libGL-devel mesa-libEGL-devel libdrm-devel mesa-libgbm-devel \
+            pulseaudio-libs-devel alsa-lib-devel dbus-devel systemd-devel \
+            libusb1-devel mesa-vulkan-drivers vulkan-loader
 
       - uses: actions/checkout@v5
         with: { submodules: true }
