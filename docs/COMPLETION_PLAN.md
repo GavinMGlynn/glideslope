@@ -52,7 +52,9 @@ because it is built on everything before it.
 - [x] **CI on Ubuntu, Rocky 9, Windows and macOS**, building and testing every
       preset. *Verification: every job green on `main`.*
 - [ ] **Packaging** — a tarball for Linux and macOS and a zip for Windows, each
-      running in place. *Verification: the `package` workflow unpacks each
+      running in place. **In progress:** the Linux tarball is made and runs
+      unpacked on the development machine; the `package` workflow has not run.
+      *Verification: the `package` workflow unpacks each
       artifact into a different directory on its own platform and runs
       `glideslope_cli` out of the unpacked copy.*
 - [ ] **The living documents exist and are honest** — `CLAUDE.md`, this plan,

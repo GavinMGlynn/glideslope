@@ -20,8 +20,9 @@ is no flight model, no renderer, no terrain and no server.
 **Phase 0: 5 of 7 items done** — the build with its presets, CI, the 64-bit
 and compiler gates, warnings as errors, and the check that the simulation links
 no presentation. Every preset configures, builds and passes its tests on its
-own platform in CI. Still to come: packaging, and a final honest pass over these
-documents.
+own platform in CI. Packaging is in progress: a Linux tarball is made and runs
+unpacked locally, and the workflow that proves all three platforms has not run
+yet. Still to come after it: a final honest pass over these documents.
 
 ## Gaps
 
@@ -37,6 +38,35 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### Packaging, 2026-09-17 — Linux, locally
+
+**What is missing first:** the `package` workflow, which builds, unpacks and
+runs the package on every platform, has not run. Only the Linux tarball has
+been made, on the development machine.
+
+`cpack --preset linux-release` (and `macos-release`, `windows-release`) makes
+`glideslope-0.1.0-<platform>.tar.gz` — `.zip` on Windows — with a SHA-256 file
+beside it. It holds one folder of the same name with `glideslope_cli`,
+`LICENSE` and `README.md` side by side. On Windows the C++ runtime is linked
+into the program (`CMAKE_MSVC_RUNTIME_LIBRARY`), so a zip unpacked on a machine
+without the Visual C++ redistributable still runs.
+
+`.github/workflows/package.yml` runs on demand and when the build files change:
+
+- **Linux:** built on Rocky 9 with gcc-toolset-14, then run in a stock
+  `rockylinux/rockylinux:9` container and a stock `ubuntu:24.04` container,
+  neither with a toolchain.
+- **macOS:** built, unpacked into a different directory, and run.
+- **Windows:** built, unpacked into a different directory, run, and read with
+  `dumpbin /dependents`, which must not list `vcruntime` or `msvcp`.
+
+Every run checks the checksum file, and requires `glideslope_cli --version` to
+print exactly the version in the package's file name.
+
+**Verified so far:** on Rocky Linux 10 the tarball is 28 KB, unpacks to the one
+folder with its three files, and the unpacked `glideslope_cli --version` prints
+`glideslope_cli 0.1.0` and exits 0. The project's 11 tests still pass.
 
 ### The simulation links no presentation, 2026-09-17
 

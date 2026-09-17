@@ -88,6 +88,12 @@
     { "name": "windows-clang",   "configurePreset": "windows-clang" }
   ],
 
+  "packagePresets": [
+    { "name": "linux-release",   "configurePreset": "linux-release",   "generators": ["TGZ"] },
+    { "name": "macos-release",   "configurePreset": "macos-release",   "generators": ["TGZ"] },
+    { "name": "windows-release", "configurePreset": "windows-release", "generators": ["ZIP"] }
+  ],
+
   "testPresets": [
     {
       "name": "test-base",

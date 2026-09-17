@@ -1,0 +1,194 @@
+# Does a package actually work?
+#
+# **A package is a folder somebody unpacks and runs**, so that is exactly what
+# this checks: build it, unpack it somewhere else entirely, and run the program
+# out of the unpacked copy - not "cpack exited zero", which says nothing about
+# whether the program inside can run.
+#
+# What it runs today is `glideslope_cli --version`, and the version it prints
+# must match the one in the package's file name. `glideslope_cli selftest` joins
+# it in Phase 1, and a rendered frame in Phase 2.
+#
+# Not on every push: packaging changes when the packaging rules do. On demand,
+# and when the build or this file changes.
+name: package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'cmake/**'
+      - '.github/workflows/package.yml'
+
+jobs:
+  linux:
+    name: Linux x86_64 tarball (built on Rocky 9)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Built on the oldest distribution supported, so the program asks for no
+    # newer C library than the oldest one it will meet. gcc-toolset-14 links
+    # against the system's own libstdc++ and puts only the newer parts inside
+    # the program, which is why the tarball runs where the toolset is absent.
+    container: rockylinux/rockylinux:9
+    steps:
+      - name: Install dependencies
+        run: |
+          dnf_opts="--setopt=install_weak_deps=False --setopt=tsflags=nodocs -y"
+          dnf_run() {
+            for attempt in 1 2 3 4; do
+              if dnf $dnf_opts "$@"; then return 0; fi
+              echo "::warning::dnf attempt $attempt failed; clearing the cache and retrying"
+              dnf clean all || true
+              sleep $((attempt * 15))
+            done
+            echo "::error::dnf would not complete in four attempts"
+            return 1
+          }
+          dnf_run --enablerepo=crb install git cmake ninja-build gcc-toolset-14-gcc-c++
+
+      - uses: actions/checkout@v5
+
+      - name: Build and package
+        run: |
+          source /opt/rh/gcc-toolset-14/enable
+          cmake --preset linux-release
+          cmake --build --preset linux-release
+          cpack --preset linux-release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-linux
+          path: build/linux-release/glideslope-*-linux-x86_64.tar.gz*
+          if-no-files-found: error
+
+  # **Machines that have never had a toolchain on them.** Unpacking on the
+  # machine that built the package proves less than it looks, so the tarball is
+  # run in a stock container from each Linux family, with nothing installed.
+  linux-elsewhere:
+    name: Linux tarball, run on ${{ matrix.image }}
+    needs: linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['rockylinux/rockylinux:9', 'ubuntu:24.04']
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: package-linux, path: downloaded }
+
+      - name: Unpack somewhere else and run it
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd downloaded
+          sha256sum -c glideslope-*-linux-x86_64.tar.gz.sha256
+          file=$(ls glideslope-*-linux-x86_64.tar.gz)
+          version=${file#glideslope-}; version=${version%%-linux-x86_64.tar.gz}
+          mkdir -p /tmp/elsewhere
+          tar xzf "$file" -C /tmp/elsewhere
+          cd /tmp/elsewhere/glideslope-"$version"-linux-x86_64
+          ls -la
+          said=$(./glideslope_cli --version)
+          echo "said: $said"
+          test "$said" = "glideslope_cli $version" \
+            || { echo "::error::expected 'glideslope_cli $version'"; exit 1; }
+
+  macos:
+    name: macOS arm64 tarball
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install ninja
+        run: brew install ninja
+
+      - name: Use the newest Xcode on the image
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
+
+      - name: Build and package
+        run: |
+          cmake --preset macos-release
+          cmake --build --preset macos-release
+          cpack --preset macos-release
+
+      - name: Unpack somewhere else and run it
+        run: |
+          set -euo pipefail
+          cd build/macos-release
+          shasum -a 256 -c glideslope-*-macos-arm64.tar.gz.sha256
+          file=$(ls glideslope-*-macos-arm64.tar.gz)
+          version=${file#glideslope-}; version=${version%%-macos-arm64.tar.gz}
+          mkdir -p "$RUNNER_TEMP/elsewhere"
+          tar xzf "$file" -C "$RUNNER_TEMP/elsewhere"
+          cd "$RUNNER_TEMP/elsewhere/glideslope-$version-macos-arm64"
+          ls -la
+          otool -L glideslope_cli
+          said=$(./glideslope_cli --version)
+          echo "said: $said"
+          test "$said" = "glideslope_cli $version" \
+            || { echo "::error::expected 'glideslope_cli $version'"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-macos
+          path: build/macos-release/glideslope-*-macos-arm64.tar.gz*
+          if-no-files-found: error
+
+  windows:
+    name: Windows x64 zip
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with: { arch: x64 }
+
+      - name: Build and package
+        shell: cmd
+        run: |
+          cmake --preset windows-release || exit /b 1
+          cmake --build --preset windows-release || exit /b 1
+          cpack --preset windows-release || exit /b 1
+
+      - name: Unpack somewhere else and run it
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Get-ChildItem build/windows-release/glideslope-*-windows-x64.zip | Select-Object -First 1
+          $version = $zip.Name -replace '^glideslope-', '' -replace '-windows-x64\.zip$', ''
+          $expected = (Get-Content "$($zip.FullName).sha256").Split(' ')[0]
+          $actual = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $expected) { throw "checksum mismatch: $actual, expected $expected" }
+
+          $dest = Join-Path $env:RUNNER_TEMP 'elsewhere'
+          Expand-Archive $zip.FullName -DestinationPath $dest
+          $exe = Join-Path $dest "glideslope-$version-windows-x64\glideslope_cli.exe"
+          Get-ChildItem (Split-Path $exe)
+
+          $said = & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw "glideslope_cli exited $LASTEXITCODE" }
+          Write-Output "said: $said"
+          if ($said -ne "glideslope_cli $version") { throw "expected 'glideslope_cli $version'" }
+
+          # The runner has the Visual C++ redistributable; somebody's computer
+          # may not. The runtime is linked in, so the program must not ask for it.
+          $deps = dumpbin /dependents $exe
+          $deps | Write-Output
+          if ($deps -match '(?i)vcruntime|msvcp') {
+            throw "the packaged program depends on the Visual C++ redistributable"
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-windows
+          path: build/windows-release/glideslope-*-windows-x64.zip*
+          if-no-files-found: error
