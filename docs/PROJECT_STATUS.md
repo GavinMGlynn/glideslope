@@ -17,11 +17,10 @@ streams and draws; nothing collides with it yet", never "terrain works".
 library that knows its own version and a command-line tool that prints it. There
 is no flight model, no renderer, no terrain and no server.
 
-**Phase 0: 4 of 7 items done** — the build with its presets, CI, the 64-bit
-and compiler gates, and warnings as errors. Every preset configures, builds and
-passes its tests on its own platform in CI. The layering check is in progress:
-proved on Linux, waiting on CI to read the CLI's dependencies on macOS and
-Windows. Still to come: packaging, and a final honest pass over these
+**Phase 0: 5 of 7 items done** — the build with its presets, CI, the 64-bit
+and compiler gates, warnings as errors, and the check that the simulation links
+no presentation. Every preset configures, builds and passes its tests on its
+own platform in CI. Still to come: packaging, and a final honest pass over these
 documents.
 
 ## Gaps
@@ -39,11 +38,13 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The simulation links no presentation, 2026-09-17 — Linux so far
+### The simulation links no presentation, 2026-09-17
 
-**What is missing first:** the check that reads the CLI binary's dependencies
-has only run on Linux. Its macOS (`otool -L`) and Windows (`dumpbin
-/dependents`) readers run for the first time in CI on this commit.
+**Proved on every platform.** CI run 35199507565 (commit `c88b7f0`) passed all
+11 tests in every preset, including the binary check reading `otool -L` on
+macOS and `dumpbin /dependents` under both MSVC and clang-cl. The check fails
+when it finds no dependencies at all, so a pass means each reader understood its
+tool's output. Before that run it had been proved on Linux only.
 
 `cmake/Layering.cmake` holds three checks.
 

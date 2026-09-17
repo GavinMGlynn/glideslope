@@ -44,9 +44,8 @@ because it is built on everything before it.
 - [x] **Warnings as errors in every build type**, first-party targets only.
       *Verification: a double-to-float narrowing fails the build in every build
       type on every compiler, and a sign conversion does on GCC and Clang.*
-- [ ] **The simulation links no presentation**, checked at configure time.
-      **In progress:** proved on Linux; the binary check on macOS and Windows
-      is proved by CI. *Verification: every forbidden include placed in
+- [x] **The simulation links no presentation**, checked at configure time.
+      *Verification: every forbidden include placed in
       `src/sim/` fails the configure naming the file and the line, linking SDL
       into the simulation fails it too, and `glideslope_cli` links the
       simulation and nothing presentational.*
