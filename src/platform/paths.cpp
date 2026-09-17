@@ -21,8 +21,8 @@ std::filesystem::path executable_path() {
 #if defined(_WIN32)
     std::wstring buffer(MAX_PATH, L'\0');
     for (;;) {
-        const DWORD n =
-            GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+        const DWORD n = GetModuleFileNameW(nullptr, buffer.data(),
+                                           static_cast<DWORD>(buffer.size()));
         if (n == 0) {
             throw std::runtime_error("GetModuleFileNameW failed");
         }
@@ -43,7 +43,8 @@ std::filesystem::path executable_path() {
     return std::filesystem::canonical(buffer);
 #else
     std::error_code error;
-    const std::filesystem::path path = std::filesystem::read_symlink("/proc/self/exe", error);
+    const std::filesystem::path path =
+        std::filesystem::read_symlink("/proc/self/exe", error);
     if (error) {
         throw std::runtime_error("could not read /proc/self/exe: " + error.message());
     }

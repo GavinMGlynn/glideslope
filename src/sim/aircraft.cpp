@@ -30,7 +30,8 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
     exec_->SetEnginePath(SGPath("engine"));
     exec_->SetSystemsPath(SGPath("systems"));
     if (!exec_->LoadModel(model)) {
-        throw std::runtime_error("JSBSim could not load aircraft '" + model + "' from " +
+        throw std::runtime_error("JSBSim could not load aircraft '" + model +
+                                 "' from " +
                                  (jsbsim_root / "aircraft" / model).string());
     }
 }

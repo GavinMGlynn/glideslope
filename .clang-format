@@ -11,6 +11,8 @@ BasedOnStyle: LLVM
 
 IndentWidth: 4
 TabWidth: 4
+# public: and private: sit level with the class keyword.
+AccessModifierOffset: -4
 UseTab: Never
 ColumnLimit: 88
 

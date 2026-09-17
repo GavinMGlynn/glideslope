@@ -16,10 +16,11 @@
 namespace {
 
 void print_usage(std::FILE* out) {
-    std::fputs("usage: glideslope_cli --version\n"
-               "       glideslope_cli --help\n"
-               "       glideslope_cli aircraft NAME   print what NAME's model files say\n",
-               out);
+    std::fputs(
+        "usage: glideslope_cli --version\n"
+        "       glideslope_cli --help\n"
+        "       glideslope_cli aircraft NAME   print what NAME's model files say\n",
+        out);
 }
 
 int print_aircraft(const std::string& model) {
@@ -44,7 +45,8 @@ int main(int argc, char** argv) {
             const std::string_view arg = argv[1];
             if (arg == "--version") {
                 const std::string_view v = glideslope::sim::version();
-                std::printf("glideslope_cli %.*s\n", static_cast<int>(v.size()), v.data());
+                std::printf("glideslope_cli %.*s\n", static_cast<int>(v.size()),
+                            v.data());
                 return 0;
             }
             if (arg == "--help") {
