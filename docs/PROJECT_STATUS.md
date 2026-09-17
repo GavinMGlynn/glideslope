@@ -17,11 +17,10 @@ streams and draws; nothing collides with it yet", never "terrain works".
 library that knows its own version and a command-line tool that prints it. There
 is no flight model, no renderer, no terrain and no server.
 
-**Phase 0: 3 of 7 items done** — the build with its presets, CI, and the
-64-bit and compiler gates. Every preset configures, builds and passes its tests
-on its own platform in CI. Warnings as errors is in progress: proved with GCC
-and Clang, waiting on CI for MSVC, AppleClang and clang-cl. Still to come: the
-layering check, packaging, and a final honest pass over these documents.
+**Phase 0: 4 of 7 items done** — the build with its presets, CI, the 64-bit
+and compiler gates, and warnings as errors. Every preset configures, builds and
+passes its tests on its own platform in CI. Still to come: the layering check,
+packaging, and a final honest pass over these documents.
 
 ## Gaps
 
@@ -38,10 +37,14 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Warnings as errors, 2026-09-17 — GCC and Clang so far
+### Warnings as errors, 2026-09-17
 
-**What is missing first:** MSVC, AppleClang and clang-cl have not run the test
-below yet. CI does, on the commit that adds it.
+**Proved on every compiler.** CI run 35198828479 (commit `d437341`) passed the
+test below in every preset: GCC 14.2.0 on Ubuntu, GCC 14.2.1 on Rocky 9,
+AppleClang 17.0.0, MSVC 19.51 (narrowing failing as C4244, the sign probe
+excluded) and clang-cl 20.1.8 (both probes failing, through the conversion
+warnings added for it). Before that run it had been proved with GCC and Clang
+only.
 
 `cmake/CompilerWarnings.cmake` gives every first-party target, through
 `glideslope_configure`:
@@ -57,8 +60,9 @@ below yet. CI does, on the commit that adds it.
 `CMakeLists.txt`, so anything including the file gets the project's default.
 Nothing in the flags depends on the build type.
 
-**The test** — `a_narrowing_or_sign_conversion_fails_the_build_in_every_build_type`
-— configures the small project in `tests/warnings/`, which includes the real
+**The test** —
+`a_narrowing_or_sign_conversion_fails_the_build_in_every_build_type` —
+configures the small project in `tests/warnings/`, which includes the real
 `CompilerWarnings.cmake`, with this build's own generator and compiler, once
 for each of Debug, Release, RelWithDebInfo and MinSizeRel. In each it builds
 three probes: one with explicit casts that must build, one narrowing a double

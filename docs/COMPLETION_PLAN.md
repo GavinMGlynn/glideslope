@@ -41,9 +41,8 @@ because it is built on everything before it.
       each supported compiler one version below its floor, are refused with a
       message naming what was found and what is needed; the configure line names
       the resolved platform and compiler.*
-- [ ] **Warnings as errors in every build type**, first-party targets only.
-      **In progress:** proved with GCC and Clang; MSVC, AppleClang and clang-cl
-      are proved by CI. *Verification: a double-to-float narrowing fails the build in every build
+- [x] **Warnings as errors in every build type**, first-party targets only.
+      *Verification: a double-to-float narrowing fails the build in every build
       type on every compiler, and a sign conversion does on GCC and Clang.*
 - [ ] **The simulation links no presentation**, checked at configure time.
       *Verification: every forbidden include placed in `src/sim/` fails the
