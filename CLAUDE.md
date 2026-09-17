@@ -114,6 +114,7 @@ frame is not allowed.
 cmake --preset linux-debug                # or linux-release, macos-*, windows-*
 cmake --build --preset linux-debug
 ctest --preset linux-debug
+cpack --preset linux-release              # a package; macos-release, windows-release
 ```
 
 The development machines are native Windows 11 for rendering work and WSL
@@ -129,8 +130,8 @@ src/gfx/        SDL_GPU renderer, Cesium Native glue, HUD
 src/net/        protocol, packet encode/decode, interpolation
 src/platform/   paths, input, sockets
 src/frontend/   one main per executable: client/, server/, cli/
-cmake/          platform gate, warning set, layering check
-tests/          ctest suites, named as sentences
+cmake/          platform gate, warning set, sanitizers, layering check
+tests/          ctest tests named as sentences, and the probe projects they build
 ext/            pinned submodules - see ext/README.md
 docs/           REQUIREMENTS.md and the living documents
 ```

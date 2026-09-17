@@ -45,17 +45,17 @@ because it is built on everything before it.
       *Verification: a double-to-float narrowing fails the build in every build
       type on every compiler, and a sign conversion does on GCC and Clang.*
 - [x] **The simulation links no presentation**, checked at configure time.
-      *Verification: every forbidden include placed in
-      `src/sim/` fails the configure naming the file and the line, linking SDL
-      into the simulation fails it too, and `glideslope_cli` links the
-      simulation and nothing presentational.*
+      *Verification: every forbidden include placed in `src/sim/` fails the
+      configure naming the file and the line, linking SDL into the simulation
+      fails it too, and `glideslope_cli` links the simulation and nothing
+      presentational.*
 - [x] **CI on Ubuntu, Rocky 9, Windows and macOS**, building and testing every
       preset. *Verification: every job green on `main`.*
 - [x] **Packaging** — a tarball for Linux and macOS and a zip for Windows, each
       running in place. *Verification: the `package` workflow unpacks each
       artifact into a different directory on its own platform and runs
       `glideslope_cli` out of the unpacked copy.*
-- [ ] **The living documents exist and are honest** — `CLAUDE.md`, this plan,
+- [x] **The living documents exist and are honest** — `CLAUDE.md`, this plan,
       `FEATURES.md`, `PROJECT_STATUS.md`, `TRANSPORT.md`, `THREATS.md`,
       `ASSETS.md`, `GUIDE.md`, `RELEASES.md` and `ext/README.md`.
       *Verification: someone who has not seen the code can say what works from

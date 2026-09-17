@@ -9,6 +9,14 @@ verified; this file says what is true *today*, with the gaps named first.
 claims. Anything less is reported with the missing part named *first* — "terrain
 streams and draws; nothing collides with it yet", never "terrain works".
 
+**Words used here.** *Gearstick* is the author's earlier project, a racing game,
+whose build, documents and discipline this one follows. *The brief* is the
+design brief that became `REQUIREMENTS.md`. *Presentation* means anything that
+draws, opens a window, reads an input device or plays sound. A *tail* is work
+found along the way and added to the bottom of `COMPLETION_PLAN.md`. *Locally*
+means the development machine: Rocky Linux 10 under WSL, with GCC 14.3.1;
+anything proved elsewhere names the CI run.
+
 ---
 
 ## The honest summary, 2026-09-17
@@ -17,12 +25,21 @@ streams and draws; nothing collides with it yet", never "terrain works".
 library that knows its own version and a command-line tool that prints it. There
 is no flight model, no renderer, no terrain and no server.
 
-**Phase 0: 6 of 7 items done** — the build with its presets, CI, the 64-bit
-and compiler gates, warnings as errors, the check that the simulation links no
-presentation, and packaging. Every preset configures, builds and passes its
-tests on its own platform in CI, and each platform's package runs unpacked
-somewhere other than where it was built. Still to come: a final honest pass
-over these documents.
+**Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
+else is built on, one line per item, each verified:
+
+1. a C++20 build with presets for Linux, macOS and Windows (MSVC and clang-cl);
+2. a configure that refuses 32-bit toolchains and compilers below their floors;
+3. warnings that are errors in every build type, on every compiler;
+4. configure-time checks that the simulation includes and links no
+   presentation, and a test that reads the CLI binary's real dependencies;
+5. CI in which every preset configures, builds and passes its tests on its own
+   platform;
+6. a package per platform that runs from wherever it is unpacked;
+7. these documents.
+
+Every check above was also made to fail on purpose, and was seen to. **Phase 1
+— the flight model — has not started.**
 
 ## Gaps
 
@@ -39,10 +56,50 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The living documents, honest, 2026-09-17 — Phase 0 complete
+
+Every living document was re-read in full against the repository at the end of
+Phase 0. What that pass changed:
+
+- this file: a summary of the finished phase; the compiler gate's CI evidence
+  moved from the warnings entry, where it had landed, to the gates entry; a
+  hand check in the packaging entry relabelled as what came before the workflow;
+- `RELEASES.md`: what a package is and what each operating system will say. It
+  had said there was nothing to download; the workflow now keeps a package per
+  platform as an artifact. What macOS and Windows say about a *downloaded*
+  copy is stated as expected, not as seen, because no downloaded copy has been
+  opened yet;
+- `CLAUDE.md` and `README.md`: how to make a package.
+
+`TRANSPORT.md`, `THREATS.md` and `GUIDE.md` still say their subject does not
+exist, which is still true. `ASSETS.md` still says nothing third-party is used,
+and `ext/README.md` that nothing is pinned; both true. `FEATURES.md` marks
+nothing `DONE`, because nothing on it is a thing a player could use yet.
+
+**The verification**, taken literally: a fresh agent with no other context was
+given this file alone, told not to open anything else, and asked what works
+today, what does not, how the working parts were proved, and what comes next.
+
+**Its answer was right on every point** when checked against the repository and
+the CI runs: the CLI's three behaviours and the version-only library; no flight
+model, state restore, terrain, renderer or server; each item's proof by platform
+and compiler, including that most deliberate breakages were made locally and
+that the sanitizer claim rests on one small GCC program; no downloaded package
+opened yet; and Phase 1 next.
+
+It also named what it could not tell from the file alone, and this pass fixed
+each: the summary listed six things beside "7 of 7"; the CI table had five rows
+under "four jobs"; the package workflow's five jobs were not named; "gearstick",
+"the brief", "presentation" and "tails" were not explained; and it was not
+always clear which proofs were local and which were CI. The corrected file has
+not been re-read by a fresh agent.
+
 ### Packaging, 2026-09-17
 
 **Proved on every platform.** The `package` workflow's first run on `main`
-(35199775868, commit `4b94984`) passed all five jobs. Each unpacked
+(35199775868, commit `4b94984`) passed all five jobs — build the Linux tarball,
+run it on Rocky 9, run it on Ubuntu 24.04, build and run the macOS tarball,
+build and run the Windows zip. Each unpacked
 `glideslope_cli --version` printed `glideslope_cli 0.1.0`, matching its file
 name, and each checksum verified:
 
@@ -78,9 +135,9 @@ without the Visual C++ redistributable still runs.
 Every run checks the checksum file, and requires `glideslope_cli --version` to
 print exactly the version in the package's file name.
 
-**Verified so far:** on Rocky Linux 10 the tarball is 28 KB, unpacks to the one
-folder with its three files, and the unpacked `glideslope_cli --version` prints
-`glideslope_cli 0.1.0` and exits 0. The project's 11 tests still pass.
+Before the workflow first ran, the same was checked by hand on Rocky Linux 10:
+the tarball is 28 KB, unpacks to the one folder with its three files, and the
+unpacked `glideslope_cli --version` prints `glideslope_cli 0.1.0` and exits 0.
 
 ### The simulation links no presentation, 2026-09-17
 
@@ -141,7 +198,7 @@ today the CLI depends on `libstdc++.so.6`, `libm.so.6`, `libgcc_s.so.1` and
 - `the_cli_links_the_simulation_and_nothing_presentational` — the binary check
   on `glideslope_cli`.
 
-**Watched to fail, seven ways.** In the real tree: a
+**Watched to fail, seven ways**, all locally. In the real tree: a
 `#include <SDL3/SDL_gamepad.h>` added to `src/sim/version.cpp` stopped the
 configure naming `src/sim/version.cpp:2`; a `target_link_libraries` of
 `SDL3::SDL3` into `glideslope_sim` appended to the end of `CMakeLists.txt`
@@ -190,19 +247,15 @@ converting int to unsigned that must fail naming `sign-conversion`. That is 12
 probe builds, counted. The sign probe is excluded under MSVC itself, and named
 as excluded, because MSVC has no default warning for it.
 
-**Watched to fail, four ways**, with GCC 14.3: dropping `-Wconversion` failed
-the narrowing probe in all four build types; making `-Werror` apply to Debug
-only failed both probes in the other three; dropping `-Wsign-conversion` failed
-the sign probe in all four; and a syntax error in the clean probe failed it in
-all four.
+**Watched to fail, four ways**, locally with GCC 14.3: dropping `-Wconversion`
+failed the narrowing probe in all four build types; making `-Werror` apply to
+Debug only failed both probes in the other three; dropping `-Wsign-conversion`
+failed the sign probe in all four; and a syntax error in the clean probe failed
+it in all four.
 
 Verified on Rocky Linux 10: `linux-debug` and `linux-release` with GCC 14.3.1,
 and a plain build with Clang 21, each pass 7 of 7 tests, and the project's own
 code builds with no warnings under the full set.
-
-**The gates' CI run** (35198316459, commit `7921839`) was green in all four
-jobs. In the Rocky 9 job, the system `g++ (GCC) 11.5.0` was refused with
-`found: GNU 11.5.0` and `required: GNU 14 or newer`.
 
 ### The 64-bit and compiler gates, 2026-09-17
 
@@ -229,15 +282,17 @@ compiler to hand:
   and at its floor is accepted with the resolved line printed. The test counts
   the cases it walked against twice the size of the table.
 
-**Watched to fail, four ways.** Relaxing the pointer check to `LESS 4` failed
-all three pointer-size cases. Comparing floors with `VERSION_LESS_EQUAL` failed
-every at-floor case. Downgrading the refusal to a warning failed every
+**Watched to fail, four ways**, locally. Relaxing the pointer check to `LESS 4`
+failed all three pointer-size cases. Comparing floors with `VERSION_LESS_EQUAL`
+failed every at-floor case. Downgrading the refusal to a warning failed every
 below-floor case. Adding a compiler to the table with no platform for the test
 to run it on failed with "walked 8 cases, expected 10".
 
-**And against a real old compiler:** CI's Rocky 9 job now configures once with
-the system's own `g++`, GCC 11, and requires the configure to fail with
-"required: GNU 14 or newer" before building with gcc-toolset-14.
+**And against a real old compiler:** CI's Rocky 9 job configures once with the
+system's own `g++` and requires the configure to fail with "required: GNU 14 or
+newer" before building with gcc-toolset-14. In CI run 35198316459 (commit
+`7921839`, green in all four jobs) that compiler was `g++ (GCC) 11.5.0`, refused
+with `found: GNU 11.5.0`.
 
 The same commit makes the later preset steps in each CI job run even when an
 earlier one failed, closing the gap the deliberately red run showed.
@@ -247,9 +302,11 @@ each pass 6 of 6 tests.
 
 ### CI, and every preset on its own platform, 2026-09-17
 
-`.github/workflows/ci.yml` runs every preset on the platform it belongs to, and
-its first run on `main` (run 35197837005, commit `f5e3890`) was green in all
-four jobs, each preset passing 4 of 4 tests:
+`.github/workflows/ci.yml` runs every preset on the platform it belongs to, in
+four jobs — Ubuntu, Rocky 9, macOS and Windows; the Windows job builds with two
+compilers, which is why the table has five rows. Its first run on `main` (run
+35197837005, commit `f5e3890`) was green in all four, each preset passing 4 of 4
+tests:
 
 | Job | Presets | Compiler |
 | --- | --- | --- |
@@ -259,8 +316,8 @@ four jobs, each preset passing 4 of 4 tests:
 | Windows | `windows-debug`, `windows-release` | MSVC 19.51 |
 | Windows | `windows-clang` | clang-cl 20.1.8 |
 
-`linux-debug` also runs only on Ubuntu, not in the Rocky job; the preset is the
-same one, and Rocky 9's job exists for the compiler and the distribution.
+`linux-debug` runs on Ubuntu only, not in the Rocky job: the preset is the
+same, and Rocky 9's job exists for its compiler and its distribution.
 
 **CI was watched to fail.** A throwaway branch changed the expected version
 string in one test and CI was run on it by hand (run 35198071126): all four

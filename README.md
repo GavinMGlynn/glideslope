@@ -4,7 +4,7 @@ A multiplayer flight simulator in C++: real flight physics and live wind, flown
 over real-world terrain streamed from the internet. Fly yourself, or hand any
 aircraft to an AI pilot and take it back.
 
-> **Status: Phase 0 — foundations. Nothing flies yet.**
+> **Status: Phase 0, foundations, is complete. Nothing flies yet.**
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the single source of
 > truth for what works, with the gaps named first.
 
@@ -30,7 +30,8 @@ ctest --preset linux-release
 ```
 
 There is nothing to fly yet: the build produces `glideslope_cli`, which reports
-its version.
+its version. `cpack --preset linux-release` (or `macos-release`,
+`windows-release`) makes a package that runs from wherever it is unpacked.
 
 ## The documents
 
