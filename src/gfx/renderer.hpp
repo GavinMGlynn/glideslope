@@ -2,16 +2,22 @@
 
 // The renderer: one SDL_GPU device, over Vulkan, Direct3D 12 or Metal.
 //
-// Today it clears its colour target to the sky and can read a frame back off
-// the GPU; terrain, aircraft and the HUD draw into the same target as they
-// arrive.
+// It draws meshes placed on the Earth into an offscreen colour target with a
+// float depth buffer, over the sky's clear colour, blits that to the window if
+// there is one, and can read a frame back off the GPU. Positions are
+// camera-relative and depth is reversed; see gfx/scene.hpp.
 
+#include "gfx/scene.hpp"
+
+#include <cstddef>
 #include <cstdint>
-#include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
+struct SDL_GPUBuffer;
 struct SDL_GPUDevice;
+struct SDL_GPUGraphicsPipeline;
 struct SDL_GPUTexture;
 struct SDL_Window;
 
@@ -32,6 +38,13 @@ struct Colour {
 };
 inline constexpr Colour sky{0.45f, 0.65f, 0.90f, 1.0f};
 
+using MeshId = std::size_t;
+
+struct Draw {
+    MeshId mesh = 0;
+    Placement placement;
+};
+
 class Renderer {
 public:
     // Creates the GPU device. `driver` names SDL's GPU driver - "vulkan",
@@ -47,9 +60,12 @@ public:
     // The driver SDL chose.
     std::string driver() const;
 
-    // Draws one frame into the offscreen target, and to the window if there is
-    // one.
-    void render();
+    // Uploads a mesh to the GPU, to be drawn by the id returned.
+    MeshId add_mesh(const Mesh& mesh);
+
+    // Draws one frame, from `camera`, into the offscreen target, and to the
+    // window if there is one. With no draws it is the sky alone.
+    void render(const Camera& camera, std::span<const Draw> draws);
 
     // The last frame rendered, read back from the GPU.
     Frame capture();
@@ -62,9 +78,20 @@ public:
     }
 
 private:
+    struct GpuMesh {
+        SDL_GPUBuffer* vertices = nullptr;
+        SDL_GPUBuffer* indices = nullptr;
+        std::uint32_t index_count = 0;
+    };
+
+    void release();
+
     SDL_GPUDevice* device_ = nullptr;
     SDL_Window* window_ = nullptr;
     SDL_GPUTexture* target_ = nullptr;
+    SDL_GPUTexture* depth_ = nullptr;
+    SDL_GPUGraphicsPipeline* mesh_pipeline_ = nullptr;
+    std::vector<GpuMesh> meshes_;
     int width_ = 0;
     int height_ = 0;
     long presented_ = 0;

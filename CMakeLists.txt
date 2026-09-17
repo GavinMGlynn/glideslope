@@ -67,6 +67,10 @@ include(Jsbsim)
 # SDL3, from ext/sdl - see cmake/Sdl.cmake. Linked by the presentation only.
 include(Sdl)
 
+# The shader compiler, from glslang and SPIRV-Cross in ext/ - see
+# cmake/Shaders.cmake.
+include(Shaders)
+
 # ---------------------------------------------------------------------------
 # The data the programs read at run time: assets/, copied to data/ beside them -
 # in the build tree, where the tests run them, and in a package - so a program
@@ -133,16 +137,21 @@ glideslope_configure(glideslope_platform)
 # The renderer - SDL_GPU over Vulkan, Direct3D 12 and Metal.
 # ---------------------------------------------------------------------------
 add_library(glideslope_gfx STATIC
-    src/gfx/renderer.cpp)
+    src/gfx/renderer.cpp
+    src/gfx/scene.cpp)
 target_include_directories(glideslope_gfx PUBLIC src)
-target_link_libraries(glideslope_gfx PUBLIC SDL3::SDL3-static)
+target_link_libraries(glideslope_gfx PUBLIC SDL3::SDL3-static glideslope_world)
+glideslope_shaders(glideslope_gfx
+    src/gfx/shaders/mesh.vert
+    src/gfx/shaders/mesh.frag)
 glideslope_configure(glideslope_gfx)
 
 # ---------------------------------------------------------------------------
 # glideslope - the simulator.
 # ---------------------------------------------------------------------------
 add_executable(glideslope
-    src/frontend/client/main.cpp)
+    src/frontend/client/main.cpp
+    src/frontend/client/scenes.cpp)
 target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_sim glideslope_world
                                          glideslope_platform)
 glideslope_configure(glideslope)

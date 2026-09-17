@@ -130,14 +130,14 @@ copy on the Linux filesystem, not under `/mnt/c`.
 ```
 src/sim/        JSBSim wrapper, aircraft, controllers, autopilot, AI pilot
 src/world/      coordinates, floating origin, terrain streaming and queries, weather
-src/gfx/        SDL_GPU renderer, Cesium Native glue, HUD
+src/gfx/        SDL_GPU renderer, shaders (GLSL, in shaders/), Cesium Native glue, HUD
 src/net/        protocol, packet encode/decode, interpolation
 src/platform/   paths, input, sockets
 src/frontend/   one main per executable: client/, server/, cli/
-cmake/          platform gate, warning set, sanitizers, layering check, JSBSim
+cmake/          platform gate, warning set, sanitizers, layering check, dependencies
 tests/          ctest tests named as sentences, and the probe projects they build
 assets/         run-time data, copied to data/ beside the programs
-tools/          scripts that make committed assets
+tools/          scripts that make committed assets; shaderc/, the build's shader compiler
 ext/            pinned submodules - see ext/README.md
 docs/           REQUIREMENTS.md and the living documents
 ```

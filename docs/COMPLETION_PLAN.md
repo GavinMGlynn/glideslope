@@ -97,10 +97,14 @@ because it is built on everything before it.
       latitude, longitude and height conversions. *Verification: conversions
       round-trip within a millimetre at the poles, the equator, the date line,
       and from below sea level to cruising altitude.*
-- [ ] **A camera-relative floating origin.** *Verification: a still scene
-      rendered far from the origin is identical frame to frame, with no jitter.*
-- [ ] **Reversed-Z depth.** *Verification: a frame holding both distant
-      mountains and a nearby aircraft draws with no z-fighting at either.*
+- [ ] **A camera-relative floating origin.** **In progress:** proved on Vulkan
+      on Linux; Direct3D 12 and Metal have not run it. *Verification: a still
+      scene rendered far from the origin is identical frame to frame, with no
+      jitter.*
+- [ ] **Reversed-Z depth.** **In progress:** proved on Vulkan on Linux;
+      Direct3D 12 and Metal have not run it. *Verification: a frame holding
+      both distant mountains and a nearby aircraft draws with no z-fighting at
+      either.*
 - [ ] **The Copernicus DEM, read directly** from its GeoTIFF files at a pinned
       version, with a height query anywhere on Earth. *Verification: heights at
       surveyed points — summits, coastlines, airfields — match within the
@@ -109,8 +113,8 @@ because it is built on everything before it.
       down at sea level, at a high airfield and on a slope rests on the DEM
       surface in each.*
 - [ ] **A window and a GPU device through SDL3** on Vulkan, D3D12 and Metal.
-      **In progress:** a headless frame on Vulkan, proved on Linux; Direct3D 12
-      and Metal have not run, and no window has been opened by a test.
+      **In progress:** Vulkan on Linux and Metal on macOS draw headless and in
+      a window, in CI; Direct3D 12 and Vulkan on Windows have not run.
       *Verification: the client writes a frame with `--shot` on every backend
       of every platform that has it.*
 - [ ] **Cesium Native drawing the open-data terrain through SDL_GPU** around one

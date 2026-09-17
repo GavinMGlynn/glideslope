@@ -499,6 +499,14 @@ The replacement:
   `glideslope_server`, following gearstick's pattern of naming them after the
   project. The original brief used `flightsim_*` as example names.
 
+- **Shaders: GLSL, compiled at build time for every backend.** SDL_GPU takes
+  SPIR-V on Vulkan, DXBC or DXIL on Direct3D 12 and MSL on Metal. Each shader
+  is written once in GLSL, to SDL_GPU's SPIR-V resource layout; glslang makes
+  the SPIR-V, SPIRV-Cross the MSL and HLSL, and on Windows D3DCompile turns the
+  HLSL into Shader Model 5.1 DXBC. DXC is not used: it is LLVM-sized, and
+  SDL_GPU accepts DXBC. The build's shader compiler checks every resource
+  against SDL_GPU's documented layout (`cmake/Shaders.cmake`).
+
 **Open:**
 
 - **Runways on the DEM** (under discussion). Copernicus DEM is a radar-measured

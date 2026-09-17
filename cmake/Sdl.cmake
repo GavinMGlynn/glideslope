@@ -25,7 +25,12 @@ set(SDL_INSTALL      OFF CACHE BOOL "" FORCE)
 set(SDL_GPU          ON  CACHE BOOL "" FORCE)
 
 add_subdirectory("${_sdl}" "${CMAKE_CURRENT_BINARY_DIR}/ext/sdl" EXCLUDE_FROM_ALL)
-set_target_properties(SDL3-static PROPERTIES SYSTEM TRUE)
+# Its headers are somebody else's: included as system headers, so this project's
+# warning set does not fire inside them. The include directories come from
+# SDL3_Headers, which SDL3-static links, so that is the target that must say so;
+# marking SDL3-static alone left clang-cl compiling SDL's MSVC-only inline
+# functions under -Wold-style-cast.
+set_target_properties(SDL3-static SDL3_Headers PROPERTIES SYSTEM TRUE)
 
 file(STRINGS "${_sdl}/include/SDL3/SDL_version.h" _sdl_version_lines
      REGEX "^#define SDL_(MAJOR|MINOR|MICRO)_VERSION +[0-9]+")

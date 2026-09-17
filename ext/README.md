@@ -13,6 +13,8 @@ pinned tag or SHA, role, and licence.
 | --- | --- | --- | --- | --- |
 | `jsbsim` | JSBSim-Team/jsbsim | `v1.3.1` (`3b25f25`) | **The flight model.** Linked by the simulation; built from its `src/` only | LGPL-2.1 |
 | `sdl` | libsdl-org/SDL | `release-3.4.16` (`fa2c02b`) | **The window, input and GPU.** Linked by the presentation only; `cmake/Layering.cmake` refuses it in the simulation | Zlib |
+| `glslang` | KhronosGroup/glslang | `16.6.0` (`e1b562a8`) | **Shaders, GLSL to SPIR-V.** Linked by the build's shader compiler only; nothing shipped | BSD-3-Clause and others (see its `LICENSE.txt`) |
+| `spirv-cross` | KhronosGroup/SPIRV-Cross | `vulkan-sdk-1.4.357.0` (`6c09849f`) | **Shaders, SPIR-V to MSL and HLSL.** Linked by the build's shader compiler only; nothing shipped | Apache-2.0 |
 
 ### jsbsim
 
@@ -49,6 +51,21 @@ SDL fails its configure without XTEST and XScrnSaver rather than building
 without them; on RHEL-family systems the development packages come from EPEL
 and CRB. Running the frame tests needs a Vulkan driver: CI uses Mesa's lavapipe,
 which draws on the CPU.
+
+### glslang and spirv-cross
+
+`cmake/Shaders.cmake` builds their libraries, and `tools/shaderc/main.cpp` links
+them into `glideslope_shaderc`, which runs during the build to turn each GLSL
+shader under `src/gfx/shaders/` into SPIR-V, MSL and - on Windows, through the
+system's D3DCompile - DXBC, and checks it against SDL_GPU's resource layout.
+The program links none of their code; what it carries is the compiled shaders,
+which are glideslope's. So no package carries their licences.
+
+glslang is built without its optimizer, which would need SPIRV-Tools as well,
+and without its HLSL front end: the shaders are GLSL. Neither library, nor the
+compiler, is sanitized in the sanitized presets. They are a build step, and a
+leak report from glslang would fail the build without saying anything about
+glideslope.
 
 The aircraft files JSBSim reads at run time are made from this submodule's by
 `tools/make_c172p.py` and committed under `assets/jsbsim/`; see

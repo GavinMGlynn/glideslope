@@ -68,8 +68,9 @@ add_test(NAME a_32_bit_toolchain_is_refused_on_every_platform
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform_gate.cmake)
 
 # ---------------------------------------------------------------------------
-# The client renders a frame on every GPU driver its platform has, headless and
-# in a window, and writes what it rendered.
+# The client renders on every GPU driver its platform has - headless and in a
+# window, the sky, reversed depth and the floating origin - and the frames it
+# writes are read back pixel by pixel.
 # ---------------------------------------------------------------------------
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(GLIDESLOPE_GPU_DRIVERS direct3d12 vulkan)
@@ -79,6 +80,16 @@ else()
     set(GLIDESLOPE_GPU_DRIVERS vulkan)
 endif()
 foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
+    add_test(NAME a_distant_mountain_and_a_nearby_aircraft_draw_with_no_z_fighting_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_depth.cmake)
+    add_test(NAME a_scene_draws_the_same_at_the_earths_centre_and_far_from_it_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_origin.cmake)
     add_test(NAME the_client_renders_the_sky_headless_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
@@ -91,14 +102,36 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_is_sky.cmake)
     set_tests_properties(the_client_renders_the_sky_in_a_window_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77)
-    # A window loads the system's windowing and driver libraries with dlopen and
-    # unloads them before exit, and what they leak LeakSanitizer can attribute to
-    # nothing - no frame of the stacks is in glideslope or SDL. The headless test
-    # on the same driver keeps leak checking on.
-    if(GLIDESLOPE_ASAN)
-        set_property(TEST the_client_renders_the_sky_in_a_window_on_${_driver}
-            PROPERTY ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0")
+endforeach()
+
+# ---------------------------------------------------------------------------
+# The shader compiler keeps SDL_GPU's resource layout: a shader that follows it
+# compiles, and one that breaks it fails with the resource named.
+# ---------------------------------------------------------------------------
+set(_shaderc_cases
+    "a_shader_that_keeps_sdl_gpus_layout_compiles|fragment|textured.frag|0|"
+    "a_uniform_buffer_outside_its_set_fails_the_shader_build|vertex|uniform_in_resource_set.vert|1|Transform is in set 0. in a vertex shader SDL_GPU wants it in set 1"
+    "a_texture_not_bound_from_zero_fails_the_shader_build|fragment|sampler_not_from_zero.frag|1|image is bound at 1. SDL_GPU's layout puts it at 0"
+    "a_separate_sampler_fails_the_shader_build|fragment|separate_sampler.frag|1|separate texture"
+    "push_constants_fail_the_shader_build|vertex|push_constants.vert|1|push constant block"
+    "a_shader_with_a_glsl_error_fails_the_shader_build|fragment|does_not_compile.frag|1|undeclared")
+foreach(_case IN LISTS _shaderc_cases)
+    string(REPLACE "|" ";" _fields "${_case}")
+    list(GET _fields 0 _name)
+    list(GET _fields 1 _stage)
+    list(GET _fields 2 _file)
+    list(GET _fields 3 _exit)
+    list(GET _fields 4 _says)
+    set(_expect)
+    if(NOT _says STREQUAL "")
+        set(_expect "-DSTDERR_MATCHES=${_says}")
     endif()
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope_shaderc>
+            "-DARGS=--stage ${_stage} --name case --in ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${_file} --out ${CMAKE_CURRENT_BINARY_DIR}/shaderc-${_name}.cpp"
+            -DEXIT=${_exit} ${_expect}
+            -P ${GLIDESLOPE_EXPECT_RUN})
 endforeach()
 
 # ---------------------------------------------------------------------------
