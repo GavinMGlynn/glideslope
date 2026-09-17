@@ -65,6 +65,24 @@ endfunction()
 include(Jsbsim)
 
 # ---------------------------------------------------------------------------
+# The data the programs read at run time: assets/, copied to data/ beside them -
+# in the build tree, where the tests run them, and in a package - so a program
+# finds its data the same way wherever it is. assets/jsbsim holds the flight
+# models (made by tools/make_c172p.py; see assets/jsbsim/README.md) and
+# assets/figures the published figures they are checked against.
+#
+# Copied at configure time. Any file added under assets/ reconfigures
+# (CONFIGURE_DEPENDS), and so does any change to a file already there - which
+# CONFIGURE_DEPENDS alone does not notice, and which is the change that matters
+# when a model is being tuned.
+# ---------------------------------------------------------------------------
+set(GLIDESLOPE_DATA_DIR "${CMAKE_CURRENT_BINARY_DIR}/data")
+file(GLOB_RECURSE _assets CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/*")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_assets})
+file(REMOVE_RECURSE "${GLIDESLOPE_DATA_DIR}")
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/assets/" DESTINATION "${GLIDESLOPE_DATA_DIR}")
+
+# ---------------------------------------------------------------------------
 # The simulation
 #
 # **Links no presentation.** No window, renderer, input or audio, so the
@@ -73,6 +91,7 @@ include(Jsbsim)
 # ---------------------------------------------------------------------------
 add_library(glideslope_sim STATIC
     src/sim/aircraft.cpp
+    src/sim/figures.cpp
     src/sim/fixed_step.cpp
     src/sim/version.cpp)
 

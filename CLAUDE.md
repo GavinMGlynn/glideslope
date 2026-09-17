@@ -87,6 +87,10 @@ frame is not allowed.
 - **Prefer no dependency to a small one.** Pin every dependency: submodules
   under `ext/` by tag or SHA, non-git sources (the SQLite amalgamation,
   datasets) by URL plus SHA-256. No Git LFS.
+- **`assets/jsbsim/` is made, not written.** The flight models there come from
+  `ext/jsbsim` through `tools/make_c172p.py`, whose docstring lists every change
+  and what it answers. Change the script and run it; a test fails if the
+  committed files differ from what it makes.
 - **No keys or tokens in the repository, ever.** Cesium ion tokens and Google
   Maps Platform keys belong to the user and are read at run time. A test that
   needs one reports itself skipped when none is present — skipped, never passed.
@@ -130,8 +134,10 @@ src/gfx/        SDL_GPU renderer, Cesium Native glue, HUD
 src/net/        protocol, packet encode/decode, interpolation
 src/platform/   paths, input, sockets
 src/frontend/   one main per executable: client/, server/, cli/
-cmake/          platform gate, warning set, sanitizers, layering check
+cmake/          platform gate, warning set, sanitizers, layering check, JSBSim
 tests/          ctest tests named as sentences, and the probe projects they build
+assets/         run-time data, copied to data/ beside the programs
+tools/          scripts that make committed assets
 ext/            pinned submodules - see ext/README.md
 docs/           REQUIREMENTS.md and the living documents
 ```

@@ -34,7 +34,8 @@ its XML, and **GeographicLib** (MIT). Their licence texts, and JSBSim's, are
 installed into `licenses/` in every package. Building expat is why the project
 enables C as well as C++.
 
-The aircraft files JSBSim reads at run time come from this submodule too; see
+The aircraft files JSBSim reads at run time are made from this submodule's by
+`tools/make_c172p.py` and committed under `assets/jsbsim/`; see
 `docs/ASSETS.md`.
 
 ## Expected, from `REQUIREMENTS.md`

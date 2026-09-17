@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 
@@ -44,6 +45,13 @@ struct Controls {
     double right_brake = 0.0;
 };
 
+// What is on board, by JSBSim's index for each point mass (seats, baggage) and
+// each fuel tank. Anything not named keeps the model's own value.
+struct Loading {
+    std::map<int, double> pointmass_lbs;
+    std::map<int, double> tank_lbs;
+};
+
 // Enough of an aircraft's state to compare two flights and to report one.
 struct AircraftState {
     double sim_time_s = 0.0;
@@ -83,6 +91,10 @@ public:
 
     AircraftFigures figures() const;
 
+    // Sets what is on board. Call before initialize(); the weight is what JSBSim
+    // computes from it once the aircraft is initialised.
+    void load(const Loading& loading);
+
     // Puts the aircraft at `ic`, at rest in the sense that no time has passed,
     // with the engine running if asked. Throws std::runtime_error if JSBSim
     // refuses.
@@ -95,6 +107,12 @@ public:
     void step();
 
     AircraftState state() const;
+
+    // Any JSBSim property by name, for code that needs more than state()
+    // reports - the published-figure checks read the gear, the flaps and the
+    // propeller. Throws std::out_of_range for a property the model does not
+    // have.
+    double property(const std::string& name) const;
 
 private:
     std::string model_;

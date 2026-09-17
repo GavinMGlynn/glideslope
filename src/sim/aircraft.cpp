@@ -10,7 +10,10 @@
 #include <models/FGPropulsion.h>
 #include <simgear/misc/sg_path.hxx>
 
+#include <input_output/FGPropertyManager.h>
+
 #include <stdexcept>
+#include <string>
 
 namespace glideslope::sim {
 
@@ -54,6 +57,21 @@ AircraftFigures Aircraft::figures() const {
     f.empty_weight_lbs = exec_->GetPropertyValue("inertia/empty-weight-lbs");
     f.engines = static_cast<int>(exec_->GetPropulsion()->GetNumEngines());
     return f;
+}
+
+void Aircraft::load(const Loading& loading) {
+    const auto set = [this](const std::string& name, double value) {
+        if (!exec_->GetPropertyManager()->HasNode(name)) {
+            throw std::out_of_range(model_ + " has no " + name);
+        }
+        exec_->SetPropertyValue(name, value);
+    };
+    for (const auto& [index, lbs] : loading.pointmass_lbs) {
+        set("inertia/pointmass-weight-lbs[" + std::to_string(index) + "]", lbs);
+    }
+    for (const auto& [index, lbs] : loading.tank_lbs) {
+        set("propulsion/tank[" + std::to_string(index) + "]/contents-lbs", lbs);
+    }
 }
 
 void Aircraft::initialize(const InitialConditions& ic) {
@@ -108,6 +126,13 @@ AircraftState Aircraft::state() const {
     s.climb_rate_fpm = exec_->GetPropertyValue("velocities/h-dot-fps") * 60.0;
     s.engine_rpm = exec_->GetPropertyValue("propulsion/engine[0]/engine-rpm");
     return s;
+}
+
+double Aircraft::property(const std::string& name) const {
+    if (!exec_->GetPropertyManager()->HasNode(name)) {
+        throw std::out_of_range(model_ + " has no property " + name);
+    }
+    return exec_->GetPropertyValue(name);
 }
 
 } // namespace glideslope::sim

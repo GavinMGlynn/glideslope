@@ -71,23 +71,6 @@ endforeach()
 
 message(STATUS "glideslope: JSBSim ${GLIDESLOPE_JSBSIM_VERSION} from ext/jsbsim")
 
-# ---------------------------------------------------------------------------
-# The aircraft data JSBSim reads at run time.
-#
-# Copied from the submodule into data/jsbsim/ beside the programs - in the build
-# tree, where the tests run them, and in a package - so a program finds its data
-# the same way wherever it is. Only the files the listed aircraft need are
-# copied: each aircraft's own directory, and the engine and propeller files its
-# XML names.
-#
-# **This list is a prototype.** Which aircraft exist is content, and Phase 5
-# ("aircraft as data") replaces it with data rather than a CMake list.
-# ---------------------------------------------------------------------------
-set(GLIDESLOPE_JSBSIM_DATA
-    aircraft/c172p
-    engine/eng_io320.xml
-    engine/prop_75in2f.xml)
-
 # The licences a program with JSBSim linked into it has to carry: JSBSim's own
 # (LGPL-2.1), and those of the two libraries it bundles in its source tree -
 # expat, its XML parser, and GeographicLib (both MIT). Installed into licenses/
@@ -96,10 +79,3 @@ set(GLIDESLOPE_JSBSIM_LICENCES
     "COPYING=JSBSim.txt"
     "src/simgear/xml/COPYING=expat.txt"
     "src/GeographicLib/LICENSE.txt=GeographicLib.txt")
-
-set(GLIDESLOPE_DATA_DIR "${CMAKE_CURRENT_BINARY_DIR}/data")
-file(REMOVE_RECURSE "${GLIDESLOPE_DATA_DIR}/jsbsim")
-foreach(_item IN LISTS GLIDESLOPE_JSBSIM_DATA)
-    get_filename_component(_parent "${_item}" DIRECTORY)
-    file(COPY "${_jsbsim}/${_item}" DESTINATION "${GLIDESLOPE_DATA_DIR}/jsbsim/${_parent}")
-endforeach()

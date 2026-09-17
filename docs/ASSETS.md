@@ -5,8 +5,9 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**One thing is used: the Cessna 172P flight model from JSBSim.** No dataset,
-imagery, visual model, font or sound is used or fetched yet.
+**Two things are used: a Cessna 172P flight model derived from JSBSim's, and
+the Cessna 172P handbook's published figures.** No dataset, imagery, visual
+model, font or sound is used or fetched yet.
 
 ## The rule
 
@@ -17,13 +18,14 @@ at that point, not paraphrased from memory.
 
 ## In use
 
-### JSBSim's Cessna 172P
+### The Cessna 172P flight model, derived from JSBSim's
 
 | | |
 | --- | --- |
-| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`) |
-| Files | `aircraft/c172p/` (the model, its reset files and its notes), `engine/eng_io320.xml`, `engine/prop_75in2f.xml` |
-| Licence | LGPL-2.1, as the JSBSim repository; the text ships as `licenses/JSBSim.txt` |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/c172p/c172p.xml`, `engine/prop_75in2f.xml`, `engine/eng_io320.xml` |
+| Changes | Made by `tools/make_c172p.py`, whose docstring lists each change and the published figure it answers: the propeller's power and thrust coefficients, zero-lift drag and drag with angle of attack, the lift curve up to the stall, and flap lift. The engine file is unchanged. |
+| In the repository | `assets/jsbsim/`, as the script makes it; a test fails if they differ |
+| Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
 | Where it goes | Copied at configure time into `data/jsbsim/` beside the programs, in the build tree and in every package |
 
 The model file's own header says: "This model was created using publicly
@@ -33,6 +35,14 @@ at all, it would be only to the extent that it seems to "fly right", and that it
 possibly complies with published, publicly known, performance data (maximum
 speed, endurance, etc.). Thus, this model is meant for educational and
 entertainment purposes only."
+
+### The Cessna 172P's published figures
+
+| | |
+| --- | --- |
+| Source | Cessna Model 172P Pilot's Operating Handbook, 12 May 1981 (the Island Enterprises reprint): section 1 specifications, section 2 powerplant limitations, figures 3-1, 5-1, 5-3, 5-5, 5-6 and 5-8 |
+| In the repository | `assets/figures/c172p.xml`: individual numbers, each with its section or figure, not the handbook's text or charts |
+| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
 ## Planned sources
 

@@ -70,10 +70,12 @@ because it is built on everything before it.
 - [x] **A fixed 120 Hz step with an accumulator.** *Verification: the same
       scripted flight fed its time in small, large and uneven chunks ends in the
       same state.*
-- [ ] **Scripted flight checked against published figures** — take-off roll,
-      climb rate, stall speed, cruise speed, glide ratio and turn rate.
-      *Verification: each figure lands within its stated tolerance of the
-      Cessna 172's published number.*
+- [ ] **Scripted flight checked against published figures** — static RPM,
+      take-off roll, climb rate, cruise speed, glide ratio, stall speeds, and a
+      turn rate against the physics of a coordinated turn, since the handbook
+      publishes none. **In progress:** all in range on Linux; CI proves the
+      other platforms. *Verification: each figure lands within its stated
+      tolerance of the Cessna 172's published number.*
 - [ ] **State capture and set/resume** — a full aircraft state written into a
       fresh instance, which flies on from it. *Verification: an instance
       restored mid-flight tracks the original within a stated tolerance, from a

@@ -8,11 +8,13 @@ set(GLIDESLOPE_EXPECT_RUN "${CMAKE_CURRENT_SOURCE_DIR}/cmake/expect_run.cmake")
 # ---------------------------------------------------------------------------
 add_executable(glideslope_tests
     unit/harness.cpp
+    unit/test_figures.cpp
     unit/test_fixed_step.cpp
     unit/test_flight.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim)
 target_compile_definitions(glideslope_tests PRIVATE
-    GLIDESLOPE_TEST_DATA_DIR="${GLIDESLOPE_DATA_DIR}/jsbsim")
+    GLIDESLOPE_TEST_DATA_DIR="${GLIDESLOPE_DATA_DIR}/jsbsim"
+    GLIDESLOPE_TEST_FIGURES_DIR="${GLIDESLOPE_DATA_DIR}/figures")
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
@@ -21,10 +23,27 @@ set(GLIDESLOPE_UNIT_TESTS
     the_fixed_step_refuses_time_running_backwards
     the_fixed_step_counts_a_century_without_overflowing
     a_flight_fed_its_time_in_any_chunks_ends_in_the_same_state
-    the_elevator_pulled_back_pitches_the_nose_up)
+    the_elevator_pulled_back_pitches_the_nose_up
+    the_cessna_172p_at_full_throttle_on_the_ground_turns_within_its_static_rpm_range
+    the_cessna_172p_takes_off_in_about_its_published_ground_roll
+    a_cessna_172p_at_full_power_climbs_near_its_published_rate
+    the_cessna_172p_cruises_near_its_published_speed
+    the_cessna_172p_glides_near_its_published_ratio
+    the_cessna_172p_stalls_flaps_up_near_its_published_speed
+    the_cessna_172p_stalls_with_10_degrees_of_flap_near_its_published_speed
+    the_cessna_172p_stalls_with_30_degrees_of_flap_near_its_published_speed
+    a_coordinated_level_turn_turns_at_the_rate_its_bank_and_speed_demand
+    every_published_figure_has_a_flight_and_every_flight_a_figure)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
 endforeach()
+
+find_package(Python3 COMPONENTS Interpreter QUIET)
+add_test(NAME the_committed_cessna_172p_is_what_its_tuning_script_makes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_cessna_172p_is_what_its_tuning_script_makes
+    PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME every_compiled_unit_test_is_registered_with_ctest
     COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:glideslope_tests>
@@ -113,6 +132,24 @@ add_test(NAME the_cli_refuses_an_aircraft_it_has_no_files_for
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=aircraft no_such_aircraft"
         -DEXIT=1 "-DSTDERR_MATCHES=could not load aircraft 'no_such_aircraft'"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_cli_flies_one_published_figure_when_it_is_named
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=figures c172p static_rpm" -DEXIT=0
+        "-DSTDOUT_MATCHES=static_rpm +[0-9.]+ +2300.00 .. 2420.00 +RPM +ok.*1 of 1 in range"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_cli_refuses_a_figure_the_aircraft_does_not_have
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=figures c172p no_such_figure" -DEXIT=2
+        "-DSTDERR_MATCHES=c172p has no figure named no_such_figure"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_cli_refuses_figures_for_an_aircraft_with_no_figures_file
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=figures no_such_aircraft" -DEXIT=1
+        "-DSTDERR_MATCHES=no_such_aircraft.xml"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_an_argument_it_does_not_know

@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<!--
+  The Cessna 172P's published figures, and the conditions each was measured in.
+
+  Every number here is from the Cessna Model 172P Pilot's Operating Handbook,
+  dated 12 May 1981 (the Island Enterprises reprint), by section and figure. The
+  checks in src/sim/figures.cpp fly one flight per <figure> and compare what
+  JSBSim does with the range given here.
+
+  Airspeeds the handbook gives as indicated (KIAS) are converted to calibrated
+  (KCAS) with its airspeed calibration table, figure 5-1, because calibrated is
+  what the flight model reports. The tolerances are this project's, stated with
+  each figure; see docs/PROJECT_STATUS.md for how the model was tuned towards
+  these numbers and what each measured before and after.
+
+  The turn is the one figure not from the handbook, which publishes none: a
+  coordinated level turn has to turn at g tan(bank) / true airspeed, and that
+  is checked instead.
+-->
+<published_figures aircraft="c172p">
+  <source>Cessna Model 172P Pilot's Operating Handbook, 12 May 1981</source>
+
+  <!-- 2400 lb, the maximum take-off weight the handbook's figures are for:
+       1500 lb empty (the model's), two 180 lb front seats, a 170 lb rear seat
+       and both tanks full. -->
+  <loading total_lbs="2400">
+    <pointmass index="0" lbs="180"/>
+    <pointmass index="1" lbs="180"/>
+    <pointmass index="2" lbs="170"/>
+    <tank index="0" lbs="185"/>
+    <tank index="1" lbs="185"/>
+  </loading>
+
+  <figure name="static_rpm" unit="RPM" min="2300" max="2420">
+    Section 2, powerplant limitations: "The static RPM range at full throttle
+    (carburetor heat off and mixture leaned to maximum RPM) is 2300 to 2420 RPM."
+  </figure>
+
+  <figure name="takeoff_ground_roll" unit="ft" value="890" tolerance_percent="10"
+          flaps_deg="10" lift_off_kcas="55.6">
+    Section 1, performance specifications: ground roll 890 ft; figure 5-5 gives
+    it for a short-field take-off - flaps 10, full throttle before brake release,
+    paved level dry runway, zero wind, sea level, 2400 lb - with lift-off at
+    51 KIAS, which figure 5-1 makes 55.6 KCAS with 10 degrees of flap.
+  </figure>
+
+  <figure name="climb_rate" unit="ft/min" value="700" tolerance_percent="10"
+          speed_kcas="75.4">
+    Section 1, performance specifications: rate of climb at sea level 700 FPM;
+    figure 5-6 gives it at 76 KIAS, flaps up, full throttle, 2400 lb, and 700
+    between its 0 C and 20 C columns at the standard 15 C. 76 KIAS is 75.4 KCAS
+    by figure 5-1.
+  </figure>
+
+  <figure name="cruise_speed" unit="KTAS" value="121" tolerance="3"
+          altitude_ft="8000" rpm="2650">
+    Figure 5-8, cruise performance: 121 KTAS at 8000 ft, standard temperature,
+    2650 RPM (77% power), 2400 lb, mixture leaned. Section 1 gives 120 knots at
+    75% power at 8000 ft.
+  </figure>
+
+  <figure name="glide_ratio" unit=":1" value="9.1" tolerance_percent="10"
+          speed_kcas="66">
+    Figure 3-1, maximum glide: 65 KIAS, propeller windmilling, flaps up, zero
+    wind, drawn as 18 nautical miles from 12,000 ft above the terrain, which is
+    9.1 to 1. 65 KIAS is 66 KCAS by figure 5-1. The figure is a chart, read by
+    eye; the tolerance allows for that.
+  </figure>
+
+  <figure name="stall_speed_flaps_up" unit="KCAS" min="49.5" max="54" flaps_deg="0">
+    Figure 5-3, stall speeds, 2400 lb, power off, wings level, flaps up: 51 KCAS
+    at the most rearward centre of gravity and 52 KCAS at the most forward. The
+    range is 2 kt either side of those.
+  </figure>
+
+  <figure name="stall_speed_flaps_10" unit="KCAS" min="46" max="51" flaps_deg="10">
+    Figure 5-3, stall speeds, 2400 lb, power off, wings level, flaps 10 degrees:
+    48 KCAS rearward and 49 KCAS forward centre of gravity, 2 kt either side.
+  </figure>
+
+  <figure name="stall_speed_flaps_30" unit="KCAS" min="44" max="48" flaps_deg="30">
+    Figure 5-3, stall speeds, 2400 lb, power off, wings level, flaps 30 degrees:
+    46 KCAS at either centre of gravity, 2 kt either side.
+  </figure>
+
+  <figure name="turn_rate" unit="% of g tan(bank)/V" value="100" tolerance="3"
+          bank_deg="30" altitude_ft="3000">
+    Not published. A coordinated level turn turns at g tan(bank) / true airspeed;
+    the flight holds 30 degrees of bank at constant altitude and the measured
+    rate is given as a percentage of what its own bank and speed demand.
+  </figure>
+</published_figures>

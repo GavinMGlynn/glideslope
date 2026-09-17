@@ -21,12 +21,13 @@ anything proved elsewhere names the CI run.
 
 ## The honest summary, 2026-09-17
 
-**An aircraft can be stepped, but nothing flies it yet.** JSBSim is built and
-linked; `glideslope_cli` loads the Cessna 172P from its model files and prints
-what they say; and the simulation can put the aircraft somewhere, set its
-controls and step it at a fixed 120 Hz. No scripted flight is checked against
-the aircraft's published figures, nothing restores a captured state, and there
-is no renderer, terrain or server.
+**A Cessna 172P flies to its handbook, with nobody at the controls but a test
+pilot.** JSBSim is built and linked and steps at a fixed 120 Hz, and
+glideslope's Cessna 172P — JSBSim's model with documented tuning — lands inside
+its tolerance on all nine published-figure checks: static RPM, take-off roll,
+climb, cruise, glide, three stall speeds and a coordinated turn.
+`glideslope_cli figures c172p` flies them. Nothing restores a captured state
+yet, and there is no replay hash, renderer, terrain or server.
 
 **Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
 else is built on, one line per item, each verified:
@@ -44,25 +45,130 @@ else is built on, one line per item, each verified:
 Every check above was also made to fail on purpose, and was seen to.
 
 **Phase 1, the feel: 2 of 7 items done** — JSBSim pinned and built, and a fixed
-120 Hz step driving it, both proved on every platform. Not yet: flights checked
-against published figures, state set/resume, the replay hash, cross-platform
-flight checks, and a packaged CLI that flies.
+120 Hz step driving it, both proved on every platform. The published-figure
+checks are in progress: all nine in range on Linux, waiting on CI for the other
+platforms. Not yet: state set/resume, the replay hash, cross-platform flight
+checks, and a packaged CLI that flies.
 
 ## Gaps
 
 Everything in `COMPLETION_PLAN.md`. The ones worth naming first, because they
 are the risks the phase order is built around:
 
-- **No checked flight.** An aircraft can be stepped with controls, but no
-  flight has been compared with the Cessna 172's published figures.
-- **No way to set and resume an aircraft's state.** JSBSim has no single
-  snapshot and restore call, and client prediction depends on one existing.
+- **No way to set and resume an aircraft's state.** Client prediction depends
+  on one existing.
+- **The checks are one aircraft's.** Every figure is the Cessna 172P's; other
+  types arrive in Phase 5.
 - **No terrain.** Neither the Copernicus DEM reader nor the Cesium-to-SDL_GPU
   glue exists.
 
 ---
 
 ## Log, newest first
+
+### The Cessna 172P against its handbook, 2026-09-17 — Linux so far
+
+**What is missing first:** the checks have run on Linux only; CI runs them on
+the other platforms with this commit. The handbook's turn rate does not exist,
+so the turn is checked against physics rather than a published number.
+
+**JSBSim's own C172P did not fly to its handbook.** The checks below, flown on
+JSBSim's untouched model at the same 2,400 lb, landed out of range on five of
+nine, so the model was tuned — the question Phase 1 exists to ask. The tuning
+is not hand-edited into the model: `tools/make_c172p.py` makes
+`assets/jsbsim/` from the pinned files with each change listed and justified in
+its docstring, and a test fails if the committed files differ from what it
+makes.
+
+| Figure | Handbook | Range | Stock JSBSim | glideslope |
+| --- | --- | --- | --- | --- |
+| Static RPM, full throttle | 2300 to 2420 | 2300 to 2420 | **2538** | 2316 |
+| Take-off ground roll | 890 ft | ±10% | 940 | 922 |
+| Climb, sea level, 76 KIAS | 700 ft/min | ±10% | **978** | 742 |
+| Cruise, 8000 ft, 2650 RPM | 121 KTAS | ±3 kt | 123.1 | 119.7 |
+| Glide, 65 KIAS, engine off | 9.1:1 | ±10% | 8.38 | 9.38 |
+| Stall, flaps up | 51 to 52 KCAS | 49.5 to 54 | **54.4** | 51.1 |
+| Stall, flaps 10 | 48 to 49 KCAS | 46 to 51 | **51.0** | 47.6 |
+| Stall, flaps 30 | 46 KCAS | 44 to 48 | **48.8** | 45.6 |
+| Turn, 30° bank | g·tan(bank)/V | ±3% | 98.8% | 99.0% |
+
+The figures, their sources and their conditions are in
+`assets/figures/c172p.xml`: every number is from the Cessna Model 172P Pilot's
+Operating Handbook of 12 May 1981, by section and figure, with indicated
+airspeeds converted to calibrated by its figure 5-1. The ranges are this
+project's.
+
+**What each change does**, measured by leaving it out and flying every check:
+
+| Left out | Static RPM | Ground roll | Climb | Cruise | Glide |
+| --- | --- | --- | --- | --- | --- |
+| nothing | 2316 | 922 | 742 | 119.7 | 9.38 |
+| propeller power and thrust factors | 2538 | 697 | 1147 | 121.5 | 9.38 |
+| thrust boost below advance ratio 0.5 | 2316 | 1216 | 725 | 119.7 | 9.38 |
+| drag changes | 2316 | 935 | 661 | 121.3 | 7.89 |
+
+The stall speeds moved from 54.4, 51.0 and 48.8 KCAS to 51.1, 47.6 and 45.6 with
+the lift-curve and flap-lift changes, which barely move anything else.
+
+**How it was found.** A first prototype flew each figure and showed the
+propeller over-revving (2,800 RPM in a full-throttle climb, past the 2,700 RPM
+redline) and the stall limited by elevator travel rather than by the wing: the
+elevator reached its stop at 16.5° angle of attack, at a lift coefficient of
+1.45. The handbook's static RPM range, its airspeed calibration table and its
+stall table then gave targets that separate the propeller from the airframe.
+JSBSim's two other C172 models were flown too and were no closer: `c172x` glided
+at 13:1 and `c172r` climbed at 905 ft/min against its handbook's 720.
+
+**The flights** are in `src/sim/figures.cpp`, flown by a small test pilot — a
+pitch-attitude hold with slower speed and altitude loops above it, a wing
+leveller and a rudder that holds the sideslip at zero. It is not the Phase 4
+autopilot and is not meant to fly like a person. A first version of its rudder
+let the aircraft slip half a degree in the turn, which turned 2% slower than its
+bank demanded; an integral took the slip out.
+
+- **Static RPM:** brakes on, full throttle, mixture leaned in steps; the most
+  RPM any mixture reaches.
+- **Take-off:** flaps 10, full throttle against the brakes, released; ground
+  distance until no wheel is on the ground, rotating at 55.6 KCAS (51 KIAS).
+- **Climb:** full throttle at 75.4 KCAS (76 KIAS); the climb over forty seconds
+  through sea level, after thirty to settle.
+- **Cruise:** level at 8,000 ft, mixture leaned to the most RPM, then throttle
+  holding 2,650 RPM; average true airspeed over the last fifty seconds of three
+  minutes. It fails if the RPM cannot be held.
+- **Glide:** mixture cut off, propeller windmilling, 66 KCAS (65 KIAS); ground
+  distance over height lost across three minutes.
+- **Stalls:** power off, from 70 KCAS the target speed falls one knot a second
+  and the pilot follows it with the nose; the slowest calibrated airspeed.
+- **Turn:** 30° bank level at 3,000 ft; the turn rate as a percentage of
+  g·tan(bank)/true airspeed, both averaged over thirty seconds after a minute.
+
+Every flight loads the aircraft as the figures file says and fails unless JSBSim
+then weighs it at the file's 2,400 lb.
+
+`glideslope::sim::Aircraft` gained `load()` and `property()`. The CLI gained
+`glideslope_cli figures NAME [FIGURE]`, which prints each measurement against
+its range and exits 1 if any is out. `assets/` is new: `assets/jsbsim/` (the
+made model) and `assets/figures/`, copied to `data/` beside the programs; a
+change to any file there now reconfigures, which `CONFIGURE_DEPENDS` alone had
+not done — the first tuning run changed the assets and measured nothing new.
+
+**Tests, 34 now:** one per figure —
+`a_cessna_172p_at_full_power_climbs_near_its_published_rate` and eight like
+it — plus
+`every_published_figure_has_a_flight_and_every_flight_a_figure`,
+`the_committed_cessna_172p_is_what_its_tuning_script_makes` (skipped, not
+passed, where there is no Python 3), and CLI tests for one figure, a figure the
+aircraft does not have, and an aircraft with no figures file.
+
+**Watched to fail, six ways:** a hand edit to the committed model failed the
+script check; writing the climb figure as 500 failed the climb test, naming the
+measurement, the range and the source; a figure in the file with no flight, and
+a flight in the code with no figure, each failed the coverage test; a loading
+that came to 2,330 lb failed with the weight; and the stock propeller factors
+failed the static RPM, take-off and climb tests.
+
+**Verified locally:** `linux-release` passes 34 of 34, and the sanitized
+`linux-debug` passes them too, the nine flights taking 44 of its 67 seconds.
 
 ### A fixed 120 Hz step, 2026-09-17
 
@@ -97,8 +203,8 @@ never registered would never run and nothing would say so.
 
 - `the_fixed_step_counts_steps_from_the_total_time_alone` — 11 ways of dividing
   time (1 µs, 1 ms, 16 ms, 33 ms, a 60 Hz and a 144 Hz frame rounded to the
-  nanosecond, one step less a nanosecond, 100 ms, 1 s, uneven chunks of 0 to
-  50 ms, and all at once), each over 1 s and over 10 s. After *every* advance the
+  nanosecond, one step less a nanosecond, 100 ms, 1 s, uneven chunks of 0 to 50
+  ms, and all at once), each over 1 s and over 10 s. After *every* advance the
   steps taken must equal the steps in the time fed so far, as computed by the
   standard library's own ratio arithmetic, and the advance must have returned
   the difference.
