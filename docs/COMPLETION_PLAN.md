@@ -37,7 +37,7 @@ because it is built on everything before it.
 - [x] **C++20 + CMake/Ninja build**, presets per platform with matching test
       presets. *Verification: every preset configures, builds and tests on its
       own platform.*
-- [ ] **64-bit-only and compiler gates.** *Verification: a 32-bit toolchain, and
+- [x] **64-bit-only and compiler gates.** *Verification: a 32-bit toolchain, and
       each supported compiler one version below its floor, are refused with a
       message naming what was found and what is needed; the configure line names
       the resolved platform and compiler.*

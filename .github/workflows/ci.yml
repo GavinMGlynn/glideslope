@@ -57,6 +57,9 @@ jobs:
           ctest --preset linux-debug
 
       - name: linux-release - configure, build, test
+        # Runs even when the preset before it failed, so one red preset does
+        # not hide whether the next one is green.
+        if: ${{ !cancelled() }}
         env: { CXX: g++-14 }
         run: |
           cmake --preset linux-release
@@ -87,9 +90,24 @@ jobs:
             echo "::error::dnf would not complete in four attempts"
             return 1
           }
-          dnf_run --enablerepo=crb install git cmake ninja-build gcc-toolset-14-gcc-c++
+          dnf_run --enablerepo=crb install git cmake ninja-build gcc-c++ \
+            gcc-toolset-14-gcc-c++
 
       - uses: actions/checkout@v5
+
+      # **The compiler gate against a real old compiler**, not a described one.
+      # Rocky 9's own g++ is GCC 11; the configure must stop and say what it
+      # found and what it needs.
+      - name: Rocky 9's own GCC 11 is refused
+        run: |
+          g++ --version | head -1
+          if CXX=g++ cmake -S . -B build/system-gcc -G Ninja > system-gcc.log 2>&1; then
+            cat system-gcc.log
+            echo "::error::the system GCC was accepted"
+            exit 1
+          fi
+          cat system-gcc.log
+          grep -F "required: GNU 14 or newer" system-gcc.log
 
       - name: linux-release - configure, build, test
         run: |
@@ -122,6 +140,9 @@ jobs:
           ctest --preset macos-debug
 
       - name: macos-release - configure, build, test
+        # Runs even when the preset before it failed, so one red preset does
+        # not hide whether the next one is green.
+        if: ${{ !cancelled() }}
         run: |
           cmake --preset macos-release
           cmake --build --preset macos-release
@@ -145,6 +166,9 @@ jobs:
           ctest --preset windows-debug || exit /b 1
 
       - name: windows-release - configure, build, test
+        # Runs even when the preset before it failed, so one red preset does
+        # not hide whether the next one is green.
+        if: ${{ !cancelled() }}
         shell: cmd
         run: |
           cmake --preset windows-release || exit /b 1
@@ -152,6 +176,9 @@ jobs:
           ctest --preset windows-release || exit /b 1
 
       - name: windows-clang - configure, build, test
+        # Runs even when the preset before it failed, so one red preset does
+        # not hide whether the next one is green.
+        if: ${{ !cancelled() }}
         shell: cmd
         run: |
           clang-cl --version || exit /b 1

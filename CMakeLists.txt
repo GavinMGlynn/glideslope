@@ -7,6 +7,10 @@ project(glideslope
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+# 64-bit only, and a compiler at or above its floor - see cmake/Platform.cmake.
+include(Platform)
+glideslope_check_platform()
+
 # ---------------------------------------------------------------------------
 # Options
 # ---------------------------------------------------------------------------
