@@ -17,9 +17,10 @@ streams and draws; nothing collides with it yet", never "terrain works".
 library that knows its own version and a command-line tool that prints it. There
 is no flight model, no renderer, no terrain and no server.
 
-**Phase 0 has started.** None of its items is ticked. The build and its presets
-are in progress: the two Linux presets are verified, and the macOS and Windows
-presets have never been run.
+**Phase 0: 2 of 7 items done** — the build with its presets, and CI. Every
+preset configures, builds and passes its tests on its own platform in CI. Still
+to come: the 64-bit and compiler gates, warnings as errors, the layering check,
+packaging, and a final honest pass over these documents.
 
 ## Gaps
 
@@ -36,19 +37,37 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### CI, 2026-09-17 — written, not yet run
+### CI, and every preset on its own platform, 2026-09-17
 
-`.github/workflows/ci.yml` runs every preset on the platform it belongs to:
-`linux-debug` and `linux-release` on Ubuntu with GCC 14, `linux-release` on
-Rocky 9 with gcc-toolset-14, both macOS presets on macOS 15, and all three
-Windows presets on Windows. It has not run yet; this entry is replaced by its
-results.
+`.github/workflows/ci.yml` runs every preset on the platform it belongs to, and
+its first run on `main` (run 35197837005, commit `f5e3890`) was green in all
+four jobs, each preset passing 4 of 4 tests:
 
-### The build and its presets, 2026-09-17 — Linux only so far
+| Job | Presets | Compiler |
+| --- | --- | --- |
+| Ubuntu | `linux-debug`, `linux-release` | GCC 14.2.0 |
+| Rocky 9 container | `linux-release` | GCC 14.2.1 (gcc-toolset-14) |
+| macOS 15 | `macos-debug`, `macos-release` | AppleClang 17.0.0 |
+| Windows | `windows-debug`, `windows-release` | MSVC 19.51 |
+| Windows | `windows-clang` | clang-cl 20.1.8 |
 
-**What is missing first:** the macOS and Windows presets exist in
-`CMakePresets.json` and have never been configured, built or tested anywhere.
-Nothing in this repository has run on either platform. That waits for CI.
+`linux-debug` also runs only on Ubuntu, not in the Rocky job; the preset is the
+same one, and Rocky 9's job exists for the compiler and the distribution.
+
+**CI was watched to fail.** A throwaway branch changed the expected version
+string in one test and CI was run on it by hand (run 35198071126): all four
+jobs went red, each naming the failed test and the expected string. The branch
+was deleted afterwards. That run also showed a gap: a failing preset step
+skipped the presets after it in the same job, so a debug failure hid whether
+release passed.
+
+`windows-*` steps run under `cmd`, where a failing command does not stop the
+script; each command ends in `|| exit /b 1`, which is what made the red run red.
+
+### The build and its presets, 2026-09-17
+
+When this landed, only the Linux presets had run; the macOS and Windows presets
+were first run by CI, in the entry above.
 
 **What exists.** A C++20 CMake project, `LANGUAGES CXX` only, with Ninja presets
 `linux-debug`, `linux-release`, `macos-debug`, `macos-release`,

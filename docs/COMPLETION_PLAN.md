@@ -34,11 +34,9 @@ because it is built on everything before it.
 
 ## Phase 0 — Foundations
 
-- [ ] **C++20 + CMake/Ninja build**, presets per platform with matching test
-      presets. **In progress:** the Linux presets configure, build and test; the
-      macOS and Windows presets have not been run anywhere yet.
-      *Verification: every preset configures, builds and tests on its own
-      platform.*
+- [x] **C++20 + CMake/Ninja build**, presets per platform with matching test
+      presets. *Verification: every preset configures, builds and tests on its
+      own platform.*
 - [ ] **64-bit-only and compiler gates.** *Verification: a 32-bit toolchain, and
       each supported compiler one version below its floor, are refused with a
       message naming what was found and what is needed; the configure line names
@@ -51,7 +49,7 @@ because it is built on everything before it.
       configure naming the file and the line, linking SDL into the simulation
       fails it too, and `glideslope_cli` links the simulation and nothing
       presentational.*
-- [ ] **CI on Ubuntu, Rocky 9, Windows and macOS**, building and testing every
+- [x] **CI on Ubuntu, Rocky 9, Windows and macOS**, building and testing every
       preset. *Verification: every job green on `main`.*
 - [ ] **Packaging** — a tarball for Linux and macOS and a zip for Windows, each
       running in place. *Verification: the `package` workflow unpacks each
