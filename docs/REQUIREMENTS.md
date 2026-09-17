@@ -51,7 +51,7 @@ Items marked **Open** are not yet decided.
 **Secondary: WSL on Windows 11 running Rocky Linux 10** for Linux builds and
 headless work.
 
-- GCC builds, `ctest`, and headless `flightsim_cli` and `flightsim_server`
+- GCC builds, `ctest`, and headless `glideslope_cli` and `glideslope_server`
   runs. Most simulation and networking work can happen here.
 - **Not for 3D rendering.** WSL's GPU path translates Vulkan to D3D12 through
   Mesa; it is incomplete and slower, and Rocky's Mesa packages may not include
@@ -264,7 +264,7 @@ predicted ground contact for their own aircraft; the server's result wins.
 
 ### 6.6 Server shape (following gearstick)
 
-- Separate binary, e.g. `flightsim_server`.
+- Separate binary, `glideslope_server`.
 - Fixed 120 Hz simulation step for all aircraft; replication at 20–30 Hz.
 - `--headless` for no window; otherwise a live dashboard with connected clients,
   ping, traffic and a drop control.
@@ -304,7 +304,7 @@ verification.
   presets; 64-bit gate; warnings as errors; layering checks at configure time;
   CI on Ubuntu, Rocky, Windows and macOS; packaging; the living documents exist
   and are honest.
-- **Phase 1 — The feel:** one JSBSim Cessna 172 in `flightsim_cli` with no
+- **Phase 1 — The feel:** one JSBSim Cessna 172 in `glideslope_cli` with no
   window, a fixed 120 Hz step with an accumulator, scripted-input flight checked
   against known aircraft figures. Also the **state set/resume wrapper**
   reconciliation depends on: set an instance to a captured mid-flight state,
@@ -376,7 +376,7 @@ deterministic integer simulation, the adaptation for this project is stated.
 
 - **The simulation links no presentation.** `src/sim/` may not include SDL
   video, input or audio, nor `gfx/`, `ui/`, `platform/` or a frontend. Checked
-  at configure time by `cmake/Layering.cmake`, not by review. `flightsim_cli`
+  at configure time by `cmake/Layering.cmake`, not by review. `glideslope_cli`
   linking the simulation and nothing presentational is the proof. The server
   links the same simulation to run AI aircraft.
 - **The simulation steps at a fixed rate; the presentation does not.** Physics
@@ -386,7 +386,7 @@ deterministic integer simulation, the adaptation for this project is stated.
   is untouched. Include `-Wconversion` and `-Wsign-conversion`: double-to-float
   narrowing at the floating origin is exactly the kind of silent bug they catch.
 - **Verify on the real output:** a frame written by `--shot`, a `ctest` run,
-  flight numbers from `flightsim_cli`. Not a proxy, not "it should work now".
+  flight numbers from `glideslope_cli`. Not a proxy, not "it should work now".
 - **Content is data, not code.** Aircraft, sessions, regions and AI flight plans
   live in files. A hard-coded aircraft is a prototype and must be replaced
   before anything is built on it.
@@ -420,10 +420,10 @@ floating point.
 
 The replacement:
 
-- **Same-machine replay hash:** `flightsim_cli selftest` flies a fixed input log
-  and prints a state hash. On one build on one machine it must be stable run to
-  run. A change that moves it is deliberate, noted in `PROJECT_STATUS.md` with
-  the reason.
+- **Same-machine replay hash:** `glideslope_cli selftest` flies a fixed input
+  log and prints a state hash. On one build on one machine it must be stable
+  run to run. A change that moves it is deliberate, noted in
+  `PROJECT_STATUS.md` with the reason.
 - **Cross-platform flight checks by tolerance:** CI flies the same scripted
   inputs on every platform and checks outcomes against published aircraft
   figures and each other within stated tolerances (climb rate, stall speed,
@@ -437,8 +437,8 @@ The replacement:
 
 - Workflows: `ci.yml` (build, test, headless smoke on Debian-family Linux,
   Rocky, Windows, macOS arm64), `package.yml` (build artifacts, unpack
-  elsewhere, run `flightsim_cli selftest` and render one frame from the unpacked
-  copy).
+  elsewhere, run `glideslope_cli selftest` and render one frame from the
+  unpacked copy).
 - `cmake/`: `Platform.cmake`, `CompilerWarnings.cmake`, `Layering.cmake`,
   `Libsodium.cmake`, `Sqlite.cmake`, fuzzer and sanitizer support.
 - Tooling flags on the client for tests and screenshots: `--shot FILE`,
@@ -495,6 +495,9 @@ The replacement:
   environment.
 - **Open-Meteo terms:** its free API is for non-commercial use only. That fits a
   free GPL project; the terms are recorded in `docs/ASSETS.md`.
+- **Executable names:** `glideslope` (the client), `glideslope_cli` and
+  `glideslope_server`, following gearstick's pattern of naming them after the
+  project. The original brief used `flightsim_*` as example names.
 
 **Open:**
 

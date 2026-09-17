@@ -1,0 +1,33 @@
+# Formatting for glideslope's own sources. Vendored code in ext/ is never
+# reformatted - see .clang-format-ignore.
+#
+# gearstick's settings, carried over so the two projects read alike: 4-space
+# indent, 88-column lines, braces on the same line. The one change is pointer
+# alignment. gearstick is C and binds the star to the name; this project is
+# C++, where `const Aircraft& a` and `double* out` bind it to the type.
+Language: Cpp
+Standard: c++20
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 88
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+
+AlignConsecutiveMacros: Consecutive
+AlignTrailingComments: true
+
+IndentCaseLabels: false
+SortIncludes: Never          # include order here is layer order, not alphabetical
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1

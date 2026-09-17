@@ -1,0 +1,180 @@
+# Features
+
+**What this file is.** The menu, at the altitude of "what would the player
+notice". It is written so that a feature can be argued about, kept or dropped
+without anybody having to read code, and there is no implementation in it on
+purpose — no data structures, no formats, no function names.
+`REQUIREMENTS.md` is where the design decisions live; `COMPLETION_PLAN.md` is
+where a feature turns into work with a verification attached;
+`PROJECT_STATUS.md` is where it turns into a claim about what actually runs.
+
+Each entry carries one of:
+
+`CORE` — the simulator is not itself without this ·
+`WANTED` — decided in, not yet scheduled ·
+`CANDIDATE` — a good idea nobody has committed to ·
+`DONE` — built, and ticked in `COMPLETION_PLAN.md` with its verification ·
+`OUT` — deliberately rejected, with the reason, so it does not get re-proposed
+
+Nothing is `DONE` yet.
+
+---
+
+## The idea
+
+Fly a real aircraft, in real wind, over the real Earth, with friends — and hand
+the controls to an AI pilot whenever you like, then take them back.
+
+---
+
+## Flying
+
+- **Real flight dynamics.** `CORE`
+  Six degrees of freedom, from a flight model that already flies real aircraft
+  to their published numbers. An aircraft climbs, stalls, glides and turns the
+  way its handbook says it should.
+
+- **Wind and turbulence.** `CORE`
+  The air moves. Crosswinds push you off the centreline and rough air bumps you
+  around.
+
+- **Live weather.** `CORE`
+  The wind and conditions come from real reports for where you are flying, so
+  the weather over an airfield is the weather there today.
+
+- **A choice of aircraft.** `CORE`
+  Starting with a Cessna 172 and going up from there, chosen at the start of a
+  flight. Each looks like the aircraft it flies like.
+
+- **Joysticks, HOTAS and yokes.** `CORE`
+  Proper flight controls on every platform, not only a keyboard.
+
+- **A head-up display.** `CORE`
+  Airspeed, altitude, heading, vertical speed and attitude at a glance.
+
+## The world
+
+- **Anywhere on Earth.** `CORE`
+  Take off from any airfield and fly anywhere; nothing is fenced into a region.
+
+- **Real terrain and imagery with no account.** `CORE`
+  The default scenery works the moment the simulator starts, with no sign-up and
+  no key.
+
+- **The ground is the same for everyone.** `CORE`
+  In a shared session, every player's aircraft touches down on the same ground,
+  wherever each player's scenery comes from.
+
+- **Richer scenery from Cesium ion.** `WANTED`
+  Players with their own Cesium ion token can fly over Cesium World Terrain and
+  imagery instead.
+
+- **Photorealistic cities from Google.** `WANTED`
+  Players with their own Google Maps Platform key, or a Cesium ion token, can
+  fly over Google's photorealistic 3D scenery.
+
+- **Credit where it is due.** `CORE`
+  Whichever scenery is showing, the people who made it are credited on screen.
+
+## AI pilots
+
+- **Hand over the controls, and take them back.** `CORE`
+  Any aircraft, at any moment, in either direction, without a jolt.
+
+- **An autopilot.** `CORE`
+  Hold a heading, an altitude, an airspeed or a climb rate.
+
+- **Flight plans.** `CORE`
+  Follow a route of waypoints from start to finish.
+
+- **AI traffic.** `WANTED`
+  Other aircraft flown by AI pilots share the sky, and keep flying when every
+  player has gone home.
+
+- **A copilot you talk to.** `WANTED`
+  Say "take off, climb to 3,000 ft and orbit the CBD" and the copilot turns it
+  into a plan and flies it. Later, after the autopilot and flight plans are
+  solid.
+
+- **Pilots that learned to fly.** `CANDIDATE`
+  AI trained to land or fly aerobatics rather than programmed to. A stretch
+  goal.
+
+## Flying together
+
+- **Up to four players.** `CORE`
+  Fly in the same sky as three friends, each seeing the others' aircraft move
+  smoothly.
+
+- **Controls that answer immediately.** `CORE`
+  Your aircraft responds on the frame you move the stick, even with the server
+  on the other side of the world.
+
+- **Leaving does not crash the aircraft.** `WANTED`
+  When a player drops out, their aircraft either leaves the sky or an AI pilot
+  takes it over, whichever the session chose.
+
+- **A public server to join.** `WANTED`
+  One option to fly with whoever else is online, with no address to type.
+
+- **Run your own server.** `WANTED`
+  A server anyone can run, with a live window showing who is connected, how
+  well, and what is flying.
+
+## The platform
+
+- **Linux, Windows and macOS.** `CORE`
+  Both families of Linux, 64-bit Windows, and Apple silicon Macs.
+
+- **A download that runs.** `CORE`
+  One file per platform that unpacks and runs in place.
+
+- **A Mac download that opens without a warning.** `WANTED`
+  Signed and notarised, so macOS does not refuse to open it.
+
+- **One Linux download for every distribution.** `WANTED`
+  An AppImage or Flatpak rather than a build per distribution.
+
+---
+
+## Deliberately not
+
+- **Scores, leaderboards and lap times.** `OUT`
+  This is a simulator to fly, not a competition. Everything that would follow
+  from scoring — replays that prove a result, a server that checks it — is
+  weight this project does not need to carry.
+
+- **Rollback and a deterministic simulation.** `OUT`
+  The flight model is floating point and runs on different machines. Making it
+  bit-identical everywhere would cost more than everything it buys, when nothing
+  is being scored.
+
+- **Peer-to-peer play.** `OUT`
+  Every player talks to the server and to nobody else, so there is no need to
+  punch through home routers or relay traffic.
+
+- **A language model flying the aircraft.** `OUT`
+  The copilot plans; the autopilot flies. A model's output never moves a control
+  surface directly.
+
+- **Keys or tokens shipped with the simulator.** `OUT`
+  Commercial scenery is opt-in, with the player's own key, under that provider's
+  terms.
+
+- **OpenGL.** `OUT`
+  Deprecated on macOS and stuck at an old version there.
+
+- **32-bit builds.** `OUT`
+  Every target platform is 64-bit, and none of the dependencies want otherwise.
+
+- **Deciding who sees which aircraft.** `OUT`
+  With at most four players, every player receives every aircraft.
+
+## Open questions
+
+- **How smooth are runways?** The open terrain data is too coarse and too noisy
+  to show a runway as it really is. Whether runways get a smooth surface that
+  follows their real slope, or are left as the data has them, is undecided.
+
+- **Where the free imagery and buildings come from.** The default scenery needs
+  an imagery source and a source of buildings that neither needs an account.

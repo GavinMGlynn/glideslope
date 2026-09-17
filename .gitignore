@@ -1,0 +1,24 @@
+build/
+build-*/
+out/
+compile_commands.json
+.cache/
+.vs/
+.vscode/
+.idea/
+*.o
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.dSYM/
+.DS_Store
+__pycache__/
+
+# Frames written by --shot and the CI smoke tests.
+*.bmp
+
+# Databases a test or a local server left behind, and SQLite's journals.
+*.db
+*.db-wal
+*.db-shm
