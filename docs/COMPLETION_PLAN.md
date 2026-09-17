@@ -68,7 +68,8 @@ because it is built on everything before it.
       and Windows build it for the first time in CI. *Verification:
       `glideslope_cli` loads the Cessna 172 and prints the figures JSBSim read
       from its files, and the layering check still passes.*
-- [ ] **A fixed 120 Hz step with an accumulator.** *Verification: the same
+- [ ] **A fixed 120 Hz step with an accumulator.** **In progress:** proved on
+      Linux; CI proves the other platforms. *Verification: the same
       scripted flight fed its time in small, large and uneven chunks ends in the
       same state.*
 - [ ] **Scripted flight checked against published figures** — take-off roll,

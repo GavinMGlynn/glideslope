@@ -3,6 +3,35 @@
 set(GLIDESLOPE_EXPECT_RUN "${CMAKE_CURRENT_SOURCE_DIR}/cmake/expect_run.cmake")
 
 # ---------------------------------------------------------------------------
+# Unit tests: one executable, one ctest per test, named as sentences. The list
+# below is checked against what the executable holds, both ways.
+# ---------------------------------------------------------------------------
+add_executable(glideslope_tests
+    unit/harness.cpp
+    unit/test_fixed_step.cpp
+    unit/test_flight.cpp)
+target_link_libraries(glideslope_tests PRIVATE glideslope_sim)
+target_compile_definitions(glideslope_tests PRIVATE
+    GLIDESLOPE_TEST_DATA_DIR="${GLIDESLOPE_DATA_DIR}/jsbsim")
+glideslope_configure(glideslope_tests)
+
+set(GLIDESLOPE_UNIT_TESTS
+    the_fixed_step_counts_steps_from_the_total_time_alone
+    the_fixed_step_reports_how_far_it_is_into_the_next_step
+    the_fixed_step_refuses_time_running_backwards
+    the_fixed_step_counts_a_century_without_overflowing
+    a_flight_fed_its_time_in_any_chunks_ends_in_the_same_state
+    the_elevator_pulled_back_pitches_the_nose_up)
+foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
+    add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
+endforeach()
+
+add_test(NAME every_compiled_unit_test_is_registered_with_ctest
+    COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:glideslope_tests>
+        "-DREGISTERED=${GLIDESLOPE_UNIT_TESTS}"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/registered_tests.cmake)
+
+# ---------------------------------------------------------------------------
 # The platform gate, walked in script mode with toolchains described by -D
 # flags - a 32-bit toolchain and old compilers are not things any CI machine
 # has, so they are described rather than installed.

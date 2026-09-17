@@ -1,0 +1,51 @@
+#include "harness.hpp"
+
+#include <cstdio>
+#include <exception>
+
+namespace glideslope::test {
+
+std::vector<TestCase>& registry() {
+    static std::vector<TestCase> tests;
+    return tests;
+}
+
+void fail(const std::string& message, std::source_location where) {
+    throw Failure{std::string(where.file_name()) + ":" + std::to_string(where.line()) +
+                  ": " + message};
+}
+
+} // namespace glideslope::test
+
+// glideslope_tests --list        every test's name, one per line
+// glideslope_tests NAME          run that test; exit 0 if it passes
+int main(int argc, char** argv) {
+    using glideslope::test::registry;
+    if (argc == 2 && std::string_view(argv[1]) == "--list") {
+        for (const auto& t : registry()) {
+            std::printf("%.*s\n", static_cast<int>(t.name.size()), t.name.data());
+        }
+        return 0;
+    }
+    if (argc != 2) {
+        std::fputs("usage: glideslope_tests --list | NAME\n", stderr);
+        return 2;
+    }
+    const std::string_view wanted = argv[1];
+    for (const auto& t : registry()) {
+        if (t.name != wanted) {
+            continue;
+        }
+        try {
+            t.body();
+            return 0;
+        } catch (const glideslope::test::Failure& f) {
+            std::fprintf(stderr, "FAILED %s\n  %s\n", argv[1], f.message.c_str());
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "FAILED %s\n  threw: %s\n", argv[1], e.what());
+        }
+        return 1;
+    }
+    std::fprintf(stderr, "no test named %s\n", argv[1]);
+    return 2;
+}

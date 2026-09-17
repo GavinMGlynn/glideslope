@@ -73,6 +73,7 @@ include(Jsbsim)
 # ---------------------------------------------------------------------------
 add_library(glideslope_sim STATIC
     src/sim/aircraft.cpp
+    src/sim/fixed_step.cpp
     src/sim/version.cpp)
 
 # One include root, so every #include names the layer it crosses:
