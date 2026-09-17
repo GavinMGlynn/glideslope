@@ -134,18 +134,14 @@ because it is built on everything before it.
 
 ## Phase 3 — Weather
 
-- [ ] **METARs from aviationweather.gov.** **Done locally; awaiting CI.**
-      *Verification: a recorded METAR sets the surface wind, temperature and
+- [x] **METARs from aviationweather.gov.** *Verification: a recorded METAR sets the surface wind, temperature and
       pressure it reports.*
-- [ ] **Winds aloft from Open-Meteo.** **Done locally; awaiting CI.**
-      *Verification: a recorded response sets the wind at every level it
+- [x] **Winds aloft from Open-Meteo.** *Verification: a recorded response sets the wind at every level it
       reports, and between levels.*
-- [ ] **Weather in JSBSim's atmosphere, with turbulence.** **Done locally;
-      awaiting CI.** *Verification: an aircraft in a steady crosswind drifts at
+- [x] **Weather in JSBSim's atmosphere, with turbulence.** *Verification: an aircraft in a steady crosswind drifts at
       the rate the wind predicts, and turbulence disturbs it within a stated
       bound when on and not at all when off.*
-- [ ] **Weather that changes during a flight without a jump.** **Done locally;
-      awaiting CI.** *Verification: a new report blends in over a stated
+- [x] **Weather that changes during a flight without a jump.** *Verification: a new report blends in over a stated
       interval with no step in the wind.*
 
 ## Phase 4 — Autopilot and navigation

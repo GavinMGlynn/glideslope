@@ -4,8 +4,8 @@ A multiplayer flight simulator in C++: real flight physics and live wind, flown
 over real-world terrain streamed from the internet. Fly yourself, or hand any
 aircraft to an AI pilot and take it back.
 
-> **Status: Phases 0 and 1 are complete, Phase 2, the world, is under way, and
-> Phase 3, weather, is awaiting CI.** A Cessna 172P flies to its handbook, stands
+> **Status: Phases 0, 1 and 3 are complete, and Phase 2, the world, is under
+> way.** A Cessna 172P flies to its handbook, stands
 > on the real ground anywhere on Earth, and can be flown from the keyboard or a
 > joystick with a HUD, in the weather reported at an airfield now. There is no
 > terrain to see yet: the frame is sky and HUD.

@@ -33,8 +33,8 @@ the Cessna on that ground. The client flies it from the keyboard, joysticks,
 HOTAS and yokes, with a HUD that tests read back out of the frame, and every
 platform's package draws a frame of it on Vulkan, Direct3D 12 or Metal - but the
 frame is sky and HUD: no terrain is drawn, and there is no aircraft model,
-cockpit or server. Weather is done on Linux and awaiting CI: METARs and winds
-aloft, fetched live, into JSBSim's wind, temperature, pressure and turbulence.
+cockpit or server. The weather is real: METARs and winds aloft, fetched live,
+set JSBSim's wind, temperature, pressure and turbulence.
 
 **Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
 else is built on, one line per item, each verified:
@@ -66,7 +66,8 @@ the HUD; the client's test flags; and frames from CI and every package (CI run
 35244380011, package run 35244379942). Not started: Cesium Native drawing the
 terrain, and imagery on it.
 
-**Phase 3, weather, is done on Linux and awaiting CI: 0 of 4 items ticked.**
+**Phase 3, weather, is complete — 4 of 4 items**, proved in CI on every
+platform (run 35250647710) and fetched by every package (run 35248205205):
 METARs from aviationweather.gov; winds aloft from Open-Meteo; both in JSBSim's
 atmosphere, with MIL-F-8785C turbulence; and new reports blended in during a
 flight.
@@ -98,7 +99,10 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Weather: METARs, winds aloft, JSBSim's atmosphere and turbulence, 2026-09-18 — awaiting CI
+### Weather: METARs, winds aloft, JSBSim's atmosphere and turbulence, 2026-09-18 — items done
+
+Proved in CI on every platform (run 35250647710, after the retries below), and
+every package fetched the weather and flew its frame in it (run 35248205205).
 
 **What is missing first:** the weather is one airfield's. A flight is flown in
 the weather reported at the station it names - its METAR at the surface and
