@@ -80,9 +80,8 @@ because it is built on everything before it.
       fresh instance, which flies on from it. *Verification: an instance
       restored mid-flight tracks the original within a stated tolerance, from a
       capture taken in every phase of flight the scripted flights cover.*
-- [ ] **The same-machine replay hash** — `glideslope_cli selftest` flies a fixed
-      input log and prints a state hash. **In progress:** proved on Linux; CI
-      proves the other platforms. *Verification: the hash is identical
+- [x] **The same-machine replay hash** — `glideslope_cli selftest` flies a fixed
+      input log and prints a state hash. *Verification: the hash is identical
       run to run on one build, and a deliberate one-line change to the physics
       moves it.*
 - [ ] **Cross-platform flight checks by tolerance.** *Verification: every CI

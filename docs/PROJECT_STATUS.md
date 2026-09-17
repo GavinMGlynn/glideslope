@@ -47,11 +47,11 @@ else is built on, one line per item, each verified:
 
 Every check above was also made to fail on purpose, and was seen to.
 
-**Phase 1, the feel: 4 of 7 items done** — JSBSim pinned and built, a fixed
+**Phase 1, the feel: 5 of 7 items done** — JSBSim pinned and built, a fixed
 120 Hz step driving it, the Cessna 172P flying to its handbook, and state
-capture and set/resume, all proved on every platform. The replay hash is in
-progress: proved on Linux, waiting on CI. Not yet: cross-platform flight
-checks, and a packaged CLI that flies.
+capture and set/resume, and the selftest's replay hash, all proved on every
+platform. Not yet: cross-platform flight checks, and a packaged CLI that
+flies.
 
 ## Gaps
 
@@ -71,12 +71,13 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The selftest and its hash, 2026-09-17 — Linux so far
+### The selftest and its hash, 2026-09-17
 
-**What is missing first:** the selftest has run on Linux only; CI runs it on the
-other platforms with this commit. Its hash holds on one build: the release and
-sanitized builds on the same machine print different hashes, and different
-platforms are not expected to agree.
+**Proved on every platform.** CI run 35222154134 (commit `3a6ef0c`) passed all
+41 tests in every preset, so on each the hash held run to run and moved when
+the drag did; the `package` workflow (35222154187) passed too. The hash holds
+on one build: the release and sanitized builds on the same machine print
+different hashes, and different platforms are not expected to agree.
 
 **The hash, and the rule that goes with it.** On the development machine
 (Rocky Linux 10, GCC 14.3.1), `linux-release` prints
