@@ -17,12 +17,12 @@ streams and draws; nothing collides with it yet", never "terrain works".
 library that knows its own version and a command-line tool that prints it. There
 is no flight model, no renderer, no terrain and no server.
 
-**Phase 0: 5 of 7 items done** — the build with its presets, CI, the 64-bit
-and compiler gates, warnings as errors, and the check that the simulation links
-no presentation. Every preset configures, builds and passes its tests on its
-own platform in CI. Packaging is in progress: a Linux tarball is made and runs
-unpacked locally, and the workflow that proves all three platforms has not run
-yet. Still to come after it: a final honest pass over these documents.
+**Phase 0: 6 of 7 items done** — the build with its presets, CI, the 64-bit
+and compiler gates, warnings as errors, the check that the simulation links no
+presentation, and packaging. Every preset configures, builds and passes its
+tests on its own platform in CI, and each platform's package runs unpacked
+somewhere other than where it was built. Still to come: a final honest pass
+over these documents.
 
 ## Gaps
 
@@ -39,11 +39,25 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Packaging, 2026-09-17 — Linux, locally
+### Packaging, 2026-09-17
 
-**What is missing first:** the `package` workflow, which builds, unpacks and
-runs the package on every platform, has not run. Only the Linux tarball has
-been made, on the development machine.
+**Proved on every platform.** The `package` workflow's first run on `main`
+(35199775868, commit `4b94984`) passed all five jobs. Each unpacked
+`glideslope_cli --version` printed `glideslope_cli 0.1.0`, matching its file
+name, and each checksum verified:
+
+- the Linux tarball, built on Rocky 9, in stock `rockylinux/rockylinux:9` and
+  `ubuntu:24.04` containers;
+- the macOS tarball, whose program depends on `/usr/lib/libc++.1.dylib` and
+  `/usr/lib/libSystem.B.dylib` only;
+- the Windows zip, whose program depends on `KERNEL32.dll` only.
+
+CI on the same commit (35199775840) was green in all four jobs.
+
+**Watched to fail.** A throwaway branch removed the static runtime line and the
+workflow was run on it by hand (35199809443): the Windows job alone went red,
+with `dumpbin` listing `VCRUNTIME140.dll` and the step saying the packaged
+program depends on the Visual C++ redistributable. The branch was deleted.
 
 `cpack --preset linux-release` (and `macos-release`, `windows-release`) makes
 `glideslope-0.1.0-<platform>.tar.gz` — `.zip` on Windows — with a SHA-256 file
