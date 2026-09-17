@@ -120,7 +120,9 @@ cmake_language(DEFER CALL glideslope_check_sim_links glideslope_sim)
 # weather arrive with the phases that need them. Links no presentation.
 # ---------------------------------------------------------------------------
 add_library(glideslope_world STATIC
-    src/world/geodesy.cpp)
+    src/world/geodesy.cpp
+    src/world/geotiff.cpp
+    src/world/inflate.cpp)
 target_include_directories(glideslope_world PUBLIC src)
 glideslope_configure(glideslope_world)
 

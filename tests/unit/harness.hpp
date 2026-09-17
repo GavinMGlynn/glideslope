@@ -38,6 +38,17 @@ struct Failure {
 [[noreturn]] void fail(const std::string& message,
                        std::source_location where = std::source_location::current());
 
+// Thrown when a test cannot run here - its downloaded data is missing, say.
+// The harness exits 77, which ctest reports as skipped for a test registered
+// with SKIP_RETURN_CODE 77.
+struct Skip {
+    std::string reason;
+};
+
+[[noreturn]] inline void skip(const std::string& reason) {
+    throw Skip{reason};
+}
+
 inline void check(bool condition, std::string_view what,
                   std::source_location where = std::source_location::current()) {
     if (!condition) {

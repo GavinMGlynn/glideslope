@@ -11,12 +11,27 @@ add_executable(glideslope_tests
     unit/test_figures.cpp
     unit/test_fixed_step.cpp
     unit/test_geodesy.cpp
+    unit/test_geotiff.cpp
+    unit/test_inflate.cpp
     unit/test_flight.cpp
     unit/test_restore.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_world)
+# Where tests/cmake/fetch.cmake puts the files the tests download. A directory
+# named by GLIDESLOPE_DOWNLOADS when configuring outlives the build tree, which
+# is how CI keeps them between runs.
+if(DEFINED ENV{GLIDESLOPE_DOWNLOADS})
+    file(TO_CMAKE_PATH "$ENV{GLIDESLOPE_DOWNLOADS}" GLIDESLOPE_DOWNLOADS_DIR)
+    # Relative to the source tree, as CI names it.
+    get_filename_component(GLIDESLOPE_DOWNLOADS_DIR "${GLIDESLOPE_DOWNLOADS_DIR}" ABSOLUTE
+                           BASE_DIR "${PROJECT_SOURCE_DIR}")
+else()
+    set(GLIDESLOPE_DOWNLOADS_DIR "${CMAKE_BINARY_DIR}/downloads")
+endif()
 target_compile_definitions(glideslope_tests PRIVATE
+    GLIDESLOPE_TEST_DOWNLOADS_DIR="${GLIDESLOPE_DOWNLOADS_DIR}"
     GLIDESLOPE_TEST_DATA_DIR="${GLIDESLOPE_DATA_DIR}/jsbsim"
-    GLIDESLOPE_TEST_FIGURES_DIR="${GLIDESLOPE_DATA_DIR}/figures")
+    GLIDESLOPE_TEST_FIGURES_DIR="${GLIDESLOPE_DATA_DIR}/figures"
+    GLIDESLOPE_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
@@ -41,10 +56,33 @@ set(GLIDESLOPE_UNIT_TESTS
     a_snapshot_of_one_model_cannot_be_restored_into_another
     wgs84_reference_points_convert_exactly
     geodetic_positions_round_trip_through_ecef_within_a_millimetre
-    the_geodetic_conversion_agrees_with_jsbsims_within_a_millimetre)
+    the_geodetic_conversion_agrees_with_jsbsims_within_a_millimetre
+    every_zlib_fixture_inflates_to_the_payload_it_was_made_from
+    stored_blocks_of_the_largest_size_inflate
+    a_stream_that_fails_its_checksum_is_refused
+    a_stream_cut_short_at_any_length_is_refused
+    a_stream_that_would_decompress_past_its_limit_is_refused
+    malformed_zlib_headers_and_deflate_blocks_are_refused
+    corrupted_streams_are_refused_or_decoded_without_reading_or_writing_out_of_bounds
+    adler32_gives_the_published_checksums
+    a_geotiff_in_every_layout_the_reader_takes_reads_back_every_sample
+    a_geotiff_the_reader_does_not_take_is_refused_saying_why
+    the_copernicus_dem_tile_south_of_sydney_decodes_to_the_heights_an_independent_decoder_gives)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
+    set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
 endforeach()
+
+# The files the tests download - DEM tiles, the geoid - fetched once, before the
+# tests that read them, and checked against their pinned SHA-256.
+add_test(NAME the_files_the_tests_download_arrive_with_their_pinned_hashes
+    COMMAND ${CMAKE_COMMAND} -DLIST=${CMAKE_CURRENT_SOURCE_DIR}/data/downloads/files.txt
+        -DDIR=${GLIDESLOPE_DOWNLOADS_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch.cmake)
+set_tests_properties(the_files_the_tests_download_arrive_with_their_pinned_hashes
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_SETUP downloads)
+set_tests_properties(
+    the_copernicus_dem_tile_south_of_sydney_decodes_to_the_heights_an_independent_decoder_gives
+    PROPERTIES FIXTURES_REQUIRED downloads)
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
 add_test(NAME the_committed_cessna_172p_is_what_its_tuning_script_makes

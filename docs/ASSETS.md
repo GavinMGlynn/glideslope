@@ -5,9 +5,10 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Two things are used: a Cessna 172P flight model derived from JSBSim's, and
-the Cessna 172P handbook's published figures.** No dataset, imagery, visual
-model, font or sound is used or fetched yet.
+**Three things are used: a Cessna 172P flight model derived from JSBSim's,
+the Cessna 172P handbook's published figures, and the Copernicus DEM**, which
+the tests fetch one tile of and the program reads. No imagery, visual model,
+font or sound is used or fetched yet.
 
 ## The rule
 
@@ -44,6 +45,53 @@ entertainment purposes only."
 | In the repository | `assets/figures/c172p.xml`: individual numbers, each with its section or figure, not the handbook's text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
+### The Copernicus DEM, GLO-30 Public
+
+| | |
+| --- | --- |
+| Source | The Copernicus DEM GLO-30 Public, as Cloud Optimized GeoTIFFs in the AWS Open Data bucket `copernicus-dem-30m` (<https://copernicus-dem-30m.s3.amazonaws.com/readme.html>) |
+| Version | The bucket names no release. Its objects are dated 2022-05-09; each tile's metadata gives its creation as 2019-10-19 and its heights as "WGS 84 Geoid EGM08". What is used is pinned file by file, by SHA-256 |
+| Pinned | `tests/data/downloads/files.txt`: `Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif` (33-34 S, 151-152 E), 20,882,213 bytes, SHA-256 `6e20871096986cd00fc3903ea95670a0d83860236a0e4f1360ac9ac67def485d` |
+| In the repository | Nothing: the tests fetch the tile into the build tree, or the directory `GLIDESLOPE_DOWNLOADS` names |
+| Licence | "Licence for Copernicus DEM instance COP-DEM-GLO-30-F Global 30m Full, Free & Open", published beside each tile as `INFO/eula_F.pdf` (SHA-256 `32049914c37f14e7d53b48d13d74a49e77c030236e2acc7a0df426f9344feba2`). It grants, free of charge, worldwide and without limit in time, "(a) reproduction; (b) distribution; (c) communication to the General Public; (d) adaptation, modification and combination with other data and information." |
+
+Its Article 6, quoted:
+
+> (a) When communicating to the General Public or distributing the Copernicus
+> WorldDEM-30, the User shall inform the General Public of the source by using
+> the following notice: © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH
+> 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights
+> reserved.
+>
+> (b) Where the Copernicus WorldDEM-30 data have been adapted or modified, the
+> User shall provide the following notice: "produced using Copernicus
+> WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH
+> 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights
+> reserved".
+>
+> (c) Users exercising the right of distribution or communication to the General
+> Public of the Copernicus WorldDEM-30, modified or not, must ensure that the
+> Subsequent Users understand that neither the Licensor nor any other legal
+> entities in charge of the Copernicus programme or the delivery of Copernicus
+> data and information under the Copernicus programme may be held liable with
+> regard to any aspect of the Copernicus WorldDEM-30. The following sentence or
+> its translation in any language shall be added by such Users in a licence or
+> any legal warning or notice covering their distribution or communication to
+> the General Public of the Copernicus WorldDEM-30: "The organisations in charge
+> of the Copernicus programme by law or by delegation do not incur any liability
+> for any use of the Copernicus WorldDEM-30".
+>
+> (d) User shall make sure not to convey the impression to the General Public
+> that the user's activities are officially endorsed by the Provider, the
+> Licensor or any other legal entities in charge of the Copernicus programme or
+> the delivery of Copernicus data and information under the Copernicus
+> programme.
+
+**What that asks of glideslope:** nothing is redistributed yet, so no notice is
+shown yet. When the client draws terrain from the DEM, or the server serves
+heights from it, notice (a) is shown with the terrain's attribution, and (c)'s
+sentence goes in the documentation that ships with the program.
+
 ## Planned sources
 
 These are named in `REQUIREMENTS.md`. Their entries are filled in when they are
@@ -52,7 +100,6 @@ first used.
 | Source | For | Phase | Terms known now |
 | --- | --- | --- | --- |
 | Further JSBSim aircraft models | Flight dynamics | 5 | Recorded per model, as above |
-| Copernicus DEM | Collision terrain and default visual terrain | 2 | To be recorded |
 | Open imagery | Default visual imagery | 2 | Source not yet chosen |
 | OpenStreetMap | Buildings | Tail | ODbL; source of the building data not yet chosen |
 | aviationweather.gov | METARs | 3 | To be recorded |

@@ -39,6 +39,9 @@ int main(int argc, char** argv) {
         try {
             t.body();
             return 0;
+        } catch (const glideslope::test::Skip& s) {
+            std::fprintf(stderr, "SKIPPED %s\n  %s\n", argv[1], s.reason.c_str());
+            return 77;
         } catch (const glideslope::test::Failure& f) {
             std::fprintf(stderr, "FAILED %s\n  %s\n", argv[1], f.message.c_str());
         } catch (const std::exception& e) {

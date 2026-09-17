@@ -106,7 +106,10 @@ because it is built on everything before it.
       both distant mountains and a nearby aircraft draws with no z-fighting at
       either.*
 - [ ] **The Copernicus DEM, read directly** from its GeoTIFF files at a pinned
-      version, with a height query anywhere on Earth. *Verification: heights at
+      version, with a height query anywhere on Earth. **In progress:** the
+      GeoTIFF reader and its DEFLATE decoder, proved against an independent
+      decode of one real tile; no geoid, no fetching and no height query yet.
+      *Verification: heights at
       surveyed points — summits, coastlines, airfields — match within the
       dataset's stated accuracy, and the version and hash are in `ASSETS.md`.*
 - [ ] **Collision terrain in the simulation.** *Verification: an aircraft set

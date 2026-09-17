@@ -22,3 +22,6 @@ __pycache__/
 *.db
 *.db-wal
 *.db-shm
+
+# Files the tests download, when GLIDESLOPE_DOWNLOADS puts them here (CI does)
+.downloads/
