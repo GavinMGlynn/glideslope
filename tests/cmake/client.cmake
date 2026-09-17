@@ -7,11 +7,16 @@
 # puts what it printed in <out-var>.
 #
 # **Leaks, in the sanitized build.** A GPU driver or windowing library that
-# the client loads at run time can leak, and is unloaded before the process
-# exits, so LeakSanitizer reports allocations whose every frame is in a shared
-# library or a module it can no longer name. Those are reported and ignored.
-# A leak with any frame in the client itself - glideslope's code or SDL's,
-# which is linked in - fails the test.
+# the client loads at run time can leak - Xlib keeps its resource database and
+# input method, Mesa a worker thread's state - and is unloaded before the
+# process exits. What decides whose leak it is is who allocated it: the first
+# frame of the stack outside the sanitizer's and the C and C++ runtimes' - a
+# frame LeakSanitizer could name, since frames of an unloaded library are
+# sometimes mislabelled as the sanitizer's, at offsets far past its end. If
+# that frame is in a shared library, or a module LeakSanitizer can no longer
+# name, the leak is the library's, reported and ignored, even when glideslope or
+# SDL called the library. If it is in the client itself - glideslope's code,
+# SDL's, or a standard container inlined into either - the test fails.
 
 function(glideslope_client out)
     # Leaks are judged below rather than by LeakSanitizer's exit code.
@@ -28,6 +33,7 @@ function(glideslope_client out)
     string(REPLACE "\n" ";" _lines "${_text}")
     set(_block "")
     set(_ours OFF)
+    set(_decided OFF)
     set(_foreign 0)
     set(_report "")
     foreach(_line IN LISTS _lines)
@@ -39,12 +45,17 @@ function(glideslope_client out)
             endif()
             set(_block "${_line}\n")
             set(_ours OFF)
+            set(_decided OFF)
         elseif(NOT _block STREQUAL "" AND _line MATCHES "^ *#([0-9]+) ")
             string(APPEND _block "${_line}\n")
-            if(NOT CMAKE_MATCH_1 EQUAL 0
-               AND NOT _line MATCHES "\\(<unknown module>\\) *$"
-               AND NOT _line MATCHES "\\(/[^()]*\\.so[.0-9]*\\+0x[0-9a-f]+\\)")
-                set(_ours ON)
+            if(NOT _decided AND NOT CMAKE_MATCH_1 EQUAL 0
+               AND NOT (_line MATCHES " in [^ ]"
+                        AND _line MATCHES "libsanitizer|libasan|liblsan|libubsan|libstdc\\+\\+|libc\\+\\+|/libc\\.so|libgcc_s"))
+                set(_decided ON)
+                if(NOT _line MATCHES "\\(<unknown module>\\) *$"
+                   AND NOT _line MATCHES "\\(/[^()]*\\.so[.0-9]*\\+0x[0-9a-f]+\\)")
+                    set(_ours ON)
+                endif()
             endif()
         endif()
     endforeach()
@@ -57,7 +68,7 @@ function(glideslope_client out)
         message(FATAL_ERROR "glideslope ${ARGN} leaked, with frames in glideslope:\n${_report}")
     endif()
     if(_foreign GREATER 0)
-        message(STATUS "${_foreign} leak reports lie wholly inside libraries loaded at run time; not glideslope's")
+        message(STATUS "${_foreign} leak reports were allocated by libraries loaded at run time; not glideslope's")
     endif()
     set(${out} "${_out}" PARENT_SCOPE)
 endfunction()

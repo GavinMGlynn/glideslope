@@ -227,6 +227,38 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with: { arch: x64 }
 
+      # Windows runners have no GPU, and no Vulkan loader or driver. Direct3D 12
+      # draws on WARP, which Windows has; Vulkan gets what the Linux jobs draw
+      # on: Mesa's lavapipe, from mesa-dist-win, and the Khronos loader from
+      # LunarG's runtime components. Each download is pinned by SHA-256.
+      - name: Install a software Vulkan driver
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $dir = Join-Path $env:RUNNER_TEMP 'vulkan'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          function Fetch($url, $file, $sha256) {
+            Invoke-WebRequest -Uri $url -OutFile $file
+            $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+            if ($actual -ne $sha256) { throw "$url is $actual, expected $sha256" }
+          }
+          Fetch 'https://github.com/pal1000/mesa-dist-win/releases/download/26.2.0/mesa3d-26.2.0-release-msvc.7z' `
+                "$dir\mesa.7z" 'dcb2719ef346dab5b609fcb193a5f13cfc4b0502e3f4de1ad43d349477402f47'
+          Fetch 'https://sdk.lunarg.com/sdk/download/1.4.357.0/windows/VulkanRT-X64-1.4.357.0-Components.zip' `
+                "$dir\runtime.zip" 'a14672efed15aafc7f5a16572d35cd3a3416eadf670aeee3cdf50ee32d5fbf83'
+          7z e "$dir\mesa.7z" "-o$dir" 'x64\vulkan_lvp.dll' 'x64\lvp_icd.x86_64.json' -y | Out-Null
+          7z e "$dir\runtime.zip" "-o$dir" 'VulkanRT-X64-1.4.357.0-Components\x64\vulkan-1.dll' -y | Out-Null
+          foreach ($f in 'vulkan_lvp.dll', 'lvp_icd.x86_64.json', 'vulkan-1.dll') {
+            if (-not (Test-Path "$dir\$f")) {
+              7z l "$dir\mesa.7z" | Select-String 'lvp|vulkan'
+              throw "$f was not in the archive where expected"
+            }
+          }
+          "VK_DRIVER_FILES=$dir\lvp_icd.x86_64.json" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          $dir | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          Get-Content "$dir\lvp_icd.x86_64.json"
+
       - name: windows-debug - configure, build, test
         shell: cmd
         run: |

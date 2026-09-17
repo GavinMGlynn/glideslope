@@ -77,11 +77,18 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Shaders, reversed depth and the floating origin, 2026-09-17 — Vulkan only
+### Shaders, reversed depth and the floating origin, 2026-09-17
 
-**What is missing first:** everything here is proved on Vulkan on Linux alone.
-Metal and Direct3D 12 have not yet run a shader, a depth buffer or a mesh; CI
-tries them with this commit. The meshes are coloured boxes and quads standing
+**CI run 35229869171 said:** Metal on macOS and Direct3D 12 (WARP) on Windows
+pass every frame test - sky, window, reversed depth, floating origin - in every
+preset, and Rocky 9 passes. Ubuntu's sanitized build failed on the leak rule
+(below), and Vulkan on Windows could not start: the runner has no Vulkan loader
+or driver. CI now installs Mesa's lavapipe from mesa-dist-win 26.2.0 and the
+Khronos loader from LunarG's 1.4.357.0 runtime components, each pinned by
+SHA-256.
+
+**What was missing first, before that run:** everything here was proved on
+Vulkan on Linux alone. The meshes are coloured boxes and quads standing
 in for mountains and an aircraft, drawn by one unlit pipeline. There is no
 terrain, no texture and no culling.
 
@@ -121,11 +128,17 @@ kept when greater. The client has `--scene sky|origin|depth` and
   constants and a GLSL error each fail with the reason.
 
 **Leaks, judged rather than switched off.** Mesa's lavapipe leaks two small
-allocations on a worker thread when it builds a pipeline, and the X11 libraries
-behind a window leak more; both are unloaded before exit, so LeakSanitizer can
-name none of their frames. `tests/cmake/client.cmake` reads the leak report and
-fails a test only for a leak with a frame in glideslope or SDL. The windowed
-test no longer runs with leak detection off.
+allocations on a worker thread when it builds a pipeline, and Xlib, behind a
+window, keeps its resource database and input method; both are unloaded before
+exit. `tests/cmake/client.cmake` reads the leak report and judges each leak by
+who allocated it - the first frame outside the sanitizer and the C and C++
+runtimes: a leak allocated in glideslope or SDL fails the test, one allocated
+inside a library loaded at run time does not, even when SDL called it. The
+first CI run judged by any frame in SDL, and Ubuntu's Xlib, which keeps frame
+pointers, failed it; the Ubuntu report was replayed through the new rule and
+all 105 of its leaks were judged Xlib's, and a `new int[1000]` and a leaked
+`std::string` in `main` still failed. The windowed test no longer runs with
+leak detection off.
 
 **Watched to fail:**
 - positions narrowed to float before the camera offset was taken: the equator,
