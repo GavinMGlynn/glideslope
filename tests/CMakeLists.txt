@@ -174,6 +174,12 @@ foreach(_case steady physics-change bad-log)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/selftest_hash.cmake)
 endforeach()
 
+add_test(NAME the_cross_platform_check_accepts_platforms_that_agree_and_refuses_one_that_does_not
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DROOT=${PROJECT_SOURCE_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/cross-platform
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cross_platform_check.cmake)
+
 add_test(NAME the_cli_refuses_a_selftest_for_an_aircraft_with_no_log
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=selftest no_such_aircraft" -DEXIT=1

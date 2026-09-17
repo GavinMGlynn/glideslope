@@ -67,6 +67,17 @@ jobs:
           cmake --build --preset linux-release
           ctest --preset linux-release
 
+      # For the cross-platform job at the end: what this platform's release
+      # build flies. See tests/cmake/cross_platform_flights.cmake.
+      - name: Flights for the cross-platform check
+        run: |
+          mkdir -p flights
+          ./build/linux-release/glideslope_cli figures c172p > flights/ubuntu-gcc.figures.txt
+          ./build/linux-release/glideslope_cli selftest > flights/ubuntu-gcc.selftest.txt
+          cat flights/*
+      - uses: actions/upload-artifact@v4
+        with: { name: flights-ubuntu-gcc, path: flights/, if-no-files-found: error }
+
   linux-rhel:
     name: Linux x86_64 (GCC 14, Rocky 9)
     runs-on: ubuntu-latest
@@ -118,6 +129,15 @@ jobs:
           cmake --build --preset linux-release
           ctest --preset linux-release
 
+      - name: Flights for the cross-platform check
+        run: |
+          mkdir -p flights
+          ./build/linux-release/glideslope_cli figures c172p > flights/rocky-gcc.figures.txt
+          ./build/linux-release/glideslope_cli selftest > flights/rocky-gcc.selftest.txt
+          cat flights/*
+      - uses: actions/upload-artifact@v4
+        with: { name: flights-rocky-gcc, path: flights/, if-no-files-found: error }
+
   macos:
     name: macOS arm64 (AppleClang)
     runs-on: macos-15
@@ -150,6 +170,15 @@ jobs:
           cmake --preset macos-release
           cmake --build --preset macos-release
           ctest --preset macos-release
+
+      - name: Flights for the cross-platform check
+        run: |
+          mkdir -p flights
+          ./build/macos-release/glideslope_cli figures c172p > flights/macos-appleclang.figures.txt
+          ./build/macos-release/glideslope_cli selftest > flights/macos-appleclang.selftest.txt
+          cat flights/*
+      - uses: actions/upload-artifact@v4
+        with: { name: flights-macos-appleclang, path: flights/, if-no-files-found: error }
 
   windows:
     name: Windows x64 (MSVC and clang-cl)
@@ -189,3 +218,36 @@ jobs:
           cmake --preset windows-clang || exit /b 1
           cmake --build --preset windows-clang || exit /b 1
           ctest --preset windows-clang || exit /b 1
+
+      - name: Flights for the cross-platform check
+        shell: cmd
+        run: |
+          mkdir flights
+          build\windows-release\glideslope_cli.exe figures c172p > flights\windows-msvc.figures.txt || exit /b 1
+          build\windows-release\glideslope_cli.exe selftest > flights\windows-msvc.selftest.txt || exit /b 1
+          build\windows-clang\glideslope_cli.exe figures c172p > flights\windows-clang-cl.figures.txt || exit /b 1
+          build\windows-clang\glideslope_cli.exe selftest > flights\windows-clang-cl.selftest.txt || exit /b 1
+          type flights\*
+      - uses: actions/upload-artifact@v4
+        with: { name: flights-windows, path: flights/, if-no-files-found: error }
+
+  # ---------------------------------------------------------------------------
+  # The same flights everywhere.
+  #
+  # The simulation is floating point and the machines differ, so the selftest's
+  # hash is not compared across them. What is compared is what the aircraft does:
+  # every published figure within 1% across every platform, and the five-minute
+  # selftest ending in the same place within stated tolerances. See
+  # tests/cmake/cross_platform_flights.cmake.
+  # ---------------------------------------------------------------------------
+  cross-platform:
+    name: The same flights everywhere
+    needs: [linux-debian, linux-rhel, macos, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with: { pattern: flights-*, path: flights, merge-multiple: true }
+      - name: Compare
+        run: cmake -DDIR=flights -P tests/cmake/cross_platform_flights.cmake

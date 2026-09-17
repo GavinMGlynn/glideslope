@@ -84,7 +84,9 @@ because it is built on everything before it.
       input log and prints a state hash. *Verification: the hash is identical
       run to run on one build, and a deliberate one-line change to the physics
       moves it.*
-- [ ] **Cross-platform flight checks by tolerance.** *Verification: every CI
+- [ ] **Cross-platform flight checks by tolerance.** **In progress:** the
+      comparison and its test exist; its first CI run is the first time the
+      platforms are compared. *Verification: every CI
       platform flies the same scripted inputs and agrees with the published
       figures, and with the other platforms, within stated tolerances.*
 - [ ] **The packaged CLI flies.** *Verification: the `package` workflow runs

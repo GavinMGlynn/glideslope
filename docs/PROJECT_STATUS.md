@@ -50,7 +50,8 @@ Every check above was also made to fail on purpose, and was seen to.
 **Phase 1, the feel: 5 of 7 items done** — JSBSim pinned and built, a fixed
 120 Hz step driving it, the Cessna 172P flying to its handbook, and state
 capture and set/resume, and the selftest's replay hash, all proved on every
-platform. Not yet: cross-platform flight checks, and a packaged CLI that
+platform. Cross-platform flight checks are in progress: written and tested
+locally, never yet run across the platforms. Not yet: a packaged CLI that
 flies.
 
 ## Gaps
@@ -70,6 +71,37 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### Cross-platform flight checks, 2026-09-17 — not yet run across platforms
+
+**What is missing first:** the platforms have never been compared. This commit's
+CI run is the first; until it passes, nothing here says the platforms fly
+alike.
+
+**The tolerances, set before any cross-platform number was seen:** every one of
+the nine published figures within 1% of its published value across all five
+release builds, ten times tighter than the handbook ranges; and the five-minute
+selftest ending within 300 ft horizontally, 30 ft vertically, 1 kt and 2° of
+heading of the first platform's. The selftest's hash is not compared: the
+machines are expected to differ in the last bits.
+
+**How.** Each CI job now runs `glideslope_cli figures c172p` and
+`glideslope_cli selftest` on its release build — GCC on Ubuntu and on Rocky 9,
+AppleClang, MSVC and clang-cl — and uploads what they print. A new job, "The
+same flights everywhere", needs all four jobs, downloads the five results, and
+runs `tests/cmake/cross_platform_flights.cmake`, which names the five platforms
+and fails if any is missing.
+
+**Its test** —
+`the_cross_platform_check_accepts_platforms_that_agree_and_refuses_one_that_does_not`
+— makes five platforms from this build's own output. Identical, with one
+platform's climb rate 0.3% higher, they must be accepted; a glide ratio 1.9%
+higher on one, the selftest ending 400 ft north on one, and one platform's
+figures missing must each be refused. **Watched to fail for the right reasons:**
+the first version of the test moved the glide ratio from 9.38 to 956 instead of
+9.56, and the check refused it — correctly, but for a gross error rather than
+the 2% it claimed to test. With the arithmetic fixed, each refusal's message
+names the glide ratio's platforms, the 400 ft, and the missing platform.
 
 ### The selftest and its hash, 2026-09-17
 
