@@ -46,11 +46,10 @@ else is built on, one line per item, each verified:
 
 Every check above was also made to fail on purpose, and was seen to.
 
-**Phase 1, the feel: 3 of 7 items done** — JSBSim pinned and built, a fixed
-120 Hz step driving it, and the Cessna 172P flying to its handbook, all proved
-on every platform. State capture and set/resume is in progress: proved on
-Linux, waiting on CI. Not yet: the replay hash, cross-platform flight checks,
-and a packaged CLI that flies.
+**Phase 1, the feel: 4 of 7 items done** — JSBSim pinned and built, a fixed
+120 Hz step driving it, the Cessna 172P flying to its handbook, and state
+capture and set/resume, all proved on every platform. Not yet: the replay hash,
+cross-platform flight checks, and a packaged CLI that flies.
 
 ## Gaps
 
@@ -70,12 +69,13 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### State capture and set/resume, 2026-09-17 — Linux so far
+### State capture and set/resume, 2026-09-17
 
-**What is missing first:** these tests have run on Linux only; CI runs them on
-the other platforms with this commit. A restore settles JSBSim's hidden states
-over two simulated seconds rather than setting them, so it is close, not exact,
-and costs about 240 steps of the flight model each time.
+**Proved on every platform.** CI run 35221060150 (commit `7050a3f`) passed all
+37 tests in every preset, the tracking tests among them. A restore settles
+JSBSim's hidden states over two simulated seconds rather than setting them, so
+it is close, not exact, and costs about 240 steps of the flight model each
+time.
 
 **The key technical risk of the design is answered: an aircraft can be put into
 a captured state and flies on as the original does.** Restored into a fresh
