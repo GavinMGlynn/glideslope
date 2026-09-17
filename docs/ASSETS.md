@@ -5,11 +5,12 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Four things are used: a Cessna 172P flight model derived from JSBSim's,
-the Cessna 172P handbook's published figures, the Copernicus DEM, and the
-EGM2008 geoid grid** - the last two fetched by the tests and read by the
-program, not committed. No imagery, visual model, font or sound is used or
-fetched yet.
+**Six things are used: a Cessna 172P flight model derived from JSBSim's,
+the Cessna 172P handbook's published figures, the Copernicus DEM, the EGM2008
+geoid grid, METARs from aviationweather.gov and winds aloft from Open-Meteo** -
+the DEM and the geoid fetched by the tests and read by the program, the weather
+fetched when it is asked for, with one recorded response of each committed for
+the tests. No imagery, visual model, font or sound is used or fetched yet.
 
 ## The rule
 
@@ -143,6 +144,67 @@ is PROJ's, about the same model.
 | Summits | The US National Geodetic Survey's datasheets for triangulation stations GT1811, KL0637, FQ0624, GM0779 and CD0994 (`https://geodesy.noaa.gov/api/nde/pid?pid=<PID>`), read 2026-09-18: adjusted NAD 83 positions and NAVD 88 heights. Works of the United States government |
 | Coastal waters | Positions chosen off coasts, whose height is sea level by definition |
 
+### METARs from aviationweather.gov
+
+| | |
+| --- | --- |
+| Source | The Aviation Weather Center's Data API, of the US National Weather Service (NOAA): `https://aviationweather.gov/api/data/metar?ids=<ICAO>&format=json`, documented at <https://aviationweather.gov/data/api/> |
+| Version | None: a METAR is the latest observation. What the program reads is each report's raw text (`rawOb`), with the station's position and elevation |
+| In the repository | `tests/data/weather/aviationweather-metars-2026-09-17T1600Z.json`: one response, fetched 2026-09-17 at about 16:08 UTC, for CYYZ, EGLL, KBOS, KDEN, NZCH, PABR, SCCI, UUEE, YSSY and ZBAA, unmodified |
+| Use | `world/weather.hpp`: the surface wind, temperature and QNH a flight's weather starts from; `glideslope_cli weather STATION`; `glideslope --weather STATION` |
+| Licence | **Public domain**, as National Weather Service information. The API page's "Disclaimer" link is <https://www.weather.gov/disclaimer>; see below |
+| Credit | Not required. `glideslope_cli weather` names the source; nothing presents the data as official NWS material |
+
+The National Weather Service's disclaimer, read 2026-09-17, quoted:
+
+> The information on National Weather Service (NWS) Web pages are in the public
+> domain, unless specifically noted otherwise, and may be used without charge
+> for any lawful purpose so long as you do not: 1) claim it is your own (e.g.,
+> by claiming copyright for NWS information -- see below), 2) use it in a
+> manner that implies an endorsement or affiliation with NOAA/NWS, or 3) modify
+> its content and then present it as official government material.
+
+The Data API page's own guidelines, quoted, which the program keeps to - it
+sends its own User-Agent, and asks for one station when a flight starts and
+every fifteen minutes after:
+
+> Set a custom user agent to prevent automated filtering inadvertently blocking
+> valid traffic. Consider product update frequency. For example most METARs
+> update once per hour and TCF is issued every other hour. Wait between
+> consecutive requests — maximum 100 requests per minute. Exceeding request
+> limits will result in access being blocked.
+
+### Winds aloft from Open-Meteo
+
+| | |
+| --- | --- |
+| Source | Open-Meteo's free forecast API, `https://api.open-meteo.com/v1/forecast`, asking for wind speed, wind direction, temperature and geopotential height on 19 pressure levels from 1000 to 30 hPa, hourly, for one day (`world::open_meteo_url`) |
+| Version | None: the forecast for the hour asked for. Open-Meteo combines national weather services' models, chosen per place |
+| In the repository | `tests/data/weather/open-meteo-sydney-2026-09-17.json`: one response for -33.9461, 151.1772 (the grid point -33.919155, 151.1596), 2026-09-17 00:00 to 23:00 UTC, fetched 2026-09-17, unmodified |
+| Use | `world/winds_aloft.hpp`: the wind and temperature above the surface; `glideslope_cli weather STATION`; `glideslope --weather STATION` |
+| Licence | **CC BY 4.0**, with Open-Meteo's terms for the free API: non-commercial use only, and under 10,000 calls a day. This project is free software with no subscriptions or advertising; a server run for profit would need Open-Meteo's commercial API |
+| Credit | **"Weather data by Open-Meteo.com"**, with a link to <https://open-meteo.com/>. `glideslope_cli weather` prints it with the link and the licence; the client's HUD shows it along the bottom whenever the flight is in reported weather (`world::open_meteo_credit`); this entry credits the recorded response. Changes made: the levels' geopotential heights are converted to geometric heights, and winds from speed and direction to north and east components |
+
+Open-Meteo's terms (<https://open-meteo.com/en/terms>), read 2026-09-17, quoted:
+
+> By using the Free API for non-commercial use you agree to following terms:
+> Less than 10'000 API calls per day, 5'000 per hour and 600 per minute. You
+> may only use the free API services for non-commercial purposes. You accept to
+> the CC-BY 4.0 licence, as specified in the licence conditions.
+
+Its licence page (<https://open-meteo.com/en/licence>), quoted:
+
+> API data are offered under Attribution 4.0 International (CC BY 4.0) [...]
+> Attribution: You must give appropriate credit, provide a link to the licence,
+> and indicate if changes were made. You may do so in any reasonable manner,
+> but not in any way that suggests the licensor endorses you or your use. You
+> must include a link next to any location Open-Meteo data are displayed, for
+> example: `<a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>`
+
+A HUD cannot hold a link; the client shows the credit's text on screen and
+prints it with the link when the flight's weather is fetched, as
+`glideslope_cli weather` does.
+
 ## Planned sources
 
 These are named in `REQUIREMENTS.md`. Their entries are filled in when they are
@@ -153,8 +215,6 @@ first used.
 | Further JSBSim aircraft models | Flight dynamics | 5 | Recorded per model, as above |
 | Open imagery | Default visual imagery | 2 | Source not yet chosen |
 | OpenStreetMap | Buildings | Tail | ODbL; source of the building data not yet chosen |
-| aviationweather.gov | METARs | 3 | To be recorded |
-| Open-Meteo | Winds aloft | 3 | The free API is for non-commercial use only |
 | FlightGear aircraft | Visual models | 5 | Mostly GPL; checked per model |
 | Cesium ion | Optional visual terrain and imagery | 5b | The user's own account and terms |
 | Google Photorealistic 3D Tiles | Optional visual scenery | 5b | The user's own key or Cesium ion token, and Google's terms |

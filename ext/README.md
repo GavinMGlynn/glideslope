@@ -74,10 +74,13 @@ The aircraft files JSBSim reads at run time are made from this submodule's by
 ## Expected, from `REQUIREMENTS.md`
 
 - **Cesium Native** — terrain and imagery streaming, Phase 2.
-- **A JSON library** — weather, Phase 3. (HTTPS is not a dependency: see
-  `src/platform/http.hpp` and `REQUIREMENTS.md`.)
 - **SDL_net and libsodium** — the transport, Phase 6.
 - **SQLite** — server storage, Phase 6.
+
+Two expected dependencies turned out not to be: HTTPS goes through each
+system's own client (`src/platform/http.hpp`), and the weather's JSON is read by
+a parser written here (`src/world/json.hpp`); both decisions are recorded in
+`REQUIREMENTS.md`.
 
 Each is added when the phase that needs it starts, and not before: a dependency
 nothing links is still a dependency to build, pin and keep current on three

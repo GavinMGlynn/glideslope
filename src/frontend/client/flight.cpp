@@ -3,7 +3,9 @@
 #include "sim/terrain.hpp"
 #include "world/download.hpp"
 #include "world/geodesy.hpp"
+#include "world/winds_aloft.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
@@ -36,9 +38,9 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     }
     coverage_ = std::make_unique<world::DemCoverage>(
         std::string(std::istreambuf_iterator<char>(coverage_file), {}));
-    const world::Fetch fetch = world::http_fetch();
-    tiles_ = std::make_unique<world::DownloadedTiles>(cache, fetch);
-    geoid_ = std::make_unique<world::Geoid>(world::egm2008_geoid(cache, fetch));
+    fetch_ = world::http_fetch();
+    tiles_ = std::make_unique<world::DownloadedTiles>(cache, fetch_);
+    geoid_ = std::make_unique<world::Geoid>(world::egm2008_geoid(cache, fetch_));
     dem_ = std::make_shared<world::Dem>(*coverage_, *tiles_, geoid_.get());
 
     aircraft_ = std::make_unique<sim::Aircraft>(data / "jsbsim", "c172p");
@@ -55,12 +57,50 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     ic.airspeed_kts = start.airspeed_kts;
     ic.engine_running = true;
     aircraft_->initialize(ic);
+
+    if (!start.weather_station.empty()) {
+        weather_station_ = start.weather_station;
+        weather_ = std::make_shared<world::ReportedWeather>(
+            world::fetch_weather(weather_station_,
+                                 world::utc_hour(std::chrono::system_clock::now()),
+                                 fetch_),
+            geoid_.get(), weather_blend_seconds);
+        aircraft_->set_weather(weather_);
+    }
 }
 
 void Flight::step(const sim::Controls& controls) {
     aircraft_->set_controls(controls);
     aircraft_->step();
     ++tick_;
+    if (weather_) {
+        refresh_weather();
+    }
+}
+
+void Flight::refresh_weather() {
+    const double now = aircraft_->state().sim_time_s;
+    if (next_weather_.valid()) {
+        if (next_weather_.wait_for(std::chrono::seconds(0)) !=
+            std::future_status::ready) {
+            return;
+        }
+        try {
+            weather_->update(next_weather_.get(), now);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "glideslope: the weather is not updated: %s\n",
+                         e.what());
+        }
+        weather_fetched_at_s_ = now;
+        return;
+    }
+    if (now - weather_fetched_at_s_ >= weather_refresh_seconds) {
+        next_weather_ = std::async(
+            std::launch::async, [station = weather_station_, fetch = fetch_] {
+                return world::fetch_weather(
+                    station, world::utc_hour(std::chrono::system_clock::now()), fetch);
+            });
+    }
 }
 
 gfx::Camera Flight::camera() const {
@@ -107,6 +147,9 @@ gfx::HudReadings Flight::hud() const {
     r.vertical_speed_fpm = s.climb_rate_fpm;
     r.pitch_deg = s.pitch_deg;
     r.roll_deg = s.roll_deg;
+    if (weather_) {
+        r.credit = world::open_meteo_credit;
+    }
     return r;
 }
 
@@ -115,11 +158,13 @@ std::string Flight::trace() const {
     char line[400];
     std::snprintf(line, sizeof line,
                   "trace tick %lld time %.4f lat %.7f lon %.7f alt_ft %.3f agl_ft %.3f "
-                  "kcas %.3f heading %.3f vs_fpm %.3f pitch %.3f roll %.3f",
+                  "kcas %.3f heading %.3f vs_fpm %.3f pitch %.3f roll %.3f "
+                  "wind_north_fps %.3f wind_east_fps %.3f",
                   static_cast<long long>(tick_), s.sim_time_s, s.latitude_deg,
                   s.longitude_deg, s.altitude_ft, s.height_above_ground_ft,
                   s.airspeed_kts, s.heading_deg, s.climb_rate_fpm, s.pitch_deg,
-                  s.roll_deg);
+                  s.roll_deg, aircraft_->property("atmosphere/wind-north-fps"),
+                  aircraft_->property("atmosphere/wind-east-fps"));
     return line;
 }
 

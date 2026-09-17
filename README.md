@@ -4,11 +4,11 @@ A multiplayer flight simulator in C++: real flight physics and live wind, flown
 over real-world terrain streamed from the internet. Fly yourself, or hand any
 aircraft to an AI pilot and take it back.
 
-> **Status: Phases 0 and 1 are complete, and Phase 2, the world, is under way.**
-> A Cessna 172P flies to its handbook with a test pilot at the controls; the
-> renderer draws test scenes on Vulkan, Direct3D 12 and Metal; and the ground's
-> height is known anywhere on Earth. There is no terrain to see and nothing to
-> fly by hand yet.
+> **Status: Phases 0 and 1 are complete, Phase 2, the world, is under way, and
+> Phase 3, weather, is awaiting CI.** A Cessna 172P flies to its handbook, stands
+> on the real ground anywhere on Earth, and can be flown from the keyboard or a
+> joystick with a HUD, in the weather reported at an airfield now. There is no
+> terrain to see yet: the frame is sky and HUD.
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the single source of
 > truth for what works, with the gaps named first.
 
@@ -40,13 +40,16 @@ What the build makes, today:
 glideslope_cli figures c172p            # fly the Cessna's published figures
 glideslope_cli selftest                 # a five-minute flight, and its hash
 glideslope_cli height -33.9461 151.1772 # the ground's height, from the DEM
-glideslope --scene origin               # a test scene, in a window
+glideslope_cli weather YSSY             # the weather at Sydney airport now
+glideslope --weather YSSY               # fly from over Sydney, in its weather
+glideslope --screen origin              # a test scene, in a window
 ```
 
 `cpack --preset linux-release` (or `macos-release`, `windows-release`) makes a
-package that runs from wherever it is unpacked. Terrain data is downloaded when
-first needed, into the user's cache directory (or `GLIDESLOPE_CACHE`); on Linux
-that needs the system's libcurl, which almost every distribution has.
+package that runs from wherever it is unpacked. Terrain data and weather are
+downloaded when first needed, terrain into the user's cache directory (or
+`GLIDESLOPE_CACHE`); on Linux that needs the system's libcurl, which almost
+every distribution has.
 
 ## The documents
 

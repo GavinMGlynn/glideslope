@@ -6,7 +6,7 @@
 //
 //   glideslope [--headless] [--gpu-driver NAME] [--size WxH]
 //              [--screen flight|sky|origin|depth]
-//              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]
+//              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z] [--weather STATION]
 //              [--shot FILE] [--shot-at TICK] [--trace]
 //
 // Test flags. --shot writes the frame drawn at simulation tick --shot-at
@@ -24,11 +24,13 @@
 #include "sim/fixed_step.hpp"
 #include "sim/version.hpp"
 #include "world/geodesy.hpp"
+#include "world/weather.hpp"
 
 #include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <charconv>
 #include <chrono>
 #include <cstdint>
@@ -58,6 +60,7 @@ struct Options {
     std::string screen = "flight";
     std::optional<glideslope::world::Geodetic> at;
     std::optional<glideslope::world::Ecef> at_ecef;
+    std::string weather_station;
 };
 
 void usage(std::FILE* out) {
@@ -65,6 +68,7 @@ void usage(std::FILE* out) {
         "usage: glideslope [--headless] [--gpu-driver vulkan|direct3d12|metal]\n"
         "                  [--size WxH] [--screen flight|sky|origin|depth]\n"
         "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
+        "                  [--weather STATION]\n"
         "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
         "       glideslope --version | --help\n"
         "\n"
@@ -73,6 +77,8 @@ void usage(std::FILE* out) {
         "                in metres above the WGS84 ellipsoid - the flight starts\n"
         "                there, a scene is built there; --at-ecef in Earth-centred\n"
         "                metres, for scenes\n"
+        "  --weather     fly in the weather reported now at an airfield, by its\n"
+        "                ICAO code - its METAR, and Open-Meteo's winds aloft\n"
         "  --shot        write the frame at tick --shot-at (default 2) and exit;\n"
         "                each frame is then two ticks, whatever the clock says\n"
         "  --trace       print the flight's state after every tick\n",
@@ -200,6 +206,13 @@ int main(int argc, char** argv) {
             if (ok) {
                 o.at = glideslope::world::Geodetic{(*g)[0], (*g)[1], (*g)[2]};
             }
+        } else if (a == "--weather" && has_value) {
+            o.weather_station = std::string(args[++i]);
+            ok = o.weather_station.size() == 4 &&
+                 std::all_of(
+                     o.weather_station.begin(), o.weather_station.end(), [](char c) {
+                         return std::isalnum(static_cast<unsigned char>(c)) != 0;
+                     });
         } else if (a == "--at-ecef" && has_value) {
             const auto e = parse_triple(args[++i]);
             ok = e.has_value();
@@ -217,6 +230,10 @@ int main(int argc, char** argv) {
     if (o.headless && o.shot.empty()) {
         std::fputs("glideslope: --headless needs --shot, or it has nothing to show\n",
                    stderr);
+        return 2;
+    }
+    if (o.screen != "flight" && !o.weather_station.empty()) {
+        std::fputs("glideslope: only the flight has --weather\n", stderr);
         return 2;
     }
     if (o.screen == "flight" && o.at_ecef) {
@@ -252,9 +269,17 @@ int main(int argc, char** argv) {
                 start.longitude_deg = o.at->longitude_deg;
                 start.height_m = o.at->height_m;
             }
+            start.weather_station = o.weather_station;
             flight = std::make_unique<glideslope::client::Flight>(
                 glideslope::platform::data_directory(),
                 glideslope::platform::cache_directory(), start);
+            if (!start.weather_station.empty()) {
+                std::printf("glideslope: flying in the weather at %s: METAR from "
+                            "aviationweather.gov; %s (https://open-meteo.com/), CC BY "
+                            "4.0\n",
+                            start.weather_station.c_str(),
+                            glideslope::world::open_meteo_credit);
+            }
         } else {
             const glideslope::world::Ecef at =
                 o.at_ecef ? *o.at_ecef

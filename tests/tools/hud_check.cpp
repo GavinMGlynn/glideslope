@@ -1,19 +1,23 @@
 // glideslope_hud_check - reads the HUD out of a frame and holds it to the
 // flight's state.
 //
-//   glideslope_hud_check FRAME.bmp TRACE.txt TICK
+//   glideslope_hud_check FRAME.bmp TRACE.txt TICK [CREDIT]
 //
 // FRAME is what `glideslope --shot` wrote at TICK; TRACE is what `--trace`
 // printed on the way there. The trace must hold every tick from 1 to TICK, in
 // order. The HUD is read back glyph by glyph (gfx::read_text), and each number
 // on it must be the state at TICK, rounded as the HUD rounds: within half its
-// last digit. Exits 0 if so, 1 with the reason if not, 2 on bad arguments.
+// last digit. With CREDIT, the credit along the bottom must read CREDIT in
+// capitals, and without it there must be none. Exits 0 if so, 1 with the reason if not,
+// 2 on bad arguments.
 
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -100,8 +104,9 @@ double number(const std::string& text, const std::string& line) {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
-        std::fputs("usage: glideslope_hud_check FRAME.bmp TRACE.txt TICK\n", stderr);
+    if (argc != 4 && argc != 5) {
+        std::fputs("usage: glideslope_hud_check FRAME.bmp TRACE.txt TICK [CREDIT]\n",
+                   stderr);
         return 2;
     }
     const long long tick = std::atoll(argv[3]);
@@ -152,6 +157,18 @@ int main(int argc, char** argv) {
             fail(f.label + " shows " + words[1] + " at tick " + std::to_string(tick) +
                  " when the state is " + std::to_string(actual));
         }
+    }
+
+    std::string credit = argc == 5 ? argv[4] : "";
+    for (char& c : credit) {
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    }
+    const auto shown = glideslope::gfx::read_text(
+        frame, glideslope::gfx::credit_layout(frame.width, frame.height), 1,
+        std::max<std::size_t>(credit.size(), 40));
+    std::printf("read: %s\n", shown[0].c_str());
+    if (shown[0] != credit) {
+        fail("the credit reads \"" + shown[0] + "\", not \"" + credit + "\"");
     }
     std::printf("the HUD at tick %lld matches the state\n", tick);
     return 0;

@@ -2,6 +2,7 @@
 
 #include "sim/fixed_step.hpp"
 #include "sim/terrain.hpp"
+#include "sim/weather.hpp"
 
 #include <FGFDMExec.h>
 #include <input_output/FGGroundCallback.h>
@@ -196,7 +197,53 @@ void Aircraft::set_controls(const Controls& c) {
     exec_->SetPropertyValue("fcs/pitch-trim-cmd-norm", -c.pitch_trim);
 }
 
+void Aircraft::set_weather(std::shared_ptr<Weather> weather) {
+    weather_ = std::move(weather);
+    // The same turbulence every flight, so a flight in it can be repeated.
+    exec_->SetPropertyValue("atmosphere/randomseed", 1.0);
+    applied_temperature_offset_c_ = std::nan("");
+    applied_pressure_hpa_ = std::nan("");
+    applied_turbulence_ = -1;
+}
+
+void Aircraft::apply_weather() {
+    constexpr double feet_per_metre = 1.0 / 0.3048;
+    constexpr double psf_per_hpa = 2.0885434233;
+    const Conditions c = weather_->at(
+        exec_->GetPropertyValue("position/lat-geod-deg"),
+        exec_->GetPropertyValue("position/long-gc-deg"),
+        exec_->GetPropertyValue("position/geod-alt-ft") * 0.3048, exec_->GetSimTime());
+    exec_->SetPropertyValue("atmosphere/wind-north-fps",
+                            c.wind_north_mps * feet_per_metre);
+    exec_->SetPropertyValue("atmosphere/wind-east-fps",
+                            c.wind_east_mps * feet_per_metre);
+    exec_->SetPropertyValue("atmosphere/wind-down-fps",
+                            c.wind_down_mps * feet_per_metre);
+    if (c.temperature_offset_c != applied_temperature_offset_c_) {
+        exec_->SetPropertyValue("atmosphere/delta-T", c.temperature_offset_c * 1.8);
+        applied_temperature_offset_c_ = c.temperature_offset_c;
+    }
+    if (c.sea_level_pressure_hpa != applied_pressure_hpa_) {
+        exec_->SetPropertyValue("atmosphere/P-sl-psf",
+                                c.sea_level_pressure_hpa * psf_per_hpa);
+        applied_pressure_hpa_ = c.sea_level_pressure_hpa;
+    }
+    if (c.turbulence_severity != applied_turbulence_) {
+        // Type 3 is MIL-F-8785C; 0 is none.
+        exec_->SetPropertyValue("atmosphere/turb-type",
+                                c.turbulence_severity > 0 ? 3.0 : 0.0);
+        exec_->SetPropertyValue("atmosphere/turbulence/milspec/severity",
+                                static_cast<double>(c.turbulence_severity));
+        applied_turbulence_ = c.turbulence_severity;
+    }
+    exec_->SetPropertyValue("atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps",
+                            c.wind_at_20ft_mps * feet_per_metre);
+}
+
 void Aircraft::step() {
+    if (weather_) {
+        apply_weather();
+    }
     exec_->Run();
 }
 

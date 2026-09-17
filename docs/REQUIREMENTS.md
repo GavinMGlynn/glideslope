@@ -514,7 +514,9 @@ The replacement:
   settings and is updated with it; nothing is built or shipped for it, and the
   program starts without libcurl and says what is missing if a download is
   wanted. Section 3's "libcurl + JSON library" for weather becomes this and a
-  JSON library.
+  JSON reader written here (`src/world/json.hpp`): the weather needs only to
+  read small documents, strictly to RFC 8259, which is short to write and to
+  test, and the project prefers no dependency to a small one.
 
 **Open:**
 

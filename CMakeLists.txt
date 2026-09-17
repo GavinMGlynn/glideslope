@@ -124,8 +124,8 @@ glideslope_configure(glideslope_sim)
 cmake_language(DEFER CALL glideslope_check_sim_links glideslope_sim)
 
 # ---------------------------------------------------------------------------
-# The world - where things are on the Earth. Positions, today; terrain and
-# weather arrive with the phases that need them. Links no presentation.
+# The world - where things are on the Earth: positions, the terrain's heights,
+# and the weather from reports. Links no presentation.
 # ---------------------------------------------------------------------------
 add_library(glideslope_world STATIC
     src/world/byte_source.cpp
@@ -136,10 +136,15 @@ add_library(glideslope_world STATIC
     src/world/geoid.cpp
     src/world/geotiff.cpp
     src/world/inflate.cpp
+    src/world/json.cpp
+    src/world/metar.cpp
+    src/world/weather.cpp
+    src/world/winds_aloft.cpp
     src/world/zip.cpp)
 target_include_directories(glideslope_world PUBLIC src)
-# Terrain arrives over the network, through the platform's HTTP client.
-target_link_libraries(glideslope_world PUBLIC glideslope_platform)
+# Terrain and weather arrive over the network, through the platform's HTTP
+# client; the weather is given to the simulation as its sim::Weather.
+target_link_libraries(glideslope_world PUBLIC glideslope_platform glideslope_sim)
 glideslope_configure(glideslope_world)
 
 # ---------------------------------------------------------------------------

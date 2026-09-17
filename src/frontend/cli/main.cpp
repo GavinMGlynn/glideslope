@@ -12,8 +12,11 @@
 #include "sim/version.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
+#include "world/weather.hpp"
+#include "world/winds_aloft.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cinttypes>
 #include <cmath>
 #include <cstdio>
@@ -44,6 +47,9 @@ void print_usage(std::FILE* out) {
         "  height LAT LON            the ground's height there, from the Copernicus "
         "DEM,\n"
         "                            fetching what it needs into the cache directory\n"
+        "  weather STATION           the weather now at an airfield: its METAR, and "
+        "the\n"
+        "                            winds aloft over it\n"
         "\n"
         "  --data DIR                read data from DIR instead of data/ beside the\n"
         "                            program\n",
@@ -158,6 +164,64 @@ int height(const std::filesystem::path& data, std::string_view latitude_text,
     return 0;
 }
 
+int weather(const std::string& station) {
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    constexpr double knots_per_mps = 3600.0 / 1852.0;
+    const std::string hour =
+        glideslope::world::utc_hour(std::chrono::system_clock::now());
+    const glideslope::world::WeatherReport report = glideslope::world::fetch_weather(
+        station, hour, glideslope::world::http_fetch());
+
+    const glideslope::world::Metar& m = report.surface.metar;
+    std::printf("weather at %s, %.4f, %.4f, %.0f m, reported day %d at %02d%02dZ\n",
+                m.station.c_str(), report.surface.latitude_deg,
+                report.surface.longitude_deg, report.surface.elevation_m, m.day, m.hour,
+                m.minute);
+    if (!m.wind_speed_kt) {
+        std::printf("  wind          not reported\n");
+    } else if (*m.wind_speed_kt == 0.0) {
+        std::printf("  wind          calm\n");
+    } else {
+        if (m.wind_from_deg) {
+            std::printf("  wind          from %03.0f at %.0f kt", *m.wind_from_deg,
+                        *m.wind_speed_kt);
+        } else {
+            std::printf("  wind          variable at %.0f kt", *m.wind_speed_kt);
+        }
+        if (m.gust_kt) {
+            std::printf(", gusting %.0f kt", *m.gust_kt);
+        }
+        std::printf("\n");
+    }
+    if (m.temperature_c) {
+        std::printf("  temperature   %.1f C\n", *m.temperature_c);
+    }
+    if (m.dewpoint_c) {
+        std::printf("  dew point     %.1f C\n", *m.dewpoint_c);
+    }
+    if (m.qnh_hpa) {
+        std::printf("  QNH           %.1f hPa\n", *m.qnh_hpa);
+    }
+
+    std::printf("winds aloft for %s UTC\n", hour.c_str());
+    std::printf("  %8s %9s %16s %13s\n", "pressure", "height", "wind", "temperature");
+    for (const auto& level : report.aloft->levels) {
+        const double speed = std::hypot(level.wind_north_mps, level.wind_east_mps);
+        const double from = std::fmod(
+            std::atan2(-level.wind_east_mps, -level.wind_north_mps) / radians + 360.0,
+            360.0);
+        std::printf("  %4.0f hPa %7.0f m   from %03.0f at %3.0f kt %11.1f C%s\n",
+                    level.pressure_hpa, level.height_m, from, speed * knots_per_mps,
+                    level.temperature_c,
+                    level.height_m <= report.surface.elevation_m ? "  (underground)"
+                                                                 : "");
+    }
+    std::printf("METAR from aviationweather.gov, NOAA's Aviation Weather Center\n");
+    std::printf("%s (https://open-meteo.com/), CC BY 4.0\n",
+                glideslope::world::open_meteo_credit);
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -186,6 +250,9 @@ int main(int argc, char** argv) {
         if ((args.size() == 2 || args.size() == 3) && args[0] == "figures") {
             return fly_figures(data, std::string(args[1]),
                                args.size() == 3 ? std::string(args[2]) : "");
+        }
+        if (args.size() == 2 && args[0] == "weather") {
+            return weather(std::string(args[1]));
         }
         if (args.size() == 3 && args[0] == "height") {
             return height(data, args[1], args[2]);

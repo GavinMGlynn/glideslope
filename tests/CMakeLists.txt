@@ -18,6 +18,8 @@ add_executable(glideslope_tests
     unit/test_download.cpp
     unit/test_http.cpp
     unit/test_input.cpp
+    unit/test_json.cpp
+    unit/test_weather.cpp
     unit/test_figures.cpp
     unit/test_fixed_step.cpp
     unit/test_geodesy.cpp
@@ -107,7 +109,17 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
     every_axis_button_and_hat_of_a_virtual_stick_and_throttle_moves_the_controls
     bound_inputs_set_the_controls_they_name_and_the_aircraft_receives_them
-    a_bindings_file_that_cannot_be_read_is_refused_by_line)
+    a_bindings_file_that_cannot_be_read_is_refused_by_line
+    json_documents_rfc_8259_allows_are_read_into_their_values
+    json_documents_rfc_8259_does_not_allow_are_refused
+    every_recorded_metar_is_read_as_aviationweather_decodes_it
+    metar_groups_are_read_in_every_form_and_trends_are_not_read_as_observations
+    a_recorded_metar_sets_the_surface_wind_temperature_and_pressure_it_reports
+    a_recorded_winds_aloft_response_sets_the_wind_at_every_level_it_reports_and_between
+    an_aircraft_in_a_steady_crosswind_drifts_with_it_and_turbulence_disturbs_it_only_when_on
+    a_new_weather_report_blends_in_over_its_interval_with_no_step_in_the_wind
+    an_instant_is_named_by_the_utc_hour_it_falls_in_as_open_meteo_names_hours
+    the_weather_now_at_an_airfield_is_fetched_from_aviationweather_and_open_meteo)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
@@ -297,6 +309,12 @@ add_test(NAME the_cli_refuses_a_height_asked_for_off_the_earth
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=height 91 0" -DEXIT=2
         "-DSTDERR_MATCHES=the latitude must be a number from -90 to 90"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_cli_refuses_weather_for_what_is_not_a_station
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=weather Y&SY" -DEXIT=1
+        "-DSTDERR_MATCHES=is not a station's four-character ICAO code"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_prints_its_usage_when_asked

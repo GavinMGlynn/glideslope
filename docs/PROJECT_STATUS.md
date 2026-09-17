@@ -21,19 +21,20 @@ anything proved elsewhere names the CI run.
 
 ## The honest summary, 2026-09-18
 
-**A Cessna 172P flies to its handbook, with nobody at the controls but a test
-pilot, and the ground's height is known anywhere on Earth - but nothing yet
-joins the two, and there is no terrain to see.** JSBSim is built and linked and
-steps at a fixed 120 Hz, and glideslope's Cessna 172P lands inside its tolerance
-on all nine published-figure checks; its state can be captured and restored;
-`glideslope_cli selftest` flies a fixed five-minute log and every package flies
-it; the five release builds fly every check to the same numbers.
-`glideslope_cli height LAT LON` gives the Copernicus DEM's height above sea level
-and above the WGS84 ellipsoid anywhere, downloading the tiles and the geoid it
-needs, and every package does so at Sydney airport. The renderer draws built-in
-test scenes, with reversed depth and a camera-relative floating origin, on
-Vulkan, Direct3D 12 and Metal - but only test scenes. There is no terrain drawn,
-no input, no HUD and no server.
+**A Cessna 172P flies to its handbook over the real ground, in the real weather,
+with a HUD and flight controllers - but there is no terrain to see.** JSBSim is
+built and linked and steps at a fixed 120 Hz, and glideslope's Cessna 172P lands
+inside its tolerance on all nine published-figure checks; its state can be
+captured and restored; `glideslope_cli selftest` flies a fixed five-minute log
+and every package flies it; the five release builds fly every check to the same
+numbers. `glideslope_cli height LAT LON` gives the Copernicus DEM's height
+anywhere, fetching the tiles and geoid it needs, and the client's flight stands
+the Cessna on that ground. The client flies it from the keyboard, joysticks,
+HOTAS and yokes, with a HUD that tests read back out of the frame, and every
+platform's package draws a frame of it on Vulkan, Direct3D 12 or Metal - but the
+frame is sky and HUD: no terrain is drawn, and there is no aircraft model,
+cockpit or server. Weather is done on Linux and awaiting CI: METARs and winds
+aloft, fetched live, into JSBSim's wind, temperature, pressure and turbulence.
 
 **Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
 else is built on, one line per item, each verified:
@@ -55,15 +56,20 @@ fixed 120 Hz step; the Cessna 172P flying to its handbook; state capture and
 set/resume; the selftest's replay hash; the same flights on every platform; and
 a packaged CLI that flies — each proved on every platform.
 
-**Phase 2, the world, is under way: 6 of 12 items done**, each proved in CI on
-every platform (run 35241851702): Earth-centred, Earth-fixed positions; a
-camera-relative floating origin; reversed depth; a window and a GPU device on
-Vulkan (Linux, and Windows through lavapipe), Direct3D 12 and Metal; the
-Copernicus DEM, read directly, with a height query anywhere held to surveyed
-runway ends and coastlines; and collision terrain the Cessna rests on. Done on
-Linux and awaiting CI: flight controllers, the HUD, the client's test flags,
-and frames from CI and every package. Not started: Cesium Native drawing the
+**Phase 2, the world, is under way: 10 of 12 items done**, each proved in CI on
+every platform: Earth-centred, Earth-fixed positions; a camera-relative floating
+origin; reversed depth; a window and a GPU device on Vulkan (Linux, and Windows
+through lavapipe), Direct3D 12 and Metal; the Copernicus DEM, read directly,
+with a height query anywhere held to surveyed runway ends and coastlines; and
+collision terrain the Cessna rests on (run 35241851702); flight controllers;
+the HUD; the client's test flags; and frames from CI and every package (CI run
+35244380011, package run 35244379942). Not started: Cesium Native drawing the
 terrain, and imagery on it.
+
+**Phase 3, weather, is done on Linux and awaiting CI: 0 of 4 items ticked.**
+METARs from aviationweather.gov; winds aloft from Open-Meteo; both in JSBSim's
+atmosphere, with MIL-F-8785C turbulence; and new reports blended in during a
+flight.
 
 ## Gaps
 
@@ -76,9 +82,12 @@ are the risks the phase order is built around:
   reconciliation many times a second is a question for Phase 6.
 - **The checks are one aircraft's.** Every figure is the Cessna 172P's; other
   types arrive in Phase 5.
-- **No terrain to see or touch.** The DEM gives heights, but nothing draws
-  terrain (the Cesium-to-SDL_GPU glue does not exist) and nothing in the
-  simulation stands on it.
+- **No terrain to see.** The flight stands on the DEM, but nothing draws
+  terrain: the Cesium-to-SDL_GPU glue does not exist.
+- **Weather is one station's.** A flight flies in the weather of the airfield
+  it names, everywhere it goes; nothing picks the nearest station, and there is
+  no cloud, visibility or precipitation - JSBSim's atmosphere has wind,
+  temperature, pressure and turbulence, and nothing draws the sky's weather.
 - **Summits are low in the DEM.** A 30 m grid does not hold a peak: at five
   surveyed summits the DEM is 8 to 35 m below the survey. Runway ends and
   coastlines are within the dataset's stated 4 m.
@@ -89,7 +98,101 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The flight screen: HUD, test flags, flight controllers and frames, 2026-09-18 — awaiting CI
+### Weather: METARs, winds aloft, JSBSim's atmosphere and turbulence, 2026-09-18 — awaiting CI
+
+**What is missing first:** the weather is one airfield's. A flight is flown in
+the weather reported at the station it names - its METAR at the surface and
+Open-Meteo's winds aloft above it - wherever it flies; nothing chooses the
+nearest station or blends between stations. There is no cloud, visibility,
+precipitation or icing, and nothing is drawn: JSBSim is given wind,
+temperature, pressure and turbulence, and that is all. Turbulence is off unless
+something asks for it - no report gives it, and nothing yet sets it outside the
+tests. Gusts in a METAR are read, and not flown. The server, which will own the
+weather, does not exist.
+
+**METARs** (`world/metar.hpp`, `world/weather.hpp`). aviationweather.gov's JSON
+response is read for each report's raw text and its station's position, and
+the raw text is decoded here: station, time, wind in knots, metres a second or
+kilometres an hour, with gusts and variability; temperature and dew point,
+with the tenths of a US `T` remark; QNH from `Q` or `A` groups. Trend groups -
+`BECMG`, `TEMPO` - are skipped, so a forecast wind is never read as the
+observation. A station is checked to be four letters or digits before it goes
+into a URL, and a station with no report is said to have none.
+
+**Winds aloft** (`world/winds_aloft.hpp`). Open-Meteo's forecast for the current
+UTC hour on 19 pressure levels, 1000 to 30 hPa: each level's wind as north and
+east components, its temperature, and its geopotential height converted to
+geometric height. Between levels the wind is interpolated as a vector.
+
+**The weather at a height** (`world::conditions_at`): the METAR's wind up to
+10 m above the station, where it is measured; the winds aloft from the lowest
+level above that; linear in height between. The temperature follows the same
+profile as an offset from the International Standard Atmosphere, so the air at
+the station is the METAR's temperature. The pressure is the METAR's QNH.
+
+**JSBSim's atmosphere** (`sim/weather.hpp`). The simulation still knows nothing
+of reports: `Aircraft::set_weather` takes any `sim::Weather`, and before every
+step the aircraft asks it for the conditions where it is and sets JSBSim's wind,
+temperature offset, sea-level pressure and MIL-F-8785C turbulence severity. The
+sea-level values rebuild JSBSim's atmosphere, so they are set only when they
+change. Turbulence is seeded the same every time, so a flight in it repeats.
+
+**Changing weather** (`world::ReportedWeather`): a new report blends in over an
+interval, every value moving linearly from the old report's to the new one's,
+and turbulence changing halfway. The client fetches the weather again every
+fifteen minutes of flight, on another thread, and blends it in over five; a
+fetch that fails is reported and the weather kept.
+
+**Where it shows.** `glideslope_cli weather STATION` prints the METAR and the
+winds aloft over it. `glideslope --weather STATION` flies the flight in it, with
+"WEATHER DATA BY OPEN-METEO.COM" along the bottom of the HUD, as Open-Meteo's
+CC BY 4.0 terms ask, and `--trace` now includes JSBSim's wind. JSON is read by
+a strict RFC 8259 parser written here (`world/json.hpp`) rather than a library.
+Sources, terms and the credit are in `ASSETS.md`.
+
+**The tests.**
+- JSON: every kind of value, escapes and surrogate pairs, numbers at their
+  limits, and duplicate keys read; trailing commas, comments, leading zeros,
+  control characters, lone surrogates, bad escapes, truncation and nesting past
+  128 refused.
+- Ten recorded METARs, from Toronto, Heathrow, Boston, Denver, Christchurch,
+  Utqiagvik, Punta Arenas, Moscow, Sydney and Beijing, decode as
+  aviationweather.gov's own decoding beside each says - station, temperature,
+  dew point, wind, direction and altimeter setting. Every group's forms, and a
+  trend's wind and temperature not taken for the observation's.
+- Each recorded METAR, flown at its station, gives JSBSim the wind it reports
+  to 0.01 ft/s, the temperature at the station to 0.05 C, and its QNH to
+  0.01 hPa.
+- A recorded Open-Meteo response for Sydney: all 19 levels read as the JSON
+  says; JSBSim's wind at each level's height is that level's, and halfway up to
+  it from the level below - or from the surface - halfway between.
+- A minute holding a northerly heading at 3,000 ft in 20 knots from the west
+  drifts the aircraft east of the still-air flight by what 20 knots covers in a
+  minute, 617.3 m, within 2%, with no turbulence at all. With moderate turbulence (severity 3), each component's RMS
+  is within 0.4 to 1.6 of JSBSim's MIL-F-8785C intensity at that height, 7.21
+  ft/s; no gust exceeds five times it; the aircraft stays within 30 degrees of
+  bank; and the same turbulence flown twice ends in the same place.
+- A report of 30 knots from the east, replacing 10 knots from the west and
+  blended over 60 seconds: the old wind before it, halfway at halfway with the
+  pressure halfway, the new wind after, and no step between ticks larger than
+  the whole change spread evenly over the interval.
+- Live: Sydney's weather now, from both services - where the station is, a
+  report from today or yesterday, 19 levels in order with 500 hPa between 5,000
+  and 6,200 m; stations that are not stations refused before any fetch; a
+  station with no METAR said to have none. Skipped without the network, except
+  in CI.
+- The HUD test now flies in Sydney's weather now, and reads the credit back
+  out of the frame as well as the numbers.
+
+**Watched to fail:** turbulence type left off (every component's RMS 0.000
+ft/s against 7.21); the credit removed from the HUD ("the credit reads "", not
+"WEATHER DATA BY OPEN-METEO.COM""); the station check reduced to refusing
+nothing but an empty name (a three-letter station reached a URL).
+
+### The flight screen: HUD, test flags, flight controllers and frames, 2026-09-18 — items done
+
+Proved in CI on every platform (run 35244380011) and by every package (run
+35244379942), each uploading its frame.
 
 **What is missing first:** there is still nothing to see but sky: no terrain,
 no aircraft, no cockpit. The HUD is text and a horizon line. There is no

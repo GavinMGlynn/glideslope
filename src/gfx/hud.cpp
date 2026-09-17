@@ -1,6 +1,7 @@
 #include "gfx/hud.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <map>
@@ -159,6 +160,12 @@ TextLayout hud_layout(int width, int height) {
     return layout;
 }
 
+TextLayout credit_layout(int width, int height) {
+    TextLayout layout = hud_layout(width, height);
+    layout.top = height - 2 * layout.cell_height();
+    return layout;
+}
+
 const std::array<std::uint8_t, 7>* glyph(char c) {
     const auto it = font().find(c);
     return it == font().end() ? nullptr : &it->second;
@@ -175,10 +182,10 @@ const std::string& font_characters() {
     return all;
 }
 
-Mesh hud_mesh(const HudReadings& readings, int width, int height) {
-    Mesh mesh;
-    const TextLayout layout = hud_layout(width, height);
-    const std::vector<std::string> lines = hud_lines(readings);
+namespace {
+
+void add_text(Mesh& mesh, const std::vector<std::string>& lines,
+              const TextLayout& layout, int width, int height) {
     for (std::size_t l = 0; l < lines.size(); ++l) {
         for (std::size_t i = 0; i < lines[l].size(); ++i) {
             const auto* g = glyph(lines[l][i]);
@@ -198,6 +205,21 @@ Mesh hud_mesh(const HudReadings& readings, int width, int height) {
                 }
             }
         }
+    }
+}
+
+} // namespace
+
+Mesh hud_mesh(const HudReadings& readings, int width, int height) {
+    Mesh mesh;
+    const TextLayout layout = hud_layout(width, height);
+    add_text(mesh, hud_lines(readings), layout, width, height);
+    if (!readings.credit.empty()) {
+        std::string credit = readings.credit;
+        for (char& c : credit) {
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        }
+        add_text(mesh, {credit}, credit_layout(width, height), width, height);
     }
 
     // The horizon: across the middle third, moved down the screen as the nose

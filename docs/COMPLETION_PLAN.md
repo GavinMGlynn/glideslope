@@ -121,30 +121,32 @@ because it is built on everything before it.
 - [ ] **Open imagery on the terrain**, from the source `REQUIREMENTS.md`
       settles on. *Verification: a `--shot` shows the imagery and its
       attribution.*
-- [ ] **Joysticks, HOTAS and yokes.** **Done locally; awaiting CI.**
-      *Verification: every axis and button of a
+- [x] **Joysticks, HOTAS and yokes.** *Verification: every axis and button of a
       virtual device reaches the aircraft's controls, walked by test.*
-- [ ] **A basic HUD** — airspeed, altitude, heading, vertical speed, attitude.
-      **Done locally; awaiting CI.** *Verification: the numbers in a `--shot` match the simulation's state at
+- [x] **A basic HUD** — airspeed, altitude, heading, vertical speed, attitude.
+      *Verification: the numbers in a `--shot` match the simulation's state at
       that tick.*
-- [ ] **The client's test flags** — `--shot FILE`, `--shot-at TICK`,
-      `--trace`, `--screen NAME`. **Done locally; awaiting CI.** *Verification: each is used by a ctest.*
-- [ ] **A frame rendered headless in CI and from every package.**
-      **Done locally; awaiting CI.** *Verification: CI and the `package` workflow each upload a frame from
+- [x] **The client's test flags** — `--shot FILE`, `--shot-at TICK`,
+      `--trace`, `--screen NAME`. *Verification: each is used by a ctest.*
+- [x] **A frame rendered headless in CI and from every package.**
+      *Verification: CI and the `package` workflow each upload a frame from
       every platform.*
 
 ## Phase 3 — Weather
 
-- [ ] **METARs from aviationweather.gov.** *Verification: a recorded METAR sets
-      the surface wind, temperature and pressure it reports.*
-- [ ] **Winds aloft from Open-Meteo.** *Verification: a recorded response sets
-      the wind at every level it reports, and between levels.*
-- [ ] **Weather in JSBSim's atmosphere, with turbulence.** *Verification: an
-      aircraft in a steady crosswind drifts at the rate the wind predicts, and
-      turbulence disturbs it within a stated bound when on and not at all when
-      off.*
-- [ ] **Weather that changes during a flight without a jump.** *Verification: a
-      new report blends in over a stated interval with no step in the wind.*
+- [ ] **METARs from aviationweather.gov.** **Done locally; awaiting CI.**
+      *Verification: a recorded METAR sets the surface wind, temperature and
+      pressure it reports.*
+- [ ] **Winds aloft from Open-Meteo.** **Done locally; awaiting CI.**
+      *Verification: a recorded response sets the wind at every level it
+      reports, and between levels.*
+- [ ] **Weather in JSBSim's atmosphere, with turbulence.** **Done locally;
+      awaiting CI.** *Verification: an aircraft in a steady crosswind drifts at
+      the rate the wind predicts, and turbulence disturbs it within a stated
+      bound when on and not at all when off.*
+- [ ] **Weather that changes during a flight without a jump.** **Done locally;
+      awaiting CI.** *Verification: a new report blends in over a stated
+      interval with no step in the wind.*
 
 ## Phase 4 — Autopilot and navigation
 

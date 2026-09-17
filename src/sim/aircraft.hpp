@@ -15,6 +15,7 @@ class FGFDMExec;
 namespace glideslope::sim {
 
 class Terrain;
+class Weather;
 
 // What an aircraft's model files say about it, as JSBSim read them.
 struct AircraftFigures {
@@ -131,6 +132,12 @@ public:
     // terrain alive.
     void set_terrain(std::shared_ptr<Terrain> terrain);
 
+    // Flies the aircraft in `weather` from now on: before every step, JSBSim's
+    // wind, temperature, pressure and turbulence are set from the conditions
+    // where the aircraft is. Without it, JSBSim's still standard atmosphere.
+    // Turbulence is seeded the same every time, so a flight in it repeats.
+    void set_weather(std::shared_ptr<Weather> weather);
+
     // Sets what is on board. Call before initialize(); the weight is what JSBSim
     // computes from it once the aircraft is initialised.
     void load(const Loading& loading);
@@ -164,9 +171,17 @@ public:
     double property(const std::string& name) const;
 
 private:
+    void apply_weather();
+
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool initialized_ = false;
+    std::shared_ptr<Weather> weather_;
+    // What was last given to JSBSim's atmosphere, which rebuilds itself when
+    // its sea-level values change and so is told only when they do.
+    double applied_temperature_offset_c_ = 0.0;
+    double applied_pressure_hpa_ = 1013.25;
+    int applied_turbulence_ = 0;
 };
 
 } // namespace glideslope::sim

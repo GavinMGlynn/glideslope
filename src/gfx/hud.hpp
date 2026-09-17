@@ -25,6 +25,9 @@ struct HudReadings {
     double vertical_speed_fpm = 0.0;
     double pitch_deg = 0.0;
     double roll_deg = 0.0;
+    // Whose data is on screen, shown along the bottom in capitals; empty for
+    // nothing.
+    std::string credit;
 };
 
 // The HUD's lines, top to bottom:
@@ -55,6 +58,10 @@ struct TextLayout {
 
 TextLayout hud_layout(int width, int height);
 
+// Where the credit goes: the same text, on one line two cells in from the
+// bottom left.
+TextLayout credit_layout(int width, int height);
+
 // The glyph for `c`: seven rows, the top first, each five bits with the
 // leftmost pixel the highest. Null for a character the font lacks.
 const std::array<std::uint8_t, 7>* glyph(char c);
@@ -64,9 +71,9 @@ const std::string& font_characters();
 
 inline constexpr std::array<float, 4> hud_colour{0.2f, 1.0f, 0.4f, 1.0f};
 
-// The HUD for `readings` on a frame of `width` by `height`: its text, and a
-// horizon line across the middle, pitched and banked with the aircraft. In
-// clip space, drawn over everything else.
+// The HUD for `readings` on a frame of `width` by `height`: its text, the
+// credit, and a horizon line across the middle, pitched and banked with the aircraft.
+// In clip space, drawn over everything else.
 Mesh hud_mesh(const HudReadings& readings, int width, int height);
 
 // Text read back from a frame drawn with `layout`: `lines` lines of `columns`

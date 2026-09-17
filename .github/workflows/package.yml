@@ -11,9 +11,11 @@
 # flies five minutes out of the unpacked copy; and `glideslope_cli height` at
 # Sydney airport, which downloads a DEM tile and the geoid into an empty cache
 # through the system's own HTTP client and must give the same height everywhere;
-# and the client, `glideslope`, headless on the platform's GPU driver, which
-# flies five seconds of the flight screen and writes its frame - uploaded, one
-# from every platform.
+# `glideslope_cli weather YSSY`, which fetches Sydney's METAR and the winds
+# aloft over it and must print every level and Open-Meteo's credit; and the
+# client, `glideslope`, headless on the platform's GPU driver, which flies five
+# seconds of the flight screen in Sydney's weather and writes its frame -
+# uploaded, one from every platform.
 #
 # Not on every push: packaging changes when the packaging rules do. On demand,
 # and when the build or this file changes.
@@ -136,6 +138,11 @@ jobs:
           h=$(awk '/above sea level/ {print $(NF-1)}' height.txt)
           awk -v h="$h" 'BEGIN { exit !(h > 6.224 && h < 6.244) }' \
             || { echo "::error::Sydney airport at $h m, not 6.234 m"; exit 1; }
+          ./glideslope_cli weather YSSY | tee weather.txt
+          test "$(grep -c ' hPa .* m  *from ' weather.txt)" = 19 \
+            || { echo "::error::the weather does not have 19 levels"; exit 1; }
+          grep -q "Weather data by Open-Meteo.com" weather.txt \
+            || { echo "::error::the weather does not credit Open-Meteo"; exit 1; }
           # The licences of what is linked in travel with it.
           for licence in JSBSim expat GeographicLib SDL; do
             test -s "licenses/$licence.txt" || { echo "::error::no licenses/$licence.txt"; exit 1; }
@@ -148,7 +155,7 @@ jobs:
             apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1
           fi
           ./glideslope --headless --gpu-driver vulkan --size 640x480 --screen flight \
-            --shot-at 600 --shot "$GITHUB_WORKSPACE/frame-linux-${{ matrix.label }}.bmp"
+            --weather YSSY --shot-at 600 --shot "$GITHUB_WORKSPACE/frame-linux-${{ matrix.label }}.bmp"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -201,8 +208,13 @@ jobs:
           h=$(awk '/above sea level/ {print $(NF-1)}' height.txt)
           awk -v h="$h" 'BEGIN { exit !(h > 6.224 && h < 6.244) }' \
             || { echo "::error::Sydney airport at $h m, not 6.234 m"; exit 1; }
+          ./glideslope_cli weather YSSY | tee weather.txt
+          test "$(grep -c ' hPa .* m  *from ' weather.txt)" = 19 \
+            || { echo "::error::the weather does not have 19 levels"; exit 1; }
+          grep -q "Weather data by Open-Meteo.com" weather.txt \
+            || { echo "::error::the weather does not credit Open-Meteo"; exit 1; }
           ./glideslope --headless --gpu-driver metal --size 640x480 --screen flight \
-            --shot-at 600 --shot "$GITHUB_WORKSPACE/frame-macos.bmp"
+            --weather YSSY --shot-at 600 --shot "$GITHUB_WORKSPACE/frame-macos.bmp"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -263,9 +275,15 @@ jobs:
           $height | Write-Output
           $h = [double](($height | Select-String 'above sea level').ToString().Split(' ', [StringSplitOptions]::RemoveEmptyEntries)[-2])
           if ($h -le 6.224 -or $h -ge 6.244) { throw "Sydney airport at $h m, not 6.234 m" }
+          $weather = & $exe weather YSSY
+          if ($LASTEXITCODE -ne 0) { throw "glideslope_cli weather exited $LASTEXITCODE" }
+          $weather | Write-Output
+          $levels = @($weather | Select-String ' hPa .* m +from ').Count
+          if ($levels -ne 19) { throw "the weather has $levels levels, not 19" }
+          if (-not ($weather | Select-String -SimpleMatch 'Weather data by Open-Meteo.com')) { throw "the weather does not credit Open-Meteo" }
           $client = Join-Path (Split-Path $exe) 'glideslope.exe'
           & $client --headless --gpu-driver direct3d12 --size 640x480 --screen flight `
-            --shot-at 600 --shot (Join-Path $env:GITHUB_WORKSPACE 'frame-windows.bmp')
+            --weather YSSY --shot-at 600 --shot (Join-Path $env:GITHUB_WORKSPACE 'frame-windows.bmp')
           if ($LASTEXITCODE -ne 0) { throw "glideslope exited $LASTEXITCODE" }
 
           # The runner has the Visual C++ redistributable; somebody's computer
