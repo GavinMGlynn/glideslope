@@ -34,6 +34,10 @@ public:
     // 30-degree turn and turned 2% slower than its bank demanded.
     double coordinate();
 
+    // Rudder, on the ground, for a heading: nosewheel steering and rudder are
+    // one control, and without it the take-off roll wanders off the runway.
+    double steer_to(double heading_deg) const;
+
 private:
     const Aircraft& a_;
     double trim_ = 0.0;

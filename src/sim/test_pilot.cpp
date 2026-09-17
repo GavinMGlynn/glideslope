@@ -3,6 +3,7 @@
 #include "sim/fixed_step.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <numbers>
 
 namespace glideslope::sim {
@@ -52,6 +53,14 @@ double TestPilot::coordinate() {
     const double beta = a_.property("aero/beta-deg");
     rudder_integral_ = std::clamp(rudder_integral_ - 0.05 * beta * dt, -1.0, 1.0);
     return clamp_unit(-0.1 * beta + rudder_integral_);
+}
+
+double TestPilot::steer_to(double heading_deg) const {
+    double error = heading_deg - a_.property("attitude/psi-deg");
+    error = std::remainder(error, 360.0);
+    const double r_degps = degrees(a_.property("velocities/r-rad_sec"));
+    // The model's rudder command yaws the nose left for positive values.
+    return clamp_unit(-(0.1 * error - 0.1 * r_degps));
 }
 
 } // namespace glideslope::sim

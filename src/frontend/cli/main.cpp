@@ -7,29 +7,39 @@
 #include "platform/paths.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/figures.hpp"
+#include "sim/selftest.hpp"
 #include "sim/version.hpp"
 
+#include <cinttypes>
 #include <cstdio>
 #include <exception>
+#include <filesystem>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
 void print_usage(std::FILE* out) {
     std::fputs(
-        "usage: glideslope_cli --version\n"
-        "       glideslope_cli --help\n"
-        "       glideslope_cli aircraft NAME   print what NAME's model files say\n"
-        "       glideslope_cli figures NAME [FIGURE]\n"
-        "                                      fly NAME's published figures, or one,\n"
-        "                                      and exit 1 if any lands out of range\n",
+        "usage: glideslope_cli [--data DIR] COMMAND\n"
+        "\n"
+        "  --version                 print the version\n"
+        "  --help                    print this\n"
+        "  aircraft NAME             print what NAME's model files say\n"
+        "  figures NAME [FIGURE]     fly NAME's published figures, or one, and exit 1\n"
+        "                            if any lands out of range\n"
+        "  selftest [NAME]           fly NAME's selftest input log (default c172p) "
+        "and\n"
+        "                            print the hash of its state\n"
+        "\n"
+        "  --data DIR                read data from DIR instead of data/ beside the\n"
+        "                            program\n",
         out);
 }
 
-int print_aircraft(const std::string& model) {
-    const auto root = glideslope::platform::data_directory() / "jsbsim";
-    const glideslope::sim::Aircraft aircraft(root, model);
+int print_aircraft(const std::filesystem::path& data, const std::string& model) {
+    const glideslope::sim::Aircraft aircraft(data / "jsbsim", model);
     const glideslope::sim::AircraftFigures f = aircraft.figures();
     std::printf("aircraft      %s\n", f.model.c_str());
     std::printf("description   %s\n", f.description.c_str());
@@ -41,8 +51,8 @@ int print_aircraft(const std::string& model) {
     return 0;
 }
 
-int fly_figures(const std::string& model, const std::string& only) {
-    const auto data = glideslope::platform::data_directory();
+int fly_figures(const std::filesystem::path& data, const std::string& model,
+                const std::string& only) {
     const glideslope::sim::PublishedFigures figures =
         glideslope::sim::read_published_figures(data / "figures" / (model + ".xml"));
     std::printf("%s - %s\n\n", figures.model.c_str(), figures.source.c_str());
@@ -69,28 +79,53 @@ int fly_figures(const std::string& model, const std::string& only) {
     return failed == 0 ? 0 : 1;
 }
 
+int selftest(const std::filesystem::path& data, const std::string& model) {
+    const auto result = glideslope::sim::run_selftest(
+        data / "jsbsim", data / "selftest" / (model + ".log"));
+    const auto& s = result.final_state;
+    std::printf("selftest %s: %" PRId64 " steps, %.3f s\n", result.model.c_str(),
+                result.steps, s.sim_time_s);
+    std::printf("  ends at    %.7f, %.7f, %.1f ft\n", s.latitude_deg, s.longitude_deg,
+                s.altitude_ft);
+    std::printf("  attitude   roll %.2f, pitch %.2f, heading %.2f deg\n", s.roll_deg,
+                s.pitch_deg, s.heading_deg);
+    std::printf("  airspeed   %.2f KCAS, climbing %.1f ft/min, engine %.0f RPM\n",
+                s.airspeed_kts, s.climb_rate_fpm, s.engine_rpm);
+    std::printf("hash %016" PRIx64 "\n", result.hash);
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
+    std::vector<std::string_view> args(argv + 1, argv + argc);
     try {
-        if (argc == 2) {
-            const std::string_view arg = argv[1];
-            if (arg == "--version") {
-                const std::string_view v = glideslope::sim::version();
-                std::printf("glideslope_cli %.*s\n", static_cast<int>(v.size()),
-                            v.data());
-                return 0;
-            }
-            if (arg == "--help") {
-                print_usage(stdout);
-                return 0;
-            }
+        std::filesystem::path data;
+        if (args.size() >= 2 && args[0] == "--data") {
+            data = std::filesystem::path(std::string(args[1]));
+            args.erase(args.begin(), args.begin() + 2);
+        } else {
+            data = glideslope::platform::data_directory();
         }
-        if (argc == 3 && std::string_view(argv[1]) == "aircraft") {
-            return print_aircraft(argv[2]);
+
+        if (args.size() == 1 && args[0] == "--version") {
+            const std::string_view v = glideslope::sim::version();
+            std::printf("glideslope_cli %.*s\n", static_cast<int>(v.size()), v.data());
+            return 0;
         }
-        if ((argc == 3 || argc == 4) && std::string_view(argv[1]) == "figures") {
-            return fly_figures(argv[2], argc == 4 ? argv[3] : "");
+        if (args.size() == 1 && args[0] == "--help") {
+            print_usage(stdout);
+            return 0;
+        }
+        if (args.size() == 2 && args[0] == "aircraft") {
+            return print_aircraft(data, std::string(args[1]));
+        }
+        if ((args.size() == 2 || args.size() == 3) && args[0] == "figures") {
+            return fly_figures(data, std::string(args[1]),
+                               args.size() == 3 ? std::string(args[2]) : "");
+        }
+        if ((args.size() == 1 || args.size() == 2) && args[0] == "selftest") {
+            return selftest(data, args.size() == 2 ? std::string(args[1]) : "c172p");
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "glideslope_cli: %s\n", e.what());

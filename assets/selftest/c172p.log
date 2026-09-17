@@ -1,0 +1,47 @@
+# The selftest's input log: a Cessna 172P from brake release, through a climbing
+# turn, to level flight and a level turn - flown by the test pilot, following the
+# commands below and nothing else.
+#
+# glideslope_cli selftest flies it and prints one hash of the aircraft's state
+# after every step. On one build on one machine the hash must never change; a
+# change that moves it is deliberate, with a note in docs/PROJECT_STATUS.md saying
+# why.
+#
+#   aircraft NAME
+#   load pointmass INDEX LBS | load tank INDEX LBS
+#   start LATITUDE LONGITUDE TERRAIN_FT HEADING_DEG     on the ground, engine running
+#   TIME_S COMMAND VALUE
+#
+# Commands hold from their time until changed:
+#   throttle 0..1   mixture 0..1   flaps DEGREES   brakes 0..1
+#   rotate_at KCAS      on the ground: elevator neutral until KCAS, then 8 degrees nose up
+#   hold_speed KCAS     elevator holds a calibrated airspeed
+#   hold_altitude FT    elevator holds an altitude
+#   bank DEGREES        aileron holds a bank angle
+# On the ground the rudder steers along the heading the flight started on; in the
+# air it holds the ball in the middle.
+#   end                 the flight ends
+# Commands at the same time apply in the order written.
+
+aircraft c172p
+load pointmass 0 180
+load pointmass 1 180
+load pointmass 2 170
+load tank 0 185
+load tank 1 185
+start -33.9461 151.1772 21 70
+
+0    throttle 1
+0    flaps 10
+0    brakes 1
+5    brakes 0
+5    rotate_at 55.6
+35   hold_speed 75.4
+60   flaps 0
+90   bank 20
+120  bank 0
+150  hold_altitude 1500
+150  throttle 0.85
+210  bank -25
+240  bank 0
+300  end

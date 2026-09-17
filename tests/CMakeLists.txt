@@ -156,6 +156,30 @@ add_test(NAME the_cli_refuses_figures_for_an_aircraft_with_no_figures_file
         "-DSTDERR_MATCHES=no_such_aircraft.xml"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
+# ---------------------------------------------------------------------------
+# The selftest: a tripwire that holds still, and moves when the physics does.
+# ---------------------------------------------------------------------------
+foreach(_case steady physics-change bad-log)
+    if(_case STREQUAL "steady")
+        set(_name the_selftest_prints_the_same_hash_every_run)
+    elseif(_case STREQUAL "physics-change")
+        set(_name a_one_line_change_to_the_physics_moves_the_selftest_hash)
+    else()
+        set(_name a_selftest_log_with_a_command_it_does_not_know_is_refused_at_its_line)
+    endif()
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/selftest-${_case} -DCASE=${_case}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/selftest_hash.cmake)
+endforeach()
+
+add_test(NAME the_cli_refuses_a_selftest_for_an_aircraft_with_no_log
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=selftest no_such_aircraft" -DEXIT=1
+        "-DSTDERR_MATCHES=no_such_aircraft.log"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
 add_test(NAME the_cli_refuses_an_argument_it_does_not_know
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=--fly -DEXIT=2
