@@ -43,9 +43,10 @@ else is built on, one line per item, each verified:
 
 Every check above was also made to fail on purpose, and was seen to.
 
-**Phase 1, the feel, has started.** JSBSim is pinned, and a fixed 120 Hz step
-drives it; both are proved on Linux and waiting on CI for the other platforms.
-The rest of the phase does not exist yet.
+**Phase 1, the feel: 2 of 7 items done** — JSBSim pinned and built, and a fixed
+120 Hz step driving it, both proved on every platform. Not yet: flights checked
+against published figures, state set/resume, the replay hash, cross-platform
+flight checks, and a packaged CLI that flies.
 
 ## Gaps
 
@@ -63,10 +64,13 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### A fixed 120 Hz step, 2026-09-17 — Linux so far
+### A fixed 120 Hz step, 2026-09-17
 
-**What is missing first:** these tests have run on Linux only; CI runs them on
-the other platforms with this commit.
+**Proved on every platform.** CI run 35216463701 (commit `1d2649c`) passed all
+20 tests in every preset — GCC 14.2 on Ubuntu (sanitized and release) and Rocky
+9, AppleClang 17 (sanitized and release), MSVC 19.51 (debug and release) and
+clang-cl 20.1 — so the five differently-chunked flights ended in identical
+states on each. Before that run it had been proved on Linux only.
 
 `glideslope::sim::FixedStep` turns elapsed time into whole 120 Hz steps.
 **The steps taken depend only on the total time elapsed**, never on how it was
@@ -130,11 +134,14 @@ test.
 20 of 20. The flight test's five ten-second flights take about 0.04 s in
 release and 1.9 s sanitized.
 
-### JSBSim, pinned and built, 2026-09-17 — Linux so far
+### JSBSim, pinned and built, 2026-09-17
 
-**What is missing first:** JSBSim has only been built locally. macOS and Windows
-build it for the first time in CI on this commit, and its packages have not been
-made since it arrived.
+**Proved on every platform.** JSBSim builds and the aircraft tests pass in every
+preset (CI run 35216463701). The first run (35215481035) failed only in
+`windows-clang`: enabling C left that preset with clang-cl for C++ and MSVC for
+C, which CMake refuses, and commit `b234322` names clang-cl for both. The
+`package` workflow (runs 35215392807 and 35216463589) passed on every platform,
+running `glideslope_cli aircraft c172p` out of each unpacked package.
 
 **What exists.** `ext/jsbsim` is JSBSim v1.3.1 (`3b25f25`), built by
 `cmake/Jsbsim.cmake` from its `src/` directory only, statically, with its

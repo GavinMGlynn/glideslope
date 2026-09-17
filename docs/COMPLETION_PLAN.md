@@ -63,13 +63,11 @@ because it is built on everything before it.
 
 ## Phase 1 — The feel
 
-- [ ] **JSBSim, pinned and built**, linked by the simulation, with the Cessna
-      172 loaded from its model files. **In progress:** proved on Linux; macOS
-      and Windows build it for the first time in CI. *Verification:
+- [x] **JSBSim, pinned and built**, linked by the simulation, with the Cessna
+      172 loaded from its model files. *Verification:
       `glideslope_cli` loads the Cessna 172 and prints the figures JSBSim read
       from its files, and the layering check still passes.*
-- [ ] **A fixed 120 Hz step with an accumulator.** **In progress:** proved on
-      Linux; CI proves the other platforms. *Verification: the same
+- [x] **A fixed 120 Hz step with an accumulator.** *Verification: the same
       scripted flight fed its time in small, large and uneven chunks ends in the
       same state.*
 - [ ] **Scripted flight checked against published figures** — take-off roll,
