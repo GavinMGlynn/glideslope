@@ -41,7 +41,7 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch) {
         "https://aviationweather.gov/api/data/metar?ids=" + id + "&format=json";
     platform::HttpResponse r;
     try {
-        r = fetch(url);
+        r = fetch_with_retries(fetch, url);
     } catch (const platform::HttpError& e) {
         throw DemError(std::string("could not download: ") + e.what());
     }

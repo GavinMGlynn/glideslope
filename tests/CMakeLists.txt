@@ -119,7 +119,8 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_in_a_steady_crosswind_drifts_with_it_and_turbulence_disturbs_it_only_when_on
     a_new_weather_report_blends_in_over_its_interval_with_no_step_in_the_wind
     an_instant_is_named_by_the_utc_hour_it_falls_in_as_open_meteo_names_hours
-    the_weather_now_at_an_airfield_is_fetched_from_aviationweather_and_open_meteo)
+    the_weather_now_at_an_airfield_is_fetched_from_aviationweather_and_open_meteo
+    a_fetch_is_tried_again_after_a_server_error_or_no_answer_and_not_after_a_refusal)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)

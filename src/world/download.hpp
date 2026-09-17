@@ -6,6 +6,7 @@
 #include "platform/http.hpp"
 #include "world/dem.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -17,6 +18,15 @@ using Fetch = std::function<platform::HttpResponse(const std::string& url)>;
 
 // A GET through the platform's HTTP client, with a body limit to suit a DEM tile.
 Fetch http_fetch();
+
+// `fetch(url)`, tried again when the server fails - a 5xx status - or nothing
+// answers, `attempts` times in all, waiting `wait` before the second try and
+// twice as long before each after. Services have bad minutes: aviationweather.gov
+// answers 504 now and then. What comes back last is returned, or what it threw
+// thrown; any other status is returned at once.
+platform::HttpResponse
+fetch_with_retries(const Fetch& fetch, const std::string& url, int attempts = 3,
+                   std::chrono::milliseconds wait = std::chrono::milliseconds(2000));
 
 // A file pinned by SHA-256, from the cache or else fetched into it. Throws
 // DemError if it cannot be had, or arrives as anything but what was pinned.

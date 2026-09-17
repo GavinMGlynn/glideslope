@@ -189,6 +189,14 @@ ft/s against 7.21); the credit removed from the HUD ("the credit reads "", not
 "WEATHER DATA BY OPEN-METEO.COM""); the station check reduced to refusing
 nothing but an empty name (a three-letter station reached a URL).
 
+**Tried again.** CI's first run of this failed on Ubuntu because
+aviationweather.gov answered the HUD test with 504 Gateway Timeout; the
+packages, minutes later, fetched it everywhere. Weather and DEM downloads are
+now tried three times, two and then four seconds apart, when a server fails
+(5xx) or nothing answers, and never after any other status
+(`world::fetch_with_retries`; watched to fail with every status taken as a
+failure).
+
 ### The flight screen: HUD, test flags, flight controllers and frames, 2026-09-18 — items done
 
 Proved in CI on every platform (run 35244380011) and by every package (run

@@ -5,6 +5,7 @@
 #include <cctype>
 #include <fstream>
 #include <system_error>
+#include <thread>
 
 namespace glideslope::world {
 
@@ -41,7 +42,7 @@ void write_whole(const std::filesystem::path& path,
 platform::HttpResponse get(const Fetch& fetch, const std::string& url) {
     platform::HttpResponse r;
     try {
-        r = fetch(url);
+        r = fetch_with_retries(fetch, url);
     } catch (const platform::HttpError& e) {
         throw DemError(std::string("could not download: ") + e.what());
     }
@@ -53,6 +54,25 @@ platform::HttpResponse get(const Fetch& fetch, const std::string& url) {
 }
 
 } // namespace
+
+platform::HttpResponse fetch_with_retries(const Fetch& fetch, const std::string& url,
+                                          int attempts,
+                                          std::chrono::milliseconds wait) {
+    for (int attempt = 1;; ++attempt) {
+        try {
+            platform::HttpResponse r = fetch(url);
+            if (r.status < 500 || attempt >= attempts) {
+                return r;
+            }
+        } catch (const platform::HttpError&) {
+            if (attempt >= attempts) {
+                throw;
+            }
+        }
+        std::this_thread::sleep_for(wait);
+        wait *= 2;
+    }
+}
 
 Fetch http_fetch() {
     return [](const std::string& url) {

@@ -101,7 +101,7 @@ WindsAloft fetch_winds_aloft(double latitude_deg, double longitude_deg,
     const std::string url = open_meteo_url(latitude_deg, longitude_deg);
     platform::HttpResponse r;
     try {
-        r = fetch(url);
+        r = fetch_with_retries(fetch, url);
     } catch (const platform::HttpError& e) {
         throw DemError(std::string("could not download: ") + e.what());
     }

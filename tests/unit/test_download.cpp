@@ -5,6 +5,7 @@
 #include "world/digest.hpp"
 #include "world/download.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -164,4 +165,53 @@ GLIDESLOPE_TEST(a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash) {
     glideslope::world::fetch_pinned(
         cache, "grid.zip", "https://example.invalid/grid.zip", right, bucket.fetch());
     check(bucket.asked.size() == 2, "and not fetched again");
+}
+
+GLIDESLOPE_TEST(
+    a_fetch_is_tried_again_after_a_server_error_or_no_answer_and_not_after_a_refusal) {
+    using glideslope::world::fetch_with_retries;
+    constexpr std::chrono::milliseconds no_wait{0};
+    // Answers with each status in turn, a 0 being no answer at all.
+    const auto answering = [](std::vector<int> statuses, int& calls) {
+        return [statuses, &calls](const std::string&) {
+            const int status = statuses.at(static_cast<std::size_t>(calls++));
+            if (status == 0) {
+                throw HttpError("no answer");
+            }
+            HttpResponse r;
+            r.status = status;
+            return r;
+        };
+    };
+    int calls = 0;
+    check(
+        fetch_with_retries(answering({504, 503, 200}, calls), "u", 3, no_wait).status ==
+                200 &&
+            calls == 3,
+        "two server errors, then the answer");
+    calls = 0;
+    check(fetch_with_retries(answering({0, 0, 200}, calls), "u", 3, no_wait).status ==
+                  200 &&
+              calls == 3,
+          "no answer twice, then the answer");
+    calls = 0;
+    check(
+        fetch_with_retries(answering({504, 504, 502}, calls), "u", 3, no_wait).status ==
+                502 &&
+            calls == 3,
+        "three server errors: the last is returned");
+    calls = 0;
+    try {
+        fetch_with_retries(answering({0, 0, 0}, calls), "u", 3, no_wait);
+        fail("no answer three times was not thrown");
+    } catch (const HttpError&) {
+        check(calls == 3, "no answer three times is thrown after the third");
+    }
+    for (const int refusal : {404, 204, 403, 301}) {
+        calls = 0;
+        check(fetch_with_retries(answering({refusal, 200}, calls), "u", 3, no_wait)
+                          .status == refusal &&
+                  calls == 1,
+              "status " + std::to_string(refusal) + " is not tried again");
+    }
 }
