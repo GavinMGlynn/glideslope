@@ -122,12 +122,16 @@ cmake_language(DEFER CALL glideslope_check_sim_links glideslope_sim)
 add_library(glideslope_world STATIC
     src/world/byte_source.cpp
     src/world/dem.cpp
+    src/world/digest.cpp
+    src/world/download.cpp
     src/world/geodesy.cpp
     src/world/geoid.cpp
     src/world/geotiff.cpp
     src/world/inflate.cpp
     src/world/zip.cpp)
 target_include_directories(glideslope_world PUBLIC src)
+# Terrain arrives over the network, through the platform's HTTP client.
+target_link_libraries(glideslope_world PUBLIC glideslope_platform)
 glideslope_configure(glideslope_world)
 
 # ---------------------------------------------------------------------------
@@ -137,6 +141,20 @@ glideslope_configure(glideslope_world)
 add_library(glideslope_platform STATIC
     src/platform/paths.cpp)
 target_include_directories(glideslope_platform PUBLIC src)
+# HTTPS through what each system trusts - see src/platform/http.hpp.
+if(WIN32)
+    target_sources(glideslope_platform PRIVATE src/platform/http_winhttp.cpp)
+    target_link_libraries(glideslope_platform PRIVATE winhttp)
+elseif(APPLE)
+    enable_language(OBJCXX)
+    target_sources(glideslope_platform PRIVATE src/platform/http_nsurlsession.mm)
+    set_source_files_properties(src/platform/http_nsurlsession.mm
+        PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(glideslope_platform PRIVATE "-framework Foundation")
+else()
+    target_sources(glideslope_platform PRIVATE src/platform/http_curl.cpp)
+    target_link_libraries(glideslope_platform PRIVATE ${CMAKE_DL_LIBS})
+endif()
 glideslope_configure(glideslope_platform)
 
 # ---------------------------------------------------------------------------
@@ -167,7 +185,7 @@ glideslope_configure(glideslope)
 # ---------------------------------------------------------------------------
 add_executable(glideslope_cli
     src/frontend/cli/main.cpp)
-target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_platform)
+target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_world glideslope_platform)
 glideslope_configure(glideslope_cli)
 
 # ---------------------------------------------------------------------------

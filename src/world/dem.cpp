@@ -258,7 +258,7 @@ float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
 double Dem::sample(DemCell cell, std::int64_t row, std::int64_t column, int depth) {
     const Tile& t = tile(cell);
     if (row < t.rows && column < t.columns) {
-        return stored_sample(t, cell, row, column);
+        return static_cast<double>(stored_sample(t, cell, row, column));
     }
     // Past the south or east edge: the sample is the next tile's.
     const std::int64_t latitude =

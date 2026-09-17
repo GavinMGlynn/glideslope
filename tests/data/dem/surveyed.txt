@@ -1,0 +1,36 @@
+# Surveyed heights, to hold the DEM to. Columns: kind, name, latitude, longitude
+# (decimal degrees), height in metres above sea level, and where it is from.
+#
+# airfield - a runway end: its surveyed position and elevation, from the FAA's
+#   airport data as AirNav publishes it (https://www.airnav.com/airport/<ID>),
+#   read 2026-09-18. Elevations are NAVD 88, in feet, converted at 0.3048 m.
+# water    - sea water a few hundred metres off a coast, whose height is sea
+#   level: 0 m.
+# summit   - a triangulation station on a summit, from the US National Geodetic
+#   Survey's datasheets (https://geodesy.noaa.gov/api/nde/pid?pid=<PID>), read
+#   2026-09-18: adjusted NAD 83 positions, NAVD 88 heights.
+#
+# NAVD 88 and EGM2008 heights differ by up to about a metre across the United
+# States; that is inside what the tests allow, and not corrected.
+airfield KDEN-16R 39.89579695 -104.69608350 1622.085 AirNav KDEN runway 16R, 5321.8 ft
+airfield KDEN-34L 39.85188683 -104.69658795 1623.670 AirNav KDEN runway 34L, 5327.0 ft
+airfield KLAS-8L 36.07636567 -115.17127367 665.409 AirNav KLAS runway 8L, 2183.1 ft
+airfield KLAS-26R 36.07640647 -115.12108303 619.658 AirNav KLAS runway 26R, 2033.0 ft
+airfield KBOS-15R 42.37427080 -71.01789213 5.761 AirNav KBOS runway 15R, 18.9 ft
+airfield KBOS-33L 42.35465078 -70.99158605 4.785 AirNav KBOS runway 33L, 15.7 ft
+airfield PAJN-8 58.35784722 -134.59696945 7.620 AirNav PAJN runway 8, 25.0 ft
+airfield PAJN-26 58.35163333 -134.55239722 7.132 AirNav PAJN runway 26, 23.4 ft
+airfield PANC-7R 61.16781155 -150.04287130 40.264 AirNav PANC runway 7R, 132.1 ft
+airfield PANC-25L 61.16788117 -149.97264862 30.693 AirNav PANC runway 25L, 100.7 ft
+airfield PABR-8 71.28486820 -156.79877687 14.813 AirNav PABR runway 8, 48.6 ft
+airfield PABR-26 71.28487797 -156.73837162 11.400 AirNav PABR runway 26, 37.4 ft
+water Boston-Harbor 42.3400 -70.9900 0 off Logan airport
+water Cook-Inlet 61.2000 -150.1000 0 off Anchorage
+water Gastineau-Channel 58.2960 -134.4050 0 off Juneau
+water Chukchi-Sea 71.3000 -156.8500 0 off Utqiagvik
+water Port-Jackson -33.8500 151.2600 0 Sydney Harbour
+summit Mount-Whitney 36.5785809250 -118.2919949500 4421.1 NGS GT1811 WHITNEY
+summit Mount-Elbert 39.1177507528 -106.4453583944 4401.2 NGS KL0637 MOUNT ELBERT
+summit Humphreys-Peak 35.3463419167 -111.6779455389 3851.9 NGS FQ0624 FRISCO
+summit Wheeler-Peak 36.5568551361 -105.4169470278 4013.4 NGS GM0779 WHEELER
+summit Guadalupe-Peak 31.8914607417 -104.8607102917 2667.4 NGS CD0994 EL CAPITAN

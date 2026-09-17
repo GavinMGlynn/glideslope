@@ -8,8 +8,10 @@
 # It runs `glideslope_cli --version`, whose version must match the one in the
 # package's file name; `glideslope_cli aircraft c172p`, which only works if the
 # aircraft data travelled with the program; and `glideslope_cli selftest`, which
-# flies five minutes out of the unpacked copy. A rendered frame joins them in
-# Phase 2.
+# flies five minutes out of the unpacked copy; and `glideslope_cli height` at
+# Sydney airport, which downloads a DEM tile and the geoid into an empty cache
+# through the system's own HTTP client and must give the same height everywhere.
+# A rendered frame joins them in Phase 2.
 #
 # Not on every push: packaging changes when the packaging rules do. On demand,
 # and when the build or this file changes.
@@ -115,6 +117,21 @@ jobs:
             || { echo "::error::expected 'glideslope_cli $version'"; exit 1; }
           ./glideslope_cli aircraft c172p
           ./glideslope_cli selftest
+          # Downloads go through the system's libcurl, which a stock Ubuntu
+          # container does not have: there it must say so, and then work once
+          # libcurl is installed.
+          export GLIDESLOPE_CACHE=/tmp/glideslope-cache
+          if ! ./glideslope_cli height -33.9461 151.1772 > height.txt 2>&1; then
+            cat height.txt
+            grep -q "install libcurl" height.txt \
+              || { echo "::error::the height failed for another reason"; exit 1; }
+            apt-get update && apt-get install -y --no-install-recommends libcurl4t64 ca-certificates
+            ./glideslope_cli height -33.9461 151.1772 > height.txt
+          fi
+          cat height.txt
+          h=$(awk '/above sea level/ {print $(NF-1)}' height.txt)
+          awk -v h="$h" 'BEGIN { exit !(h > 6.224 && h < 6.244) }' \
+            || { echo "::error::Sydney airport at $h m, not 6.234 m"; exit 1; }
           # The licences of what is linked in travel with it.
           for licence in JSBSim expat GeographicLib; do
             test -s "licenses/$licence.txt" || { echo "::error::no licenses/$licence.txt"; exit 1; }
@@ -160,6 +177,11 @@ jobs:
             || { echo "::error::expected 'glideslope_cli $version'"; exit 1; }
           ./glideslope_cli aircraft c172p
           ./glideslope_cli selftest
+          export GLIDESLOPE_CACHE="$RUNNER_TEMP/glideslope-cache"
+          ./glideslope_cli height -33.9461 151.1772 | tee height.txt
+          h=$(awk '/above sea level/ {print $(NF-1)}' height.txt)
+          awk -v h="$h" 'BEGIN { exit !(h > 6.224 && h < 6.244) }' \
+            || { echo "::error::Sydney airport at $h m, not 6.234 m"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:
@@ -208,6 +230,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "glideslope_cli aircraft c172p exited $LASTEXITCODE" }
           & $exe selftest
           if ($LASTEXITCODE -ne 0) { throw "glideslope_cli selftest exited $LASTEXITCODE" }
+          $env:GLIDESLOPE_CACHE = Join-Path $env:RUNNER_TEMP 'glideslope-cache'
+          $height = & $exe height -33.9461 151.1772
+          if ($LASTEXITCODE -ne 0) { throw "glideslope_cli height exited $LASTEXITCODE" }
+          $height | Write-Output
+          $h = [double](($height | Select-String 'above sea level').ToString().Split(' ', [StringSplitOptions]::RemoveEmptyEntries)[-2])
+          if ($h -le 6.224 -or $h -ge 6.244) { throw "Sydney airport at $h m, not 6.234 m" }
 
           # The runner has the Visual C++ redistributable; somebody's computer
           # may not. The runtime is linked in, so the program must not ask for it.

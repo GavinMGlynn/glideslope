@@ -88,6 +88,17 @@ Its Article 6, quoted:
 > the delivery of Copernicus data and information under the Copernicus
 > programme.
 
+**Its stated accuracy**, from the Copernicus DEM Product Handbook (version 5.0,
+29 November 2022, <https://dataspace.copernicus.eu/sites/default/files/media/files/2024-06/geo1988-copernicusdem-spe-002_producthandbook_i5.0.pdf>,
+SHA-256 `b5a0b027bddef7122e39de368dba9cf10adce8631a2e3026d246b4be98c3f0c4`),
+for the EEA-10, GLO-30 and GLO-90 instances, quoted:
+
+> Absolute Vertical Accuracy 1) 2) 3) < 4m (90% linear error)
+>
+> 3) Due to the global coverage of the TanDEM-X DEM / WorldDEM / Copernicus DEM,
+> all accuracy statistics and values stated in this document are calculated as
+> an arithmetic mean. Local deviations can occur.
+
 **What that asks of glideslope:** nothing is redistributed yet, so no notice is
 shown yet. When the client draws terrain from the DEM, or the server serves
 heights from it, notice (a) is shown with the terrain's attribution, and (c)'s
@@ -102,13 +113,35 @@ sentence goes in the documentation that ships with the program.
 | Pinned | `tests/data/downloads/files.txt`: `egm2008-5.zip`, 16,773,259 bytes, SHA-256 `408f05e0c04a9f2e17b9ea2d27123f936e9dea60128bb3411a272f8ddbe318dd` |
 | In the repository | Nothing: fetched, as the DEM is |
 | Use | Converting the DEM's heights above the geoid to heights above the WGS84 ellipsoid (`world/geoid.hpp`) |
-| Licence | **Not stated for the data.** GeographicLib's documentation says of the library: "It is licensed under the MIT License; see LICENSE.txt." Its geoid page, and the zip, state no terms for the grids. The model is NGA's; NGA's EGM2008 page could not be read when this was recorded. Open, below |
+| Licence | **Public domain**, as the model's. GeographicLib's geoid page and the zip state no terms of their own for the grids (of the library, GeographicLib's documentation says: "It is licensed under the MIT License; see LICENSE.txt."). The grid is NGA's EGM2008 evaluated by GeographicLib, and PROJ's data package, which redistributes NGA's EGM2008 as a grid GeographicLib produced, records it so; see below |
 
-## Open questions about terms
+PROJ-data's `us_nga/us_nga_README.txt`
+(<https://github.com/OSGeo/PROJ-data/blob/master/us_nga/us_nga_README.txt>),
+quoted:
 
-- **The EGM2008 grid's terms.** Before a package fetches or ships the geoid
-  grid for its users, the terms of NGA's EGM2008 and of GeographicLib's grids
-  need to be found stated, not assumed. Until then only the tests fetch it.
+> ### Vertical grid: EGM2008 geoid model
+>
+> *Source*: [NGA](http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm2008/egm08_wgs84.html)
+> *Format*: GeoTIFF converted from GTX
+> *License*: Public Domain
+>
+> 2.5 minute worldwide geoid undulation grid that transforms physical heights
+> to WGS84 ellipsoidal heights.
+>
+> This file has been produced by [GeographicLib](https://geographiclib.sourceforge.io/html/gravity.html)
+> using the EGM2008 gravity model
+
+NGA's own page could not be read when this was recorded; the statement above
+is PROJ's, about the same model.
+
+### Surveyed heights the DEM is tested against
+
+| | |
+| --- | --- |
+| In the repository | `tests/data/dem/surveyed.txt`: twelve runway ends, five coastal waters and five summits, each with its position, height and source |
+| Runway ends | The FAA's airport data - surveyed runway-end positions and NAVD 88 elevations - as published by AirNav (`https://www.airnav.com/airport/<ID>`), read 2026-09-18, for KDEN, KLAS, KBOS, PAJN, PANC and PABR. Individual numbers, not AirNav's pages |
+| Summits | The US National Geodetic Survey's datasheets for triangulation stations GT1811, KL0637, FQ0624, GM0779 and CD0994 (`https://geodesy.noaa.gov/api/nde/pid?pid=<PID>`), read 2026-09-18: adjusted NAD 83 positions and NAVD 88 heights. Works of the United States government |
+| Coastal waters | Positions chosen off coasts, whose height is sea level by definition |
 
 ## Planned sources
 

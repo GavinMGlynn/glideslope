@@ -1,0 +1,52 @@
+#pragma once
+
+// Data fetched once and kept: DEM tiles and the geoid grid, in the cache
+// directory, each checked as it arrives and written into place only whole.
+
+#include "platform/http.hpp"
+#include "world/dem.hpp"
+
+#include <cstdint>
+#include <filesystem>
+#include <functional>
+#include <string>
+
+namespace glideslope::world {
+
+using Fetch = std::function<platform::HttpResponse(const std::string& url)>;
+
+// A GET through the platform's HTTP client, with a body limit to suit a DEM tile.
+Fetch http_fetch();
+
+// A file pinned by SHA-256, from the cache or else fetched into it. Throws
+// DemError if it cannot be had, or arrives as anything but what was pinned.
+std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
+                                   const std::string& name, const std::string& url,
+                                   const std::string& sha256, const Fetch& fetch);
+
+// DEM tiles from the cache, fetched from the public buckets into it when they
+// are not there yet. A tile is checked against the MD5 the bucket gives as its
+// ETag before it is kept; one that arrives different, or not at all, is not
+// kept, and the query that wanted it fails with the reason.
+class DownloadedTiles : public DemTiles {
+public:
+    DownloadedTiles(std::filesystem::path cache, Fetch fetch);
+
+    std::shared_ptr<const ByteSource> open(DemDataset dataset, DemCell cell) override;
+
+    // Tiles fetched, rather than found in the cache, since construction.
+    int downloads() const {
+        return downloads_;
+    }
+
+private:
+    std::filesystem::path cache_;
+    Fetch fetch_;
+    int downloads_ = 0;
+};
+
+// The EGM2008 5-minute geoid, from the cache or fetched into it. See
+// docs/ASSETS.md.
+Geoid egm2008_geoid(const std::filesystem::path& cache, const Fetch& fetch);
+
+} // namespace glideslope::world

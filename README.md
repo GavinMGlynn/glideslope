@@ -4,7 +4,11 @@ A multiplayer flight simulator in C++: real flight physics and live wind, flown
 over real-world terrain streamed from the internet. Fly yourself, or hand any
 aircraft to an AI pilot and take it back.
 
-> **Status: Phase 0, foundations, is complete. Nothing flies yet.**
+> **Status: Phases 0 and 1 are complete, and Phase 2, the world, is under way.**
+> A Cessna 172P flies to its handbook with a test pilot at the controls; the
+> renderer draws test scenes on Vulkan, Direct3D 12 and Metal; and the ground's
+> height is known anywhere on Earth. There is no terrain to see and nothing to
+> fly by hand yet.
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the single source of
 > truth for what works, with the gaps named first.
 
@@ -24,14 +28,25 @@ in [`docs/FEATURES.md`](docs/FEATURES.md).
 ## Building
 
 ```sh
+git clone --recurse-submodules https://github.com/GavinMGlynn/glideslope.git
 cmake --preset linux-release      # or linux-debug, macos-*, windows-*
 cmake --build --preset linux-release
 ctest --preset linux-release
 ```
 
-There is nothing to fly yet: the build produces `glideslope_cli`, which reports
-its version. `cpack --preset linux-release` (or `macos-release`,
-`windows-release`) makes a package that runs from wherever it is unpacked.
+What the build makes, today:
+
+```sh
+glideslope_cli figures c172p            # fly the Cessna's published figures
+glideslope_cli selftest                 # a five-minute flight, and its hash
+glideslope_cli height -33.9461 151.1772 # the ground's height, from the DEM
+glideslope --scene origin               # a test scene, in a window
+```
+
+`cpack --preset linux-release` (or `macos-release`, `windows-release`) makes a
+package that runs from wherever it is unpacked. Terrain data is downloaded when
+first needed, into the user's cache directory (or `GLIDESLOPE_CACHE`); on Linux
+that needs the system's libcurl, which almost every distribution has.
 
 ## The documents
 

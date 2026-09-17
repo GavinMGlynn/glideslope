@@ -39,7 +39,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt') }}
 
       - name: Install dependencies
         env:
@@ -155,7 +155,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt') }}
 
       # **The compiler gate against a real old compiler**, not a described one.
       # Rocky 9's own g++ is GCC 11; the configure must stop and say what it
@@ -201,7 +201,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt') }}
 
       - name: Install ninja
         run: brew install ninja
@@ -252,7 +252,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt') }}
 
       - uses: ilammy/msvc-dev-cmd@v1
         with: { arch: x64 }
@@ -285,13 +285,18 @@ jobs:
               throw "$f was not in the archive where expected"
             }
           }
-          "VK_DRIVER_FILES=$dir\lvp_icd.x86_64.json" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          # Registered, not named by VK_DRIVER_FILES: the runner's processes are
+          # elevated, and the Vulkan loader ignores that variable in an elevated
+          # process. The registry it always reads.
+          $drivers = 'HKLM:\SOFTWARE\Khronos\Vulkan\Drivers'
+          New-Item -Path $drivers -Force | Out-Null
+          New-ItemProperty -Path $drivers -Name "$dir\lvp_icd.x86_64.json" -PropertyType DWord -Value 0 -Force | Out-Null
           $dir | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
           Get-Content "$dir\lvp_icd.x86_64.json"
           # What the loader finds, before anything is built on it.
-          $env:VK_DRIVER_FILES = "$dir\lvp_icd.x86_64.json"
           $env:PATH = "$dir;$env:PATH"
           & "$dir\vulkaninfo.exe" --summary
+          if ($LASTEXITCODE -ne 0) { throw "the Vulkan loader found no usable driver" }
 
       - name: windows-debug - configure, build, test
         shell: cmd

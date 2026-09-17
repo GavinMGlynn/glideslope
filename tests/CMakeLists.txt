@@ -13,6 +13,10 @@ add_executable(glideslope_tests
     unit/harness.cpp
     unit/tiff_writer.cpp
     unit/test_dem.cpp
+    unit/test_dem_surveyed.cpp
+    unit/test_digest.cpp
+    unit/test_download.cpp
+    unit/test_http.cpp
     unit/test_figures.cpp
     unit/test_fixed_step.cpp
     unit/test_geodesy.cpp
@@ -21,7 +25,7 @@ add_executable(glideslope_tests
     unit/test_inflate.cpp
     unit/test_flight.cpp
     unit/test_restore.cpp)
-target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_world)
+target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_world glideslope_platform)
 # Where tests/cmake/fetch.cmake puts the files the tests download. A directory
 # named by GLIDESLOPE_DOWNLOADS when configuring outlives the build tree, which
 # is how CI keeps them between runs.
@@ -83,7 +87,17 @@ set(GLIDESLOPE_UNIT_TESTS
     the_dem_surface_is_continuous_across_tiles_resolutions_and_bands
     the_dem_surface_is_continuous_across_the_antimeridian_and_to_the_poles
     the_dem_meets_the_sea_at_zero_between_the_last_sample_and_the_coast
-    the_dem_gives_the_sydney_tiles_heights_at_its_samples_and_between_them)
+    the_dem_gives_the_sydney_tiles_heights_at_its_samples_and_between_them
+    sha256_and_md5_give_the_published_digests
+    sha256_and_md5_pad_every_length_around_a_block_boundary_and_hash_in_pieces
+    an_https_get_fetches_a_pinned_file_byte_for_byte
+    an_https_get_follows_redirects_to_the_file
+    an_http_error_status_is_a_response_and_a_failed_request_is_an_error
+    the_dem_meets_surveyed_airfields_and_coastlines_within_its_stated_accuracy
+    the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
+    a_dem_tile_is_fetched_once_checked_against_its_etag_and_read_from_the_cache_after
+    a_dem_tile_that_arrives_damaged_missing_or_not_at_all_is_refused_and_not_kept
+    a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
@@ -100,7 +114,14 @@ set_tests_properties(
     the_copernicus_dem_tile_south_of_sydney_decodes_to_the_heights_an_independent_decoder_gives
     the_egm2008_grid_gives_geographiclibs_undulations_within_its_stated_error
     the_dem_gives_the_sydney_tiles_heights_at_its_samples_and_between_them
+    the_dem_meets_surveyed_airfields_and_coastlines_within_its_stated_accuracy
+    the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
     PROPERTIES FIXTURES_REQUIRED downloads)
+# Twelve tiles, fetched by the first of the two the first time.
+set_tests_properties(
+    the_dem_meets_surveyed_airfields_and_coastlines_within_its_stated_accuracy
+    the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
+    PROPERTIES TIMEOUT 1800 RESOURCE_LOCK dem_downloads)
 
 # The committed DEM coverage is what the pinned tile lists make.
 add_test(NAME the_committed_dem_coverage_is_what_the_pinned_tile_lists_make
@@ -246,6 +267,12 @@ add_test(NAME the_cli_reports_the_project_version
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=--version -DEXIT=0
         "-DSTDOUT_IS=glideslope_cli ${PROJECT_VERSION}"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_cli_refuses_a_height_asked_for_off_the_earth
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=height 91 0" -DEXIT=2
+        "-DSTDERR_MATCHES=the latitude must be a number from -90 to 90"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_prints_its_usage_when_asked

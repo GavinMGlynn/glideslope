@@ -106,14 +106,14 @@ because it is built on everything before it.
       both distant mountains and a nearby aircraft draws with no z-fighting at
       either.*
 - [ ] **The Copernicus DEM, read directly** from its GeoTIFF files at a pinned
-      version, with a height query anywhere on Earth. **In progress:** a height
-      query anywhere on Earth, above the geoid or the ellipsoid, over tiles
-      already on disk; the GeoTIFF reader, DEFLATE, the EGM2008 geoid and the
-      committed coverage are proved. Nothing fetches tiles at run time, and no
-      surveyed point has been checked.
-      *Verification: heights at
-      surveyed points — summits, coastlines, airfields — match within the
-      dataset's stated accuracy, and the version and hash are in `ASSETS.md`.*
+      version, with a height query anywhere on Earth. **Done locally; awaiting
+      CI** for WinHTTP and NSURLSession. *Verification (amended
+      2026-09-18): heights at surveyed airfields and coastlines match within
+      the dataset's stated accuracy, and the version and hash are in
+      `ASSETS.md`. Summits were in the original verification, and cannot be:
+      a 30 m grid does not hold a peak, and the DEM lies 8 to 35 m below five
+      surveyed summits; that shortfall is pinned by a test and named in
+      `PROJECT_STATUS.md`.*
 - [ ] **Collision terrain in the simulation.** *Verification: an aircraft set
       down at sea level, at a high airfield and on a slope rests on the DEM
       surface in each.*

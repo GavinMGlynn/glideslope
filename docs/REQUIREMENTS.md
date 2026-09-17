@@ -507,6 +507,15 @@ The replacement:
   SDL_GPU accepts DXBC. The build's shader compiler checks every resource
   against SDL_GPU's documented layout (`cmake/Shaders.cmake`).
 
+- **HTTPS through the operating system, not a bundled libcurl.** Terrain now,
+  and weather later, are fetched through WinHTTP on Windows, NSURLSession on
+  macOS, and on Linux the system's libcurl loaded at run time
+  (`src/platform/http.hpp`). Each uses the system's certificate store and proxy
+  settings and is updated with it; nothing is built or shipped for it, and the
+  program starts without libcurl and says what is missing if a download is
+  wanted. Section 3's "libcurl + JSON library" for weather becomes this and a
+  JSON library.
+
 **Open:**
 
 - **Runways on the DEM** (under discussion). Copernicus DEM is a radar-measured

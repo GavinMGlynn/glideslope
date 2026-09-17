@@ -74,7 +74,8 @@ The aircraft files JSBSim reads at run time are made from this submodule's by
 ## Expected, from `REQUIREMENTS.md`
 
 - **Cesium Native** — terrain and imagery streaming, Phase 2.
-- **libcurl and a JSON library** — weather, Phase 3.
+- **A JSON library** — weather, Phase 3. (HTTPS is not a dependency: see
+  `src/platform/http.hpp` and `REQUIREMENTS.md`.)
 - **SDL_net and libsodium** — the transport, Phase 6.
 - **SQLite** — server storage, Phase 6.
 
