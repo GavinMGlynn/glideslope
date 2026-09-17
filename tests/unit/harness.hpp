@@ -49,6 +49,15 @@ struct Skip {
     throw Skip{reason};
 }
 
+// An environment variable's value, or empty if it is not set.
+std::string environment(const char* name);
+
+// Whether GLIDESLOPE_REQUIRE_NETWORK is set: a test that cannot reach the
+// network then fails rather than skipping.
+inline bool network_required() {
+    return !environment("GLIDESLOPE_REQUIRE_NETWORK").empty();
+}
+
 inline void check(bool condition, std::string_view what,
                   std::source_location where = std::source_location::current()) {
     if (!condition) {

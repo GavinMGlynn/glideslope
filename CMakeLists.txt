@@ -7,6 +7,14 @@ project(glideslope
     # parser its model files are read with; nothing of ours is written in C.
     LANGUAGES   C CXX)
 
+# Objective-C++ on macOS, for NSURLSession (src/platform/http_nsurlsession.mm).
+# Enabled here, before any target: CMake needs a language enabled at the top
+# level before the first target that compiles or links it, or the build files
+# are written without its rules.
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 # ---------------------------------------------------------------------------
 # **The C++ runtime goes inside the executable on Windows.**
 #
@@ -146,7 +154,6 @@ if(WIN32)
     target_sources(glideslope_platform PRIVATE src/platform/http_winhttp.cpp)
     target_link_libraries(glideslope_platform PRIVATE winhttp)
 elseif(APPLE)
-    enable_language(OBJCXX)
     target_sources(glideslope_platform PRIVATE src/platform/http_nsurlsession.mm)
     set_source_files_properties(src/platform/http_nsurlsession.mm
         PROPERTIES COMPILE_OPTIONS "-fobjc-arc")

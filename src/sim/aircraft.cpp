@@ -1,8 +1,10 @@
 #include "sim/aircraft.hpp"
 
 #include "sim/fixed_step.hpp"
+#include "sim/terrain.hpp"
 
 #include <FGFDMExec.h>
+#include <input_output/FGGroundCallback.h>
 #include <initialization/FGInitialCondition.h>
 #include <input_output/FGPropertyManager.h>
 #include <math/FGColumnVector3.h>
@@ -19,6 +21,7 @@
 #include <simgear/misc/sg_path.hxx>
 #include <simgear/props/props.hxx>
 
+#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <stdexcept>
@@ -35,6 +38,73 @@ std::unique_ptr<JSBSim::FGFDMExec> quiet_exec() {
     JSBSim::FGJSBBase::debug_lvl = 0;
     return std::make_unique<JSBSim::FGFDMExec>();
 }
+
+// JSBSim's ground, from a Terrain.
+//
+// The contact point is straight below the location asked about, at the
+// terrain's height; the normal comes from the terrain's slope there, by central
+// differences 15 m to each side - half a Copernicus DEM sample, so it is the
+// slope of the cell the wheel is on. JSBSim works in feet.
+class TerrainGround : public JSBSim::FGGroundCallback {
+public:
+    TerrainGround(std::shared_ptr<Terrain> terrain, double semimajor_ft,
+                  double semiminor_ft)
+        : terrain_(std::move(terrain)), a_(semimajor_ft), b_(semiminor_ft) {}
+
+    double GetAGLevel(double, const JSBSim::FGLocation& location,
+                      JSBSim::FGLocation& contact, JSBSim::FGColumnVector3& normal,
+                      JSBSim::FGColumnVector3& velocity,
+                      JSBSim::FGColumnVector3& angular_velocity) const override {
+        constexpr double feet_per_metre = 1.0 / 0.3048;
+        constexpr double degrees = 180.0 / 3.14159265358979323846;
+        velocity.InitMatrix();
+        angular_velocity.InitMatrix();
+        JSBSim::FGLocation here = location;
+        here.SetEllipse(a_, b_);
+        const double latitude = here.GetGeodLatitudeRad();
+        const double longitude = here.GetLongitude();
+        const double lat_deg = latitude * degrees;
+        const double lon_deg = longitude * degrees;
+        const double height_m = terrain_->height_m(lat_deg, lon_deg);
+
+        constexpr double half_span_m = 15.0;
+        constexpr double earth_radius_m = 6378137.0;
+        const double cos_lat = std::max(std::cos(latitude), 1e-6);
+        const double d_lat = half_span_m / earth_radius_m * degrees;
+        const double d_lon = half_span_m / (earth_radius_m * cos_lat) * degrees;
+        const double north_slope = (terrain_->height_m(lat_deg + d_lat, lon_deg) -
+                                    terrain_->height_m(lat_deg - d_lat, lon_deg)) /
+                                   (2.0 * half_span_m);
+        const double east_slope = (terrain_->height_m(lat_deg, lon_deg + d_lon) -
+                                   terrain_->height_m(lat_deg, lon_deg - d_lon)) /
+                                  (2.0 * half_span_m);
+
+        const double sin_lat = std::sin(latitude);
+        const double sin_lon = std::sin(longitude);
+        const double cos_lon = std::cos(longitude);
+        const JSBSim::FGColumnVector3 up(cos_lat * cos_lon, cos_lat * sin_lon, sin_lat);
+        const JSBSim::FGColumnVector3 north(-sin_lat * cos_lon, -sin_lat * sin_lon,
+                                            cos_lat);
+        const JSBSim::FGColumnVector3 east(-sin_lon, cos_lon, 0.0);
+        JSBSim::FGColumnVector3 n = up - north * north_slope - east * east_slope;
+        normal = n / n.Magnitude();
+
+        const double height_ft = height_m * feet_per_metre;
+        contact.SetEllipse(a_, b_);
+        contact.SetPositionGeodetic(longitude, latitude, height_ft);
+        return here.GetGeodAltitude() - height_ft;
+    }
+
+    void SetEllipse(double semimajor_ft, double semiminor_ft) override {
+        a_ = semimajor_ft;
+        b_ = semiminor_ft;
+    }
+
+private:
+    std::shared_ptr<Terrain> terrain_;
+    double a_;
+    double b_;
+};
 
 } // namespace
 
@@ -83,9 +153,21 @@ void Aircraft::load(const Loading& loading) {
     }
 }
 
+void Aircraft::set_terrain(std::shared_ptr<Terrain> terrain) {
+    if (!terrain) {
+        throw std::invalid_argument("no terrain");
+    }
+    const auto inertial = exec_->GetInertial();
+    inertial->SetGroundCallback(new TerrainGround(
+        std::move(terrain), inertial->GetSemimajor(), inertial->GetSemiminor()));
+}
+
 void Aircraft::initialize(const InitialConditions& ic) {
     const auto fgic = exec_->GetIC();
-    fgic->SetLatitudeDegIC(ic.latitude_deg);
+    // Geodetic, as every latitude here is. JSBSim's SetLatitudeDegIC is the
+    // geocentric latitude: given 45 degrees it started the aircraft 0.19
+    // degrees - 21 km - north of where it was asked to be.
+    fgic->SetGeodLatitudeDegIC(ic.latitude_deg);
     fgic->SetLongitudeDegIC(ic.longitude_deg);
     fgic->SetTerrainElevationFtIC(ic.terrain_elevation_ft);
     fgic->SetAltitudeASLFtIC(ic.altitude_ft);
@@ -123,6 +205,9 @@ AircraftState Aircraft::state() const {
     s.latitude_deg = exec_->GetPropertyValue("position/lat-geod-deg");
     s.longitude_deg = exec_->GetPropertyValue("position/long-gc-deg");
     s.altitude_ft = exec_->GetPropertyValue("position/h-sl-ft");
+    s.height_above_ground_ft = exec_->GetPropertyValue("position/h-agl-ft");
+    s.terrain_elevation_ft =
+        exec_->GetPropertyValue("position/terrain-elevation-asl-ft");
     s.roll_deg = exec_->GetPropertyValue("attitude/phi-deg");
     s.pitch_deg = exec_->GetPropertyValue("attitude/theta-deg");
     s.heading_deg = exec_->GetPropertyValue("attitude/psi-deg");
@@ -289,7 +374,7 @@ void Aircraft::restore(const AircraftSnapshot& s) {
         // copy 37,000 ft underground at 34 degrees south, and JSBSim's start left
         // NaN in the engine that nothing afterwards could wash out.
         const auto fgic = exec_->GetIC();
-        fgic->SetLatitudeDegIC(s.latitude_deg);
+        fgic->SetGeodLatitudeDegIC(s.latitude_deg);
         fgic->SetLongitudeDegIC(s.longitude_deg);
         fgic->SetTerrainElevationFtIC(s.terrain_elevation_ft);
         fgic->SetAltitudeASLFtIC(s.altitude_ft);

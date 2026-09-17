@@ -14,6 +14,8 @@ class FGFDMExec;
 
 namespace glideslope::sim {
 
+class Terrain;
+
 // What an aircraft's model files say about it, as JSBSim read them.
 struct AircraftFigures {
     std::string model;       // the model's name, as asked for: "c172p"
@@ -27,7 +29,7 @@ struct AircraftFigures {
 
 // Where and how an aircraft starts.
 struct InitialConditions {
-    double latitude_deg = 0.0;
+    double latitude_deg = 0.0; // geodetic, WGS84
     double longitude_deg = 0.0;
     double altitude_ft = 0.0;          // above sea level
     double terrain_elevation_ft = 0.0; // the ground beneath, above sea level
@@ -61,6 +63,8 @@ struct AircraftState {
     double latitude_deg = 0.0;
     double longitude_deg = 0.0;
     double altitude_ft = 0.0; // above sea level
+    double height_above_ground_ft = 0.0;
+    double terrain_elevation_ft = 0.0; // the ground beneath
     double roll_deg = 0.0;
     double pitch_deg = 0.0;
     double heading_deg = 0.0;
@@ -118,6 +122,13 @@ public:
     Aircraft& operator=(const Aircraft&) = delete;
 
     AircraftFigures figures() const;
+
+    // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
+    // elevation, from now on. Heights, InitialConditions' altitude included,
+    // are then above the WGS84 ellipsoid, which is JSBSim's sea level; the
+    // terrain elevation in InitialConditions is ignored. The aircraft keeps the
+    // terrain alive.
+    void set_terrain(std::shared_ptr<Terrain> terrain);
 
     // Sets what is on board. Call before initialize(); the weight is what JSBSim
     // computes from it once the aircraft is initialised.

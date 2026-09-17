@@ -114,9 +114,9 @@ because it is built on everything before it.
       a 30 m grid does not hold a peak, and the DEM lies 8 to 35 m below five
       surveyed summits; that shortfall is pinned by a test and named in
       `PROJECT_STATUS.md`.*
-- [ ] **Collision terrain in the simulation.** *Verification: an aircraft set
-      down at sea level, at a high airfield and on a slope rests on the DEM
-      surface in each.*
+- [ ] **Collision terrain in the simulation.** **Done locally; awaiting CI.**
+      *Verification: an aircraft set down at sea level, at a high airfield and
+      on a slope rests on the DEM surface in each.*
 - [ ] **A window and a GPU device through SDL3** on Vulkan, D3D12 and Metal.
       **In progress:** Vulkan on Linux and Metal on macOS draw headless and in
       a window, in CI; Direct3D 12 and Vulkan on Windows have not run.

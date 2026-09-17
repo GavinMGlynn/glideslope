@@ -58,7 +58,6 @@ std::vector<Surveyed> measure() {
         read_text(source / "../assets/dem/coverage.txt"));
     const glideslope::world::Fetch fetch = glideslope::world::http_fetch();
     glideslope::world::DownloadedTiles tiles(downloads / "dem", fetch);
-    const char* required = std::getenv("GLIDESLOPE_REQUIRE_NETWORK");
     try {
         const glideslope::world::Geoid geoid =
             glideslope::world::egm2008_geoid(downloads, fetch);
@@ -67,7 +66,7 @@ std::vector<Surveyed> measure() {
             s.dem = dem.height_above_geoid(s.latitude, s.longitude);
         }
     } catch (const glideslope::world::DemError& e) {
-        if (required == nullptr || required[0] == '\0') {
+        if (!glideslope::test::network_required()) {
             glideslope::test::skip(std::string("the tiles could not be had: ") +
                                    e.what());
         }

@@ -20,6 +20,7 @@ add_executable(glideslope_tests
     unit/test_figures.cpp
     unit/test_fixed_step.cpp
     unit/test_geodesy.cpp
+    unit/test_ground.cpp
     unit/test_geoid.cpp
     unit/test_geotiff.cpp
     unit/test_inflate.cpp
@@ -97,7 +98,11 @@ set(GLIDESLOPE_UNIT_TESTS
     the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
     a_dem_tile_is_fetched_once_checked_against_its_etag_and_read_from_the_cache_after
     a_dem_tile_that_arrives_damaged_missing_or_not_at_all_is_refused_and_not_kept
-    a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash)
+    a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash
+    level_terrain_holds_an_aircraft_exactly_as_jsbsims_own_ground_does
+    an_aircraft_set_down_on_a_slope_rests_tilted_by_the_slope
+    an_aircraft_with_its_brakes_off_rolls_down_a_slope_and_stays_on_level_ground
+    an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
@@ -116,11 +121,13 @@ set_tests_properties(
     the_dem_gives_the_sydney_tiles_heights_at_its_samples_and_between_them
     the_dem_meets_surveyed_airfields_and_coastlines_within_its_stated_accuracy
     the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
+    an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
     PROPERTIES FIXTURES_REQUIRED downloads)
 # Twelve tiles, fetched by the first of the two the first time.
 set_tests_properties(
     the_dem_meets_surveyed_airfields_and_coastlines_within_its_stated_accuracy
     the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
+    an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
     PROPERTIES TIMEOUT 1800 RESOURCE_LOCK dem_downloads)
 
 # The committed DEM coverage is what the pinned tile lists make.

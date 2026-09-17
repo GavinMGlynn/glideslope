@@ -39,7 +39,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
 
       - name: Install dependencies
         env:
@@ -155,7 +155,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
 
       # **The compiler gate against a real old compiler**, not a described one.
       # Rocky 9's own g++ is GCC 11; the configure must stop and say what it
@@ -201,7 +201,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
 
       - name: Install ninja
         run: brew install ninja
@@ -252,7 +252,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
 
       - uses: ilammy/msvc-dev-cmd@v1
         with: { arch: x64 }

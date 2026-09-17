@@ -1,6 +1,7 @@
 #include "harness.hpp"
 
 #include <cstdio>
+#include <cstdlib>
 #include <exception>
 
 namespace glideslope::test {
@@ -8,6 +9,23 @@ namespace glideslope::test {
 std::vector<TestCase>& registry() {
     static std::vector<TestCase> tests;
     return tests;
+}
+
+std::string environment(const char* name) {
+#if defined(_MSC_VER)
+    // MSVC's getenv is deprecated in favour of this.
+    char* value = nullptr;
+    std::size_t size = 0;
+    if (_dupenv_s(&value, &size, name) != 0 || value == nullptr) {
+        return {};
+    }
+    std::string out(value);
+    std::free(value);
+    return out;
+#else
+    const char* value = std::getenv(name);
+    return value == nullptr ? std::string() : std::string(value);
+#endif
 }
 
 void fail(const std::string& message, std::source_location where) {

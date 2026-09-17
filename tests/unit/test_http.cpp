@@ -3,7 +3,6 @@
 #include "platform/http.hpp"
 #include "world/digest.hpp"
 
-#include <cstdlib>
 #include <string>
 
 using glideslope::platform::http_get;
@@ -15,18 +14,13 @@ using glideslope::test::fail;
 
 namespace {
 
-bool network_required() {
-    const char* v = std::getenv("GLIDESLOPE_REQUIRE_NETWORK");
-    return v != nullptr && v[0] != '\0';
-}
-
 // The first request of a test: without the network the test cannot run, and is
 // skipped - unless the network is required, as in CI.
 HttpResponse first_get(const HttpRequest& request) {
     try {
         return http_get(request);
     } catch (const HttpError& e) {
-        if (!network_required()) {
+        if (!glideslope::test::network_required()) {
             glideslope::test::skip(std::string("no network here: ") + e.what());
         }
         throw;
