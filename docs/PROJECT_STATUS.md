@@ -54,6 +54,9 @@ platform. Cross-platform flight checks are in progress: written and tested
 locally, never yet run across the platforms. The packaged CLI's selftest is
 written into the `package` workflow and has not run.
 
+**Phase 2, the world, has started:** Earth-centred, Earth-fixed positions and
+their conversions exist and are proved on Linux, waiting on CI.
+
 ## Gaps
 
 Everything in `COMPLETION_PLAN.md`. The ones worth naming first, because they
@@ -71,6 +74,42 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### Positions on the Earth, 2026-09-17 — Linux so far
+
+**What is missing first:** these tests have run on Linux only; CI runs them on
+the other platforms with this commit. Nothing uses the conversions yet — the
+simulation keeps JSBSim's positions, and there is no renderer or terrain.
+
+`glideslope_world` is a new library, and `src/world/geodesy.hpp` its first
+file: `Ecef` (double-precision metres, Earth-centred and Earth-fixed),
+`Geodetic` (latitude, longitude, height above the ellipsoid), and the
+conversions between them on WGS84. The forward conversion is the exact formula;
+the inverse is Vermeille's closed form (2004), with no iteration.
+
+**Tests:**
+
+- `wgs84_reference_points_convert_exactly` — the equator at 0°, 90° E and 180°,
+  both poles (100 m above the South Pole at an arbitrary longitude), and the
+  derived semi-minor axis against WGS84's published 6,356,752.314245 m.
+- `geodetic_positions_round_trip_through_ecef_within_a_millimetre` — 819
+  positions, counted: 13 latitudes (both poles exactly and a ten-millionth of a
+  degree away, the equator exactly and a billionth either side), 9 longitudes
+  (both sides of the date line, the prime meridian), and 7 heights from 430 m
+  below sea level to 40 km. Latitude and longitude must come back within a
+  billionth of a degree and the position within a millimetre; the worst was
+  3.4 nanometres.
+- `the_geodetic_conversion_agrees_with_jsbsims_within_a_millimetre` — the same
+  819 positions converted back by JSBSim's `FGLocation`, a different algorithm
+  set up with JSBSim's own WGS84 axes in feet, not this project's constants.
+
+**Watched to fail, three ways:** a spherical Earth in the forward conversion
+failed the reference and round-trip tests; one term dropped from the inverse's
+height failed the round-trip and JSBSim tests; and a flattening of 1/298.26
+instead of 1/298.257223563 failed the reference test and — once the JSBSim
+check used JSBSim's own axes rather than this project's — the JSBSim test too.
+
+**Verified locally:** `linux-release` passes 45 of 45.
 
 ### The packaged CLI flies, 2026-09-17 — not yet run
 
@@ -104,15 +143,16 @@ same flights everywhere", needs all four jobs, downloads the five results, and
 runs `tests/cmake/cross_platform_flights.cmake`, which names the five platforms
 and fails if any is missing.
 
-**Its test**, `the_cross_platform_check_accepts_platforms_that_agree_and_`
-`refuses_one_that_does_not`, makes five platforms from this build's own output. Identical, with one
-platform's climb rate 0.3% higher, they must be accepted; a glide ratio 1.9%
+**Its test** makes five platforms from this build's own output. Identical, with
+one platform's climb rate 0.3% higher, they must be accepted; a glide ratio 1.9%
 higher on one, the selftest ending 400 ft north on one, and one platform's
 figures missing must each be refused. **Watched to fail for the right reasons:**
 the first version of the test moved the glide ratio from 9.38 to 956 instead of
 9.56, and the check refused it — correctly, but for a gross error rather than
 the 2% it claimed to test. With the arithmetic fixed, each refusal's message
-names the glide ratio's platforms, the 400 ft, and the missing platform.
+names the glide ratio's platforms, the 400 ft, and the missing platform. The
+test is
+`the_cross_platform_check_accepts_platforms_that_agree_and_refuses_one_that_does_not`.
 
 ### The selftest and its hash, 2026-09-17
 

@@ -109,6 +109,15 @@ glideslope_configure(glideslope_sim)
 cmake_language(DEFER CALL glideslope_check_sim_links glideslope_sim)
 
 # ---------------------------------------------------------------------------
+# The world - where things are on the Earth. Positions, today; terrain and
+# weather arrive with the phases that need them. Links no presentation.
+# ---------------------------------------------------------------------------
+add_library(glideslope_world STATIC
+    src/world/geodesy.cpp)
+target_include_directories(glideslope_world PUBLIC src)
+glideslope_configure(glideslope_world)
+
+# ---------------------------------------------------------------------------
 # The platform layer - where things are on this machine. Paths only, today;
 # input and sockets arrive with the phases that need them.
 # ---------------------------------------------------------------------------

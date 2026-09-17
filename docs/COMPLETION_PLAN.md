@@ -97,7 +97,8 @@ because it is built on everything before it.
 ## Phase 2 — The world
 
 - [ ] **Earth-centred, Earth-fixed positions in double precision**, with
-      latitude, longitude and height conversions. *Verification: conversions
+      latitude, longitude and height conversions. **In progress:** proved on
+      Linux; CI proves the other platforms. *Verification: conversions
       round-trip within a millimetre at the poles, the equator, the date line,
       and from below sea level to cruising altitude.*
 - [ ] **A camera-relative floating origin.** *Verification: a still scene

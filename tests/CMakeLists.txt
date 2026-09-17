@@ -10,9 +10,10 @@ add_executable(glideslope_tests
     unit/harness.cpp
     unit/test_figures.cpp
     unit/test_fixed_step.cpp
+    unit/test_geodesy.cpp
     unit/test_flight.cpp
     unit/test_restore.cpp)
-target_link_libraries(glideslope_tests PRIVATE glideslope_sim)
+target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_world)
 target_compile_definitions(glideslope_tests PRIVATE
     GLIDESLOPE_TEST_DATA_DIR="${GLIDESLOPE_DATA_DIR}/jsbsim"
     GLIDESLOPE_TEST_FIGURES_DIR="${GLIDESLOPE_DATA_DIR}/figures")
@@ -37,7 +38,10 @@ set(GLIDESLOPE_UNIT_TESTS
     every_published_figure_has_a_flight_and_every_flight_a_figure
     an_aircraft_restored_in_every_phase_of_flight_tracks_the_original
     an_aircraft_put_back_to_an_earlier_snapshot_flies_on_as_a_fresh_restore_does
-    a_snapshot_of_one_model_cannot_be_restored_into_another)
+    a_snapshot_of_one_model_cannot_be_restored_into_another
+    wgs84_reference_points_convert_exactly
+    geodetic_positions_round_trip_through_ecef_within_a_millimetre
+    the_geodetic_conversion_agrees_with_jsbsims_within_a_millimetre)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
 endforeach()
