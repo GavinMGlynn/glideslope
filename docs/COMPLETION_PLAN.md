@@ -77,7 +77,8 @@ because it is built on everything before it.
       other platforms. *Verification: each figure lands within its stated
       tolerance of the Cessna 172's published number.*
 - [ ] **State capture and set/resume** — a full aircraft state written into a
-      fresh instance, which flies on from it. *Verification: an instance
+      fresh instance, which flies on from it. **In progress:** proved on Linux;
+      CI proves the other platforms. *Verification: an instance
       restored mid-flight tracks the original within a stated tolerance, from a
       capture taken in every phase of flight the scripted flights cover.*
 - [ ] **The same-machine replay hash** — `glideslope_cli selftest` flies a fixed

@@ -1,9 +1,12 @@
 #pragma once
 
+#include <array>
 #include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace JSBSim {
 class FGFDMExec;
@@ -74,6 +77,31 @@ struct AircraftState {
     bool operator==(const AircraftState&) const = default;
 };
 
+// Everything needed to put another instance of the same model into the state an
+// aircraft was captured in, and have it fly on from there. Read only by
+// Aircraft::restore(); its fields are public so that it can be copied, stored and
+// sent, not so that anything else interprets them.
+struct AircraftSnapshot {
+    std::string model;
+    double sim_time_s = 0.0;
+    // Where it was, as a person would say it - used only to start a fresh
+    // instance somewhere sensible before the exact state is applied.
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+    double altitude_ft = 0.0;
+    double terrain_elevation_ft = 0.0;
+    std::array<double, 3> location_ecef_ft{}; // Earth-centred, Earth-fixed
+    std::array<double, 4>
+        attitude_local{};              // quaternion, body relative to north-east-down
+    std::array<double, 3> uvw_fps{};   // body-axis velocity relative to the Earth
+    std::array<double, 3> pqr_radps{}; // body-axis rates relative to the Earth
+    std::vector<bool> engines_running;
+    std::vector<double> thruster_rpm;
+    std::vector<std::pair<std::string, double>>
+        properties; // every property that is both
+                    // readable and writable
+};
+
 // One aircraft: a JSBSim instance loaded from model files.
 //
 // JSBSim's headers stay behind this class, so nothing that includes it compiles
@@ -108,6 +136,15 @@ public:
 
     AircraftState state() const;
 
+    // The aircraft's state, as far as it can be read out of JSBSim.
+    AircraftSnapshot capture() const;
+
+    // Puts this aircraft - freshly loaded, or already flying - into the state
+    // `snapshot` was captured in. Throws std::invalid_argument for a snapshot of
+    // a different model. See aircraft.cpp for what is restored exactly, what
+    // is settled, and why.
+    void restore(const AircraftSnapshot& snapshot);
+
     // Any JSBSim property by name, for code that needs more than state()
     // reports - the published-figure checks read the gear, the flaps and the
     // propeller. Throws std::out_of_range for a property the model does not
@@ -117,6 +154,7 @@ public:
 private:
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
+    bool initialized_ = false;
 };
 
 } // namespace glideslope::sim

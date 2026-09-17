@@ -10,7 +10,8 @@ add_executable(glideslope_tests
     unit/harness.cpp
     unit/test_figures.cpp
     unit/test_fixed_step.cpp
-    unit/test_flight.cpp)
+    unit/test_flight.cpp
+    unit/test_restore.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim)
 target_compile_definitions(glideslope_tests PRIVATE
     GLIDESLOPE_TEST_DATA_DIR="${GLIDESLOPE_DATA_DIR}/jsbsim"
@@ -33,7 +34,10 @@ set(GLIDESLOPE_UNIT_TESTS
     the_cessna_172p_stalls_with_10_degrees_of_flap_near_its_published_speed
     the_cessna_172p_stalls_with_30_degrees_of_flap_near_its_published_speed
     a_coordinated_level_turn_turns_at_the_rate_its_bank_and_speed_demand
-    every_published_figure_has_a_flight_and_every_flight_a_figure)
+    every_published_figure_has_a_flight_and_every_flight_a_figure
+    an_aircraft_restored_in_every_phase_of_flight_tracks_the_original
+    an_aircraft_put_back_to_an_earlier_snapshot_flies_on_as_a_fresh_restore_does
+    a_snapshot_of_one_model_cannot_be_restored_into_another)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
 endforeach()

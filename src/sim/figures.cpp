@@ -1,6 +1,7 @@
 #include "sim/figures.hpp"
 
 #include "sim/fixed_step.hpp"
+#include "sim/test_pilot.hpp"
 
 #include <input_output/FGXMLElement.h>
 #include <input_output/FGXMLFileRead.h>
@@ -9,7 +10,6 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
-#include <numbers>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -26,75 +26,6 @@ int steps(double seconds) {
     return static_cast<int>(
         std::lround(seconds * static_cast<double>(steps_per_second)));
 }
-
-double clamp_unit(double x) {
-    return std::clamp(x, -1.0, 1.0);
-}
-
-// ---------------------------------------------------------------------------
-// The test pilot.
-//
-// Just enough flying to hold the conditions a handbook figure was measured in:
-// a pitch attitude, and above it a speed or an altitude; a bank angle; and the
-// ball in the middle. It is not the product's autopilot (Phase 4) and is not
-// meant to fly like a person - it is meant to hold one condition steadily so
-// that one number can be read off.
-// ---------------------------------------------------------------------------
-class TestPilot {
-public:
-    explicit TestPilot(const Aircraft& aircraft) : a_(aircraft) {}
-
-    // Elevator for a pitch attitude, with an integral that finds the trim.
-    double pitch_to(double theta_deg) {
-        const double error = theta_deg - a_.property("attitude/theta-deg");
-        const double q_degps =
-            a_.property("velocities/q-rad_sec") * 180.0 / std::numbers::pi;
-        trim_ = std::clamp(trim_ + 0.02 * error * dt, -1.0, 1.0);
-        return clamp_unit(trim_ + 0.05 * error - 0.03 * q_degps);
-    }
-
-    // A pitch attitude that brings calibrated airspeed to `kcas`: nose up when
-    // fast. Slow, so that it settles rather than chases the phugoid.
-    double pitch_for_speed(double kcas) {
-        const double error = a_.property("velocities/vc-kts") - kcas;
-        speed_integral_ = std::clamp(speed_integral_ + error * dt, -1000.0, 1000.0);
-        return std::clamp(0.6 * error + 0.03 * speed_integral_, -15.0, 20.0);
-    }
-
-    // A pitch attitude that brings the aircraft to `altitude_ft` and holds it.
-    double pitch_for_altitude(double altitude_ft) {
-        const double error = altitude_ft - a_.property("position/h-sl-ft");
-        const double climb_fps = a_.property("velocities/h-dot-fps");
-        altitude_integral_ =
-            std::clamp(altitude_integral_ + error * dt, -3000.0, 3000.0);
-        return std::clamp(0.01 * error - 0.08 * climb_fps + 0.0005 * altitude_integral_,
-                          -10.0, 15.0);
-    }
-
-    // Aileron for a bank angle.
-    double roll_to(double phi_deg) const {
-        const double phi = a_.property("attitude/phi-deg");
-        const double p_degps =
-            a_.property("velocities/p-rad_sec") * 180.0 / std::numbers::pi;
-        return clamp_unit(0.04 * (phi_deg - phi) - 0.02 * p_degps);
-    }
-
-    // Rudder against sideslip, with an integral that finds the rudder a steady
-    // turn needs. Without the integral the aircraft slipped half a degree in a
-    // 30-degree turn and turned 2% slower than its bank demanded.
-    double coordinate() {
-        const double beta = a_.property("aero/beta-deg");
-        rudder_integral_ = std::clamp(rudder_integral_ - 0.05 * beta * dt, -1.0, 1.0);
-        return clamp_unit(-0.1 * beta + rudder_integral_);
-    }
-
-private:
-    const Aircraft& a_;
-    double trim_ = 0.0;
-    double speed_integral_ = 0.0;
-    double altitude_integral_ = 0.0;
-    double rudder_integral_ = 0.0;
-};
 
 double condition(const FigureSpec& spec, const std::string& key) {
     const auto it = spec.conditions.find(key);
