@@ -16,6 +16,7 @@
 
 #include <cstdio>
 #include <exception>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -76,9 +77,15 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    // Headless is no window. Elsewhere that is SDL's offscreen video driver, which
+    // needs no display; SDL's Metal backend will only start on a video driver
+    // that can make a Metal view, which on macOS is Cocoa's, so there headless
+    // keeps the native driver and simply opens no window.
+#ifndef __APPLE__
     if (o.headless) {
         SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "offscreen");
     }
+#endif
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::fprintf(stderr, "glideslope: SDL did not start: %s\n", SDL_GetError());
         return 1;
@@ -110,6 +117,11 @@ int main(int argc, char** argv) {
                 glideslope::gfx::save_bmp(renderer.capture(), o.shot);
                 std::printf("glideslope: wrote frame %ld to %s\n", frame,
                             o.shot.c_str());
+                if (window != nullptr) {
+                    std::printf("glideslope: presented %ld of %ld frames to the "
+                                "window\n",
+                                renderer.presented(), frame);
+                }
                 running = false;
             }
         }

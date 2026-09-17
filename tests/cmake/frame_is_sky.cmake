@@ -2,7 +2,13 @@
 # and every pixel of what it wrote is the sky it was cleared to.
 #
 #   cmake -DPROGRAM=<glideslope> -DDRIVER=<vulkan|direct3d12|metal> -DWORK=<dir>
-#         -P frame_is_sky.cmake
+#         [-DWINDOW=ON] -P frame_is_sky.cmake
+#
+# With WINDOW=ON the client opens a window and draws to it too, and must say
+# that frames reached the window's swapchain. On Linux a window needs a display:
+# without DISPLAY or WAYLAND_DISPLAY the test reports itself skipped (exit 77),
+# unless GLIDESLOPE_REQUIRE_WINDOW is set in the environment, as CI sets it,
+# where no display is a failure.
 #
 # Reads the BMP itself - header, bit masks, every pixel - rather than trusting
 # that a file of the right size is a frame of the right colour. The sky is
@@ -11,17 +17,36 @@
 
 cmake_minimum_required(VERSION 3.28)
 
+if(WINDOW)
+    set(_mode --shot-at 10)
+    set(_name "${DRIVER}-window")
+    if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND "$ENV{DISPLAY}" STREQUAL ""
+       AND "$ENV{WAYLAND_DISPLAY}" STREQUAL "")
+        if(NOT "$ENV{GLIDESLOPE_REQUIRE_WINDOW}" STREQUAL "")
+            message(FATAL_ERROR "no DISPLAY or WAYLAND_DISPLAY, and GLIDESLOPE_REQUIRE_WINDOW is set")
+        endif()
+        message(STATUS "no DISPLAY or WAYLAND_DISPLAY; a window cannot open here")
+        cmake_language(EXIT 77)
+    endif()
+else()
+    set(_mode --headless)
+    set(_name "${DRIVER}")
+endif()
+
 file(MAKE_DIRECTORY "${WORK}")
-set(_shot "${WORK}/${DRIVER}.bmp")
+set(_shot "${WORK}/${_name}.bmp")
 file(REMOVE "${_shot}")
 execute_process(
-    COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size 64x48 --shot "${_shot}"
+    COMMAND "${PROGRAM}" ${_mode} --gpu-driver "${DRIVER}" --size 64x48 --shot "${_shot}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "glideslope on ${DRIVER} exited ${_rc}\n${_out}${_err}")
 endif()
 if(NOT _out MATCHES "GPU driver ${DRIVER}")
     message(FATAL_ERROR "asked for ${DRIVER}, got something else:\n${_out}")
+endif()
+if(WINDOW AND NOT _out MATCHES "presented [1-9][0-9]* of [0-9]+ frames to the window")
+    message(FATAL_ERROR "no frame reached the window's swapchain:\n${_out}${_err}")
 endif()
 if(NOT EXISTS "${_shot}")
     message(FATAL_ERROR "glideslope said it wrote a frame and ${_shot} does not exist\n${_out}")

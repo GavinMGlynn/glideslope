@@ -92,6 +92,7 @@ void Renderer::render() {
             blit.load_op = SDL_GPU_LOADOP_DONT_CARE;
             blit.filter = SDL_GPU_FILTER_LINEAR;
             SDL_BlitGPUTexture(commands, &blit);
+            ++presented_;
         }
     }
     if (!SDL_SubmitGPUCommandBuffer(commands)) {

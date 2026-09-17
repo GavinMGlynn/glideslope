@@ -12,6 +12,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# The windowed frame tests skip where there is no display to open a window on;
+# here that is a failure, and the Linux jobs run their tests on Xvfb.
+env:
+  GLIDESLOPE_REQUIRE_WINDOW: 1
+
 # **Every preset runs somewhere.** The Linux presets on Ubuntu (both) and Rocky 9
 # (release), the macOS presets on macOS, the Windows presets on Windows. A
 # preset that no job runs is a preset nobody knows still works.
@@ -59,14 +64,17 @@ jobs:
             libgl-dev libegl-dev libdrm-dev libgbm-dev \
             libpulse-dev libasound2-dev \
             libdbus-1-dev libudev-dev libusb-1.0-0-dev \
-            mesa-vulkan-drivers libvulkan1
+            mesa-vulkan-drivers libvulkan1 xvfb
 
       - name: linux-debug - configure, build, test
         env: { CXX: g++-14 }
         run: |
           cmake --preset linux-debug
           cmake --build --preset linux-debug
-          ctest --preset linux-debug
+          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
+          rc=0; DISPLAY=:99 ctest --preset linux-debug || rc=$?
+          kill $xvfb
+          exit $rc
 
       - name: linux-release - configure, build, test
         # Runs even when the preset before it failed, so one red preset does
@@ -76,7 +84,10 @@ jobs:
         run: |
           cmake --preset linux-release
           cmake --build --preset linux-release
-          ctest --preset linux-release
+          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
+          rc=0; DISPLAY=:99 ctest --preset linux-release || rc=$?
+          kill $xvfb
+          exit $rc
 
       # For the cross-platform job at the end: what this platform's release
       # build flies. See tests/cmake/cross_platform_flights.cmake.
@@ -124,7 +135,8 @@ jobs:
             wayland-devel wayland-protocols-devel libdecor-devel \
             mesa-libGL-devel mesa-libEGL-devel libdrm-devel mesa-libgbm-devel \
             pulseaudio-libs-devel alsa-lib-devel dbus-devel systemd-devel \
-            libusb1-devel mesa-vulkan-drivers vulkan-loader
+            libusb1-devel mesa-vulkan-drivers vulkan-loader \
+            xorg-x11-server-Xvfb
 
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -148,7 +160,10 @@ jobs:
           source /opt/rh/gcc-toolset-14/enable
           cmake --preset linux-release
           cmake --build --preset linux-release
-          ctest --preset linux-release
+          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
+          rc=0; DISPLAY=:99 ctest --preset linux-release || rc=$?
+          kill $xvfb
+          exit $rc
 
       - name: Flights for the cross-platform check
         run: |

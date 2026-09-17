@@ -68,8 +68,8 @@ add_test(NAME a_32_bit_toolchain_is_refused_on_every_platform
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform_gate.cmake)
 
 # ---------------------------------------------------------------------------
-# The client renders a frame headless on every GPU driver its platform has, and
-# writes what it rendered.
+# The client renders a frame on every GPU driver its platform has, headless and
+# in a window, and writes what it rendered.
 # ---------------------------------------------------------------------------
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(GLIDESLOPE_GPU_DRIVERS direct3d12 vulkan)
@@ -84,6 +84,21 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
             -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_is_sky.cmake)
+    add_test(NAME the_client_renders_the_sky_in_a_window_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver} -DWINDOW=ON
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_is_sky.cmake)
+    set_tests_properties(the_client_renders_the_sky_in_a_window_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77)
+    # A window loads the system's windowing and driver libraries with dlopen and
+    # unloads them before exit, and what they leak LeakSanitizer can attribute to
+    # nothing - no frame of the stacks is in glideslope or SDL. The headless test
+    # on the same driver keeps leak checking on.
+    if(GLIDESLOPE_ASAN)
+        set_property(TEST the_client_renders_the_sky_in_a_window_on_${_driver}
+            PROPERTY ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0")
+    endif()
 endforeach()
 
 # ---------------------------------------------------------------------------

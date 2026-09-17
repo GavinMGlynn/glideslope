@@ -54,12 +54,20 @@ public:
     // The last frame rendered, read back from the GPU.
     Frame capture();
 
+    // How many frames have reached the window's swapchain. A window that is
+    // hidden or minimised hands out no swapchain image, so this can trail the
+    // frames rendered.
+    long presented() const {
+        return presented_;
+    }
+
 private:
     SDL_GPUDevice* device_ = nullptr;
     SDL_Window* window_ = nullptr;
     SDL_GPUTexture* target_ = nullptr;
     int width_ = 0;
     int height_ = 0;
+    long presented_ = 0;
 };
 
 // Writes `frame` as a 32-bit BMP. Throws std::runtime_error on failure.
