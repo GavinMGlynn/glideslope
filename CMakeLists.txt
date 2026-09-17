@@ -165,9 +165,20 @@ endif()
 glideslope_configure(glideslope_platform)
 
 # ---------------------------------------------------------------------------
+# Input - flight controllers through SDL, to the aircraft's controls. Apart
+# from glideslope_platform, which the CLI links, because it links SDL.
+# ---------------------------------------------------------------------------
+add_library(glideslope_input STATIC
+    src/platform/input.cpp)
+target_include_directories(glideslope_input PUBLIC src)
+target_link_libraries(glideslope_input PUBLIC glideslope_sim SDL3::SDL3-static)
+glideslope_configure(glideslope_input)
+
+# ---------------------------------------------------------------------------
 # The renderer - SDL_GPU over Vulkan, Direct3D 12 and Metal.
 # ---------------------------------------------------------------------------
 add_library(glideslope_gfx STATIC
+    src/gfx/hud.cpp
     src/gfx/renderer.cpp
     src/gfx/scene.cpp)
 target_include_directories(glideslope_gfx PUBLIC src)
@@ -181,9 +192,10 @@ glideslope_configure(glideslope_gfx)
 # glideslope - the simulator.
 # ---------------------------------------------------------------------------
 add_executable(glideslope
+    src/frontend/client/flight.cpp
     src/frontend/client/main.cpp
     src/frontend/client/scenes.cpp)
-target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_sim glideslope_world
+target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_sim glideslope_world
                                          glideslope_platform)
 glideslope_configure(glideslope)
 
@@ -207,7 +219,10 @@ glideslope_configure(glideslope_cli)
 # Everything of ours is installed as the `glideslope` component, and CPack is
 # told to package that component alone. JSBSim's src/ carries install rules for
 # its own library, headers and program, which do not belong in a download.
-install(TARGETS glideslope_cli RUNTIME DESTINATION . COMPONENT glideslope)
+install(TARGETS glideslope glideslope_cli RUNTIME DESTINATION . COMPONENT glideslope)
+# The client links SDL, statically; its licence travels with it.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdl/LICENSE.txt"
+        DESTINATION licenses RENAME SDL.txt COMPONENT glideslope)
 install(FILES LICENSE README.md DESTINATION . COMPONENT glideslope)
 install(DIRECTORY "${GLIDESLOPE_DATA_DIR}/" DESTINATION data COMPONENT glideslope)
 foreach(_licence IN LISTS GLIDESLOPE_JSBSIM_LICENCES)

@@ -10,8 +10,10 @@
 # aircraft data travelled with the program; and `glideslope_cli selftest`, which
 # flies five minutes out of the unpacked copy; and `glideslope_cli height` at
 # Sydney airport, which downloads a DEM tile and the geoid into an empty cache
-# through the system's own HTTP client and must give the same height everywhere.
-# A rendered frame joins them in Phase 2.
+# through the system's own HTTP client and must give the same height everywhere;
+# and the client, `glideslope`, headless on the platform's GPU driver, which
+# flies five seconds of the flight screen and writes its frame - uploaded, one
+# from every platform.
 #
 # Not on every push: packaging changes when the packaging rules do. On demand,
 # and when the build or this file changes.
@@ -93,7 +95,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ['rockylinux/rockylinux:9', 'ubuntu:24.04']
+        include:
+          - { image: 'rockylinux/rockylinux:9', label: rocky9 }
+          - { image: 'ubuntu:24.04', label: ubuntu24 }
     container: ${{ matrix.image }}
     steps:
       - uses: actions/download-artifact@v4
@@ -133,9 +137,24 @@ jobs:
           awk -v h="$h" 'BEGIN { exit !(h > 6.224 && h < 6.244) }' \
             || { echo "::error::Sydney airport at $h m, not 6.234 m"; exit 1; }
           # The licences of what is linked in travel with it.
-          for licence in JSBSim expat GeographicLib; do
+          for licence in JSBSim expat GeographicLib SDL; do
             test -s "licenses/$licence.txt" || { echo "::error::no licenses/$licence.txt"; exit 1; }
           done
+          # A frame needs a Vulkan driver, which a machine with a GPU has and a
+          # stock container does not: Mesa's lavapipe, installed for it.
+          if command -v dnf > /dev/null; then
+            dnf install -y --setopt=install_weak_deps=False mesa-vulkan-drivers vulkan-loader
+          else
+            apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1
+          fi
+          ./glideslope --headless --gpu-driver vulkan --size 640x480 --screen flight \
+            --shot-at 600 --shot "$GITHUB_WORKSPACE/frame-linux-${{ matrix.label }}.bmp"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frame-linux-${{ matrix.label }}
+          path: frame-linux-${{ matrix.label }}.bmp
+          if-no-files-found: error
 
   macos:
     name: macOS arm64 tarball
@@ -182,6 +201,14 @@ jobs:
           h=$(awk '/above sea level/ {print $(NF-1)}' height.txt)
           awk -v h="$h" 'BEGIN { exit !(h > 6.224 && h < 6.244) }' \
             || { echo "::error::Sydney airport at $h m, not 6.234 m"; exit 1; }
+          ./glideslope --headless --gpu-driver metal --size 640x480 --screen flight \
+            --shot-at 600 --shot "$GITHUB_WORKSPACE/frame-macos.bmp"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frame-macos
+          path: frame-macos.bmp
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
@@ -236,14 +263,26 @@ jobs:
           $height | Write-Output
           $h = [double](($height | Select-String 'above sea level').ToString().Split(' ', [StringSplitOptions]::RemoveEmptyEntries)[-2])
           if ($h -le 6.224 -or $h -ge 6.244) { throw "Sydney airport at $h m, not 6.234 m" }
+          $client = Join-Path (Split-Path $exe) 'glideslope.exe'
+          & $client --headless --gpu-driver direct3d12 --size 640x480 --screen flight `
+            --shot-at 600 --shot (Join-Path $env:GITHUB_WORKSPACE 'frame-windows.bmp')
+          if ($LASTEXITCODE -ne 0) { throw "glideslope exited $LASTEXITCODE" }
 
           # The runner has the Visual C++ redistributable; somebody's computer
           # may not. The runtime is linked in, so the program must not ask for it.
-          $deps = dumpbin /dependents $exe
-          $deps | Write-Output
-          if ($deps -match '(?i)vcruntime|msvcp') {
-            throw "the packaged program depends on the Visual C++ redistributable"
+          foreach ($program in $exe, $client) {
+            $deps = dumpbin /dependents $program
+            $deps | Write-Output
+            if ($deps -match '(?i)vcruntime|msvcp') {
+              throw "$program depends on the Visual C++ redistributable"
+            }
           }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frame-windows
+          path: frame-windows.bmp
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:

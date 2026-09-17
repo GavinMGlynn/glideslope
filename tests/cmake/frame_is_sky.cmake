@@ -18,7 +18,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/bmp.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
 if(WINDOW)
-    set(_mode --shot-at 10)
+    set(_mode --shot-at 20)
     set(_name "${DRIVER}-window")
     if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND "$ENV{DISPLAY}" STREQUAL ""
        AND "$ENV{WAYLAND_DISPLAY}" STREQUAL "")
@@ -36,7 +36,8 @@ endif()
 file(MAKE_DIRECTORY "${WORK}")
 set(_shot "${WORK}/sky-${_name}.bmp")
 file(REMOVE "${_shot}")
-glideslope_client(_out ${_mode} --gpu-driver "${DRIVER}" --size 64x48 --shot "${_shot}")
+glideslope_client(_out ${_mode} --gpu-driver "${DRIVER}" --size 64x48 --screen sky
+                  --shot "${_shot}")
 if(NOT _out MATCHES "GPU driver ${DRIVER}")
     message(FATAL_ERROR "asked for ${DRIVER}, got something else:\n${_out}")
 endif()

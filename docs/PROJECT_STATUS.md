@@ -55,12 +55,15 @@ fixed 120 Hz step; the Cessna 172P flying to its handbook; state capture and
 set/resume; the selftest's replay hash; the same flights on every platform; and
 a packaged CLI that flies — each proved on every platform.
 
-**Phase 2, the world, is under way: 1 of 12 items done** — Earth-centred,
-Earth-fixed positions and their conversions. The Copernicus DEM, read directly,
-with a height query anywhere on Earth held to surveyed runway ends and
-coastlines, is done on Linux and awaiting CI elsewhere. In progress: a window and a GPU device (every backend but
-Vulkan on Windows proved in CI), and reversed depth and the floating origin
-(proved on every backend that runs).
+**Phase 2, the world, is under way: 6 of 12 items done**, each proved in CI on
+every platform (run 35241851702): Earth-centred, Earth-fixed positions; a
+camera-relative floating origin; reversed depth; a window and a GPU device on
+Vulkan (Linux, and Windows through lavapipe), Direct3D 12 and Metal; the
+Copernicus DEM, read directly, with a height query anywhere held to surveyed
+runway ends and coastlines; and collision terrain the Cessna rests on. Done on
+Linux and awaiting CI: flight controllers, the HUD, the client's test flags,
+and frames from CI and every package. Not started: Cesium Native drawing the
+terrain, and imagery on it.
 
 ## Gaps
 
@@ -86,7 +89,64 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Standing on the DEM, 2026-09-18 — awaiting CI
+### The flight screen: HUD, test flags, flight controllers and frames, 2026-09-18 — awaiting CI
+
+**What is missing first:** there is still nothing to see but sky: no terrain,
+no aircraft, no cockpit. The HUD is text and a horizon line. There is no
+gamepad binding, no way to rebind a device but editing the file, and no
+settings screen - `--screen` chooses between the flight and three test scenes.
+
+**The flight screen** (`src/frontend/client/flight.hpp`), the client's default:
+the Cessna standing on the DEM - tiles and geoid downloaded into the cache -
+started over Sydney at 1,000 m, 100 kt, stepped at 120 Hz, seen from the
+cockpit through a camera built from its position and attitude.
+
+**The HUD** (`gfx/hud.hpp`): airspeed, altitude, heading, vertical speed,
+pitch and bank as text, and a horizon line that pitches and banks. Text is a
+5-by-7 pixel font drawn here, each font pixel a square of whole screen pixels,
+over everything through a second pipeline with no depth test - so a frame can be
+read back exactly (`gfx::read_text`).
+
+**The test flags.** `--screen NAME`; `--shot FILE` and `--shot-at TICK`, which
+now counts simulation ticks, with every frame advancing exactly two while
+shooting whatever the clock says; `--trace`, a line of the flight's state after
+every tick. Each is used by a ctest: the frame tests choose their scenes with
+`--screen` and shoot at ticks, and `the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_<driver>`
+flies 600 ticks with `--trace`, shoots the last, and has
+`glideslope_hud_check` read every HUD line back out of the BMP and hold each
+number to the traced state, within half its last digit, having checked the
+trace holds ticks 1 to 600 in order.
+
+**Flight controllers** (`platform/input.hpp`, library `glideslope_input`, apart
+from `glideslope_platform` so that the CLI still links no SDL). `Joysticks`
+reads every device SDL sees; `ControlMapper` turns them into controls by the
+bindings in `assets/input/bindings.txt` - per kind of device SDL reports,
+flight sticks and yokes or HOTAS throttles, each axis centred or a lever, each
+button held or stepping, each hat direction stepping. An axis sets its control
+when it moves, so a lever left alone does not undo a button. Pitch trim is a
+new control. The keyboard still works beside them.
+
+**Tested through SDL's virtual devices.** A virtual yoke and a virtual HOTAS
+throttle, eight axes, sixteen buttons and a hat each: every one of the 56 inputs
+alone moves a control, and none is unbound; a particular set of inputs sets the
+controls they name to the values they should - stick forward is nose down, a
+lever three quarters forward is 0.75, two presses are two notches of flap, the
+brake held and let go - and those controls reach JSBSim's commands with the
+signs JSBSim uses; a bindings file that cannot be read is refused by line.
+
+**Frames from everywhere.** Packages now carry the client and SDL's licence.
+Every package job runs the unpacked client headless on its platform's driver -
+Vulkan through Mesa's lavapipe, installed in the stock Linux containers; Metal;
+Direct3D 12 - flying 600 ticks of the flight, and uploads the frame. CI uploads
+every frame its tests wrote.
+
+**Watched to fail:** the HUD's airspeed shown one knot high ("SPD shows 79 at
+tick 600 when the state is 77.896"); a binding removed from the file (the yoke
+had an unbound input). The first run of the controller tests found that an axis
+rewrote its control every read and so undid button steps to the same control -
+flaps stayed at 0 - which is why axes now act only when they move.
+
+### Standing on the DEM, 2026-09-18 — item done
 
 **What is missing first:** only the tests connect the simulation to the DEM;
 no program flies over it yet, and the selftest and the published-figure checks
@@ -140,7 +200,7 @@ harness), and CMake on macOS needs Objective-C++ enabled at the top of the
 project before any target; CI's Windows runner now finds lavapipe
 (`vulkaninfo`: llvmpipe, Vulkan 1.4.354) through the registry.
 
-### The DEM, fetched as needed and held to the survey, 2026-09-18 — awaiting CI
+### The DEM, fetched as needed and held to the survey, 2026-09-18 — item done
 
 **What is missing first:** summits. At five NGS summit stations the DEM is 8 to
 35 m below the surveyed height, and even its highest sample within 90 m of each

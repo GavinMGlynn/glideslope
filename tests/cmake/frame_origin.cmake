@@ -5,11 +5,11 @@
 #   cmake -DPROGRAM=<glideslope> -DDRIVER=<vulkan|direct3d12|metal> -DWORK=<dir>
 #         -P frame_origin.cmake
 #
-# The client's "origin" scene (src/frontend/client/scenes.hpp) - boxes from 7 cm
+# The client's "origin" screen (src/frontend/client/scenes.hpp) - boxes from 7 cm
 # to 2 m across, 2 to 15 m away - is shot at the Earth's centre, where every
 # coordinate is small, and at three places where they are millions of metres:
 # on the equator at the surface, at 45 N 45 E 10 km up, and at Sydney airport,
-# there on frames 1 and 60. Every frame must be the same file, byte for byte. A
+# there at ticks 2 and 120 - frames 1 and 60. Every frame must be the same file, byte for byte. A
 # renderer whose floats held whole ECEF coordinates could not place anything
 # there more finely than a quarter or half of a metre, and the boxes would move.
 #
@@ -22,11 +22,11 @@ include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
 file(MAKE_DIRECTORY "${WORK}")
 set(_places
-    "centre|--at-ecef|0,0,0|1"
-    "equator|--at-ecef|6378137,0,0|1"
-    "45n45e|--at|45,45,10000|1"
-    "sydney|--at|-33.9461,151.1772,6|1"
-    "sydney-frame-60|--at|-33.9461,151.1772,6|60")
+    "centre|--at-ecef|0,0,0|2"
+    "equator|--at-ecef|6378137,0,0|2"
+    "45n45e|--at|45,45,10000|2"
+    "sydney|--at|-33.9461,151.1772,6|2"
+    "sydney-tick-120|--at|-33.9461,151.1772,6|120")
 set(_reference "")
 set(_different "")
 foreach(_entry IN LISTS _places)
@@ -34,22 +34,22 @@ foreach(_entry IN LISTS _places)
     list(GET _fields 0 _place)
     list(GET _fields 1 _option)
     list(GET _fields 2 _value)
-    list(GET _fields 3 _frame)
+    list(GET _fields 3 _tick)
     set(_shot "${WORK}/origin-${DRIVER}-${_place}.bmp")
     file(REMOVE "${_shot}")
     glideslope_client(_out --headless --gpu-driver "${DRIVER}" --size 64x48
-                      --scene origin ${_option} ${_value} --shot-at ${_frame}
+                      --screen origin ${_option} ${_value} --shot-at ${_tick}
                       --shot "${_shot}")
     if(NOT _out MATCHES "GPU driver ${DRIVER}")
         message(FATAL_ERROR "asked for ${DRIVER}, got something else:\n${_out}")
     endif()
     file(SHA256 "${_shot}" _hash)
-    message(STATUS "${DRIVER} at ${_place}, frame ${_frame}: ${_hash}")
+    message(STATUS "${DRIVER} at ${_place}, tick ${_tick}: ${_hash}")
     if(_reference STREQUAL "")
         set(_reference "${_hash}")
         set(_reference_shot "${_shot}")
     elseif(NOT _hash STREQUAL _reference)
-        string(APPEND _different "  ${_place}, frame ${_frame}\n")
+        string(APPEND _different "  ${_place}, tick ${_tick}\n")
     endif()
 endforeach()
 

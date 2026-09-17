@@ -17,6 +17,7 @@ add_executable(glideslope_tests
     unit/test_digest.cpp
     unit/test_download.cpp
     unit/test_http.cpp
+    unit/test_input.cpp
     unit/test_figures.cpp
     unit/test_fixed_step.cpp
     unit/test_geodesy.cpp
@@ -26,7 +27,8 @@ add_executable(glideslope_tests
     unit/test_inflate.cpp
     unit/test_flight.cpp
     unit/test_restore.cpp)
-target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_world glideslope_platform)
+target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_world glideslope_platform
+                                               glideslope_input)
 # Where tests/cmake/fetch.cmake puts the files the tests download. A directory
 # named by GLIDESLOPE_DOWNLOADS when configuring outlives the build tree, which
 # is how CI keeps them between runs.
@@ -102,7 +104,10 @@ set(GLIDESLOPE_UNIT_TESTS
     level_terrain_holds_an_aircraft_exactly_as_jsbsims_own_ground_does
     an_aircraft_set_down_on_a_slope_rests_tilted_by_the_slope
     an_aircraft_with_its_brakes_off_rolls_down_a_slope_and_stays_on_level_ground
-    an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope)
+    an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
+    every_axis_button_and_hat_of_a_virtual_stick_and_throttle_moves_the_controls
+    bound_inputs_set_the_controls_they_name_and_the_aircraft_receives_them
+    a_bindings_file_that_cannot_be_read_is_refused_by_line)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
@@ -170,7 +175,19 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 else()
     set(GLIDESLOPE_GPU_DRIVERS vulkan)
 endif()
+add_executable(glideslope_hud_check tools/hud_check.cpp)
+target_link_libraries(glideslope_hud_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_hud_check)
+
 foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
+    add_test(NAME the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_hud_check>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
+    set_tests_properties(the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
     add_test(NAME a_distant_mountain_and_a_nearby_aircraft_draw_with_no_z_fighting_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}

@@ -4,7 +4,7 @@
 #   cmake -DPROGRAM=<glideslope> -DDRIVER=<vulkan|direct3d12|metal> -DWORK=<dir>
 #         -P frame_depth.cmake
 #
-# The client's "depth" scene (src/frontend/client/scenes.hpp): the top half of
+# The client's "depth" screen (src/frontend/client/scenes.hpp): the top half of
 # the frame is a mountain face 40 km away with a second face 1 m in front of it;
 # the bottom half an aircraft's skin 1 m away with a decal 1 mm in front of it.
 # The nearer surface of each pair is drawn first. Every pixel of the top half
@@ -28,7 +28,7 @@ foreach(_place centre sydney)
         set(_at)
     endif()
     glideslope_client(_out --headless --gpu-driver "${DRIVER}" --size 64x48
-                      --scene depth ${_at} --shot "${_shot}")
+                      --screen depth ${_at} --shot "${_shot}")
     if(NOT _out MATCHES "GPU driver ${DRIVER}")
         message(FATAL_ERROR "asked for ${DRIVER}, got something else:\n${_out}")
     endif()

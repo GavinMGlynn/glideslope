@@ -110,6 +110,10 @@ jobs:
           cat flights/*
       - uses: actions/upload-artifact@v4
         with: { name: flights-ubuntu-gcc, path: flights/, if-no-files-found: error }
+      # Every frame the tests wrote, to look at.
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with: { name: frames-ubuntu, path: build/linux-*/tests/frames/*.bmp, if-no-files-found: error }
 
   linux-rhel:
     name: Linux x86_64 (GCC 14, Rocky 9)
@@ -189,6 +193,9 @@ jobs:
           cat flights/*
       - uses: actions/upload-artifact@v4
         with: { name: flights-rocky-gcc, path: flights/, if-no-files-found: error }
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with: { name: frames-rocky, path: build/linux-release/tests/frames/*.bmp, if-no-files-found: error }
 
   macos:
     name: macOS arm64 (AppleClang)
@@ -236,6 +243,9 @@ jobs:
           cat flights/*
       - uses: actions/upload-artifact@v4
         with: { name: flights-macos-appleclang, path: flights/, if-no-files-found: error }
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with: { name: frames-macos, path: build/macos-*/tests/frames/*.bmp, if-no-files-found: error }
 
   windows:
     name: Windows x64 (MSVC and clang-cl)
@@ -337,6 +347,9 @@ jobs:
           type flights\*
       - uses: actions/upload-artifact@v4
         with: { name: flights-windows, path: flights/, if-no-files-found: error }
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with: { name: frames-windows, path: build/windows-*/tests/frames/*.bmp, if-no-files-found: error }
 
   # ---------------------------------------------------------------------------
   # The same flights everywhere.

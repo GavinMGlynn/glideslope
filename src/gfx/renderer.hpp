@@ -64,8 +64,11 @@ public:
     MeshId add_mesh(const Mesh& mesh);
 
     // Draws one frame, from `camera`, into the offscreen target, and to the
-    // window if there is one. With no draws it is the sky alone.
-    void render(const Camera& camera, std::span<const Draw> draws);
+    // window if there is one. With no draws it is the sky alone. `overlay`, if
+    // given, is in clip space and drawn over everything, with no depth test:
+    // the HUD.
+    void render(const Camera& camera, std::span<const Draw> draws,
+                const Mesh* overlay = nullptr);
 
     // The last frame rendered, read back from the GPU.
     Frame capture();
@@ -85,13 +88,18 @@ private:
     };
 
     void release();
+    void upload(GpuMesh& gpu, const Mesh& mesh, bool reuse);
 
     SDL_GPUDevice* device_ = nullptr;
     SDL_Window* window_ = nullptr;
     SDL_GPUTexture* target_ = nullptr;
     SDL_GPUTexture* depth_ = nullptr;
     SDL_GPUGraphicsPipeline* mesh_pipeline_ = nullptr;
+    SDL_GPUGraphicsPipeline* overlay_pipeline_ = nullptr;
     std::vector<GpuMesh> meshes_;
+    GpuMesh overlay_;
+    std::uint32_t overlay_vertex_capacity_ = 0; // bytes
+    std::uint32_t overlay_index_capacity_ = 0;
     int width_ = 0;
     int height_ = 0;
     long presented_ = 0;

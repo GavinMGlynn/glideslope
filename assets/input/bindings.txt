@@ -1,0 +1,75 @@
+# What each input of a flight controller does, by the kind of device SDL says
+# it is: flight_stick (sticks and yokes, and anything SDL cannot name) or
+# throttle (a HOTAS throttle or a quadrant).
+#
+#   KIND axis N CONTROL centred SCALE     -1..1 to the control, times SCALE
+#   KIND axis N CONTROL lever SCALE       -1..1, times SCALE, to 0..1
+#   KIND button N CONTROL hold            the control at 1 while held
+#   KIND button N CONTROL step AMOUNT     the control moved by AMOUNT at each press
+#   KIND hat N up|down|left|right CONTROL step AMOUNT
+#
+# CONTROL: aileron elevator rudder pitch_trim (-1..1), throttle mixture flaps
+# left_brake right_brake brakes (0..1). A stick pushed forward reads -1, so the
+# elevator's scale is 1 (nose down) and a throttle lever's is -1 (forward is
+# full). Flaps move in steps of a third: 10 degrees of the Cessna's 30.
+#
+# Every axis, button and hat direction a device of up to eight axes, sixteen
+# buttons and one hat can have is bound; tests/unit/test_input.cpp walks them.
+
+flight_stick axis 0 aileron centred 1
+flight_stick axis 1 elevator centred 1
+flight_stick axis 2 throttle lever -1
+flight_stick axis 3 rudder centred 1
+flight_stick axis 4 mixture lever -1
+flight_stick axis 5 flaps lever 1
+flight_stick axis 6 left_brake lever 1
+flight_stick axis 7 right_brake lever 1
+flight_stick button 0 brakes hold
+flight_stick button 1 flaps step -0.3333333
+flight_stick button 2 flaps step 0.3333333
+flight_stick button 3 pitch_trim step -0.05
+flight_stick button 4 pitch_trim step 0.05
+flight_stick button 5 throttle step 0.1
+flight_stick button 6 throttle step -0.1
+flight_stick button 7 mixture step 0.1
+flight_stick button 8 mixture step -0.1
+flight_stick button 9 left_brake hold
+flight_stick button 10 right_brake hold
+flight_stick button 11 flaps step -0.3333333
+flight_stick button 12 flaps step 0.3333333
+flight_stick button 13 pitch_trim step -0.05
+flight_stick button 14 pitch_trim step 0.05
+flight_stick button 15 brakes hold
+flight_stick hat 0 up pitch_trim step -0.05
+flight_stick hat 0 down pitch_trim step 0.05
+flight_stick hat 0 left throttle step -0.1
+flight_stick hat 0 right throttle step 0.1
+
+throttle axis 0 throttle lever -1
+throttle axis 1 mixture lever -1
+throttle axis 2 flaps lever 1
+throttle axis 3 rudder centred 1
+throttle axis 4 left_brake lever 1
+throttle axis 5 right_brake lever 1
+throttle axis 6 pitch_trim centred -1
+throttle axis 7 elevator centred 1
+throttle button 0 brakes hold
+throttle button 1 flaps step -0.3333333
+throttle button 2 flaps step 0.3333333
+throttle button 3 pitch_trim step -0.05
+throttle button 4 pitch_trim step 0.05
+throttle button 5 throttle step 0.1
+throttle button 6 throttle step -0.1
+throttle button 7 mixture step 0.1
+throttle button 8 mixture step -0.1
+throttle button 9 left_brake hold
+throttle button 10 right_brake hold
+throttle button 11 flaps step -0.3333333
+throttle button 12 flaps step 0.3333333
+throttle button 13 pitch_trim step -0.05
+throttle button 14 pitch_trim step 0.05
+throttle button 15 brakes hold
+throttle hat 0 up flaps step -0.3333333
+throttle hat 0 down flaps step 0.3333333
+throttle hat 0 left mixture step -0.1
+throttle hat 0 right mixture step 0.1

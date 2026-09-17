@@ -18,16 +18,10 @@
 # SDL called the library. If it is in the client itself - glideslope's code,
 # SDL's, or a standard container inlined into either - the test fails.
 
-function(glideslope_client out)
-    # Leaks are judged below rather than by LeakSanitizer's exit code.
-    set(ENV{LSAN_OPTIONS} "exitcode=0")
-    execute_process(COMMAND "${PROGRAM}" ${ARGN}
-                    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-    if(NOT _rc EQUAL 0)
-        message(FATAL_ERROR "glideslope ${ARGN} exited ${_rc}\n${_out}${_err}")
-    endif()
-
-    string(REPLACE ";" "," _text "${_err}")
+# Judges the leak reports in a run's standard error, as described above: fails
+# the test for a leak allocated in the client, and says how many were not.
+function(glideslope_judge_leaks stderr_text)
+    string(REPLACE ";" "," _text "${stderr_text}")
     string(REPLACE "[" "<" _text "${_text}")
     string(REPLACE "]" ">" _text "${_text}")
     string(REPLACE "\n" ";" _lines "${_text}")
@@ -65,10 +59,21 @@ function(glideslope_client out)
         math(EXPR _foreign "${_foreign} + 1")
     endif()
     if(NOT _report STREQUAL "")
-        message(FATAL_ERROR "glideslope ${ARGN} leaked, with frames in glideslope:\n${_report}")
+        message(FATAL_ERROR "glideslope leaked, with frames in glideslope:\n${_report}")
     endif()
     if(_foreign GREATER 0)
         message(STATUS "${_foreign} leak reports were allocated by libraries loaded at run time; not glideslope's")
     endif()
+endfunction()
+
+function(glideslope_client out)
+    # Leaks are judged below rather than by LeakSanitizer's exit code.
+    set(ENV{LSAN_OPTIONS} "exitcode=0")
+    execute_process(COMMAND "${PROGRAM}" ${ARGN}
+                    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    if(NOT _rc EQUAL 0)
+        message(FATAL_ERROR "glideslope ${ARGN} exited ${_rc}\n${_out}${_err}")
+    endif()
+    glideslope_judge_leaks("${_err}")
     set(${out} "${_out}" PARENT_SCOPE)
 endfunction()

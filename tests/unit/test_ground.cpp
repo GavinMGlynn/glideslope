@@ -211,7 +211,7 @@ GLIDESLOPE_TEST(
     const glideslope::world::DemCoverage coverage(
         std::string(std::istreambuf_iterator<char>(coverage_file), {}));
     const glideslope::world::Fetch fetch = glideslope::world::http_fetch();
-    glideslope::world::DownloadedTiles tiles(downloads / "dem", fetch);
+    glideslope::world::DownloadedTiles tiles(downloads, fetch);
     std::shared_ptr<glideslope::world::Geoid> geoid;
     try {
         geoid = std::make_shared<glideslope::world::Geoid>(

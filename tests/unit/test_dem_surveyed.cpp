@@ -57,7 +57,7 @@ std::vector<Surveyed> measure() {
     const glideslope::world::DemCoverage coverage(
         read_text(source / "../assets/dem/coverage.txt"));
     const glideslope::world::Fetch fetch = glideslope::world::http_fetch();
-    glideslope::world::DownloadedTiles tiles(downloads / "dem", fetch);
+    glideslope::world::DownloadedTiles tiles(downloads, fetch);
     try {
         const glideslope::world::Geoid geoid =
             glideslope::world::egm2008_geoid(downloads, fetch);

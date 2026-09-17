@@ -48,6 +48,7 @@ struct Controls {
     double flaps = 0.0;    //  0 .. 1
     double left_brake = 0.0;
     double right_brake = 0.0;
+    double pitch_trim = 0.0; // -1 (nose down) .. 1 (nose up)
 };
 
 // What is on board, by JSBSim's index for each point mass (seats, baggage) and

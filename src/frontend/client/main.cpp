@@ -1,27 +1,44 @@
 // glideslope - the simulator.
 //
-// Today it opens a window, or renders headless, and draws one of the scenes
-// built into it; the world, the aircraft and the controls arrive through
-// Phase 2.
+// It opens a window, or renders headless, on one of its screens: the flight -
+// the Cessna over the DEM, seen from its cockpit, with the HUD - or a test
+// scene. Terrain is not drawn yet.
 //
-//   glideslope [--headless] [--gpu-driver NAME] [--shot FILE] [--shot-at FRAME]
-//              [--size WxH] [--scene NAME] [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]
+//   glideslope [--headless] [--gpu-driver NAME] [--size WxH]
+//              [--screen flight|sky|origin|depth]
+//              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]
+//              [--shot FILE] [--shot-at TICK] [--trace]
 //
-// --shot writes the frame numbered --shot-at (default 1) as a BMP and exits,
-// which is how CI and the tests see what the renderer really drew.
+// Test flags. --shot writes the frame drawn at simulation tick --shot-at
+// (default 2) as a BMP and exits; while shooting, every frame advances exactly
+// two ticks - a sixtieth of a second - whatever the clock says, so the same
+// command draws the same frame on every machine. --trace prints the flight's
+// state after every tick.
 
+#include "flight.hpp"
+#include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
+#include "platform/input.hpp"
+#include "platform/paths.hpp"
 #include "scenes.hpp"
+#include "sim/fixed_step.hpp"
 #include "sim/version.hpp"
 #include "world/geodesy.hpp"
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <array>
 #include <charconv>
+#include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -34,25 +51,32 @@ struct Options {
     bool headless = false;
     std::string driver;
     std::string shot;
-    long shot_at = 1;
+    std::int64_t shot_at = 2;
+    bool trace = false;
     int width = 1280;
     int height = 720;
-    std::string scene = "sky";
-    glideslope::world::Ecef at;
+    std::string screen = "flight";
+    std::optional<glideslope::world::Geodetic> at;
+    std::optional<glideslope::world::Ecef> at_ecef;
 };
 
 void usage(std::FILE* out) {
-    std::fputs("usage: glideslope [--headless] [--gpu-driver vulkan|direct3d12|metal]\n"
-               "                  [--shot FILE] [--shot-at FRAME] [--size WxH]\n"
-               "                  [--scene sky|origin|depth]\n"
-               "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
-               "       glideslope --version | --help\n"
-               "\n"
-               "  --at puts the scene at a latitude and longitude in degrees and a\n"
-               "  height in metres above the WGS84 ellipsoid; --at-ecef at an\n"
-               "  Earth-centred, Earth-fixed position in metres. The default is the\n"
-               "  Earth's centre.\n",
-               out);
+    std::fputs(
+        "usage: glideslope [--headless] [--gpu-driver vulkan|direct3d12|metal]\n"
+        "                  [--size WxH] [--screen flight|sky|origin|depth]\n"
+        "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
+        "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
+        "       glideslope --version | --help\n"
+        "\n"
+        "  --screen      what to show: the flight (the default), or a test scene\n"
+        "  --at          where: a latitude and longitude in degrees and a height\n"
+        "                in metres above the WGS84 ellipsoid - the flight starts\n"
+        "                there, a scene is built there; --at-ecef in Earth-centred\n"
+        "                metres, for scenes\n"
+        "  --shot        write the frame at tick --shot-at (default 2) and exit;\n"
+        "                each frame is then two ticks, whatever the clock says\n"
+        "  --trace       print the flight's state after every tick\n",
+        out);
 }
 
 std::optional<long> parse_integer(std::string_view text) {
@@ -94,6 +118,42 @@ std::optional<std::array<double, 3>> parse_triple(std::string_view text) {
     return values;
 }
 
+// The keyboard, beside any flight controller: arrows for the elevator and
+// ailerons, Z and X for the rudder, Page Up and Page Down for the throttle, B
+// for the brakes. A key moves its control while held, and lets it go when
+// released, so that a stick left alone is not overridden every frame.
+class Keyboard {
+public:
+    void apply(glideslope::sim::Controls& c, double seconds) {
+        const bool* keys = SDL_GetKeyboardState(nullptr);
+        const auto axis = [&](double& control, SDL_Scancode minus, SDL_Scancode plus,
+                              bool& was) {
+            const double v = (keys[plus] ? 0.5 : 0.0) - (keys[minus] ? 0.5 : 0.0);
+            const bool held = keys[plus] || keys[minus];
+            if (held || was) {
+                control = v;
+            }
+            was = held;
+        };
+        axis(c.elevator, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, elevator_);
+        axis(c.aileron, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, aileron_);
+        axis(c.rudder, SDL_SCANCODE_Z, SDL_SCANCODE_X, rudder_);
+        const double throttle = (keys[SDL_SCANCODE_PAGEUP] ? 1.0 : 0.0) -
+                                (keys[SDL_SCANCODE_PAGEDOWN] ? 1.0 : 0.0);
+        c.throttle = std::clamp(c.throttle + 0.5 * seconds * throttle, 0.0, 1.0);
+        if (keys[SDL_SCANCODE_B] || brakes_) {
+            c.left_brake = c.right_brake = keys[SDL_SCANCODE_B] ? 1.0 : 0.0;
+        }
+        brakes_ = keys[SDL_SCANCODE_B];
+    }
+
+private:
+    bool elevator_ = false;
+    bool aileron_ = false;
+    bool rudder_ = false;
+    bool brakes_ = false;
+};
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -112,14 +172,16 @@ int main(int argc, char** argv) {
             return 0;
         } else if (a == "--headless") {
             o.headless = true;
+        } else if (a == "--trace") {
+            o.trace = true;
         } else if (a == "--gpu-driver" && has_value) {
             o.driver = std::string(args[++i]);
         } else if (a == "--shot" && has_value) {
             o.shot = std::string(args[++i]);
         } else if (a == "--shot-at" && has_value) {
-            const auto frame = parse_integer(args[++i]);
-            ok = frame && *frame >= 1;
-            o.shot_at = frame.value_or(0);
+            const auto tick = parse_integer(args[++i]);
+            ok = tick && *tick >= 0;
+            o.shot_at = tick.value_or(0);
         } else if (a == "--size" && has_value) {
             const auto size = parse_size(args[++i]);
             ok = size.has_value();
@@ -127,20 +189,22 @@ int main(int argc, char** argv) {
                 o.width = (*size)[0];
                 o.height = (*size)[1];
             }
-        } else if (a == "--scene" && has_value) {
-            o.scene = std::string(args[++i]);
+        } else if (a == "--screen" && has_value) {
+            o.screen = std::string(args[++i]);
+            ok = o.screen == "flight" || o.screen == "sky" || o.screen == "origin" ||
+                 o.screen == "depth";
         } else if (a == "--at" && has_value) {
             const auto g = parse_triple(args[++i]);
             ok = g && (*g)[0] >= -90.0 && (*g)[0] <= 90.0 && (*g)[1] >= -180.0 &&
                  (*g)[1] <= 180.0;
             if (ok) {
-                o.at = glideslope::world::to_ecef({(*g)[0], (*g)[1], (*g)[2]});
+                o.at = glideslope::world::Geodetic{(*g)[0], (*g)[1], (*g)[2]};
             }
         } else if (a == "--at-ecef" && has_value) {
             const auto e = parse_triple(args[++i]);
             ok = e.has_value();
             if (ok) {
-                o.at = {(*e)[0], (*e)[1], (*e)[2]};
+                o.at_ecef = glideslope::world::Ecef{(*e)[0], (*e)[1], (*e)[2]};
             }
         } else {
             ok = false;
@@ -155,6 +219,12 @@ int main(int argc, char** argv) {
                    stderr);
         return 2;
     }
+    if (o.screen == "flight" && o.at_ecef) {
+        std::fputs(
+            "glideslope: the flight starts --at a latitude, longitude and height\n",
+            stderr);
+        return 2;
+    }
 
     // Headless is no window. Elsewhere that is SDL's offscreen video driver, which
     // needs no display; SDL's Metal backend will only start on a video driver
@@ -165,7 +235,7 @@ int main(int argc, char** argv) {
         SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "offscreen");
     }
 #endif
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK)) {
         std::fprintf(stderr, "glideslope: SDL did not start: %s\n", SDL_GetError());
         return 1;
     }
@@ -173,8 +243,26 @@ int main(int argc, char** argv) {
     int status = 0;
     SDL_Window* window = nullptr;
     try {
-        const glideslope::client::Scene scene =
-            glideslope::client::make_scene(o.scene, o.at);
+        std::unique_ptr<glideslope::client::Flight> flight;
+        glideslope::client::Scene scene;
+        if (o.screen == "flight") {
+            glideslope::client::FlightStart start;
+            if (o.at) {
+                start.latitude_deg = o.at->latitude_deg;
+                start.longitude_deg = o.at->longitude_deg;
+                start.height_m = o.at->height_m;
+            }
+            flight = std::make_unique<glideslope::client::Flight>(
+                glideslope::platform::data_directory(),
+                glideslope::platform::cache_directory(), start);
+        } else {
+            const glideslope::world::Ecef at =
+                o.at_ecef ? *o.at_ecef
+                          : (o.at ? glideslope::world::to_ecef(*o.at)
+                                  : glideslope::world::Ecef{});
+            scene = glideslope::client::make_scene(o.screen, at);
+        }
+
         if (!o.headless) {
             window =
                 SDL_CreateWindow("glideslope", o.width, o.height, SDL_WINDOW_RESIZABLE);
@@ -189,23 +277,70 @@ int main(int argc, char** argv) {
             draw.mesh = renderer.add_mesh(scene.meshes.at(draw.mesh));
         }
 
+        const bool shooting = !o.shot.empty();
+        glideslope::sim::Controls controls;
+        controls.throttle = 0.65;
+        const std::filesystem::path bindings_path =
+            glideslope::platform::data_directory() / "input" / "bindings.txt";
+        std::ifstream bindings_file(bindings_path, std::ios::binary);
+        if (!bindings_file) {
+            throw std::runtime_error("cannot read " + bindings_path.string());
+        }
+        glideslope::platform::ControlMapper mapper(glideslope::platform::parse_bindings(
+            std::string(std::istreambuf_iterator<char>(bindings_file), {})));
+        glideslope::platform::Joysticks joysticks;
+        Keyboard keys;
+        glideslope::sim::FixedStep clock;
+        auto last = std::chrono::steady_clock::now();
+        std::int64_t ticks = 0;
+        long frames = 0;
         bool running = true;
-        for (long frame = 1; running; ++frame) {
+        while (running) {
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_EVENT_QUIT) {
                     running = false;
                 }
             }
-            renderer.render(scene.camera, draws);
-            if (!o.shot.empty() && frame == o.shot_at) {
+            std::int64_t due = 0;
+            if (shooting) {
+                due = std::min<std::int64_t>(2, o.shot_at - ticks);
+            } else {
+                const auto now = std::chrono::steady_clock::now();
+                due = std::min<std::int64_t>(clock.advance(now - last), 24);
+                last = now;
+                keys.apply(controls,
+                           static_cast<double>(due) /
+                               static_cast<double>(glideslope::sim::steps_per_second));
+            }
+            mapper.apply(joysticks.read(), controls);
+            for (std::int64_t i = 0; i < due; ++i) {
+                if (flight) {
+                    flight->step(controls);
+                    if (o.trace) {
+                        std::printf("%s\n", flight->trace().c_str());
+                    }
+                }
+                ++ticks;
+            }
+
+            if (flight) {
+                const glideslope::gfx::Mesh hud =
+                    glideslope::gfx::hud_mesh(flight->hud(), o.width, o.height);
+                renderer.render(flight->camera(), {}, &hud);
+            } else {
+                renderer.render(scene.camera, draws);
+            }
+            ++frames;
+
+            if (shooting && ticks >= o.shot_at) {
                 glideslope::gfx::save_bmp(renderer.capture(), o.shot);
-                std::printf("glideslope: wrote frame %ld to %s\n", frame,
-                            o.shot.c_str());
+                std::printf("glideslope: wrote tick %lld, frame %ld, to %s\n",
+                            static_cast<long long>(ticks), frames, o.shot.c_str());
                 if (window != nullptr) {
                     std::printf("glideslope: presented %ld of %ld frames to the "
                                 "window\n",
-                                renderer.presented(), frame);
+                                renderer.presented(), frames);
                 }
                 running = false;
             }

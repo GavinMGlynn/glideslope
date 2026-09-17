@@ -5,6 +5,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cstring>
 #include <stdexcept>
 
@@ -71,7 +72,9 @@ SDL_GPUTexture* make_texture(SDL_GPUDevice* device, SDL_GPUTextureFormat format,
     return SDL_CreateGPUTexture(device, &info);
 }
 
-SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device) {
+// The mesh pipeline, with the depth test for the world, or without it for what
+// is drawn over the world.
+SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, bool depth_test) {
     SDL_GPUShader* vertex = make_shader(device, shaders::mesh_vertex);
     SDL_GPUShader* fragment = nullptr;
     try {
@@ -107,8 +110,8 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device) {
     info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
     info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
     info.rasterizer_state.enable_depth_clip = true;
-    info.depth_stencil_state.enable_depth_test = true;
-    info.depth_stencil_state.enable_depth_write = true;
+    info.depth_stencil_state.enable_depth_test = depth_test;
+    info.depth_stencil_state.enable_depth_write = depth_test;
     info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER; // reversed
     info.target_info.color_target_descriptions = &colour;
     info.target_info.num_color_targets = 1;
@@ -158,7 +161,8 @@ Renderer::Renderer(const std::string& driver, SDL_Window* window, int width, int
         if (depth_ == nullptr) {
             throw sdl_error("no depth buffer");
         }
-        mesh_pipeline_ = make_mesh_pipeline(device_);
+        mesh_pipeline_ = make_mesh_pipeline(device_, true);
+        overlay_pipeline_ = make_mesh_pipeline(device_, false);
     } catch (...) {
         release();
         throw;
@@ -175,6 +179,11 @@ void Renderer::release() {
         SDL_ReleaseGPUBuffer(device_, mesh.indices);
     }
     meshes_.clear();
+    SDL_ReleaseGPUBuffer(device_, overlay_.vertices);
+    SDL_ReleaseGPUBuffer(device_, overlay_.indices);
+    if (overlay_pipeline_ != nullptr) {
+        SDL_ReleaseGPUGraphicsPipeline(device_, overlay_pipeline_);
+    }
     if (mesh_pipeline_ != nullptr) {
         SDL_ReleaseGPUGraphicsPipeline(device_, mesh_pipeline_);
     }
@@ -196,6 +205,16 @@ std::string Renderer::driver() const {
 }
 
 MeshId Renderer::add_mesh(const Mesh& mesh) {
+    GpuMesh gpu;
+    upload(gpu, mesh, false);
+    meshes_.push_back(gpu);
+    return meshes_.size() - 1;
+}
+
+// Uploads `mesh` into `gpu`, making its buffers, or with `reuse` making them
+// only when those it has are too small - the overlay, which changes every
+// frame, keeps its buffers and is written over.
+void Renderer::upload(GpuMesh& gpu, const Mesh& mesh, bool reuse) {
     const auto vertex_bytes =
         static_cast<Uint32>(mesh.vertices.size() * sizeof(Vertex));
     const auto index_bytes =
@@ -203,16 +222,43 @@ MeshId Renderer::add_mesh(const Mesh& mesh) {
     if (vertex_bytes == 0 || index_bytes == 0) {
         throw std::runtime_error("a mesh needs vertices and indices");
     }
-
-    GpuMesh gpu;
     gpu.index_count = static_cast<std::uint32_t>(mesh.indices.size());
-    SDL_GPUBufferCreateInfo buffer_info{};
-    buffer_info.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-    buffer_info.size = vertex_bytes;
-    gpu.vertices = SDL_CreateGPUBuffer(device_, &buffer_info);
-    buffer_info.usage = SDL_GPU_BUFFERUSAGE_INDEX;
-    buffer_info.size = index_bytes;
-    gpu.indices = SDL_CreateGPUBuffer(device_, &buffer_info);
+
+    const bool grow = !reuse || vertex_bytes > overlay_vertex_capacity_ ||
+                      index_bytes > overlay_index_capacity_;
+    if (grow) {
+        SDL_ReleaseGPUBuffer(device_, gpu.vertices);
+        SDL_ReleaseGPUBuffer(device_, gpu.indices);
+        gpu.vertices = nullptr;
+        gpu.indices = nullptr;
+        Uint32 vertex_size = vertex_bytes;
+        Uint32 index_size = index_bytes;
+        if (reuse) {
+            // Room to grow into, so a HUD whose text changes length does not
+            // make new buffers every frame.
+            vertex_size = std::max<Uint32>(vertex_bytes * 2, 1u << 16);
+            index_size = std::max<Uint32>(index_bytes * 2, 1u << 14);
+            overlay_vertex_capacity_ = vertex_size;
+            overlay_index_capacity_ = index_size;
+        }
+        SDL_GPUBufferCreateInfo buffer_info{};
+        buffer_info.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+        buffer_info.size = vertex_size;
+        gpu.vertices = SDL_CreateGPUBuffer(device_, &buffer_info);
+        buffer_info.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+        buffer_info.size = index_size;
+        gpu.indices = SDL_CreateGPUBuffer(device_, &buffer_info);
+        if (gpu.vertices == nullptr || gpu.indices == nullptr) {
+            const auto error = sdl_error("no buffers for a mesh");
+            SDL_ReleaseGPUBuffer(device_, gpu.vertices);
+            SDL_ReleaseGPUBuffer(device_, gpu.indices);
+            gpu = {};
+            if (reuse) {
+                overlay_vertex_capacity_ = overlay_index_capacity_ = 0;
+            }
+            throw error;
+        }
+    }
 
     SDL_GPUTransferBufferCreateInfo transfer_info{};
     transfer_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
@@ -222,11 +268,9 @@ MeshId Renderer::add_mesh(const Mesh& mesh) {
     void* mapped = transfer == nullptr
                        ? nullptr
                        : SDL_MapGPUTransferBuffer(device_, transfer, false);
-    if (gpu.vertices == nullptr || gpu.indices == nullptr || mapped == nullptr) {
+    if (mapped == nullptr) {
         const auto error = sdl_error("the mesh could not be uploaded");
         SDL_ReleaseGPUTransferBuffer(device_, transfer);
-        SDL_ReleaseGPUBuffer(device_, gpu.vertices);
-        SDL_ReleaseGPUBuffer(device_, gpu.indices);
         throw error;
     }
     std::memcpy(mapped, mesh.vertices.data(), vertex_bytes);
@@ -246,16 +290,15 @@ MeshId Renderer::add_mesh(const Mesh& mesh) {
     const bool submitted = SDL_SubmitGPUCommandBuffer(commands);
     SDL_ReleaseGPUTransferBuffer(device_, transfer);
     if (!submitted) {
-        const auto error = sdl_error("the mesh upload was not submitted");
-        SDL_ReleaseGPUBuffer(device_, gpu.vertices);
-        SDL_ReleaseGPUBuffer(device_, gpu.indices);
-        throw error;
+        throw sdl_error("the mesh upload was not submitted");
     }
-    meshes_.push_back(gpu);
-    return meshes_.size() - 1;
 }
 
-void Renderer::render(const Camera& camera, std::span<const Draw> draws) {
+void Renderer::render(const Camera& camera, std::span<const Draw> draws,
+                      const Mesh* overlay) {
+    if (overlay != nullptr && !overlay->indices.empty()) {
+        upload(overlay_, *overlay, true);
+    }
     SDL_GPUCommandBuffer* commands = SDL_AcquireGPUCommandBuffer(device_);
     if (commands == nullptr) {
         throw sdl_error("no command buffer");
@@ -291,6 +334,17 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws) {
                                          sizeof clip_from_local.m);
             SDL_DrawGPUIndexedPrimitives(pass, mesh.index_count, 1, 0, 0, 0);
         }
+    }
+    if (overlay != nullptr && !overlay->indices.empty()) {
+        SDL_BindGPUGraphicsPipeline(pass, overlay_pipeline_);
+        SDL_GPUBufferBinding vertices{overlay_.vertices, 0};
+        SDL_BindGPUVertexBuffers(pass, 0, &vertices, 1);
+        SDL_GPUBufferBinding indices{overlay_.indices, 0};
+        SDL_BindGPUIndexBuffer(pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+        Mat4f identity;
+        identity.m[0] = identity.m[5] = identity.m[10] = identity.m[15] = 1.0f;
+        SDL_PushGPUVertexUniformData(commands, 0, identity.m.data(), sizeof identity.m);
+        SDL_DrawGPUIndexedPrimitives(pass, overlay_.index_count, 1, 0, 0, 0);
     }
     SDL_EndGPURenderPass(pass);
 

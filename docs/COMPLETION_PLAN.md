@@ -97,29 +97,22 @@ because it is built on everything before it.
       latitude, longitude and height conversions. *Verification: conversions
       round-trip within a millimetre at the poles, the equator, the date line,
       and from below sea level to cruising altitude.*
-- [ ] **A camera-relative floating origin.** **In progress:** proved on Vulkan
-      on Linux; Direct3D 12 and Metal have not run it. *Verification: a still
-      scene rendered far from the origin is identical frame to frame, with no
-      jitter.*
-- [ ] **Reversed-Z depth.** **In progress:** proved on Vulkan on Linux;
-      Direct3D 12 and Metal have not run it. *Verification: a frame holding
-      both distant mountains and a nearby aircraft draws with no z-fighting at
-      either.*
-- [ ] **The Copernicus DEM, read directly** from its GeoTIFF files at a pinned
-      version, with a height query anywhere on Earth. **Done locally; awaiting
-      CI** for WinHTTP and NSURLSession. *Verification (amended
+- [x] **A camera-relative floating origin.** *Verification: a still scene
+      rendered far from the origin is identical frame to frame, with no jitter.*
+- [x] **Reversed-Z depth.** *Verification: a frame holding both distant
+      mountains and a nearby aircraft draws with no z-fighting at either.*
+- [x] **The Copernicus DEM, read directly** from its GeoTIFF files at a pinned
+      version, with a height query anywhere on Earth. *Verification (amended
       2026-09-18): heights at surveyed airfields and coastlines match within
       the dataset's stated accuracy, and the version and hash are in
       `ASSETS.md`. Summits were in the original verification, and cannot be:
       a 30 m grid does not hold a peak, and the DEM lies 8 to 35 m below five
       surveyed summits; that shortfall is pinned by a test and named in
       `PROJECT_STATUS.md`.*
-- [ ] **Collision terrain in the simulation.** **Done locally; awaiting CI.**
-      *Verification: an aircraft set down at sea level, at a high airfield and
-      on a slope rests on the DEM surface in each.*
-- [ ] **A window and a GPU device through SDL3** on Vulkan, D3D12 and Metal.
-      **In progress:** Vulkan on Linux and Metal on macOS draw headless and in
-      a window, in CI; Direct3D 12 and Vulkan on Windows have not run.
+- [x] **Collision terrain in the simulation.** *Verification: an aircraft set
+      down at sea level, at a high airfield and on a slope rests on the DEM
+      surface in each.*
+- [x] **A window and a GPU device through SDL3** on Vulkan, D3D12 and Metal.
       *Verification: the client writes a frame with `--shot` on every backend
       of every platform that has it.*
 - [ ] **Cesium Native drawing the open-data terrain through SDL_GPU** around one
@@ -128,15 +121,16 @@ because it is built on everything before it.
 - [ ] **Open imagery on the terrain**, from the source `REQUIREMENTS.md`
       settles on. *Verification: a `--shot` shows the imagery and its
       attribution.*
-- [ ] **Joysticks, HOTAS and yokes.** *Verification: every axis and button of a
+- [ ] **Joysticks, HOTAS and yokes.** **Done locally; awaiting CI.**
+      *Verification: every axis and button of a
       virtual device reaches the aircraft's controls, walked by test.*
 - [ ] **A basic HUD** — airspeed, altitude, heading, vertical speed, attitude.
-      *Verification: the numbers in a `--shot` match the simulation's state at
+      **Done locally; awaiting CI.** *Verification: the numbers in a `--shot` match the simulation's state at
       that tick.*
 - [ ] **The client's test flags** — `--shot FILE`, `--shot-at TICK`,
-      `--trace`, `--screen NAME`. *Verification: each is used by a ctest.*
+      `--trace`, `--screen NAME`. **Done locally; awaiting CI.** *Verification: each is used by a ctest.*
 - [ ] **A frame rendered headless in CI and from every package.**
-      *Verification: CI and the `package` workflow each upload a frame from
+      **Done locally; awaiting CI.** *Verification: CI and the `package` workflow each upload a frame from
       every platform.*
 
 ## Phase 3 — Weather

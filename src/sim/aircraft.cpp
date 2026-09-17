@@ -193,6 +193,7 @@ void Aircraft::set_controls(const Controls& c) {
     exec_->SetPropertyValue("fcs/flap-cmd-norm", c.flaps);
     exec_->SetPropertyValue("fcs/left-brake-cmd-norm", c.left_brake);
     exec_->SetPropertyValue("fcs/right-brake-cmd-norm", c.right_brake);
+    exec_->SetPropertyValue("fcs/pitch-trim-cmd-norm", -c.pitch_trim);
 }
 
 void Aircraft::step() {
