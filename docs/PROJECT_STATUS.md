@@ -44,11 +44,10 @@ else is built on, one line per item, each verified:
 
 Every check above was also made to fail on purpose, and was seen to.
 
-**Phase 1, the feel: 2 of 7 items done** — JSBSim pinned and built, and a fixed
-120 Hz step driving it, both proved on every platform. The published-figure
-checks are in progress: all nine in range on Linux, waiting on CI for the other
-platforms. Not yet: state set/resume, the replay hash, cross-platform flight
-checks, and a packaged CLI that flies.
+**Phase 1, the feel: 3 of 7 items done** — JSBSim pinned and built, a fixed
+120 Hz step driving it, and the Cessna 172P flying to its handbook, all proved
+on every platform. Not yet: state set/resume, the replay hash, cross-platform
+flight checks, and a packaged CLI that flies.
 
 ## Gaps
 
@@ -66,11 +65,14 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The Cessna 172P against its handbook, 2026-09-17 — Linux so far
+### The Cessna 172P against its handbook, 2026-09-17
 
-**What is missing first:** the checks have run on Linux only; CI runs them on
-the other platforms with this commit. The handbook's turn rate does not exist,
-so the turn is checked against physics rather than a published number.
+**Proved on every platform.** CI run 35219070877 (commit `e6b97eb`) passed all
+34 tests in every preset — GCC 14.2 on Ubuntu and Rocky 9, AppleClang 17, MSVC
+19.51 and clang-cl 20.1 — so all nine figures land in range on each, and the
+`package` workflow (35219070739) passed with the tuned model in every package.
+The handbook publishes no turn rate, so the turn is checked against physics
+rather than a published number.
 
 **JSBSim's own C172P did not fly to its handbook.** The checks below, flown on
 JSBSim's untouched model at the same 2,400 lb, landed out of range on five of

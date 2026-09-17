@@ -70,7 +70,7 @@ because it is built on everything before it.
 - [x] **A fixed 120 Hz step with an accumulator.** *Verification: the same
       scripted flight fed its time in small, large and uneven chunks ends in the
       same state.*
-- [ ] **Scripted flight checked against published figures** — static RPM,
+- [x] **Scripted flight checked against published figures** — static RPM,
       take-off roll, climb rate, cruise speed, glide ratio, stall speeds, and a
       turn rate against the physics of a coordinated turn, since the handbook
       publishes none. **In progress:** all in range on Linux; CI proves the
