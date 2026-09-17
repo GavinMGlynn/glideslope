@@ -1,0 +1,160 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# One run per branch. A newer push says everything an older run would have, so
+# the older run is cancelled rather than left to hold a runner.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# **Every preset runs somewhere.** The Linux presets on Ubuntu (both) and Rocky 9
+# (release), the macOS presets on macOS, the Windows presets on Windows. A
+# preset that no job runs is a preset nobody knows still works.
+
+jobs:
+  linux-debian:
+    name: Linux x86_64 (GCC 14, Ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          # apt on GitHub's hosted runners stalls intermittently
+          # (actions/runner-images#11382). gearstick learned that a hang is only
+          # beaten from outside, so each attempt is bounded and retried.
+          sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer \
+                              unattended-upgrades.service 2>/dev/null || true
+          APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
+                    -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60"
+          apt_run() {
+            for attempt in 1 2 3; do
+              if sudo timeout 240 apt-get $APT_OPTS "$@"; then return 0; fi
+              echo "::warning::apt attempt $attempt stalled; retrying"
+              sudo pkill -9 -f apt-get 2>/dev/null || true
+              sudo dpkg --configure -a 2>/dev/null || true
+              sleep 10
+            done
+            echo "::error::apt would not complete in three attempts"
+            return 1
+          }
+          apt_run update
+          apt_run install -y --no-install-recommends gcc-14 g++-14 ninja-build
+
+      - name: linux-debug - configure, build, test
+        env: { CXX: g++-14 }
+        run: |
+          cmake --preset linux-debug
+          cmake --build --preset linux-debug
+          ctest --preset linux-debug
+
+      - name: linux-release - configure, build, test
+        env: { CXX: g++-14 }
+        run: |
+          cmake --preset linux-release
+          cmake --build --preset linux-release
+          ctest --preset linux-release
+
+  linux-rhel:
+    name: Linux x86_64 (GCC 14, Rocky 9)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: rockylinux/rockylinux:9
+    steps:
+      # Rocky 9's own compiler is GCC 11, so the build uses gcc-toolset-14, as
+      # REQUIREMENTS.md's RHEL note says. ninja-build is in CRB.
+      # `install_weak_deps=False` is dnf's --no-install-recommends.
+      - name: Install dependencies
+        run: |
+          dnf_opts="--setopt=install_weak_deps=False --setopt=tsflags=nodocs -y"
+          # Rocky's mirrors go away for minutes at a time, and gearstick's CI
+          # learned to tell that apart from a real failure by retrying.
+          dnf_run() {
+            for attempt in 1 2 3 4; do
+              if dnf $dnf_opts "$@"; then return 0; fi
+              echo "::warning::dnf attempt $attempt failed; clearing the cache and retrying"
+              dnf clean all || true
+              sleep $((attempt * 15))
+            done
+            echo "::error::dnf would not complete in four attempts"
+            return 1
+          }
+          dnf_run --enablerepo=crb install git cmake ninja-build gcc-toolset-14-gcc-c++
+
+      - uses: actions/checkout@v5
+
+      - name: linux-release - configure, build, test
+        run: |
+          source /opt/rh/gcc-toolset-14/enable
+          cmake --preset linux-release
+          cmake --build --preset linux-release
+          ctest --preset linux-release
+
+  macos:
+    name: macOS arm64 (AppleClang)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install ninja
+        run: brew install ninja
+
+      # The newest Xcode the image carries, rather than whichever it selected.
+      - name: Use the newest Xcode on the image
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
+          c++ --version
+
+      - name: macos-debug - configure, build, test
+        run: |
+          cmake --preset macos-debug
+          cmake --build --preset macos-debug
+          ctest --preset macos-debug
+
+      - name: macos-release - configure, build, test
+        run: |
+          cmake --preset macos-release
+          cmake --build --preset macos-release
+          ctest --preset macos-release
+
+  windows:
+    name: Windows x64 (MSVC and clang-cl)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with: { arch: x64 }
+
+      - name: windows-debug - configure, build, test
+        shell: cmd
+        run: |
+          cmake --preset windows-debug || exit /b 1
+          cmake --build --preset windows-debug || exit /b 1
+          ctest --preset windows-debug || exit /b 1
+
+      - name: windows-release - configure, build, test
+        shell: cmd
+        run: |
+          cmake --preset windows-release || exit /b 1
+          cmake --build --preset windows-release || exit /b 1
+          ctest --preset windows-release || exit /b 1
+
+      - name: windows-clang - configure, build, test
+        shell: cmd
+        run: |
+          clang-cl --version || exit /b 1
+          cmake --preset windows-clang || exit /b 1
+          cmake --build --preset windows-clang || exit /b 1
+          ctest --preset windows-clang || exit /b 1

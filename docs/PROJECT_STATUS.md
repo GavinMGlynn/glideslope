@@ -36,6 +36,14 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### CI, 2026-09-17 — written, not yet run
+
+`.github/workflows/ci.yml` runs every preset on the platform it belongs to:
+`linux-debug` and `linux-release` on Ubuntu with GCC 14, `linux-release` on
+Rocky 9 with gcc-toolset-14, both macOS presets on macOS 15, and all three
+Windows presets on Windows. It has not run yet; this entry is replaced by its
+results.
+
 ### The build and its presets, 2026-09-17 — Linux only so far
 
 **What is missing first:** the macOS and Windows presets exist in
@@ -58,8 +66,8 @@ requires it.
   `-fsanitize=address,undefined -fno-sanitize-recover=all`, from
   `cmake/Sanitizers.cmake`. The no-recover flag is the important one: a small
   signed-overflow program built with GCC 14 without it prints the
-  undefined-behaviour report and still exits 0; with it, exits 1. `windows-debug`
-  does not sanitize.
+  undefined-behaviour report and still exits 0; with it, exits 1.
+  `windows-debug` does not sanitize.
 
 **Tests, four, covering every way the CLI can be called today:**
 `the_cli_reports_the_project_version`, `the_cli_prints_its_usage_when_asked`,
