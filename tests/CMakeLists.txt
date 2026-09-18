@@ -12,6 +12,7 @@ find_package(Python3 COMPONENTS Interpreter QUIET)
 add_executable(glideslope_tests
     unit/harness.cpp
     unit/tiff_writer.cpp
+    unit/test_air_motion.cpp
     unit/test_dem.cpp
     unit/test_dem_surveyed.cpp
     unit/test_digest.cpp
@@ -123,7 +124,12 @@ set(GLIDESLOPE_UNIT_TESTS
     the_weather_now_at_an_airfield_is_fetched_from_aviationweather_and_open_meteo
     a_fetch_is_tried_again_after_a_server_error_or_no_answer_and_not_after_a_refusal
     a_terrain_mesh_puts_its_vertices_on_the_ground_and_meets_its_neighbour_exactly
-    a_terrain_mesh_needs_a_rectangle_on_the_earth_and_a_cell)
+    a_terrain_mesh_needs_a_rectangle_on_the_earth_and_a_cell
+    the_air_is_the_same_wherever_and_whenever_it_is_asked_for
+    an_aircraft_restored_in_a_gust_flies_on_in_the_same_air
+    a_recorded_gusty_metar_gives_winds_between_its_mean_and_gust_speeds
+    turbulence_has_drydens_intensity_at_each_height_and_severity
+    a_recorded_response_sets_the_wind_near_the_ground_through_its_boundary_layer)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)

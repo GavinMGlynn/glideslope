@@ -24,6 +24,11 @@ const std::vector<int>& open_meteo_levels() {
     return levels;
 }
 
+const std::vector<int>& open_meteo_near_ground_heights() {
+    static const std::vector<int> heights{10, 80, 120, 180};
+    return heights;
+}
+
 std::string open_meteo_url(double latitude_deg, double longitude_deg) {
     std::string variables;
     for (const int level : open_meteo_levels()) {
@@ -32,6 +37,10 @@ std::string open_meteo_url(double latitude_deg, double longitude_deg) {
                               "temperature_"}) {
             variables += (variables.empty() ? "" : ",") + std::string(v) + l;
         }
+    }
+    for (const int height : open_meteo_near_ground_heights()) {
+        const std::string h = std::to_string(height) + "m";
+        variables += ",wind_speed_" + h + ",wind_direction_" + h;
     }
     char place[64];
     std::snprintf(place, sizeof place, "latitude=%.4f&longitude=%.4f", latitude_deg,
@@ -93,6 +102,17 @@ WindsAloft parse_open_meteo(std::string_view text, const std::string& time) {
               [](const AloftLevel& a, const AloftLevel& b) {
                   return a.height_m < b.height_m;
               });
+    // The winds near the ground, if the response has them; all of them or none.
+    if (hourly.find("wind_speed_10m") != nullptr) {
+        for (const int height : open_meteo_near_ground_heights()) {
+            const std::string h = std::to_string(height) + "m";
+            const double speed = value("wind_speed_" + h);
+            const double from = value("wind_direction_" + h) * radians;
+            profile.near_ground.push_back({static_cast<double>(height),
+                                           -speed * std::cos(from),
+                                           -speed * std::sin(from)});
+        }
+    }
     return profile;
 }
 

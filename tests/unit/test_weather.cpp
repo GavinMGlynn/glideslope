@@ -555,3 +555,118 @@ GLIDESLOPE_TEST(
               e.what());
     }
 }
+
+GLIDESLOPE_TEST(
+    a_recorded_response_sets_the_wind_near_the_ground_through_its_boundary_layer) {
+    std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) /
+                         "data/weather/open-meteo-sydney-2026-09-18.json",
+                     std::ios::binary);
+    check(static_cast<bool>(in),
+          "can read the recorded forecast with near-ground winds");
+    const std::string text(std::istreambuf_iterator<char>(in), {});
+    const auto profile = glideslope::world::parse_open_meteo(text, "2026-09-18T08:00");
+
+    // The forecast's winds near the ground, as the response gives them.
+    const auto doc = glideslope::world::parse_json(text);
+    const auto& hourly = doc.at("hourly");
+    constexpr std::size_t hour = 8;
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    check(profile.near_ground.size() == 4, "four heights near the ground");
+    for (const auto& w : profile.near_ground) {
+        const std::string h = std::to_string(static_cast<int>(w.height_m)) + "m";
+        const double speed = hourly.at("wind_speed_" + h).array()[hour].number();
+        const double from =
+            hourly.at("wind_direction_" + h).array()[hour].number() * radians;
+        check(near(w.wind_north_mps, -speed * std::cos(from), 1e-9) &&
+                  near(w.wind_east_mps, -speed * std::sin(from), 1e-9),
+              h + ": the wind the response gives");
+    }
+
+    glideslope::world::WeatherReport report;
+    report.surface = sydney_metar();
+    report.aloft = profile;
+    const double ground = report.surface.elevation_m;
+    const auto surface = glideslope::world::surface_conditions(report.surface);
+    const auto wind_at = [&](double above_ground) {
+        return glideslope::world::conditions_at(report, ground + above_ground);
+    };
+
+    // At 80, 120 and 180 m the forecast's wind; at 10 m the METAR's.
+    for (const auto& w : profile.near_ground) {
+        const auto c = wind_at(w.height_m);
+        const auto& expected = w.height_m > 10.0 ? w : profile.near_ground.front();
+        const double north =
+            w.height_m > 10.0 ? expected.wind_north_mps : surface.wind_north_mps;
+        const double east =
+            w.height_m > 10.0 ? expected.wind_east_mps : surface.wind_east_mps;
+        check(near(c.wind_north_mps, north, 1e-9) && near(c.wind_east_mps, east, 1e-9),
+              std::to_string(w.height_m) + " m: the wind there");
+    }
+    // Between them, logarithmic in height: at 30 m, between 10 and 80.
+    const auto& at80 = profile.near_ground[1];
+    const double t = std::log(30.0 / 10.0) / std::log(80.0 / 10.0);
+    const auto c30 = wind_at(30.0);
+    check(near(c30.wind_north_mps,
+               surface.wind_north_mps +
+                   t * (at80.wind_north_mps - surface.wind_north_mps),
+               1e-9),
+          "30 m: logarithmically between 10 and 80 m");
+    // Below the anemometer, falling logarithmically to nothing at 3 cm.
+    const double factor = std::log(2.0 / 0.03) / std::log(10.0 / 0.03);
+    const auto c2 = wind_at(2.0);
+    check(near(c2.wind_north_mps, surface.wind_north_mps * factor, 1e-9) &&
+              near(c2.wind_east_mps, surface.wind_east_mps * factor, 1e-9),
+          "2 m: the METAR's wind, " + std::to_string(factor) + " of it");
+    check(wind_at(0.02).wind_north_mps == 0.0, "below 3 cm, still air");
+
+    // A 3-degree approach from 300 m flies down through the profile: the wind
+    // JSBSim is given, before every step, is the profile's at the aircraft's
+    // height.
+    auto weather =
+        std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0);
+    glideslope::sim::Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = report.surface.latitude_deg;
+    ic.longitude_deg = report.surface.longitude_deg;
+    ic.altitude_ft = (ground + 300.0) / 0.3048;
+    ic.terrain_elevation_ft = ground / 0.3048;
+    ic.airspeed_kts = 70.0;
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    aircraft.set_weather(weather);
+    glideslope::sim::TestPilot pilot(aircraft);
+    const double descent_mps = 70.0 * 1852.0 / 3600.0 * std::tan(3.0 * radians);
+    double worst = 0.0;
+    double lowest_m = 300.0;
+    double first_north = 0.0;
+    double last_north = 0.0;
+    for (int i = 0; i < 180 * 120; ++i) {
+        const double height =
+            aircraft.property("position/geod-alt-ft") * 0.3048 - ground;
+        if (height < 15.0) {
+            break;
+        }
+        const double target = ground + std::max(10.0, 300.0 - descent_mps * i / 120.0);
+        glideslope::sim::Controls c;
+        c.throttle = 0.35;
+        c.elevator = pilot.pitch_to(pilot.pitch_for_altitude(target / 0.3048));
+        c.aileron = pilot.roll_to(0.0);
+        c.rudder = pilot.coordinate();
+        aircraft.set_controls(c);
+        const auto expected = glideslope::world::conditions_at(report, ground + height);
+        aircraft.step();
+        const double north = aircraft.property("atmosphere/wind-north-fps");
+        worst =
+            std::max(worst, std::abs(north - expected.wind_north_mps * fps_per_mps));
+        if (i == 0) {
+            first_north = north;
+        }
+        last_north = north;
+        lowest_m = std::min(lowest_m, height);
+    }
+    check(lowest_m < 30.0, "the approach reached 30 m: " + std::to_string(lowest_m));
+    check(worst < 0.01,
+          "the wind all the way down is the profile's, within 0.01 ft/s: " +
+              std::to_string(worst));
+    check(std::abs(first_north - last_north) > 0.5, "and it changed on the way down");
+}

@@ -26,18 +26,31 @@ struct AloftLevel {
     double temperature_c = 0.0;
 };
 
+// The wind a fixed height above the ground, where the forecast gives it.
+struct NearGroundWind {
+    double height_m = 0.0;       // above the ground
+    double wind_north_mps = 0.0; // the air's velocity, towards north
+    double wind_east_mps = 0.0;
+};
+
 struct WindsAloft {
     double latitude_deg = 0.0;
     double longitude_deg = 0.0;
     std::string time;               // "2026-09-17T16:00", UTC
     std::vector<AloftLevel> levels; // lowest first
+    // The forecast's winds 10, 80, 120 and 180 m above the ground, lowest
+    // first; none from a response without them.
+    std::vector<NearGroundWind> near_ground;
 };
+
+// The heights above the ground the forecast is asked for winds at.
+const std::vector<int>& open_meteo_near_ground_heights();
 
 // The pressure levels asked for, highest pressure first.
 const std::vector<int>& open_meteo_levels();
 
 // The forecast request for a place: every level's wind, temperature and height,
-// hourly, for a day, in UTC and metres a second.
+// and the winds near the ground, hourly, for a day, in UTC and metres a second.
 std::string open_meteo_url(double latitude_deg, double longitude_deg);
 
 // The hour `t` falls in, as Open-Meteo names hours: "YYYY-MM-DDTHH:00", UTC.

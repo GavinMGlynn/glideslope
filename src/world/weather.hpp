@@ -9,6 +9,7 @@
 #include "world/metar.hpp"
 #include "world/winds_aloft.hpp"
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -47,16 +48,44 @@ sim::Conditions surface_conditions(const SurfaceReport& report);
 struct WeatherReport {
     SurfaceReport surface;
     std::optional<WindsAloft> aloft;
-    int turbulence_severity = 0; // 0 none, to 7; see sim::Conditions
+    // The turbulence's severity, 0 none to 7 (world/air_motion.hpp), or, when
+    // not given, what the METAR's gusts imply.
+    std::optional<int> turbulence_severity;
+    // What the gusts' and turbulence's pattern is drawn from: the same report
+    // and seed give the same air everywhere (world/air_motion.hpp).
+    std::uint64_t air_seed = 0;
 };
 
-// The conditions a report describes at a height above mean sea level. Up to 10
-// m above the station - where a METAR's wind is measured - the surface's; above
-// the lowest level of the winds aloft higher than that, the winds aloft's; in
-// between, the two blended linearly in height. The temperature is held to the
-// same profile as an offset from the standard atmosphere. The pressure is the
-// METAR's everywhere.
+// The seed a station's report at a time gives its air: from the station and
+// the observation's day, hour and minute, so every machine that has the report
+// has the seed.
+std::uint64_t air_seed_of(const Metar& metar);
+
+// The conditions a report describes at a height above mean sea level.
+//
+// **The wind as a boundary layer.** 10 m above the station - where a METAR's
+// wind is measured - the METAR's; below that, falling logarithmically to
+// nothing at a roughness length of 3 cm, open country's; above it, through the
+// forecast's winds 80, 120 and 180 m above the ground where it has them,
+// logarithmically in height between each; and from the highest of those to the
+// forecast's lowest pressure level above it, linearly, and its levels above.
+// The forecast's own 10 m wind is not used: the METAR measured it.
+//
+// The temperature is the METAR's up to 10 m, the forecast's from its lowest
+// level above that, and linear in height between, as an offset from the
+// standard atmosphere. The pressure is the METAR's everywhere.
 sim::Conditions conditions_at(const WeatherReport& report, double height_msl_m);
+
+// The air's motion a report describes at a place and time beyond its mean
+// wind - gusts and turbulence (world/air_motion.hpp) - added to `mean`, the
+// conditions there. The gusts are the METAR's spread over its mean wind, along
+// its wind, in full up to 10 m above the station and fading to none 600 m
+// above that. The turbulence is Dryden's at its severity, over the height above
+// the station. Both patterns are carried by the surface wind, from the station.
+// JSBSim's own turbulence is left off: the air is all here.
+sim::Conditions with_air_motion(const WeatherReport& report, sim::Conditions mean,
+                                double latitude_deg, double longitude_deg,
+                                double height_msl_m, double time_s);
 
 // A station's weather now: its latest METAR, and Open-Meteo's winds aloft over
 // it for the hour `time` ("YYYY-MM-DDTHH:00", UTC). Throws as fetch_metar and

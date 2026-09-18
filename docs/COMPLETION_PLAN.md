@@ -153,18 +153,24 @@ so everything here is a function of position, time and the weather's shared
 parameters alone - computed here, not in JSBSim's own gust and turbulence
 models, whose hidden state a restored aircraft would not carry.
 
-- [ ] **The same air on every machine.** *Verification: two weathers built from
-      the same report and parameters give bit-identical conditions at a
-      thousand positions and times on every platform, and an aircraft restored
-      in the middle of a gust flies on in the same wind as one that was not.*
+- [ ] **The same air on every machine.** **Done locally; awaiting CI.**
+      *Verification (amended 2026-09-18:
+      the first said bit-identical on every platform, which floating point
+      across compilers cannot promise): two weathers built from the same
+      report and parameters give identical conditions on one machine, and
+      within 1e-9 m/s of each other across every platform, compared in CI at a
+      thousand positions and times; and an aircraft restored in the middle of a
+      gust meets the same wind as one that was not, for as long as the two are
+      together - their winds then differing only as the air does between where
+      each is, with nothing of the air lost in the restore.*
 - [ ] **A METAR's gusts flown**, and its turbulence judged from the gusts'
-      spread. *Verification: a recorded gusty METAR gives winds between its
+      spread. **Done locally; awaiting CI.** *Verification: a recorded gusty METAR gives winds between its
       mean and gust speeds, reaching the gust within a stated tolerance over a
       stated time; a report without gusts gives none; the same flight twice is
       the same.*
 - [ ] **The wind near the ground as a boundary layer**, from Open-Meteo's 10,
-      80, 120 and 180 m winds and a logarithmic profile below them.
-      *Verification: a recorded response sets the wind at each of those heights
+      80, 120 and 180 m winds and a logarithmic profile below them. **Done
+      locally; awaiting CI.** *Verification: a recorded response sets the wind at each of those heights
       to what it reports, and between them to the profile within a stated
       bound; a 3-degree approach flies down through the shear the profile
       gives.*

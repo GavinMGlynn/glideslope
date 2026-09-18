@@ -12,6 +12,7 @@
 #include "sim/version.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
+#include "world/metar.hpp"
 #include "world/weather.hpp"
 #include "world/winds_aloft.hpp"
 
@@ -19,6 +20,7 @@
 #include <chrono>
 #include <cinttypes>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
@@ -50,6 +52,8 @@ void print_usage(std::FILE* out) {
         "  weather STATION           the weather now at an airfield: its METAR, and "
         "the\n"
         "                            winds aloft over it\n"
+        "  air                       the air - gusts and turbulence - at a thousand\n"
+        "                            places and times, for comparing platforms\n"
         "\n"
         "  --data DIR                read data from DIR instead of data/ beside the\n"
         "                            program\n",
@@ -204,6 +208,15 @@ int weather(const std::string& station) {
         std::printf("  QNH           %.1f hPa\n", *m.qnh_hpa);
     }
 
+    std::printf("winds near the ground for %s UTC\n", hour.c_str());
+    for (const auto& w : report.aloft->near_ground) {
+        const double speed = std::hypot(w.wind_north_mps, w.wind_east_mps);
+        const double from = std::fmod(
+            std::atan2(-w.wind_east_mps, -w.wind_north_mps) / radians + 360.0, 360.0);
+        std::printf("  %5.0f m above the ground     from %03.0f at %3.0f kt%s\n",
+                    w.height_m, from, speed * knots_per_mps,
+                    w.height_m <= 10.0 ? "  (the METAR's is used)" : "");
+    }
     std::printf("winds aloft for %s UTC\n", hour.c_str());
     std::printf("  %8s %9s %16s %13s\n", "pressure", "height", "wind", "temperature");
     for (const auto& level : report.aloft->levels) {
@@ -220,6 +233,38 @@ int weather(const std::string& station) {
     std::printf("METAR from aviationweather.gov, NOAA's Aviation Weather Center\n");
     std::printf("%s (https://open-meteo.com/), CC BY 4.0\n",
                 glideslope::world::open_meteo_credit);
+    return 0;
+}
+
+// The air a fixed gusty report gives at a thousand fixed places and times,
+// each wind component in whole 1e-11 m/s: what CI compares across platforms
+// (tests/cmake/cross_platform_flights.cmake), whose arithmetic is in integers.
+int air() {
+    glideslope::world::WeatherReport report;
+    report.surface.metar =
+        glideslope::world::parse_metar("KABQ 180759Z 18027G37KT 9999 18/16 A2992");
+    report.surface.latitude_deg = 35.0419;
+    report.surface.longitude_deg = -106.6092;
+    report.surface.elevation_m = 1631.0;
+    report.air_seed = glideslope::world::air_seed_of(report.surface.metar);
+    glideslope::world::ReportedWeather weather(report, nullptr, 0.0);
+    std::uint64_t state = 12345;
+    const auto next = [&] {
+        state = state * 6364136223846793005ULL + 1442695040888963407ULL;
+        return static_cast<double>(state >> 11) / 9007199254740992.0;
+    };
+    std::printf("air of KABQ 180759Z 18027G37KT, in 1e-11 m/s north, east and down\n");
+    for (int i = 0; i < 1000; ++i) {
+        const double lat = report.surface.latitude_deg + (next() - 0.5) * 0.36;
+        const double lon = report.surface.longitude_deg + (next() - 0.5) * 0.36;
+        const double height = report.surface.elevation_m + next() * 1500.0;
+        const double time = next() * 3600.0;
+        const auto c = weather.at(lat, lon, height, time);
+        std::printf("air %d %lld %lld %lld\n", i,
+                    static_cast<long long>(std::llround(c.wind_north_mps * 1e11)),
+                    static_cast<long long>(std::llround(c.wind_east_mps * 1e11)),
+                    static_cast<long long>(std::llround(c.wind_down_mps * 1e11)));
+    }
     return 0;
 }
 
@@ -251,6 +296,9 @@ int main(int argc, char** argv) {
         if ((args.size() == 2 || args.size() == 3) && args[0] == "figures") {
             return fly_figures(data, std::string(args[1]),
                                args.size() == 3 ? std::string(args[2]) : "");
+        }
+        if (args.size() == 1 && args[0] == "air") {
+            return air();
         }
         if (args.size() == 2 && args[0] == "weather") {
             return weather(std::string(args[1]));

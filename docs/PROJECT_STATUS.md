@@ -67,9 +67,10 @@ with a height query anywhere held to surveyed runway ends and coastlines; and
 collision terrain the Cessna rests on (run 35241851702); flight controllers;
 the HUD; the client's test flags; and frames from CI and every package (CI run
 35244380011, package run 35244379942). Done on Linux and awaiting CI: Cesium
-Native drawing the open-data terrain (proved on Ubuntu, Rocky 9 and macOS in
-run 35318950553; Windows's first try hit MSVC's limit on a path's length), and
-open imagery on it.
+Native drawing the open-data terrain, and open imagery on it - both proved on
+Ubuntu, Rocky 9 and macOS (runs 35318950553 and 35324096772); on Windows the
+first try hit MSVC's limit on a path's length, and the second built everything
+but a test tool, which used `sscanf`.
 
 **Phase 3, weather, is complete — 4 of 4 items**, proved in CI on every
 platform (run 35250647710) and fetched by every package (run 35248205205):
@@ -77,8 +78,10 @@ METARs from aviationweather.gov; winds aloft from Open-Meteo; both in JSBSim's
 atmosphere, with MIL-F-8785C turbulence; and new reports blended in during a
 flight.
 
-**Phase 3b, wind that shears and gusts and hazardous air, and Phase 5c,
-learning to fly, are new and not started: 0 of 7 and 0 of 4 items.** Added
+**Phase 3b, wind that shears and gusts and hazardous air, is under way: 3 of
+7 items done on Linux and awaiting CI** - the same air on every machine, a
+METAR's gusts flown, and the wind near the ground as a boundary layer. **Phase 5c, learning to fly, is new and not started:
+0 of 4 items.** Added
 2026-09-18, as were the sixteen-aircraft roster of Phase 5 and a tail for
 terrain over the whole Earth; see the log.
 
@@ -112,6 +115,101 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### The wind near the ground as a boundary layer, 2026-09-18 — awaiting CI
+
+**What is missing first:** where the METAR and the forecast disagree, the
+shear between 10 and 80 m is their disagreement: at Sydney on 18 September the
+observation was 6 kt from the south and the forecast's 80 m wind 8 kt from the
+north-north-east, so the wind swings round in 70 m. The ground under the
+profile is the station's, flat: the terrain's own height and roughness do not
+shape it, and 3 cm - short grass - is the roughness everywhere.
+
+**The profile** (`world::conditions_at`): the METAR's wind 10 m above the
+station, where it is measured; below, falling logarithmically to nothing at a
+roughness length of 3 cm - 72% of it 2 m up, about where a light aircraft sits
+on its wheels; above, through Open-Meteo's winds 80, 120 and 180 m above the
+ground, logarithmically in height between each; then linearly to its lowest
+pressure level, and its levels above, as before. The forecast is now asked for
+those winds near the ground (`world::open_meteo_url`), and a response without
+them gives the old profile. `glideslope_cli weather` prints them.
+
+**The test:** a recorded Open-Meteo response with the winds near the ground,
+read as the response gives them; with Sydney's METAR, the wind at 80, 120 and
+180 m is the forecast's, at 10 m the METAR's, at 30 m logarithmically between,
+at 2 m the METAR's times ln(2/0.03)/ln(10/0.03), and still below 3 cm; and a
+3-degree approach from 300 m to 15 m, flown by the test pilot, is given the
+profile's wind at its height before every step, to 0.01 ft/s. **Watched to
+fail:** linear rather than logarithmic between the heights (at 30 m); the
+forecast's winds near the ground ignored (at 80 m).
+
+### Gusts and turbulence: the same air on every machine, 2026-09-18 — awaiting CI
+
+**What is missing first:** gusts and turbulence are the wind's: nothing yet
+makes wind shear near the ground (the boundary layer is the next item), a
+microburst, a thermal or a wave. The turbulence is translation only: Dryden's
+model also turns an aircraft - rates in roll, pitch and yaw from the air's
+gradients - and that is not given to JSBSim yet. Its spectrum's shape along a
+line is not exactly Dryden's (below). And the weather's patterns are drawn on
+a flat Earth about the reporting station, so they are the weather of a few
+hundred kilometres around it.
+
+**The air is a pattern the wind carries** (`world/air_motion.hpp`): gusts and
+turbulence are functions of place, time and a seed the report carries, with no
+state - so every machine with the report flies the same air, and an aircraft
+restored to a state meets the air it left. The seed is made from the station
+and the observation's time (`world::air_seed_of`).
+
+**Gusts:** the wind along its direction rises from a METAR's mean speed
+towards its gust and falls back, as smooth noise over 4 to 16 seconds, in full
+up to 10 m above the station and fading to none 600 m above that. **Turbulence**
+is MIL-F-8785C's Dryden model - its lengths and intensities by height, with a
+table of intensities by severity above 2,000 ft - made as a sum of cosine
+waves; a report's severity is judged from its gusts' spread over its mean wind
+(5 kt light, 15 moderate, 30 severe), unless it gives one. For reported weather
+JSBSim's own turbulence is now off; `sim::Weather` can still ask for it, and
+the Phase 3 test of it stands.
+
+**The tests.**
+- The same air: two weathers from each of three recorded gusty reports -
+  Edinburgh, Albuquerque in a thunderstorm, Mount Washington - give exactly the
+  same wind at a thousand places and times, asked in either order and asked
+  again; another seed is other air.
+- An aircraft restored in a gust: its first step, from the same place at the
+  same time, meets the original's wind within a millionth of a foot a second,
+  and every difference after that is the weather's between where the two are,
+  to 1e-9 - restoring is not exact, and Dryden's air differs by a foot a second
+  over a metre.
+- Gusts flown: ten minutes at each station's anemometer height stay between the
+  mean and the gust and reach both within half a knot; 700 m up, none; a report
+  without gusts gives a steady wind; a minute's flight through Albuquerque's
+  gusts, twice, ends in the same place.
+- Dryden: MIL-F-8785C's lengths and intensities at 100 and 5,000 ft; each
+  component's RMS within 12% of its intensity along 200 km at four heights;
+  and, over four seeds, three directions and two heights, the distance at which
+  its correlation falls to 1/e within 15% of Dryden's length.
+- Across platforms: `glideslope_cli air` prints the air at a thousand places and
+  times in whole 1e-11 m/s, and CI's cross-platform job holds every platform
+  within 1e-9 m/s of the first (`tests/cmake/cross_platform_flights.cmake`,
+  whose test now also refuses one sample 1e-8 m/s off).
+
+**Watched to fail:** hidden state - the air nudged by how many times it had
+been asked (three tests); gusts overshooting the gust by 30%; the severity
+table read a row off; the waves left full length (correlated to 2.53 of
+Dryden's length). The rescaling of the waves to Dryden's intensity was also
+removed, and nothing failed: the waves already make nearly Dryden's variance,
+and the rescaling corrects only what the 2 m to 50 km band leaves out.
+
+**Why the waves are shortened.** Waves in every direction cross a line at an
+angle, so along it they are longer than they are: the first version's
+turbulence stayed correlated 2.5 times Dryden's length along the wind and 1.4
+times across and vertically. Each wave is shortened by those measured factors,
+2.47 and 1.40, which brings the average back to Dryden's length; any one line
+still varies from 0.8 to 3 times, as 48 waves sample a spectrum.
+
+**Also:** the plan's first verification for this asked for bit-identical air on
+every platform, which floating point across compilers cannot promise, and was
+amended to 1e-9 m/s before this was built.
 
 ### Open imagery on the terrain, 2026-09-18 — awaiting CI
 

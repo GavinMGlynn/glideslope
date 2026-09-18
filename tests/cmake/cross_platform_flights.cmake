@@ -1,10 +1,12 @@
 # cross_platform_flights.cmake - every CI platform flies the same flights and
 # lands in the same place, within stated tolerances.
 #
-#   cmake -DDIR=<directory of *.figures.txt and *.selftest.txt> -P cross_platform_flights.cmake
+#   cmake -DDIR=<directory of *.figures.txt, *.selftest.txt and *.air.txt>
+#         -P cross_platform_flights.cmake
 #
 # CI's release build on each platform and compiler writes what
-# `glideslope_cli figures c172p` and `glideslope_cli selftest` print. The
+# `glideslope_cli figures c172p`, `glideslope_cli selftest` and
+# `glideslope_cli air` print. The
 # simulation is floating point and the machines differ, so the numbers are not
 # expected to be identical, only close:
 #
@@ -15,6 +17,9 @@
 #   the selftest's end       within 300 ft horizontally and 30 ft vertically
 #                            after five minutes, 1 kt of airspeed and 2 degrees
 #                            of heading
+#   the air                  `glideslope_cli air`'s thousand samples of gusts
+#                            and turbulence each within 1e-9 m/s of the first
+#                            platform's
 #
 # The platforms are named, and a missing one fails: a comparison of the
 # platforms that happened to report is not a comparison of all of them.
@@ -27,7 +32,7 @@ set(_failures "")
 # Published values, from the range each figure line prints (its middle), so the
 # tolerance scales with the figure.
 foreach(_p IN LISTS _platforms)
-    foreach(_kind figures selftest)
+    foreach(_kind figures selftest air)
         if(NOT EXISTS "${DIR}/${_p}.${_kind}.txt")
             string(APPEND _failures "\n  ${_p}: no ${_kind} results")
         endif()
@@ -173,6 +178,53 @@ foreach(_p IN LISTS _platforms)
         string(APPEND _failures "\n  selftest ${_p} ends too far from ${_ref}: north ${_north} ft, east ${_east} ft, altitude ${_up} millionths ft, airspeed ${_dk} millionths kt, heading ${_dh} millionths deg")
     endif()
 endforeach()
+
+# The air: `glideslope_cli air`'s thousand samples of gusts and turbulence, in
+# whole 1e-11 m/s, each within 1e-9 m/s of the first platform's.
+list(GET _platforms 0 _first)
+file(STRINGS "${DIR}/${_first}.air.txt" _air_first REGEX "^air [0-9]+ ")
+list(LENGTH _air_first _air_count)
+if(NOT _air_count EQUAL 1000)
+    string(APPEND _failures "\n  ${_first}: ${_air_count} air samples, not 1000")
+endif()
+set(_air_worst 0)
+foreach(_p IN LISTS _platforms)
+    if(_p STREQUAL _first)
+        continue()
+    endif()
+    file(STRINGS "${DIR}/${_p}.air.txt" _air REGEX "^air [0-9]+ ")
+    list(LENGTH _air _n)
+    if(NOT _n EQUAL _air_count)
+        string(APPEND _failures "\n  ${_p}: ${_n} air samples, not ${_air_count}")
+        continue()
+    endif()
+    set(_bad 0)
+    math(EXPR _last "${_n} - 1")
+    foreach(_i RANGE ${_last})
+        list(GET _air_first ${_i} _a)
+        list(GET _air ${_i} _b)
+        string(REPLACE " " ";" _a "${_a}")
+        string(REPLACE " " ";" _b "${_b}")
+        foreach(_k 2 3 4)
+            list(GET _a ${_k} _va)
+            list(GET _b ${_k} _vb)
+            math(EXPR _d "${_va} - ${_vb}")
+            if(_d LESS 0)
+                math(EXPR _d "-${_d}")
+            endif()
+            if(_d GREATER _air_worst)
+                set(_air_worst ${_d})
+            endif()
+            if(_d GREATER 100)
+                math(EXPR _bad "${_bad} + 1")
+            endif()
+        endforeach()
+    endforeach()
+    if(_bad GREATER 0)
+        string(APPEND _failures "\n  air: ${_p} differs from ${_first} by more than 1e-9 m/s in ${_bad} components")
+    endif()
+endforeach()
+string(APPEND _report "\n  air: the platforms at most ${_air_worst}e-11 m/s apart")
 
 message(STATUS "cross-platform flights:${_report}")
 if(_failures)
