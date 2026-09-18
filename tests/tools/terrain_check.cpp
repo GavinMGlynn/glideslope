@@ -112,11 +112,18 @@ glideslope::gfx::Frame load(const char* path) {
     return frame;
 }
 
+// "LAT,LON,HEIGHT". Not sscanf, which MSVC calls unsafe and refuses.
 Geodetic parse(const char* text) {
     Geodetic g;
-    if (std::sscanf(text, "%lf,%lf,%lf", &g.latitude_deg, &g.longitude_deg,
-                    &g.height_m) != 3) {
-        fail(std::string("not LAT,LON,HEIGHT: ") + text, 2);
+    double* fields[3] = {&g.latitude_deg, &g.longitude_deg, &g.height_m};
+    const char* at = text;
+    for (int i = 0; i < 3; ++i) {
+        char* end = nullptr;
+        *fields[i] = std::strtod(at, &end);
+        if (end == at || *end != (i < 2 ? ',' : '\0')) {
+            fail(std::string("not LAT,LON,HEIGHT: ") + text, 2);
+        }
+        at = end + 1;
     }
     return g;
 }
