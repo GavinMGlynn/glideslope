@@ -242,8 +242,7 @@ models, whose hidden state a restored aircraft would not carry.
       until the controls meet the pilot's, within two seconds, and they are the
       pilot's from then; and over the three seconds after either, the load
       factor changes by no more than 0.05 g in a step.
-- [ ] **`--autopilot`** — the AI flies this client's aircraft. **Done locally;
-      awaiting CI.** *Verification: a ctest flies a plan with it.* Stated,
+- [x] **`--autopilot`** — the AI flies this client's aircraft. *Verification: a ctest flies a plan with it.* Stated,
       2026-09-19: the client, headless on every driver, flies
       `--plan sydney-harbour` from the plan's start and prints each waypoint
       as its AI passes it - every one passed in order, within 100 m and 50 ft

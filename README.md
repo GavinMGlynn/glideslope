@@ -4,13 +4,14 @@ A multiplayer flight simulator in C++: real flight physics and live wind, flown
 over real-world terrain streamed from the internet. Fly yourself, or hand any
 aircraft to an AI pilot and take it back.
 
-> **Status: Phases 0, 1, 2, 3 and 3b are complete, and Phase 4, the autopilot
-> and navigation, is under way.** A Cessna 172P flies to its handbook, stands on
+> **Status: Phases 0, 1, 2, 3, 3b and 4 are complete, and Phase 5, the choice
+> of aircraft, is next.** A Cessna 172P flies to its handbook, stands on
 > the real ground anywhere on Earth, and can be flown from the keyboard or a
 > joystick with a HUD, in the weather reported at an airfield now - its gusts,
 > turbulence, boundary layer, wind shear, thermals and waves, the same air on
-> every machine, under the cloud and haze the report gives. The terrain is
-> drawn, with satellite imagery on it, but only around where the flight starts.
+> every machine, under the cloud and haze the report gives - or its AI can fly
+> it, along a flight plan. The terrain is drawn, with satellite imagery on it,
+> but only around where the flight starts.
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the single source of
 > truth for what works, with the gaps named first.
 
@@ -46,6 +47,7 @@ glideslope_cli selftest                 # a five-minute flight, and its hash
 glideslope_cli height -33.9461 151.1772 # the ground's height, from the DEM
 glideslope_cli weather YSSY             # the weather at Sydney airport now
 glideslope --weather YSSY               # fly from over Sydney, in its weather
+glideslope --plan sydney-harbour        # the AI flies a tour of Sydney Harbour
 glideslope --screen terrain --at -39.55,174.27,500 --toward -39.50,174.10,1500 \
     --metar "METAR NZHA 180800Z 27012KT 6000 -RA BKN015 14/10 Q1016"
                                         # Taranaki under broken cloud, in rain

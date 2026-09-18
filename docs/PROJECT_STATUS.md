@@ -86,12 +86,13 @@ flight.
 of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
 and 35363959900): the same air on every machine, a METAR's gusts flown, the
 wind near the ground as a boundary layer, reported wind shear, microbursts,
-thermals and mountain waves, and weather you can see. **Phase 4, autopilot and navigation, is under way: 3 of 4 items done**,
-proved in CI on every platform (runs 35363959900 and 35372183417) - the holds
-for heading, altitude, airspeed and vertical speed, flight plans flown past
-their waypoints, and the user/AI controller swap. Begun before Phase 3b was
+thermals and mountain waves, and weather you can see. **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
+CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
+holds for heading, altitude, airspeed and vertical speed; flight plans flown
+past their waypoints; the user/AI controller swap; and `--autopilot`, with
+which the client's AI flies a plan. It was begun before Phase 3b was
 finished, which it should not have been; its work stopped until 3b was
-proved. Done on Linux and awaiting CI: `--autopilot`. **Phase 5c, learning to fly, is new and not started:
+proved. **Phase 5c, learning to fly, is new and not started:
 0 of 4 items.** Added
 2026-09-18, as were the sixteen-aircraft roster of Phase 5 and a tail for
 terrain over the whole Earth; see the log.
@@ -136,7 +137,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### `--autopilot`: the client's AI flies, 2026-09-19 — awaiting CI
+### `--autopilot`: the client's AI flies, 2026-09-19 — item done (CI run 35378850716)
 
 **What is missing first:** the AI flies only the plans in the data or a file
 given it; nothing makes a plan in the client, and the AI neither takes off
