@@ -12,6 +12,7 @@
 #include <dlfcn.h>
 
 #include <cctype>
+#include <csignal>
 #include <mutex>
 
 namespace glideslope::platform {
@@ -93,6 +94,11 @@ const Curl& curl() {
         if (c.global_init(curl_global_default) != 0) {
             c.error = "libcurl would not initialise";
         }
+        // Every request is made with CURLOPT_NOSIGNAL, as threads must, and
+        // then ignoring SIGPIPE is the program's to do, not libcurl's: TLS
+        // writing to a connection the server has closed raises it, and by
+        // default it ends the process.
+        std::signal(SIGPIPE, SIG_IGN);
     });
     if (!c.error.empty()) {
         throw HttpError(c.error);

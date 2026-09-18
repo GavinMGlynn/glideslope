@@ -183,7 +183,8 @@ jobs:
           else
             apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1 gdb
           fi
-          gdb -q -batch -return-child-result -ex run -ex "thread apply all bt" --args \
+          gdb -q -batch -return-child-result -ex "handle SIGPIPE nostop noprint pass" \
+            -ex run -ex "thread apply all bt" --args \
             ./glideslope --headless --gpu-driver vulkan --size 640x480 --screen flight \
             --weather YSSY --shot-at 600 --shot "$GITHUB_WORKSPACE/frame-linux-${{ matrix.label }}.bmp"
 

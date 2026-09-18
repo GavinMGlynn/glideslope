@@ -157,7 +157,8 @@ set(GLIDESLOPE_UNIT_TESTS
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
     handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase
     every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_air
-    an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong)
+    an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong
+    a_download_cannot_be_killed_by_a_server_hanging_up)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)

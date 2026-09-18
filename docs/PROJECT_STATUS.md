@@ -86,8 +86,9 @@ flight.
 of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
 and 35363959900): the same air on every machine, a METAR's gusts flown, the
 wind near the ground as a boundary layer, reported wind shear, microbursts,
-thermals and mountain waves, and weather you can see. **Phase 5, aircraft choice, is under way: 0 of 14 items done** - aircraft
-as data is done on Linux and awaiting CI.
+thermals and mountain waves, and weather you can see. **Phase 5, aircraft choice, is under way: 1 of 14 items done** - aircraft as
+data, proved in CI on every platform (run 35387301607). Next: the Mosquito,
+the FB Mk VI, the mark the project owner chose.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -140,7 +141,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Aircraft as data, 2026-09-19 — awaiting CI
+### Aircraft as data, 2026-09-19 — item done (CI run 35387301607)
 
 **What is missing first:** the catalogue holds one aircraft, the Cessna 172P;
 the rest of Phase 5 adds the others, each held to its published figures
@@ -163,6 +164,15 @@ holds does the same at 3,000 ft for a minute; and a file with a command it
 does not know, a throttle past full, no start, or a model the data does not
 hold is refused, by its line. **Watched to fail:** the catalogue finding any
 aircraft for any name, and reading no files.
+
+**Found on the way: a server hanging up could end the client.** The package
+job's client, flying under gdb, stopped on SIGPIPE in a terrain download
+(package run 35387301586). libcurl's requests are made with CURLOPT_NOSIGNAL,
+as threads must, and then ignoring SIGPIPE - raised when TLS writes to a
+connection the server has closed - is the program's job; nothing did, and
+by default it ends the process. The platform's HTTP now ignores it when it
+first loads libcurl, a test checks it is ignored once a download is made
+(watched to fail), and gdb in the package job passes it through.
 
 ### `--autopilot`: the client's AI flies, 2026-09-19 — item done (CI run 35378850716)
 

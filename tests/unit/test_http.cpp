@@ -5,6 +5,10 @@
 
 #include <string>
 
+#ifdef __linux__
+#include <csignal>
+#endif
+
 using glideslope::platform::http_get;
 using glideslope::platform::HttpError;
 using glideslope::platform::HttpRequest;
@@ -89,4 +93,22 @@ GLIDESLOPE_TEST(an_http_error_status_is_a_response_and_a_failed_request_is_an_er
         fail("a host that cannot exist answered");
     } catch (const HttpError&) {
     }
+}
+
+GLIDESLOPE_TEST(a_download_cannot_be_killed_by_a_server_hanging_up) {
+#ifdef __linux__
+    // libcurl's requests are made with CURLOPT_NOSIGNAL, so it leaves SIGPIPE
+    // - raised by TLS writing to a connection the server has closed - to the
+    // program. Once downloading, the program ignores it.
+    try {
+        http_get(get("https://glideslope-no-such-host.invalid/"));
+    } catch (const HttpError&) {
+    }
+    struct sigaction now{};
+    sigaction(SIGPIPE, nullptr, &now);
+    check(now.sa_handler == SIG_IGN, "SIGPIPE is ignored once downloads are made");
+#else
+    glideslope::test::skip("SIGPIPE is libcurl's on Linux; elsewhere the system's "
+                           "HTTP does not raise it");
+#endif
 }
