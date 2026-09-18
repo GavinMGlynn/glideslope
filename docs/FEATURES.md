@@ -42,9 +42,28 @@ the controls to an AI pilot whenever you like, then take them back.
   The wind and conditions come from real reports for where you are flying, so
   the weather over an airfield is the weather there today.
 
+- **Wind that shears and gusts.** `WANTED`
+  The wind changes with height and from moment to moment, as real wind does. It
+  slows and swings round near the ground, so an approach is flown down through
+  shear, and on a gusty day the gusts the report gives are the gusts you fly
+  in. When an airfield reports wind shear, it is there.
+
+- **Hazardous air.** `WANTED`
+  Air that rises and sinks where the weather and the ground say it should:
+  thermals over sunlit ground, waves and rotor in the lee of a ridge, and the
+  microburst on short final that a pilot has to fly out of.
+
+- **Weather you can see.** `WANTED`
+  Cloud, rain and haze from the same reports, drawn where they are, so you
+  break out of cloud at the base the report gives.
+
 - **A choice of aircraft.** `CORE`
-  Starting with a Cessna 172 and going up from there, chosen at the start of a
-  flight. Each looks like the aircraft it flies like.
+  Chosen at the start of a flight, from a Piper Cub to an A380: light aircraft
+  (the Cub, a Cessna 172 and 182, a Piper Cherokee), a flying boat that lands on
+  the sea and on lakes, a Second World War Mosquito, a Learjet, the airliners
+  (A320, A380, 737, 747, 787), the F-15, F-22 and F-35 fighters, and a B-2
+  bomber. Each flies to its published numbers and looks like the aircraft it
+  flies like.
 
 - **Joysticks, HOTAS and yokes.** `CORE`
   Proper flight controls on every platform, not only a keyboard.
@@ -76,6 +95,24 @@ the controls to an AI pilot whenever you like, then take them back.
 - **Credit where it is due.** `CORE`
   Whichever scenery is showing, the people who made it are credited on screen.
 
+## Learning to fly
+
+- **Checklists for every aircraft.** `CORE`
+  Each aircraft comes with its own checklists - before start, taxi, take-off,
+  climb, cruise, descent, approach, landing and after landing - on screen when
+  you want them. What the aircraft can tell has been done ticks itself off, and
+  what it cannot is yours to confirm.
+
+- **Lessons that teach you to fly.** `CORE`
+  Take-off, the circuit, climbs, turns, stalls and landing, taught for each
+  kind of aircraft from a light trainer to an airliner: what to do at each
+  stage, as you fly it, and afterwards what to do differently. A debrief, not
+  a score.
+
+- **An instructor who shows you first.** `WANTED`
+  The AI pilot flies the lesson while you watch, then hands you the controls,
+  and takes them back if you ask.
+
 ## AI pilots
 
 - **Hand over the controls, and take them back.** `CORE`
@@ -105,6 +142,10 @@ the controls to an AI pilot whenever you like, then take them back.
 - **Up to four players.** `CORE`
   Fly in the same sky as three friends, each seeing the others' aircraft move
   smoothly.
+
+- **The same air for everyone.** `CORE`
+  In a shared session everyone flies through the same wind, gusts and shear: a
+  gust that lifts one aircraft's wing lifts the aircraft alongside it too.
 
 - **Controls that answer immediately.** `CORE`
   Your aircraft responds on the frame you move the stick, even with the server

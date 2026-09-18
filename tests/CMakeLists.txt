@@ -19,6 +19,7 @@ add_executable(glideslope_tests
     unit/test_http.cpp
     unit/test_input.cpp
     unit/test_json.cpp
+    unit/test_terrain_mesh.cpp
     unit/test_weather.cpp
     unit/test_figures.cpp
     unit/test_fixed_step.cpp
@@ -120,7 +121,9 @@ set(GLIDESLOPE_UNIT_TESTS
     a_new_weather_report_blends_in_over_its_interval_with_no_step_in_the_wind
     an_instant_is_named_by_the_utc_hour_it_falls_in_as_open_meteo_names_hours
     the_weather_now_at_an_airfield_is_fetched_from_aviationweather_and_open_meteo
-    a_fetch_is_tried_again_after_a_server_error_or_no_answer_and_not_after_a_refusal)
+    a_fetch_is_tried_again_after_a_server_error_or_no_answer_and_not_after_a_refusal
+    a_terrain_mesh_puts_its_vertices_on_the_ground_and_meets_its_neighbour_exactly
+    a_terrain_mesh_needs_a_rectangle_on_the_earth_and_a_cell)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
@@ -191,6 +194,9 @@ endif()
 add_executable(glideslope_hud_check tools/hud_check.cpp)
 target_link_libraries(glideslope_hud_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_hud_check)
+add_executable(glideslope_terrain_check tools/terrain_check.cpp)
+target_link_libraries(glideslope_terrain_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_terrain_check)
 
 foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
     add_test(NAME the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
@@ -200,6 +206,14 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
     set_tests_properties(the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+    add_test(NAME a_shot_of_mount_taranaki_matches_the_dem_ray_cast_from_the_same_eye_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_terrain_check>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain.cmake)
+    set_tests_properties(a_shot_of_mount_taranaki_matches_the_dem_ray_cast_from_the_same_eye_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
     add_test(NAME a_distant_mountain_and_a_nearby_aircraft_draw_with_no_z_fighting_on_${_driver}
         COMMAND ${CMAKE_COMMAND}

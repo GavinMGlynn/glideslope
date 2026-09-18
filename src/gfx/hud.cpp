@@ -14,7 +14,10 @@ namespace {
 const std::map<char, std::array<const char*, 7>>& font_source() {
     static const std::map<char, std::array<const char*, 7>> font{
         {' ', {"     ", "     ", "     ", "     ", "     ", "     ", "     "}},
+        {'(', {"   # ", "  #  ", " #   ", " #   ", " #   ", "  #  ", "   # "}},
+        {')', {" #   ", "  #  ", "   # ", "   # ", "   # ", "  #  ", " #   "}},
         {'+', {"     ", "  #  ", "  #  ", "#####", "  #  ", "  #  ", "     "}},
+        {',', {"     ", "     ", "     ", "     ", " ##  ", "  #  ", " #   "}},
         {'-', {"     ", "     ", "     ", "#####", "     ", "     ", "     "}},
         {'.', {"     ", "     ", "     ", "     ", "     ", " ##  ", " ##  "}},
         {'0', {" ### ", "#   #", "#  ##", "# # #", "##  #", "#   #", " ### "}},
@@ -27,6 +30,7 @@ const std::map<char, std::array<const char*, 7>>& font_source() {
         {'7', {"#####", "    #", "   # ", "  #  ", " #   ", " #   ", " #   "}},
         {'8', {" ### ", "#   #", "#   #", " ### ", "#   #", "#   #", " ### "}},
         {'9', {" ### ", "#   #", "#   #", " ####", "    #", "   # ", " ##  "}},
+        {';', {"     ", " ##  ", " ##  ", "     ", " ##  ", "  #  ", " #   "}},
         {'A', {" ### ", "#   #", "#   #", "#####", "#   #", "#   #", "#   #"}},
         {'B', {"#### ", "#   #", "#   #", "#### ", "#   #", "#   #", "#### "}},
         {'C', {" ### ", "#   #", "#    ", "#    ", "#    ", "#   #", " ### "}},
@@ -160,9 +164,60 @@ TextLayout hud_layout(int width, int height) {
     return layout;
 }
 
-TextLayout credit_layout(int width, int height) {
-    TextLayout layout = hud_layout(width, height);
-    layout.top = height - 2 * layout.cell_height();
+std::size_t credit_columns(int width) {
+    // One screen pixel a font pixel: six pixels a character, and two
+    // characters' margin each side.
+    return static_cast<std::size_t>(std::max(1, width / 6 - 4));
+}
+
+std::vector<std::string> credit_lines(const std::vector<std::string>& credits,
+                                      int width) {
+    const std::size_t columns = credit_columns(width);
+    std::vector<std::string> lines;
+    for (const std::string& credit : credits) {
+        std::string text;
+        for (std::size_t i = 0; i < credit.size(); ++i) {
+            if (credit.compare(i, 2, "\xc2\xa9") == 0) {
+                text += "(C)";
+                ++i;
+            } else {
+                text.push_back(static_cast<char>(
+                    std::toupper(static_cast<unsigned char>(credit[i]))));
+            }
+        }
+        std::string line;
+        std::size_t at = 0;
+        while (at < text.size()) {
+            std::size_t end = text.find(' ', at);
+            if (end == std::string::npos) {
+                end = text.size();
+            }
+            const std::string word = text.substr(at, end - at);
+            if (!line.empty() && line.size() + 1 + word.size() > columns) {
+                lines.push_back(line);
+                line.clear();
+            }
+            line += (line.empty() ? "" : " ") + word;
+            // A word longer than a line is cut.
+            while (line.size() > columns) {
+                lines.push_back(line.substr(0, columns));
+                line.erase(0, columns);
+            }
+            at = end + 1;
+        }
+        if (!line.empty()) {
+            lines.push_back(line);
+        }
+    }
+    return lines;
+}
+
+TextLayout credit_layout(int width, int height, std::size_t lines) {
+    (void)width;
+    TextLayout layout;
+    layout.scale = 1;
+    layout.left = 2 * layout.cell_width();
+    layout.top = height - static_cast<int>(lines + 1) * layout.cell_height();
     return layout;
 }
 
@@ -214,13 +269,9 @@ Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     Mesh mesh;
     const TextLayout layout = hud_layout(width, height);
     add_text(mesh, hud_lines(readings), layout, width, height);
-    if (!readings.credit.empty()) {
-        std::string credit = readings.credit;
-        for (char& c : credit) {
-            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        }
-        add_text(mesh, {credit}, credit_layout(width, height), width, height);
-    }
+    const std::vector<std::string> credits = credit_lines(readings.credits, width);
+    add_text(mesh, credits, credit_layout(width, height, credits.size()), width,
+             height);
 
     // The horizon: across the middle third, moved down the screen as the nose
     // rises - a degree of pitch a hundredth of the height - and turned against
@@ -237,6 +288,13 @@ Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     add_rect(mesh, cx - 3 * layout.scale, height / 2.0 - layout.scale,
              cx + 3 * layout.scale, height / 2.0 + layout.scale, width, height,
              hud_colour);
+    return mesh;
+}
+
+Mesh credits_mesh(const std::vector<std::string>& credits, int width, int height) {
+    Mesh mesh;
+    const std::vector<std::string> lines = credit_lines(credits, width);
+    add_text(mesh, lines, credit_layout(width, height, lines.size()), width, height);
     return mesh;
 }
 

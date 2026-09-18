@@ -10,3 +10,6 @@
 [submodule "ext/spirv-cross"]
 	path = ext/spirv-cross
 	url = https://github.com/KhronosGroup/SPIRV-Cross.git
+[submodule "ext/cesium-native"]
+	path = ext/cesium-native
+	url = https://github.com/CesiumGS/cesium-native.git

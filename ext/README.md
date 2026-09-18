@@ -15,6 +15,7 @@ pinned tag or SHA, role, and licence.
 | `sdl` | libsdl-org/SDL | `release-3.4.16` (`fa2c02b`) | **The window, input and GPU.** Linked by the presentation only; `cmake/Layering.cmake` refuses it in the simulation | Zlib |
 | `glslang` | KhronosGroup/glslang | `16.6.0` (`e1b562a8`) | **Shaders, GLSL to SPIR-V.** Linked by the build's shader compiler only; nothing shipped | BSD-3-Clause and others (see its `LICENSE.txt`) |
 | `spirv-cross` | KhronosGroup/SPIRV-Cross | `vulkan-sdk-1.4.357.0` (`6c09849f`) | **Shaders, SPIR-V to MSL and HLSL.** Linked by the build's shader compiler only; nothing shipped | Apache-2.0 |
+| `cesium-native` | CesiumGS/cesium-native | `v0.64.0` (`80a22ff`) | **Terrain tiles: selection, loading, caching, glTF.** Linked by the presentation only (`glideslope_gfx`) | Apache-2.0 |
 
 ### jsbsim
 
@@ -67,13 +68,44 @@ compiler, is sanitized in the sanitized presets. They are a build step, and a
 leak report from glslang would fail the build without saying anything about
 glideslope.
 
+### cesium-native
+
+`cmake/CesiumNative.cmake` adds it with its tests, clang-tidy, curl and install
+rules off; only the libraries the client links - `Cesium3DTilesSelection` and
+what it needs - are built. Its own warnings are left as warnings, not errors:
+its code is not this project's to fix, and not every compiler here is one it is
+tested with. It is sanitized with the rest in the sanitized presets, as JSBSim
+is. The glue that draws its tiles is `src/gfx/terrain_tiles.cpp`.
+
+**Its dependencies come from vcpkg**, not from submodules: thirty libraries -
+Abseil, S2, OpenSSL, Draco, KTX, libwebp, libjpeg-turbo, SQLite, spdlog and the
+rest - which `vcpkg.json` lists, the same as Cesium Native's own manifest less
+curl (the configure refuses the two lists parting). `cmake/Vcpkg.cmake` fetches
+vcpkg at the commit Cesium Native v0.64.0 is built against,
+`56bb2411609227288b70117ead2c47585ba07713`, into the user's cache directory
+rather than this tree - it is a tool, not a dependency - and installs the
+packages after the platform gate has accepted the compiler. The ports, and so
+every dependency's version, are that commit's. How each platform builds them is
+`cmake/triplets/`, whose README says why.
+
+**The first configure builds all thirty**, which takes most of an hour; vcpkg
+keeps what it built in its binary cache (`~/.cache/vcpkg/archives`, or
+`VCPKG_DEFAULT_BINARY_CACHE`), and every configure after that, in any build
+directory, unpacks it in seconds. CI keeps that cache between runs. Building
+them needs, on Linux, Perl with `IPC::Cmd` (OpenSSL's build), NASM
+(libjpeg-turbo's) and make; on macOS, NASM; on Windows, nothing: vcpkg fetches
+what it needs.
+
+**Every package carries their licences**: Cesium Native's as
+`licenses/CesiumNative.txt`, and each vcpkg package's copyright file as
+`licenses/vcpkg/<package>.txt`.
+
 The aircraft files JSBSim reads at run time are made from this submodule's by
 `tools/make_c172p.py` and committed under `assets/jsbsim/`; see
 `docs/ASSETS.md`.
 
 ## Expected, from `REQUIREMENTS.md`
 
-- **Cesium Native** — terrain and imagery streaming, Phase 2.
 - **SDL_net and libsodium** — the transport, Phase 6.
 - **SQLite** — server storage, Phase 6.
 

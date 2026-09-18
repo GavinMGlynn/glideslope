@@ -100,10 +100,16 @@ for the EEA-10, GLO-30 and GLO-90 instances, quoted:
 > all accuracy statistics and values stated in this document are calculated as
 > an arithmetic mean. Local deviations can occur.
 
-**What that asks of glideslope:** nothing is redistributed yet, so no notice is
-shown yet. When the client draws terrain from the DEM, or the server serves
-heights from it, notice (a) is shown with the terrain's attribution, and (c)'s
-sentence goes in the documentation that ships with the program.
+**What that asks of glideslope, and where it is done.** The client draws
+terrain made from the DEM - adapted, so notice (b) - and `glideslope_cli height`
+prints heights from it. Both show notice (b) wherever the data are shown: the
+client along the bottom of every frame that has terrain in it, as its other
+credits are, and the CLI after the heights (`world::copernicus_dem_notice`).
+The client's font has capitals, digits and a little punctuation and no
+copyright sign, so on screen the notice is in capitals with "(C)" for "©"; a
+test reads it back out of the frame. (c)'s sentence is in `README.md`, which
+every package carries, with the notice. Nothing says or suggests the Copernicus
+programme endorses this project, as (d) asks.
 
 ### The EGM2008 geoid, GeographicLib's 5-minute grid
 

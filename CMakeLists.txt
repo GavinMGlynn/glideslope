@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.28)
 
+# vcpkg, for Cesium Native's dependencies: its toolchain before project(), and
+# the packages installed after the platform gate - see cmake/Vcpkg.cmake.
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/Vcpkg.cmake")
+
 project(glideslope
     VERSION     0.1.0
     DESCRIPTION "Glideslope - a multiplayer flight simulator in C++"
@@ -35,6 +39,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # 64-bit only, and a compiler at or above its floor - see cmake/Platform.cmake.
 include(Platform)
 glideslope_check_platform()
+
+# Cesium Native's dependencies, now that the compiler is one the project accepts.
+glideslope_vcpkg_install()
 
 # ---------------------------------------------------------------------------
 # Options
@@ -78,6 +85,10 @@ include(Sdl)
 # The shader compiler, from glslang and SPIRV-Cross in ext/ - see
 # cmake/Shaders.cmake.
 include(Shaders)
+
+# Cesium Native, from ext/cesium-native - see cmake/CesiumNative.cmake. Linked by
+# the presentation only.
+include(CesiumNative)
 
 # ---------------------------------------------------------------------------
 # The data the programs read at run time: assets/, copied to data/ beside them -
@@ -138,6 +149,7 @@ add_library(glideslope_world STATIC
     src/world/inflate.cpp
     src/world/json.cpp
     src/world/metar.cpp
+    src/world/terrain_mesh.cpp
     src/world/weather.cpp
     src/world/winds_aloft.cpp
     src/world/zip.cpp)
@@ -185,9 +197,14 @@ glideslope_configure(glideslope_input)
 add_library(glideslope_gfx STATIC
     src/gfx/hud.cpp
     src/gfx/renderer.cpp
-    src/gfx/scene.cpp)
+    src/gfx/scene.cpp
+    src/gfx/terrain_colour.cpp
+    src/gfx/terrain_tiles.cpp)
 target_include_directories(glideslope_gfx PUBLIC src)
 target_link_libraries(glideslope_gfx PUBLIC SDL3::SDL3-static glideslope_world)
+# Cesium Native is behind gfx/terrain_tiles.hpp, and none of it is in a header
+# here.
+target_link_libraries(glideslope_gfx PRIVATE Cesium3DTilesSelection CesiumGltfContent)
 glideslope_shaders(glideslope_gfx
     src/gfx/shaders/mesh.vert
     src/gfx/shaders/mesh.frag)
@@ -199,7 +216,8 @@ glideslope_configure(glideslope_gfx)
 add_executable(glideslope
     src/frontend/client/flight.cpp
     src/frontend/client/main.cpp
-    src/frontend/client/scenes.cpp)
+    src/frontend/client/scenes.cpp
+    src/frontend/client/terrain.cpp)
 target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_sim glideslope_world
                                          glideslope_platform)
 glideslope_configure(glideslope)
@@ -228,6 +246,19 @@ install(TARGETS glideslope glideslope_cli RUNTIME DESTINATION . COMPONENT glides
 # The client links SDL, statically; its licence travels with it.
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdl/LICENSE.txt"
         DESTINATION licenses RENAME SDL.txt COMPONENT glideslope)
+# And Cesium Native, and the libraries vcpkg built for it, statically too: every
+# package vcpkg installed for the target, each with the copyright file vcpkg
+# keeps for it, under licenses/vcpkg/.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/ext/cesium-native/LICENSE"
+        DESTINATION licenses RENAME CesiumNative.txt COMPONENT glideslope)
+file(GLOB _vcpkg_copyrights
+     "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/*/copyright")
+foreach(_copyright IN LISTS _vcpkg_copyrights)
+    get_filename_component(_port_dir "${_copyright}" DIRECTORY)
+    get_filename_component(_port "${_port_dir}" NAME)
+    install(FILES "${_copyright}" DESTINATION licenses/vcpkg RENAME "${_port}.txt"
+            COMPONENT glideslope)
+endforeach()
 install(FILES LICENSE README.md DESTINATION . COMPONENT glideslope)
 install(DIRECTORY "${GLIDESLOPE_DATA_DIR}/" DESTINATION data COMPONENT glideslope)
 foreach(_licence IN LISTS GLIDESLOPE_JSBSIM_LICENCES)

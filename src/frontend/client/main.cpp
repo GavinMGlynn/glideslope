@@ -1,12 +1,13 @@
 // glideslope - the simulator.
 //
 // It opens a window, or renders headless, on one of its screens: the flight -
-// the Cessna over the DEM, seen from its cockpit, with the HUD - or a test
-// scene. Terrain is not drawn yet.
+// the Cessna over the DEM's terrain, seen from its cockpit, with the HUD - the
+// terrain alone, from a point toward another, or a test scene.
 //
 //   glideslope [--headless] [--gpu-driver NAME] [--size WxH]
-//              [--screen flight|sky|origin|depth]
-//              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z] [--weather STATION]
+//              [--screen flight|terrain|sky|origin|depth]
+//              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z] [--toward LAT,LON,HEIGHT]
+//              [--weather STATION]
 //              [--shot FILE] [--shot-at TICK] [--trace]
 //
 // Test flags. --shot writes the frame drawn at simulation tick --shot-at
@@ -22,7 +23,9 @@
 #include "platform/paths.hpp"
 #include "scenes.hpp"
 #include "sim/fixed_step.hpp"
+#include "terrain.hpp"
 #include "sim/version.hpp"
+#include "world/dem.hpp"
 #include "world/geodesy.hpp"
 #include "world/weather.hpp"
 
@@ -60,23 +63,27 @@ struct Options {
     std::string screen = "flight";
     std::optional<glideslope::world::Geodetic> at;
     std::optional<glideslope::world::Ecef> at_ecef;
+    std::optional<glideslope::world::Geodetic> toward;
     std::string weather_station;
 };
 
 void usage(std::FILE* out) {
     std::fputs(
         "usage: glideslope [--headless] [--gpu-driver vulkan|direct3d12|metal]\n"
-        "                  [--size WxH] [--screen flight|sky|origin|depth]\n"
+        "                  [--size WxH] [--screen flight|terrain|sky|origin|depth]\n"
         "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
+        "                  [--toward LAT,LON,HEIGHT]\n"
         "                  [--weather STATION]\n"
         "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
         "       glideslope --version | --help\n"
         "\n"
-        "  --screen      what to show: the flight (the default), or a test scene\n"
+        "  --screen      what to show: the flight (the default), the terrain alone,\n"
+        "                or a test scene\n"
         "  --at          where: a latitude and longitude in degrees and a height\n"
         "                in metres above the WGS84 ellipsoid - the flight starts\n"
         "                there, a scene is built there; --at-ecef in Earth-centred\n"
         "                metres, for scenes\n"
+        "  --toward      where the terrain screen looks, as --at is given\n"
         "  --weather     fly in the weather reported now at an airfield, by its\n"
         "                ICAO code - its METAR, and Open-Meteo's winds aloft\n"
         "  --shot        write the frame at tick --shot-at (default 2) and exit;\n"
@@ -197,8 +204,8 @@ int main(int argc, char** argv) {
             }
         } else if (a == "--screen" && has_value) {
             o.screen = std::string(args[++i]);
-            ok = o.screen == "flight" || o.screen == "sky" || o.screen == "origin" ||
-                 o.screen == "depth";
+            ok = o.screen == "flight" || o.screen == "terrain" || o.screen == "sky" ||
+                 o.screen == "origin" || o.screen == "depth";
         } else if (a == "--at" && has_value) {
             const auto g = parse_triple(args[++i]);
             ok = g && (*g)[0] >= -90.0 && (*g)[0] <= 90.0 && (*g)[1] >= -180.0 &&
@@ -213,6 +220,13 @@ int main(int argc, char** argv) {
                      o.weather_station.begin(), o.weather_station.end(), [](char c) {
                          return std::isalnum(static_cast<unsigned char>(c)) != 0;
                      });
+        } else if (a == "--toward" && has_value) {
+            const auto g = parse_triple(args[++i]);
+            ok = g && (*g)[0] >= -90.0 && (*g)[0] <= 90.0 && (*g)[1] >= -180.0 &&
+                 (*g)[1] <= 180.0;
+            if (ok) {
+                o.toward = glideslope::world::Geodetic{(*g)[0], (*g)[1], (*g)[2]};
+            }
         } else if (a == "--at-ecef" && has_value) {
             const auto e = parse_triple(args[++i]);
             ok = e.has_value();
@@ -234,6 +248,12 @@ int main(int argc, char** argv) {
     }
     if (o.screen != "flight" && !o.weather_station.empty()) {
         std::fputs("glideslope: only the flight has --weather\n", stderr);
+        return 2;
+    }
+    if ((o.screen == "terrain") != (o.at && o.toward)) {
+        std::fputs("glideslope: the terrain screen, and only it, looks from --at "
+                   "--toward\n",
+                   stderr);
         return 2;
     }
     if (o.screen == "flight" && o.at_ecef) {
@@ -261,9 +281,9 @@ int main(int argc, char** argv) {
     SDL_Window* window = nullptr;
     try {
         std::unique_ptr<glideslope::client::Flight> flight;
+        glideslope::client::FlightStart start;
         glideslope::client::Scene scene;
         if (o.screen == "flight") {
-            glideslope::client::FlightStart start;
             if (o.at) {
                 start.latitude_deg = o.at->latitude_deg;
                 start.longitude_deg = o.at->longitude_deg;
@@ -280,6 +300,11 @@ int main(int argc, char** argv) {
                             start.weather_station.c_str(),
                             glideslope::world::open_meteo_credit);
             }
+        } else if (o.screen == "terrain") {
+            scene.camera =
+                glideslope::gfx::look_at(glideslope::world::to_ecef(*o.at),
+                                         glideslope::world::to_ecef(*o.toward));
+            scene.camera.near_m = 1.0;
         } else {
             const glideslope::world::Ecef at =
                 o.at_ecef ? *o.at_ecef
@@ -300,6 +325,21 @@ int main(int argc, char** argv) {
         std::vector<glideslope::gfx::Draw> draws = scene.draws;
         for (glideslope::gfx::Draw& draw : draws) {
             draw.mesh = renderer.add_mesh(scene.meshes.at(draw.mesh));
+        }
+
+        // The terrain: under the flight, the cells around where it starts; on
+        // the terrain screen, the cell the eye is in. After the renderer, so it
+        // is destroyed first: it frees its meshes as it goes.
+        std::unique_ptr<glideslope::gfx::TerrainTiles> terrain;
+        if (flight || o.screen == "terrain") {
+            const glideslope::world::GeoRectangle region =
+                flight ? glideslope::client::cells_around(start.latitude_deg,
+                                                          start.longitude_deg, 1)
+                       : glideslope::client::cells_around(o.at->latitude_deg,
+                                                          o.at->longitude_deg, 0);
+            terrain = glideslope::client::open_terrain(
+                renderer, glideslope::platform::data_directory(),
+                glideslope::platform::cache_directory(), region);
         }
 
         const bool shooting = !o.shot.empty();
@@ -349,16 +389,48 @@ int main(int argc, char** argv) {
                 ++ticks;
             }
 
+            // The frame shot waits for every terrain tile its view needs, so
+            // the same command draws the same terrain everywhere.
+            const bool shot_now = shooting && ticks >= o.shot_at;
+            const glideslope::gfx::Camera camera =
+                flight ? flight->camera() : scene.camera;
+            if (terrain) {
+                draws = terrain->update(camera, o.width, o.height, shot_now);
+            }
+            // Whichever data is drawn, its credit is on screen.
+            std::vector<std::string> credits;
+            if (terrain) {
+                credits.emplace_back(glideslope::world::copernicus_dem_notice);
+            }
             if (flight) {
+                glideslope::gfx::HudReadings readings = flight->hud();
+                readings.credits.insert(readings.credits.begin(), credits.begin(),
+                                        credits.end());
                 const glideslope::gfx::Mesh hud =
-                    glideslope::gfx::hud_mesh(flight->hud(), o.width, o.height);
-                renderer.render(flight->camera(), {}, &hud);
+                    glideslope::gfx::hud_mesh(readings, o.width, o.height);
+                renderer.render(camera, draws, &hud);
+            } else if (!credits.empty()) {
+                const glideslope::gfx::Mesh overlay =
+                    glideslope::gfx::credits_mesh(credits, o.width, o.height);
+                renderer.render(camera, draws, &overlay);
             } else {
-                renderer.render(scene.camera, draws);
+                renderer.render(camera, draws);
             }
             ++frames;
 
-            if (shooting && ticks >= o.shot_at) {
+            if (shot_now) {
+                if (terrain) {
+                    const auto counts = terrain->counts();
+                    std::printf("glideslope: terrain of %zu tiles, %zu loaded, the "
+                                "deepest at level %zu\n",
+                                counts.drawn, counts.loaded, counts.deepest);
+                    if (counts.failed > 0 || counts.skipped > 0) {
+                        throw std::runtime_error(std::to_string(counts.failed) +
+                                                 " terrain tiles failed and " +
+                                                 std::to_string(counts.skipped) +
+                                                 " primitives could not be drawn");
+                    }
+                }
                 glideslope::gfx::save_bmp(renderer.capture(), o.shot);
                 std::printf("glideslope: wrote tick %lld, frame %ld, to %s\n",
                             static_cast<long long>(ticks), frames, o.shot.c_str());

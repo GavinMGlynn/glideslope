@@ -1,0 +1,9 @@
+{
+  "$comment": "Cesium Native's own port of KTX, and this project's triplets. The ports themselves are the vcpkg checkout's, at the commit cmake/Vcpkg.cmake pins.",
+  "overlay-ports": [
+    "./ext/cesium-native/extern/vcpkg/ports"
+  ],
+  "overlay-triplets": [
+    "./cmake/triplets"
+  ]
+}

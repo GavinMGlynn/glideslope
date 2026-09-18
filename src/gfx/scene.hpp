@@ -74,6 +74,11 @@ struct Camera {
 // greater.
 Mat4f projection(double vertical_fov_rad, double aspect, double near_m);
 
+// A camera at `eye` looking at `target`, held upright: its horizontal axis
+// level with the ground under the eye. Looking straight down, north is up the
+// frame.
+Camera look_at(const world::Ecef& eye, const world::Ecef& target);
+
 // A mesh's vertices to the camera's space - the camera-relative floating
 // origin. Worked out in double precision; narrowed to float at the end.
 Mat4f camera_from_local(const Camera& camera, const Placement& placement);

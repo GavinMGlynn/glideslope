@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "$comment": "Cesium Native's dependencies, as ext/cesium-native/vcpkg.json lists them, less curl - this project's HTTP is the system's (src/platform/http.hpp) - and with cpp-httplib's core alone, as Cesium Native's own CMake asks for it. cmake/CesiumNative.cmake refuses to configure if the two lists part.",
+  "name": "glideslope",
+  "version-semver": "0.1.0",
+  "dependencies": [
+    "asyncplusplus",
+    "doctest",
+    "expected-lite",
+    "glm",
+    "ms-gsl",
+    "rapidjson",
+    "spdlog",
+    "stb",
+    "ada-url",
+    "draco",
+    "ktx",
+    "modp-base64",
+    "meshoptimizer",
+    "openssl",
+    "s2geometry",
+    "libjpeg-turbo",
+    "sqlite3",
+    "tinyxml2",
+    "libwebp",
+    "zlib-ng",
+    "picosha2",
+    "earcut-hpp",
+    {
+      "name": "cpp-httplib",
+      "default-features": false,
+      "platform": "!wasm32"
+    },
+    "libmorton",
+    "zstd",
+    {
+      "name": "blend2d",
+      "default-features": false,
+      "features": [
+        {
+          "name": "jit",
+          "platform": "!ios&!wasm32"
+        }
+      ]
+    },
+    {
+      "name": "asmjit",
+      "platform": "!ios&!wasm32"
+    },
+    "spz",
+    "zlib"
+  ]
+}

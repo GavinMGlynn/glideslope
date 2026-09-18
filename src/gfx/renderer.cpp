@@ -175,10 +175,13 @@ Renderer::~Renderer() {
 
 void Renderer::release() {
     for (const GpuMesh& mesh : meshes_) {
-        SDL_ReleaseGPUBuffer(device_, mesh.vertices);
-        SDL_ReleaseGPUBuffer(device_, mesh.indices);
+        if (mesh.vertices != nullptr) {
+            SDL_ReleaseGPUBuffer(device_, mesh.vertices);
+            SDL_ReleaseGPUBuffer(device_, mesh.indices);
+        }
     }
     meshes_.clear();
+    free_meshes_.clear();
     SDL_ReleaseGPUBuffer(device_, overlay_.vertices);
     SDL_ReleaseGPUBuffer(device_, overlay_.indices);
     if (overlay_pipeline_ != nullptr) {
@@ -207,8 +210,25 @@ std::string Renderer::driver() const {
 MeshId Renderer::add_mesh(const Mesh& mesh) {
     GpuMesh gpu;
     upload(gpu, mesh, false);
+    if (!free_meshes_.empty()) {
+        const MeshId id = free_meshes_.back();
+        free_meshes_.pop_back();
+        meshes_[id] = gpu;
+        return id;
+    }
     meshes_.push_back(gpu);
     return meshes_.size() - 1;
+}
+
+void Renderer::remove_mesh(MeshId id) {
+    GpuMesh& mesh = meshes_.at(id);
+    if (mesh.vertices == nullptr) {
+        throw std::logic_error("a mesh removed twice");
+    }
+    SDL_ReleaseGPUBuffer(device_, mesh.vertices);
+    SDL_ReleaseGPUBuffer(device_, mesh.indices);
+    mesh = {};
+    free_meshes_.push_back(id);
 }
 
 // Uploads `mesh` into `gpu`, making its buffers, or with `reuse` making them
@@ -324,6 +344,9 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
             static_cast<double>(width_) / static_cast<double>(height_), camera.near_m);
         for (const Draw& draw : draws) {
             const GpuMesh& mesh = meshes_.at(draw.mesh);
+            if (mesh.vertices == nullptr) {
+                throw std::logic_error("a removed mesh drawn");
+            }
             SDL_GPUBufferBinding vertices{mesh.vertices, 0};
             SDL_BindGPUVertexBuffers(pass, 0, &vertices, 1);
             SDL_GPUBufferBinding indices{mesh.indices, 0};

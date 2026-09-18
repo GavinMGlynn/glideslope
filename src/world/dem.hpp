@@ -66,6 +66,15 @@ private:
     std::vector<std::uint8_t> cells_; // 180 rows, north first; 360 columns from 180 W
 };
 
+// The notice the Copernicus DEM's licence asks for wherever its data, adapted
+// as terrain or heights are, are shown - its Article 6(b); see docs/ASSETS.md.
+inline constexpr const char* copernicus_dem_notice =
+    "Produced using Copernicus WorldDEM-30 \xc2\xa9 DLR e.V. 2010-2014 and \xc2\xa9 "
+    "Airbus "
+    "Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union "
+    "and "
+    "ESA; all rights reserved";
+
 // "Copernicus_DSM_COG_10_S34_00_E151_00_DEM", for GLO-30.
 std::string dem_tile_name(DemDataset dataset, DemCell cell);
 

@@ -6,10 +6,10 @@
 # Flies the flight screen headless for 600 ticks - five seconds - in the
 # weather reported at Sydney now, with --trace, shoots the last, and has
 # glideslope_hud_check read the HUD back out of the frame and hold every number
-# to the traced state, and the credit along the bottom to Open-Meteo's. The
-# flight stands on the DEM, so it needs the tiles and the geoid, fetched into
-# CACHE, and the weather: without the network the test is skipped (exit 77)
-# unless GLIDESLOPE_REQUIRE_NETWORK is set.
+# to the traced state, and the credits along the bottom to the DEM's and
+# Open-Meteo's. The flight stands on the DEM, and draws it, so it needs the
+# tiles and the geoid, fetched into CACHE, and the weather: without the network
+# the test is skipped (exit 77) unless GLIDESLOPE_REQUIRE_NETWORK is set.
 
 cmake_minimum_required(VERSION 3.28)
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
@@ -37,8 +37,7 @@ if(NOT _rc EQUAL 0)
 endif()
 glideslope_judge_leaks("${_err}")
 
-execute_process(COMMAND "${CHECK}" "${_shot}" "${_trace}" 600
-                        "Weather data by Open-Meteo.com"
+execute_process(COMMAND "${CHECK}" "${_shot}" "${_trace}" 600 dem weather
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 message(STATUS "${_out}")
 if(NOT _rc EQUAL 0)

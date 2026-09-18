@@ -144,6 +144,49 @@ because it is built on everything before it.
 - [x] **Weather that changes during a flight without a jump.** *Verification: a new report blends in over a stated
       interval with no step in the wind.*
 
+## Phase 3b — Wind that shears and gusts, and hazardous air
+
+Beyond the steady wind of Phase 3 (`FEATURES.md`: wind that shears and gusts,
+hazardous air, weather you can see, the same air for everyone). The server's
+weather is authoritative, and every client's prediction must fly the same air,
+so everything here is a function of position, time and the weather's shared
+parameters alone - computed here, not in JSBSim's own gust and turbulence
+models, whose hidden state a restored aircraft would not carry.
+
+- [ ] **The same air on every machine.** *Verification: two weathers built from
+      the same report and parameters give bit-identical conditions at a
+      thousand positions and times on every platform, and an aircraft restored
+      in the middle of a gust flies on in the same wind as one that was not.*
+- [ ] **A METAR's gusts flown**, and its turbulence judged from the gusts'
+      spread. *Verification: a recorded gusty METAR gives winds between its
+      mean and gust speeds, reaching the gust within a stated tolerance over a
+      stated time; a report without gusts gives none; the same flight twice is
+      the same.*
+- [ ] **The wind near the ground as a boundary layer**, from Open-Meteo's 10,
+      80, 120 and 180 m winds and a logarithmic profile below them.
+      *Verification: a recorded response sets the wind at each of those heights
+      to what it reports, and between them to the profile within a stated
+      bound; a 3-degree approach flies down through the shear the profile
+      gives.*
+- [ ] **Reported wind shear read** - `WS RWY`, `WS ALL RWY`, and the `WSHFT`
+      and `PK WND` remarks. *Verification: recorded METARs carrying each decode
+      to what they report, and a report of shear on a runway gives its approach
+      the shear the model states.*
+- [ ] **Microbursts**, placed by the weather's parameters. *Verification: an
+      aircraft on a 3-degree approach through a microburst of stated strength
+      meets the headwind, downdraught and tailwind the published outflow model
+      gives, at every point within a stated tolerance.*
+- [ ] **Thermals and mountain waves**, from the terrain and the winds aloft.
+      *Verification: over a thermal an aircraft circling at a stated speed
+      climbs at the rate the model gives; across a ridge with the wind over it,
+      the lift upwind and the sink in the lee are within stated bounds of the
+      model's.*
+- [ ] **Weather you can see** - cloud from the METAR's layers, rain, and
+      visibility - once the world is drawn (Phase 2). *Verification: a `--shot`
+      at a station reporting a broken layer at 1,500 ft shows the cloud base
+      there within a stated tolerance, and a reported visibility of 3 km hides
+      terrain beyond it.*
+
 ## Phase 4 — Autopilot and navigation
 
 - [ ] **Holds for heading, altitude, airspeed and vertical speed.**
@@ -159,8 +202,59 @@ because it is built on everything before it.
 
 ## Phase 5 — Aircraft choice
 
+The roster (`REQUIREMENTS.md`, section 4.2): light aircraft - the Piper J-3
+Cub, Cessna 172P, Piper PA-28 and Cessna 182; a seaplane, the Short S.23 Empire
+flying boat; from the Second World War, the de Havilland Mosquito; a business
+jet, the Learjet 35A; the airliners Airbus A320 and A380 and Boeing 737, 747
+and 787; the fighters F-15 Eagle, F-22 Raptor and F-35A Lightning II; and a
+bomber, the B-2 Spirit. JSBSim ships flight models for all but the A380, the
+Learjet, the Mosquito, the F-35A and the B-2, and those it ships are of uneven
+quality: each is held to published figures before it is offered, as the Cessna
+172P was. The five it does not ship are written here, from published data.
+
 - [ ] **Aircraft as data.** *Verification: an aircraft is added without a code
       change, and a test walks every aircraft the data holds.*
+- [ ] **A Mosquito flight model**, written here from its pilot's notes and
+      published trials - the first aircraft after the Cessna, at the project
+      owner's asking. *Verification: maximum speed at altitude, climb, stall
+      and take-off figures from those sources, each inside its tolerance, and
+      its handling - the swing on take-off, the single-engine safety speed -
+      as the pilot's notes describe it.*
+- [ ] **The light aircraft fly to their figures** - the J-3 Cub, PA-28 and
+      Cessna 182, from JSBSim's models. *Verification: each lands inside its
+      tolerance on every figure recorded from its handbook, as the Cessna 172P
+      does.*
+- [ ] **The airliners fly to their figures** - the A320, 737, 747 and 787-8,
+      from JSBSim's models. *Verification: each lands inside its tolerance on
+      figures from its manufacturer's airport-planning document and its
+      type-certificate data sheet: take-off distance at maximum weight, climb,
+      cruise Mach and ceiling.*
+- [ ] **The F-15 and F-22 fly to their figures**, from JSBSim's models.
+      *Verification: maximum Mach at altitude, climb rate, service ceiling and
+      sustained turn rate, each inside its tolerance of published figures.*
+- [ ] **An A380 flight model**, written here from published data: JSBSim has
+      none. *Verification: as the airliners.*
+- [ ] **A Learjet 35A flight model**, written here from published data:
+      JSBSim has none. *Verification: as the airliners, from its flight
+      manual's figures.*
+- [ ] **F-35A and B-2 flight models**, written here from what is published.
+      Much of their performance is not public: they are held to what is -
+      maximum speed, ceiling, and range where it is given - and nothing more
+      is claimed. *Verification: each published figure inside its tolerance,
+      with every source named in `ASSETS.md`, and `PROJECT_STATUS.md` saying
+      which of the aircraft's behaviour no figure pins.*
+- [ ] **The Short S.23 on water**, from JSBSim's model and its hydrodynamics.
+      *Verification: it floats at rest at its published draught, takes off from
+      the sea and from a lake within its published distance, and alights on
+      water and comes to rest afloat.*
+- [ ] **Water where the DEM says it is** - the sea, and lakes and rivers from
+      the DEM's water body mask - for the seaplane to alight on and landplanes
+      not to. *Verification: at reference lakes, rivers and coasts the ground
+      under an aircraft is water or land as the mask says, and a landplane that
+      alights on water does not roll out on it.*
+- [ ] **The HUD for fast aircraft** - Mach and flight level where they apply.
+      *Verification: the numbers in a `--shot` of a jet at altitude match its
+      state at that tick, as for the Cessna.*
 - [ ] **Visual models from FlightGear aircraft**, each licence checked.
       *Verification: `ASSETS.md` names the source, commit and licence of every
       model that ships, and a model without an entry fails a test.*
@@ -182,6 +276,34 @@ because it is built on everything before it.
 - [ ] **A measured visual-to-collision terrain mismatch.** *Verification: the
       bound for each provider at a set of reference airfields is stated in
       `PROJECT_STATUS.md`, with how it was measured.*
+
+## Phase 5c — Learning to fly
+
+Checklists and lessons (`FEATURES.md`, learning to fly). They build on the AI
+pilot (Phase 4), which demonstrates, and on aircraft as data (Phase 5), which
+checklists are part of. A lesson ends in a debrief, never a score
+(`FEATURES.md`, deliberately not).
+
+- [ ] **Checklists as part of each aircraft's data**, for every phase of flight,
+      from its handbook or pilot's notes in this project's own words, each
+      source recorded in `ASSETS.md`. *Verification: every aircraft in the
+      roster has a checklist for each phase of flight, and every item either
+      names a state of the aircraft that shows it done or is marked the pilot's
+      to confirm; a test walks them all.*
+- [ ] **Checklists on screen, ticking themselves.** *Verification: the test
+      pilot flies the Cessna's before-take-off, take-off and climb by the book,
+      and every item the aircraft can see ticks at the tick its state first
+      shows it done; flown with the flaps left up, that item stays unticked and
+      is flagged.*
+- [ ] **Lessons** - take-off, the circuit, climbs and descents, turns, stalls,
+      approach and landing - for each class of aircraft. *Verification: each
+      lesson flown by the AI pilot to the book passes every stage; flown with a
+      stated fault - rotating early, an approach too fast, no flap - the
+      debrief names that fault and no other.*
+- [ ] **The instructor demonstrates, then hands over.** *Verification: for
+      each lesson the AI pilot flies the demonstration within the lesson's own
+      limits, hands the controls to the player with no step in any control, and
+      takes them back on request the same way.*
 
 ## Phase 6 — Client and server
 
@@ -286,3 +408,9 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **A hosted public server**, on the project owner's AWS, if one is
       needed. *(Found planning Phase 6.)* *Verification: `server.txt` names a
       running server that a client reaches with `--online`.*
+- [ ] **Terrain over the whole Earth, streamed as an aircraft flies.** *(Found
+      adding jets to the roster: a region three degrees across is crossed in
+      minutes at Mach 0.8, and "anywhere on Earth" is a `CORE` feature with no
+      item.)* *Verification: a flight from Sydney to Melbourne at cruise draws
+      terrain under it the whole way, and the tiles in memory stay under a
+      stated bound.*

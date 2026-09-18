@@ -25,9 +25,9 @@ struct HudReadings {
     double vertical_speed_fpm = 0.0;
     double pitch_deg = 0.0;
     double roll_deg = 0.0;
-    // Whose data is on screen, shown along the bottom in capitals; empty for
-    // nothing.
-    std::string credit;
+    // Whose data is on screen - each a credit its source asks for - shown
+    // along the bottom.
+    std::vector<std::string> credits;
 };
 
 // The HUD's lines, top to bottom:
@@ -58,9 +58,23 @@ struct TextLayout {
 
 TextLayout hud_layout(int width, int height);
 
-// Where the credit goes: the same text, on one line two cells in from the
-// bottom left.
-TextLayout credit_layout(int width, int height);
+// **Credits** - the notices data sources ask to be shown with their data - are
+// drawn small along the bottom left: one screen pixel a font pixel, each
+// credit wrapped at its spaces to the frame's width, in capitals, with a
+// copyright sign as "(C)", the font having no other.
+
+// How many characters a line of credits holds on a frame `width` wide.
+std::size_t credit_columns(int width);
+
+// The credits as the lines drawn, for a frame `width` wide.
+std::vector<std::string> credit_lines(const std::vector<std::string>& credits,
+                                      int width);
+
+// Where `lines` lines of credits go on a frame, ending a line above its bottom.
+TextLayout credit_layout(int width, int height, std::size_t lines);
+
+// The credits alone, in clip space, for a screen with no HUD.
+Mesh credits_mesh(const std::vector<std::string>& credits, int width, int height);
 
 // The glyph for `c`: seven rows, the top first, each five bits with the
 // leftmost pixel the highest. Null for a character the font lacks.
@@ -72,7 +86,7 @@ const std::string& font_characters();
 inline constexpr std::array<float, 4> hud_colour{0.2f, 1.0f, 0.4f, 1.0f};
 
 // The HUD for `readings` on a frame of `width` by `height`: its text, the
-// credit, and a horizon line across the middle, pitched and banked with the aircraft.
+// credits, and a horizon line across the middle, pitched and banked with the aircraft.
 // In clip space, drawn over everything else.
 Mesh hud_mesh(const HudReadings& readings, int width, int height);
 

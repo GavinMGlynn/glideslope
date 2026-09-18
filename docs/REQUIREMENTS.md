@@ -133,6 +133,62 @@ the visual provider in settings.
 - Provenance, dataset versions and licence terms for each source are recorded
   in `docs/ASSETS.md`.
 
+### 4.2 Aircraft roster
+
+Decided up front (2026-09-18), so that what the world, the weather, the HUD and
+the network must carry is known before they are built. Flight models are
+JSBSim's where JSBSim ships one, and are held to published figures before they
+are offered; where it ships none, one is written here from published data.
+
+| Class | Aircraft | Flight model |
+|---|---|---|
+| Light aircraft | Piper J-3 Cub, Cessna 172P, Piper PA-28, Cessna 182 | JSBSim's |
+| Seaplane | Short S.23 Empire flying boat | JSBSim's, with its hydrodynamics |
+| Second World War | de Havilland Mosquito - the first after the Cessna | Written here |
+| Business jet | Learjet 35A | Written here |
+| Airliners | Airbus A320, Boeing 737, 747, 787-8 | JSBSim's |
+| Airliners | Airbus A380 | Written here |
+| Fighters | F-15 Eagle, F-22 Raptor | JSBSim's |
+| Fighter | F-35A Lightning II | Written here |
+| Bomber | B-2 Spirit | Written here |
+
+JSBSim's other models - among them the P-51D, B-17G, DHC-6, Global 5000, MD-11
+and Concorde - are candidates, not commitments.
+
+What the roster asks of everything else:
+
+- **Speed and height.** From a Cub at 70 kt to an F-22 above Mach 1.5 and the
+  F-15 at 65,000 ft. Terrain must be drawn over the whole Earth as fast as a
+  jet crosses it, not around one region; the atmosphere and winds aloft must
+  reach the stratosphere (Open-Meteo's 30 hPa, about 24 km, does); the HUD must
+  give Mach and flight level where they apply.
+- **Water.** The seaplane alights on the sea, lakes and rivers, so the ground
+  under an aircraft must say where water is - the DEM's water body mask - and
+  a landplane must not roll out on it.
+- **Published figures.** Airliners are held to their manufacturers'
+  airport-planning documents and type-certificate data sheets; light aircraft
+  and the Mosquito to their handbooks and pilot's notes. **Much of the F-35A's
+  and B-2's performance is not public**: they are held to what is published and
+  no more, and `PROJECT_STATUS.md` says which of their behaviour no figure
+  pins.
+- **Visual models** come from FlightGear's aircraft where one exists, each
+  licence checked (section 9).
+- **The network** carries aircraft far faster than a Cessna: at Mach 0.8 an
+  aircraft moves 27 m in the 100 ms other aircraft are interpolated behind.
+
+### 4.3 Checklists and lessons
+
+Decided 2026-09-18: the simulator teaches flying. Every aircraft carries
+checklists for each phase of flight, as data beside its flight model, taken
+from its handbook or pilot's notes and written in this project's own words.
+An item names the state of the aircraft that shows it done - flaps set, mixture
+rich, gear down, a speed reached - so it ticks itself; one the simulation cannot
+see (a passenger briefing, a look out) is the pilot's to confirm. Lessons teach
+take-off, the circuit, climbs, turns, stalls, approach and landing for each
+class of aircraft, as a sequence of stages each with what to do and what to
+watch; the AI pilot (section 5) demonstrates a lesson and hands over, and a
+debrief says what to do differently. There is no score (`FEATURES.md`).
+
 ### Suggested layout (gearstick-style)
 
 ```
@@ -317,10 +373,17 @@ verification.
   joystick input, basic HUD. The Cesium-to-SDL_GPU glue is the biggest
   rendering risk.
 - **Phase 3 — Weather:** METAR and winds aloft into JSBSim's atmosphere.
+- **Phase 3b — Wind that shears and gusts, and hazardous air:** gusts flown, the
+  boundary layer, reported shear, microbursts, thermals and mountain waves, and
+  weather drawn - each a function of position, time and the weather's shared
+  parameters, so the server and every client fly the same air.
 - **Phase 4 — Autopilot and navigation:** PID layer, waypoint following, user/AI
   controller swap.
 - **Phase 5 — Aircraft choice:** multiple aircraft types as data, selectable at
-  start.
+  start: the roster of section 4.2.
+- **Phase 5c — Learning to fly:** checklists for every aircraft, ticking
+  themselves from the aircraft's state, and lessons the AI pilot demonstrates
+  and debriefs (section 4.3).
 - **Phase 5b — Terrain providers:** Cesium ion and Google Photorealistic 3D
   Tiles as opt-in visual providers with user-supplied keys, on-screen
   attribution, and a measured visual-to-collision terrain mismatch.
@@ -517,6 +580,15 @@ The replacement:
   JSON reader written here (`src/world/json.hpp`): the weather needs only to
   read small documents, strictly to RFC 8259, which is short to write and to
   test, and the project prefers no dependency to a small one.
+
+- **Cesium Native's dependencies through vcpkg** (section 2 left it open).
+  Cesium Native needs thirty libraries, and vcpkg is how Cesium Native itself
+  builds them on every platform; as submodules they would be thirty builds to
+  write and keep. vcpkg is pinned to the commit Cesium Native's release uses and
+  fetched outside the tree (`cmake/Vcpkg.cmake`); `vcpkg.json` lists the
+  packages and a configure-time check holds it to Cesium Native's own list. The
+  cost is a first build of most of an hour, which vcpkg's binary cache, kept by
+  CI, pays once.
 
 **Open:**
 

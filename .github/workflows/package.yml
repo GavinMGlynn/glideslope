@@ -32,13 +32,15 @@ on:
       - 'ext/**'
       - 'assets/**'
       - '.gitmodules'
+      - 'vcpkg.json'
+      - 'vcpkg-configuration.json'
       - '.github/workflows/package.yml'
 
 jobs:
   linux:
     name: Linux x86_64 tarball (built on Rocky 9)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 180
     # Built on the oldest distribution supported, so the program asks for no
     # newer C library than the oldest one it will meet. gcc-toolset-14 links
     # against the system's own libstdc++ and puts only the newer parts inside
@@ -68,15 +70,39 @@ jobs:
             wayland-devel wayland-protocols-devel libdecor-devel \
             mesa-libGL-devel mesa-libEGL-devel libdrm-devel mesa-libgbm-devel \
             pulseaudio-libs-devel alsa-lib-devel dbus-devel systemd-devel \
-            libusb1-devel
+            libusb1-devel \
+            nasm make perl-IPC-Cmd perl-FindBin perl-File-Compare perl-File-Copy \
+            perl-Time-Piece zip unzip tar pkgconf-pkg-config kernel-headers
 
       - uses: actions/checkout@v5
         with: { submodules: true }
 
-      - name: Build and package
+      - name: Keep vcpkg's binary cache in the workspace
+        shell: bash
+        run: |
+          mkdir -p .vcpkg-archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      # The same cache CI keeps: the same platform builds the same packages.
+      - uses: actions/cache/restore@v4
+        id: vcpkg-cache
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          restore-keys: vcpkg-rocky9-
+
+      - name: Configure
         run: |
           source /opt/rh/gcc-toolset-14/enable
           cmake --preset linux-release
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+
+      - name: Build and package
+        run: |
+          source /opt/rh/gcc-toolset-14/enable
           cmake --build --preset linux-release
           cpack --preset linux-release
 
@@ -144,7 +170,7 @@ jobs:
           grep -q "Weather data by Open-Meteo.com" weather.txt \
             || { echo "::error::the weather does not credit Open-Meteo"; exit 1; }
           # The licences of what is linked in travel with it.
-          for licence in JSBSim expat GeographicLib SDL; do
+          for licence in JSBSim expat GeographicLib SDL CesiumNative vcpkg/s2geometry vcpkg/openssl; do
             test -s "licenses/$licence.txt" || { echo "::error::no licenses/$licence.txt"; exit 1; }
           done
           # A frame needs a Vulkan driver, which a machine with a GPU has and a
@@ -166,22 +192,42 @@ jobs:
   macos:
     name: macOS arm64 tarball
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
 
-      - name: Install ninja
-        run: brew install ninja
+      - name: Install ninja, and nasm for vcpkg
+        run: brew install ninja nasm
 
       - name: Use the newest Xcode on the image
         run: |
           latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
           if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
 
+      - name: Keep vcpkg's binary cache in the workspace
+        shell: bash
+        run: |
+          mkdir -p .vcpkg-archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      # The same cache CI keeps: the same platform builds the same packages.
+      - uses: actions/cache/restore@v4
+        id: vcpkg-cache
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          restore-keys: vcpkg-macos-
+
+      - name: Configure
+        run: cmake --preset macos-release
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+
       - name: Build and package
         run: |
-          cmake --preset macos-release
           cmake --build --preset macos-release
           cpack --preset macos-release
 
@@ -231,7 +277,7 @@ jobs:
   windows:
     name: Windows x64 zip
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -239,10 +285,31 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with: { arch: x64 }
 
+      - name: Keep vcpkg's binary cache in the workspace
+        shell: bash
+        run: |
+          mkdir -p .vcpkg-archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      # The same cache CI keeps: the same platform builds the same packages.
+      - uses: actions/cache/restore@v4
+        id: vcpkg-cache
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          restore-keys: vcpkg-windows-
+
+      - name: Configure
+        shell: cmd
+        run: cmake --preset windows-release
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+
       - name: Build and package
         shell: cmd
         run: |
-          cmake --preset windows-release || exit /b 1
           cmake --build --preset windows-release || exit /b 1
           cpack --preset windows-release || exit /b 1
 

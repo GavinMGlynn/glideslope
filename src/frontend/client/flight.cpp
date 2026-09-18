@@ -148,7 +148,7 @@ gfx::HudReadings Flight::hud() const {
     r.pitch_deg = s.pitch_deg;
     r.roll_deg = s.roll_deg;
     if (weather_) {
-        r.credit = world::open_meteo_credit;
+        r.credits.push_back(world::open_meteo_credit);
     }
     return r;
 }

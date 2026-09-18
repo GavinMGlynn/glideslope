@@ -22,7 +22,8 @@ anything proved elsewhere names the CI run.
 ## The honest summary, 2026-09-18
 
 **A Cessna 172P flies to its handbook over the real ground, in the real weather,
-with a HUD and flight controllers - but there is no terrain to see.** JSBSim is
+with a HUD and flight controllers, and the ground is drawn - by height and
+slope, with no imagery yet, and only around where the flight starts.** JSBSim is
 built and linked and steps at a fixed 120 Hz, and glideslope's Cessna 172P lands
 inside its tolerance on all nine published-figure checks; its state can be
 captured and restored; `glideslope_cli selftest` flies a fixed five-minute log
@@ -32,8 +33,10 @@ anywhere, fetching the tiles and geoid it needs, and the client's flight stands
 the Cessna on that ground. The client flies it from the keyboard, joysticks,
 HOTAS and yokes, with a HUD that tests read back out of the frame, and every
 platform's package draws a frame of it on Vulkan, Direct3D 12 or Metal - but the
-frame is sky and HUD: no terrain is drawn, and there is no aircraft model,
-cockpit or server. The weather is real: METARs and winds aloft, fetched live,
+frame is sky, HUD and - done on Linux, awaiting CI - the terrain, drawn by
+Cesium Native from the DEM over the cells around where the flight starts,
+coloured by height and slope. There is no imagery on it, no aircraft model,
+cockpit or server, and one aircraft of the sixteen the roster now names. The weather is real: METARs and winds aloft, fetched live,
 set JSBSim's wind, temperature, pressure and turbulence.
 
 **Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
@@ -63,14 +66,19 @@ through lavapipe), Direct3D 12 and Metal; the Copernicus DEM, read directly,
 with a height query anywhere held to surveyed runway ends and coastlines; and
 collision terrain the Cessna rests on (run 35241851702); flight controllers;
 the HUD; the client's test flags; and frames from CI and every package (CI run
-35244380011, package run 35244379942). Not started: Cesium Native drawing the
-terrain, and imagery on it.
+35244380011, package run 35244379942). Done on Linux and awaiting CI: Cesium
+Native drawing the open-data terrain. Not started: imagery on it.
 
 **Phase 3, weather, is complete — 4 of 4 items**, proved in CI on every
 platform (run 35250647710) and fetched by every package (run 35248205205):
 METARs from aviationweather.gov; winds aloft from Open-Meteo; both in JSBSim's
 atmosphere, with MIL-F-8785C turbulence; and new reports blended in during a
 flight.
+
+**Phase 3b, wind that shears and gusts and hazardous air, and Phase 5c,
+learning to fly, are new and not started: 0 of 7 and 0 of 4 items.** Added
+2026-09-18, as were the sixteen-aircraft roster of Phase 5 and a tail for
+terrain over the whole Earth; see the log.
 
 ## Gaps
 
@@ -83,8 +91,13 @@ are the risks the phase order is built around:
   reconciliation many times a second is a question for Phase 6.
 - **The checks are one aircraft's.** Every figure is the Cessna 172P's; other
   types arrive in Phase 5.
-- **No terrain to see.** The flight stands on the DEM, but nothing draws
-  terrain: the Cesium-to-SDL_GPU glue does not exist.
+- **Terrain is drawn around where the flight starts, and nowhere else.** The
+  client draws the nine whole-degree cells around its start; fly out of them
+  and there is sky below. It is coloured by height and slope: there is no
+  imagery.
+- **The HUD's horizon line is not the horizon.** It moves a hundredth of the
+  frame's height a degree of pitch, which was a choice when there was nothing
+  behind it; now the terrain is drawn, the two do not line up.
 - **Weather is one station's.** A flight flies in the weather of the airfield
   it names, everywhere it goes; nothing picks the nearest station, and there is
   no cloud, visibility or precipitation - JSBSim's atmosphere has wind,
@@ -98,6 +111,108 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### The plan grows: weather hazards, sixteen aircraft, learning to fly, the whole Earth, 2026-09-18
+
+At the project owner's asking. **Learning to fly** is Phase 5c: checklists for
+every aircraft as part of its data, ticking themselves from the aircraft's
+state, and lessons the AI pilot demonstrates and debriefs (`REQUIREMENTS.md`
+section 4.3) - a debrief, never a score, which `FEATURES.md` rules out. **`FEATURES.md`** gains wind that shears and
+gusts, hazardous air, weather you can see, and the same air for everyone, and
+its choice of aircraft now names them. **`COMPLETION_PLAN.md`** gains Phase 3b
+(seven items: the same air on every machine, gusts flown, the boundary layer,
+reported shear, microbursts, thermals and mountain waves, visible weather),
+and Phase 5 the roster of `REQUIREMENTS.md` section 4.2 - the J-3 Cub, PA-28,
+Cessna 182, the Short S.23 flying boat, the Mosquito (first after the Cessna),
+the Learjet 35A, the A320, A380, 737, 747 and 787, and the F-15, F-22, F-35A
+and B-2 - with water where the DEM says it is and a HUD for fast aircraft. A
+tail, found doing it: terrain over the whole Earth, which "anywhere on Earth"
+needs and nothing in the plan provided, and which a jet makes pressing.
+
+**Why Phase 3b's weather is computed here:** JSBSim's own gust and turbulence
+models keep hidden state that a restored aircraft does not carry, and the
+server's weather is authoritative, so every client's prediction must fly the
+same air as the server. Each perturbation is to be a function of position, time
+and shared parameters alone.
+
+**What JSBSim does not ship:** flight models for the A380, Learjet, Mosquito,
+F-35A and B-2, which are written here. Much of the F-35A's and B-2's performance
+is not public; they will be held to what is, and no more claimed.
+
+### Terrain, drawn by Cesium Native from the DEM, 2026-09-18 — awaiting CI
+
+**What is missing first:** the terrain is a region, not the world - the nine
+whole-degree cells around where the flight starts, or the one cell the terrain
+screen's eye is in - so a flight that leaves it flies over nothing. There is no
+imagery: the ground is tinted by height and lit by a fixed sun. Tiles are made
+from the DEM one at a time, behind one lock, so a region loads slowly the first
+time, fetching each 30 m tile it needs (25 MB each). The HUD's horizon line does
+not line up with the drawn horizon (see Gaps). Nothing from Cesium ion or
+Google yet, and no measured visual-to-collision mismatch: that is Phase 5b.
+
+**Cesium Native is built and linked** (`ext/cesium-native`, v0.64.0), with its
+thirty dependencies from vcpkg, pinned to the commit Cesium Native's release is
+built against and fetched outside the tree (`cmake/Vcpkg.cmake`,
+`cmake/triplets/`, `vcpkg.json`; `ext/README.md` says how and why). They are
+installed after the platform gate accepts the compiler. The first configure of
+a machine builds them - 20 minutes here - and vcpkg's binary cache keeps them;
+CI keeps that cache. Every package carries their licences.
+
+**The open-data terrain is a Cesium Native tileset** whose loader builds its
+tiles from the DEM (`gfx/terrain_tiles.hpp`): a quadtree over the region, each
+tile a 32-by-32 grid of cells with skirts (`world/terrain_mesh.hpp`), down to
+the DEM's own spacing - level 7 over one degree - and each tile's geometric
+error half its cell size. Cesium Native chooses the tiles a view needs, loads
+them on worker threads and caches them; the glue turns each tile's glTF into
+the renderer's meshes, uploads them on the main thread and frees them when
+Cesium Native drops the tile. The renderer can now remove a mesh. A `--shot`
+waits for every tile its view needs, so the same command draws the same frame.
+Requests Cesium Native makes go through the platform's HTTPS - plain GETs only,
+for now; the DEM loader makes none.
+
+**Shown where it is drawn.** The client draws the Copernicus DEM's notice along
+the bottom of every frame with terrain in it, in the small type credits now use,
+and `glideslope_cli height` prints it; `README.md`, which ships, carries the
+liability sentence the licence asks for (`ASSETS.md`).
+
+**The terrain screen**, `--screen terrain --at LAT,LON,HEIGHT --toward
+LAT,LON,HEIGHT`, draws the terrain alone from a point toward another. The
+flight draws the terrain under the HUD.
+
+**The tests.**
+- A terrain mesh over ground with a known slope puts every vertex on it within
+  a centimetre, each normal perpendicular to it within half a degree, every
+  triangle facing up, the skirt 50 m straight down; it meets the tile beside it,
+  and a tile of the next level, within 2 mm at every shared vertex; and a
+  rectangle off the Earth, or with no cells, is refused.
+- **Mount Taranaki, against the DEM itself**
+  (`a_shot_of_mount_taranaki_matches_the_dem_ray_cast_from_the_same_eye_on_<driver>`):
+  the terrain screen shoots the mountain from 9 km east of its summit, and
+  `glideslope_terrain_check` makes the reference frame without Cesium Native,
+  tiles, meshes or GPU - a ray through every pixel, marched through the DEM
+  until it meets the ground, coloured as the terrain is coloured - and holds
+  the two together above the notice, which it reads back first. As drawn: the
+  skyline 0.12 pixels out on average and 1 at most; 99.94% of pixels ground or
+  sky alike; the colour 4.76 of 255 out on average, 23 at the 95th percentile.
+  The tolerances are 0.25 and 2 pixels, 99.5%, 5.5 and 28.
+- The HUD test now flies over the drawn terrain and reads both credits, the
+  DEM's and Open-Meteo's, back out of its frame.
+
+**Watched to fail**, each against the tolerances: only coarse tiles drawn
+(screen-space error 200: the skyline 0.48 pixels out, the colour 7.80); tiles a
+level or so too coarse (error 16: 0.30, 6.95); the terrain 20 m too high (0.34,
+6.13); 100 m too high (2.10 pixels, 98.90% agreeing, 8.08); a vector leaked in
+the client (the leak judged glideslope's). The first tolerances, set before any
+of this, passed all four breakages, and were tightened on these numbers.
+
+**Also:** LeakSanitizer gives Mesa's lavapipe driver, unloaded before it
+reports, as the client itself, at offsets past the end of its image and with
+no function named; a frame given as the client's with no function named is now
+judged not to be the client's (`tests/cmake/client.cmake`). Under WSL, CMake's
+package search walked Windows' PATH through `/mnt/c` for minutes; Cesium
+Native's packages are now found through vcpkg's prefix alone. A sanitized build
+at ninja's default of every core ran WSL out of memory; builds here are capped
+(`CLAUDE.md`).
 
 ### Weather: METARs, winds aloft, JSBSim's atmosphere and turbulence, 2026-09-18 — items done
 

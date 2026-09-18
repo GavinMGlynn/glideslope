@@ -59,6 +59,36 @@ Mat4f projection(double vertical_fov_rad, double aspect, double near_m) {
     return p;
 }
 
+Camera look_at(const world::Ecef& eye, const world::Ecef& target) {
+    const auto normalized = [](const world::Ecef& v) {
+        const double length = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+        return world::Ecef{v.x / length, v.y / length, v.z / length};
+    };
+    const auto cross = [](const world::Ecef& a, const world::Ecef& b) {
+        return world::Ecef{a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z,
+                           a.x * b.y - a.y * b.x};
+    };
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    const world::Geodetic g = world::to_geodetic(eye);
+    const double phi = g.latitude_deg * radians;
+    const double lambda = g.longitude_deg * radians;
+    const world::Ecef up{std::cos(phi) * std::cos(lambda),
+                         std::cos(phi) * std::sin(lambda), std::sin(phi)};
+    const world::Ecef north{-std::sin(phi) * std::cos(lambda),
+                            -std::sin(phi) * std::sin(lambda), std::cos(phi)};
+    const world::Ecef back =
+        normalized({eye.x - target.x, eye.y - target.y, eye.z - target.z});
+    world::Ecef right = cross(up, back);
+    if (right.x * right.x + right.y * right.y + right.z * right.z < 1e-12) {
+        right = cross(north, back);
+    }
+    right = normalized(right);
+    Camera camera;
+    camera.position = eye;
+    camera.world_from_camera = Mat3::columns(right, cross(back, right), back);
+    return camera;
+}
+
 Mat4f camera_from_local(const Camera& camera, const Placement& placement) {
     const Mat3 camera_from_world = transpose(camera.world_from_camera);
     const Mat3 rotation = camera_from_world * placement.world_from_local;

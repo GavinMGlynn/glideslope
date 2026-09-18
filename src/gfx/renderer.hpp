@@ -63,6 +63,15 @@ public:
     // Uploads a mesh to the GPU, to be drawn by the id returned.
     MeshId add_mesh(const Mesh& mesh);
 
+    // Frees a mesh's GPU buffers. Its id may be given to a mesh added later, and
+    // drawing it before then throws.
+    void remove_mesh(MeshId id);
+
+    // How many meshes are on the GPU.
+    std::size_t mesh_count() const {
+        return meshes_.size() - free_meshes_.size();
+    }
+
     // Draws one frame, from `camera`, into the offscreen target, and to the
     // window if there is one. With no draws it is the sky alone. `overlay`, if
     // given, is in clip space and drawn over everything, with no depth test:
@@ -97,6 +106,7 @@ private:
     SDL_GPUGraphicsPipeline* mesh_pipeline_ = nullptr;
     SDL_GPUGraphicsPipeline* overlay_pipeline_ = nullptr;
     std::vector<GpuMesh> meshes_;
+    std::vector<MeshId> free_meshes_;
     GpuMesh overlay_;
     std::uint32_t overlay_vertex_capacity_ = 0; // bytes
     std::uint32_t overlay_index_capacity_ = 0;

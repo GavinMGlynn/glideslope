@@ -125,6 +125,14 @@ The development machines are native Windows 11 for rendering work and WSL
 (Rocky Linux 10) for Linux builds and headless work. In WSL, keep the working
 copy on the Linux filesystem, not under `/mnt/c`.
 
+The first configure of a machine builds Cesium Native's dependencies through
+vcpkg (`cmake/Vcpkg.cmake`, `ext/README.md`): most of an hour, then kept in
+vcpkg's binary cache. On Linux that needs Perl's `IPC::Cmd`, NASM and make.
+**Cap the build's parallelism in WSL** - `cmake --build --preset linux-debug -j8`,
+`ctest -j4`, and one build at a time: the sanitized build of the client links a
+binary of hundreds of megabytes, and ninja's default of every core at once has
+run WSL out of memory.
+
 ## Layout
 
 ```

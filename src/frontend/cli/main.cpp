@@ -161,6 +161,7 @@ int height(const std::filesystem::path& data, std::string_view latitude_text,
     std::printf("  cache                       %s (%d tile%s fetched)\n",
                 cache.string().c_str(), tiles.downloads(),
                 tiles.downloads() == 1 ? "" : "s");
+    std::printf("%s\n", glideslope::world::copernicus_dem_notice);
     return 0;
 }
 

@@ -18,6 +18,12 @@ concurrency:
 # Likewise the tests that read downloaded data - DEM tiles, the geoid - skip
 # without the network, and here must not. The downloads are kept between runs
 # in .downloads, keyed on the list that pins them.
+#
+# Cesium Native's dependencies are built by vcpkg (cmake/Vcpkg.cmake) - thirty
+# libraries, most of an hour's building on a hosted runner. vcpkg's binary
+# cache is kept between runs in .vcpkg-archives, keyed on everything that
+# decides what is built, and saved as soon as the first configure has filled
+# it, so a run whose tests fail still keeps what it built.
 env:
   GLIDESLOPE_REQUIRE_WINDOW: 1
   GLIDESLOPE_REQUIRE_NETWORK: 1
@@ -31,7 +37,7 @@ jobs:
   linux-debian:
     name: Linux x86_64 (GCC 14, Ubuntu)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -75,12 +81,33 @@ jobs:
             libgl-dev libegl-dev libdrm-dev libgbm-dev \
             libpulse-dev libasound2-dev \
             libdbus-1-dev libudev-dev libusb-1.0-0-dev \
-            mesa-vulkan-drivers libvulkan1 xvfb
+            mesa-vulkan-drivers libvulkan1 xvfb \
+            nasm zip unzip pkg-config
 
-      - name: linux-debug - configure, build, test
-        env: { CXX: g++-14 }
+      - name: Keep vcpkg's binary cache in the workspace
+        shell: bash
         run: |
-          cmake --preset linux-debug
+          mkdir -p .vcpkg-archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@v4
+        id: vcpkg-cache
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          restore-keys: vcpkg-ubuntu-
+
+      - name: linux-debug - configure
+        env: { CXX: g++-14, CC: gcc-14 }
+        run: cmake --preset linux-debug
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+
+      - name: linux-debug - build, test
+        env: { CXX: g++-14, CC: gcc-14 }
+        run: |
           cmake --build --preset linux-debug
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset linux-debug || rc=$?
@@ -91,7 +118,7 @@ jobs:
         # Runs even when the preset before it failed, so one red preset does
         # not hide whether the next one is green.
         if: ${{ !cancelled() }}
-        env: { CXX: g++-14 }
+        env: { CXX: g++-14, CC: gcc-14 }
         run: |
           cmake --preset linux-release
           cmake --build --preset linux-release
@@ -118,7 +145,7 @@ jobs:
   linux-rhel:
     name: Linux x86_64 (GCC 14, Rocky 9)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 180
     container: rockylinux/rockylinux:9
     steps:
       # Rocky 9's own compiler is GCC 11, so the build uses gcc-toolset-14, as
@@ -151,7 +178,9 @@ jobs:
             mesa-libGL-devel mesa-libEGL-devel libdrm-devel mesa-libgbm-devel \
             pulseaudio-libs-devel alsa-lib-devel dbus-devel systemd-devel \
             libusb1-devel mesa-vulkan-drivers vulkan-loader \
-            xorg-x11-server-Xvfb
+            xorg-x11-server-Xvfb \
+            nasm make perl-IPC-Cmd perl-FindBin perl-File-Compare perl-File-Copy \
+            perl-Time-Piece zip unzip tar pkgconf-pkg-config kernel-headers
 
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -175,10 +204,31 @@ jobs:
           cat system-gcc.log
           grep -F "required: GNU 14 or newer" system-gcc.log
 
-      - name: linux-release - configure, build, test
+      - name: Keep vcpkg's binary cache in the workspace
+        shell: bash
+        run: |
+          mkdir -p .vcpkg-archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@v4
+        id: vcpkg-cache
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          restore-keys: vcpkg-rocky9-
+
+      - name: linux-release - configure
         run: |
           source /opt/rh/gcc-toolset-14/enable
           cmake --preset linux-release
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+
+      - name: linux-release - build, test
+        run: |
+          source /opt/rh/gcc-toolset-14/enable
           cmake --build --preset linux-release
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset linux-release || rc=$?
@@ -200,7 +250,7 @@ jobs:
   macos:
     name: macOS arm64 (AppleClang)
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -210,8 +260,8 @@ jobs:
           path: .downloads
           key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
 
-      - name: Install ninja
-        run: brew install ninja
+      - name: Install ninja, and nasm for vcpkg
+        run: brew install ninja nasm
 
       # The newest Xcode the image carries, rather than whichever it selected.
       - name: Use the newest Xcode on the image
@@ -220,9 +270,28 @@ jobs:
           if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
           c++ --version
 
-      - name: macos-debug - configure, build, test
+      - name: Keep vcpkg's binary cache in the workspace
+        shell: bash
         run: |
-          cmake --preset macos-debug
+          mkdir -p .vcpkg-archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@v4
+        id: vcpkg-cache
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          restore-keys: vcpkg-macos-
+
+      - name: macos-debug - configure
+        run: cmake --preset macos-debug
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+
+      - name: macos-debug - build, test
+        run: |
           cmake --build --preset macos-debug
           ctest --preset macos-debug
 
@@ -250,7 +319,7 @@ jobs:
   windows:
     name: Windows x64 (MSVC and clang-cl)
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 300
     # SDL says why it will not use a GPU driver only in its GPU log, which is
     # quiet by default; a failed frame test then shows the reason.
     env:
@@ -308,10 +377,30 @@ jobs:
           & "$dir\vulkaninfo.exe" --summary
           if ($LASTEXITCODE -ne 0) { throw "the Vulkan loader found no usable driver" }
 
-      - name: windows-debug - configure, build, test
+      - name: Keep vcpkg's binary cache in the workspace
+        shell: bash
+        run: |
+          mkdir -p .vcpkg-archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@v4
+        id: vcpkg-cache
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          restore-keys: vcpkg-windows-
+
+      - name: windows-debug - configure
+        shell: cmd
+        run: cmake --preset windows-debug
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+
+      - name: windows-debug - build, test
         shell: cmd
         run: |
-          cmake --preset windows-debug || exit /b 1
           cmake --build --preset windows-debug || exit /b 1
           ctest --preset windows-debug || exit /b 1
 

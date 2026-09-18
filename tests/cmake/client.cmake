@@ -15,8 +15,13 @@
 # sometimes mislabelled as the sanitizer's, at offsets far past its end. If
 # that frame is in a shared library, or a module LeakSanitizer can no longer
 # name, the leak is the library's, reported and ignored, even when glideslope or
-# SDL called the library. If it is in the client itself - glideslope's code,
-# SDL's, or a standard container inlined into either - the test fails.
+# SDL called the library. So is a frame given as the client's with no function
+# named: the client is built with its symbols, and its frames are named, but a
+# driver unloaded before the report - Mesa's lavapipe, whose threads start
+# straight from the sanitizer - is sometimes given as the client, at offsets
+# past the end of its image. If the frame is in the client itself -
+# glideslope's code, SDL's, Cesium Native's, or a standard container inlined
+# into any of them - the test fails.
 
 # Judges the leak reports in a run's standard error, as described above: fails
 # the test for a leak allocated in the client, and says how many were not.
@@ -47,7 +52,8 @@ function(glideslope_judge_leaks stderr_text)
                         AND _line MATCHES "libsanitizer|libasan|liblsan|libubsan|libstdc\\+\\+|libc\\+\\+|/libc\\.so|libgcc_s"))
                 set(_decided ON)
                 if(NOT _line MATCHES "\\(<unknown module>\\) *$"
-                   AND NOT _line MATCHES "\\(/[^()]*\\.so[.0-9]*\\+0x[0-9a-f]+\\)")
+                   AND NOT _line MATCHES "\\(/[^()]*\\.so[.0-9]*\\+0x[0-9a-f]+\\)"
+                   AND NOT _line MATCHES "^ *#[0-9]+ 0x[0-9a-f]+ +\\(")
                     set(_ours ON)
                 endif()
             endif()
