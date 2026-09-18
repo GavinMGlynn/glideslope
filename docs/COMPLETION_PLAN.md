@@ -233,9 +233,16 @@ models, whose hidden state a restored aircraft would not carry.
       turns of 90 and 135 degrees and climbs and descents of 500 ft - past
       every waypoint in order, within 100 m of each and within 50 ft of its
       altitude, in calm air and in a 20 kt wind across and against it.
-- [ ] **The user/AI controller swap.** *Verification: swapping mid-flight in
-      either direction causes no step in any control or in the aircraft's
-      state, in every phase of flight.*
+- [ ] **The user/AI controller swap.** **Done locally; awaiting CI.**
+      *Verification: swapping mid-flight in either direction causes no step in
+      any control or in the aircraft's state, in every phase of flight.*
+      Stated, 2026-09-19: in the takeoff roll, the climb, the cruise, a
+      30-degree turn, the descent and a flapped approach, handing the Cessna to
+      the AI moves no control more than 0.01 of its travel in a step; handing it
+      back moves none faster than a pilot's hand - full travel in a second -
+      until the controls meet the pilot's, within two seconds, and they are the
+      pilot's from then; and over the three seconds after either, the load
+      factor changes by no more than 0.05 g in a step.
 - [ ] **`--autopilot`** — the AI flies this client's aircraft.
       *Verification: a ctest flies a plan with it.*
 

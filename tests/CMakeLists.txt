@@ -14,6 +14,7 @@ add_executable(glideslope_tests
     unit/tiff_writer.cpp
     unit/test_air_motion.cpp
     unit/test_autopilot.cpp
+    unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
     unit/test_dem_surveyed.cpp
@@ -152,7 +153,8 @@ set(GLIDESLOPE_UNIT_TESTS
     the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb
     engaging_the_autopilot_moves_no_control_faster_than_a_pilots_hand
     a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wrong
-    the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind)
+    the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
+    handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
