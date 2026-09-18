@@ -42,7 +42,8 @@ Mat4f operator*(const Mat4f& a, const Mat4f& b);
 
 struct Vertex {
     std::array<float, 3> position{}; // metres, relative to the mesh's origin
-    std::array<float, 4> colour{};   // linear RGBA, 0..1
+    std::array<float, 4> colour{};   // linear RGBA, 0..1; times the texture
+    std::array<float, 2> uv{};       // texture coordinates, before the draw's transform
 };
 
 struct Mesh {

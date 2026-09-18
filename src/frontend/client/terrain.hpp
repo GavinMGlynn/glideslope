@@ -17,12 +17,14 @@ namespace glideslope::client {
 world::GeoRectangle cells_around(double latitude_deg, double longitude_deg, int radius);
 
 // Terrain over `region`, drawn by `renderer`, from the DEM's tiles and the geoid
-// in `cache` - fetched there when missing - with the coverage in `data`. Its
-// DEM is its own, not shared with the simulation's: tiles are made on worker
-// threads.
+// in `cache` - fetched there when missing - with the coverage in `data`, and
+// with the open imagery on it, or tinted by height. Its DEM is its own, not
+// shared with the simulation's: tiles are made on worker threads. Imagery
+// tiles are kept in `cache` too, as long as their caching headers allow.
 std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
                                                 const std::filesystem::path& data,
                                                 const std::filesystem::path& cache,
-                                                const world::GeoRectangle& region);
+                                                const world::GeoRectangle& region,
+                                                bool imagery);
 
 } // namespace glideslope::client

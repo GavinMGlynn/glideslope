@@ -195,7 +195,8 @@ add_executable(glideslope_hud_check tools/hud_check.cpp)
 target_link_libraries(glideslope_hud_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_hud_check)
 add_executable(glideslope_terrain_check tools/terrain_check.cpp)
-target_link_libraries(glideslope_terrain_check PRIVATE glideslope_gfx)
+# Cesium Native's image decoder reads the imagery's JPEG tiles.
+target_link_libraries(glideslope_terrain_check PRIVATE glideslope_gfx CesiumImage)
 glideslope_configure(glideslope_terrain_check)
 
 foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
@@ -214,6 +215,14 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain.cmake)
     set_tests_properties(a_shot_of_mount_taranaki_matches_the_dem_ray_cast_from_the_same_eye_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+    add_test(NAME a_shot_of_mount_taranaki_drapes_the_open_imagery_where_it_belongs_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_terrain_check>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR} -DIMAGERY=ON
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain.cmake)
+    set_tests_properties(a_shot_of_mount_taranaki_drapes_the_open_imagery_where_it_belongs_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
     add_test(NAME a_distant_mountain_and_a_nearby_aircraft_draw_with_no_z_fighting_on_${_driver}
         COMMAND ${CMAKE_COMMAND}

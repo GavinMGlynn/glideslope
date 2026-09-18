@@ -119,8 +119,8 @@ because it is built on everything before it.
       region. *Verification: a `--shot` of a known region matches a reference
       frame of it within a stated tolerance.*
 - [ ] **Open imagery on the terrain**, from the source `REQUIREMENTS.md`
-      settles on. *Verification: a `--shot` shows the imagery and its
-      attribution.*
+      settles on. **Done locally; awaiting CI.** *Verification: a `--shot`
+      shows the imagery and its attribution.*
 - [x] **Joysticks, HOTAS and yokes.** *Verification: every axis and button of a
       virtual device reaches the aircraft's controls, walked by test.*
 - [x] **A basic HUD** — airspeed, altitude, heading, vertical speed, attitude.

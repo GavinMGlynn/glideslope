@@ -26,7 +26,8 @@ world::GeoRectangle cells_around(double latitude_deg, double longitude_deg,
 std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
                                                 const std::filesystem::path& data,
                                                 const std::filesystem::path& cache,
-                                                const world::GeoRectangle& region) {
+                                                const world::GeoRectangle& region,
+                                                bool imagery) {
     struct Ground {
         world::DemCoverage coverage;
         world::DownloadedTiles tiles;
@@ -48,6 +49,10 @@ std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
 
     gfx::TerrainOptions options;
     options.region = region;
+    if (imagery) {
+        options.imagery = gfx::open_imagery();
+    }
+    options.cache_file = cache / "cesium-cache.sqlite";
     options.worker_threads =
         static_cast<int>(std::clamp(std::thread::hardware_concurrency(), 2u, 8u));
     return std::make_unique<gfx::TerrainTiles>(

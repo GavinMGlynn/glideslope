@@ -1,19 +1,20 @@
 // glideslope_hud_check - reads the HUD out of a frame and holds it to the
 // flight's state.
 //
-//   glideslope_hud_check FRAME.bmp TRACE.txt TICK [dem] [weather]
+//   glideslope_hud_check FRAME.bmp TRACE.txt TICK [dem] [imagery] [weather]
 //
 // FRAME is what `glideslope --shot` wrote at TICK; TRACE is what `--trace`
 // printed on the way there. The trace must hold every tick from 1 to TICK, in
 // order. The HUD is read back glyph by glyph (gfx::read_text), and each number
 // on it must be the state at TICK, rounded as the HUD rounds: within half its
 // last digit. The credits along the bottom must be those named, in order - the
-// Copernicus DEM's notice, Open-Meteo's credit - drawn as gfx::credit_lines
-// draws them, and there must be nothing below them. Exits 0 if so, 1 with the reason if
-// not, 2 on bad arguments.
+// Copernicus DEM's notice, the imagery's credit, Open-Meteo's credit - drawn as
+// gfx::credit_lines draws them, and there must be nothing below them. Exits 0 if so, 1
+// with the reason if not, 2 on bad arguments.
 
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
+#include "gfx/terrain_tiles.hpp"
 #include "world/dem.hpp"
 #include "world/weather.hpp"
 
@@ -112,6 +113,8 @@ int main(int argc, char** argv) {
         const std::string name = argv[i];
         if (name == "dem") {
             credits.emplace_back(glideslope::world::copernicus_dem_notice);
+        } else if (name == "imagery") {
+            credits.emplace_back(glideslope::gfx::open_imagery().credit);
         } else if (name == "weather") {
             credits.emplace_back(glideslope::world::open_meteo_credit);
         } else {
@@ -120,7 +123,8 @@ int main(int argc, char** argv) {
     }
     if (argc < 4) {
         std::fputs(
-            "usage: glideslope_hud_check FRAME.bmp TRACE.txt TICK [dem] [weather]\n",
+            "usage: glideslope_hud_check FRAME.bmp TRACE.txt TICK [dem] [imagery] "
+            "[weather]\n",
             stderr);
         return 2;
     }

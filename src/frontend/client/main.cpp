@@ -7,7 +7,7 @@
 //   glideslope [--headless] [--gpu-driver NAME] [--size WxH]
 //              [--screen flight|terrain|sky|origin|depth]
 //              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z] [--toward LAT,LON,HEIGHT]
-//              [--weather STATION]
+//              [--imagery on|off] [--weather STATION]
 //              [--shot FILE] [--shot-at TICK] [--trace]
 //
 // Test flags. --shot writes the frame drawn at simulation tick --shot-at
@@ -64,6 +64,7 @@ struct Options {
     std::optional<glideslope::world::Geodetic> at;
     std::optional<glideslope::world::Ecef> at_ecef;
     std::optional<glideslope::world::Geodetic> toward;
+    bool imagery = true;
     std::string weather_station;
 };
 
@@ -72,7 +73,7 @@ void usage(std::FILE* out) {
         "usage: glideslope [--headless] [--gpu-driver vulkan|direct3d12|metal]\n"
         "                  [--size WxH] [--screen flight|terrain|sky|origin|depth]\n"
         "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
-        "                  [--toward LAT,LON,HEIGHT]\n"
+        "                  [--toward LAT,LON,HEIGHT] [--imagery on|off]\n"
         "                  [--weather STATION]\n"
         "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
         "       glideslope --version | --help\n"
@@ -84,6 +85,8 @@ void usage(std::FILE* out) {
         "                there, a scene is built there; --at-ecef in Earth-centred\n"
         "                metres, for scenes\n"
         "  --toward      where the terrain screen looks, as --at is given\n"
+        "  --imagery     drape the open imagery on the terrain (the default), or\n"
+        "                tint it by height instead\n"
         "  --weather     fly in the weather reported now at an airfield, by its\n"
         "                ICAO code - its METAR, and Open-Meteo's winds aloft\n"
         "  --shot        write the frame at tick --shot-at (default 2) and exit;\n"
@@ -220,6 +223,10 @@ int main(int argc, char** argv) {
                      o.weather_station.begin(), o.weather_station.end(), [](char c) {
                          return std::isalnum(static_cast<unsigned char>(c)) != 0;
                      });
+        } else if (a == "--imagery" && has_value) {
+            const std::string_view value = args[++i];
+            ok = value == "on" || value == "off";
+            o.imagery = value == "on";
         } else if (a == "--toward" && has_value) {
             const auto g = parse_triple(args[++i]);
             ok = g && (*g)[0] >= -90.0 && (*g)[0] <= 90.0 && (*g)[1] >= -180.0 &&
@@ -339,7 +346,7 @@ int main(int argc, char** argv) {
                                                           o.at->longitude_deg, 0);
             terrain = glideslope::client::open_terrain(
                 renderer, glideslope::platform::data_directory(),
-                glideslope::platform::cache_directory(), region);
+                glideslope::platform::cache_directory(), region, o.imagery);
         }
 
         const bool shooting = !o.shot.empty();
@@ -401,6 +408,9 @@ int main(int argc, char** argv) {
             std::vector<std::string> credits;
             if (terrain) {
                 credits.emplace_back(glideslope::world::copernicus_dem_notice);
+                if (o.imagery) {
+                    credits.emplace_back(glideslope::gfx::open_imagery().credit);
+                }
             }
             if (flight) {
                 glideslope::gfx::HudReadings readings = flight->hud();
@@ -424,6 +434,12 @@ int main(int argc, char** argv) {
                     std::printf("glideslope: terrain of %zu tiles, %zu loaded, the "
                                 "deepest at level %zu\n",
                                 counts.drawn, counts.loaded, counts.deepest);
+                    if (counts.without_imagery > 0) {
+                        throw std::runtime_error(
+                            std::to_string(counts.without_imagery) +
+                            " terrain tiles were drawn without "
+                            "their imagery");
+                    }
                     if (counts.failed > 0 || counts.skipped > 0) {
                         throw std::runtime_error(std::to_string(counts.failed) +
                                                  " terrain tiles failed and " +

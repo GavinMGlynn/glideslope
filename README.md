@@ -62,6 +62,9 @@ Union and ESA; all rights reserved. The organisations in charge of the
 Copernicus programme by law or by delegation do not incur any liability for any
 use of the Copernicus WorldDEM-30.
 
+The imagery is Sentinel-2 cloudless - <https://s2maps.eu> by EOX IT Services
+GmbH (Contains modified Copernicus Sentinel data 2016), under CC BY 4.0.
+
 Weather data by Open-Meteo.com (<https://open-meteo.com/>), under CC BY 4.0;
 METARs from aviationweather.gov, NOAA's Aviation Weather Center. Every source's
 terms are in [`docs/ASSETS.md`](docs/ASSETS.md), and every linked library's

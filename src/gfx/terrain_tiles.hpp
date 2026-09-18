@@ -13,22 +13,48 @@
 // either; so its tiles come from a loader that builds each one from the DEM
 // (world/terrain_mesh.hpp): a quadtree over a region, every tile the same grid
 // of cells, down to the DEM's own spacing. A tile's geometric error is half its
-// cell size. It is coloured by height and slope (gfx/terrain_colour.hpp) until
-// there is imagery.
+// cell size. It is coloured by height and slope (gfx/terrain_colour.hpp), or
+// draped with imagery - Cesium Native's raster overlays, each imagery tile a
+// texture on the GPU - lit by the slope.
 
 #include "gfx/renderer.hpp"
 #include "gfx/scene.hpp"
 #include "world/terrain_mesh.hpp"
 
 #include <cstddef>
+#include <filesystem>
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace glideslope::gfx {
 
+// Imagery to drape on the terrain: a Web Map Tile Service in latitude and
+// longitude, its tiles fetched as the view needs them.
+struct Imagery {
+    std::string url; // a template: {Layer}, {Style}, {TileMatrixSet} and so on
+    std::string layer;
+    std::string style;
+    std::string tile_matrix_set;
+    std::string format;         // "image/jpeg"
+    unsigned maximum_level = 0; // the finest level worth fetching
+    std::string credit;         // shown wherever the imagery is
+};
+
+// The open imagery (REQUIREMENTS.md, section 9): EOX's Sentinel-2 cloudless
+// mosaic of 2016, 10 m a pixel, under CC BY 4.0. See docs/ASSETS.md.
+Imagery open_imagery();
+
 struct TerrainOptions {
     // Where there is terrain.
     world::GeoRectangle region;
+    // Imagery draped on it, lit by the terrain's slope; without, the terrain
+    // is tinted by height instead.
+    std::optional<Imagery> imagery;
+    // Where Cesium Native keeps what it fetches between runs, as the fetched
+    // data's own caching headers allow; empty for nowhere.
+    std::filesystem::path cache_file;
     // How many pixels a tile's shape may be out on screen before finer tiles
     // are drawn in its place.
     double maximum_screen_space_error = 4.0;
@@ -66,6 +92,8 @@ public:
         std::size_t deepest = 0; // the deepest level drawn
         std::size_t failed = 0;  // tiles that could not be made, ever
         std::size_t skipped = 0; // glTF primitives that could not be drawn, ever
+        // With imagery, tiles drawn in the last update with none on them yet.
+        std::size_t without_imagery = 0;
     };
     Counts counts() const;
 

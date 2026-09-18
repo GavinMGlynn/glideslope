@@ -16,6 +16,8 @@
 #include <Cesium3DTilesSelection/ViewState.h>
 #include <Cesium3DTilesSelection/ViewUpdateResult.h>
 #include <CesiumAsync/AsyncSystem.h>
+#include <CesiumAsync/CachingAssetAccessor.h>
+#include <CesiumAsync/SqliteCache.h>
 #include <CesiumAsync/HttpHeaders.h>
 #include <CesiumAsync/IAssetAccessor.h>
 #include <CesiumAsync/IAssetRequest.h>
@@ -25,6 +27,7 @@
 #include <CesiumGeometry/QuadtreeTileID.h>
 #include <CesiumGeospatial/BoundingRegion.h>
 #include <CesiumGeospatial/Ellipsoid.h>
+#include <CesiumGeospatial/GeographicProjection.h>
 #include <CesiumGeospatial/GlobeRectangle.h>
 #include <CesiumGltf/Accessor.h>
 #include <CesiumGltf/AccessorView.h>
@@ -34,9 +37,14 @@
 #include <CesiumGltf/Model.h>
 #include <CesiumGltfContent/GltfUtilities.h>
 #include <CesiumImage/ImageAsset.h>
+#include <CesiumRasterOverlays/RasterOverlay.h>
 #include <CesiumRasterOverlays/RasterOverlayTile.h>
+#include <CesiumRasterOverlays/WebMapTileServiceRasterOverlay.h>
 #include <CesiumUtility/CreditSystem.h>
+#include <CesiumUtility/IntrusivePointer.h>
 #include <CesiumUtility/JsonValue.h>
+
+#include <spdlog/spdlog.h>
 
 #include <glm/ext/matrix_double4x4.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -260,7 +268,7 @@ int32_t add_accessor(CesiumGltf::Model& model, const std::vector<T>& values,
 
 // A terrain mesh as a glTF model, its positions relative to the mesh's origin
 // - the tile's transform - and each vertex coloured.
-CesiumGltf::Model terrain_model(const world::TerrainMesh& mesh) {
+CesiumGltf::Model terrain_model(const world::TerrainMesh& mesh, bool imagery) {
     CesiumGltf::Model model;
     model.asset.version = "2.0";
     model.extras["gltfUpAxis"] =
@@ -277,12 +285,17 @@ CesiumGltf::Model terrain_model(const world::TerrainMesh& mesh) {
                                 mesh.origin.y + static_cast<double>(p[1]),
                                 mesh.origin.z + static_cast<double>(p[2])});
         const auto& n = mesh.normals[v];
-        const auto c =
-            terrain_colour(static_cast<double>(mesh.heights_above_sea_level[v]),
-                           {static_cast<double>(n[0]), static_cast<double>(n[1]),
-                            static_cast<double>(n[2])},
-                           up_at(g.latitude_deg, g.longitude_deg));
-        colours.emplace_back(c[0], c[1], c[2], c[3]);
+        const world::Ecef normal{static_cast<double>(n[0]), static_cast<double>(n[1]),
+                                 static_cast<double>(n[2])};
+        const world::Ecef up = up_at(g.latitude_deg, g.longitude_deg);
+        if (imagery) {
+            const auto light = static_cast<float>(terrain_light(normal, up));
+            colours.emplace_back(light, light, light, 1.0f);
+        } else {
+            const auto c = terrain_colour(
+                static_cast<double>(mesh.heights_above_sea_level[v]), normal, up);
+            colours.emplace_back(c[0], c[1], c[2], c[3]);
+        }
     }
 
     const auto vertices = static_cast<int64_t>(mesh.positions.size());
@@ -327,8 +340,9 @@ CesiumGltf::Model terrain_model(const world::TerrainMesh& mesh) {
 class DemLoader final : public Cesium3DTilesSelection::TilesetContentLoader {
 public:
     DemLoader(const world::GeoRectangle& region, world::HeightSource heights,
-              std::atomic<std::size_t>& failures)
-        : region_(region), heights_(std::move(heights)), failures_(failures) {
+              bool imagery, std::atomic<std::size_t>& failures)
+        : region_(region), heights_(std::move(heights)), imagery_(imagery),
+          failures_(failures) {
         const double span = region.north_deg - region.south_deg;
         while (leaf_level_ < deepest_possible_level &&
                span / std::ldexp(1.0, static_cast<int>(leaf_level_)) /
@@ -379,7 +393,7 @@ public:
                     mesh = world::make_terrain_mesh(r, terrain_tile_cells, skirt_m,
                                                     heights_);
                 }
-                TileLoadResult result{terrain_model(mesh),
+                TileLoadResult result{terrain_model(mesh, imagery_),
                                       CesiumGeometry::Axis::Z,
                                       BoundingRegion(globe(r), mesh.minimum_height_m,
                                                      mesh.maximum_height_m,
@@ -455,6 +469,7 @@ private:
 
     world::GeoRectangle region_;
     world::HeightSource heights_;
+    bool imagery_ = false;
     std::atomic<std::size_t>& failures_;
     std::mutex mutex_;
     uint32_t leaf_level_ = 0;
@@ -467,6 +482,18 @@ struct LoadedTile {
 
 struct DrawnTile {
     std::vector<Draw> draws;
+    bool imagery = false; // an imagery tile is attached
+};
+
+// An imagery tile: its pixels once decoded, then its texture on the GPU.
+struct RasterPixels {
+    int width = 0;
+    int height = 0;
+    std::vector<std::uint8_t> rgba;
+};
+
+struct RasterTexture {
+    TextureId texture = no_texture;
 };
 
 // Reads a vertex colour accessor of any type glTF allows into linear RGBA.
@@ -563,6 +590,19 @@ void meshes_from_model(CesiumGltf::Model& model, const glm::dmat4& tile_transfor
             mesh.vertices[static_cast<std::size_t>(i)] = {{p.x, p.y, p.z},
                                                           {0.8f, 0.8f, 0.8f, 1.0f}};
         }
+        // Imagery's texture coordinates, which Cesium Native adds to a tile's
+        // glTF for each raster overlay; the terrain has one.
+        const auto overlay = primitive.attributes.find("_CESIUMOVERLAY_0");
+        if (overlay != primitive.attributes.end()) {
+            const CesiumGltf::AccessorView<glm::vec2> uvs(gltf, overlay->second);
+            if (uvs.status() == CesiumGltf::AccessorViewStatus::Valid &&
+                uvs.size() == positions.size()) {
+                for (int64_t i = 0; i < uvs.size(); ++i) {
+                    const glm::vec2 uv = uvs[i];
+                    mesh.vertices[static_cast<std::size_t>(i)].uv = {uv.x, uv.y};
+                }
+            }
+        }
         const auto colour = primitive.attributes.find("COLOR_0");
         if (colour == primitive.attributes.end() ||
             !read_colours(gltf, colour->second, mesh.vertices)) {
@@ -648,26 +688,99 @@ public:
         }
     }
 
-    // Raster overlays - imagery - are not drawn yet.
-    void* prepareRasterInLoadThread(CesiumImage::ImageAsset& /*image*/,
+    // Imagery: each tile decoded to RGBA on a worker thread, uploaded as a
+    // texture on the main thread, and put on the terrain tiles it covers, with
+    // the scale and offset that take a tile's coordinates into its part of it.
+    void* prepareRasterInLoadThread(CesiumImage::ImageAsset& image,
                                     const std::any& /*rendererOptions*/) override {
-        return nullptr;
+        if (image.bytesPerChannel != 1 ||
+            (image.channels != 3 && image.channels != 4) || image.width <= 0 ||
+            image.height <= 0) {
+            ++skipped_;
+            return nullptr;
+        }
+        auto pixels = std::make_unique<RasterPixels>();
+        pixels->width = image.width;
+        pixels->height = image.height;
+        const auto count = static_cast<std::size_t>(image.width) *
+                           static_cast<std::size_t>(image.height);
+        pixels->rgba.resize(count * 4);
+        const auto channels = static_cast<std::size_t>(image.channels);
+        for (std::size_t i = 0; i < count; ++i) {
+            for (std::size_t c = 0; c < 3; ++c) {
+                pixels->rgba[i * 4 + c] =
+                    static_cast<std::uint8_t>(image.pixelData[i * channels + c]);
+            }
+            pixels->rgba[i * 4 + 3] =
+                channels == 4 ? static_cast<std::uint8_t>(image.pixelData[i * 4 + 3])
+                              : 255;
+        }
+        return pixels.release();
     }
     void* prepareRasterInMainThread(CesiumRasterOverlays::RasterOverlayTile& /*tile*/,
-                                    void* /*load_result*/) override {
-        return nullptr;
+                                    void* load_result) override {
+        const std::unique_ptr<RasterPixels> pixels(
+            static_cast<RasterPixels*>(load_result));
+        if (!pixels) {
+            return nullptr;
+        }
+        auto texture = std::make_unique<RasterTexture>();
+        texture->texture =
+            renderer_.add_texture(pixels->width, pixels->height, pixels->rgba.data());
+        return texture.release();
     }
     void freeRaster(const CesiumRasterOverlays::RasterOverlayTile& /*tile*/,
-                    void* /*load_result*/, void* /*main_result*/) noexcept override {}
+                    void* load_result, void* main_result) noexcept override {
+        delete static_cast<RasterPixels*>(load_result);
+        const std::unique_ptr<RasterTexture> texture(
+            static_cast<RasterTexture*>(main_result));
+        if (texture && texture->texture != no_texture) {
+            renderer_.remove_texture(texture->texture);
+        }
+    }
+    // Cesium Native hands over the imagery tile's own resources - what
+    // prepareRasterInMainThread made - and the terrain tile, whose are the
+    // draws.
+    static DrawnTile* drawn_of(const Tile& tile) {
+        const auto* content = tile.getContent().getRenderContent();
+        return content == nullptr
+                   ? nullptr
+                   : static_cast<DrawnTile*>(content->getRenderResources());
+    }
     void
-    attachRasterInMainThread(const Tile& /*tile*/, int32_t /*coordinates*/,
+    attachRasterInMainThread(const Tile& tile, int32_t coordinates,
                              const CesiumRasterOverlays::RasterOverlayTile& /*raster*/,
-                             void* /*main_result*/, const glm::dvec2& /*translation*/,
-                             const glm::dvec2& /*scale*/) override {}
+                             void* raster_result, const glm::dvec2& translation,
+                             const glm::dvec2& scale) override {
+        DrawnTile* drawn = drawn_of(tile);
+        const auto* texture = static_cast<const RasterTexture*>(raster_result);
+        if (drawn == nullptr || texture == nullptr || coordinates != 0) {
+            return;
+        }
+        // The overlay's coordinates run north from the tile's south edge; the
+        // image's rows run south from its top.
+        for (Draw& d : drawn->draws) {
+            d.texture = texture->texture;
+            d.uv_transform = {static_cast<float>(scale.x), static_cast<float>(-scale.y),
+                              static_cast<float>(translation.x),
+                              static_cast<float>(1.0 - translation.y)};
+        }
+        drawn->imagery = true;
+    }
     void
-    detachRasterInMainThread(const Tile& /*tile*/, int32_t /*coordinates*/,
+    detachRasterInMainThread(const Tile& tile, int32_t coordinates,
                              const CesiumRasterOverlays::RasterOverlayTile& /*raster*/,
-                             void* /*main_result*/) noexcept override {}
+                             void* /*raster_result*/) noexcept override {
+        DrawnTile* drawn = drawn_of(tile);
+        if (drawn == nullptr || coordinates != 0) {
+            return;
+        }
+        for (Draw& d : drawn->draws) {
+            d.texture = no_texture;
+            d.uv_transform = {1.0f, 1.0f, 0.0f, 0.0f};
+        }
+        drawn->imagery = false;
+    }
 
 private:
     Renderer& renderer_;
@@ -679,6 +792,7 @@ private:
 struct TerrainTiles::Impl {
     std::atomic<std::size_t> failures{0};
     std::atomic<std::size_t> skipped{0};
+    bool imagery = false;
     std::shared_ptr<WorkerPool> workers;
     CesiumAsync::AsyncSystem async;
     std::unique_ptr<Cesium3DTilesSelection::Tileset> tileset;
@@ -691,13 +805,25 @@ struct TerrainTiles::Impl {
 TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
                            world::HeightSource heights)
     : impl_(std::make_unique<Impl>(options.worker_threads)) {
+    // What is fetched, through the platform's HTTPS, kept in Cesium Native's
+    // SQLite cache for as long as its caching headers allow.
+    std::shared_ptr<CesiumAsync::IAssetAccessor> accessor =
+        std::make_shared<PlatformAccessor>();
+    if (!options.cache_file.empty()) {
+        std::error_code error;
+        std::filesystem::create_directories(options.cache_file.parent_path(), error);
+        accessor = std::make_shared<CesiumAsync::CachingAssetAccessor>(
+            spdlog::default_logger(), accessor,
+            std::make_shared<CesiumAsync::SqliteCache>(spdlog::default_logger(),
+                                                       options.cache_file.string()));
+    }
     Cesium3DTilesSelection::TilesetExternals externals{
-        std::make_shared<PlatformAccessor>(),
-        std::make_shared<RendererResources>(renderer, impl_->skipped), impl_->async,
-        std::make_shared<CesiumUtility::CreditSystem>()};
+        accessor, std::make_shared<RendererResources>(renderer, impl_->skipped),
+        impl_->async, std::make_shared<CesiumUtility::CreditSystem>()};
 
+    impl_->imagery = options.imagery.has_value();
     auto loader = std::make_unique<DemLoader>(options.region, std::move(heights),
-                                              impl_->failures);
+                                              impl_->imagery, impl_->failures);
     auto root = std::make_unique<Tile>(
         loader->make_tile(QuadtreeTileID(0, 0, 0), -1000.0, 9000.0));
 
@@ -708,6 +834,38 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
     tileset_options.enableFogCulling = false;
     impl_->tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(
         externals, std::move(loader), std::move(root), tileset_options);
+
+    if (options.imagery) {
+        const Imagery& imagery = *options.imagery;
+        CesiumRasterOverlays::WebMapTileServiceRasterOverlayOptions wmts;
+        wmts.format = imagery.format;
+        wmts.layer = imagery.layer;
+        wmts.style = imagery.style;
+        wmts.tileMatrixSetID = imagery.tile_matrix_set;
+        wmts.maximumLevel = imagery.maximum_level;
+        wmts.credit = imagery.credit;
+        wmts.projection = CesiumGeospatial::GeographicProjection(Ellipsoid::WGS84);
+        impl_->tileset->getOverlays().add(
+            CesiumUtility::IntrusivePointer<CesiumRasterOverlays::RasterOverlay>(
+                new CesiumRasterOverlays::WebMapTileServiceRasterOverlay(
+                    "imagery", imagery.url, {}, wmts)));
+    }
+}
+
+Imagery open_imagery() {
+    Imagery imagery;
+    imagery.url =
+        "https://tiles.maps.eox.at/wmts/1.0.0/{Layer}/{Style}/{TileMatrixSet}/"
+        "{TileMatrix}/{TileRow}/{TileCol}.jpg";
+    imagery.layer = "s2cloudless";
+    imagery.style = "default";
+    imagery.tile_matrix_set = "WGS84";
+    imagery.format = "image/jpeg";
+    // Level 13 is 9.5 m a pixel at the equator, as fine as the 10 m mosaic.
+    imagery.maximum_level = 13;
+    imagery.credit = "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH "
+                     "(Contains modified Copernicus Sentinel data 2016)";
+    return imagery;
 }
 
 TerrainTiles::~TerrainTiles() {
@@ -745,6 +903,7 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
     std::vector<Draw> draws;
     impl_->counts.drawn = 0;
     impl_->counts.deepest = 0;
+    impl_->counts.without_imagery = 0;
     for (const auto& tile : result.tilesToRenderThisFrame) {
         const auto* content = tile->getContent().getRenderContent();
         if (content == nullptr) {
@@ -757,6 +916,9 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
         }
         draws.insert(draws.end(), drawn->draws.begin(), drawn->draws.end());
         ++impl_->counts.drawn;
+        if (impl_->imagery && !drawn->imagery) {
+            ++impl_->counts.without_imagery;
+        }
         if (const auto* id = std::get_if<QuadtreeTileID>(&tile->getTileID())) {
             impl_->counts.deepest =
                 std::max<std::size_t>(impl_->counts.deepest, id->level);

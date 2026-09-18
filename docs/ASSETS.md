@@ -5,12 +5,13 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Six things are used: a Cessna 172P flight model derived from JSBSim's,
+**Seven things are used: a Cessna 172P flight model derived from JSBSim's,
 the Cessna 172P handbook's published figures, the Copernicus DEM, the EGM2008
-geoid grid, METARs from aviationweather.gov and winds aloft from Open-Meteo** -
-the DEM and the geoid fetched by the tests and read by the program, the weather
-fetched when it is asked for, with one recorded response of each committed for
-the tests. No imagery, visual model, font or sound is used or fetched yet.
+geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from aviationweather.gov
+and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
+as they are needed, the weather when it is asked for, with one recorded
+response of each weather service committed for the tests. No visual model,
+font or sound is used or fetched yet.
 
 ## The rule
 
@@ -150,6 +151,25 @@ is PROJ's, about the same model.
 | Summits | The US National Geodetic Survey's datasheets for triangulation stations GT1811, KL0637, FQ0624, GM0779 and CD0994 (`https://geodesy.noaa.gov/api/nde/pid?pid=<PID>`), read 2026-09-18: adjusted NAD 83 positions and NAVD 88 heights. Works of the United States government |
 | Coastal waters | Positions chosen off coasts, whose height is sea level by definition |
 
+### Imagery: EOX's Sentinel-2 cloudless, 2016
+
+| | |
+| --- | --- |
+| Source | EOX IT Services GmbH's Web Map Tile Service, `https://tiles.maps.eox.at/wmts/1.0.0/`, layer `s2cloudless` ("Sentinel-2 cloudless layer for 2016 by EOX - 4326"), tile matrix set `WGS84` - latitude and longitude, two tiles across at level 0 - JPEG tiles of 256 pixels, read to level 13, about 10 m a pixel (`gfx::open_imagery()`) |
+| What it is | A cloud-free mosaic of the whole Earth made from the Copernicus Sentinel-2 satellites' images of 2016 |
+| Version | The 2016 layer, which EOX no longer changes: its tiles are dated 2 August 2017 (`Last-Modified`) |
+| In the repository | Nothing. The client fetches tiles as the view needs them and keeps them in `cesium-cache.sqlite` in the cache directory for as long as the service's `Cache-Control: max-age=604800`, a week, allows; the terrain test's reference keeps the tiles it reads in the downloads directory |
+| Licence | **CC BY 4.0.** The service's own capabilities document (`WMTSCapabilities.xml`, read 2026-09-18) says of the layer: "EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016) released under Creative Commons Attribution 4.0 International License." EOX's announcement (<https://eox.at/2017/08/sentinel-2-global-cloudless-mosaic/>) says the same, and that the service endpoints may be used directly in an application. The later years' layers are CC BY-NC-SA 4.0 and are not used |
+| Credit | **"Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016)"**, the text EOX asks for, on every frame with imagery in it, in capitals as the client's font has them. Changes made: the tiles are resampled onto the terrain and lit by its slope |
+
+EOX's announcement, quoted:
+
+> Sentinel-2 cloudless by EOX IT Services GmbH is now licensed under a
+> Creative Commons Attribution 4.0 International License.
+
+The Copernicus Sentinel data the mosaic is made from are named in the credit,
+as EOX's text has them.
+
 ### METARs from aviationweather.gov
 
 | | |
@@ -219,7 +239,6 @@ first used.
 | Source | For | Phase | Terms known now |
 | --- | --- | --- | --- |
 | Further JSBSim aircraft models | Flight dynamics | 5 | Recorded per model, as above |
-| Open imagery | Default visual imagery | 2 | Source not yet chosen |
 | OpenStreetMap | Buildings | Tail | ODbL; source of the building data not yet chosen |
 | FlightGear aircraft | Visual models | 5 | Mostly GPL; checked per model |
 | Cesium ion | Optional visual terrain and imagery | 5b | The user's own account and terms |

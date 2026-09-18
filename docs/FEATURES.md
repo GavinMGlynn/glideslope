@@ -217,5 +217,6 @@ the controls to an AI pilot whenever you like, then take them back.
   to show a runway as it really is. Whether runways get a smooth surface that
   follows their real slope, or are left as the data has them, is undecided.
 
-- **Where the free imagery and buildings come from.** The default scenery needs
-  an imagery source and a source of buildings that neither needs an account.
+- **Where the free buildings come from.** The default scenery needs a source
+  of buildings that needs no account. (The free imagery is settled: a
+  cloud-free satellite mosaic of the whole Earth, 10 m a pixel.)

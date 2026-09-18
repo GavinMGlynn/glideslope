@@ -9,6 +9,7 @@
 
 #include "gfx/scene.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -18,6 +19,7 @@
 struct SDL_GPUBuffer;
 struct SDL_GPUDevice;
 struct SDL_GPUGraphicsPipeline;
+struct SDL_GPUSampler;
 struct SDL_GPUTexture;
 struct SDL_Window;
 
@@ -39,10 +41,17 @@ struct Colour {
 inline constexpr Colour sky{0.45f, 0.65f, 0.90f, 1.0f};
 
 using MeshId = std::size_t;
+using TextureId = std::size_t;
+
+// No texture: the mesh's vertex colours alone.
+inline constexpr TextureId no_texture = static_cast<TextureId>(-1);
 
 struct Draw {
     MeshId mesh = 0;
     Placement placement;
+    TextureId texture = no_texture;
+    // The mesh's texture coordinates to the texture's: scale u and v, then add.
+    std::array<float, 4> uv_transform{1.0f, 1.0f, 0.0f, 0.0f};
 };
 
 class Renderer {
@@ -66,6 +75,20 @@ public:
     // Frees a mesh's GPU buffers. Its id may be given to a mesh added later, and
     // drawing it before then throws.
     void remove_mesh(MeshId id);
+
+    // Uploads an image - `width` by `height` pixels, four bytes each, the top
+    // row first - as a texture with mipmaps, sampled linearly and clamped at
+    // its edges.
+    TextureId add_texture(int width, int height, const std::uint8_t* rgba);
+
+    // Frees a texture. Its id may be given to one added later, and drawing
+    // with it before then throws.
+    void remove_texture(TextureId id);
+
+    // How many textures are on the GPU.
+    std::size_t texture_count() const {
+        return textures_.size() - free_textures_.size();
+    }
 
     // How many meshes are on the GPU.
     std::size_t mesh_count() const {
@@ -98,6 +121,7 @@ private:
 
     void release();
     void upload(GpuMesh& gpu, const Mesh& mesh, bool reuse);
+    SDL_GPUTexture* upload_texture(int width, int height, const std::uint8_t* rgba);
 
     SDL_GPUDevice* device_ = nullptr;
     SDL_Window* window_ = nullptr;
@@ -107,6 +131,10 @@ private:
     SDL_GPUGraphicsPipeline* overlay_pipeline_ = nullptr;
     std::vector<GpuMesh> meshes_;
     std::vector<MeshId> free_meshes_;
+    std::vector<SDL_GPUTexture*> textures_;
+    std::vector<TextureId> free_textures_;
+    SDL_GPUTexture* white_ = nullptr;
+    SDL_GPUSampler* sampler_ = nullptr;
     GpuMesh overlay_;
     std::uint32_t overlay_vertex_capacity_ = 0; // bytes
     std::uint32_t overlay_index_capacity_ = 0;

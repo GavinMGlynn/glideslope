@@ -590,6 +590,17 @@ The replacement:
   cost is a first build of most of an hour, which vcpkg's binary cache, kept by
   CI, pays once.
 
+- **The open imagery: EOX's Sentinel-2 cloudless mosaic of 2016** (settled
+  2026-09-18; section 4.1 asked for open imagery needing no account). A
+  cloud-free mosaic of the whole Earth from the Copernicus Sentinel-2
+  satellites at 10 m a pixel, served by EOX as a Web Map Tile Service in
+  latitude and longitude, which Cesium Native drapes on the terrain as a
+  raster overlay. The 2016 layer is under CC BY 4.0 - the later years are
+  non-commercial - and EOX invites its endpoints to be used directly in an
+  application; its credit is shown on screen (`docs/ASSETS.md`). NASA's GIBS
+  Blue Marble, public domain, was the other candidate: at 500 m a pixel it
+  cannot show a runway.
+
 **Open:**
 
 - **Runways on the DEM** (under discussion). Copernicus DEM is a radar-measured
@@ -598,5 +609,5 @@ The replacement:
   are not really there. Proposed: give paved runways a smooth surface that
   follows their surveyed slope between the two thresholds, from OurAirports
   data, and keep the DEM everywhere else.
-- **Open imagery and buildings:** which imagery source the open-data provider
-  uses, and how OpenStreetMap buildings arrive without a Cesium ion token.
+- **Buildings:** how OpenStreetMap buildings arrive without a Cesium ion
+  token.

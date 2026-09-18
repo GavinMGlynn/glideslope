@@ -22,8 +22,8 @@ anything proved elsewhere names the CI run.
 ## The honest summary, 2026-09-18
 
 **A Cessna 172P flies to its handbook over the real ground, in the real weather,
-with a HUD and flight controllers, and the ground is drawn - by height and
-slope, with no imagery yet, and only around where the flight starts.** JSBSim is
+with a HUD and flight controllers, and the ground is drawn - satellite imagery
+on the DEM, lit by its slope, but only around where the flight starts.** JSBSim is
 built and linked and steps at a fixed 120 Hz, and glideslope's Cessna 172P lands
 inside its tolerance on all nine published-figure checks; its state can be
 captured and restored; `glideslope_cli selftest` flies a fixed five-minute log
@@ -34,9 +34,9 @@ the Cessna on that ground. The client flies it from the keyboard, joysticks,
 HOTAS and yokes, with a HUD that tests read back out of the frame, and every
 platform's package draws a frame of it on Vulkan, Direct3D 12 or Metal - but the
 frame is sky, HUD and - done on Linux, awaiting CI - the terrain, drawn by
-Cesium Native from the DEM over the cells around where the flight starts,
-coloured by height and slope. There is no imagery on it, no aircraft model,
-cockpit or server, and one aircraft of the sixteen the roster now names. The weather is real: METARs and winds aloft, fetched live,
+Cesium Native from the DEM over the cells around where the flight starts, with
+EOX's Sentinel-2 cloudless imagery on it. There is no aircraft model, cockpit
+or server, and one aircraft of the sixteen the roster now names. The weather is real: METARs and winds aloft, fetched live,
 set JSBSim's wind, temperature, pressure and turbulence.
 
 **Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
@@ -67,7 +67,9 @@ with a height query anywhere held to surveyed runway ends and coastlines; and
 collision terrain the Cessna rests on (run 35241851702); flight controllers;
 the HUD; the client's test flags; and frames from CI and every package (CI run
 35244380011, package run 35244379942). Done on Linux and awaiting CI: Cesium
-Native drawing the open-data terrain. Not started: imagery on it.
+Native drawing the open-data terrain (proved on Ubuntu, Rocky 9 and macOS in
+run 35318950553; Windows's first try hit MSVC's limit on a path's length), and
+open imagery on it.
 
 **Phase 3, weather, is complete — 4 of 4 items**, proved in CI on every
 platform (run 35250647710) and fetched by every package (run 35248205205):
@@ -93,8 +95,7 @@ are the risks the phase order is built around:
   types arrive in Phase 5.
 - **Terrain is drawn around where the flight starts, and nowhere else.** The
   client draws the nine whole-degree cells around its start; fly out of them
-  and there is sky below. It is coloured by height and slope: there is no
-  imagery.
+  and there is sky below.
 - **The HUD's horizon line is not the horizon.** It moves a hundredth of the
   frame's height a degree of pitch, which was a choice when there was nothing
   behind it; now the terrain is drawn, the two do not line up.
@@ -111,6 +112,63 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### Open imagery on the terrain, 2026-09-18 — awaiting CI
+
+**What is missing first:** the imagery is 2016's - EOX's later mosaics are not
+open - and 10 m a pixel at its finest, so a runway is a grey stripe with no
+markings. It is fetched from EOX's service as the view needs it, so the first
+look at a place waits for it, and without the network there is none. How
+sharp the imagery is has no check: the reference frame the test holds it to
+chooses its own imagery level, and a level set too coarse matched it better.
+
+**The source is settled** (`REQUIREMENTS.md`, section 9): EOX's Sentinel-2
+cloudless mosaic of 2016 - the whole Earth, cloud-free, 10 m a pixel, under CC
+BY 4.0, served in latitude and longitude as a Web Map Tile Service (terms and
+credit in `ASSETS.md`).
+
+**Drawn by Cesium Native as a raster overlay.** The terrain tileset carries a
+Web Map Tile Service overlay (`gfx::open_imagery()`); Cesium Native works out
+each terrain tile's texture coordinates, chooses and fetches the imagery tiles,
+and the glue decodes each into a texture on the GPU - with mipmaps - and puts
+it on the terrain tiles it covers, with the scale and offset that take a
+tile's coordinates into its part of the image. The renderer's meshes now carry
+texture coordinates and its shader samples a texture, white for a mesh with
+none. With imagery the terrain's vertices carry only the sun's light on their
+slope, and the imagery is drawn times it; `--imagery off` tints by height as
+before. Everything fetched goes through Cesium Native's SQLite cache in the
+cache directory, kept as long as the service's caching allows - a week.
+
+**Credited on screen.** The imagery's credit, EOX's text, is drawn along the
+bottom of every frame with imagery, after the DEM's notice; the font gained
+`:` and `/` for its address. `README.md` carries it too.
+
+**The tests.**
+- `a_shot_of_mount_taranaki_drapes_the_open_imagery_where_it_belongs_on_<driver>`
+  shoots the same view as the terrain test at 640x480 with imagery, and reads
+  both credits back out of the frame. Its reference frame is the DEM ray-cast
+  from the same eye, each hit coloured by the slope's light times the imagery
+  there, fetched from the service at the level whose pixel is the ground the
+  frame's pixel covers - independent of Cesium Native, the textures and the GPU.
+  As drawn: the colour 1.86 of 255 out on average and 7 at the 95th percentile;
+  and, blurring both by 4 pixels and moving the frame up to 3 pixels each way,
+  the best match is where it was drawn. The tolerances are 3.0 and 12, and the
+  best match within a pixel.
+- The DEM test now shoots with `--imagery off`; the HUD test flies over imagery
+  and reads three credits.
+
+**Watched to fail:** the imagery upside down (the colour 4.90 out, 20 at the
+95th percentile); drawn without the slope's light (5.42 out, and the best match
+two pixels down). **Not caught**, and stated: the imagery moved east by 2% of an
+imagery tile - some 40 m, about a pixel here - and a coarser imagery level.
+
+**Also:** attaching an imagery tile, the resources Cesium Native hands over
+are the imagery tile's, not the terrain tile's; taking them for the terrain
+tile's overran them, which the sanitized build caught on the first run.
+Windows CI's first build of the dependencies failed in Draco: vcpkg builds
+deep under its root, and under the user's AppData the paths passed the 260
+characters MSVC can open. vcpkg now lives in `C:\gs-vcpkg\<12 characters of
+its commit>` on Windows.
 
 ### The plan grows: weather hazards, sixteen aircraft, learning to fly, the whole Earth, 2026-09-18
 

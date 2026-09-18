@@ -36,26 +36,7 @@ world::Ecef up_at(double latitude_deg, double longitude_deg) {
             std::sin(phi)};
 }
 
-std::array<float, 4> terrain_colour(double height_above_sea_level_m,
-                                    const world::Ecef& normal, const world::Ecef& up) {
-    if (height_above_sea_level_m <= 0.0) {
-        return {static_cast<float>(sea[0]), static_cast<float>(sea[1]),
-                static_cast<float>(sea[2]), 1.0f};
-    }
-    std::array<double, 3> tint = tints.back().colour;
-    for (std::size_t i = 1; i < tints.size(); ++i) {
-        if (height_above_sea_level_m < tints[i].height_m) {
-            const Stop& a = tints[i - 1];
-            const Stop& b = tints[i];
-            const double t =
-                (height_above_sea_level_m - a.height_m) / (b.height_m - a.height_m);
-            for (std::size_t c = 0; c < 3; ++c) {
-                tint[c] = a.colour[c] + t * (b.colour[c] - a.colour[c]);
-            }
-            break;
-        }
-    }
-
+double terrain_light(const world::Ecef& normal, const world::Ecef& up) {
     // The sun, in the local east-north-up frame: from azimuth 315 (north-west),
     // 45 degrees up. East is up x the pole, and north completes the frame; at a
     // pole, where that is undefined, east is taken along x.
@@ -77,7 +58,30 @@ std::array<float, 4> terrain_colour(double height_above_sea_level_m,
         0.0, normal.x * (sun_east * east.x + sun_north * north.x + sun_up * up.x) +
                  normal.y * (sun_east * east.y + sun_north * north.y + sun_up * up.y) +
                  normal.z * (sun_east * east.z + sun_north * north.z + sun_up * up.z));
-    const double light = 0.35 + 0.65 * lit / sun_up; // level ground at full light
+    return 0.35 + 0.65 * lit / sun_up; // level ground at full light
+}
+
+std::array<float, 4> terrain_colour(double height_above_sea_level_m,
+                                    const world::Ecef& normal, const world::Ecef& up) {
+    if (height_above_sea_level_m <= 0.0) {
+        return {static_cast<float>(sea[0]), static_cast<float>(sea[1]),
+                static_cast<float>(sea[2]), 1.0f};
+    }
+    std::array<double, 3> tint = tints.back().colour;
+    for (std::size_t i = 1; i < tints.size(); ++i) {
+        if (height_above_sea_level_m < tints[i].height_m) {
+            const Stop& a = tints[i - 1];
+            const Stop& b = tints[i];
+            const double t =
+                (height_above_sea_level_m - a.height_m) / (b.height_m - a.height_m);
+            for (std::size_t c = 0; c < 3; ++c) {
+                tint[c] = a.colour[c] + t * (b.colour[c] - a.colour[c]);
+            }
+            break;
+        }
+    }
+
+    const double light = terrain_light(normal, up);
     const auto channel = [&](double c) {
         return static_cast<float>(std::clamp(c * light, 0.0, 1.0));
     };

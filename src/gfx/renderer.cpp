@@ -6,6 +6,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <stdexcept>
 
@@ -16,6 +17,13 @@ namespace {
 constexpr SDL_GPUTextureFormat colour_format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
 // Float, because reversed depth only pays for itself in a float buffer.
 constexpr SDL_GPUTextureFormat depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+
+// The vertex shader's uniform block, laid out as std140 lays it out.
+struct Transform {
+    std::array<float, 16> clip_from_local{};
+    std::array<float, 4> uv_transform{1.0f, 1.0f, 0.0f, 0.0f};
+};
+static_assert(sizeof(Transform) == 80);
 
 std::runtime_error sdl_error(const std::string& what) {
     return std::runtime_error(what + ": " + SDL_GetError());
@@ -88,13 +96,16 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, bool depth_te
     buffer.slot = 0;
     buffer.pitch = sizeof(Vertex);
     buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
-    SDL_GPUVertexAttribute attributes[2]{};
+    SDL_GPUVertexAttribute attributes[3]{};
     attributes[0].location = 0;
     attributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
     attributes[0].offset = offsetof(Vertex, position);
     attributes[1].location = 1;
     attributes[1].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
     attributes[1].offset = offsetof(Vertex, colour);
+    attributes[2].location = 2;
+    attributes[2].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
+    attributes[2].offset = offsetof(Vertex, uv);
 
     SDL_GPUColorTargetDescription colour{};
     colour.format = colour_format;
@@ -105,7 +116,7 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, bool depth_te
     info.vertex_input_state.vertex_buffer_descriptions = &buffer;
     info.vertex_input_state.num_vertex_buffers = 1;
     info.vertex_input_state.vertex_attributes = attributes;
-    info.vertex_input_state.num_vertex_attributes = 2;
+    info.vertex_input_state.num_vertex_attributes = 3;
     info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
     info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
@@ -163,6 +174,23 @@ Renderer::Renderer(const std::string& driver, SDL_Window* window, int width, int
         }
         mesh_pipeline_ = make_mesh_pipeline(device_, true);
         overlay_pipeline_ = make_mesh_pipeline(device_, false);
+        // Linear within and between mip levels, clamped at the edges: imagery
+        // tiles meet their neighbours, and must not wrap into them.
+        SDL_GPUSamplerCreateInfo sampler{};
+        sampler.min_filter = SDL_GPU_FILTER_LINEAR;
+        sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
+        sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+        sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        sampler.min_lod = 0.0f;
+        sampler.max_lod = 1000.0f;
+        sampler_ = SDL_CreateGPUSampler(device_, &sampler);
+        if (sampler_ == nullptr) {
+            throw sdl_error("no sampler");
+        }
+        const std::uint8_t white[4] = {255, 255, 255, 255};
+        white_ = upload_texture(1, 1, white);
     } catch (...) {
         release();
         throw;
@@ -182,6 +210,21 @@ void Renderer::release() {
     }
     meshes_.clear();
     free_meshes_.clear();
+    for (SDL_GPUTexture* texture : textures_) {
+        if (texture != nullptr) {
+            SDL_ReleaseGPUTexture(device_, texture);
+        }
+    }
+    textures_.clear();
+    free_textures_.clear();
+    if (white_ != nullptr) {
+        SDL_ReleaseGPUTexture(device_, white_);
+        white_ = nullptr;
+    }
+    if (sampler_ != nullptr) {
+        SDL_ReleaseGPUSampler(device_, sampler_);
+        sampler_ = nullptr;
+    }
     SDL_ReleaseGPUBuffer(device_, overlay_.vertices);
     SDL_ReleaseGPUBuffer(device_, overlay_.indices);
     if (overlay_pipeline_ != nullptr) {
@@ -218,6 +261,94 @@ MeshId Renderer::add_mesh(const Mesh& mesh) {
     }
     meshes_.push_back(gpu);
     return meshes_.size() - 1;
+}
+
+SDL_GPUTexture* Renderer::upload_texture(int width, int height,
+                                         const std::uint8_t* rgba) {
+    if (width <= 0 || height <= 0) {
+        throw std::runtime_error("a texture needs pixels");
+    }
+    Uint32 levels = 1;
+    while ((std::max(width, height) >> levels) > 0) {
+        ++levels;
+    }
+    SDL_GPUTextureCreateInfo info{};
+    info.type = SDL_GPU_TEXTURETYPE_2D;
+    info.format = colour_format;
+    // A colour target too, because that is what making mipmaps takes.
+    info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
+    info.width = static_cast<Uint32>(width);
+    info.height = static_cast<Uint32>(height);
+    info.layer_count_or_depth = 1;
+    info.num_levels = levels;
+    SDL_GPUTexture* texture = SDL_CreateGPUTexture(device_, &info);
+    if (texture == nullptr) {
+        throw sdl_error("no texture");
+    }
+
+    const auto bytes = static_cast<Uint32>(width) * static_cast<Uint32>(height) * 4;
+    SDL_GPUTransferBufferCreateInfo transfer_info{};
+    transfer_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    transfer_info.size = bytes;
+    SDL_GPUTransferBuffer* transfer =
+        SDL_CreateGPUTransferBuffer(device_, &transfer_info);
+    void* mapped = transfer == nullptr
+                       ? nullptr
+                       : SDL_MapGPUTransferBuffer(device_, transfer, false);
+    if (mapped == nullptr) {
+        const auto error = sdl_error("the texture could not be uploaded");
+        SDL_ReleaseGPUTransferBuffer(device_, transfer);
+        SDL_ReleaseGPUTexture(device_, texture);
+        throw error;
+    }
+    std::memcpy(mapped, rgba, bytes);
+    SDL_UnmapGPUTransferBuffer(device_, transfer);
+
+    SDL_GPUCommandBuffer* commands = SDL_AcquireGPUCommandBuffer(device_);
+    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(commands);
+    SDL_GPUTextureTransferInfo from{};
+    from.transfer_buffer = transfer;
+    from.pixels_per_row = static_cast<Uint32>(width);
+    from.rows_per_layer = static_cast<Uint32>(height);
+    SDL_GPUTextureRegion to{};
+    to.texture = texture;
+    to.w = static_cast<Uint32>(width);
+    to.h = static_cast<Uint32>(height);
+    to.d = 1;
+    SDL_UploadToGPUTexture(copy, &from, &to, false);
+    SDL_EndGPUCopyPass(copy);
+    if (levels > 1) {
+        SDL_GenerateMipmapsForGPUTexture(commands, texture);
+    }
+    const bool submitted = SDL_SubmitGPUCommandBuffer(commands);
+    SDL_ReleaseGPUTransferBuffer(device_, transfer);
+    if (!submitted) {
+        SDL_ReleaseGPUTexture(device_, texture);
+        throw sdl_error("the texture upload was not submitted");
+    }
+    return texture;
+}
+
+TextureId Renderer::add_texture(int width, int height, const std::uint8_t* rgba) {
+    SDL_GPUTexture* texture = upload_texture(width, height, rgba);
+    if (!free_textures_.empty()) {
+        const TextureId id = free_textures_.back();
+        free_textures_.pop_back();
+        textures_[id] = texture;
+        return id;
+    }
+    textures_.push_back(texture);
+    return textures_.size() - 1;
+}
+
+void Renderer::remove_texture(TextureId id) {
+    SDL_GPUTexture*& texture = textures_.at(id);
+    if (texture == nullptr) {
+        throw std::logic_error("a texture removed twice");
+    }
+    SDL_ReleaseGPUTexture(device_, texture);
+    texture = nullptr;
+    free_textures_.push_back(id);
 }
 
 void Renderer::remove_mesh(MeshId id) {
@@ -351,10 +482,20 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
             SDL_BindGPUVertexBuffers(pass, 0, &vertices, 1);
             SDL_GPUBufferBinding indices{mesh.indices, 0};
             SDL_BindGPUIndexBuffer(pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-            const Mat4f clip_from_local =
-                clip_from_camera * camera_from_local(camera, draw.placement);
-            SDL_PushGPUVertexUniformData(commands, 0, clip_from_local.m.data(),
-                                         sizeof clip_from_local.m);
+            SDL_GPUTexture* texture = white_;
+            if (draw.texture != no_texture) {
+                texture = textures_.at(draw.texture);
+                if (texture == nullptr) {
+                    throw std::logic_error("a removed texture drawn");
+                }
+            }
+            SDL_GPUTextureSamplerBinding image{texture, sampler_};
+            SDL_BindGPUFragmentSamplers(pass, 0, &image, 1);
+            Transform transform;
+            transform.clip_from_local =
+                (clip_from_camera * camera_from_local(camera, draw.placement)).m;
+            transform.uv_transform = draw.uv_transform;
+            SDL_PushGPUVertexUniformData(commands, 0, &transform, sizeof transform);
             SDL_DrawGPUIndexedPrimitives(pass, mesh.index_count, 1, 0, 0, 0);
         }
     }
@@ -364,9 +505,12 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
         SDL_BindGPUVertexBuffers(pass, 0, &vertices, 1);
         SDL_GPUBufferBinding indices{overlay_.indices, 0};
         SDL_BindGPUIndexBuffer(pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-        Mat4f identity;
-        identity.m[0] = identity.m[5] = identity.m[10] = identity.m[15] = 1.0f;
-        SDL_PushGPUVertexUniformData(commands, 0, identity.m.data(), sizeof identity.m);
+        SDL_GPUTextureSamplerBinding image{white_, sampler_};
+        SDL_BindGPUFragmentSamplers(pass, 0, &image, 1);
+        Transform transform;
+        transform.clip_from_local[0] = transform.clip_from_local[5] =
+            transform.clip_from_local[10] = transform.clip_from_local[15] = 1.0f;
+        SDL_PushGPUVertexUniformData(commands, 0, &transform, sizeof transform);
         SDL_DrawGPUIndexedPrimitives(pass, overlay_.index_count, 1, 0, 0, 0);
     }
     SDL_EndGPURenderPass(pass);
