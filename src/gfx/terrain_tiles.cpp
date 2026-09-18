@@ -62,6 +62,7 @@
 #include <deque>
 #include <functional>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -156,6 +157,56 @@ private:
     std::vector<std::thread> threads_;
     int running_ = 0;
     bool stopping_ = false;
+};
+
+// Another accessor's requests, counted from their asking to their answer -
+// the cache's own thread included, which the worker pool does not see - so the
+// terrain can wait out what is in flight before it stops its workers.
+class CountingAccessor final : public CesiumAsync::IAssetAccessor {
+public:
+    CountingAccessor(std::shared_ptr<CesiumAsync::IAssetAccessor> inner,
+                     std::shared_ptr<std::atomic<int>> in_flight)
+        : inner_(std::move(inner)), in_flight_(std::move(in_flight)) {}
+
+    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
+    get(const CesiumAsync::AsyncSystem& async, const std::string& url,
+        const std::vector<THeader>& headers) override {
+        return counted(inner_->get(async, url, headers));
+    }
+
+    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
+    request(const CesiumAsync::AsyncSystem& async, const std::string& verb,
+            const std::string& url, const std::vector<THeader>& headers,
+            const std::span<const std::byte>& body) override {
+        return counted(inner_->request(async, verb, url, headers, body));
+    }
+
+    void tick() noexcept override {
+        inner_->tick();
+    }
+
+private:
+    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
+    counted(CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>&& answer) {
+        ++*in_flight_;
+        // Counted down on a worker, which the pool counts as running until what
+        // follows the answer is queued: the terrain never sees neither.
+        return std::move(answer)
+            .thenInWorkerThread(
+                [n = in_flight_](
+                    std::shared_ptr<CesiumAsync::IAssetRequest>&& request) {
+                    --*n;
+                    return std::move(request);
+                })
+            .catchImmediately([n = in_flight_](std::exception&& e)
+                                  -> std::shared_ptr<CesiumAsync::IAssetRequest> {
+                --*n;
+                throw std::runtime_error(e.what());
+            });
+    }
+
+    std::shared_ptr<CesiumAsync::IAssetAccessor> inner_;
+    std::shared_ptr<std::atomic<int>> in_flight_;
 };
 
 // Cesium Native's requests, through the platform's HTTPS. Plain GETs only:
@@ -811,6 +862,7 @@ private:
 } // namespace
 
 struct TerrainTiles::Impl {
+    std::shared_ptr<std::atomic<int>> requests = std::make_shared<std::atomic<int>>(0);
     std::atomic<std::size_t> failures{0};
     std::atomic<std::size_t> skipped{0};
     bool imagery = false;
@@ -838,6 +890,7 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
             std::make_shared<CesiumAsync::SqliteCache>(spdlog::default_logger(),
                                                        options.cache_file.string()));
     }
+    accessor = std::make_shared<CountingAccessor>(accessor, impl_->requests);
     Cesium3DTilesSelection::TilesetExternals externals{
         accessor, std::make_shared<RendererResources>(renderer, impl_->skipped),
         impl_->async, std::make_shared<CesiumUtility::CreditSystem>()};
@@ -898,11 +951,13 @@ TerrainTiles::~TerrainTiles() {
         impl_->async.dispatchMainThreadTasks();
         std::this_thread::yield();
     }
-    // And its workers stop here, with it, whatever still holds them - once
-    // what they were doing is done, and what that left for the main thread,
-    // which may have given them more.
+    // And its workers stop here, with it, whatever still holds them - once no
+    // request is in flight, what they were doing is done, and what that left
+    // for the main thread has run, which may have given them more. Work left
+    // waiting when they stop would never run, and what it holds - Cesium
+    // Native's imagery among it - never be freed.
     for (;;) {
-        const bool idle = impl_->workers->idle();
+        const bool idle = impl_->workers->idle() && *impl_->requests == 0;
         bool dispatched = false;
         while (impl_->async.dispatchOneMainThreadTask()) {
             dispatched = true;

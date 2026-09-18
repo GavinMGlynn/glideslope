@@ -172,6 +172,12 @@ once they are idle and the main thread has run everything their work left
 for it, which may give them more: stopped sooner, what they had finished lay
 unrun in Cesium Native's queue, and the sanitized build caught 15 MB of
 decoded imagery leaked that the running threads had been keeping in reach.
+Even then, CI's Ubuntu run (35351306516) leaked the same 54 imagery tiles at
+exit: work waiting on the cache's own SQLite thread, which the worker pool does
+not see, was abandoned when the workers stopped, and held Cesium Native's
+imagery cache in a cycle. Every request is now counted from its asking to its
+answer, the count going down on a worker so that what follows is queued before
+the pool can look idle, and the terrain waits for none to be in flight too.
 
 ### The autopilot's holds, 2026-09-18 — awaiting CI
 
