@@ -471,15 +471,19 @@ GLIDESLOPE_TEST(
     double most_tailwind_at = 0.0;
     double most_down = 0.0;
     double most_down_at = 0.0;
+    const glideslope::world::Lift stormy_lift = glideslope::world::lift_of(stormy);
+    const glideslope::world::Lift calm_lift = glideslope::world::lift_of(calm);
     for (double before = 6000.0; before >= 0.0; before -= 10.0) {
         const double up = before * std::tan(3.0 * radians);
         const auto [lat, lon] = place(before);
         const auto with = glideslope::world::with_air_motion(
-            stormy, glideslope::world::conditions_at(stormy, surface.elevation_m + up),
-            lat, lon, surface.elevation_m + up, full);
-        const auto without = glideslope::world::with_air_motion(
-            calm, glideslope::world::conditions_at(calm, surface.elevation_m + up), lat,
+            stormy, stormy_lift, {},
+            glideslope::world::conditions_at(stormy, surface.elevation_m + up), lat,
             lon, surface.elevation_m + up, full);
+        const auto without = glideslope::world::with_air_motion(
+            calm, calm_lift, {},
+            glideslope::world::conditions_at(calm, surface.elevation_m + up), lat, lon,
+            surface.elevation_m + up, full);
         const double north = with.wind_north_mps - without.wind_north_mps;
         const double east = with.wind_east_mps - without.wind_east_mps;
         const double down = with.wind_down_mps - without.wind_down_mps;

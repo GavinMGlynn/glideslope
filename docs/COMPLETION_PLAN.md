@@ -115,11 +115,11 @@ because it is built on everything before it.
 - [x] **A window and a GPU device through SDL3** on Vulkan, D3D12 and Metal.
       *Verification: the client writes a frame with `--shot` on every backend
       of every platform that has it.*
-- [ ] **Cesium Native drawing the open-data terrain through SDL_GPU** around one
+- [x] **Cesium Native drawing the open-data terrain through SDL_GPU** around one
       region. *Verification: a `--shot` of a known region matches a reference
       frame of it within a stated tolerance.*
-- [ ] **Open imagery on the terrain**, from the source `REQUIREMENTS.md`
-      settles on. **Done locally; awaiting CI.** *Verification: a `--shot`
+- [x] **Open imagery on the terrain**, from the source `REQUIREMENTS.md`
+      settles on. *Verification: a `--shot`
       shows the imagery and its attribution.*
 - [x] **Joysticks, HOTAS and yokes.** *Verification: every axis and button of a
       virtual device reaches the aircraft's controls, walked by test.*
@@ -153,7 +153,7 @@ so everything here is a function of position, time and the weather's shared
 parameters alone - computed here, not in JSBSim's own gust and turbulence
 models, whose hidden state a restored aircraft would not carry.
 
-- [ ] **The same air on every machine.** **Done locally; awaiting CI.**
+- [x] **The same air on every machine.**
       *Verification (amended 2026-09-18:
       the first said bit-identical on every platform, which floating point
       across compilers cannot promise): two weathers built from the same
@@ -163,31 +163,39 @@ models, whose hidden state a restored aircraft would not carry.
       gust meets the same wind as one that was not, for as long as the two are
       together - their winds then differing only as the air does between where
       each is, with nothing of the air lost in the restore.*
-- [ ] **A METAR's gusts flown**, and its turbulence judged from the gusts'
-      spread. **Done locally; awaiting CI.** *Verification: a recorded gusty METAR gives winds between its
+- [x] **A METAR's gusts flown**, and its turbulence judged from the gusts'
+      spread. *Verification: a recorded gusty METAR gives winds between its
       mean and gust speeds, reaching the gust within a stated tolerance over a
       stated time; a report without gusts gives none; the same flight twice is
       the same.*
-- [ ] **The wind near the ground as a boundary layer**, from Open-Meteo's 10,
-      80, 120 and 180 m winds and a logarithmic profile below them. **Done
-      locally; awaiting CI.** *Verification: a recorded response sets the wind at each of those heights
-      to what it reports, and between them to the profile within a stated
-      bound; a 3-degree approach flies down through the shear the profile
-      gives.*
-- [ ] **Reported wind shear read** - `WS RWY`, `WS ALL RWY`, and the `WSHFT`
-      and `PK WND` remarks. **Done locally; awaiting CI.** *Verification: recorded METARs carrying each decode
+- [x] **The wind near the ground as a boundary layer**, from Open-Meteo's 10,
+      80, 120 and 180 m winds and a logarithmic profile below them.
+      *Verification: a recorded response sets the wind at each of those
+      heights to what it reports, and between them to the profile within a
+      stated bound; a 3-degree approach flies down through the shear the
+      profile gives.*
+- [x] **Reported wind shear read** - `WS RWY`, `WS ALL RWY`, and the `WSHFT`
+      and `PK WND` remarks. *Verification: recorded METARs carrying each decode
       to what they report, and a report of shear on a runway gives its approach
       the shear the model states.*
-- [ ] **Microbursts**, placed by the weather's parameters. **Done locally;
-      awaiting CI.** *Verification: an
+- [x] **Microbursts**, placed by the weather's parameters. *Verification: an
       aircraft on a 3-degree approach through a microburst of stated strength
       meets the headwind, downdraught and tailwind the published outflow model
       gives, at every point within a stated tolerance.*
 - [ ] **Thermals and mountain waves**, from the terrain and the winds aloft.
-      *Verification: over a thermal an aircraft circling at a stated speed
-      climbs at the rate the model gives; across a ridge with the wind over it,
-      the lift upwind and the sink in the lee are within stated bounds of the
-      model's.*
+      **Done locally; awaiting CI.** *Verification: over a thermal an aircraft
+      circling at a stated speed climbs at the rate the model gives; across a
+      ridge with the wind over it, the lift upwind and the sink in the lee are
+      within stated bounds of the model's.* Stated, 2026-09-18: a Cessna
+      gliding round a thermal at 65 KCAS in a 45-degree bank climbs as it
+      would in still air at each height and faster by the model's updraught
+      along its path, within 2% of the updraught; the
+      thermals are Allen's updraft model (NASA/TM-2006-213477) - his figure
+      10's speeds within 0.05 m/s, and in each thermal's prime his MATLAB to
+      1e-12 m/s; and the terrain's lift is linear theory's - within 4% of the
+      strongest over two ridges in stable air, against the theory integrated
+      independently, and within 2% of potential flow's with no stability - so
+      the air rises upwind of a ridge and sinks in its lee.
 - [ ] **Weather you can see** - cloud from the METAR's layers, rain, and
       visibility - once the world is drawn (Phase 2). *Verification: a `--shot`
       at a station reporting a broken layer at 1,500 ft shows the cloud base
@@ -421,3 +429,12 @@ Found while implementing something else. Added when found, not when remembered.
       item.)* *Verification: a flight from Sydney to Melbourne at cruise draws
       terrain under it the whole way, and the tiles in memory stay under a
       stated bound.*
+- [ ] **Thermals from the ground beneath them, and lee waves trapped under a
+      stable layer.** *(Found building thermals and mountain waves.)* The
+      thermals rise alike over the sea, a lake and a sunlit slope, from one
+      station's report; the waves are linear theory in one wind and one
+      stability, so they rise away rather than lie trapped in a ridge's lee,
+      and there is no rotor. *Verification: on a convective day no thermal
+      rises over open water; and where the Scorer parameter falls with height,
+      the lee of a ridge holds waves at the wavelength two-layer theory
+      gives.*

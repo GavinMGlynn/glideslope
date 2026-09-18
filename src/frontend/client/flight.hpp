@@ -45,7 +45,9 @@ public:
     //
     // The weather is fetched again every weather_refresh_seconds of the flight,
     // off the simulation's thread, and blended in over weather_blend_seconds; a
-    // fetch that fails is reported and the weather kept.
+    // fetch that fails is reported and the weather kept. Its air rises and
+    // sinks over the DEM's terrain 32 km either way along the wind, whose tiles
+    // are fetched, as those under the aircraft are, when first needed.
     Flight(const std::filesystem::path& data, const std::filesystem::path& cache,
            const FlightStart& start);
 

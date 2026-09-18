@@ -20,6 +20,7 @@ add_executable(glideslope_tests
     unit/test_http.cpp
     unit/test_input.cpp
     unit/test_json.cpp
+    unit/test_lift.cpp
     unit/test_terrain_mesh.cpp
     unit/test_weather.cpp
     unit/test_figures.cpp
@@ -131,7 +132,15 @@ set(GLIDESLOPE_UNIT_TESTS
     turbulence_has_drydens_intensity_at_each_height_and_severity
     a_recorded_response_sets_the_wind_near_the_ground_through_its_boundary_layer
     reported_wind_shear_is_read_and_gives_the_approach_the_models_shear
-    a_microburst_gives_the_headwind_downdraught_and_tailwind_its_model_does)
+    a_microburst_gives_the_headwind_downdraught_and_tailwind_its_model_does
+    allens_updrafts_have_the_size_and_speed_his_paper_gives
+    the_convective_layer_is_as_deep_as_a_warmer_parcel_rises
+    each_thermal_in_its_prime_is_allens_updraft_and_between_them_the_air_sinks
+    a_thermal_grows_lives_and_fades_and_the_next_rises_elsewhere_in_its_cell
+    a_ridge_in_stable_air_makes_the_mountain_waves_of_linear_theory
+    without_stability_the_wind_over_a_ridge_is_potential_flow
+    a_warm_afternoons_report_lifts_the_air_in_thermals_and_over_its_ridges
+    an_aircraft_circling_in_a_thermal_climbs_by_as_much_as_the_model_lifts_it)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)

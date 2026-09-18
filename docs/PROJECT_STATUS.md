@@ -32,12 +32,15 @@ numbers. `glideslope_cli height LAT LON` gives the Copernicus DEM's height
 anywhere, fetching the tiles and geoid it needs, and the client's flight stands
 the Cessna on that ground. The client flies it from the keyboard, joysticks,
 HOTAS and yokes, with a HUD that tests read back out of the frame, and every
-platform's package draws a frame of it on Vulkan, Direct3D 12 or Metal - but the
-frame is sky, HUD and - done on Linux, awaiting CI - the terrain, drawn by
-Cesium Native from the DEM over the cells around where the flight starts, with
-EOX's Sentinel-2 cloudless imagery on it. There is no aircraft model, cockpit
-or server, and one aircraft of the sixteen the roster now names. The weather is real: METARs and winds aloft, fetched live,
-set JSBSim's wind, temperature, pressure and turbulence.
+platform's package draws a frame of it on Vulkan, Direct3D 12 or Metal: sky,
+HUD and the terrain, drawn by Cesium Native from the DEM over the cells around
+where the flight starts, with EOX's Sentinel-2 cloudless imagery on it. There
+is no aircraft model, cockpit or server, and one aircraft of the sixteen the
+roster now names. The weather is real: METARs and winds aloft, fetched live,
+set JSBSim's wind, temperature and pressure, and the air moves as a pattern of
+its own - gusts, turbulence, a boundary layer, reported shear, microbursts,
+and, done on Linux and awaiting CI, thermals and the terrain's lift - the same
+on every machine.
 
 **Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
 else is built on, one line per item, each verified:
@@ -59,18 +62,18 @@ fixed 120 Hz step; the Cessna 172P flying to its handbook; state capture and
 set/resume; the selftest's replay hash; the same flights on every platform; and
 a packaged CLI that flies — each proved on every platform.
 
-**Phase 2, the world, is under way: 10 of 12 items done**, each proved in CI on
-every platform: Earth-centred, Earth-fixed positions; a camera-relative floating
-origin; reversed depth; a window and a GPU device on Vulkan (Linux, and Windows
-through lavapipe), Direct3D 12 and Metal; the Copernicus DEM, read directly,
-with a height query anywhere held to surveyed runway ends and coastlines; and
-collision terrain the Cessna rests on (run 35241851702); flight controllers;
-the HUD; the client's test flags; and frames from CI and every package (CI run
-35244380011, package run 35244379942). Done on Linux and awaiting CI: Cesium
-Native drawing the open-data terrain, and open imagery on it - both proved on
-Ubuntu, Rocky 9 and macOS (runs 35318950553 and 35324096772); on Windows the
-first try hit MSVC's limit on a path's length, and the second built everything
-but a test tool, which used `sscanf`.
+**Phase 2, the world, is complete — 12 of 12 items**, each proved in CI on
+every platform: Earth-centred, Earth-fixed positions; a camera-relative
+floating origin; reversed depth; a window and a GPU device on Vulkan (Linux,
+and Windows through lavapipe), Direct3D 12 and Metal; the Copernicus DEM, read
+directly, with a height query anywhere held to surveyed runway ends and
+coastlines; and collision terrain the Cessna rests on (run 35241851702);
+flight controllers; the HUD; the client's test flags; frames from CI and every
+package (CI run 35244380011, package run 35244379942); and Cesium Native
+drawing the open-data terrain, with open imagery on it (CI run 35331164089,
+package run 35328306817). Windows took three tries: MSVC's limit on a path's
+length, then a test tool's `sscanf`. What remains of the world is in tails:
+terrain beyond the cells around the start, runways and buildings.
 
 **Phase 3, weather, is complete — 4 of 4 items**, proved in CI on every
 platform (run 35250647710) and fetched by every package (run 35248205205):
@@ -79,10 +82,10 @@ atmosphere, with MIL-F-8785C turbulence; and new reports blended in during a
 flight.
 
 **Phase 3b, wind that shears and gusts and hazardous air, is under way: 5 of
-7 items done on Linux and awaiting CI** - the same air on every machine, a
-METAR's gusts flown, the wind near the ground as a boundary layer, reported
-wind shear, and microbursts. Not started: thermals and mountain waves, and
-weather you can see. **Phase 5c, learning to fly, is new and not started:
+7 items done**, proved in CI on every platform (run 35331164089) - the same air
+on every machine, a METAR's gusts flown, the wind near the ground as a boundary
+layer, reported wind shear, and microbursts. Done on Linux and awaiting CI:
+thermals and mountain waves. Not started: weather you can see. **Phase 5c, learning to fly, is new and not started:
 0 of 4 items.** Added
 2026-09-18, as were the sixteen-aircraft roster of Phase 5 and a tail for
 terrain over the whole Earth; see the log.
@@ -104,6 +107,10 @@ are the risks the phase order is built around:
 - **The HUD's horizon line is not the horizon.** It moves a hundredth of the
   frame's height a degree of pitch, which was a choice when there was nothing
   behind it; now the terrain is drawn, the two do not line up.
+- **Thermals do not know the ground.** They rise as strongly over the sea as
+  over a sunlit field, and the terrain's lift is linear theory seen along the
+  wind only: no rotor, and no lee waves trapped under a stable layer. A tail
+  in `COMPLETION_PLAN.md`.
 - **Weather is one station's.** A flight flies in the weather of the airfield
   it names, everywhere it goes; nothing picks the nearest station, and there is
   no cloud, visibility or precipitation - JSBSim's atmosphere has wind,
@@ -118,7 +125,72 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Microbursts, 2026-09-18 — awaiting CI
+### Thermals, ridge lift and mountain waves, 2026-09-18 — awaiting CI
+
+**What is missing first:** the thermals do not know the ground. They rise as
+strongly over the sea, a lake or a north slope as over a sunlit field, from
+the station's report alone, and nothing marks them - no cumulus, since nothing
+draws cloud yet. The terrain's lift sees the ground only along the wind
+through the aircraft, 32 km each way: a ridge parallel to the wind lifts
+nothing, and the air across the wind is not in it. It is linear theory, so it
+has no rotor, no hydraulic jump and no flow blocked by a mountain too high for
+the wind to carry over it (N h / U well above 1), and with one wind and one
+stability for the whole column it makes waves that rise away rather than lee
+waves trapped under a stable layer.
+
+**Thermals** (`world::thermal_updraught`) are Allen's updraft model
+(NASA/TM-2006-213477, 2006), transcribed from the MATLAB in his appendix B:
+his mean updraft and radius with height, his bell fitted to Konovalov's
+measured updrafts, the ring of sinking air round each in the layer's upper
+half, and the sink between them that his mass balance sets. Where he places
+updrafts at random, one stands in each cell of a grid - his count per area,
+taken at 0.4 of the layer's depth, sets its size, 470 m for a layer 1.4 km
+deep - drawn from the weather's seed, 0.7 to 1.3 times his strength, living
+twenty minutes and growing and fading over three at each end; the pattern
+drifts with the wind halfway up the layer. The layer comes from the report: a
+parcel 1 C warmer than the METAR's air, rising dry-adiabatically through the
+forecast's temperatures until it is no warmer, up to 4 km; its convective
+velocity 2 m/s for 1,500 m, with the cube root of the depth; none under 300 m
+deep or in a surface wind over 25 kt, as in Allen's.
+
+**Ridge lift and mountain waves** (`world::terrain_updraught`) are linear
+theory: the terrain along the wind, 256 samples 250 m apart from the DEM,
+transformed; each wavenumber a wave rising with height where it is longer than
+2 pi U / N, and dying away where it is shorter; the vertical wind U times the
+displaced air's slope. At the ground that is the wind up the slope - lift on
+the windward side, sink in the lee - and above, waves leaning into the wind.
+The wind is the report's 1,000 m above the station, the stability its lapse
+between 1 and 4 km. The client gives the weather its DEM; the CLI's `air`
+command compares a synthetic ridge's lift and a hot afternoon's thermals
+across the platforms with the gusts and turbulence.
+
+**The tests:** Allen's updrafts are the size his worked example gives and the
+speeds his figure 10 shows, within 0.05 m/s; in its prime, each thermal of the
+pattern is his model to 1e-12 m/s, and beyond its reach the air sinks at his
+rate; over the pattern the air sinks as much as it rises within 15% (it is 3
+to 8%); each thermal grows and fades smoothly, one after another; the
+convective layer is the depth a parcel rises to, to 1e-6 m. The terrain's
+lift is within 2.4% and 1.0% of the strongest wind over two ridges in stable
+air - linear theory integrated in the test by quadrature, with nothing in
+common with the code's transform - and within 0.1% of potential flow with no
+stability. A Cessna gliding round a thermal at 65 KCAS in a 45-degree bank
+climbs as it does in still air at each height, sinking faster higher up where
+the air is thinner, and faster by the model's updraught along its path: 0.006
+m/s off 2.5 m/s of lift, where the test allows 2%. Without a forecast's
+temperatures aloft there are no thermals: the standard atmosphere's lapse
+alone made a 303 m layer, and thermals at night. **Watched to fail:** the waves
+leaning downwind, the transform unpadded, the thermals sinking, and no sink
+between thermals - each caught by the test meant for it.
+
+**Found on the way:** Queney's hydrostatic formula, the first reference, was
+18% off the code over a ridge 5 km wide; the code is right. Its waves are
+non-hydrostatic, and a ridge's slopes hold wavelengths short enough for that
+to matter several kilometres up; linear theory integrated exactly agrees
+within 2.4%. And the transform pads the terrain with as much level ground
+again: a transform takes what it is given to repeat, and with the copies 64 km
+away rather than 128, the narrow ridge's waves were 4.2% off rather than 1.0%.
+
+### Microbursts, 2026-09-18 — item done (CI run 35331164089)
 
 **What is missing first:** nothing places a microburst but whoever sets the
 weather - a test, or `glideslope --weather STATION --microburst LAT,LON` - so
@@ -145,7 +217,7 @@ burst 2.5 km before the runway, the wind at every 10 m is the model's to 1e-9,
 the headwind strongest before the centre, the downdraught at it, the tailwind
 after. **Watched to fail:** the downdraught turned to an updraught.
 
-### Reported wind shear, 2026-09-18 — awaiting CI
+### Reported wind shear, 2026-09-18 — item done (CI run 35331164089)
 
 **What is missing first:** a report of shear is flown as a model, not as what
 was measured: a METAR says only that there is shear on a runway, not how much
@@ -172,7 +244,7 @@ runway 02's approach at Lisbon the headwind is the surface wind's plus the
 model's to 1e-9 at seven points, from 8.5 km out to 1.1 km, 60 to 700 m up.
 **Watched to fail:** the shear blowing as a tailwind; `WS` not read.
 
-### The wind near the ground as a boundary layer, 2026-09-18 — awaiting CI
+### The wind near the ground as a boundary layer, 2026-09-18 — item done (CI run 35331164089)
 
 **What is missing first:** where the METAR and the forecast disagree, the
 shear between 10 and 80 m is their disagreement: at Sydney on 18 September the
@@ -199,7 +271,7 @@ profile's wind at its height before every step, to 0.01 ft/s. **Watched to
 fail:** linear rather than logarithmic between the heights (at 30 m); the
 forecast's winds near the ground ignored (at 80 m).
 
-### Gusts and turbulence: the same air on every machine, 2026-09-18 — awaiting CI
+### Gusts and turbulence: the same air on every machine, 2026-09-18 — items done (CI run 35331164089)
 
 **What is missing first:** gusts and turbulence are the wind's: nothing yet
 makes wind shear near the ground (the boundary layer is the next item), a
@@ -267,7 +339,7 @@ still varies from 0.8 to 3 times, as 48 waves sample a spectrum.
 every platform, which floating point across compilers cannot promise, and was
 amended to 1e-9 m/s before this was built.
 
-### Open imagery on the terrain, 2026-09-18 — awaiting CI
+### Open imagery on the terrain, 2026-09-18 — item done (CI run 35331164089)
 
 **What is missing first:** the imagery is 2016's - EOX's later mosaics are not
 open - and 10 m a pixel at its finest, so a runway is a grey stripe with no
@@ -351,7 +423,7 @@ and shared parameters alone.
 F-35A and B-2, which are written here. Much of the F-35A's and B-2's performance
 is not public; they will be held to what is, and no more claimed.
 
-### Terrain, drawn by Cesium Native from the DEM, 2026-09-18 — awaiting CI
+### Terrain, drawn by Cesium Native from the DEM, 2026-09-18 — item done (CI run 35331164089)
 
 **What is missing first:** the terrain is a region, not the world - the nine
 whole-degree cells around where the flight starts, or the one cell the terrain

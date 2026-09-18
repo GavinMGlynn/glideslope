@@ -213,7 +213,41 @@ std::uint64_t air_seed_of(const Metar& metar) {
     return (h ^ minute) * 0x100000001b3ULL;
 }
 
-sim::Conditions with_air_motion(const WeatherReport& report, sim::Conditions mean,
+Lift lift_of(const WeatherReport& report) {
+    const double ground = report.surface.elevation_m;
+    const auto temperature = [&](double height_msl_m) {
+        return isa_temperature_c(height_msl_m) +
+               conditions_at(report, height_msl_m).temperature_offset_c;
+    };
+    const sim::Conditions surface = surface_conditions(report.surface);
+    Lift lift;
+    // Without the forecast's temperatures above it, the layer cannot be judged:
+    // the standard atmosphere's lapse would make one at any hour, night or day.
+    if (report.aloft && !report.aloft->levels.empty()) {
+        lift.convection = convection(
+            temperature(ground), ground,
+            std::hypot(surface.wind_north_mps, surface.wind_east_mps), temperature);
+    }
+    const sim::Conditions halfway =
+        conditions_at(report, ground + 0.5 * lift.convection.depth_m);
+    lift.drift_north_mps = halfway.wind_north_mps;
+    lift.drift_east_mps = halfway.wind_east_mps;
+    const sim::Conditions above = conditions_at(report, ground + 1000.0);
+    lift.wind_north_mps = above.wind_north_mps;
+    lift.wind_east_mps = above.wind_east_mps;
+    // N^2 = g / T (dT/dz + the dry adiabatic lapse), between 1 and 4 km up.
+    constexpr double gravity = 9.80665;
+    constexpr double dry_lapse = 0.0098;
+    const double low = temperature(ground + 1000.0);
+    const double high = temperature(ground + 4000.0);
+    const double mean_k = 0.5 * (low + high) + 273.15;
+    const double n2 = gravity / mean_k * ((high - low) / 3000.0 + dry_lapse);
+    lift.buoyancy_frequency = n2 > 0.0 ? std::sqrt(n2) : 0.0;
+    return lift;
+}
+
+sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
+                                const GroundAt& ground, sim::Conditions mean,
                                 double latitude_deg, double longitude_deg,
                                 double height_msl_m, double time_s) {
     constexpr double mps_per_knot = 1852.0 / 3600.0;
@@ -225,7 +259,9 @@ sim::Conditions with_air_motion(const WeatherReport& report, sim::Conditions mea
     const int severity =
         report.turbulence_severity.value_or(severity_from_gust_spread(spread_kt));
     const bool shear = m.wind_shear_all_runways || !m.wind_shear_runways.empty();
-    if (spread_kt <= 0.0 && severity <= 0 && !shear && report.microbursts.empty()) {
+    const bool thermals = lift.convection.velocity_mps > 0.0;
+    if (spread_kt <= 0.0 && severity <= 0 && !shear && report.microbursts.empty() &&
+        !thermals && !ground) {
         return mean;
     }
 
@@ -309,16 +345,45 @@ sim::Conditions with_air_motion(const WeatherReport& report, sim::Conditions mea
     mean.wind_east_mps += t.east;
     mean.wind_north_mps += t.north;
     mean.wind_down_mps -= t.up;
+
+    // Thermals, over the ground beneath, carried by the layer's wind.
+    const double cosine = std::cos(latitude_deg * radians);
+    if (thermals) {
+        const double beneath =
+            ground ? ground(latitude_deg, longitude_deg) : report.surface.elevation_m;
+        const Enu drifted{from_station.east - lift.drift_east_mps * time_s,
+                          from_station.north - lift.drift_north_mps * time_s,
+                          height_msl_m - beneath};
+        mean.wind_down_mps -=
+            thermal_updraught(report.air_seed, lift.convection, drifted, time_s);
+    }
+
+    // The terrain's lift, along the wind through the aircraft.
+    const double across = std::hypot(lift.wind_north_mps, lift.wind_east_mps);
+    if (ground && across >= 1.0) {
+        const double north = lift.wind_north_mps / across;
+        const double east = lift.wind_east_mps / across;
+        const TerrainAlong terrain = [&](double along_m) {
+            return ground(latitude_deg + north * along_m / metres_per_degree,
+                          longitude_deg +
+                              east * along_m / (metres_per_degree * cosine));
+        };
+        mean.wind_down_mps -=
+            terrain_updraught(terrain, height_msl_m, across, lift.buoyancy_frequency);
+    }
     return mean;
 }
 
 ReportedWeather::ReportedWeather(WeatherReport report, const Geoid* geoid,
-                                 double blend_seconds)
-    : current_(std::move(report)), geoid_(geoid), blend_seconds_(blend_seconds) {}
+                                 double blend_seconds, GroundAt ground)
+    : current_(std::move(report)), current_lift_(lift_of(current_)),
+      ground_(std::move(ground)), geoid_(geoid), blend_seconds_(blend_seconds) {}
 
 void ReportedWeather::update(WeatherReport report, double now_s) {
     previous_ = std::move(current_);
+    previous_lift_ = current_lift_;
     current_ = std::move(report);
+    current_lift_ = lift_of(current_);
     changed_at_s_ = now_s;
 }
 
@@ -327,8 +392,9 @@ sim::Conditions ReportedWeather::at(double latitude_deg, double longitude_deg,
     const double msl = geoid_ != nullptr
                            ? height_m - geoid_->undulation(latitude_deg, longitude_deg)
                            : height_m;
-    sim::Conditions now = with_air_motion(current_, conditions_at(current_, msl),
-                                          latitude_deg, longitude_deg, msl, time_s);
+    sim::Conditions now =
+        with_air_motion(current_, current_lift_, ground_, conditions_at(current_, msl),
+                        latitude_deg, longitude_deg, msl, time_s);
     if (!previous_ || blend_seconds_ <= 0.0) {
         return now;
     }
@@ -337,9 +403,9 @@ sim::Conditions ReportedWeather::at(double latitude_deg, double longitude_deg,
         previous_.reset();
         return now;
     }
-    const sim::Conditions before =
-        with_air_motion(*previous_, conditions_at(*previous_, msl), latitude_deg,
-                        longitude_deg, msl, time_s);
+    const sim::Conditions before = with_air_motion(
+        *previous_, previous_lift_, ground_, conditions_at(*previous_, msl),
+        latitude_deg, longitude_deg, msl, time_s);
     const auto mix = [w](double a, double b) { return a + w * (b - a); };
     sim::Conditions c;
     c.wind_north_mps = mix(before.wind_north_mps, now.wind_north_mps);

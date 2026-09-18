@@ -65,8 +65,12 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
             fetch_);
         report.microbursts = start.microbursts;
         microbursts_ = start.microbursts;
+        // The air rises and sinks over the same ground the aircraft meets.
         weather_ = std::make_shared<world::ReportedWeather>(
-            std::move(report), geoid_.get(), weather_blend_seconds);
+            std::move(report), geoid_.get(), weather_blend_seconds,
+            [dem](double lat, double lon) {
+                return dem->height_above_geoid(lat, lon);
+            });
         aircraft_->set_weather(weather_);
     }
 }
@@ -163,12 +167,13 @@ std::string Flight::trace() const {
     std::snprintf(line, sizeof line,
                   "trace tick %lld time %.4f lat %.7f lon %.7f alt_ft %.3f agl_ft %.3f "
                   "kcas %.3f heading %.3f vs_fpm %.3f pitch %.3f roll %.3f "
-                  "wind_north_fps %.3f wind_east_fps %.3f",
+                  "wind_north_fps %.3f wind_east_fps %.3f wind_down_fps %.3f",
                   static_cast<long long>(tick_), s.sim_time_s, s.latitude_deg,
                   s.longitude_deg, s.altitude_ft, s.height_above_ground_ft,
                   s.airspeed_kts, s.heading_deg, s.climb_rate_fpm, s.pitch_deg,
                   s.roll_deg, aircraft_->property("atmosphere/wind-north-fps"),
-                  aircraft_->property("atmosphere/wind-east-fps"));
+                  aircraft_->property("atmosphere/wind-east-fps"),
+                  aircraft_->property("atmosphere/wind-down-fps"));
     return line;
 }
 

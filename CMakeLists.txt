@@ -140,6 +140,7 @@ cmake_language(DEFER CALL glideslope_check_sim_links glideslope_sim)
 # ---------------------------------------------------------------------------
 add_library(glideslope_world STATIC
     src/world/air_motion.cpp
+    src/world/lift.cpp
     src/world/byte_source.cpp
     src/world/dem.cpp
     src/world/digest.cpp

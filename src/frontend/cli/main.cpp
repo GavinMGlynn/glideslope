@@ -52,8 +52,9 @@ void print_usage(std::FILE* out) {
         "  weather STATION           the weather now at an airfield: its METAR, and "
         "the\n"
         "                            winds aloft over it\n"
-        "  air                       the air - gusts and turbulence - at a thousand\n"
-        "                            places and times, for comparing platforms\n"
+        "  air                       the air - gusts, turbulence, thermals and a\n"
+        "                            ridge's lift - at a thousand places and times,\n"
+        "                            for comparing platforms\n"
         "\n"
         "  --data DIR                read data from DIR instead of data/ beside the\n"
         "                            program\n",
@@ -240,26 +241,77 @@ int weather(const std::string& station) {
 // each wind component in whole 1e-11 m/s: what CI compares across platforms
 // (tests/cmake/cross_platform_flights.cmake), whose arithmetic is in integers.
 int air() {
-    glideslope::world::WeatherReport report;
-    report.surface.metar =
-        glideslope::world::parse_metar("KABQ 180759Z 18027G37KT 9999 18/16 A2992");
-    report.surface.latitude_deg = 35.0419;
-    report.surface.longitude_deg = -106.6092;
-    report.surface.elevation_m = 1631.0;
-    report.air_seed = glideslope::world::air_seed_of(report.surface.metar);
-    glideslope::world::ReportedWeather weather(report, nullptr, 0.0);
+    namespace world = glideslope::world;
+    // Ground for the air to rise and sink over: a stand-in for the Sandias, a
+    // ridge 900 m high 8 km east of the station, and hills about it.
+    constexpr double station_lat = 35.0419;
+    constexpr double station_lon = -106.6092;
+    constexpr double elevation = 1631.0;
+    const world::GroundAt ground = [](double lat, double lon) {
+        const double east = (lon - station_lon) * 111319.49 *
+                            std::cos(station_lat * 3.14159265358979323846 / 180.0);
+        const double north = (lat - station_lat) * 111319.49;
+        const double ridge = (east - 8000.0) / 3000.0;
+        return elevation + 900.0 * std::exp(-ridge * ridge) +
+               150.0 * std::sin(north / 2500.0) * std::cos(east / 4000.0);
+    };
+
+    // A gusty morning, and a hot, calm afternoon under a well-mixed layer 3 km
+    // deep, with a westerly strengthening above it.
+    world::WeatherReport gusty;
+    gusty.surface.metar =
+        world::parse_metar("KABQ 180759Z 18027G37KT 9999 18/16 A2992");
+    world::WeatherReport warm;
+    warm.surface.metar =
+        world::parse_metar("KABQ 182200Z 24008KT 9999 SKC 33/02 A3005");
+    world::WindsAloft aloft;
+    aloft.latitude_deg = station_lat;
+    aloft.longitude_deg = station_lon;
+    const struct {
+        double pressure;
+        double height;
+        double temperature;
+        double east;
+    } levels[] = {{800.0, 2000.0, 26.0, 6.0},
+                  {700.0, 3100.0, 15.2, 9.0},
+                  {600.0, 4300.0, 8.0, 12.0},
+                  {500.0, 5700.0, -2.0, 16.0},
+                  {400.0, 7300.0, -14.0, 20.0}};
+    for (const auto& l : levels) {
+        world::AloftLevel level;
+        level.pressure_hpa = l.pressure;
+        level.height_m = l.height;
+        level.temperature_c = l.temperature;
+        level.wind_east_mps = l.east;
+        aloft.levels.push_back(level);
+    }
+    warm.aloft = aloft;
+    for (world::WeatherReport* r : {&gusty, &warm}) {
+        r->surface.latitude_deg = station_lat;
+        r->surface.longitude_deg = station_lon;
+        r->surface.elevation_m = elevation;
+        r->air_seed = world::air_seed_of(r->surface.metar);
+    }
+    world::ReportedWeather gusty_weather(gusty, nullptr, 0.0, ground);
+    world::ReportedWeather warm_weather(warm, nullptr, 0.0, ground);
+
     std::uint64_t state = 12345;
     const auto next = [&] {
         state = state * 6364136223846793005ULL + 1442695040888963407ULL;
         return static_cast<double>(state >> 11) / 9007199254740992.0;
     };
-    std::printf("air of KABQ 180759Z 18027G37KT, in 1e-11 m/s north, east and down\n");
+    std::printf(
+        "air of KABQ 180759Z 18027G37KT, then KABQ 182200Z 24008KT 33/02 under a "
+        "well-mixed layer, over a ridge, in 1e-11 m/s north, east and down\n");
     for (int i = 0; i < 1000; ++i) {
-        const double lat = report.surface.latitude_deg + (next() - 0.5) * 0.36;
-        const double lon = report.surface.longitude_deg + (next() - 0.5) * 0.36;
-        const double height = report.surface.elevation_m + next() * 1500.0;
+        const bool morning = i < 500;
+        const double lat = station_lat + (next() - 0.5) * 0.36;
+        const double lon = station_lon + (next() - 0.5) * 0.36;
+        const double above = next() * (morning ? 1500.0 : 3000.0);
         const double time = next() * 3600.0;
-        const auto c = weather.at(lat, lon, height, time);
+        const double height = (morning ? elevation : ground(lat, lon)) + above;
+        const auto c =
+            (morning ? gusty_weather : warm_weather).at(lat, lon, height, time);
         std::printf("air %d %lld %lld %lld\n", i,
                     static_cast<long long>(std::llround(c.wind_north_mps * 1e11)),
                     static_cast<long long>(std::llround(c.wind_east_mps * 1e11)),

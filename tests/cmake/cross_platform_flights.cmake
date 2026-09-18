@@ -17,9 +17,9 @@
 #   the selftest's end       within 300 ft horizontally and 30 ft vertically
 #                            after five minutes, 1 kt of airspeed and 2 degrees
 #                            of heading
-#   the air                  `glideslope_cli air`'s thousand samples of gusts
-#                            and turbulence each within 1e-9 m/s of the first
-#                            platform's
+#   the air                  `glideslope_cli air`'s thousand samples of gusts,
+#                            turbulence, thermals and a ridge's lift, each
+#                            within 1e-9 m/s of the first platform's
 #
 # The platforms are named, and a missing one fails: a comparison of the
 # platforms that happened to report is not a comparison of all of them.
@@ -179,8 +179,9 @@ foreach(_p IN LISTS _platforms)
     endif()
 endforeach()
 
-# The air: `glideslope_cli air`'s thousand samples of gusts and turbulence, in
-# whole 1e-11 m/s, each within 1e-9 m/s of the first platform's.
+# The air: `glideslope_cli air`'s thousand samples of gusts, turbulence,
+# thermals and a ridge's lift, in whole 1e-11 m/s, each within 1e-9 m/s of the
+# first platform's.
 list(GET _platforms 0 _first)
 file(STRINGS "${DIR}/${_first}.air.txt" _air_first REGEX "^air [0-9]+ ")
 list(LENGTH _air_first _air_count)

@@ -742,8 +742,9 @@ GLIDESLOPE_TEST(reported_wind_shear_is_read_and_gives_the_approach_the_models_sh
                            back_m * std::sin(heading) /
                                (111319.49 * std::cos(r.surface.latitude_deg * radians));
         const auto c = glideslope::world::with_air_motion(
-            r, glideslope::world::conditions_at(r, r.surface.elevation_m + above_m),
-            lat, lon, r.surface.elevation_m + above_m, 100.0);
+            r, glideslope::world::lift_of(r), {},
+            glideslope::world::conditions_at(r, r.surface.elevation_m + above_m), lat,
+            lon, r.surface.elevation_m + above_m, 100.0);
         // Air moving towards 200 degrees is a headwind on 020.
         return -(c.wind_north_mps * std::cos(heading) +
                  c.wind_east_mps * std::sin(heading));

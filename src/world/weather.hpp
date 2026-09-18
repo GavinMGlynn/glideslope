@@ -7,10 +7,12 @@
 #include "world/air_motion.hpp"
 #include "world/download.hpp"
 #include "world/geoid.hpp"
+#include "world/lift.hpp"
 #include "world/metar.hpp"
 #include "world/winds_aloft.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -80,17 +82,43 @@ std::uint64_t air_seed_of(const Metar& metar);
 // standard atmosphere. The pressure is the METAR's everywhere.
 sim::Conditions conditions_at(const WeatherReport& report, double height_msl_m);
 
+// What a report's rising and sinking air is made in, worked out from it once:
+// the convective layer over its station (world/lift.hpp), from its surface
+// temperature and wind and the forecast's temperatures above - none without a
+// forecast, whose temperatures alone can say whether there is one; the wind that
+// carries the thermals, the layer's halfway up; and the wind and the air's
+// buoyancy frequency the terrain's waves are made in - the wind 1,000 m above
+// the station, and the frequency between 1,000 and 4,000 m above it, from the
+// temperatures' lapse there against the dry adiabatic.
+struct Lift {
+    Convection convection;
+    double drift_north_mps = 0.0;
+    double drift_east_mps = 0.0;
+    double wind_north_mps = 0.0;
+    double wind_east_mps = 0.0;
+    double buoyancy_frequency = 0.0; // radians a second
+};
+Lift lift_of(const WeatherReport& report);
+
+// The ground's height above sea level at a place, for the air over it.
+using GroundAt = std::function<double(double latitude_deg, double longitude_deg)>;
+
 // The air's motion a report describes at a place and time beyond its mean
 // wind - reported wind shear, microbursts, gusts and turbulence
-// (world/air_motion.hpp) - added to `mean`, the conditions there. A report of wind
-// shear makes, within 8 km of the station, a 15 kt headwind on the named runway's
-// approach - or along the surface wind, for all runways - between 60 and 600 m above
-// the ground, rising from none at 60 m to all of it at 300 m. The gusts are the METAR's
-// spread over its mean wind, along its wind, in full up to 10 m above the station and
-// fading to none 600 m above that. The turbulence is Dryden's at its severity, over the
-// height above the station. Both patterns are carried by the surface wind, from the
-// station. JSBSim's own turbulence is left off: the air is all here.
-sim::Conditions with_air_motion(const WeatherReport& report, sim::Conditions mean,
+// (world/air_motion.hpp), thermals and the terrain's lift (world/lift.hpp) -
+// added to `mean`, the conditions there. A report of wind shear makes, within
+// 8 km of the station, a 15 kt headwind on the named runway's approach - or
+// along the surface wind, for all runways - between 60 and 600 m above the
+// ground, rising from none at 60 m to all of it at 300 m. The gusts are the
+// METAR's spread over its mean wind, along its wind, in full up to 10 m above
+// the station and fading to none 600 m above that. The turbulence is Dryden's
+// at its severity, over the height above the station. Both patterns are
+// carried by the surface wind, from the station. The thermals are `lift`'s,
+// over the ground beneath - or the station's elevation, without `ground` -
+// carried by its drift. The terrain's lift is made from `ground`, and without
+// it there is none. JSBSim's own turbulence is left off: the air is all here.
+sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
+                                const GroundAt& ground, sim::Conditions mean,
                                 double latitude_deg, double longitude_deg,
                                 double height_msl_m, double time_s);
 
@@ -110,8 +138,10 @@ inline constexpr const char* open_meteo_credit = "Weather data by Open-Meteo.com
 class ReportedWeather : public sim::Weather {
 public:
     // `geoid` converts the aircraft's height above the ellipsoid to height above
-    // mean sea level; without one they are taken as the same.
-    ReportedWeather(WeatherReport report, const Geoid* geoid, double blend_seconds);
+    // mean sea level; without one they are taken as the same. `ground` gives
+    // the terrain the air rises and sinks over; without it, there is none.
+    ReportedWeather(WeatherReport report, const Geoid* geoid, double blend_seconds,
+                    GroundAt ground = {});
 
     // A new report, blending in from simulation time `now_s`.
     void update(WeatherReport report, double now_s);
@@ -126,6 +156,9 @@ public:
 private:
     std::optional<WeatherReport> previous_;
     WeatherReport current_;
+    Lift previous_lift_;
+    Lift current_lift_;
+    GroundAt ground_;
     double changed_at_s_ = 0.0;
     const Geoid* geoid_;
     double blend_seconds_;
