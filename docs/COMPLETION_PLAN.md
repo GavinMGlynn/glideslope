@@ -214,9 +214,20 @@ models, whose hidden state a restored aircraft would not carry.
 
 ## Phase 4 — Autopilot and navigation
 
-- [ ] **Holds for heading, altitude, airspeed and vertical speed.**
-      *Verification: each hold captures a step change within a stated overshoot
-      and settling time, in calm air and in turbulence.*
+- [ ] **Holds for heading, altitude, airspeed and vertical speed.** **Done
+      locally; awaiting CI.** *Verification: each hold captures a step change
+      within a stated overshoot and settling time, in calm air and in
+      turbulence.* Stated, 2026-09-18, for the Cessna at 4,000 ft and 100
+      KCAS: in calm air, heading 0 to 90 degrees overshooting at most 3 and
+      within 2 for good by 50 s; altitude up 500 ft, at most 20 ft over and
+      within 20 by 80 s; airspeed up 10 kt, at most 2 over and within 2 by
+      15 s; climb 0 to 500 ft/min, at most 100 over and within 50 by 15 s. In
+      moderate turbulence, on ten-second averages: heading within 5 degrees by
+      40 s, overshooting at most 5; altitude within 50 ft by 70 s; climb
+      within 150 ft/min by 30 s, overshooting at most 200; airspeed at most 3
+      kt over, within 5 kt by 20 s and never more than 10 off after a minute.
+      And engaging the autopilot moves no control more than a hundredth of its
+      travel in a step.
 - [ ] **Waypoint following and flight plans as data.** *Verification: a plan
       loaded from a file passes every waypoint within a stated distance.*
 - [ ] **The user/AI controller swap.** *Verification: swapping mid-flight in

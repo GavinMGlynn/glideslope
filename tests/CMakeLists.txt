@@ -13,6 +13,7 @@ add_executable(glideslope_tests
     unit/harness.cpp
     unit/tiff_writer.cpp
     unit/test_air_motion.cpp
+    unit/test_autopilot.cpp
     unit/test_dem.cpp
     unit/test_dem_surveyed.cpp
     unit/test_digest.cpp
@@ -145,7 +146,9 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_circling_in_a_thermal_climbs_by_as_much_as_the_model_lifts_it
     a_reports_cloud_is_drawn_as_decks_at_its_heights_and_cover
     a_decks_pattern_covers_as_much_of_the_sky_as_its_eighths_say
-    a_reports_visibility_and_precipitation_are_drawn_as_it_gives_them)
+    a_reports_visibility_and_precipitation_are_drawn_as_it_gives_them
+    the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb
+    engaging_the_autopilot_moves_no_control_faster_than_a_pilots_hand)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
