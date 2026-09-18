@@ -6,6 +6,7 @@
 #include "gfx/hud.hpp"
 #include "gfx/scene.hpp"
 #include "sim/aircraft.hpp"
+#include "sim/catalogue.hpp"
 #include "sim/controller.hpp"
 #include "sim/navigator.hpp"
 #include "gfx/sky.hpp"
@@ -26,11 +27,14 @@
 namespace glideslope::client {
 
 struct FlightStart {
+    // The aircraft, by its id in the catalogue (sim/catalogue.hpp).
+    std::string aircraft = "c172p";
     double latitude_deg = -33.9461; // over Sydney airport
     double longitude_deg = 151.1772;
     double height_m = 1000.0; // above the WGS84 ellipsoid
     double heading_deg = 160.0;
-    double airspeed_kts = 100.0;
+    // Calibrated; by default, the catalogue's for the aircraft.
+    std::optional<double> airspeed_kts;
     // The airfield - its ICAO code - whose reported weather the flight is flown
     // in; empty for the standard atmosphere with no wind.
     std::string weather_station;
@@ -48,7 +52,8 @@ inline constexpr double weather_blend_seconds = 5 * 60.0;
 
 class Flight {
 public:
-    // Loads the Cessna from `data`, stands it on the DEM - tiles and the geoid
+    // Loads the aircraft `start` names, from the catalogue in `data`, stands
+    // it on the DEM - tiles and the geoid
     // from `cache`, fetched there when missing - and starts it at `start`, in
     // the weather reported now at its station if it names one. Throws if any of
     // that cannot be had.
@@ -60,6 +65,11 @@ public:
     // are fetched, as those under the aircraft are, when first needed.
     Flight(const std::filesystem::path& data, const std::filesystem::path& cache,
            const FlightStart& start);
+
+    // The aircraft flown, from the catalogue.
+    const sim::CatalogueEntry& aircraft() const {
+        return aircraft_entry_;
+    }
 
     // One step, with the pilot's controls - which fly the aircraft unless the
     // AI does. Each waypoint of a plan the AI passes is printed as it is
@@ -113,6 +123,7 @@ private:
     std::unique_ptr<world::DemTiles> tiles_;
     std::unique_ptr<world::Geoid> geoid_;
     std::shared_ptr<world::Dem> dem_;
+    sim::CatalogueEntry aircraft_entry_;
     std::unique_ptr<sim::Aircraft> aircraft_;
     // Made at the first step, from the pilot's controls then.
     std::unique_ptr<sim::Controller> controller_;

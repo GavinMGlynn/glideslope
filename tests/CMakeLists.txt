@@ -14,6 +14,7 @@ add_executable(glideslope_tests
     unit/tiff_writer.cpp
     unit/test_air_motion.cpp
     unit/test_autopilot.cpp
+    unit/test_catalogue.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -154,7 +155,9 @@ set(GLIDESLOPE_UNIT_TESTS
     engaging_the_autopilot_moves_no_control_faster_than_a_pilots_hand
     a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wrong
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
-    handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase)
+    handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase
+    every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_air
+    an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
@@ -416,6 +419,12 @@ add_test(NAME the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DMODEL=c172p
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/aircraft_figures.cmake)
+
+add_test(NAME the_cli_lists_the_aircraft_the_data_holds
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=aircraft -DEXIT=0
+        "-DSTDOUT_MATCHES=c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest"
+        -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_an_aircraft_it_has_no_files_for
     COMMAND ${CMAKE_COMMAND}

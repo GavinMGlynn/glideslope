@@ -65,7 +65,8 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     }
     start_with_ai_ = start.autopilot;
 
-    aircraft_ = std::make_unique<sim::Aircraft>(data / "jsbsim", "c172p");
+    aircraft_entry_ = sim::find_aircraft(data, start.aircraft);
+    aircraft_ = std::make_unique<sim::Aircraft>(data / "jsbsim", aircraft_entry_.model);
     const std::shared_ptr<world::Dem> dem = dem_;
     aircraft_->set_terrain(
         std::make_shared<sim::FunctionTerrain>([dem](double lat, double lon) {
@@ -76,7 +77,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     ic.longitude_deg = start.longitude_deg;
     ic.altitude_ft = start.height_m * feet_per_metre;
     ic.heading_deg = start.heading_deg;
-    ic.airspeed_kts = start.airspeed_kts;
+    ic.airspeed_kts = start.airspeed_kts.value_or(aircraft_entry_.start_airspeed_kts);
     ic.engine_running = true;
     aircraft_->initialize(ic);
 

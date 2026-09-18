@@ -86,7 +86,10 @@ flight.
 of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
 and 35363959900): the same air on every machine, a METAR's gusts flown, the
 wind near the ground as a boundary layer, reported wind shear, microbursts,
-thermals and mountain waves, and weather you can see. **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
+thermals and mountain waves, and weather you can see. **Phase 5, aircraft choice, is under way: 0 of 14 items done** - aircraft
+as data is done on Linux and awaiting CI.
+
+**Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
 holds for heading, altitude, airspeed and vertical speed; flight plans flown
 past their waypoints; the user/AI controller swap; and `--autopilot`, with
@@ -136,6 +139,30 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### Aircraft as data, 2026-09-19 — awaiting CI
+
+**What is missing first:** the catalogue holds one aircraft, the Cessna 172P;
+the rest of Phase 5 adds the others, each held to its published figures
+first. Nothing chooses an aircraft yet - the client flies the catalogue's
+Cessna - and the catalogue says nothing of how an aircraft looks, sounds or
+is started on the ground.
+
+**The catalogue** (`assets/aircraft`, read by `sim::read_catalogue`) is a file
+to an aircraft: its name, its JSBSim model, and the airspeed and throttle a
+flight begun in the air starts with. Its published figures and its selftest,
+if it has them, are found by its model's name. The client looks its aircraft
+up there rather than naming the Cessna in code, and starts it at the
+catalogue's airspeed and throttle; `glideslope_cli aircraft` lists what the
+data holds.
+
+**The tests:** a copy of the data with one `.aircraft` file more - another
+aircraft on the Cessna's model, started at 80 KCAS - holds one aircraft more,
+which loads and, on the autopilot, holds its start; every aircraft the data
+holds does the same at 3,000 ft for a minute; and a file with a command it
+does not know, a throttle past full, no start, or a model the data does not
+hold is refused, by its line. **Watched to fail:** the catalogue finding any
+aircraft for any name, and reading no files.
 
 ### `--autopilot`: the client's AI flies, 2026-09-19 — item done (CI run 35378850716)
 

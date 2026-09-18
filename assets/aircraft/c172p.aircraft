@@ -1,0 +1,14 @@
+# The Cessna 172P Skyhawk: glideslope's first aircraft, held to its handbook's
+# figures (assets/figures/c172p.xml).
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name Cessna 172P Skyhawk
+model c172p
+start 100 0.7

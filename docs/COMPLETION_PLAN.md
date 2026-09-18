@@ -260,8 +260,13 @@ Learjet, the Mosquito, the F-35A and the B-2, and those it ships are of uneven
 quality: each is held to published figures before it is offered, as the Cessna
 172P was. The five it does not ship are written here, from published data.
 
-- [ ] **Aircraft as data.** *Verification: an aircraft is added without a code
-      change, and a test walks every aircraft the data holds.*
+- [ ] **Aircraft as data.** **Done locally; awaiting CI.** *Verification: an
+      aircraft is added without a code change, and a test walks every aircraft
+      the data holds.* Stated, 2026-09-19: a copy of the data with one
+      `.aircraft` file more holds one aircraft more, as its file describes,
+      which loads and flies; and every aircraft the data holds loads and, on
+      the autopilot, holds 3,000 ft within 100 ft and its catalogue airspeed
+      within 5 kt for a minute.
 - [ ] **A Mosquito flight model**, written here from its pilot's notes and
       published trials - the first aircraft after the Cessna, at the project
       owner's asking. *Verification: maximum speed at altitude, climb, stall

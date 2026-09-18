@@ -121,6 +121,7 @@ add_library(glideslope_sim STATIC
     src/sim/fixed_step.cpp
     src/sim/selftest.cpp
     src/sim/autopilot.cpp
+    src/sim/catalogue.cpp
     src/sim/controller.cpp
     src/sim/navigator.cpp
     src/sim/test_pilot.cpp

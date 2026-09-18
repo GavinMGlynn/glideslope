@@ -7,6 +7,7 @@
 #include "platform/http.hpp"
 #include "platform/paths.hpp"
 #include "sim/aircraft.hpp"
+#include "sim/catalogue.hpp"
 #include "sim/figures.hpp"
 #include "sim/selftest.hpp"
 #include "sim/version.hpp"
@@ -41,6 +42,7 @@ void print_usage(std::FILE* out) {
         "\n"
         "  --version                 print the version\n"
         "  --help                    print this\n"
+        "  aircraft                  list the aircraft the data holds\n"
         "  aircraft NAME             print what NAME's model files say\n"
         "  figures NAME [FIGURE]     fly NAME's published figures, or one, and exit 1\n"
         "                            if any lands out of range\n"
@@ -63,6 +65,22 @@ void print_usage(std::FILE* out) {
         "  --data DIR                read data from DIR instead of data/ beside the\n"
         "                            program\n",
         out);
+}
+
+// Every aircraft in the catalogue, and what of it the data holds.
+int list_aircraft(const std::filesystem::path& data) {
+    for (const glideslope::sim::CatalogueEntry& e :
+         glideslope::sim::read_catalogue(data)) {
+        const bool figures =
+            std::filesystem::exists(data / "figures" / (e.model + ".xml"));
+        const bool selftest =
+            std::filesystem::exists(data / "selftest" / (e.model + ".log"));
+        std::printf("%-12s %-28s model %s, starting at %.0f KCAS%s%s\n", e.id.c_str(),
+                    e.name.c_str(), e.model.c_str(), e.start_airspeed_kts,
+                    figures ? ", published figures" : "",
+                    selftest ? ", a selftest" : "");
+    }
+    return 0;
 }
 
 int print_aircraft(const std::filesystem::path& data, const std::string& model) {
@@ -445,6 +463,9 @@ int main(int argc, char** argv) {
         if (args.size() == 1 && args[0] == "--help") {
             print_usage(stdout);
             return 0;
+        }
+        if (args.size() == 1 && args[0] == "aircraft") {
+            return list_aircraft(data);
         }
         if (args.size() == 2 && args[0] == "aircraft") {
             return print_aircraft(data, std::string(args[1]));

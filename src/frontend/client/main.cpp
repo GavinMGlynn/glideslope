@@ -475,7 +475,8 @@ int main(int argc, char** argv) {
 
         const bool shooting = !o.shot.empty();
         glideslope::sim::Controls controls;
-        controls.throttle = 0.65;
+        // The throttle the aircraft's catalogue entry holds its start with.
+        controls.throttle = flight ? flight->aircraft().start_throttle : 0.65;
         const std::filesystem::path bindings_path =
             glideslope::platform::data_directory() / "input" / "bindings.txt";
         std::ifstream bindings_file(bindings_path, std::ios::binary);
