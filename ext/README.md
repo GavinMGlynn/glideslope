@@ -82,8 +82,9 @@ Abseil, S2, OpenSSL, Draco, KTX, libwebp, libjpeg-turbo, SQLite, spdlog and the
 rest - which `vcpkg.json` lists, the same as Cesium Native's own manifest less
 curl (the configure refuses the two lists parting). `cmake/Vcpkg.cmake` fetches
 vcpkg at the commit Cesium Native v0.64.0 is built against,
-`56bb2411609227288b70117ead2c47585ba07713`, into the user's cache directory
-rather than this tree - it is a tool, not a dependency - and installs the
+`56bb2411609227288b70117ead2c47585ba07713`, into the user's cache directory -
+on Windows `C:\gs-vcpkg`, short because MSVC cannot open a path of more than
+260 characters and vcpkg builds deep under its root - rather than this tree - it is a tool, not a dependency - and installs the
 packages after the platform gate has accepted the compiler. The ports, and so
 every dependency's version, are that commit's. How each platform builds them is
 `cmake/triplets/`, whose README says why.

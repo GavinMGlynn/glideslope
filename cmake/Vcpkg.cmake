@@ -13,8 +13,9 @@
 #
 # **vcpkg is pinned to a commit** - the one Cesium Native's release was built
 # against - and kept outside the tree, since it is a tool and not a dependency:
-# cloned at that commit, once, into the user's cache directory (or
-# GLIDESLOPE_VCPKG_ROOT) and bootstrapped there. The ports and their versions
+# cloned at that commit, once, into the user's cache directory - on Windows,
+# `C:\gs-vcpkg`, for MSVC's limit on the length of a path - or
+# GLIDESLOPE_VCPKG_ROOT, and bootstrapped there. The ports and their versions
 # are that checkout's. Built packages are kept in vcpkg's binary cache, so a
 # second build directory, or a CI run with the cache restored, unpacks them
 # rather than building them again.
@@ -28,7 +29,10 @@ if(NOT CMAKE_TOOLCHAIN_FILE)
     if(NOT "$ENV{GLIDESLOPE_VCPKG_ROOT}" STREQUAL "")
         set(_vcpkg_base "$ENV{GLIDESLOPE_VCPKG_ROOT}")
     elseif(CMAKE_HOST_WIN32)
-        set(_vcpkg_base "$ENV{LOCALAPPDATA}/glideslope/vcpkg")
+        # Short, because MSVC cannot open a path longer than 260 characters,
+        # and vcpkg builds each package's sources deep under its root: under
+        # the user's AppData, Draco's object files were past it.
+        set(_vcpkg_base "$ENV{SystemDrive}/gs-vcpkg")
     elseif(CMAKE_HOST_APPLE)
         set(_vcpkg_base "$ENV{HOME}/Library/Caches/glideslope/vcpkg")
     elseif(NOT "$ENV{XDG_CACHE_HOME}" STREQUAL "")
@@ -36,7 +40,9 @@ if(NOT CMAKE_TOOLCHAIN_FILE)
     else()
         set(_vcpkg_base "$ENV{HOME}/.cache/glideslope/vcpkg")
     endif()
-    file(TO_CMAKE_PATH "${_vcpkg_base}/${GLIDESLOPE_VCPKG_COMMIT}" _vcpkg)
+    # Named by the commit's first twelve characters, for the same reason.
+    string(SUBSTRING "${GLIDESLOPE_VCPKG_COMMIT}" 0 12 _vcpkg_short)
+    file(TO_CMAKE_PATH "${_vcpkg_base}/${_vcpkg_short}" _vcpkg)
 
     # Two configures at once - two presets in parallel - take turns.
     file(MAKE_DIRECTORY "${_vcpkg_base}")
