@@ -175,10 +175,11 @@ models, whose hidden state a restored aircraft would not carry.
       bound; a 3-degree approach flies down through the shear the profile
       gives.*
 - [ ] **Reported wind shear read** - `WS RWY`, `WS ALL RWY`, and the `WSHFT`
-      and `PK WND` remarks. *Verification: recorded METARs carrying each decode
+      and `PK WND` remarks. **Done locally; awaiting CI.** *Verification: recorded METARs carrying each decode
       to what they report, and a report of shear on a runway gives its approach
       the shear the model states.*
-- [ ] **Microbursts**, placed by the weather's parameters. *Verification: an
+- [ ] **Microbursts**, placed by the weather's parameters. **Done locally;
+      awaiting CI.** *Verification: an
       aircraft on a 3-degree approach through a microburst of stated strength
       meets the headwind, downdraught and tailwind the published outflow model
       gives, at every point within a stated tolerance.*

@@ -16,6 +16,7 @@
 #include <future>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace glideslope::client {
 
@@ -28,6 +29,8 @@ struct FlightStart {
     // The airfield - its ICAO code - whose reported weather the flight is flown
     // in; empty for the standard atmosphere with no wind.
     std::string weather_station;
+    // Microbursts put into that weather, for as long as each lasts.
+    std::vector<world::Microburst> microbursts;
 };
 
 inline constexpr double weather_refresh_seconds = 15 * 60.0;
@@ -74,6 +77,7 @@ private:
     std::unique_ptr<sim::Aircraft> aircraft_;
     std::int64_t tick_ = 0;
     std::string weather_station_;
+    std::vector<world::Microburst> microbursts_;
     std::shared_ptr<world::ReportedWeather> weather_;
     double weather_fetched_at_s_ = 0.0;
     // Last, so that a fetch still under way is waited for before anything it

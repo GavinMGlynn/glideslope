@@ -64,6 +64,30 @@ DrydenScales dryden_scales(int severity, double height_above_ground_m,
 Enu turbulence(std::uint64_t seed, const DrydenScales& scales, const Enu& position,
                const Enu& along);
 
+// A microburst: Oseguera and Bowles' downburst (NASA TM-100632, 1988), a
+// column of air falling at `downdraught_mps` within about `radius_m` of its
+// centre and spreading out along the ground, fastest some 70 m up about 1.1
+// radii out. Its field is mass-conserving: what falls spreads. It grows over
+// its first two minutes and fades over its last two, and fades with height
+// above 1 km, where the model's column would otherwise fall forever.
+struct Microburst {
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+    double radius_m = 1000.0;
+    double downdraught_mps = 10.0; // well above the outflow, at the centre
+    double start_s = 0.0;          // simulation time it begins
+    double duration_s = 900.0;
+};
+
+// Oseguera and Bowles' constants, as this project sets them: the height the
+// outflow falls off over, and the depth of the layer slowing it at the ground.
+inline constexpr double microburst_outflow_depth_m = 200.0;
+inline constexpr double microburst_ground_layer_m = 30.0;
+
+// A microburst's wind at `offset` - metres east and north of its centre, and
+// up from the ground - at simulation time `time_s`.
+Enu microburst_wind(const Microburst& burst, const Enu& offset, double time_s);
+
 // The severity a report's gusts imply: their spread over the mean wind, in
 // knots. Under 5 none; then light (1) from 5, 2 from 10, moderate (3) from 15,
 // 4 from 20 and severe (5) from 30.

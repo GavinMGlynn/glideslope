@@ -185,6 +185,52 @@ Enu turbulence(std::uint64_t seed, const DrydenScales& scales, const Enu& positi
     return {u * along.east - v * along.north, u * along.north + v * along.east, w};
 }
 
+Enu microburst_wind(const Microburst& burst, const Enu& offset, double time_s) {
+    // Growing and fading, smoothly.
+    const double age = time_s - burst.start_s;
+    if (age <= 0.0 || age >= burst.duration_s || burst.radius_m <= 0.0) {
+        return {};
+    }
+    const auto smooth = [](double x) {
+        x = std::clamp(x, 0.0, 1.0);
+        return x * x * (3.0 - 2.0 * x);
+    };
+    constexpr double ramp_s = 120.0;
+    const double life =
+        smooth(age / ramp_s) * smooth((burst.duration_s - age) / ramp_s);
+    const double z = std::max(0.0, offset.up);
+    const double aloft = 1.0 - smooth((z - 1000.0) / 1000.0);
+    const double strength = life * aloft;
+    if (strength <= 0.0) {
+        return {};
+    }
+
+    const double zs = microburst_outflow_depth_m;
+    const double eps = microburst_ground_layer_m;
+    const double lambda = burst.downdraught_mps / (zs - eps);
+    const double r = std::hypot(offset.east, offset.north);
+    const double q = r / burst.radius_m;
+    const double shape = std::exp(-z / zs) - std::exp(-z / eps);
+    // u = lambda R^2 / (2 r) (1 - e^(-(r/R)^2)) (e^(-z/z*) - e^(-z/eps)), which
+    // near the centre is lambda r / 2 times the same.
+    const double spread = r > 1e-6 * burst.radius_m
+                              ? lambda * burst.radius_m * burst.radius_m / (2.0 * r) *
+                                    (1.0 - std::exp(-q * q))
+                              : lambda * r / 2.0;
+    const double u = spread * shape;
+    // w = -lambda e^(-(r/R)^2) (eps (e^(-z/eps) - 1) - z* (e^(-z/z*) - 1)).
+    const double w =
+        -lambda * std::exp(-q * q) *
+        (eps * (std::exp(-z / eps) - 1.0) - zs * (std::exp(-z / zs) - 1.0));
+    Enu out;
+    if (r > 0.0) {
+        out.east = u * offset.east / r;
+        out.north = u * offset.north / r;
+    }
+    out.up = w;
+    return {out.east * strength, out.north * strength, out.up * strength};
+}
+
 int severity_from_gust_spread(double spread_kt) {
     if (spread_kt >= 30.0) {
         return 5;

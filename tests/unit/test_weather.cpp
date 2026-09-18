@@ -16,6 +16,7 @@
 #include <iterator>
 #include <memory>
 #include <string>
+#include <vector>
 
 using glideslope::test::check;
 using glideslope::test::fail;
@@ -669,4 +670,98 @@ GLIDESLOPE_TEST(
           "the wind all the way down is the profile's, within 0.01 ft/s: " +
               std::to_string(worst));
     check(std::abs(first_north - last_north) > 0.5, "and it changed on the way down");
+}
+
+GLIDESLOPE_TEST(reported_wind_shear_is_read_and_gives_the_approach_the_models_shear) {
+    std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) /
+                         "data/weather/aviationweather-shear-2026-09-18.json",
+                     std::ios::binary);
+    check(static_cast<bool>(in), "can read the recorded reports of shear");
+    const auto reports = glideslope::world::parse_aviationweather(
+        std::string(std::istreambuf_iterator<char>(in), {}));
+    check(reports.size() == 5, "five reports");
+    const auto& lisbon = reports[0].metar;
+    const auto& narita = reports[1].metar;
+    const auto& jackson = reports[2].metar;
+    const auto& camp = reports[3].metar;
+    const auto& albuquerque = reports[4].metar;
+    check(lisbon.station == "LPPT" &&
+              lisbon.wind_shear_runways == std::vector<std::string>{"02"} &&
+              !lisbon.wind_shear_all_runways,
+          "LPPT: WS R02");
+    check(narita.station == "RJAA" &&
+              narita.wind_shear_runways == std::vector<std::string>{"34R"},
+          "RJAA: WS R34R, before its TEMPO");
+    check(jackson.station == "KJAC" && jackson.wind_shift &&
+              jackson.wind_shift->hour == 7 && jackson.wind_shift->minute == 43 &&
+              !jackson.wind_shift->frontal,
+          "KJAC: WSHFT 0743");
+    check(camp.station == "KCQC" && camp.peak_wind &&
+              camp.peak_wind->from_deg == 220.0 && camp.peak_wind->speed_kt == 33.0 &&
+              camp.peak_wind->hour == 8 && camp.peak_wind->minute == 32,
+          "KCQC: PK WND 22033/0832");
+    check(albuquerque.peak_wind && albuquerque.peak_wind->speed_kt == 37.0 &&
+              albuquerque.peak_wind->hour == 7 && albuquerque.peak_wind->minute == 59,
+          "KABQ: PK WND 17037/0759");
+
+    // The other forms, as written.
+    Metar m = parse_metar("EGXX 181200Z 27015KT 9999 12/08 Q1010 WS ALL RWY");
+    check(m.wind_shear_all_runways && m.wind_shear_runways.empty(), "WS ALL RWY");
+    m = parse_metar("EGXX 181200Z 27015KT 9999 12/08 Q1010 WS RWY27");
+    check(m.wind_shear_runways == std::vector<std::string>{"27"}, "WS RWY27");
+    m = parse_metar(
+        "EGXX 181200Z 27015KT 9999 12/08 Q1010 WS TKOF RWY20 WS LDG RWY09L");
+    check(m.wind_shear_runways == std::vector<std::string>{"20", "09L"},
+          "WS TKOF RWY20 and WS LDG RWY09L");
+    m = parse_metar("KXYZ 181253Z 28030G45KT 10SM 12/08 A2992 RMK PK WND 28045/15 "
+                    "WSHFT 30 FROPA");
+    check(m.peak_wind && m.peak_wind->hour == 12 && m.peak_wind->minute == 15 &&
+              m.peak_wind->speed_kt == 45.0,
+          "PK WND with minutes only is in the report's hour");
+    check(m.wind_shift && m.wind_shift->hour == 12 && m.wind_shift->minute == 30 &&
+              m.wind_shift->frontal,
+          "WSHFT 30 FROPA");
+
+    // Lisbon's WS R02 on runway 02's approach: from the south-south-west, the
+    // headwind along 020 degrees is the surface wind's plus the model's.
+    glideslope::world::WeatherReport report;
+    report.surface = reports[0];
+    report.air_seed = glideslope::world::air_seed_of(lisbon);
+    report.turbulence_severity = 0;
+    glideslope::world::WeatherReport clear = report;
+    clear.surface.metar.wind_shear_runways.clear();
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    constexpr double mps_per_knot = 1852.0 / 3600.0;
+    const double heading = 20.0 * radians;
+    const auto headwind = [&](const glideslope::world::WeatherReport& r, double back_m,
+                              double above_m) {
+        // A point `back_m` before the runway, on its extended centreline.
+        const double lat =
+            r.surface.latitude_deg - back_m * std::cos(heading) / 111319.49;
+        const double lon = r.surface.longitude_deg -
+                           back_m * std::sin(heading) /
+                               (111319.49 * std::cos(r.surface.latitude_deg * radians));
+        const auto c = glideslope::world::with_air_motion(
+            r, glideslope::world::conditions_at(r, r.surface.elevation_m + above_m),
+            lat, lon, r.surface.elevation_m + above_m, 100.0);
+        // Air moving towards 200 degrees is a headwind on 020.
+        return -(c.wind_north_mps * std::cos(heading) +
+                 c.wind_east_mps * std::sin(heading));
+    };
+    const struct {
+        double back_m;
+        double above_m;
+        double extra_kt;
+    } points[] = {{8500.0, 450.0, 0.0}, {5000.0, 450.0, 15.0}, {5000.0, 700.0, 0.0},
+                  {3400.0, 180.0, 7.5}, {1100.0, 60.0, 0.0},   {5700.0, 300.0, 15.0},
+                  {4000.0, 525.0, 7.5}};
+    for (const auto& p : points) {
+        const double extra = (headwind(report, p.back_m, p.above_m) -
+                              headwind(clear, p.back_m, p.above_m)) /
+                             mps_per_knot;
+        check(near(extra, p.extra_kt, 1e-9),
+              std::to_string(p.back_m) + " m back, " + std::to_string(p.above_m) +
+                  " m up: " + std::to_string(extra) + " kt more headwind, the model " +
+                  std::to_string(p.extra_kt));
+    }
 }

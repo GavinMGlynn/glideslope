@@ -4,6 +4,7 @@
 // above it.
 
 #include "sim/weather.hpp"
+#include "world/air_motion.hpp"
 #include "world/download.hpp"
 #include "world/geoid.hpp"
 #include "world/metar.hpp"
@@ -54,6 +55,9 @@ struct WeatherReport {
     // What the gusts' and turbulence's pattern is drawn from: the same report
     // and seed give the same air everywhere (world/air_motion.hpp).
     std::uint64_t air_seed = 0;
+    // Microbursts, placed by whoever sets the weather: the server, a lesson, a
+    // test.
+    std::vector<Microburst> microbursts;
 };
 
 // The seed a station's report at a time gives its air: from the station and
@@ -77,12 +81,15 @@ std::uint64_t air_seed_of(const Metar& metar);
 sim::Conditions conditions_at(const WeatherReport& report, double height_msl_m);
 
 // The air's motion a report describes at a place and time beyond its mean
-// wind - gusts and turbulence (world/air_motion.hpp) - added to `mean`, the
-// conditions there. The gusts are the METAR's spread over its mean wind, along
-// its wind, in full up to 10 m above the station and fading to none 600 m
-// above that. The turbulence is Dryden's at its severity, over the height above
-// the station. Both patterns are carried by the surface wind, from the station.
-// JSBSim's own turbulence is left off: the air is all here.
+// wind - reported wind shear, microbursts, gusts and turbulence
+// (world/air_motion.hpp) - added to `mean`, the conditions there. A report of wind
+// shear makes, within 8 km of the station, a 15 kt headwind on the named runway's
+// approach - or along the surface wind, for all runways - between 60 and 600 m above
+// the ground, rising from none at 60 m to all of it at 300 m. The gusts are the METAR's
+// spread over its mean wind, along its wind, in full up to 10 m above the station and
+// fading to none 600 m above that. The turbulence is Dryden's at its severity, over the
+// height above the station. Both patterns are carried by the surface wind, from the
+// station. JSBSim's own turbulence is left off: the air is all here.
 sim::Conditions with_air_motion(const WeatherReport& report, sim::Conditions mean,
                                 double latitude_deg, double longitude_deg,
                                 double height_msl_m, double time_s);

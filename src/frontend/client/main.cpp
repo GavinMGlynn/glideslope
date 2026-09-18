@@ -7,7 +7,7 @@
 //   glideslope [--headless] [--gpu-driver NAME] [--size WxH]
 //              [--screen flight|terrain|sky|origin|depth]
 //              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z] [--toward LAT,LON,HEIGHT]
-//              [--imagery on|off] [--weather STATION]
+//              [--imagery on|off] [--weather STATION [--microburst LAT,LON]...]
 //              [--shot FILE] [--shot-at TICK] [--trace]
 //
 // Test flags. --shot writes the frame drawn at simulation tick --shot-at
@@ -65,6 +65,7 @@ struct Options {
     std::optional<glideslope::world::Ecef> at_ecef;
     std::optional<glideslope::world::Geodetic> toward;
     bool imagery = true;
+    std::vector<glideslope::world::Microburst> microbursts;
     std::string weather_station;
 };
 
@@ -74,7 +75,7 @@ void usage(std::FILE* out) {
         "                  [--size WxH] [--screen flight|terrain|sky|origin|depth]\n"
         "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
         "                  [--toward LAT,LON,HEIGHT] [--imagery on|off]\n"
-        "                  [--weather STATION]\n"
+        "                  [--weather STATION [--microburst LAT,LON]...]\n"
         "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
         "       glideslope --version | --help\n"
         "\n"
@@ -89,6 +90,8 @@ void usage(std::FILE* out) {
         "                tint it by height instead\n"
         "  --weather     fly in the weather reported now at an airfield, by its\n"
         "                ICAO code - its METAR, and Open-Meteo's winds aloft\n"
+        "  --microburst  a microburst in that weather at a latitude and longitude,\n"
+        "                for the flight's first fifteen minutes\n"
         "  --shot        write the frame at tick --shot-at (default 2) and exit;\n"
         "                each frame is then two ticks, whatever the clock says\n"
         "  --trace       print the flight's state after every tick\n",
@@ -227,6 +230,20 @@ int main(int argc, char** argv) {
             const std::string_view value = args[++i];
             ok = value == "on" || value == "off";
             o.imagery = value == "on";
+        } else if (a == "--microburst" && has_value) {
+            const std::string text(args[++i]);
+            char* end = nullptr;
+            glideslope::world::Microburst burst;
+            burst.latitude_deg = std::strtod(text.c_str(), &end);
+            ok = *end == ',';
+            if (ok) {
+                const char* rest = end + 1;
+                burst.longitude_deg = std::strtod(rest, &end);
+                ok = end != rest && *end == '\0' && burst.latitude_deg >= -90.0 &&
+                     burst.latitude_deg <= 90.0 && burst.longitude_deg >= -180.0 &&
+                     burst.longitude_deg <= 180.0;
+            }
+            o.microbursts.push_back(burst);
         } else if (a == "--toward" && has_value) {
             const auto g = parse_triple(args[++i]);
             ok = g && (*g)[0] >= -90.0 && (*g)[0] <= 90.0 && (*g)[1] >= -180.0 &&
@@ -251,6 +268,10 @@ int main(int argc, char** argv) {
     if (o.headless && o.shot.empty()) {
         std::fputs("glideslope: --headless needs --shot, or it has nothing to show\n",
                    stderr);
+        return 2;
+    }
+    if (!o.microbursts.empty() && o.weather_station.empty()) {
+        std::fputs("glideslope: a --microburst is put into --weather\n", stderr);
         return 2;
     }
     if (o.screen != "flight" && !o.weather_station.empty()) {
@@ -297,6 +318,7 @@ int main(int argc, char** argv) {
                 start.height_m = o.at->height_m;
             }
             start.weather_station = o.weather_station;
+            start.microbursts = o.microbursts;
             flight = std::make_unique<glideslope::client::Flight>(
                 glideslope::platform::data_directory(),
                 glideslope::platform::cache_directory(), start);

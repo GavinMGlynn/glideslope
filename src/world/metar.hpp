@@ -6,14 +6,18 @@
 // variability, in knots, metres a second or kilometres an hour), the
 // temperature and dew point - to a tenth of a degree from the North American
 // T remark when there is one - and the pressure, as QNH in hectopascals or an
-// altimeter setting in inches of mercury. The rest - visibility, cloud,
-// weather, trends - is not read yet. Groups after a trend (BECMG, TEMPO,
-// NOSIG) are forecasts, not observations, and are not read as either.
+// altimeter setting in inches of mercury; wind shear reported on a runway or
+// all of them (WS R27, WS RWY27, WS TKOF RWY27, WS LDG RWY27, WS ALL RWY); and
+// from the remarks the peak wind (PK WND) and a wind shift (WSHFT). The rest -
+// visibility, cloud, weather, trends - is not read yet. Groups after a trend
+// (BECMG, TEMPO, NOSIG) are forecasts, not observations, and are not read as
+// either.
 
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace glideslope::world {
 
@@ -39,6 +43,30 @@ struct Metar {
     std::optional<double> temperature_c;
     std::optional<double> dewpoint_c;
     std::optional<double> qnh_hpa;
+
+    // Wind shear reported on a runway's approach or climb-out: the runways
+    // named - "02", "34R" - or all of them.
+    std::vector<std::string> wind_shear_runways;
+    bool wind_shear_all_runways = false;
+
+    // The strongest wind since the last routine report (PK WND dddff/hhmm),
+    // and when; the hour is the report's when only minutes are given.
+    struct PeakWind {
+        double from_deg = 0.0;
+        double speed_kt = 0.0;
+        int hour = 0;
+        int minute = 0;
+    };
+    std::optional<PeakWind> peak_wind;
+
+    // A shift in the wind's direction (WSHFT hhmm), and whether it came with a
+    // front (FROPA).
+    struct WindShift {
+        int hour = 0;
+        int minute = 0;
+        bool frontal = false;
+    };
+    std::optional<WindShift> wind_shift;
 };
 
 // Throws MetarError if there is no station and time.

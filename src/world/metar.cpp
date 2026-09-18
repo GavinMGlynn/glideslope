@@ -54,6 +54,9 @@ Metar parse_metar(std::string_view report) {
     static const std::regex qnh(R"(Q(\d{4}))");
     static const std::regex altimeter(R"(A(\d{4}))");
     static const std::regex precise(R"(T([01]\d{3})([01]\d{3}))");
+    static const std::regex runway(R"((?:R|RWY)(\d{2}[LCR]?))");
+    static const std::regex peak(R"((\d{3})(\d{2,3})/(\d{2})?(\d{2}))");
+    static const std::regex shift_time(R"((\d{2})?(\d{2}))");
 
     Metar m;
     std::smatch match;
@@ -88,6 +91,44 @@ Metar parse_metar(std::string_view report) {
             if (std::regex_match(w, match, precise)) {
                 m.temperature_c = signed_tenths(match[1]);
                 m.dewpoint_c = signed_tenths(match[2]);
+            } else if (w == "PK" && i + 2 < words.size() && words[i + 1] == "WND" &&
+                       std::regex_match(words[i + 2], match, peak)) {
+                Metar::PeakWind p;
+                p.from_deg = std::stod(match[1]);
+                p.speed_kt = std::stod(match[2]);
+                p.hour = match[3].matched ? std::stoi(match[3]) : m.hour;
+                p.minute = std::stoi(match[4]);
+                m.peak_wind = p;
+                i += 2;
+            } else if (w == "WSHFT" && i + 1 < words.size() &&
+                       std::regex_match(words[i + 1], match, shift_time)) {
+                Metar::WindShift shift;
+                shift.hour = match[1].matched ? std::stoi(match[1]) : m.hour;
+                shift.minute = std::stoi(match[2]);
+                ++i;
+                if (i + 1 < words.size() && words[i + 1] == "FROPA") {
+                    shift.frontal = true;
+                    ++i;
+                }
+                m.wind_shift = shift;
+            }
+            continue;
+        }
+        if (w == "WS") {
+            // WS ALL RWY; WS R27 or WS RWY27; WS TKOF RWY27 or WS LDG RWY27.
+            std::size_t next = i + 1;
+            if (next < words.size() &&
+                (words[next] == "TKOF" || words[next] == "LDG")) {
+                ++next;
+            }
+            if (next + 1 < words.size() && words[next] == "ALL" &&
+                words[next + 1] == "RWY") {
+                m.wind_shear_all_runways = true;
+                i = next + 1;
+            } else if (next < words.size() &&
+                       std::regex_match(words[next], match, runway)) {
+                m.wind_shear_runways.push_back(match[1]);
+                i = next;
             }
             continue;
         }

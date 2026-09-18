@@ -224,7 +224,8 @@ sim::Conditions with_air_motion(const WeatherReport& report, sim::Conditions mea
     const double spread_kt = std::max(0.0, m.gust_kt.value_or(mean_kt) - mean_kt);
     const int severity =
         report.turbulence_severity.value_or(severity_from_gust_spread(spread_kt));
-    if (spread_kt <= 0.0 && severity <= 0) {
+    const bool shear = m.wind_shear_all_runways || !m.wind_shear_runways.empty();
+    if (spread_kt <= 0.0 && severity <= 0 && !shear && report.microbursts.empty()) {
         return mean;
     }
 
@@ -244,6 +245,45 @@ sim::Conditions with_air_motion(const WeatherReport& report, sim::Conditions mea
                            (latitude_deg - report.surface.latitude_deg) *
                                metres_per_degree,
                            height_msl_m - report.surface.elevation_m};
+
+    // Reported wind shear: within 8 km of the station, a 15 kt headwind on the
+    // reported runway's approach that dies away between 300 m and 60 m above
+    // the ground - the loss of airspeed on short final a shear report warns
+    // of. On a runway, along its heading from its number, magnetic taken as
+    // true; on all of them, along the surface wind.
+    if (shear && std::hypot(from_station.east, from_station.north) <= 8000.0) {
+        const double h = from_station.up;
+        const double profile = h <= 60.0    ? 0.0
+                               : h <= 300.0 ? (h - 60.0) / 240.0
+                               : h <= 450.0 ? 1.0
+                               : h <= 600.0 ? (600.0 - h) / 150.0
+                                            : 0.0;
+        const double headwind = 15.0 * mps_per_knot * profile;
+        if (!m.wind_shear_runways.empty()) {
+            // Air moving against an aircraft landing on the runway's heading.
+            const double heading =
+                std::stod(m.wind_shear_runways.front().substr(0, 2)) * 10.0 * radians;
+            mean.wind_east_mps -= std::sin(heading) * headwind;
+            mean.wind_north_mps -= std::cos(heading) * headwind;
+        } else {
+            mean.wind_east_mps += along.east * headwind;
+            mean.wind_north_mps += along.north * headwind;
+        }
+    }
+
+    // Microbursts, each on its own centre.
+    for (const Microburst& burst : report.microbursts) {
+        const double east_offset =
+            std::remainder(longitude_deg - burst.longitude_deg, 360.0) *
+            metres_per_degree * std::cos(burst.latitude_deg * radians);
+        const double north_offset =
+            (latitude_deg - burst.latitude_deg) * metres_per_degree;
+        const Enu w = microburst_wind(
+            burst, {east_offset, north_offset, from_station.up}, time_s);
+        mean.wind_east_mps += w.east;
+        mean.wind_north_mps += w.north;
+        mean.wind_down_mps -= w.up;
+    }
 
     // Gusts, along the wind, fading out above the surface.
     if (spread_kt > 0.0) {

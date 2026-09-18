@@ -78,9 +78,11 @@ METARs from aviationweather.gov; winds aloft from Open-Meteo; both in JSBSim's
 atmosphere, with MIL-F-8785C turbulence; and new reports blended in during a
 flight.
 
-**Phase 3b, wind that shears and gusts and hazardous air, is under way: 3 of
+**Phase 3b, wind that shears and gusts and hazardous air, is under way: 5 of
 7 items done on Linux and awaiting CI** - the same air on every machine, a
-METAR's gusts flown, and the wind near the ground as a boundary layer. **Phase 5c, learning to fly, is new and not started:
+METAR's gusts flown, the wind near the ground as a boundary layer, reported
+wind shear, and microbursts. Not started: thermals and mountain waves, and
+weather you can see. **Phase 5c, learning to fly, is new and not started:
 0 of 4 items.** Added
 2026-09-18, as were the sixteen-aircraft roster of Phase 5 and a tail for
 terrain over the whole Earth; see the log.
@@ -115,6 +117,60 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### Microbursts, 2026-09-18 — awaiting CI
+
+**What is missing first:** nothing places a microburst but whoever sets the
+weather - a test, or `glideslope --weather STATION --microburst LAT,LON` - so
+a thunderstorm in a METAR makes none. The model's column is steady: a real
+burst's ring vortex, its tilt and its moving with the storm are not in it. It
+fades above 1 km, where the model's column would fall forever, and there it is
+no longer mass-conserving.
+
+**The model** (`world::microburst_wind`) is Oseguera and Bowles' downburst
+(NASA TM-100632, 1988): a column falling within about a radius of its centre,
+spreading along the ground, fastest some 70 m up about 1.1 radii out; with this
+project's constants - an outflow depth of 200 m and a ground layer of 30 m - a
+10 m/s downdraught of 1 km radius spreads at up to 11 m/s each way, a 44 kt
+change from headwind to tailwind across it. It is a function of place and time,
+growing over two minutes and fading over two, so it is the same air on every
+machine; a `WeatherReport` carries any number, and the client's refreshed
+reports keep them.
+
+**The test:** at a thousand places the field is the model's formulas, written
+out again in the test; its divergence is nothing to 1e-7 per second at 500
+places - what falls spreads; it is nothing before it starts and after it ends,
+and half grown at a minute; and down a 3-degree approach to Sydney through a
+burst 2.5 km before the runway, the wind at every 10 m is the model's to 1e-9,
+the headwind strongest before the centre, the downdraught at it, the tailwind
+after. **Watched to fail:** the downdraught turned to an updraught.
+
+### Reported wind shear, 2026-09-18 — awaiting CI
+
+**What is missing first:** a report of shear is flown as a model, not as what
+was measured: a METAR says only that there is shear on a runway, not how much
+or where. The runway's direction is its number, magnetic taken as true - off by
+the local variation, 8 degrees at Narita. Peak winds and wind shifts are read
+and not flown: a peak wind 50 minutes old is not the air now.
+
+**Read** (`world/metar.hpp`): wind shear on a runway or all of them in every
+form a METAR writes it - `WS R02`, `WS RWY27`, `WS TKOF RWY20`, `WS LDG RWY09L`,
+`WS ALL RWY` - and from the remarks the peak wind (`PK WND 22033/0832`, its hour
+the report's when only minutes are given) and a wind shift (`WSHFT 0743`, with
+`FROPA` when a front brought it).
+
+**Flown** (`world::with_air_motion`): within 8 km of the station, a 15 kt
+headwind on the named runway's approach - along the surface wind for all
+runways - between 60 and 600 m above the ground, all of it from 300 to 450 m
+and none by 60 m: the airspeed an aircraft loses on short final flying down
+out of it.
+
+**The test:** five recorded reports - Lisbon's `WS R02`, Narita's `WS R34R`
+before its `TEMPO`, Jackson Hole's `WSHFT`, the peak winds at Clines Corners and
+Albuquerque - decode to what they say, and each other form as written; and on
+runway 02's approach at Lisbon the headwind is the surface wind's plus the
+model's to 1e-9 at seven points, from 8.5 km out to 1.1 km, 60 to 700 m up.
+**Watched to fail:** the shear blowing as a tailwind; `WS` not read.
 
 ### The wind near the ground as a boundary layer, 2026-09-18 — awaiting CI
 

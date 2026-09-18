@@ -129,7 +129,9 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_restored_in_a_gust_flies_on_in_the_same_air
     a_recorded_gusty_metar_gives_winds_between_its_mean_and_gust_speeds
     turbulence_has_drydens_intensity_at_each_height_and_severity
-    a_recorded_response_sets_the_wind_near_the_ground_through_its_boundary_layer)
+    a_recorded_response_sets_the_wind_near_the_ground_through_its_boundary_layer
+    reported_wind_shear_is_read_and_gives_the_approach_the_models_shear
+    a_microburst_gives_the_headwind_downdraught_and_tailwind_its_model_does)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)

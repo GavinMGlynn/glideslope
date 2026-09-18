@@ -60,11 +60,13 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
 
     if (!start.weather_station.empty()) {
         weather_station_ = start.weather_station;
+        world::WeatherReport report = world::fetch_weather(
+            weather_station_, world::utc_hour(std::chrono::system_clock::now()),
+            fetch_);
+        report.microbursts = start.microbursts;
+        microbursts_ = start.microbursts;
         weather_ = std::make_shared<world::ReportedWeather>(
-            world::fetch_weather(weather_station_,
-                                 world::utc_hour(std::chrono::system_clock::now()),
-                                 fetch_),
-            geoid_.get(), weather_blend_seconds);
+            std::move(report), geoid_.get(), weather_blend_seconds);
         aircraft_->set_weather(weather_);
     }
 }
@@ -86,7 +88,9 @@ void Flight::refresh_weather() {
             return;
         }
         try {
-            weather_->update(next_weather_.get(), now);
+            world::WeatherReport report = next_weather_.get();
+            report.microbursts = microbursts_;
+            weather_->update(std::move(report), now);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "glideslope: the weather is not updated: %s\n",
                          e.what());

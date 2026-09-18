@@ -373,3 +373,148 @@ GLIDESLOPE_TEST(turbulence_has_drydens_intensity_at_each_height_and_severity) {
                   std::to_string(mean) + " of Dryden's length on average");
     }
 }
+
+GLIDESLOPE_TEST(
+    a_microburst_gives_the_headwind_downdraught_and_tailwind_its_model_does) {
+    using glideslope::world::Microburst;
+    // Oseguera and Bowles' model (NASA TM-100632, 1988), written out again.
+    constexpr double zs = glideslope::world::microburst_outflow_depth_m;
+    constexpr double eps = glideslope::world::microburst_ground_layer_m;
+    const auto model = [](double r, double z, double radius, double downdraught) {
+        const double lambda = downdraught / (zs - eps);
+        const double u = lambda * radius * radius / (2.0 * r) *
+                         (1.0 - std::exp(-(r / radius) * (r / radius))) *
+                         (std::exp(-z / zs) - std::exp(-z / eps));
+        const double w =
+            -lambda * std::exp(-(r / radius) * (r / radius)) *
+            (eps * (std::exp(-z / eps) - 1.0) - zs * (std::exp(-z / zs) - 1.0));
+        return std::pair{u, w};
+    };
+    Microburst burst;
+    burst.radius_m = 1000.0;
+    burst.downdraught_mps = 10.0;
+    burst.start_s = 0.0;
+    burst.duration_s = 900.0;
+    constexpr double full = 450.0; // in the middle of its life
+
+    // The field, at its full strength, is the model's.
+    std::uint64_t state = 99;
+    const auto next = [&] {
+        state = state * 6364136223846793005ULL + 1442695040888963407ULL;
+        return static_cast<double>(state >> 11) / 9007199254740992.0;
+    };
+    for (int i = 0; i < 1000; ++i) {
+        const double r = 10.0 + next() * 4000.0;
+        const double azimuth = next() * 6.283185307179586;
+        const double z = next() * 900.0;
+        const Enu w = glideslope::world::microburst_wind(
+            burst, {r * std::sin(azimuth), r * std::cos(azimuth), z}, full);
+        const auto [u, vertical] = model(r, z, burst.radius_m, burst.downdraught_mps);
+        check(std::abs(w.east - u * std::sin(azimuth)) < 1e-12 &&
+                  std::abs(w.north - u * std::cos(azimuth)) < 1e-12 &&
+                  std::abs(w.up - vertical) < 1e-12,
+              "the model's wind at " + std::to_string(r) + " m out, " +
+                  std::to_string(z) + " m up");
+    }
+    // And it conserves mass: what falls spreads, the divergence nothing.
+    constexpr double h = 0.05;
+    double worst = 0.0;
+    for (int i = 0; i < 500; ++i) {
+        const Enu p{(next() - 0.5) * 6000.0, (next() - 0.5) * 6000.0,
+                    5.0 + next() * 800.0};
+        const auto at = [&](double dx, double dy, double dz) {
+            return glideslope::world::microburst_wind(
+                burst, {p.east + dx, p.north + dy, p.up + dz}, full);
+        };
+        const double divergence = (at(h, 0, 0).east - at(-h, 0, 0).east) / (2 * h) +
+                                  (at(0, h, 0).north - at(0, -h, 0).north) / (2 * h) +
+                                  (at(0, 0, h).up - at(0, 0, -h).up) / (2 * h);
+        worst = std::max(worst, std::abs(divergence));
+    }
+    check(worst < 1e-7,
+          "no divergence: at most " + std::to_string(worst) + " a second");
+    // Its life: nothing before it starts or after it ends, half at a minute.
+    const auto strength_at = [&](double t) {
+        return glideslope::world::microburst_wind(burst, {0.0, 0.0, 500.0}, t).up;
+    };
+    check(strength_at(-1.0) == 0.0 && strength_at(901.0) == 0.0, "only while it lasts");
+    check(std::abs(strength_at(60.0) - 0.5 * strength_at(full)) < 1e-12,
+          "half grown at a minute");
+
+    // A 3-degree approach to Sydney from the north-north-west, heading 160,
+    // through a microburst 2.5 km before the runway on the centreline.
+    auto surface = gusty_reports().at(0);
+    surface.metar.gust_kt.reset();
+    surface.latitude_deg = -33.9461;
+    surface.longitude_deg = 151.1772;
+    surface.elevation_m = 6.0;
+    WeatherReport calm = report_for(surface);
+    calm.turbulence_severity = 0;
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    constexpr double heading = 160.0 * radians;
+    const auto place = [&](double before_m) {
+        // `before_m` before the runway along the approach.
+        return std::pair{
+            surface.latitude_deg - before_m * std::cos(heading) / 111319.49,
+            surface.longitude_deg -
+                before_m * std::sin(heading) /
+                    (111319.49 * std::cos(surface.latitude_deg * radians))};
+    };
+    WeatherReport stormy = calm;
+    const auto centre = place(2500.0);
+    stormy.microbursts.push_back(burst);
+    stormy.microbursts.back().latitude_deg = centre.first;
+    stormy.microbursts.back().longitude_deg = centre.second;
+    double most_headwind = -1e9;
+    double most_headwind_at = 0.0;
+    double most_tailwind = 1e9;
+    double most_tailwind_at = 0.0;
+    double most_down = 0.0;
+    double most_down_at = 0.0;
+    for (double before = 6000.0; before >= 0.0; before -= 10.0) {
+        const double up = before * std::tan(3.0 * radians);
+        const auto [lat, lon] = place(before);
+        const auto with = glideslope::world::with_air_motion(
+            stormy, glideslope::world::conditions_at(stormy, surface.elevation_m + up),
+            lat, lon, surface.elevation_m + up, full);
+        const auto without = glideslope::world::with_air_motion(
+            calm, glideslope::world::conditions_at(calm, surface.elevation_m + up), lat,
+            lon, surface.elevation_m + up, full);
+        const double north = with.wind_north_mps - without.wind_north_mps;
+        const double east = with.wind_east_mps - without.wind_east_mps;
+        const double down = with.wind_down_mps - without.wind_down_mps;
+        // What the model gives there, the offset from the centre on the local
+        // flat Earth the weather uses about each burst.
+        const double dx =
+            (lon - centre.second) * 111319.49 * std::cos(centre.first * radians);
+        const double dy = (lat - centre.first) * 111319.49;
+        const double r = std::max(1e-9, std::hypot(dx, dy));
+        const auto [u, w] = model(r, up, burst.radius_m, burst.downdraught_mps);
+        check(std::abs(north - u * dy / r) < 1e-9 &&
+                  std::abs(east - u * dx / r) < 1e-9 && std::abs(down + w) < 1e-9,
+              std::to_string(before) + " m before the runway: the model's wind");
+        const double along = north * std::cos(heading) + east * std::sin(heading);
+        const double headwind = -along;
+        if (headwind > most_headwind) {
+            most_headwind = headwind;
+            most_headwind_at = before;
+        }
+        if (headwind < most_tailwind) {
+            most_tailwind = headwind;
+            most_tailwind_at = before;
+        }
+        if (down > most_down) {
+            most_down = down;
+            most_down_at = before;
+        }
+    }
+    check(most_headwind > 5.0 && most_headwind_at > 2500.0,
+          "a headwind first: " + std::to_string(most_headwind) + " m/s at " +
+              std::to_string(most_headwind_at) + " m before the runway");
+    check(most_down > 3.0 && std::abs(most_down_at - 2500.0) < 300.0,
+          "the downdraught at the centre: " + std::to_string(most_down) + " m/s at " +
+              std::to_string(most_down_at));
+    check(most_tailwind < -5.0 && most_tailwind_at < 2500.0,
+          "then a tailwind: " + std::to_string(-most_tailwind) + " m/s at " +
+              std::to_string(most_tailwind_at));
+}
