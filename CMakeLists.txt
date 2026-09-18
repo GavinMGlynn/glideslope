@@ -141,6 +141,7 @@ cmake_language(DEFER CALL glideslope_check_sim_links glideslope_sim)
 add_library(glideslope_world STATIC
     src/world/air_motion.cpp
     src/world/lift.cpp
+    src/world/sky.cpp
     src/world/byte_source.cpp
     src/world/dem.cpp
     src/world/digest.cpp
@@ -200,6 +201,7 @@ add_library(glideslope_gfx STATIC
     src/gfx/hud.cpp
     src/gfx/renderer.cpp
     src/gfx/scene.cpp
+    src/gfx/sky.cpp
     src/gfx/terrain_colour.cpp
     src/gfx/terrain_tiles.cpp)
 target_include_directories(glideslope_gfx PUBLIC src)

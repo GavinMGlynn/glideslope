@@ -6,6 +6,7 @@
 #include "gfx/hud.hpp"
 #include "gfx/scene.hpp"
 #include "sim/aircraft.hpp"
+#include "gfx/sky.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
 #include "world/geoid.hpp"
@@ -64,6 +65,16 @@ public:
     gfx::Camera camera() const;
 
     gfx::HudReadings hud() const;
+
+    // The weather report flown in now, or null without one; and where its
+    // station is, for drawing its sky.
+    const world::WeatherReport* weather_report() const;
+    gfx::Station weather_station() const;
+
+    // Simulation time, seconds.
+    double time_s() const {
+        return aircraft_->state().sim_time_s;
+    }
 
     // One line of the state at this tick, for --trace.
     std::string trace() const;

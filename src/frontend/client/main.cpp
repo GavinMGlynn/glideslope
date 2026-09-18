@@ -8,6 +8,7 @@
 //              [--screen flight|terrain|sky|origin|depth]
 //              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z] [--toward LAT,LON,HEIGHT]
 //              [--imagery on|off] [--weather STATION [--microburst LAT,LON]...]
+//              [--metar REPORT [--station LAT,LON]]
 //              [--shot FILE] [--shot-at TICK] [--trace]
 //
 // Test flags. --shot writes the frame drawn at simulation tick --shot-at
@@ -19,6 +20,7 @@
 #include "flight.hpp"
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
+#include "gfx/sky.hpp"
 #include "platform/input.hpp"
 #include "platform/paths.hpp"
 #include "scenes.hpp"
@@ -27,6 +29,7 @@
 #include "sim/version.hpp"
 #include "world/dem.hpp"
 #include "world/geodesy.hpp"
+#include "world/metar.hpp"
 #include "world/weather.hpp"
 
 #include <SDL3/SDL.h>
@@ -67,6 +70,8 @@ struct Options {
     bool imagery = true;
     std::vector<glideslope::world::Microburst> microbursts;
     std::string weather_station;
+    std::string metar;
+    std::optional<std::array<double, 2>> station;
 };
 
 void usage(std::FILE* out) {
@@ -76,6 +81,7 @@ void usage(std::FILE* out) {
         "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
         "                  [--toward LAT,LON,HEIGHT] [--imagery on|off]\n"
         "                  [--weather STATION [--microburst LAT,LON]...]\n"
+        "                  [--metar REPORT [--station LAT,LON]]\n"
         "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
         "       glideslope --version | --help\n"
         "\n"
@@ -92,6 +98,10 @@ void usage(std::FILE* out) {
         "                ICAO code - its METAR, and Open-Meteo's winds aloft\n"
         "  --microburst  a microburst in that weather at a latitude and longitude,\n"
         "                for the flight's first fifteen minutes\n"
+        "  --metar       show the terrain screen in the weather a METAR reports:\n"
+        "                its cloud, visibility, and rain or snow\n"
+        "  --station     where that METAR is observed: on the ground at a latitude\n"
+        "                and longitude; by default, beneath --at\n"
         "  --shot        write the frame at tick --shot-at (default 2) and exit;\n"
         "                each frame is then two ticks, whatever the clock says\n"
         "  --trace       print the flight's state after every tick\n",
@@ -226,6 +236,25 @@ int main(int argc, char** argv) {
                      o.weather_station.begin(), o.weather_station.end(), [](char c) {
                          return std::isalnum(static_cast<unsigned char>(c)) != 0;
                      });
+        } else if (a == "--metar" && has_value) {
+            o.metar = std::string(args[++i]);
+            try {
+                glideslope::world::parse_metar(o.metar);
+            } catch (const glideslope::world::MetarError&) {
+                ok = false;
+            }
+        } else if (a == "--station" && has_value) {
+            const std::string text(args[++i]);
+            char* end = nullptr;
+            const double lat = std::strtod(text.c_str(), &end);
+            ok = *end == ',';
+            if (ok) {
+                const char* rest = end + 1;
+                const double lon = std::strtod(rest, &end);
+                ok = end != rest && *end == '\0' && lat >= -90.0 && lat <= 90.0 &&
+                     lon >= -180.0 && lon <= 180.0;
+                o.station = std::array<double, 2>{lat, lon};
+            }
         } else if (a == "--imagery" && has_value) {
             const std::string_view value = args[++i];
             ok = value == "on" || value == "off";
@@ -276,6 +305,16 @@ int main(int argc, char** argv) {
     }
     if (o.screen != "flight" && !o.weather_station.empty()) {
         std::fputs("glideslope: only the flight has --weather\n", stderr);
+        return 2;
+    }
+    if (o.screen != "terrain" && !o.metar.empty()) {
+        std::fputs("glideslope: only the terrain screen has --metar; the flight has "
+                   "--weather\n",
+                   stderr);
+        return 2;
+    }
+    if (o.station && o.metar.empty()) {
+        std::fputs("glideslope: --station says where a --metar is observed\n", stderr);
         return 2;
     }
     if ((o.screen == "terrain") != (o.at && o.toward)) {
@@ -371,6 +410,33 @@ int main(int argc, char** argv) {
                 glideslope::platform::cache_directory(), region, o.imagery);
         }
 
+        // The weather to be seen: the flight's report's, made again when a new
+        // one comes; or the terrain screen's --metar, observed on the ground at
+        // --station or beneath the eye. After the renderer, so it is destroyed
+        // first.
+        std::unique_ptr<glideslope::gfx::Sky> sky;
+        // Which report the sky is of: its seed, which is its station's and
+        // observation time's.
+        std::optional<std::uint64_t> sky_of;
+        if (!o.metar.empty()) {
+            const glideslope::world::Metar metar =
+                glideslope::world::parse_metar(o.metar);
+            const double lat = o.station ? (*o.station)[0] : o.at->latitude_deg;
+            const double lon = o.station ? (*o.station)[1] : o.at->longitude_deg;
+            const glideslope::world::GroundHeight ground =
+                glideslope::client::ground_at(glideslope::platform::data_directory(),
+                                              glideslope::platform::cache_directory(),
+                                              lat, lon);
+            sky = std::make_unique<glideslope::gfx::Sky>(
+                renderer, metar,
+                glideslope::gfx::Station{lat, lon, ground.above_sea_level_m,
+                                         ground.geoid_m},
+                glideslope::world::air_seed_of(metar));
+            std::printf("glideslope: the METAR observed %.3f m above sea level, the "
+                        "geoid %.3f m above the ellipsoid\n",
+                        ground.above_sea_level_m, ground.geoid_m);
+        }
+
         const bool shooting = !o.shot.empty();
         glideslope::sim::Controls controls;
         controls.throttle = 0.65;
@@ -426,6 +492,29 @@ int main(int argc, char** argv) {
             if (terrain) {
                 draws = terrain->update(camera, o.width, o.height, shot_now);
             }
+            if (flight && flight->weather_report() != nullptr &&
+                flight->weather_report()->air_seed != sky_of) {
+                const glideslope::world::WeatherReport& report =
+                    *flight->weather_report();
+                sky.reset();
+                sky = std::make_unique<glideslope::gfx::Sky>(
+                    renderer, report.surface.metar, flight->weather_station(),
+                    report.air_seed);
+                sky_of = report.air_seed;
+            }
+            std::vector<glideslope::gfx::Draw> drawn = draws;
+            glideslope::gfx::Haze haze;
+            glideslope::gfx::Colour background = glideslope::gfx::sky;
+            if (sky) {
+                sky->draw(
+                    camera,
+                    flight ? flight->time_s()
+                           : static_cast<double>(ticks) /
+                                 static_cast<double>(glideslope::sim::steps_per_second),
+                    drawn);
+                haze = sky->haze(camera);
+                background = sky->background(camera);
+            }
             // Whichever data is drawn, its credit is on screen.
             std::vector<std::string> credits;
             if (terrain) {
@@ -440,13 +529,13 @@ int main(int argc, char** argv) {
                                         credits.end());
                 const glideslope::gfx::Mesh hud =
                     glideslope::gfx::hud_mesh(readings, o.width, o.height);
-                renderer.render(camera, draws, &hud);
+                renderer.render(camera, drawn, &hud, haze, background);
             } else if (!credits.empty()) {
                 const glideslope::gfx::Mesh overlay =
                     glideslope::gfx::credits_mesh(credits, o.width, o.height);
-                renderer.render(camera, draws, &overlay);
+                renderer.render(camera, drawn, &overlay, haze, background);
             } else {
-                renderer.render(camera, draws);
+                renderer.render(camera, drawn, nullptr, haze, background);
             }
             ++frames;
 

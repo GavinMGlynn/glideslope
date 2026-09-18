@@ -174,13 +174,17 @@ jobs:
             test -s "licenses/$licence.txt" || { echo "::error::no licenses/$licence.txt"; exit 1; }
           done
           # A frame needs a Vulkan driver, which a machine with a GPU has and a
-          # stock container does not: Mesa's lavapipe, installed for it.
+          # stock container does not: Mesa's lavapipe, installed for it. And
+          # gdb: the client flies under it, so that a crash - one segfault here
+          # on ubuntu:24.04 in run 35336574744, gone when run again - leaves
+          # every thread's stack in the log. Its status is the client's.
           if command -v dnf > /dev/null; then
-            dnf install -y --setopt=install_weak_deps=False mesa-vulkan-drivers vulkan-loader
+            dnf install -y --setopt=install_weak_deps=False mesa-vulkan-drivers vulkan-loader gdb
           else
-            apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1
+            apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1 gdb
           fi
-          ./glideslope --headless --gpu-driver vulkan --size 640x480 --screen flight \
+          gdb -q -batch -return-child-result -ex run -ex "thread apply all bt" --args \
+            ./glideslope --headless --gpu-driver vulkan --size 640x480 --screen flight \
             --weather YSSY --shot-at 600 --shot "$GITHUB_WORKSPACE/frame-linux-${{ matrix.label }}.bmp"
 
       - uses: actions/upload-artifact@v4

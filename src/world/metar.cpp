@@ -11,6 +11,7 @@ namespace {
 constexpr double knots_per_mps = 3600.0 / 1852.0;
 constexpr double knots_per_kmh = 1.0 / 1.852;
 constexpr double hpa_per_inhg = 33.8639;
+constexpr double metres_per_statute_mile = 1609.344;
 
 double speed_in_knots(double value, const std::string& unit) {
     if (unit == "MPS") {
@@ -57,6 +58,14 @@ Metar parse_metar(std::string_view report) {
     static const std::regex runway(R"((?:R|RWY)(\d{2}[LCR]?))");
     static const std::regex peak(R"((\d{3})(\d{2,3})/(\d{2})?(\d{2}))");
     static const std::regex shift_time(R"((\d{2})?(\d{2}))");
+    static const std::regex metres(R"((\d{4})(NDV)?)");
+    static const std::regex miles(R"(([MP])?(?:(\d+)|(\d+)/(\d+))SM)");
+    static const std::regex whole_miles(R"(\d)");
+    static const std::regex fraction_miles(R"((\d)/(\d{1,2})SM)");
+    static const std::regex present(
+        R"((\+|-|VC)?(MI|PR|BC|DR|BL|SH|TS|FZ)?((?:DZ|RA|SN|SG|IC|PL|GR|GS|UP|BR|FG|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS)*))");
+    static const std::regex cloud(R"((FEW|SCT|BKN|OVC)(\d{3})(CB|TCU|///)?)");
+    static const std::regex obscured(R"(VV(\d{3}))");
 
     Metar m;
     std::smatch match;
@@ -145,6 +154,61 @@ Metar parse_metar(std::string_view report) {
                    std::regex_match(w, match, varies)) {
             m.wind_varies_from_deg = std::stod(match[1]);
             m.wind_varies_to_deg = std::stod(match[2]);
+        } else if (w == "CAVOK") {
+            m.cavok = true;
+            m.visibility_m = 10000.0;
+            m.visibility_or_more = true;
+        } else if (!m.visibility_m && !m.temperature_c &&
+                   std::regex_match(w, match, metres)) {
+            // 9999 is 10 km or more.
+            const double v = std::stod(match[1]);
+            m.visibility_m = v == 9999.0 ? 10000.0 : v;
+            m.visibility_or_more = v == 9999.0;
+        } else if (!m.visibility_m && std::regex_match(w, match, miles)) {
+            const double sm = match[2].matched
+                                  ? std::stod(match[2])
+                                  : std::stod(match[3]) / std::stod(match[4]);
+            m.visibility_m = sm * metres_per_statute_mile;
+            m.visibility_or_more = match[1] == "P";
+            m.visibility_or_less = match[1] == "M";
+        } else if (!m.visibility_m && std::regex_match(w, whole_miles) &&
+                   i + 1 < words.size() &&
+                   std::regex_match(words[i + 1], match, fraction_miles)) {
+            // "1 1/2SM": a whole number of miles, then a fraction.
+            m.visibility_m =
+                (std::stod(w) + std::stod(match[1]) / std::stod(match[2])) *
+                metres_per_statute_mile;
+            ++i;
+        } else if (std::regex_match(w, match, cloud)) {
+            Metar::CloudLayer layer;
+            const std::string cover = match[1];
+            layer.cover = cover == "FEW"   ? Metar::CloudLayer::Cover::few
+                          : cover == "SCT" ? Metar::CloudLayer::Cover::scattered
+                          : cover == "BKN" ? Metar::CloudLayer::Cover::broken
+                                           : Metar::CloudLayer::Cover::overcast;
+            layer.base_ft = std::stod(match[2]) * 100.0;
+            layer.cumulonimbus = match[3] == "CB";
+            layer.towering_cumulus = match[3] == "TCU";
+            m.clouds.push_back(layer);
+        } else if (std::regex_match(w, match, obscured)) {
+            Metar::CloudLayer layer;
+            layer.cover = Metar::CloudLayer::Cover::obscured;
+            layer.base_ft = std::stod(match[1]) * 100.0;
+            m.clouds.push_back(layer);
+        } else if (w == "SKC" || w == "CLR" || w == "NSC" || w == "NCD") {
+            m.no_cloud = true;
+        } else if (!m.temperature_c && m.clouds.empty() && !m.no_cloud &&
+                   std::regex_match(w, match, present) &&
+                   (match[2].matched || match[3].length() > 0)) {
+            Metar::PresentWeather p;
+            p.intensity = match[1] == "+" ? 1 : match[1] == "-" ? -1 : 0;
+            p.vicinity = match[1] == "VC";
+            p.descriptor = match[2];
+            const std::string codes = match[3];
+            for (std::size_t c = 0; c + 1 < codes.size(); c += 2) {
+                p.phenomena.push_back(codes.substr(c, 2));
+            }
+            m.weather.push_back(p);
         } else if (!m.temperature_c && std::regex_match(w, match, temperatures)) {
             m.temperature_c = signed_whole(match[1]);
             if (match[2].matched) {

@@ -150,6 +150,11 @@ public:
         return blend_seconds_;
     }
 
+    // The report now: the latest, even while it is blending in.
+    const WeatherReport& report() const {
+        return current_;
+    }
+
     sim::Conditions at(double latitude_deg, double longitude_deg, double height_m,
                        double time_s) override;
 

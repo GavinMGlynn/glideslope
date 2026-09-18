@@ -78,6 +78,134 @@ GLIDESLOPE_TEST(every_recorded_metar_is_read_as_aviationweather_decodes_it) {
 }
 
 GLIDESLOPE_TEST(
+    every_recorded_metars_visibility_weather_and_cloud_are_read_as_aviationweather_decodes_them) {
+    constexpr double metres_per_mile = 1609.344;
+    int count = 0;
+    for (const char* file : {"aviationweather-metars-2026-09-17T1600Z.json",
+                             "aviationweather-gusts-2026-09-18T0800Z.json",
+                             "aviationweather-shear-2026-09-18.json"}) {
+        std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) /
+                             "data/weather" / file,
+                         std::ios::binary);
+        check(static_cast<bool>(in), std::string("can read ") + file);
+        const std::string text(std::istreambuf_iterator<char>(in), {});
+        const auto doc = glideslope::world::parse_json(text);
+        const auto reports = glideslope::world::parse_aviationweather(text);
+        check(reports.size() == doc.array().size(),
+              std::string("every report in ") + file);
+        for (std::size_t i = 0; i < reports.size(); ++i) {
+            ++count;
+            const Metar& m = reports[i].metar;
+            const auto& theirs = doc.array()[i];
+            const std::string name = m.station;
+
+            // Their visibility is in statute miles, to two decimals, or "6+"
+            // and "10+" for at least that many; a report without one has none.
+            const auto* visib = theirs.find("visib");
+            if (visib == nullptr || visib->is_null()) {
+                check(!m.visibility_m, name + ": no visibility reported, none read");
+            } else if (visib->kind() == glideslope::world::Json::Kind::string) {
+                const std::string v = visib->string();
+                const double least = std::stod(v.substr(0, v.size() - 1));
+                check(v.back() == '+' && m.visibility_m &&
+                          *m.visibility_m >= least * metres_per_mile * 0.999,
+                      name + ": a visibility of at least " + v + " miles");
+            } else {
+                check(m.visibility_m && near(*m.visibility_m / metres_per_mile,
+                                             visib->number(), 0.006),
+                      name + ": a visibility of " + std::to_string(visib->number()) +
+                          " miles, read as " +
+                          std::to_string(m.visibility_m.value_or(-1)) + " m");
+            }
+
+            // Their weather is the groups, as written, space-separated.
+            std::string ours;
+            for (const Metar::PresentWeather& w : m.weather) {
+                if (!ours.empty()) {
+                    ours += ' ';
+                }
+                ours += w.vicinity        ? "VC"
+                        : w.intensity < 0 ? "-"
+                        : w.intensity > 0 ? "+"
+                                          : "";
+                ours += w.descriptor;
+                for (const std::string& p : w.phenomena) {
+                    ours += p;
+                }
+            }
+            const auto* wx = theirs.find("wxString");
+            const std::string their_wx =
+                wx != nullptr && !wx->is_null() ? wx->string() : "";
+            check(ours == their_wx, name + ": the weather present, \"" + ours +
+                                        "\" against \"" + their_wx + "\"");
+
+            // Their cloud: each layer's cover and base, VV as OVX.
+            const auto& clouds = theirs.at("clouds").array();
+            check(m.clouds.size() == clouds.size(), name + ": every cloud layer");
+            for (std::size_t c = 0; c < clouds.size() && c < m.clouds.size(); ++c) {
+                using Cover = Metar::CloudLayer::Cover;
+                const Cover cover = m.clouds[c].cover;
+                const std::string code = cover == Cover::few         ? "FEW"
+                                         : cover == Cover::scattered ? "SCT"
+                                         : cover == Cover::broken    ? "BKN"
+                                         : cover == Cover::overcast  ? "OVC"
+                                                                     : "OVX";
+                check(code == clouds[c].at("cover").string() &&
+                          m.clouds[c].base_ft == clouds[c].at("base").number(),
+                      name + ": cloud layer " + std::to_string(c + 1));
+            }
+        }
+    }
+    check(count == 18, "eighteen recorded reports");
+
+    // What their decoding does not hold: cumulonimbus and towering cumulus,
+    // CAVOK, and the reports of no cloud.
+    const Metar abq = parse_metar("SPECI KABQ 180759Z COR 18027G37KT 3SM VCTS +RA BR "
+                                  "SCT036CB BKN046 OVC100 18/16 "
+                                  "A3039");
+    check(abq.clouds.at(0).cumulonimbus && !abq.clouds.at(1).cumulonimbus,
+          "KABQ's scattered layer at 3,600 ft is cumulonimbus");
+    check(parse_metar("METAR XXXX 181200Z 27010KT 9999 FEW030TCU 20/10 Q1010")
+              .clouds.at(0)
+              .towering_cumulus,
+          "towering cumulus");
+    const Metar uuee = parse_metar(
+        "METAR UUEE 171600Z 19004MPS CAVOK 18/09 Q1012 R24L/CLRD62 R24C/CLRD62 NOSIG");
+    check(uuee.cavok && uuee.visibility_or_more && uuee.clouds.empty() &&
+              uuee.weather.empty(),
+          "CAVOK: 10 km or more, no cloud, no weather");
+    check(parse_metar("METAR YSSY 171600Z AUTO 35005KT 9999 // NCD 11/07 Q1028")
+                  .no_cloud &&
+              parse_metar("METAR EGLL 171550Z AUTO 29014KT 9999 NCD 20/07 Q1010")
+                  .no_cloud,
+          "NCD: no cloud detected");
+
+    // Statute miles as a whole number and a fraction, less than, and more than:
+    // forms the recordings do not hold.
+    const Metar mixed =
+        parse_metar("METAR KXYZ 181200Z 00000KT 1 1/2SM BR OVC004 10/09 A2992");
+    check(mixed.visibility_m &&
+              near(*mixed.visibility_m, 1.5 * metres_per_mile, 1e-9) &&
+              mixed.weather.size() == 1,
+          "1 1/2SM is a mile and a half");
+    const Metar low =
+        parse_metar("METAR KXYZ 181200Z 00000KT M1/4SM FG VV002 10/10 A2992");
+    check(low.visibility_or_less &&
+              near(*low.visibility_m, 0.25 * metres_per_mile, 1e-9),
+          "M1/4SM is less than a quarter of a mile");
+    const Metar high = parse_metar("METAR KXYZ 181200Z 00000KT P6SM SKC 10/00 A2992");
+    check(high.visibility_or_more &&
+              near(*high.visibility_m, 6.0 * metres_per_mile, 1e-9) && high.no_cloud,
+          "P6SM is more than six miles");
+    // A trend's cloud is forecast, not observed.
+    check(
+        parse_metar("METAR RJAA 180630Z 03018KT 9999 BKN015 22/18 Q1021 WS R34R TEMPO "
+                    "BKN014")
+                .clouds.size() == 1,
+        "a trend's cloud is not read as observed");
+}
+
+GLIDESLOPE_TEST(
     metar_groups_are_read_in_every_form_and_trends_are_not_read_as_observations) {
     Metar m = parse_metar(
         "SPECI KXYZ 051230Z COR 24015G28KT 200V280 3SM M05/M12 A2992 RMK AO2");

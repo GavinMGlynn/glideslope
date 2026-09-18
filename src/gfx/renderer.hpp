@@ -12,6 +12,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <span>
 #include <string>
 #include <vector>
@@ -40,6 +41,20 @@ struct Colour {
 };
 inline constexpr Colour sky{0.45f, 0.65f, 0.90f, 1.0f};
 
+// The air a frame is seen through. What is seen at a distance d through air of
+// visibility V keeps exp(-ln 20 d / V) of its contrast with the haze's colour -
+// Koschmieder's law, with visibility where 5% is left. Below `top_m` the
+// visibility is `below_m`, above it `above_m`; heights are above `station`, an
+// east-north-up frame, with the Earth's curvature. Clear air, the default, has
+// no haze.
+struct Haze {
+    Colour colour{0.72f, 0.75f, 0.80f, 1.0f};
+    double below_m = std::numeric_limits<double>::infinity();
+    double above_m = std::numeric_limits<double>::infinity();
+    double top_m = 0.0;
+    Placement station;
+};
+
 using MeshId = std::size_t;
 using TextureId = std::size_t;
 
@@ -52,6 +67,9 @@ struct Draw {
     TextureId texture = no_texture;
     // The mesh's texture coordinates to the texture's: scale u and v, then add.
     std::array<float, 4> uv_transform{1.0f, 1.0f, 0.0f, 0.0f};
+    // Blended over what is behind it by its alpha, after everything opaque,
+    // in the order given, and hiding nothing behind it.
+    bool translucent = false;
 };
 
 class Renderer {
@@ -96,11 +114,13 @@ public:
     }
 
     // Draws one frame, from `camera`, into the offscreen target, and to the
-    // window if there is one. With no draws it is the sky alone. `overlay`, if
-    // given, is in clip space and drawn over everything, with no depth test:
-    // the HUD.
+    // window if there is one: over `background`, the opaque draws, then the
+    // translucent ones, through `haze`. With no draws it is the background
+    // alone. `overlay`, if given, is in clip space and drawn over everything,
+    // with no depth test and no haze: the HUD.
     void render(const Camera& camera, std::span<const Draw> draws,
-                const Mesh* overlay = nullptr);
+                const Mesh* overlay = nullptr, const Haze& haze = {},
+                const Colour& background = sky);
 
     // The last frame rendered, read back from the GPU.
     Frame capture();
@@ -128,6 +148,7 @@ private:
     SDL_GPUTexture* target_ = nullptr;
     SDL_GPUTexture* depth_ = nullptr;
     SDL_GPUGraphicsPipeline* mesh_pipeline_ = nullptr;
+    SDL_GPUGraphicsPipeline* translucent_pipeline_ = nullptr;
     SDL_GPUGraphicsPipeline* overlay_pipeline_ = nullptr;
     std::vector<GpuMesh> meshes_;
     std::vector<MeshId> free_meshes_;

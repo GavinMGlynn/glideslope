@@ -31,7 +31,8 @@ add_executable(glideslope_tests
     unit/test_geotiff.cpp
     unit/test_inflate.cpp
     unit/test_flight.cpp
-    unit/test_restore.cpp)
+    unit/test_restore.cpp
+    unit/test_sky.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_world glideslope_platform
                                                glideslope_input)
 # Where tests/cmake/fetch.cmake puts the files the tests download. A directory
@@ -116,6 +117,7 @@ set(GLIDESLOPE_UNIT_TESTS
     json_documents_rfc_8259_allows_are_read_into_their_values
     json_documents_rfc_8259_does_not_allow_are_refused
     every_recorded_metar_is_read_as_aviationweather_decodes_it
+    every_recorded_metars_visibility_weather_and_cloud_are_read_as_aviationweather_decodes_them
     metar_groups_are_read_in_every_form_and_trends_are_not_read_as_observations
     a_recorded_metar_sets_the_surface_wind_temperature_and_pressure_it_reports
     a_recorded_winds_aloft_response_sets_the_wind_at_every_level_it_reports_and_between
@@ -140,7 +142,10 @@ set(GLIDESLOPE_UNIT_TESTS
     a_ridge_in_stable_air_makes_the_mountain_waves_of_linear_theory
     without_stability_the_wind_over_a_ridge_is_potential_flow
     a_warm_afternoons_report_lifts_the_air_in_thermals_and_over_its_ridges
-    an_aircraft_circling_in_a_thermal_climbs_by_as_much_as_the_model_lifts_it)
+    an_aircraft_circling_in_a_thermal_climbs_by_as_much_as_the_model_lifts_it
+    a_reports_cloud_is_drawn_as_decks_at_its_heights_and_cover
+    a_decks_pattern_covers_as_much_of_the_sky_as_its_eighths_say
+    a_reports_visibility_and_precipitation_are_drawn_as_it_gives_them)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
@@ -211,6 +216,9 @@ endif()
 add_executable(glideslope_hud_check tools/hud_check.cpp)
 target_link_libraries(glideslope_hud_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_hud_check)
+add_executable(glideslope_sky_check tools/sky_check.cpp)
+target_link_libraries(glideslope_sky_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_sky_check)
 add_executable(glideslope_terrain_check tools/terrain_check.cpp)
 # Cesium Native's image decoder reads the imagery's JPEG tiles.
 target_link_libraries(glideslope_terrain_check PRIVATE glideslope_gfx CesiumImage)
@@ -240,6 +248,16 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR} -DIMAGERY=ON
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain.cmake)
     set_tests_properties(a_shot_of_mount_taranaki_drapes_the_open_imagery_where_it_belongs_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+    add_test(NAME a_reports_cloud_visibility_and_rain_are_drawn_where_it_puts_them_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCLI=$<TARGET_FILE:glideslope_cli>
+            -DSKY=$<TARGET_FILE:glideslope_sky_check>
+            -DTERRAIN=$<TARGET_FILE:glideslope_terrain_check>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_weather.cmake)
+    set_tests_properties(a_reports_cloud_visibility_and_rain_are_drawn_where_it_puts_them_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
     add_test(NAME a_distant_mountain_and_a_nearby_aircraft_draw_with_no_z_fighting_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
@@ -350,6 +368,12 @@ add_test(NAME the_cli_refuses_a_height_asked_for_off_the_earth
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=height 91 0" -DEXIT=2
         "-DSTDERR_MATCHES=the latitude must be a number from -90 to 90"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_cli_refuses_a_sky_for_what_is_not_a_metar
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=sky nonsense -39.5 174.3" -DEXIT=1
+        "-DSTDERR_MATCHES=a METAR must start with its station"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_weather_for_what_is_not_a_station

@@ -73,7 +73,9 @@ std::vector<std::string> credit_lines(const std::vector<std::string>& credits,
 // Where `lines` lines of credits go on a frame, ending a line above its bottom.
 TextLayout credit_layout(int width, int height, std::size_t lines);
 
-// The credits alone, in clip space, for a screen with no HUD.
+// The credits alone, in clip space, for a screen with no HUD. Credits are
+// drawn over a strip across the frame's bottom, from the layout's top down,
+// that darkens what is behind them by half, so they can be read over anything.
 Mesh credits_mesh(const std::vector<std::string>& credits, int width, int height);
 
 // The glyph for `c`: seven rows, the top first, each five bits with the
@@ -85,9 +87,10 @@ const std::string& font_characters();
 
 inline constexpr std::array<float, 4> hud_colour{0.2f, 1.0f, 0.4f, 1.0f};
 
-// The HUD for `readings` on a frame of `width` by `height`: its text, the
-// credits, and a horizon line across the middle, pitched and banked with the aircraft.
-// In clip space, drawn over everything else.
+// The HUD for `readings` on a frame of `width` by `height`: its text, a
+// horizon line across the middle, pitched and banked with the aircraft, and the
+// credits over their strip, last, over the line wherever it runs. In clip
+// space, drawn over everything else.
 Mesh hud_mesh(const HudReadings& readings, int width, int height);
 
 // Text read back from a frame drawn with `layout`: `lines` lines of `columns`

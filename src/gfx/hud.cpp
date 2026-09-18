@@ -267,13 +267,23 @@ void add_text(Mesh& mesh, const std::vector<std::string>& lines,
 
 } // namespace
 
+// The credits, over a strip that darkens what is behind them by half - the
+// HUD's horizon line included - so they can be read over anything.
+void add_credits(Mesh& mesh, const std::vector<std::string>& credits, int width,
+                 int height) {
+    if (credits.empty()) {
+        return;
+    }
+    const TextLayout layout = credit_layout(width, height, credits.size());
+    add_rect(mesh, 0.0, layout.top, width, height, width, height,
+             {0.0f, 0.0f, 0.0f, 0.5f});
+    add_text(mesh, credits, layout, width, height);
+}
+
 Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     Mesh mesh;
     const TextLayout layout = hud_layout(width, height);
     add_text(mesh, hud_lines(readings), layout, width, height);
-    const std::vector<std::string> credits = credit_lines(readings.credits, width);
-    add_text(mesh, credits, credit_layout(width, height, credits.size()), width,
-             height);
 
     // The horizon: across the middle third, moved down the screen as the nose
     // rises - a degree of pitch a hundredth of the height - and turned against
@@ -290,13 +300,14 @@ Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     add_rect(mesh, cx - 3 * layout.scale, height / 2.0 - layout.scale,
              cx + 3 * layout.scale, height / 2.0 + layout.scale, width, height,
              hud_colour);
+    // Last, over the horizon wherever it runs.
+    add_credits(mesh, credit_lines(readings.credits, width), width, height);
     return mesh;
 }
 
 Mesh credits_mesh(const std::vector<std::string>& credits, int width, int height) {
     Mesh mesh;
-    const std::vector<std::string> lines = credit_lines(credits, width);
-    add_text(mesh, lines, credit_layout(width, height, lines.size()), width, height);
+    add_credits(mesh, credit_lines(credits, width), width, height);
     return mesh;
 }
 

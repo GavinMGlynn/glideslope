@@ -8,10 +8,14 @@
 // T remark when there is one - and the pressure, as QNH in hectopascals or an
 // altimeter setting in inches of mercury; wind shear reported on a runway or
 // all of them (WS R27, WS RWY27, WS TKOF RWY27, WS LDG RWY27, WS ALL RWY); and
-// from the remarks the peak wind (PK WND) and a wind shift (WSHFT). The rest -
-// visibility, cloud, weather, trends - is not read yet. Groups after a trend
-// (BECMG, TEMPO, NOSIG) are forecasts, not observations, and are not read as
-// either.
+// from the remarks the peak wind (PK WND) and a wind shift (WSHFT); the
+// prevailing visibility, in metres or statute miles (9999, 0800, CAVOK, 10SM,
+// 1 1/2SM, M1/4SM, P6SM); the weather present (-RA, +TSRA, VCSH, FZFG, BR);
+// and the cloud (FEW, SCT, BKN and OVC with their heights and CB or TCU; VV,
+// the sky obscured; SKC, CLR, NSC and NCD, none). Not read: runway visual
+// ranges, a minimum visibility in one direction, recent weather (RE), and
+// trends - groups after BECMG, TEMPO or NOSIG are forecasts, not
+// observations, and are not read as either.
 
 #include <optional>
 #include <stdexcept>
@@ -39,6 +43,40 @@ struct Metar {
     // The range the direction varies over, when reported as dddVddd.
     std::optional<double> wind_varies_from_deg;
     std::optional<double> wind_varies_to_deg;
+
+    // The prevailing visibility, metres. 9999 and CAVOK are 10 km or more, and
+    // P6SM more than 6 statute miles: `visibility_or_more`; M1/4SM less than a
+    // quarter of one: `visibility_or_less`.
+    std::optional<double> visibility_m;
+    bool visibility_or_more = false;
+    bool visibility_or_less = false;
+    // Ceiling and visibility OK: 10 km or more, no cloud below 5,000 ft or the
+    // highest minimum sector altitude, no cumulonimbus, no weather.
+    bool cavok = false;
+
+    // The weather present: one group each, "+TSRA" heavy thunderstorm with
+    // rain, "VCSH" showers in the vicinity.
+    struct PresentWeather {
+        int intensity = 0; // -1 light, 0 moderate, 1 heavy
+        bool vicinity = false;
+        std::string descriptor;             // MI, PR, BC, DR, BL, SH, TS, FZ, or none
+        std::vector<std::string> phenomena; // RA, SN, FG, BR, ...
+    };
+    std::vector<PresentWeather> weather;
+
+    // The cloud, as reported, lowest first: its cover, in eighths - FEW 1 to
+    // 2, SCT 3 to 4, BKN 5 to 7, OVC 8 - and its base above the station. VV is
+    // the sky obscured, the base the vertical visibility into it.
+    struct CloudLayer {
+        enum class Cover { few, scattered, broken, overcast, obscured };
+        Cover cover = Cover::few;
+        double base_ft = 0.0;
+        bool cumulonimbus = false;
+        bool towering_cumulus = false;
+    };
+    std::vector<CloudLayer> clouds;
+    // SKC, CLR, NSC or NCD: no cloud, or none that matters.
+    bool no_cloud = false;
 
     std::optional<double> temperature_c;
     std::optional<double> dewpoint_c;

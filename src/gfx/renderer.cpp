@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <stdexcept>
 
@@ -22,8 +23,48 @@ constexpr SDL_GPUTextureFormat depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
 struct Transform {
     std::array<float, 16> clip_from_local{};
     std::array<float, 4> uv_transform{1.0f, 1.0f, 0.0f, 0.0f};
+    std::array<float, 4> eye{};
+    std::array<float, 16> station_from_local{};
 };
-static_assert(sizeof(Transform) == 80);
+static_assert(sizeof(Transform) == 160);
+
+// The fragment shader's: the haze's colour, then the extinction below its top
+// and above it, the top's height and the eye's.
+struct HazeBlock {
+    std::array<float, 4> colour{};
+    std::array<float, 4> haze{};
+};
+static_assert(sizeof(HazeBlock) == 32);
+
+// Koschmieder's: the extinction at which 5% of a contrast is left at `v`.
+float extinction(double visibility_m) {
+    return std::isfinite(visibility_m) && visibility_m > 0.0
+               ? static_cast<float>(std::log(20.0) / visibility_m)
+               : 0.0f;
+}
+
+// The station's east-north-up frame from a mesh's, in double precision and
+// narrowed at the end, as camera_from_local is.
+Mat4f station_from_local(const Placement& station, const Placement& placement) {
+    const Mat3 to_station = transpose(station.world_from_local);
+    const Mat3 r = to_station * placement.world_from_local;
+    const world::Ecef t =
+        to_station * world::Ecef{placement.origin.x - station.origin.x,
+                                 placement.origin.y - station.origin.y,
+                                 placement.origin.z - station.origin.z};
+    Mat4f m;
+    for (int c = 0; c < 3; ++c) {
+        for (int row = 0; row < 3; ++row) {
+            m.m[static_cast<std::size_t>(c * 4 + row)] =
+                static_cast<float>(r.m[static_cast<std::size_t>(c * 3 + row)]);
+        }
+    }
+    m.m[12] = static_cast<float>(t.x);
+    m.m[13] = static_cast<float>(t.y);
+    m.m[14] = static_cast<float>(t.z);
+    m.m[15] = 1.0f;
+    return m;
+}
 
 std::runtime_error sdl_error(const std::string& what) {
     return std::runtime_error(what + ": " + SDL_GetError());
@@ -80,9 +121,16 @@ SDL_GPUTexture* make_texture(SDL_GPUDevice* device, SDL_GPUTextureFormat format,
     return SDL_CreateGPUTexture(device, &info);
 }
 
-// The mesh pipeline, with the depth test for the world, or without it for what
-// is drawn over the world.
-SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, bool depth_test) {
+// How a pipeline treats depth and what is already drawn.
+enum class Layering {
+    opaque,      // tested against depth, and writing it
+    translucent, // tested, not writing, blended over what is behind by alpha
+    overlay,     // over everything, blended likewise
+};
+
+// The mesh pipeline, layered as asked.
+SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, Layering layering) {
+    const bool depth_test = layering != Layering::overlay;
     SDL_GPUShader* vertex = make_shader(device, shaders::mesh_vertex);
     SDL_GPUShader* fragment = nullptr;
     try {
@@ -109,6 +157,19 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, bool depth_te
 
     SDL_GPUColorTargetDescription colour{};
     colour.format = colour_format;
+    // The overlay blends too: its glyphs and lines are opaque, and the strip
+    // behind the credits is not.
+    if (layering != Layering::opaque) {
+        colour.blend_state.enable_blend = true;
+        colour.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+        colour.blend_state.dst_color_blendfactor =
+            SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+        colour.blend_state.color_blend_op = SDL_GPU_BLENDOP_ADD;
+        colour.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+        colour.blend_state.dst_alpha_blendfactor =
+            SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+        colour.blend_state.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
+    }
 
     SDL_GPUGraphicsPipelineCreateInfo info{};
     info.vertex_shader = vertex;
@@ -122,7 +183,7 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, bool depth_te
     info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
     info.rasterizer_state.enable_depth_clip = true;
     info.depth_stencil_state.enable_depth_test = depth_test;
-    info.depth_stencil_state.enable_depth_write = depth_test;
+    info.depth_stencil_state.enable_depth_write = layering == Layering::opaque;
     info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER; // reversed
     info.target_info.color_target_descriptions = &colour;
     info.target_info.num_color_targets = 1;
@@ -172,8 +233,9 @@ Renderer::Renderer(const std::string& driver, SDL_Window* window, int width, int
         if (depth_ == nullptr) {
             throw sdl_error("no depth buffer");
         }
-        mesh_pipeline_ = make_mesh_pipeline(device_, true);
-        overlay_pipeline_ = make_mesh_pipeline(device_, false);
+        mesh_pipeline_ = make_mesh_pipeline(device_, Layering::opaque);
+        translucent_pipeline_ = make_mesh_pipeline(device_, Layering::translucent);
+        overlay_pipeline_ = make_mesh_pipeline(device_, Layering::overlay);
         // Linear within and between mip levels, clamped at the edges: imagery
         // tiles meet their neighbours, and must not wrap into them.
         SDL_GPUSamplerCreateInfo sampler{};
@@ -229,6 +291,9 @@ void Renderer::release() {
     SDL_ReleaseGPUBuffer(device_, overlay_.indices);
     if (overlay_pipeline_ != nullptr) {
         SDL_ReleaseGPUGraphicsPipeline(device_, overlay_pipeline_);
+    }
+    if (translucent_pipeline_ != nullptr) {
+        SDL_ReleaseGPUGraphicsPipeline(device_, translucent_pipeline_);
     }
     if (mesh_pipeline_ != nullptr) {
         SDL_ReleaseGPUGraphicsPipeline(device_, mesh_pipeline_);
@@ -446,7 +511,7 @@ void Renderer::upload(GpuMesh& gpu, const Mesh& mesh, bool reuse) {
 }
 
 void Renderer::render(const Camera& camera, std::span<const Draw> draws,
-                      const Mesh* overlay) {
+                      const Mesh* overlay, const Haze& haze, const Colour& background) {
     if (overlay != nullptr && !overlay->indices.empty()) {
         upload(overlay_, *overlay, true);
     }
@@ -457,7 +522,7 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
 
     SDL_GPUColorTargetInfo target{};
     target.texture = target_;
-    target.clear_color = {sky.r, sky.g, sky.b, sky.a};
+    target.clear_color = {background.r, background.g, background.b, background.a};
     target.load_op = SDL_GPU_LOADOP_CLEAR;
     target.store_op = SDL_GPU_STOREOP_STORE;
     SDL_GPUDepthStencilTargetInfo depth{};
@@ -468,12 +533,37 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
     depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
     depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
     SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(commands, &target, 1, &depth);
-    if (!draws.empty()) {
-        SDL_BindGPUGraphicsPipeline(pass, mesh_pipeline_);
-        const Mat4f clip_from_camera = projection(
-            camera.vertical_fov_rad,
-            static_cast<double>(width_) / static_cast<double>(height_), camera.near_m);
+
+    // The haze, and the eye's height above its station.
+    const world::Ecef eye_in_station =
+        transpose(haze.station.world_from_local) *
+        world::Ecef{camera.position.x - haze.station.origin.x,
+                    camera.position.y - haze.station.origin.y,
+                    camera.position.z - haze.station.origin.z};
+    HazeBlock haze_block;
+    haze_block.colour = {haze.colour.r, haze.colour.g, haze.colour.b, 1.0f};
+    haze_block.haze = {
+        extinction(haze.below_m), extinction(haze.above_m),
+        static_cast<float>(haze.top_m),
+        static_cast<float>(eye_in_station.z + (eye_in_station.x * eye_in_station.x +
+                                               eye_in_station.y * eye_in_station.y) /
+                                                  (2.0 * 6371000.0))};
+    SDL_PushGPUFragmentUniformData(commands, 0, &haze_block, sizeof haze_block);
+
+    const Mat4f clip_from_camera = projection(
+        camera.vertical_fov_rad,
+        static_cast<double>(width_) / static_cast<double>(height_), camera.near_m);
+    const auto draw_all = [&](bool translucent) {
+        bool bound = false;
         for (const Draw& draw : draws) {
+            if (draw.translucent != translucent) {
+                continue;
+            }
+            if (!bound) {
+                SDL_BindGPUGraphicsPipeline(pass, translucent ? translucent_pipeline_
+                                                              : mesh_pipeline_);
+                bound = true;
+            }
             const GpuMesh& mesh = meshes_.at(draw.mesh);
             if (mesh.vertices == nullptr) {
                 throw std::logic_error("a removed mesh drawn");
@@ -495,10 +585,21 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
             transform.clip_from_local =
                 (clip_from_camera * camera_from_local(camera, draw.placement)).m;
             transform.uv_transform = draw.uv_transform;
+            const world::Ecef eye =
+                transpose(draw.placement.world_from_local) *
+                world::Ecef{camera.position.x - draw.placement.origin.x,
+                            camera.position.y - draw.placement.origin.y,
+                            camera.position.z - draw.placement.origin.z};
+            transform.eye = {static_cast<float>(eye.x), static_cast<float>(eye.y),
+                             static_cast<float>(eye.z), 1.0f};
+            transform.station_from_local =
+                station_from_local(haze.station, draw.placement).m;
             SDL_PushGPUVertexUniformData(commands, 0, &transform, sizeof transform);
             SDL_DrawGPUIndexedPrimitives(pass, mesh.index_count, 1, 0, 0, 0);
         }
-    }
+    };
+    draw_all(false);
+    draw_all(true);
     if (overlay != nullptr && !overlay->indices.empty()) {
         SDL_BindGPUGraphicsPipeline(pass, overlay_pipeline_);
         SDL_GPUBufferBinding vertices{overlay_.vertices, 0};
@@ -507,6 +608,8 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
         SDL_BindGPUIndexBuffer(pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
         SDL_GPUTextureSamplerBinding image{white_, sampler_};
         SDL_BindGPUFragmentSamplers(pass, 0, &image, 1);
+        HazeBlock clear;
+        SDL_PushGPUFragmentUniformData(commands, 0, &clear, sizeof clear);
         Transform transform;
         transform.clip_from_local[0] = transform.clip_from_local[5] =
             transform.clip_from_local[10] = transform.clip_from_local[15] = 1.0f;

@@ -1,7 +1,8 @@
 // glideslope_terrain_check - holds a frame of the terrain to the DEM itself.
 //
 //   glideslope_terrain_check FRAME.bmp REFERENCE.bmp DIFFERENCE.bmp
-//                            LAT,LON,HEIGHT LAT,LON,HEIGHT CACHE DATA [imagery]
+//                            LAT,LON,HEIGHT LAT,LON,HEIGHT CACHE DATA
+//                            [imagery | visibility=METRES]
 //
 // FRAME is what `glideslope --screen terrain --at EYE --toward TARGET --shot`
 // wrote. This makes the reference frame of the same view without Cesium Native,
@@ -22,6 +23,19 @@
 // imagery, the frame must match the reference better where it is than moved
 // four pixels any way, so the imagery is where it belongs. REFERENCE is
 // written, and DIFFERENCE, the difference four times over, for looking at.
+//
+// With `visibility=V`, the frame was shot through haze of that visibility, the
+// eye and all the ground in view within the haze's layer. The reference's
+// ground then fades by Koschmieder's law into the haze's colour (gfx::Haze):
+// at a distance d, exp(-ln 20 d / V) of its contrast with the haze is left. The
+// sky is not compared - under haze it is no longer the clear sky's colour - and
+// nor is the skyline, which far ground and hazy sky need not show. The ground
+// must match the faded reference as closely as tinted ground matches the
+// clear one; all ground at V or beyond must be within 8 of the haze's colour
+// in every channel, at the 99th percentile - hidden; and ground within V/3,
+// which keeps over a third of its contrast, must differ from the haze by at
+// least 15 in some channel on average - seen.
+//
 // Exits 0 if they agree, 1 with the numbers if not, 2 on bad arguments.
 
 #include "gfx/hud.hpp"
@@ -349,11 +363,21 @@ private:
 } // namespace
 
 int main(int argc, char** argv) {
-    const bool with_imagery = argc == 9 && std::string(argv[8]) == "imagery";
-    if (argc != 8 && !with_imagery) {
+    const std::string option = argc == 9 ? argv[8] : "";
+    const bool with_imagery = option == "imagery";
+    double visibility = 0.0;
+    if (option.rfind("visibility=", 0) == 0) {
+        char* end = nullptr;
+        visibility = std::strtod(option.c_str() + 11, &end);
+        if (*end != '\0' || !(visibility > 0.0)) {
+            fail("not visibility=METRES: " + option, 2);
+        }
+    }
+    const bool hazy = visibility > 0.0;
+    if (argc != 8 && !with_imagery && !hazy) {
         std::fputs(
             "usage: glideslope_terrain_check FRAME.bmp REFERENCE.bmp DIFFERENCE.bmp "
-            "EYE TARGET CACHE DATA [imagery]\n",
+            "EYE TARGET CACHE DATA [imagery | visibility=METRES]\n",
             stderr);
         return 2;
     }
@@ -391,6 +415,9 @@ int main(int argc, char** argv) {
     reference.rgba.assign(frame.rgba.size(), 255);
     std::vector<std::uint8_t> ground_here(static_cast<std::size_t>(frame.width) *
                                           static_cast<std::size_t>(frame.height));
+    std::vector<double> distance_here(ground_here.size(), 0.0);
+    const glideslope::gfx::Colour haze_colour = glideslope::gfx::Haze{}.colour;
+    const auto haze_bytes = bytes({haze_colour.r, haze_colour.g, haze_colour.b, 1.0f});
     const auto sky = bytes(
         {glideslope::gfx::sky.r, glideslope::gfx::sky.g, glideslope::gfx::sky.b, 1.0f});
     ImageryTiles imagery(cache);
@@ -439,9 +466,19 @@ int main(int argc, char** argv) {
                             hit->normal, up));
                     }
                 }
+                if (hit && hazy) {
+                    // Faded into the haze by Koschmieder's law.
+                    const double left =
+                        std::exp(-std::log(20.0) * hit->distance_m / visibility);
+                    for (std::size_t c = 0; c < 3; ++c) {
+                        rgb[c] = static_cast<std::uint8_t>(std::lround(
+                            haze_bytes[c] + (rgb[c] - haze_bytes[c]) * left));
+                    }
+                }
                 std::copy(rgb.begin(), rgb.end(),
                           reference.rgba.begin() + static_cast<std::ptrdiff_t>(at * 4));
                 ground_here[at] = hit ? 1 : 0;
+                distance_here[at] = hit ? hit->distance_m : 0.0;
             }
         }
     };
@@ -488,7 +525,9 @@ int main(int argc, char** argv) {
         const bool frame_sky = std::abs(f[0] - sky[0]) <= 1 &&
                                std::abs(f[1] - sky[1]) <= 1 &&
                                std::abs(f[2] - sky[2]) <= 1;
-        const bool frame_ground = !frame_sky;
+        // Through haze, far ground and the hazy sky look alike: ground is where
+        // the reference has it.
+        const bool frame_ground = hazy ? ground_here[i] != 0 : !frame_sky;
         reference_ground += ground_here[i];
         agree += (frame_ground == (ground_here[i] != 0)) ? 1u : 0u;
         int worst = 0;
@@ -643,13 +682,56 @@ int main(int argc, char** argv) {
         aligned = std::abs(best_x) <= 1 && std::abs(best_y) <= 1;
     }
 
+    // Through haze: hidden beyond the visibility, seen well within it.
+    bool hidden_and_seen = true;
+    if (hazy) {
+        std::vector<int> beyond;
+        double near_total = 0.0;
+        std::size_t near_count = 0;
+        for (std::size_t i = 0; i < compared; ++i) {
+            if (ground_here[i] == 0) {
+                continue;
+            }
+            const auto* f = &frame.rgba[i * 4];
+            int off = 0;
+            for (std::size_t c = 0; c < 3; ++c) {
+                off = std::max(off, std::abs(static_cast<int>(f[c]) -
+                                             static_cast<int>(haze_bytes[c])));
+            }
+            if (distance_here[i] >= visibility) {
+                beyond.push_back(off);
+            } else if (distance_here[i] <= visibility / 3.0) {
+                near_total += off;
+                ++near_count;
+            }
+        }
+        std::sort(beyond.begin(), beyond.end());
+        const int p99 = beyond.empty() ? 255 : beyond[beyond.size() * 99 / 100];
+        const double near_mean =
+            near_count == 0 ? 0.0 : near_total / static_cast<double>(near_count);
+        std::printf(
+            "through haze of %.0f m visibility: ground at it or beyond in %.1f%% "
+            "of the frame, the 99th percentile %d from the haze's colour (at "
+            "most 8); ground within a third of it in %.1f%%, %.1f from the haze "
+            "on average (at least 15)\n",
+            visibility, 100.0 * static_cast<double>(beyond.size()) / pixels, p99,
+            100.0 * static_cast<double>(near_count) / pixels, near_mean);
+        if (beyond.size() < compared / 100 || near_count < compared / 100) {
+            fail("the view is not a test of the haze: too little ground beyond its "
+                 "visibility, or within a third of it");
+        }
+        hidden_and_seen = p99 <= 8 && near_mean >= 15.0;
+    }
+
     if (ground_share < 0.1 || ground_share > 0.9) {
         fail("the view is not a test of anything: ground in " +
              std::to_string(100.0 * ground_share) + "% of it");
     }
-    if (skyline_mean > tolerances.mean_skyline || skyline_worst > tolerances.skyline ||
-        agreement < tolerances.agreement || mean > tolerances.mean_difference ||
-        p95 > tolerances.p95_difference || !aligned) {
+    const bool geometry = hazy || (skyline_mean <= tolerances.mean_skyline &&
+                                   skyline_worst <= tolerances.skyline &&
+                                   agreement >= tolerances.agreement);
+    if (!geometry || mean > tolerances.mean_difference ||
+        p95 > tolerances.p95_difference || !aligned || !hidden_and_seen) {
         fail(std::string("the frame does not match the ") +
              (with_imagery ? "DEM and imagery" : "DEM") +
              " ray-cast from the same eye");

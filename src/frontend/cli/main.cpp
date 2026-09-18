@@ -13,6 +13,7 @@
 #include "world/dem.hpp"
 #include "world/download.hpp"
 #include "world/metar.hpp"
+#include "world/sky.hpp"
 #include "world/weather.hpp"
 #include "world/winds_aloft.hpp"
 
@@ -52,6 +53,9 @@ void print_usage(std::FILE* out) {
         "  weather STATION           the weather now at an airfield: its METAR, and "
         "the\n"
         "                            winds aloft over it\n"
+        "  sky REPORT LAT LON        the cloud, haze and precipitation a METAR shows\n"
+        "                            observed on the ground at LAT LON, and the\n"
+        "                            nearest places in its lowest cloud and its gaps\n"
         "  air                       the air - gusts, turbulence, thermals and a\n"
         "                            ridge's lift - at a thousand places and times,\n"
         "                            for comparing platforms\n"
@@ -240,6 +244,106 @@ int weather(const std::string& station) {
 // The air a fixed gusty report gives at a thousand fixed places and times,
 // each wind component in whole 1e-11 m/s: what CI compares across platforms
 // (tests/cmake/cross_platform_flights.cmake), whose arithmetic is in integers.
+// What a report shows observed on the ground at a place - the DEM's, fetched
+// as `height` fetches it: its cloud decks, the nearest places well inside the
+// lowest deck's cloud and well inside its gaps - for the frame tests to look
+// from - its haze and what falls.
+int sky(const std::filesystem::path& data, std::string_view report,
+        std::string_view latitude_text, std::string_view longitude_text) {
+    namespace world = glideslope::world;
+    const auto number = [](std::string_view text, double low, double high,
+                           const char* what) {
+        const std::string copy(text);
+        char* end = nullptr;
+        const double v = std::strtod(copy.c_str(), &end);
+        if (copy.empty() || *end != '\0' || !(v >= low && v <= high)) {
+            std::fprintf(stderr, "glideslope_cli: %s must be a number from %g to %g\n",
+                         what, low, high);
+            std::exit(2);
+        }
+        return v;
+    };
+    const double lat = number(latitude_text, -90.0, 90.0, "the latitude");
+    const double lon = number(longitude_text, -180.0, 180.0, "the longitude");
+    const world::Metar metar = world::parse_metar(report);
+
+    // The station's ground, from the DEM, as `height` finds it.
+    std::ifstream coverage_file(data / "dem" / "coverage.txt", std::ios::binary);
+    if (!coverage_file) {
+        throw std::runtime_error("cannot read " +
+                                 (data / "dem" / "coverage.txt").string());
+    }
+    const world::DemCoverage coverage(
+        std::string(std::istreambuf_iterator<char>(coverage_file), {}));
+    const std::filesystem::path cache = glideslope::platform::cache_directory();
+    const world::Fetch fetch = world::http_fetch();
+    world::DownloadedTiles tiles(cache, fetch);
+    const world::Geoid geoid = world::egm2008_geoid(cache, fetch);
+    world::Dem dem(coverage, tiles, &geoid);
+    const double elevation = dem.height_above_geoid(lat, lon);
+    const double undulation = geoid.undulation(lat, lon);
+    const std::vector<world::CloudDeck> decks = world::cloud_decks(metar, elevation);
+    std::printf("sky of %s %02d%02d%02dZ over %.7f, %.7f, %.3f m above sea level\n",
+                metar.station.c_str(), metar.day, metar.hour, metar.minute, lat, lon,
+                elevation);
+    std::printf("visibility %.0f m, in haze to %.3f m above sea level\n",
+                world::drawn_visibility_m(metar), world::haze_top_m(decks, elevation));
+    for (std::size_t d = 0; d < decks.size(); ++d) {
+        std::printf("deck %zu cover %.3f base %.3f top %.3f m above sea level; base "
+                    "%.3f m above the ellipsoid\n",
+                    d + 1, decks[d].cover, decks[d].base_m, decks[d].top_m,
+                    decks[d].base_m + undulation);
+    }
+    if (!decks.empty()) {
+        // The nearest places, on a 100 m grid, where the lowest deck is thick
+        // cloud or clear for 250 m all round.
+        const world::CloudPattern pattern(world::air_seed_of(metar), 0,
+                                          decks.front().cover);
+        const auto everywhere_near = [&](double e, double n, bool cloudy) {
+            for (int i = -1; i <= 1; ++i) {
+                for (int j = -1; j <= 1; ++j) {
+                    const double d = pattern.density(e + 250.0 * i, n + 250.0 * j);
+                    if (cloudy ? d < 0.999 : d > 0.001) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        };
+        constexpr double metres_per_degree = 111319.49;
+        for (const bool cloudy : {true, false}) {
+            bool found = false;
+            for (int r = 0; r <= 100 && !found; ++r) {
+                for (int i = -r; i <= r && !found; ++i) {
+                    for (int j = -r; j <= r && !found; ++j) {
+                        if (std::max(std::abs(i), std::abs(j)) != r ||
+                            !everywhere_near(100.0 * i, 100.0 * j, cloudy)) {
+                            continue;
+                        }
+                        std::printf(
+                            "%s at %.7f,%.7f\n", cloudy ? "cloudy" : "clear",
+                            lat + 100.0 * j / metres_per_degree,
+                            lon + 100.0 * i /
+                                      (metres_per_degree *
+                                       std::cos(lat * 3.14159265358979323846 / 180.0)));
+                        found = true;
+                    }
+                }
+            }
+            if (!found) {
+                std::printf("%s nowhere within 10 km\n", cloudy ? "cloudy" : "clear");
+            }
+        }
+    }
+    const world::Falling falling = world::precipitation_of(metar);
+    const char* what = falling.what == world::Precipitation::rain      ? "rain"
+                       : falling.what == world::Precipitation::drizzle ? "drizzle"
+                       : falling.what == world::Precipitation::snow    ? "snow"
+                                                                       : "none";
+    std::printf("falling %s\n", what);
+    return 0;
+}
+
 int air() {
     namespace world = glideslope::world;
     // Ground for the air to rise and sink over: a stand-in for the Sandias, a
@@ -351,6 +455,9 @@ int main(int argc, char** argv) {
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();
+        }
+        if (args.size() == 4 && args[0] == "sky") {
+            return sky(data, args[1], args[2], args[3]);
         }
         if (args.size() == 2 && args[0] == "weather") {
             return weather(std::string(args[1]));

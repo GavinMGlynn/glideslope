@@ -39,8 +39,9 @@ is no aircraft model, cockpit or server, and one aircraft of the sixteen the
 roster now names. The weather is real: METARs and winds aloft, fetched live,
 set JSBSim's wind, temperature and pressure, and the air moves as a pattern of
 its own - gusts, turbulence, a boundary layer, reported shear, microbursts,
-and, done on Linux and awaiting CI, thermals and the terrain's lift - the same
-on every machine.
+thermals and the terrain's lift - the same on every machine. Done on Linux and
+awaiting CI: the weather seen - cloud decks where the METAR puts them, haze
+from its visibility, and rain or snow.
 
 **Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
 else is built on, one line per item, each verified:
@@ -81,11 +82,12 @@ METARs from aviationweather.gov; winds aloft from Open-Meteo; both in JSBSim's
 atmosphere, with MIL-F-8785C turbulence; and new reports blended in during a
 flight.
 
-**Phase 3b, wind that shears and gusts and hazardous air, is under way: 5 of
-7 items done**, proved in CI on every platform (run 35331164089) - the same air
-on every machine, a METAR's gusts flown, the wind near the ground as a boundary
-layer, reported wind shear, and microbursts. Done on Linux and awaiting CI:
-thermals and mountain waves. Not started: weather you can see. **Phase 5c, learning to fly, is new and not started:
+**Phase 3b, wind that shears and gusts and hazardous air, is under way: 6 of
+7 items done**, proved in CI on every platform (runs 35331164089 and
+35336574855) - the same air on every machine, a METAR's gusts flown, the wind
+near the ground as a boundary layer, reported wind shear, microbursts, and
+thermals and mountain waves. Done on Linux and awaiting CI: weather you can
+see. **Phase 5c, learning to fly, is new and not started:
 0 of 4 items.** Added
 2026-09-18, as were the sixteen-aircraft roster of Phase 5 and a tail for
 terrain over the whole Earth; see the log.
@@ -107,6 +109,17 @@ are the risks the phase order is built around:
 - **The HUD's horizon line is not the horizon.** It moves a hundredth of the
   frame's height a degree of pitch, which was a choice when there was nothing
   behind it; now the terrain is drawn, the two do not line up.
+- **The packaged client crashed once.** Flying 600 ticks in Sydney's weather
+  in the ubuntu:24.04 container (package run 35336574744), it segfaulted; run
+  again, it did not, and the sanitized CI flights never have. A crash that
+  comes and goes is most likely a race between threads, which the address
+  sanitizer does not look for. The package job now flies under gdb, so the
+  next one leaves every thread's stack in the log.
+- **The weather seen is a sketch of it.** Cloud decks are flat sheets, not
+  volumes, over a disc 60 km across the station, and do not drift with the
+  wind; cumulonimbus is a deck 6 km deep, not a tower. A new report makes the
+  sky again, so its cloud jumps rather than blends. The haze is one colour,
+  lit by nothing. Rain and snow fall only within 20 m of the eye.
 - **Thermals do not know the ground.** They rise as strongly over the sea as
   over a sunlit field, and the terrain's lift is linear theory seen along the
   wind only: no rotor, and no lee waves trapped under a stable layer. A tail
@@ -125,7 +138,66 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Thermals, ridge lift and mountain waves, 2026-09-18 — awaiting CI
+### Weather you can see, 2026-09-18 — awaiting CI
+
+**What is missing first:** the cloud is flat. Each deck is two sheets - its
+base, grey, and its top, white - over a disc 60 km across the station,
+curved with the Earth, cloudy where its pattern says; there are no cloud
+volumes, towers or shading, and a cumulonimbus is a deck 6 km deep. The cloud
+does not drift with the wind, and a new report makes the sky again rather
+than blending into it. Rain and snow are streaks and flakes in a box 40 m
+across about the eye.
+
+**What is read** (`world::parse_metar`): the visibility, in metres or statute
+miles - 9999, CAVOK, 10SM, 1 1/2SM, M1/4SM, P6SM; the weather present, with
+intensity, vicinity, descriptor and phenomena; and the cloud - FEW, SCT, BKN
+and OVC with their heights and CB or TCU, VV, and SKC, CLR, NSC and NCD. Held
+to aviationweather.gov's own decoding of all eighteen recorded reports.
+
+**What is drawn** (`world/sky`, `gfx::Sky`): a deck for each layer at the
+report's height above the station, 300 m deep (2 km for towering cumulus, 6
+for cumulonimbus), cloudy over the middle of its eighths - FEW 1.5, SCT 3.5,
+BKN 6, OVC 8 - in a pattern of the weather's seed, the same on every machine;
+inside cloud, a whiteout. The haze is Koschmieder's law in the shader: what is
+seen through air of visibility V keeps exp(-ln 20 d / V) of its contrast with
+the haze, V the report's in a layer from the ground to 1,000 m above the
+station or the lowest cloud, 40 km above it, integrated along each fragment's
+path through the layer's top. Rain falls at 7 m/s, drizzle at 3, snow at 1,
+below the lowest cloud. The flight draws its report's sky; the terrain screen
+takes `--metar REPORT` and `--station LAT,LON`; `glideslope_cli sky` says what
+a report shows over a station, and where its cloud is thick and where it has
+gaps.
+
+**The tests:** the METARs' new groups, against aviationweather.gov; a report's
+decks, visibility and precipitation; each deck's pattern covers its eighths
+within 0.03 of the sky; and frames on every driver - under broken cloud at
+1,500 ft over Hawera, cloud overhead 30 m below the base (100% of the frame)
+and the ground below (54%), a whiteout 30 m above it (100%), clear sky in a
+gap (100%): the base within 30 m of where the test, from the DEM's ground and
+1,500 ft, puts it. Through 3,000 m of mist from Taranaki's slope the frame
+matches the DEM ray-cast faded by Koschmieder's law to 0.20 of 255 on average,
+ground beyond 3 km within 6 of the haze's colour and ground within 1 km 55
+from it. Heavy rain changes 0.7% of a frame, every changed pixel lighter.
+**Watched to fail:** a deck's base read in metres rather than feet, the
+whiteout gone, the visibility doubled, the rain gone, and a deck's cover
+inverted - each caught by the test meant for it.
+
+**Found on the way:** from 30 m below a broken deck, looking up sees only 150
+m of it, so whether the frame shows cloud depends on where the eye is under
+the pattern. The frame tests take their places from `glideslope_cli sky`,
+which finds them from the same pattern; the base's height they compute for
+themselves. And the whiteout was first shot looking straight up, where the
+deck's top sheet alone fills the frame as evenly as a whiteout: with the
+whiteout taken out, that still passed. It is shot looking level now, where
+between the sheets the base shows below and the top above; the rain was
+first broken so it would not compile, which tested nothing, and was broken
+again so it did. Sydney's calm weather this afternoon left the HUD test's
+Cessna zooming at 32 degrees of pitch at its shot, its horizon line drawn
+across the credits, which then could not be read back: the credits are now
+drawn last, over a strip that darkens what is behind them by half, so they
+can be read over anything - the Copernicus notice must be.
+
+### Thermals, ridge lift and mountain waves, 2026-09-18 — item done (CI run 35336574855)
 
 **What is missing first:** the thermals do not know the ground. They rise as
 strongly over the sea, a lake or a north slope as over a sunlit field, from

@@ -27,4 +27,10 @@ std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
                                                 const world::GeoRectangle& region,
                                                 bool imagery);
 
+// The ground's height at a place, above sea level and the geoid's there, from
+// the same DEM and geoid.
+world::GroundHeight ground_at(const std::filesystem::path& data,
+                              const std::filesystem::path& cache, double latitude_deg,
+                              double longitude_deg);
+
 } // namespace glideslope::client

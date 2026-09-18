@@ -182,8 +182,8 @@ models, whose hidden state a restored aircraft would not carry.
       aircraft on a 3-degree approach through a microburst of stated strength
       meets the headwind, downdraught and tailwind the published outflow model
       gives, at every point within a stated tolerance.*
-- [ ] **Thermals and mountain waves**, from the terrain and the winds aloft.
-      **Done locally; awaiting CI.** *Verification: over a thermal an aircraft
+- [x] **Thermals and mountain waves**, from the terrain and the winds aloft.
+      *Verification: over a thermal an aircraft
       circling at a stated speed climbs at the rate the model gives; across a
       ridge with the wind over it, the lift upwind and the sink in the lee are
       within stated bounds of the model's.* Stated, 2026-09-18: a Cessna
@@ -197,10 +197,20 @@ models, whose hidden state a restored aircraft would not carry.
       independently, and within 2% of potential flow's with no stability - so
       the air rises upwind of a ridge and sinks in its lee.
 - [ ] **Weather you can see** - cloud from the METAR's layers, rain, and
-      visibility - once the world is drawn (Phase 2). *Verification: a `--shot`
-      at a station reporting a broken layer at 1,500 ft shows the cloud base
-      there within a stated tolerance, and a reported visibility of 3 km hides
-      terrain beyond it.*
+      visibility - once the world is drawn (Phase 2). **Done locally; awaiting
+      CI.** *Verification: a `--shot` at a station reporting a broken layer at
+      1,500 ft shows the cloud base there within a stated tolerance, and a
+      reported visibility of 3 km hides terrain beyond it.* Stated,
+      2026-09-18: under broken cloud at 1,500 ft over Hawera, where the deck
+      is thick, from 30 m below its base the frame looking up is cloud and
+      looking down the ground, and from 30 m above it a whiteout; where it has
+      a gap, from 30 m above the base, clear sky - the base within 30 m (100
+      ft), the base computed by the test from the DEM's ground and 1,500 ft.
+      Through 3,000 m of mist, the frame matches the DEM ray-cast faded by
+      Koschmieder's law within the tinted terrain's tolerances, ground at 3 km
+      or beyond within 8 of the haze's colour at the 99th percentile, ground
+      within 1 km at least 15 from it on average. And heavy rain shows streaks
+      the dry frame does not.
 
 ## Phase 4 — Autopilot and navigation
 
@@ -275,6 +285,14 @@ quality: each is held to published figures before it is offered, as the Cessna
       model that ships, and a model without an entry fails a test.*
 - [ ] **An aircraft chosen at start.** *Verification: every aircraft can be
       chosen, takes off, and passes its published-figure checks.*
+- [ ] **Views: the cockpit, and outside from ahead, behind, left, right and
+      above, and a free orbit**, switched by a key and chosen with `--view`.
+      *(Asked for 2026-09-18; needs the visual models above.)* *Verification:
+      a `--shot` from each view at a fixed tick draws the aircraft's model
+      where that view's camera puts it - its outline within a stated number of
+      pixels of the model projected independently from the same camera - and
+      the cockpit view's eye is the pilot's; switching views steps nothing in
+      the flight.*
 
 ## Phase 5b — Terrain providers
 

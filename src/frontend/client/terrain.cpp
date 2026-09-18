@@ -23,29 +23,48 @@ world::GeoRectangle cells_around(double latitude_deg, double longitude_deg,
             std::min(90.0, south + 1.0 + radius), west + 1.0 + radius};
 }
 
-std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
-                                                const std::filesystem::path& data,
-                                                const std::filesystem::path& cache,
-                                                const world::GeoRectangle& region,
-                                                bool imagery) {
-    struct Ground {
-        world::DemCoverage coverage;
-        world::DownloadedTiles tiles;
-        world::Geoid geoid;
-        world::Dem dem;
-        Ground(std::string coverage_text, const std::filesystem::path& cache,
-               const world::Fetch& fetch)
-            : coverage(coverage_text), tiles(cache, fetch),
-              geoid(world::egm2008_geoid(cache, fetch)), dem(coverage, tiles, &geoid) {}
-    };
+namespace {
+
+// A DEM and geoid of its own.
+struct Ground {
+    world::DemCoverage coverage;
+    world::DownloadedTiles tiles;
+    world::Geoid geoid;
+    world::Dem dem;
+    Ground(std::string coverage_text, const std::filesystem::path& cache,
+           const world::Fetch& fetch)
+        : coverage(coverage_text), tiles(cache, fetch),
+          geoid(world::egm2008_geoid(cache, fetch)), dem(coverage, tiles, &geoid) {}
+};
+
+std::shared_ptr<Ground> open_ground(const std::filesystem::path& data,
+                                    const std::filesystem::path& cache) {
     const std::filesystem::path coverage_path = data / "dem" / "coverage.txt";
     std::ifstream coverage_file(coverage_path, std::ios::binary);
     if (!coverage_file) {
         throw std::runtime_error("cannot read " + coverage_path.string());
     }
-    auto ground = std::make_shared<Ground>(
+    return std::make_shared<Ground>(
         std::string(std::istreambuf_iterator<char>(coverage_file), {}), cache,
         world::http_fetch());
+}
+
+} // namespace
+
+world::GroundHeight ground_at(const std::filesystem::path& data,
+                              const std::filesystem::path& cache, double latitude_deg,
+                              double longitude_deg) {
+    const std::shared_ptr<Ground> ground = open_ground(data, cache);
+    return {ground->dem.height_above_geoid(latitude_deg, longitude_deg),
+            ground->geoid.undulation(latitude_deg, longitude_deg)};
+}
+
+std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
+                                                const std::filesystem::path& data,
+                                                const std::filesystem::path& cache,
+                                                const world::GeoRectangle& region,
+                                                bool imagery) {
+    const std::shared_ptr<Ground> ground = open_ground(data, cache);
 
     gfx::TerrainOptions options;
     options.region = region;

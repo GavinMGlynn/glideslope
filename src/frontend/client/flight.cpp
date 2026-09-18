@@ -161,6 +161,22 @@ gfx::HudReadings Flight::hud() const {
     return r;
 }
 
+const world::WeatherReport* Flight::weather_report() const {
+    return weather_ ? &weather_->report() : nullptr;
+}
+
+gfx::Station Flight::weather_station() const {
+    gfx::Station s;
+    if (weather_) {
+        const world::SurfaceReport& surface = weather_->report().surface;
+        s.latitude_deg = surface.latitude_deg;
+        s.longitude_deg = surface.longitude_deg;
+        s.elevation_m = surface.elevation_m;
+        s.geoid_m = geoid_->undulation(surface.latitude_deg, surface.longitude_deg);
+    }
+    return s;
+}
+
 std::string Flight::trace() const {
     const sim::AircraftState s = aircraft_->state();
     char line[400];

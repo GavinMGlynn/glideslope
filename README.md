@@ -46,6 +46,9 @@ glideslope_cli selftest                 # a five-minute flight, and its hash
 glideslope_cli height -33.9461 151.1772 # the ground's height, from the DEM
 glideslope_cli weather YSSY             # the weather at Sydney airport now
 glideslope --weather YSSY               # fly from over Sydney, in its weather
+glideslope --screen terrain --at -39.55,174.27,500 --toward -39.50,174.10,1500 \
+    --metar "METAR NZHA 180800Z 27012KT 6000 -RA BKN015 14/10 Q1016"
+                                        # Taranaki under broken cloud, in rain
 glideslope --screen origin              # a test scene, in a window
 ```
 

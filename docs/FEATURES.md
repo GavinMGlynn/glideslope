@@ -71,6 +71,11 @@ the controls to an AI pilot whenever you like, then take them back.
 - **A head-up display.** `CORE`
   Airspeed, altitude, heading, vertical speed and attitude at a glance.
 
+- **Views of the aircraft.** `WANTED`
+  Fly from the cockpit, or step outside and watch the aircraft from ahead,
+  behind, either side or above, or orbit it freely - switched with a key at
+  any moment, as flight simulators let you.
+
 ## The world
 
 - **Anywhere on Earth.** `CORE`
