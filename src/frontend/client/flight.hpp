@@ -6,6 +6,8 @@
 #include "gfx/hud.hpp"
 #include "gfx/scene.hpp"
 #include "sim/aircraft.hpp"
+#include "sim/controller.hpp"
+#include "sim/navigator.hpp"
 #include "gfx/sky.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
@@ -15,7 +17,9 @@
 #include <cstdint>
 #include <filesystem>
 #include <future>
+#include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -32,6 +36,11 @@ struct FlightStart {
     std::string weather_station;
     // Microbursts put into that weather, for as long as each lasts.
     std::vector<world::Microburst> microbursts;
+    // Flown by the AI from the first step: holding what the aircraft is doing,
+    // or flying `plan` - from the plan's start, if it has one, rather than the
+    // position above. A plan's altitudes are above sea level.
+    bool autopilot = false;
+    std::optional<sim::FlightPlan> plan;
 };
 
 inline constexpr double weather_refresh_seconds = 15 * 60.0;
@@ -52,7 +61,17 @@ public:
     Flight(const std::filesystem::path& data, const std::filesystem::path& cache,
            const FlightStart& start);
 
+    // One step, with the pilot's controls - which fly the aircraft unless the
+    // AI does. Each waypoint of a plan the AI passes is printed as it is
+    // passed: how close it came, and at what altitude.
     void step(const sim::Controls& controls);
+
+    // Hands the aircraft to the AI - flying what is left of the plan, if any
+    // is - or back to the pilot (sim/controller.hpp).
+    void swap_pilot();
+    bool ai_flying() const {
+        return controller_ && controller_->flying() == sim::Controller::Flying::ai;
+    }
 
     std::int64_t tick() const {
         return tick_;
@@ -76,11 +95,18 @@ public:
         return aircraft_->state().sim_time_s;
     }
 
-    // One line of the state at this tick, for --trace.
+    // The aircraft's altitude above sea level - the geoid - in feet. The
+    // simulation's is above the WGS84 ellipsoid, on which the DEM's ground is
+    // set: at Sydney the two are 72 ft apart.
+    double sea_level_ft() const;
+
+    // One line of the state at this tick, for --trace: its altitude above sea
+    // level as alt_ft, and above the ellipsoid as ell_ft.
     std::string trace() const;
 
 private:
     void refresh_weather();
+    void report_navigation();
 
     world::Fetch fetch_;
     std::unique_ptr<world::DemCoverage> coverage_;
@@ -88,6 +114,18 @@ private:
     std::unique_ptr<world::Geoid> geoid_;
     std::shared_ptr<world::Dem> dem_;
     std::unique_ptr<sim::Aircraft> aircraft_;
+    // Made at the first step, from the pilot's controls then.
+    std::unique_ptr<sim::Controller> controller_;
+    bool start_with_ai_ = false;
+    // The plan, its altitudes above the ellipsoid as the aircraft's are, and
+    // how far along it the AI has flown: the waypoints passed, the closest the
+    // next has come, and the altitude there.
+    std::optional<sim::FlightPlan> plan_;
+    std::size_t passed_ = 0;
+    std::size_t handed_from_ = 0; // the waypoint the AI's plan began with
+    double closest_m_ = std::numeric_limits<double>::infinity();
+    double altitude_there_ft_ = 0.0;
+    bool plan_flown_ = false;
     std::int64_t tick_ = 0;
     std::string weather_station_;
     std::vector<world::Microburst> microbursts_;

@@ -25,6 +25,9 @@ struct HudReadings {
     double vertical_speed_fpm = 0.0;
     double pitch_deg = 0.0;
     double roll_deg = 0.0;
+    // What the AI is flying - "HOLD", or "NAV" and the waypoint it is flying
+    // to - or empty when the pilot flies.
+    std::string autopilot;
     // Whose data is on screen - each a credit its source asks for - shown
     // along the bottom.
     std::vector<std::string> credits;
@@ -37,6 +40,7 @@ struct HudReadings {
 //   VS   -120 FPM
 //   PITCH  +2.4
 //   BANK   -5.0
+//   AP  NAV THE HEADS          while the AI flies, and only then
 // Speeds, altitudes, headings and vertical speeds to the nearest whole unit;
 // pitch and bank to a tenth of a degree.
 std::vector<std::string> hud_lines(const HudReadings& readings);

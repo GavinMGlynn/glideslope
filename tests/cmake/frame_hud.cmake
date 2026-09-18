@@ -1,7 +1,7 @@
 # frame_hud.cmake - the HUD shows the flight's state at the tick it was shot.
 #
-#   cmake -DPROGRAM=<glideslope> -DCHECK=<glideslope_hud_check> -DDRIVER=<driver>
-#         -DWORK=<dir> -DCACHE=<downloads dir> -P frame_hud.cmake
+#   cmake -DPROGRAM=<glideslope> -DCHECK=<glideslope_hud_check> -DCLI=<glideslope_cli>
+#         -DDRIVER=<driver> -DWORK=<dir> -DCACHE=<downloads dir> -P frame_hud.cmake
 #
 # Flies the flight screen headless for 600 ticks - five seconds - in the
 # weather reported at Sydney now, with --trace, shoots the last, and has
@@ -36,6 +36,32 @@ if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "glideslope exited ${_rc}\n${_err}")
 endif()
 glideslope_judge_leaks("${_err}")
+
+# The altitude is above sea level: the traced height above the ellipsoid less
+# the geoid there, which the CLI gives, in thousandths of a foot.
+file(STRINGS "${_trace}" _last REGEX "^trace tick 600 ")
+if(NOT _last MATCHES "lat (-?[0-9.]+) lon (-?[0-9.]+) alt_ft (-?[0-9]+)\\.([0-9][0-9][0-9]) ell_ft (-?[0-9]+)\\.([0-9][0-9][0-9]) ")
+    message(FATAL_ERROR "no altitudes at tick 600 in the trace: ${_last}")
+endif()
+set(_lat "${CMAKE_MATCH_1}")
+set(_lon "${CMAKE_MATCH_2}")
+math(EXPR _alt "${CMAKE_MATCH_3} * 1000 + 1${CMAKE_MATCH_4} - 1000")
+math(EXPR _ell "${CMAKE_MATCH_5} * 1000 + 1${CMAKE_MATCH_6} - 1000")
+execute_process(COMMAND "${CLI}" height ${_lat} ${_lon}
+                RESULT_VARIABLE _rc OUTPUT_VARIABLE _height ERROR_VARIABLE _err)
+if(NOT _rc EQUAL 0 OR NOT _height MATCHES "geoid above the ellipsoid +(-?)([0-9]+)\\.([0-9][0-9][0-9]) m")
+    message(FATAL_ERROR "glideslope_cli height exited ${_rc}\n${_height}${_err}")
+endif()
+math(EXPR _geoid_mm "${CMAKE_MATCH_1}(${CMAKE_MATCH_2} * 1000 + 1${CMAKE_MATCH_3} - 1000)")
+# Millimetres to thousandths of a foot: 0.3048 m a foot.
+math(EXPR _geoid "${_geoid_mm} * 10000 / 3048")
+math(EXPR _off "${_ell} - ${_geoid} - ${_alt}")
+if(_off GREATER 3 OR _off LESS -3)
+    message(FATAL_ERROR "the altitude is not above sea level: ${_alt} thousandths of a "
+                        "foot, against ${_ell} above the ellipsoid less ${_geoid} of geoid")
+endif()
+message(STATUS "altitude above sea level: the ellipsoid's less the geoid's to "
+               "${_off} thousandths of a foot")
 
 execute_process(COMMAND "${CHECK}" "${_shot}" "${_trace}" 600 dem imagery weather
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)

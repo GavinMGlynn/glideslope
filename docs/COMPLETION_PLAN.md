@@ -233,8 +233,7 @@ models, whose hidden state a restored aircraft would not carry.
       turns of 90 and 135 degrees and climbs and descents of 500 ft - past
       every waypoint in order, within 100 m of each and within 50 ft of its
       altitude, in calm air and in a 20 kt wind across and against it.
-- [ ] **The user/AI controller swap.** **Done locally; awaiting CI.**
-      *Verification: swapping mid-flight in either direction causes no step in
+- [x] **The user/AI controller swap.** *Verification: swapping mid-flight in either direction causes no step in
       any control or in the aircraft's state, in every phase of flight.*
       Stated, 2026-09-19: in the takeoff roll, the climb, the cruise, a
       30-degree turn, the descent and a flapped approach, handing the Cessna to
@@ -243,8 +242,12 @@ models, whose hidden state a restored aircraft would not carry.
       until the controls meet the pilot's, within two seconds, and they are the
       pilot's from then; and over the three seconds after either, the load
       factor changes by no more than 0.05 g in a step.
-- [ ] **`--autopilot`** — the AI flies this client's aircraft.
-      *Verification: a ctest flies a plan with it.*
+- [ ] **`--autopilot`** — the AI flies this client's aircraft. **Done locally;
+      awaiting CI.** *Verification: a ctest flies a plan with it.* Stated,
+      2026-09-19: the client, headless on every driver, flies
+      `--plan sydney-harbour` from the plan's start and prints each waypoint
+      as its AI passes it - every one passed in order, within 100 m and 50 ft
+      of its altitude - and the plan flown to its end.
 
 ## Phase 5 — Aircraft choice
 

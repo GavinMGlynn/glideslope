@@ -8,7 +8,7 @@
 //              [--screen flight|terrain|sky|origin|depth]
 //              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z] [--toward LAT,LON,HEIGHT]
 //              [--imagery on|off] [--weather STATION [--microburst LAT,LON]...]
-//              [--metar REPORT [--station LAT,LON]]
+//              [--metar REPORT [--station LAT,LON]] [--autopilot] [--plan PLAN]
 //              [--shot FILE] [--shot-at TICK] [--trace]
 //
 // Test flags. --shot writes the frame drawn at simulation tick --shot-at
@@ -25,6 +25,7 @@
 #include "platform/paths.hpp"
 #include "scenes.hpp"
 #include "sim/fixed_step.hpp"
+#include "sim/navigator.hpp"
 #include "terrain.hpp"
 #include "sim/version.hpp"
 #include "world/dem.hpp"
@@ -72,6 +73,8 @@ struct Options {
     std::string weather_station;
     std::string metar;
     std::optional<std::array<double, 2>> station;
+    bool autopilot = false;
+    std::string plan;
 };
 
 void usage(std::FILE* out) {
@@ -82,6 +85,7 @@ void usage(std::FILE* out) {
         "                  [--toward LAT,LON,HEIGHT] [--imagery on|off]\n"
         "                  [--weather STATION [--microburst LAT,LON]...]\n"
         "                  [--metar REPORT [--station LAT,LON]]\n"
+        "                  [--autopilot] [--plan PLAN]\n"
         "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
         "       glideslope --version | --help\n"
         "\n"
@@ -102,8 +106,13 @@ void usage(std::FILE* out) {
         "                its cloud, visibility, and rain or snow\n"
         "  --station     where that METAR is observed: on the ground at a latitude\n"
         "                and longitude; by default, beneath --at\n"
+        "  --autopilot   the AI flies the aircraft from the start, holding what it\n"
+        "                is doing; A hands it between the pilot and the AI\n"
+        "  --plan        the AI flies a flight plan - a file, or one in data/plans\n"
+        "                by its name - from the plan's start\n"
         "  --shot        write the frame at tick --shot-at (default 2) and exit;\n"
-        "                each frame is then two ticks, whatever the clock says\n"
+        "                each frame is then two ticks, whatever the clock says, or\n"
+        "                as many as keep the flight to 300 frames\n"
         "  --trace       print the flight's state after every tick\n",
         out);
 }
@@ -255,6 +264,10 @@ int main(int argc, char** argv) {
                      lon >= -180.0 && lon <= 180.0;
                 o.station = std::array<double, 2>{lat, lon};
             }
+        } else if (a == "--autopilot") {
+            o.autopilot = true;
+        } else if (a == "--plan" && has_value) {
+            o.plan = std::string(args[++i]);
         } else if (a == "--imagery" && has_value) {
             const std::string_view value = args[++i];
             ok = value == "on" || value == "off";
@@ -313,6 +326,10 @@ int main(int argc, char** argv) {
                    stderr);
         return 2;
     }
+    if (o.screen != "flight" && (o.autopilot || !o.plan.empty())) {
+        std::fputs("glideslope: only the flight has --autopilot and --plan\n", stderr);
+        return 2;
+    }
     if (o.station && o.metar.empty()) {
         std::fputs("glideslope: --station says where a --metar is observed\n", stderr);
         return 2;
@@ -358,6 +375,25 @@ int main(int argc, char** argv) {
             }
             start.weather_station = o.weather_station;
             start.microbursts = o.microbursts;
+            start.autopilot = o.autopilot;
+            if (!o.plan.empty()) {
+                // A file, or a plan in the data by its name.
+                std::filesystem::path path(o.plan);
+                if (!std::filesystem::exists(path)) {
+                    path = glideslope::platform::data_directory() / "plans" / o.plan;
+                    if (!std::filesystem::exists(path)) {
+                        path += ".plan";
+                    }
+                }
+                std::ifstream plan_file(path, std::ios::binary);
+                if (!plan_file) {
+                    throw std::runtime_error("no flight plan " + o.plan);
+                }
+                start.plan = glideslope::sim::parse_flight_plan(
+                    std::string(std::istreambuf_iterator<char>(plan_file), {}));
+                std::printf("glideslope: flying the plan %s, %zu waypoints\n",
+                            path.string().c_str(), start.plan->waypoints.size());
+            }
             flight = std::make_unique<glideslope::client::Flight>(
                 glideslope::platform::data_directory(),
                 glideslope::platform::cache_directory(), start);
@@ -460,11 +496,16 @@ int main(int argc, char** argv) {
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_EVENT_QUIT) {
                     running = false;
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == SDL_SCANCODE_A && flight) {
+                    flight->swap_pilot();
                 }
             }
             std::int64_t due = 0;
             if (shooting) {
-                due = std::min<std::int64_t>(2, o.shot_at - ticks);
+                // Two ticks a frame, or as many as keep the flight to 300.
+                due = std::min<std::int64_t>(std::max<std::int64_t>(2, o.shot_at / 300),
+                                             o.shot_at - ticks);
             } else {
                 const auto now = std::chrono::steady_clock::now();
                 due = std::min<std::int64_t>(clock.advance(now - last), 24);

@@ -155,6 +155,12 @@ std::vector<std::string> hud_lines(const HudReadings& r) {
     lines.emplace_back(buffer);
     std::snprintf(buffer, sizeof buffer, "BANK  %+5.1f", r.roll_deg);
     lines.emplace_back(buffer);
+    if (!r.autopilot.empty()) {
+        // The font has no underscore: names written with them read as words.
+        std::string shown = "AP  " + r.autopilot;
+        std::replace(shown.begin(), shown.end(), '_', ' ');
+        lines.push_back(shown);
+    }
     return lines;
 }
 
