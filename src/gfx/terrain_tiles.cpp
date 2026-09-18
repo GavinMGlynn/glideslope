@@ -94,14 +94,30 @@ public:
     }
 
     ~WorkerPool() override {
+        stop();
+    }
+
+    // Finishes the tasks queued and running, and joins the threads. Cesium
+    // Native's pending work holds the pool as long as it lives, so without this
+    // its threads could outlive the terrain - and, still downloading, run into
+    // the process's exit as it tears down the libraries under them.
+    void stop() {
         {
             const std::lock_guard lock(mutex_);
             stopping_ = true;
         }
         wake_.notify_all();
         for (std::thread& t : threads_) {
-            t.join();
+            if (t.joinable()) {
+                t.join();
+            }
         }
+    }
+
+    // Whether nothing is queued or running.
+    bool idle() {
+        const std::lock_guard lock(mutex_);
+        return tasks_.empty() && running_ == 0;
     }
 
     void startTask(std::function<void()> task) override {
@@ -125,8 +141,12 @@ private:
                 }
                 task = std::move(tasks_.front());
                 tasks_.pop_front();
+                ++running_;
             }
             task();
+            // Whatever the task queued for the main thread is queued by now.
+            const std::lock_guard lock(mutex_);
+            --running_;
         }
     }
 
@@ -134,6 +154,7 @@ private:
     std::condition_variable wake_;
     std::deque<std::function<void()>> tasks_;
     std::vector<std::thread> threads_;
+    int running_ = 0;
     bool stopping_ = false;
 };
 
@@ -877,6 +898,21 @@ TerrainTiles::~TerrainTiles() {
         impl_->async.dispatchMainThreadTasks();
         std::this_thread::yield();
     }
+    // And its workers stop here, with it, whatever still holds them - once
+    // what they were doing is done, and what that left for the main thread,
+    // which may have given them more.
+    for (;;) {
+        const bool idle = impl_->workers->idle();
+        bool dispatched = false;
+        while (impl_->async.dispatchOneMainThreadTask()) {
+            dispatched = true;
+        }
+        if (idle && !dispatched) {
+            break;
+        }
+        std::this_thread::yield();
+    }
+    impl_->workers->stop();
 }
 
 std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int height,

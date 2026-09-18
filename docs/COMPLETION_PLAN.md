@@ -228,8 +228,13 @@ models, whose hidden state a restored aircraft would not carry.
       kt over, within 5 kt by 20 s and never more than 10 off after a minute.
       And engaging the autopilot moves no control more than a hundredth of its
       travel in a step.
-- [ ] **Waypoint following and flight plans as data.** *Verification: a plan
-      loaded from a file passes every waypoint within a stated distance.*
+- [ ] **Waypoint following and flight plans as data.** **Done locally;
+      awaiting CI.** *Verification: a plan loaded from a file passes every
+      waypoint within a stated distance.* Stated, 2026-09-18: the Cessna flies
+      `assets/plans/sydney-harbour.plan` - four waypoints over 45 km, with
+      turns of 90 and 135 degrees and climbs and descents of 500 ft - past
+      every waypoint in order, within 100 m of each and within 50 ft of its
+      altitude, in calm air and in a 20 kt wind across and against it.
 - [ ] **The user/AI controller swap.** *Verification: swapping mid-flight in
       either direction causes no step in any control or in the aircraft's
       state, in every phase of flight.*

@@ -88,8 +88,8 @@ flight.
 near the ground as a boundary layer, reported wind shear, microbursts, and
 thermals and mountain waves. Done on Linux and awaiting CI: weather you can
 see. **Phase 4, autopilot and navigation, is under way: 0 of 4 items done** -
-the holds for heading, altitude, airspeed and vertical speed are done on Linux
-and awaiting CI. **Phase 5c, learning to fly, is new and not started:
+the holds for heading, altitude, airspeed and vertical speed, and flight
+plans flown past their waypoints, are done on Linux and awaiting CI. **Phase 5c, learning to fly, is new and not started:
 0 of 4 items.** Added
 2026-09-18, as were the sixteen-aircraft roster of Phase 5 and a tail for
 terrain over the whole Earth; see the log.
@@ -111,12 +111,6 @@ are the risks the phase order is built around:
 - **The HUD's horizon line is not the horizon.** It moves a hundredth of the
   frame's height a degree of pitch, which was a choice when there was nothing
   behind it; now the terrain is drawn, the two do not line up.
-- **The packaged client crashed once.** Flying 600 ticks in Sydney's weather
-  in the ubuntu:24.04 container (package run 35336574744), it segfaulted; run
-  again, it did not, and the sanitized CI flights never have. A crash that
-  comes and goes is most likely a race between threads, which the address
-  sanitizer does not look for. The package job now flies under gdb, so the
-  next one leaves every thread's stack in the log.
 - **The weather seen is a sketch of it.** Cloud decks are flat sheets, not
   volumes, over a disc 60 km across the station, and do not drift with the
   wind; cumulonimbus is a deck 6 km deep, not a tower. A new report makes the
@@ -139,6 +133,45 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### Flight plans, and a crash at exit found by gdb, 2026-09-18 — awaiting CI
+
+**What is missing first:** a plan cannot yet be given to the client - that is
+`--autopilot`, the last item of Phase 4 - so plans fly only in the tests. The
+navigator flies straight legs and passes a waypoint when it is abeam, turning
+only then, so it overshoots each turn and comes back to the leg; it knows no
+holds, procedure turns, speed or altitude constraints, or fly-by turns.
+
+**A plan is data** (`assets/plans/*.plan`, read by `sim::parse_flight_plan`):
+the aircraft it is for, where it starts in the air, and its waypoints with
+their altitudes and airspeeds, one to a line; anything it cannot read is
+refused by its line. **The navigator** (`sim::Navigator`) flies each leg along
+its great circle, steering for the leg's track where the aircraft is abeam
+of it, back towards the leg by 30 degrees a kilometre off it, and into the
+wind by the drift it measures; it gives the autopilot the waypoint's altitude
+and airspeed.
+
+**The test:** the Cessna flies the Sydney Harbour plan - off Bondi, the Heads,
+the Harbour Bridge, Olympic Park, the airport: 45 km, turns of 90 and 135
+degrees, climbs and descents of 500 ft. In calm air it passes the waypoints
+0.4, 23, 0.3 and 4.8 m off, each at its altitude to the foot; in a 20 kt
+wind from the south, 0.4, 30, 0.4 and 4.7 m. **Watched to fail:** the drift
+not corrected, 372 m off the bridge in the wind; the intercept turned away
+from the leg; and no waypoint ever passed.
+
+**Found on the way: the packaged client's crash was a race at exit.** It
+segfaulted once in the ubuntu:24.04 container, and not when run again. Flown
+under gdb since, it crashed again (package run 35347082677) and left every
+thread's stack: one of the terrain's worker threads was in OpenSSL, inside a
+download, while the main thread was in `exit()` tearing the libraries down
+under it. Cesium Native's pending work holds its task processor - the
+terrain's pool of worker threads - for as long as that work lives, so the pool
+outlived the terrain, and its threads, never joined, ran on into the process's
+exit. The terrain now stops and joins its workers when it is destroyed -
+once they are idle and the main thread has run everything their work left
+for it, which may give them more: stopped sooner, what they had finished lay
+unrun in Cesium Native's queue, and the sanitized build caught 15 MB of
+decoded imagery leaked that the running threads had been keeping in reach.
 
 ### The autopilot's holds, 2026-09-18 — awaiting CI
 

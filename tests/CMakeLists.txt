@@ -14,6 +14,7 @@ add_executable(glideslope_tests
     unit/tiff_writer.cpp
     unit/test_air_motion.cpp
     unit/test_autopilot.cpp
+    unit/test_navigator.cpp
     unit/test_dem.cpp
     unit/test_dem_surveyed.cpp
     unit/test_digest.cpp
@@ -51,6 +52,7 @@ target_compile_definitions(glideslope_tests PRIVATE
     GLIDESLOPE_TEST_DOWNLOADS_DIR="${GLIDESLOPE_DOWNLOADS_DIR}"
     GLIDESLOPE_TEST_DATA_DIR="${GLIDESLOPE_DATA_DIR}/jsbsim"
     GLIDESLOPE_TEST_FIGURES_DIR="${GLIDESLOPE_DATA_DIR}/figures"
+    GLIDESLOPE_TEST_PLANS_DIR="${GLIDESLOPE_DATA_DIR}/plans"
     GLIDESLOPE_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 glideslope_configure(glideslope_tests)
 
@@ -148,7 +150,9 @@ set(GLIDESLOPE_UNIT_TESTS
     a_decks_pattern_covers_as_much_of_the_sky_as_its_eighths_say
     a_reports_visibility_and_precipitation_are_drawn_as_it_gives_them
     the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb
-    engaging_the_autopilot_moves_no_control_faster_than_a_pilots_hand)
+    engaging_the_autopilot_moves_no_control_faster_than_a_pilots_hand
+    a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wrong
+    the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)

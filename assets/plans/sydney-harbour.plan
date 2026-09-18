@@ -1,0 +1,19 @@
+# A flight plan: a tour of Sydney Harbour in the Cessna, from off Bondi, north
+# to the Heads, west over the Harbour Bridge and up the river to Olympic Park,
+# then south-east to Sydney airport - 45 km, about fifteen minutes.
+#
+#   aircraft NAME
+#   start LATITUDE LONGITUDE ALTITUDE_FT HEADING_DEG AIRSPEED_KT     in the air
+#   waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT
+#
+# Degrees are WGS84's, altitudes above sea level, airspeeds calibrated. The
+# navigator flies each leg along its great circle and passes a waypoint when it
+# is abeam of it (src/sim/navigator.hpp).
+
+aircraft c172p
+start -33.905 151.290 3000 0 100
+
+waypoint THE_HEADS   -33.832 151.292 3000 100
+waypoint BRIDGE      -33.852 151.211 2500 100
+waypoint OLYMPIC     -33.847 151.063 2500 100
+waypoint AIRPORT     -33.946 151.177 3000 90
