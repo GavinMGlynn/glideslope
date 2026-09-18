@@ -196,9 +196,8 @@ models, whose hidden state a restored aircraft would not carry.
       strongest over two ridges in stable air, against the theory integrated
       independently, and within 2% of potential flow's with no stability - so
       the air rises upwind of a ridge and sinks in its lee.
-- [ ] **Weather you can see** - cloud from the METAR's layers, rain, and
-      visibility - once the world is drawn (Phase 2). **Done locally; awaiting
-      CI.** *Verification: a `--shot` at a station reporting a broken layer at
+- [x] **Weather you can see** - cloud from the METAR's layers, rain, and
+      visibility - once the world is drawn (Phase 2). *Verification: a `--shot` at a station reporting a broken layer at
       1,500 ft shows the cloud base there within a stated tolerance, and a
       reported visibility of 3 km hides terrain beyond it.* Stated,
       2026-09-18: under broken cloud at 1,500 ft over Hawera, where the deck
@@ -214,8 +213,8 @@ models, whose hidden state a restored aircraft would not carry.
 
 ## Phase 4 — Autopilot and navigation
 
-- [ ] **Holds for heading, altitude, airspeed and vertical speed.** **Done
-      locally; awaiting CI.** *Verification: each hold captures a step change
+- [x] **Holds for heading, altitude, airspeed and vertical speed.**
+      *Verification: each hold captures a step change
       within a stated overshoot and settling time, in calm air and in
       turbulence.* Stated, 2026-09-18, for the Cessna at 4,000 ft and 100
       KCAS: in calm air, heading 0 to 90 degrees overshooting at most 3 and
@@ -228,8 +227,7 @@ models, whose hidden state a restored aircraft would not carry.
       kt over, within 5 kt by 20 s and never more than 10 off after a minute.
       And engaging the autopilot moves no control more than a hundredth of its
       travel in a step.
-- [ ] **Waypoint following and flight plans as data.** **Done locally;
-      awaiting CI.** *Verification: a plan loaded from a file passes every
+- [x] **Waypoint following and flight plans as data.** *Verification: a plan loaded from a file passes every
       waypoint within a stated distance.* Stated, 2026-09-18: the Cessna flies
       `assets/plans/sydney-harbour.plan` - four waypoints over 45 km, with
       turns of 90 and 135 degrees and climbs and descents of 500 ft - past

@@ -39,9 +39,9 @@ is no aircraft model, cockpit or server, and one aircraft of the sixteen the
 roster now names. The weather is real: METARs and winds aloft, fetched live,
 set JSBSim's wind, temperature and pressure, and the air moves as a pattern of
 its own - gusts, turbulence, a boundary layer, reported shear, microbursts,
-thermals and the terrain's lift - the same on every machine. Done on Linux and
-awaiting CI: the weather seen - cloud decks where the METAR puts them, haze
-from its visibility, and rain or snow.
+thermals and the terrain's lift - the same on every machine - and the weather
+is seen: cloud decks where the METAR puts them, haze from its visibility, and
+rain or snow.
 
 **Phase 0 is complete — 7 of 7 items.** What exists is the ground everything
 else is built on, one line per item, each verified:
@@ -82,14 +82,16 @@ METARs from aviationweather.gov; winds aloft from Open-Meteo; both in JSBSim's
 atmosphere, with MIL-F-8785C turbulence; and new reports blended in during a
 flight.
 
-**Phase 3b, wind that shears and gusts and hazardous air, is under way: 6 of
-7 items done**, proved in CI on every platform (runs 35331164089 and
-35336574855) - the same air on every machine, a METAR's gusts flown, the wind
-near the ground as a boundary layer, reported wind shear, microbursts, and
-thermals and mountain waves. Done on Linux and awaiting CI: weather you can
-see. **Phase 4, autopilot and navigation, is under way: 0 of 4 items done** -
-the holds for heading, altitude, airspeed and vertical speed, and flight
-plans flown past their waypoints, are done on Linux and awaiting CI. **Phase 5c, learning to fly, is new and not started:
+**Phase 3b, wind that shears and gusts and hazardous air, is complete — 7
+of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
+and 35363959900): the same air on every machine, a METAR's gusts flown, the
+wind near the ground as a boundary layer, reported wind shear, microbursts,
+thermals and mountain waves, and weather you can see. **Phase 4, autopilot and navigation, is under way: 2 of 4 items done**,
+proved in CI on every platform (run 35363959900) - the holds for heading,
+altitude, airspeed and vertical speed, and flight plans flown past their
+waypoints. Begun before Phase 3b was finished, which it should not have been;
+its work stopped until 3b was proved. Not started: the user/AI controller
+swap, and `--autopilot`. **Phase 5c, learning to fly, is new and not started:
 0 of 4 items.** Added
 2026-09-18, as were the sixteen-aircraft roster of Phase 5 and a tail for
 terrain over the whole Earth; see the log.
@@ -134,7 +136,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Flight plans, and a crash at exit found by gdb, 2026-09-18 — awaiting CI
+### Flight plans, and a crash at exit found by gdb, 2026-09-18 — item done (CI run 35363959900)
 
 **What is missing first:** a plan cannot yet be given to the client - that is
 `--autopilot`, the last item of Phase 4 - so plans fly only in the tests. The
@@ -179,7 +181,7 @@ imagery cache in a cycle. Every request is now counted from its asking to its
 answer, the count going down on a worker so that what follows is queued before
 the pool can look idle, and the terrain waits for none to be in flight too.
 
-### The autopilot's holds, 2026-09-18 — awaiting CI
+### The autopilot's holds, 2026-09-18 — item done (CI run 35363959900)
 
 **What is missing first:** it flies only what it is told. Nothing yet tells
 it - no flight plan, no key in the client, no `--autopilot`; those are the
@@ -215,7 +217,7 @@ new altitude - each caught.
 short of every heading; and a heading averaged in degrees from 0 to 360
 wraps, so the test averages it from north.
 
-### Weather you can see, 2026-09-18 — awaiting CI
+### Weather you can see, 2026-09-18 — item done (CI run 35363959900)
 
 **What is missing first:** the cloud is flat. Each deck is two sheets - its
 base, grey, and its top, white - over a disc 60 km across the station,

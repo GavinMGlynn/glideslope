@@ -4,13 +4,13 @@ A multiplayer flight simulator in C++: real flight physics and live wind, flown
 over real-world terrain streamed from the internet. Fly yourself, or hand any
 aircraft to an AI pilot and take it back.
 
-> **Status: Phases 0, 1, 2 and 3 are complete, and Phase 3b, wind that shears
-> and gusts and hazardous air, is under way.** A Cessna 172P flies to its
-> handbook, stands on the real ground anywhere on Earth, and can be flown from
-> the keyboard or a joystick with a HUD, in the weather reported at an airfield
-> now - its gusts, turbulence, boundary layer and reported wind shear, the same
-> air on every machine. The terrain is drawn, with satellite imagery on it, but
-> only around where the flight starts.
+> **Status: Phases 0, 1, 2, 3 and 3b are complete, and Phase 4, the autopilot
+> and navigation, is under way.** A Cessna 172P flies to its handbook, stands on
+> the real ground anywhere on Earth, and can be flown from the keyboard or a
+> joystick with a HUD, in the weather reported at an airfield now - its gusts,
+> turbulence, boundary layer, wind shear, thermals and waves, the same air on
+> every machine, under the cloud and haze the report gives. The terrain is
+> drawn, with satellite imagery on it, but only around where the flight starts.
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the single source of
 > truth for what works, with the gaps named first.
 
