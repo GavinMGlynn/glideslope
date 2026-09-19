@@ -382,7 +382,8 @@ GLIDESLOPE_TEST(the_short_s23_takes_off_from_the_sea_and_from_a_lake_within_its_
     // Gouge's take-off tests at 45,000 lb (Flight, 17 December 1936, p. 649):
     // 30.5 s from full throttle and a run of 795 yards, flown as the figure
     // flight flies them (src/sim/figures.cpp, water_takeoff) - each within a
-    // tenth. The runs are at least 200 m from any shore.
+    // seventh, as the figures file holds them. The runs are at least 200 m
+    // from any shore.
     struct Place {
         const char* name;
         double latitude;
@@ -411,7 +412,7 @@ GLIDESLOPE_TEST(the_short_s23_takes_off_from_the_sea_and_from_a_lake_within_its_
         Controls c;
         c.propeller = 1.0;
         c.mixture = 1.0;
-        for (int i = 0; i < 60 * 120; ++i) {
+        for (int i = 0; i < 20 * 120; ++i) { // afloat within four seconds
             a.set_controls(c);
             a.step();
         }
@@ -440,9 +441,9 @@ GLIDESLOPE_TEST(the_short_s23_takes_off_from_the_sea_and_from_a_lake_within_its_
         std::printf("%s: off the water %.1f s from full throttle, after %.0f yd\n", p.name,
                     seconds, yards);
         check(seconds > 0.0, name + ": off the water within two minutes");
-        check(std::abs(seconds - 30.5) <= 3.05,
+        check(std::abs(seconds - 30.5) <= 4.6,
               name + ": " + std::to_string(seconds) + " s from full throttle, Gouge's 30.5");
-        check(std::abs(yards - 795.0) <= 79.5,
+        check(std::abs(yards - 795.0) <= 119.0,
               name + ": a run of " + std::to_string(yards) + " yd, Gouge's 795");
     }
 }

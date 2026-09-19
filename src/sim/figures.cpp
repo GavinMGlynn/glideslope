@@ -237,7 +237,8 @@ double in_the_water(const Flight& f) {
     }
 }
 
-// Afloat on open water, the flaps set and a minute to settle; then the
+// Afloat on open water, the flaps set and twenty seconds to settle - it
+// floats within four - then the
 // throttles opened over the three and a quarter seconds Short's Arthur Gouge
 // gives the hydraulic engine controls to reach full throttle, the airscrews in
 // fine pitch and the mixture through the gate to take-off boost. The hull is
@@ -253,7 +254,7 @@ double water_takeoff(const std::filesystem::path& root, const PublishedFigures& 
     c.propeller = 1.0;
     c.mixture = 1.0;
     c.flaps = flaps_command(figures, condition_or(spec, "flaps_deg", 0.0));
-    for (int i = 0; i < steps(60); ++i) {
+    for (int i = 0; i < steps(20); ++i) {
         f.fly(c);
     }
     const double flaps_deg = f.aircraft.property("fcs/flap-pos-deg");
@@ -280,7 +281,7 @@ double water_takeoff(const std::filesystem::path& root, const PublishedFigures& 
     throw std::runtime_error("still on the water after two minutes");
 }
 
-// Afloat on open water, its engines stopped, for a minute; the depth below the
+// Afloat on open water, its engines stopped, for twenty seconds; the depth below the
 // water of its keel at the main step, `keel_aft_ft` aft of and `keel_below_ft`
 // below the hydrodynamic reference point whose height JSBSim's hydrodynamics
 // gives, at the attitude it floats at.
@@ -293,7 +294,7 @@ double draught(const std::filesystem::path& root, const PublishedFigures& figure
     }
     Controls c;
     c.throttle = 0.0;
-    for (int i = 0; i < steps(60); ++i) {
+    for (int i = 0; i < steps(20); ++i) {
         f.fly(c);
     }
     const double pitch = f.aircraft.property("attitude/theta-rad");
@@ -1094,7 +1095,9 @@ double climb_gradient_one_engine(const std::filesystem::path& root,
 // Level at an altitude at full throttle - or the `throttle` given, 0.99
 // being military power in an aircraft whose afterburner lights above it -
 // flaps and gear up, from the Mach given; the Mach it settles at, averaged
-// over the last minute of ten.
+// over the last minute of five. Ten minutes gave the same Mach to a
+// hundredth and cost twice as much: the F-22's supercruise, eleven altitudes
+// of it, took thirteen minutes of a sanitized debug build's CI job.
 double level_mach_at(const std::filesystem::path& root, const PublishedFigures& figures,
                      const FigureSpec& spec, double altitude) {
     Flight f(root, figures, spec,
@@ -1102,7 +1105,7 @@ double level_mach_at(const std::filesystem::path& root, const PublishedFigures& 
     Controls c;
     c.throttle = condition_or(spec, "throttle", 1.0);
     double mach_sum = 0.0;
-    const int total = steps(600);
+    const int total = steps(300);
     const int measured = steps(60);
     for (int i = 0; i < total; ++i) {
         c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_altitude(altitude));

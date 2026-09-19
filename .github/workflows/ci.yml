@@ -31,9 +31,12 @@ env:
 
 # **No job may take an hour.** Each is stopped at 60 minutes: a run that long
 # is a fault to find, not to wait for. The tests run four at a time (three on
-# macOS's three cores; CMakePresets.json), sanitized code is built at -O1
-# (cmake/Sanitizers.cmake), and Windows' debug and release builds are two jobs
-# run at once. A run that must build vcpkg's libraries afresh - most of an
+# macOS's three cores; CMakePresets.json), the debug builds are optimised -
+# sanitized code at -O1 (cmake/Sanitizers.cmake), which keeps every sanitizer
+# check, and MSVC's at /O1 (the preset), which keeps its debug runtime and
+# iterator checks and gives up /RTC1, that only runs unoptimised - and
+# Windows' debug and release builds are two jobs run at once. A hosted runner can be half the speed of
+# another, so a job that takes half an hour here can take an hour there. A run that must build vcpkg's libraries afresh - most of an
 # hour - can be stopped by the limit; it saves them first, and the next run
 # finds them.
 #

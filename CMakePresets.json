@@ -59,7 +59,11 @@
       "inherits": "debug-base",
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
       "architecture": { "value": "x64", "strategy": "external" },
-      "cacheVariables": { "GLIDESLOPE_ASAN": "OFF" }
+      "cacheVariables": {
+        "GLIDESLOPE_ASAN": "OFF",
+        "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Ob1 /O1",
+        "CMAKE_C_FLAGS_DEBUG": "/Zi /Ob1 /O1"
+      }
     },
     {
       "name": "windows-release",

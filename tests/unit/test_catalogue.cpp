@@ -140,8 +140,9 @@ double take_off(const std::filesystem::path& from, const CatalogueEntry& e) {
 
 // Set down at idle on level ground, or on water: flown in from 30 ft at six
 // tenths of its catalogue airspeed, as take_off rotates at, its gear down and
-// its brakes off, the nose held two degrees up and the wings level, for three
-// minutes or until it has been still for two seconds.
+// its brakes off, the nose held two degrees up and the wings level, for one
+// minute - three for a seaplane, which drifts to rest - or until it has been
+// still for two seconds.
 //
 // A seaplane is flown in with its nose six degrees up, to alight on its step,
 // and has touched when its hull is in the water; ten seconds later its engines
@@ -189,7 +190,9 @@ Alighting alight(const std::filesystem::path& from, const CatalogueEntry& e, boo
     int since_touching = 0;
     double touched_lat = 0.0;
     double touched_lon = 0.0;
-    for (int i = 0; i < 180 * steps_per_second && still < 2 * steps_per_second; ++i) {
+    // A boat drifts to rest more slowly than a wheel rolls to it.
+    const int limit = (e.seaplane ? 180 : 60) * steps_per_second;
+    for (int i = 0; i < limit && still < 2 * steps_per_second; ++i) {
         c.elevator = pilot.pitch_to(e.seaplane ? 6.0 : 2.0);
         c.aileron = pilot.roll_to(0.0);
         aircraft.set_controls(c);
