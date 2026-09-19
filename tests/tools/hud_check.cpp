@@ -7,7 +7,8 @@
 // printed on the way there. The trace must hold every tick from 1 to TICK, in
 // order. The HUD is read back glyph by glyph (gfx::read_text), and each number
 // on it must be the state at TICK, rounded as the HUD rounds: within half its
-// last digit. The credits along the bottom must be those named, in order - the
+// last digit - the Mach number and flight level among them where they apply,
+// and not shown where they do not. The credits along the bottom must be those named, in order - the
 // Copernicus DEM's notice, the imagery's credit, Open-Meteo's credit - drawn as
 // gfx::credit_lines draws them, and there must be nothing below them. Exits 0 if so, 1
 // with the reason if not, 2 on bad arguments.
@@ -139,7 +140,7 @@ int main(int argc, char** argv) {
 
     const glideslope::gfx::Frame frame = load(argv[1]);
     const auto layout = glideslope::gfx::hud_layout(frame.width, frame.height);
-    const auto lines = glideslope::gfx::read_text(frame, layout, 6, 16);
+    const auto lines = glideslope::gfx::read_text(frame, layout, 9, 16);
     for (const auto& l : lines) {
         std::printf("read: %s\n", l.c_str());
     }
@@ -176,6 +177,42 @@ int main(int argc, char** argv) {
             fail(f.label + " shows " + words[1] + " at tick " + std::to_string(tick) +
                  " when the state is " + std::to_string(actual));
         }
+    }
+
+    // The Mach number and the flight level, each where it applies and only
+    // there; then nothing, or the autopilot's line.
+    std::size_t next = fields.size();
+    const auto optional_line = [&](bool applies, const std::string& label, double actual,
+                                   double scale, double half_step) {
+        const auto words = words_of(lines[next]);
+        const bool shown = !words.empty() && words[0] == label;
+        if (applies != shown) {
+            fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\": " +
+                 label + (applies ? " should be shown" : " should not be shown") +
+                 " at tick " + std::to_string(tick));
+        }
+        if (!shown) {
+            return;
+        }
+        if (words.size() != 2) {
+            fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\", not " +
+                 label + " and a number");
+        }
+        const double value = number(words[1], lines[next]) * scale;
+        std::printf("%-6s shown %10.2f, state %10.4f\n", label.c_str(), value, actual);
+        if (std::abs(value - actual) > half_step + 1e-6) {
+            fail(label + " shows " + words[1] + " at tick " + std::to_string(tick) +
+                 " when the state is " + std::to_string(actual));
+        }
+        ++next;
+    };
+    optional_line(state.at("mach") >= glideslope::gfx::hud_mach_from, "MACH", state.at("mach"),
+                  1.0, 0.005);
+    optional_line(state.at("pa_ft") >= glideslope::gfx::hud_flight_level_from_ft, "FL",
+                  state.at("pa_ft"), 100.0, 50.0);
+    if (!lines[next].empty() && lines[next].rfind("AP ", 0) != 0) {
+        fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] +
+             "\", which the HUD should not show");
     }
 
     // The credits, and one line more below them, which must be empty.

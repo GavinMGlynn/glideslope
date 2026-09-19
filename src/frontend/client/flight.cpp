@@ -254,6 +254,8 @@ gfx::HudReadings Flight::hud() const {
     r.vertical_speed_fpm = s.climb_rate_fpm;
     r.pitch_deg = s.pitch_deg;
     r.roll_deg = s.roll_deg;
+    r.mach = aircraft_->property("velocities/mach");
+    r.pressure_altitude_ft = aircraft_->property("atmosphere/pressure-altitude");
     if (ai_flying()) {
         const sim::Navigator* nav = controller_->navigator();
         if (nav != nullptr && plan_ && passed_ < plan_->waypoints.size()) {
@@ -292,18 +294,21 @@ double Flight::sea_level_ft() const {
 
 std::string Flight::trace() const {
     const sim::AircraftState s = aircraft_->state();
-    char line[440];
+    char line[512];
     std::snprintf(line, sizeof line,
                   "trace tick %lld time %.4f lat %.7f lon %.7f alt_ft %.3f ell_ft %.3f "
                   "agl_ft %.3f kcas %.3f heading %.3f vs_fpm %.3f pitch %.3f roll %.3f "
-                  "wind_north_fps %.3f wind_east_fps %.3f wind_down_fps %.3f",
+                  "wind_north_fps %.3f wind_east_fps %.3f wind_down_fps %.3f "
+                  "mach %.4f pa_ft %.3f",
                   static_cast<long long>(tick_), s.sim_time_s, s.latitude_deg,
                   s.longitude_deg, sea_level_ft(), s.altitude_ft,
                   s.height_above_ground_ft, s.airspeed_kts, s.heading_deg,
                   s.climb_rate_fpm, s.pitch_deg, s.roll_deg,
                   aircraft_->property("atmosphere/wind-north-fps"),
                   aircraft_->property("atmosphere/wind-east-fps"),
-                  aircraft_->property("atmosphere/wind-down-fps"));
+                  aircraft_->property("atmosphere/wind-down-fps"),
+                  aircraft_->property("velocities/mach"),
+                  aircraft_->property("atmosphere/pressure-altitude"));
     return line;
 }
 

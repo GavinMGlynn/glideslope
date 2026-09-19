@@ -1,7 +1,8 @@
 #pragma once
 
 // The head-up display: airspeed, altitude, heading, vertical speed and
-// attitude, as text, with a horizon line.
+// attitude, as text, with a horizon line; and for a fast aircraft high up, its
+// Mach number and flight level.
 //
 // **Text is drawn from a 5-by-7 pixel font, each font pixel a square of whole
 // screen pixels**, so a frame can be read back exactly: read_text() decodes what
@@ -25,6 +26,8 @@ struct HudReadings {
     double vertical_speed_fpm = 0.0;
     double pitch_deg = 0.0;
     double roll_deg = 0.0;
+    double mach = 0.0;
+    double pressure_altitude_ft = 0.0; // the standard atmosphere's for the pressure
     // What the AI is flying - "HOLD", or "NAV" and the waypoint it is flying
     // to - or empty when the pilot flies.
     std::string autopilot;
@@ -40,10 +43,19 @@ struct HudReadings {
 //   VS   -120 FPM
 //   PITCH  +2.4
 //   BANK   -5.0
+//   MACH 0.82                  from hud_mach_from, and only then
+//   FL 350                     from hud_flight_level_from_ft, and only then
 //   AP  NAV THE HEADS          while the AI flies, and only then
 // Speeds, altitudes, headings and vertical speeds to the nearest whole unit;
-// pitch and bank to a tenth of a degree.
+// pitch and bank to a tenth of a degree; the Mach number to a hundredth; the
+// flight level to the nearest hundred feet of pressure altitude.
 std::vector<std::string> hud_lines(const HudReadings& readings);
+
+// Where the Mach number and flight level apply: from Mach 0.40, where
+// airliners' displays show it, and from 18,000 ft of pressure altitude, the
+// United States' transition altitude, above which altitudes are flight levels.
+inline constexpr double hud_mach_from = 0.40;
+inline constexpr double hud_flight_level_from_ft = 18000.0;
 
 // Where text goes on a frame of `width` by `height` pixels: every font pixel a
 // `scale`-pixel square, a character cell six font pixels wide and ten high,

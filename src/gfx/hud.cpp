@@ -155,6 +155,14 @@ std::vector<std::string> hud_lines(const HudReadings& r) {
     lines.emplace_back(buffer);
     std::snprintf(buffer, sizeof buffer, "BANK  %+5.1f", r.roll_deg);
     lines.emplace_back(buffer);
+    if (r.mach >= hud_mach_from) {
+        std::snprintf(buffer, sizeof buffer, "MACH %4.2f", r.mach);
+        lines.emplace_back(buffer);
+    }
+    if (r.pressure_altitude_ft >= hud_flight_level_from_ft) {
+        std::snprintf(buffer, sizeof buffer, "FL %03ld", nearest(r.pressure_altitude_ft / 100.0));
+        lines.emplace_back(buffer);
+    }
     if (!r.autopilot.empty()) {
         // The font has no underscore: names written with them read as words.
         std::string shown = "AP  " + r.autopilot;
