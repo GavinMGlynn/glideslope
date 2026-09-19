@@ -280,10 +280,16 @@ quality: each is held to published figures before it is offered, as the Cessna
       the swing to port checked by a 2.6 lb/sq in lead on the port throttle,
       the two safety speeds 5 and 8 knots from the Notes', and the
       single-engine ceiling 12,480 ft against their 12,000.
-- [ ] **The light aircraft fly to their figures** - the J-3 Cub, PA-28 and
+- [x] **The light aircraft fly to their figures** - the J-3 Cub, PA-28 and
       Cessna 182, from JSBSim's models. *Verification: each lands inside its
       tolerance on every figure recorded from its handbook, as the Cessna 172P
-      does.*
+      does.* Stated, 2026-09-19, CI run 35417893114: the Cessna 182S flies all
+      nine of its handbook's figures inside their ranges on every platform,
+      the PA-28-180 all seven and the J-3 Cub all five - the 182S's ground
+      roll 793 ft against 795, the PA-28's 747 against 720, the Cub's cruise
+      64.6 knots against 63.4, and every stall within 2 knots of its
+      handbook's; the Cub's stall flown with the Trainer's two people, its
+      manual naming no weight.
 - [ ] **The airliners fly to their figures** - the A320, 737, 747 and 787-8,
       from JSBSim's models. *Verification: each lands inside its tolerance on
       figures from its manufacturer's airport-planning document and its

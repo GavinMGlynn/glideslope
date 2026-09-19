@@ -92,7 +92,7 @@ Mosquito FB Mk VI, written here from its trials and Pilot's Notes and held to
 fourteen of their figures, proved in CI on every platform (runs 35387301607
 and 35409102752); and the light aircraft from JSBSim's models - the Cessna
 182S, the Piper PA-28-180 and the Piper J-3 Cub, each made to fly to its
-handbook's figures (CI run RUNID). Next: the airliners.
+handbook's figures (CI run 35417893114). Next: the airliners.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -171,7 +171,7 @@ enough for the bounce to die - but for the Mosquito's take-off over 50 ft,
 starts on the ground, has a new hash for it: on this machine,
 `e999a51640cdff03` to `d36123c1eecc3e23`.
 
-### The Piper J-3 Cub against its manual, 2026-09-19 — item done (CI run RUNID)
+### The Piper J-3 Cub against its manual, 2026-09-19 — item done (CI run 35417893114)
 
 The last of the three light aircraft. With it, Phase 5's "the light aircraft
 fly to their figures" is done: the Cessna 182S, the Piper PA-28-180 and the
