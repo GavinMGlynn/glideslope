@@ -1,6 +1,7 @@
 #include "sim/figures.hpp"
 
 #include "sim/fixed_step.hpp"
+#include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
 
 #include <input_output/FGXMLElement.h>
@@ -11,6 +12,7 @@
 #include <cmath>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -46,14 +48,16 @@ double condition_or(const FigureSpec& spec, const std::string& key, double other
 }
 
 // An aircraft loaded as the figures file says for the figure, and put
-// somewhere, its gear held where the start put it.
+// somewhere - on JSBSim's own level ground, or on `terrain` - its gear held
+// where the start put it.
 struct Flight {
     Aircraft aircraft;
     TestPilot pilot;
     double gear;
 
     Flight(const std::filesystem::path& root, const PublishedFigures& figures,
-           const FigureSpec& spec, const InitialConditions& ic)
+           const FigureSpec& spec, const InitialConditions& ic,
+           std::shared_ptr<Terrain> terrain = nullptr)
         : aircraft(root, figures.model), pilot(aircraft), gear(ic.gear) {
         const auto it = figures.loadings.find(spec.loading);
         if (it == figures.loadings.end()) {
@@ -61,6 +65,9 @@ struct Flight {
                                      spec.loading);
         }
         aircraft.load(it->second.loading);
+        if (terrain) {
+            aircraft.set_terrain(std::move(terrain));
+        }
         aircraft.initialize(ic);
         // A figure measured at a weight, whatever the engines burn.
         aircraft.freeze_fuel(condition_or(spec, "fuel_frozen", 0.0) > 0.0);
@@ -94,6 +101,25 @@ InitialConditions on_the_runway() {
     ic.latitude_deg = -33.9461;
     ic.longitude_deg = 151.1772;
     ic.heading_deg = 70.0;
+    return ic;
+}
+
+// Open water at the ellipsoid's height - sea level, to JSBSim - everywhere:
+// where a flying boat's figures are flown.
+std::shared_ptr<Terrain> open_water() {
+    return std::make_shared<FunctionTerrain>([](double, double) { return 0.0; },
+                                             [](double, double) { return true; });
+}
+
+// On open water off Rose Bay, the Empire boats' base at Sydney, its centre of
+// gravity six feet above the water, to settle afloat; heading into no wind.
+InitialConditions afloat() {
+    InitialConditions ic;
+    ic.latitude_deg = -33.869;
+    ic.longitude_deg = 151.265;
+    ic.heading_deg = 0.0;
+    ic.altitude_ft = 6.0;
+    ic.engine_running = true;
     return ic;
 }
 
@@ -142,8 +168,10 @@ public:
     void set(const Flight& f, Controls& c) {
         const double boost = boost_psi(f, engine_);
         throttle_ = std::clamp(throttle_ + 0.03 * (boost_ - boost) * dt, 0.0, 1.0);
-        lever_ = std::clamp(lever_ + 0.001 * (rpm_ - f.engine(engine_, "engine-rpm")) * dt,
-                            0.0, 1.0);
+        if (!lever_held_) {
+            lever_ = std::clamp(
+                lever_ + 0.001 * (rpm_ - f.engine(engine_, "engine-rpm")) * dt, 0.0, 1.0);
+        }
         c.throttle = throttle_;
         c.propeller = lever_;
         if (gear_change_drop_ > 0.0) {
@@ -154,6 +182,13 @@ public:
 
     void aim(double boost) {
         boost_ = boost;
+    }
+
+    // The propeller lever held where it is put, not moved to an rpm: a
+    // two-pitch airscrew's, fine or coarse, has no rpm to hold.
+    void hold_lever(double lever) {
+        lever_ = lever;
+        lever_held_ = true;
     }
 
     // A two-speed supercharger climbed in low gear until, the throttles open,
@@ -170,13 +205,104 @@ private:
     int engine_;
     double throttle_ = 0.8;
     double lever_ = 1.0;
+    bool lever_held_ = false;
     double gear_change_drop_ = 0.0;
     bool high_gear_ = false;
 };
 
+// The power a figure names: its boost, and its propeller either at the rpm it
+// gives or, for a two-pitch airscrew, its lever where `propeller_lever` puts
+// it - 1 fine pitch, 0 coarse.
+Power figure_power(const FigureSpec& spec, double boost, int engine) {
+    const bool held = spec.conditions.count("propeller_lever") != 0;
+    Power power(boost, held ? 0.0 : condition_or(spec, "rpm", 0.0), engine);
+    if (held) {
+        power.hold_lever(condition(spec, "propeller_lever"));
+    }
+    return power;
+}
+
 // ---------------------------------------------------------------------------
 // The flights, one per kind of figure.
 // ---------------------------------------------------------------------------
+
+// A flying boat's hull and floats in the water, from JSBSim's hydrodynamics,
+// which is 0 once they are clear of it; refused for a model without them.
+double in_the_water(const Flight& f) {
+    try {
+        return f.aircraft.property("hydro/active-norm");
+    } catch (const std::out_of_range&) {
+        throw std::runtime_error(f.aircraft.figures().model +
+                                 " has no hydrodynamics to take off from water with");
+    }
+}
+
+// Afloat on open water, the flaps set and a minute to settle; then the
+// throttles opened over the three and a quarter seconds Short's Arthur Gouge
+// gives the hydraulic engine controls to reach full throttle, the airscrews in
+// fine pitch and the mixture through the gate to take-off boost. The hull is
+// held at its running attitude, `running_pitch_deg`, and from `rotate_kcas`
+// three degrees higher, until hull and floats are clear of the water. The
+// seconds from full throttle, as Gouge times a take-off, if the figure's unit is
+// s; the yards run over the water from the throttles' opening, if yd.
+double water_takeoff(const std::filesystem::path& root, const PublishedFigures& figures,
+                     const FigureSpec& spec) {
+    Flight f(root, figures, spec, afloat(), open_water());
+    Controls c;
+    c.throttle = 0.0;
+    c.propeller = 1.0;
+    c.mixture = 1.0;
+    c.flaps = flaps_command(figures, condition_or(spec, "flaps_deg", 0.0));
+    for (int i = 0; i < steps(60); ++i) {
+        f.fly(c);
+    }
+    const double flaps_deg = f.aircraft.property("fcs/flap-pos-deg");
+    if (std::abs(flaps_deg - condition_or(spec, "flaps_deg", 0.0)) > 0.5) {
+        throw std::runtime_error("the flaps reached " + std::to_string(flaps_deg) +
+                                 " degrees");
+    }
+    const double running = condition(spec, "running_pitch_deg");
+    const double rotate = condition(spec, "rotate_kcas");
+    constexpr double opening_s = 3.25;
+    double yards = 0.0;
+    for (int i = 0; i < steps(120); ++i) {
+        const double t = i * dt;
+        c.throttle = std::min(t / opening_s, 1.0);
+        const double kcas = f.aircraft.property("velocities/vc-kts");
+        c.elevator = f.pilot.pitch_to(kcas >= rotate ? running + 3.0 : running);
+        c.aileron = f.pilot.roll_to(0.0);
+        f.fly(c);
+        yards += f.aircraft.property("velocities/vg-fps") * dt / 3.0;
+        if (t > opening_s && in_the_water(f) <= 0.0) {
+            return spec.unit == "yd" ? yards : t - opening_s;
+        }
+    }
+    throw std::runtime_error("still on the water after two minutes");
+}
+
+// Afloat on open water, its engines stopped, for a minute; the depth below the
+// water of its keel at the main step, `keel_aft_ft` aft of and `keel_below_ft`
+// below the hydrodynamic reference point whose height JSBSim's hydrodynamics
+// gives, at the attitude it floats at.
+double draught(const std::filesystem::path& root, const PublishedFigures& figures,
+               const FigureSpec& spec) {
+    Flight f(root, figures, spec, afloat(), open_water());
+    in_the_water(f);
+    for (int e = 0; e < f.aircraft.figures().engines; ++e) {
+        f.aircraft.fail_engine(e, false);
+    }
+    Controls c;
+    c.throttle = 0.0;
+    for (int i = 0; i < steps(60); ++i) {
+        f.fly(c);
+    }
+    const double pitch = f.aircraft.property("attitude/theta-rad");
+    const double roll = f.aircraft.property("attitude/phi-rad");
+    const double reference_ft = f.aircraft.property("hydro/height-agl-ft");
+    const double keel_ft = reference_ft - condition(spec, "keel_aft_ft") * std::sin(pitch) -
+                           condition(spec, "keel_below_ft") * std::cos(pitch) * std::cos(roll);
+    return -keel_ft;
+}
 
 // Brakes on, full throttle, mixture leaned in steps of 0.05; the highest RPM any
 // mixture reaches after fifteen seconds.
@@ -349,7 +475,7 @@ double climb_rate(const std::filesystem::path& root, const PublishedFigures& fig
         at_altitude ? altitude - spec.published * (30.0 + 20.0) / 60.0 : -600.0;
     Flight f(root, figures, spec, airborne(start, kcas, true));
     const bool powered = spec.conditions.count("boost_psi") != 0;
-    Power power(condition_or(spec, "boost_psi", 0.0), condition_or(spec, "rpm", 0.0), 0);
+    Power power = figure_power(spec, condition_or(spec, "boost_psi", 0.0), 0);
     const double fs_above = condition_or(spec, "fs_gear_above_ft", 0.0);
     Controls c;
     c.throttle = 1.0;
@@ -460,7 +586,10 @@ double level_speed(const std::filesystem::path& root, const PublishedFigures& fi
     const double published_kts = knots ? spec.published : spec.published * knots_per_mph;
     Flight f(root, figures, spec,
              airborne(altitude, published_kts * std::sqrt(density_ratio(altitude)), true));
-    Power power(wanted_boost(spec), condition(spec, "rpm"), 0);
+    if (spec.conditions.count("propeller_lever") == 0) {
+        condition(spec, "rpm"); // one or the other
+    }
+    Power power = figure_power(spec, wanted_boost(spec), 0);
     Controls c;
     const auto level = [&] {
         power.set(f, c);
@@ -1294,6 +1423,8 @@ const std::vector<std::pair<std::string, FlightFn>>& flights() {
         {"service_ceiling", service_ceiling},
         {"acceleration_time", acceleration_time},
         {"cruise_range", cruise_range},
+        {"water_takeoff", water_takeoff},
+        {"draught", draught},
     };
     return all;
 }
@@ -1432,7 +1563,8 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
               "bank_deg", "boost_psi", "gear", "entry_kcas", "fs_gear_above_ft",
               "radiators_open", "gear_change_boost_drop", "manifold_inhg", "lean",
               "takeoff_pitch_deg", "mach", "throttle", "from_kcas", "to_kcas", "rate_fpm",
-              "mach_to", "fuel_frozen", "altitude_to_ft"}) {
+              "mach_to", "fuel_frozen", "altitude_to_ft", "propeller_lever",
+              "running_pitch_deg", "rotate_kcas", "keel_aft_ft", "keel_below_ft"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }

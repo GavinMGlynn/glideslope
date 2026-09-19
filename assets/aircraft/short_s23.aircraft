@@ -1,0 +1,9 @@
+# The Short S.23 Empire flying boat, Imperial Airways' C class of 1936:
+# JSBSim's model, with its hull's and floats' hydrodynamics, held to Short
+# Brothers' and Flight's figures (assets/figures/short_s23.xml). It stands on
+# water, and takes off from and alights on it.
+
+name Short S.23 Empire Flying Boat
+model short_s23
+start 130 0.5
+seaplane

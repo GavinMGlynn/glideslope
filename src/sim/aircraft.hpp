@@ -162,7 +162,12 @@ public:
     // so the step any of its contact points - a wheel, lowered or not, or a
     // point of its structure - reaches the water, it is brought to rest where it
     // is and held there, as JSBSim holds a vehicle down, until it is started
-    // again. The aircraft keeps the terrain alive.
+    // again.
+    //
+    // **A flying boat floats.** A model with JSBSim's hydrodynamics - the
+    // Short S.23's hull and floats - meets the water through them, and does
+    // not ditch: before every step its water is put where the terrain's is,
+    // and out of its reach over land. The aircraft keeps the terrain alive.
     void set_terrain(std::shared_ptr<Terrain> terrain);
 
     // Flies the aircraft in `weather` from now on: before every step, JSBSim's
@@ -214,7 +219,7 @@ public:
 
 private:
     void apply_weather();
-    void apply_ground();
+    void apply_ground(double latitude_deg, double longitude_deg);
     bool meets_the_surface() const;
 
     std::string model_;
@@ -224,6 +229,7 @@ private:
     // Each contact point's height above the surface, by JSBSim's property:
     // gear/unit[i] for a wheel, contact/unit[i] for structure.
     std::vector<std::string> contact_heights_;
+    bool hydrodynamics_ = false; // the model has JSBSim's hydrodynamics
     std::shared_ptr<Weather> weather_;
     // What was last given to JSBSim's atmosphere, which rebuilds itself when
     // its sea-level values change and so is told only when they do.

@@ -600,3 +600,15 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification: every aircraft landed on a runway with its wheels up
       comes to rest on its airframe, its centre of gravity above the ground,
       in a distance a stated friction gives.*
+- [ ] **Propeller and mixture levers for the pilot.** *(Found making the
+      Short S.23, 2026-09-20.)* The controls have a propeller lever and a
+      mixture, which the figure flights set, but no key or binding works
+      them: a pilot flies every aircraft full rich with its propeller at its
+      highest rpm - the Mosquito's constant-speed airscrews at their highest, and the
+      S.23's two-pitch ones in fine pitch, with its mixture through the gate
+      to take-off boost, so that at full throttle in the air its engines turn
+      3,185 rpm and give 1,185 hp where the Pegasus is rated at 2,600 and 920.
+      *Verification: a binding and keys move each lever; the S.23 flown in
+      coarse pitch at +2 1/2 lb from the controls turns its engines within
+      their rated rpm at its top speed, and the Mosquito's rpm follows its
+      lever.*

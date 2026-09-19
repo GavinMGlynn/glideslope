@@ -124,6 +124,12 @@ set(GLIDESLOPE_UNIT_TESTS
     the_learjet_35a_stalls_near_its_flight_manuals_speed_with_8_degrees_of_flap
     the_learjet_35a_stalls_near_its_flight_manuals_speed_flaps_up
     the_learjet_35a_stalls_near_its_flight_manuals_speed_with_40_degrees_of_flap
+    the_short_s23_takes_off_from_water_at_45000_lb_in_about_gouges_time
+    the_short_s23_takes_off_from_water_at_45000_lb_in_about_gouges_run
+    the_short_s23_takes_off_from_water_at_its_standard_weight_in_its_published_time
+    the_short_s23_floats_at_the_draught_its_general_arrangement_draws
+    the_short_s23_reaches_its_published_speed_at_5500_ft
+    the_short_s23_climbs_at_its_published_rate_at_sea_level
     the_f35a_reaches_mach_1_6_at_its_best_altitude
     the_f35a_still_climbs_at_50000_ft
     the_f35a_flies_more_than_its_published_range_on_internal_fuel
@@ -205,6 +211,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_with_its_brakes_off_rolls_down_a_slope_and_stays_on_level_ground
     an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
     the_ground_under_an_aircraft_is_water_or_land_where_the_dem_water_mask_says
+    the_short_s23_takes_off_from_the_sea_and_from_a_lake_within_its_published_run
     every_axis_button_and_hat_of_a_virtual_stick_and_throttle_moves_the_controls
     bound_inputs_set_the_controls_they_name_and_the_aircraft_receives_them
     a_bindings_file_that_cannot_be_read_is_refused_by_line
@@ -267,6 +274,7 @@ set_tests_properties(
     the_copernicus_dem_tile_south_of_sydney_decodes_to_the_heights_an_independent_decoder_gives
     the_copernicus_water_body_mask_south_of_sydney_decodes_to_the_values_an_independent_decoder_gives
     the_ground_under_an_aircraft_is_water_or_land_where_the_dem_water_mask_says
+    the_short_s23_takes_off_from_the_sea_and_from_a_lake_within_its_published_run
     the_egm2008_grid_gives_geographiclibs_undulations_within_its_stated_error
     the_dem_gives_the_sydney_tiles_heights_at_its_samples_and_between_them
     the_dem_meets_surveyed_airfields_and_coastlines_within_its_stated_accuracy
@@ -349,6 +357,13 @@ add_test(NAME the_committed_airbus_a380_is_what_its_script_writes
         -DSCRIPT=tools/make_a380.py
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
 set_tests_properties(the_committed_airbus_a380_is_what_its_script_writes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_short_s23_is_what_its_script_writes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_short_s23.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_short_s23_is_what_its_script_writes
     PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME the_committed_learjet_35a_is_what_its_script_writes
@@ -632,7 +647,7 @@ add_test(NAME the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files
 add_test(NAME the_cli_lists_the_aircraft_the_data_holds
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=aircraft -DEXIT=0
-        "-DSTDOUT_MATCHES=737-300 +Boeing 737-300 +model 737-300, starting at 250 KCAS, published figures.*747-400 +Boeing 747-400 +model 747-400, starting at 250 KCAS, published figures.*787-8 +Boeing 787-8 +model 787-8, starting at 250 KCAS, published figures.*a320 +Airbus A320 +model a320, starting at 250 KCAS, published figures.*a380 +Airbus A380-841 +model a380, starting at 250 KCAS, published figures.*b2 +Northrop Grumman B-2A Spirit +model b2, starting at 250 KCAS, published figures.*c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*f15c +McDonnell Douglas F-15C Eagle +model f15c, starting at 300 KCAS, published figures.*f22 +Lockheed Martin F-22A Raptor +model f22, starting at 300 KCAS, published figures.*f35a +Lockheed Martin F-35A Lightning II +model f35a, starting at 300 KCAS, published figures.*j3cub +Piper J-3 Cub +model j3cub, starting at 60 KCAS, published figures.*learjet35a +Gates Learjet 35A +model learjet35a, starting at 250 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures.*pa28 +Piper PA-28-180 Cherokee +model pa28, starting at 110 KCAS, published figures"
+        "-DSTDOUT_MATCHES=737-300 +Boeing 737-300 +model 737-300, starting at 250 KCAS, published figures.*747-400 +Boeing 747-400 +model 747-400, starting at 250 KCAS, published figures.*787-8 +Boeing 787-8 +model 787-8, starting at 250 KCAS, published figures.*a320 +Airbus A320 +model a320, starting at 250 KCAS, published figures.*a380 +Airbus A380-841 +model a380, starting at 250 KCAS, published figures.*b2 +Northrop Grumman B-2A Spirit +model b2, starting at 250 KCAS, published figures.*c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*f15c +McDonnell Douglas F-15C Eagle +model f15c, starting at 300 KCAS, published figures.*f22 +Lockheed Martin F-22A Raptor +model f22, starting at 300 KCAS, published figures.*f35a +Lockheed Martin F-35A Lightning II +model f35a, starting at 300 KCAS, published figures.*j3cub +Piper J-3 Cub +model j3cub, starting at 60 KCAS, published figures.*learjet35a +Gates Learjet 35A +model learjet35a, starting at 250 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures.*pa28 +Piper PA-28-180 Cherokee +model pa28, starting at 110 KCAS, published figures.*short_s23 +Short S.23 Empire Flying Boat +model short_s23, starting at 130 KCAS, a seaplane, published figures"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_client_refuses_an_aircraft_the_data_does_not_hold

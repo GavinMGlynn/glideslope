@@ -4,11 +4,12 @@
 #   cmake -DPROGRAM=<glideslope> -DDRIVER=<driver> -DWORK=<dir> -DCACHE=<downloads dir>
 #         -P client_aircraft.cmake
 #
-# Flies the flight screen headless twice, for 240 ticks - two seconds - with
-# --trace: the F-22 given by --aircraft, which the client must say it flies
-# and which must be flying at its catalogue start's 300 KCAS; and the Cessna
+# Flies the flight screen headless three times, for 240 ticks - two seconds -
+# with --trace: the F-22 given by --aircraft, which the client must say it
+# flies and which must be flying at its catalogue start's 300 KCAS; the Cessna
 # --on-ground at Sydney airport, which must stand there, its wheels on the DEM
-# and its airspeed nothing, the brakes on. The flights stand on the DEM, so
+# and its airspeed nothing, the brakes on; and the S.23 --on-ground in Rose
+# Bay, afloat. A Cessna --on-ground on the water must be refused. The flights stand on the DEM, so
 # they need the tiles and the geoid, fetched into CACHE: without the network
 # the test is skipped (exit 77) unless GLIDESLOPE_REQUIRE_NETWORK is set.
 
@@ -70,3 +71,29 @@ if(CMAKE_MATCH_1 GREATER 10 OR CMAKE_MATCH_1 LESS 0 OR CMAKE_MATCH_2 GREATER 2)
                         "it at ${CMAKE_MATCH_2} KCAS")
 endif()
 message(STATUS "the Cessna stands ${CMAKE_MATCH_1} ft above the ground at ${CMAKE_MATCH_2} KCAS")
+
+# Rose Bay, the Empire flying boats' base at Sydney: the S.23 --on-ground there
+# is afloat, its centre of gravity some feet above the water, drifting at no
+# more than its idling engines push it.
+fly(afloat _out _last --aircraft short_s23 --on-ground --at -33.866,151.262,0)
+if(NOT _out MATCHES "glideslope: flying the Short S.23 Empire Flying Boat \\(short_s23\\), afloat\n")
+    message(FATAL_ERROR "the client did not say the S.23 is afloat:\n${_out}")
+endif()
+if(NOT _last MATCHES " agl_ft (-?[0-9]+)\\.[0-9]+ kcas ([0-9]+)\\.[0-9]+ ")
+    message(FATAL_ERROR "no height or airspeed in the trace: ${_last}")
+endif()
+if(CMAKE_MATCH_1 LESS 4 OR CMAKE_MATCH_1 GREATER 12 OR CMAKE_MATCH_2 GREATER 6)
+    message(FATAL_ERROR "the S.23 is not afloat: ${CMAKE_MATCH_1} ft above the water at "
+                        "${CMAKE_MATCH_2} KCAS")
+endif()
+message(STATUS "the S.23 floats ${CMAKE_MATCH_1} ft above the water at ${CMAKE_MATCH_2} KCAS")
+
+# A landplane is not stood on water: it would ditch.
+execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size 320x240
+                        --screen flight --aircraft c172p --on-ground --at -33.866,151.262,0
+                        --shot-at 10 --shot "${WORK}/aircraft-refused-${DRIVER}.bmp"
+                RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+if(_rc EQUAL 0 OR NOT _err MATCHES "the Cessna 172P Skyhawk is a landplane, and --at is on water")
+    message(FATAL_ERROR "a Cessna on water was not refused (exit ${_rc}):\n${_err}")
+endif()
+message(STATUS "a Cessna on water is refused")

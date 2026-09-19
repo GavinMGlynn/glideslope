@@ -37,6 +37,12 @@ namespace glideslope::sim {
 
 namespace {
 
+// JSBSim's hydrodynamics' water level, in feet above its sea level, and where
+// it is put to be out of a flying boat's reach: as far below it as a flying
+// boat 100,000 ft up.
+constexpr const char* water_level = "hydro/environment/water-level-ft";
+constexpr double out_of_reach_ft = -1.0e5;
+
 // JSBSim reports what it is doing on standard output unless told otherwise. The
 // simulation is a library; what reaches the user's terminal is the frontend's
 // call, so JSBSim is kept quiet unless JSBSIM_DEBUG asks for more.
@@ -141,6 +147,12 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
                                  "' from " +
                                  (jsbsim_root / "aircraft" / model).string());
     }
+    // A flying boat on JSBSim's own ground, which is land, has no water within
+    // reach until a terrain says where water is (apply_ground).
+    hydrodynamics_ = exec_->GetPropertyManager()->HasNode(water_level);
+    if (hydrodynamics_) {
+        exec_->SetPropertyValue(water_level, out_of_reach_ft);
+    }
 }
 
 Aircraft::~Aircraft() = default;
@@ -193,11 +205,22 @@ void Aircraft::set_terrain(std::shared_ptr<Terrain> terrain) {
 // takes no weight on it, and a STRUCTURE contact still does. It has one ground
 // for every contact, so the whole aircraft is on water or on land, as the
 // terrain is below its centre.
-void Aircraft::apply_ground() {
-    const bool water =
-        terrain_->water(exec_->GetPropertyValue("position/lat-geod-deg"),
-                        exec_->GetPropertyValue("position/long-gc-deg"));
+//
+// JSBSim's hydrodynamics keeps a water level of its own, above JSBSim's sea
+// level - the ellipsoid, with a terrain - and 0 unless it is told: it is set to
+// the terrain's height where the terrain is water, and a hundred thousand feet
+// below it where it is land, where the hull is as far from water as a flying
+// boat at that height in the air.
+void Aircraft::apply_ground(double latitude_deg, double longitude_deg) {
+    constexpr double feet_per_metre = 1.0 / 0.3048;
+    const bool water = terrain_->water(latitude_deg, longitude_deg);
     exec_->GetGroundReactions()->SetSolid(!water);
+    if (hydrodynamics_) {
+        exec_->SetPropertyValue(
+            water_level, water ? terrain_->height_m(latitude_deg, longitude_deg) *
+                                     feet_per_metre
+                               : out_of_reach_ft);
+    }
 }
 
 // JSBSim gives each contact point's height above the surface, at its lowest
@@ -230,8 +253,16 @@ void Aircraft::initialize(const InitialConditions& ic) {
     }
     exec_->SetHoldDown(false); // started again
     if (terrain_) {
-        exec_->GetGroundReactions()->SetSolid(
-            !terrain_->water(ic.latitude_deg, ic.longitude_deg));
+        apply_ground(ic.latitude_deg, ic.longitude_deg);
+    }
+    // A flying boat started at rest on water is set down as on land, its keel
+    // on the surface - the water taken as solid while it is placed - and
+    // settles into it; set down at the water's own height, its hull was under
+    // it, and the water threw it out.
+    const bool placed_on_water = hydrodynamics_ && ic.airspeed_kts == 0.0 &&
+                                 !exec_->GetGroundReactions()->GetSolid();
+    if (placed_on_water) {
+        exec_->GetGroundReactions()->SetSolid(true);
     }
     if (!exec_->RunIC()) {
         throw std::runtime_error("JSBSim refused the initial conditions for " + model_);
@@ -259,6 +290,9 @@ void Aircraft::initialize(const InitialConditions& ic) {
                                          model_ + " set down on the ground");
             }
         }
+    }
+    if (placed_on_water) {
+        exec_->GetGroundReactions()->SetSolid(false);
     }
     if (ic.engine_running) {
         exec_->SetPropertyValue("propulsion/set-running", -1.0);
@@ -391,13 +425,14 @@ void Aircraft::step() {
         apply_weather();
     }
     if (terrain_) {
-        apply_ground();
+        apply_ground(exec_->GetPropertyValue("position/lat-geod-deg"),
+                     exec_->GetPropertyValue("position/long-gc-deg"));
     }
     exec_->Run();
     // Hold-down stops the aircraft - its velocities and rates to nothing - and
     // keeps it stopped, its attitude as it was.
-    if (terrain_ && !exec_->GetGroundReactions()->GetSolid() && !exec_->GetHoldDown() &&
-        meets_the_surface()) {
+    if (terrain_ && !hydrodynamics_ && !exec_->GetGroundReactions()->GetSolid() &&
+        !exec_->GetHoldDown() && meets_the_surface()) {
         exec_->SetHoldDown(true);
     }
 }

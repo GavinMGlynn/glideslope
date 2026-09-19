@@ -75,9 +75,9 @@ int list_aircraft(const std::filesystem::path& data) {
             std::filesystem::exists(data / "figures" / (e.model + ".xml"));
         const bool selftest =
             std::filesystem::exists(data / "selftest" / (e.model + ".log"));
-        std::printf("%-12s %-28s model %s, starting at %.0f KCAS%s%s\n", e.id.c_str(),
+        std::printf("%-12s %-28s model %s, starting at %.0f KCAS%s%s%s\n", e.id.c_str(),
                     e.name.c_str(), e.model.c_str(), e.start_airspeed_kts,
-                    figures ? ", published figures" : "",
+                    e.seaplane ? ", a seaplane" : "", figures ? ", published figures" : "",
                     selftest ? ", a selftest" : "");
     }
     return 0;

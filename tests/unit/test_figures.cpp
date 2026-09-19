@@ -22,7 +22,7 @@ const char* const data_dir = GLIDESLOPE_TEST_DATA_DIR;
 
 // Every aircraft with published figures.
 const std::vector<std::string>& figured_models() {
-    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "a380", "b2", "c172p", "c182", "f15c", "f22", "f35a", "j3cub", "learjet35a", "mosquito-fb6", "pa28"};
+    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "a380", "b2", "c172p", "c182", "f15c", "f22", "f35a", "j3cub", "learjet35a", "mosquito-fb6", "pa28", "short_s23"};
     return models;
 }
 
@@ -428,6 +428,30 @@ GLIDESLOPE_TEST(the_mosquito_fb6_holds_its_height_on_one_engine_up_to_its_pilots
     expect_figure("mosquito-fb6", "single_engine_ceiling");
 }
 
+GLIDESLOPE_TEST(the_short_s23_takes_off_from_water_at_45000_lb_in_about_gouges_time) {
+    expect_figure("short_s23", "water_takeoff_time_long_range");
+}
+
+GLIDESLOPE_TEST(the_short_s23_takes_off_from_water_at_45000_lb_in_about_gouges_run) {
+    expect_figure("short_s23", "water_takeoff_run_long_range");
+}
+
+GLIDESLOPE_TEST(the_short_s23_takes_off_from_water_at_its_standard_weight_in_its_published_time) {
+    expect_figure("short_s23", "water_takeoff_time_standard");
+}
+
+GLIDESLOPE_TEST(the_short_s23_floats_at_the_draught_its_general_arrangement_draws) {
+    expect_figure("short_s23", "draught");
+}
+
+GLIDESLOPE_TEST(the_short_s23_reaches_its_published_speed_at_5500_ft) {
+    expect_figure("short_s23", "level_speed");
+}
+
+GLIDESLOPE_TEST(the_short_s23_climbs_at_its_published_rate_at_sea_level) {
+    expect_figure("short_s23", "climb_rate");
+}
+
 // Every flight the checks can fly measures a figure in some aircraft's file,
 // and every figure in every file names a flight - so a figure added to a file
 // with no flight, or a flight written and never given a figure, fails here
@@ -456,7 +480,7 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
         check(flown.count(name) == 1, "figures name a flight " + name +
                                           " that does not exist");
     }
-    check(figures_in_files == 88,
-          "eighty-eight figures, one test each above; found " +
+    check(figures_in_files == 94,
+          "ninety-four figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

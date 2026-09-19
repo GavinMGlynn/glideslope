@@ -1,7 +1,8 @@
 # assets/jsbsim
 
 The flight-model files glideslope's programs read at run time, copied into
-`data/jsbsim/` beside them. JSBSim's layout: `aircraft/`, `engine/`.
+`data/jsbsim/` beside them. JSBSim's layout: `aircraft/`, `engine/`, and
+`systems/` for the systems models share.
 
 Where each comes from, and under what licence, is in `docs/ASSETS.md`.
 
@@ -88,6 +89,21 @@ is committed differs.
 ```sh
 python3 tools/make_f15c.py
 python3 tools/make_f22.py
+```
+
+## The Short S.23 Empire flying boat
+
+`aircraft/short_s23/short_s23.xml` and its `Systems/`, `engine/eng_PegasusXc.xml`,
+`engine/prop_deHavilland5000.xml`, and JSBSim's shared
+`systems/hydrodynamics.xml`, `systems/hydrodynamic-planing-floats.xml` and
+`systems/sperry-a2-autopilot.xml`.
+
+**Do not edit these by hand** either: `tools/make_short_s23.py` makes them from
+the pinned files, with its changes listed, and a test fails if what is
+committed differs.
+
+```sh
+python3 tools/make_short_s23.py
 ```
 
 ## The models written here

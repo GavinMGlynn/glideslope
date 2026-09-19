@@ -10,8 +10,11 @@ aircraft to an AI pilot and take it back.
 > Boeing 737-300, 747-400 and 787-8 to their airport-planning documents, a
 > Learjet 35A to its flight manual, an F-15C and F-22A to the Air Force's and
 > the Department of Defense's figures, an F-35A and B-2A to what is published
-> of them, and a
-> Mosquito FB Mk VI to its wartime trials and Pilot's Notes; the Cessna 172P
+> of them, a
+> Mosquito FB Mk VI to its wartime trials and Pilot's Notes, and a Short S.23
+> Empire flying boat, off the sea and lakes, to Flight's figures of 1936;
+> water is where the DEM's mask puts it, and a landplane ditches on it; the
+> Cessna 172P
 > stands
 > on the real ground anywhere on Earth, and can be flown from the keyboard or a
 > joystick with a HUD, in the weather reported at an airfield now - its gusts,
@@ -62,6 +65,8 @@ glideslope --plan sydney-harbour        # the AI flies a tour of Sydney Harbour
 glideslope --aircraft f22               # fly the F-22 (glideslope_cli aircraft lists them)
 glideslope --aircraft learjet35a --on-ground --at -33.9461,151.1772,0
                                         # stand at Sydney airport, ready to take off
+glideslope --aircraft short_s23 --on-ground --at -33.866,151.262,0
+                                        # the Empire flying boat afloat in Rose Bay
 glideslope --screen terrain --at -39.55,174.27,500 --toward -39.50,174.10,1500 \
     --metar "METAR NZHA 180800Z 27012KT 6000 -RA BKN015 14/10 Q1016"
                                         # Taranaki under broken cloud, in rain

@@ -82,6 +82,16 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     ic.engine_running = true;
     ic.gear = 0.0; // begun in the air, with its wheels up
     if (start.on_ground) {
+        // Where the DEM's mask says water, only a seaplane can stand: it floats,
+        // where a landplane would ditch as it was put there.
+        const bool water = dem_->water(start.latitude_deg, start.longitude_deg) !=
+                           world::Water::none;
+        if (water && !aircraft_entry_.seaplane) {
+            throw std::runtime_error("the " + aircraft_entry_.name +
+                                     " is a landplane, and --at is on water, where it would "
+                                     "ditch; stand it on land");
+        }
+        afloat_at_start_ = water;
         // Standing on the DEM, its wheels down: sim::Aircraft raises it by
         // their springs' compression.
         ic.altitude_ft =

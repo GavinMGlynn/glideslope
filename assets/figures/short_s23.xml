@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<!--
+  The Short S.23 Empire flying boat's published figures, and the conditions
+  each was measured in.
+
+  From Flight: the specification panel of the standard boat in "The Aircraft
+  Engineer", 29 October 1936, p. 440f; and Arthur Gouge's paper to the Royal
+  Aeronautical Society on the Empire boats, 10 December 1936, as Flight printed
+  it on 17 and 24 December 1936 - his Table II, "performances as obtained from
+  actual flight tests", p. 680, and his account of the take-off tests at
+  45,000 lb, p. 649. Read in the Internet Archive's scans; see docs/ASSETS.md.
+
+  The standard boat's all-up weight is 40,500 lb; the long-range boats,
+  Caledonia and Cambria, 45,000. No wind or state of the water is given for
+  any take-off: they are flown in calm air on calm water. Gouge times a
+  take-off "from the time of full throttle", which the hydraulic engine
+  controls took 3 to 3 1/2 seconds to reach; the flight opens the throttles
+  over 3 1/4. The run's yards are counted from the throttles' opening.
+
+  The draught is not published. It is scaled from the general arrangement's
+  side view, which draws the waterline, "W.L.": 3.9 to 4.2 ft at the main
+  step by the drawn length's scale and by its height's, 88 ft and 31 ft 9 1/2
+  in - taken as 4.0 ft, give or take the half foot a scaled drawing is worth.
+  The drawing's waterline puts the fin's top 24 ft above the water, which is
+  the "height over the water line" Flight gave on 9 July 1936. The keel is
+  placed in the model's frame from the same drawing: the front view's wing
+  floats' keels 4.3 ft above the hull's, and the model's floats' keels 1.71 ft
+  below its hydrodynamic reference point, put the hull's keel 6.0 ft below the
+  reference point; the main step is 1.82 m (5.97 ft) aft of it.
+
+  Not flown: the stalling speed, 73 mph, at no stated weight, flap or power:
+  at 40,500 lb it would take a lift coefficient of 1.98, more than the 1.8
+  Gouge's wind tunnel gave with 28 degrees of flap (p. 680), which the model's,
+  1.77 with its 25, matches. The cruising speed, 165 mph at 4 x 510 bhp, names
+  a power and no altitude.
+-->
+<published_figures aircraft="short_s23" flaps_full_deg="25">
+  <source>Flight, 29 October 1936 and 17 and 24 December 1936</source>
+
+  <!-- 40,500 lb, the standard boat: the model's 34,717 lb as it loads - its
+       empty weight, 27,528 lb, the four crew it seats, its radio, oil, freight
+       and 4,704 lb of petrol - and 5,783 lb more in the spar mail compartment,
+       at the centre of gravity. -->
+  <loading name="standard" total_lbs="40500">
+    <pointmass index="5" lbs="5783"/>
+  </loading>
+
+  <!-- 45,000 lb, the long-range boats: as the standard boat, and 10,283 lb in
+       the spar mail compartment. Their extra weight was petrol, in the wing;
+       the model's wing tanks are at 9.21 m aft of the bow and the compartment
+       at 9.3, and the model starts its tanks beyond the first two empty
+       whatever a loading here sets them to. -->
+  <loading name="long-range" total_lbs="45000">
+    <pointmass index="5" lbs="10283"/>
+  </loading>
+
+  <figure name="water_takeoff_time_long_range" flight="water_takeoff" loading="long-range"
+          unit="s" value="30.5" tolerance_percent="10" running_pitch_deg="8" rotate_kcas="60">
+    Gouge, p. 649, of the tests at 45,000 lb: "30.5 seconds from full opening of
+    the throttles, and a run of 795 yards"; the same in Flight, 10 December
+    1936, p. 619.
+  </figure>
+
+  <figure name="water_takeoff_run_long_range" flight="water_takeoff" loading="long-range"
+          unit="yd" value="795" tolerance_percent="10" running_pitch_deg="8" rotate_kcas="60">
+    The same tests' run: 795 yards.
+  </figure>
+
+  <figure name="water_takeoff_time_standard" flight="water_takeoff" loading="standard"
+          unit="s" min="21" max="27" running_pitch_deg="8" rotate_kcas="60">
+    Gouge's Table II, p. 680, from flight tests: take-off time 24 s; the
+    specification panel, p. 440f: 21 s. From the panel's 21 to an eighth over
+    Gouge's 24.
+  </figure>
+
+  <figure name="draught" loading="standard" unit="ft" value="4.0" tolerance="0.5"
+          keel_aft_ft="5.97" keel_below_ft="6.0">
+    Scaled from the general arrangement's waterline, p. 440f; see above.
+  </figure>
+
+  <figure name="level_speed" loading="standard" unit="mph" value="200"
+          tolerance_percent="5" altitude_ft="5500" boost_psi="2.5" propeller_lever="0">
+    Specification panel, p. 440f: maximum speed 200 mph at 5,500 ft; Table II
+    the same. Flown at the Pegasus Xc's normal maximum boost, +2 1/2 lb, the
+    airscrews in coarse pitch.
+  </figure>
+
+  <figure name="climb_rate" loading="standard" unit="ft/min" value="950"
+          tolerance_percent="10" speed_kcas="100" boost_psi="2.5" propeller_lever="1">
+    Specification panel, p. 440f: rate of climb at sea level 950 ft/min;
+    Table II, 933 ft/min. Flown at +2 1/2 lb, the airscrews in fine pitch, at
+    100 knots, no climbing speed being given.
+  </figure>
+</published_figures>

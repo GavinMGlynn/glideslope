@@ -114,7 +114,8 @@ void usage(std::FILE* out) {
         "                c172p, by default\n"
         "  --on-ground   start standing at --at's latitude and longitude, on the\n"
         "                ground, the engines idling and the brakes on until B is\n"
-        "                pressed, rather than flying\n"
+        "                pressed, rather than flying - or, a seaplane, afloat on\n"
+        "                water there\n"
         "  --autopilot   the AI flies the aircraft from the start, holding what it\n"
         "                is doing; A hands it between the pilot and the AI\n"
         "  --plan        the AI flies a flight plan - a file, or one in data/plans\n"
@@ -438,7 +439,9 @@ int main(int argc, char** argv) {
                 glideslope::platform::cache_directory(), start);
             std::printf("glideslope: flying the %s (%s)%s\n", flight->aircraft().name.c_str(),
                         flight->aircraft().id.c_str(),
-                        start.on_ground ? ", standing on the ground" : "");
+                        !start.on_ground           ? ""
+                        : flight->afloat_at_start() ? ", afloat"
+                                                    : ", standing on the ground");
             if (!start.weather_station.empty()) {
                 std::printf("glideslope: flying in the weather at %s: METAR from "
                             "aviationweather.gov; %s (https://open-meteo.com/), CC BY "

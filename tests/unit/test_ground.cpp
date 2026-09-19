@@ -2,11 +2,13 @@
 
 #include "sim/aircraft.hpp"
 #include "sim/terrain.hpp"
+#include "sim/test_pilot.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
 #include "world/geoid.hpp"
 
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -348,5 +350,99 @@ GLIDESLOPE_TEST(the_ground_under_an_aircraft_is_water_or_land_where_the_dem_wate
               name + ": the ground under the aircraft is " +
                   (s.on_water ? "water" : "land"));
         check(!s.ditched, name + ": in the air, nothing has ditched");
+    }
+}
+
+GLIDESLOPE_TEST(the_short_s23_takes_off_from_the_sea_and_from_a_lake_within_its_published_run) {
+    // On the real water: the pinned tile south of Sydney, its water body mask
+    // and the geoid, the surface of the sea and of a lake where the DEM puts
+    // it above the ellipsoid.
+    const std::filesystem::path source(GLIDESLOPE_TEST_SOURCE_DIR);
+    const std::filesystem::path downloads(GLIDESLOPE_TEST_DOWNLOADS_DIR);
+    for (const char* name :
+         {"Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif",
+          "Copernicus_DSM_COG_10_S34_00_E151_00_WBM.tif", "egm2008-5.zip"}) {
+        if (!std::filesystem::exists(downloads / name)) {
+            glideslope::test::skip(std::string(name) + " was not fetched");
+        }
+    }
+    std::ifstream coverage_file(source / "../assets/dem/coverage.txt", std::ios::binary);
+    const glideslope::world::DemCoverage coverage(
+        std::string(std::istreambuf_iterator<char>(coverage_file), {}));
+    glideslope::world::DirectoryTiles tiles(downloads);
+    const auto geoid = std::make_shared<glideslope::world::Geoid>(
+        glideslope::world::egm2008_geoid(downloads, glideslope::world::http_fetch()));
+    auto dem = std::make_shared<glideslope::world::Dem>(coverage, tiles, geoid.get());
+    const auto terrain = std::make_shared<FunctionTerrain>(
+        [dem](double lat, double lon) { return dem->height_above_ellipsoid(lat, lon); },
+        [dem](double lat, double lon) {
+            return dem->water(lat, lon) != glideslope::world::Water::none;
+        });
+
+    // Gouge's take-off tests at 45,000 lb (Flight, 17 December 1936, p. 649):
+    // 30.5 s from full throttle and a run of 795 yards, flown as the figure
+    // flight flies them (src/sim/figures.cpp, water_takeoff) - each within a
+    // tenth. The runs are at least 200 m from any shore.
+    struct Place {
+        const char* name;
+        double latitude;
+        double longitude;
+        double heading;
+    };
+    for (const Place& p : {Place{"the Tasman Sea off Sydney", -33.90, 151.35, 0.0},
+                           Place{"Lake Macquarie", -33.055, 151.615, 180.0}}) {
+        const std::string name = p.name;
+        Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "short_s23");
+        glideslope::sim::Loading long_range;
+        long_range.pointmass_lbs[5] = 10283.0; // assets/figures/short_s23.xml
+        a.load(long_range);
+        a.set_terrain(terrain);
+        InitialConditions ic;
+        ic.latitude_deg = p.latitude;
+        ic.longitude_deg = p.longitude;
+        ic.heading_deg = p.heading;
+        ic.altitude_ft = dem->height_above_ellipsoid(p.latitude, p.longitude) *
+                             feet_per_metre +
+                         6.0;
+        ic.engine_running = true;
+        a.initialize(ic);
+        check(std::abs(a.property("inertia/weight-lbs") - 45000.0) < 1.0,
+              name + ": at 45,000 lb");
+        Controls c;
+        c.propeller = 1.0;
+        c.mixture = 1.0;
+        for (int i = 0; i < 60 * 120; ++i) {
+            a.set_controls(c);
+            a.step();
+        }
+        const AircraftState afloat = a.state();
+        check(afloat.on_water && !afloat.ditched && a.property("hydro/active-norm") > 0.0,
+              name + ": afloat, on water the mask gives");
+
+        glideslope::sim::TestPilot pilot(a);
+        constexpr double opening_s = 3.25;
+        double yards = 0.0;
+        double seconds = -1.0;
+        for (int i = 0; i < 120 * 120; ++i) {
+            const double t = i / 120.0;
+            c.throttle = std::min(t / opening_s, 1.0);
+            c.elevator = pilot.pitch_to(a.property("velocities/vc-kts") >= 60.0 ? 11.0 : 8.0);
+            c.aileron = pilot.roll_to(0.0);
+            a.set_controls(c);
+            a.step();
+            yards += a.property("velocities/vg-fps") / 120.0 / 3.0;
+            if (t > opening_s && a.property("hydro/active-norm") <= 0.0) {
+                seconds = t - opening_s;
+                break;
+            }
+            check(a.state().on_water, name + ": the run stays on the water");
+        }
+        std::printf("%s: off the water %.1f s from full throttle, after %.0f yd\n", p.name,
+                    seconds, yards);
+        check(seconds > 0.0, name + ": off the water within two minutes");
+        check(std::abs(seconds - 30.5) <= 3.05,
+              name + ": " + std::to_string(seconds) + " s from full throttle, Gouge's 30.5");
+        check(std::abs(yards - 795.0) <= 79.5,
+              name + ": a run of " + std::to_string(yards) + " yd, Gouge's 795");
     }
 }

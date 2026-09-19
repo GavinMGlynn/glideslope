@@ -70,6 +70,11 @@ public:
            const FlightStart& start);
 
     // The aircraft flown, from the catalogue.
+    // Whether it started --on-ground afloat, a seaplane on water.
+    bool afloat_at_start() const {
+        return afloat_at_start_;
+    }
+
     const sim::CatalogueEntry& aircraft() const {
         return aircraft_entry_;
     }
@@ -127,6 +132,7 @@ private:
     std::unique_ptr<world::Geoid> geoid_;
     std::shared_ptr<world::Dem> dem_;
     sim::CatalogueEntry aircraft_entry_;
+    bool afloat_at_start_ = false;
     std::unique_ptr<sim::Aircraft> aircraft_;
     // Made at the first step, from the pilot's controls then.
     std::unique_ptr<sim::Controller> controller_;

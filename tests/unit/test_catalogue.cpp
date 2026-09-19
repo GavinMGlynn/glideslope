@@ -72,6 +72,10 @@ Held hold_its_start(const std::filesystem::path& from, const CatalogueEntry& e) 
 // above any aircraft's stall and below its start's - the nose is raised to ten
 // degrees. The height above the runway, in feet, after two minutes, or once
 // it passes 200 ft.
+//
+// A seaplane takes off from open water instead, settled afloat first; its
+// hull is held at a running attitude of eight degrees from the start, as a
+// flying boat's is, and raised to ten.
 double take_off(const std::filesystem::path& from, const CatalogueEntry& e) {
     glideslope::sim::Aircraft aircraft(from / "jsbsim", e.model);
     glideslope::sim::InitialConditions ic;
@@ -82,7 +86,19 @@ double take_off(const std::filesystem::path& from, const CatalogueEntry& e) {
     ic.airspeed_kts = 0.0;
     ic.engine_running = true;
     ic.gear = 1.0;
+    if (e.seaplane) {
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return true; }));
+        ic.altitude_ft = 6.0;
+    }
     aircraft.initialize(ic);
+    if (e.seaplane) {
+        const glideslope::sim::Controls idle;
+        for (int i = 0; i < 30 * steps_per_second; ++i) {
+            aircraft.set_controls(idle);
+            aircraft.step();
+        }
+    }
     glideslope::sim::TestPilot pilot(aircraft);
     std::optional<glideslope::sim::TestPilot> rotating;
     glideslope::sim::Controls c;
@@ -99,6 +115,10 @@ double take_off(const std::filesystem::path& from, const CatalogueEntry& e) {
         const double turn = std::clamp(0.1 * error - 0.3 * r_degps, -1.0, 1.0);
         c.left_brake = kcas < 60.0 ? std::max(-turn, 0.0) : 0.0;
         c.right_brake = kcas < 60.0 ? std::max(turn, 0.0) : 0.0;
+        if (e.seaplane && !rotating) {
+            c.elevator = pilot.pitch_to(8.0);
+            c.aileron = pilot.roll_to(0.0);
+        }
         if (kcas >= 0.6 * e.start_airspeed_kts && !rotating) {
             rotating.emplace(aircraft);
             pitch = aircraft.property("attitude/theta-deg");
@@ -122,8 +142,13 @@ double take_off(const std::filesystem::path& from, const CatalogueEntry& e) {
 // tenths of its catalogue airspeed, as take_off rotates at, its gear down and
 // its brakes off, the nose held two degrees up and the wings level, for three
 // minutes or until it has been still for two seconds.
+//
+// A seaplane is flown in with its nose six degrees up, to alight on its step,
+// and has touched when its hull is in the water; ten seconds later its engines
+// are stopped, as it would be moored, and it drifts to rest.
 struct Alighting {
-    bool touched = false;            // on land, a wheel took weight; on water, it ditched
+    bool touched = false;            // a wheel took weight, it ditched or its hull met the water
+    bool ditched = false;            // at the end
     bool wheels_took_weight = false; // any wheel, at any time
     double speed_kts = 0.0;          // over the surface, at the end
     double moved_ft = 0.0;           // from where it touched to where it ended
@@ -161,17 +186,21 @@ Alighting alight(const std::filesystem::path& from, const CatalogueEntry& e, boo
     };
     Alighting a;
     int still = 0;
+    int since_touching = 0;
     double touched_lat = 0.0;
     double touched_lon = 0.0;
     for (int i = 0; i < 180 * steps_per_second && still < 2 * steps_per_second; ++i) {
-        c.elevator = pilot.pitch_to(2.0);
+        c.elevator = pilot.pitch_to(e.seaplane ? 6.0 : 2.0);
         c.aileron = pilot.roll_to(0.0);
         aircraft.set_controls(c);
         aircraft.step();
         const glideslope::sim::AircraftState state = aircraft.state();
         const bool wheels = a_wheel_takes_weight();
         a.wheels_took_weight = a.wheels_took_weight || wheels;
-        if (!a.touched && (wheels || state.ditched)) {
+        const bool hull_in_water =
+            e.seaplane && water && aircraft.property("hydro/active-norm") > 0.0;
+        a.ditched = state.ditched;
+        if (!a.touched && (wheels || state.ditched || hull_in_water)) {
             a.touched = true;
             touched_lat = state.latitude_deg;
             touched_lon = state.longitude_deg;
@@ -191,6 +220,11 @@ Alighting alight(const std::filesystem::path& from, const CatalogueEntry& e, boo
                                         std::cos(touched_lat * 3.14159265358979 / 180.0));
             a.lowest_ft = std::min(a.lowest_ft, state.height_above_ground_ft);
             still = speed_kts < 0.5 ? still + 1 : 0;
+            if (e.seaplane && ++since_touching == 10 * steps_per_second) {
+                for (int engine = 0; engine < aircraft.figures().engines; ++engine) {
+                    aircraft.fail_engine(engine, false);
+                }
+            }
         }
         a.speed_kts = speed_kts;
     }
@@ -225,12 +259,13 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_a
 }
 
 // Every aircraft the data holds, chosen to fly, takes off: from a runway at
-// full throttle, rotated at six tenths of its catalogue airspeed, it climbs
-// through 200 ft within two minutes.
+// full throttle - a seaplane from water - rotated at six tenths of its
+// catalogue airspeed, it climbs through 200 ft within two minutes.
 GLIDESLOPE_TEST(every_aircraft_the_data_holds_takes_off_from_a_runway) {
     for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
         const double height = take_off(data(), e);
-        std::printf("%s: %.0f ft above the runway\n", e.id.c_str(), height);
+        std::printf("%s: %.0f ft above the %s\n", e.id.c_str(), height,
+                    e.seaplane ? "water" : "runway");
         check(height >= 200.0, e.id + " (" + e.name + ") took off and climbed through 200 ft: " +
                                    std::to_string(height) + " ft");
     }
@@ -249,6 +284,21 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_that_alights_on_water_does_not_rol
         }
     };
     for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
+        if (e.seaplane) {
+            // Not a landplane: it alights on water, and comes to rest afloat.
+            const Alighting water = alight(data(), e, true);
+            std::printf("%s: on water, %s, at %.1f kt at the end, its centre of gravity at "
+                        "least %.1f ft above the water\n",
+                        e.id.c_str(), water.ditched ? "ditched" : "afloat", water.speed_kts,
+                        water.lowest_ft);
+            expect(water.touched && water.finite && !water.ditched && water.lowest_ft > 0.0 &&
+                       water.speed_kts < 0.5,
+                   e.id + " alit on water and came to rest afloat: " +
+                       (water.ditched ? "ditched" : "not ditched") + ", " +
+                       std::to_string(water.speed_kts) + " kt, " +
+                       std::to_string(water.lowest_ft) + " ft");
+            continue;
+        }
         const Alighting land = alight(data(), e, false);
         const Alighting water = alight(data(), e, true);
         std::printf("%s: on land, rolled %.0f ft and was at %.1f kt; on water, %s and moved "
@@ -352,6 +402,14 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
     check(refused("name A\nmodel c172p\n",
                   "must give the aircraft's name, model and start"),
           "an aircraft with no start");
+    check(refused("name A\nmodel c172p\nstart 100 0.7\nseaplane yes\n",
+                  "line 4: seaplane, alone"),
+          "a seaplane line with more on it");
+    check(glideslope::sim::parse_catalogue_entry("x", "name A\nmodel m\nstart 90 0.6\nseaplane\n")
+                  .seaplane &&
+              !glideslope::sim::parse_catalogue_entry("x", "name A\nmodel m\nstart 90 0.6\n")
+                   .seaplane,
+          "an aircraft is a seaplane only if its file says so");
     check(glideslope::sim::parse_catalogue_entry("x",
                                                  "name Two  Words # a comment\nmodel "
                                                  "m\nstart 90 0.6\n")
