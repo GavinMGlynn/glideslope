@@ -90,6 +90,18 @@ python3 tools/make_f15c.py
 python3 tools/make_f22.py
 ```
 
+## The Airbus A380-841
+
+`aircraft/a380/a380.xml` and `engine/Trent970.xml`, written for glideslope by
+`tools/make_a380.py` from Airbus's and the certifying authorities' documents
+and the Boeing 747's published derivatives. **Do not edit these by hand:** the
+script names where each number comes from, and a test fails if what is
+committed differs.
+
+```sh
+python3 tools/make_a380.py
+```
+
 ## The Mosquito FB Mk VI
 
 `aircraft/mosquito-fb6/mosquito-fb6.xml`, `engine/merlin25.xml` and

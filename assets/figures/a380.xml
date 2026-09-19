@@ -1,0 +1,83 @@
+<?xml version="1.0"?>
+<!--
+  The Airbus A380-841's published figures, and the conditions each was
+  measured in.
+
+  From Airbus's A380 Aircraft Characteristics - Airport and Maintenance
+  Planning (revision 20, 1 December 2025), for its Trent 900 engines; the
+  EASA type certificate data sheet A.110 (issue 17) and the FAA's A58NM
+  (revision 11); and Airbus's A380 Facts and Figures (February 2022). The
+  checks in src/sim/figures.cpp fly one flight per <figure> and compare what
+  JSBSim does with the range given here.
+
+  The take-off field length is read from the planning document's chart, to
+  about 20 m. The climb is the one JAR 25 demands with an engine out, which
+  every airliner certificated to it meets; Airbus publishes no climb figure.
+  The tolerances are this project's.
+-->
+<published_figures aircraft="a380" flaps_full_deg="32">
+  <source>Airbus A380 AC rev 20, 2025; EASA TCDS A.110; FAA TCDS A58NM</source>
+
+  <!-- 575,000 kg, the heaviest maximum take-off weight (weight variants 008
+       and 011, A.110): the operating empty weight, 285,000 kg; the payload
+       that makes the maximum zero-fuel weight of those variants, 369,000 kg
+       (Facts and Figures), 84,000 kg; and 206,000 kg of fuel. -->
+  <loading name="maximum" total_lbs="1267657">
+    <pointmass index="0" lbs="185188"/>
+    <tank index="0" lbs="137835"/>
+    <tank index="1" lbs="137835"/>
+    <tank index="2" lbs="89241"/>
+    <tank index="3" lbs="89241"/>
+  </loading>
+
+  <!-- 394,000 kg, those variants' maximum landing weight: the same payload
+       and 25,000 kg of fuel, a weight in the cruise. -->
+  <loading name="landing" total_lbs="868620">
+    <pointmass index="0" lbs="185188"/>
+    <tank index="0" lbs="16727"/>
+    <tank index="1" lbs="16727"/>
+    <tank index="2" lbs="10830"/>
+    <tank index="3" lbs="10830"/>
+  </loading>
+
+  <!-- The operating empty weight and a tenth of the 253,983 kg of fuel it
+       holds: as light as it flies. -->
+  <loading name="light" total_lbs="684311">
+    <pointmass index="0" lbs="0"/>
+    <tank index="0" lbs="16994"/>
+    <tank index="1" lbs="16994"/>
+    <tank index="2" lbs="11003"/>
+    <tank index="3" lbs="11003"/>
+  </loading>
+
+  <figure name="takeoff_field_length" loading="maximum" unit="ft" value="9734"
+          tolerance_percent="10" flaps_deg="17" entry_kcas="220">
+    Figure 3-3-1-991-001: take-off field length, ISA, sea level, Trent 900
+    engines, at 575,000 kg - 2,967 m, read from the chart. The chart states no
+    flap setting; flown in CONF 2, slats 20 and flaps 17 degrees, one of the
+    A380's take-off configurations.
+  </figure>
+
+  <figure name="climb_one_engine_out" flight="climb_gradient_one_engine"
+          loading="maximum" unit="%" min="3.0" max="10" flaps_deg="17"
+          entry_kcas="220">
+    JAR 25.121(b), the A380's certification basis (A.110: JAR 25 change 15):
+    with one engine out, the take-off flaps, the gear up and V2, a
+    four-engined aircraft climbs at no less than 3.0%. No figure above that is
+    published; 10% bounds a model gone wrong.
+  </figure>
+
+  <figure name="cruise_mach" flight="level_mach" loading="landing" unit="Mach"
+          min="0.85" max="0.92" altitude_ft="35000" mach="0.85">
+    Level at 35,000 ft at full throttle, it must reach its cruise Mach, 0.85
+    (Facts and Figures), and its drag rise hold it within 0.03 of its Mmo,
+    0.89 (Airbus's A380-800 specifications, as archived).
+  </figure>
+
+  <figure name="ceiling" flight="climb_at_altitude" loading="light" unit="ft/min"
+          min="300" max="100000" altitude_ft="43000" mach="0.85">
+    A58NM: maximum operating altitude 43,000 ft. As light as it flies, at full
+    throttle, it still climbs there at 300 ft/min, the margin that makes an
+    altitude a thrust-limited ceiling.
+  </figure>
+</published_figures>

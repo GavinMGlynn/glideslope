@@ -1,0 +1,15 @@
+# The Airbus A380-841, four Trent 970-84s: a flight model written for glideslope
+# from Airbus's and the certifying authorities' documents, and held to them
+# (assets/figures/a380.xml), by tools/make_a380.py.
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name Airbus A380-841
+model a380
+start 250 0.57

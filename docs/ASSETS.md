@@ -5,13 +5,14 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Twenty-six things are used: Cessna 172P and 182S, Piper PA-28-180 and J-3
+**Twenty-eight things are used: Cessna 172P and 182S, Piper PA-28-180 and J-3
 Cub, Airbus A320, Boeing 737-300, 747-400 and 787-8, McDonnell Douglas F-15C
 and Lockheed Martin F-22A flight models derived from JSBSim's, those ten
 aircraft's published figures - handbooks for the light aircraft,
 airport-planning documents and type certificates for the airliners, the
-Air Force's and the Department of Defense's for the fighters - the Mosquito
-FB Mk VI's trials
+Air Force's and the Department of Defense's for the fighters - the Airbus
+A380's documents and the Boeing 747's published derivatives (for a flight
+model written here), the Mosquito FB Mk VI's trials
 and Pilot's Notes (for a flight model written here), the Copernicus DEM, the
 EGM2008 geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from
 aviationweather.gov and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
@@ -211,6 +212,34 @@ related to the manufacturer of the real aircraft."
 | Source | Department of Defense, Selected Acquisition Report (RCS: DD-A&T(Q&A)823-265), F-22, as of 31 December 2010, its performance characteristics' "Demonstrated Performance", from the Washington Headquarters Services' FOIA reading room (<https://www.esd.whs.mil/Portals/54/Documents/FOID/Reading%20Room/Selected_Acquisition_Reports/FY_2010_SARS/F-22-SAR-25_DEC_2010.pdf>), read through the Internet Archive; the United States Air Force's F-22 Raptor, AIM-120 AMRAAM and AIM-9 Sidewinder fact sheets (<https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104506/f-22-raptor/>, `.../104576/aim-120-amraam/`, `.../104557/aim-9-sidewinder/`), read through the Internet Archive; Lockheed Martin's release of 18 November 2002 on the F/A-22's clearance to Mach 2, as reproduced at <https://www.f-16.net/f-22-news-article1660.html>. Works of the United States government, and one company release, from which only facts are taken |
 | In the repository | `assets/figures/f22.xml`: individual numbers, each with its source, not the documents' text |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The Airbus A380-841: its documents, and the Boeing 747's derivatives
+
+The flight model - `assets/jsbsim/aircraft/a380/a380.xml` - is written for
+this project by `tools/make_a380.py`, whose docstring names the source of each
+number, and is under its licence, GPL-3.0-or-later. Its engine,
+`assets/jsbsim/engine/Trent970.xml`, is JSBSim's `engine/TRENT-900.xml` (at
+`v1.3.1`, `3b25f25`) made a Trent 970-84 by the same script, and remains under
+JSBSim's LGPL-2.1, whose text ships as `licenses/JSBSim.txt`. A test fails if
+the committed files differ from what the script writes. The figures it is held
+to are `assets/figures/a380.xml`.
+
+| Document | Copy consulted | What is taken from it |
+| --- | --- | --- |
+| Airbus, A380 Aircraft Characteristics - Airport and Maintenance Planning, revision 20, 1 December 2025 | <https://www.aircraft.airbus.com/sites/g/files/jlcbta126/files/2025-12/AC_A380_20251201.pdf>, SHA-256 `0973c3655f544f92b9a48ec83cc11f9ece7185b7efecb076919611421c59de09` | Dimensions, the gear's layout, ground clearances, fuel, the payload-range chart (for the operating empty weight), the take-off field length and the final approach speed |
+| EASA type certificate data sheet A.110, issue 17, 5 August 2026 | <https://www.easa.europa.eu/en/downloads/7309/en>, SHA-256 `fca8e2e6640e0276eeaeec1c22486bf3a9d31a22ae83d585c06429b1dc9cff3c` | The certification basis, JAR 25 change 15; the weight variants and engines |
+| FAA type certificate data sheet A58NM, revision 11, 25 July 2024 | The FAA's Dynamic Regulatory System, SHA-256 `329a98798893eeb41bbe8a3e784996186b7da3a59510083d8e03df0aa21888ea` | The datum, the control surfaces' travel, the maximum operating altitude |
+| EASA type certificate data sheet E.012, RB211 Trent 900, issue 12, 16 March 2026 | <https://www.easa.europa.eu/en/downloads/7779/en>, SHA-256 `cc9b0e050db0adf2a4edcfc156b75045a2e947c21ae49169347c8c206974cdb5` | The Trent 970-84's take-off thrust and fan |
+| ICAO Aircraft Engine Emissions Databank, version 32, March 2026 | <https://www.easa.europa.eu/en/downloads/131424/en>, SHA-256 `57a9ff572458ad3a3141afc1aea932b5faa5796d279f0ac74600b27869302530` | The Trent 970-84's bypass ratio |
+| Airbus, A380 Facts and Figures, February 2022 | <https://www.airbus.com/sites/g/files/jlcbta136/files/2025-01/airbus-a380-facts-and-figures-february-2022.pdf>, read through the Internet Archive, SHA-256 `ec80c978d299ecd2260c3dbdd22652759ae3ae7ef128fd3a4454549ddf0f2a40` | The wing's area and sweep, the cruise Mach, the 575 t variants' zero-fuel weight |
+| Airbus, A380-800 specifications page, as archived 17 January 2013 | <http://www.airbus.com/aircraftfamilies/passengeraircraft/a380family/a380-800/specifications/>, read through the Internet Archive | Mmo |
+| Airbus, A380-800 Flight Deck and Systems Briefing for Pilots, STL 945.1380/05 issue 3, May 2009 | Only as text at <https://pdfcoffee.com/a380-800-flight-deck-systems-briefing-for-pilots-3-pdf-free.html>, a third party's copy whose integrity cannot be checked; the document says it is for information only | The slats' and flaps' settings for each configuration |
+| NASA CR-2144, Heffley and Jewell, Aircraft Handling Qualities Data, December 1972, section IX, the Boeing 747 | <https://ntrs.nasa.gov/api/citations/19730003312/downloads/19730003312.pdf>, SHA-256 `f2976b2d9a3f62471de276c019f314af58b83c92ebd61f915779bea4d784349a`. A work of the United States government | Every stability and control derivative (table IX-2) and the inertias (table IX-3), carried to the A380 |
+
+**Only facts are taken** - numbers, each cited where it is used - not the
+documents' text or charts, none of which is in the repository. Airbus's
+documents say their curves are "for information only"; this model is not
+Airbus's, and nothing suggests Airbus endorses it.
 
 ### The Mosquito FB Mk VI: its trials, Pilot's Notes and engine curves
 

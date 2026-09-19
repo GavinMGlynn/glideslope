@@ -22,7 +22,7 @@ const char* const data_dir = GLIDESLOPE_TEST_DATA_DIR;
 
 // Every aircraft with published figures.
 const std::vector<std::string>& figured_models() {
-    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "c172p", "c182", "f15c", "f22", "j3cub", "mosquito-fb6", "pa28"};
+    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "a380", "c172p", "c182", "f15c", "f22", "j3cub", "mosquito-fb6", "pa28"};
     return models;
 }
 
@@ -238,6 +238,22 @@ GLIDESLOPE_TEST(the_boeing_787_8_still_climbs_at_its_certificated_ceiling) {
     expect_figure("787-8", "ceiling");
 }
 
+GLIDESLOPE_TEST(the_airbus_a380_needs_about_its_published_takeoff_field_length_at_maximum_weight) {
+    expect_figure("a380", "takeoff_field_length");
+}
+
+GLIDESLOPE_TEST(the_airbus_a380_climbs_with_an_engine_out_as_jar_25_demands) {
+    expect_figure("a380", "climb_one_engine_out");
+}
+
+GLIDESLOPE_TEST(the_airbus_a380_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows) {
+    expect_figure("a380", "cruise_mach");
+}
+
+GLIDESLOPE_TEST(the_airbus_a380_still_climbs_at_its_certificated_ceiling) {
+    expect_figure("a380", "ceiling");
+}
+
 GLIDESLOPE_TEST(the_f15c_reaches_its_published_maximum_mach_at_45000_ft) {
     expect_figure("f15c", "maximum_mach_45000_ft");
 }
@@ -388,7 +404,7 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
         check(flown.count(name) == 1, "figures name a flight " + name +
                                           " that does not exist");
     }
-    check(figures_in_files == 71,
-          "seventy-one figures, one test each above; found " +
+    check(figures_in_files == 75,
+          "seventy-five figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

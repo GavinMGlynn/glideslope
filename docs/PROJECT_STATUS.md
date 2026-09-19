@@ -87,7 +87,7 @@ of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
 and 35363959900): the same air on every machine, a METAR's gusts flown, the
 wind near the ground as a boundary layer, reported wind shear, microbursts,
 thermals and mountain waves, and weather you can see. **Phase 5, aircraft
-choice, is under way: 5 of 14 items done** - aircraft as data; the
+choice, is under way: 6 of 14 items done** - aircraft as data; the
 Mosquito FB Mk VI, written here from its trials and Pilot's Notes and held to
 fourteen of their figures, proved in CI on every platform (runs 35387301607
 and 35409102752); the light aircraft from JSBSim's models - the Cessna 182S,
@@ -96,7 +96,9 @@ figures (CI run 35417893114); and the airliners - the Airbus A320 and the
 Boeing 737-300, 747-400 and 787-8, held to their airport-planning documents
 and type certificates (CI run 35423458464); and the fighters - the F-15C and
 F-22A, held to the Air Force's and the Department of Defense's figures (CI
-run 35430601204). Next: an A380 flight model.
+run 35430601204); and an Airbus A380-841, written here from Airbus's and the
+certifying authorities' documents (CI run RUNID). Next: a Learjet 35A flight
+model.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -121,17 +123,19 @@ are the risks the phase order is built around:
   state for two simulated seconds so JSBSim's hidden engine and actuator states
   converge; a restore is therefore not free, and whether that cost suits
   reconciliation many times a second is a question for Phase 6.
-- **Eleven aircraft are checked, and the Mosquito's handling is estimated.** The
-  Cessna 172P and 182S, the Piper PA-28-180 and the Piper J-3 Cub fly to
-  their handbooks, the Airbus A320 and Boeing 737-300, 747-400 and 787-8 to
-  their airport-planning documents and type certificates - four figures
-  each, none of them a landing - the F-15C and F-22A to the Air Force's and
-  the Department of Defense's figures, none of them below 30,000 ft but the
-  F-15C's climbs, and the Mosquito FB Mk VI to its trials and Pilot's Notes;
-  the others arrive in Phase 5. The Cub's handbook is the thinnest: five
-  figures, none with an altitude, one with a weight. The Mosquito's stability
-  derivatives and inertias are estimates from its geometry - none were found
-  measured - and its only take-off figure is the B Mk IV's.
+- **Twelve aircraft are checked, and the Mosquito's and A380's handling is
+  estimated.** The Cessna 172P and 182S, the Piper PA-28-180 and the Piper
+  J-3 Cub fly to their handbooks, the Airbus A320 and A380 and Boeing
+  737-300, 747-400 and 787-8 to their airport-planning documents and type
+  certificates - four figures each, none of them a landing - the F-15C and
+  F-22A to the Air Force's and the Department of Defense's figures, none of
+  them below 30,000 ft but the F-15C's climbs, and the Mosquito FB Mk VI to
+  its trials and Pilot's Notes; the others arrive in Phase 5. The Cub's
+  handbook is the thinnest: five figures, none with an altitude, one with a
+  weight. The Mosquito's stability derivatives and inertias are estimates
+  from its geometry - none were found measured - and its only take-off
+  figure is the B Mk IV's. The A380's are the Boeing 747's, the nearest
+  aircraft of its kind whose derivatives are published.
 - **Terrain is drawn around where the flight starts, and nowhere else.** The
   client draws the nine whole-degree cells around its start; fly out of them
   and there is sky below.
@@ -159,6 +163,41 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### The A380 written from its documents, 2026-09-19 — item done (CI run RUNID)
+
+Phase 5's "an A380 flight model, written here from published data": the
+Airbus A380-841, which JSBSim does not have, written by `tools/make_a380.py`
+from Airbus's A380 Aircraft Characteristics (revision 20, December 2025), the
+EASA and FAA type certificates, the Trent 900's engine certificate, JSBSim's Trent 900
+engine and the Boeing 747's stability derivatives published in NASA CR-2144, lands inside
+its tolerances on the same four figures as the airliners.
+
+| A380-841 | Measured | Published |
+| --- | --- | --- |
+| Take-off field length, 575,000 kg, ISA, sea level, CONF 2 | 9,300 ft | 9,734 (2,967 m) ± 10%, the AC's chart |
+| Engine-out climb, V2, CONF 2 | 4.2% | at least 3.0 (JAR 25.121(b)) |
+| Level at 35,000 ft, full throttle, 394,000 kg | Mach 0.91 | 0.85 to 0.92 (cruise Mach 0.85, Mmo 0.89) |
+| Climb at 43,000 ft, as light as it flies | 1,800 ft/min | at least 300 (A58NM's maximum operating altitude) |
+
+**What is missing first:** much of the A380 is pinned by no figure. Its
+stability and control derivatives are the 747's, the nearest aircraft of its
+kind whose derivatives are published; its flight controls are a conventional
+aircraft's with a yaw damper, not the A380's fly-by-wire laws, whose
+protections - the pitch, bank and angle-of-attack limits - it does not have.
+Its drag at zero lift, span efficiency, flaps' lift and drag, stall and drag
+rise are set to fly the figures; its mean aerodynamic chord, operating empty
+weight, inertias, tank positions and gear springs are estimates, each named
+in the script. No source gives a flap setting for the take-off chart; it is
+flown in CONF 2. The landing is not flown - the autopilot cannot land, a
+Phase 8 item - though the full flaps' lift is set from Airbus's final approach
+speed. Its body gears do not steer. It has no visual model, and the HUD gives
+it no Mach or flight level yet.
+
+**Its operating empty weight comes from its payload-range chart.** The AC
+gives none; its chart for the Trent 900 carries a structural payload of 84 t
+to the maximum take-off weight and, at full tanks, 34.6 t: only the 575 t
+variant's zero-fuel weight, 369 t, makes the two agree, at 285 t.
 
 ### The F-15C and F-22 against their published figures, 2026-09-19 — item done (CI run 35430601204)
 
