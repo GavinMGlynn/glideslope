@@ -35,6 +35,9 @@ struct FlightStart {
     double heading_deg = 160.0;
     // Calibrated; by default, the catalogue's for the aircraft.
     std::optional<double> airspeed_kts;
+    // Standing on the ground at the latitude and longitude, its wheels down,
+    // rather than flying - the height is then the ground's.
+    bool on_ground = false;
     // The airfield - its ICAO code - whose reported weather the flight is flown
     // in; empty for the standard atmosphere with no wind.
     std::string weather_station;

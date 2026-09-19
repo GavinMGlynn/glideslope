@@ -24,6 +24,7 @@
 #include "platform/input.hpp"
 #include "platform/paths.hpp"
 #include "scenes.hpp"
+#include "sim/catalogue.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/navigator.hpp"
 #include "terrain.hpp"
@@ -75,6 +76,8 @@ struct Options {
     std::optional<std::array<double, 2>> station;
     bool autopilot = false;
     std::string plan;
+    std::string aircraft = "c172p";
+    bool on_ground = false;
 };
 
 void usage(std::FILE* out) {
@@ -85,7 +88,7 @@ void usage(std::FILE* out) {
         "                  [--toward LAT,LON,HEIGHT] [--imagery on|off]\n"
         "                  [--weather STATION [--microburst LAT,LON]...]\n"
         "                  [--metar REPORT [--station LAT,LON]]\n"
-        "                  [--autopilot] [--plan PLAN]\n"
+        "                  [--aircraft ID] [--on-ground] [--autopilot] [--plan PLAN]\n"
         "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
         "       glideslope --version | --help\n"
         "\n"
@@ -106,6 +109,12 @@ void usage(std::FILE* out) {
         "                its cloud, visibility, and rain or snow\n"
         "  --station     where that METAR is observed: on the ground at a latitude\n"
         "                and longitude; by default, beneath --at\n"
+        "  --aircraft    the aircraft flown, by its id in the data's catalogue\n"
+        "                (glideslope_cli aircraft lists them); the Cessna 172P,\n"
+        "                c172p, by default\n"
+        "  --on-ground   start standing at --at's latitude and longitude, on the\n"
+        "                ground, the engines idling and the brakes on until B is\n"
+        "                pressed, rather than flying\n"
         "  --autopilot   the AI flies the aircraft from the start, holding what it\n"
         "                is doing; A hands it between the pilot and the AI\n"
         "  --plan        the AI flies a flight plan - a file, or one in data/plans\n"
@@ -264,6 +273,10 @@ int main(int argc, char** argv) {
                      lon >= -180.0 && lon <= 180.0;
                 o.station = std::array<double, 2>{lat, lon};
             }
+        } else if (a == "--aircraft" && has_value) {
+            o.aircraft = std::string(args[++i]);
+        } else if (a == "--on-ground") {
+            o.on_ground = true;
         } else if (a == "--autopilot") {
             o.autopilot = true;
         } else if (a == "--plan" && has_value) {
@@ -330,6 +343,30 @@ int main(int argc, char** argv) {
         std::fputs("glideslope: only the flight has --autopilot and --plan\n", stderr);
         return 2;
     }
+    if (o.screen != "flight" && (o.aircraft != "c172p" || o.on_ground)) {
+        std::fputs("glideslope: only the flight has --aircraft and --on-ground\n", stderr);
+        return 2;
+    }
+    if (o.on_ground && (o.autopilot || !o.plan.empty())) {
+        std::fputs("glideslope: the AI cannot take off; --on-ground is flown by the pilot\n",
+                   stderr);
+        return 2;
+    }
+    if (o.screen == "flight") {
+        const auto catalogue =
+            glideslope::sim::read_catalogue(glideslope::platform::data_directory());
+        const bool known = std::any_of(catalogue.begin(), catalogue.end(),
+                                       [&](const auto& e) { return e.id == o.aircraft; });
+        if (!known) {
+            std::string ids;
+            for (const auto& e : catalogue) {
+                ids += (ids.empty() ? "" : ", ") + e.id;
+            }
+            std::fprintf(stderr, "glideslope: the data holds no aircraft %s; it holds %s\n",
+                         o.aircraft.c_str(), ids.c_str());
+            return 2;
+        }
+    }
     if (o.station && o.metar.empty()) {
         std::fputs("glideslope: --station says where a --metar is observed\n", stderr);
         return 2;
@@ -373,6 +410,8 @@ int main(int argc, char** argv) {
                 start.longitude_deg = o.at->longitude_deg;
                 start.height_m = o.at->height_m;
             }
+            start.aircraft = o.aircraft;
+            start.on_ground = o.on_ground;
             start.weather_station = o.weather_station;
             start.microbursts = o.microbursts;
             start.autopilot = o.autopilot;
@@ -397,6 +436,9 @@ int main(int argc, char** argv) {
             flight = std::make_unique<glideslope::client::Flight>(
                 glideslope::platform::data_directory(),
                 glideslope::platform::cache_directory(), start);
+            std::printf("glideslope: flying the %s (%s)%s\n", flight->aircraft().name.c_str(),
+                        flight->aircraft().id.c_str(),
+                        start.on_ground ? ", standing on the ground" : "");
             if (!start.weather_station.empty()) {
                 std::printf("glideslope: flying in the weather at %s: METAR from "
                             "aviationweather.gov; %s (https://open-meteo.com/), CC BY "
@@ -475,10 +517,17 @@ int main(int argc, char** argv) {
 
         const bool shooting = !o.shot.empty();
         glideslope::sim::Controls controls;
-        // The throttle the aircraft's catalogue entry holds its start with.
-        controls.throttle = flight ? flight->aircraft().start_throttle : 0.65;
-        // The flight begins in the air, its wheels up.
-        controls.gear = 0.0;
+        if (o.on_ground) {
+            // Standing: idling, its wheels down and braked.
+            controls.throttle = 0.0;
+            controls.gear = 1.0;
+            controls.left_brake = controls.right_brake = 1.0;
+        } else {
+            // The throttle the aircraft's catalogue entry holds its start with;
+            // the flight begins in the air, its wheels up.
+            controls.throttle = flight ? flight->aircraft().start_throttle : 0.65;
+            controls.gear = 0.0;
+        }
         const std::filesystem::path bindings_path =
             glideslope::platform::data_directory() / "input" / "bindings.txt";
         std::ifstream bindings_file(bindings_path, std::ios::binary);

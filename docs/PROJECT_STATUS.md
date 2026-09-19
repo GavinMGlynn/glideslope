@@ -87,7 +87,7 @@ of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
 and 35363959900): the same air on every machine, a METAR's gusts flown, the
 wind near the ground as a boundary layer, reported wind shear, microbursts,
 thermals and mountain waves, and weather you can see. **Phase 5, aircraft
-choice, is under way: 8 of 14 items done** - aircraft as data; the
+choice, is under way: 9 of 14 items done** - aircraft as data; the
 Mosquito FB Mk VI, written here from its trials and Pilot's Notes and held to
 fourteen of their figures, proved in CI on every platform (runs 35387301607
 and 35409102752); the light aircraft from JSBSim's models - the Cessna 182S,
@@ -100,7 +100,8 @@ run 35430601204); an Airbus A380-841, written here from Airbus's and the
 certifying authorities' documents (CI run 35435906751); a Gates Learjet 35A,
 written here from its flight manual and NASA's measurements of the Learjet 23;
 and the F-35A and B-2A, written here from what little is published of them
-(CI run RUNID). Next: the Short S.23 on water.
+(CI run RUNID); and any of them chosen at start, `--aircraft`, in the air or
+on the ground (CI run RUNID). Next: the HUD for fast aircraft.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -167,6 +168,30 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### Any aircraft chosen at start, 2026-09-19 — item done (CI run RUNID)
+
+Phase 5's "an aircraft chosen at start": `glideslope --aircraft ID` flies any
+aircraft the data's catalogue holds - `glideslope_cli aircraft` lists them -
+from its catalogue start in the air, and `--on-ground` stands it instead on
+the ground at `--at`'s latitude and longitude, its engines idling and its
+brakes on until B is pressed, for the pilot to take off. An aircraft the data
+does not hold is refused, the ones it does named.
+
+Every aircraft the data holds takes off: a test stands each of the fifteen on
+a runway, opens its throttles over three seconds, steers it by rudder and,
+below 60 knots, differential brake, and raises the nose at six tenths of its
+catalogue airspeed - each climbs through 200 ft. The Mosquito needed the
+technique its Pilot's Notes give, the power brought on steadily and the swing
+met with brake: opened at once, its throttles ground-looped it, as they would
+the real one. Each passes its published-figure checks, as the figure tests
+show; and in the client the F-22 chosen flies at its start's 300 knots, and a
+Cessna on the ground at Sydney stands on the DEM at rest.
+
+**What is missing first:** the AI does not take off - `--on-ground` is flown
+by the pilot, and `--autopilot` with it is refused; nothing chooses the
+aircraft once the client is running; and the aircraft is still unseen, the
+view the cockpit's, until the visual models and views arrive.
 
 ### The F-35A and B-2A written from what is published, 2026-09-19 — item done (CI run RUNID)
 

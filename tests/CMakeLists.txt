@@ -243,6 +243,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
     handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase
     every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_air
+    every_aircraft_the_data_holds_takes_off_from_a_runway
     an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong
     no_flight_model_opens_a_network_socket
     a_download_cannot_be_killed_by_a_server_hanging_up)
@@ -433,6 +434,13 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
     set_tests_properties(the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+    add_test(NAME the_client_flies_the_aircraft_it_is_given_in_the_air_or_on_the_ground_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_aircraft.cmake)
+    set_tests_properties(the_client_flies_the_aircraft_it_is_given_in_the_air_or_on_the_ground_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
     add_test(NAME the_clients_ai_flies_a_flight_plan_past_every_waypoint_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
@@ -611,6 +619,18 @@ add_test(NAME the_cli_lists_the_aircraft_the_data_holds
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=aircraft -DEXIT=0
         "-DSTDOUT_MATCHES=737-300 +Boeing 737-300 +model 737-300, starting at 250 KCAS, published figures.*747-400 +Boeing 747-400 +model 747-400, starting at 250 KCAS, published figures.*787-8 +Boeing 787-8 +model 787-8, starting at 250 KCAS, published figures.*a320 +Airbus A320 +model a320, starting at 250 KCAS, published figures.*a380 +Airbus A380-841 +model a380, starting at 250 KCAS, published figures.*b2 +Northrop Grumman B-2A Spirit +model b2, starting at 250 KCAS, published figures.*c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*f15c +McDonnell Douglas F-15C Eagle +model f15c, starting at 300 KCAS, published figures.*f22 +Lockheed Martin F-22A Raptor +model f22, starting at 300 KCAS, published figures.*f35a +Lockheed Martin F-35A Lightning II +model f35a, starting at 300 KCAS, published figures.*j3cub +Piper J-3 Cub +model j3cub, starting at 60 KCAS, published figures.*learjet35a +Gates Learjet 35A +model learjet35a, starting at 250 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures.*pa28 +Piper PA-28-180 Cherokee +model pa28, starting at 110 KCAS, published figures"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_client_refuses_an_aircraft_the_data_does_not_hold
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope> "-DARGS=--aircraft no-such-aircraft" -DEXIT=2
+        "-DSTDERR_MATCHES=the data holds no aircraft no-such-aircraft. it holds 737-300, .*c172p"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_client_will_not_have_the_ai_take_off
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope> "-DARGS=--on-ground --autopilot" -DEXIT=2
+        "-DSTDERR_MATCHES=the AI cannot take off"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_an_aircraft_it_has_no_files_for

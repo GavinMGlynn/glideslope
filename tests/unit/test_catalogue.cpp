@@ -3,12 +3,16 @@
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/test_pilot.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -57,6 +61,60 @@ Held hold_its_start(const std::filesystem::path& from, const CatalogueEntry& e) 
             aircraft.property("velocities/vc-kts")};
 }
 
+// Standing on a runway at sea level: the brakes off and the throttle opened
+// over three seconds, steering by rudder and, below 60 knots, differential
+// brake, as the figures' take-offs do - a tail-wheel aircraft's tail wheel
+// castors, and the Mosquito swings as its Pilot's Notes warn; the stick
+// neutral until, from six tenths of its catalogue airspeed - a speed well
+// above any aircraft's stall and below its start's - the nose is raised to ten
+// degrees. The height above the runway, in feet, after two minutes, or once
+// it passes 200 ft.
+double take_off(const std::filesystem::path& from, const CatalogueEntry& e) {
+    glideslope::sim::Aircraft aircraft(from / "jsbsim", e.model);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 0.0;
+    ic.terrain_elevation_ft = 0.0;
+    ic.airspeed_kts = 0.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+    glideslope::sim::TestPilot pilot(aircraft);
+    std::optional<glideslope::sim::TestPilot> rotating;
+    glideslope::sim::Controls c;
+    c.gear = 1.0;
+    const double heading = aircraft.property("attitude/psi-deg");
+    const double standing = aircraft.property("position/h-agl-ft");
+    double pitch = 0.0;
+    for (int i = 0; i < 120 * steps_per_second; ++i) {
+        const double kcas = aircraft.property("velocities/vc-kts");
+        c.throttle = std::min(i / (3.0 * steps_per_second), 1.0);
+        c.rudder = pilot.steer_to(heading);
+        const double error = std::remainder(heading - aircraft.property("attitude/psi-deg"), 360.0);
+        const double r_degps = aircraft.property("velocities/r-rad_sec") * 57.29578;
+        const double turn = std::clamp(0.1 * error - 0.3 * r_degps, -1.0, 1.0);
+        c.left_brake = kcas < 60.0 ? std::max(-turn, 0.0) : 0.0;
+        c.right_brake = kcas < 60.0 ? std::max(turn, 0.0) : 0.0;
+        if (kcas >= 0.6 * e.start_airspeed_kts && !rotating) {
+            rotating.emplace(aircraft);
+            pitch = aircraft.property("attitude/theta-deg");
+        }
+        if (rotating) {
+            pitch = std::min(pitch + 3.0 / steps_per_second, 10.0);
+            c.elevator = rotating->pitch_to(pitch);
+            c.aileron = rotating->roll_to(0.0);
+        }
+        aircraft.set_controls(c);
+        aircraft.step();
+        const double height = aircraft.property("position/h-agl-ft") - standing;
+        if (height >= 200.0) {
+            return height;
+        }
+    }
+    return aircraft.property("position/h-agl-ft") - standing;
+}
+
 bool refused(const std::string& text, const std::string& says) {
     try {
         glideslope::sim::parse_catalogue_entry("test", text);
@@ -81,6 +139,18 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_a
                   std::to_string(e.start_airspeed_kts) +
                   " KCAS for a minute: " + std::to_string(h.altitude_ft) + " ft, " +
                   std::to_string(h.airspeed_kts) + " KCAS");
+    }
+}
+
+// Every aircraft the data holds, chosen to fly, takes off: from a runway at
+// full throttle, rotated at six tenths of its catalogue airspeed, it climbs
+// through 200 ft within two minutes.
+GLIDESLOPE_TEST(every_aircraft_the_data_holds_takes_off_from_a_runway) {
+    for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
+        const double height = take_off(data(), e);
+        std::printf("%s: %.0f ft above the runway\n", e.id.c_str(), height);
+        check(height >= 200.0, e.id + " (" + e.name + ") took off and climbed through 200 ft: " +
+                                   std::to_string(height) + " ft");
     }
 }
 

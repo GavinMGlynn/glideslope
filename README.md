@@ -59,6 +59,9 @@ glideslope_cli height -33.9461 151.1772 # the ground's height, from the DEM
 glideslope_cli weather YSSY             # the weather at Sydney airport now
 glideslope --weather YSSY               # fly from over Sydney, in its weather
 glideslope --plan sydney-harbour        # the AI flies a tour of Sydney Harbour
+glideslope --aircraft f22               # fly the F-22 (glideslope_cli aircraft lists them)
+glideslope --aircraft learjet35a --on-ground --at -33.9461,151.1772,0
+                                        # stand at Sydney airport, ready to take off
 glideslope --screen terrain --at -39.55,174.27,500 --toward -39.50,174.10,1500 \
     --metar "METAR NZHA 180800Z 27012KT 6000 -RA BKN015 14/10 Q1016"
                                         # Taranaki under broken cloud, in rain

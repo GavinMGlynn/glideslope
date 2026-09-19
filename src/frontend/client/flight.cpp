@@ -80,6 +80,15 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     ic.airspeed_kts = start.airspeed_kts.value_or(aircraft_entry_.start_airspeed_kts);
     ic.engine_running = true;
     ic.gear = 0.0; // begun in the air, with its wheels up
+    if (start.on_ground) {
+        // Standing on the DEM, its wheels down: sim::Aircraft raises it by
+        // their springs' compression.
+        ic.altitude_ft =
+            dem_->height_above_ellipsoid(start.latitude_deg, start.longitude_deg) *
+            feet_per_metre;
+        ic.airspeed_kts = 0.0;
+        ic.gear = 1.0;
+    }
     aircraft_->initialize(ic);
 
     if (!start.weather_station.empty()) {
