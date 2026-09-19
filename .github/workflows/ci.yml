@@ -29,6 +29,14 @@ env:
   GLIDESLOPE_REQUIRE_NETWORK: 1
   GLIDESLOPE_DOWNLOADS: .downloads
 
+# **No job may take an hour.** Each is stopped at 60 minutes: a run that long
+# is a fault to find, not to wait for. The tests run four at a time (three on
+# macOS's three cores; CMakePresets.json), sanitized code is built at -O1
+# (cmake/Sanitizers.cmake), and Windows' debug and release builds are two jobs
+# run at once. A run that must build vcpkg's libraries afresh - most of an
+# hour - can be stopped by the limit; it saves them first, and the next run
+# finds them.
+#
 # **Every preset runs somewhere.** The Linux presets on Ubuntu (both) and Rocky 9
 # (release), the macOS presets on macOS, the Windows presets on Windows. A
 # preset that no job runs is a preset nobody knows still works.
@@ -37,7 +45,7 @@ jobs:
   linux-debian:
     name: Linux x86_64 (GCC 14, Ubuntu)
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -146,7 +154,7 @@ jobs:
   linux-rhel:
     name: Linux x86_64 (GCC 14, Rocky 9)
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
     container: rockylinux/rockylinux:9
     steps:
       # Rocky 9's own compiler is GCC 11, so the build uses gcc-toolset-14, as
@@ -252,7 +260,7 @@ jobs:
   macos:
     name: macOS arm64 (AppleClang)
     runs-on: macos-15
-    timeout-minutes: 180
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -319,10 +327,20 @@ jobs:
         if: ${{ !cancelled() }}
         with: { name: frames-macos, path: build/macos-*/tests/frames/*.bmp, if-no-files-found: error }
 
+  # Two jobs, run at once: MSVC's debug build, whose tests are the slowest -
+  # unoptimised, with the standard library's iterator checks - and the release
+  # builds, MSVC's and clang-cl's. One after another in one job they took most
+  # of two hours.
   windows:
-    name: Windows x64 (MSVC and clang-cl)
+    name: Windows x64 (${{ matrix.title }})
     runs-on: windows-latest
-    timeout-minutes: 300
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { part: debug, title: MSVC debug, first: windows-debug }
+          - { part: release, title: MSVC release and clang-cl, first: windows-release }
     # SDL says why it will not use a GPU driver only in its GPU log, which is
     # quiet by default; a failed frame test then shows the reason.
     env:
@@ -392,35 +410,25 @@ jobs:
           key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
           restore-keys: vcpkg-windows-
 
-      - name: windows-debug - configure
+      - name: ${{ matrix.first }} - configure
         shell: cmd
-        run: cmake --preset windows-debug
+        run: cmake --preset ${{ matrix.first }}
       - uses: actions/cache/save@v4
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
           key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
 
-      - name: windows-debug - build, test
+      - name: ${{ matrix.first }} - build, test
         shell: cmd
         run: |
-          cmake --build --preset windows-debug || exit /b 1
-          ctest --preset windows-debug || exit /b 1
-
-      - name: windows-release - configure, build, test
-        # Runs even when the preset before it failed, so one red preset does
-        # not hide whether the next one is green.
-        if: ${{ !cancelled() }}
-        shell: cmd
-        run: |
-          cmake --preset windows-release || exit /b 1
-          cmake --build --preset windows-release || exit /b 1
-          ctest --preset windows-release || exit /b 1
+          cmake --build --preset ${{ matrix.first }} || exit /b 1
+          ctest --preset ${{ matrix.first }} || exit /b 1
 
       - name: windows-clang - configure, build, test
         # Runs even when the preset before it failed, so one red preset does
         # not hide whether the next one is green.
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'release' }}
         shell: cmd
         run: |
           clang-cl --version || exit /b 1
@@ -429,6 +437,7 @@ jobs:
           ctest --preset windows-clang || exit /b 1
 
       - name: Flights for the cross-platform check
+        if: ${{ matrix.part == 'release' }}
         shell: cmd
         run: |
           mkdir flights
@@ -440,10 +449,11 @@ jobs:
           build\windows-clang\glideslope_cli.exe air > flights\windows-clang-cl.air.txt || exit /b 1
           type flights\*
       - uses: actions/upload-artifact@v4
+        if: ${{ matrix.part == 'release' }}
         with: { name: flights-windows, path: flights/, if-no-files-found: error }
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
-        with: { name: frames-windows, path: build/windows-*/tests/frames/*.bmp, if-no-files-found: error }
+        with: { name: 'frames-windows-${{ matrix.part }}', path: build/windows-*/tests/frames/*.bmp, if-no-files-found: error }
 
   # ---------------------------------------------------------------------------
   # The same flights everywhere.

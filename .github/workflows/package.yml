@@ -40,7 +40,7 @@ jobs:
   linux:
     name: Linux x86_64 tarball (built on Rocky 9)
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
     # Built on the oldest distribution supported, so the program asks for no
     # newer C library than the oldest one it will meet. gcc-toolset-14 links
     # against the system's own libstdc++ and puts only the newer parts inside
@@ -197,7 +197,7 @@ jobs:
   macos:
     name: macOS arm64 tarball
     runs-on: macos-15
-    timeout-minutes: 180
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -282,7 +282,7 @@ jobs:
   windows:
     name: Windows x64 zip
     runs-on: windows-latest
-    timeout-minutes: 240
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
