@@ -216,7 +216,13 @@ Layered, each built on the one below:
 3. **LLM copilot or planner (later):** natural-language commands such as "take
    off, climb to 3,000 ft and orbit the CBD" are turned into a flight plan that
    layer 2 executes. Runs off the simulation thread. **The LLM plans; the
-   controllers fly.** The model never drives control surfaces directly.
+   controllers fly.** The model never drives control surfaces directly. Later
+   it stays in the loop: reading the aircraft's state and changing the
+   autopilot's modes and the plan every few seconds as the flight goes - pilot
+   in command of the autopilot, as a pilot is. A model answering in seconds
+   cannot hold an aircraft at the 120 Hz a control loop needs, so its output
+   is modes and plans, never control positions. It needs an autopilot that
+   can fly an approach and land, and the player's own key.
 4. **Reinforcement learning (stretch goal):** JSBSim has Python gym-style
    wrappers for training landing or aerobatic agents.
 

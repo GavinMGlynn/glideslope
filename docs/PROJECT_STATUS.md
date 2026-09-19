@@ -103,7 +103,10 @@ finished, which it should not have been; its work stopped until 3b was
 proved. **Phase 5c, learning to fly, is new and not started:
 0 of 4 items.** Added
 2026-09-18, as were the sixteen-aircraft roster of Phase 5 and a tail for
-terrain over the whole Earth; see the log.
+terrain over the whole Earth; see the log. On 2026-09-19 Phase 8 gained an
+autopilot that flies an approach and lands, and a copilot that flies with
+you - changing the autopilot's modes and the plan as the flight goes, never a
+control surface - and the drawn weather's gaps became a tail.
 
 ## Gaps
 
@@ -131,7 +134,8 @@ are the risks the phase order is built around:
   volumes, over a disc 60 km across the station, and do not drift with the
   wind; cumulonimbus is a deck 6 km deep, not a tower. A new report makes the
   sky again, so its cloud jumps rather than blends. The haze is one colour,
-  lit by nothing. Rain and snow fall only within 20 m of the eye.
+  lit by nothing. Rain and snow fall only within 20 m of the eye. All of it is
+  a tail in `COMPLETION_PLAN.md`, "weather seen as it is".
 - **Thermals do not know the ground.** They rise as strongly over the sea as
   over a sunlit field, and the terrain's lift is linear theory seen along the
   wind only: no rotor, and no lee waves trapped under a stable layer. A tail

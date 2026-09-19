@@ -447,8 +447,30 @@ checklists are part of. A lesson ends in a debrief, never a score
       simulation thread and flown by the autopilot. *Verification: "take off,
       climb to 3,000 ft and orbit the CBD" produces a plan that the autopilot
       flies.*
+- [ ] **An autopilot that flies an approach and lands** - down a glidepath to
+      a runway given by its threshold, heading and elevation, then a flare, a
+      touchdown and the brakes; what the copilot below needs to bring an
+      aircraft home. *(Added 2026-09-19 at the project owner's asking.)*
+      *Verification: from 5 nm out, in calm air and in a 10-knot crosswind,
+      each light aircraft is flown down a 3-degree glidepath and lands within
+      5 m of the centreline, sinking under 300 ft/min, and stops on the
+      runway.*
+- [ ] **The copilot flies with you.** It reads the aircraft's state and, every
+      few seconds and off the simulation thread, changes the autopilot's modes
+      and the flight plan as the flight goes - the pilot in command of the
+      autopilot, never of a control surface, which a model answering in
+      seconds could not hold at the 120 Hz a control loop needs. Opt-in, with
+      the player's own key. *(Added 2026-09-19 at the project owner's asking.)*
+      *Verification: told "hold this heading to the coast, then follow it
+      north at 2,000 ft", it does, its track within a stated distance of the
+      coastline; after an engine failure it slows to the best-glide speed
+      within 10 s and turns for the runway its plan names, if it can reach
+      it; the step rate does not fall while it thinks; its responses are
+      recorded, so CI replays the flight without a key; and without a key the
+      simulator runs as before, with no copilot.*
 - [ ] **The model never drives a control surface.** *Verification: the copilot
-      can produce a flight plan and nothing else, checked at configure time.*
+      can produce a flight plan and the autopilot's modes and nothing else,
+      checked at configure time.*
 - [ ] **Reinforcement-learning agents** (stretch goal). *Verification: an agent
       trained through JSBSim's gym-style wrappers lands an aircraft within
       stated limits.*
@@ -491,3 +513,17 @@ Found while implementing something else. Added when found, not when remembered.
       rises over open water; and where the Scorer parameter falls with height,
       the lee of a ridge holds waves at the wavelength two-layer theory
       gives.*
+- [ ] **Weather seen as it is.** *(Found building weather you can see; made a
+      tail at the project owner's asking, 2026-09-19.)* The cloud drawn is
+      flat sheets over a disc 60 km across the station, and does not drift
+      with the wind; cumulonimbus is a deck 6 km deep, not a tower; a new
+      report makes the sky again, so its cloud jumps rather than blends; the
+      haze is one colour, lit by nothing; and rain and snow fall only within
+      20 m of the eye. *Verification: frames a minute apart show the cloud
+      moved as far as the wind at its height carries it, within a stated
+      tolerance; a deck has depth - flown into, the frame is inside cloud, and
+      from above its top is seen; a reported cumulonimbus is drawn as a tower
+      taller than it is wide; a new report's sky blends in over a stated time,
+      no frame between changing more than a stated fraction of its pixels;
+      the haze is brighter toward the sun than away from it; and rain is
+      drawn out to the reported visibility.*

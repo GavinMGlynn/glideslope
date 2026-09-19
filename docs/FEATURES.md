@@ -135,7 +135,9 @@ the controls to an AI pilot whenever you like, then take them back.
 
 - **A copilot you talk to.** `WANTED`
   Say "take off, climb to 3,000 ft and orbit the CBD" and the copilot turns it
-  into a plan and flies it. Later, after the autopilot and flight plans are
+  into a plan and flies it; later it stays with you, changing the plan and the
+  autopilot's settings as the flight goes, and brings the aircraft down to a
+  runway. With your own key. Later, after the autopilot and flight plans are
   solid.
 
 - **Pilots that learned to fly.** `CANDIDATE`
