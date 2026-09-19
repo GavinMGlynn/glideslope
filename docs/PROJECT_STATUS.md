@@ -100,8 +100,8 @@ run 35430601204); an Airbus A380-841, written here from Airbus's and the
 certifying authorities' documents (CI run 35435906751); a Gates Learjet 35A,
 written here from its flight manual and NASA's measurements of the Learjet 23;
 and the F-35A and B-2A, written here from what little is published of them
-(CI run RUNID); and any of them chosen at start, `--aircraft`, in the air or
-on the ground (CI run RUNID). Next: the HUD for fast aircraft.
+(CI run 35442214130); and any of them chosen at start, `--aircraft`, in the air or
+on the ground (CI run 35442214130). Next: the HUD for fast aircraft.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -169,7 +169,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Any aircraft chosen at start, 2026-09-19 — item done (CI run RUNID)
+### Any aircraft chosen at start, 2026-09-19 — item done (CI run 35442214130)
 
 Phase 5's "an aircraft chosen at start": `glideslope --aircraft ID` flies any
 aircraft the data's catalogue holds - `glideslope_cli aircraft` lists them -
@@ -193,7 +193,7 @@ by the pilot, and `--autopilot` with it is refused; nothing chooses the
 aircraft once the client is running; and the aircraft is still unseen, the
 view the cockpit's, until the visual models and views arrive.
 
-### The F-35A and B-2A written from what is published, 2026-09-19 — item done (CI run RUNID)
+### The F-35A and B-2A written from what is published, 2026-09-19 — item done (CI run 35442214130)
 
 Phase 5's "F-35A and B-2 flight models, written here from what is
 published": the Lockheed Martin F-35A Lightning II and the Northrop Grumman
@@ -236,7 +236,7 @@ full, half and nearly empty tanks, and integrated over the fuel by Simpson's
 rule - as fast as a few minutes of flight, where flying the whole range would
 take the B-2 twelve hours.
 
-### The Learjet 35A written from its flight manual, 2026-09-19 — item done (CI run RUNID)
+### The Learjet 35A written from its flight manual, 2026-09-19 — item done (CI run 35442214130)
 
 Phase 5's "a Learjet 35A flight model, written here from published data":
 the Gates Learjet 35A, which JSBSim does not have, written by

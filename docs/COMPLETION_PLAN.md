@@ -327,15 +327,28 @@ quality: each is held to published figures before it is offered, as the Cessna
       AC's 9,734, 4.2% with an engine out against JAR 25's 3.0, Mach 0.91 level
       at 35,000 ft, and still climbing at its 43,000 ft maximum operating
       altitude.
-- [ ] **A Learjet 35A flight model**, written here from published data:
+- [x] **A Learjet 35A flight model**, written here from published data:
       JSBSim has none. *Verification: as the airliners, from its flight
-      manual's figures.*
-- [ ] **F-35A and B-2 flight models**, written here from what is published.
+      manual's figures.* Stated, 2026-09-19, CI run 35442214130: the Gates Learjet
+      35A, written from its FAA-approved flight manual, its type certificate
+      and NASA's measurements of the Learjet 23, flies seven figures inside
+      their tolerances on every platform - 5,150 ft of take-off field at
+      18,300 lb against the manual's 5,300, 7.6% with an engine out against
+      FAR 25's 2.4, Mach 0.82 level at 41,000 ft against the Air Force's 0.81,
+      still climbing at 45,000 ft, and its stalls with flaps up, 8 and 40
+      within two knots of the manual's.
+- [x] **F-35A and B-2 flight models**, written here from what is published.
       Much of their performance is not public: they are held to what is -
       maximum speed, ceiling, and range where it is given - and nothing more
       is claimed. *Verification: each published figure inside its tolerance,
       with every source named in `ASSETS.md`, and `PROJECT_STATUS.md` saying
-      which of the aircraft's behaviour no figure pins.*
+      which of the aircraft's behaviour no figure pins.* Stated, 2026-09-19,
+      CI run 35442214130: on every platform the F-35A flies Mach 1.62 against its
+      published 1.6, still climbs above 50,000 ft, and ranges 1,830 nm on
+      internal fuel against more than 1,200; the B-2A flies Mach 0.89 level
+      at 40,000 ft, "high subsonic", still climbs at its 50,000 ft ceiling,
+      and ranges 6,100 nm against about 6,000. Every source is in `ASSETS.md`,
+      and `PROJECT_STATUS.md` says what no figure pins: nearly all of it.
 - [ ] **The Short S.23 on water**, from JSBSim's model and its hydrodynamics.
       *Verification: it floats at rest at its published draught, takes off from
       the sea and from a lake within its published distance, and alights on
@@ -351,8 +364,14 @@ quality: each is held to published figures before it is offered, as the Cessna
 - [ ] **Visual models from FlightGear aircraft**, each licence checked.
       *Verification: `ASSETS.md` names the source, commit and licence of every
       model that ships, and a model without an entry fails a test.*
-- [ ] **An aircraft chosen at start.** *Verification: every aircraft can be
-      chosen, takes off, and passes its published-figure checks.*
+- [x] **An aircraft chosen at start.** *Verification: every aircraft can be
+      chosen, takes off, and passes its published-figure checks.* Stated,
+      2026-09-19, CI run 35442214130: `--aircraft` flies any of the fifteen the
+      data holds, in the air or `--on-ground`, and refuses one it does not,
+      naming those it does; a test stands each on a runway and every one
+      climbs through 200 ft; each passes its published-figure checks; and in
+      the client on every platform the F-22 chosen flies at its start's 300
+      knots and a Cessna on the ground at Sydney stands at rest on the DEM.
 - [ ] **Views: the cockpit, and outside from ahead, behind, left, right and
       above, and a free orbit**, switched by a key and chosen with `--view`.
       *(Asked for 2026-09-18; needs the visual models above.)* *Verification:
