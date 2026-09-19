@@ -40,7 +40,7 @@ struct FigureLoading {
 struct PublishedFigures {
     std::string model;
     std::string source;
-    double flaps_full_deg = 0.0; // the flaps' travel at a command of 1
+    double flaps_full_deg = 0.0; // the flaps' travel at a command of 1; 0, none
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;
     Loading loading;

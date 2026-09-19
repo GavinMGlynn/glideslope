@@ -108,6 +108,13 @@ InitialConditions airborne(double altitude_ft, double kcas, bool engine_running)
 }
 
 double flaps_command(const PublishedFigures& figures, double flaps_deg) {
+    if (flaps_deg == 0.0) {
+        return 0.0;
+    }
+    if (figures.flaps_full_deg <= 0.0) {
+        throw std::runtime_error("the figure asks for " + std::to_string(flaps_deg) +
+                                 " degrees of flap, and the aircraft has none");
+    }
     return flaps_deg / figures.flaps_full_deg;
 }
 
@@ -477,7 +484,9 @@ double level_speed(const std::filesystem::path& root, const PublishedFigures& fi
 }
 
 // Level at the cruise altitude: first full throttle with the mixture leaned in
-// steps to find the richest setting giving the most RPM, then the throttle
+// steps to find the richest setting giving the most RPM - leaning no further
+// once the RPM has fallen 3% below the most, which an engine already at its
+// best when full rich, as the Cub's is, does not survive - then the throttle
 // holding the cruise RPM; the average true airspeed over the last fifty
 // seconds of three minutes at that RPM.
 double cruise_speed(const std::filesystem::path& root, const PublishedFigures& figures,
@@ -505,6 +514,8 @@ double cruise_speed(const std::filesystem::path& root, const PublishedFigures& f
         if (rpm > best_rpm + 1.0) {
             best_rpm = rpm;
             best_mixture = c.mixture;
+        } else if (rpm < 0.97 * best_rpm) {
+            break;
         }
     }
     c.mixture = best_mixture;

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <string>
+#include <utility>
 
 using glideslope::sim::Aircraft;
 using glideslope::sim::Controls;
@@ -71,4 +72,36 @@ GLIDESLOPE_TEST(the_mosquito_drops_its_nose_at_the_stall_as_its_pilots_notes_say
               std::to_string(highest_alpha) + " degrees of incidence");
     check(lowest_pitch_after < 0.0, "its nose dropped below the horizon: " +
                                         std::to_string(lowest_pitch_after) + " degrees");
+}
+
+// Fixed gear stays down whatever the gear lever says. The Cherokee's model
+// charges its gear's drag by the gear's position; raised with the lever, as
+// every flight begun in the air raises it, the drag went with it, and at full
+// throttle the aircraft flew 33 knots faster than with it down. Retractable
+// gear still goes up.
+GLIDESLOPE_TEST(fixed_gear_stays_down_when_the_lever_is_raised) {
+    for (const auto& [model, retracts] :
+         {std::pair<std::string, bool>{"pa28", false}, {"mosquito-fb6", true}}) {
+        Aircraft a(GLIDESLOPE_TEST_DATA_DIR, model);
+        InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 5000.0;
+        ic.terrain_elevation_ft = -3000.0;
+        ic.airspeed_kts = 120.0;
+        ic.gear = 0.0;
+        a.initialize(ic);
+        Controls c;
+        c.gear = 0.0;
+        c.throttle = 0.7;
+        for (int i = 0; i < 2 * steps_per_second; ++i) {
+            a.set_controls(c);
+            a.step();
+        }
+        const double position = a.property("gear/gear-pos-norm");
+        std::printf("%s: gear at %.2f\n", model.c_str(), position);
+        check(retracts ? position < 0.01 : position > 0.99,
+              model + (retracts ? "'s gear is up: " : "'s fixed gear is down: ") +
+                  std::to_string(position));
+    }
 }

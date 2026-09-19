@@ -87,10 +87,12 @@ of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
 and 35363959900): the same air on every machine, a METAR's gusts flown, the
 wind near the ground as a boundary layer, reported wind shear, microbursts,
 thermals and mountain waves, and weather you can see. **Phase 5, aircraft
-choice, is under way: 2 of 14 items done** - aircraft as data, and the
+choice, is under way: 3 of 14 items done** - aircraft as data; the
 Mosquito FB Mk VI, written here from its trials and Pilot's Notes and held to
 fourteen of their figures, proved in CI on every platform (runs 35387301607
-and 35409102752). Next: the light aircraft from JSBSim's models.
+and 35409102752); and the light aircraft from JSBSim's models - the Cessna
+182S, the Piper PA-28-180 and the Piper J-3 Cub, each made to fly to its
+handbook's figures (CI run RUNID). Next: the airliners.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -112,9 +114,11 @@ are the risks the phase order is built around:
   state for two simulated seconds so JSBSim's hidden engine and actuator states
   converge; a restore is therefore not free, and whether that cost suits
   reconciliation many times a second is a question for Phase 6.
-- **Two aircraft are checked, and the Mosquito's handling is estimated.** The
-  Cessna 172P flies to its handbook and the Mosquito FB Mk VI to its trials
-  and Pilot's Notes; the others arrive in Phase 5. The Mosquito's stability
+- **Five aircraft are checked, and the Mosquito's handling is estimated.** The
+  Cessna 172P and 182S, the Piper PA-28-180 and the Piper J-3 Cub fly to
+  their handbooks and the Mosquito FB Mk VI to its trials and Pilot's Notes;
+  the others arrive in Phase 5. The Cub's handbook is the thinnest: five
+  figures, none with an altitude, one with a weight. The Mosquito's stability
   derivatives and inertias are estimates from its geometry - none were found
   measured - and its only take-off figure is the B Mk IV's.
 - **Terrain is drawn around where the flight starts, and nowhere else.** The
@@ -143,6 +147,108 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### The Piper J-3 Cub against its manual, 2026-09-19 — item done (CI run RUNID)
+
+The last of the three light aircraft. With it, Phase 5's "the light aircraft
+fly to their figures" is done: the Cessna 182S, the Piper PA-28-180 and the
+Piper J-3 Cub each land inside their tolerance on every figure recorded from
+their handbooks, as the Cessna 172P does, forty-four figures in all across
+the five aircraft with them.
+
+**What is missing first:** the Cub's figures are few and loose. Its manual
+and Piper's 1945 booklet give five that can be flown, in mph, none with an
+altitude or an airspeed calibration, and only the climb with a weight; no
+take-off distance, top speed or ceiling a flight here measures. Like the
+Cessna 182S and the PA-28, it flies only from the catalogue - the client
+still flies the Cessna 172P - and it has no visual model.
+
+**JSBSim's J3Cub did not fly to the Cub's figures.** Its engine made its 65
+hp at 2,800 rpm, 500 past the A-65's limit; its propeller was JSBSim's
+generic fixed-pitch one, the Cessna 172P's numbers, so coarse that on 65 hp
+it turned 1,590 rpm static, against the type certificate's 1,950 to 2,250;
+its drag at zero lift was its wing section's and its gear's alone, and it
+glided at 13.5 to 1, against 10; and its elevator moved 8 degrees each way,
+not the type certificate's 34 up and 29 down, too little to raise the nose to
+the wing's stall. `tools/make_j3cub.py` makes glideslope's from the pinned
+files with each change listed and justified, and a test fails if the
+committed files differ from what it makes.
+
+| Figure | Manual | Range | glideslope |
+| --- | --- | --- | --- |
+| Static RPM, full throttle | 1950 to 2250 (A-691) | the same | 2060 |
+| Climb, full load, 55 mph | 450 ft/min | ±10% | 437 |
+| Cruise, 2,150 rpm | 73 mph, 63.4 KTAS | ±3 kt | 64.6 |
+| Glide, 55 mph | 10:1 | ±10% | 9.63 |
+| Stall | 38 mph, 33.0 KCAS | ±2 kt | 34.3 |
+
+The stall is flown at 1,092 lb - the Trainer's instructor and pupil and full
+fuel - not the 1,220 lb gross weight the others are: the manual names no
+weight for its 38 mph, the booklet gives it as the Trainer's landing speed,
+and at 1,220 lb it would take a lift coefficient of 1.85, more than the
+Cub's flapless wing gives (the model stalls at 36 knots there).
+
+**What the changes are, in short:** the booklet's empty weight and the type
+certificate's seats, baggage and tank; its elevator travel; drag for the
+fuselage, tail, struts and wires, and a light aircraft's induced drag; the
+engine's 2,300 rpm limit; and the propeller's 74 in, its curves drawn in on
+the advance ratio for a 45 in pitch and scaled for the static rpm, climb and
+cruise.
+
+**The figure flights learned two things.** A figures file can say an
+aircraft has no flaps, and a figure asking for them is refused. And the
+cruise flight stops leaning once the rpm has fallen 3% below its best: the
+Cub's engine is at its best full rich, and leaned on down to half it
+stopped. The Cessna 172P's cruise moved from 119.7 to 119.4 knots with it,
+the PA-28's from 125.1 to 124.5.
+
+### The Piper PA-28-180 Cherokee against its handbook, 2026-09-19 — part of an item
+
+The second of the three light aircraft in Phase 5's "the light aircraft fly
+to their figures", after the Cessna 182S; the Piper Cub, above, completes the
+item.
+
+**JSBSim's pa28 is the right airframe with the wrong propeller.** Its 30 ft
+constant-chord wing, fixed gear, 40-degree flaps and 180 hp engine are the
+1962-72 Cherokee 180's, but it had a constant-speed propeller, which only the
+retractable Arrow has; one seat and one tank, so the handbook's 2,400 lb could
+not be loaded; main wheels that castored, as the 182's did; flaps whose
+first detent was 15 degrees, not 10, and gave less lift at 25 than at 10; and
+a tail half as powerful as a stabilator's, too weak to lift the nose for
+take-off or to reach the stall with full flap. It could not be flown to the
+handbook as it stood, so there is no column for it below. `tools/make_pa28.py`
+makes glideslope's from the pinned files with each change listed and
+justified, and a test fails if the committed files differ from what it makes.
+
+| Figure | Handbook | Range | glideslope |
+| --- | --- | --- | --- |
+| Static RPM, full throttle | 2275 to 2450 (TCDS) | the same | 2348 |
+| Take-off ground roll, flaps 25 | 720 ft | ±10% | 747 |
+| Climb, sea level, 85 mph | 725 ft/min | ±10% | 712 |
+| Cruise, 7,000 ft, 75%, 2,640 rpm | 143 mph, 124.3 KTAS | ±3 kt | 124.5 |
+| Top speed, sea level | 152 mph, 132.1 KTAS | ±3 kt | 132.0 |
+| Stall, flaps up | 67 mph CAS, 58.2 KCAS | ±2 kt | 57.4 |
+| Stall, flaps 40 | 57 mph CAS, 49.5 KCAS | ±2 kt | 48.8 |
+
+The handbook is the Cherokee 180 "E" Owner's Handbook (1969, revised 1974),
+in mph with no airspeed calibration; the stalls, as calibrated, are the 1962
+Airplane Flight Manual's, and the static rpm the type certificate data
+sheet's, 2A13. Neither gives a glide ratio, so there is no glide figure.
+
+**What the changes are, in short:** the handbook's empty weight, seats and
+tanks; flaps at 10, 25 and 40 degrees; fixed main wheels; a fixed-pitch 76 in
+propeller, with less power and more thrust at low advance ratio for the
+static rpm and the take-off; the 172's gear dampers; a stabilator's moment
+and lift; a lift curve and flap lift reaching the flight manual's stalls;
+induced drag with ground effect, which the model had on its lift and not its
+drag; and its zero-lift and gear drag, for the top speed.
+
+**glideslope raised fixed gear.** Every flight begun in the air puts the gear
+lever up, and glideslope set the gear's position from it whatever the gear
+was. The Cessnas never noticed; the pa28 charges its gear's drag by that
+position, and with its fixed gear "up" it shed more than half its zero-lift
+drag - 33 knots at full throttle, 140 against 107. Fixed gear now stays down
+whatever the lever says, and a test holds it there.
 
 ### The Cessna 182S against its handbook, 2026-09-19 — part of an item
 

@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<!--
+  The Piper PA-28-180 Cherokee's published figures, and the conditions each
+  was measured in.
+
+  From the Cherokee 180 "E" Owner's Handbook (Piper P/N 753 806, issued
+  October 1969, revised January 1974), section I's specifications and
+  section V's power setting table; the stalling speeds, as calibrated, from
+  the Airplane Flight Manual, Model PA-28-180 (FAA approved 3 August 1962,
+  revision 4); the static rpm from the type certificate data sheet 2A13
+  (revision 64), section III. The checks in src/sim/figures.cpp fly one
+  flight per <figure> and compare what JSBSim does with the range given here.
+
+  The handbook gives its speeds in mph, without saying whether indicated or
+  calibrated, and has no airspeed calibration table; they are taken as
+  calibrated, the flight manual's stalls being so, and converted to knots
+  (1 mph = 0.869 kt). The tolerances are this project's, as the Cessnas' are.
+-->
+<published_figures aircraft="pa28" flaps_full_deg="40">
+  <source>Piper Cherokee 180 "E" Owner's Handbook, 1969-1974</source>
+
+  <!-- 2,400 lb, the gross weight the handbook's figures are for: its
+       standard empty weight, 1,310 lb; four people, 170 lb each; 110 lb of
+       baggage; both 25-gallon tanks full, at 6 lb a gallon. -->
+  <loading total_lbs="2400">
+    <pointmass index="0" lbs="170"/>
+    <pointmass index="1" lbs="170"/>
+    <pointmass index="2" lbs="170"/>
+    <pointmass index="3" lbs="170"/>
+    <pointmass index="4" lbs="110"/>
+    <tank index="0" lbs="150"/>
+    <tank index="1" lbs="150"/>
+  </loading>
+
+  <figure name="static_rpm" unit="RPM" min="2275" max="2450">
+    Type certificate data sheet 2A13, section III: the Sensenich M76EMMS
+    propeller's static rpm at full throttle, "not over 2450, not under 2275".
+  </figure>
+
+  <figure name="takeoff_ground_roll" unit="ft" value="720" tolerance_percent="10"
+          flaps_deg="25" lift_off_kcas="47.8">
+    Section I: take-off run, maximum effort, 25 degrees of flap, 720 ft, at
+    gross weight, sea level, standard conditions. Section III's technique:
+    "accelerate to 50 to 60 MPH, then ease back on the wheel enough to let the
+    airplane fly itself off the ground"; eased back here at 55 mph, 47.8
+    knots.
+  </figure>
+
+  <figure name="climb_rate" unit="ft/min" value="725" tolerance_percent="10"
+          speed_kcas="73.9">
+    Section I: rate of climb 725 ft/min at the best rate of climb speed, 85
+    mph (73.9 knots), gross weight, sea level, full throttle.
+  </figure>
+
+  <figure name="cruise_speed" unit="KTAS" value="124.3" tolerance="3"
+          altitude_ft="7000" rpm="2640">
+    Section I: optimum cruising speed, 75% power at optimum altitude, 143 mph
+    (124.3 knots); section V's power setting table gives 75% at 7,000 ft as
+    2,640 rpm, the propeller being fixed.
+  </figure>
+
+  <figure name="maximum_speed" flight="level_speed" unit="KTAS" value="132.1"
+          tolerance="3" altitude_ft="0" rpm="2700">
+    Section I: top speed 152 mph (132.1 knots), at gross weight, sea level,
+    full throttle.
+  </figure>
+
+  <figure name="stall_speed_flaps_up" flight="stall_speed" unit="KCAS" min="56.2"
+          max="60.2" flaps_deg="0">
+    Airplane Flight Manual, stalling speeds, power off, 2,400 lb, flaps up:
+    67 mph CAS (58.2 knots); the handbook's stall speed table gives the same.
+    2 knots either side.
+  </figure>
+
+  <figure name="stall_speed_flaps_40" flight="stall_speed" unit="KCAS" min="47.5"
+          max="51.5" flaps_deg="40">
+    Airplane Flight Manual, flaps down (40 degrees): 57 mph CAS (49.5
+    knots). 2 knots either side.
+  </figure>
+</published_figures>

@@ -1,0 +1,14 @@
+# The Piper PA-28-180 Cherokee: JSBSim's pa28 made to fly to its handbook's
+# figures (assets/figures/pa28.xml) by tools/make_pa28.py.
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name Piper PA-28-180 Cherokee
+model pa28
+start 110 0.82

@@ -5,8 +5,9 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Ten things are used: Cessna 172P and 182S flight models derived from
-JSBSim's, the two Cessna handbooks' published figures, the Mosquito FB Mk VI's trials
+**Fourteen things are used: Cessna 172P and 182S, Piper PA-28-180 and Piper
+J-3 Cub flight models derived from JSBSim's, the four aircraft's handbooks'
+published figures, the Mosquito FB Mk VI's trials
 and Pilot's Notes (for a flight model written here), the Copernicus DEM, the
 EGM2008 geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from
 aviationweather.gov and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
@@ -64,6 +65,40 @@ entertainment purposes only."
 | --- | --- |
 | Source | Cessna Model 182S Skylane Information Manual, P/N 182SIM, 1997 (the Pilot's Operating Handbook of 3 February 1997 with revision 4 of 1 November 2001), page ii and figures 3-1, 5-1, 5-4, 5-6, 5-7 and 5-9, as copied at <http://tssflyingclub.org/documents/C182S_POH.pdf>; FAA type certificate data sheet 3A13, revision 66, section XIII, for the static rpm and the flaps' travel |
 | In the repository | `assets/figures/c182.xml`: individual numbers, each with its page or figure, not the handbook's text or charts |
+| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The Piper PA-28-180 Cherokee flight model, derived from JSBSim's
+
+| | |
+| --- | --- |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/pa28/pa28.xml`, `engine/engIO360C.xml`, and `engine/prop_75in2f.xml` for its propeller |
+| Changes | Made by `tools/make_pa28.py`, whose docstring lists each change and why: the handbook's empty weight, seats and tanks; flaps at 10, 25 and 40 degrees; main wheels that no longer castor; a fixed-pitch 76 in propeller in place of the model's constant-speed one, with its power and thrust at low advance ratio; the 172's gear springs and dampers; the stabilator's moment and lift; the lift curve and flap lift for the stalls; induced drag with ground effect; zero-lift and gear drag. The engine file is unchanged. |
+| In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/pa28/pa28.xml`, `engine/engIO360C.xml`, `engine/prop_pa28_76in.xml`); a test fails if they differ |
+| Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
+
+### The Piper PA-28-180 Cherokee's published figures
+
+| | |
+| --- | --- |
+| Source | Piper Cherokee 180 "E" Owner's Handbook, P/N 753 806, issued October 1969, revised January 1974, sections I, III and V, as copied at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf>; the Airplane Flight Manual, Model PA-28-180, FAA approved 3 August 1962, revision 4, for the calibrated stalling speeds, as copied at <https://www.nehemiahaviation.com/files/pa28flightmanual.pdf>; FAA type certificate data sheet 2A13, revision 64, section III, for the static rpm |
+| In the repository | `assets/figures/pa28.xml`: individual numbers, each with its section, not the handbook's text or charts |
+| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The Piper J-3 Cub flight model, derived from JSBSim's
+
+| | |
+| --- | --- |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/J3Cub/J3Cub.xml`, with its `Engines/Continental A-65-8.xml`, `Engines/CM7445 MCCauley.xml` and `Systems/Conventional Controls.xml` |
+| Changes | Made by `tools/make_j3cub.py`, whose docstring lists each change and why: the files renamed, without spaces; the booklet's empty weight and the type certificate's seats, baggage and tank; the type certificate's elevator travel; the airframe's drag at zero lift and a light aircraft's induced drag; the engine's rpm limit; and the propeller's diameter and tables. |
+| In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/j3cub/j3cub.xml`, `aircraft/j3cub/Systems/conventional-controls.xml`, `engine/engA65-8.xml`, `engine/prop_j3cub_74in.xml`); a test fails if they differ |
+| Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
+
+### The Piper J-3 Cub's published figures
+
+| | |
+| --- | --- |
+| Source | Piper's Owner's Manual for the J3C-65 (undated; a Wag-Aero reproduction), pages 11, 12, 41 and 47, as copied at <https://stpeteair.org/wp-content/uploads/cub_owners_manual.pdf>; Piper's booklet "How to Fly a Piper Cub" (1945), page 12, as copied at <https://home.adelphi.edu/~allendon/fly_a_cub.pdf>; FAA Aircraft Specification A-691, revision 34, section IV and propeller item 2, for the static rpm, the stations and the elevator's travel |
+| In the repository | `assets/figures/j3cub.xml`: individual numbers, each with its page, not the manual's text |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
 ### The Mosquito FB Mk VI: its trials, Pilot's Notes and engine curves

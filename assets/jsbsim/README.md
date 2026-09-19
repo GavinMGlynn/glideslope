@@ -30,6 +30,31 @@ differs.
 python3 tools/make_c182.py
 ```
 
+## The Piper PA-28-180 Cherokee
+
+`aircraft/pa28/pa28.xml`, `engine/prop_pa28_76in.xml` and `engine/engIO360C.xml`.
+
+**Do not edit these by hand** either: `tools/make_pa28.py` makes them from the
+pinned files, with its changes listed, and a test fails if what is committed
+differs.
+
+```sh
+python3 tools/make_pa28.py
+```
+
+## The Piper J-3 Cub
+
+`aircraft/j3cub/j3cub.xml`, `aircraft/j3cub/Systems/conventional-controls.xml`,
+`engine/engA65-8.xml` and `engine/prop_j3cub_74in.xml`.
+
+**Do not edit these by hand** either: `tools/make_j3cub.py` makes them from
+the pinned files, with its changes listed, and a test fails if what is
+committed differs.
+
+```sh
+python3 tools/make_j3cub.py
+```
+
 ## The Mosquito FB Mk VI
 
 `aircraft/mosquito-fb6/mosquito-fb6.xml`, `engine/merlin25.xml` and

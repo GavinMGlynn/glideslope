@@ -84,6 +84,19 @@ set(GLIDESLOPE_UNIT_TESTS
     the_cessna_182s_stalls_flaps_up_near_its_published_speed
     the_cessna_182s_stalls_with_20_degrees_of_flap_near_its_published_speed
     the_cessna_182s_stalls_with_full_flap_near_its_published_speed
+    the_piper_pa28_at_full_throttle_on_the_ground_turns_within_its_static_rpm_range
+    the_piper_pa28_takes_off_in_about_its_published_ground_roll
+    a_piper_pa28_at_full_throttle_climbs_near_its_published_rate
+    the_piper_pa28_cruises_at_75_percent_power_near_its_published_speed
+    the_piper_pa28_reaches_about_its_published_top_speed
+    the_piper_pa28_stalls_flaps_up_near_its_published_speed
+    the_piper_pa28_stalls_with_40_degrees_of_flap_near_its_published_speed
+    the_piper_j3_cub_at_full_throttle_on_the_ground_turns_within_its_static_rpm_range
+    a_piper_j3_cub_at_full_load_climbs_near_its_published_rate
+    the_piper_j3_cub_cruises_at_2150_rpm_near_its_published_speed
+    the_piper_j3_cub_glides_near_its_published_ratio
+    the_piper_j3_cub_stalls_near_its_published_speed
+    a_figure_asking_for_flaps_the_aircraft_does_not_have_is_refused
     the_mosquito_fb6_flies_level_at_sea_level_at_hx809s_speed
     the_mosquito_fb6_flies_level_at_its_ms_gear_full_throttle_height_at_hx809s_speed
     the_mosquito_fb6_flies_level_at_its_fs_gear_full_throttle_height_at_hx809s_speed
@@ -99,6 +112,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_mosquito_fb6_is_held_straight_on_one_engine_down_to_its_safety_speed_at_9_boost
     the_mosquito_fb6_holds_its_height_on_one_engine_up_to_its_pilots_notes_ceiling
     the_mosquito_drops_its_nose_at_the_stall_as_its_pilots_notes_say
+    fixed_gear_stays_down_when_the_lever_is_raised
     every_published_figure_has_a_flight_and_every_flight_a_figure
     an_aircraft_restored_in_every_phase_of_flight_tracks_the_original
     an_aircraft_put_back_to_an_earlier_snapshot_flies_on_as_a_fresh_restore_does
@@ -231,6 +245,20 @@ add_test(NAME the_committed_cessna_182s_is_what_its_tuning_script_makes
         -DSCRIPT=tools/make_c182.py
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
 set_tests_properties(the_committed_cessna_182s_is_what_its_tuning_script_makes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_piper_pa28_is_what_its_tuning_script_makes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_pa28.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_piper_pa28_is_what_its_tuning_script_makes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_piper_j3_cub_is_what_its_tuning_script_makes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_j3cub.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_piper_j3_cub_is_what_its_tuning_script_makes
     PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME the_committed_mosquito_propeller_is_what_its_script_computes
@@ -464,7 +492,7 @@ add_test(NAME the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files
 add_test(NAME the_cli_lists_the_aircraft_the_data_holds
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=aircraft -DEXIT=0
-        "-DSTDOUT_MATCHES=c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures"
+        "-DSTDOUT_MATCHES=c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*j3cub +Piper J-3 Cub +model j3cub, starting at 60 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures.*pa28 +Piper PA-28-180 Cherokee +model pa28, starting at 110 KCAS, published figures"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_an_aircraft_it_has_no_files_for

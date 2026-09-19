@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -21,7 +22,7 @@ const char* const data_dir = GLIDESLOPE_TEST_DATA_DIR;
 
 // Every aircraft with published figures.
 const std::vector<std::string>& figured_models() {
-    static const std::vector<std::string> models = {"c172p", "c182", "mosquito-fb6"};
+    static const std::vector<std::string> models = {"c172p", "c182", "j3cub", "mosquito-fb6", "pa28"};
     return models;
 }
 
@@ -125,6 +126,76 @@ GLIDESLOPE_TEST(the_cessna_182s_stalls_with_full_flap_near_its_published_speed) 
     expect_figure("c182", "stall_speed_flaps_full");
 }
 
+GLIDESLOPE_TEST(the_piper_pa28_at_full_throttle_on_the_ground_turns_within_its_static_rpm_range) {
+    expect_figure("pa28", "static_rpm");
+}
+
+GLIDESLOPE_TEST(the_piper_pa28_takes_off_in_about_its_published_ground_roll) {
+    expect_figure("pa28", "takeoff_ground_roll");
+}
+
+GLIDESLOPE_TEST(a_piper_pa28_at_full_throttle_climbs_near_its_published_rate) {
+    expect_figure("pa28", "climb_rate");
+}
+
+GLIDESLOPE_TEST(the_piper_pa28_cruises_at_75_percent_power_near_its_published_speed) {
+    expect_figure("pa28", "cruise_speed");
+}
+
+GLIDESLOPE_TEST(the_piper_pa28_reaches_about_its_published_top_speed) {
+    expect_figure("pa28", "maximum_speed");
+}
+
+GLIDESLOPE_TEST(the_piper_pa28_stalls_flaps_up_near_its_published_speed) {
+    expect_figure("pa28", "stall_speed_flaps_up");
+}
+
+GLIDESLOPE_TEST(the_piper_pa28_stalls_with_40_degrees_of_flap_near_its_published_speed) {
+    expect_figure("pa28", "stall_speed_flaps_40");
+}
+
+GLIDESLOPE_TEST(the_piper_j3_cub_at_full_throttle_on_the_ground_turns_within_its_static_rpm_range) {
+    expect_figure("j3cub", "static_rpm");
+}
+
+GLIDESLOPE_TEST(a_piper_j3_cub_at_full_load_climbs_near_its_published_rate) {
+    expect_figure("j3cub", "climb_rate");
+}
+
+GLIDESLOPE_TEST(the_piper_j3_cub_cruises_at_2150_rpm_near_its_published_speed) {
+    expect_figure("j3cub", "cruise_speed");
+}
+
+GLIDESLOPE_TEST(the_piper_j3_cub_glides_near_its_published_ratio) {
+    expect_figure("j3cub", "glide_ratio");
+}
+
+GLIDESLOPE_TEST(the_piper_j3_cub_stalls_near_its_published_speed) {
+    expect_figure("j3cub", "stall_speed");
+}
+
+// A figure that asks for flaps of an aircraft without them - the Cub has none,
+// and its file says so with a travel of 0 - is refused, not flown with a
+// flap command divided by nothing.
+GLIDESLOPE_TEST(a_figure_asking_for_flaps_the_aircraft_does_not_have_is_refused) {
+    const PublishedFigures figures = read_published_figures(figures_file("j3cub"));
+    check(figures.flaps_full_deg == 0.0, "the Cub's file gives it no flaps");
+    auto it = std::find_if(figures.figures.begin(), figures.figures.end(),
+                           [](const auto& f) { return f.name == "stall_speed"; });
+    if (it == figures.figures.end()) {
+        fail("assets/figures/j3cub.xml has no figure named stall_speed");
+    }
+    auto spec = *it;
+    spec.conditions["flaps_deg"] = 10.0;
+    try {
+        fly_figure(data_dir, figures, spec);
+        fail("a stall with 10 degrees of flap was flown on an aircraft without flaps");
+    } catch (const std::runtime_error& e) {
+        check(std::string(e.what()).find("has none") != std::string::npos,
+              std::string("refused as having no flaps: ") + e.what());
+    }
+}
+
 GLIDESLOPE_TEST(the_mosquito_fb6_flies_level_at_sea_level_at_hx809s_speed) {
     expect_figure("mosquito-fb6", "level_speed_sea_level");
 }
@@ -209,7 +280,7 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
         check(flown.count(name) == 1, "figures name a flight " + name +
                                           " that does not exist");
     }
-    check(figures_in_files == 32,
-          "thirty-two figures, one test each above; found " +
+    check(figures_in_files == 44,
+          "forty-four figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

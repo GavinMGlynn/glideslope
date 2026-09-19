@@ -14,7 +14,9 @@
 #include <math/FGQuaternion.h>
 #include <models/FGAircraft.h>
 #include <models/FGAuxiliary.h>
+#include <models/FGGroundReactions.h>
 #include <models/FGInertial.h>
+#include <models/FGLGear.h>
 #include <models/FGPropagate.h>
 #include <models/FGPropulsion.h>
 #include <models/propulsion/FGEngine.h>
@@ -40,6 +42,19 @@ namespace {
 std::unique_ptr<JSBSim::FGFDMExec> quiet_exec() {
     JSBSim::FGJSBBase::debug_lvl = 0;
     return std::make_unique<JSBSim::FGFDMExec>();
+}
+
+// Whether any of the aircraft's gear retracts. Fixed gear stays down whatever
+// the pilot's lever says: some models, JSBSim's pa28 among them, charge their
+// gear's drag by its position, which would otherwise go up with the lever.
+bool retractable_gear(const JSBSim::FGFDMExec& exec) {
+    const auto ground = exec.GetGroundReactions();
+    for (int i = 0; i < ground->GetNumGearUnits(); ++i) {
+        if (ground->GetGearUnit(i)->GetRetractable()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // JSBSim's ground, from a Terrain.
@@ -178,8 +193,10 @@ void Aircraft::initialize(const InitialConditions& ic) {
     fgic->SetThetaDegIC(0.0);
     fgic->SetPhiDegIC(0.0);
     fgic->SetVcalibratedKtsIC(ic.airspeed_kts);
-    exec_->SetPropertyValue("gear/gear-cmd-norm", ic.gear);
-    exec_->SetPropertyValue("gear/gear-pos-norm", ic.gear);
+    if (retractable_gear(*exec_)) {
+        exec_->SetPropertyValue("gear/gear-cmd-norm", ic.gear);
+        exec_->SetPropertyValue("gear/gear-pos-norm", ic.gear);
+    }
     if (!exec_->RunIC()) {
         throw std::runtime_error("JSBSim refused the initial conditions for " + model_);
     }
@@ -226,7 +243,9 @@ void Aircraft::set_controls(const Controls& c) {
         }
     }
     exec_->SetPropertyValue("fcs/flap-cmd-norm", c.flaps);
-    exec_->SetPropertyValue("gear/gear-cmd-norm", c.gear);
+    if (retractable_gear(*exec_)) {
+        exec_->SetPropertyValue("gear/gear-cmd-norm", c.gear);
+    }
     // Only a model that declares the switch has one.
     if (exec_->GetPropertyManager()->HasNode("fcs/supercharger-cmd-norm")) {
         exec_->SetPropertyValue("fcs/supercharger-cmd-norm", c.supercharger);

@@ -1,0 +1,14 @@
+# The Piper J-3 Cub: JSBSim's J3Cub made to fly to its owner's manual's
+# figures (assets/figures/j3cub.xml) by tools/make_j3cub.py.
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name Piper J-3 Cub
+model j3cub
+start 60 0.74

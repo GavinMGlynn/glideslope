@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<!--
+  The Piper J-3 Cub's published figures, and the conditions each was measured
+  in.
+
+  From Piper's Owner's Manual for the J3C-65 (undated; a Wag-Aero
+  reproduction), pages 41 and 47; Piper's booklet "How to Fly a Piper Cub"
+  (1945), whose specifications, page 12, are for the 65 hp Trainer; and the
+  FAA's Aircraft Specification A-691 (revision 34), section IV and propeller
+  item 2, for the static rpm. The checks in src/sim/figures.cpp fly one flight
+  per <figure> and compare what JSBSim does with the range given here.
+
+  The Cub's figures are few and plain. Its speeds are in mph, some said to be
+  indicated and none calibrated, with no airspeed calibration: they are taken
+  as calibrated and converted to knots (1 mph = 0.869 kt). None names an
+  altitude, and they are flown at sea level. Only the climb names a weight,
+  "full load", and it and the others are flown at the gross weight - but for
+  the stall, which is the booklet's "landing speed" for the Trainer, and is
+  flown with the Trainer's two people; see it below. The Cub has no flaps.
+  The tolerances are this project's, as the Cessnas' are.
+
+  Not flown: the take-off - the manual gives only that the loaded aircraft
+  "will become airborne at approximately 39 M.P.H.", no distance; the top
+  speed - the booklet's "design level flight speed", 90 mph, is the type
+  certificate's limit, not a speed measured; and the ceiling, 14,000 ft solo,
+  which no flight here measures.
+-->
+<published_figures aircraft="j3cub" flaps_full_deg="0">
+  <source>Piper J3C-65 Owner's Manual; Piper, How to Fly a Piper Cub, 1945</source>
+
+  <!-- 1,220 lb, the gross weight: the booklet's empty weight, 680 lb, and its
+       useful load, 540 lb - the 12-gallon tank full, 72 lb at 6 lb a gallon;
+       20 lb of baggage, the most allowed; and 448 lb in the two seats. -->
+  <loading name="gross" total_lbs="1220">
+    <pointmass index="0" lbs="224"/>
+    <pointmass index="1" lbs="224"/>
+    <pointmass index="2" lbs="20"/>
+    <tank index="0" lbs="72"/>
+  </loading>
+
+  <!-- 1,092 lb: the Trainer's instructor and pupil, 170 lb each, and the tank
+       full. -->
+  <loading name="trainer" total_lbs="1092">
+    <pointmass index="0" lbs="170"/>
+    <pointmass index="1" lbs="170"/>
+    <tank index="0" lbs="72"/>
+  </loading>
+
+  <figure name="static_rpm" unit="RPM" min="1950" max="2250">
+    Aircraft Specification A-691, propeller item 2, the McCauley 1A90CF or
+    1B90CM: static rpm at full throttle, landplane, "not over 2250, not under
+    1950".
+  </figure>
+
+  <figure name="climb_rate" unit="ft/min" value="450" tolerance_percent="10"
+          speed_kcas="47.8">
+    Booklet, page 12: rate of climb (full load) 450 ft; manual, page 41:
+    "best climb speed is at an indicated 55 M.P.H." (47.8 knots).
+  </figure>
+
+  <figure name="cruise_speed" unit="KTAS" value="63.4" tolerance="3"
+          altitude_ft="0" rpm="2150">
+    Manual, page 41: "Indicated R.P.M. for cruising speed of 73 M.P.H. is
+    2150" (63.4 knots).
+  </figure>
+
+  <figure name="glide_ratio" unit=":1" value="10" tolerance_percent="10"
+          speed_kcas="47.8">
+    Booklet, page 12: gliding ratio 10 to 1; manual, page 41: "Glide between
+    50-60 M.P.H. depending upon loading of airplane and gust conditions",
+    flown here at 55 mph (47.8 knots).
+  </figure>
+
+  <figure name="stall_speed" loading="trainer" unit="KCAS" min="31.0" max="35.0"
+          flaps_deg="0">
+    Manual, page 47: "the 38 mph stalling speed" of the Cub in level flight
+    (33.0 knots), at no weight it names; the booklet's specifications, page
+    12, give the same 38 mph as the 65 hp Trainer's landing speed. Flown with
+    the Trainer's two people and full fuel, not at the gross weight: at 1,220
+    lb, 38 mph would take a lift coefficient of 1.85, more than the Cub's
+    wing, of the USA-35B section and without flaps, gives. 2 knots either
+    side.
+  </figure>
+</published_figures>
