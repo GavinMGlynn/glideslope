@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<!--
+  The McDonnell Douglas F-15C Eagle's published figures, and the conditions
+  each was measured in.
+
+  From the USAF's Standard Aircraft Characteristics for the F-15C (AFG 2,
+  volume 1, addendum 61, February 1992), for its F100-PW-220 engines: page 4's
+  loading and performance table, page 5's maneuverability chart and page 6's
+  specific excess power chart. Its performance is the contractor's June 1986
+  data, not flight test, and its speeds taken here as true, on a standard
+  day. The checks in src/sim/figures.cpp fly one flight per <figure> and
+  compare what JSBSim does with the range given here.
+
+  The model carries no missiles' drag: the Mission I loadings carry the
+  missiles' weight only. The tolerances are this project's.
+-->
+<published_figures aircraft="f15c" flaps_full_deg="0">
+  <source>USAF Standard Aircraft Characteristics, F-15C, 1992</source>
+
+  <!-- 45,713 lb, Mission I's take-off weight (page 4): the empty weight,
+       28,476 lb; the pilot, 230 lb; 13,455 lb of internal fuel; and 3,552 lb
+       of stores - four AIM-7F, 2,040 lb, and the rest of the operating
+       weight. -->
+  <loading name="mission-i" total_lbs="45713">
+    <pointmass index="0" lbs="230"/>
+    <pointmass index="1" lbs="3552"/>
+    <tank index="0" lbs="6727.5"/>
+    <tank index="1" lbs="6727.5"/>
+  </loading>
+
+  <!-- 41,286 lb, Mission I's combat weight: 4,427 lb of the fuel burned. -->
+  <loading name="combat" total_lbs="41286">
+    <pointmass index="0" lbs="230"/>
+    <pointmass index="1" lbs="3552"/>
+    <tank index="0" lbs="4514"/>
+    <tank index="1" lbs="4514"/>
+  </loading>
+
+  <!-- 36,946 lb, the charts' clean weight: Mission I's without its missiles
+       and with half its internal fuel. -->
+  <loading name="clean" total_lbs="36946">
+    <pointmass index="0" lbs="230"/>
+    <pointmass index="1" lbs="1512.5"/>
+    <tank index="0" lbs="3363.75"/>
+    <tank index="1" lbs="3363.75"/>
+  </loading>
+
+  <figure name="maximum_mach_45000_ft" fuel_frozen="1" flight="level_mach" loading="clean" unit="Mach"
+          value="2.39" tolerance="0.08" altitude_ft="45000" mach="2.0">
+    Page 6, specific excess power at maximum power, clean, 36,946 lb, 1 g: the
+    level-flight boundary, Ps = 0, reaches Mach 2.39 at 45,000 ft, read from
+    the chart to about 0.03.
+  </figure>
+
+  <figure name="climb_rate_sea_level_military" fuel_frozen="1" flight="max_climb_rate" loading="mission-i"
+          unit="ft/min" value="15250" tolerance_percent="10" from_kcas="250" to_kcas="700"
+          throttle="0.99">
+    Page 4, Mission I: rate of climb at sea level, military power, 15,250
+    ft/min at 45,713 lb.
+  </figure>
+
+  <figure name="climb_rate_sea_level_maximum" fuel_frozen="1" flight="max_climb_rate" loading="combat"
+          unit="ft/min" value="55960" tolerance_percent="10" from_kcas="250" to_kcas="750">
+    Page 4, Mission I: maximum rate of climb at sea level, maximum power,
+    55,960 ft/min at the combat weight, 41,286 lb.
+  </figure>
+
+  <figure name="service_ceiling_military" fuel_frozen="1" flight="service_ceiling" loading="mission-i"
+          unit="ft" value="46750" tolerance_percent="5" rate_fpm="100" throttle="0.99"
+          mach="0.9">
+    Page 4, Mission I: service ceiling, 100 ft/min, military power, 46,750 ft
+    at 45,713 lb.
+  </figure>
+
+  <figure name="combat_ceiling_maximum" fuel_frozen="1" flight="service_ceiling" loading="combat"
+          unit="ft" value="56100" tolerance_percent="5" rate_fpm="500" mach="1.5">
+    Page 4, Mission I: combat ceiling, 500 ft/min, maximum power, 56,100 ft at
+    the combat weight, 41,286 lb.
+  </figure>
+
+  <figure name="sustained_turn_mach_0.9_30000_ft" fuel_frozen="1" flight="sustained_turn_rate"
+          loading="clean" unit="deg/s" value="7.87" tolerance="0.5" altitude_ft="30000"
+          mach="0.9">
+    Page 5, maneuverability, clean, 36,946 lb, 30,000 ft: sustained load
+    factor at maximum power 3.95 g at Mach 0.9, read from the chart to about
+    0.1 g - a turn rate of 7.87 degrees a second, g times the root of n
+    squared less one, over the true airspeed, 895 ft/s.
+  </figure>
+</published_figures>

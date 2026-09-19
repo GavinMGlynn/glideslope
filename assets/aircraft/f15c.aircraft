@@ -1,0 +1,15 @@
+# The McDonnell Douglas F-15C Eagle, two F100-PW-220s: JSBSim's f15 made to fly
+# to the USAF's Standard Aircraft Characteristics (assets/figures/f15c.xml) by
+# tools/make_f15c.py.
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name McDonnell Douglas F-15C Eagle
+model f15c
+start 300 0.49

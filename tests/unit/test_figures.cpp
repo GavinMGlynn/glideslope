@@ -22,7 +22,7 @@ const char* const data_dir = GLIDESLOPE_TEST_DATA_DIR;
 
 // Every aircraft with published figures.
 const std::vector<std::string>& figured_models() {
-    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "c172p", "c182", "j3cub", "mosquito-fb6", "pa28"};
+    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "c172p", "c182", "f15c", "f22", "j3cub", "mosquito-fb6", "pa28"};
     return models;
 }
 
@@ -238,6 +238,50 @@ GLIDESLOPE_TEST(the_boeing_787_8_still_climbs_at_its_certificated_ceiling) {
     expect_figure("787-8", "ceiling");
 }
 
+GLIDESLOPE_TEST(the_f15c_reaches_its_published_maximum_mach_at_45000_ft) {
+    expect_figure("f15c", "maximum_mach_45000_ft");
+}
+
+GLIDESLOPE_TEST(the_f15c_climbs_at_its_published_rate_at_sea_level_at_military_power) {
+    expect_figure("f15c", "climb_rate_sea_level_military");
+}
+
+GLIDESLOPE_TEST(the_f15c_climbs_at_its_published_rate_at_sea_level_at_maximum_power) {
+    expect_figure("f15c", "climb_rate_sea_level_maximum");
+}
+
+GLIDESLOPE_TEST(the_f15c_reaches_its_published_service_ceiling_at_military_power) {
+    expect_figure("f15c", "service_ceiling_military");
+}
+
+GLIDESLOPE_TEST(the_f15c_reaches_its_published_combat_ceiling_at_maximum_power) {
+    expect_figure("f15c", "combat_ceiling_maximum");
+}
+
+GLIDESLOPE_TEST(the_f15c_sustains_its_published_turn_at_mach_0_9_and_30000_ft) {
+    expect_figure("f15c", "sustained_turn_mach_0.9_30000_ft");
+}
+
+GLIDESLOPE_TEST(the_f22_supercruises_at_its_published_mach) {
+    expect_figure("f22", "supercruise_mach");
+}
+
+GLIDESLOPE_TEST(the_f22_accelerates_from_mach_0_8_to_1_5_in_its_published_time) {
+    expect_figure("f22", "acceleration_0.8_to_1.5_30000_ft");
+}
+
+GLIDESLOPE_TEST(the_f22_sustains_its_published_turn_at_mach_0_9_and_30000_ft) {
+    expect_figure("f22", "sustained_turn_mach_0.9_30000_ft");
+}
+
+GLIDESLOPE_TEST(the_f22_flies_at_mach_2_at_40000_ft) {
+    expect_figure("f22", "maximum_mach_40000_ft");
+}
+
+GLIDESLOPE_TEST(the_f22_still_climbs_at_50000_ft) {
+    expect_figure("f22", "climb_rate_50000_ft");
+}
+
 // A figure that asks for flaps of an aircraft without them - the Cub has none,
 // and its file says so with a travel of 0 - is refused, not flown with a
 // flap command divided by nothing.
@@ -344,7 +388,7 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
         check(flown.count(name) == 1, "figures name a flight " + name +
                                           " that does not exist");
     }
-    check(figures_in_files == 60,
-          "sixty figures, one test each above; found " +
+    check(figures_in_files == 71,
+          "seventy-one figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

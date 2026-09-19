@@ -5,11 +5,13 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Twenty-two things are used: Cessna 172P and 182S, Piper PA-28-180 and J-3
-Cub, Airbus A320 and Boeing 737-300, 747-400 and 787-8 flight models derived
-from JSBSim's, those eight aircraft's published figures - handbooks for the
-light aircraft, airport-planning documents and type certificates for the
-airliners - the Mosquito FB Mk VI's trials
+**Twenty-six things are used: Cessna 172P and 182S, Piper PA-28-180 and J-3
+Cub, Airbus A320, Boeing 737-300, 747-400 and 787-8, McDonnell Douglas F-15C
+and Lockheed Martin F-22A flight models derived from JSBSim's, those ten
+aircraft's published figures - handbooks for the light aircraft,
+airport-planning documents and type certificates for the airliners, the
+Air Force's and the Department of Defense's for the fighters - the Mosquito
+FB Mk VI's trials
 and Pilot's Notes (for a flight model written here), the Copernicus DEM, the
 EGM2008 geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from
 aviationweather.gov and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
@@ -127,7 +129,7 @@ entertainment purposes only."
 | Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/737/737.xml`, `engine/CFM56.xml`, `engine/direct.xml` |
 | Changes | Made by `tools/make_737_300.py` with `tools/airliner.py`, whose docstrings list each change and why: no network sockets; weights, tanks and payload; flaps in degrees, the leading edge devices and the flaps' drag; a Mach drag rise and a windmilling engine's drag; braking friction; the engines' thrust with height and speed, and no bleed. |
 | In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/737-300/737-300.xml`, `engine/CFM56-3B1.xml`, `engine/direct.xml`); a test fails if they differ |
-| Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
+| Licence | The airframe file's own header names the GPL (`licenseName="GPL (General Public License)"`, with no version), and the modified file remains under it - this project's licence, GPL-3.0-or-later, whose text ships as `LICENSE`. The engine files are LGPL-2.1, as the JSBSim repository; they remain under it, and its text ships as `licenses/JSBSim.txt` |
 
 ### The Boeing 737-300's published figures
 
@@ -169,6 +171,45 @@ entertainment purposes only."
 | --- | --- |
 | Source | Boeing, 787 Airplane Characteristics for Airport Planning, D6-58333 revision O, February 2023, table 2.1.1 and figures 3.2.1 and 3.3.1, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/787.pdf>; FAA type certificate data sheet T00021SE, revision 32, from the FAA's regulatory and guidance library as archived by the Internet Archive; Boeing's own 787-8 page, as archived, for the cruise Mach |
 | In the repository | `assets/figures/787-8.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
+| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The McDonnell Douglas F-15C Eagle flight model, derived from JSBSim's
+
+| | |
+| --- | --- |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/f15/f15.xml`, `engine/F100-PW-229.xml`, `engine/direct.xml` |
+| Changes | Made by `tools/make_f15c.py` with `tools/fighter.py` and `tools/airliner.py`, whose docstrings list each change and why: the F-15C's weights, fuel and stores; lift and drag across the Mach range, and the drag past the flow separating; the F100-PW-220's thrust, its afterburner lit above 0.99, and its thrust with speed and height, fitted to the Standard Aircraft Characteristics' charts. |
+| In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/f15c/f15c.xml`, `engine/F100-PW-220.xml`, `engine/direct.xml`); a test fails if they differ |
+| Licence | LGPL-2.1, as the JSBSim repository - the model files name no licence of their own; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
+
+### The McDonnell Douglas F-15C Eagle's published figures
+
+| | |
+| --- | --- |
+| Source | United States Air Force, Standard Aircraft Characteristics, F-15C Eagle (220 engine), AFG 2 volume 1 addendum 61, February 1992 (performance basis: the contractor's June 1986 status), pages 4 to 6 (69 to 74 of 228), as scanned in the collection at <http://alternatewars.com/SAC/F-15C_Eagle_SAC_-_February_1992.pdf>, read through the Internet Archive. A work of the United States government |
+| In the repository | `assets/figures/f15c.xml`: individual numbers, each with its page, not the document's text or charts. `tools/make_f15c.py` names the page 6 chart its thrust and drag are fitted to, not the numbers read from it |
+| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The Lockheed Martin F-22A Raptor flight model, derived from JSBSim's
+
+| | |
+| --- | --- |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/f22/f22.xml`, `engine/F119-PW-1.xml`, `engine/direct.xml` |
+| Changes | Made by `tools/make_f22.py` with `tools/fighter.py` and `tools/airliner.py`, whose docstrings list each change and why: control surfaces that move; military power at 0.99; the F-22's weights, fuel and missiles; lift, drag and the tail's moment across the Mach range; the pitch loop's gains scheduled on the tail's moment, and the roll stick shaped; the F119's thrust, and its thrust with speed and height. |
+| In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/f22/f22.xml`, `engine/F119-PW-100.xml`, `engine/direct.xml`); a test fails if they differ |
+| Licence | The airframe file's own header names the GPL (`licenseName="GPL (General Public License)"`, with no version), and the modified file remains under it - this project's licence, GPL-3.0-or-later, whose text ships as `LICENSE`. The engine files are LGPL-2.1, as the JSBSim repository; they remain under it, and its text ships as `licenses/JSBSim.txt` |
+
+The airframe file's header says: "This model was created using data that is,
+or has been, publically available by means of technical reports, textbooks,
+image graphs or published code. This aircraft description file is in no way
+related to the manufacturer of the real aircraft."
+
+### The Lockheed Martin F-22A Raptor's published figures
+
+| | |
+| --- | --- |
+| Source | Department of Defense, Selected Acquisition Report (RCS: DD-A&T(Q&A)823-265), F-22, as of 31 December 2010, its performance characteristics' "Demonstrated Performance", from the Washington Headquarters Services' FOIA reading room (<https://www.esd.whs.mil/Portals/54/Documents/FOID/Reading%20Room/Selected_Acquisition_Reports/FY_2010_SARS/F-22-SAR-25_DEC_2010.pdf>), read through the Internet Archive; the United States Air Force's F-22 Raptor, AIM-120 AMRAAM and AIM-9 Sidewinder fact sheets (<https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104506/f-22-raptor/>, `.../104576/aim-120-amraam/`, `.../104557/aim-9-sidewinder/`), read through the Internet Archive; Lockheed Martin's release of 18 November 2002 on the F/A-22's clearance to Mach 2, as reproduced at <https://www.f-16.net/f-22-news-article1660.html>. Works of the United States government, and one company release, from which only facts are taken |
+| In the repository | `assets/figures/f22.xml`: individual numbers, each with its source, not the documents' text |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
 ### The Mosquito FB Mk VI: its trials, Pilot's Notes and engine curves

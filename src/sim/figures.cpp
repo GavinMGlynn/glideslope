@@ -62,6 +62,8 @@ struct Flight {
         }
         aircraft.load(it->second.loading);
         aircraft.initialize(ic);
+        // A figure measured at a weight, whatever the engines burn.
+        aircraft.freeze_fuel(condition_or(spec, "fuel_frozen", 0.0) > 0.0);
         const double weight = aircraft.property("inertia/weight-lbs");
         if (std::abs(weight - it->second.total_lbs) > 1.0) {
             std::ostringstream m;
@@ -732,17 +734,32 @@ double single_engine_ceiling(const std::filesystem::path& root,
 // certification basis demands with an engine out, and its speed and ceiling
 // at altitude.
 
+// A pitot tube's impact pressure over the static pressure at a Mach number:
+// isentropic below Mach 1, and past it behind the normal shock the tube
+// stands in, by Rayleigh's pitot formula.
+double impact_over_static(double mach) {
+    if (mach <= 1.0) {
+        return std::pow(1.0 + 0.2 * mach * mach, 3.5) - 1.0;
+    }
+    const double m2 = mach * mach;
+    return std::pow(1.2 * m2, 3.5) * std::pow(6.0 / (7.0 * m2 - 1.0), 2.5) - 1.0;
+}
+
 // The calibrated airspeed of a Mach number at a pressure altitude, in the
-// standard atmosphere.
+// standard atmosphere: the sea-level speed whose impact pressure is the same.
 double kcas_for_mach(double mach, double altitude_ft) {
     const double delta =
         altitude_ft < 36089.0 ? std::pow(1.0 - 6.8756e-6 * altitude_ft, 5.2559)
                               : 0.22336 * std::exp(-4.80634e-5 * (altitude_ft - 36089.0));
-    const double impact_over_sea_level =
-        (std::pow(1.0 + 0.2 * mach * mach, 3.5) - 1.0) * delta;
+    const double impact_over_sea_level = impact_over_static(mach) * delta;
+    double low = 0.0;
+    double high = 5.0;
+    for (int i = 0; i < 60; ++i) {
+        const double middle = (low + high) / 2.0;
+        (impact_over_static(middle) < impact_over_sea_level ? low : high) = middle;
+    }
     constexpr double sea_level_sound_kts = 661.4786;
-    return sea_level_sound_kts *
-           std::sqrt(5.0 * (std::pow(impact_over_sea_level + 1.0, 2.0 / 7.0) - 1.0));
+    return sea_level_sound_kts * (low + high) / 2.0;
 }
 
 // FAR 25.121(b)'s second-segment climb at a V2: at the take-off flap, gear
@@ -945,15 +962,16 @@ double climb_gradient_one_engine(const std::filesystem::path& root,
     return takeoff_speeds(root, figures, spec).gradient;
 }
 
-// Level at the altitude at full throttle, flaps and gear up, from the Mach
-// given; the Mach it settles at, averaged over the last minute of ten.
-double level_mach(const std::filesystem::path& root, const PublishedFigures& figures,
-                  const FigureSpec& spec) {
-    const double altitude = condition(spec, "altitude_ft");
+// Level at an altitude at full throttle - or the `throttle` given, 0.99
+// being military power in an aircraft whose afterburner lights above it -
+// flaps and gear up, from the Mach given; the Mach it settles at, averaged
+// over the last minute of ten.
+double level_mach_at(const std::filesystem::path& root, const PublishedFigures& figures,
+                     const FigureSpec& spec, double altitude) {
     Flight f(root, figures, spec,
              airborne(altitude, kcas_for_mach(condition(spec, "mach"), altitude), true));
     Controls c;
-    c.throttle = 1.0;
+    c.throttle = condition_or(spec, "throttle", 1.0);
     double mach_sum = 0.0;
     const int total = steps(600);
     const int measured = steps(60);
@@ -967,6 +985,23 @@ double level_mach(const std::filesystem::path& root, const PublishedFigures& fig
         }
     }
     return mach_sum / measured;
+}
+
+double level_mach(const std::filesystem::path& root, const PublishedFigures& figures,
+                  const FigureSpec& spec) {
+    return level_mach_at(root, figures, spec, condition(spec, "altitude_ft"));
+}
+
+// The level Mach at the best altitude: level_mach at every 2,000 ft from
+// `altitude_ft` to `altitude_to_ft`, the greatest.
+double best_level_mach(const std::filesystem::path& root, const PublishedFigures& figures,
+                       const FigureSpec& spec) {
+    double best = 0.0;
+    for (double altitude = condition(spec, "altitude_ft");
+         altitude <= condition(spec, "altitude_to_ft"); altitude += 2000.0) {
+        best = std::max(best, level_mach_at(root, figures, spec, altitude));
+    }
+    return best;
 }
 
 // Climbing at full throttle and the Mach given, flaps and gear up, from 1,000
@@ -994,6 +1029,184 @@ double climb_at_altitude(const std::filesystem::path& root,
     return (f.aircraft.property("position/h-sl-ft") - start_ft) / 40.0 * 60.0;
 }
 
+// The energy rate, in ft/min, at a load factor: at the altitude and Mach
+// given and the `throttle` (full unless given), flaps and gear up, the
+// elevator holding the load factor, with an integral, and the bank the one at
+// which the lift's upright part holds the altitude; the energy height gained,
+// kinetic and potential, over six seconds after six to settle. If the load
+// factor is not reached - the wing or the elevator has no more - there is no
+// such turn, and it is minus infinity.
+double energy_rate_at_load_factor(const std::filesystem::path& root,
+                                  const PublishedFigures& figures, const FigureSpec& spec,
+                                  double load_factor) {
+    const double altitude = condition(spec, "altitude_ft");
+    Flight f(root, figures, spec,
+             airborne(altitude, kcas_for_mach(condition(spec, "mach"), altitude), true));
+    Controls c;
+    c.throttle = condition_or(spec, "throttle", 1.0);
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    double elevator_integral = 0.0;
+    double start_ft = 0.0;
+    double nz_sum = 0.0;
+    const auto energy_height = [&] {
+        const double v = f.aircraft.property("velocities/vtrue-fps");
+        return f.aircraft.property("position/h-sl-ft") + v * v / (2.0 * g_fps2);
+    };
+    const int settle = steps(6);
+    const int measured = steps(6);
+    for (int i = 0; i < settle + measured; ++i) {
+        const double theta = f.aircraft.property("attitude/theta-rad");
+        const double error_ft = altitude - f.aircraft.property("position/h-sl-ft");
+        const double climb_fps = f.aircraft.property("velocities/h-dot-fps");
+        const double level =
+            std::acos(std::clamp(std::cos(theta) / load_factor, -1.0, 1.0)) / radians;
+        const double bank = std::clamp(level - 0.02 * error_ft + 0.2 * climb_fps, 0.0, 88.0);
+        const double nz_error = load_factor - f.aircraft.property("accelerations/Nz");
+        elevator_integral = std::clamp(elevator_integral + 0.1 * nz_error * dt, -1.0, 1.0);
+        const double q_degps = f.aircraft.property("velocities/q-rad_sec") / radians;
+        c.elevator =
+            std::clamp(elevator_integral + 0.05 * nz_error - 0.02 * q_degps, -1.0, 1.0);
+        c.aileron = f.pilot.roll_to(bank);
+        c.rudder = f.pilot.coordinate();
+        f.fly(c);
+        if (i == settle - 1) {
+            start_ft = energy_height();
+        }
+        if (i >= settle) {
+            nz_sum += f.aircraft.property("accelerations/Nz");
+        }
+    }
+    if (nz_sum / measured < load_factor - 0.1) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    return (energy_height() - start_ft) / (measured * dt) * 60.0;
+}
+
+// The sustained turn: the greatest load factor at which, level at the
+// altitude and Mach given, the aircraft neither gains energy nor loses it -
+// the load factor a manoeuvrability chart plots - found by halving between 1
+// and 9 g; the turn rate that load factor gives, in degrees a second, g times
+// the root of n squared less one over the true airspeed.
+double sustained_turn_rate(const std::filesystem::path& root,
+                           const PublishedFigures& figures, const FigureSpec& spec) {
+    double low = 1.0;
+    double high = 9.0;
+    if (energy_rate_at_load_factor(root, figures, spec, low) < 0.0) {
+        throw std::runtime_error("not holding the Mach level, let alone turning");
+    }
+    for (int i = 0; i < 10; ++i) {
+        const double middle = (low + high) / 2.0;
+        (energy_rate_at_load_factor(root, figures, spec, middle) >= 0.0 ? low : high) = middle;
+    }
+    const double n = (low + high) / 2.0;
+    // The true airspeed of the Mach in the standard atmosphere.
+    const double altitude = condition(spec, "altitude_ft");
+    const double theta = altitude < 36089.0 ? 1.0 - 6.8756e-6 * altitude : 0.75189;
+    constexpr double sea_level_sound_fps = 1116.45;
+    const double v = condition(spec, "mach") * sea_level_sound_fps * std::sqrt(theta);
+    return g_fps2 * std::sqrt(n * n - 1.0) / v / 3.14159265358979323846 * 180.0;
+}
+
+// A level acceleration at the altitude - the flight test's way to measure
+// energy: held level at the `throttle` (full unless given) from `from` knots,
+// calibrated, until `to` or the aircraft stops gaining speed, the specific
+// excess power at each speed, V dV/dt / g, over a second at a time; each is
+// the rate at which the aircraft could climb at that speed. The greatest, in
+// ft/min, once the engines have spooled up, five seconds, and the aircraft is
+// level at 1 g: it starts at no incidence, and until its wing carries its
+// weight its drag is less than in level flight.
+double best_excess_power(const std::filesystem::path& root, const PublishedFigures& figures,
+                         const FigureSpec& spec, double altitude, double from, double to,
+                         double throttle) {
+    Flight f(root, figures, spec, airborne(altitude, from, true));
+    Controls c;
+    c.throttle = throttle;
+    double best = -std::numeric_limits<double>::infinity();
+    double last_v = f.aircraft.property("velocities/vtrue-fps");
+    double last_h = f.aircraft.property("position/h-sl-ft");
+    const int window = steps(1.0);
+    for (int i = 1; i <= steps(600); ++i) {
+        c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_altitude(altitude));
+        c.aileron = f.pilot.roll_to(0.0);
+        c.rudder = f.pilot.coordinate();
+        f.fly(c);
+        if (i % window != 0) {
+            continue;
+        }
+        const double v = f.aircraft.property("velocities/vtrue-fps");
+        const double h = f.aircraft.property("position/h-sl-ft");
+        // The energy height gained, kinetic and potential, in the second.
+        const double ps = (v * (v - last_v) / g_fps2 + (h - last_h)) * 60.0;
+        if (i >= steps(5.0) && std::abs(f.aircraft.property("accelerations/Nz") - 1.0) < 0.05) {
+            best = std::max(best, ps);
+            if (v <= last_v || f.aircraft.property("velocities/vc-kts") >= to) {
+                break;
+            }
+        }
+        last_v = v;
+        last_h = h;
+    }
+    return best;
+}
+
+// The greatest rate of climb at the altitude (sea level unless given): the
+// best specific excess power of a level acceleration from `from_kcas` to
+// `to_kcas` at the `throttle`, in ft/min.
+double max_climb_rate(const std::filesystem::path& root, const PublishedFigures& figures,
+                      const FigureSpec& spec) {
+    return best_excess_power(root, figures, spec, condition_or(spec, "altitude_ft", 0.0),
+                             condition(spec, "from_kcas"), condition(spec, "to_kcas"),
+                             condition_or(spec, "throttle", 1.0));
+}
+
+// The altitude at which the greatest rate of climb, as max_climb_rate finds
+// it, falls to `rate_fpm` - 100 ft/min for a service ceiling, 500 for a
+// combat ceiling - found by halving between 20,000 and 80,000 ft; the level
+// accelerations run from Mach `mach` to 2.5.
+double service_ceiling(const std::filesystem::path& root, const PublishedFigures& figures,
+                       const FigureSpec& spec) {
+    const double rate = condition(spec, "rate_fpm");
+    const double throttle = condition_or(spec, "throttle", 1.0);
+    const double mach = condition(spec, "mach");
+    const auto climb = [&](double altitude) {
+        return best_excess_power(root, figures, spec, altitude, kcas_for_mach(mach, altitude),
+                                 kcas_for_mach(2.5, altitude), throttle);
+    };
+    double low = 20000.0;
+    double high = 80000.0;
+    if (climb(low) < rate) {
+        throw std::runtime_error("not climbing at " + std::to_string(rate) + " ft/min at " +
+                                 std::to_string(low) + " ft");
+    }
+    for (int i = 0; i < 10; ++i) {
+        const double middle = (low + high) / 2.0;
+        (climb(middle) >= rate ? low : high) = middle;
+    }
+    return (low + high) / 2.0;
+}
+
+// Level at the altitude at full throttle, from Mach `mach` to Mach `mach_to`:
+// the seconds it takes.
+double acceleration_time(const std::filesystem::path& root, const PublishedFigures& figures,
+                         const FigureSpec& spec) {
+    const double altitude = condition(spec, "altitude_ft");
+    const double to = condition(spec, "mach_to");
+    Flight f(root, figures, spec,
+             airborne(altitude, kcas_for_mach(condition(spec, "mach"), altitude), true));
+    Controls c;
+    c.throttle = condition_or(spec, "throttle", 1.0);
+    for (int i = 0; i < steps(600); ++i) {
+        c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_altitude(altitude));
+        c.aileron = f.pilot.roll_to(0.0);
+        c.rudder = f.pilot.coordinate();
+        f.fly(c);
+        if (f.aircraft.property("velocities/mach") >= to) {
+            return i * dt;
+        }
+    }
+    throw std::runtime_error("not at Mach " + std::to_string(to) + " after ten minutes");
+}
+
 using FlightFn = std::function<double(const std::filesystem::path&,
                                       const PublishedFigures&, const FigureSpec&)>;
 
@@ -1015,7 +1228,12 @@ const std::vector<std::pair<std::string, FlightFn>>& flights() {
         {"takeoff_field_length", takeoff_field_length},
         {"climb_gradient_one_engine", climb_gradient_one_engine},
         {"level_mach", level_mach},
+        {"best_level_mach", best_level_mach},
         {"climb_at_altitude", climb_at_altitude},
+        {"sustained_turn_rate", sustained_turn_rate},
+        {"max_climb_rate", max_climb_rate},
+        {"service_ceiling", service_ceiling},
+        {"acceleration_time", acceleration_time},
     };
     return all;
 }
@@ -1153,7 +1371,8 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
              {"flaps_deg", "lift_off_kcas", "speed_kcas", "altitude_ft", "rpm",
               "bank_deg", "boost_psi", "gear", "entry_kcas", "fs_gear_above_ft",
               "radiators_open", "gear_change_boost_drop", "manifold_inhg", "lean",
-              "takeoff_pitch_deg", "mach"}) {
+              "takeoff_pitch_deg", "mach", "throttle", "from_kcas", "to_kcas", "rate_fpm",
+              "mach_to", "fuel_frozen", "altitude_to_ft"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }

@@ -143,6 +143,46 @@ GLIDESLOPE_TEST(a_failed_jet_engine_stays_failed) {
     check(live > 5000.0, "the other still runs: " + std::to_string(live) + " lb");
 }
 
+// Fuel can be frozen for a measurement, as a flight test's weight is taken as
+// one: the F-15C in afterburner burns a tenth of its fuel in the minute a
+// level acceleration takes. Frozen, the tanks hold what they held, and the
+// engines still run on it.
+GLIDESLOPE_TEST(frozen_fuel_is_not_burned) {
+    Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "f15c");
+    InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 20000.0;
+    ic.terrain_elevation_ft = -3000.0;
+    ic.airspeed_kts = 350.0;
+    ic.gear = 0.0;
+    a.initialize(ic);
+    TestPilot pilot(a);
+    Controls c;
+    c.gear = 0.0;
+    c.throttle = 1.0;
+    const auto fly = [&](double seconds) {
+        for (int i = 0; i < seconds * steps_per_second; ++i) {
+            c.elevator = pilot.pitch_to(pilot.pitch_for_altitude(20000.0));
+            c.aileron = pilot.roll_to(0.0);
+            c.rudder = pilot.coordinate();
+            a.set_controls(c);
+            a.step();
+        }
+        return a.property("propulsion/total-fuel-lbs");
+    };
+    const double start = a.property("propulsion/total-fuel-lbs");
+    const double burning = fly(20.0);
+    a.freeze_fuel(true);
+    const double frozen = fly(20.0);
+    std::printf("fuel %.0f lb, %.0f after 20 s in afterburner, %.0f after 20 s more frozen; "
+                "thrust %.0f lb\n",
+                start, burning, frozen, a.property("propulsion/engine[0]/thrust-lbs"));
+    check(start - burning > 100.0, "afterburners burn fuel: " + std::to_string(start - burning));
+    check(frozen == burning, "frozen, none is burned: " + std::to_string(burning - frozen));
+    check(a.property("propulsion/engine[0]/thrust-lbs") > 10000.0, "the engines still run");
+}
+
 // The speedbrake lever moves the flight spoilers of an aircraft that has them,
 // and the ground spoilers of one that has those too - the 737's.
 GLIDESLOPE_TEST(the_speedbrake_lever_moves_the_spoilers) {

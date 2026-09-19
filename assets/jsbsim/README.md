@@ -74,6 +74,22 @@ python3 tools/make_747_400.py
 python3 tools/make_787_8.py
 ```
 
+## The fighters
+
+The McDonnell Douglas F-15C Eagle and Lockheed Martin F-22A Raptor:
+`aircraft/f15c/` and `aircraft/f22/`, with `engine/F100-PW-220.xml`,
+`engine/F119-PW-100.xml` and `engine/direct.xml`.
+
+**Do not edit these by hand** either: `tools/make_f15c.py` and
+`tools/make_f22.py` make them from the pinned files, sharing their lift, drag
+and engines' thrust with Mach in `tools/fighter.py`, and a test fails if what
+is committed differs.
+
+```sh
+python3 tools/make_f15c.py
+python3 tools/make_f22.py
+```
+
 ## The Mosquito FB Mk VI
 
 `aircraft/mosquito-fb6/mosquito-fb6.xml`, `engine/merlin25.xml` and

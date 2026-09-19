@@ -1,0 +1,15 @@
+# The Lockheed Martin F-22A Raptor, two F119-PW-100s: JSBSim's f22 made to fly
+# to the Department of Defense's and the Air Force's published figures
+# (assets/figures/f22.xml) by tools/make_f22.py.
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name Lockheed Martin F-22A Raptor
+model f22
+start 300 0.40

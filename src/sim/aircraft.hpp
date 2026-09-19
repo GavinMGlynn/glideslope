@@ -177,6 +177,11 @@ public:
     // failure does, and feathers its propeller if `feather`.
     void fail_engine(int engine, bool feather);
 
+    // Fuel neither burns nor moves while `frozen`: an aircraft measured at a
+    // weight - a fighter's minutes in afterburner would burn half its fuel -
+    // stays at it.
+    void freeze_fuel(bool frozen);
+
     // Advances the flight model by exactly one 120 Hz step.
     void step();
 

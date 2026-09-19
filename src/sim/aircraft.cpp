@@ -304,6 +304,10 @@ void Aircraft::fail_engine(int engine, bool feather) {
     }
 }
 
+void Aircraft::freeze_fuel(bool frozen) {
+    exec_->GetPropulsion()->SetFuelFreeze(frozen);
+}
+
 void Aircraft::set_weather(std::shared_ptr<Weather> weather) {
     weather_ = std::move(weather);
     // The same turbulence every flight, so a flight in it can be repeated.

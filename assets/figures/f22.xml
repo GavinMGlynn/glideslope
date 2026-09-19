@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!--
+  The Lockheed Martin F-22A Raptor's published figures, and the conditions
+  each was measured in.
+
+  From the Department of Defense's Selected Acquisition Report for the F-22
+  (RCS DD-A&T(Q&A)823-265, 31 December 2010), its "Demonstrated
+  Performance" column - supercruise, acceleration and sustained load factor -
+  and the Air Force's F-22 Raptor fact sheet - its speed class, ceiling,
+  weights and armament. The checks in src/sim/figures.cpp fly one flight per
+  <figure> and compare what JSBSim does with the range given here.
+
+  The report gives no weights or fuel for its figures; each is flown at the
+  combat loading below. Much of the F-22's performance is not published, and
+  the tolerances are this project's.
+-->
+<published_figures aircraft="f22" flaps_full_deg="0">
+  <source>DoD Selected Acquisition Report, F-22, December 2010; USAF F-22 fact sheet</source>
+
+  <!-- 54,960 lb: the fact sheet's empty weight, 43,340 lb; the pilot, 230
+       lb; the report's missile load, six AIM-120s at 335 lb and two AIM-9s
+       at 190 lb (the Air Force's AMRAAM and Sidewinder fact sheets), 2,390
+       lb; and half the 18,000 lb of internal fuel. The gun's ammunition is
+       not counted: no source gives its weight. -->
+  <loading name="combat" total_lbs="54960">
+    <pointmass index="0" lbs="230"/>
+    <pointmass index="1" lbs="2390"/>
+    <tank index="0" lbs="4500"/>
+    <tank index="1" lbs="4500"/>
+  </loading>
+
+  <figure name="supercruise_mach" fuel_frozen="1" flight="best_level_mach" loading="combat"
+          unit="Mach" value="1.76" tolerance="0.05" altitude_ft="30000" altitude_to_ft="50000"
+          mach="1.5" throttle="0.99">
+    The report's supercruise, "Vmax/Opt Alt/Mil Power": Mach 1.76,
+    demonstrated, at military power, 0.99, and the best altitude - flown level
+    at every 2,000 ft from 30,000 to 50,000 ft, the fastest.
+  </figure>
+
+  <figure name="acceleration_0.8_to_1.5_30000_ft" fuel_frozen="1" flight="acceleration_time"
+          loading="combat" unit="s" value="52.4" tolerance_percent="10" altitude_ft="30000"
+          mach="0.8" mach_to="1.5">
+    The report's acceleration, "Acceleration/.8-1.5/30K": 52.4 seconds,
+    demonstrated, from Mach 0.8 to 1.5 at 30,000 ft, at maximum power.
+  </figure>
+
+  <figure name="sustained_turn_mach_0.9_30000_ft" fuel_frozen="1" flight="sustained_turn_rate"
+          loading="combat" unit="deg/s" value="7.34" tolerance="0.5" altitude_ft="30000"
+          mach="0.9">
+    The report's manoeuvrability, "max power sustained G", at 30,000 ft and
+    Mach 0.9: 3.7 g, demonstrated - a turn rate of 7.34 degrees a second, g
+    times the root of n squared less one, over the true airspeed, 895 ft/s.
+    The tolerance takes in the report's objective, 3.9 g.
+  </figure>
+
+  <figure name="maximum_mach_40000_ft" fuel_frozen="1" flight="level_mach" loading="combat"
+          unit="Mach" min="1.95" max="2.35" altitude_ft="40000" mach="1.8">
+    The fact sheet's speed, "mach two class": level at 40,000 ft at full
+    throttle it reaches Mach 2, within the class this project reads as 1.95
+    to 2.35. Lockheed Martin (18 November 2002) had it cleared to Mach 2.
+  </figure>
+
+  <figure name="climb_rate_50000_ft" fuel_frozen="1" flight="max_climb_rate" loading="combat"
+          unit="ft/min" min="100" max="30000" altitude_ft="50000" from_kcas="210"
+          to_kcas="520">
+    The fact sheet's ceiling, "above 50,000 feet": at 50,000 ft, at maximum
+    power, it still climbs at 100 ft/min, the rate that makes a service
+    ceiling.
+  </figure>
+</published_figures>

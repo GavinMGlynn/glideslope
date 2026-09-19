@@ -7,7 +7,8 @@ aircraft to an AI pilot and take it back.
 > **Status: Phases 0, 1, 2, 3, 3b and 4 are complete, and Phase 5, the choice
 > of aircraft, is under way.** A Cessna 172P, a Cessna 182S, a Piper PA-28
 > and a Piper J-3 Cub fly to their handbooks, an Airbus A320 and Boeing
-> 737-300, 747-400 and 787-8 to their airport-planning documents, and a
+> 737-300, 747-400 and 787-8 to their airport-planning documents, an F-15C and
+> F-22A to the Air Force's and the Department of Defense's figures, and a
 > Mosquito FB Mk VI to its wartime trials and Pilot's Notes; the Cessna 172P
 > stands
 > on the real ground anywhere on Earth, and can be flown from the keyboard or a
