@@ -8,6 +8,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -81,6 +82,33 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_a
                   " KCAS for a minute: " + std::to_string(h.altitude_ft) + " ft, " +
                   std::to_string(h.airspeed_kts) + " KCAS");
     }
+}
+
+// No flight model opens a network socket. JSBSim's 737 opened a telnet port
+// and a UDP port whenever it was loaded, for other programs to drive it;
+// glideslope's aircraft talk to nothing but glideslope. Every model file the
+// data holds, its comments set aside, has no <input port> and no socket
+// output.
+GLIDESLOPE_TEST(no_flight_model_opens_a_network_socket) {
+    int files = 0;
+    for (const auto& entry :
+         std::filesystem::recursive_directory_iterator(data() / "jsbsim" / "aircraft")) {
+        if (entry.path().extension() != ".xml") {
+            continue;
+        }
+        std::ifstream in(entry.path());
+        std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        for (std::size_t open = text.find("<!--"); open != std::string::npos;
+             open = text.find("<!--", open)) {
+            const std::size_t close = text.find("-->", open);
+            text.erase(open, close == std::string::npos ? std::string::npos : close + 3 - open);
+        }
+        ++files;
+        check(text.find("<input port") == std::string::npos &&
+                  text.find("type=\"SOCKET\"") == std::string::npos,
+              entry.path().string() + " opens no network socket");
+    }
+    check(files > 0, "the data holds flight models");
 }
 
 GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong) {

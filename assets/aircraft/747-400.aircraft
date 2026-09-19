@@ -1,0 +1,14 @@
+# The Boeing 747-400: JSBSim's B747 made to fly to its airport-planning document's
+# and type certificate's figures (assets/figures/747-400.xml) by tools/make_747_400.py.
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name Boeing 747-400
+model 747-400
+start 250 0.58

@@ -55,6 +55,25 @@ committed differs.
 python3 tools/make_j3cub.py
 ```
 
+## The airliners
+
+The Airbus A320 and Boeing 737-300, 747-400 and 787-8: `aircraft/a320/`,
+`aircraft/737-300/`, `aircraft/747-400/` and `aircraft/787-8/`, with
+`engine/CFM56-5B4.xml`, `engine/CFM56-3B1.xml`, `engine/CF6-80C2B1F.xml`,
+`engine/Trent1000.xml` and `engine/direct.xml`.
+
+**Do not edit these by hand** either: `tools/make_a320.py`,
+`tools/make_737_300.py`, `tools/make_747_400.py` and `tools/make_787_8.py` make
+them from the pinned files, sharing what they change alike in
+`tools/airliner.py`, and a test fails if what is committed differs.
+
+```sh
+python3 tools/make_a320.py
+python3 tools/make_737_300.py
+python3 tools/make_747_400.py
+python3 tools/make_787_8.py
+```
+
 ## The Mosquito FB Mk VI
 
 `aircraft/mosquito-fb6/mosquito-fb6.xml`, `engine/merlin25.xml` and

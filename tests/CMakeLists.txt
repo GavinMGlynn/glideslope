@@ -97,6 +97,22 @@ set(GLIDESLOPE_UNIT_TESTS
     the_piper_j3_cub_glides_near_its_published_ratio
     the_piper_j3_cub_stalls_near_its_published_speed
     a_figure_asking_for_flaps_the_aircraft_does_not_have_is_refused
+    the_boeing_737_300_needs_about_its_published_takeoff_runway_length_at_maximum_weight
+    the_boeing_737_300_climbs_with_an_engine_out_as_far_25_demands
+    the_boeing_737_300_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows
+    the_boeing_737_300_still_climbs_at_its_certificated_ceiling
+    the_airbus_a320_needs_about_its_published_takeoff_runway_length_at_maximum_weight
+    the_airbus_a320_climbs_with_an_engine_out_as_far_25_demands
+    the_airbus_a320_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows
+    the_airbus_a320_still_climbs_at_its_certificated_ceiling
+    the_boeing_747_400_needs_about_its_published_takeoff_runway_length_at_maximum_weight
+    the_boeing_747_400_climbs_with_an_engine_out_as_far_25_demands
+    the_boeing_747_400_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows
+    the_boeing_747_400_still_climbs_at_its_certificated_ceiling
+    the_boeing_787_8_needs_about_its_published_takeoff_runway_length_at_maximum_weight
+    the_boeing_787_8_climbs_with_an_engine_out_as_far_25_demands
+    the_boeing_787_8_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows
+    the_boeing_787_8_still_climbs_at_its_certificated_ceiling
     the_mosquito_fb6_flies_level_at_sea_level_at_hx809s_speed
     the_mosquito_fb6_flies_level_at_its_ms_gear_full_throttle_height_at_hx809s_speed
     the_mosquito_fb6_flies_level_at_its_fs_gear_full_throttle_height_at_hx809s_speed
@@ -113,6 +129,8 @@ set(GLIDESLOPE_UNIT_TESTS
     the_mosquito_fb6_holds_its_height_on_one_engine_up_to_its_pilots_notes_ceiling
     the_mosquito_drops_its_nose_at_the_stall_as_its_pilots_notes_say
     fixed_gear_stays_down_when_the_lever_is_raised
+    a_failed_jet_engine_stays_failed
+    the_speedbrake_lever_moves_the_spoilers
     every_published_figure_has_a_flight_and_every_flight_a_figure
     an_aircraft_restored_in_every_phase_of_flight_tracks_the_original
     an_aircraft_put_back_to_an_earlier_snapshot_flies_on_as_a_fresh_restore_does
@@ -197,6 +215,7 @@ set(GLIDESLOPE_UNIT_TESTS
     handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase
     every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_air
     an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong
+    no_flight_model_opens_a_network_socket
     a_download_cannot_be_killed_by_a_server_hanging_up)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
@@ -259,6 +278,34 @@ add_test(NAME the_committed_piper_j3_cub_is_what_its_tuning_script_makes
         -DSCRIPT=tools/make_j3cub.py
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
 set_tests_properties(the_committed_piper_j3_cub_is_what_its_tuning_script_makes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_boeing_737_300_is_what_its_tuning_script_makes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_737_300.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_boeing_737_300_is_what_its_tuning_script_makes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_airbus_a320_is_what_its_tuning_script_makes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_a320.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_airbus_a320_is_what_its_tuning_script_makes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_boeing_747_400_is_what_its_tuning_script_makes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_747_400.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_boeing_747_400_is_what_its_tuning_script_makes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_boeing_787_8_is_what_its_tuning_script_makes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_787_8.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_boeing_787_8_is_what_its_tuning_script_makes
     PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME the_committed_mosquito_propeller_is_what_its_script_computes
@@ -492,7 +539,7 @@ add_test(NAME the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files
 add_test(NAME the_cli_lists_the_aircraft_the_data_holds
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=aircraft -DEXIT=0
-        "-DSTDOUT_MATCHES=c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*j3cub +Piper J-3 Cub +model j3cub, starting at 60 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures.*pa28 +Piper PA-28-180 Cherokee +model pa28, starting at 110 KCAS, published figures"
+        "-DSTDOUT_MATCHES=737-300 +Boeing 737-300 +model 737-300, starting at 250 KCAS, published figures.*747-400 +Boeing 747-400 +model 747-400, starting at 250 KCAS, published figures.*787-8 +Boeing 787-8 +model 787-8, starting at 250 KCAS, published figures.*a320 +Airbus A320 +model a320, starting at 250 KCAS, published figures.*c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*j3cub +Piper J-3 Cub +model j3cub, starting at 60 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures.*pa28 +Piper PA-28-180 Cherokee +model pa28, starting at 110 KCAS, published figures"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_an_aircraft_it_has_no_files_for

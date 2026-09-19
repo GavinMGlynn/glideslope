@@ -1,0 +1,14 @@
+# The Airbus A320: JSBSim's A320 made to fly to its airport-planning document's
+# and type certificate's figures (assets/figures/a320.xml) by tools/make_a320.py.
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name Airbus A320
+model a320
+start 250 0.42

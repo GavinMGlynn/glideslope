@@ -68,7 +68,8 @@ Controls Controller::fly() {
               std::pair{&applied_.throttle_offset[0], pilot_.throttle_offset[0]},
               std::pair{&applied_.throttle_offset[1], pilot_.throttle_offset[1]},
               std::pair{&applied_.cooling_flaps[0], pilot_.cooling_flaps[0]},
-              std::pair{&applied_.cooling_flaps[1], pilot_.cooling_flaps[1]}}) {
+              std::pair{&applied_.cooling_flaps[1], pilot_.cooling_flaps[1]},
+              std::pair{&applied_.speedbrake, pilot_.speedbrake}}) {
             met = towards(*control, wanted) && met;
         }
         catching_up_ = !met;

@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<!--
+  The Boeing 737-300's published figures, and the conditions each was
+  measured in.
+
+  From Boeing's 737 Airplane Characteristics for Airport Planning (D6-58325-6,
+  revision E, November 2023), for the CFM56-3B1 at 20,000 lb, and the FAA's
+  type certificate data sheet A16WE (revision 66), except the cruise Mach:
+  neither gives the 737 Classic's, and it is EUROCONTROL's Aircraft
+  Performance Database's, a secondary source. The checks in
+  src/sim/figures.cpp fly one flight per <figure> and compare what JSBSim does
+  with the range given here.
+
+  The take-off runway length is read from the planning document's chart, to
+  about 100 ft. The climb is the one FAR 25 demands with an engine out, which
+  every airliner certificated to it meets; Boeing publishes no climb figure.
+  The tolerances are this project's.
+-->
+<published_figures aircraft="737-300" flaps_full_deg="40">
+  <source>Boeing D6-58325-6 rev E, 2023; FAA TCDS A16WE</source>
+
+  <!-- 135,000 lb, the maximum take-off weight with the CFM56-3B1 (table
+       2.1.6, its heaviest -3B1 column): the operating empty weight, 72,540
+       lb; the maximum structural payload, 33,960 lb, which makes the maximum
+       zero-fuel weight, 106,500 lb; and 28,500 lb of fuel. -->
+  <loading name="maximum" total_lbs="135000">
+    <pointmass index="0" lbs="33960"/>
+    <tank index="0" lbs="10000"/>
+    <tank index="1" lbs="10000"/>
+    <tank index="2" lbs="8500"/>
+  </loading>
+
+  <!-- 114,000 lb, the maximum landing weight: a full payload and 7,500 lb of
+       fuel, a weight in the cruise. -->
+  <loading name="landing" total_lbs="114000">
+    <pointmass index="0" lbs="33960"/>
+    <tank index="0" lbs="3750"/>
+    <tank index="1" lbs="3750"/>
+    <tank index="2" lbs="0"/>
+  </loading>
+
+  <!-- The operating empty weight and a tenth of the 35,584 lb of fuel it
+       holds: as light as it flies. -->
+  <loading name="light" total_lbs="76098">
+    <pointmass index="0" lbs="0"/>
+    <tank index="0" lbs="1779"/>
+    <tank index="1" lbs="1779"/>
+    <tank index="2" lbs="0"/>
+  </loading>
+
+  <figure name="takeoff_field_length" loading="maximum" unit="ft" value="8400"
+          tolerance_percent="10" flaps_deg="5" entry_kcas="220">
+    Figure 3.3.11, page 3-20: FAR take-off runway length, CFM56-3B1 at 20,000
+    lb, standard day, sea level, no air-conditioning bleed, flaps 5, at 135,000
+    lb - about 8,400 ft, read from the chart.
+  </figure>
+
+  <figure name="climb_one_engine_out" flight="climb_gradient_one_engine"
+          loading="maximum" unit="%" min="2.4" max="10" flaps_deg="5"
+          entry_kcas="220">
+    FAR 25.121(b), the 737-300's certification basis (A16WE): with one engine
+    out, the take-off flaps, the gear up and V2, a twin climbs at no less than
+    2.4%. No figure above that is published; 10% bounds a model gone wrong.
+  </figure>
+
+  <figure name="cruise_mach" flight="level_mach" loading="landing" unit="Mach"
+          min="0.74" max="0.85" altitude_ft="35000" mach="0.74">
+    Level at 35,000 ft at full throttle, it must reach its cruise Mach, 0.74
+    (EUROCONTROL's Aircraft Performance Database; secondary), and its drag
+    rise hold it within 0.03 of its Mmo, 0.82 (A16WE).
+  </figure>
+
+  <figure name="ceiling" flight="climb_at_altitude" loading="light" unit="ft/min"
+          min="300" max="100000" altitude_ft="37000" mach="0.74">
+    A16WE: maximum operating altitude 37,000 ft. As light as it flies, at full
+    throttle, it still climbs there at 300 ft/min, the margin that makes an
+    altitude a thrust-limited ceiling.
+  </figure>
+</published_figures>

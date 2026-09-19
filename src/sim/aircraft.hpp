@@ -69,6 +69,10 @@ struct Controls {
     // Each engine's radiator shutters or cowl flaps, the port engine's first:
     // 0 closed, 1 open. An engine without them ignores it.
     std::array<double, 2> cooling_flaps{};
+    // The speedbrake lever: 0 stowed, 1 fully out - the flight spoilers, and
+    // on the ground the ground spoilers too. An aircraft without them
+    // ignores it.
+    double speedbrake = 0.0;
 };
 
 // What is on board, by JSBSim's index for each point mass (seats, baggage) and

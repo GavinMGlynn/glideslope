@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<!--
+  File:     GE-CF6-80C2-B1F.xml
+  Author:   Jon Berndt, Aero-Matic v 0.8
+
+  Inputs:
+    name:           GE-CF6-80C2-B1F
+    type:           turbine
+    thrust:         58000.0 lb
+    augmented?      no
+    injected?       yes
+
+  Additional Information:
+
+  [Source: http://www.bh.com/companions/034074152X/appendices/data-b/table-3/default.htm]
+
+    Number of shafts: 2
+    Compressor: 1 + 4LP
+                14HP
+    Turbine:    2HP, 5LP
+    Cost: $6.10 million
+
+    Length: 14.00 ft.
+    Fan diameter: 8.84 ft.
+    Weight: 9,500 lbs.
+
+    Flat rating: 32 degrees C
+    Pressure ratio (TO): 29.90
+    Mass flow (lb/sec, TO): 1,765 (lb/sec)
+    TSFC (TO): 0.32
+-->
+
+<turbine_engine name="GE-CF6-80C2-B1F">
+  <!-- glideslope: JSBSim's GE-CF6-80C2-B1F with the changes listed in
+       tools/make_747_400.py, which made it. Do not edit it by hand. -->
+  <milthrust>   58000.0 </milthrust>
+  <bypassratio>     5.15 </bypassratio>
+  <tsfc>            0.564 </tsfc>
+  <idlen1>         30.0 </idlen1>
+  <idlen2>         60.0 </idlen2>
+  <maxn1>         100.0 </maxn1>
+  <maxn2>         100.0 </maxn2>
+  <augmented>         0 </augmented>
+  <augmethod>         1 </augmethod>
+  <injected>          1 </injected>
+
+  <function name="IdleThrust">
+   <table>
+    <independentVar lookup="row">velocities/mach</independentVar>
+    <independentVar lookup="column">atmosphere/density-altitude</independentVar>
+    <tableData>
+         -10000     0     10000   20000   30000   40000   50000   60000
+     0.0  0.0430  0.0488  0.0528  0.0694  0.0899  0.1183  0.1467  0.0
+     0.2  0.0500  0.0501  0.0335  0.0544  0.0797  0.1049  0.1342  0.0
+     0.4  0.0040  0.0047  0.0020  0.0272  0.0595  0.0891  0.1203  0.0
+     0.6  0.0     0.0     0.0     0.0     0.0276  0.0718  0.1073  0.0
+     0.8  0.0     0.0     0.0     0.0     0.0474  0.0868  0.0900  0.0
+     1.0  0.0     0.0     0.0     0.0     0.0     0.0552  0.0800  0.0
+    </tableData>
+   </table>
+  </function>
+
+  <function name="MilThrust">
+   <table>
+    <independentVar lookup="row">velocities/mach</independentVar>
+    <independentVar lookup="column">atmosphere/density-altitude</independentVar>
+    <tableData>
+          -10000       0   10000   20000   30000   40000   50000   60000
+     0.0  1.4183  1.0000  0.6877  0.4595  0.2970  0.1851  0.1145  0.0708
+     0.2  1.1389  0.8029  0.5522  0.3690  0.2384  0.1486  0.0919  0.0568
+     0.4  1.0929  0.7705  0.5299  0.3541  0.2288  0.1426  0.0882  0.0545
+     0.6  1.1225  0.7914  0.5442  0.3637  0.2350  0.1465  0.0906  0.0560
+     0.8  1.2145  0.8563  0.5889  0.3935  0.2543  0.1585  0.0980  0.0606
+     1.0  1.3693  0.9654  0.6639  0.4436  0.2867  0.1787  0.1105  0.0683
+     1.2  0.0000  0.0000  0.0000  0.0000  0.0000  0.0000  0.0000  0.0000
+     1.4  0.0000  0.0000  0.0000  0.0000  0.0000  0.0000  0.0000  0.0000
+    </tableData>
+   </table>
+  </function>
+
+</turbine_engine>

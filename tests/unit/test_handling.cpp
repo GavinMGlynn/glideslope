@@ -105,3 +105,67 @@ GLIDESLOPE_TEST(fixed_gear_stays_down_when_the_lever_is_raised) {
                   std::to_string(position));
     }
 }
+
+// A jet engine that fails stays failed: JSBSim's turbine, stopped with fuel
+// still flowing, relights as it spools down, and the take-off field lengths
+// and climbs with an engine out would fly on two. Its fuel is cut off, and it
+// windmills.
+GLIDESLOPE_TEST(a_failed_jet_engine_stays_failed) {
+    Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "a320");
+    InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 5000.0;
+    ic.terrain_elevation_ft = -3000.0;
+    ic.airspeed_kts = 200.0;
+    ic.gear = 0.0;
+    a.initialize(ic);
+    TestPilot pilot(a);
+    Controls c;
+    c.gear = 0.0;
+    c.throttle = 0.8;
+    for (int i = 0; i < 60 * steps_per_second; ++i) {
+        if (i == 5 * steps_per_second) {
+            a.fail_engine(0, false);
+        }
+        c.elevator = pilot.pitch_to(pilot.pitch_for_speed(200.0));
+        c.aileron = pilot.roll_to(0.0);
+        c.rudder = pilot.coordinate();
+        a.set_controls(c);
+        a.step();
+    }
+    const double failed = a.property("propulsion/engine[0]/thrust-lbs");
+    const double live = a.property("propulsion/engine[1]/thrust-lbs");
+    std::printf("a minute after the failure: %.0f lb and %.0f lb of thrust, N1 %.1f%%\n", failed,
+                live, a.property("propulsion/engine[0]/n1"));
+    check(failed == 0.0 && a.property("propulsion/engine[0]/set-running") == 0.0,
+          "the failed engine gives no thrust and is not running: " + std::to_string(failed));
+    check(live > 5000.0, "the other still runs: " + std::to_string(live) + " lb");
+}
+
+// The speedbrake lever moves the flight spoilers of an aircraft that has them,
+// and the ground spoilers of one that has those too - the 737's.
+GLIDESLOPE_TEST(the_speedbrake_lever_moves_the_spoilers) {
+    Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "737-300");
+    InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 5000.0;
+    ic.terrain_elevation_ft = -3000.0;
+    ic.airspeed_kts = 250.0;
+    ic.gear = 0.0;
+    a.initialize(ic);
+    Controls c;
+    c.gear = 0.0;
+    c.throttle = 0.5;
+    c.speedbrake = 1.0;
+    for (int i = 0; i < 5 * steps_per_second; ++i) {
+        a.set_controls(c);
+        a.step();
+    }
+    check(a.property("fcs/speedbrake-pos-norm") > 0.99 &&
+              a.property("fcs/spoiler-pos-norm") > 0.99,
+          "flight and ground spoilers out: " +
+              std::to_string(a.property("fcs/speedbrake-pos-norm")) + ", " +
+              std::to_string(a.property("fcs/spoiler-pos-norm")));
+}

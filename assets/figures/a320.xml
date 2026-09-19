@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<!--
+  The Airbus A320's published figures, and the conditions each was measured
+  in.
+
+  From Airbus's A320 Aircraft Characteristics - Airport and Maintenance
+  Planning (June 2024 edition) and the FAA's type certificate data sheet
+  A28NM (revision 42), except the cruise Mach, which is Airbus's Getting to
+  Grips with Aircraft Performance (2002). The checks in src/sim/figures.cpp
+  fly one flight per <figure> and compare what JSBSim does with the range
+  given here.
+
+  The take-off runway length is read from the planning document's chart, to
+  about 100 ft; the chart names neither its flap setting nor its engines'
+  rating - "CFM56 series engine" - and is flown here with 10 degrees of flap,
+  the A320's configuration 1+F. The climb is the one FAR 25 demands with an
+  engine out, which every airliner certificated to it meets. The tolerances
+  are this project's.
+-->
+<published_figures aircraft="a320" flaps_full_deg="40">
+  <source>Airbus A320 Aircraft Characteristics, 2024; FAA TCDS A28NM</source>
+
+  <!-- 73,500 kg (162,040 lb), weight variant 000's maximum take-off weight:
+       the operating empty weight the planning document's examples use,
+       41,244 kg (90,927 lb); a payload of 19,256 kg (42,453 lb), which makes
+       the maximum zero-fuel weight, 60,500 kg; and 13,000 kg (28,660 lb) of
+       fuel. -->
+  <loading name="maximum" total_lbs="162040">
+    <pointmass index="0" lbs="42453"/>
+    <tank index="0" lbs="14330"/>
+    <tank index="1" lbs="14330"/>
+  </loading>
+
+  <!-- 64,500 kg (142,198 lb), the maximum landing weight: the same payload
+       and 4,000 kg of fuel, a weight in the cruise. -->
+  <loading name="landing" total_lbs="142198">
+    <pointmass index="0" lbs="42453"/>
+    <tank index="0" lbs="4409"/>
+    <tank index="1" lbs="4409"/>
+  </loading>
+
+  <!-- The operating empty weight and a tenth of the 41,896 lb of fuel it
+       holds: as light as it flies. -->
+  <loading name="light" total_lbs="95117">
+    <pointmass index="0" lbs="0"/>
+    <tank index="0" lbs="2095"/>
+    <tank index="1" lbs="2095"/>
+  </loading>
+
+  <figure name="takeoff_field_length" loading="maximum" unit="ft" value="5850"
+          tolerance_percent="10" flaps_deg="10" entry_kcas="230">
+    Figure 3-3-1-991-005-A01: take-off weight limitation, ISA, CFM56 series
+    engine, sea level - 73,500 kg at about 5,850 ft of runway, read from the
+    chart.
+  </figure>
+
+  <figure name="climb_one_engine_out" flight="climb_gradient_one_engine"
+          loading="maximum" unit="%" min="2.4" max="10" flaps_deg="10"
+          entry_kcas="230">
+    FAR 25.121(b), the A320's certification basis (A28NM): with one engine
+    out, the take-off flaps, the gear up and V2, a twin climbs at no less than
+    2.4%. No figure above that is published; 10% bounds a model gone wrong.
+  </figure>
+
+  <figure name="cruise_mach" flight="level_mach" loading="landing" unit="Mach"
+          min="0.78" max="0.85" altitude_ft="35000" mach="0.78">
+    Level at 35,000 ft at full throttle, it must reach its cruise Mach, 0.78
+    (Getting to Grips with Aircraft Performance, page 155: the A320's climb and
+    cruise at Mach 0.78), and its drag rise hold it within 0.03 of its Mmo,
+    0.82 (A28NM).
+  </figure>
+
+  <figure name="ceiling" flight="climb_at_altitude" loading="light" unit="ft/min"
+          min="300" max="100000" altitude_ft="39100" mach="0.78">
+    A28NM: maximum operating altitude 39,100 ft (39,800 ft with modification
+    30748). As light as it flies, at full throttle, it still climbs there at
+    300 ft/min, the margin that makes an altitude a thrust-limited ceiling.
+  </figure>
+</published_figures>

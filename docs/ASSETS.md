@@ -5,9 +5,11 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Fourteen things are used: Cessna 172P and 182S, Piper PA-28-180 and Piper
-J-3 Cub flight models derived from JSBSim's, the four aircraft's handbooks'
-published figures, the Mosquito FB Mk VI's trials
+**Twenty-two things are used: Cessna 172P and 182S, Piper PA-28-180 and J-3
+Cub, Airbus A320 and Boeing 737-300, 747-400 and 787-8 flight models derived
+from JSBSim's, those eight aircraft's published figures - handbooks for the
+light aircraft, airport-planning documents and type certificates for the
+airliners - the Mosquito FB Mk VI's trials
 and Pilot's Notes (for a flight model written here), the Copernicus DEM, the
 EGM2008 geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from
 aviationweather.gov and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
@@ -99,6 +101,74 @@ entertainment purposes only."
 | --- | --- |
 | Source | Piper's Owner's Manual for the J3C-65 (undated; a Wag-Aero reproduction), pages 11, 12, 41 and 47, as copied at <https://stpeteair.org/wp-content/uploads/cub_owners_manual.pdf>; Piper's booklet "How to Fly a Piper Cub" (1945), page 12, as copied at <https://home.adelphi.edu/~allendon/fly_a_cub.pdf>; FAA Aircraft Specification A-691, revision 34, section IV and propeller item 2, for the static rpm, the stations and the elevator's travel |
 | In the repository | `assets/figures/j3cub.xml`: individual numbers, each with its page, not the manual's text |
+| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The Airbus A320 flight model, derived from JSBSim's
+
+| | |
+| --- | --- |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/A320/A320.xml`, `engine/CFM56_5.xml`, `engine/direct.xml` |
+| Changes | Made by `tools/make_a320.py` with `tools/airliner.py`, whose docstrings list each change and why: made the A320-214, with the CFM56-5B4's 27,000 lb; weights, tanks and payload; the pitch stiffness; the drag, rebuilt as induced and flap drag, with a Mach drag rise and a windmilling engine's drag; the gear's drag; ground effect and the lift with the take-off flaps; the engines' thrust with height and speed. |
+| In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/a320/a320.xml`, `engine/CFM56-5B4.xml`, `engine/direct.xml`); a test fails if they differ |
+| Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
+
+### The Airbus A320's published figures
+
+| | |
+| --- | --- |
+| Source | Airbus, A320 Aircraft Characteristics - Airport and Maintenance Planning, June 2024 edition, figure 3-3-1-991-005-A01, as published at <https://www.aircraft.airbus.com/sites/g/files/jlcbta126/files/2025-01/AC_A320_0624.pdf>; Airbus, Getting to Grips with Aircraft Performance, January 2002, page 155, as copied at <https://skybrary.aero/sites/default/files/bookshelf/2263.pdf>; FAA type certificate data sheet A28NM, revision 42, as copied at <https://downloads.regulations.gov/FAA-2021-0799-0001/attachment_3.pdf>, for the Mmo and ceiling; FAA type certificate data sheet E37NE, for the CFM56-5B4's rating |
+| In the repository | `assets/figures/a320.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
+| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The Boeing 737-300 flight model, derived from JSBSim's
+
+| | |
+| --- | --- |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/737/737.xml`, `engine/CFM56.xml`, `engine/direct.xml` |
+| Changes | Made by `tools/make_737_300.py` with `tools/airliner.py`, whose docstrings list each change and why: no network sockets; weights, tanks and payload; flaps in degrees, the leading edge devices and the flaps' drag; a Mach drag rise and a windmilling engine's drag; braking friction; the engines' thrust with height and speed, and no bleed. |
+| In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/737-300/737-300.xml`, `engine/CFM56-3B1.xml`, `engine/direct.xml`); a test fails if they differ |
+| Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
+
+### The Boeing 737-300's published figures
+
+| | |
+| --- | --- |
+| Source | Boeing, 737 Airplane Characteristics for Airport Planning, D6-58325-6 revision E, November 2023, table 2.1.6 and figure 3.3.11, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/737CL_REV_E.pdf>; FAA type certificate data sheet A16WE, as copied at <http://www.b737.org.uk/a16we.pdf>; the cruise Mach from EUROCONTROL's Aircraft Performance Database, <https://learningzone.eurocontrol.int/ilp/customs/ATCPFDB/details.aspx?ICAO=B733>, a secondary source, Boeing publishing none |
+| In the repository | `assets/figures/737-300.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
+| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The Boeing 747-400 flight model, derived from JSBSim's
+
+| | |
+| --- | --- |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/B747/B747.xml`, `engine/GE-CF6-80C2-B1F.xml`, `engine/direct.xml` |
+| Changes | Made by `tools/make_747_400.py` with `tools/airliner.py`, whose docstrings list each change and why: weights, tanks and payload; the nose gear's spring; a Mach drag rise and a windmilling engine's drag; braking friction; the engines' thrust with height and speed. |
+| In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/747-400/747-400.xml`, `engine/CF6-80C2B1F.xml`, `engine/direct.xml`); a test fails if they differ |
+| Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
+
+### The Boeing 747-400's published figures
+
+| | |
+| --- | --- |
+| Source | Boeing, 747-400 Airplane Characteristics for Airport Planning, D6-58326-1 revision F, December 2024, table 2.1.1 and figures 3.2.1 and 3.3.1, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/747-400_Rev_F.pdf>; FAA type certificate data sheet A20WE, revision 58, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/7478-airport-comp/A20WE.pdf> |
+| In the repository | `assets/figures/747-400.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
+| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The Boeing 787-8 flight model, derived from JSBSim's
+
+| | |
+| --- | --- |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/787-8/787-8.xml`, `engine/trent_1000.xml`, `engine/direct.xml` |
+| Changes | Made by `tools/make_787_8.py` with `tools/airliner.py`, whose docstrings list each change and why: the lift, with a wing of its aspect ratio's slope and the slats; the span, the induced, zero-lift and flap drag; the rudder's command; a Mach drag rise and a windmilling engine's drag; braking friction; the engines' thrust with height and speed, and no bleed. |
+| In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/787-8/787-8.xml`, `engine/Trent1000.xml`, `engine/direct.xml`); a test fails if they differ |
+| Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
+
+### The Boeing 787-8's published figures
+
+| | |
+| --- | --- |
+| Source | Boeing, 787 Airplane Characteristics for Airport Planning, D6-58333 revision O, February 2023, table 2.1.1 and figures 3.2.1 and 3.3.1, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/787.pdf>; FAA type certificate data sheet T00021SE, revision 32, from the FAA's regulatory and guidance library as archived by the Internet Archive; Boeing's own 787-8 page, as archived, for the cruise Mach |
+| In the repository | `assets/figures/787-8.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
 ### The Mosquito FB Mk VI: its trials, Pilot's Notes and engine curves

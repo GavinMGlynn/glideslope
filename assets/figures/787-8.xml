@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<!--
+  The Boeing 787-8's published figures, and the conditions each was measured
+  in.
+
+  From Boeing's 787 Airplane Characteristics for Airport Planning (D6-58333,
+  revision O, February 2023), for its "typical" thrust rating, and the FAA's
+  type certificate data sheet T00021SE (revision 32), except the cruise Mach,
+  which is Boeing's own 787-8 page (archived) and the payload-range chart's.
+  The checks in src/sim/figures.cpp fly one flight per <figure> and compare
+  what JSBSim does with the range given here.
+
+  The take-off runway length is read from the planning document's chart, to
+  about 100 ft; at the maximum weight it is in the chart's flaps 5 region.
+  The climb is the one FAR 25 demands with an engine out, which every
+  airliner certificated to it meets; Boeing publishes no climb figure. The
+  tolerances are this project's.
+-->
+<published_figures aircraft="787-8" flaps_full_deg="35">
+  <source>Boeing D6-58333 rev O, 2023; FAA TCDS T00021SE</source>
+
+  <!-- 502,500 lb, the maximum take-off weight: the model's empty weight,
+       239,200 lb; a payload of 115,800 lb, which makes the maximum zero-fuel
+       weight, 355,000 lb, in the model's seats and holds in proportion to the
+       model's own; and 147,500 lb of fuel. -->
+  <loading name="maximum" total_lbs="502500">
+    <pointmass index="0" lbs="835"/>
+    <pointmass index="1" lbs="4293"/>
+    <pointmass index="2" lbs="15265"/>
+    <pointmass index="3" lbs="59629"/>
+    <pointmass index="4" lbs="23852"/>
+    <pointmass index="5" lbs="11926"/>
+    <tank index="0" lbs="45000"/>
+    <tank index="1" lbs="45000"/>
+    <tank index="2" lbs="57500"/>
+  </loading>
+
+  <!-- 380,000 lb, the maximum landing weight: the same payload and 25,000 lb
+       of fuel, a weight in the cruise. -->
+  <loading name="landing" total_lbs="380000">
+    <pointmass index="0" lbs="835"/>
+    <pointmass index="1" lbs="4293"/>
+    <pointmass index="2" lbs="15265"/>
+    <pointmass index="3" lbs="59629"/>
+    <pointmass index="4" lbs="23852"/>
+    <pointmass index="5" lbs="11926"/>
+    <tank index="0" lbs="12500"/>
+    <tank index="1" lbs="12500"/>
+    <tank index="2" lbs="0"/>
+  </loading>
+
+  <!-- The empty weight and a tenth of the 223,378 lb of fuel it holds: as
+       light as it flies. -->
+  <loading name="light" total_lbs="261538">
+    <pointmass index="0" lbs="0"/>
+    <pointmass index="1" lbs="0"/>
+    <pointmass index="2" lbs="0"/>
+    <pointmass index="3" lbs="0"/>
+    <pointmass index="4" lbs="0"/>
+    <pointmass index="5" lbs="0"/>
+    <tank index="0" lbs="11169"/>
+    <tank index="1" lbs="11169"/>
+    <tank index="2" lbs="0"/>
+  </loading>
+
+  <figure name="takeoff_field_length" loading="maximum" unit="ft" value="10100"
+          tolerance_percent="10" flaps_deg="5" entry_kcas="220">
+    Figure 3.3.1: FAA/EASA take-off runway length, standard day, dry runway,
+    typical thrust rating, sea level, forward centre of gravity limit, at
+    502,500 lb - about 10,100 ft, read from the chart, in its flaps 5 region.
+  </figure>
+
+  <figure name="climb_one_engine_out" flight="climb_gradient_one_engine"
+          loading="maximum" unit="%" min="2.4" max="10" flaps_deg="5"
+          entry_kcas="220">
+    FAR 25.121(b), the 787's certification basis (T00021SE): with one engine
+    out, the take-off flaps, the gear up and V2, a twin climbs at no less than
+    2.4%. No figure above that is published; 10% bounds a model gone wrong.
+  </figure>
+
+  <figure name="cruise_mach" flight="level_mach" loading="landing" unit="Mach"
+          min="0.85" max="0.93" altitude_ft="35000" mach="0.85">
+    Level at 35,000 ft at full throttle, it must reach its cruise Mach, 0.85
+    (Boeing's 787-8 page, and the payload-range chart, figure 3.2.1), and its
+    drag rise hold it within 0.03 of its Mmo, 0.90 (T00021SE).
+  </figure>
+
+  <figure name="ceiling" flight="climb_at_altitude" loading="light" unit="ft/min"
+          min="300" max="100000" altitude_ft="43100" mach="0.85">
+    T00021SE: maximum operating altitude 43,100 ft. As light as it flies, at
+    full throttle, it still climbs there at 300 ft/min, the margin that makes
+    an altitude a thrust-limited ceiling.
+  </figure>
+</published_figures>

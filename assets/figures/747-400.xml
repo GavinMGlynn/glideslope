@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<!--
+  The Boeing 747-400's published figures, and the conditions each was
+  measured in.
+
+  From Boeing's 747-400 Airplane Characteristics for Airport Planning
+  (D6-58326-1, revision F, December 2024), for its General Electric engines,
+  and the FAA's type certificate data sheet A20WE (revision 58). The checks
+  in src/sim/figures.cpp fly one flight per <figure> and compare what JSBSim
+  does with the range given here.
+
+  The take-off runway length is read from the planning document's chart, to
+  about 100 ft. The climb is the one FAR 25 demands with an engine out, which
+  every airliner certificated to it meets; Boeing publishes no climb figure.
+  The tolerances are this project's.
+-->
+<published_figures aircraft="747-400" flaps_full_deg="30">
+  <source>Boeing D6-58326-1 rev F, 2024; FAA TCDS A20WE</source>
+
+  <!-- 875,000 lb, the heaviest maximum take-off weight with GE engines (table
+       2.1.1): the operating empty weight, 394,088 lb; a payload of 140,912
+       lb, which makes the maximum zero-fuel weight, 535,000 lb; and 340,000
+       lb of fuel. -->
+  <loading name="maximum" total_lbs="875000">
+    <pointmass index="0" lbs="140912"/>
+    <tank index="0" lbs="68000"/>
+    <tank index="1" lbs="68000"/>
+    <tank index="2" lbs="68000"/>
+    <tank index="3" lbs="68000"/>
+    <tank index="4" lbs="68000"/>
+  </loading>
+
+  <!-- 574,000 lb, the maximum landing weight: the same payload and 39,000 lb
+       of fuel, a weight in the cruise. -->
+  <loading name="landing" total_lbs="574000">
+    <pointmass index="0" lbs="140912"/>
+    <tank index="0" lbs="7800"/>
+    <tank index="1" lbs="7800"/>
+    <tank index="2" lbs="7800"/>
+    <tank index="3" lbs="7800"/>
+    <tank index="4" lbs="7800"/>
+  </loading>
+
+  <!-- The operating empty weight and a tenth of the 360,225 lb of fuel it
+       holds: as light as it flies. -->
+  <loading name="light" total_lbs="430108">
+    <pointmass index="0" lbs="0"/>
+    <tank index="0" lbs="7204"/>
+    <tank index="1" lbs="7204"/>
+    <tank index="2" lbs="7204"/>
+    <tank index="3" lbs="7204"/>
+    <tank index="4" lbs="7204"/>
+  </loading>
+
+  <figure name="takeoff_field_length" loading="maximum" unit="ft" value="10500"
+          tolerance_percent="10" flaps_deg="20" entry_kcas="200">
+    Figure 3.3.1, page 3-13: FAR take-off runway length, standard day, sea
+    level, flaps 20, air conditioning off, at 875,000 lb - about 10,500 ft,
+    read from the chart.
+  </figure>
+
+  <figure name="climb_one_engine_out" flight="climb_gradient_one_engine"
+          loading="maximum" unit="%" min="3.0" max="10" flaps_deg="20"
+          entry_kcas="200">
+    FAR 25.121(b), the 747-400's certification basis (A20WE): with one engine
+    out, the take-off flaps, the gear up and V2, a four-engined aircraft
+    climbs at no less than 3.0%. No figure above that is published; 10%
+    bounds a model gone wrong.
+  </figure>
+
+  <figure name="cruise_mach" flight="level_mach" loading="landing" unit="Mach"
+          min="0.85" max="0.95" altitude_ft="35000" mach="0.85">
+    Level at 35,000 ft at full throttle, it must reach its cruise Mach, 0.85
+    (the payload-range chart's, figure 3.2.1), and its drag rise hold it
+    within 0.03 of its Mmo, 0.92 (A20WE).
+  </figure>
+
+  <figure name="ceiling" flight="climb_at_altitude" loading="light" unit="ft/min"
+          min="300" max="100000" altitude_ft="45100" mach="0.85">
+    A20WE: maximum operating altitude 45,100 ft. As light as it flies, at full
+    throttle, it still climbs there at 300 ft/min, the margin that makes an
+    altitude a thrust-limited ceiling.
+  </figure>
+</published_figures>

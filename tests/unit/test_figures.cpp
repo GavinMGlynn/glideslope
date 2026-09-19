@@ -22,7 +22,7 @@ const char* const data_dir = GLIDESLOPE_TEST_DATA_DIR;
 
 // Every aircraft with published figures.
 const std::vector<std::string>& figured_models() {
-    static const std::vector<std::string> models = {"c172p", "c182", "j3cub", "mosquito-fb6", "pa28"};
+    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "c172p", "c182", "j3cub", "mosquito-fb6", "pa28"};
     return models;
 }
 
@@ -174,6 +174,70 @@ GLIDESLOPE_TEST(the_piper_j3_cub_stalls_near_its_published_speed) {
     expect_figure("j3cub", "stall_speed");
 }
 
+GLIDESLOPE_TEST(the_boeing_737_300_needs_about_its_published_takeoff_runway_length_at_maximum_weight) {
+    expect_figure("737-300", "takeoff_field_length");
+}
+
+GLIDESLOPE_TEST(the_boeing_737_300_climbs_with_an_engine_out_as_far_25_demands) {
+    expect_figure("737-300", "climb_one_engine_out");
+}
+
+GLIDESLOPE_TEST(the_boeing_737_300_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows) {
+    expect_figure("737-300", "cruise_mach");
+}
+
+GLIDESLOPE_TEST(the_boeing_737_300_still_climbs_at_its_certificated_ceiling) {
+    expect_figure("737-300", "ceiling");
+}
+
+GLIDESLOPE_TEST(the_airbus_a320_needs_about_its_published_takeoff_runway_length_at_maximum_weight) {
+    expect_figure("a320", "takeoff_field_length");
+}
+
+GLIDESLOPE_TEST(the_airbus_a320_climbs_with_an_engine_out_as_far_25_demands) {
+    expect_figure("a320", "climb_one_engine_out");
+}
+
+GLIDESLOPE_TEST(the_airbus_a320_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows) {
+    expect_figure("a320", "cruise_mach");
+}
+
+GLIDESLOPE_TEST(the_airbus_a320_still_climbs_at_its_certificated_ceiling) {
+    expect_figure("a320", "ceiling");
+}
+
+GLIDESLOPE_TEST(the_boeing_747_400_needs_about_its_published_takeoff_runway_length_at_maximum_weight) {
+    expect_figure("747-400", "takeoff_field_length");
+}
+
+GLIDESLOPE_TEST(the_boeing_747_400_climbs_with_an_engine_out_as_far_25_demands) {
+    expect_figure("747-400", "climb_one_engine_out");
+}
+
+GLIDESLOPE_TEST(the_boeing_747_400_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows) {
+    expect_figure("747-400", "cruise_mach");
+}
+
+GLIDESLOPE_TEST(the_boeing_747_400_still_climbs_at_its_certificated_ceiling) {
+    expect_figure("747-400", "ceiling");
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_needs_about_its_published_takeoff_runway_length_at_maximum_weight) {
+    expect_figure("787-8", "takeoff_field_length");
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_climbs_with_an_engine_out_as_far_25_demands) {
+    expect_figure("787-8", "climb_one_engine_out");
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows) {
+    expect_figure("787-8", "cruise_mach");
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_still_climbs_at_its_certificated_ceiling) {
+    expect_figure("787-8", "ceiling");
+}
+
 // A figure that asks for flaps of an aircraft without them - the Cub has none,
 // and its file says so with a travel of 0 - is refused, not flown with a
 // flap command divided by nothing.
@@ -280,7 +344,7 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
         check(flown.count(name) == 1, "figures name a flight " + name +
                                           " that does not exist");
     }
-    check(figures_in_files == 44,
-          "forty-four figures, one test each above; found " +
+    check(figures_in_files == 60,
+          "sixty figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

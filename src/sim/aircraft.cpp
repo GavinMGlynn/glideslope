@@ -23,6 +23,7 @@
 #include <models/propulsion/FGPiston.h>
 #include <models/propulsion/FGPropeller.h>
 #include <models/propulsion/FGThruster.h>
+#include <models/propulsion/FGTurbine.h>
 #include <simgear/misc/sg_path.hxx>
 #include <simgear/props/props.hxx>
 
@@ -270,6 +271,12 @@ void Aircraft::set_controls(const Controls& c) {
     if (retractable_gear(*exec_)) {
         exec_->SetPropertyValue("gear/gear-cmd-norm", c.gear);
     }
+    // Only a model that declares them has speedbrakes or ground spoilers.
+    for (const char* spoilers : {"fcs/speedbrake-cmd-norm", "fcs/spoiler-cmd-norm"}) {
+        if (exec_->GetPropertyManager()->HasNode(spoilers)) {
+            exec_->SetPropertyValue(spoilers, c.speedbrake);
+        }
+    }
     // Only a model that declares the switch has one.
     if (exec_->GetPropertyManager()->HasNode("fcs/supercharger-cmd-norm")) {
         exec_->SetPropertyValue("fcs/supercharger-cmd-norm", c.supercharger);
@@ -286,6 +293,10 @@ void Aircraft::fail_engine(int engine, bool feather) {
     // windmills fast enough, so its ignition goes off with it.
     if (const auto piston = std::dynamic_pointer_cast<JSBSim::FGPiston>(e)) {
         piston->SetMagnetos(0);
+    }
+    // A turbine with fuel relights as it spools down; its fuel is cut off.
+    if (const auto turbine = std::dynamic_pointer_cast<JSBSim::FGTurbine>(e)) {
+        turbine->SetCutoff(true);
     }
     e->SetRunning(false);
     if (feather) {
