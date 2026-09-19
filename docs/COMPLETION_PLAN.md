@@ -267,12 +267,19 @@ quality: each is held to published figures before it is offered, as the Cessna
       which loads and flies; and every aircraft the data holds loads and, on
       the autopilot, holds 3,000 ft within 100 ft and its catalogue airspeed
       within 5 kt for a minute.
-- [ ] **A Mosquito flight model**, written here from its pilot's notes and
+- [x] **A Mosquito flight model**, written here from its pilot's notes and
       published trials - the first aircraft after the Cessna, at the project
       owner's asking. *Verification: maximum speed at altitude, climb, stall
       and take-off figures from those sources, each inside its tolerance, and
       its handling - the swing on take-off, the single-engine safety speed -
-      as the pilot's notes describe it.*
+      as the pilot's notes describe it.* Stated, 2026-09-19, CI run 35409102752:
+      the FB Mk VI flies all fourteen of its figures inside their ranges on
+      every platform - HX809's level speeds at four heights within 0.8%,
+      HJ679's climbs and time to 20,000 ft within 7.5%, the Pilot's Notes'
+      stalls within 3 knots, the B Mk IV's take-off over 50 ft 5.5% long,
+      the swing to port checked by a 2.6 lb/sq in lead on the port throttle,
+      the two safety speeds 5 and 8 knots from the Notes', and the
+      single-engine ceiling 12,480 ft against their 12,000.
 - [ ] **The light aircraft fly to their figures** - the J-3 Cub, PA-28 and
       Cessna 182, from JSBSim's models. *Verification: each lands inside its
       tolerance on every figure recorded from its handbook, as the Cessna 172P

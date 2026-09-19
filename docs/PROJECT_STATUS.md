@@ -90,7 +90,7 @@ thermals and mountain waves, and weather you can see. **Phase 5, aircraft
 choice, is under way: 2 of 14 items done** - aircraft as data, and the
 Mosquito FB Mk VI, written here from its trials and Pilot's Notes and held to
 fourteen of their figures, proved in CI on every platform (runs 35387301607
-and RUNID). Next: the light aircraft from JSBSim's models.
+and 35409102752). Next: the light aircraft from JSBSim's models.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -144,7 +144,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The Mosquito FB Mk VI, 2026-09-19 — item done (CI run RUNID)
+### The Mosquito FB Mk VI, 2026-09-19 — item done (CI run 35409102752)
 
 **What is missing first:** the Mosquito flies only from the catalogue - nothing
 yet lets a pilot choose it at the start (a Phase 5 item of its own) or work
