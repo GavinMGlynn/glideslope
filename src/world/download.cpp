@@ -61,7 +61,8 @@ platform::HttpResponse fetch_with_retries(const Fetch& fetch, const std::string&
     for (int attempt = 1;; ++attempt) {
         try {
             platform::HttpResponse r = fetch(url);
-            if (r.status < 500 || attempt >= attempts) {
+            const bool failed = r.status >= 500 || (r.status == 200 && r.body.empty());
+            if (!failed || attempt >= attempts) {
                 return r;
             }
         } catch (const platform::HttpError&) {

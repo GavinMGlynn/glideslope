@@ -171,7 +171,9 @@ GLIDESLOPE_TEST(
     a_fetch_is_tried_again_after_a_server_error_or_no_answer_and_not_after_a_refusal) {
     using glideslope::world::fetch_with_retries;
     constexpr std::chrono::milliseconds no_wait{0};
-    // Answers with each status in turn, a 0 being no answer at all.
+    // Answers with each status in turn, a 0 being no answer at all and `empty`
+    // a 200 with nothing in it; every other answer has something in it.
+    constexpr int empty = -200;
     const auto answering = [](std::vector<int> statuses, int& calls) {
         return [statuses, &calls](const std::string&) {
             const int status = statuses.at(static_cast<std::size_t>(calls++));
@@ -179,7 +181,10 @@ GLIDESLOPE_TEST(
                 throw HttpError("no answer");
             }
             HttpResponse r;
-            r.status = status;
+            r.status = status == empty ? 200 : status;
+            if (status != empty) {
+                r.body = {std::uint8_t{'x'}};
+            }
             return r;
         };
     };
@@ -194,6 +199,10 @@ GLIDESLOPE_TEST(
                   200 &&
               calls == 3,
           "no answer twice, then the answer");
+    calls = 0;
+    const auto after_empty = fetch_with_retries(answering({empty, 200}, calls), "u", 3, no_wait);
+    check(after_empty.status == 200 && !after_empty.body.empty() && calls == 2,
+          "a 200 with nothing in it, then the answer");
     calls = 0;
     check(
         fetch_with_retries(answering({504, 504, 502}, calls), "u", 3, no_wait).status ==
