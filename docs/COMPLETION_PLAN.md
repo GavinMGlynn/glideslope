@@ -353,14 +353,24 @@ quality: each is held to published figures before it is offered, as the Cessna
       *Verification: it floats at rest at its published draught, takes off from
       the sea and from a lake within its published distance, and alights on
       water and comes to rest afloat.*
-- [ ] **Water where the DEM says it is** - the sea, and lakes and rivers from
+- [x] **Water where the DEM says it is** - the sea, and lakes and rivers from
       the DEM's water body mask - for the seaplane to alight on and landplanes
       not to. *Verification: at reference lakes, rivers and coasts the ground
       under an aircraft is water or land as the mask says, and a landplane that
-      alights on water does not roll out on it.*
-- [ ] **The HUD for fast aircraft** - Mach and flight level where they apply.
+      alights on water does not roll out on it.* Stated, 2026-09-20, CI run
+      35449051367: at eleven places around Sydney - the Tasman Sea off Bondi and
+      Maroubra, Lake Macquarie, Tuggerah Lake, Sydney Harbour, Botany Bay,
+      Broken Bay, and four on land - the ground under a Cessna flown over each
+      is water or land as the Copernicus mask says, its pinned tile read as an
+      independent decoder reads it; and all fifteen aircraft set down on water
+      ditch where they meet it, no wheel taking weight, where on land they roll
+      on, on every platform.
+- [x] **The HUD for fast aircraft** - Mach and flight level where they apply.
       *Verification: the numbers in a `--shot` of a jet at altitude match its
-      state at that tick, as for the Cessna.*
+      state at that tick, as for the Cessna.* Stated, 2026-09-20, CI run
+      35449051367: on every platform and GPU driver a shot of the A320 at 11,000 m
+      over Sydney shows MACH and FL lines that match its traced state at that
+      tick, read back out of the frame, and a Cessna's shows neither.
 - [ ] **Visual models from FlightGear aircraft**, each licence checked.
       *Verification: `ASSETS.md` names the source, commit and licence of every
       model that ships, and a model without an entry fails a test.*

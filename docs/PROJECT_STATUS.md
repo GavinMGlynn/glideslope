@@ -87,7 +87,7 @@ of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
 and 35363959900): the same air on every machine, a METAR's gusts flown, the
 wind near the ground as a boundary layer, reported wind shear, microbursts,
 thermals and mountain waves, and weather you can see. **Phase 5, aircraft
-choice, is under way: 9 of 14 items done** - aircraft as data; the
+choice, is under way: 11 of 14 items done** - aircraft as data; the
 Mosquito FB Mk VI, written here from its trials and Pilot's Notes and held to
 fourteen of their figures, proved in CI on every platform (runs 35387301607
 and 35409102752); the light aircraft from JSBSim's models - the Cessna 182S,
@@ -101,7 +101,10 @@ certifying authorities' documents (CI run 35435906751); a Gates Learjet 35A,
 written here from its flight manual and NASA's measurements of the Learjet 23;
 and the F-35A and B-2A, written here from what little is published of them
 (CI run 35442214130); and any of them chosen at start, `--aircraft`, in the air or
-on the ground (CI run 35442214130). Next: the HUD for fast aircraft.
+on the ground (CI run 35442214130); the HUD's Mach number and flight level
+for a fast aircraft; and water where the DEM's water body mask says it is,
+on which a landplane ditches (CI run 35449051367). Next: the Short S.23 on
+water.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -174,7 +177,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Water where the DEM says it is, and landplanes ditch on it, 2026-09-20 — item done (CI run RUNID)
+### Water where the DEM says it is, and landplanes ditch on it, 2026-09-20 — item done (CI run 35449051367)
 
 Phase 5's "Water where the DEM says it is": the ground under an aircraft is
 water - the sea, a lake or a river - where the Copernicus DEM's water body
@@ -221,7 +224,7 @@ beyond a 120 Hz step. How an airframe meets water is hydrodynamics no model
 here has, so a landplane ditches, and is still. The flying boat to come has
 its hull's hydrodynamics and will not ditch.
 
-### The HUD for fast aircraft, 2026-09-19 — item done (CI run RUNID)
+### The HUD for fast aircraft, 2026-09-19 — item done (CI run 35449051367)
 
 Phase 5's "the HUD for fast aircraft": below the bank, the HUD gives the
 Mach number, to a hundredth, from Mach 0.40 - where airliners' displays begin
