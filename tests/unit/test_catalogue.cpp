@@ -3,6 +3,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
 
 #include <algorithm>
@@ -12,7 +13,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -115,6 +118,85 @@ double take_off(const std::filesystem::path& from, const CatalogueEntry& e) {
     return aircraft.property("position/h-agl-ft") - standing;
 }
 
+// Set down at idle on level ground, or on water: flown in from 30 ft at six
+// tenths of its catalogue airspeed, as take_off rotates at, its gear down and
+// its brakes off, the nose held two degrees up and the wings level, for three
+// minutes or until it has been still for two seconds.
+struct Alighting {
+    bool touched = false;            // on land, a wheel took weight; on water, it ditched
+    bool wheels_took_weight = false; // any wheel, at any time
+    double speed_kts = 0.0;          // over the surface, at the end
+    double moved_ft = 0.0;           // from where it touched to where it ended
+    double lowest_ft = 1e9;          // its centre of gravity above the surface, after touching
+    bool finite = true;
+};
+Alighting alight(const std::filesystem::path& from, const CatalogueEntry& e, bool water) {
+    glideslope::sim::Aircraft aircraft(from / "jsbsim", e.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [water](double, double) { return water; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 30.0;
+    ic.airspeed_kts = 0.6 * e.start_airspeed_kts;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+    glideslope::sim::TestPilot pilot(aircraft);
+    glideslope::sim::Controls c;
+    c.gear = 1.0;
+    c.throttle = 0.0;
+    const int units = static_cast<int>(aircraft.property("gear/num-units"));
+    const auto a_wheel_takes_weight = [&] {
+        for (int i = 0; i < units; ++i) {
+            try {
+                if (aircraft.property("gear/unit[" + std::to_string(i) + "]/WOW") != 0.0) {
+                    return true;
+                }
+            } catch (const std::out_of_range&) {
+                // structure, which JSBSim names contact/unit[i]
+            }
+        }
+        return false;
+    };
+    Alighting a;
+    int still = 0;
+    double touched_lat = 0.0;
+    double touched_lon = 0.0;
+    for (int i = 0; i < 180 * steps_per_second && still < 2 * steps_per_second; ++i) {
+        c.elevator = pilot.pitch_to(2.0);
+        c.aileron = pilot.roll_to(0.0);
+        aircraft.set_controls(c);
+        aircraft.step();
+        const glideslope::sim::AircraftState state = aircraft.state();
+        const bool wheels = a_wheel_takes_weight();
+        a.wheels_took_weight = a.wheels_took_weight || wheels;
+        if (!a.touched && (wheels || state.ditched)) {
+            a.touched = true;
+            touched_lat = state.latitude_deg;
+            touched_lon = state.longitude_deg;
+        }
+        // Over the surface, JSBSim's ground speed lags a step behind a
+        // ditching; the speed along the body's axes does not.
+        const double speed_kts =
+            std::hypot(state.u_fps, state.v_fps, state.w_fps) / 1.68781;
+        if (!std::isfinite(speed_kts) || !std::isfinite(state.height_above_ground_ft)) {
+            a.finite = false;
+            break;
+        }
+        if (a.touched) {
+            constexpr double feet_per_degree = 60.0 * 6076.12;
+            a.moved_ft = std::hypot((state.latitude_deg - touched_lat) * feet_per_degree,
+                                    (state.longitude_deg - touched_lon) * feet_per_degree *
+                                        std::cos(touched_lat * 3.14159265358979 / 180.0));
+            a.lowest_ft = std::min(a.lowest_ft, state.height_above_ground_ft);
+            still = speed_kts < 0.5 ? still + 1 : 0;
+        }
+        a.speed_kts = speed_kts;
+    }
+    return a;
+}
+
 bool refused(const std::string& text, const std::string& says) {
     try {
         glideslope::sim::parse_catalogue_entry("test", text);
@@ -152,6 +234,41 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_takes_off_from_a_runway) {
         check(height >= 200.0, e.id + " (" + e.name + ") took off and climbed through 200 ft: " +
                                    std::to_string(height) + " ft");
     }
+}
+
+// A landplane that alights on water does not roll out on it: set down on
+// water as on land, no wheel of any aircraft the data holds takes its weight;
+// it ditches - brought to rest where it met the water, no deeper than it was
+// then - where on land it rolls on.
+GLIDESLOPE_TEST(every_aircraft_the_data_holds_that_alights_on_water_does_not_roll_out_on_it) {
+    // Every aircraft is flown, and every one that fails named, before the test fails.
+    std::string failures;
+    const auto expect = [&](bool condition, const std::string& what) {
+        if (!condition) {
+            failures += "\n  " + what;
+        }
+    };
+    for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
+        const Alighting land = alight(data(), e, false);
+        const Alighting water = alight(data(), e, true);
+        std::printf("%s: on land, rolled %.0f ft and was at %.1f kt; on water, %s and moved "
+                    "%.1f ft, its centre of gravity %.1f ft above the water\n",
+                    e.id.c_str(), land.moved_ft, land.speed_kts,
+                    water.touched ? "ditched" : "did not ditch", water.moved_ft,
+                    water.lowest_ft);
+        expect(land.touched && land.wheels_took_weight && land.moved_ft > 500.0,
+               e.id + " landed on its wheels on land and rolled on, as a control: " +
+                   std::to_string(land.moved_ft) + " ft");
+        expect(water.touched && water.finite && !water.wheels_took_weight,
+               e.id + " ditched on the water, no wheel taking its weight");
+        expect(water.speed_kts < 0.01 && water.moved_ft < 0.01,
+               e.id + " was brought to rest where it met the water: it moved " +
+                   std::to_string(water.moved_ft) + " ft");
+        expect(water.lowest_ft > 0.0, e.id + " stays with its centre of gravity above the water: " +
+                                          std::to_string(water.lowest_ft) + " ft");
+    }
+    check(failures.empty(), "every aircraft that alit on water ditched and did not roll out:" +
+                                failures);
 }
 
 // No flight model opens a network socket. JSBSim's 737 opened a telnet port

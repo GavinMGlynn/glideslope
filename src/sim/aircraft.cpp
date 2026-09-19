@@ -177,8 +177,38 @@ void Aircraft::set_terrain(std::shared_ptr<Terrain> terrain) {
         throw std::invalid_argument("no terrain");
     }
     const auto inertial = exec_->GetInertial();
-    inertial->SetGroundCallback(new TerrainGround(
-        std::move(terrain), inertial->GetSemimajor(), inertial->GetSemiminor()));
+    inertial->SetGroundCallback(
+        new TerrainGround(terrain, inertial->GetSemimajor(), inertial->GetSemiminor()));
+    terrain_ = std::move(terrain);
+    contact_heights_.clear();
+    const auto ground = exec_->GetGroundReactions();
+    for (int i = 0; i < ground->GetNumGearUnits(); ++i) {
+        contact_heights_.push_back((ground->GetGearUnit(i)->IsBogey() ? "gear/unit["
+                                                                       : "contact/unit[") +
+                                   std::to_string(i) + "]/AGL-ft");
+    }
+}
+
+// Water, to JSBSim, is ground that is not solid: a BOGEY contact - a wheel -
+// takes no weight on it, and a STRUCTURE contact still does. It has one ground
+// for every contact, so the whole aircraft is on water or on land, as the
+// terrain is below its centre.
+void Aircraft::apply_ground() {
+    const bool water =
+        terrain_->water(exec_->GetPropertyValue("position/lat-geod-deg"),
+                        exec_->GetPropertyValue("position/long-gc-deg"));
+    exec_->GetGroundReactions()->SetSolid(!water);
+}
+
+// JSBSim gives each contact point's height above the surface, at its lowest
+// nought, whether the point takes weight there or not.
+bool Aircraft::meets_the_surface() const {
+    for (const std::string& height : contact_heights_) {
+        if (exec_->GetPropertyValue(height) <= 0.0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void Aircraft::initialize(const InitialConditions& ic) {
@@ -197,6 +227,11 @@ void Aircraft::initialize(const InitialConditions& ic) {
     if (retractable_gear(*exec_)) {
         exec_->SetPropertyValue("gear/gear-cmd-norm", ic.gear);
         exec_->SetPropertyValue("gear/gear-pos-norm", ic.gear);
+    }
+    exec_->SetHoldDown(false); // started again
+    if (terrain_) {
+        exec_->GetGroundReactions()->SetSolid(
+            !terrain_->water(ic.latitude_deg, ic.longitude_deg));
     }
     if (!exec_->RunIC()) {
         throw std::runtime_error("JSBSim refused the initial conditions for " + model_);
@@ -355,7 +390,16 @@ void Aircraft::step() {
     if (weather_) {
         apply_weather();
     }
+    if (terrain_) {
+        apply_ground();
+    }
     exec_->Run();
+    // Hold-down stops the aircraft - its velocities and rates to nothing - and
+    // keeps it stopped, its attitude as it was.
+    if (terrain_ && !exec_->GetGroundReactions()->GetSolid() && !exec_->GetHoldDown() &&
+        meets_the_surface()) {
+        exec_->SetHoldDown(true);
+    }
 }
 
 AircraftState Aircraft::state() const {
@@ -367,6 +411,8 @@ AircraftState Aircraft::state() const {
     s.height_above_ground_ft = exec_->GetPropertyValue("position/h-agl-ft");
     s.terrain_elevation_ft =
         exec_->GetPropertyValue("position/terrain-elevation-asl-ft");
+    s.on_water = !exec_->GetGroundReactions()->GetSolid();
+    s.ditched = exec_->GetHoldDown();
     s.roll_deg = exec_->GetPropertyValue("attitude/phi-deg");
     s.pitch_deg = exec_->GetPropertyValue("attitude/theta-deg");
     s.heading_deg = exec_->GetPropertyValue("attitude/psi-deg");

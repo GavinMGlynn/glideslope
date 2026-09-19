@@ -328,8 +328,9 @@ in the repository.
 | --- | --- |
 | Source | The Copernicus DEM GLO-30 Public, as Cloud Optimized GeoTIFFs in the AWS Open Data bucket `copernicus-dem-30m` (<https://copernicus-dem-30m.s3.amazonaws.com/readme.html>) |
 | Version | The bucket names no release. Its objects are dated 2022-05-09; each tile's metadata gives its creation as 2019-10-19 and its heights as "WGS 84 Geoid EGM08". What is used is pinned file by file, by SHA-256 |
-| Pinned | `tests/data/downloads/files.txt`: `Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif` (33-34 S, 151-152 E), 20,882,213 bytes, SHA-256 `6e20871096986cd00fc3903ea95670a0d83860236a0e4f1360ac9ac67def485d` |
-| In the repository | No tile: the tests fetch the tile into the build tree, or the directory `GLIDESLOPE_DOWNLOADS` names. `assets/dem/coverage.txt` says which 1-degree cells have a tile at 30 m, only at 90 m, or none; `tools/make_dem_coverage.py` makes it from both buckets' `tileList.txt` (30 m: 1,110,900 bytes, SHA-256 `10604e3052c98a09e9216f1a8f0a555a04148419757575f783d4937fd44316dc`; 90 m: 1,111,950 bytes, SHA-256 `e5a5efe088e70506bc1007d22006bdcb09b0ec03177b62f9652363c13f49ed97`), and a test checks it still matches them |
+| Pinned | `tests/data/downloads/files.txt`: `Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif` (33-34 S, 151-152 E), 20,882,213 bytes, SHA-256 `6e20871096986cd00fc3903ea95670a0d83860236a0e4f1360ac9ac67def485d`; and its water body mask, `AUXFILES/Copernicus_DSM_COG_10_S34_00_E151_00_WBM.tif`, 158,882 bytes, SHA-256 `bc3da27a02dfd81e8572bf6bf997eba64b4669403c29269a50e0ad9de326b654` |
+| Used | Each tile's heights, and its water body mask - the auxiliary file published beside it, on the same grid - for where the ground is water |
+| In the repository | No tile or mask: the tests fetch the tile and its mask into the build tree, or the directory `GLIDESLOPE_DOWNLOADS` names. `assets/dem/coverage.txt` says which 1-degree cells have a tile at 30 m, only at 90 m, or none; `tools/make_dem_coverage.py` makes it from both buckets' `tileList.txt` (30 m: 1,110,900 bytes, SHA-256 `10604e3052c98a09e9216f1a8f0a555a04148419757575f783d4937fd44316dc`; 90 m: 1,111,950 bytes, SHA-256 `e5a5efe088e70506bc1007d22006bdcb09b0ec03177b62f9652363c13f49ed97`), and a test checks it still matches them |
 | Licence | "Licence for Copernicus DEM instance COP-DEM-GLO-30-F Global 30m Full, Free & Open", published beside each tile as `INFO/eula_F.pdf` (SHA-256 `32049914c37f14e7d53b48d13d74a49e77c030236e2acc7a0df426f9344feba2`). It grants, free of charge, worldwide and without limit in time, "(a) reproduction; (b) distribution; (c) communication to the General Public; (d) adaptation, modification and combination with other data and information." |
 
 Its Article 6, quoted:
@@ -374,6 +375,19 @@ for the EEA-10, GLO-30 and GLO-90 instances, quoted:
 > 3) Due to the global coverage of the TanDEM-X DEM / WorldDEM / Copernicus DEM,
 > all accuracy statistics and values stated in this document are calculated as
 > an arithmetic mean. Local deviations can occur.
+
+**Its water body mask**, from the same handbook (section 1.2.5.4 and its
+table 8, page 21), quoted:
+
+> The Water Body Mask (WBM) shows all DEM pixels, which are classified as water
+> and edited according to the categories Ocean, Lake or River. Table 8 shows the
+> meaning of the pixel values.
+
+Its values are 0, no water; 1, ocean; 2, lake; 3, river (`world::Water`).
+Its format (section 1.2.5, "8 Bit unsigned integer, GeoTIFF") is read by
+`world/geotiff.hpp` as the heights are; a test holds it to an independent
+decoder's reading of the pinned mask. The mask is not shown: it says only
+where the ground is water, and so where a landplane ditches.
 
 **What that asks of glideslope, and where it is done.** The client draws
 terrain made from the DEM - adapted, so notice (b) - and `glideslope_cli height`

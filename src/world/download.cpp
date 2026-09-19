@@ -107,13 +107,23 @@ DownloadedTiles::DownloadedTiles(std::filesystem::path cache, Fetch fetch)
 
 std::shared_ptr<const ByteSource> DownloadedTiles::open(DemDataset dataset,
                                                         DemCell cell) {
-    const std::string name = dem_tile_name(dataset, cell);
+    return fetched(dataset, dem_tile_name(dataset, cell), dem_tile_url(dataset, cell));
+}
+
+std::shared_ptr<const ByteSource> DownloadedTiles::open_water_mask(DemDataset dataset,
+                                                                   DemCell cell) {
+    return fetched(dataset, dem_water_mask_name(dataset, cell),
+                   dem_water_mask_url(dataset, cell));
+}
+
+std::shared_ptr<const ByteSource> DownloadedTiles::fetched(DemDataset dataset,
+                                                           const std::string& name,
+                                                           const std::string& url) {
     const std::filesystem::path path =
         cache_ /
         (dataset == DemDataset::glo30 ? "copernicus-dem-30m" : "copernicus-dem-90m") /
         (name + ".tif");
     if (!std::filesystem::exists(path)) {
-        const std::string url = dem_tile_url(dataset, cell);
         const platform::HttpResponse r = get(fetch_, url);
         // S3 gives a file uploaded whole its MD5 as its ETag. One uploaded in
         // parts has an ETag with a dash, which is not a digest of the file, and

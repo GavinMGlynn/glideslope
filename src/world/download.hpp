@@ -36,22 +36,28 @@ std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
                                    const std::string& name, const std::string& url,
                                    const std::string& sha256, const Fetch& fetch);
 
-// DEM tiles from the cache, fetched from the public buckets into it when they
-// are not there yet. A tile is checked against the MD5 the bucket gives as its
-// ETag before it is kept; one that arrives different, or not at all, is not
-// kept, and the query that wanted it fails with the reason.
+// DEM tiles and their water body masks from the cache, fetched from the
+// public buckets into it when they are not there yet. A file is checked
+// against the MD5 the bucket gives as its ETag before it is kept; one that
+// arrives different, or not at all, is not kept, and the query that wanted it
+// fails with the reason.
 class DownloadedTiles : public DemTiles {
 public:
     DownloadedTiles(std::filesystem::path cache, Fetch fetch);
 
     std::shared_ptr<const ByteSource> open(DemDataset dataset, DemCell cell) override;
+    std::shared_ptr<const ByteSource> open_water_mask(DemDataset dataset,
+                                                      DemCell cell) override;
 
-    // Tiles fetched, rather than found in the cache, since construction.
+    // Files fetched, rather than found in the cache, since construction.
     int downloads() const {
         return downloads_;
     }
 
 private:
+    std::shared_ptr<const ByteSource> fetched(DemDataset dataset, const std::string& name,
+                                              const std::string& url);
+
     std::filesystem::path cache_;
     Fetch fetch_;
     int downloads_ = 0;

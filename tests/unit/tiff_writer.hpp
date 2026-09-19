@@ -23,6 +23,8 @@ struct Spec {
     bool strips = false;
     bool deflate = false;
     bool float_predictor = false;
+    std::uint16_t bits = 32;   // 32, float samples; 8, unsigned, as masks are
+    bool differencing = false; // the horizontal differencing predictor, for 8 bits
     bool pixel_is_point = true;
     std::uint32_t width = 37;
     std::uint32_t height = 23;
@@ -40,6 +42,10 @@ struct Spec {
 
 // The samples of an image: varied, negative and large, never NaN.
 std::vector<float> samples(std::uint32_t width, std::uint32_t height, double scale);
+
+// The samples of an 8-bit mask: every value 0 to 255, in no order.
+std::vector<float> mask_samples(std::uint32_t width, std::uint32_t height,
+                                std::uint32_t seed);
 
 // The file: `full` is width * height samples, row by row; `overview` is the
 // half-size overview's, if the spec has one.

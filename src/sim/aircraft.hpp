@@ -90,6 +90,8 @@ struct AircraftState {
     double altitude_ft = 0.0; // above sea level
     double height_above_ground_ft = 0.0;
     double terrain_elevation_ft = 0.0; // the ground beneath
+    bool on_water = false;             // and whether it is water
+    bool ditched = false;              // come down on water, and at rest there
     double roll_deg = 0.0;
     double pitch_deg = 0.0;
     double heading_deg = 0.0;
@@ -151,8 +153,16 @@ public:
     // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
     // elevation, from now on. Heights, InitialConditions' altitude included,
     // are then above the WGS84 ellipsoid, which is JSBSim's sea level; the
-    // terrain elevation in InitialConditions is ignored. The aircraft keeps the
-    // terrain alive.
+    // terrain elevation in InitialConditions is ignored. Before every step,
+    // the ground is made water or land as the terrain says it is where the
+    // aircraft is.
+    //
+    // **A landplane that comes down on water ditches.** Its wheels roll on
+    // nothing there, and no flight model here says how an airframe meets water,
+    // so the step any of its contact points - a wheel, lowered or not, or a
+    // point of its structure - reaches the water, it is brought to rest where it
+    // is and held there, as JSBSim holds a vehicle down, until it is started
+    // again. The aircraft keeps the terrain alive.
     void set_terrain(std::shared_ptr<Terrain> terrain);
 
     // Flies the aircraft in `weather` from now on: before every step, JSBSim's
@@ -204,10 +214,16 @@ public:
 
 private:
     void apply_weather();
+    void apply_ground();
+    bool meets_the_surface() const;
 
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool initialized_ = false;
+    std::shared_ptr<Terrain> terrain_;
+    // Each contact point's height above the surface, by JSBSim's property:
+    // gear/unit[i] for a wheel, contact/unit[i] for structure.
+    std::vector<std::string> contact_heights_;
     std::shared_ptr<Weather> weather_;
     // What was last given to JSBSim's atmosphere, which rebuilds itself when
     // its sea-level values change and so is told only when they do.

@@ -142,13 +142,25 @@ std::string dem_tile_url(DemDataset dataset, DemCell cell) {
            name + "/" + name + ".tif";
 }
 
+std::string dem_water_mask_name(DemDataset dataset, DemCell cell) {
+    std::string name = dem_tile_name(dataset, cell);
+    name.replace(name.size() - 3, 3, "WBM");
+    return name;
+}
+
+std::string dem_water_mask_url(DemDataset dataset, DemCell cell) {
+    const std::string tile = dem_tile_name(dataset, cell);
+    return std::string("https://copernicus-dem-") +
+           (dataset == DemDataset::glo30 ? "30m" : "90m") + ".s3.amazonaws.com/" +
+           tile + "/AUXFILES/" + dem_water_mask_name(dataset, cell) + ".tif";
+}
+
 DirectoryTiles::DirectoryTiles(std::filesystem::path directory)
     : directory_(std::move(directory)) {}
 
-std::shared_ptr<const ByteSource> DirectoryTiles::open(DemDataset dataset,
-                                                       DemCell cell) {
-    const std::filesystem::path path =
-        directory_ / (dem_tile_name(dataset, cell) + ".tif");
+namespace {
+
+std::shared_ptr<const ByteSource> open_file(const std::filesystem::path& path) {
     if (!std::filesystem::exists(path)) {
         throw DemError(path.string() + " is not there");
     }
@@ -159,17 +171,30 @@ std::shared_ptr<const ByteSource> DirectoryTiles::open(DemDataset dataset,
     }
 }
 
+} // namespace
+
+std::shared_ptr<const ByteSource> DirectoryTiles::open(DemDataset dataset,
+                                                       DemCell cell) {
+    return open_file(directory_ / (dem_tile_name(dataset, cell) + ".tif"));
+}
+
+std::shared_ptr<const ByteSource> DirectoryTiles::open_water_mask(DemDataset dataset,
+                                                                  DemCell cell) {
+    return open_file(directory_ / (dem_water_mask_name(dataset, cell) + ".tif"));
+}
+
 Dem::Dem(const DemCoverage& coverage, DemTiles& tiles, const Geoid* geoid)
     : coverage_(coverage), tiles_(tiles), geoid_(geoid) {}
 
-const Dem::Tile& Dem::tile(DemCell cell) {
-    const std::pair key{cell.latitude, cell.longitude};
+const Dem::Tile& Dem::tile(DemCell cell, Layer layer) {
+    const TileKey key{cell.latitude, cell.longitude, layer};
     if (const auto it = tile_cache_.find(key); it != tile_cache_.end()) {
         tile_order_.remove(key);
         tile_order_.push_front(key);
         return it->second;
     }
     Tile t;
+    t.layer = layer;
     t.dataset = coverage_.at(cell);
     if (t.dataset == DemDataset::none) {
         // The sea: a grid of zeros the size the band's tiles would have.
@@ -178,12 +203,21 @@ const Dem::Tile& Dem::tile(DemCell cell) {
         t.rows = units_per_degree / t.latitude_step;
         t.columns = units_per_degree / t.longitude_step;
     } else {
-        const std::string name = dem_tile_name(t.dataset, cell);
-        t.bytes = tiles_.open(t.dataset, cell);
+        const bool heights = layer == Layer::heights;
+        const std::string name = heights ? dem_tile_name(t.dataset, cell)
+                                         : dem_water_mask_name(t.dataset, cell);
+        t.bytes = heights ? tiles_.open(t.dataset, cell)
+                          : tiles_.open_water_mask(t.dataset, cell);
         try {
             t.tiff = read_geotiff(*t.bytes);
         } catch (const GeoTiffError& e) {
             throw DemError(name + ": " + e.what());
+        }
+        // Heights are floats and a mask's values bytes: either read as the
+        // other would be numbers that mean nothing.
+        if (t.tiff.images[0].bits != (heights ? 32 : 8)) {
+            throw DemError(name + " holds " + std::to_string(t.tiff.images[0].bits) +
+                           "-bit samples, not " + (heights ? "heights" : "a mask"));
         }
         t.latitude_step = step_units(t.tiff.latitude_step_deg, name);
         t.longitude_step = step_units(t.tiff.longitude_step_deg, name);
@@ -201,12 +235,13 @@ const Dem::Tile& Dem::tile(DemCell cell) {
         }
     }
     if (tile_cache_.size() >= max_tiles) {
-        const auto oldest = tile_order_.back();
+        const TileKey oldest = tile_order_.back();
         tile_order_.pop_back();
         tile_cache_.erase(oldest);
         for (auto it = block_cache_.begin(); it != block_cache_.end();) {
-            if (it->first.latitude == oldest.first &&
-                it->first.longitude == oldest.second) {
+            if (it->first.latitude == oldest.latitude &&
+                it->first.longitude == oldest.longitude &&
+                it->first.layer == oldest.layer) {
                 block_order_.remove(it->first);
                 it = block_cache_.erase(it);
             } else {
@@ -226,7 +261,7 @@ float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
     const RasterImage& image = t.tiff.images[0];
     const auto across = static_cast<std::uint32_t>(column / image.block_width);
     const auto down = static_cast<std::uint32_t>(row / image.block_height);
-    const BlockKey key{cell.latitude, cell.longitude,
+    const BlockKey key{cell.latitude, cell.longitude, t.layer,
                        down * image.blocks_across() + across};
     auto it = block_cache_.find(key);
     if (it == block_cache_.end()) {
@@ -234,7 +269,10 @@ float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
         try {
             block = read_block(*t.bytes, image, across, down);
         } catch (const GeoTiffError& e) {
-            throw DemError(dem_tile_name(t.dataset, cell) + ": " + e.what());
+            throw DemError((t.layer == Layer::heights
+                                ? dem_tile_name(t.dataset, cell)
+                                : dem_water_mask_name(t.dataset, cell)) +
+                           ": " + e.what());
         }
         if (block_cache_.size() >= max_blocks) {
             block_cache_.erase(block_order_.back());
@@ -256,7 +294,7 @@ float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
 }
 
 double Dem::sample(DemCell cell, std::int64_t row, std::int64_t column, int depth) {
-    const Tile& t = tile(cell);
+    const Tile& t = tile(cell, Layer::heights);
     if (row < t.rows && column < t.columns) {
         return static_cast<double>(stored_sample(t, cell, row, column));
     }
@@ -282,7 +320,7 @@ double Dem::at_units(std::int64_t latitude, std::int64_t longitude, int depth) {
     cell.latitude = static_cast<int>(
         std::clamp<std::int64_t>(floor_div(latitude - 1, units_per_degree), -90, 89));
     cell.longitude = static_cast<int>(floor_div(longitude, units_per_degree));
-    const Tile& t = tile(cell);
+    const Tile& t = tile(cell, Layer::heights);
     const auto row =
         static_cast<double>((cell.latitude + 1) * units_per_degree - latitude) /
         static_cast<double>(t.latitude_step);
@@ -293,7 +331,7 @@ double Dem::at_units(std::int64_t latitude, std::int64_t longitude, int depth) {
 }
 
 double Dem::interpolate(DemCell cell, double row, double column, int depth) {
-    const Tile& t = tile(cell);
+    const Tile& t = tile(cell, Layer::heights);
     double r0 = std::floor(row);
     const double c0 = std::floor(column);
     double dr = row - r0;
@@ -336,7 +374,7 @@ double Dem::height_above_geoid(double latitude_deg, double longitude_deg) {
     // As in at_units: on a whole degree, the tile below.
     cell.latitude = std::clamp(static_cast<int>(std::ceil(latitude)) - 1, -90, 89);
     cell.longitude = std::min(static_cast<int>(std::floor(longitude)), 179);
-    const Tile& t = tile(cell);
+    const Tile& t = tile(cell, Layer::heights);
     const double row = (static_cast<double>(cell.latitude + 1) - latitude) *
                        static_cast<double>(units_per_degree) /
                        static_cast<double>(t.latitude_step);
@@ -344,6 +382,54 @@ double Dem::height_above_geoid(double latitude_deg, double longitude_deg) {
                           static_cast<double>(units_per_degree) /
                           static_cast<double>(t.longitude_step);
     return interpolate(cell, row, column, 0);
+}
+
+Water Dem::water(double latitude_deg, double longitude_deg) {
+    if (!std::isfinite(latitude_deg) || !std::isfinite(longitude_deg)) {
+        throw DemError("no water at a position that is not a number");
+    }
+    const double latitude = std::clamp(latitude_deg, -90.0, 90.0);
+    double longitude = std::fmod(longitude_deg + 180.0, 360.0);
+    if (longitude < 0.0) {
+        longitude += 360.0;
+    }
+    longitude -= 180.0;
+    DemCell cell;
+    // As in at_units: on a whole degree, the tile below.
+    cell.latitude = std::clamp(static_cast<int>(std::ceil(latitude)) - 1, -90, 89);
+    cell.longitude = std::min(static_cast<int>(std::floor(longitude)), 179);
+    const Tile& t = tile(cell, Layer::water);
+    if (t.dataset == DemDataset::none) {
+        return Water::ocean;
+    }
+    std::int64_t row = std::llround((static_cast<double>(cell.latitude + 1) - latitude) *
+                                    static_cast<double>(units_per_degree) /
+                                    static_cast<double>(t.latitude_step));
+    const std::int64_t column =
+        std::llround((longitude - static_cast<double>(cell.longitude)) *
+                     static_cast<double>(units_per_degree) /
+                     static_cast<double>(t.longitude_step));
+    if (cell.latitude == -90) {
+        row = std::min(row, t.rows - 1); // no tile below the South Pole's
+    }
+    if (row >= t.rows || column >= t.columns) {
+        // The nearest sample is on the south or east edge: the next tile's
+        // first row or column, where that tile says what it is. The sample's
+        // position is a whole degree there, exactly.
+        return water(static_cast<double>(cell.latitude + 1) -
+                         static_cast<double>(row * t.latitude_step) /
+                             static_cast<double>(units_per_degree),
+                     static_cast<double>(cell.longitude) +
+                         static_cast<double>(column * t.longitude_step) /
+                             static_cast<double>(units_per_degree));
+    }
+    const float value = stored_sample(t, cell, row, column);
+    if (value > 3.0f) {
+        throw DemError(dem_water_mask_name(t.dataset, cell) + " holds " +
+                       std::to_string(static_cast<int>(value)) +
+                       ", which is no water body the handbook gives");
+    }
+    return static_cast<Water>(static_cast<std::uint8_t>(value));
 }
 
 double Dem::height_above_ellipsoid(double latitude_deg, double longitude_deg) {

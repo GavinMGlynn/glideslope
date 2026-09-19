@@ -1,13 +1,15 @@
 #pragma once
 
-// GeoTIFF, as the Copernicus DEM publishes it: single-channel 32-bit float
-// rasters on a latitude/longitude grid, in tiles or strips, uncompressed or
-// DEFLATE-compressed, with or without the floating-point predictor, and with
-// their reduced-resolution overviews.
+// GeoTIFF, as the Copernicus DEM publishes it: single-channel rasters on a
+// latitude/longitude grid - 32-bit float heights, and 8-bit unsigned masks
+// such as its water body mask - in tiles or strips, uncompressed or
+// DEFLATE-compressed, with or without the predictor each kind is published
+// with (floating point for heights, horizontal differencing for masks), and
+// with their reduced-resolution overviews.
 //
-// Only what DEMs of that kind use is read; anything else - BigTIFF, integer
-// samples, projected coordinates, a transformation matrix - is refused by
-// name rather than misread.
+// Only what DEMs of that kind use is read; anything else - BigTIFF, other
+// sample kinds, projected coordinates, a transformation matrix - is refused
+// by name rather than misread.
 
 #include "world/byte_source.hpp"
 
@@ -31,7 +33,8 @@ struct RasterImage {
     std::uint32_t block_width = 0;
     std::uint32_t block_height = 0;
     std::uint16_t compression = 1; // 1 none, 8 or 32946 DEFLATE
-    std::uint16_t predictor = 1;   // 1 none, 3 floating point
+    std::uint16_t predictor = 1;   // 1 none, 2 horizontal differencing, 3 floating point
+    std::uint16_t bits = 32;       // 32, float samples; 8, unsigned
     bool big_endian = false;
     bool strips = false; // strips, whose last may be short, rather than tiles
     std::vector<std::uint64_t> offsets;
@@ -66,9 +69,9 @@ struct GeoTiff {
 GeoTiff read_geotiff(const ByteSource& source);
 
 // One block of an image, decompressed and decoded: block_width * block_height
-// samples (fewer rows for a short last strip), row by row. Blocks at the right
-// and bottom edges of a tiled image hold samples past the image's edge, which
-// mean nothing.
+// samples (fewer rows for a short last strip), row by row - an 8-bit image's
+// as the floats of their values. Blocks at the right and bottom edges of a
+// tiled image hold samples past the image's edge, which mean nothing.
 std::vector<float> read_block(const ByteSource& source, const RasterImage& image,
                               std::uint32_t across, std::uint32_t down);
 

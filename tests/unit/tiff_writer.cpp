@@ -76,7 +76,20 @@ std::size_t type_size(std::uint16_t type) {
 Bytes encode_block(const Spec& spec, const std::vector<float>& values,
                    std::size_t width, std::size_t rows) {
     Bytes raw;
-    if (spec.float_predictor) {
+    if (spec.bits == 8) {
+        for (std::size_t r = 0; r < rows; ++r) {
+            Bytes row(width);
+            for (std::size_t x = 0; x < width; ++x) {
+                row[x] = static_cast<std::uint8_t>(values[r * width + x]);
+            }
+            if (spec.differencing) {
+                for (std::size_t i = row.size() - 1; i > 0; --i) {
+                    row[i] = static_cast<std::uint8_t>(row[i] - row[i - 1]);
+                }
+            }
+            raw.insert(raw.end(), row.begin(), row.end());
+        }
+    } else if (spec.float_predictor) {
         for (std::size_t r = 0; r < rows; ++r) {
             Bytes row(width * 4);
             for (std::size_t x = 0; x < width; ++x) {
@@ -158,13 +171,13 @@ std::map<std::uint16_t, Value> write_image(Writer& w, const Spec& spec,
     std::map<std::uint16_t, Value> tags;
     tags[256] = {4, {double(width)}, {}};
     tags[257] = {4, {double(height)}, {}};
-    tags[258] = {3, {32}, {}};
+    tags[258] = {3, {double(spec.bits)}, {}};
     tags[259] = {3, {spec.deflate ? 8.0 : 1.0}, {}};
     tags[262] = {3, {1}, {}};
     tags[277] = {3, {1}, {}};
     tags[284] = {3, {1}, {}};
-    tags[317] = {3, {spec.float_predictor ? 3.0 : 1.0}, {}};
-    tags[339] = {3, {3}, {}};
+    tags[317] = {3, {spec.differencing ? 2.0 : spec.float_predictor ? 3.0 : 1.0}, {}};
+    tags[339] = {3, {spec.bits == 8 ? 1.0 : 3.0}, {}};
     if (spec.strips) {
         tags[273] = offsets;
         tags[278] = {4, {double(bh)}, {}};
@@ -241,6 +254,17 @@ std::vector<float> samples(std::uint32_t width, std::uint32_t height, double sca
                 std::sin(x * 0.37 + y * 0.11) * 4000.0 * scale + x * 0.25 - y;
             out.push_back(static_cast<float>(v));
         }
+    }
+    return out;
+}
+
+std::vector<float> mask_samples(std::uint32_t width, std::uint32_t height,
+                                std::uint32_t seed) {
+    std::vector<float> out;
+    std::uint32_t state = seed * 2654435761u + 1;
+    for (std::uint32_t i = 0; i < width * height; ++i) {
+        state = state * 1664525u + 1013904223u;
+        out.push_back(static_cast<float>(state >> 24));
     }
     return out;
 }

@@ -284,3 +284,69 @@ GLIDESLOPE_TEST(
         }
     }
 }
+
+GLIDESLOPE_TEST(the_ground_under_an_aircraft_is_water_or_land_where_the_dem_water_mask_says) {
+    // The pinned tile south of Sydney and its water body mask, read from the
+    // downloads directory as a directory of tiles.
+    const std::filesystem::path source(GLIDESLOPE_TEST_SOURCE_DIR);
+    const std::filesystem::path downloads(GLIDESLOPE_TEST_DOWNLOADS_DIR);
+    for (const char* name : {"Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif",
+                             "Copernicus_DSM_COG_10_S34_00_E151_00_WBM.tif"}) {
+        if (!std::filesystem::exists(downloads / name)) {
+            glideslope::test::skip(std::string(name) + " was not fetched");
+        }
+    }
+    std::ifstream coverage_file(source / "../assets/dem/coverage.txt", std::ios::binary);
+    const glideslope::world::DemCoverage coverage(
+        std::string(std::istreambuf_iterator<char>(coverage_file), {}));
+    glideslope::world::DirectoryTiles tiles(downloads);
+    auto dem = std::make_shared<glideslope::world::Dem>(coverage, tiles, nullptr);
+    const auto terrain = std::make_shared<FunctionTerrain>(
+        [dem](double lat, double lon) { return dem->height_above_geoid(lat, lon); },
+        [dem](double lat, double lon) {
+            return dem->water(lat, lon) != glideslope::world::Water::none;
+        });
+
+    using glideslope::world::Water;
+    // Each at least a kilometre from a shore. The mask calls the harbours and
+    // bays, where rivers meet the sea, river.
+    struct Place {
+        const char* name;
+        double latitude;
+        double longitude;
+        Water water;
+    };
+    for (const Place& p :
+         {Place{"the Tasman Sea, 8 km off Bondi", -33.90, 151.35, Water::ocean},
+          Place{"the Tasman Sea, 2 km off Maroubra", -33.95, 151.28, Water::ocean},
+          Place{"Maroubra, 1.5 km inland", -33.95, 151.24, Water::none},
+          Place{"Lake Macquarie", -33.08, 151.60, Water::lake},
+          Place{"Tuggerah Lake", -33.32, 151.49, Water::lake},
+          Place{"Sydney Harbour, off Bradleys Head", -33.851, 151.255, Water::river},
+          Place{"Botany Bay", -33.99, 151.19, Water::river},
+          Place{"Broken Bay, the Hawkesbury's mouth", -33.57, 151.30, Water::river},
+          Place{"Sydney airport, beside runway 16R", -33.9461, 151.1772, Water::none},
+          Place{"Hyde Park, Sydney", -33.873, 151.211, Water::none},
+          Place{"Parramatta", -33.815, 151.003, Water::none}}) {
+        const std::string name = p.name;
+        check(dem->water(p.latitude, p.longitude) == p.water,
+              name + ": the mask says what it is");
+        // Flying 1,000 ft over it: the ground JSBSim is given below is water
+        // or land as the mask says.
+        Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+        a.set_terrain(terrain);
+        InitialConditions ic;
+        ic.latitude_deg = p.latitude;
+        ic.longitude_deg = p.longitude;
+        ic.altitude_ft = dem->height_above_geoid(p.latitude, p.longitude) * feet_per_metre +
+                         1000.0;
+        ic.airspeed_kts = 100.0;
+        a.initialize(ic);
+        a.step();
+        const AircraftState s = a.state();
+        check(s.on_water == (p.water != Water::none),
+              name + ": the ground under the aircraft is " +
+                  (s.on_water ? "water" : "land"));
+        check(!s.ditched, name + ": in the air, nothing has ditched");
+    }
+}

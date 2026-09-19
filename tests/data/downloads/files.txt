@@ -1,6 +1,7 @@
 # Files the tests download, each pinned by SHA-256: name, size in bytes, SHA-256, URL.
 # tests/cmake/fetch.cmake fetches them; see docs/ASSETS.md for their terms.
 Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif 20882213 6e20871096986cd00fc3903ea95670a0d83860236a0e4f1360ac9ac67def485d https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_S34_00_E151_00_DEM/Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif
+Copernicus_DSM_COG_10_S34_00_E151_00_WBM.tif 158882 bc3da27a02dfd81e8572bf6bf997eba64b4669403c29269a50e0ad9de326b654 https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_S34_00_E151_00_DEM/AUXFILES/Copernicus_DSM_COG_10_S34_00_E151_00_WBM.tif
 egm2008-5.zip 16773259 408f05e0c04a9f2e17b9ea2d27123f936e9dea60128bb3411a272f8ddbe318dd https://sourceforge.net/projects/geographiclib/files/geoids-distrib/egm2008-5.zip/download
 copernicus-dem-30m-tileList.txt 1110900 10604e3052c98a09e9216f1a8f0a555a04148419757575f783d4937fd44316dc https://copernicus-dem-30m.s3.amazonaws.com/tileList.txt
 copernicus-dem-90m-tileList.txt 1111950 e5a5efe088e70506bc1007d22006bdcb09b0ec03177b62f9652363c13f49ed97 https://copernicus-dem-90m.s3.amazonaws.com/tileList.txt

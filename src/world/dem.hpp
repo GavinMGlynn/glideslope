@@ -21,6 +21,11 @@
 // tile, 90 m where only that exists (25 cells around Armenia and Azerbaijan),
 // or neither. Where the tiles come from - a directory, a download - is a
 // DemTiles.
+//
+// **Where there is water.** Each tile is published with a water body mask on
+// the same grid, which says of each sample whether it is ocean, lake or river
+// or none (the Copernicus DEM Product Handbook, v5.0, table 8). A place is
+// what its nearest sample says; the sea, which has no tiles, is ocean.
 
 #include "world/byte_source.hpp"
 #include "world/geoid.hpp"
@@ -44,6 +49,9 @@ struct DemError : std::runtime_error {
 };
 
 enum class DemDataset { none, glo30, glo90 };
+
+// What the water body mask says of a place, by the values it stores.
+enum class Water : std::uint8_t { none = 0, ocean = 1, lake = 2, river = 3 };
 
 // A 1-degree cell, named by its south-west corner as the tiles are: latitude
 // -90 to 89, longitude -180 to 179.
@@ -81,6 +89,13 @@ std::string dem_tile_name(DemDataset dataset, DemCell cell);
 // Where the public bucket keeps a tile.
 std::string dem_tile_url(DemDataset dataset, DemCell cell);
 
+// "Copernicus_DSM_COG_10_S34_00_E151_00_WBM": the tile's water body mask.
+std::string dem_water_mask_name(DemDataset dataset, DemCell cell);
+
+// Where the public bucket keeps a tile's water body mask: beside the tile, in
+// AUXFILES.
+std::string dem_water_mask_url(DemDataset dataset, DemCell cell);
+
 // Where tiles come from.
 class DemTiles {
 public:
@@ -88,13 +103,20 @@ public:
     // The tile's bytes. Throws DemError if it cannot be had.
     virtual std::shared_ptr<const ByteSource> open(DemDataset dataset,
                                                    DemCell cell) = 0;
+    // The bytes of the tile's water body mask. Throws DemError if it cannot be
+    // had.
+    virtual std::shared_ptr<const ByteSource> open_water_mask(DemDataset dataset,
+                                                              DemCell cell) = 0;
 };
 
-// Tiles already in a directory, named <tile name>.tif.
+// Tiles already in a directory, named <tile name>.tif, and their masks,
+// <mask name>.tif.
 class DirectoryTiles : public DemTiles {
 public:
     explicit DirectoryTiles(std::filesystem::path directory);
     std::shared_ptr<const ByteSource> open(DemDataset dataset, DemCell cell) override;
+    std::shared_ptr<const ByteSource> open_water_mask(DemDataset dataset,
+                                                      DemCell cell) override;
 
 private:
     std::filesystem::path directory_;
@@ -112,8 +134,16 @@ public:
     // kept in. Throws DemError without a geoid.
     double height_above_ellipsoid(double latitude_deg, double longitude_deg);
 
+    // What the water body mask says of the place: its nearest sample's value.
+    // Throws DemError if the mask cannot be had, or holds a value the
+    // handbook does not give.
+    Water water(double latitude_deg, double longitude_deg);
+
 private:
+    enum class Layer { heights, water };
+
     struct Tile {
+        Layer layer = Layer::heights;
         DemDataset dataset = DemDataset::none;
         std::shared_ptr<const ByteSource> bytes;
         GeoTiff tiff;
@@ -124,7 +154,7 @@ private:
         std::int64_t columns = 0;
     };
 
-    const Tile& tile(DemCell cell);
+    const Tile& tile(DemCell cell, Layer layer);
     float stored_sample(const Tile& tile, DemCell cell, std::int64_t row,
                         std::int64_t column);
     double sample(DemCell cell, std::int64_t row, std::int64_t column, int depth);
@@ -135,12 +165,19 @@ private:
     DemTiles& tiles_;
     const Geoid* geoid_;
 
-    std::map<std::pair<int, int>, Tile> tile_cache_;
-    std::list<std::pair<int, int>> tile_order_; // most recently used first
+    struct TileKey {
+        int latitude;
+        int longitude;
+        Layer layer;
+        auto operator<=>(const TileKey&) const = default;
+    };
+    std::map<TileKey, Tile> tile_cache_;
+    std::list<TileKey> tile_order_; // most recently used first
 
     struct BlockKey {
         int latitude;
         int longitude;
+        Layer layer;
         std::uint32_t index;
         auto operator<=>(const BlockKey&) const = default;
     };

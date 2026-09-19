@@ -242,8 +242,14 @@ RasterImage image_from(const Reader& reader,
                            std::to_string(image.height) + " samples");
     }
     require(fields, samples_per_pixel, 1, 1, "SamplesPerPixel");
-    require(fields, bits_per_sample, 32, 1, "BitsPerSample");
-    require(fields, sample_format, 3, 1, "SampleFormat");
+    // Heights are 32-bit floats; masks 8-bit unsigned integers.
+    image.bits = static_cast<std::uint16_t>(scalar(fields, bits_per_sample, 1.0, ""));
+    if (image.bits != 32 && image.bits != 8) {
+        throw GeoTiffError("BitsPerSample is " + std::to_string(image.bits) +
+                           "; only 32, floats, and 8, unsigned integers, are read");
+    }
+    require(fields, bits_per_sample, image.bits, 1, "BitsPerSample");
+    require(fields, sample_format, image.bits == 32 ? 3 : 1, 1, "SampleFormat");
     require(fields, planar_configuration, 1, 1, "PlanarConfiguration");
 
     image.compression =
@@ -255,9 +261,11 @@ RasterImage image_from(const Reader& reader,
     }
     image.predictor =
         static_cast<std::uint16_t>(scalar(fields, predictor_tag, 1.0, ""));
-    if (image.predictor != 1 && image.predictor != 3) {
-        throw GeoTiffError("Predictor is " + std::to_string(image.predictor) +
-                           "; only none (1) and floating point (3) are read");
+    const std::uint16_t published = image.bits == 32 ? 3 : 2;
+    if (image.predictor != 1 && image.predictor != published) {
+        throw GeoTiffError("Predictor is " + std::to_string(image.predictor) + "; only none (1) and " +
+                           (image.bits == 32 ? "floating point (3)" : "horizontal differencing (2)") +
+                           " are read for " + std::to_string(image.bits) + "-bit samples");
     }
 
     const Field* offsets = nullptr;
@@ -420,7 +428,7 @@ std::vector<float> read_block_from(const ByteSource& source, const RasterImage& 
         rows = image.height - std::size_t{down} * image.block_height;
     }
     const std::size_t samples = width * rows;
-    const std::size_t bytes = samples * 4;
+    const std::size_t bytes = samples * (image.bits / 8);
 
     std::vector<std::uint8_t> stored(
         static_cast<std::size_t>(image.byte_counts[index]));
@@ -442,7 +450,21 @@ std::vector<float> read_block_from(const ByteSource& source, const RasterImage& 
     }
 
     std::vector<float> out(samples);
-    if (image.predictor == 3) {
+    if (image.bits == 8) {
+        // Horizontal differencing: each byte stored as its difference from the
+        // one before it in the row.
+        for (std::size_t r = 0; r < rows; ++r) {
+            std::uint8_t previous = 0;
+            for (std::size_t x = 0; x < width; ++x) {
+                std::uint8_t value = raw[r * width + x];
+                if (image.predictor == 2) {
+                    value = static_cast<std::uint8_t>(value + previous);
+                    previous = value;
+                }
+                out[r * width + x] = static_cast<float>(value);
+            }
+        }
+    } else if (image.predictor == 3) {
         // TIFF Technical Note 3: each row's samples are split into byte
         // planes, most significant first, and every byte of the row is stored
         // as its difference from the byte before.

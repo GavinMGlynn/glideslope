@@ -77,9 +77,36 @@ make_tile(DemCell cell, std::uint32_t rows, std::uint32_t columns,
     return glideslope::test::tiff::write_tiff(spec, values, {});
 }
 
+// A small water body mask for a cell, as make_tile's grid: each sample's value
+// `value` gives from its row and column.
+std::vector<std::uint8_t>
+make_mask(DemCell cell, std::uint32_t rows, std::uint32_t columns,
+          const std::function<int(std::uint32_t, std::uint32_t)>& value) {
+    glideslope::test::tiff::Spec spec;
+    spec.bits = 8;
+    spec.width = columns;
+    spec.height = rows;
+    spec.block = 3;
+    spec.deflate = true;
+    spec.differencing = true;
+    spec.overview = false;
+    spec.latitude_step = 1.0 / rows;
+    spec.longitude_step = 1.0 / columns;
+    spec.origin_latitude = cell.latitude + 1;
+    spec.origin_longitude = cell.longitude;
+    std::vector<float> values;
+    for (std::uint32_t r = 0; r < rows; ++r) {
+        for (std::uint32_t c = 0; c < columns; ++c) {
+            values.push_back(static_cast<float>(value(r, c)));
+        }
+    }
+    return glideslope::test::tiff::write_tiff(spec, values, {});
+}
+
 class MemoryTiles : public DemTiles {
 public:
     std::map<std::pair<int, int>, std::vector<std::uint8_t>> tiles;
+    std::map<std::pair<int, int>, std::vector<std::uint8_t>> masks;
     std::set<std::pair<int, int>> opened;
 
     std::shared_ptr<const glideslope::world::ByteSource> open(DemDataset,
@@ -90,6 +117,16 @@ public:
                            std::to_string(cell.longitude));
         }
         opened.insert({cell.latitude, cell.longitude});
+        return std::make_shared<MemorySource>(it->second);
+    }
+
+    std::shared_ptr<const glideslope::world::ByteSource>
+    open_water_mask(DemDataset, DemCell cell) override {
+        const auto it = masks.find({cell.latitude, cell.longitude});
+        if (it == masks.end()) {
+            throw DemError("no test mask for " + std::to_string(cell.latitude) + ", " +
+                           std::to_string(cell.longitude));
+        }
         return std::make_shared<MemorySource>(it->second);
     }
 };
@@ -145,6 +182,14 @@ GLIDESLOPE_TEST(dem_tiles_are_named_and_found_as_the_buckets_name_them) {
     check(dem_tile_url(DemDataset::glo90, {39, 45})
               .starts_with("https://copernicus-dem-90m."),
           "90 m tiles come from the 90 m bucket");
+    check(glideslope::world::dem_water_mask_name(DemDataset::glo90, {-90, -180}) ==
+              "Copernicus_DSM_COG_30_S90_00_W180_00_WBM",
+          "a mask is named for its tile");
+    check(glideslope::world::dem_water_mask_url(DemDataset::glo30, {-34, 151}) ==
+              "https://copernicus-dem-30m.s3.amazonaws.com/"
+              "Copernicus_DSM_COG_10_S34_00_E151_00_DEM/AUXFILES/"
+              "Copernicus_DSM_COG_10_S34_00_E151_00_WBM.tif",
+          "a mask's URL is beside its tile's, in AUXFILES");
 }
 
 GLIDESLOPE_TEST(the_dem_surface_is_continuous_across_tiles_resolutions_and_bands) {
@@ -225,6 +270,84 @@ GLIDESLOPE_TEST(
     check(near(dem.height_above_geoid(-89.99, 1.2), 7.0), "near the South Pole");
     check(near(dem.height_above_geoid(-95.0, 0.5), 7.0),
           "past the South Pole is clamped to it");
+}
+
+GLIDESLOPE_TEST(the_dem_says_each_place_is_the_water_of_its_nearest_mask_sample) {
+    using glideslope::world::Water;
+    // Each sample's value from its row and column, so which sample was read
+    // is known from what it says.
+    const auto by_sample = [](std::uint32_t r, std::uint32_t c) {
+        return static_cast<int>((r + 2 * c) % 4);
+    };
+    std::map<std::pair<int, int>, char> cells{
+        {{10, 20}, '2'}, {{9, 20}, '2'}, {{10, 21}, '1'}};
+    MemoryTiles tiles;
+    tiles.masks[{10, 20}] = make_mask({10, 20}, 4, 4, by_sample);
+    tiles.masks[{9, 20}] = make_mask({9, 20}, 4, 4, [](auto, auto c) {
+        return c == 2 ? 3 : 0;
+    });
+    // A 90 m tile, coarser.
+    tiles.masks[{10, 21}] = make_mask({10, 21}, 2, 2, [](auto r, auto) {
+        return r == 0 ? 2 : 1;
+    });
+    const DemCoverage coverage(coverage_text(cells));
+    Dem dem(coverage, tiles, nullptr);
+
+    const auto expect = [](std::uint32_t r, std::uint32_t c) {
+        return static_cast<Water>((r + 2 * c) % 4);
+    };
+    int checked = 0;
+    for (std::uint32_t r = 0; r < 4; ++r) {
+        for (std::uint32_t c = 0; c < 4; ++c) {
+            const double lat = 11.0 - r * 0.25;
+            const double lon = 20.0 + c * 0.25;
+            // On the sample, and anywhere nearer it than any other.
+            for (const double dlat : {0.0, 0.12, -0.12}) {
+                for (const double dlon : {0.0, 0.12, -0.12}) {
+                    if ((r == 0 && dlat > 0) || (c == 0 && dlon < 0)) {
+                        continue; // nearer another tile's sample
+                    }
+                    check(dem.water(lat + dlat, lon + dlon) == expect(r, c),
+                          "at " + std::to_string(lat + dlat) + ", " +
+                              std::to_string(lon + dlon) + ", the sample in row " +
+                              std::to_string(r) + " and column " + std::to_string(c));
+                    ++checked;
+                }
+            }
+        }
+    }
+    check(checked == 16 * 9 - 4 * 3 - 4 * 3 + 1, "every sample was asked about");
+    // Nearer the south or east edge than the last sample: the next tile's.
+    check(dem.water(10.1, 20.5) == Water::river,
+          "south of the last row, the tile below's first row");
+    check(dem.water(10.1, 20.25) == Water::none, "and another column of it");
+    check(dem.water(10.9, 20.9) == Water::lake,
+          "east of the last column, the next tile's first column, at 90 m");
+    check(dem.water(10.4, 20.9) == Water::ocean, "and its other row");
+    check(dem.water(10.5, 25.0) == Water::ocean, "out at sea, where there is no tile");
+    check(dem.water(10.5, 20.5 + 360.0) == expect(2, 2), "a turn of the world east");
+
+    // A mask with a value the handbook does not give, or heights in its place,
+    // is refused rather than read as some water.
+    const auto refusal = [](const std::vector<std::uint8_t>& mask) {
+        std::map<std::pair<int, int>, char> one{{{0, 0}, '2'}};
+        MemoryTiles wrong;
+        wrong.masks[{0, 0}] = mask;
+        const DemCoverage one_coverage(coverage_text(one));
+        Dem bad(one_coverage, wrong, nullptr);
+        try {
+            bad.water(0.5, 0.5);
+        } catch (const DemError& e) {
+            return std::string(e.what());
+        }
+        return std::string();
+    };
+    check(refusal(make_mask({0, 0}, 4, 4, [](auto, auto) { return 7; }))
+                  .find("holds 7, which is no water body") != std::string::npos,
+          "a value past river is refused");
+    check(refusal(make_tile({0, 0}, 4, 4, [](double, double) { return 1.0; }))
+                  .find("32-bit samples, not a mask") != std::string::npos,
+          "heights are refused as a mask");
 }
 
 GLIDESLOPE_TEST(the_dem_meets_the_sea_at_zero_between_the_last_sample_and_the_coast) {

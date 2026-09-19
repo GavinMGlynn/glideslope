@@ -68,9 +68,10 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     aircraft_entry_ = sim::find_aircraft(data, start.aircraft);
     aircraft_ = std::make_unique<sim::Aircraft>(data / "jsbsim", aircraft_entry_.model);
     const std::shared_ptr<world::Dem> dem = dem_;
-    aircraft_->set_terrain(
-        std::make_shared<sim::FunctionTerrain>([dem](double lat, double lon) {
-            return dem->height_above_ellipsoid(lat, lon);
+    aircraft_->set_terrain(std::make_shared<sim::FunctionTerrain>(
+        [dem](double lat, double lon) { return dem->height_above_ellipsoid(lat, lon); },
+        [dem](double lat, double lon) {
+            return dem->water(lat, lon) != world::Water::none;
         }));
     sim::InitialConditions ic;
     ic.latitude_deg = start.latitude_deg;

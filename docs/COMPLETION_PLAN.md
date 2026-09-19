@@ -579,3 +579,14 @@ Found while implementing something else. Added when found, not when remembered.
       no frame between changing more than a stated fraction of its pixels;
       the haze is brighter toward the sun than away from it; and rain is
       drawn out to the reported visibility.*
+- [ ] **Every aircraft's airframe meets the ground with its wheels up.**
+      *(Found making water, 2026-09-20.)* The 737-300, 747-400, A320, B-2A,
+      F-15C, F-22A and F-35A have no structure contact points, and JSBSim
+      gives a retracted wheel no force: landed with its wheels up, the 737
+      passes through the runway, 700 ft under it half a minute later. Their
+      fuselages', nacelles' and wing tips' heights on the ground are in the
+      airliners' planning documents and, for the F-22A, the Air Force's
+      rescue manual (T.O. 00-105E-9); the others' are not published.
+      *Verification: every aircraft landed on a runway with its wheels up
+      comes to rest on its airframe, its centre of gravity above the ground,
+      in a distance a stated friction gives.*
