@@ -75,6 +75,15 @@ set(GLIDESLOPE_UNIT_TESTS
     the_cessna_172p_stalls_with_10_degrees_of_flap_near_its_published_speed
     the_cessna_172p_stalls_with_30_degrees_of_flap_near_its_published_speed
     a_coordinated_level_turn_turns_at_the_rate_its_bank_and_speed_demand
+    the_cessna_182s_at_full_throttle_on_the_ground_turns_within_its_static_rpm_range
+    the_cessna_182s_takes_off_in_about_its_published_ground_roll
+    a_cessna_182s_at_full_power_climbs_near_its_published_rate
+    the_cessna_182s_cruises_at_80_percent_power_near_its_published_speed
+    the_cessna_182s_reaches_about_its_published_maximum_speed
+    the_cessna_182s_glides_near_its_published_ratio
+    the_cessna_182s_stalls_flaps_up_near_its_published_speed
+    the_cessna_182s_stalls_with_20_degrees_of_flap_near_its_published_speed
+    the_cessna_182s_stalls_with_full_flap_near_its_published_speed
     the_mosquito_fb6_flies_level_at_sea_level_at_hx809s_speed
     the_mosquito_fb6_flies_level_at_its_ms_gear_full_throttle_height_at_hx809s_speed
     the_mosquito_fb6_flies_level_at_its_fs_gear_full_throttle_height_at_hx809s_speed
@@ -215,6 +224,13 @@ add_test(NAME the_committed_cessna_172p_is_what_its_tuning_script_makes
         -DSCRIPT=tools/make_c172p.py
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
 set_tests_properties(the_committed_cessna_172p_is_what_its_tuning_script_makes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_cessna_182s_is_what_its_tuning_script_makes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_c182.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_cessna_182s_is_what_its_tuning_script_makes
     PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME the_committed_mosquito_propeller_is_what_its_script_computes
@@ -448,7 +464,7 @@ add_test(NAME the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files
 add_test(NAME the_cli_lists_the_aircraft_the_data_holds
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=aircraft -DEXIT=0
-        "-DSTDOUT_MATCHES=c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures"
+        "-DSTDOUT_MATCHES=c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_an_aircraft_it_has_no_files_for

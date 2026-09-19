@@ -18,6 +18,18 @@ script and run it:
 python3 tools/make_c172p.py
 ```
 
+## The Cessna 182S
+
+`aircraft/c182/c182.xml`, `engine/prop_81in2v.xml` and `engine/engIO540AB1A5.xml`.
+
+**Do not edit these by hand** either: `tools/make_c182.py` makes them from the
+pinned files, with its changes listed, and a test fails if what is committed
+differs.
+
+```sh
+python3 tools/make_c182.py
+```
+
 ## The Mosquito FB Mk VI
 
 `aircraft/mosquito-fb6/mosquito-fb6.xml`, `engine/merlin25.xml` and

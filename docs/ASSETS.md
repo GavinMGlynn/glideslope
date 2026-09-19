@@ -5,8 +5,8 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Eight things are used: a Cessna 172P flight model derived from JSBSim's,
-the Cessna 172P handbook's published figures, the Mosquito FB Mk VI's trials
+**Ten things are used: Cessna 172P and 182S flight models derived from
+JSBSim's, the two Cessna handbooks' published figures, the Mosquito FB Mk VI's trials
 and Pilot's Notes (for a flight model written here), the Copernicus DEM, the
 EGM2008 geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from
 aviationweather.gov and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
@@ -47,6 +47,23 @@ entertainment purposes only."
 | --- | --- |
 | Source | Cessna Model 172P Pilot's Operating Handbook, 12 May 1981 (the Island Enterprises reprint): section 1 specifications, section 2 powerplant limitations, figures 3-1, 5-1, 5-3, 5-5, 5-6 and 5-8 |
 | In the repository | `assets/figures/c172p.xml`: individual numbers, each with its section or figure, not the handbook's text or charts |
+| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The Cessna 182S flight model, derived from JSBSim's
+
+| | |
+| --- | --- |
+| Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/c182/c182.xml`, `engine/prop_81in2v.xml`, `engine/engIO540AB1A5.xml` |
+| Changes | Made by `tools/make_c182.py`, whose docstring lists each change and why: the handbook's empty weight, seats and tanks; flaps to 38 degrees; main wheels that no longer castor; the lift curve for the stalls; the elevator's and incidence drag; a stopped engine's friction; the propeller's thrust at low advance ratio. The engine file is unchanged. |
+| In the repository | `assets/jsbsim/`, as the script makes it; a test fails if they differ |
+| Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
+
+### The Cessna 182S's published figures
+
+| | |
+| --- | --- |
+| Source | Cessna Model 182S Skylane Information Manual, P/N 182SIM, 1997 (the Pilot's Operating Handbook of 3 February 1997 with revision 4 of 1 November 2001), page ii and figures 3-1, 5-1, 5-4, 5-6, 5-7 and 5-9, as copied at <http://tssflyingclub.org/documents/C182S_POH.pdf>; FAA type certificate data sheet 3A13, revision 66, section XIII, for the static rpm and the flaps' travel |
+| In the repository | `assets/figures/c182.xml`: individual numbers, each with its page or figure, not the handbook's text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
 ### The Mosquito FB Mk VI: its trials, Pilot's Notes and engine curves

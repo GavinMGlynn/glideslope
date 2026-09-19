@@ -1,0 +1,14 @@
+# The Cessna 182S Skylane: JSBSim's c182 made to fly to its handbook's figures
+# (assets/figures/c182.xml) by tools/make_c182.py.
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name Cessna 182S Skylane
+model c182
+start 120 0.65

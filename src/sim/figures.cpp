@@ -10,11 +10,13 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace glideslope::sim {
 
@@ -388,32 +390,90 @@ double time_to_altitude(const std::filesystem::path& root,
     throw std::runtime_error("not at the altitude after an hour");
 }
 
-// Level at the altitude, the engines at the boost and rpm - or at full
-// throttle, where the boost cannot be had - gear and flaps up; the average
-// true airspeed, in mph as the trials give it, over the last minute of four.
+// The power a figure wants from its engines, as a boost gauge's lb/sq in: its
+// boost, or its manifold pressure in inches of mercury, or - given neither -
+// full throttle.
+double wanted_boost(const FigureSpec& spec) {
+    if (spec.conditions.count("boost_psi") != 0) {
+        return condition(spec, "boost_psi");
+    }
+    if (spec.conditions.count("manifold_inhg") != 0) {
+        return condition(spec, "manifold_inhg") * 0.4911541 - 14.6959;
+    }
+    return std::numeric_limits<double>::infinity();
+}
+
+// Leans the mixture in steps of 0.05, flying `fly` for eight seconds at each,
+// until the power has fallen past its peak, and leaves it at the richest that
+// made within half a percent of the most power - best power, as a pilot leans
+// by the gauges, and never so lean that the engine stops.
+template <class Fly>
+void lean_for_best_power(const Flight& f, Controls& c, const Fly& fly) {
+    std::vector<std::pair<double, double>> tried;
+    double most = 0.0;
+    for (int m = 20; m >= 8; --m) {
+        c.mixture = m * 0.05;
+        for (int i = 0; i < steps(8); ++i) {
+            fly();
+        }
+        double hp = 0.0;
+        for (int e = 0; e < f.aircraft.figures().engines; ++e) {
+            hp += f.engine(e, "power-hp");
+        }
+        tried.emplace_back(c.mixture, hp);
+        most = std::max(most, hp);
+        if (hp < 0.97 * most) {
+            break;
+        }
+    }
+    double best = 0.0;
+    for (const auto& [mixture, hp] : tried) {
+        best = std::max(best, hp);
+    }
+    for (const auto& [mixture, hp] : tried) {
+        if (hp >= 0.995 * best) {
+            c.mixture = mixture;
+            return;
+        }
+    }
+}
+
+// Level at the altitude, the engines at the figure's power - a boost, a
+// manifold pressure or full throttle - and rpm, gear and flaps up, the mixture
+// first leaned for best power if `lean` is given; the average true airspeed
+// over the last minute of four, in knots if the figure's unit is KTAS and in
+// mph, as the Mosquito's trials give it, otherwise.
 double level_speed(const std::filesystem::path& root, const PublishedFigures& figures,
                    const FigureSpec& spec) {
     const double altitude = condition(spec, "altitude_ft");
+    const bool knots = spec.unit.rfind("KTAS", 0) == 0;
     // Started at the published speed, to settle sooner.
-    const double kcas =
-        spec.published * knots_per_mph * std::sqrt(density_ratio(altitude));
-    Flight f(root, figures, spec, airborne(altitude, kcas, true));
-    Power power(condition(spec, "boost_psi"), condition(spec, "rpm"), 0);
+    const double published_kts = knots ? spec.published : spec.published * knots_per_mph;
+    Flight f(root, figures, spec,
+             airborne(altitude, published_kts * std::sqrt(density_ratio(altitude)), true));
+    Power power(wanted_boost(spec), condition(spec, "rpm"), 0);
     Controls c;
-    double mph_sum = 0.0;
-    const int total = steps(240);
-    const int measured = steps(60);
-    for (int i = 0; i < total; ++i) {
+    const auto level = [&] {
         power.set(f, c);
         c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_altitude(altitude));
         c.aileron = f.pilot.roll_to(0.0);
         c.rudder = f.pilot.coordinate();
         f.fly(c);
+    };
+    if (condition_or(spec, "lean", 0.0) > 0.0) {
+        lean_for_best_power(f, c, level);
+    }
+    double kts_sum = 0.0;
+    const int total = steps(240);
+    const int measured = steps(60);
+    for (int i = 0; i < total; ++i) {
+        level();
         if (i >= total - measured) {
-            mph_sum += f.aircraft.property("velocities/vtrue-kts") / knots_per_mph;
+            kts_sum += f.aircraft.property("velocities/vtrue-kts");
         }
     }
-    return mph_sum / measured;
+    const double kts = kts_sum / measured;
+    return knots ? kts : kts / knots_per_mph;
 }
 
 // Level at the cruise altitude: first full throttle with the mixture leaned in
@@ -501,7 +561,9 @@ double glide_ratio(const std::filesystem::path& root, const PublishedFigures& fi
 // speed - 70 KCAS unless the figure gives one - the target speed falls at one
 // knot a second, the handbook's rate for a stall, and the pilot raises the
 // nose to follow it until the elevator can raise it no further. The lowest
-// calibrated airspeed reached.
+// calibrated airspeed reached before the stalled aircraft gathers speed again
+// - 3 knots above its lowest - so that a dive and zoom after the stall, with
+// the stick still held back, are not counted.
 double stall_speed(const std::filesystem::path& root, const PublishedFigures& figures,
                    const FigureSpec& spec) {
     const double entry = condition_or(spec, "entry_kcas", 70.0);
@@ -520,7 +582,11 @@ double stall_speed(const std::filesystem::path& root, const PublishedFigures& fi
         c.rudder = f.pilot.coordinate();
         f.fly(c);
         if (t >= 10.0) {
-            slowest = std::min(slowest, f.aircraft.property("velocities/vc-kts"));
+            const double kcas = f.aircraft.property("velocities/vc-kts");
+            slowest = std::min(slowest, kcas);
+            if (kcas > slowest + 3.0) {
+                break;
+            }
         }
     }
     return slowest;
@@ -802,7 +868,7 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         for (const char* key :
              {"flaps_deg", "lift_off_kcas", "speed_kcas", "altitude_ft", "rpm",
               "bank_deg", "boost_psi", "gear", "entry_kcas", "fs_gear_above_ft",
-              "radiators_open", "gear_change_boost_drop"}) {
+              "radiators_open", "gear_change_boost_drop", "manifold_inhg", "lean"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }

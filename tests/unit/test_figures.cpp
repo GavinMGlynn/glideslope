@@ -21,7 +21,7 @@ const char* const data_dir = GLIDESLOPE_TEST_DATA_DIR;
 
 // Every aircraft with published figures.
 const std::vector<std::string>& figured_models() {
-    static const std::vector<std::string> models = {"c172p", "mosquito-fb6"};
+    static const std::vector<std::string> models = {"c172p", "c182", "mosquito-fb6"};
     return models;
 }
 
@@ -87,6 +87,42 @@ GLIDESLOPE_TEST(
 
 GLIDESLOPE_TEST(a_coordinated_level_turn_turns_at_the_rate_its_bank_and_speed_demand) {
     expect_figure("c172p", "turn_rate");
+}
+
+GLIDESLOPE_TEST(the_cessna_182s_at_full_throttle_on_the_ground_turns_within_its_static_rpm_range) {
+    expect_figure("c182", "static_rpm");
+}
+
+GLIDESLOPE_TEST(the_cessna_182s_takes_off_in_about_its_published_ground_roll) {
+    expect_figure("c182", "takeoff_ground_roll");
+}
+
+GLIDESLOPE_TEST(a_cessna_182s_at_full_power_climbs_near_its_published_rate) {
+    expect_figure("c182", "climb_rate");
+}
+
+GLIDESLOPE_TEST(the_cessna_182s_cruises_at_80_percent_power_near_its_published_speed) {
+    expect_figure("c182", "cruise_speed_6000_ft");
+}
+
+GLIDESLOPE_TEST(the_cessna_182s_reaches_about_its_published_maximum_speed) {
+    expect_figure("c182", "maximum_speed");
+}
+
+GLIDESLOPE_TEST(the_cessna_182s_glides_near_its_published_ratio) {
+    expect_figure("c182", "glide_ratio");
+}
+
+GLIDESLOPE_TEST(the_cessna_182s_stalls_flaps_up_near_its_published_speed) {
+    expect_figure("c182", "stall_speed_flaps_up");
+}
+
+GLIDESLOPE_TEST(the_cessna_182s_stalls_with_20_degrees_of_flap_near_its_published_speed) {
+    expect_figure("c182", "stall_speed_flaps_20");
+}
+
+GLIDESLOPE_TEST(the_cessna_182s_stalls_with_full_flap_near_its_published_speed) {
+    expect_figure("c182", "stall_speed_flaps_full");
 }
 
 GLIDESLOPE_TEST(the_mosquito_fb6_flies_level_at_sea_level_at_hx809s_speed) {
@@ -173,7 +209,7 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
         check(flown.count(name) == 1, "figures name a flight " + name +
                                           " that does not exist");
     }
-    check(figures_in_files == 23,
-          "twenty-three figures, one test each above; found " +
+    check(figures_in_files == 32,
+          "thirty-two figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

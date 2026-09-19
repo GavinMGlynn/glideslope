@@ -1,0 +1,104 @@
+<?xml version="1.0"?>
+<!--
+  The Cessna 182S Skylane's published figures, and the conditions each was
+  measured in.
+
+  Every number here is from the Cessna Model 182S Skylane Information Manual
+  (P/N 182SIM, 1997: the Pilot's Operating Handbook of 3 February 1997 with
+  revision 4 of 1 November 2001), by page or figure, except the static rpm,
+  which is from the FAA type certificate data sheet 3A13 (revision 66),
+  section XIII. The checks in src/sim/figures.cpp fly one flight per
+  <figure> and compare what JSBSim does with the range given here.
+
+  Airspeeds the handbook gives as indicated (KIAS) are converted to
+  calibrated (KCAS) with its airspeed calibration table, figure 5-1 (normal
+  static source), because calibrated is what the flight model reports. The
+  tolerances are this project's, stated with each figure, as the Cessna
+  172P's are; see docs/PROJECT_STATUS.md for what the model measured.
+
+  The handbook's speeds are "based on airplane with optional speed fairings
+  which increase speeds by approximately 3 knots" (page ii); the model is the
+  aircraft with them.
+-->
+<published_figures aircraft="c182" flaps_full_deg="38">
+  <source>Cessna Model 182S Skylane Information Manual, 1997</source>
+
+  <!-- 3,100 lb, the maximum take-off weight the handbook's figures are for:
+       the standard empty weight, 1,925 lb; pilot, front passenger and one
+       in the back, 170 lb each; 113 lb of baggage; both tanks full, 46
+       gallons each at 6 lb. -->
+  <loading total_lbs="3100">
+    <pointmass index="0" lbs="170"/>
+    <pointmass index="1" lbs="170"/>
+    <pointmass index="2" lbs="170"/>
+    <pointmass index="3" lbs="0"/>
+    <pointmass index="4" lbs="113"/>
+    <tank index="0" lbs="276"/>
+    <tank index="1" lbs="276"/>
+  </loading>
+
+  <figure name="static_rpm" unit="RPM" min="2300" max="2405">
+    Type certificate data sheet 3A13, section XIII, propeller limits: "Static
+    RPM at full throttle: Not over 2400; Not Under 2300". The governor holds
+    2,400 and hunts a fraction of an rpm about it; 5 rpm above is allowed
+    for that.
+  </figure>
+
+  <figure name="takeoff_ground_roll" unit="ft" value="795" tolerance_percent="10"
+          flaps_deg="20" lift_off_kcas="57.5">
+    Page ii, performance specifications: take-off ground roll 795 ft at sea
+    level, standard day, 3,100 lb; figure 5-6 gives the technique - flaps
+    20, 2,400 rpm and full throttle before brake release, paved level dry
+    runway, zero wind - and lift-off at 49 KIAS, which figure 5-1 makes 57.5
+    KCAS with 20 degrees of flap.
+  </figure>
+
+  <figure name="climb_rate" unit="ft/min" value="924" tolerance_percent="10"
+          speed_kcas="82">
+    Page ii: rate of climb at sea level 924 FPM, 3,100 lb, standard day;
+    figure 5-7 gives it flaps up, 2,400 rpm, full throttle, at 80 KIAS,
+    which is 82 KCAS by figure 5-1.
+  </figure>
+
+  <figure name="cruise_speed_6000_ft" flight="level_speed" unit="KTAS" value="140"
+          tolerance="3" altitude_ft="6000" manifold_inhg="23" rpm="2400" lean="1">
+    Page ii: "Cruise, 80% Power at 6000 Ft (Best Power Mixture) 140 KTS",
+    3,100 lb, standard day. Figure 5-9 gives 23 inches and 2,400 rpm at 6,000
+    ft as 76% at the recommended lean mixture, which is peak EGT (page 5-6);
+    best power is 125 F richer, and flown here leaned for best power it is
+    the model's 80%.
+  </figure>
+
+  <figure name="maximum_speed" flight="level_speed" unit="KTAS" value="145"
+          tolerance="3" altitude_ft="0" rpm="2400">
+    Page ii: maximum speed at sea level 145 KTS, full throttle and 2,400 rpm,
+    with the speed fairings.
+  </figure>
+
+  <figure name="glide_ratio" unit=":1" value="8.9" tolerance_percent="10"
+          speed_kcas="77.5">
+    Figure 3-1, maximum glide: 75 KIAS at 3,100 lb, propeller windmilling,
+    flaps up, zero wind, drawn as about 20.5 nautical miles from 14,000 ft
+    above the terrain - 8.9 to 1, read from the chart; the tolerance allows
+    for that. 75 KIAS is 77.5 KCAS by figure 5-1.
+  </figure>
+
+  <figure name="stall_speed_flaps_up" flight="stall_speed" unit="KCAS" min="52"
+          max="58" flaps_deg="0">
+    Figure 5-4, stall speeds, 3,100 lb, power off, wings level, flaps up: 54
+    KCAS at the most rearward centre of gravity and 56 at the most forward.
+    The range is 2 kt either side of those.
+  </figure>
+
+  <figure name="stall_speed_flaps_20" flight="stall_speed" unit="KCAS" min="48"
+          max="54" flaps_deg="20">
+    Figure 5-4, flaps 20 degrees: 50 KCAS rearward and 52 forward, 2 kt
+    either side.
+  </figure>
+
+  <figure name="stall_speed_flaps_full" flight="stall_speed" unit="KCAS" min="47"
+          max="52" flaps_deg="38">
+    Figure 5-4, flaps FULL (38 degrees): 49 KCAS rearward and 50 forward, 2
+    kt either side.
+  </figure>
+</published_figures>
