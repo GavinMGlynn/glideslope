@@ -97,7 +97,7 @@ Boeing 737-300, 747-400 and 787-8, held to their airport-planning documents
 and type certificates (CI run 35423458464); and the fighters - the F-15C and
 F-22A, held to the Air Force's and the Department of Defense's figures (CI
 run 35430601204); and an Airbus A380-841, written here from Airbus's and the
-certifying authorities' documents (CI run RUNID). Next: a Learjet 35A flight
+certifying authorities' documents (CI run 35435906751). Next: a Learjet 35A flight
 model.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
@@ -164,7 +164,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The A380 written from its documents, 2026-09-19 — item done (CI run RUNID)
+### The A380 written from its documents, 2026-09-19 — item done (CI run 35435906751)
 
 Phase 5's "an A380 flight model, written here from published data": the
 Airbus A380-841, which JSBSim does not have, written by `tools/make_a380.py`

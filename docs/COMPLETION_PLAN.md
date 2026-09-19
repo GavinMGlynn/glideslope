@@ -318,8 +318,15 @@ quality: each is held to published figures before it is offered, as the Cessna
       against 52.4, 7.35 degrees a second (3.7 g), Mach 2.15 at 40,000 ft, and
       still climbing at 50,000 ft. The F-15C's thrust and drag are fitted to
       its chart of excess power; the F-22's are pinned by five figures only.
-- [ ] **An A380 flight model**, written here from published data: JSBSim has
-      none. *Verification: as the airliners.*
+- [x] **An A380 flight model**, written here from published data: JSBSim has
+      none. *Verification: as the airliners.* Stated, 2026-09-19, CI run
+      35435906751: the A380-841, written from Airbus's A380 Aircraft
+      Characteristics, its type certificates and the Boeing 747's published
+      derivatives, flies the airliners' four figures inside their ranges on
+      every platform - 9,300 ft of take-off field at 575,000 kg against the
+      AC's 9,734, 4.2% with an engine out against JAR 25's 3.0, Mach 0.91 level
+      at 35,000 ft, and still climbing at its 43,000 ft maximum operating
+      altitude.
 - [ ] **A Learjet 35A flight model**, written here from published data:
       JSBSim has none. *Verification: as the airliners, from its flight
       manual's figures.*
