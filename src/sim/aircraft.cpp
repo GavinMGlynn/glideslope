@@ -18,6 +18,8 @@
 #include <models/FGPropagate.h>
 #include <models/FGPropulsion.h>
 #include <models/propulsion/FGEngine.h>
+#include <models/propulsion/FGPiston.h>
+#include <models/propulsion/FGPropeller.h>
 #include <models/propulsion/FGThruster.h>
 #include <simgear/misc/sg_path.hxx>
 #include <simgear/props/props.hxx>
@@ -176,11 +178,30 @@ void Aircraft::initialize(const InitialConditions& ic) {
     fgic->SetThetaDegIC(0.0);
     fgic->SetPhiDegIC(0.0);
     fgic->SetVcalibratedKtsIC(ic.airspeed_kts);
+    exec_->SetPropertyValue("gear/gear-cmd-norm", ic.gear);
+    exec_->SetPropertyValue("gear/gear-pos-norm", ic.gear);
     if (!exec_->RunIC()) {
         throw std::runtime_error("JSBSim refused the initial conditions for " + model_);
     }
     if (ic.engine_running) {
         exec_->SetPropertyValue("propulsion/set-running", -1.0);
+        // JSBSim settles running engines by stepping them half a second at a
+        // time, which a constant-speed propeller's governor cannot follow: it
+        // overshoots, drives the blades to full coarse pitch and stalls the
+        // engine. Those engines are started again here without settling, the
+        // blades at the fine-pitch stop, to spin up in the first steps.
+        const auto propulsion = exec_->GetPropulsion();
+        for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
+            const auto engine = propulsion->GetEngine(i);
+            const auto* propeller =
+                dynamic_cast<const JSBSim::FGPropeller*>(engine->GetThruster());
+            if (propeller != nullptr && propeller->IsVPitch()) {
+                engine->InitRunning();
+                // The governor raises it to the fine stop on the first step.
+                exec_->SetPropertyValue(
+                    "propulsion/engine[" + std::to_string(i) + "]/blade-angle", 0.0);
+            }
+        }
     }
     initialized_ = true;
 }
@@ -189,12 +210,44 @@ void Aircraft::set_controls(const Controls& c) {
     exec_->SetPropertyValue("fcs/elevator-cmd-norm", -c.elevator);
     exec_->SetPropertyValue("fcs/aileron-cmd-norm", c.aileron);
     exec_->SetPropertyValue("fcs/rudder-cmd-norm", c.rudder);
-    exec_->SetPropertyValue("fcs/throttle-cmd-norm[0]", c.throttle);
-    exec_->SetPropertyValue("fcs/mixture-cmd-norm[0]", c.mixture);
+    const std::size_t engines = exec_->GetPropulsion()->GetNumEngines();
+    for (std::size_t i = 0; i < engines; ++i) {
+        const std::string n = "[" + std::to_string(i) + "]";
+        const double offset = i < c.throttle_offset.size() ? c.throttle_offset[i] : 0.0;
+        exec_->SetPropertyValue("fcs/throttle-cmd-norm" + n,
+                                std::clamp(c.throttle + offset, 0.0, 1.0));
+        exec_->SetPropertyValue("fcs/mixture-cmd-norm" + n, c.mixture);
+        exec_->SetPropertyValue("fcs/advance-cmd-norm" + n, c.propeller);
+        // Only a model that declares them has cooling flaps.
+        const std::string cooling = "fcs/cooling-flaps-cmd-norm" + n;
+        if (i < c.cooling_flaps.size() &&
+            exec_->GetPropertyManager()->HasNode(cooling)) {
+            exec_->SetPropertyValue(cooling, c.cooling_flaps[i]);
+        }
+    }
     exec_->SetPropertyValue("fcs/flap-cmd-norm", c.flaps);
+    exec_->SetPropertyValue("gear/gear-cmd-norm", c.gear);
+    // Only a model that declares the switch has one.
+    if (exec_->GetPropertyManager()->HasNode("fcs/supercharger-cmd-norm")) {
+        exec_->SetPropertyValue("fcs/supercharger-cmd-norm", c.supercharger);
+    }
     exec_->SetPropertyValue("fcs/left-brake-cmd-norm", c.left_brake);
     exec_->SetPropertyValue("fcs/right-brake-cmd-norm", c.right_brake);
     exec_->SetPropertyValue("fcs/pitch-trim-cmd-norm", -c.pitch_trim);
+}
+
+void Aircraft::fail_engine(int engine, bool feather) {
+    const std::string n = "[" + std::to_string(engine) + "]";
+    const auto e = exec_->GetPropulsion()->GetEngine(static_cast<unsigned>(engine));
+    // A stopped piston engine with spark and fuel starts again as soon as it
+    // windmills fast enough, so its ignition goes off with it.
+    if (const auto piston = std::dynamic_pointer_cast<JSBSim::FGPiston>(e)) {
+        piston->SetMagnetos(0);
+    }
+    e->SetRunning(false);
+    if (feather) {
+        exec_->SetPropertyValue("fcs/feather-cmd-norm" + n, 1.0);
+    }
 }
 
 void Aircraft::set_weather(std::shared_ptr<Weather> weather) {

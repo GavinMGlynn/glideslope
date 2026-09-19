@@ -1,0 +1,136 @@
+<?xml version="1.0"?>
+<!--
+  Rolls-Royce Merlin 25, as fitted to the de Havilland Mosquito FB Mk VI.
+
+  Written for glideslope from the sources below; not derived from any JSBSim
+  engine file. docs/ASSETS.md records the sources, and the Mosquito's figures
+  (assets/figures/mosquito-fb6.xml) are the checks it is held to.
+
+  The engine
+    Twelve cylinders, 5.4 in bore and 6.0 in stroke: 1,649 cubic inches. A
+    single-stage supercharger with two speeds, moderate (MS, low gear) and full
+    (FS, high gear), which the Mosquito's aneroid changes automatically at
+    about 7,000 ft - the aircraft file does that, through boost-speed, so this
+    file leaves the change to it (boostmanual). The propeller reduction gear
+    (0.42:1) is the propeller file's.
+
+  Its limits (A.P. 2019E, Pilot's Notes, 1950 edition, para. 51)
+    take-off, and operational necessity for 5 minutes   3,000 rpm   +18 lb/sq in
+    climbing, 1 hour                                     2,850 rpm    +9
+    maximum continuous                                   2,650 rpm    +7
+  +18 is the most the automatic boost control gives, so it is the rated boost
+  here: the throttle sets the boost below it, and the boost control holds it
+  there. (HX809 was cleared for +25 on 150-grade fuel for its trial; the
+  Pilot's Notes give +18, and so does this file.)
+
+  How much the supercharger gives: the full-throttle heights
+    JSBSim's supercharger multiplies the pressure at the intake by a fixed
+    ratio for each gear, in proportion to rpm, set by ratedaltitude: at
+    3,000 rpm and no forward speed, the boost reaches +18 at full throttle at
+    the rated altitude. In flight the intake's ram pressure raises the full-
+    throttle height; ram-air-factor 0.8 is Rolls-Royce's own assumption for
+    its curves ("ram 80% press."). The rated heights were chosen so that +18
+    is reached at full throttle where Mosquito FB VI HX809 reached it in
+    level flight (A&AEE/767,e, 12th part, 1 February 1944):
+      MS gear   5,100 ft at 353 mph    the model: about 5,200 ft
+      FS gear  12,500 ft at 363 mph    the model: about 12,700 ft
+    and at 400 mph where Rolls-Royce's curves put it: 6,300 ft and 13,600
+    ft (the model: 5,900 and 13,600).
+
+  How much power: maxhp, the charge and the supercharger's drive
+    JSBSim's piston engine burns fuel in proportion to the air it breathes and
+    makes power from the fuel. maxhp calibrates that: its value gives the
+    Rolls-Royce curve (Merlin 24, 25, 26, 27, 224, 225 altitude performance,
+    AVIA 6/5817 fig. 1, 3,000 rpm and 400 mph of ram) its 1,540 bhp at +18 at
+    sea level. The aircraft file adds what JSBSim leaves out:
+      the charge's heating, by the ram and by the impeller (90 K at full rpm
+        in MS gear, 121 K in FS), which makes the power at +18 rise with
+        height as the curve does, to about 1,600 at the MS full-throttle
+        height, and fall above the full-throttle height as the curve does;
+      the power the impeller takes in FS gear beyond MS gear, 77 hp at
+        3,000 rpm, which with the hotter charge gives the curve's 1,450 bhp
+        at +18 at 9,500 ft in FS gear;
+      a stopped engine's own friction, which JSBSim charges only a running
+        one, so that a windmilling propeller drags as it should.
+    The model against the curve at +18 and 3,000 rpm, 400 mph: MS 1,542 bhp
+    at sea level, 1,613 at 6,000 ft; FS 1,446 at 10,000 ft, 1,469 at
+    12,000, 1,378 at 16,000 and 1,194 at 20,000 (the curve: 1,540, 1,600;
+    1,450, 1,468, 1,376 and 1,164).
+
+  Mixture
+    The Merlin's carburettor sets its own mixture (an automatic mixture
+    control), so the aircraft file sets mixture from the air's pressure and
+    the pilot's lever only cuts the engine off; above +9 it enriches it, as
+    the carburettor did against detonation.
+
+    JSBSim makes power in proportion to the fuel burnt, times an efficiency
+    that depends on the fuel-air ratio (the MIXTURE table). Its own table
+    makes the most power at a ratio of about 0.10, so a richer mixture would
+    make more; an engine makes its best power nearer 0.08, burning all the
+    air, and fuel beyond that only cools it, costing a little power - the
+    familiar shape of an engine's power against its mixture. The table here
+    is such a curve (1.0 of best power at 0.08, 0.94 at 0.10, 0.89 at 0.11),
+    divided by the fuel-air ratio and scaled to 1 at 0.08; its values are
+    this file's estimate. With it +9 gives about 1,230 bhp at 2,850 rpm at
+    the MS full-throttle height, near the climbing power of the same engine
+    family (the Packard Merlin 28: 1,240 hp at 3,000 rpm and +9 at 11,500 ft,
+    Bridgeman 1998 as Wikipedia's list of Merlin variants gives it), where
+    JSBSim's own table left it some 10% short.
+
+  Idle
+    minmp is the manifold pressure at idle rpm with the throttle closed: at
+    10 inHg the engine idles at about 800 rpm against the propeller at its
+    fine-pitch stop. Lower, it ran down and stopped.
+-->
+<piston_engine name="Merlin 25">
+  <displacement unit="IN3"> 1649 </displacement>
+  <bore unit="IN"> 5.4 </bore>
+  <stroke unit="IN"> 6.0 </stroke>
+  <cylinders> 12 </cylinders>
+  <compression-ratio> 6.0 </compression-ratio>
+  <cylinder-head-mass unit="LBS"> 40 </cylinder-head-mass>
+  <cycles> 4 </cycles>
+
+  <maxhp> 633 </maxhp>
+  <maxrpm> 3000 </maxrpm>
+  <idlerpm> 650 </idlerpm>
+  <minmp unit="INHG"> 10.0 </minmp>
+  <maxmp unit="INHG"> 29.92 </maxmp>
+  <maxthrottle> 1.0 </maxthrottle>
+  <minthrottle> 0.05 </minthrottle>
+  <sparkfaildrop> 0.1 </sparkfaildrop>
+
+  <ram-air-factor> 0.8 </ram-air-factor>
+
+  <numboostspeeds> 2 </numboostspeeds>
+  <boostmanual> 1 </boostmanual>
+  <boostoverride> 0 </boostoverride>
+
+  <table name="MIXTURE" type="internal">
+    <tableData>
+      0.050   0.000
+      0.055   0.727
+      0.060   1.067
+      0.065   1.108
+      0.070   1.097
+      0.075   1.056
+      0.080   1.000
+      0.085   0.936
+      0.090   0.871
+      0.100   0.752
+      0.110   0.647
+      0.120   0.553
+      0.125   0.000
+    </tableData>
+  </table>
+
+  <ratedboost1 unit="PSI"> 18 </ratedboost1>
+  <ratedpower1 unit="HP"> 1540 </ratedpower1>
+  <ratedrpm1> 3000 </ratedrpm1>
+  <ratedaltitude1 unit="FT"> 1800 </ratedaltitude1>
+
+  <ratedboost2 unit="PSI"> 18 </ratedboost2>
+  <ratedpower2 unit="HP"> 1450 </ratedpower2>
+  <ratedrpm2> 3000 </ratedrpm2>
+  <ratedaltitude2 unit="FT"> 9260 </ratedaltitude2>
+</piston_engine>

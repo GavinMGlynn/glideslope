@@ -1,0 +1,15 @@
+# The de Havilland Mosquito FB Mk VI, two Merlin 25s: a flight model written
+# for glideslope from the aircraft's trials and Pilot's Notes, and held to them
+# (assets/figures/mosquito-fb6.xml).
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name de Havilland Mosquito FB Mk VI
+model mosquito-fb6
+start 220 0.45

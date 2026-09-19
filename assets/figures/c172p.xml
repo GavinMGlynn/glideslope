@@ -17,7 +17,7 @@
   coordinated level turn has to turn at g tan(bank) / true airspeed, and that
   is checked instead.
 -->
-<published_figures aircraft="c172p">
+<published_figures aircraft="c172p" flaps_full_deg="30">
   <source>Cessna Model 172P Pilot's Operating Handbook, 12 May 1981</source>
 
   <!-- 2400 lb, the maximum take-off weight the handbook's figures are for:
@@ -67,18 +67,18 @@
     eye; the tolerance allows for that.
   </figure>
 
-  <figure name="stall_speed_flaps_up" unit="KCAS" min="49.5" max="54" flaps_deg="0">
+  <figure name="stall_speed_flaps_up" flight="stall_speed" unit="KCAS" min="49.5" max="54" flaps_deg="0">
     Figure 5-3, stall speeds, 2400 lb, power off, wings level, flaps up: 51 KCAS
     at the most rearward centre of gravity and 52 KCAS at the most forward. The
     range is 2 kt either side of those.
   </figure>
 
-  <figure name="stall_speed_flaps_10" unit="KCAS" min="46" max="51" flaps_deg="10">
+  <figure name="stall_speed_flaps_10" flight="stall_speed" unit="KCAS" min="46" max="51" flaps_deg="10">
     Figure 5-3, stall speeds, 2400 lb, power off, wings level, flaps 10 degrees:
     48 KCAS rearward and 49 KCAS forward centre of gravity, 2 kt either side.
   </figure>
 
-  <figure name="stall_speed_flaps_30" unit="KCAS" min="44" max="48" flaps_deg="30">
+  <figure name="stall_speed_flaps_30" flight="stall_speed" unit="KCAS" min="44" max="48" flaps_deg="30">
     Figure 5-3, stall speeds, 2400 lb, power off, wings level, flaps 30 degrees:
     46 KCAS at either centre of gravity, 2 kt either side.
   </figure>

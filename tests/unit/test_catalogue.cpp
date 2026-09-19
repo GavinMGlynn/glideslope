@@ -38,9 +38,11 @@ Held hold_its_start(const std::filesystem::path& from, const CatalogueEntry& e) 
     ic.altitude_ft = 3000.0;
     ic.airspeed_kts = e.start_airspeed_kts;
     ic.engine_running = true;
+    ic.gear = 0.0;
     aircraft.initialize(ic);
     glideslope::sim::Controls controls;
     controls.throttle = e.start_throttle;
+    controls.gear = 0.0;
     glideslope::sim::Autopilot autopilot(aircraft, controls);
     glideslope::sim::AutopilotModes modes = autopilot.modes();
     modes.altitude_ft = 3000.0;

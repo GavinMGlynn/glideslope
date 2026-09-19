@@ -1,0 +1,254 @@
+<?xml version="1.0"?>
+<!--
+  The de Havilland Mosquito FB Mk VI's published figures, and the conditions
+  each was measured in.
+
+  Every number here is from one of these, cited by figure:
+    [HX809]  A&AEE Boscombe Down, report 767,e, 12th part, 1 February 1944:
+             Mosquito FB Mk VI HX809 (two Merlin 25s), level speed
+             performance at normal and increased boost rating.
+    [HJ679]  A&AEE report 767,e, 7th part, 19 September 1943: Mosquito FB
+             Mk VI HJ679 (two Merlin 25s), brief performance trials.
+    [PN50]   A.P. 2019E, Pilot's Notes for the Mosquito FB 6, 1950 edition.
+    [PN44]   A.P. 2019E, Pilot's Notes, 1944 edition.
+    [ADS]    Aircraft Data Sheet, Mosquito B Mk IV, card 3(b), 1 May 1944.
+  The checks in src/sim/figures.cpp fly one flight per <figure> and compare
+  what JSBSim does with the range given here. The tolerances are this
+  project's, stated with each figure; docs/PROJECT_STATUS.md gives what the
+  model measured against each and how it was set.
+
+  The trials give true airspeeds in mph, and are compared in mph. The Pilot's
+  Notes give indicated airspeeds, in knots from 1950; the flight model
+  reports calibrated airspeed, and the two are taken as the same - the
+  aircraft's position error was measured (HX809's in the 10th part of the
+  report) but has not been found - which the tolerances allow for.
+
+  The model is the aircraft as both trials flew it, with a drop tank under
+  each wing.
+-->
+<published_figures aircraft="mosquito-fb6" flaps_full_deg="45">
+  <source>A&amp;AEE reports 767,e (HX809, HJ679) and A.P. 2019E Pilot's Notes</source>
+
+  <!-- HX809's level speeds were "corrected to 95% of the take-off weight",
+       20,400 lb, of its 21,430. The crew and 3,856 lb of fuel. -->
+  <loading name="hx809" total_lbs="20400">
+    <pointmass index="0" lbs="200"/>
+    <pointmass index="1" lbs="200"/>
+    <pointmass index="2" lbs="0"/>
+    <tank index="0" lbs="360"/>
+    <tank index="1" lbs="1030"/>
+    <tank index="2" lbs="1030"/>
+    <tank index="3" lbs="418"/>
+    <tank index="4" lbs="418"/>
+    <tank index="5" lbs="300"/>
+    <tank index="6" lbs="300"/>
+  </loading>
+
+  <!-- HJ679's loading I, "normal typical service load", 21,020 lb with its
+       drop tanks on; the report gives only the weight. Here: the crew, every
+       tank full and two 250 lb bombs. -->
+  <loading name="hj679" total_lbs="21020">
+    <pointmass index="0" lbs="200"/>
+    <pointmass index="1" lbs="200"/>
+    <pointmass index="2" lbs="500"/>
+    <tank index="0" lbs="360"/>
+    <tank index="1" lbs="1030"/>
+    <tank index="2" lbs="1030"/>
+    <tank index="3" lbs="418"/>
+    <tank index="4" lbs="418"/>
+    <tank index="5" lbs="360"/>
+    <tank index="6" lbs="360"/>
+  </loading>
+
+  <!-- The Aircraft Data Sheet's maximum weight for the B Mk IV, 21,462 lb:
+       HJ679's loading and 442 lb more in the bomb bay. -->
+  <loading name="b4-maximum" total_lbs="21462">
+    <pointmass index="0" lbs="200"/>
+    <pointmass index="1" lbs="200"/>
+    <pointmass index="2" lbs="942"/>
+    <tank index="0" lbs="360"/>
+    <tank index="1" lbs="1030"/>
+    <tank index="2" lbs="1030"/>
+    <tank index="3" lbs="418"/>
+    <tank index="4" lbs="418"/>
+    <tank index="5" lbs="360"/>
+    <tank index="6" lbs="360"/>
+  </loading>
+
+  <!-- The Pilot's Notes' weights: 20,500 lb, their maximum for take-off
+       ("full load"); 18,000 lb, their stalling speeds'; 17,000 lb, their
+       safety speeds'. The crew and fuel. -->
+  <loading name="pn-full" total_lbs="20500">
+    <pointmass index="0" lbs="200"/>
+    <pointmass index="1" lbs="200"/>
+    <pointmass index="2" lbs="0"/>
+    <tank index="0" lbs="360"/>
+    <tank index="1" lbs="1030"/>
+    <tank index="2" lbs="1030"/>
+    <tank index="3" lbs="418"/>
+    <tank index="4" lbs="418"/>
+    <tank index="5" lbs="350"/>
+    <tank index="6" lbs="350"/>
+  </loading>
+  <loading name="pn-18000" total_lbs="18000">
+    <pointmass index="0" lbs="200"/>
+    <pointmass index="1" lbs="200"/>
+    <pointmass index="2" lbs="0"/>
+    <tank index="0" lbs="360"/>
+    <tank index="1" lbs="548"/>
+    <tank index="2" lbs="548"/>
+    <tank index="3" lbs="0"/>
+    <tank index="4" lbs="0"/>
+    <tank index="5" lbs="0"/>
+    <tank index="6" lbs="0"/>
+  </loading>
+  <loading name="pn-17000" total_lbs="17000">
+    <pointmass index="0" lbs="200"/>
+    <pointmass index="1" lbs="200"/>
+    <pointmass index="2" lbs="0"/>
+    <tank index="0" lbs="0"/>
+    <tank index="1" lbs="228"/>
+    <tank index="2" lbs="228"/>
+    <tank index="3" lbs="0"/>
+    <tank index="4" lbs="0"/>
+    <tank index="5" lbs="0"/>
+    <tank index="6" lbs="0"/>
+  </loading>
+
+  <!-- Level speeds. [HX809] summary and fig. 1: all-out level at +18 lb/sq in
+       boost and 3,000 rpm, radiator shutters closed, MS supercharger gear
+       below 7,000 ft and FS above. -->
+  <figure name="level_speed_sea_level" flight="level_speed" loading="hx809"
+          unit="mph TAS" value="332" tolerance_percent="2"
+          altitude_ft="0" boost_psi="18" rpm="3000">
+    [HX809]: 354 mph at sea level at the full-throttle boost of +23.9, which
+    "increases the speed by 22 mph" over +18; fig. 1 draws 332 mph at +18.
+  </figure>
+  <figure name="level_speed_ms_gear" flight="level_speed" loading="hx809"
+          unit="mph TAS" value="353" tolerance_percent="2"
+          altitude_ft="5100" boost_psi="18" rpm="3000">
+    [HX809] summary: "MS gear, max. speed at +18 lb/sq.in. boost = 353 mph at
+    5100 ft", its full-throttle height.
+  </figure>
+  <figure name="level_speed_fs_gear" flight="level_speed" loading="hx809"
+          unit="mph TAS" value="363" tolerance_percent="2"
+          altitude_ft="12500" boost_psi="18" rpm="3000">
+    [HX809] summary: "FS gear, max. speed at +18 lb/sq.in. boost = 363 mph at
+    12500 ft", its full-throttle height.
+  </figure>
+  <figure name="level_speed_18000_ft" flight="level_speed" loading="hx809"
+          unit="mph TAS" value="357" tolerance_percent="2"
+          altitude_ft="18000" boost_psi="18" rpm="3000">
+    [HX809] fig. 1: the FS gear full-throttle line at 18,000 ft, above the
+    full-throttle height, where the boost has fallen below +18: 357 mph, read
+    from the chart.
+  </figure>
+
+  <!-- Climbs. [HJ679] para. 3 and 4.1, loading I: "radiator flaps fully
+       open", 170 mph ASI, climbing power of 2,850 rpm and +9 boost - which
+       "was not obtained" at this weight: para. 5 puts it 0.4 to 0.6 lb/sq in
+       lower, so +8.5. The shutters' drag in the model is set between the
+       first two; the time to height checks it. -->
+  <figure name="climb_rate_ms_gear" flight="climb_rate" loading="hj679"
+          unit="ft/min" value="1740" tolerance_percent="10"
+          altitude_ft="10400" speed_kcas="148" boost_psi="8.5" rpm="2850"
+          fs_gear_above_ft="99999" radiators_open="1">
+    [HJ679] 4.1: "Max. rate of climb in M.S. gear = 1740 ft/min @ 10400 ft",
+    its full-throttle height at climbing power; 170 mph ASI is 148 knots.
+  </figure>
+  <figure name="climb_rate_fs_gear" flight="climb_rate" loading="hj679"
+          unit="ft/min" value="1440" tolerance_percent="10"
+          altitude_ft="17000" speed_kcas="148" boost_psi="8.5" rpm="2850"
+          fs_gear_above_ft="0" radiators_open="1">
+    [HJ679] 4.1: "Max. rate of climb in F.S. gear = 1440 ft/min @ 17000 ft".
+  </figure>
+  <figure name="time_to_20000_ft" flight="time_to_altitude" loading="hj679"
+          unit="min" value="12.85" tolerance_percent="10"
+          altitude_ft="20000" speed_kcas="148" boost_psi="8.5" rpm="2850"
+          gear_change_boost_drop="2" radiators_open="1">
+    [HJ679] 4.1: "Time to reach 20,000 ft. = 12.85 mins", from the ground,
+    climbing in MS gear and changing to FS when the boost has fallen 2 lb/sq
+    in, as [PN50] para. 41 has the pilot do.
+  </figure>
+
+  <!-- Stalls. [PN50] para. 43, power off, at 18,000 lb. -->
+  <figure name="stall_speed_clean" flight="stall_speed" loading="pn-18000"
+          unit="KCAS" min="100" max="110" flaps_deg="0" gear="0"
+          entry_kcas="150">
+    [PN50] para. 43: "Undercarriage and flaps up ... 105" knots at 18,000 lb,
+    power off. [PN44] para. 52's 130 mph (113 knots) at full load is the
+    same lift. 5 knots either side.
+  </figure>
+  <figure name="stall_speed_landing" flight="stall_speed" loading="pn-18000"
+          unit="KCAS" min="89" max="100" flaps_deg="45" gear="1"
+          entry_kcas="140">
+    [PN50] para. 43: "Undercarriage and flaps down ... 95-100" knots at
+    18,000 lb. [PN44] para. 52 gives 110 mph (96 knots) at full load, which
+    is 89 knots at 18,000 lb; the range spans both.
+  </figure>
+
+  <!-- Take-off. No take-off distance for the FB VI has been found. [ADS]
+       gives the B Mk IV's - the same wing, undercarriage and propellers,
+       with Merlin 23s, the Merlin 25's predecessor with the same
+       supercharger - at its maximum weight and +14 boost; the FB VI model
+       flies it at the B IV's weight and boost. -->
+  <figure name="takeoff_distance_b4" flight="takeoff_distance" loading="b4-maximum"
+          unit="ft" value="2385" tolerance_percent="10"
+          boost_psi="14" rpm="3000" flaps_deg="15" lift_off_kcas="100">
+    [ADS]: "Take off over 50 ft. (Max. wt.) (3,000 r.p.m. + 14 lb) 795 yds"
+    at 21,462 lb: 2,385 ft. With 15 degrees of flap, as [PN50] para. 55
+    allows for take-off. No unstick speed has been found; 100 knots is 5%
+    above the model's stall with that flap, weight and power, about 96
+    knots - the slipstreams lift the wing behind the propellers.
+  </figure>
+
+  <!-- Handling on take-off. [PN44] para. 49: "There is a slight tendency to
+       swing to port which can be checked by opening the port throttle
+       slightly ahead." [PN50] para. 40: "Open the throttles slowly, checking
+       any tendency to swing by coarse use of the rudder and by differential
+       throttle movement. There is little tendency to swing if the engines
+       are kept synchronised." The tail wheel castors, so on the ground the
+       aircraft turns with any yawing moment until the rudder bites; the
+       tendency is measured as the lead the port throttle needs to cancel it,
+       on the brakes with the tail down, at the climbing gate, +9 boost -
+       the power [PN44] para. 49 has the throttles opened to "when load and
+       take-off run permit". -->
+  <figure name="takeoff_swing" flight="takeoff_swing" loading="hj679"
+          unit="lb/sq in port lead" min="0.2" max="3" boost_psi="9" rpm="3000">
+    [PN44] para. 49: a swing to port, checked by the port throttle "slightly
+    ahead": a lead of more than nothing and less than 3 lb/sq in of boost,
+    a sixth of the climbing gate's.
+  </figure>
+
+  <!-- Engine failure. [PN50] para. 55: "at approximately 17,000 lb, safety
+       speed should be assumed to be 155 knots at +9 lb./sq. in. boost and
+       ... 170 knots at +18 lb./sq. in. boost", flaps up or 15 degrees down.
+       The port engine - the critical one, both propellers turning the same
+       way - fails and windmills; the other holds the boost; the rudder, and
+       5 degrees of bank toward the live engine, hold the heading as the
+       speed falls a knot a second. The speed at which holding it first
+       takes full rudder. -->
+  <figure name="safety_speed_18" flight="safety_speed" loading="pn-17000"
+          unit="KCAS" value="170" tolerance="10" boost_psi="18" rpm="3000">
+    [PN50] para. 55: 170 knots at +18 boost and about 17,000 lb; "these
+    speeds however, may vary considerably with individual aircraft"
+    (para. 40): 10 knots either side.
+  </figure>
+  <figure name="safety_speed_9" flight="safety_speed" loading="pn-17000"
+          unit="KCAS" value="155" tolerance="10" boost_psi="9" rpm="2850">
+    [PN50] para. 55: 155 knots at +9 boost, climbing power, and about
+    17,000 lb.
+  </figure>
+
+  <!-- [PN50] para. 56: "At full load, height can be maintained on either
+       engine up to 12,000 ft. using climbing power at about 150 knots": the
+       port propeller feathered, the other engine at +9 and 2,850 rpm, the
+       height at which the aircraft no longer climbs. -->
+  <figure name="single_engine_ceiling" flight="single_engine_ceiling"
+          loading="pn-full" unit="ft" value="12000" tolerance="2000"
+          speed_kcas="150" boost_psi="9" rpm="2850" gear_change_boost_drop="2">
+    [PN50] para. 56: height maintained on one engine up to 12,000 ft at full
+    load, 20,500 lb. The Notes give it as a round number; 2,000 ft either
+    side.
+  </figure>
+</published_figures>

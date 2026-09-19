@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -21,6 +22,7 @@ namespace {
 
 constexpr double dt = 1.0 / static_cast<double>(steps_per_second);
 constexpr double g_fps2 = 32.174;
+constexpr double knots_per_mph = 1.0 / 1.150779;
 
 int steps(double seconds) {
     return static_cast<int>(
@@ -36,28 +38,50 @@ double condition(const FigureSpec& spec, const std::string& key) {
     return it->second;
 }
 
-// An aircraft loaded as the figures file says, and put somewhere.
+double condition_or(const FigureSpec& spec, const std::string& key, double otherwise) {
+    const auto it = spec.conditions.find(key);
+    return it == spec.conditions.end() ? otherwise : it->second;
+}
+
+// An aircraft loaded as the figures file says for the figure, and put
+// somewhere, its gear held where the start put it.
 struct Flight {
     Aircraft aircraft;
     TestPilot pilot;
+    double gear;
 
     Flight(const std::filesystem::path& root, const PublishedFigures& figures,
-           const InitialConditions& ic)
-        : aircraft(root, figures.model), pilot(aircraft) {
-        aircraft.load(figures.loading);
+           const FigureSpec& spec, const InitialConditions& ic)
+        : aircraft(root, figures.model), pilot(aircraft), gear(ic.gear) {
+        const auto it = figures.loadings.find(spec.loading);
+        if (it == figures.loadings.end()) {
+            throw std::runtime_error("figure " + spec.name + " names no loading " +
+                                     spec.loading);
+        }
+        aircraft.load(it->second.loading);
         aircraft.initialize(ic);
         const double weight = aircraft.property("inertia/weight-lbs");
-        if (std::abs(weight - figures.total_lbs) > 1.0) {
+        if (std::abs(weight - it->second.total_lbs) > 1.0) {
             std::ostringstream m;
-            m << figures.model << " loaded as its figures file says weighs " << weight
-              << " lb, not the " << figures.total_lbs << " lb the file states";
+            m << figures.model << " loaded as its figures file's loading "
+              << spec.loading << " says weighs " << weight << " lb, not the "
+              << it->second.total_lbs << " lb the file states";
             throw std::runtime_error(m.str());
         }
     }
 
-    void fly(const Controls& c) {
+    void fly(Controls c) {
+        c.gear = gear;
         aircraft.set_controls(c);
         aircraft.step();
+    }
+
+    double engine(int i, const std::string& what) const {
+        return aircraft.property("propulsion/engine[" + std::to_string(i) + "]/" + what);
+    }
+
+    double heading_error(double heading_deg) const {
+        return std::remainder(heading_deg - aircraft.property("attitude/psi-deg"), 360.0);
     }
 };
 
@@ -69,29 +93,85 @@ InitialConditions on_the_runway() {
     return ic;
 }
 
-// Airborne, over terrain far enough below that it plays no part.
+// Airborne, over terrain far enough below that it plays no part, with any
+// retractable gear up.
 InitialConditions airborne(double altitude_ft, double kcas, bool engine_running) {
     InitialConditions ic = on_the_runway();
     ic.altitude_ft = altitude_ft;
     ic.terrain_elevation_ft = std::min(0.0, altitude_ft) - 3000.0;
     ic.airspeed_kts = kcas;
     ic.engine_running = engine_running;
+    ic.gear = 0.0;
     return ic;
 }
 
-double flaps_command(double flaps_deg) {
-    return flaps_deg / 30.0; // the model's flaps travel 0 to 30 degrees over 0 to 1
+double flaps_command(const PublishedFigures& figures, double flaps_deg) {
+    return flaps_deg / figures.flaps_full_deg;
 }
 
+// The standard atmosphere's density ratio at a pressure altitude.
+double density_ratio(double altitude_ft) {
+    return std::pow(1.0 - 6.8756e-6 * altitude_ft, 4.2559);
+}
+
+// The boost gauge: lb/sq in above the standard atmosphere at sea level.
+double boost_psi(const Flight& f, int engine) {
+    return f.engine(engine, "map-inhg") * 0.4911541 - 14.6959;
+}
+
+// A pilot setting power: the throttles to a boost read on one engine's gauge,
+// and the propeller lever to an rpm, each by a slow integral, as a hand on the
+// levers watching the gauges would. A boost the engine cannot give - above its
+// rated boost, or above its full-throttle height - leaves the throttles open.
+class Power {
+public:
+    Power(double boost, double rpm, int engine)
+        : boost_(boost), rpm_(rpm), engine_(engine) {}
+
+    void set(const Flight& f, Controls& c) {
+        const double boost = boost_psi(f, engine_);
+        throttle_ = std::clamp(throttle_ + 0.03 * (boost_ - boost) * dt, 0.0, 1.0);
+        lever_ = std::clamp(lever_ + 0.001 * (rpm_ - f.engine(engine_, "engine-rpm")) * dt,
+                            0.0, 1.0);
+        c.throttle = throttle_;
+        c.propeller = lever_;
+        if (gear_change_drop_ > 0.0) {
+            high_gear_ = high_gear_ || (throttle_ >= 0.999 && boost < boost_ - gear_change_drop_);
+            c.supercharger = high_gear_ ? 1.0 : 0.0;
+        }
+    }
+
+    void aim(double boost) {
+        boost_ = boost;
+    }
+
+    // A two-speed supercharger climbed in low gear until, the throttles open,
+    // the boost has fallen `drop` below what is wanted; then automatic - the
+    // Mosquito's Pilot's Notes' "when the maximum obtainable boost has fallen
+    // to +7 lb./sq. in., change to AUTO", climbing at +9.
+    void change_gear_when_boost_falls(double drop) {
+        gear_change_drop_ = drop;
+    }
+
+private:
+    double boost_;
+    double rpm_;
+    int engine_;
+    double throttle_ = 0.8;
+    double lever_ = 1.0;
+    double gear_change_drop_ = 0.0;
+    bool high_gear_ = false;
+};
+
 // ---------------------------------------------------------------------------
-// The flights, one per figure.
+// The flights, one per kind of figure.
 // ---------------------------------------------------------------------------
 
 // Brakes on, full throttle, mixture leaned in steps of 0.05; the highest RPM any
 // mixture reaches after fifteen seconds.
 double static_rpm(const std::filesystem::path& root, const PublishedFigures& figures,
-                  const FigureSpec&) {
-    Flight f(root, figures, on_the_runway());
+                  const FigureSpec& spec) {
+    Flight f(root, figures, spec, on_the_runway());
     double best = 0.0;
     for (int m = 20; m >= 11; --m) {
         Controls c;
@@ -111,10 +191,10 @@ double static_rpm(const std::filesystem::path& root, const PublishedFigures& fig
 // speed.
 double takeoff_ground_roll(const std::filesystem::path& root,
                            const PublishedFigures& figures, const FigureSpec& spec) {
-    Flight f(root, figures, on_the_runway());
+    Flight f(root, figures, spec, on_the_runway());
     Controls c;
     c.throttle = 1.0;
-    c.flaps = flaps_command(condition(spec, "flaps_deg"));
+    c.flaps = flaps_command(figures, condition(spec, "flaps_deg"));
     c.left_brake = c.right_brake = 1.0;
     for (int i = 0; i < steps(8); ++i) {
         f.fly(c);
@@ -139,15 +219,135 @@ double takeoff_ground_roll(const std::filesystem::path& root,
     throw std::runtime_error("still on the ground after a minute");
 }
 
+// Flaps set on the brakes; then the brakes off and the throttles opened to the
+// boost over three seconds, steering by rudder and, below 60 knots,
+// differential brake - the tail wheel castors, and does not steer. The tail is
+// raised from 60 knots to a take-off attitude of a degree nose up, and at the
+// lift-off speed the aircraft is rotated to 12 degrees - its attitude sitting
+// on its tail - and held there as it climbs away. The ground distance covered
+// until it is 50 ft higher than it stood.
+double takeoff_distance(const std::filesystem::path& root,
+                        const PublishedFigures& figures, const FigureSpec& spec) {
+    Flight f(root, figures, spec, on_the_runway());
+    const double heading = on_the_runway().heading_deg;
+    const double lift_off = condition(spec, "lift_off_kcas");
+    const double boost = condition(spec, "boost_psi");
+    Power power(0.0, condition(spec, "rpm"), 0);
+    Controls c;
+    c.flaps = flaps_command(figures, condition(spec, "flaps_deg"));
+    c.left_brake = c.right_brake = 1.0;
+    for (int i = 0; i < steps(12); ++i) {
+        f.fly(c);
+    }
+    const double standing_ft = f.aircraft.property("position/h-agl-ft");
+    double ground_ft = 0.0;
+    // On the ground the stick holds an attitude by itself, with no integral
+    // to wind up against the wheels; once the aircraft flies, a fresh pilot.
+    std::optional<TestPilot> airborne_pilot;
+    for (int i = 0; i < steps(90); ++i) {
+        power.aim(std::min(i * dt / 3.0, 1.0) * boost);
+        power.set(f, c);
+        const double kcas = f.aircraft.property("velocities/vc-kts");
+        const double theta = f.aircraft.property("attitude/theta-deg");
+        const double q_degps = f.aircraft.property("velocities/q-rad_sec") * 57.29578;
+        c.rudder = f.pilot.steer_to(heading);
+        const double r_degps = f.aircraft.property("velocities/r-rad_sec") * 57.29578;
+        const double turn =
+            std::clamp(0.1 * f.heading_error(heading) - 0.3 * r_degps, -1.0, 1.0);
+        c.left_brake = kcas < 60.0 ? std::max(-turn, 0.0) : 0.0;
+        c.right_brake = kcas < 60.0 ? std::max(turn, 0.0) : 0.0;
+        if (kcas >= lift_off && !airborne_pilot) {
+            airborne_pilot.emplace(f.aircraft);
+        }
+        if (airborne_pilot) {
+            c.elevator = airborne_pilot->pitch_to(12.0);
+            c.aileron = airborne_pilot->roll_to(0.0);
+        } else {
+            const double attitude = kcas >= 60.0 ? 1.0 : theta;
+            c.elevator = std::clamp(0.1 * (attitude - theta) - 0.05 * q_degps, -1.0, 1.0);
+        }
+        f.fly(c);
+        ground_ft += f.aircraft.property("velocities/vg-fps") * dt;
+        if (f.aircraft.property("position/h-agl-ft") - standing_ft >= 50.0) {
+            return ground_ft;
+        }
+    }
+    throw std::runtime_error("not 50 ft up after a minute and a half");
+}
+
+// The tendency to swing on the take-off run, as the pilot meets it opening the
+// throttles: on the brakes, tail down, the port engine held at the boost and
+// the starboard one `lead` below it, and the yawing moment the propellers and
+// the air put on the aircraft about the vertical once both have settled.
+double swing_moment(const std::filesystem::path& root, const PublishedFigures& figures,
+                    const FigureSpec& spec, double lead) {
+    Flight f(root, figures, spec, on_the_runway());
+    const double boost = condition(spec, "boost_psi");
+    Power port(boost, condition(spec, "rpm"), 0);
+    Power starboard(boost - lead, condition(spec, "rpm"), 1);
+    Controls c;
+    c.left_brake = c.right_brake = 1.0;
+    for (int i = 0; i < steps(20); ++i) {
+        Controls p;
+        Controls s;
+        port.set(f, p);
+        starboard.set(f, s);
+        c.throttle = 0.0;
+        c.throttle_offset = {p.throttle, s.throttle};
+        c.propeller = p.propeller;
+        f.fly(c);
+    }
+    // The body's roll and yaw moments, the nose up at its angle on the ground:
+    // about the vertical, positive turning the nose to starboard.
+    const double theta = f.aircraft.property("attitude/theta-rad");
+    const double roll = f.aircraft.property("moments/l-aero-lbsft") +
+                        f.aircraft.property("moments/l-prop-lbsft");
+    const double yaw = f.aircraft.property("moments/n-aero-lbsft") +
+                       f.aircraft.property("moments/n-prop-lbsft");
+    return yaw * std::cos(theta) - roll * std::sin(theta);
+}
+
+// How far ahead of the starboard throttle the port one must be, in lb/sq in
+// of boost, for the aircraft to have no tendency to swing at the stated boost:
+// positive for a swing to port that the port throttle checks. The moment is
+// linear in the lead, so two leads find it.
+double takeoff_swing(const std::filesystem::path& root, const PublishedFigures& figures,
+                     const FigureSpec& spec) {
+    constexpr double trial = 2.0;
+    const double level = swing_moment(root, figures, spec, 0.0);
+    const double led = swing_moment(root, figures, spec, trial);
+    if (std::abs(led - level) < 1.0) {
+        throw std::runtime_error("the lead made no difference to the swing");
+    }
+    return -level * trial / (led - level);
+}
+
 // Full throttle, flaps up, holding the climb speed; the average climb rate over
-// forty seconds that pass through sea level, after thirty to settle.
+// forty seconds that pass through the altitude - sea level if none is given -
+// after thirty to settle. The engines at the stated boost and rpm, if any; a
+// two-speed supercharger held in low gear up to `fs_gear_above_ft`, if stated,
+// and automatic above it; the radiator shutters open if `radiators_open`.
 double climb_rate(const std::filesystem::path& root, const PublishedFigures& figures,
                   const FigureSpec& spec) {
     const double kcas = condition(spec, "speed_kcas");
-    Flight f(root, figures, airborne(-600.0, kcas, true));
+    const bool at_altitude = spec.conditions.count("altitude_ft") != 0;
+    const double altitude = condition_or(spec, "altitude_ft", 0.0);
+    // Started so that, at the published rate, the measurement is centred on
+    // the altitude; the Cessna's from 600 ft below sea level.
+    const double start =
+        at_altitude ? altitude - spec.published * (30.0 + 20.0) / 60.0 : -600.0;
+    Flight f(root, figures, spec, airborne(start, kcas, true));
+    const bool powered = spec.conditions.count("boost_psi") != 0;
+    Power power(condition_or(spec, "boost_psi", 0.0), condition_or(spec, "rpm", 0.0), 0);
+    const double fs_above = condition_or(spec, "fs_gear_above_ft", 0.0);
     Controls c;
     c.throttle = 1.0;
+    c.cooling_flaps.fill(condition_or(spec, "radiators_open", 0.0));
     const auto hold = [&] {
+        if (powered) {
+            power.set(f, c);
+        }
+        c.supercharger = f.aircraft.property("position/h-sl-ft") > fs_above ? 1.0 : 0.0;
         c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_speed(kcas));
         c.aileron = f.pilot.roll_to(0.0);
         c.rudder = f.pilot.coordinate();
@@ -163,6 +363,59 @@ double climb_rate(const std::filesystem::path& root, const PublishedFigures& fig
     return (f.aircraft.property("position/h-sl-ft") - start_ft) / 40.0 * 60.0;
 }
 
+// From sea level at the climb speed, climbing as climb_rate does, a two-speed
+// supercharger changing gear when its boost has fallen `gear_change_boost_drop`
+// below the climbing boost; the minutes taken to reach the altitude.
+double time_to_altitude(const std::filesystem::path& root,
+                        const PublishedFigures& figures, const FigureSpec& spec) {
+    const double kcas = condition(spec, "speed_kcas");
+    const double altitude = condition(spec, "altitude_ft");
+    Flight f(root, figures, spec, airborne(0.0, kcas, true));
+    Power power(condition(spec, "boost_psi"), condition(spec, "rpm"), 0);
+    power.change_gear_when_boost_falls(condition(spec, "gear_change_boost_drop"));
+    Controls c;
+    c.cooling_flaps.fill(condition_or(spec, "radiators_open", 0.0));
+    for (int i = 0; i < steps(3600); ++i) {
+        power.set(f, c);
+        c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_speed(kcas));
+        c.aileron = f.pilot.roll_to(0.0);
+        c.rudder = f.pilot.coordinate();
+        f.fly(c);
+        if (f.aircraft.property("position/h-sl-ft") >= altitude) {
+            return i * dt / 60.0;
+        }
+    }
+    throw std::runtime_error("not at the altitude after an hour");
+}
+
+// Level at the altitude, the engines at the boost and rpm - or at full
+// throttle, where the boost cannot be had - gear and flaps up; the average
+// true airspeed, in mph as the trials give it, over the last minute of four.
+double level_speed(const std::filesystem::path& root, const PublishedFigures& figures,
+                   const FigureSpec& spec) {
+    const double altitude = condition(spec, "altitude_ft");
+    // Started at the published speed, to settle sooner.
+    const double kcas =
+        spec.published * knots_per_mph * std::sqrt(density_ratio(altitude));
+    Flight f(root, figures, spec, airborne(altitude, kcas, true));
+    Power power(condition(spec, "boost_psi"), condition(spec, "rpm"), 0);
+    Controls c;
+    double mph_sum = 0.0;
+    const int total = steps(240);
+    const int measured = steps(60);
+    for (int i = 0; i < total; ++i) {
+        power.set(f, c);
+        c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_altitude(altitude));
+        c.aileron = f.pilot.roll_to(0.0);
+        c.rudder = f.pilot.coordinate();
+        f.fly(c);
+        if (i >= total - measured) {
+            mph_sum += f.aircraft.property("velocities/vtrue-kts") / knots_per_mph;
+        }
+    }
+    return mph_sum / measured;
+}
+
 // Level at the cruise altitude: first full throttle with the mixture leaned in
 // steps to find the richest setting giving the most RPM, then the throttle
 // holding the cruise RPM; the average true airspeed over the last fifty
@@ -171,7 +424,7 @@ double cruise_speed(const std::filesystem::path& root, const PublishedFigures& f
                     const FigureSpec& spec) {
     const double altitude = condition(spec, "altitude_ft");
     const double rpm_target = condition(spec, "rpm");
-    Flight f(root, figures, airborne(altitude, 110.0, true));
+    Flight f(root, figures, spec, airborne(altitude, 110.0, true));
     Controls c;
     const auto level = [&] {
         c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_altitude(altitude));
@@ -224,7 +477,7 @@ double cruise_speed(const std::filesystem::path& root, const PublishedFigures& f
 double glide_ratio(const std::filesystem::path& root, const PublishedFigures& figures,
                    const FigureSpec& spec) {
     const double kcas = condition(spec, "speed_kcas");
-    Flight f(root, figures, airborne(6500.0, kcas, false));
+    Flight f(root, figures, spec, airborne(6500.0, kcas, false));
     Controls c;
     c.throttle = 0.0;
     c.mixture = 0.0;
@@ -244,20 +497,24 @@ double glide_ratio(const std::filesystem::path& root, const PublishedFigures& fi
     return ground_ft / (start_ft - f.aircraft.property("position/h-sl-ft"));
 }
 
-// Power off, wings level, flaps set; from 70 KCAS the target speed falls at one
+// Power off, wings level, flaps and any retractable gear set; from the entry
+// speed - 70 KCAS unless the figure gives one - the target speed falls at one
 // knot a second, the handbook's rate for a stall, and the pilot raises the
 // nose to follow it until the elevator can raise it no further. The lowest
 // calibrated airspeed reached.
 double stall_speed(const std::filesystem::path& root, const PublishedFigures& figures,
                    const FigureSpec& spec) {
-    Flight f(root, figures, airborne(5000.0, 70.0, true));
+    const double entry = condition_or(spec, "entry_kcas", 70.0);
+    InitialConditions ic = airborne(5000.0, entry, true);
+    ic.gear = condition_or(spec, "gear", 0.0);
+    Flight f(root, figures, spec, ic);
     Controls c;
     c.throttle = 0.0;
-    c.flaps = flaps_command(condition(spec, "flaps_deg"));
+    c.flaps = flaps_command(figures, condition(spec, "flaps_deg"));
     double slowest = 1e9;
     for (int i = 0; i < steps(80); ++i) {
         const double t = i * dt;
-        const double target = t < 10.0 ? 70.0 : 70.0 - (t - 10.0);
+        const double target = t < 10.0 ? entry : entry - (t - 10.0);
         c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_speed(target));
         c.aileron = f.pilot.roll_to(0.0);
         c.rudder = f.pilot.coordinate();
@@ -276,7 +533,7 @@ double turn_rate(const std::filesystem::path& root, const PublishedFigures& figu
                  const FigureSpec& spec) {
     const double altitude = condition(spec, "altitude_ft");
     const double bank = condition(spec, "bank_deg");
-    Flight f(root, figures, airborne(altitude, 100.0, true));
+    Flight f(root, figures, spec, airborne(altitude, 100.0, true));
     Controls c;
     c.throttle = 0.85;
     double rate_sum = 0.0;
@@ -296,6 +553,101 @@ double turn_rate(const std::filesystem::path& root, const PublishedFigures& figu
     return rate_sum / expected_sum * 100.0;
 }
 
+// Both engines at the boost and rpm, level at 1,000 ft and 200 knots; then the
+// port engine fails and windmills. The live engine keeps the boost; the rudder
+// holds the heading and the ailerons 5 degrees of bank toward the live engine,
+// each with an integral; the nose follows a target speed falling a knot a
+// second from ten seconds after the failure. The safety speed - the lowest at
+// which the aircraft can be held straight - is where holding the heading first
+// takes the rudder's full travel for a second together.
+double safety_speed(const std::filesystem::path& root, const PublishedFigures& figures,
+                    const FigureSpec& spec) {
+    constexpr double entry = 200.0;
+    constexpr double fail_at = 20.0;
+    Flight f(root, figures, spec, airborne(1000.0, entry, true));
+    const double heading = on_the_runway().heading_deg;
+    Power power(condition(spec, "boost_psi"), condition(spec, "rpm"), 1);
+    Controls c;
+    double rudder_integral = 0.0;
+    double aileron_integral = 0.0;
+    int at_full_rudder = 0;
+    for (int i = 0; i < steps(fail_at + 130.0); ++i) {
+        const double t = i * dt;
+        if (i == steps(fail_at)) {
+            f.aircraft.fail_engine(0, false);
+        }
+        power.set(f, c);
+        const double target = t < fail_at + 10.0 ? entry : entry - (t - fail_at - 10.0);
+        c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_speed(target));
+        const double bank = t < fail_at ? 0.0 : 5.0;
+        const double bank_error = bank - f.aircraft.property("attitude/phi-deg");
+        const double p_degps = f.aircraft.property("velocities/p-rad_sec") * 57.29578;
+        aileron_integral = std::clamp(aileron_integral + 0.02 * bank_error * dt, -1.0, 1.0);
+        c.aileron =
+            std::clamp(0.04 * bank_error - 0.02 * p_degps + aileron_integral, -1.0, 1.0);
+        // The model's rudder yaws the nose left for positive values.
+        const double error = f.heading_error(heading);
+        const double r_degps = f.aircraft.property("velocities/r-rad_sec") * 57.29578;
+        rudder_integral = std::clamp(rudder_integral - 0.05 * error * dt, -1.0, 1.0);
+        c.rudder =
+            std::clamp(-(0.1 * error - 0.2 * r_degps) + rudder_integral, -1.0, 1.0);
+        f.fly(c);
+        const bool full = std::abs(c.rudder) >= 0.999;
+        at_full_rudder = t > fail_at + 10.0 && full ? at_full_rudder + 1 : 0;
+        if (at_full_rudder >= steps(1.0)) {
+            return f.aircraft.property("velocities/vc-kts");
+        }
+    }
+    throw std::runtime_error("the heading was still held without full rudder at " +
+                             std::to_string(entry - 120.0) + " knots");
+}
+
+// The port propeller feathered and its radiator shut, the other engine at the
+// boost and rpm with its radiator open and its supercharger changing gear as
+// time_to_altitude's does, gear and flaps up, the ball in the middle and the
+// heading held with bank, at the speed: the rate of climb at heights 2,000 ft
+// apart, and the height at which it falls to nothing, between the two that
+// bracket it.
+double single_engine_ceiling(const std::filesystem::path& root,
+                             const PublishedFigures& figures, const FigureSpec& spec) {
+    const double kcas = condition(spec, "speed_kcas");
+    const double heading = on_the_runway().heading_deg;
+    const auto climb_at = [&](double altitude) {
+        Flight f(root, figures, spec, airborne(altitude - 500.0, kcas, true));
+        f.aircraft.fail_engine(0, true);
+        Power power(condition(spec, "boost_psi"), condition(spec, "rpm"), 1);
+        power.change_gear_when_boost_falls(condition(spec, "gear_change_boost_drop"));
+        Controls c;
+        c.cooling_flaps = {0.0, 1.0};
+        double start_ft = 0.0;
+        for (int i = 0; i < steps(100); ++i) {
+            if (i == steps(40)) {
+                start_ft = f.aircraft.property("position/h-sl-ft");
+            }
+            power.set(f, c);
+            c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_speed(kcas));
+            c.aileron = f.pilot.roll_to(std::clamp(f.heading_error(heading), -10.0, 10.0));
+            c.rudder = f.pilot.coordinate();
+            f.fly(c);
+        }
+        return f.aircraft.property("position/h-sl-ft") - start_ft;
+    };
+    double below = 0.0;
+    double below_rate = climb_at(below);
+    if (below_rate <= 0.0) {
+        return 0.0;
+    }
+    for (double above = 2000.0; above <= 30000.0; above += 2000.0) {
+        const double rate = climb_at(above);
+        if (rate <= 0.0) {
+            return below + (above - below) * below_rate / (below_rate - rate);
+        }
+        below = above;
+        below_rate = rate;
+    }
+    throw std::runtime_error("still climbing on one engine at 30,000 ft");
+}
+
 using FlightFn = std::function<double(const std::filesystem::path&,
                                       const PublishedFigures&, const FigureSpec&)>;
 
@@ -303,13 +655,17 @@ const std::vector<std::pair<std::string, FlightFn>>& flights() {
     static const std::vector<std::pair<std::string, FlightFn>> all = {
         {"static_rpm", static_rpm},
         {"takeoff_ground_roll", takeoff_ground_roll},
+        {"takeoff_distance", takeoff_distance},
+        {"takeoff_swing", takeoff_swing},
         {"climb_rate", climb_rate},
+        {"time_to_altitude", time_to_altitude},
+        {"level_speed", level_speed},
         {"cruise_speed", cruise_speed},
         {"glide_ratio", glide_ratio},
-        {"stall_speed_flaps_up", stall_speed},
-        {"stall_speed_flaps_10", stall_speed},
-        {"stall_speed_flaps_30", stall_speed},
+        {"stall_speed", stall_speed},
         {"turn_rate", turn_rate},
+        {"safety_speed", safety_speed},
+        {"single_engine_ceiling", single_engine_ceiling},
     };
     return all;
 }
@@ -329,6 +685,23 @@ std::string collapse_whitespace(const std::string& text) {
     std::string out;
     while (in >> word) {
         out += (out.empty() ? "" : " ") + word;
+    }
+    return out;
+}
+
+FigureLoading read_loading(JSBSim::Element* loading) {
+    FigureLoading out;
+    out.total_lbs = loading->GetAttributeValueAsNumber("total_lbs");
+    for (JSBSim::Element* e = loading->FindElement("pointmass"); e != nullptr;
+         e = loading->FindNextElement("pointmass")) {
+        out.loading
+            .pointmass_lbs[static_cast<int>(e->GetAttributeValueAsNumber("index"))] =
+            e->GetAttributeValueAsNumber("lbs");
+    }
+    for (JSBSim::Element* e = loading->FindElement("tank"); e != nullptr;
+         e = loading->FindNextElement("tank")) {
+        out.loading.tank_lbs[static_cast<int>(e->GetAttributeValueAsNumber("index"))] =
+            e->GetAttributeValueAsNumber("lbs");
     }
     return out;
 }
@@ -354,35 +727,51 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
 
     PublishedFigures out;
     out.model = root->GetAttributeValue("aircraft");
+    if (!root->HasAttribute("flaps_full_deg")) {
+        throw std::runtime_error(file.string() +
+                                 " does not give flaps_full_deg, the flaps' travel");
+    }
+    out.flaps_full_deg = root->GetAttributeValueAsNumber("flaps_full_deg");
     if (JSBSim::Element* source = root->FindElement("source")) {
         out.source = collapse_whitespace(source->GetDataLine());
     }
 
-    JSBSim::Element* loading = root->FindElement("loading");
-    if (loading == nullptr) {
+    std::string first_loading;
+    for (JSBSim::Element* e = root->FindElement("loading"); e != nullptr;
+         e = root->FindNextElement("loading")) {
+        const std::string name = e->GetAttributeValue("name");
+        if (out.loadings.count(name) != 0) {
+            throw std::runtime_error(file.string() + " has two loadings named '" +
+                                     name + "'");
+        }
+        out.loadings[name] = read_loading(e);
+        if (out.loadings.size() == 1) {
+            first_loading = name;
+            out.total_lbs = out.loadings[name].total_lbs;
+            out.loading = out.loadings[name].loading;
+        }
+    }
+    if (out.loadings.empty()) {
         throw std::runtime_error(file.string() + " has no <loading>");
-    }
-    out.total_lbs = loading->GetAttributeValueAsNumber("total_lbs");
-    for (JSBSim::Element* e = loading->FindElement("pointmass"); e != nullptr;
-         e = loading->FindNextElement("pointmass")) {
-        out.loading
-            .pointmass_lbs[static_cast<int>(e->GetAttributeValueAsNumber("index"))] =
-            e->GetAttributeValueAsNumber("lbs");
-    }
-    for (JSBSim::Element* e = loading->FindElement("tank"); e != nullptr;
-         e = loading->FindNextElement("tank")) {
-        out.loading.tank_lbs[static_cast<int>(e->GetAttributeValueAsNumber("index"))] =
-            e->GetAttributeValueAsNumber("lbs");
     }
 
     for (JSBSim::Element* e = root->FindElement("figure"); e != nullptr;
          e = root->FindNextElement("figure")) {
         FigureSpec spec;
         spec.name = e->GetAttributeValue("name");
+        spec.flight = e->HasAttribute("flight") ? e->GetAttributeValue("flight") : spec.name;
+        spec.loading =
+            e->HasAttribute("loading") ? e->GetAttributeValue("loading") : first_loading;
         spec.unit = e->GetAttributeValue("unit");
-        if (flight_for(spec.name) == nullptr) {
-            throw std::runtime_error(file.string() + " names figure '" + spec.name +
-                                     "', which no flight exists for");
+        if (flight_for(spec.flight) == nullptr) {
+            throw std::runtime_error(file.string() + " measures figure '" + spec.name +
+                                     "' by flight '" + spec.flight +
+                                     "', which does not exist");
+        }
+        if (out.loadings.count(spec.loading) == 0) {
+            throw std::runtime_error(file.string() + " flies figure '" + spec.name +
+                                     "' at loading '" + spec.loading +
+                                     "', which it does not have");
         }
         std::string text;
         for (unsigned i = 0; i < e->GetNumDataLines(); ++i) {
@@ -410,8 +799,10 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                 " gives neither min and max nor a value and a tolerance");
         }
 
-        for (const char* key : {"flaps_deg", "lift_off_kcas", "speed_kcas",
-                                "altitude_ft", "rpm", "bank_deg"}) {
+        for (const char* key :
+             {"flaps_deg", "lift_off_kcas", "speed_kcas", "altitude_ft", "rpm",
+              "bank_deg", "boost_psi", "gear", "entry_kcas", "fs_gear_above_ft",
+              "radiators_open", "gear_change_boost_drop"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }
@@ -423,7 +814,7 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
 
 FigureResult fly_figure(const std::filesystem::path& jsbsim_root,
                         const PublishedFigures& figures, const FigureSpec& spec) {
-    const FlightFn* fn = flight_for(spec.name);
+    const FlightFn* fn = flight_for(spec.flight);
     if (fn == nullptr) {
         throw std::runtime_error("no flight exists for figure " + spec.name);
     }

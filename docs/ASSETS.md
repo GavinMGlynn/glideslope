@@ -5,10 +5,11 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Seven things are used: a Cessna 172P flight model derived from JSBSim's,
-the Cessna 172P handbook's published figures, the Copernicus DEM, the EGM2008
-geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from aviationweather.gov
-and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
+**Eight things are used: a Cessna 172P flight model derived from JSBSim's,
+the Cessna 172P handbook's published figures, the Mosquito FB Mk VI's trials
+and Pilot's Notes (for a flight model written here), the Copernicus DEM, the
+EGM2008 geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from
+aviationweather.gov and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
 as they are needed, the weather when it is asked for, with one recorded
 response of each weather service committed for the tests. No visual model,
 font or sound is used or fetched yet.
@@ -47,6 +48,30 @@ entertainment purposes only."
 | Source | Cessna Model 172P Pilot's Operating Handbook, 12 May 1981 (the Island Enterprises reprint): section 1 specifications, section 2 powerplant limitations, figures 3-1, 5-1, 5-3, 5-5, 5-6 and 5-8 |
 | In the repository | `assets/figures/c172p.xml`: individual numbers, each with its section or figure, not the handbook's text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+
+### The Mosquito FB Mk VI: its trials, Pilot's Notes and engine curves
+
+The flight model - `assets/jsbsim/aircraft/mosquito-fb6/`,
+`assets/jsbsim/engine/merlin25.xml` and
+`assets/jsbsim/engine/prop_dh_hydromatic.xml` - is written for this project
+and is under its licence, GPL-3.0-or-later; no other simulator's Mosquito is
+used. Its numbers come from these documents, and the figures it is held to
+(`assets/figures/mosquito-fb6.xml`) quote them by paragraph or figure.
+
+| Document | Copy consulted | What is taken from it |
+| --- | --- | --- |
+| A&AEE Boscombe Down report 767,e, 12th part, 1 February 1944: Mosquito FB Mk VI HX809, level speed performance at normal and increased boost rating | Scan at <http://www.wwiiaircraftperformance.org/mosquito/hx809.pdf> and `hx809-level.jpg` beside it, "courtesy Neil Stirling" | Level speeds and full-throttle heights at +18 lb/sq in; the loading; the propellers' type and diameter |
+| A&AEE report 767,e, 7th part, 19 September 1943: Mosquito FB Mk VI HJ679, brief performance trials | Scan at <http://www.wwiiaircraftperformance.org/mosquito/hj679.pdf> and `hj679-climb.jpg` | Climb rates, time to 20,000 ft, the boost obtained, the loadings |
+| Rolls-Royce, Merlin 24, 25, 26, 27, 224, 225 altitude performance (AVIA 6/5817, fig. 1) | Scan at <http://www.wwiiaircraftperformance.org/mosquito/merlin25-powercurve.jpg> | The engine's power with height at +18 and 3,000 rpm; the reduction gear, 0.42:1 |
+| A.P. 2019E, Pilot's Notes for the Mosquito FB 6, 1950 edition | A transcription distributed by Zeno's Warbird Video Drive-In, <http://www.zenoswarbirdvideos.com> | Engine limits, the supercharger's gear change heights, fuel tanks, stalling speeds, safety speeds, single-engine performance, take-off handling |
+| A.P. 2019E, Pilot's Notes, 1944 edition | Page scans at <https://www.fs2000.org/2004/02/15/pilots-notes-for-mosquito/> | The swing on take-off; stalling speeds at full load |
+| Aircraft Data Sheet, Mosquito B Mk IV, card 3(b), 1 May 1944 | Scan at <http://www.wwiiaircraftperformance.org/mosquito/Mosquito_MkIV_ads.jpg> | Span, wing area, length; the take-off distance over 50 ft |
+| Air Fighting Development Unit report 74, tactical trials, Mosquito VI | Scan at <http://www.wwiiaircraftperformance.org/mosquito/Mosquito-VI-tactical.pdf> | Loadings, for the empty weight's estimate |
+
+All are Crown copyright documents of 1943 to 1950. **Only facts are taken** -
+numbers, each cited where it is used, and a few words quoted with each figure
+to say where its number is - not their text, charts or scans, none of which is
+in the repository.
 
 ### The Copernicus DEM, GLO-30 Public
 
@@ -238,7 +263,7 @@ first used.
 
 | Source | For | Phase | Terms known now |
 | --- | --- | --- | --- |
-| Further JSBSim aircraft models | Flight dynamics | 5 | Recorded per model, as above |
+| Further aircraft: flight models, from JSBSim's or written here from published data | Flight dynamics | 5 | Recorded per model, as above |
 | OpenStreetMap | Buildings | Tail | ODbL; source of the building data not yet chosen |
 | FlightGear aircraft | Visual models | 5 | Mostly GPL; checked per model |
 | Cesium ion | Optional visual terrain and imagery | 5b | The user's own account and terms |

@@ -37,6 +37,9 @@ struct InitialConditions {
     double heading_deg = 0.0;
     double airspeed_kts = 0.0; // calibrated; 0 on the ground
     bool engine_running = true;
+    // Retractable gear starts where this puts it, 1 down and 0 up, rather
+    // than retracting in the first seconds of a flight begun in the air.
+    double gear = 1.0;
 };
 
 // What the pilot is doing, each in JSBSim's normalised command range.
@@ -50,6 +53,22 @@ struct Controls {
     double left_brake = 0.0;
     double right_brake = 0.0;
     double pitch_trim = 0.0; // -1 (nose down) .. 1 (nose up)
+    // The rpm lever of a constant-speed propeller: 0 its lowest rpm, 1 its
+    // highest. A fixed-pitch propeller has none, and ignores it.
+    double propeller = 1.0;
+    // The landing gear: 1 down, 0 up. Fixed gear ignores it.
+    double gear = 1.0;
+    // A two-speed supercharger's gear change switch: 1 automatic, the
+    // aircraft's aneroid choosing high gear with height; 0 held in low gear.
+    // An engine without one ignores it.
+    double supercharger = 1.0;
+    // A twin's throttles set apart: each engine's is `throttle` plus its offset
+    // here, the port engine's first. Every engine has `throttle`, `mixture` and
+    // `propeller`.
+    std::array<double, 2> throttle_offset{};
+    // Each engine's radiator shutters or cowl flaps, the port engine's first:
+    // 0 closed, 1 open. An engine without them ignores it.
+    std::array<double, 2> cooling_flaps{};
 };
 
 // What is on board, by JSBSim's index for each point mass (seats, baggage) and
@@ -149,6 +168,10 @@ public:
 
     // The controls take effect from the next step.
     void set_controls(const Controls& controls);
+
+    // Stops engine `engine` - 0 the first, the port engine of a twin - as a
+    // failure does, and feathers its propeller if `feather`.
+    void fail_engine(int engine, bool feather);
 
     // Advances the flight model by exactly one 120 Hz step.
     void step();

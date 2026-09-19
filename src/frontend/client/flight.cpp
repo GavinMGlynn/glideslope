@@ -79,6 +79,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     ic.heading_deg = start.heading_deg;
     ic.airspeed_kts = start.airspeed_kts.value_or(aircraft_entry_.start_airspeed_kts);
     ic.engine_running = true;
+    ic.gear = 0.0; // begun in the air, with its wheels up
     aircraft_->initialize(ic);
 
     if (!start.weather_station.empty()) {

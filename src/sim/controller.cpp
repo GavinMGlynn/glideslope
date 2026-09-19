@@ -61,7 +61,14 @@ Controls Controller::fly() {
               std::pair{&applied_.flaps, pilot_.flaps},
               std::pair{&applied_.left_brake, pilot_.left_brake},
               std::pair{&applied_.right_brake, pilot_.right_brake},
-              std::pair{&applied_.pitch_trim, pilot_.pitch_trim}}) {
+              std::pair{&applied_.pitch_trim, pilot_.pitch_trim},
+              std::pair{&applied_.propeller, pilot_.propeller},
+              std::pair{&applied_.gear, pilot_.gear},
+              std::pair{&applied_.supercharger, pilot_.supercharger},
+              std::pair{&applied_.throttle_offset[0], pilot_.throttle_offset[0]},
+              std::pair{&applied_.throttle_offset[1], pilot_.throttle_offset[1]},
+              std::pair{&applied_.cooling_flaps[0], pilot_.cooling_flaps[0]},
+              std::pair{&applied_.cooling_flaps[1], pilot_.cooling_flaps[1]}}) {
             met = towards(*control, wanted) && met;
         }
         catching_up_ = !met;

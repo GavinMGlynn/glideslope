@@ -5,8 +5,9 @@ over real-world terrain streamed from the internet. Fly yourself, or hand any
 aircraft to an AI pilot and take it back.
 
 > **Status: Phases 0, 1, 2, 3, 3b and 4 are complete, and Phase 5, the choice
-> of aircraft, is next.** A Cessna 172P flies to its handbook, stands on
-> the real ground anywhere on Earth, and can be flown from the keyboard or a
+> of aircraft, is under way.** A Cessna 172P flies to its handbook and a
+> Mosquito FB Mk VI to its wartime trials and Pilot's Notes; the Cessna stands
+> on the real ground anywhere on Earth, and can be flown from the keyboard or a
 > joystick with a HUD, in the weather reported at an airfield now - its gusts,
 > turbulence, boundary layer, wind shear, thermals and waves, the same air on
 > every machine, under the cloud and haze the report gives - or its AI can fly
@@ -43,6 +44,8 @@ What the build makes, today:
 
 ```sh
 glideslope_cli figures c172p            # fly the Cessna's published figures
+glideslope_cli figures mosquito-fb6     # and the Mosquito's, from its trials
+glideslope_cli aircraft                 # the aircraft the data holds
 glideslope_cli selftest                 # a five-minute flight, and its hash
 glideslope_cli height -33.9461 151.1772 # the ground's height, from the DEM
 glideslope_cli weather YSSY             # the weather at Sydney airport now

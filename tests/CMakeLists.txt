@@ -28,6 +28,7 @@ add_executable(glideslope_tests
     unit/test_terrain_mesh.cpp
     unit/test_weather.cpp
     unit/test_figures.cpp
+    unit/test_handling.cpp
     unit/test_fixed_step.cpp
     unit/test_geodesy.cpp
     unit/test_ground.cpp
@@ -74,6 +75,21 @@ set(GLIDESLOPE_UNIT_TESTS
     the_cessna_172p_stalls_with_10_degrees_of_flap_near_its_published_speed
     the_cessna_172p_stalls_with_30_degrees_of_flap_near_its_published_speed
     a_coordinated_level_turn_turns_at_the_rate_its_bank_and_speed_demand
+    the_mosquito_fb6_flies_level_at_sea_level_at_hx809s_speed
+    the_mosquito_fb6_flies_level_at_its_ms_gear_full_throttle_height_at_hx809s_speed
+    the_mosquito_fb6_flies_level_at_its_fs_gear_full_throttle_height_at_hx809s_speed
+    the_mosquito_fb6_flies_level_at_18000_ft_at_hx809s_speed
+    the_mosquito_fb6_climbs_in_ms_gear_near_hj679s_rate
+    the_mosquito_fb6_climbs_in_fs_gear_near_hj679s_rate
+    the_mosquito_fb6_climbs_to_20000_ft_in_about_hj679s_time
+    the_mosquito_fb6_stalls_clean_near_its_pilots_notes_speed
+    the_mosquito_fb6_stalls_wheels_and_flaps_down_near_its_pilots_notes_speed
+    the_mosquito_fb6_takes_off_over_50_ft_in_about_the_b_ivs_distance
+    the_mosquitos_slight_swing_to_port_is_checked_by_the_port_throttle_slightly_ahead
+    the_mosquito_fb6_is_held_straight_on_one_engine_down_to_its_safety_speed_at_18_boost
+    the_mosquito_fb6_is_held_straight_on_one_engine_down_to_its_safety_speed_at_9_boost
+    the_mosquito_fb6_holds_its_height_on_one_engine_up_to_its_pilots_notes_ceiling
+    the_mosquito_drops_its_nose_at_the_stall_as_its_pilots_notes_say
     every_published_figure_has_a_flight_and_every_flight_a_figure
     an_aircraft_restored_in_every_phase_of_flight_tracks_the_original
     an_aircraft_put_back_to_an_earlier_snapshot_flies_on_as_a_fresh_restore_does
@@ -196,8 +212,16 @@ set_tests_properties(the_committed_dem_coverage_is_what_the_pinned_tile_lists_ma
 
 add_test(NAME the_committed_cessna_172p_is_what_its_tuning_script_makes
     COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_c172p.py
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
 set_tests_properties(the_committed_cessna_172p_is_what_its_tuning_script_makes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_mosquito_propeller_is_what_its_script_computes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_mosquito_propeller.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_mosquito_propeller_is_what_its_script_computes
     PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME every_compiled_unit_test_is_registered_with_ctest
@@ -424,7 +448,7 @@ add_test(NAME the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files
 add_test(NAME the_cli_lists_the_aircraft_the_data_holds
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=aircraft -DEXIT=0
-        "-DSTDOUT_MATCHES=c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest"
+        "-DSTDOUT_MATCHES=c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_an_aircraft_it_has_no_files_for

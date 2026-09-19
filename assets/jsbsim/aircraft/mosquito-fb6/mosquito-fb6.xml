@@ -1,0 +1,1365 @@
+<?xml version="1.0"?>
+<!--
+  de Havilland Mosquito FB Mk VI, two Rolls-Royce Merlin 25s.
+
+  Written for glideslope from the sources below, which docs/ASSETS.md records;
+  no other simulator's model of the aircraft is used. The published figures it
+  is held to, and where each comes from, are in assets/figures/mosquito-fb6.xml;
+  docs/PROJECT_STATUS.md gives what the model measures against each.
+
+  It is the aircraft as the A&AEE flew it for its level-speed and climb trials
+  - HX809 (A&AEE/767,e, 12th part, 1 February 1944) and HJ679 (7th part,
+  19 September 1943) - with a small drop tank under each wing: the drag of the
+  tanks is part of the airframe's, and removing them is not modelled (HJ679
+  was 5 mph faster without them, low down).
+
+  What is known and what is estimated
+    From the sources: span 54 ft 2 in, gross wing area 454 sq ft, length
+    40 ft 6 in (Aircraft Data Sheet, Mosquito B Mk IV, card 3(b), 1 May 1944);
+    tailplane area 87.4 sq ft; the propellers 12 ft across and both turning
+    the same way, clockwise seen from behind; flaps to 45 degrees; elevator
+    21.5 degrees up and 12.5 down; the trial weights and the fuel tanks
+    (A.P. 2019E, Pilot's Notes, 1950, para. 1: 452 gallons internal).
+    Estimated, here, from the geometry by the usual textbook methods, and
+    marked so where they are set: the stability derivatives, the moments of
+    inertia (the one measured ratio found, pitch to roll of about 0.78, is
+    kept), the empty weight's split from the loading, and the undercarriage.
+    Set to meet the published figures, and marked so: the drag at zero lift
+    and its rise with Mach number (the level speeds), the lift curve's peaks
+    (the stalling speeds), the radiator shutters' drag (the climbs), the
+    slipstream's push on the fin (the swing on take-off) and the rudder's
+    power (the single-engine safety speeds) - the fin's area was not found.
+
+    What JSBSim does not model and this file adds: the slipstreams' lift on
+    the wing behind the propellers and their dynamic pressure on the
+    tailplane, the fin's induced drag with the rudder over, a stopped
+    propeller's drag, and - for the engines - the automatic mixture control
+    with its enrichment above +9, the charge's heating, the supercharger's
+    automatic gear change, and a stopped engine's friction.
+
+  Frame: x aft from the nose, y to starboard, z up from the thrust line, in
+  inches. Engine 0 is the port engine.
+-->
+<fdm_config name="Mosquito FB Mk VI" version="2.0" release="ALPHA">
+
+  <fileheader>
+    <author> glideslope </author>
+    <description> de Havilland Mosquito FB Mk VI, Merlin 25 </description>
+    <reference refID="A&amp;AEE/767,e 12th part" author="A&amp;AEE Boscombe Down"
+               title="Mosquito FB Mk VI HX809: level speed performance at normal and increased boost rating"
+               date="1944-02-01"/>
+    <reference refID="A&amp;AEE/767,e 7th part" author="A&amp;AEE Boscombe Down"
+               title="Mosquito FB Mk VI HJ679: brief performance trials" date="1943-09-19"/>
+    <reference refID="A.P. 2019E P.N." author="Air Ministry"
+               title="Pilot's Notes, Mosquito FB 6" date="1950"/>
+    <reference refID="AVIA 6/5817 fig. 1" author="Rolls-Royce"
+               title="Merlin 24, 25, 26, 27, 224, 225 altitude performance" date="1944"/>
+  </fileheader>
+
+  <metrics>
+    <wingarea unit="FT2"> 454 </wingarea>
+    <wingspan unit="FT"> 54.17 </wingspan>
+    <!-- the mean chord, area over span -->
+    <chord unit="FT"> 8.38 </chord>
+    <htailarea unit="FT2"> 87.4 </htailarea>
+    <!-- estimated: the wing's quarter chord to the tailplane's -->
+    <htailarm unit="FT"> 22 </htailarm>
+    <!-- estimated; the fin's area was not found -->
+    <vtailarea unit="FT2"> 45 </vtailarea>
+    <vtailarm unit="FT"> 23 </vtailarm>
+    <location name="AERORP" unit="IN">
+      <x> 175 </x>
+      <y> 0 </y>
+      <z> 0 </z>
+    </location>
+    <!-- the pilot's eyes: the left-hand seat, beside the navigator -->
+    <location name="EYEPOINT" unit="IN">
+      <x> 112 </x>
+      <y> -12 </y>
+      <z> 34 </z>
+    </location>
+    <location name="VRP" unit="IN">
+      <x> 0 </x>
+      <y> 0 </y>
+      <z> 0 </z>
+    </location>
+  </metrics>
+
+  <mass_balance>
+    <!-- Estimated for the aircraft without crew or fuel; JSBSim adds the crew,
+         the stores and the fuel as point masses. Loaded to 20,400 lb this
+         gives about 34,000, 26,500 and 58,000 slug ft^2: the radii of
+         gyration of a twin with its engines and fuel in the wing, and pitch
+         to roll about 0.78, as the one measured ratio found has it. -->
+    <ixx unit="SLUG*FT2"> 26000 </ixx>
+    <iyy unit="SLUG*FT2"> 25500 </iyy>
+    <izz unit="SLUG*FT2"> 50000 </izz>
+    <ixz unit="SLUG*FT2"> 0 </ixz>
+    <!-- Ready to fly less crew and fuel: guns, ammunition, oil and coolant.
+         No source gives it. Air Fighting Development Unit report 74's
+         loadings put it near 15,800 lb; this is the weight that makes
+         HJ679's normal service load, 21,020 lb, its crew, every tank full and
+         two 250 lb bombs. -->
+    <emptywt unit="LBS"> 16144 </emptywt>
+    <location name="CG" unit="IN">
+      <x> 181 </x>
+      <y> 0 </y>
+      <z> 0 </z>
+    </location>
+    <pointmass name="Pilot">
+      <weight unit="LBS"> 200 </weight>
+      <location unit="IN">
+        <x> 112 </x>
+        <y> -12 </y>
+        <z> 6 </z>
+      </location>
+    </pointmass>
+    <pointmass name="Navigator">
+      <weight unit="LBS"> 200 </weight>
+      <location unit="IN">
+        <x> 118 </x>
+        <y> 12 </y>
+        <z> 2 </z>
+      </location>
+    </pointmass>
+    <!-- the rear half of the bomb bay: two 250 or 500 lb bombs -->
+    <pointmass name="Bomb bay">
+      <weight unit="LBS"> 0 </weight>
+      <location unit="IN">
+        <x> 196 </x>
+        <y> 0 </y>
+        <z> -14 </z>
+      </location>
+    </pointmass>
+  </mass_balance>
+
+  <!-- The undercarriage, estimated. The main wheels are under the nacelles,
+       16 ft 4 in apart, 16 in ahead of the centre of gravity: sitting on its
+       tail at 12 degrees, the aircraft's centre of gravity is 19 degrees
+       behind the wheels' vertical, and the tail comes up with "a light
+       forward pressure on the control column" (Pilot's Notes, 1944, para.
+       49). The tail wheel castors - "taxy forward a few yards to straighten
+       the tailwheel" (1950, para. 40) - so it neither steers nor holds the
+       aircraft straight. All three retract, in about fifteen seconds. -->
+  <ground_reactions>
+    <contact type="BOGEY" name="LEFT_MAIN">
+      <location unit="IN">
+        <x> 165 </x>
+        <y> -98 </y>
+        <z> -86 </z>
+      </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.5 </dynamic_friction>
+      <rolling_friction> 0.02 </rolling_friction>
+      <spring_coeff unit="LBS/FT"> 20000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 3000 </damping_coeff>
+      <damping_coeff_rebound unit="LBS/FT/SEC"> 6000 </damping_coeff_rebound>
+      <max_steer unit="DEG"> 0 </max_steer>
+      <brake_group> LEFT </brake_group>
+      <retractable> 1 </retractable>
+    </contact>
+    <contact type="BOGEY" name="RIGHT_MAIN">
+      <location unit="IN">
+        <x> 165 </x>
+        <y> 98 </y>
+        <z> -86 </z>
+      </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.5 </dynamic_friction>
+      <rolling_friction> 0.02 </rolling_friction>
+      <spring_coeff unit="LBS/FT"> 20000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 3000 </damping_coeff>
+      <damping_coeff_rebound unit="LBS/FT/SEC"> 6000 </damping_coeff_rebound>
+      <max_steer unit="DEG"> 0 </max_steer>
+      <brake_group> RIGHT </brake_group>
+      <retractable> 1 </retractable>
+    </contact>
+    <contact type="BOGEY" name="TAIL">
+      <location unit="IN">
+        <x> 440 </x>
+        <y> 0 </y>
+        <z> -26 </z>
+      </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.5 </dynamic_friction>
+      <rolling_friction> 0.03 </rolling_friction>
+      <spring_coeff unit="LBS/FT"> 10000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 1500 </damping_coeff>
+      <damping_coeff_rebound unit="LBS/FT/SEC"> 3000 </damping_coeff_rebound>
+      <max_steer unit="DEG"> 360 </max_steer>
+      <brake_group> NONE </brake_group>
+      <retractable> 1 </retractable>
+    </contact>
+    <contact type="STRUCTURE" name="NOSE">
+      <location unit="IN">
+        <x> 0 </x>
+        <y> 0 </y>
+        <z> -10 </z>
+      </location>
+      <static_friction> 0.4 </static_friction>
+      <dynamic_friction> 0.4 </dynamic_friction>
+      <spring_coeff unit="LBS/FT"> 40000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 8000 </damping_coeff>
+    </contact>
+    <contact type="STRUCTURE" name="BELLY">
+      <location unit="IN">
+        <x> 190 </x>
+        <y> 0 </y>
+        <z> -30 </z>
+      </location>
+      <static_friction> 0.4 </static_friction>
+      <dynamic_friction> 0.4 </dynamic_friction>
+      <spring_coeff unit="LBS/FT"> 40000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 8000 </damping_coeff>
+    </contact>
+    <contact type="STRUCTURE" name="LEFT_PROP_TIP">
+      <location unit="IN">
+        <x> 66 </x>
+        <y> -98 </y>
+        <z> -72 </z>
+      </location>
+      <static_friction> 0.4 </static_friction>
+      <dynamic_friction> 0.4 </dynamic_friction>
+      <spring_coeff unit="LBS/FT"> 40000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 8000 </damping_coeff>
+    </contact>
+    <contact type="STRUCTURE" name="RIGHT_PROP_TIP">
+      <location unit="IN">
+        <x> 66 </x>
+        <y> 98 </y>
+        <z> -72 </z>
+      </location>
+      <static_friction> 0.4 </static_friction>
+      <dynamic_friction> 0.4 </dynamic_friction>
+      <spring_coeff unit="LBS/FT"> 40000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 8000 </damping_coeff>
+    </contact>
+    <contact type="STRUCTURE" name="LEFT_WING_TIP">
+      <location unit="IN">
+        <x> 190 </x>
+        <y> -325 </y>
+        <z> 12 </z>
+      </location>
+      <static_friction> 0.4 </static_friction>
+      <dynamic_friction> 0.4 </dynamic_friction>
+      <spring_coeff unit="LBS/FT"> 40000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 8000 </damping_coeff>
+    </contact>
+    <contact type="STRUCTURE" name="RIGHT_WING_TIP">
+      <location unit="IN">
+        <x> 190 </x>
+        <y> 325 </y>
+        <z> 12 </z>
+      </location>
+      <static_friction> 0.4 </static_friction>
+      <dynamic_friction> 0.4 </dynamic_friction>
+      <spring_coeff unit="LBS/FT"> 40000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 8000 </damping_coeff>
+    </contact>
+    <contact type="STRUCTURE" name="TAIL_CONE">
+      <location unit="IN">
+        <x> 480 </x>
+        <y> 0 </y>
+        <z> 0 </z>
+      </location>
+      <static_friction> 0.4 </static_friction>
+      <dynamic_friction> 0.4 </dynamic_friction>
+      <spring_coeff unit="LBS/FT"> 40000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 8000 </damping_coeff>
+    </contact>
+  </ground_reactions>
+
+  <propulsion>
+    <!-- Both propellers turn clockwise seen from behind (sense 1), so the
+         port engine is the critical one: with the aircraft nose-up the
+         starboard side of each disc gives more thrust, moving the live
+         starboard engine's thrust further from the centre line. -->
+    <engine file="merlin25">
+      <location unit="IN">
+        <x> 110 </x>
+        <y> -98 </y>
+        <z> 0 </z>
+      </location>
+      <feed> 0 </feed>
+      <feed> 1 </feed>
+      <feed> 2 </feed>
+      <feed> 3 </feed>
+      <feed> 5 </feed>
+      <thruster file="prop_dh_hydromatic">
+        <location unit="IN">
+          <x> 66 </x>
+          <y> -98 </y>
+          <z> 0 </z>
+        </location>
+        <orient unit="DEG">
+          <roll> 0 </roll>
+          <pitch> 0 </pitch>
+          <yaw> 0 </yaw>
+        </orient>
+        <sense> 1 </sense>
+        <p_factor> 10 </p_factor>
+      </thruster>
+    </engine>
+    <engine file="merlin25">
+      <location unit="IN">
+        <x> 110 </x>
+        <y> 98 </y>
+        <z> 0 </z>
+      </location>
+      <feed> 0 </feed>
+      <feed> 1 </feed>
+      <feed> 2 </feed>
+      <feed> 4 </feed>
+      <feed> 6 </feed>
+      <thruster file="prop_dh_hydromatic">
+        <location unit="IN">
+          <x> 66 </x>
+          <y> 98 </y>
+          <z> 0 </z>
+        </location>
+        <orient unit="DEG">
+          <roll> 0 </roll>
+          <pitch> 0 </pitch>
+          <yaw> 0 </yaw>
+        </orient>
+        <sense> 1 </sense>
+        <p_factor> 10 </p_factor>
+      </thruster>
+    </engine>
+
+    <!-- The Pilot's Notes' tanks (para. 1), at 7.2 lb a gallon: the centre
+         tanks and the four inner wing tanks feed both engines through the
+         collector box, each side's outer tanks its own engine, and each drop
+         tank the engine on its side (in the aircraft it refills the outer
+         tanks). -->
+    <tank type="FUEL">    <!-- 0: centre tanks, 50 gal -->
+      <location unit="IN">
+        <x> 176 </x>
+        <y> 0 </y>
+        <z> 10 </z>
+      </location>
+      <capacity unit="LBS"> 360 </capacity>
+      <contents unit="LBS"> 360 </contents>
+    </tank>
+    <tank type="FUEL">    <!-- 1: port inner wing tanks, 143 gal -->
+      <location unit="IN">
+        <x> 178 </x>
+        <y> -50 </y>
+        <z> 0 </z>
+      </location>
+      <capacity unit="LBS"> 1030 </capacity>
+      <contents unit="LBS"> 1030 </contents>
+    </tank>
+    <tank type="FUEL">    <!-- 2: starboard inner wing tanks, 143 gal -->
+      <location unit="IN">
+        <x> 178 </x>
+        <y> 50 </y>
+        <z> 0 </z>
+      </location>
+      <capacity unit="LBS"> 1030 </capacity>
+      <contents unit="LBS"> 1030 </contents>
+    </tank>
+    <tank type="FUEL">    <!-- 3: port outer wing tanks, 58 gal -->
+      <location unit="IN">
+        <x> 186 </x>
+        <y> -160 </y>
+        <z> 4 </z>
+      </location>
+      <capacity unit="LBS"> 418 </capacity>
+      <contents unit="LBS"> 418 </contents>
+    </tank>
+    <tank type="FUEL">    <!-- 4: starboard outer wing tanks, 58 gal -->
+      <location unit="IN">
+        <x> 186 </x>
+        <y> 160 </y>
+        <z> 4 </z>
+      </location>
+      <capacity unit="LBS"> 418 </capacity>
+      <contents unit="LBS"> 418 </contents>
+    </tank>
+    <tank type="FUEL">    <!-- 5: port drop tank, 50 gal -->
+      <location unit="IN">
+        <x> 180 </x>
+        <y> -130 </y>
+        <z> -24 </z>
+      </location>
+      <capacity unit="LBS"> 360 </capacity>
+      <contents unit="LBS"> 0 </contents>
+    </tank>
+    <tank type="FUEL">    <!-- 6: starboard drop tank, 50 gal -->
+      <location unit="IN">
+        <x> 180 </x>
+        <y> 130 </y>
+        <z> -24 </z>
+      </location>
+      <capacity unit="LBS"> 360 </capacity>
+      <contents unit="LBS"> 0 </contents>
+    </tank>
+  </propulsion>
+
+  <flight_control name="Mosquito FB Mk VI">
+
+    <!-- The superchargers' gear change switch: 1 AUTO, 0 MOD (low gear at
+         all heights). Pilot's Notes para. 23. -->
+    <property value="1">fcs/supercharger-cmd-norm</property>
+    <!-- Each engine's radiator shutters: 0 shut, 1 open; there is nothing
+         between (Pilot's Notes para. 24). Port first. -->
+    <property value="0">fcs/cooling-flaps-cmd-norm[0]</property>
+    <property value="0">fcs/cooling-flaps-cmd-norm[1]</property>
+
+    <channel name="Pitch">
+      <summer name="fcs/pitch-trim-sum">
+        <input>fcs/elevator-cmd-norm</input>
+        <input>fcs/pitch-trim-cmd-norm</input>
+        <clipto>
+          <min>-1</min>
+          <max>1</max>
+        </clipto>
+      </summer>
+      <!-- 21.5 degrees up (nose up, negative here), 12.5 down -->
+      <aerosurface_scale name="fcs/elevator-control">
+        <input>fcs/pitch-trim-sum</input>
+        <range>
+          <min>-0.3752</min>
+          <max>0.2182</max>
+        </range>
+        <output>fcs/elevator-pos-rad</output>
+      </aerosurface_scale>
+    </channel>
+
+    <channel name="Roll">
+      <!-- estimated: 15 degrees each way -->
+      <aerosurface_scale name="fcs/left-aileron-control">
+        <input>fcs/aileron-cmd-norm</input>
+        <range>
+          <min>-0.2618</min>
+          <max>0.2618</max>
+        </range>
+        <output>fcs/left-aileron-pos-rad</output>
+      </aerosurface_scale>
+      <aerosurface_scale name="fcs/right-aileron-control">
+        <input>fcs/aileron-cmd-norm</input>
+        <range>
+          <min>0.2618</min>
+          <max>-0.2618</max>
+        </range>
+        <output>fcs/right-aileron-pos-rad</output>
+      </aerosurface_scale>
+    </channel>
+
+    <channel name="Yaw">
+      <!-- estimated: 25 degrees each way; the rudder's power, below, is what
+           the safety speed sets -->
+      <aerosurface_scale name="fcs/rudder-control">
+        <input>fcs/rudder-cmd-norm</input>
+        <range>
+          <min>-0.4363</min>
+          <max>0.4363</max>
+        </range>
+        <output>fcs/rudder-pos-rad</output>
+      </aerosurface_scale>
+    </channel>
+
+    <channel name="Flaps">
+      <!-- 0 to 45 degrees over the lever's travel, hydraulically, in about
+           ten seconds -->
+      <kinematic name="fcs/flap-control">
+        <input>fcs/flap-cmd-norm</input>
+        <traverse>
+          <setting>
+            <position>0</position>
+            <time>0</time>
+          </setting>
+          <setting>
+            <position>45</position>
+            <time>10</time>
+          </setting>
+        </traverse>
+        <output>fcs/flap-pos-deg</output>
+      </kinematic>
+    </channel>
+
+    <channel name="Undercarriage">
+      <kinematic name="fcs/gear-control">
+        <input>gear/gear-cmd-norm</input>
+        <traverse>
+          <setting>
+            <position>0</position>
+            <time>0</time>
+          </setting>
+          <setting>
+            <position>1</position>
+            <time>15</time>
+          </setting>
+        </traverse>
+        <output>gear/gear-pos-norm</output>
+      </kinematic>
+    </channel>
+
+    <channel name="Engines">
+      <!-- The carburettors' automatic mixture control: the mixture follows
+           the air's pressure, so the lever at 1 is the automatic setting and
+           at 0 cuts the engine off. Up to +9 lb/sq in it holds an
+           equivalence ratio of 1.22, rich as the Merlin ran at climbing
+           power; above it the carburettor enriches the mixture against
+           detonation, to 1.49 at +18 (a fuel-air ratio of 0.101), which
+           costs the engine 7% of the power the same air would otherwise
+           make - so +18 gives proportionally less than +9, as the engine's
+           ratings do. Per engine, from its own manifold pressure; the
+           constant is 1 / 1.3 / 2116.22, JSBSim's full-rich equivalence
+           ratio and the sea-level pressure. -->
+      <fcs_function name="fcs/mixture-port">
+        <function>
+          <product>
+            <property>fcs/mixture-cmd-norm[0]</property>
+            <property>atmosphere/P-psf</property>
+            <value>0.00036349</value>
+            <sum>
+              <value>1.22</value>
+              <product>
+                <value>0.27</value>
+                <min>
+                  <max>
+                    <quotient>
+                      <difference>
+                        <property>propulsion/engine[0]/map-inhg</property>
+                        <value>48.25</value>
+                      </difference>
+                      <value>18.33</value>
+                    </quotient>
+                    <value>0</value>
+                  </max>
+                  <value>1</value>
+                </min>
+              </product>
+            </sum>
+          </product>
+        </function>
+        <output>fcs/mixture-pos-norm[0]</output>
+      </fcs_function>
+      <fcs_function name="fcs/mixture-starboard">
+        <function>
+          <product>
+            <property>fcs/mixture-cmd-norm[1]</property>
+            <property>atmosphere/P-psf</property>
+            <value>0.00036349</value>
+            <sum>
+              <value>1.22</value>
+              <product>
+                <value>0.27</value>
+                <min>
+                  <max>
+                    <quotient>
+                      <difference>
+                        <property>propulsion/engine[1]/map-inhg</property>
+                        <value>48.25</value>
+                      </difference>
+                      <value>18.33</value>
+                    </quotient>
+                    <value>0</value>
+                  </max>
+                  <value>1</value>
+                </min>
+              </product>
+            </sum>
+          </product>
+        </function>
+        <output>fcs/mixture-pos-norm[1]</output>
+      </fcs_function>
+
+      <!-- The supercharger gear change. On AUTO an aneroid engages FS gear
+           climbing through about 7,000 ft (Pilot's Notes para. 23, Merlin
+           25) and MS gear again "at slightly lower altitudes" descending -
+           500 ft lower here. On MOD, MS gear. -->
+      <switch name="fcs/supercharger-fs-gear">
+        <default value="0"/>
+        <test logic="AND" value="1">
+          fcs/supercharger-cmd-norm gt 0.5
+          <test logic="OR">
+            atmosphere/pressure-altitude gt 7000
+            <test logic="AND">
+              atmosphere/pressure-altitude gt 6500
+              fcs/supercharger-fs-gear eq 1
+            </test>
+          </test>
+        </test>
+        <output>propulsion/engine[0]/boost-speed</output>
+        <output>propulsion/engine[1]/boost-speed</output>
+      </switch>
+
+      <!-- The charge's temperature. JSBSim takes the air the cylinders
+           breathe to be at the outside air's temperature; it is hotter, by
+           the ram's heating (the total temperature) and by the impeller's,
+           about 90 K at 3,000 rpm in MS gear and 121 K in FS gear (its tip
+           speed 16% higher), as the square of the rpm. So the charge is
+           less dense than JSBSim reckons, by less in colder air: the
+           engine's volumetric efficiency, 0.85, is scaled by
+             T (T0 + dT0) / (T0 (Ttotal + dT)),  T0 = 288.15 K, dT0 = 90 K,
+           which leaves it at 0.85 at 15 C and rest in MS gear at full rpm,
+           where maxhp calibrates it. In Rankine: 518.67 and 162. -->
+      <fcs_function name="fcs/impeller-heating-port-r">
+        <function>
+          <product>
+            <sum>
+              <value>162</value>
+              <product>
+                <value>55.8</value>
+                <property>fcs/supercharger-fs-gear</property>
+              </product>
+            </sum>
+            <pow>
+              <quotient>
+                <property>propulsion/engine[0]/engine-rpm</property>
+                <value>3000</value>
+              </quotient>
+              <value>2</value>
+            </pow>
+          </product>
+        </function>
+      </fcs_function>
+      <fcs_function name="fcs/impeller-heating-starboard-r">
+        <function>
+          <product>
+            <sum>
+              <value>162</value>
+              <product>
+                <value>55.8</value>
+                <property>fcs/supercharger-fs-gear</property>
+              </product>
+            </sum>
+            <pow>
+              <quotient>
+                <property>propulsion/engine[1]/engine-rpm</property>
+                <value>3000</value>
+              </quotient>
+              <value>2</value>
+            </pow>
+          </product>
+        </function>
+      </fcs_function>
+      <fcs_function name="fcs/charge-port">
+        <function>
+          <quotient>
+            <product>
+              <value>0.85</value>
+              <property>atmosphere/T-R</property>
+              <value>680.67</value>
+            </product>
+            <product>
+              <value>518.67</value>
+              <sum>
+                <property>propulsion/tat-r</property>
+                <property>fcs/impeller-heating-port-r</property>
+              </sum>
+            </product>
+          </quotient>
+        </function>
+        <output>propulsion/engine[0]/volumetric-efficiency</output>
+      </fcs_function>
+      <fcs_function name="fcs/charge-starboard">
+        <function>
+          <quotient>
+            <product>
+              <value>0.85</value>
+              <property>atmosphere/T-R</property>
+              <value>680.67</value>
+            </product>
+            <product>
+              <value>518.67</value>
+              <sum>
+                <property>propulsion/tat-r</property>
+                <property>fcs/impeller-heating-starboard-r</property>
+              </sum>
+            </product>
+          </quotient>
+        </function>
+        <output>propulsion/engine[1]/volumetric-efficiency</output>
+      </fcs_function>
+
+      <!-- The engines' friction. In FS gear the impeller turns faster and
+           takes more of the engine's power, as the cube of its speed (see
+           engine/merlin25.xml). And an engine that has stopped firing still
+           has its pistons, bearings and supercharger to turn: JSBSim charges
+           a running engine for them (its friction mean effective pressure,
+           about 296 hp at 3,000 rpm here) but not one that has stopped, so a
+           dead engine windmilling would drag its propeller hardly at all -
+           where "the drag of a windmilling propeller is very high" (Pilot's
+           Notes para. 55). This charges it the same, by rpm: (18,400 x the
+           mean piston speed in m/s + 46,500) Pa over the displacement, a
+           quarter of the revolutions. 1.5 hp is JSBSim's own static
+           friction, which this replaces. -->
+      <fcs_function name="fcs/friction-port-hp">
+        <function>
+          <sum>
+            <value>1.5</value>
+            <product>
+              <property>fcs/supercharger-fs-gear</property>
+              <value>77</value>
+              <pow>
+                <quotient>
+                  <property>propulsion/engine[0]/engine-rpm</property>
+                  <value>3000</value>
+                </quotient>
+                <value>3</value>
+              </pow>
+            </product>
+            <product>
+              <difference>
+                <value>1</value>
+                <property>propulsion/engine[0]/set-running</property>
+              </difference>
+              <property>propulsion/engine[0]/engine-rpm</property>
+              <sum>
+                <product>
+                  <value>0.00002822</value>
+                  <property>propulsion/engine[0]/engine-rpm</property>
+                </product>
+                <value>0.01404</value>
+              </sum>
+            </product>
+          </sum>
+        </function>
+        <output>propulsion/engine[0]/friction-hp</output>
+      </fcs_function>
+      <fcs_function name="fcs/friction-starboard-hp">
+        <function>
+          <sum>
+            <value>1.5</value>
+            <product>
+              <property>fcs/supercharger-fs-gear</property>
+              <value>77</value>
+              <pow>
+                <quotient>
+                  <property>propulsion/engine[1]/engine-rpm</property>
+                  <value>3000</value>
+                </quotient>
+                <value>3</value>
+              </pow>
+            </product>
+            <product>
+              <difference>
+                <value>1</value>
+                <property>propulsion/engine[1]/set-running</property>
+              </difference>
+              <property>propulsion/engine[1]/engine-rpm</property>
+              <sum>
+                <product>
+                  <value>0.00002822</value>
+                  <property>propulsion/engine[1]/engine-rpm</property>
+                </product>
+                <value>0.01404</value>
+              </sum>
+            </product>
+          </sum>
+        </function>
+        <output>propulsion/engine[1]/friction-hp</output>
+      </fcs_function>
+    </channel>
+  </flight_control>
+
+  <aerodynamics>
+    <alphalimits unit="DEG">
+      <min>-10</min>
+      <max>25</max>
+    </alphalimits>
+
+    <!-- Ground effect on the induced drag (McCormick's approximation, with h
+         the height over the span) and a little more lift near the ground. -->
+    <function name="aero/function/ground-effect-induced-drag">
+      <table>
+        <independentVar>aero/h_b-mac-ft</independentVar>
+        <tableData>
+          0.00  0.00
+          0.05  0.39
+          0.10  0.72
+          0.20  0.91
+          0.30  0.96
+          0.50  0.99
+          1.00  1.00
+        </tableData>
+      </table>
+    </function>
+    <function name="aero/function/ground-effect-lift">
+      <table>
+        <independentVar>aero/h_b-mac-ft</independentVar>
+        <tableData>
+          0.00  1.10
+          0.10  1.06
+          0.20  1.03
+          0.40  1.01
+          1.00  1.00
+        </tableData>
+      </table>
+    </function>
+
+    <!-- The tailplane's dynamic pressure. It spans about 19 ft, and its outer
+         parts sit in the propellers' slipstreams, 8 ft either side of the
+         centre line; taken as 40% in them. A slipstream's far wake moves at
+         the aircraft's speed plus twice the induced velocity at the disc
+         (JSBSim's, by momentum theory). At high power and low speed it is
+         what raises the tail on the take-off run "by a light forward
+         pressure" (Pilot's Notes, 1944, para. 49); in flight it adds little.
+    -->
+    <function name="aero/function/qbar-tail-psf">
+      <sum>
+        <product>
+          <value>0.6</value>
+          <property>aero/qbar-psf</property>
+        </product>
+        <product>
+          <value>0.4</value>
+          <value>0.5</value>
+          <property>atmosphere/rho-slugs_ft3</property>
+          <pow>
+            <sum>
+              <property>velocities/u-aero-fps</property>
+              <property>propulsion/engine[0]/prop-induced-velocity_fps</property>
+              <property>propulsion/engine[1]/prop-induced-velocity_fps</property>
+            </sum>
+            <value>2</value>
+          </pow>
+        </product>
+      </sum>
+    </function>
+
+    <!-- The whole aircraft's lift with angle of attack and flap. The
+         slope, 4.9 a radian, is the wing's for an aspect ratio of 6.46
+         with the tailplane's added; zero lift at -2 degrees for the wing's
+         camber. The peaks are set to the stalling speeds of the Pilot's
+         Notes (para. 43), power off at 18,000 lb: 105 knots clean and
+         95-100 knots with the flaps and wheels down, as the figures' stall
+         flight measures them. Those are indicated speeds; HJ679's measured
+         position error (de Havilland, 20 September 1943, fig. 3) is within
+         a few mph of nothing at the lowest speeds it reaches, so they are
+         taken as calibrated. -->
+    <function name="aero/function/lift-coefficient-wing">
+      <table>
+        <independentVar lookup="row">aero/alpha-deg</independentVar>
+        <independentVar lookup="column">fcs/flap-pos-deg</independentVar>
+        <tableData>
+                  0      15      25      45
+          -10  -0.69   -0.52   -0.40   -0.20
+           -2   0.00    0.15    0.25    0.40
+            0   0.17    0.32    0.42    0.57
+            8   0.85    0.99    1.08    1.19
+           10   0.97    1.11    1.18    1.28
+           12   0.99    1.17    1.23    1.30
+           14   0.95    1.10    1.14    1.18
+           16   0.88    0.98    1.02    1.05
+           20   0.85    0.88    0.90    0.92
+           25   0.80    0.82    0.84    0.86
+        </tableData>
+      </table>
+    </function>
+
+    <axis name="LIFT">
+      <function name="aero/force/lift-alpha">
+        <description>Lift with angle of attack and flap</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>aero/function/ground-effect-lift</property>
+          <property>aero/function/lift-coefficient-wing</property>
+        </product>
+      </function>
+      <function name="aero/force/lift-slipstream">
+        <description>The propellers' slipstreams over the wing behind them.
+          Each disc spans from 2 ft to 14 ft out from the centre line, so the
+          slipstreams wash about 90 sq ft of wing each, flaps included, where
+          the air moves at the aircraft's speed plus 1.5 times JSBSim's
+          induced velocity (the slipstream half developed by the wing). The
+          extra dynamic pressure lifts that wing at the wing's own lift
+          coefficient. At take-off power it adds a sixth to the lift; with
+          the engines throttled back the windmilling propellers take a
+          little away; in cruise it is nothing. The Pilot's Notes (para. 43)
+          stall "power on under typical approach conditions" at 90-95
+          knots, against 95-100 power off.</description>
+        <product>
+          <value>0.5</value>
+          <property>atmosphere/rho-slugs_ft3</property>
+          <value>90</value>
+          <property>aero/function/lift-coefficient-wing</property>
+          <sum>
+            <difference>
+              <pow>
+                <sum>
+                  <property>velocities/u-aero-fps</property>
+                  <product>
+                    <value>1.5</value>
+                    <property>propulsion/engine[0]/prop-induced-velocity_fps</property>
+                  </product>
+                </sum>
+                <value>2</value>
+              </pow>
+              <pow>
+                <property>velocities/u-aero-fps</property>
+                <value>2</value>
+              </pow>
+            </difference>
+            <difference>
+              <pow>
+                <sum>
+                  <property>velocities/u-aero-fps</property>
+                  <product>
+                    <value>1.5</value>
+                    <property>propulsion/engine[1]/prop-induced-velocity_fps</property>
+                  </product>
+                </sum>
+                <value>2</value>
+              </pow>
+              <pow>
+                <property>velocities/u-aero-fps</property>
+                <value>2</value>
+              </pow>
+            </difference>
+          </sum>
+        </product>
+      </function>
+      <function name="aero/force/lift-elevator">
+        <description>Lift from the elevator: the tailplane's share, 87.4 of
+          454 sq ft, with the elevator's effectiveness, in the tailplane's
+          dynamic pressure</description>
+        <product>
+          <property>aero/function/qbar-tail-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>fcs/elevator-pos-rad</property>
+          <value>0.31</value>
+        </product>
+      </function>
+      <function name="aero/force/lift-pitch-rate">
+        <description>Lift from pitch rate, the tailplane's</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>aero/ci2vel</property>
+          <property>velocities/q-aero-rad_sec</property>
+          <value>3.8</value>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="DRAG">
+      <!-- At zero lift: set to HX809's level speeds with the engines'
+           power as Rolls-Royce gave it. Drop tanks on. -->
+      <function name="aero/force/drag-zero-lift">
+        <description>Drag at zero lift</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <value>0.0210</value>
+        </product>
+      </function>
+      <function name="aero/force/drag-induced">
+        <description>Induced drag: lift squared over pi, the aspect ratio of
+          6.46 and an efficiency of 0.8; less near the ground</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>aero/cl-squared</property>
+          <property>aero/function/ground-effect-induced-drag</property>
+          <value>0.0616</value>
+        </product>
+      </function>
+      <function name="aero/force/drag-stall">
+        <description>The separated flow past the stall</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <table>
+            <independentVar>aero/alpha-deg</independentVar>
+            <tableData>
+              12   0.00
+              14   0.03
+              16   0.08
+              20   0.18
+              25   0.30
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <function name="aero/force/drag-flaps">
+        <description>Flaps</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <table>
+            <independentVar>fcs/flap-pos-deg</independentVar>
+            <tableData>
+               0  0.000
+              15  0.010
+              25  0.022
+              45  0.065
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <function name="aero/force/drag-gear">
+        <description>The undercarriage, down: "its high drag" (Pilot's Notes
+          para. 57)</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>gear/gear-pos-norm</property>
+          <value>0.020</value>
+        </product>
+      </function>
+      <function name="aero/force/drag-radiators">
+        <description>The radiator shutters, open. Set between HJ679's two
+          climb rates, in MS gear at 10,400 ft and FS gear at 17,000 ft, both
+          flown with them "fully open"; the level speeds were flown with them
+          shut.</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <sum>
+            <property>fcs/cooling-flaps-cmd-norm[0]</property>
+            <property>fcs/cooling-flaps-cmd-norm[1]</property>
+          </sum>
+          <value>0.0019</value>
+        </product>
+      </function>
+      <function name="aero/force/drag-rudder">
+        <description>The fin's induced drag with the rudder over, as it is
+          holding a failed engine: its side force squared over its span
+          (about 8 ft) and the dynamic pressure</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>fcs/rudder-pos-rad</property>
+          <property>fcs/rudder-pos-rad</property>
+          <value>0.03</value>
+        </product>
+      </function>
+      <function name="aero/force/drag-stopped-propellers">
+        <description>A stopped propeller - feathered, or seized - edge on to
+          the air: JSBSim gives it none. About 0.4 sq ft of flat plate
+          each.</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <value>0.4</value>
+          <sum>
+            <lt>
+              <property>propulsion/engine[0]/propeller-rpm</property>
+              <value>50</value>
+            </lt>
+            <lt>
+              <property>propulsion/engine[1]/propeller-rpm</property>
+              <value>50</value>
+            </lt>
+          </sum>
+        </product>
+      </function>
+      <function name="aero/force/drag-sideslip">
+        <description>Sideslip</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>aero/mag-beta-rad</property>
+          <value>0.15</value>
+        </product>
+      </function>
+      <function name="aero/force/drag-mach">
+        <description>Compressibility. The wing is thick, and the drag begins
+          to rise gently from Mach 0.45 - set so that the trials' speeds at
+          height and at sea level agree - and steeply towards the diving
+          limits</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <table>
+            <independentVar>velocities/mach</independentVar>
+            <tableData>
+              0.45  0.0000
+              0.50  0.0006
+              0.55  0.0012
+              0.60  0.0020
+              0.68  0.0040
+              0.72  0.0080
+              0.76  0.0200
+              0.80  0.0450
+              0.90  0.1000
+            </tableData>
+          </table>
+        </product>
+      </function>
+    </axis>
+
+    <!-- The lateral and directional derivatives are estimated from the
+         geometry, with the fin taken at 45 sq ft on a 23 ft arm, except the
+         rudder's power, which the single-engine safety speed sets. Signs as
+         JSBSim's: positive rudder is trailing edge left. -->
+    <axis name="SIDE">
+      <function name="aero/force/side-sideslip">
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>aero/beta-rad</property>
+          <value>-0.60</value>
+        </product>
+      </function>
+      <function name="aero/force/side-rudder">
+        <description>The fin's side force from the rudder: its yawing moment
+          over the fin's arm, 23 ft of the 54.17 ft span</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>fcs/rudder-pos-rad</property>
+          <value>0.0443</value>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="ROLL">
+      <function name="aero/moment/roll-sideslip">
+        <description>Dihedral effect</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/bw-ft</property>
+          <property>aero/beta-rad</property>
+          <value>-0.08</value>
+        </product>
+      </function>
+      <function name="aero/moment/roll-damping">
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/bw-ft</property>
+          <property>aero/bi2vel</property>
+          <property>velocities/p-aero-rad_sec</property>
+          <value>-0.50</value>
+        </product>
+      </function>
+      <function name="aero/moment/roll-yaw-rate">
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/bw-ft</property>
+          <property>aero/bi2vel</property>
+          <property>velocities/r-aero-rad_sec</property>
+          <value>0.12</value>
+        </product>
+      </function>
+      <function name="aero/moment/roll-aileron">
+        <description>"The controls are light and effective" (Pilot's Notes
+          para. 42): about 50 degrees a second at 250 mph</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/bw-ft</property>
+          <property>fcs/left-aileron-pos-rad</property>
+          <value>0.12</value>
+        </product>
+      </function>
+      <function name="aero/moment/roll-rudder">
+        <description>The same side force, 4 ft above the centre of
+          gravity</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/bw-ft</property>
+          <property>fcs/rudder-pos-rad</property>
+          <value>0.0032</value>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="PITCH">
+      <!-- A small static margin, about 4% of the chord: "fore-and-aft
+           stability is satisfactory on the climb and neutral on the glide.
+           At low speeds in level flight the aircraft is slightly unstable"
+           (Pilot's Notes, 1944, para. 51), and R&M 2597 found Mosquito
+           DZ294 behind its manoeuvre point, stick fixed, at its aft centre
+           of gravity, 0.335 of the chord. -->
+      <function name="aero/moment/pitch-zero">
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/cbarw-ft</property>
+          <value>0.02</value>
+        </product>
+      </function>
+      <function name="aero/moment/pitch-alpha">
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/cbarw-ft</property>
+          <property>aero/alpha-rad</property>
+          <value>-0.20</value>
+        </product>
+      </function>
+      <function name="aero/moment/pitch-stall">
+        <description>Past the stall the wing's flow separates from the root
+          outward and the tailplane loses its downwash: the nose drops. "At
+          the stall the aircraft pitches, the A.S.I. fluctuates and the nose
+          drops gently" (Pilot's Notes para. 43).</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/cbarw-ft</property>
+          <table>
+            <independentVar>aero/alpha-deg</independentVar>
+            <tableData>
+              12    0.00
+              14   -0.04
+              16   -0.10
+              20   -0.22
+              30   -0.40
+              50   -0.60
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <function name="aero/moment/pitch-elevator">
+        <description>The tailplane's volume, 0.51, with the elevator's
+          effectiveness, in the tailplane's dynamic pressure</description>
+        <product>
+          <property>aero/function/qbar-tail-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/cbarw-ft</property>
+          <property>fcs/elevator-pos-rad</property>
+          <value>-0.85</value>
+        </product>
+      </function>
+      <function name="aero/moment/pitch-damping">
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/cbarw-ft</property>
+          <property>aero/ci2vel</property>
+          <property>velocities/q-aero-rad_sec</property>
+          <value>-10.0</value>
+        </product>
+      </function>
+      <function name="aero/moment/pitch-alpha-rate">
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/cbarw-ft</property>
+          <property>aero/ci2vel</property>
+          <property>aero/alphadot-rad_sec</property>
+          <value>-4.3</value>
+        </product>
+      </function>
+      <function name="aero/moment/pitch-flaps">
+        <description>"Flaps down: nose up" (Pilot's Notes para. 42)</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/cbarw-ft</property>
+          <property>fcs/flap-pos-deg</property>
+          <value>0.0015</value>
+        </product>
+      </function>
+      <function name="aero/moment/pitch-radiators">
+        <description>"Radiator shutters open: nose up" (Pilot's Notes
+          para. 42)</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/cbarw-ft</property>
+          <sum>
+            <property>fcs/cooling-flaps-cmd-norm[0]</property>
+            <property>fcs/cooling-flaps-cmd-norm[1]</property>
+          </sum>
+          <value>0.002</value>
+        </product>
+      </function>
+      <function name="aero/moment/pitch-gear">
+        <description>"Undercarriage down: nose down"</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/cbarw-ft</property>
+          <property>gear/gear-pos-norm</property>
+          <value>-0.012</value>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="YAW">
+      <function name="aero/moment/yaw-sideslip">
+        <description>Weathercock stability: "the directional and lateral
+          stability is satisfactory"</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/bw-ft</property>
+          <property>aero/beta-rad</property>
+          <value>0.09</value>
+        </product>
+      </function>
+      <function name="aero/moment/yaw-damping">
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/bw-ft</property>
+          <property>aero/bi2vel</property>
+          <property>velocities/r-aero-rad_sec</property>
+          <value>-0.11</value>
+        </product>
+      </function>
+      <function name="aero/moment/yaw-roll-rate">
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/bw-ft</property>
+          <property>aero/bi2vel</property>
+          <property>velocities/p-aero-rad_sec</property>
+          <value>-0.03</value>
+        </product>
+      </function>
+      <function name="aero/moment/yaw-aileron">
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/bw-ft</property>
+          <property>fcs/left-aileron-pos-rad</property>
+          <value>-0.008</value>
+        </product>
+      </function>
+      <function name="aero/moment/yaw-slipstream">
+        <description>The propellers' slipstream on the fin. Both turn
+          clockwise seen from behind, and their wakes turn with them: above
+          the propellers' axes the air moves to starboard, so it strikes the
+          fin from port and pushes the tail to starboard, the nose to port.
+          JSBSim models the propellers' torque, gyroscopic moments and
+          P-factor but not this, which on the ground with the tail down is
+          what outweighs the torque's own tendency to turn the nose to
+          starboard. In proportion to the thrust, and to each propeller's
+          sense (JSBSim's: 1 clockwise from behind), set so that the take-off
+          swing is to port and as slight as the Pilot's Notes say (para. 49,
+          1944).</description>
+        <product>
+          <sum>
+            <product>
+              <property>propulsion/engine[0]/thrust-lbs</property>
+              <property>propulsion/engine[0]/propeller-sense</property>
+            </product>
+            <product>
+              <property>propulsion/engine[1]/thrust-lbs</property>
+              <property>propulsion/engine[1]/propeller-sense</property>
+            </product>
+          </sum>
+          <value>-0.38</value>
+        </product>
+      </function>
+      <function name="aero/moment/yaw-rudder">
+        <description>The rudder's power: set so that, with one engine failed
+          and its propeller windmilling, the speeds at which holding the
+          aircraft straight takes full rudder fall as near as they can to
+          both the Pilot's Notes' safety speeds, 170 knots at +18 boost and
+          155 at +9 - the model has them further apart, as the live engine's
+          thrust at the two boosts puts them, and meets each within 6
+          knots</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>metrics/bw-ft</property>
+          <property>fcs/rudder-pos-rad</property>
+          <value>-0.0188</value>
+        </product>
+      </function>
+    </axis>
+  </aerodynamics>
+</fdm_config>
