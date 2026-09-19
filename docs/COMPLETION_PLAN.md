@@ -290,11 +290,20 @@ quality: each is held to published figures before it is offered, as the Cessna
       64.6 knots against 63.4, and every stall within 2 knots of its
       handbook's; the Cub's stall flown with the Trainer's two people, its
       manual naming no weight.
-- [ ] **The airliners fly to their figures** - the A320, 737, 747 and 787-8,
+- [x] **The airliners fly to their figures** - the A320, 737, 747 and 787-8,
       from JSBSim's models. *Verification: each lands inside its tolerance on
       figures from its manufacturer's airport-planning document and its
       type-certificate data sheet: take-off distance at maximum weight, climb,
-      cruise Mach and ceiling.*
+      cruise Mach and ceiling.* Stated, 2026-09-19, CI run 35423458464: the
+      A320, 737-300, 747-400 and 787-8 fly all four of their figures inside
+      their ranges on every platform - take-off runway lengths at maximum
+      weight, flown as FAR 25 defines them, of 6,200, 7,790, 11,270 and
+      10,880 ft against their documents' 5,850, 8,400, 10,500 and 10,100;
+      engine-out climbs of 3.7, 2.4, 4.0 and 2.6% against FAR 25.121(b)'s 2.4
+      and 3.0; cruise at Mach 0.84, 0.78, 0.91 and 0.91 at 35,000 ft; and each
+      still climbing at its type certificate's ceiling. The A320 is the -214,
+      with the CFM56-5B4 its model lacked; the climb is FAR 25's floor, as
+      neither manufacturer publishes a climb rate.
 - [ ] **The F-15 and F-22 fly to their figures**, from JSBSim's models.
       *Verification: maximum Mach at altitude, climb rate, service ceiling and
       sustained turn rate, each inside its tolerance of published figures.*

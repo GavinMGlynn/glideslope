@@ -94,7 +94,7 @@ and 35409102752); the light aircraft from JSBSim's models - the Cessna 182S,
 the Piper PA-28-180 and the Piper J-3 Cub, each made to fly to its handbook's
 figures (CI run 35417893114); and the airliners - the Airbus A320 and the
 Boeing 737-300, 747-400 and 787-8, held to their airport-planning documents
-and type certificates (CI run RUNID). Next: the F-15 and F-22.
+and type certificates (CI run 35423458464). Next: the F-15 and F-22.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -156,7 +156,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The airliners against their planning documents, 2026-09-19 — item done (CI run RUNID)
+### The airliners against their planning documents, 2026-09-19 — item done (CI run 35423458464)
 
 Phase 5's "the airliners fly to their figures": the Airbus A320 and the
 Boeing 737-300, 747-400 and 787-8, each made from JSBSim's model by a script
