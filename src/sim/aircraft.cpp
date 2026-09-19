@@ -200,6 +200,30 @@ void Aircraft::initialize(const InitialConditions& ic) {
     if (!exec_->RunIC()) {
         throw std::runtime_error("JSBSim refused the initial conditions for " + model_);
     }
+    // A start on the ground puts the wheels on it. The altitude is the centre
+    // of gravity's, and set at the ground's own height it buries the wheels
+    // as far as they hang below it - four feet for the Cessna 172P, which its
+    // struts threw back into the air, nine for the A320, which they threw
+    // hard enough to end its flight in NaNs. Raised by the deepest wheel's
+    // compression, the aircraft starts with that wheel touching and settles
+    // onto its struts.
+    if (ic.airspeed_kts == 0.0) {
+        double buried_ft = 0.0;
+        const auto ground = exec_->GetGroundReactions();
+        for (int i = 0; i < ground->GetNumGearUnits(); ++i) {
+            const auto gear = ground->GetGearUnit(i);
+            if (gear->IsBogey()) {
+                buried_ft = std::max(buried_ft, gear->GetCompLen());
+            }
+        }
+        if (buried_ft > 0.0) {
+            fgic->SetAltitudeASLFtIC(ic.altitude_ft + buried_ft);
+            if (!exec_->RunIC()) {
+                throw std::runtime_error("JSBSim refused the initial conditions for " +
+                                         model_ + " set down on the ground");
+            }
+        }
+    }
     if (ic.engine_running) {
         exec_->SetPropertyValue("propulsion/set-running", -1.0);
         // JSBSim settles running engines by stepping them half a second at a

@@ -42,12 +42,6 @@ struct Rest {
     double ground_speed_kts = 0.0;
 };
 
-// Where the Cessna's centre of gravity rests above level ground: set down
-// there, the wheels start at the surface. Set down at the surface itself, they
-// start four feet under it, and the struts throw the aircraft into the air -
-// harmlessly on level ground, and end over end facing down a slope.
-constexpr double rest_height_ft = 4.4;
-
 // Sets the Cessna down - engine idling, brakes on - and lets it settle for
 // twenty seconds.
 Rest set_down(std::shared_ptr<Terrain> terrain, double elevation_ft, double latitude,
@@ -61,7 +55,11 @@ Rest set_down(std::shared_ptr<Terrain> terrain, double elevation_ft, double lati
     ic.longitude_deg = longitude;
     ic.heading_deg = heading;
     ic.terrain_elevation_ft = elevation_ft;
-    ic.altitude_ft = elevation_ft + rest_height_ft;
+    // At the surface itself: initialize() raises the aircraft until its
+    // lowest wheel touches. It once left the wheels four feet under it, and
+    // the struts threw the aircraft into the air - harmlessly on level
+    // ground, and end over end facing down a slope.
+    ic.altitude_ft = elevation_ft;
     a.initialize(ic);
     Controls c;
     c.left_brake = c.right_brake = 1.0;
@@ -176,8 +174,7 @@ GLIDESLOPE_TEST(
         ic.latitude_deg = latitude;
         ic.longitude_deg = 6.0;
         ic.heading_deg = 180.0;
-        ic.altitude_ft =
-            terrain->height_m(latitude, 6.0) * feet_per_metre + rest_height_ft;
+        ic.altitude_ft = terrain->height_m(latitude, 6.0) * feet_per_metre;
         ic.engine_running = false;
         a.initialize(ic);
         Controls c;
