@@ -96,7 +96,7 @@ figures (CI run 35417893114); and the airliners - the Airbus A320 and the
 Boeing 737-300, 747-400 and 787-8, held to their airport-planning documents
 and type certificates (CI run 35423458464); and the fighters - the F-15C and
 F-22A, held to the Air Force's and the Department of Defense's figures (CI
-run RUNID). Next: an A380 flight model.
+run 35430601204). Next: an A380 flight model.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -160,7 +160,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The F-15C and F-22 against their published figures, 2026-09-19 — item done (CI run RUNID)
+### The F-15C and F-22 against their published figures, 2026-09-19 — item done (CI run 35430601204)
 
 Phase 5's "the F-15 and F-22 fly to their figures": the McDonnell Douglas
 F-15C Eagle and the Lockheed Martin F-22A Raptor, each made from JSBSim's

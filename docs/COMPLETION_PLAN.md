@@ -304,9 +304,20 @@ quality: each is held to published figures before it is offered, as the Cessna
       still climbing at its type certificate's ceiling. The A320 is the -214,
       with the CFM56-5B4 its model lacked; the climb is FAR 25's floor, as
       neither manufacturer publishes a climb rate.
-- [ ] **The F-15 and F-22 fly to their figures**, from JSBSim's models.
+- [x] **The F-15 and F-22 fly to their figures**, from JSBSim's models.
       *Verification: maximum Mach at altitude, climb rate, service ceiling and
       sustained turn rate, each inside its tolerance of published figures.*
+      Stated, 2026-09-19, CI run 35430601204: the F-15C flies all six of the
+      Air Force's Standard Aircraft Characteristics figures inside their
+      ranges on every platform - Mach 2.40 at 45,000 ft against 2.39, sea-level
+      climbs of 15,300 and 56,900 ft/min against 15,250 and 55,960, service and
+      combat ceilings of 46,900 and 57,600 ft against 46,750 and 56,100, and a
+      sustained turn of 7.82 degrees a second against 7.87 - and the F-22A
+      all five of the Selected Acquisition Report's and the fact sheet's:
+      supercruise at Mach 1.77 against 1.76, Mach 0.8 to 1.5 in 52.7 seconds
+      against 52.4, 7.35 degrees a second (3.7 g), Mach 2.15 at 40,000 ft, and
+      still climbing at 50,000 ft. The F-15C's thrust and drag are fitted to
+      its chart of excess power; the F-22's are pinned by five figures only.
 - [ ] **An A380 flight model**, written here from published data: JSBSim has
       none. *Verification: as the airliners.*
 - [ ] **A Learjet 35A flight model**, written here from published data:
