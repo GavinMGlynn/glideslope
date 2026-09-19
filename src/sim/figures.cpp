@@ -1207,6 +1207,65 @@ double acceleration_time(const std::filesystem::path& root, const PublishedFigur
     throw std::runtime_error("not at Mach " + std::to_string(to) + " after ten minutes");
 }
 
+// Nautical miles flown per pound of fuel, level at the altitude and Mach
+// given, the throttle holding the Mach, with the figure's loading's tanks at
+// `fraction` of what it gives them: over two minutes after one to settle, the
+// ground covered over the fuel burned - little enough that the weight hardly
+// changes.
+double specific_range(const std::filesystem::path& root, const PublishedFigures& figures,
+                      const FigureSpec& spec, double fraction) {
+    PublishedFigures lighter = figures;
+    FigureLoading& loading = lighter.loadings.at(spec.loading);
+    for (auto& [tank, lbs] : loading.loading.tank_lbs) {
+        loading.total_lbs -= lbs * (1.0 - fraction);
+        lbs *= fraction;
+    }
+    const double altitude = condition(spec, "altitude_ft");
+    const double mach = condition(spec, "mach");
+    Flight f(root, lighter, spec, airborne(altitude, kcas_for_mach(mach, altitude), true));
+    Controls c;
+    c.throttle = 0.7;
+    double start_lbs = 0.0;
+    double ground_ft = 0.0;
+    for (int i = 0; i < steps(180); ++i) {
+        c.throttle = std::clamp(
+            c.throttle + 2.0 * (mach - f.aircraft.property("velocities/mach")) * dt, 0.0, 0.99);
+        c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_altitude(altitude));
+        c.aileron = f.pilot.roll_to(0.0);
+        c.rudder = f.pilot.coordinate();
+        f.fly(c);
+        if (i == steps(60)) {
+            start_lbs = f.aircraft.property("propulsion/total-fuel-lbs");
+        }
+        if (i >= steps(60)) {
+            ground_ft += f.aircraft.property("velocities/vg-fps") * dt;
+        }
+    }
+    const double burned = start_lbs - f.aircraft.property("propulsion/total-fuel-lbs");
+    if (burned <= 0.0) {
+        throw std::runtime_error("no fuel burned in the cruise");
+    }
+    return ground_ft / 6076.12 / burned;
+}
+
+// The range, in nautical miles, on the fuel in the figure's loading, level
+// at the altitude and Mach given: the specific range at full, half and nearly
+// empty tanks - a twentieth - integrated over the fuel by Simpson's rule, the
+// last twentieth counted at the nearly empty tanks' rate. As the fuel burns the
+// aircraft lightens and flies further on each pound. No fuel is kept back.
+double cruise_range(const std::filesystem::path& root, const PublishedFigures& figures,
+                    const FigureSpec& spec) {
+    const FigureLoading& loading = figures.loadings.at(spec.loading);
+    double fuel = 0.0;
+    for (const auto& [tank, lbs] : loading.loading.tank_lbs) {
+        fuel += lbs;
+    }
+    const double full = specific_range(root, figures, spec, 1.0);
+    const double half = specific_range(root, figures, spec, 0.525);
+    const double empty = specific_range(root, figures, spec, 0.05);
+    return 0.95 * fuel / 6.0 * (full + 4.0 * half + empty) + 0.05 * fuel * empty;
+}
+
 using FlightFn = std::function<double(const std::filesystem::path&,
                                       const PublishedFigures&, const FigureSpec&)>;
 
@@ -1234,6 +1293,7 @@ const std::vector<std::pair<std::string, FlightFn>>& flights() {
         {"max_climb_rate", max_climb_rate},
         {"service_ceiling", service_ceiling},
         {"acceleration_time", acceleration_time},
+        {"cruise_range", cruise_range},
     };
     return all;
 }

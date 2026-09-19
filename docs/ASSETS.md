@@ -5,14 +5,16 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Twenty-eight things are used: Cessna 172P and 182S, Piper PA-28-180 and J-3
+**Thirty-one things are used: Cessna 172P and 182S, Piper PA-28-180 and J-3
 Cub, Airbus A320, Boeing 737-300, 747-400 and 787-8, McDonnell Douglas F-15C
 and Lockheed Martin F-22A flight models derived from JSBSim's, those ten
 aircraft's published figures - handbooks for the light aircraft,
 airport-planning documents and type certificates for the airliners, the
 Air Force's and the Department of Defense's for the fighters - the Airbus
-A380's documents and the Boeing 747's published derivatives (for a flight
-model written here), the Mosquito FB Mk VI's trials
+A380's documents and the Boeing 747's published derivatives and the
+Learjet 35A's flight manual and NASA's measurements of the Learjet 23, and
+what is published of the F-35A and the B-2A (for flight models written
+here), the Mosquito FB Mk VI's trials
 and Pilot's Notes (for a flight model written here), the Copernicus DEM, the
 EGM2008 geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from
 aviationweather.gov and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
@@ -240,6 +242,61 @@ to are `assets/figures/a380.xml`.
 documents' text or charts, none of which is in the repository. Airbus's
 documents say their curves are "for information only"; this model is not
 Airbus's, and nothing suggests Airbus endorses it.
+
+### The Gates Learjet 35A: its flight manual, and NASA's Learjet 23
+
+The flight model - `assets/jsbsim/aircraft/learjet35a/learjet35a.xml` - is
+written for this project by `tools/make_learjet35a.py`, whose docstring names
+the source of each number, and is under its licence, GPL-3.0-or-later. Its
+engine, `assets/jsbsim/engine/TFE731-2.xml`, is JSBSim's `engine/Tay-620.xml`
+(at `v1.3.1`, `3b25f25`) made a TFE731-2 by the same script, and remains under
+JSBSim's LGPL-2.1, whose text ships as `licenses/JSBSim.txt`. A test fails if
+the committed files differ from what the script writes. The figures it is held
+to are `assets/figures/learjet35a.xml`.
+
+| Document | Copy consulted | What is taken from it |
+| --- | --- | --- |
+| Gates Learjet 35A/36A Airplane Flight Manual, FM-108, change 23, FAA approved, with the FC-530 autopilot | A scan at <https://archive.org/details/learjet-35-36-afm-fc-530>, uploaded by a user, SHA-256 `e3e34e6b721854f12c7334b4e8911552eb857360d40bcafade87100919cd3a44` | The limitations, the weight and balance data - stations, chord, gear, fuel - and the performance charts: the stall speeds and take-off field length |
+| FAA type certificate data sheet A10CE, revision 67, 19 February 2015 | The FAA's regulatory library, read through the Internet Archive, SHA-256 `107c11ef1988b089d5fbf561da9a27938675f5d403d364cb9245733c98ed5114` | The engines' thrust, the controls' travel, the mean aerodynamic chord, the maximum operating altitude |
+| NTSB, operational factors group chair's factual report, WPR22FA068 (Learjet 35A N880Z) | <https://data.ntsb.gov/Docket/Document/docBLOB?ID=16325896&FileExtension=pdf&FileName=WPR22FA068+Factual+Report-Final-Rel.pdf>, SHA-256 `b3f302502c0bfba3c81518b0b9ff334d0d8dbf87c2fcd0ee6448694161ea373b` | A 35A's basic empty weight; the span between the tip tanks' centres |
+| NASA TN D-6573, Soderman and Aiken, Full-Scale Wind-Tunnel Tests of a Small Unpowered Jet Aircraft with a T-Tail, November 1971 | <https://ntrs.nasa.gov/api/citations/19720002382/downloads/19720002382.pdf>, SHA-256 `683ec716deb22871c4721482a8162b5bb108ee82c9417ad3bea559755fe28025`. A work of the United States government | The Learjet 23's planform, flaps' lift, spoilers' drag, and lateral and directional derivatives |
+| NASA TN D-7647, Parameter Estimation Techniques and Applications in Aircraft Flight Testing, 1974: Wingrove, estimation of longitudinal aerodynamic coefficients | <https://ntrs.nasa.gov/api/citations/19740017456/downloads/19740017456.pdf>, SHA-256 `383dd911fbdd48cf7285634d54ce926bcf93ec086a72456bfb05c93a41cf50fd`. A work of the United States government | A Lear Jet's longitudinal coefficients, identified from flight |
+| Ross and Neal (Gates Learjet), Learjet Model 25 Drag Analysis, NASA/Industry/University General Aviation Drag Reduction Workshop, 1975 | <https://ntrs.nasa.gov/api/citations/19760003936/downloads/19760003936.pdf>, SHA-256 `4588391bf60ec5933df769d6ae486036739e3635dae709fba912a2413965f387` | The drag at zero lift and due to lift |
+| Miller, Outside Loop Control in Asymmetrical Trimmed Flight Conditions, AFIT thesis, 2004 (DTIC ADA424733), table 1 | <https://archive.org/download/DTIC_ADA424733/DTIC_ADA424733.pdf>, SHA-256 `5d4639e0aeaae92db92cbd0b44623a2c96744680f1f83033a4993874cdcabb43` | A Learjet 25 model's inertias and side force - of low confidence, its table contradicting itself |
+| United States Air Force, C-21 fact sheet | <https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104522/c-21/>, read through the Internet Archive | The C-21A's speed at 41,000 ft |
+
+**Only facts are taken** - numbers, each cited where it is used - not the
+documents' text or charts, none of which is in the repository. The flight
+manual's copy is a user's upload; its numbers agree with the type
+certificate's where both give them.
+
+### The Lockheed Martin F-35A and Northrop Grumman B-2A: what is published
+
+The flight models - `assets/jsbsim/aircraft/f35a/f35a.xml` and
+`assets/jsbsim/aircraft/b2/b2.xml` - are written for this project by
+`tools/make_f35a.py` and `tools/make_b2.py`, whose docstrings name the source
+of each number and every estimate, and are under its licence,
+GPL-3.0-or-later. Their engines, `assets/jsbsim/engine/F135-PW-100.xml` and
+`assets/jsbsim/engine/F118-GE-100.xml`, are JSBSim's `engine/F100-PW-229.xml`
+(at `v1.3.1`, `3b25f25`) made each by the same scripts, and remain under
+JSBSim's LGPL-2.1, whose text ships as `licenses/JSBSim.txt`. A test fails if
+the committed files differ from what the scripts write. Their figures are
+`assets/figures/f35a.xml` and `assets/figures/b2.xml`. Much of both aircraft's
+performance, and all of their aerodynamics, is not public; what the models
+estimate is listed in `docs/PROJECT_STATUS.md`.
+
+| Document | Copy consulted | What is taken from it |
+| --- | --- | --- |
+| United States Air Force, F-35A Lightning II fact sheet, current as of April 2014 | <https://www.af.mil/About-Us/Fact-Sheets/Display/Article/478441/f-35a-lightning-ii/>, read through the Internet Archive, SHA-256 `2d64722fc24da262fe926c604c60d123e6a2c3f79e332e6f5755f9ecc92384fe` | Its speed, ceiling and range |
+| Lockheed Martin, F-35 Fast Facts (2021) and F-35A product card | <https://www.f35.com/content/dam/lockheed-martin/aero/f35/documents/FG21-00000_001F35FastFactsV2_2021.pdf>, SHA-256 `bacf57950395ebba5ede4801e2bdd70ebcca2d700cdd36e06532a8070878845e`; <https://www.lockheedmartin.com/content/dam/lockheed-martin/aero/f35/documents/F-35A%20Product%20Card.pdf>, SHA-256 `9d59e8a609766765e80aa9395084788d4fad4c9953105ca4649707cd6411a1b1` | Span, length, wing area, empty weight, internal fuel; Mach 1.6 with full internal weapons; range |
+| Pratt & Whitney, F135 product card and Fast Facts (2025) | <https://filecache.mediaroom.com/mr5mr_prattwhitney/181677/download/me_f135_engine_pcard.pdf>, SHA-256 `6d3e85f0caf785ac7de2c65b8fbcfacf9eaf461ee9ffe5387094b89ae1419f9b`; the RTX newsroom's F135 fast facts, SHA-256 `94b309a01063ebf156f18886c1910e2213029612304ea5815590494a85336202` | The F135-PW-100's thrust class, with and without afterburner |
+| Department of Defense, Selected Acquisition Report, F-35, December 2022 | <https://www.esd.whs.mil/Portals/54/Documents/FOID/Reading%20Room/Selected_Acquisition_Reports/FY_2022_SARS/F-35_SAR_Dec_2022_25_July_2023.pdf>, read through the Internet Archive | Its combat radius, recorded but not flown: no profile is given |
+| United States Air Force, B-2 Spirit fact sheet, current as of December 2015 | <https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104482/b-2-spirit/>, read through the Internet Archive, SHA-256 `cabe940c317105cc8d358dcee047675d2150ed9db9f034cb853ebd3f8da22c42` | Its size, weights, engines' thrust, speed, ceiling and range |
+| NASA CR-2144, Heffley and Jewell, Aircraft Handling Qualities Data, December 1972, section IV, the F-4C | As in the A380's entry above | The F-35A's moments' derivatives and inertias - the F-4C's, the nearest published fighter's |
+
+**Only facts are taken** - numbers and a few words quoted with each figure -
+not the documents' text. Nothing suggests Lockheed Martin, Northrop Grumman,
+Pratt & Whitney, General Electric or the Air Force endorses these models.
 
 ### The Mosquito FB Mk VI: its trials, Pilot's Notes and engine curves
 

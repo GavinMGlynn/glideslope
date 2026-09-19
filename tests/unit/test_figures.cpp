@@ -22,7 +22,7 @@ const char* const data_dir = GLIDESLOPE_TEST_DATA_DIR;
 
 // Every aircraft with published figures.
 const std::vector<std::string>& figured_models() {
-    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "a380", "c172p", "c182", "f15c", "f22", "j3cub", "mosquito-fb6", "pa28"};
+    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "a380", "b2", "c172p", "c182", "f15c", "f22", "f35a", "j3cub", "learjet35a", "mosquito-fb6", "pa28"};
     return models;
 }
 
@@ -254,6 +254,58 @@ GLIDESLOPE_TEST(the_airbus_a380_still_climbs_at_its_certificated_ceiling) {
     expect_figure("a380", "ceiling");
 }
 
+GLIDESLOPE_TEST(the_learjet_35a_needs_about_its_flight_manuals_takeoff_field_length_at_maximum_weight) {
+    expect_figure("learjet35a", "takeoff_field_length");
+}
+
+GLIDESLOPE_TEST(the_learjet_35a_climbs_with_an_engine_out_as_its_flight_manual_demands) {
+    expect_figure("learjet35a", "climb_one_engine_out");
+}
+
+GLIDESLOPE_TEST(the_learjet_35a_reaches_the_c21as_speed_at_41000_ft) {
+    expect_figure("learjet35a", "cruise_mach");
+}
+
+GLIDESLOPE_TEST(the_learjet_35a_still_climbs_at_its_certificated_ceiling) {
+    expect_figure("learjet35a", "ceiling");
+}
+
+GLIDESLOPE_TEST(the_learjet_35a_stalls_near_its_flight_manuals_speed_with_8_degrees_of_flap) {
+    expect_figure("learjet35a", "stall_speed_flaps_8");
+}
+
+GLIDESLOPE_TEST(the_learjet_35a_stalls_near_its_flight_manuals_speed_flaps_up) {
+    expect_figure("learjet35a", "stall_speed_flaps_up");
+}
+
+GLIDESLOPE_TEST(the_learjet_35a_stalls_near_its_flight_manuals_speed_with_40_degrees_of_flap) {
+    expect_figure("learjet35a", "stall_speed_flaps_40");
+}
+
+GLIDESLOPE_TEST(the_f35a_reaches_mach_1_6_at_its_best_altitude) {
+    expect_figure("f35a", "maximum_mach");
+}
+
+GLIDESLOPE_TEST(the_f35a_still_climbs_at_50000_ft) {
+    expect_figure("f35a", "climb_rate_50000_ft");
+}
+
+GLIDESLOPE_TEST(the_f35a_flies_more_than_its_published_range_on_internal_fuel) {
+    expect_figure("f35a", "range");
+}
+
+GLIDESLOPE_TEST(the_b2_flies_at_high_subsonic_speed) {
+    expect_figure("b2", "high_subsonic_speed");
+}
+
+GLIDESLOPE_TEST(the_b2_still_climbs_at_its_published_ceiling) {
+    expect_figure("b2", "climb_rate_50000_ft");
+}
+
+GLIDESLOPE_TEST(the_b2_flies_about_its_published_range_unrefuelled) {
+    expect_figure("b2", "range");
+}
+
 GLIDESLOPE_TEST(the_f15c_reaches_its_published_maximum_mach_at_45000_ft) {
     expect_figure("f15c", "maximum_mach_45000_ft");
 }
@@ -404,7 +456,7 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
         check(flown.count(name) == 1, "figures name a flight " + name +
                                           " that does not exist");
     }
-    check(figures_in_files == 75,
-          "seventy-five figures, one test each above; found " +
+    check(figures_in_files == 88,
+          "eighty-eight figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

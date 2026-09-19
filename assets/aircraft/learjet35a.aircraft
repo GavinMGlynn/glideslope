@@ -1,0 +1,16 @@
+# The Gates Learjet 35A, two TFE731-2-2Bs: a flight model written for glideslope
+# from its flight manual, its type certificate and NASA's measurements of the
+# Learjet 23, and held to its flight manual's figures (assets/figures/
+# learjet35a.xml), by tools/make_learjet35a.py.
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name Gates Learjet 35A
+model learjet35a
+start 250 0.49

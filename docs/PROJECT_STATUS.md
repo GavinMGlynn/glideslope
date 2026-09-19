@@ -87,7 +87,7 @@ of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
 and 35363959900): the same air on every machine, a METAR's gusts flown, the
 wind near the ground as a boundary layer, reported wind shear, microbursts,
 thermals and mountain waves, and weather you can see. **Phase 5, aircraft
-choice, is under way: 6 of 14 items done** - aircraft as data; the
+choice, is under way: 8 of 14 items done** - aircraft as data; the
 Mosquito FB Mk VI, written here from its trials and Pilot's Notes and held to
 fourteen of their figures, proved in CI on every platform (runs 35387301607
 and 35409102752); the light aircraft from JSBSim's models - the Cessna 182S,
@@ -96,9 +96,11 @@ figures (CI run 35417893114); and the airliners - the Airbus A320 and the
 Boeing 737-300, 747-400 and 787-8, held to their airport-planning documents
 and type certificates (CI run 35423458464); and the fighters - the F-15C and
 F-22A, held to the Air Force's and the Department of Defense's figures (CI
-run 35430601204); and an Airbus A380-841, written here from Airbus's and the
-certifying authorities' documents (CI run 35435906751). Next: a Learjet 35A flight
-model.
+run 35430601204); an Airbus A380-841, written here from Airbus's and the
+certifying authorities' documents (CI run 35435906751); a Gates Learjet 35A,
+written here from its flight manual and NASA's measurements of the Learjet 23;
+and the F-35A and B-2A, written here from what little is published of them
+(CI run RUNID). Next: the Short S.23 on water.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -123,14 +125,16 @@ are the risks the phase order is built around:
   state for two simulated seconds so JSBSim's hidden engine and actuator states
   converge; a restore is therefore not free, and whether that cost suits
   reconciliation many times a second is a question for Phase 6.
-- **Twelve aircraft are checked, and the Mosquito's and A380's handling is
+- **Fifteen aircraft are checked, and the handling of those written here is
   estimated.** The Cessna 172P and 182S, the Piper PA-28-180 and the Piper
   J-3 Cub fly to their handbooks, the Airbus A320 and A380 and Boeing
   737-300, 747-400 and 787-8 to their airport-planning documents and type
-  certificates - four figures each, none of them a landing - the F-15C and
-  F-22A to the Air Force's and the Department of Defense's figures, none of
-  them below 30,000 ft but the F-15C's climbs, and the Mosquito FB Mk VI to
-  its trials and Pilot's Notes; the others arrive in Phase 5. The Cub's
+  certificates - four figures each, none of them a landing - the Learjet 35A
+  to its flight manual, the F-15C and F-22A to the Air Force's and the
+  Department of Defense's figures, none of them below 30,000 ft but the
+  F-15C's climbs, the F-35A and B-2A to the little published of them - speed,
+  ceiling and range - and the Mosquito FB Mk VI to its trials and Pilot's
+  Notes. The Cub's
   handbook is the thinnest: five figures, none with an altitude, one with a
   weight. The Mosquito's stability derivatives and inertias are estimates
   from its geometry - none were found measured - and its only take-off
@@ -163,6 +167,84 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### The F-35A and B-2A written from what is published, 2026-09-19 — item done (CI run RUNID)
+
+Phase 5's "F-35A and B-2 flight models, written here from what is
+published": the Lockheed Martin F-35A Lightning II and the Northrop Grumman
+B-2A Spirit, which JSBSim does not have, written by `tools/make_f35a.py` and
+`tools/make_b2.py`, land inside their tolerances on every figure published of
+their performance - maximum speed, ceiling and range - and on nothing more,
+as nothing more is published.
+
+| Aircraft | Figure | Measured | Published |
+| --- | --- | --- | --- |
+| F-35A, 39,995 lb | Maximum Mach, full throttle, best altitude | 1.62 | 1.6 ± 0.05 ("Mach 1.6", no altitude given) |
+| F-35A, 39,995 lb | Rate of climb at 50,000 ft | 5,950 ft/min | at least 100 ("above 50,000 feet") |
+| F-35A, 49,120 lb | Range on internal fuel, 40,000 ft, Mach 0.8, no reserve | 1,830 nm | more than 1,200 |
+| B-2A, 253,000 lb | Level at 40,000 ft, full throttle | Mach 0.89 | "high subsonic", read as 0.80 to 0.95 |
+| B-2A, 177,160 lb | Rate of climb at 50,000 ft | 1,450 ft/min | at least 100 (ceiling 50,000 ft) |
+| B-2A, 336,500 lb | Range, 40,000 ft, Mach 0.8, no reserve | 6,100 nm | about 6,000 ± 15% |
+
+**Which of their behaviour no figure pins - nearly all of it.** Neither
+aircraft's aerodynamics is public. The F-35A's lift and drag are a fighter's
+of its wing (tools/fighter.py), their numbers set to fly the figures; its
+moments are the F-4C's, from NASA CR-2144, the nearest published fighter's;
+its inertias the F-4C's scaled; its engine's thrust with speed and height the
+F100's, fitted to the F-15C's charts, and its fuel consumption an estimate.
+Its fly-by-wire flight controls, and their limits and protections, are not
+modelled: a pitch and a yaw damper stand for them, on an airframe given
+positive stability. Its combat radius, 669 nm demonstrated (the Selected
+Acquisition Report), is recorded but not flown, as no profile is given; nor
+are its sustained turn and transonic acceleration, which DOT&E reports
+were reduced without saying from what. The B-2A has less: every derivative is
+a tailless swept wing's, estimated; its wing area and chord are estimates from
+its span and length; its flight controls' directional stability - the drag
+rudders against sideslip - is modelled as a gain; its engines' fuel
+consumption is set to fly the range. Its speed is "high subsonic" and its
+range on no stated profile. No take-off, landing or handling figure is
+checked for either; they have no visual models.
+
+**A new figure flight, the range.** The specific range, level at an altitude
+and Mach with the throttle holding the Mach, is measured over two minutes at
+full, half and nearly empty tanks, and integrated over the fuel by Simpson's
+rule - as fast as a few minutes of flight, where flying the whole range would
+take the B-2 twelve hours.
+
+### The Learjet 35A written from its flight manual, 2026-09-19 — item done (CI run RUNID)
+
+Phase 5's "a Learjet 35A flight model, written here from published data":
+the Gates Learjet 35A, which JSBSim does not have, written by
+`tools/make_learjet35a.py` from its FAA-approved flight manual (FM-108), its
+type certificate, NASA's full-scale wind tunnel test and flight
+identification of its forebear, the Learjet 23, and Gates Learjet's drag
+analysis of the Learjet 25, lands inside its tolerances on seven figures -
+the airliners' four and three of its flight manual's stall speeds.
+
+| Learjet 35A | Measured | Published |
+| --- | --- | --- |
+| Take-off field length, 18,300 lb, flaps 8, sea level, ISA | 5,150 ft | 5,300 ± 10%, the AFM's chart |
+| Engine-out climb, V2, flaps 8 | 7.6% | at least 2.4 (AFM 5-6, FAR 25.121(b)) |
+| Level at 41,000 ft, full throttle, 15,300 lb | Mach 0.82 | 0.81 ± 0.03 (the C-21A fact sheet) |
+| Climb at 45,000 ft, as light as it flies | 2,390 ft/min | at least 300 (its maximum operating altitude) |
+| Stall, flaps 8, 15,800 lb | 107.4 KCAS | 109.0 ± 3, the AFM's printed example |
+| Stall, flaps up, 15,300 lb | 118.6 KCAS | 119 ± 3, the AFM's chart |
+| Stall, flaps 40, 15,300 lb | 96.2 KCAS | 96.5 ± 3, the AFM's chart |
+
+**What is missing first:** the flight manual has no cruise or climb-rate
+charts; the cruise is the Air Force's fact sheet's, and the ceiling only a
+floor. Its lateral and longitudinal derivatives are the Learjet 23's, a
+smaller wing's, taken as the 35A's; its damping in roll and yaw, side force,
+inertias, empty centre of gravity and engines' thrust with height and speed
+are estimates, each named in the script; its wing area, which no 35A document
+gives, comes from its certified chord and span and the 23's planform. The
+lift's maximum at each flap setting is set from the flight manual's stall
+speeds, which the stall figures then fly - they check the pitch control and
+the stall's dynamics, not the lift. It has no stick pusher, no Mach trim and
+no trimmable stabiliser. No landing is flown. It has no visual model.
+
+**The scripts that write a model whole share their XML** in
+`tools/written.py`: the A380's, moved there, writes the same files as before.
 
 ### The A380 written from its documents, 2026-09-19 — item done (CI run 35435906751)
 

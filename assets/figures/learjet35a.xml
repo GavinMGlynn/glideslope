@@ -1,0 +1,112 @@
+<?xml version="1.0"?>
+<!--
+  The Gates Learjet 35A's published figures, and the conditions each was
+  measured in.
+
+  From its FAA-approved Airplane Flight Manual (FM-108, change 23, with the
+  FC-530 autopilot), its type certificate data sheet A10CE (revision 67) and
+  the Air Force's C-21A fact sheet - the C-21A being a 35A. The checks in
+  src/sim/figures.cpp fly one flight per <figure> and compare what JSBSim
+  does with the range given here.
+
+  The take-off field length and the stall speeds but one are read from the
+  flight manual's charts; the stall speed with 8 degrees of flap is its
+  chart's printed example. The flight manual has no cruise or climb-rate
+  charts. The tolerances are this project's.
+-->
+<published_figures aircraft="learjet35a" flaps_full_deg="40">
+  <source>Gates Learjet 35A/36A AFM FM-108; FAA TCDS A10CE; USAF C-21A fact sheet</source>
+
+  <!-- 18,300 lb, the maximum take-off weight with AAK 80-2 (AFM 1-3): the
+       basic empty weight, 10,173 lb; 1,889 lb of crew, passengers and
+       baggage; and full tanks, 6,238 lb. The zero wing and tip fuel weight
+       is 13,402 lb, within its limit, 13,500. -->
+  <loading name="maximum" total_lbs="18300">
+    <pointmass index="0" lbs="1889"/>
+    <tank index="0" lbs="1196"/>
+    <tank index="1" lbs="1196"/>
+    <tank index="2" lbs="1253"/>
+    <tank index="3" lbs="1253"/>
+    <tank index="4" lbs="1340"/>
+  </loading>
+
+  <!-- 15,800 lb, the stall chart's example: the same payload, the tip tanks
+       full and 673 lb in each wing. -->
+  <loading name="stall-example" total_lbs="15800">
+    <pointmass index="0" lbs="1889"/>
+    <tank index="0" lbs="1196"/>
+    <tank index="1" lbs="1196"/>
+    <tank index="2" lbs="673"/>
+    <tank index="3" lbs="673"/>
+    <tank index="4" lbs="0"/>
+  </loading>
+
+  <!-- 15,300 lb, the maximum landing weight with AAK 80-3 (AFM 1-4): the
+       same payload and 3,238 lb of fuel, a weight in the cruise. -->
+  <loading name="landing" total_lbs="15300">
+    <pointmass index="0" lbs="1889"/>
+    <tank index="0" lbs="1000"/>
+    <tank index="1" lbs="1000"/>
+    <tank index="2" lbs="619"/>
+    <tank index="3" lbs="619"/>
+    <tank index="4" lbs="0"/>
+  </loading>
+
+  <!-- The basic empty weight, a crew of two, 400 lb, and a tenth of the fuel:
+       as light as it flies. -->
+  <loading name="light" total_lbs="11197">
+    <pointmass index="0" lbs="400"/>
+    <tank index="0" lbs="120"/>
+    <tank index="1" lbs="120"/>
+    <tank index="2" lbs="125"/>
+    <tank index="3" lbs="125"/>
+    <tank index="4" lbs="134"/>
+  </loading>
+
+  <figure name="takeoff_field_length" loading="maximum" unit="ft" value="5300"
+          tolerance_percent="10" flaps_deg="8" entry_kcas="160">
+    AFM figure 5-25, take-off field length, flaps 8 degrees, sea level,
+    59 F, no wind, level runway, anti-skid on: about 5,300 ft at 18,300 lb,
+    read from the chart to about 150 ft.
+  </figure>
+
+  <figure name="climb_one_engine_out" flight="climb_gradient_one_engine"
+          loading="maximum" unit="%" min="2.4" max="15" flaps_deg="8"
+          entry_kcas="160">
+    AFM 5-6: the second segment, one engine at take-off thrust, flaps 8, gear
+    up, V2, climbs at no less than 2.4% gross, as FAR 25.121(b) demands of a
+    twin; the AFM's take-off weight chart (figure 5-23) has 18,300 lb at sea
+    level on a standard day within that limit. 15% bounds a model gone wrong.
+  </figure>
+
+  <figure name="cruise_mach" flight="level_mach" loading="landing" unit="Mach"
+          min="0.78" max="0.84" altitude_ft="41000" mach="0.75">
+    The C-21A fact sheet: "Mach 0.81, 461 knots at 41,000 feet" - level at
+    full throttle, 0.03 either side. Its Mmo is 0.81 (AFM 1-7).
+  </figure>
+
+  <figure name="ceiling" flight="climb_at_altitude" loading="light" unit="ft/min"
+          min="300" max="100000" altitude_ft="45000" mach="0.75">
+    AFM 1-12 and A10CE: maximum operating altitude 45,000 ft. As light as it
+    flies, at full throttle, it still climbs there at 300 ft/min, the margin
+    that makes an altitude a thrust-limited ceiling.
+  </figure>
+
+  <figure name="stall_speed_flaps_8" flight="stall_speed" loading="stall-example"
+          unit="KCAS" value="109" tolerance="3" flaps_deg="8" entry_kcas="150">
+    AFM figure 5-11, stall speeds, gear up or down: its printed example,
+    15,800 lb with flaps 8 degrees, 109.0 KIAS.
+  </figure>
+
+  <figure name="stall_speed_flaps_up" flight="stall_speed" loading="landing"
+          unit="KCAS" value="119" tolerance="3" flaps_deg="0" entry_kcas="160">
+    AFM figure 5-11, flaps up, 15,300 lb: about 119 KIAS, read from the chart
+    to about a knot.
+  </figure>
+
+  <figure name="stall_speed_flaps_40" flight="stall_speed" loading="landing"
+          unit="KCAS" value="96.5" tolerance="3" flaps_deg="40" entry_kcas="140">
+    AFM figure 5-11, flaps 40 degrees, 15,300 lb: about 96.5 KIAS, read from
+    the chart to about a knot.
+  </figure>
+</published_figures>

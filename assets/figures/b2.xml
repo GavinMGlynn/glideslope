@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<!--
+  The Northrop Grumman B-2A Spirit's published figures, and the conditions
+  each was measured in, so far as they are given.
+
+  From the Air Force's B-2 Spirit fact sheet (current as of December 2015),
+  the only primary source that gives any: its speed is "high subsonic", its
+  ceiling 50,000 ft, and its range "approximately 6,000 nautical miles"
+  unrefuelled, on no stated profile or payload. The checks in
+  src/sim/figures.cpp fly one flight per <figure> and compare what JSBSim does
+  with the range given here; the tolerances are this project's.
+-->
+<published_figures aircraft="b2" flaps_full_deg="0">
+  <source>USAF B-2 Spirit fact sheet</source>
+
+  <!-- 336,500 lb, the maximum take-off weight: 160,000 lb, taken as the empty
+       weight; two crew, 460 lb; 167,000 lb of fuel; and the 9,040 lb left, as
+       weapons. -->
+  <loading name="maximum" total_lbs="336500">
+    <pointmass index="0" lbs="460"/>
+    <pointmass index="1" lbs="9040"/>
+    <tank index="0" lbs="41750"/>
+    <tank index="1" lbs="41750"/>
+    <tank index="2" lbs="41750"/>
+    <tank index="3" lbs="41750"/>
+  </loading>
+
+  <!-- 253,000 lb: the same with half its fuel, a weight in the cruise. -->
+  <loading name="cruise" total_lbs="253000">
+    <pointmass index="0" lbs="460"/>
+    <pointmass index="1" lbs="9040"/>
+    <tank index="0" lbs="20875"/>
+    <tank index="1" lbs="20875"/>
+    <tank index="2" lbs="20875"/>
+    <tank index="3" lbs="20875"/>
+  </loading>
+
+  <!-- The empty weight, its crew, and a tenth of its fuel: as light as it
+       flies. -->
+  <loading name="light" total_lbs="177160">
+    <pointmass index="0" lbs="460"/>
+    <pointmass index="1" lbs="0"/>
+    <tank index="0" lbs="4175"/>
+    <tank index="1" lbs="4175"/>
+    <tank index="2" lbs="4175"/>
+    <tank index="3" lbs="4175"/>
+  </loading>
+
+  <figure name="high_subsonic_speed" fuel_frozen="1" flight="level_mach" loading="cruise"
+          unit="Mach" min="0.80" max="0.95" altitude_ft="40000" mach="0.75">
+    The fact sheet's speed, "high subsonic": level at 40,000 ft at full
+    throttle, between Mach 0.80 and 0.95, as this project reads it.
+  </figure>
+
+  <figure name="climb_rate_50000_ft" fuel_frozen="1" flight="max_climb_rate" loading="light"
+          unit="ft/min" min="100" max="20000" altitude_ft="50000" from_kcas="180" to_kcas="300">
+    The fact sheet's ceiling, 50,000 ft: as light as it flies, at full
+    throttle, it still climbs there at 100 ft/min, the rate that makes a
+    service ceiling.
+  </figure>
+
+  <figure name="range" flight="cruise_range" loading="maximum" unit="nmi" value="6000"
+          tolerance_percent="15" altitude_ft="40000" mach="0.8">
+    The fact sheet's range, "approximately 6,000 nautical miles" unrefuelled:
+    no profile or payload is given; flown level at 40,000 ft and Mach 0.8,
+    this project's choice, from its maximum take-off weight to the last of its
+    fuel.
+  </figure>
+</published_figures>

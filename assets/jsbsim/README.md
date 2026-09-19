@@ -90,16 +90,23 @@ python3 tools/make_f15c.py
 python3 tools/make_f22.py
 ```
 
-## The Airbus A380-841
+## The models written here
 
-`aircraft/a380/a380.xml` and `engine/Trent970.xml`, written for glideslope by
-`tools/make_a380.py` from Airbus's and the certifying authorities' documents
-and the Boeing 747's published derivatives. **Do not edit these by hand:** the
-script names where each number comes from, and a test fails if what is
-committed differs.
+The Airbus A380-841, `aircraft/a380/` with `engine/Trent970.xml`; the Gates
+Learjet 35A, `aircraft/learjet35a/` with `engine/TFE731-2.xml`; the Lockheed
+Martin F-35A, `aircraft/f35a/` with `engine/F135-PW-100.xml`; and the
+Northrop Grumman B-2A, `aircraft/b2/` with `engine/F118-GE-100.xml` - written
+for glideslope by `tools/make_a380.py`, `tools/make_learjet35a.py`,
+`tools/make_f35a.py` and `tools/make_b2.py` from each aircraft's documents and
+published measurements, sharing their XML in `tools/written.py`. **Do not edit
+these by hand:** each script names where each number comes from, and a test
+fails if what is committed differs.
 
 ```sh
 python3 tools/make_a380.py
+python3 tools/make_learjet35a.py
+python3 tools/make_f35a.py
+python3 tools/make_b2.py
 ```
 
 ## The Mosquito FB Mk VI

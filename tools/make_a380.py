@@ -70,6 +70,7 @@ import math
 import sys
 
 import airliner
+import written
 from airliner import OUT, PINNED
 
 SCRIPT = "make_a380"
@@ -167,11 +168,8 @@ def inches(metres):
 
 
 def location(x, y, z, indent):
-    return (f"{indent}<location unit=\"IN\">\n"
-            f"{indent}    <x> {inches(x):.1f} </x>\n"
-            f"{indent}    <y> {inches(y):.1f} </y>\n"
-            f"{indent}    <z> {inches(z):.1f} </z>\n"
-            f"{indent}</location>\n")
+    """A location given in metres."""
+    return written.location(inches(x), inches(y), inches(z), indent)
 
 
 def metrics():
@@ -223,18 +221,9 @@ def mass_balance():
             "    </mass_balance>\n")
 
 
-def bogey(name, x, y, z, spring, damping, steer, brake, indent="        "):
-    return (f"{indent}<contact type=\"BOGEY\" name=\"{name}\">\n"
-            + location(x, y, z, indent + "    ") +
-            f"{indent}    <static_friction> {BRAKING_FRICTION if brake != 'NONE' else '0.80'} </static_friction>\n"
-            f"{indent}    <dynamic_friction> 0.50 </dynamic_friction>\n"
-            f"{indent}    <rolling_friction> 0.02 </rolling_friction>\n"
-            f"{indent}    <spring_coeff unit=\"LBS/FT\"> {spring:.0f} </spring_coeff>\n"
-            f"{indent}    <damping_coeff unit=\"LBS/FT/SEC\"> {damping:.0f} </damping_coeff>\n"
-            f"{indent}    <max_steer unit=\"DEG\"> {steer} </max_steer>\n"
-            f"{indent}    <brake_group> {brake} </brake_group>\n"
-            f"{indent}    <retractable>1</retractable>\n"
-            f"{indent}</contact>\n")
+def bogey(name, x, y, z, spring, damping, steer, brake):
+    return written.bogey(name, inches(x), inches(y), inches(z), spring, damping, steer, brake,
+                         BRAKING_FRICTION if brake != "NONE" else "0.80")
 
 
 def ground_reactions():
@@ -265,13 +254,7 @@ def ground_reactions():
                           ("RIGHT_OUTBOARD_ENGINE", NOSE_X + 29.94, 25.7, GROUND_Z + 1.90),
                           ("LEFT_INBOARD_ENGINE", NOSE_X + 22.23, -14.8, GROUND_Z + 1.05),
                           ("RIGHT_INBOARD_ENGINE", NOSE_X + 22.23, 14.8, GROUND_Z + 1.05)):
-        out += (f"        <contact type=\"STRUCTURE\" name=\"{name}\">\n"
-                + location(x, y, z, "            ") +
-                "            <static_friction> 1.0 </static_friction>\n"
-                "            <dynamic_friction> 1.0 </dynamic_friction>\n"
-                f"            <spring_coeff unit=\"LBS/FT\"> {0.5 * weight:.0f} </spring_coeff>\n"
-                f"            <damping_coeff unit=\"LBS/FT/SEC\"> {0.1 * weight:.0f} </damping_coeff>\n"
-                "        </contact>\n")
+        out += written.structure(name, inches(x), inches(y), inches(z), 0.5 * weight, 0.1 * weight)
     return out + "    </ground_reactions>\n"
 
 
@@ -301,25 +284,6 @@ def propulsion():
     return out + "    </propulsion>\n"
 
 
-def kinematic(name, cmd, positions, times, output, indent="            "):
-    rows = "".join(f"{indent}        <setting>\n{indent}            <position> {p} </position>\n"
-                   f"{indent}            <time> {t} </time>\n{indent}        </setting>\n"
-                   for p, t in zip(positions, times))
-    return (f"{indent}<kinematic name=\"{name}\">\n{indent}    <input>{cmd}</input>\n"
-            f"{indent}    <traverse>\n{rows}{indent}    </traverse>\n"
-            f"{indent}    <output>{output}</output>\n{indent}</kinematic>\n")
-
-
-def surface(name, inputs, low, high, output, indent="            "):
-    ins = "".join(f"{indent}    <input>{x}</input>\n" for x in inputs)
-    return (f"{indent}<summer name=\"{name} Sum\">\n{ins}"
-            f"{indent}    <clipto><min>-1</min><max>1</max></clipto>\n{indent}</summer>\n"
-            f"{indent}<aerosurface_scale name=\"{name}\">\n"
-            f"{indent}    <input>fcs/{name.lower().replace(' ', '-')}-sum</input>\n"
-            f"{indent}    <range><min>{low:.4f}</min><max>{high:.4f}</max></range>\n"
-            f"{indent}    <output>{output}</output>\n{indent}</aerosurface_scale>\n")
-
-
 def flight_control():
     rad = math.radians
     out = "    <flight_control name=\"A380\">\n        <channel name=\"Controls\">\n"
@@ -327,9 +291,9 @@ def flight_control():
     # the mirror of the other's, and drooping 5 degrees with the flaps; rudders
     # 30 each way (A58NM). The stick's range is taken as symmetric about the
     # smaller travel's side where the certificate's is not.
-    out += surface("Elevator", ["fcs/elevator-cmd-norm", "fcs/pitch-trim-cmd-norm"], -rad(30), rad(20),
+    out += written.surface("Elevator", ["fcs/elevator-cmd-norm", "fcs/pitch-trim-cmd-norm"], -rad(30), rad(20),
                    "fcs/elevator-pos-rad")
-    out += surface("Aileron", ["fcs/aileron-cmd-norm", "fcs/roll-trim-cmd-norm"], -rad(20), rad(20),
+    out += written.surface("Aileron", ["fcs/aileron-cmd-norm", "fcs/roll-trim-cmd-norm"], -rad(20), rad(20),
                    "fcs/left-aileron-pos-rad")
     out += ("            <pure_gain name=\"Right Aileron\">\n"
             "                <input>-fcs/left-aileron-pos-rad</input>\n"
@@ -340,53 +304,22 @@ def flight_control():
     # the rudder against the yaw rate, washed out over two seconds so that a
     # steady turn is left alone, and given a fifth of its travel. Without it the
     # 747's derivatives leave the Dutch roll damped by a fifth a swing.
-    out += ("            <washout_filter name=\"Yaw Rate Washout\">\n"
-            "                <input>velocities/r-aero-rad_sec</input>\n"
-            "                <c1>0.5</c1>\n"
-            "            </washout_filter>\n"
-            "            <pure_gain name=\"Yaw Damper\">\n"
-            "                <input>fcs/yaw-rate-washout</input>\n"
-            f"                <gain>{YAW_DAMPER_GAIN}</gain>\n"
-            "                <clipto><min>-0.2</min><max>0.2</max></clipto>\n"
-            "            </pure_gain>\n")
-    out += surface("Rudder", ["fcs/rudder-cmd-norm", "fcs/yaw-trim-cmd-norm", "fcs/yaw-damper"], -rad(30),
+    out += written.yaw_damper(YAW_DAMPER_GAIN)
+    out += written.surface("Rudder", ["fcs/rudder-cmd-norm", "fcs/yaw-trim-cmd-norm", "fcs/yaw-damper"], -rad(30),
                    rad(30), "fcs/rudder-pos-rad")
     # The flaps' lever: 0, 1+F, 2, 3 and FULL, its command a fraction of FULL's
     # 32 degrees; each setting's travel taking about 8 seconds.
-    out += kinematic("Flaps", "fcs/flap-cmd-norm", FLAP_DEGREES, [0, 8, 8, 8, 6], "fcs/flap-pos-deg")
+    out += written.kinematic("Flaps", "fcs/flap-cmd-norm", FLAP_DEGREES, [0, 8, 8, 8, 6], "fcs/flap-pos-deg")
     out += ("            <aerosurface_scale name=\"Flap Position Normalizer\">\n"
             "                <input>fcs/flap-pos-deg</input>\n"
             "                <domain><min>0</min><max>32</max></domain>\n"
             "                <range><min>0</min><max>1</max></range>\n"
             "                <output>fcs/flap-pos-norm</output>\n"
             "            </aerosurface_scale>\n")
-    out += kinematic("Gear", "gear/gear-cmd-norm", [0, 1], [0, 8], "gear/gear-pos-norm")
-    out += kinematic("Speedbrake", "fcs/speedbrake-cmd-norm", [0, 1], [0, 2], "fcs/speedbrake-pos-norm")
-    out += kinematic("Spoilers", "fcs/spoiler-cmd-norm", [0, 1], [0, 2], "fcs/spoiler-pos-norm")
+    out += written.kinematic("Gear", "gear/gear-cmd-norm", [0, 1], [0, 8], "gear/gear-pos-norm")
+    out += written.kinematic("Speedbrake", "fcs/speedbrake-cmd-norm", [0, 1], [0, 2], "fcs/speedbrake-pos-norm")
+    out += written.kinematic("Spoilers", "fcs/spoiler-cmd-norm", [0, 1], [0, 2], "fcs/spoiler-pos-norm")
     return out + "        </channel>\n    </flight_control>\n"
-
-
-def table1(var, rows, indent):
-    body = "".join(f"{indent}        {a}\t{b}\n" for a, b in rows)
-    return (f"{indent}<table>\n{indent}    <independentVar>{var}</independentVar>\n"
-            f"{indent}    <tableData>\n{body}{indent}    </tableData>\n{indent}</table>\n")
-
-
-def coefficient(name, description, factors, indent="            "):
-    """A JSBSim aerodynamic function: the product of `factors`, each a
-    property name, a number, or a ready-made element."""
-    parts = []
-    for f in factors:
-        if isinstance(f, (int, float)):
-            parts.append(f"{indent}        <value>{f:.5g}</value>\n")
-        elif f.lstrip().startswith("<"):
-            parts.append(f)
-        else:
-            parts.append(f"{indent}        <property>{f}</property>\n")
-    return (f"{indent}<function name=\"aero/coefficient/{name}\">\n"
-            f"{indent}    <description>{description}</description>\n"
-            f"{indent}    <product>\n" + "".join(parts) +
-            f"{indent}    </product>\n{indent}</function>\n")
 
 
 def lift_table(indent):
@@ -419,77 +352,60 @@ def lift_table(indent):
 def aerodynamics():
     i = "            "
     t = i + "        "
-    ground = ("        <function name=\"aero/function/kCLge\">\n"
-              "            <description>Change_in_lift_due_to_ground_effect</description>\n"
-              + table1("aero/h_b-mac-ft", [(0.0, 1.203), (0.1, 1.127), (0.15, 1.090), (0.2, 1.073),
-                                           (0.3, 1.046), (0.4, 1.055), (0.5, 1.019), (0.6, 1.013),
-                                           (0.7, 1.008), (0.8, 1.006), (0.9, 1.003), (1.0, 1.002),
-                                           (1.1, 1.0)], "            ") +
-              "        </function>\n"
-              "        <function name=\"aero/function/kCDge\">\n"
-              "            <description>Change_in_drag_due_to_ground_effect</description>\n"
-              + table1("aero/h_b-mac-ft", [(0.0, 0.480), (0.1, 0.515), (0.15, 0.629), (0.2, 0.709),
-                                           (0.3, 0.815), (0.4, 0.882), (0.5, 0.928), (0.6, 0.962),
-                                           (0.7, 0.988), (0.8, 1.0), (0.9, 1.0), (1.0, 1.0), (1.1, 1.0)],
-                                           "            ") +
-              "        </function>\n")
     induced = 1.0 / (math.pi * ASPECT * SPAN_EFFICIENCY)
     flap_drag = [(d, (SLAT_DRAG if d > 0 else 0.0) + f) for d, f in zip(FLAP_DEGREES, FLAP_DRAG)]
     flap_pitch = [(d, FLAP_PITCH * d / FLAP_DEGREES[-1]) for d in FLAP_DEGREES]
     q, s = "aero/qbar-psf", "metrics/Sw-sqft"
     lift = [
-        coefficient("CLalpha", "Lift_due_to_alpha_and_flaps", [q, s, "aero/function/kCLge", lift_table(t)]),
-        coefficient("CLq", "Lift_due_to_pitch_rate", [q, s, "aero/ci2vel", "velocities/q-aero-rad_sec", CL_Q]),
-        coefficient("CLde", "Lift_due_to_elevator", [q, s, "fcs/elevator-pos-rad", CL_DE]),
+        written.coefficient("CLalpha", "Lift_due_to_alpha_and_flaps", [q, s, "aero/function/kCLge", lift_table(t)]),
+        written.coefficient("CLq", "Lift_due_to_pitch_rate", [q, s, "aero/ci2vel", "velocities/q-aero-rad_sec", CL_Q]),
+        written.coefficient("CLde", "Lift_due_to_elevator", [q, s, "fcs/elevator-pos-rad", CL_DE]),
     ]
     drag = [
-        coefficient("CD0", "Drag_at_zero_lift", [q, s, table1("aero/alpha-rad", [
+        written.coefficient("CD0", "Drag_at_zero_lift", [q, s, written.table1("aero/alpha-rad", [
             (-1.57, 1.5), (-0.26, 0.04), (0.0, ZERO_LIFT_DRAG), (CLEAN_STALL_ALPHA, ZERO_LIFT_DRAG),
             (SLATS_STALL_ALPHA + 0.05, 0.08), (1.57, 1.6)], t)]),
-        coefficient("CDi", "Induced_drag", [q, s, "aero/cl-squared", "aero/function/kCDge", induced]),
-        coefficient("CDflaps", "Drag_due_to_slats_and_flaps", [q, s, table1("fcs/flap-pos-deg", flap_drag, t)]),
-        coefficient("CDgear", "Drag_due_to_gear", [q, s, "gear/gear-pos-norm", GEAR_DRAG]),
-        coefficient("CDmach", "Drag_due_to_mach", [q, s, table1("velocities/mach", [
+        written.coefficient("CDi", "Induced_drag", [q, s, "aero/cl-squared", "aero/function/kCDge", induced]),
+        written.coefficient("CDflaps", "Drag_due_to_slats_and_flaps", [q, s, written.table1("fcs/flap-pos-deg", flap_drag, t)]),
+        written.coefficient("CDgear", "Drag_due_to_gear", [q, s, "gear/gear-pos-norm", GEAR_DRAG]),
+        written.coefficient("CDmach", "Drag_due_to_mach", [q, s, written.table1("velocities/mach", [
             tuple(r.split("\t")) for r in airliner.mach_drag_rows(DRAG_DIVERGENCE, "").split("\n")], t)]),
-        coefficient("CDspeedbrake", "Drag_due_to_speedbrakes", [q, s, "fcs/speedbrake-pos-norm", 0.020]),
-        coefficient("CDspoilers", "Drag_due_to_ground_spoilers", [q, s, "fcs/spoiler-pos-norm", 0.040]),
-        coefficient("CDbeta", "Drag_due_to_sideslip", [q, s, "aero/mag-beta-rad", 0.25]),
-        coefficient("CDde", "Drag_due_to_elevator", [q, s, "fcs/mag-elevator-pos-rad", 0.03]),
+        written.coefficient("CDspeedbrake", "Drag_due_to_speedbrakes", [q, s, "fcs/speedbrake-pos-norm", 0.020]),
+        written.coefficient("CDspoilers", "Drag_due_to_ground_spoilers", [q, s, "fcs/spoiler-pos-norm", 0.040]),
+        written.coefficient("CDbeta", "Drag_due_to_sideslip", [q, s, "aero/mag-beta-rad", 0.25]),
+        written.coefficient("CDde", "Drag_due_to_elevator", [q, s, "fcs/mag-elevator-pos-rad", 0.03]),
     ]
     side = [
-        coefficient("CYb", "Side_force_due_to_beta", [q, s, "aero/beta-rad", CY_BETA]),
-        coefficient("CYdr", "Side_force_due_to_rudder", [q, s, "fcs/rudder-pos-rad", CY_DR]),
+        written.coefficient("CYb", "Side_force_due_to_beta", [q, s, "aero/beta-rad", CY_BETA]),
+        written.coefficient("CYdr", "Side_force_due_to_rudder", [q, s, "fcs/rudder-pos-rad", CY_DR]),
     ]
     b = "metrics/bw-ft"
     roll = [
-        coefficient("Clb", "Roll_moment_due_to_beta", [q, s, b, "aero/beta-rad", CL_BETA]),
-        coefficient("Clp", "Roll_moment_due_to_roll_rate", [q, s, b, "aero/bi2vel", "velocities/p-aero-rad_sec", CL_P]),
-        coefficient("Clr", "Roll_moment_due_to_yaw_rate", [q, s, b, "aero/bi2vel", "velocities/r-aero-rad_sec", CL_R]),
-        coefficient("Clda", "Roll_moment_due_to_ailerons", [q, s, b, "fcs/left-aileron-pos-rad", 2.0 * CL_DA]),
-        coefficient("Cldr", "Roll_moment_due_to_rudder", [q, s, b, "fcs/rudder-pos-rad", CL_DR]),
+        written.coefficient("Clb", "Roll_moment_due_to_beta", [q, s, b, "aero/beta-rad", CL_BETA]),
+        written.coefficient("Clp", "Roll_moment_due_to_roll_rate", [q, s, b, "aero/bi2vel", "velocities/p-aero-rad_sec", CL_P]),
+        written.coefficient("Clr", "Roll_moment_due_to_yaw_rate", [q, s, b, "aero/bi2vel", "velocities/r-aero-rad_sec", CL_R]),
+        written.coefficient("Clda", "Roll_moment_due_to_ailerons", [q, s, b, "fcs/left-aileron-pos-rad", 2.0 * CL_DA]),
+        written.coefficient("Cldr", "Roll_moment_due_to_rudder", [q, s, b, "fcs/rudder-pos-rad", CL_DR]),
     ]
     c = "metrics/cbarw-ft"
     pitch = [
-        coefficient("Cm0", "Pitch_moment_at_zero_lift", [q, s, c, PITCH_ZERO_LIFT]),
-        coefficient("Cmalpha", "Pitch_moment_due_to_alpha", [q, s, c, "aero/alpha-rad", CM_ALPHA]),
-        coefficient("Cmq", "Pitch_moment_due_to_pitch_rate", [q, s, c, "aero/ci2vel", "velocities/q-aero-rad_sec", CM_Q]),
-        coefficient("Cmadot", "Pitch_moment_due_to_alpha_rate", [q, s, c, "aero/ci2vel", "aero/alphadot-rad_sec", CM_ADOT]),
-        coefficient("Cmde", "Pitch_moment_due_to_elevator", [q, s, c, "fcs/elevator-pos-rad", CM_DE]),
-        coefficient("Cmflaps", "Pitch_moment_due_to_flaps", [q, s, c, table1("fcs/flap-pos-deg", flap_pitch, t)]),
+        written.coefficient("Cm0", "Pitch_moment_at_zero_lift", [q, s, c, PITCH_ZERO_LIFT]),
+        written.coefficient("Cmalpha", "Pitch_moment_due_to_alpha", [q, s, c, "aero/alpha-rad", CM_ALPHA]),
+        written.coefficient("Cmq", "Pitch_moment_due_to_pitch_rate", [q, s, c, "aero/ci2vel", "velocities/q-aero-rad_sec", CM_Q]),
+        written.coefficient("Cmadot", "Pitch_moment_due_to_alpha_rate", [q, s, c, "aero/ci2vel", "aero/alphadot-rad_sec", CM_ADOT]),
+        written.coefficient("Cmde", "Pitch_moment_due_to_elevator", [q, s, c, "fcs/elevator-pos-rad", CM_DE]),
+        written.coefficient("Cmflaps", "Pitch_moment_due_to_flaps", [q, s, c, written.table1("fcs/flap-pos-deg", flap_pitch, t)]),
     ]
     yaw = [
-        coefficient("Cnb", "Yaw_moment_due_to_beta", [q, s, b, "aero/beta-rad", CN_BETA]),
-        coefficient("Cnp", "Yaw_moment_due_to_roll_rate", [q, s, b, "aero/bi2vel", "velocities/p-aero-rad_sec", CN_P]),
-        coefficient("Cnr", "Yaw_moment_due_to_yaw_rate", [q, s, b, "aero/bi2vel", "velocities/r-aero-rad_sec", CN_R]),
-        coefficient("Cnda", "Yaw_moment_due_to_ailerons", [q, s, b, "fcs/left-aileron-pos-rad", 2.0 * CN_DA]),
-        coefficient("Cndr", "Yaw_moment_due_to_rudder", [q, s, b, "fcs/rudder-pos-rad", CN_DR]),
+        written.coefficient("Cnb", "Yaw_moment_due_to_beta", [q, s, b, "aero/beta-rad", CN_BETA]),
+        written.coefficient("Cnp", "Yaw_moment_due_to_roll_rate", [q, s, b, "aero/bi2vel", "velocities/p-aero-rad_sec", CN_P]),
+        written.coefficient("Cnr", "Yaw_moment_due_to_yaw_rate", [q, s, b, "aero/bi2vel", "velocities/r-aero-rad_sec", CN_R]),
+        written.coefficient("Cnda", "Yaw_moment_due_to_ailerons", [q, s, b, "fcs/left-aileron-pos-rad", 2.0 * CN_DA]),
+        written.coefficient("Cndr", "Yaw_moment_due_to_rudder", [q, s, b, "fcs/rudder-pos-rad", CN_DR]),
     ]
     windmill = airliner.windmill_function(4, FAN_IN, WINDMILL_DRAG, "            ") + "\n"
-    out = "    <aerodynamics>\n" + ground
-    for name, fs in (("LIFT", lift), ("DRAG", drag + [windmill]), ("SIDE", side), ("ROLL", roll),
-                     ("PITCH", pitch), ("YAW", yaw)):
-        out += f"        <axis name=\"{name}\">\n" + "".join(fs) + "        </axis>\n"
-    return out + "    </aerodynamics>\n"
+    return written.axes((("LIFT", lift), ("DRAG", drag + [windmill]), ("SIDE", side), ("ROLL", roll),
+                         ("PITCH", pitch), ("YAW", yaw)))
 
 
 def airframe():

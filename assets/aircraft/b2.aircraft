@@ -1,0 +1,16 @@
+# The Northrop Grumman B-2A Spirit, four F118-GE-100s: a flight model
+# written for glideslope from what is published of it - its size, weights and
+# engines, and its speed, ceiling and range (assets/figures/b2.xml) - by
+# tools/make_b2.py.
+#
+#   name TEXT...                 what it is called
+#   model NAME                   its JSBSim model, in data/jsbsim/aircraft
+#   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
+#                                airspeed, and the throttle that holds it
+#
+# Its published figures, if it has them, are data/figures/MODEL.xml, and its
+# selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
+
+name Northrop Grumman B-2A Spirit
+model b2
+start 250 0.48

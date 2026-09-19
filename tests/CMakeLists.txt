@@ -117,6 +117,19 @@ set(GLIDESLOPE_UNIT_TESTS
     the_airbus_a380_climbs_with_an_engine_out_as_jar_25_demands
     the_airbus_a380_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows
     the_airbus_a380_still_climbs_at_its_certificated_ceiling
+    the_learjet_35a_needs_about_its_flight_manuals_takeoff_field_length_at_maximum_weight
+    the_learjet_35a_climbs_with_an_engine_out_as_its_flight_manual_demands
+    the_learjet_35a_reaches_the_c21as_speed_at_41000_ft
+    the_learjet_35a_still_climbs_at_its_certificated_ceiling
+    the_learjet_35a_stalls_near_its_flight_manuals_speed_with_8_degrees_of_flap
+    the_learjet_35a_stalls_near_its_flight_manuals_speed_flaps_up
+    the_learjet_35a_stalls_near_its_flight_manuals_speed_with_40_degrees_of_flap
+    the_f35a_reaches_mach_1_6_at_its_best_altitude
+    the_f35a_still_climbs_at_50000_ft
+    the_f35a_flies_more_than_its_published_range_on_internal_fuel
+    the_b2_flies_at_high_subsonic_speed
+    the_b2_still_climbs_at_its_published_ceiling
+    the_b2_flies_about_its_published_range_unrefuelled
     the_f15c_reaches_its_published_maximum_mach_at_45000_ft
     the_f15c_climbs_at_its_published_rate_at_sea_level_at_military_power
     the_f15c_climbs_at_its_published_rate_at_sea_level_at_maximum_power
@@ -329,6 +342,27 @@ add_test(NAME the_committed_airbus_a380_is_what_its_script_writes
         -DSCRIPT=tools/make_a380.py
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
 set_tests_properties(the_committed_airbus_a380_is_what_its_script_writes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_learjet_35a_is_what_its_script_writes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_learjet35a.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_learjet_35a_is_what_its_script_writes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_f35a_is_what_its_script_writes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_f35a.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_f35a_is_what_its_script_writes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME the_committed_b2_is_what_its_script_writes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_b2.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_b2_is_what_its_script_writes
     PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME the_committed_f15c_is_what_its_tuning_script_makes
@@ -576,7 +610,7 @@ add_test(NAME the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files
 add_test(NAME the_cli_lists_the_aircraft_the_data_holds
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=aircraft -DEXIT=0
-        "-DSTDOUT_MATCHES=737-300 +Boeing 737-300 +model 737-300, starting at 250 KCAS, published figures.*747-400 +Boeing 747-400 +model 747-400, starting at 250 KCAS, published figures.*787-8 +Boeing 787-8 +model 787-8, starting at 250 KCAS, published figures.*a320 +Airbus A320 +model a320, starting at 250 KCAS, published figures.*a380 +Airbus A380-841 +model a380, starting at 250 KCAS, published figures.*c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*f15c +McDonnell Douglas F-15C Eagle +model f15c, starting at 300 KCAS, published figures.*f22 +Lockheed Martin F-22A Raptor +model f22, starting at 300 KCAS, published figures.*j3cub +Piper J-3 Cub +model j3cub, starting at 60 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures.*pa28 +Piper PA-28-180 Cherokee +model pa28, starting at 110 KCAS, published figures"
+        "-DSTDOUT_MATCHES=737-300 +Boeing 737-300 +model 737-300, starting at 250 KCAS, published figures.*747-400 +Boeing 747-400 +model 747-400, starting at 250 KCAS, published figures.*787-8 +Boeing 787-8 +model 787-8, starting at 250 KCAS, published figures.*a320 +Airbus A320 +model a320, starting at 250 KCAS, published figures.*a380 +Airbus A380-841 +model a380, starting at 250 KCAS, published figures.*b2 +Northrop Grumman B-2A Spirit +model b2, starting at 250 KCAS, published figures.*c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*f15c +McDonnell Douglas F-15C Eagle +model f15c, starting at 300 KCAS, published figures.*f22 +Lockheed Martin F-22A Raptor +model f22, starting at 300 KCAS, published figures.*f35a +Lockheed Martin F-35A Lightning II +model f35a, starting at 300 KCAS, published figures.*j3cub +Piper J-3 Cub +model j3cub, starting at 60 KCAS, published figures.*learjet35a +Gates Learjet 35A +model learjet35a, starting at 250 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures.*pa28 +Piper PA-28-180 Cherokee +model pa28, starting at 110 KCAS, published figures"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_an_aircraft_it_has_no_files_for

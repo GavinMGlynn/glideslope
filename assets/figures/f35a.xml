@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!--
+  The Lockheed Martin F-35A Lightning II's published figures, and the
+  conditions each was measured in, so far as they are given.
+
+  From the Air Force's F-35A fact sheet (current as of April 2014), Lockheed
+  Martin's F-35 Fast Facts (2020 and 2021) and F-35A product card, and the
+  Department of Defense's Selected Acquisition Report for the F-35 (December
+  2022). Its performance is mostly not public: its maximum Mach is given at no
+  altitude, its range on no profile. The checks in src/sim/figures.cpp fly
+  one flight per <figure> and compare what JSBSim does with the range given
+  here; the tolerances are this project's.
+-->
+<published_figures aircraft="f35a" flaps_full_deg="0">
+  <source>USAF F-35A fact sheet; Lockheed Martin F-35 Fast Facts; F-35 SAR 2022</source>
+
+  <!-- 39,995 lb: the empty weight, 29,300 lb (Fast Facts); the pilot, 230
+       lb; four AIM-120s internally, 1,340 lb at 335 lb each (the Air
+       Force's AMRAAM fact sheet); and half the 18,250 lb of internal fuel. -->
+  <loading name="combat" total_lbs="39995">
+    <pointmass index="0" lbs="230"/>
+    <pointmass index="1" lbs="1340"/>
+    <tank index="0" lbs="4562.5"/>
+    <tank index="1" lbs="4562.5"/>
+  </loading>
+
+  <!-- 49,120 lb: the same with its tanks full. -->
+  <loading name="full" total_lbs="49120">
+    <pointmass index="0" lbs="230"/>
+    <pointmass index="1" lbs="1340"/>
+    <tank index="0" lbs="9125"/>
+    <tank index="1" lbs="9125"/>
+  </loading>
+
+  <figure name="maximum_mach" fuel_frozen="1" flight="best_level_mach" loading="combat"
+          unit="Mach" value="1.6" tolerance="0.05" altitude_ft="30000" altitude_to_ft="50000"
+          mach="1.3">
+    Fast Facts: Mach 1.6 "with full internal weapons load"; the fact sheet's
+    "Mach 1.6". No altitude is given; flown level at every 2,000 ft from
+    30,000 to 50,000 ft at full throttle, the fastest.
+  </figure>
+
+  <figure name="climb_rate_50000_ft" fuel_frozen="1" flight="max_climb_rate" loading="combat"
+          unit="ft/min" min="100" max="30000" altitude_ft="50000" from_kcas="210" to_kcas="450">
+    The fact sheet's ceiling, "above 50,000 feet": at 50,000 ft, at full
+    throttle, it still climbs at 100 ft/min, the rate that makes a service
+    ceiling.
+  </figure>
+
+  <figure name="range" flight="cruise_range" loading="full" unit="nmi" min="1200" max="2000"
+          altitude_ft="40000" mach="0.8">
+    Fast Facts: range "more than 1,200 nm" on internal fuel; the fact sheet's
+    "1,200+ nautical miles". No profile is given; flown level at 40,000 ft and
+    Mach 0.8, this project's choice, to the last of its fuel with none kept
+    back, so further than a profile with reserves goes. 2,000 nm bounds a
+    model gone wrong.
+  </figure>
+</published_figures>
