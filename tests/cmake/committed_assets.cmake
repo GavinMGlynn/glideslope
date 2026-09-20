@@ -1,7 +1,8 @@
 # committed_assets.cmake - what is committed under assets/ is what the script
 # that makes it makes: tools/make_c172p.py from the pinned JSBSim,
-# tools/make_mosquito_propeller.py, or tools/make_models.py from the pinned
-# FlightGear files.
+# tools/make_mosquito_propeller.py, tools/make_models.py from the pinned
+# FlightGear files, or tools/align_models.py from those models and the flight
+# models they draw.
 #
 #   cmake -DROOT=<source dir> -DPYTHON=<python3, or empty> -DSCRIPT=<tools/...py>
 #         [-DARGS=<arg;arg>] -P committed_assets.cmake

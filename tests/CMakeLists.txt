@@ -211,6 +211,9 @@ set(GLIDESLOPE_UNIT_TESTS
     every_visual_model_that_ships_is_named_in_assets_md_with_its_source_revision_and_licence
     every_aircraft_the_data_holds_has_a_visual_model_or_a_named_reason
     each_visual_model_is_its_aircrafts_size_and_faces_the_way_it_flies
+    every_visual_model_is_aligned_to_the_aeroplane_it_draws
+    each_visual_models_wheels_sit_on_the_ground_the_aeroplane_stands_on
+    each_visual_model_is_where_its_flight_model_says_the_aeroplane_is
     a_model_file_that_is_damaged_or_of_another_version_is_refused
     a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash
     level_terrain_holds_an_aircraft_exactly_as_jsbsims_own_ground_does
@@ -312,6 +315,17 @@ add_test(NAME the_committed_visual_models_are_what_their_script_writes
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
 set_tests_properties(the_committed_visual_models_are_what_their_script_writes
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED model_sources TIMEOUT 900)
+
+# Where each model sits on the aeroplane it draws, measured from the committed
+# meshes and the flight models. It reads only what is in the tree, so it needs
+# neither the network nor the fetched sources - but it measures the meshes, so
+# it is stale if they change and this says so.
+add_test(NAME the_committed_model_alignment_is_what_its_script_measures
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/align_models.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_model_alignment_is_what_its_script_measures
+    PROPERTIES SKIP_RETURN_CODE 77)
 
 # The committed DEM coverage is what the pinned tile lists make.
 add_test(NAME the_committed_dem_coverage_is_what_the_pinned_tile_lists_make

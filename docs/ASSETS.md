@@ -369,7 +369,12 @@ No mesh carries a texture, so no livery ships and a surface takes the flat
 diffuse colour of its AC3D material; none carries an animation, so control
 surfaces, gear and propellers are welded where the model has them. Each
 model's origin is its FlightGear aircraft's, which is not always its flight
-model's: aligning the two is the views item's, and is not done yet.
+model's, so a model is drawn at its flight model's visual reference point
+moved by the offset in `assets/models/alignment.txt`, which
+`tools/align_models.py` measures by putting the model's undercarriage on the
+flight model's. That file also records what the fit leaves over, because a
+flight model and a visual model of the same aeroplane do not always agree,
+and each aircraft is held to its own figures.
 
 ### Visual model: c172p - FlightGear's c172p
 

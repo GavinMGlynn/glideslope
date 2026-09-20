@@ -1,10 +1,13 @@
 #include "harness.hpp"
 
 #include "gfx/model.hpp"
+#include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <limits>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -16,7 +19,9 @@
 
 using glideslope::test::check;
 using glideslope::gfx::Model;
+using glideslope::gfx::ModelAlignment;
 using glideslope::gfx::ModelError;
+using glideslope::gfx::read_alignments;
 using glideslope::gfx::read_model;
 
 namespace {
@@ -408,4 +413,359 @@ GLIDESLOPE_TEST(a_model_file_that_is_damaged_or_of_another_version_is_refused) {
     // damage and not because nothing loads.
     const Model model = read_model(whole, "whole");
     check(!model.vertices.empty(), "the undamaged model still loads");
+}
+
+// --- where a model sits on the aeroplane it draws ---------------------------
+//
+// A model is drawn at its flight model's visual reference point - JSBSim's
+// VRP - moved by the offset in assets/models/alignment.txt, which
+// tools/align_models.py measures from the committed meshes and the flight
+// models. These read the same things out of a *running* JSBSim, so the
+// script's reading of the XML and JSBSim's own are cross-checked rather than
+// one trusting the other.
+
+namespace {
+
+constexpr double metres_per_inch = 0.0254;
+constexpr double metres_per_foot = 0.3048;
+
+std::filesystem::path alignment_file() {
+    return models_dir() / "alignment.txt";
+}
+
+// JSBSim's structural frame is +x aft, +y starboard, +z up, in inches; the
+// body frame is +x forward, +y starboard, +z down, in metres.
+std::array<double, 3> body_from_structural(const std::array<double, 3>& point,
+                                           const std::array<double, 3>& origin) {
+    return {-(point[0] - origin[0]) * metres_per_inch,
+            (point[1] - origin[1]) * metres_per_inch,
+            -(point[2] - origin[2]) * metres_per_inch};
+}
+
+std::array<double, 3> visual_reference_point(const glideslope::sim::Aircraft& a) {
+    return {a.property("metrics/visualrefpoint-x-in"),
+            a.property("metrics/visualrefpoint-y-in"),
+            a.property("metrics/visualrefpoint-z-in")};
+}
+
+std::array<double, 3> centre_of_gravity(const glideslope::sim::Aircraft& a) {
+    return {a.property("inertia/cg-x-in"), a.property("inertia/cg-y-in"),
+            a.property("inertia/cg-z-in")};
+}
+
+// Every contact the flight model has, in the body frame about the VRP.
+// JSBSim names a wheel gear/unit[i] and a piece of structure contact/unit[i],
+// so both are tried; the count is gear/num-units, which covers the two.
+std::vector<std::array<double, 3>> contacts(const glideslope::sim::Aircraft& a) {
+    const std::array<double, 3> vrp = visual_reference_point(a);
+    const int units = static_cast<int>(a.property("gear/num-units"));
+    std::vector<std::array<double, 3>> out;
+    for (int i = 0; i < units; ++i) {
+        const std::string index = "[" + std::to_string(i) + "]";
+        for (const char* base : {"gear/unit", "contact/unit"}) {
+            try {
+                const std::string at = std::string(base) + index + "/";
+                out.push_back(body_from_structural(
+                    {a.property(at + "x-position"), a.property(at + "y-position"),
+                     a.property(at + "z-position")},
+                    vrp));
+                break;
+            } catch (const std::out_of_range&) {
+                // The other of the two names it.
+            }
+        }
+    }
+    return out;
+}
+
+// The nearest the model comes to `point`, both in the body frame about the
+// VRP, with the alignment already applied to the model.
+double nearest(const Model& model, const std::array<double, 3>& offset,
+               const std::array<double, 3>& point) {
+    double best = std::numeric_limits<double>::infinity();
+    for (const auto& v : model.vertices) {
+        const double dx = static_cast<double>(v.position[0]) + offset[0] - point[0];
+        const double dy = static_cast<double>(v.position[1]) + offset[1] - point[1];
+        const double dz = static_cast<double>(v.position[2]) + offset[2] - point[2];
+        best = std::min(best, dx * dx + dy * dy + dz * dz);
+    }
+    return std::sqrt(best);
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(every_visual_model_is_aligned_to_the_aeroplane_it_draws) {
+    const std::vector<std::string> models = shipped();
+    const std::map<std::string, ModelAlignment> aligned =
+        read_alignments(alignment_file());
+    check(aligned.size() == models.size(),
+          "every model that ships is aligned, and nothing else: " +
+              std::to_string(models.size()) + " models, " +
+              std::to_string(aligned.size()) + " alignments");
+    for (const std::string& id : models) {
+        check(aligned.count(id) == 1, id + " has an alignment");
+    }
+
+    // The script read the flight models' XML; JSBSim reads them itself. If
+    // the two disagree about how many contacts an aeroplane has, one of them
+    // is reading the wrong file.
+    std::size_t checked = 0;
+    for (const auto& [id, a] : aligned) {
+        glideslope::sim::Aircraft aircraft(std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR),
+                                           id);
+        const int units = static_cast<int>(aircraft.property("gear/num-units"));
+        check(a.wheels + a.shape == units,
+              id + " has " + std::to_string(units) +
+                  " contacts in JSBSim, against the " +
+                  std::to_string(a.wheels) + " it rests on and " +
+                  std::to_string(a.shape) + " describing it that the "
+                  "alignment names");
+        check(static_cast<int>(contacts(aircraft).size()) == units,
+              id + "'s contacts can all be read back out of JSBSim");
+        ++checked;
+    }
+    check(checked == models.size(),
+          "every model was looked at: " + std::to_string(checked));
+}
+
+GLIDESLOPE_TEST(each_visual_models_wheels_sit_on_the_ground_the_aeroplane_stands_on) {
+    const std::map<std::string, ModelAlignment> aligned =
+        read_alignments(alignment_file());
+    const std::vector<glideslope::sim::CatalogueEntry> roster =
+        glideslope::sim::read_catalogue(data_dir());
+    std::size_t stood = 0;
+    std::size_t afloat = 0;
+    std::size_t without = 0;
+    for (const auto& e : roster) {
+        const auto it = aligned.find(e.id);
+        if (it == aligned.end()) {
+            ++without; // no visual model; named by the tests above
+            continue;
+        }
+        if (e.seaplane) {
+            // A flying boat does not stand: it floats, and its hull sits
+            // below the surface by its draught - the Short S.23's is 3.7 ft -
+            // so "the wheels on the ground" is not a fact about it. Its keels
+            // are held to the flight model's by the geometry test below,
+            // which is where its hull is pinned.
+            ++afloat;
+            continue;
+        }
+        glideslope::sim::Aircraft aircraft(data_dir() / "jsbsim", e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        // At the surface itself: initialize() raises the aircraft until its
+        // lowest wheel touches.
+        ic.altitude_ft = 0.0;
+        ic.terrain_elevation_ft = 0.0;
+        ic.airspeed_kts = 0.0;
+        ic.engine_running = false;
+        ic.gear = 1.0;
+        aircraft.initialize(ic);
+        glideslope::sim::Controls held;
+        held.left_brake = 1.0;
+        held.right_brake = 1.0;
+        aircraft.set_controls(held);
+        for (int i = 0; i < 20 * 120; ++i) {
+            aircraft.step();
+        }
+
+        const glideslope::sim::AircraftState state = aircraft.state();
+        const Model model = read_model(models_dir() / (e.id + ".mesh"));
+
+        // The model is drawn about the visual reference point; the height
+        // JSBSim reports is its centre of gravity's, so the two are put in
+        // the same place first.
+        const std::array<double, 3> vrp = visual_reference_point(aircraft);
+        const std::array<double, 3> to_vrp =
+            body_from_structural(vrp, centre_of_gravity(aircraft));
+        // Which way is down, in the body frame, at the attitude it settled
+        // at: an aeroplane standing on its wheels is pitched, and a
+        // taildragger a long way.
+        const double pitch = state.pitch_deg * 3.14159265358979323846 / 180.0;
+        const double roll = state.roll_deg * 3.14159265358979323846 / 180.0;
+        const std::array<double, 3> down{-std::sin(pitch),
+                                         std::sin(roll) * std::cos(pitch),
+                                         std::cos(roll) * std::cos(pitch)};
+        const double cg_above_ground_m =
+            state.height_above_ground_ft * metres_per_foot;
+        const auto above_ground = [&](const std::array<double, 3>& about_cg) {
+            return cg_above_ground_m - (about_cg[0] * down[0] +
+                                        about_cg[1] * down[1] +
+                                        about_cg[2] * down[2]);
+        };
+
+        // Which contacts are taking the weight is JSBSim's own answer, and
+        // holding the model to those alone is the point: the lowest thing
+        // on an aeroplane is not always a wheel - the B-2's bomb bay doors
+        // hang 1.4 m below its undercarriage - and the ones that are not
+        // wheels are not on the ground.
+        //
+        // How many there are is what tools/align_models.py worked out from
+        // the shape of the contact set, without running anything. If the two
+        // disagree, its reasoning about which contacts an aeroplane stands
+        // on is wrong.
+        const int units = static_cast<int>(aircraft.property("gear/num-units"));
+        std::vector<std::array<double, 3>> resting;
+        double squashed = 0.0;
+        for (int i = 0; i < units; ++i) {
+            const std::string index = "[" + std::to_string(i) + "]";
+            for (const char* base : {"gear/unit", "contact/unit"}) {
+                const std::string at = std::string(base) + index + "/";
+                try {
+                    const double weight = aircraft.property(at + "WOW");
+                    if (weight != 0.0) {
+                        resting.push_back(body_from_structural(
+                            {aircraft.property(at + "x-position"),
+                             aircraft.property(at + "y-position"),
+                             aircraft.property(at + "z-position")},
+                            vrp));
+                        squashed = std::max(squashed,
+                                            aircraft.property(at + "compression-ft"));
+                    }
+                    break;
+                } catch (const std::out_of_range&) {
+                    // The other of the two names it.
+                }
+            }
+        }
+        check(static_cast<int>(resting.size()) == it->second.wheels,
+              e.id + " stands on the " + std::to_string(it->second.wheels) +
+                  " contacts its alignment was fitted to, and JSBSim puts "
+                  "weight on " + std::to_string(resting.size()));
+
+        // Standing, the gear is compressed: the aeroplane rests lower than
+        // the contact points the model was fitted to, which are where the
+        // wheels are with the legs at full extension. A rigid model
+        // therefore sinks by the compression, which is not a fault in the
+        // alignment.
+        const double sunk = squashed * metres_per_foot;
+        // Below the ground it may go by what the fit left over plus the
+        // compression; above it only by what the fit left over, because a
+        // wheel drawn above the ground is an aeroplane floating.
+        const double into = it->second.on_wheels_m + sunk + 0.02;
+        const double over = it->second.on_wheels_m + 0.02;
+        // The same radius tools/align_models.py fitted with: the model's own
+        // ground under a wheel, and not the wing above it.
+        const double radius =
+            std::max(0.03 * static_cast<double>(model.size()[0]), 0.30);
+        double worst_wheel = 0.0;
+        for (std::size_t w = 0; w < resting.size(); ++w) {
+            double lowest = std::numeric_limits<double>::infinity();
+            for (const auto& v : model.vertices) {
+                const std::array<double, 3> p{
+                    static_cast<double>(v.position[0]) + it->second.offset[0],
+                    static_cast<double>(v.position[1]) + it->second.offset[1],
+                    static_cast<double>(v.position[2]) + it->second.offset[2]};
+                if (std::abs(p[0] - resting[w][0]) >= radius ||
+                    std::abs(p[1] - resting[w][1]) >= radius) {
+                    continue;
+                }
+                lowest = std::min(lowest,
+                                  above_ground({p[0] + to_vrp[0], p[1] + to_vrp[1],
+                                                p[2] + to_vrp[2]}));
+            }
+            check(std::isfinite(lowest),
+                  e.id + " has model under the wheel it rests on");
+            check(lowest <= over && lowest >= -into,
+                  e.id + "'s wheel " + std::to_string(w) +
+                      " sits on the ground: the model under it is " +
+                      std::to_string(lowest) + " m above it, outside the " +
+                      std::to_string(over) + " m over and " +
+                      std::to_string(into) + " m into it that its left-over (" +
+                      std::to_string(it->second.on_wheels_m) +
+                      " m) and its gear's compression (" + std::to_string(sunk) +
+                      " m) allow");
+            worst_wheel = std::max(worst_wheel, std::abs(lowest));
+        }
+        std::printf("%-14s stands on %zu wheels, %.3f m of compression; its "
+                    "model under them is at most %.3f m off the ground, "
+                    "against %.3f over and %.3f into it\n",
+                    e.id.c_str(), resting.size(), sunk, worst_wheel, over, into);
+        ++stood;
+    }
+    std::printf("stood %zu, afloat %zu, without a model %zu\n", stood, afloat,
+                without);
+}
+
+GLIDESLOPE_TEST(each_visual_model_is_where_its_flight_model_says_the_aeroplane_is) {
+    const std::map<std::string, ModelAlignment> aligned =
+        read_alignments(alignment_file());
+    std::size_t spanned = 0;
+    std::size_t contacts_checked = 0;
+    for (const auto& [id, a] : aligned) {
+        glideslope::sim::Aircraft aircraft(data_dir() / "jsbsim", id);
+        const Model model = read_model(models_dir() / (id + ".mesh"));
+
+        // The span is the one figure every flight model states about its
+        // shape. Six per cent covers them all: the model carries wingtip
+        // lights and static wicks the flight model's figure does not, and
+        // the A320 is the tightest at 5.5% - its model has sharklets and its
+        // flight model's span is the fence-tipped wing's.
+        const double stated = aircraft.property("metrics/bw-ft") * metres_per_foot;
+        const double drawn = static_cast<double>(model.size()[1]);
+        if (id == "pa28") {
+            // FlightGear has no PA-28-180 Cherokee: the model is the
+            // PA-28-161 Warrior II, whose wing is tapered and 35 ft 0 in
+            // across where the Cherokee's is constant-chord and 30 ft.
+            // docs/ASSETS.md says so. It is held to the wing it actually
+            // draws instead.
+            check(std::abs(drawn / 10.67 - 1.0) < 0.01,
+                  id + " draws the Warrior II's 10.67 m wing: " +
+                      std::to_string(drawn) + " m");
+        } else {
+            check(std::abs(drawn / stated - 1.0) < 0.06,
+                  id + " spans " + std::to_string(drawn) +
+                      " m, against the " + std::to_string(stated) +
+                      " m its flight model states");
+        }
+        ++spanned;
+
+        // Every contact the flight model has is a point on the aeroplane's
+        // surface - a wheel on the ground, a wingtip, a tailcone, a radome -
+        // so with the model put where the alignment says, the model should
+        // be there too. How far it is at worst is measured per aircraft by
+        // tools/align_models.py and recorded beside the offset; this holds
+        // each one to its own figures and so fails if a model moves.
+        const double allowed = std::max(a.on_wheels_m, a.at_shape_m) + 0.02;
+        const std::vector<std::array<double, 3>> points = contacts(aircraft);
+        check(static_cast<int>(points.size()) == a.wheels + a.shape,
+              id + " has the contacts its alignment counts");
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            const double d = nearest(model, a.offset, points[i]);
+            check(d <= allowed,
+                  id + "'s contact " + std::to_string(i) + " is " +
+                      std::to_string(d) + " m from its model, against the " +
+                      std::to_string(allowed) + " m it is held to");
+            ++contacts_checked;
+        }
+    }
+    check(spanned == aligned.size(),
+          "every aligned model's span was held to its flight model's: " +
+              std::to_string(spanned));
+
+    // Not every flight model describes the aeroplane beyond its
+    // undercarriage. Four state nothing but their wheels, so their span is
+    // the only shape they can be held to; they are named here so that a
+    // fifth cannot join them unnoticed.
+    const std::set<std::string> wheels_only{"737-300", "747-400", "b2", "f22"};
+    std::set<std::string> found_wheels_only;
+    for (const auto& [id, a] : aligned) {
+        if (a.shape == 0) {
+            found_wheels_only.insert(id);
+        }
+    }
+    check(found_wheels_only == wheels_only,
+          "the flight models that describe nothing but their undercarriage "
+          "are the four named: " +
+              [&] {
+                  std::string names;
+                  for (const std::string& id : found_wheels_only) {
+                      names += (names.empty() ? "" : ", ") + id;
+                  }
+                  return names.empty() ? "none" : names;
+              }());
+    std::printf("held %zu contacts across %zu aircraft to their models\n",
+                contacts_checked, spanned);
 }

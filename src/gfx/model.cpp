@@ -3,6 +3,7 @@
 #include <cstring>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 
 namespace glideslope::gfx {
 
@@ -110,6 +111,57 @@ Model read_model(const std::filesystem::path& path) {
     const std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)),
                                           std::istreambuf_iterator<char>());
     return read_model(bytes, path.string());
+}
+
+std::map<std::string, ModelAlignment> read_alignments(
+    const std::filesystem::path& path) {
+    std::ifstream in(path);
+    if (!in) {
+        throw AlignmentError(path.string() + " could not be read");
+    }
+    std::map<std::string, ModelAlignment> out;
+    std::string line;
+    int number = 0;
+    while (std::getline(in, line)) {
+        ++number;
+        const std::size_t hash = line.find('#');
+        if (hash != std::string::npos) {
+            line.erase(hash);
+        }
+        std::istringstream words(line);
+        std::string id;
+        if (!(words >> id)) {
+            continue; // blank, or a line that was only a comment
+        }
+        const auto wrong = [&](const std::string& what) {
+            return AlignmentError(path.string() + ":" + std::to_string(number) +
+                                  ": " + what);
+        };
+        ModelAlignment a;
+        if (!(words >> a.offset[0] >> a.offset[1] >> a.offset[2] >> a.wheels >>
+              a.on_wheels_m >> a.shape >> a.at_shape_m)) {
+            throw wrong(id + " needs x, y, z, how many contacts it rests on "
+                             "and the worst distance there, then how many "
+                             "describe its shape and the worst distance there");
+        }
+        std::string extra;
+        if (words >> extra) {
+            throw wrong(id + " has more on the line than it should: " + extra);
+        }
+        if (a.wheels <= 0) {
+            throw wrong(id + " rests on no contact at all");
+        }
+        if (a.shape < 0 || a.on_wheels_m < 0.0 || a.at_shape_m < 0.0) {
+            throw wrong(id + " has a count or a distance below zero");
+        }
+        if (!out.emplace(id, a).second) {
+            throw wrong(id + " is named twice");
+        }
+    }
+    if (out.empty()) {
+        throw AlignmentError(path.string() + " names no aircraft");
+    }
+    return out;
 }
 
 } // namespace glideslope::gfx

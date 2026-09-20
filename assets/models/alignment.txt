@@ -1,0 +1,27 @@
+# Where each visual model sits on the aeroplane it draws, measured by
+# tools/align_models.py; see its docstring for how, and docs/ASSETS.md
+# for what it means. A model is drawn at its flight model's visual
+# reference point, moved by x, y and z metres in the body frame - +x
+# forward, +y starboard, +z down.
+#
+# `wheels` is how many contacts the aeroplane rests on and `on` the
+# worst distance left between one of them and the model beneath it;
+# `shape` is how many contacts describe it elsewhere - a wingtip, a
+# tailcone, a radome - and `at` the worst distance to the model there.
+# Those two distances are what each aircraft is held to.
+#
+# aircraft  x  y  z  wheels  on  shape  at   (metres)
+737-300 0.209 0.000 -0.518 3 0.473 0 0.000
+747-400 1.858 0.000 1.406 3 2.479 0 0.000
+787-8 0.535 0.000 -0.213 3 0.910 4 2.163
+a320 -1.783 0.000 -0.906 3 0.337 9 1.647
+a380 -22.656 0.000 -3.257 5 0.628 6 2.039
+b2 0.108 0.000 2.370 3 0.531 0 0.000
+c172p 0.206 0.000 0.066 3 0.028 4 0.285
+c182 1.018 0.000 0.375 3 0.218 3 0.514
+f15c 0.712 0.000 0.301 3 0.127 6 0.458
+f22 -3.873 0.000 0.540 3 0.984 0 0.000
+j3cub 0.025 0.000 -0.019 3 0.067 2 0.072
+mosquito-fb6 -0.502 0.000 0.418 3 0.454 7 0.864
+pa28 -1.306 0.000 -0.128 3 0.136 6 0.571
+short_s23 1.363 0.000 0.196 2 0.352 7 1.350

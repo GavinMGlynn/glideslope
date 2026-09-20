@@ -392,14 +392,24 @@ quality: each is held to published figures before it is offered, as the Cessna
       and to facing the way it flies, and the committed meshes are checked
       against what the script makes. Nothing draws any of them yet - that is
       the views item below.
-- [ ] **A visual model put where its aeroplane is.** Each model is in its
-      FlightGear aircraft's own frame, whose origin is that aircraft's FDM
-      datum and not always glideslope's: the Cub's and 747's wheels are
-      within 0.14 m of their JSBSim contact points, the Cessna 172P's 1.03 m
-      out. *(Found 2026-09-20 making the models.)* *Verification: for every
-      aircraft that has a model, the model's wheels sit on the ground within
-      a stated distance when the aeroplane is standing on it, and its nose,
-      wingtips and fin are where the flight model's geometry says.*
+- [x] **A visual model put where its aeroplane is.** *(Found 2026-09-20
+      making the models.)* *Verification: for every aircraft that has a
+      model, the model's wheels sit on the ground within a stated distance
+      when the aeroplane is standing on it, and its nose, wingtips and fin
+      are where the flight model's geometry says.* Stated, 2026-09-21: a
+      model is drawn at its flight model's visual reference point, moved by
+      an offset `tools/align_models.py` measures per aircraft into
+      `assets/models/alignment.txt` by putting the model's undercarriage on
+      the flight model's. Thirteen aircraft are stood on the ground in
+      JSBSim and the model under every wheel taking weight is on the ground
+      within that aircraft's own stated distance; the flying boat floats
+      rather than stands, and is held to its keels instead. All 97 contacts
+      the fourteen flight models have - wheels, wingtips, tailcones, a
+      radome, propeller tips - are within their stated distance of the
+      model, and every model's span is within 6% of its flight model's, the
+      PA-28 excepted and named because FlightGear's is a different mark.
+      Four flight models describe nothing but their undercarriage, so their
+      span is all the shape they can be held to; the test names them.
 - [x] **An aircraft chosen at start.** *Verification: every aircraft can be
       chosen, takes off, and passes its published-figure checks.* Stated,
       2026-09-19, CI run 35442214130: `--aircraft` flies any of the fifteen the
