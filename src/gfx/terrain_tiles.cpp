@@ -44,6 +44,7 @@
 #include <CesiumUtility/IntrusivePointer.h>
 #include <CesiumUtility/JsonValue.h>
 
+#include <spdlog/sinks/stdout_sinks.h>
 #include <spdlog/spdlog.h>
 
 #include <glm/ext/matrix_double4x4.hpp>
@@ -69,6 +70,15 @@
 #include <variant>
 
 namespace glideslope::gfx {
+
+void log_to_standard_error() {
+    // Once: spdlog refuses a logger of a name it already holds.
+    static const bool done = [] {
+        spdlog::set_default_logger(spdlog::stderr_logger_mt("glideslope"));
+        return true;
+    }();
+    (void)done;
+}
 
 namespace {
 

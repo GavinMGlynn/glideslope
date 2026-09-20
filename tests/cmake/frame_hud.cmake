@@ -37,6 +37,19 @@ if(NOT _rc EQUAL 0)
 endif()
 glideslope_judge_leaks("${_err}")
 
+# Standard output is the client's own and nothing else's. Cesium Native logs
+# through spdlog, whose default logger writes to standard output unless it is
+# told otherwise, and a log line landing mid-line cuts a trace line in half:
+# "lat -33.94[2026-09-20 11:23:17.706] [error] [SqliteCache.cpp:592] database
+# is locked" is what CI saw, and the numbers after it were gone. A log line
+# carries a stamp no line of ours does, so that is what is looked for.
+file(STRINGS "${_trace}" _stamped REGEX "\\[[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] ")
+if(_stamped)
+    list(GET _stamped 0 _first)
+    message(FATAL_ERROR "something logged to the client's standard output, "
+                        "where its own output goes: ${_first}")
+endif()
+
 # The altitude is above sea level: the traced height above the ellipsoid less
 # the geoid there, which the CLI gives, in thousandths of a foot.
 file(STRINGS "${_trace}" _last REGEX "^trace tick 600 ")

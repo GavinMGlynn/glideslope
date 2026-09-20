@@ -30,6 +30,20 @@
 
 namespace glideslope::gfx {
 
+// Puts Cesium Native's log on standard error.
+//
+// Cesium Native logs through spdlog, whose default logger writes to standard
+// *output* - the stream the client's own output goes to. A log line then
+// lands in the middle of one of ours: a `--trace` line has been cut in half
+// by "[error] [SqliteCache.cpp] database is locked", which happens when tests
+// run at once and share one cache, and the test reading that line saw half a
+// number. Standard output is what the program says; standard error is what
+// goes wrong with it, and that is where this puts the log.
+//
+// Call it before anything that can log - the client does, first thing. It may
+// be called more than once.
+void log_to_standard_error();
+
 // Imagery to drape on the terrain: a Web Map Tile Service in latitude and
 // longitude, its tiles fetched as the view needs them.
 struct Imagery {

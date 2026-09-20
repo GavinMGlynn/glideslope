@@ -21,6 +21,7 @@
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
 #include "gfx/sky.hpp"
+#include "gfx/terrain_tiles.hpp"
 #include "platform/input.hpp"
 #include "platform/paths.hpp"
 #include "scenes.hpp"
@@ -205,6 +206,9 @@ private:
 } // namespace
 
 int main(int argc, char** argv) {
+    // Before anything that can log: Cesium Native's log belongs on standard
+    // error, not in the middle of a --trace line. See gfx/terrain_tiles.hpp.
+    glideslope::gfx::log_to_standard_error();
     const std::vector<std::string_view> args(argv + 1, argv + argc);
     Options o;
     for (std::size_t i = 0; i < args.size(); ++i) {

@@ -569,6 +569,13 @@ checklists are part of. A lesson ends in a debrief, never a score
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [ ] **Tests that run at once share one Cesium cache.** Up to four client
+      tests run together against a single `cesium-cache.sqlite`, with nothing
+      serialising them; SQLite refuses the write and Cesium Native logs
+      "database is locked". Nothing is lost but the caching, so a tile is
+      fetched again. *(Found 2026-09-21 fixing the log that cut a trace line
+      in half.)* *Verification: the client tests run together and no run
+      reports a locked database.*
 - [ ] **Runways on the DEM.** *(Found writing `REQUIREMENTS.md`; open there.)*
       The terrain data shows a runway with bumps it does not have.
       *Verification: decided in `REQUIREMENTS.md`, and if runways are smoothed,
