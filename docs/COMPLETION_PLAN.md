@@ -418,14 +418,23 @@ quality: each is held to published figures before it is offered, as the Cessna
       climbs through 200 ft; each passes its published-figure checks; and in
       the client on every platform the F-22 chosen flies at its start's 300
       knots and a Cessna on the ground at Sydney stands at rest on the DEM.
-- [ ] **Views: the cockpit, and outside from ahead, behind, left, right and
+- [x] **Views: the cockpit, and outside from ahead, behind, left, right and
       above, and a free orbit**, switched by a key and chosen with `--view`.
-      *(Asked for 2026-09-18; needs the visual models above.)* *Verification:
-      a `--shot` from each view at a fixed tick draws the aircraft's model
-      where that view's camera puts it - its outline within a stated number of
-      pixels of the model projected independently from the same camera - and
-      the cockpit view's eye is the pilot's; switching views steps nothing in
-      the flight.*
+      *(Asked for 2026-09-18.)* *Verification: a `--shot` from each view at a
+      fixed tick draws the aircraft's model where that view's camera puts it -
+      its outline within a stated number of pixels of the model projected
+      independently from the same camera - and the cockpit view's eye is the
+      pilot's; switching views steps nothing in the flight.* Stated,
+      2026-09-21: the aeroplane is drawn, and `--view` chooses where it is
+      seen from, V steps round them. Each of the six outside views is shot
+      twice, with the aeroplane and without, and the pixels that differ -
+      its outline exactly - are held within two pixels of the model projected
+      from the same camera; the cockpit draws no aeroplane, because the models
+      have no interior, and its two shots are identical. The cockpit's eye is
+      the flight model's own eyepoint, to the millimetre, for every aircraft
+      that has a model. Every view traces the same flight to the same state.
+      The light on the aeroplane is baked into the mesh, so it is made again
+      as the aeroplane banks; a livery and moving control surfaces are tails.
 
 ## Phase 5b — Terrain providers
 
@@ -578,6 +587,21 @@ checklists are part of. A lesson ends in a debrief, never a score
 ## Tails
 
 Found while implementing something else. Added when found, not when remembered.
+
+- [ ] **A livery on the aeroplane, and its control surfaces moving.** A model
+      ships no texture, so a surface takes the flat diffuse colour of its
+      AC3D or 3D Studio material, and no control surface, propeller or
+      undercarriage moves: they are welded where the model has them, gear
+      down. *(Found 2026-09-21 drawing the aeroplane.)* *Verification: a
+      livery is on the aeroplane in a shot, and a shot with the stick over
+      shows the ailerons moved.*
+- [ ] **The aeroplane is lit by a light baked into its mesh.** The mesh shader
+      has no normals, so the light is worked into each vertex's colour and
+      the mesh made again when the aeroplane has banked far enough to see -
+      five degrees. A normal in the vertex would light it on the GPU and
+      make that unnecessary, at the cost of a normal on every terrain vertex
+      too. *(Found 2026-09-21 drawing the aeroplane.)* *Verification: the
+      aeroplane's lighting follows it through a roll with no mesh remade.*
 
 - [ ] **Tests that run at once share one Cesium cache.** Up to four client
       tests run together against a single `cesium-cache.sqlite`, with nothing

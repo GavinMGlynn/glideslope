@@ -9,6 +9,7 @@
 //              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z] [--toward LAT,LON,HEIGHT]
 //              [--imagery on|off] [--weather STATION [--microburst LAT,LON]...]
 //              [--metar REPORT [--station LAT,LON]] [--autopilot] [--plan PLAN]
+//              [--view NAME]
 //              [--shot FILE] [--shot-at TICK] [--trace]
 //
 // Test flags. --shot writes the frame drawn at simulation tick --shot-at
@@ -78,6 +79,11 @@ struct Options {
     bool autopilot = false;
     std::string plan;
     std::string aircraft = "c172p";
+    std::string view = "cockpit";
+    // A test flag, as --shot and --trace are: the same frame shot with the
+    // aeroplane and without it differ in exactly its pixels, which is how a
+    // test finds the outline it draws.
+    bool draw_aircraft = true;
     bool on_ground = false;
 };
 
@@ -90,6 +96,8 @@ void usage(std::FILE* out) {
         "                  [--weather STATION [--microburst LAT,LON]...]\n"
         "                  [--metar REPORT [--station LAT,LON]]\n"
         "                  [--aircraft ID] [--on-ground] [--autopilot] [--plan PLAN]\n"
+        "                  [--view cockpit|ahead|behind|left|right|above|orbit]\n"
+        "                  [--draw-aircraft on|off]\n"
         "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
         "       glideslope --version | --help\n"
         "\n"
@@ -117,6 +125,12 @@ void usage(std::FILE* out) {
         "                ground, the engines idling and the brakes on until B is\n"
         "                pressed, rather than flying - or, a seaplane, afloat on\n"
         "                water there\n"
+        "  --view        where it is seen from: the cockpit, by default, or outside\n"
+        "                it from ahead, behind, left, right or above, or an orbit\n"
+        "                around it; V steps through them\n"
+        "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
+        "                or leave it out: a test shoots both to find the outline it\n"
+        "                draws\n"
         "  --autopilot   the AI flies the aircraft from the start, holding what it\n"
         "                is doing; A hands it between the pilot and the AI\n"
         "  --plan        the AI flies a flight plan - a file, or one in data/plans\n"
@@ -280,6 +294,12 @@ int main(int argc, char** argv) {
             }
         } else if (a == "--aircraft" && has_value) {
             o.aircraft = std::string(args[++i]);
+        } else if (a == "--view" && has_value) {
+            o.view = std::string(args[++i]);
+        } else if (a == "--draw-aircraft" && has_value) {
+            const std::string_view value = args[++i];
+            ok = value == "on" || value == "off";
+            o.draw_aircraft = value == "on";
         } else if (a == "--on-ground") {
             o.on_ground = true;
         } else if (a == "--autopilot") {
@@ -348,8 +368,16 @@ int main(int argc, char** argv) {
         std::fputs("glideslope: only the flight has --autopilot and --plan\n", stderr);
         return 2;
     }
-    if (o.screen != "flight" && (o.aircraft != "c172p" || o.on_ground)) {
-        std::fputs("glideslope: only the flight has --aircraft and --on-ground\n", stderr);
+    if (o.screen != "flight" && (o.aircraft != "c172p" || o.on_ground ||
+                                 o.view != "cockpit")) {
+        std::fputs("glideslope: only the flight has --aircraft, --on-ground and "
+                   "--view\n",
+                   stderr);
+        return 2;
+    }
+    if (!glideslope::gfx::view_named(o.view)) {
+        std::fprintf(stderr, "glideslope: there is no view %s; there is %s\n",
+                     o.view.c_str(), glideslope::gfx::view_names().c_str());
         return 2;
     }
     if (o.on_ground && (o.autopilot || !o.plan.empty())) {
@@ -523,6 +551,21 @@ int main(int argc, char** argv) {
         }
 
         const bool shooting = !o.shot.empty();
+        // The view, and the aeroplane's own mesh. The mesh is lit on the way
+        // in - the shader has no normals - so it is made again when the sun
+        // has moved far enough around the body to see, which is what banking
+        // does. In the cockpit there is nothing to draw: the models have no
+        // interior, nothing is culled by its facing, and the skin would be
+        // drawn over the windscreen.
+        glideslope::gfx::View view =
+            glideslope::gfx::view_named(o.view).value_or(glideslope::gfx::View::cockpit);
+        glideslope::gfx::MeshId aircraft_mesh = 0;
+        bool has_aircraft_mesh = false;
+        glideslope::world::Ecef lit_by{};
+        const auto light_moved = [&](const glideslope::world::Ecef& sun) {
+            // Five degrees, as the cosine of the angle between them.
+            return sun.x * lit_by.x + sun.y * lit_by.y + sun.z * lit_by.z < 0.9962;
+        };
         glideslope::sim::Controls controls;
         if (o.on_ground) {
             // Standing: idling, its wheels down and braked.
@@ -558,6 +601,17 @@ int main(int argc, char** argv) {
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_A && flight) {
                     flight->swap_pilot();
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == SDL_SCANCODE_V && flight) {
+                    // Round the views, and round again. Nothing about the
+                    // flight moves: the camera is worked out afresh each
+                    // frame from the aircraft's state.
+                    const auto& all = glideslope::gfx::every_view();
+                    const auto at = std::find(all.begin(), all.end(), view);
+                    view = at == all.end() || at + 1 == all.end() ? all.front()
+                                                                  : *(at + 1);
+                    std::printf("glideslope: the view is %s\n",
+                                std::string(glideslope::gfx::name_of(view)).c_str());
                 }
             }
             std::int64_t due = 0;
@@ -587,8 +641,12 @@ int main(int argc, char** argv) {
             // The frame shot waits for every terrain tile its view needs, so
             // the same command draws the same terrain everywhere.
             const bool shot_now = shooting && ticks >= o.shot_at;
+            // The orbit goes round once a minute of the flight's own time, so
+            // the same command puts it in the same place every run.
+            constexpr double orbit_rad_per_s = 6.283185307179586 / 60.0;
             const glideslope::gfx::Camera camera =
-                flight ? flight->camera() : scene.camera;
+                flight ? flight->camera(view, flight->time_s() * orbit_rad_per_s)
+                       : scene.camera;
             if (terrain) {
                 draws = terrain->update(camera, o.width, o.height, shot_now);
             }
@@ -614,6 +672,24 @@ int main(int argc, char** argv) {
                     drawn);
                 haze = sky->haze(camera);
                 background = sky->background(camera);
+            }
+            // The aeroplane itself, in every view but the cockpit.
+            if (flight && flight->model() != nullptr && o.draw_aircraft &&
+                view != glideslope::gfx::View::cockpit) {
+                const glideslope::world::Ecef sun = flight->sun_in_body();
+                if (!has_aircraft_mesh || light_moved(sun)) {
+                    if (has_aircraft_mesh) {
+                        renderer.remove_mesh(aircraft_mesh);
+                    }
+                    aircraft_mesh = renderer.add_mesh(
+                        glideslope::gfx::mesh_from_model(*flight->model(), sun));
+                    has_aircraft_mesh = true;
+                    lit_by = sun;
+                }
+                glideslope::gfx::Draw draw;
+                draw.mesh = aircraft_mesh;
+                draw.placement = flight->model_placement();
+                drawn.push_back(draw);
             }
             // Whichever data is drawn, its credit is on screen.
             std::vector<std::string> credits;
@@ -657,6 +733,26 @@ int main(int argc, char** argv) {
                                                  std::to_string(counts.skipped) +
                                                  " primitives could not be drawn");
                     }
+                }
+                // Where this frame was seen from, so that a test can project
+                // the aeroplane's model from the same camera and see whether
+                // it was drawn where the camera puts it.
+                const auto& axes = camera.world_from_camera.m;
+                std::printf("glideslope: camera %.6f %.6f %.6f", camera.position.x,
+                            camera.position.y, camera.position.z);
+                for (const double v : axes) {
+                    std::printf(" %.9f", v);
+                }
+                std::printf(" %.9f %d %d\n", camera.vertical_fov_rad, o.width,
+                            o.height);
+                if (flight && flight->model() != nullptr) {
+                    const glideslope::gfx::Placement p = flight->model_placement();
+                    std::printf("glideslope: aeroplane %.6f %.6f %.6f", p.origin.x,
+                                p.origin.y, p.origin.z);
+                    for (const double v : p.world_from_local.m) {
+                        std::printf(" %.9f", v);
+                    }
+                    std::printf("\n");
                 }
                 glideslope::gfx::save_bmp(renderer.capture(), o.shot);
                 std::printf("glideslope: wrote tick %lld, frame %ld, to %s\n",

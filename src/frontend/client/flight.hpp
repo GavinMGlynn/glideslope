@@ -3,6 +3,7 @@
 // The flight screen: one aircraft, standing on or flying over the DEM, seen
 // from its cockpit, with the HUD.
 
+#include "gfx/aircraft.hpp"
 #include "gfx/hud.hpp"
 #include "gfx/scene.hpp"
 #include "sim/aircraft.hpp"
@@ -15,6 +16,7 @@
 #include "world/geoid.hpp"
 #include "world/weather.hpp"
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <future>
@@ -98,8 +100,32 @@ public:
         return aircraft_->state();
     }
 
-    // The camera at the pilot's eye, looking along the aircraft's nose.
-    gfx::Camera camera() const;
+    // The camera for a view of the aircraft: the cockpit looks out along the
+    // nose from the pilot's eye, and the others stand off around it.
+    // `orbit_rad` is where the orbit has got to, and only it uses that.
+    gfx::Camera camera(gfx::View view, double orbit_rad = 0.0) const;
+
+    // The aircraft's visual model, or null where it ships none - FlightGear
+    // has no Learjet 35A and no F-35A, and docs/ASSETS.md says so.
+    const gfx::Model* model() const {
+        return model_ ? &*model_ : nullptr;
+    }
+
+    // Where that model goes: its origin - the flight model's visual reference
+    // point moved by the alignment in assets/models/alignment.txt - and the
+    // body's axes there. Meaningless without a model.
+    gfx::Placement model_placement() const;
+
+    // How far the model reaches from its origin, in metres: what the outside
+    // views stand off by. Zero without a model.
+    double model_radius() const {
+        return model_radius_;
+    }
+
+    // The unit vector towards the sun in the body frame, for lighting the
+    // model. It turns as the aircraft does, so the mesh is made again when
+    // this has moved far enough to see.
+    world::Ecef sun_in_body() const;
 
     gfx::HudReadings hud() const;
 
@@ -126,12 +152,28 @@ private:
     void refresh_weather();
     void report_navigation();
 
+    // The body's axes in ECEF - forward, starboard and down - and the
+    // aircraft's position, which JSBSim reports at its centre of gravity.
+    struct Axes {
+        world::Ecef forward;
+        world::Ecef right;
+        world::Ecef down;
+        world::Ecef position;
+    };
+    Axes axes() const;
+    // A structural point, in the body frame relative to the model's origin.
+    std::array<double, 3> from_model_origin(const char* what) const;
+
     world::Fetch fetch_;
     std::unique_ptr<world::DemCoverage> coverage_;
     std::unique_ptr<world::DemTiles> tiles_;
     std::unique_ptr<world::Geoid> geoid_;
     std::shared_ptr<world::Dem> dem_;
     sim::CatalogueEntry aircraft_entry_;
+    // The visual model, read once, and where it sits on this aeroplane.
+    std::optional<gfx::Model> model_;
+    gfx::ModelAlignment alignment_;
+    double model_radius_ = 0.0;
     bool afloat_at_start_ = false;
     std::unique_ptr<sim::Aircraft> aircraft_;
     // Made at the first step, from the pilot's controls then.

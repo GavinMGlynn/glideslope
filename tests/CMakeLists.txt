@@ -214,6 +214,8 @@ set(GLIDESLOPE_UNIT_TESTS
     every_visual_model_is_aligned_to_the_aeroplane_it_draws
     each_visual_models_wheels_sit_on_the_ground_the_aeroplane_stands_on
     each_visual_model_is_where_its_flight_model_says_the_aeroplane_is
+    the_cockpit_view_puts_the_eye_where_the_flight_model_says_the_pilots_is
+    every_view_stands_where_its_name_says_and_looks_at_the_aeroplane
     a_model_file_that_is_damaged_or_of_another_version_is_refused
     a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash
     level_terrain_holds_an_aircraft_exactly_as_jsbsims_own_ground_does
@@ -479,6 +481,9 @@ glideslope_configure(glideslope_hud_check)
 add_executable(glideslope_sky_check tools/sky_check.cpp)
 target_link_libraries(glideslope_sky_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_sky_check)
+add_executable(glideslope_view_check tools/view_check.cpp)
+target_link_libraries(glideslope_view_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_view_check)
 add_executable(glideslope_terrain_check tools/terrain_check.cpp)
 # Cesium Native's image decoder reads the imagery's JPEG tiles.
 target_link_libraries(glideslope_terrain_check PRIVATE glideslope_gfx CesiumImage)
@@ -509,6 +514,14 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_aircraft.cmake)
     set_tests_properties(the_client_flies_the_aircraft_it_is_given_in_the_air_or_on_the_ground_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    add_test(NAME the_client_draws_the_aeroplane_where_each_view_puts_it_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_view_check>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DMODELS=${GLIDESLOPE_DATA_DIR}/models
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_views.cmake)
+    set_tests_properties(the_client_draws_the_aeroplane_where_each_view_puts_it_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
     add_test(NAME the_clients_ai_flies_a_flight_plan_past_every_waypoint_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
@@ -693,6 +706,12 @@ add_test(NAME the_client_refuses_an_aircraft_the_data_does_not_hold
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope> "-DARGS=--aircraft no-such-aircraft" -DEXIT=2
         "-DSTDERR_MATCHES=the data holds no aircraft no-such-aircraft. it holds 737-300, .*c172p"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_client_refuses_a_view_there_is_none_of
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope> "-DARGS=--view nonesuch" -DEXIT=2
+        "-DSTDERR_MATCHES=there is no view nonesuch. there is cockpit, ahead, behind, left, right, above, orbit"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_client_will_not_have_the_ai_take_off

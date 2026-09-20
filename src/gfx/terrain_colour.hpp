@@ -25,6 +25,17 @@ std::array<float, 4> terrain_colour(double height_above_sea_level_m,
 // times this; the tints above already are.
 double terrain_light(const world::Ecef& normal, const world::Ecef& up);
 
+// The unit vector towards that sun - north-west, 45 degrees up - where `up`
+// points up. An aeroplane is lit by the same one as the ground beneath it,
+// and gfx/aircraft.hpp asks for it in the body frame, where a vertex's
+// normal is.
+world::Ecef sun_from(const world::Ecef& up);
+
+// How lit a surface facing `normal` is under a sun in direction `sun`, both
+// unit vectors in the same frame: 1 facing it as level ground does, down to
+// 0.35 in shadow. `terrain_light` is this under `sun_from`.
+double light_on(const world::Ecef& normal, const world::Ecef& sun);
+
 // The unit vector straight up from the ellipsoid at a latitude and longitude.
 world::Ecef up_at(double latitude_deg, double longitude_deg);
 

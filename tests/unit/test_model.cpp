@@ -1,6 +1,8 @@
 #include "harness.hpp"
 
+#include "gfx/aircraft.hpp"
 #include "gfx/model.hpp"
+#include "gfx/terrain_colour.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 
@@ -768,4 +770,166 @@ GLIDESLOPE_TEST(each_visual_model_is_where_its_flight_model_says_the_aeroplane_i
               }());
     std::printf("held %zu contacts across %zu aircraft to their models\n",
                 contacts_checked, spanned);
+}
+
+// --- the views of an aeroplane ---------------------------------------------
+
+namespace {
+
+using glideslope::gfx::View;
+
+// Where an aeroplane standing still at Sydney is, and which way its body
+// points: level, heading north. The views are geometry, so any one attitude
+// pins them; the flight screen's own axes are held by the frame tests.
+glideslope::gfx::Placement level_at(double latitude_deg, double longitude_deg,
+                                    double height_m) {
+    const glideslope::world::Ecef up =
+        glideslope::gfx::up_at(latitude_deg, longitude_deg);
+    const double lat = latitude_deg * 3.14159265358979323846 / 180.0;
+    const double lon = longitude_deg * 3.14159265358979323846 / 180.0;
+    const glideslope::world::Ecef north{-std::sin(lat) * std::cos(lon),
+                                        -std::sin(lat) * std::sin(lon),
+                                        std::cos(lat)};
+    const glideslope::world::Ecef east{-std::sin(lon), std::cos(lon), 0.0};
+    glideslope::gfx::Placement p;
+    p.origin = glideslope::world::to_ecef({latitude_deg, longitude_deg, height_m});
+    // Forward north, starboard east, down the other way from up.
+    p.world_from_local =
+        glideslope::gfx::Mat3::columns(north, east, {-up.x, -up.y, -up.z});
+    return p;
+}
+
+double apart(const glideslope::world::Ecef& a, const glideslope::world::Ecef& b) {
+    return std::hypot(std::hypot(a.x - b.x, a.y - b.y), a.z - b.z);
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(the_cockpit_view_puts_the_eye_where_the_flight_model_says_the_pilots_is) {
+    const std::map<std::string, ModelAlignment> aligned =
+        read_alignments(alignment_file());
+    constexpr double metres_per_inch = 0.0254;
+    std::size_t checked = 0;
+    for (const auto& [id, a] : aligned) {
+        glideslope::sim::Aircraft aircraft(data_dir() / "jsbsim", id);
+        const auto inches = [&](const char* what, const char* axis) {
+            return aircraft.property(std::string("metrics/") + what + axis);
+        };
+        // The eye, in the body frame, from the model's origin - the visual
+        // reference point moved by the alignment - which is what the view
+        // is given.
+        const std::array<double, 3> eye{
+            -(inches("eyepoint", "-x-in") - inches("visualrefpoint", "-x-in")) *
+                    metres_per_inch -
+                a.offset[0],
+            (inches("eyepoint", "-y-in") - inches("visualrefpoint", "-y-in")) *
+                    metres_per_inch -
+                a.offset[1],
+            -(inches("eyepoint", "-z-in") - inches("visualrefpoint", "-z-in")) *
+                    metres_per_inch -
+                a.offset[2]};
+
+        const glideslope::gfx::Placement p = level_at(-33.9, 151.2, 1000.0);
+        const glideslope::gfx::Camera camera =
+            glideslope::gfx::camera_for(View::cockpit, p, 10.0, eye, 0.0);
+
+        // The eye is where the flight model puts the pilot's, to the
+        // millimetre: the camera's position less the model's origin, taken
+        // back into the body frame, is the eye it was given.
+        const glideslope::world::Ecef from{camera.position.x - p.origin.x,
+                                           camera.position.y - p.origin.y,
+                                           camera.position.z - p.origin.z};
+        const auto& m = p.world_from_local.m;
+        const std::array<double, 3> in_body{
+            m[0] * from.x + m[1] * from.y + m[2] * from.z,
+            m[3] * from.x + m[4] * from.y + m[5] * from.z,
+            m[6] * from.x + m[7] * from.y + m[8] * from.z};
+        for (std::size_t i = 0; i < 3; ++i) {
+            check(std::abs(in_body[i] - eye[i]) < 0.001,
+                  id + "'s cockpit eye is the pilot's along axis " +
+                      std::to_string(i) + ": " + std::to_string(in_body[i]) +
+                      " m against " + std::to_string(eye[i]));
+        }
+        // ...and it looks out along the nose, not along anything else.
+        const glideslope::world::Ecef nose =
+            p.world_from_local * glideslope::world::Ecef{1.0, 0.0, 0.0};
+        const auto& c = camera.world_from_camera.m;
+        check(std::abs(-c[6] - nose.x) < 1e-9 && std::abs(-c[7] - nose.y) < 1e-9 &&
+                  std::abs(-c[8] - nose.z) < 1e-9,
+              id + "'s cockpit looks out along its nose");
+        ++checked;
+    }
+    check(checked == aligned.size(),
+          "every aircraft with a model was looked at: " + std::to_string(checked));
+}
+
+GLIDESLOPE_TEST(every_view_stands_where_its_name_says_and_looks_at_the_aeroplane) {
+    const glideslope::gfx::Placement p = level_at(-33.9, 151.2, 1000.0);
+    const double radius = 5.0;
+    const std::array<double, 3> eye{0.5, 0.0, -0.5};
+
+    // The names round trip, and there are seven of them: the cockpit and the
+    // six the plan asks for - ahead, behind, left, right, above and an orbit.
+    const std::vector<View>& all = glideslope::gfx::every_view();
+    check(all.size() == 7, "there are seven views, not " +
+                               std::to_string(all.size()));
+    for (const View v : all) {
+        check(glideslope::gfx::view_named(glideslope::gfx::name_of(v)) == v,
+              std::string(glideslope::gfx::name_of(v)) + " is named by its name");
+    }
+    check(!glideslope::gfx::view_named("nonesuch").has_value(),
+          "a view there is none of is refused");
+
+    // Each outside view stands where its name says, in the aeroplane's own
+    // frame: ahead of it, behind it, off each wing, above it. The body is
+    // +x forward, +y starboard, +z down.
+    struct Expected {
+        View view;
+        int axis;  // 0 forward, 1 starboard, 2 down
+        double way; // +1 or -1 along it
+    };
+    const Expected expected[] = {{View::ahead, 0, 1.0},  {View::behind, 0, -1.0},
+                                 {View::left, 1, -1.0},  {View::right, 1, 1.0},
+                                 {View::above, 2, -1.0}};
+    std::size_t placed = 0;
+    for (const Expected& e : expected) {
+        const glideslope::gfx::Camera camera =
+            glideslope::gfx::camera_for(e.view, p, radius, eye, 0.0);
+        const glideslope::world::Ecef from{camera.position.x - p.origin.x,
+                                           camera.position.y - p.origin.y,
+                                           camera.position.z - p.origin.z};
+        const auto& m = p.world_from_local.m;
+        const std::array<double, 3> in_body{
+            m[0] * from.x + m[1] * from.y + m[2] * from.z,
+            m[3] * from.x + m[4] * from.y + m[5] * from.z,
+            m[6] * from.x + m[7] * from.y + m[8] * from.z};
+        const std::string what(glideslope::gfx::name_of(e.view));
+        check(in_body[static_cast<std::size_t>(e.axis)] * e.way > radius,
+              what + " stands that way from the aeroplane: " +
+                  std::to_string(in_body[static_cast<std::size_t>(e.axis)]) +
+                  " m along axis " + std::to_string(e.axis));
+        // ...and looks back at it: the way it looks is the negative of its
+        // third column, and the aeroplane is that way.
+        const auto& c = camera.world_from_camera.m;
+        const double towards =
+            -c[6] * (-from.x) - c[7] * (-from.y) - c[8] * (-from.z);
+        check(towards > 0.0, what + " looks at the aeroplane");
+        ++placed;
+    }
+    check(placed == 5, "five outside views stand where their names say");
+
+    // The orbit goes round: half a turn from where it started is the other
+    // side of the aeroplane, and a whole turn is back where it began.
+    const glideslope::gfx::Camera start =
+        glideslope::gfx::camera_for(View::orbit, p, radius, eye, 0.0);
+    const glideslope::gfx::Camera half = glideslope::gfx::camera_for(
+        View::orbit, p, radius, eye, 3.14159265358979323846);
+    const glideslope::gfx::Camera round = glideslope::gfx::camera_for(
+        View::orbit, p, radius, eye, 2.0 * 3.14159265358979323846);
+    check(apart(start.position, half.position) > radius * 4.0,
+          "half an orbit is the other side of the aeroplane: " +
+              std::to_string(apart(start.position, half.position)) + " m");
+    check(apart(start.position, round.position) < 0.001,
+          "a whole orbit is back where it began: " +
+              std::to_string(apart(start.position, round.position)) + " m");
 }

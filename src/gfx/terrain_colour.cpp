@@ -36,7 +36,7 @@ world::Ecef up_at(double latitude_deg, double longitude_deg) {
             std::sin(phi)};
 }
 
-double terrain_light(const world::Ecef& normal, const world::Ecef& up) {
+world::Ecef sun_from(const world::Ecef& up) {
     // The sun, in the local east-north-up frame: from azimuth 315 (north-west),
     // 45 degrees up. East is up x the pole, and north completes the frame; at a
     // pole, where that is undefined, east is taken along x.
@@ -54,11 +54,19 @@ double terrain_light(const world::Ecef& normal, const world::Ecef& up) {
     const double sun_east = -s * s;
     const double sun_north = s * s;
     const double sun_up = s;
-    const double lit = std::max(
-        0.0, normal.x * (sun_east * east.x + sun_north * north.x + sun_up * up.x) +
-                 normal.y * (sun_east * east.y + sun_north * north.y + sun_up * up.y) +
-                 normal.z * (sun_east * east.z + sun_north * north.z + sun_up * up.z));
-    return 0.35 + 0.65 * lit / sun_up; // level ground at full light
+    return {sun_east * east.x + sun_north * north.x + sun_up * up.x,
+            sun_east * east.y + sun_north * north.y + sun_up * up.y,
+            sun_east * east.z + sun_north * north.z + sun_up * up.z};
+}
+
+double light_on(const world::Ecef& normal, const world::Ecef& sun) {
+    const double lit = std::max(0.0, normal.x * sun.x + normal.y * sun.y +
+                                         normal.z * sun.z);
+    return 0.35 + 0.65 * lit / std::sqrt(0.5); // level ground at full light
+}
+
+double terrain_light(const world::Ecef& normal, const world::Ecef& up) {
+    return light_on(normal, sun_from(up));
 }
 
 std::array<float, 4> terrain_colour(double height_above_sea_level_m,

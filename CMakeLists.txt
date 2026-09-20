@@ -199,13 +199,20 @@ target_link_libraries(glideslope_input PUBLIC glideslope_sim SDL3::SDL3-static)
 glideslope_configure(glideslope_input)
 
 # ---------------------------------------------------------------------------
-# The aircraft visual models, read from the files tools/make_models.py makes.
-# Its own library because it is presentation but links nothing presentational,
-# so the unit tests can read a model without SDL or Cesium Native behind them.
+# The drawing that draws nothing: the aircraft visual models tools/make_models.py
+# makes, where each sits on its aeroplane and the views of it, the scene's
+# geometry - placements, cameras and the projection - and the terrain's colours
+# and light. Its own library because it is presentation that links nothing
+# presentational, so the unit tests hold all of it without SDL or Cesium Native
+# behind them, and glideslope_gfx is the part that needs a GPU.
 # ---------------------------------------------------------------------------
 add_library(glideslope_model STATIC
-    src/gfx/model.cpp)
+    src/gfx/aircraft.cpp
+    src/gfx/model.cpp
+    src/gfx/scene.cpp
+    src/gfx/terrain_colour.cpp)
 target_include_directories(glideslope_model PUBLIC src)
+target_link_libraries(glideslope_model PUBLIC glideslope_world)
 glideslope_configure(glideslope_model)
 
 # ---------------------------------------------------------------------------
@@ -214,9 +221,7 @@ glideslope_configure(glideslope_model)
 add_library(glideslope_gfx STATIC
     src/gfx/hud.cpp
     src/gfx/renderer.cpp
-    src/gfx/scene.cpp
     src/gfx/sky.cpp
-    src/gfx/terrain_colour.cpp
     src/gfx/terrain_tiles.cpp)
 target_include_directories(glideslope_gfx PUBLIC src)
 target_link_libraries(glideslope_gfx PUBLIC SDL3::SDL3-static glideslope_world

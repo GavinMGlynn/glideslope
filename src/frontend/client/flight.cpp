@@ -1,5 +1,6 @@
 #include "flight.hpp"
 
+#include "gfx/terrain_colour.hpp"
 #include "sim/terrain.hpp"
 #include "world/download.hpp"
 #include "world/geodesy.hpp"
@@ -11,6 +12,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <stdexcept>
 
 namespace glideslope::client {
@@ -67,6 +69,26 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
 
     aircraft_entry_ = sim::find_aircraft(data, start.aircraft);
     aircraft_ = std::make_unique<sim::Aircraft>(data / "jsbsim", aircraft_entry_.model);
+
+    // Its visual model, where it ships one: two aircraft do not, because
+    // FlightGear has no Learjet 35A and no F-35A, and docs/ASSETS.md says so.
+    // Where there is one, there is an alignment saying where it sits on this
+    // aeroplane, and a model without one is a mistake rather than an absence.
+    const std::filesystem::path mesh =
+        data / "models" / (aircraft_entry_.id + ".mesh");
+    if (std::filesystem::exists(mesh)) {
+        model_ = gfx::read_model(mesh);
+        model_radius_ = gfx::model_radius(*model_);
+        const std::map<std::string, gfx::ModelAlignment> aligned =
+            gfx::read_alignments(data / "models" / "alignment.txt");
+        const auto found = aligned.find(aircraft_entry_.id);
+        if (found == aligned.end()) {
+            throw std::runtime_error(aircraft_entry_.id +
+                                     " has a visual model and no alignment in "
+                                     "models/alignment.txt");
+        }
+        alignment_ = found->second;
+    }
     const std::shared_ptr<world::Dem> dem = dem_;
     aircraft_->set_terrain(std::make_shared<sim::FunctionTerrain>(
         [dem](double lat, double lon) { return dem->height_above_ellipsoid(lat, lon); },
@@ -221,7 +243,7 @@ void Flight::refresh_weather() {
     }
 }
 
-gfx::Camera Flight::camera() const {
+Flight::Axes Flight::axes() const {
     const sim::AircraftState s = aircraft_->state();
     const double lat = s.latitude_deg * radians;
     const double lon = s.longitude_deg * radians;
@@ -240,20 +262,79 @@ gfx::Camera Flight::camera() const {
     const double cr = std::cos(s.roll_deg * radians);
     const double sr = std::sin(s.roll_deg * radians);
     // The body's axes in north-east-down: forward, right and down.
-    const world::Ecef forward = ned(ct * cp, ct * sp, -st);
-    const world::Ecef right =
-        ned(sr * st * cp - cr * sp, sr * st * sp + cr * cp, sr * ct);
-    const world::Ecef body_down =
-        ned(cr * st * cp + sr * sp, cr * st * sp - sr * cp, cr * ct);
-
-    gfx::Camera camera;
-    camera.position =
+    Axes a;
+    a.forward = ned(ct * cp, ct * sp, -st);
+    a.right = ned(sr * st * cp - cr * sp, sr * st * sp + cr * cp, sr * ct);
+    a.down = ned(cr * st * cp + sr * sp, cr * st * sp - sr * cp, cr * ct);
+    a.position =
         world::to_ecef({s.latitude_deg, s.longitude_deg,
                         aircraft_->property("position/geod-alt-ft") * 0.3048});
-    camera.world_from_camera =
-        gfx::Mat3::columns(right, scale(body_down, -1.0), scale(forward, -1.0));
-    camera.near_m = 0.3;
-    return camera;
+    return a;
+}
+
+std::array<double, 3> Flight::from_model_origin(const char* what) const {
+    // JSBSim's structural frame is +x aft, +y starboard, +z up, in inches;
+    // the body frame is +x forward, +y starboard, +z down, in metres. The
+    // model's origin is the visual reference point moved by the alignment,
+    // so a structural point is measured from the reference point and the
+    // alignment taken off it.
+    constexpr double metres_per_inch = 0.0254;
+    const auto inches = [&](const std::string& name) {
+        return std::array<double, 3>{aircraft_->property("metrics/" + name + "-x-in"),
+                                     aircraft_->property("metrics/" + name + "-y-in"),
+                                     aircraft_->property("metrics/" + name + "-z-in")};
+    };
+    const std::array<double, 3> point = inches(what);
+    const std::array<double, 3> vrp = inches("visualrefpoint");
+    return {-(point[0] - vrp[0]) * metres_per_inch - alignment_.offset[0],
+            (point[1] - vrp[1]) * metres_per_inch - alignment_.offset[1],
+            -(point[2] - vrp[2]) * metres_per_inch - alignment_.offset[2]};
+}
+
+gfx::Placement Flight::model_placement() const {
+    const Axes a = axes();
+    // JSBSim reports the aircraft's position at its centre of gravity; the
+    // model is drawn about the visual reference point, moved by the
+    // alignment. See gfx/model.hpp.
+    constexpr double metres_per_inch = 0.0254;
+    const auto at = [&](const char* name, const char* axis) {
+        return aircraft_->property(std::string("metrics/") + name + axis);
+    };
+    const double cg_x = aircraft_->property("inertia/cg-x-in");
+    const double cg_y = aircraft_->property("inertia/cg-y-in");
+    const double cg_z = aircraft_->property("inertia/cg-z-in");
+    const std::array<double, 3> origin_in_body{
+        -(at("visualrefpoint", "-x-in") - cg_x) * metres_per_inch +
+            alignment_.offset[0],
+        (at("visualrefpoint", "-y-in") - cg_y) * metres_per_inch +
+            alignment_.offset[1],
+        -(at("visualrefpoint", "-z-in") - cg_z) * metres_per_inch +
+            alignment_.offset[2]};
+    gfx::Placement placement;
+    placement.origin = add(a.position,
+                           add(add(scale(a.forward, origin_in_body[0]),
+                                   scale(a.right, origin_in_body[1])),
+                               scale(a.down, origin_in_body[2])));
+    placement.world_from_local = gfx::Mat3::columns(a.forward, a.right, a.down);
+    return placement;
+}
+
+world::Ecef Flight::sun_in_body() const {
+    const sim::AircraftState s = aircraft_->state();
+    const world::Ecef sun =
+        gfx::sun_from(gfx::up_at(s.latitude_deg, s.longitude_deg));
+    const Axes a = axes();
+    // The same vector in the body frame: its components along the body's own
+    // axes, which is the transpose of the rotation that takes body to world.
+    return {a.forward.x * sun.x + a.forward.y * sun.y + a.forward.z * sun.z,
+            a.right.x * sun.x + a.right.y * sun.y + a.right.z * sun.z,
+            a.down.x * sun.x + a.down.y * sun.y + a.down.z * sun.z};
+}
+
+gfx::Camera Flight::camera(gfx::View view, double orbit_rad) const {
+    const gfx::Placement placement = model_placement();
+    return gfx::camera_for(view, placement, model_radius_,
+                           from_model_origin("eyepoint"), orbit_rad);
 }
 
 gfx::HudReadings Flight::hud() const {
