@@ -205,6 +205,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
     a_dem_tile_is_fetched_once_checked_against_its_etag_and_read_from_the_cache_after
     a_dem_tile_that_arrives_damaged_missing_or_not_at_all_is_refused_and_not_kept
+    several_fetches_of_one_file_at_once_all_end_with_it
     a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash
     level_terrain_holds_an_aircraft_exactly_as_jsbsims_own_ground_does
     an_aircraft_set_down_on_a_slope_rests_tilted_by_the_slope
@@ -281,12 +282,14 @@ set_tests_properties(
     the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
     an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
     PROPERTIES FIXTURES_REQUIRED downloads)
-# Twelve tiles, fetched by the first of the two the first time.
+# Twelve tiles, fetched by the first to want them; two tests fetching the same
+# tile at once is safe (src/world/download.cpp), so none of these waits on
+# another.
 set_tests_properties(
     the_dem_meets_surveyed_airfields_and_coastlines_within_its_stated_accuracy
     the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
     an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
-    PROPERTIES TIMEOUT 1800 RESOURCE_LOCK dem_downloads)
+    PROPERTIES TIMEOUT 1800)
 
 # The committed DEM coverage is what the pinned tile lists make.
 add_test(NAME the_committed_dem_coverage_is_what_the_pinned_tile_lists_make
@@ -454,7 +457,7 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
     set_tests_properties(the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
-        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME the_hud_shows_a_jets_mach_and_flight_level_at_the_tick_it_was_shot_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_hud_check>
@@ -462,21 +465,21 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud_jet.cmake)
     set_tests_properties(the_hud_shows_a_jets_mach_and_flight_level_at_the_tick_it_was_shot_on_${_driver}
-        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME the_client_flies_the_aircraft_it_is_given_in_the_air_or_on_the_ground_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
             -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_aircraft.cmake)
     set_tests_properties(the_client_flies_the_aircraft_it_is_given_in_the_air_or_on_the_ground_on_${_driver}
-        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME the_clients_ai_flies_a_flight_plan_past_every_waypoint_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
             -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_autopilot.cmake)
     set_tests_properties(the_clients_ai_flies_a_flight_plan_past_every_waypoint_on_${_driver}
-        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME a_shot_of_mount_taranaki_matches_the_dem_ray_cast_from_the_same_eye_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_terrain_check>
@@ -484,7 +487,7 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain.cmake)
     set_tests_properties(a_shot_of_mount_taranaki_matches_the_dem_ray_cast_from_the_same_eye_on_${_driver}
-        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME a_shot_of_mount_taranaki_drapes_the_open_imagery_where_it_belongs_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_terrain_check>
@@ -492,7 +495,7 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR} -DIMAGERY=ON
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain.cmake)
     set_tests_properties(a_shot_of_mount_taranaki_drapes_the_open_imagery_where_it_belongs_on_${_driver}
-        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME a_reports_cloud_visibility_and_rain_are_drawn_where_it_puts_them_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DCLI=$<TARGET_FILE:glideslope_cli>
@@ -502,7 +505,7 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_weather.cmake)
     set_tests_properties(a_reports_cloud_visibility_and_rain_are_drawn_where_it_puts_them_on_${_driver}
-        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads RESOURCE_LOCK dem_downloads)
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME a_distant_mountain_and_a_nearby_aircraft_draw_with_no_z_fighting_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}

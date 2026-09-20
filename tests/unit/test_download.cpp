@@ -5,8 +5,12 @@
 #include "world/digest.hpp"
 #include "world/download.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <thread>
 #include <string>
 #include <vector>
 
@@ -99,6 +103,46 @@ GLIDESLOPE_TEST(
     again.open(DemDataset::glo30, {-34, 151});
     check(again.downloads() == 0 && bucket.asked.size() == 1,
           "a second run reads the cache and asks nothing");
+}
+
+// Tests, flights and the terrain fetch the same files at the same time; every
+// one of them must end with the file, and none of them with a half-written
+// one or another's temporary name.
+GLIDESLOPE_TEST(several_fetches_of_one_file_at_once_all_end_with_it) {
+    const auto cache = scratch("at-once");
+    const std::vector<std::uint8_t> body = small_tile();
+    const std::string sha = glideslope::world::sha256_hex(body);
+    // Its own answer, holding nothing the threads share.
+    const glideslope::world::Fetch fetch = [&body](const std::string&) {
+        HttpResponse r;
+        r.status = 200;
+        r.body = body;
+        return r;
+    };
+    std::vector<std::thread> fetchers;
+    std::atomic<int> got{0};
+    for (int i = 0; i < 4; ++i) {
+        fetchers.emplace_back([&] {
+            const std::filesystem::path path = glideslope::world::fetch_pinned(
+                cache, "tile.tif", "https://example.invalid/tile.tif", sha, fetch);
+            if (std::filesystem::exists(path)) {
+                ++got;
+            }
+        });
+    }
+    for (std::thread& t : fetchers) {
+        t.join();
+    }
+    check(got == 4, "all four fetches ended with the file");
+    std::ifstream in(cache / "tile.tif", std::ios::binary);
+    const std::vector<std::uint8_t> kept((std::istreambuf_iterator<char>(in)),
+                                         std::istreambuf_iterator<char>());
+    check(kept == body, "the file kept is what the bucket sent, whole");
+    int leftovers = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(cache)) {
+        leftovers += entry.path().filename().string().find(".part") != std::string::npos;
+    }
+    check(leftovers == 0, "no half-written file is left behind");
 }
 
 GLIDESLOPE_TEST(

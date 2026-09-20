@@ -2,8 +2,10 @@
 
 #include "world/digest.hpp"
 
+#include <atomic>
 #include <cctype>
 #include <fstream>
+#include <random>
 #include <system_error>
 #include <thread>
 
@@ -13,6 +15,13 @@ namespace {
 
 // Written beside its final name and renamed into place, so a download cut
 // short never leaves a file that looks whole.
+//
+// **Two at once fetch the same file.** Tests run in parallel, and a flight
+// and the terrain fetch the same tiles, so the name written to is this
+// writer's alone - no two share a half-written file - and a file already in
+// place is left as it is: what is there is what was asked for, pinned by its
+// hash or checked against its ETag, and on Windows renaming over a file
+// another process is reading fails.
 void write_whole(const std::filesystem::path& path,
                  const std::vector<std::uint8_t>& bytes) {
     std::error_code error;
@@ -21,8 +30,10 @@ void write_whole(const std::filesystem::path& path,
         throw DemError("cannot create " + path.parent_path().string() + ": " +
                        error.message());
     }
+    static std::atomic<unsigned long long> writes{0};
     std::filesystem::path part = path;
-    part += ".part";
+    part += ".part." + std::to_string(std::random_device{}()) + "-" +
+            std::to_string(writes++);
     {
         std::ofstream out(part, std::ios::binary | std::ios::trunc);
         out.write(reinterpret_cast<const char*>(bytes.data()),
@@ -32,10 +43,17 @@ void write_whole(const std::filesystem::path& path,
             throw DemError("cannot write " + part.string());
         }
     }
+    if (std::filesystem::exists(path)) {
+        std::filesystem::remove(part, error);
+        return;
+    }
     std::filesystem::rename(part, path, error);
     if (error) {
         std::filesystem::remove(part, error);
-        throw DemError("cannot move " + part.string() + " into place");
+        // Another writer put it there between the two calls above.
+        if (!std::filesystem::exists(path)) {
+            throw DemError("cannot move " + part.string() + " into place");
+        }
     }
 }
 
