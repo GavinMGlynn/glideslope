@@ -87,7 +87,7 @@ of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
 and 35363959900): the same air on every machine, a METAR's gusts flown, the
 wind near the ground as a boundary layer, reported wind shear, microbursts,
 thermals and mountain waves, and weather you can see. **Phase 5, aircraft
-choice, is under way: 12 of 15 items done** - aircraft as data; the
+choice, is under way: 13 of 15 items done** - aircraft as data; the
 Mosquito FB Mk VI, written here from its trials and Pilot's Notes and held to
 fourteen of their figures, proved in CI on every platform (runs 35387301607
 and 35409102752); the light aircraft from JSBSim's models - the Cessna 182S,
@@ -105,9 +105,9 @@ on the ground (CI run 35442214130); the HUD's Mach number and flight level
 for a fast aircraft; and water where the DEM's water body mask says it is,
 on which a landplane ditches (CI run 35449051367); and the Short S.23
 Empire flying boat, which takes off from the sea and from a lake, alights on
-water and comes to rest afloat (CI run 35472220036). Visual models from FlightGear's
-aircraft are under way and not done: eight of the sixteen ship one, nothing
-draws them yet, and six more are to come - see the log.
+water and comes to rest afloat (CI run 35472220036). Fourteen of the sixteen ship a
+visual model from FlightGear's aircraft, licensed and tested as data;
+nothing draws any of them yet - see the log.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -174,11 +174,12 @@ are the risks the phase order is built around:
   striking the water, floating, sinking - is modelled. And seven of the
   models have no structure contact points: with their wheels up they pass
   through a runway, which a tail in `COMPLETION_PLAN.md` puts right.
-- **Eight aircraft have a visual model on disk, and nothing draws any of
+- **Fourteen aircraft have a visual model on disk, and nothing draws any of
   them.** The models are converted, licensed and tested as data; the renderer
   has never been handed one, no model's origin is aligned to its flight
-  model's, none carries a texture or an animation, and six more aircraft are
-  still to be added on the basis decided on 2026-09-20. See the log.
+  model's, and none carries a texture or an animation. The Learjet 35A and
+  the F-35A have no model, because FlightGear has none of either. See the
+  log.
 - **The DEM is not thread-safe.** One `world::Dem` caches tiles and blocks as it
   goes; whoever shares one between threads must lock it.
 
@@ -186,21 +187,22 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Visual models from FlightGear's aircraft, 2026-09-20 — under way, not done
+### Visual models from FlightGear's aircraft, 2026-09-20 — item done
 
 Phase 5's "visual models from FlightGear aircraft, each licence checked" is
-begun. **Eight of the sixteen aircraft ship a model, nothing draws one yet,
-and six more are still to come** - see "what is left" below.
+done. **Fourteen of the sixteen aircraft ship a visual model, and nothing
+draws any of them yet** - the renderer has never been handed one, and that is
+the views item.
 
 `tools/make_models.py` fetches FlightGear's aircraft, follows their model XML
-to the AC3D geometry, flattens each aircraft's exterior into one mesh in the
-body frame and writes `assets/models/<model>.mesh`. Every file it reads is
-pinned by URL and SHA-256 in `assets/models/sources.txt`, in the four-field
-form `tests/cmake/fetch.cmake` reads, so the test fetches exactly what the
-script converted. `src/gfx/model.cpp` reads the meshes back; it is its own
-library, `glideslope_model`, because it is presentation that links nothing
-presentational, so the unit tests read a model without SDL or Cesium Native
-behind them.
+to the geometry, flattens each aircraft's exterior into one mesh in the body
+frame and writes `assets/models/<model>.mesh`. Every file it reads is pinned
+by URL and SHA-256 in `assets/models/sources.txt` - 69 of them now - in the
+four-field form `tests/cmake/fetch.cmake` reads, so the test fetches exactly
+what the script converted. `src/gfx/model.cpp` reads the meshes back; it is
+its own library, `glideslope_model`, because it is presentation that links
+nothing presentational, so the unit tests read a model without SDL or Cesium
+Native behind them.
 
 | Model | Triangles | Length | Published | Span | Published |
 | --- | --- | --- | --- | --- | --- |
@@ -212,81 +214,123 @@ behind them.
 | 747-400 | 24,382 | 70.94 m | 70.66 | 65.42 m | 64.44 |
 | 787-8 | 28,759 | 56.68 m | 56.72 | 59.60 m | 60.12 |
 | a320 | 107,449 | 37.61 m | 37.57 | 35.77 m | 35.80 |
+| a380 | 17,278 | 73.51 m | 72.72 | 79.78 m | 79.75 |
+| b2 | 5,612 | 21.21 m | 21.03 | 52.20 m | 52.43 |
+| f15c | 162,347 | 19.51 m | 19.43 | 12.60 m | 13.05 |
+| f22 | 29,949 | 18.92 m | 18.92 | 13.56 m | 13.56 |
+| mosquito-fb6 | 12,506 | 12.49 m | 12.55 | 16.26 m | 16.51 |
+| short_s23 | 85,604 | 26.82 m | 26.82 | 34.72 m | 34.75 |
 
-9.5 MiB in all. Positions are quantised to 16 bits across each model's own
+16 MiB in all. Positions are quantised to 16 bits across each model's own
 bounding box - under a millimetre on the largest - normals to signed bytes and
 colours to unsigned, which is what keeps that figure down.
 
-**What it took.** FlightGear's model XML composes an airframe out of parts,
-and most of what it composes is not the airframe: the Cub's XML carries a
-PA-18 as well, and skis, floats, a bush kit, damage states, tyre smoke,
-spray, an interior, a pilot, chocks and tiedowns; the 747's carries a
-pushback tug and eight light cones. FlightGear hides them with animations,
-which this does not interpret, so the walk is an allow-list - the entry XML's
-own geometry and only the children named per aircraft - and each list is
-short. More of it hides *inside* the `.ac`: safety cones stand under the
-737's and 747's wings, and the Cessna 182's chocks, pitot cover and winter
-kit are objects in its file. The 182's cones set its span 7.6% over its
-published figure, which is how they were found; each aircraft now names the
-objects to leave out, and objects whose name holds "hotspot" - FlightGear's
-invisible boxes for the mouse - go everywhere. A model XML's own `<path>` had
-to be read from outside its `<model>` children, or the 747's geometry is a
-pushback tug's, and `<PropertyList include="...">` followed, or the PA-28-180
-has no geometry at all: its model XML is nothing but that line.
+**The six that state no licence.** Eight of the fourteen come from a
+FlightGear directory that states its terms, quoted per model in
+`docs/ASSETS.md` with its source and revision - FGAddon at Subversion r21588,
+and the c172p from the c172p team's own repository at commit `84477612`. The
+other six - the A380, B-2, F-15, F-22, Mosquito and Short Empire - state none
+at any level of their directory, and **the project owner decided on 2026-09-20
+that they ship on FGAddon's project-wide requirement that its content is
+GPL**, recorded in `ASSETS.md` as the basis: a policy, not a grant by the
+author. Each entry also names what was looked at and found - which file names
+the author, and what it says. One of the six turned out to say more than the
+first pass found: the Short Empire's `Short_Empire-set.xml` and its model XML
+each carry "Copyright (C) 2007 - 2025 Anders Gidenstam ... This file is
+licensed under the GPL license version 2 or later", which is a grant, but it
+is on those two files and not on the geometry, and its `AUTHORS` credits the
+propeller models to the Boeing 314 and the engine model to the Lockheed-Vega
+without terms. Two aircraft have no FlightGear model at all: there is no
+Learjet of any mark in FGAddon, and the only F-35 is the F-35B, a different
+airframe with a lift fan.
 
-**The frames.** A FlightGear `.ac` is authored with +X aft, +Y up and +Z to
-port, and the XML's `<offsets>` are a different frame again, +x aft, +y
-starboard, +z up. Geometry maps to the body frame as (x, y, z) -> (-X, -Z,
--Y), which is a rotation and not a mirror, and an offset as (-x, y, -z).
-Nothing was assumed: a test holds every model to its published length and
-span within 5%, and pins which way it faces - the aft seventh of an aeroplane
-is wider than its nose, and its highest point is its fin, in the aft seventh.
-Both were watched to fail, against a model mirrored nose-to-tail (6.32 m wide
-at the nose against 1.96 at the tail) and one turned upside down (its highest
-point 52.8% of the way from the tail).
+**The A380 needed a second geometry format.** Its fuselage and wing are AC3D
+like every other aircraft here, but its horizontal tailplane, its four pylons
+and its four engines are 3D Studio (`.3ds`), and without them it was a
+fuselage and a wing. The script now reads both: a .3ds is a tree of chunks,
+each a 16-bit identifier and a 32-bit length that counts its own header, and
+only the chunks geometry needs are read. AC3D is authored with up along +Y
+and 3D Studio with up along +Z, so a .3ds in the same aircraft is the AC3D
+frame turned a quarter circle about X - the turn that keeps up pointing up,
+since the other one would put it underground. Read as if it were AC3D, the
+A380's tailplane is 2 m across and 30 m thick; read properly it is 30.38 m
+across, against a published 30.37, and its pylons at 14.8 m either side come
+out as exact mirrors of each other.
 
-**Licences.** Eight of the fourteen FlightGear aircraft that have a model
-state a licence in their own directory: the GNU GPL v2 or v3 text verbatim in
-`COPYING`, `LICENSE` or `copying.txt`, quoted per model in `docs/ASSETS.md`
-with its source and revision - FGAddon at Subversion r21588, and the c172p
-from the c172p team's own repository at commit `84477612`. Six stated none at
-any level of their directory: the A380, B-2, F-15, F-22, Mosquito and Short
-Empire. **Decided 2026-09-20 by the project owner: those six ship too, on
-FlightGear's project-wide requirement that FGAddon content is GPL, recorded
-in `ASSETS.md` as the basis - a policy, not a grant by the author.** That is
-not done yet; see below. Two aircraft have no FlightGear model at all: there
-is no Learjet of any mark in FGAddon, and the only F-35 is the F-35B, a
-different airframe with a lift fan.
+**A file's offsets place everything in that file**, its own geometry and its
+`<model>` children alike, and the script applied them only to its own
+geometry. The Short Empire found it: its model XML turns the aeroplane
+through 180 degrees, so its four engines stood six metres ahead of the bow.
+They now sit on the cowlings and nacelles its hull already carries. The same
+bug had the A320's fuselage not getting the 0.831 m rise its engines were
+given by `A320-common.xml` - a file with that offset and no geometry of its
+own, which is the proof that the offset is meant for the children - so its
+engines rode 0.831 m high. `a320.mesh` changes with this commit for that
+reason and no other; its triangle count, length and span are unchanged.
 
-**What is left, to pick up from.**
+**The model XML is parsed, not searched.** The script used to find tags by
+searching the text, which meant stripping comments and Nasal by hand because
+Nasal is code and can hold anything that looks like a tag. It now parses with
+the standard library's ElementTree: comments go on their own, and Nasal is
+skipped as the structure it is not. libxml2 through lxml would do as well and
+is not installed; expat is in the standard library and this script is to have
+no dependency of its own. The change was held to producing the eight existing
+meshes byte for byte before anything else was done to it. It matters: the
+A380's Nasal is not inside CDATA, so its jetway doors are real elements in
+the tree.
 
-1. **The six above**, on the basis the owner decided. `tools/make_models.py`
-   already holds their FGAddon directories in `UNLICENSED`, with what was
-   looked at; each needs moving into `AIRCRAFT` with its entry XML, its
-   `include` list and its `objects_out`, found with `--list`, and then
-   `--refresh` to re-pin, `docs/ASSETS.md` entries moved from "no visual
-   model" to "visual model" with the policy as the licence, and the two
-   counts in `tests/unit/test_model.cpp` moved from eight to fourteen.
-2. **Nothing draws a model.** They are data on disk; the renderer has not
+**What each aircraft leaves out.** The walk is an allow-list - the entry
+XML's own geometry and only the children named per aircraft - because
+FlightGear hides the rest with animations this does not interpret. The six
+new ones add: the A380's pushback tug, cabin, flight deck and light cones
+left out and its wing, tailplane, belly fairing, pylons and engines taken;
+the F-15C's missiles, bombs, rails and drop tanks, which are a payload
+FlightGear picks and not the airframe, and its boarding ladder; the
+Mosquito's propeller blades taken from `pdisk.ac`, because its airframe
+carries hubs and no blades, without the two discs FlightGear blurs them into;
+and the Short Empire's four propellers, four Pegasus Xc engines and cowling
+gills taken, without their blur discs.
+
+**The facing tests had to grow two exceptions.** Every model was held to
+being wider at the tail than at the nose and to its highest point being its
+fin. Neither holds for all fourteen: the Mosquito's two propellers stand at
+its nose and are 3.8 m across, wider than its tailplane, and the B-2 is a
+flying wing with no fin at all, whose highest point is its cockpit, 28% of
+the way from the nose. The test now states both facts, names which model is
+excused which and why, and counts that exactly one is excused each.
+
+| Fact | Held to | Narrowest | Widest |
+| --- | --- | --- | --- |
+| The aft seventh is 1.3x wider than the forward seventh | all but the Mosquito, which measures 0.77 | the Cub and the c172p, 1.56 | the F-15C, 7.03 |
+| The aft seventh reaches higher than the forward seventh by a fiftieth of the model's height | all but the B-2, which measures -21.2% | the F-22, 5.4% | the A380, 58.9% |
+| It stands on its undercarriage: the lowest tenth spreads further along it than the highest tenth | the B-2 alone, 55% against 39% | - | - |
+
+The B-2's rule is its alone because a taildragger drawn level has its
+tailwheel well above its main wheels: the Cub's lowest tenth is its two main
+wheels and spreads over 7% of it.
+
+**What is left, and named elsewhere.**
+
+1. **Nothing draws a model.** They are data on disk; the renderer has not
    been given one. That is the views item.
-3. **No model's origin is aligned to its flight model's.** Each mesh is in
+2. **No model's origin is aligned to its flight model's.** Each mesh is in
    its FlightGear aircraft's own frame, and that aircraft carries its own
    FDM: the Cub's and the 747's wheels land within 0.14 m of where JSBSim's
    contact points put them, but the c172p's are 1.03 m out and the A320's
    0.78 m. Placing a model on the aeroplane glideslope flies needs that
    offset per aircraft, measured and recorded; the views item is where it
    shows.
-4. **No texture, so no livery**, and a surface takes the flat diffuse colour
-   of its AC3D material. Liveries are large and separately licensed, and the
-   renderer has no texture path for a model yet.
-5. **No animation.** Control surfaces, gear and propellers are welded where
-   the model has them, gear down, propeller disc in place.
-6. **The PA-28 is the wrong mark.** FlightGear has a PA-28-161 Warrior II;
+3. **No texture, so no livery**, and a surface takes the flat diffuse colour
+   of its AC3D or 3D Studio material. Liveries are large and separately
+   licensed, and the renderer has no texture path for a model yet.
+4. **No animation.** Control surfaces, gear and propellers are welded where
+   the model has them, gear down, propeller blades in place.
+5. **The PA-28 is the wrong mark.** FlightGear has a PA-28-161 Warrior II;
    glideslope's flight model is the PA-28-180 Cherokee, which has the
    constant-chord wing rather than the Warrior's tapered one.
    `docs/ASSETS.md` says so.
 
-**Verification run.** Locally, 268 of 268 tests pass in 347 s at `-j4`. The
+**Verification run.** Locally, 268 of 268 tests pass in 416 s at `-j4`. The
 five checks are `every_visual_model_that_ships_is_named_in_assets_md_with_its_source_revision_and_licence`,
 `every_aircraft_the_data_holds_has_a_visual_model_or_a_named_reason`,
 `each_visual_model_is_its_aircrafts_size_and_faces_the_way_it_flies`,
@@ -296,7 +340,14 @@ was watched to fail: a licence row removed from an entry, a whole entry
 removed, an aircraft's reason for having no model removed, an entry naming a
 model that does not ship, a model mirrored, a model inverted, a committed
 mesh with a byte flipped, and - with the reader's own checks broken in turn -
-a model cut short and one holding an index past its vertices.
+a model cut short and one holding an index past its vertices. The three
+facing facts were each watched to fail on a deliberately broken model in this
+round: the Mosquito mirrored nose to tail reaches 18.2% lower at its tail,
+the c172p mirrored is 0.95 m wide at the tail against 1.77 at the nose, the
+B-2 mirrored is 3.96 m wide at the tail against 26.12 at the nose, the F-22
+turned upside down reaches 4.9% lower at its tail, and the B-2 turned upside
+down spreads 39.0% at its lowest tenth against 55.4% at its highest. Removing
+`a380.mesh` from the built data was watched to fail the two entry checks.
 
 ### The Short S.23 on water, 2026-09-20 — item done (CI run 35472220036)
 

@@ -2,11 +2,12 @@
 """make_models.py - glideslope's aircraft visual models, made from FlightGear's.
 
 JSBSim supplies flight dynamics and nothing to look at. The visual models come
-from FlightGear's aircraft, whose geometry is AC3D (`.ac`) placed by FlightGear
-model XML. This script fetches the pinned files, flattens each aircraft's
-exterior into one mesh in glideslope's body frame, and writes it to
-assets/models/<model>.mesh. The committed output is checked against it by a
-test; to change a model, change this script and run it.
+from FlightGear's aircraft, whose geometry is AC3D (`.ac`), and for the A380
+also 3D Studio (`.3ds`), placed by FlightGear model XML. This script fetches
+the pinned files, flattens each aircraft's exterior into one mesh in
+glideslope's body frame, and writes it to assets/models/<model>.mesh. The
+committed output is checked against it by a test; to change a model, change
+this script and run it.
 
     python3 tools/make_models.py --refresh   re-read the sources and re-pin them
     python3 tools/make_models.py             write the meshes from the cache
@@ -18,22 +19,31 @@ what this script did. `--refresh` is the only mode that reaches the network:
 it walks each aircraft's model XML, discovers the files, and rewrites that
 list. The other two modes read the cache and fail if a pinned file is missing.
 
-**Which aircraft ship a model, and which do not.** FlightGear has no model for
-the Learjet 35A, and none of the F-35A - only the F-35B, a different airframe
-with a lift fan - so those two have none. Six more have a FlightGear model
-whose directory states no licence at all: the A380, B-2, F-15, F-22, Mosquito
-and Short Empire. FGAddon's own policy is that its aircraft are GPL, but a
-policy is not a licence grant by the author, and docs/ASSETS.md records terms
-quoted from the source. Those six are listed in UNLICENSED below with what
-was looked at, and no model of them ships. That leaves eight.
+**Which aircraft ship a model, and which do not.** Fourteen of the sixteen do.
+FlightGear has no model for the Learjet 35A, and none of the F-35A - only the
+F-35B, a different airframe with a lift fan - so those two have none. Eight
+state a licence in their own directory. The other six - the A380, B-2, F-15,
+F-22, Mosquito and Short Empire - state none at any level, and ship on
+FGAddon's project-wide requirement that its content is GPL, which is a policy
+and not a grant by the author; see POLICY below, and docs/ASSETS.md, which
+records for every model the terms its source states, or that it states none.
 
 **The frames.** An AC3D file from FlightGear is authored with +X aft, +Y up
 and +Z to port; this was checked against every model's published span, length
-and height, which a test pins. FlightGear's model XML <offsets> are a
-different frame again: +x aft, +y starboard, +z up. glideslope's body frame is
-JSBSim's - +x forward, +y starboard, +z down - so geometry is mapped
-(x, y, z) -> (-X, -Z, -Y), a rotation and not a mirror, and an offset
-(x, y, z) -> (-x, y, -z).
+and height, which a test pins. A 3D Studio file in the same aircraft is that
+frame turned a quarter circle about X, because 3D Studio puts up along +Z:
++X aft, +Y starboard, +Z up. FlightGear's model XML <offsets> are a frame
+again: +x aft, +y starboard, +z up. glideslope's body frame is JSBSim's -
++x forward, +y starboard, +z down - so AC3D geometry is mapped
+(x, y, z) -> (-X, -Z, -Y) and 3D Studio geometry (x, y, z) -> (-X, Y, -Z),
+each a rotation and not a mirror, and an offset (x, y, z) -> (-x, y, -z).
+
+An <offsets> in a file places everything that file contributes: its own
+geometry and its <model> children alike. A320-common.xml is the proof - it
+carries an offset and no geometry of its own, so the offset can only be for
+its children - and the Short Empire is what it costs to get wrong: its model
+XML turns the aeroplane through 180 degrees, and its engines are written in
+the frame that turn leaves.
 
 **What is left out of each mesh, and why.** A FlightGear model XML composes an
 airframe out of parts, and most of what it composes is not the airframe: a
@@ -56,7 +66,7 @@ whose name holds "hotspot" go everywhere: they are FlightGear's invisible
 boxes for the mouse to hit, and are geometry like any other here.
 
 **What no mesh carries.** No texture, and so no livery: a surface takes the
-flat diffuse colour of its AC3D material. Liveries are large, separately
+flat diffuse colour of its AC3D or 3D Studio material. Liveries are large, separately
 licensed and would need a texture path through the renderer. No animation:
 control surfaces, gear and propellers are welded where the model has them,
 gear down. Normals are smoothed within an object across faces meeting at less
@@ -70,11 +80,11 @@ import hashlib
 import math
 import os
 import pathlib
-import re
 import struct
 import sys
 import urllib.error
 import urllib.request
+from xml.etree import ElementTree
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "assets" / "models"
@@ -84,6 +94,14 @@ SOURCES = OUT / "sources.txt"
 FGADDON_REV = "21588"
 FGADDON = ("https://sourceforge.net/p/flightgear/fgaddon/"
            f"{FGADDON_REV}/tree/trunk/Aircraft")
+
+# Six aircraft state no licence anywhere in their own directory. FGAddon's
+# own requirement is that what it carries is GPL, and the project owner
+# decided on 2026-09-20 that those six ship on that requirement. It is a
+# policy and not a grant by the author, which is why it is written out in
+# full here and quoted per model in docs/ASSETS.md.
+POLICY = ("GPL, on FGAddon's project-wide requirement that its content is "
+          "GPL - a policy, not a grant stated by the author")
 
 # The aircraft that ship a model: our model name -> where it comes from.
 #
@@ -144,30 +162,72 @@ AIRCRAFT = {
                  "Models/Fuselage/fuselage.xml"),
         licence="GPL-2.0, the GNU GPL v2 text verbatim in LICENSE",
     ),
-}
-
-# A FlightGear model exists, but its directory states no licence: not shipped.
-# The value is what was looked at, for docs/ASSETS.md to quote.
-UNLICENSED = {
-    "a380": ("A380", "no COPYING, LICENSE, README or other licence file at any "
-                     "level of the directory; A380-set.xml names the authors "
-                     "'Ampere.K, I.Cunningham, F.Dalvi, S.Hamilton, et al' and "
-                     "states no terms"),
-    "b2": ("B-2", "no licence file at any level; B-2-set.xml names the author "
-                  "'Markus Zojer' and states no terms"),
-    "f15c": ("F-15", "no licence file at any level; README.txt is a feature "
-                     "list crediting Richard Harrison and states no terms"),
-    "f22": ("Lockheed-Martin-FA-22A-Raptor",
-            "no licence file at any level; f22-jsbsim-set.xml names the author "
-            "'Fabrizio Fracaroli' and states no terms"),
-    "mosquito-fb6": ("mosquito", "no licence file at any level; "
-                                 "mosquito-fbVI-set.xml names the authors "
-                                 "'Ludovic Brenta, Detlef Faber.' and states "
-                                 "no terms"),
-    "short_s23": ("Short_Empire", "no licence file at any level; AUTHORS "
-                                  "credits Anders Gidenstam and the authors "
-                                  "whose work the model borrows, and states "
-                                  "no terms"),
+    "a380": dict(
+        dir="A380", entry="XML/A380.xml",
+        include=("XML/Wings/wings.xml", "XML/htp.xml",
+                 "XML/Wings/bathtub.xml",
+                 "XML/Wings/pylon1.xml", "XML/Wings/pylon2.xml",
+                 "XML/Wings/pylon3.xml", "XML/Wings/pylon4.xml",
+                 "Engines/XML/engine1.xml", "Engines/XML/engine2.xml",
+                 "Engines/XML/engine3.xml", "Engines/XML/engine4.xml"),
+        licence=POLICY + "; no licence file at any level of the directory, "
+                         "and A380-set.xml names the authors 'Ampere.K, "
+                         "I.Cunningham, F.Dalvi, S.Hamilton, et al' and "
+                         "states no terms",
+    ),
+    "b2": dict(
+        dir="B-2", entry="Models/b2-spirit.xml",
+        include=(),
+        licence=POLICY + "; no licence file at any level, B-2-set.xml names "
+                         "the author 'Markus Zojer' and states no terms, and "
+                         "readme-spirit.txt is a flying guide",
+    ),
+    "f15c": dict(
+        dir="F-15", entry="Models/F-15C.xml",
+        include=(),
+        # An F-15C with every station loaded is a payload FlightGear picks,
+        # not the airframe: glideslope's flight model flies clean, so its
+        # missiles, bombs, rails and tanks are left out, and the ladder is
+        # ground equipment.
+        objects_out=("aim9-", "aim120-", "aim-7-", "mk84-", "su59-",
+                     "lau128-", "adu552-", "tank-", "aircraft-ladder"),
+        licence=POLICY + "; no licence file at any level, and README.txt is "
+                         "a feature list crediting Richard Harrison that "
+                         "states no terms",
+    ),
+    "f22": dict(
+        dir="Lockheed-Martin-FA-22A-Raptor",
+        entry="Models/F-22-JSBSIM-Model-File.xml",
+        include=(),
+        licence=POLICY + "; no licence file at any level, and "
+                         "f22-jsbsim-set.xml names the author 'Fabrizio "
+                         "Fracaroli' and states no terms",
+    ),
+    "mosquito-fb6": dict(
+        dir="mosquito", entry="Models/Mosquito-FB6.xml",
+        # The airframe carries propeller hubs and no blades: the blades are
+        # in pdisk.ac, beside the two discs FlightGear blurs them into as
+        # the engine speeds up, which are left out.
+        include=("Models/pdiskL.xml", "Models/pdiskR.xml"),
+        objects_out=("slowpdisk", "fastpdisk"),
+        licence=POLICY + "; no licence file at any level, and "
+                         "mosquito-fbVI-set.xml names the authors 'Ludovic "
+                         "Brenta, Detlef Faber.' and states no terms",
+    ),
+    "short_s23": dict(
+        dir="Short_Empire", entry="Models/Short_Empire.xml",
+        include=("Models/propeller.xml", "Models/PegasusXc/PegasusXc.xml",
+                 "Models/Exterior/cowling_gills.xml"),
+        objects_out=("propblur", "propdisc"),
+        licence=POLICY + "; no licence file at any level, though "
+                         "Short_Empire-set.xml and Models/Short_Empire.xml "
+                         "each carry 'Copyright (C) 2007 - 2025 Anders "
+                         "Gidenstam ... This file is licensed under the GPL "
+                         "license version 2 or later', which the geometry "
+                         "files do not, and AUTHORS credits the propeller "
+                         "and engine models to other FlightGear aircraft "
+                         "without terms",
+    ),
 }
 
 # FlightGear has no model of these at all.
@@ -423,62 +483,189 @@ def _read_surface(reader: Ac3dReader):
     return material, refs
 
 
+# --- 3D Studio --------------------------------------------------------------
+
+def parse_3ds(data: bytes):
+    """(materials, root object), the same shape parse_ac3d returns.
+
+    The A380 is the one aircraft here whose exterior is not all AC3D: its
+    horizontal tailplane, its four pylons and its four engines are 3D Studio
+    (.3ds), and without them it is a fuselage and a wing. A .3ds is a tree of
+    chunks, each a 16-bit identifier and a 32-bit length that counts its own
+    six-byte header; only the chunks geometry needs are read, and the rest
+    are stepped over by that length.
+
+    A .3ds holds its vertices in world coordinates and its 0x4160 matrix is
+    the object's own axis system, which a reader either ignores or applies
+    and then undoes; this ignores it. It carries smoothing groups rather than
+    AC3D's crease angle, and takes AC3D's default 45 degrees instead, so a
+    3DS surface is smoothed by the angle between its faces like every other.
+    """
+    materials: list[tuple[float, float, float]] = []
+    index_of: dict[str, int] = {}
+    root = Object()
+    for cid, at, end in _chunks(data, 0, len(data)):
+        if cid != 0x4D4D:  # the file
+            continue
+        for cid, at, end in _chunks(data, at, end):
+            if cid != 0x3D3D:  # the scene
+                continue
+            for cid, at, end in _chunks(data, at, end):
+                if cid == 0xAFFF:  # a material
+                    name, rgb = _material_3ds(data, at, end)
+                    index_of.setdefault(name, len(materials))
+                    materials.append(rgb)
+                elif cid == 0x4000:  # a named object
+                    name, at = _cstring(data, at, end)
+                    obj = _mesh_3ds(data, at, end, name, index_of)
+                    if obj is not None:
+                        root.kids.append(obj)
+    return materials, root
+
+
+def _chunks(data: bytes, at: int, end: int):
+    """(identifier, first byte of content, one past its last) for each chunk."""
+    while at + 6 <= end:
+        cid, size = struct.unpack_from("<HI", data, at)
+        if size < 6 or at + size > end:
+            return
+        yield cid, at + 6, at + size
+        at += size
+
+
+def _cstring(data: bytes, at: int, end: int) -> tuple[str, int]:
+    stop = data.find(b"\0", at, end)
+    if stop < 0:
+        return data[at:end].decode("latin-1"), end
+    return data[at:stop].decode("latin-1"), stop + 1
+
+
+def _material_3ds(data: bytes, at: int, end: int):
+    name = ""
+    rgb = None
+    for cid, a, e in _chunks(data, at, end):
+        if cid == 0xA000:  # its name
+            name, _ = _cstring(data, a, e)
+        elif cid == 0xA020 and rgb is None:  # its diffuse colour
+            for cid, a, e in _chunks(data, a, e):
+                if rgb is not None:
+                    break
+                if cid in (0x0011, 0x0012):  # three bytes
+                    r, g, b = struct.unpack_from("<3B", data, a)
+                    rgb = (r / 255.0, g / 255.0, b / 255.0)
+                elif cid in (0x0010, 0x0013):  # three floats
+                    rgb = struct.unpack_from("<3f", data, a)
+    return name, rgb if rgb is not None else (0.8, 0.8, 0.8)
+
+
+def _mesh_3ds(data: bytes, at: int, end: int, name: str, index_of: dict):
+    obj = Object()
+    obj.name = name
+    faces: list[tuple[int, int, int]] = []
+    groups: list[tuple[int, tuple]] = []
+    for cid, at, end in _chunks(data, at, end):
+        if cid != 0x4100:  # a triangle mesh
+            continue
+        for cid, a, e in _chunks(data, at, end):
+            if cid == 0x4110:  # its vertices
+                count = struct.unpack_from("<H", data, a)[0]
+                obj.verts = [struct.unpack_from("<3f", data, a + 2 + i * 12)
+                             for i in range(count)]
+            elif cid == 0x4120:  # its faces, then which material each has
+                count = struct.unpack_from("<H", data, a)[0]
+                for i in range(count):
+                    x, y, z, _flags = struct.unpack_from("<4H", data,
+                                                         a + 2 + i * 8)
+                    faces.append((x, y, z))
+                for cid, a, e in _chunks(data, a + 2 + count * 8, e):
+                    if cid != 0x4130:
+                        continue
+                    material, a = _cstring(data, a, e)
+                    n = struct.unpack_from("<H", data, a)[0]
+                    groups.append((index_of.get(material, -1),
+                                   struct.unpack_from(f"<{n}H", data, a + 2)))
+    if not obj.verts or not faces:
+        return None
+    material_of = [-1] * len(faces)
+    for material, which in groups:
+        for face in which:
+            if face < len(material_of):
+                material_of[face] = material
+    obj.surfaces = [(material_of[i], list(face))
+                    for i, face in enumerate(faces)]
+    return obj
+
+
+def read_geometry(data: bytes, path: str):
+    """(materials, root object, its frame) from whichever format names it."""
+    if path.endswith(".3ds"):
+        return parse_3ds(data) + (body_from_3ds,)
+    return parse_ac3d(data.decode("latin-1")) + (body_from_ac3d,)
+
+
 # --- the FlightGear model XML -----------------------------------------------
 
-def _xml_blocks(text: str, tag: str):
-    """Every <tag>...</tag> in `text`, at the top nesting level for that tag."""
-    out = []
-    at = 0
-    open_tag, close_tag = f"<{tag}>", f"</{tag}>"
-    while True:
-        start = text.find(open_tag, at)
-        if start < 0:
-            return out
-        depth, scan = 1, start + len(open_tag)
-        while depth:
-            nxt_open = text.find(open_tag, scan)
-            nxt_close = text.find(close_tag, scan)
-            if nxt_close < 0:
-                return out
-            if 0 <= nxt_open < nxt_close:
-                depth += 1
-                scan = nxt_open + len(open_tag)
-            else:
-                depth -= 1
-                scan = nxt_close + len(close_tag)
-        out.append(text[start + len(open_tag):scan - len(close_tag)])
-        at = scan
+def parse_xml(data: bytes):
+    """The root element of a FlightGear XML file.
+
+    A real parser, rather than searching the text for tags: comments go away
+    on their own, and Nasal - which is code, and holds anything that looks
+    like a tag - is CDATA, so nothing inside it can be mistaken for an
+    element. libxml2 through lxml would do as well; expat is in the standard
+    library and this script is to have no dependency of its own.
+    """
+    return ElementTree.fromstring(data)
 
 
-def _xml_value(text: str, tag: str) -> str | None:
-    start = text.find(f"<{tag}>")
-    if start < 0:
-        return None
-    end = text.find(f"</{tag}>", start)
-    if end < 0:
-        return None
-    return text[start + len(tag) + 2:end].strip()
+# Nasal is code, not structure, and FlightGear does not read it as structure
+# either. The A380's is not even inside CDATA, so its jetway doors are real
+# <door> elements in the tree; nothing under <nasal> is looked at here.
+SKIP = ("nasal",)
 
 
-def _strip_comments(text: str) -> str:
-    out, at = [], 0
-    while True:
-        start = text.find("<!--", at)
-        if start < 0:
-            out.append(text[at:])
-            return "".join(out)
-        out.append(text[at:start])
-        end = text.find("-->", start)
-        if end < 0:
-            return "".join(out)
-        at = end + 3
+def _outside_models(element):
+    """Every descendant no <model> encloses, in document order.
+
+    A model XML's own geometry is the <path> outside its <model> children,
+    which are aircraft of their own: read the 747-400's first <path> without
+    this and its geometry is a pushback tug's.
+    """
+    for child in element:
+        if child.tag == "model" or child.tag in SKIP:
+            continue
+        yield child
+        yield from _outside_models(child)
 
 
-def _strip_nasal(text: str) -> str:
-    """Nasal is code, and can hold anything that looks like a tag."""
-    for block in _xml_blocks(text, "nasal"):
-        text = text.replace(block, "")
-    return text
+def _everything(element):
+    """Every descendant, in document order."""
+    for child in element:
+        if child.tag in SKIP:
+            continue
+        yield child
+        yield from _everything(child)
+
+
+def _child_models(element):
+    """Every <model> element with no other <model> above it."""
+    for child in element:
+        if child.tag in SKIP:
+            continue
+        if child.tag == "model":
+            yield child
+        else:
+            yield from _child_models(child)
+
+
+def _first(nodes, tag):
+    for node in nodes:
+        if node.tag == tag:
+            return node
+    return None
+
+
+def _text(node) -> str | None:
+    return None if node is None else (node.text or "").strip()
 
 
 def rotation(heading_deg: float, pitch_deg: float, roll_deg: float):
@@ -514,11 +701,10 @@ def walk_model(files: Files, key: str, spec: dict, path: str, rot, pos,
     `listing`, when given, gathers every child the walk saw and whether it was
     taken, which --list prints so that an aircraft's `include` can be written.
     """
-    if path.endswith(".ac"):
+    if path.endswith((".ac", ".3ds")):
         found.append((path, rot, pos))
         return
-    text = _strip_nasal(_strip_comments(
-        files.get(key, spec, path).decode("utf-8", "replace")))
+    root = parse_xml(files.get(key, spec, path))
     here = path.rsplit("/", 1)[0] if "/" in path else ""
 
     def resolve(p: str) -> str:
@@ -529,50 +715,61 @@ def walk_model(files: Files, key: str, spec: dict, path: str, rot, pos,
             return rest[2] if len(rest) > 2 else p
         return f"{here}/{p}" if here else p
 
-    # A model XML's own <path> is its own geometry, placed by its own
-    # <offsets>; "empty.ac" is FlightGear's placeholder for none. Its
-    # children's <path> and <offsets> are theirs, so they go first: the
-    # 747's own geometry is named after a pushback tug's.
-    outer = text
-    for block in _xml_blocks(text, "model"):
-        outer = outer.replace(block, "")
-    own = _xml_value(outer, "path")
-    if own and own.endswith((".ac", ".xml")) and not own.endswith("empty.ac"):
-        rot_here, pos_here = rot, pos
-        for block in _xml_blocks(outer, "offsets")[:1]:
-            rot_here, pos_here = _placed(block, rot, pos)
-        walk_model(files, key, spec, resolve(own), rot_here, pos_here, found,
-                   listing, depth + 1)
+    # A file's own <offsets> place everything that file contributes - its own
+    # geometry and its <model> children alike - and are read from outside
+    # those children, whose own <path> and <offsets> are theirs. Reading the
+    # 747-400's first <path> without that and its geometry is a pushback
+    # tug's; placing the Short Empire's children without it and its four
+    # engines stand six metres ahead of the bow, because its <offsets> turn
+    # the aeroplane through 180 degrees and its children are written in the
+    # frame that turn leaves - which its own comment says: "x/y/z ==
+    # forward/left/up due to the heading offset".
+    outer = list(_outside_models(root))
+    offsets = _first(outer, "offsets")
+    if offsets is not None:
+        rot, pos = _placed(offsets, rot, pos)
+
+    # "empty.ac" is FlightGear's placeholder for a model with no geometry.
+    own = _text(_first(outer, "path"))
+    if own and own.endswith((".ac", ".3ds", ".xml")) \
+            and not own.endswith("empty.ac"):
+        walk_model(files, key, spec, resolve(own), rot, pos, found, listing,
+                   depth + 1)
 
     # <PropertyList include="other.xml"> is FlightGear's way of saying "this
     # file is that one": the PA-28-180's model XML is nothing else.
-    for other in re.findall(r'<PropertyList[^>]*\binclude="([^"]+)"', text):
-        walk_model(files, key, spec, resolve(other), rot, pos, found, listing,
-                   depth)
+    for node in [root, *_everything(root)]:
+        if node.tag == "PropertyList" and "include" in node.attrib:
+            walk_model(files, key, spec, resolve(node.attrib["include"]), rot,
+                       pos, found, listing, depth)
 
     allowed = spec.get("include", ())
-    for block in _xml_blocks(text, "model"):
-        child = _xml_value(block, "path")
+    for block in _child_models(root):
+        inside = list(_everything(block))
+        child = _text(_first(inside, "path"))
         if not child:
             continue
-        name = _xml_value(block, "name") or ""
+        name = _text(_first(inside, "name")) or ""
         target = resolve(child)
-        take = target in allowed or child.strip() in allowed or name in allowed
+        take = target in allowed or child in allowed or name in allowed
         if listing is not None:
             listing.append((depth, name, target, take))
         if not take:
             continue
         rot_child, pos_child = rot, pos
-        for offsets in _xml_blocks(block, "offsets")[:1]:
-            rot_child, pos_child = _placed(offsets, rot, pos)
+        child_offsets = _first(inside, "offsets")
+        if child_offsets is not None:
+            rot_child, pos_child = _placed(child_offsets, rot, pos)
         walk_model(files, key, spec, target, rot_child, pos_child, found,
                    listing, depth + 1)
 
 
-def _placed(offsets: str, rot, pos):
-    """Apply an <offsets> block, in FlightGear's x-aft/y-starboard/z-up frame."""
+def _placed(offsets, rot, pos):
+    """Apply an <offsets> element, in FlightGear's x-aft/y-starboard/z-up frame."""
+    inside = list(_everything(offsets))
+
     def number(tag):
-        v = _xml_value(offsets, tag)
+        v = _text(_first(inside, tag))
         return float(v) if v else 0.0
 
     # To the body frame: x forward, y starboard, z down.
@@ -591,6 +788,18 @@ def body_from_ac3d(v):
     return (-v[0], -v[2], -v[1])
 
 
+def body_from_3ds(v):
+    """3D Studio's +X aft, +Y starboard, +Z up, to the same body frame.
+
+    AC3D is authored with up along +Y and 3D Studio with up along +Z, so a
+    .3ds sitting in the same aircraft as a .ac is the AC3D frame turned a
+    quarter circle about X - the turn that keeps up pointing up, since the
+    other one would put it underground. It shows: read the A380's tailplane
+    as if it were AC3D and it is 2 m across and 30 m thick.
+    """
+    return (-v[0], v[1], -v[2])
+
+
 def hidden(name: str, out_of: tuple) -> bool:
     """An object FlightGear would not draw here: see the docstring."""
     if "hotspot" in name.lower():
@@ -598,7 +807,8 @@ def hidden(name: str, out_of: tuple) -> bool:
     return any(name.startswith(prefix) for prefix in out_of)
 
 
-def triangles_of(root: Object, materials, rot, pos, out_of=()):
+def triangles_of(root: Object, materials, rot, pos, out_of=(),
+                 to_body=body_from_ac3d):
     """(colour, (a, b, c)) for every triangle, in the body frame."""
     out = []
 
@@ -608,7 +818,7 @@ def triangles_of(root: Object, materials, rot, pos, out_of=()):
         here_spin = _ac_mul(spin, obj.rot)
         here_loc = _ac_add(loc, _ac_apply(spin, obj.loc))
         placed = [_ac_add(here_loc, _ac_apply(here_spin, v)) for v in obj.verts]
-        body = [mat_apply(rot, body_from_ac3d(p)) for p in placed]
+        body = [mat_apply(rot, to_body(p)) for p in placed]
         body = [(b[0] + pos[0], b[1] + pos[1], b[2] + pos[2]) for b in body]
         for material, refs in obj.surfaces:
             colour = materials[material] if 0 <= material < len(materials) \
@@ -736,10 +946,10 @@ def make(files: Files, key: str, spec: dict, listing: list | None = None):
         return b"", 0, 0, found
     tris = []
     for path, rot, pos in found:
-        text = files.get(key, spec, path).decode("latin-1")
-        materials, root = parse_ac3d(text)
+        materials, root, to_body = read_geometry(files.get(key, spec, path),
+                                                 path)
         tris += triangles_of(root, materials, rot, pos,
-                             spec.get("objects_out", ()))
+                             spec.get("objects_out", ()), to_body)
     vertices, indices = build_mesh(tris)
     return write_mesh(vertices, indices), len(vertices), len(indices) // 3, found
 
@@ -783,7 +993,7 @@ def main() -> int:
             path.write_bytes(data)
             print(f"wrote {path.relative_to(ROOT)}: {tris} triangles, "
                   f"{verts} vertices, {len(data) / 1024:.0f} KiB, from "
-                  f"{len(found)} .ac file(s)")
+                  f"{len(found)} geometry file(s)")
 
     if args.refresh and not args.only:
         write_sources(files.used)

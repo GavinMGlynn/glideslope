@@ -135,9 +135,20 @@ const std::map<std::string, Dimensions>& published() {
         {"747-400", {70.66, 64.44}},
         {"787-8", {56.72, 60.12}},
         {"a320", {37.57, 35.80}},
+        {"a380", {72.72, 79.75}},
         {"c172p", {8.28, 11.00}},
         {"c182", {8.84, 11.00}},
         {"j3cub", {6.83, 10.74}},
+        // The air forces' and the manufacturers' figures, in feet and
+        // inches: the B-2A 69 ft by 172 ft, the F-15C 63 ft 9 in by
+        // 42 ft 9 3/4 in, the F-22A 62 ft 1 in by 44 ft 6 in, the Mosquito
+        // FB Mk VI 41 ft 2 in by 54 ft 2 in and the Short S.23 88 ft by
+        // 114 ft. docs/ASSETS.md records each one's source.
+        {"b2", {21.03, 52.43}},
+        {"f15c", {19.43, 13.05}},
+        {"f22", {18.92, 13.56}},
+        {"mosquito-fb6", {12.55, 16.51}},
+        {"short_s23", {26.82, 34.75}},
         // The model is FlightGear's PA-28-161 Warrior II, whose figures these
         // are; glideslope's flight model is the PA-28-180 Cherokee, a
         // different wing. docs/ASSETS.md says so.
@@ -208,12 +219,13 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_has_a_visual_model_or_a_named_reas
     }
     check(with + without == roster.size(),
           "every aircraft was looked at: " + std::to_string(roster.size()));
-    // The roster is sixteen aircraft; eight have a FlightGear model whose
-    // licence permits shipping it. If either number moves, this says so.
+    // The roster is sixteen aircraft; fourteen have a FlightGear model. The
+    // two that do not are the Learjet 35A and the F-35A, for which FGAddon
+    // has nothing. If either number moves, this says so.
     check(roster.size() == 16,
           "the roster is sixteen aircraft, not " + std::to_string(roster.size()));
-    check(with == 8, "eight of them ship a visual model, not " +
-                         std::to_string(with));
+    check(with == 14, "fourteen of them ship a visual model, not " +
+                          std::to_string(with));
     check(absent.size() == without,
           "docs/ASSETS.md names exactly the " + std::to_string(without) +
               " aircraft with no model, not " + std::to_string(absent.size()));
@@ -222,6 +234,9 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_has_a_visual_model_or_a_named_reas
 GLIDESLOPE_TEST(each_visual_model_is_its_aircrafts_size_and_faces_the_way_it_flies) {
     const std::vector<std::string> models = shipped();
     std::size_t checked = 0;
+    std::size_t wider_aft = 0;
+    std::size_t higher_aft = 0;
+    std::size_t stands_on_its_gear = 0;
     for (const std::string& id : models) {
         const Model model = read_model(models_dir() / (id + ".mesh"));
         check(!model.vertices.empty(), id + " holds geometry");
@@ -246,45 +261,108 @@ GLIDESLOPE_TEST(each_visual_model_is_its_aircrafts_size_and_faces_the_way_it_fli
               id + " spans " + std::to_string(span) + " m, against a "
                    "published " + std::to_string(found->second.span_m));
 
-        // The nose is +x: the tailplane makes the aft of an aeroplane wider
-        // than its nose, on every one of these. Were the model back to front,
-        // length and span would still be right and this would not be.
+        // The way a model faces is held by two facts, and every model is
+        // held to both but one, which is named here with the fact it
+        // breaks, why it breaks it, and the fact held in its place.
+        //
+        //   wider aft   the aft seventh is at least 1.3 times as wide as
+        //               the forward seventh - the tailplane against the
+        //               nose. Mirrored nose to tail this reads the other
+        //               way round. Every model but the Mosquito, whose two
+        //               propellers stand at its nose and are 3.8 m across,
+        //               wider than its tailplane: it measures 0.77.
+        //
+        //   higher aft  the aft seventh reaches higher than the forward
+        //               seventh by at least a fiftieth of the model's
+        //               height - the fin. Mirrored nose to tail, or turned
+        //               upside down, it reads the other way round. Every
+        //               model but the B-2, a flying wing with no fin,
+        //               whose highest point is its cockpit: it measures
+        //               -21.2%. The narrowest that holds is the F-22's
+        //               5.4%, whose fins are canted and low and whose
+        //               canopy is high; the widest is the A380's 58.9%.
+        //
+        // The B-2 is held instead to standing on its undercarriage: the
+        // lowest tenth of it is spread along 55% of its length, at the
+        // three legs, against 39% for the highest tenth, its cockpit and
+        // engine humps. Upside down those swap. No other model is held to
+        // it: drawn level, a taildragger's tailwheel is well above its
+        // main wheels, so the Cub's lowest tenth is its two main wheels
+        // alone and spreads over 7% of it.
         const double low_x = static_cast<double>(model.low[0]);
-        const double nose_cut = static_cast<double>(model.high[0]) - 0.15 * length;
-        const double tail_cut = low_x + 0.15 * length;
+        const double high_x = static_cast<double>(model.high[0]);
+        const double height = static_cast<double>(model.size()[2]);
+        const double nose_cut = high_x - length / 7.0;
+        const double tail_cut = low_x + length / 7.0;
         double at_nose = 0.0;
         double at_tail = 0.0;
-        double highest = 0.0;
-        double highest_x = 0.0;
-        bool first = true;
+        // Seeded from the box the model fills, so that a band's own
+        // extreme is always what comes out of the walk.
+        double top_nose = static_cast<double>(model.high[2]);
+        double top_tail = top_nose;
+        double low_first = high_x;
+        double low_last = low_x;
+        double high_first = high_x;
+        double high_last = low_x;
         for (const auto& v : model.vertices) {
             const double x = static_cast<double>(v.position[0]);
             const double y = static_cast<double>(v.position[1]);
             const double z = static_cast<double>(v.position[2]);
             if (x >= nose_cut) {
                 at_nose = std::max(at_nose, std::abs(y));
+                top_nose = std::min(top_nose, z);
             }
             if (x <= tail_cut) {
                 at_tail = std::max(at_tail, std::abs(y));
+                top_tail = std::min(top_tail, z);
             }
-            if (first || z < highest) {
-                highest = z;
-                highest_x = x;
-                first = false;
+            // +z is down, so the lowest tenth is the last tenth of z.
+            if (z >= static_cast<double>(model.high[2]) - 0.10 * height) {
+                low_first = std::min(low_first, x);
+                low_last = std::max(low_last, x);
+            }
+            if (z <= static_cast<double>(model.low[2]) + 0.10 * height) {
+                high_first = std::min(high_first, x);
+                high_last = std::max(high_last, x);
             }
         }
-        check(at_tail > at_nose * 1.3,
-              id + " is wider at the tail (" + std::to_string(at_tail) +
-                  " m) than at the nose (" + std::to_string(at_nose) + " m)");
 
-        // +z is down: the highest point of an aeroplane is its fin, at the
-        // tail. Were z flipped, the highest point would be a wheel or a
-        // nacelle, none of which is within the aft seventh.
-        check(highest_x <= low_x + 0.15 * length,
-              id + "'s highest point is its fin, " +
-                  std::to_string((highest_x - low_x) / length * 100.0) +
-                  "% of its length from the tail");
+        if (id != "mosquito-fb6") {
+            ++wider_aft;
+            check(at_tail > at_nose * 1.3,
+                  id + " is wider at the tail (" + std::to_string(at_tail) +
+                      " m) than at the nose (" + std::to_string(at_nose) +
+                      " m)");
+        }
+        if (id != "b2") {
+            ++higher_aft;
+            check(top_nose - top_tail > 0.02 * height,
+                  id + "'s fin makes its tail reach " +
+                      std::to_string((top_nose - top_tail) / height * 100.0) +
+                      "% of its height higher than its nose");
+        } else {
+            ++stands_on_its_gear;
+            check(low_last - low_first > (high_last - high_first) * 1.2,
+                  id + " stands on its undercarriage: its lowest tenth "
+                       "spreads over " +
+                      std::to_string((low_last - low_first) / length * 100.0) +
+                      "% of it, its highest over " +
+                      std::to_string((high_last - high_first) / length * 100.0) +
+                      "%");
+        }
     }
+    // Every model was measured, and the two named exceptions are the only
+    // ones: thirteen held to each of the two facts, and the B-2 to the one
+    // of its own.
+    check(wider_aft == models.size() - 1,
+          "every model but the Mosquito was held to being wider aft: " +
+              std::to_string(wider_aft));
+    check(higher_aft == models.size() - 1,
+          "every model but the B-2 was held to reaching higher aft: " +
+              std::to_string(higher_aft));
+    check(stands_on_its_gear == 1,
+          "the B-2 alone was held to standing on its undercarriage: " +
+              std::to_string(stands_on_its_gear));
     check(checked == models.size(),
           "every model that ships was measured: " + std::to_string(checked) +
               " of " + std::to_string(models.size()));

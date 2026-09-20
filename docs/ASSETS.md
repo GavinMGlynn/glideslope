@@ -349,13 +349,21 @@ in the repository.
 
 ### Aircraft visual models, from FlightGear's aircraft
 
-Eight of the sixteen aircraft ship a visual model. The geometry is AC3D
-(`.ac`) placed by FlightGear model XML; `tools/make_models.py` fetches the
-pinned files listed in `assets/models/sources.txt`, each by URL and SHA-256,
-flattens each aircraft's exterior into one mesh in the body frame and writes
+Fourteen of the sixteen aircraft ship a visual model. The geometry is AC3D
+(`.ac`), and for the A380 also 3D Studio (`.3ds`), placed by FlightGear model
+XML; `tools/make_models.py` fetches the pinned files listed in
+`assets/models/sources.txt`, each by URL and SHA-256, flattens each aircraft's
+exterior into one mesh in the body frame and writes
 `assets/models/<model>.mesh`. A test fails if what is committed differs from
 what the script makes, and another fails if a model ships without the entry
 below or an entry names a model that does not ship.
+
+Eight of the fourteen come from a FlightGear directory that states its terms.
+The other six state none anywhere in their own directory, and ship on
+FGAddon's project-wide requirement that its content is GPL. That is a policy
+and not a grant by the author; the project owner decided on 2026-09-20 that
+those six ship on it, and each entry below says so and says what was looked
+at.
 
 No mesh carries a texture, so no livery ships and a surface takes the flat
 diffuse colour of its AC3D material; none carries an animation, so control
@@ -435,34 +443,63 @@ model's: aligning the two is the views item's, and is not done yet.
 | Licence | GPL-2.0: the GNU GPL v2 text verbatim in `LICENSE`; the model files carry "Copyright (c) 2026 Josh Davidson (Octal450)" |
 | In the repository | `assets/models/a320.mesh`, 107,449 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
 
+### Visual model: a380 - FlightGear's A380
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/A380`: `XML/A380.xml` and the `Models/a380.ac` it places, with the wing (`XML/Wings/wings.xml`), the horizontal tailplane (`XML/htp.xml`), the belly fairing, the four pylons and the four engines, which are 3D Studio rather than AC3D |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL, on FGAddon's project-wide requirement that its content is GPL - a policy, not a grant stated by the author, on which the project owner decided on 2026-09-20 that this model ships. What was looked at: no `COPYING`, `LICENSE`, `README` or licence file of any kind at any level of the directory, and `A380-set.xml` names the authors "Ampere.K, I.Cunningham, F.Dalvi, S.Hamilton, et al" and states no terms. |
+| In the repository | `assets/models/a380.mesh`, 17,278 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: b2 - FlightGear's B-2 Spirit
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/B-2`: `Models/b2-spirit.xml` and the `Models/spirit.ac` it places |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL, on FGAddon's project-wide requirement that its content is GPL - a policy, not a grant stated by the author, on which the project owner decided on 2026-09-20 that this model ships. What was looked at: no licence file at any level, `B-2-set.xml` names the author "Markus Zojer" and states no terms, and `readme-spirit.txt` is a flying guide. |
+| In the repository | `assets/models/b2.mesh`, 5,612 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: f15c - FlightGear's F-15C
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/F-15`: `Models/F-15C.xml`, which is an include of `Models/f15c.xml`, and the `Models/f15c.ac` it places. Its missiles, bombs, rails and drop tanks are a payload FlightGear picks, not the airframe, and are left out, as is the boarding ladder |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL, on FGAddon's project-wide requirement that its content is GPL - a policy, not a grant stated by the author, on which the project owner decided on 2026-09-20 that this model ships. What was looked at: no licence file at any level, and `README.txt` is a feature list crediting Richard Harrison that states no terms. |
+| In the repository | `assets/models/f15c.mesh`, 162,347 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: f22 - FlightGear's F-22 Raptor
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/Lockheed-Martin-FA-22A-Raptor`: `Models/F-22-JSBSIM-Model-File.xml` and the `Models/Lockheed-Martin-FA-22A-Raptor.ac` it places |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL, on FGAddon's project-wide requirement that its content is GPL - a policy, not a grant stated by the author, on which the project owner decided on 2026-09-20 that this model ships. What was looked at: no licence file at any level, and `f22-jsbsim-set.xml` names the author "Fabrizio Fracaroli" and states no terms. |
+| In the repository | `assets/models/f22.mesh`, 29,949 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: mosquito-fb6 - FlightGear's Mosquito FB Mk VI
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/mosquito`: `Models/Mosquito-FB6.xml` and the `Models/mosquitofb6.ac` it places, with the propeller blades from `Models/pdisk.ac` - the airframe carries hubs and no blades - and without the two discs FlightGear blurs them into |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL, on FGAddon's project-wide requirement that its content is GPL - a policy, not a grant stated by the author, on which the project owner decided on 2026-09-20 that this model ships. What was looked at: no licence file at any level, and `mosquito-fbVI-set.xml` names the authors "Ludovic Brenta, Detlef Faber." and states no terms. |
+| In the repository | `assets/models/mosquito-fb6.mesh`, 12,506 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: short_s23 - FlightGear's Short Empire
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/Short_Empire`: `Models/Short_Empire.xml` and the `Models/Short_Empire.ac` it places, with the four propellers, the four Pegasus Xc engines and their cowling gills, and without the discs the propellers blur into |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL, on FGAddon's project-wide requirement that its content is GPL - a policy, not a grant stated by the author, on which the project owner decided on 2026-09-20 that this model ships. What was looked at: no licence file at any level. `Short_Empire-set.xml` and `Models/Short_Empire.xml` each carry "Copyright (C) 2007 - 2025 Anders Gidenstam ... This file is licensed under the GPL license version 2 or later", which is a grant, but it is on those two files and not on the geometry; `AUTHORS` credits the propeller models to the Boeing 314 and the engine model to the Lockheed-Vega, without terms. |
+| In the repository | `assets/models/short_s23.mesh`, 85,604 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
 ### Aircraft with no visual model
 
-Eight aircraft ship none. Six have a FlightGear model whose directory
-states no licence, and two have no FlightGear model at all.
-
-### No visual model: a380
-
-| | |
-| --- | --- |
-| Why | FGAddon's `A380` has a model, but no `COPYING`, `LICENSE`, `README` or licence file of any kind at any level of its directory; `A380-set.xml` names the authors "Ampere.K, I.Cunningham, F.Dalvi, S.Hamilton, et al" and states no terms. FGAddon's policy is that its aircraft are GPL, but a policy is not a grant by the author, so nothing of it ships. |
-
-### No visual model: b2
-
-| | |
-| --- | --- |
-| Why | FGAddon's `B-2` has a model and no licence file at any level; `B-2-set.xml` names the author "Markus Zojer" and states no terms. |
-
-### No visual model: f15c
-
-| | |
-| --- | --- |
-| Why | FGAddon's `F-15` has a model and no licence file at any level; `README.txt` is a feature list crediting Richard Harrison and states no terms. |
-
-### No visual model: f22
-
-| | |
-| --- | --- |
-| Why | FGAddon's `Lockheed-Martin-FA-22A-Raptor` has a model and no licence file at any level; `f22-jsbsim-set.xml` names the author "Fabrizio Fracaroli" and states no terms. |
+Two aircraft ship none: FlightGear has no model of either.
 
 ### No visual model: f35a
 
@@ -476,17 +513,6 @@ states no licence, and two have no FlightGear model at all.
 | --- | --- |
 | Why | FlightGear has no Learjet of any mark in FGAddon, so there is nothing to take. |
 
-### No visual model: mosquito-fb6
-
-| | |
-| --- | --- |
-| Why | FGAddon's `mosquito` has an FB Mk VI model and no licence file at any level; `mosquito-fbVI-set.xml` names the authors "Ludovic Brenta, Detlef Faber." and states no terms. |
-
-### No visual model: short_s23
-
-| | |
-| --- | --- |
-| Why | FGAddon's `Short_Empire` has a model and no licence file at any level; `AUTHORS` credits Anders Gidenstam, and the authors whose work the model borrows, and states no terms. |
 ### The Copernicus DEM, GLO-30 Public
 
 | | |

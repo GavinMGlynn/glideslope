@@ -378,21 +378,20 @@ quality: each is held to published figures before it is offered, as the Cessna
       35449051367: on every platform and GPU driver a shot of the A320 at 11,000 m
       over Sydney shows MACH and FL lines that match its traced state at that
       tick, read back out of the frame, and a Cessna's shows neither.
-- [ ] **Visual models from FlightGear aircraft**, each licence checked.
+- [x] **Visual models from FlightGear aircraft**, each licence checked.
       *Verification: `ASSETS.md` names the source, commit and licence of every
-      model that ships, and a model without an entry fails a test.*
-      Begun 2026-09-20 and not finished. Eight of the sixteen aircraft have a
-      model - the two Cessnas, the Piper Cherokee and Cub, the 737-300,
-      747-400, 787-8 and A320 - made from FlightGear's by
-      `tools/make_models.py`, recorded in `ASSETS.md` with their source,
-      revision and licence, and held by tests to their published length and
-      span and to facing the way they fly. **Still to do: the six whose
-      FlightGear directories state no licence** - the A380, B-2, F-15, F-22,
-      Mosquito and Short Empire - which the project owner decided on
-      2026-09-20 should ship on FlightGear's project-wide GPL policy, with
-      that recorded as the basis. The Learjet 35A and F-35A have no
-      FlightGear model at all and will have none. `PROJECT_STATUS.md` says
-      what each step is.
+      model that ships, and a model without an entry fails a test.* Stated,
+      2026-09-20: fourteen of the sixteen aircraft ship a visual model, made
+      from FlightGear's by `tools/make_models.py` and recorded in `ASSETS.md`
+      with their source, revision and licence - eight on the terms their own
+      directory states, six on FGAddon's project-wide GPL requirement, which
+      the project owner decided on 2026-09-20 they ship on and which each
+      entry names as a policy rather than a grant. The Learjet 35A and the
+      F-35A ship none: FlightGear has no model of either, and `ASSETS.md`
+      says so. Every model is held by tests to its published length and span
+      and to facing the way it flies, and the committed meshes are checked
+      against what the script makes. Nothing draws any of them yet - that is
+      the views item below.
 - [ ] **A visual model put where its aeroplane is.** Each model is in its
       FlightGear aircraft's own frame, whose origin is that aircraft's FDM
       datum and not always glideslope's: the Cub's and 747's wheels are
