@@ -349,10 +349,17 @@ quality: each is held to published figures before it is offered, as the Cessna
       at 40,000 ft, "high subsonic", still climbs at its 50,000 ft ceiling,
       and ranges 6,100 nm against about 6,000. Every source is in `ASSETS.md`,
       and `PROJECT_STATUS.md` says what no figure pins: nearly all of it.
-- [ ] **The Short S.23 on water**, from JSBSim's model and its hydrodynamics.
+- [x] **The Short S.23 on water**, from JSBSim's model and its hydrodynamics.
       *Verification: it floats at rest at its published draught, takes off from
       the sea and from a lake within its published distance, and alights on
-      water and comes to rest afloat.*
+      water and comes to rest afloat.* Stated, 2026-09-20, CI run 35472220036:
+      on every platform the 1936 Empire flying boat floats at 3.7 ft at the
+      main step against the 4.0 ± 0.5 ft scaled off Flight's general
+      arrangement, takes off from calm water in 825 yd against Gouge's 795,
+      and from the Tasman Sea off Sydney and from Lake Macquarie on the DEM in
+      819 and 820 yd; it flies 202 mph at 5,500 ft against a published 200 and
+      climbs 912 ft/min at sea level against 950; and it alights on water and
+      comes to rest afloat with its engines stopped.
 - [x] **Water where the DEM says it is** - the sea, and lakes and rivers from
       the DEM's water body mask - for the seaplane to alight on and landplanes
       not to. *Verification: at reference lakes, rivers and coasts the ground

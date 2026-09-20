@@ -87,7 +87,7 @@ of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855
 and 35363959900): the same air on every machine, a METAR's gusts flown, the
 wind near the ground as a boundary layer, reported wind shear, microbursts,
 thermals and mountain waves, and weather you can see. **Phase 5, aircraft
-choice, is under way: 11 of 14 items done** - aircraft as data; the
+choice, is under way: 12 of 14 items done** - aircraft as data; the
 Mosquito FB Mk VI, written here from its trials and Pilot's Notes and held to
 fourteen of their figures, proved in CI on every platform (runs 35387301607
 and 35409102752); the light aircraft from JSBSim's models - the Cessna 182S,
@@ -103,8 +103,10 @@ and the F-35A and B-2A, written here from what little is published of them
 (CI run 35442214130); and any of them chosen at start, `--aircraft`, in the air or
 on the ground (CI run 35442214130); the HUD's Mach number and flight level
 for a fast aircraft; and water where the DEM's water body mask says it is,
-on which a landplane ditches (CI run 35449051367). Next: the Short S.23 on
-water.
+on which a landplane ditches (CI run 35449051367); and the Short S.23
+Empire flying boat, which takes off from the sea and from a lake, alights on
+water and comes to rest afloat (CI run 35472220036). Next: visual models from
+FlightGear's aircraft.
 
 **Phase 4, autopilot and navigation, is complete — 4 of 4 items**, proved in
 CI on every platform (runs 35363959900, 35372183417 and 35378850716): the
@@ -178,7 +180,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The Short S.23 on water, 2026-09-20 — item done (CI run RUNID)
+### The Short S.23 on water, 2026-09-20 — item done (CI run 35472220036)
 
 Phase 5's "the Short S.23 on water, from JSBSim's model and its
 hydrodynamics": the Short S.23 Empire flying boat of 1936, from Anders
