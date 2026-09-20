@@ -59,8 +59,9 @@
 #include <glm/vec4.hpp>
 
 #include <algorithm>
-#include <cctype>
 #include <atomic>
+#include <cctype>
+#include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <cstdio>
