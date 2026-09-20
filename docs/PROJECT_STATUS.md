@@ -291,11 +291,27 @@ free tier's "upgrade for commercial use".
 1. **Google's Photorealistic 3D Tiles are written and do not draw.** Both
    ways in are there - a Google Maps Platform key directly, or an ion token
    through ion's asset 2275207. Through ion it fetches 553 tiles and draws
-   none: its sub-tilesets arrive as JSON nothing can parse at byte offset 0,
-   which is the shape of a body still compressed, so that is where to look
-   next. This machine has no Google Maps Platform key, so the direct way in
-   is unproven too. Its test is written and not registered, because a test
-   of something that does not work is not a test.
+   none of them. Its test is written and not registered, because a test of
+   something that does not work is not a test. What is known, so that the
+   next attempt starts further along:
+
+   - **ion answers for it in a third shape.** Asset 2275207 comes back as
+     `externalType: 3DTILES` with `options.url` and *no* accessToken, where
+     terrain has a url and a token and Bing has `options` with a key. Putting
+     an empty bearer on its requests, which an earlier draft of this did, is
+     not the cause but was wrong and is fixed.
+   - **Its children carry neither session nor key.** Google's root names
+     child content as bare paths - `/v1/3dtiles/datasets/CgIYAQ/files/AJVs...`
+     - and fetching one by hand returns 404 unless the `session` and `key`
+     the root's own URL carries are put back on it. Cesium Native v0.64.0 has
+     no loader that does that, so `QueryAccessor` now carries them, for that
+     host and no other. Not the cause either, but needed.
+   - **What is left looks like content read as the wrong thing.** The errors
+     are `TilesetJsonLoader.cpp:900`, "Error when parsing JSON content ... at
+     byte offset 0", and a tile fetched by hand is a glTF binary whose first
+     four bytes are `glTF` - which is exactly what byte offset 0 of a JSON
+     parse would complain about. So Cesium appears to be reading Google's
+     binary tiles as external tilesets. That is where to look next.
 2. **The visual-to-collision mismatch is not measured.** That is the phase's
    own fourth item.
 

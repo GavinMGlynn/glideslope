@@ -39,6 +39,15 @@ struct HttpRequest {
 struct HttpResponse {
     int status = 0;
     // Header names in lower case. Of the final response, after any redirects.
+    //
+    // **`content-encoding` is not here, and `content-length` is the body's.**
+    // The body below is what was sent, undone: every backend asks for and
+    // undoes whatever compression it understands, because a server may
+    // compress a body whether it was asked to or not - Cesium ion serves its
+    // layer.json gzipped either way. A `content-encoding` naming what was
+    // already undone would be a lie, so it is taken off; a `content-length`
+    // counting the compressed bytes would be another, so it is made to count
+    // what `body` actually holds.
     std::map<std::string, std::string> headers;
     std::vector<std::uint8_t> body;
 };

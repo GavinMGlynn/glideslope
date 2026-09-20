@@ -280,6 +280,58 @@ private:
     std::string token_;
 };
 
+// Puts a query onto every request to one place, and touches no other.
+//
+// Google's Photorealistic 3D Tiles are reached by a URL carrying a session
+// and a key, and the child tiles it names carry neither: they are paths
+// alone. Every request for one has to carry them again, and Cesium Native
+// v0.64.0 has no loader that does it - so this does, for that host and no
+// other, and only where the request does not already say them.
+class QueryAccessor final : public CesiumAsync::IAssetAccessor {
+public:
+    QueryAccessor(std::shared_ptr<CesiumAsync::IAssetAccessor> next,
+                  std::string prefix, std::string query)
+        : next_(std::move(next)), prefix_(std::move(prefix)),
+          query_(std::move(query)) {}
+
+    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
+    get(const CesiumAsync::AsyncSystem& async, const std::string& url,
+        const std::vector<THeader>& headers) override {
+        return next_->get(async, with_query(url), headers);
+    }
+
+    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
+    request(const CesiumAsync::AsyncSystem& async, const std::string& verb,
+            const std::string& url, const std::vector<THeader>& headers,
+            const std::span<const std::byte>& body) override {
+        return next_->request(async, verb, with_query(url), headers, body);
+    }
+
+    void tick() noexcept override {
+        next_->tick();
+    }
+
+private:
+    std::string with_query(const std::string& url) const {
+        if (query_.empty() || url.rfind(prefix_, 0) != 0) {
+            return url; // somewhere else: it is left alone
+        }
+        const std::size_t question = url.find('?');
+        if (question == std::string::npos) {
+            return url + "?" + query_;
+        }
+        // Already asked for by name: whatever it says stands.
+        if (url.find("session=", question) != std::string::npos) {
+            return url;
+        }
+        return url + "&" + query_;
+    }
+
+    std::shared_ptr<CesiumAsync::IAssetAccessor> next_;
+    std::string prefix_;
+    std::string query_;
+};
+
 class PlatformAccessor final : public CesiumAsync::IAssetAccessor {
 public:
     CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
@@ -1186,8 +1238,29 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
     // so the token goes on each request to where that asset is served from.
     // Cesium Native does this with an accessor of its own, which cannot be
     // used here - see ion_endpoint below - so this is one of ours.
+    // The query a URL carries, for its children to carry too.
+    const auto query_of = [](const std::string& url) {
+        const std::size_t question = url.find('?');
+        return question == std::string::npos ? std::string()
+                                             : url.substr(question + 1);
+    };
+    const auto carrying = [&accessor](const std::string& prefix,
+                                      const std::string& query) {
+        if (query.empty()) {
+            return;
+        }
+        accessor = std::make_shared<QueryAccessor>(accessor, prefix, query);
+    };
     const auto authorising = [&accessor](const std::string& prefix,
                                          const std::string& token) {
+        // Not everything ion points at needs a token of ours. Google's
+        // Photorealistic 3D Tiles come back as a URL that already carries
+        // what it needs and no accessToken beside it; putting an empty
+        // bearer on those requests is how they came back as errors nothing
+        // could parse.
+        if (token.empty()) {
+            return;
+        }
         accessor = std::make_shared<AuthorisingAccessor>(accessor, prefix, token);
     };
     Cesium3DTilesSelection::TilesetExternals externals{
@@ -1253,16 +1326,19 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
         // draped on them. A Google key reaches them directly; an ion token
         // reaches the same tiles through ion's asset 2275207.
         if (!options.google_key.empty()) {
-            impl_->tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(
-                externals,
+            const std::string root =
                 "https://tile.googleapis.com/v1/3dtiles/root.json?key=" +
-                    options.google_key,
-                tileset_options);
+                options.google_key;
+            carrying(host_of(root), query_of(root));
+            externals.pAssetAccessor = accessor;
+            impl_->tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(
+                externals, root, tileset_options);
         } else {
             const IonEndpoint google =
                 ion_endpoint(google_photorealistic_asset, options.ion_token);
             impl_->from_provider = google.attributions;
             authorising(host_of(google.url), google.access_token);
+            carrying(host_of(google.url), query_of(google.url));
             externals.pAssetAccessor = accessor;
             impl_->tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(
                 externals, google.url, tileset_options);

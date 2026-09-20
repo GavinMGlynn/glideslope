@@ -84,6 +84,16 @@ HttpResponse http_get(const HttpRequest& request) {
     if (!failure.empty()) {
         throw HttpError(request.url + ": " + failure);
     }
+    // NSURLSession undoes the encoding itself, so a content-encoding would
+    // name what is already gone and a content-length would count the wire.
+    // NSURLSession's own header names keep their capitals, so both spellings
+    // are taken off before the true length is put back. See HttpResponse.
+    for (const char* name : {"Content-Encoding", "content-encoding",
+                             "Content-Length", "content-length"}) {
+        response.headers.erase(name);
+    }
+    response.headers["content-length"] = std::to_string(response.body.size());
+
     return response;
 }
 

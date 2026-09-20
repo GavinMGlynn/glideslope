@@ -83,6 +83,13 @@ HttpResponse http_get(const HttpRequest& request) {
     if (!session) {
         fail(request.url, "no WinHTTP session");
     }
+    // WinHTTP does not undo a compressed body unless it is asked to, and a
+    // server may compress one whether the client asked or not. Windows 8.1
+    // and later take this; on anything older it is ignored and a compressed
+    // body would arrive as it was sent.
+    DWORD decompress = WINHTTP_DECOMPRESSION_FLAG_ALL;
+    WinHttpSetOption(session.get(), WINHTTP_OPTION_DECOMPRESSION, &decompress,
+                     sizeof decompress);
     const int connect_ms = request.connect_timeout_seconds * 1000;
     const int stall_ms = request.stall_timeout_seconds * 1000;
     WinHttpSetTimeouts(session.get(), connect_ms, connect_ms, stall_ms, stall_ms);
@@ -180,6 +187,11 @@ HttpResponse http_get(const HttpRequest& request) {
         }
         response.body.resize(at + read);
     }
+    // WinHTTP undid the encoding above; those two describe the wire and
+    // not the body. See HttpResponse.
+    response.headers.erase("content-encoding");
+    response.headers["content-length"] = std::to_string(response.body.size());
+
     return response;
 }
 

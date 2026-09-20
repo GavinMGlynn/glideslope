@@ -224,6 +224,11 @@ HttpResponse http_get(const HttpRequest& request) {
                         (error[0] != '\0' ? error : c.easy_strerror(result)));
     }
     transfer.response.status = static_cast<int>(status);
+    // libcurl undid whatever encoding it understood, so those two headers
+    // would describe the wire and not the body. See HttpResponse.
+    transfer.response.headers.erase("content-encoding");
+    transfer.response.headers["content-length"] =
+        std::to_string(transfer.response.body.size());
     return std::move(transfer.response);
 }
 
