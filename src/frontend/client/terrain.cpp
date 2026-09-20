@@ -78,14 +78,6 @@ std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
     if (imagery) {
         options.imagery = gfx::open_imagery();
     }
-    if (provider != gfx::Provider::open) {
-        // A streamed provider covers the whole Earth and refines until it
-        // runs out of levels; the open one is built here and stops at the
-        // DEM's own spacing. Holding a streamed provider to four pixels means
-        // waiting for a great many tiles for one frame, so it is drawn to a
-        // coarser figure.
-        options.maximum_screen_space_error = 32.0;
-    }
     options.cache_file = cache / "cesium-cache.sqlite";
     options.worker_threads =
         static_cast<int>(std::clamp(std::thread::hardware_concurrency(), 2u, 8u));

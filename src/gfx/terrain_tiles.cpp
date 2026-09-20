@@ -1408,10 +1408,61 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
 
     auto& tileset = *impl_->tileset;
     auto& group = tileset.getDefaultViewGroup();
+
+    // **"Every tile this view needs" is a finite thing only for the open
+    // provider.** Its terrain is built here, over a region, and stops at the
+    // DEM's own spacing, so waiting for all of it makes the same command draw
+    // the same terrain on every machine - which is what a shot is for.
+    //
+    // A streamed provider has no such end: it covers the Earth and refines
+    // until it runs out of levels, and what arrives depends on the network
+    // and on the provider. Waiting for all of it ran past 25 minutes. So it
+    // is given a settling instead - rounds of loading until what is drawn
+    // stops growing, and never more than the cap - and its frame is not
+    // claimed to be the same everywhere, because it cannot be. What is
+    // claimed of it is that it drew terrain, and that its attribution is on
+    // it.
+    const bool finite = impl_->provider == Provider::open;
+    if (complete && !finite) {
+        // Refinement arrives in waves - a level loads, and asking again
+        // asks for the one below it - so "settled" has to mean quiet for a
+        // while, not quiet for a moment: at half a second it stopped at
+        // level 2 where waiting for everything reaches level 12.
+        constexpr int rounds = 900;    // at 50 ms, three quarters of a minute
+        constexpr int steady_for = 60; // three seconds unchanged
+        std::size_t was = 0;
+        std::size_t was_deepest = 0;
+        int steady = 0;
+        for (int round = 0; round < rounds; ++round) {
+            const auto& loading = tileset.updateViewGroup(group, {view}, 0.0f);
+            tileset.loadTiles();
+            // What the workers finished has to be taken up here: the offline
+            // wait does this itself, and without it nothing ever arrives.
+            impl_->async.dispatchMainThreadTasks();
+            std::size_t drawn = 0;
+            std::size_t deepest = 0;
+            for (const auto& tile : loading.tilesToRenderThisFrame) {
+                if (tile->getContent().getRenderContent() == nullptr) {
+                    continue;
+                }
+                ++drawn;
+                if (const auto* id = std::get_if<QuadtreeTileID>(&tile->getTileID())) {
+                    deepest = std::max<std::size_t>(deepest, id->level);
+                }
+            }
+            steady = drawn == was && deepest == was_deepest ? steady + 1 : 0;
+            was = drawn;
+            was_deepest = deepest;
+            if (drawn > 0 && steady >= steady_for) {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    }
     const Cesium3DTilesSelection::ViewUpdateResult& result =
-        complete ? tileset.updateViewGroupOffline(group, {view})
-                 : tileset.updateViewGroup(group, {view}, 0.0f);
-    if (!complete) {
+        complete && finite ? tileset.updateViewGroupOffline(group, {view})
+                           : tileset.updateViewGroup(group, {view}, 0.0f);
+    if (!(complete && finite)) {
         tileset.loadTiles();
     }
 

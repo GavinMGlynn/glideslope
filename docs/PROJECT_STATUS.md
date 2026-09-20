@@ -195,12 +195,12 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Cesium ion as a visual terrain provider, 2026-09-21 — under way, not done
+### Cesium ion as a visual terrain provider, 2026-09-21 — item done
 
-Phase 5b's first item is begun. **Cesium ion draws, with its attribution, and
-a provider without its key says so rather than failing** - but the test that
-would hold it takes longer than a test may, so the item is not ticked. See
-"what is left" below.
+Phase 5b's first item. **Cesium ion draws Cesium World Terrain under Bing
+Maps Aerial with its attribution, and a provider without its key says what is
+missing rather than failing** - both walked by one test that takes 17 seconds
+and reports itself skipped where there is no token.
 
 **A key belongs to the user and is never in the repository.**
 `platform::config_directory()` is where their settings live -
@@ -266,29 +266,37 @@ Drafts of both are ready to post upstream; neither is glideslope's to fix.
    every other check, and all first-party code, is untouched. It goes away
    when they fix it.
 
+**Waiting for a whole Earth is not a thing that ends.** The open provider's
+terrain is built here, over a region, and stops at the DEM's own spacing, so
+waiting for every tile a view needs makes the same command draw the same
+terrain on every machine. A streamed provider has no such end, and asking
+Cesium Native for it - `updateViewGroupOffline`, which refines regardless of
+screen-space error - ran past 25 minutes. A streamed provider is given a
+settling instead: rounds of loading, taking up what the workers finish, until
+neither what is drawn nor how deep it goes has changed for three seconds, and
+never more than three quarters of a minute. **Its frame is therefore not
+claimed to be the same on every machine**, because what arrives depends on
+the network and on the provider; what is claimed is that it drew terrain and
+that its attribution is on it. With that, ion reaches level 13 at the same
+screen-space error the open provider uses, in 13 seconds.
+
 **What it draws.** Mount Taranaki from the north-east, Cesium World Terrain
-under Bing Maps Aerial, 47 tiles at a screen-space error of 32, the deepest at
-level 12 - with ion's own attribution along the bottom: the USGS, CGIAR-CSI,
+under Bing Maps Aerial, 126 tiles, the deepest at level 13 - with ion's own attribution along the bottom: the USGS, CGIAR-CSI,
 Copernicus, Land Information New Zealand, data.gov.uk, Geoscience Australia,
 Microsoft, Mapbox, Earthstar Geographics SIO, Maxar and Airbus DS, and the
 free tier's "upgrade for commercial use".
 
 **What is left, to pick up from.**
 
-1. **The test takes too long to keep.** `tests/cmake/terrain_provider.cmake`
-   walks each provider in both its states, and the half that draws waits for
-   every tile the view needs so that the shot is the same everywhere. Against
-   a cold cache that ran past 25 minutes for ion, where the open provider's
-   equivalent is 25 seconds: a streamed provider covers the Earth and refines
-   until it runs out of levels. The frame is now 320x240 and the streamed
-   screen-space error 32; whether that is enough is the next thing to
-   measure. Until a provider's drawing is held by a test that can be kept,
-   the item stays open.
-2. **Google's Photorealistic 3D Tiles are written but unproven.** Both ways
-   in are there - a Google Maps Platform key directly, or an ion token
-   through ion's asset 2275207 - and neither has been seen to draw: this
-   machine has no Google key, and the ion way in has not been run.
-3. **The visual-to-collision mismatch is not measured.** That is the phase's
+1. **Google's Photorealistic 3D Tiles are written and do not draw.** Both
+   ways in are there - a Google Maps Platform key directly, or an ion token
+   through ion's asset 2275207. Through ion it fetches 553 tiles and draws
+   none: its sub-tilesets arrive as JSON nothing can parse at byte offset 0,
+   which is the shape of a body still compressed, so that is where to look
+   next. This machine has no Google Maps Platform key, so the direct way in
+   is unproven too. Its test is written and not registered, because a test
+   of something that does not work is not a test.
+2. **The visual-to-collision mismatch is not measured.** That is the phase's
    own fourth item.
 
 

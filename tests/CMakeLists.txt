@@ -522,15 +522,16 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_views.cmake)
     set_tests_properties(the_client_draws_the_aeroplane_where_each_view_puts_it_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
-    # The open provider, in both its states. **ion and google are not here
-    # yet**: ion's drawing half waits for every tile a streamed, whole-Earth
-    # tileset refines to and has run past 25 minutes against a cold cache,
-    # which is longer than a test may take, and google draws nothing at all
-    # through this account. Both are written and run by hand -
-    # `--terrain ion` draws Mount Taranaki with its attribution - and
-    # docs/PROJECT_STATUS.md says where that stands. The script takes the
-    # provider as a parameter, so they join this list when they can be kept.
-    foreach(_provider open)
+    # The open provider and Cesium ion, each in both its states: with the
+    # user's key and without one. A provider whose key this machine has not
+    # got reports itself skipped - skipped, never passed.
+    #
+    # **Google is not here yet**: through a Cesium ion token it loads its
+    # tiles and draws none of them, its sub-tilesets arriving as JSON nothing
+    # can parse at byte offset 0. docs/PROJECT_STATUS.md says what is known.
+    # The script takes the provider as a parameter, so it joins this list
+    # when it draws.
+    foreach(_provider open ion)
         add_test(NAME the_${_provider}_terrain_draws_with_its_attribution_or_says_why_not_on_${_driver}
             COMMAND ${CMAKE_COMMAND}
                 -DPROGRAM=$<TARGET_FILE:glideslope> -DPROVIDER=${_provider}
