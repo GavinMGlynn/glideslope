@@ -381,6 +381,26 @@ quality: each is held to published figures before it is offered, as the Cessna
 - [ ] **Visual models from FlightGear aircraft**, each licence checked.
       *Verification: `ASSETS.md` names the source, commit and licence of every
       model that ships, and a model without an entry fails a test.*
+      Begun 2026-09-20 and not finished. Eight of the sixteen aircraft have a
+      model - the two Cessnas, the Piper Cherokee and Cub, the 737-300,
+      747-400, 787-8 and A320 - made from FlightGear's by
+      `tools/make_models.py`, recorded in `ASSETS.md` with their source,
+      revision and licence, and held by tests to their published length and
+      span and to facing the way they fly. **Still to do: the six whose
+      FlightGear directories state no licence** - the A380, B-2, F-15, F-22,
+      Mosquito and Short Empire - which the project owner decided on
+      2026-09-20 should ship on FlightGear's project-wide GPL policy, with
+      that recorded as the basis. The Learjet 35A and F-35A have no
+      FlightGear model at all and will have none. `PROJECT_STATUS.md` says
+      what each step is.
+- [ ] **A visual model put where its aeroplane is.** Each model is in its
+      FlightGear aircraft's own frame, whose origin is that aircraft's FDM
+      datum and not always glideslope's: the Cub's and 747's wheels are
+      within 0.14 m of their JSBSim contact points, the Cessna 172P's 1.03 m
+      out. *(Found 2026-09-20 making the models.)* *Verification: for every
+      aircraft that has a model, the model's wheels sit on the ground within
+      a stated distance when the aeroplane is standing on it, and its nose,
+      wingtips and fin are where the flight model's geometry says.*
 - [x] **An aircraft chosen at start.** *Verification: every aircraft can be
       chosen, takes off, and passes its published-figure checks.* Stated,
       2026-09-19, CI run 35442214130: `--aircraft` flies any of the fifteen the

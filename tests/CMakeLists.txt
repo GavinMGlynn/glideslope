@@ -37,9 +37,10 @@ add_executable(glideslope_tests
     unit/test_inflate.cpp
     unit/test_flight.cpp
     unit/test_restore.cpp
-    unit/test_sky.cpp)
+    unit/test_sky.cpp
+    unit/test_model.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_world glideslope_platform
-                                               glideslope_input)
+                                               glideslope_input glideslope_model)
 # Where tests/cmake/fetch.cmake puts the files the tests download. A directory
 # named by GLIDESLOPE_DOWNLOADS when configuring outlives the build tree, which
 # is how CI keeps them between runs.
@@ -56,7 +57,8 @@ target_compile_definitions(glideslope_tests PRIVATE
     GLIDESLOPE_TEST_DATA_DIR="${GLIDESLOPE_DATA_DIR}/jsbsim"
     GLIDESLOPE_TEST_FIGURES_DIR="${GLIDESLOPE_DATA_DIR}/figures"
     GLIDESLOPE_TEST_PLANS_DIR="${GLIDESLOPE_DATA_DIR}/plans"
-    GLIDESLOPE_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+    GLIDESLOPE_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+    GLIDESLOPE_TEST_PROJECT_DIR="${PROJECT_SOURCE_DIR}")
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
@@ -206,6 +208,10 @@ set(GLIDESLOPE_UNIT_TESTS
     a_dem_tile_is_fetched_once_checked_against_its_etag_and_read_from_the_cache_after
     a_dem_tile_that_arrives_damaged_missing_or_not_at_all_is_refused_and_not_kept
     several_fetches_of_one_file_at_once_all_end_with_it
+    every_visual_model_that_ships_is_named_in_assets_md_with_its_source_revision_and_licence
+    every_aircraft_the_data_holds_has_a_visual_model_or_a_named_reason
+    each_visual_model_is_its_aircrafts_size_and_faces_the_way_it_flies
+    a_model_file_that_is_damaged_or_of_another_version_is_refused
     a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash
     level_terrain_holds_an_aircraft_exactly_as_jsbsims_own_ground_does
     an_aircraft_set_down_on_a_slope_rests_tilted_by_the_slope
@@ -290,6 +296,22 @@ set_tests_properties(
     the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
     an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
     PROPERTIES TIMEOUT 1800)
+
+# The FlightGear files the visual models are made from, fetched once and
+# checked against their pinned SHA-256, so the check below converts exactly
+# what tools/make_models.py converted.
+add_test(NAME the_files_the_visual_models_are_made_from_arrive_with_their_pinned_hashes
+    COMMAND ${CMAKE_COMMAND} -DLIST=${PROJECT_SOURCE_DIR}/assets/models/sources.txt
+        -DDIR=${GLIDESLOPE_DOWNLOADS_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch.cmake)
+set_tests_properties(the_files_the_visual_models_are_made_from_arrive_with_their_pinned_hashes
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_SETUP model_sources TIMEOUT 1800)
+
+add_test(NAME the_committed_visual_models_are_what_their_script_writes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_models.py "-DARGS=--cache;${GLIDESLOPE_DOWNLOADS_DIR}"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_visual_models_are_what_their_script_writes
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED model_sources TIMEOUT 900)
 
 # The committed DEM coverage is what the pinned tile lists make.
 add_test(NAME the_committed_dem_coverage_is_what_the_pinned_tile_lists_make

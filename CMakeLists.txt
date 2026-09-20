@@ -199,6 +199,16 @@ target_link_libraries(glideslope_input PUBLIC glideslope_sim SDL3::SDL3-static)
 glideslope_configure(glideslope_input)
 
 # ---------------------------------------------------------------------------
+# The aircraft visual models, read from the files tools/make_models.py makes.
+# Its own library because it is presentation but links nothing presentational,
+# so the unit tests can read a model without SDL or Cesium Native behind them.
+# ---------------------------------------------------------------------------
+add_library(glideslope_model STATIC
+    src/gfx/model.cpp)
+target_include_directories(glideslope_model PUBLIC src)
+glideslope_configure(glideslope_model)
+
+# ---------------------------------------------------------------------------
 # The renderer - SDL_GPU over Vulkan, Direct3D 12 and Metal.
 # ---------------------------------------------------------------------------
 add_library(glideslope_gfx STATIC
@@ -209,7 +219,8 @@ add_library(glideslope_gfx STATIC
     src/gfx/terrain_colour.cpp
     src/gfx/terrain_tiles.cpp)
 target_include_directories(glideslope_gfx PUBLIC src)
-target_link_libraries(glideslope_gfx PUBLIC SDL3::SDL3-static glideslope_world)
+target_link_libraries(glideslope_gfx PUBLIC SDL3::SDL3-static glideslope_world
+                                            glideslope_model)
 # Cesium Native is behind gfx/terrain_tiles.hpp, and none of it is in a header
 # here.
 target_link_libraries(glideslope_gfx PRIVATE Cesium3DTilesSelection CesiumGltfContent)

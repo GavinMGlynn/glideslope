@@ -5,7 +5,7 @@ comes from, which version, and under what terms — aircraft models, terrain,
 imagery, weather data, fonts and sound. The code licence (GPL-3.0-or-later) does
 not cover any of it; each source's own terms do.
 
-**Thirty-three things are used: Cessna 172P and 182S, Piper PA-28-180 and J-3
+**Thirty-four things are used: Cessna 172P and 182S, Piper PA-28-180 and J-3
 Cub, Airbus A320, Boeing 737-300, 747-400 and 787-8, McDonnell Douglas F-15C,
 Lockheed Martin F-22A and Short S.23 flight models derived from JSBSim's, those
 eleven aircraft's published figures - handbooks for the light aircraft,
@@ -20,8 +20,9 @@ and Pilot's Notes (for a flight model written here), the Copernicus DEM, the
 EGM2008 geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from
 aviationweather.gov and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
 as they are needed, the weather when it is asked for, with one recorded
-response of each weather service committed for the tests. No visual model,
-font or sound is used or fetched yet.
+response of each weather service committed for the tests, and **eight
+aircraft visual models from FlightGear's aircraft**, converted from their
+pinned sources and committed. No font or sound is used or fetched yet.
 
 ## The rule
 
@@ -346,6 +347,146 @@ numbers, each cited where it is used, and a few words quoted with each figure
 to say where its number is - not their text, charts or scans, none of which is
 in the repository.
 
+### Aircraft visual models, from FlightGear's aircraft
+
+Eight of the sixteen aircraft ship a visual model. The geometry is AC3D
+(`.ac`) placed by FlightGear model XML; `tools/make_models.py` fetches the
+pinned files listed in `assets/models/sources.txt`, each by URL and SHA-256,
+flattens each aircraft's exterior into one mesh in the body frame and writes
+`assets/models/<model>.mesh`. A test fails if what is committed differs from
+what the script makes, and another fails if a model ships without the entry
+below or an entry names a model that does not ship.
+
+No mesh carries a texture, so no livery ships and a surface takes the flat
+diffuse colour of its AC3D material; none carries an animation, so control
+surfaces, gear and propellers are welded where the model has them. Each
+model's origin is its FlightGear aircraft's, which is not always its flight
+model's: aligning the two is the views item's, and is not done yet.
+
+### Visual model: c172p - FlightGear's c172p
+
+| | |
+| --- | --- |
+| Source | The c172p team's own repository, <https://github.com/c172p-team/c172p>: `Models/c172p.xml` and the `Models/c172-common.ac` it places, pitched -3 degrees as that file asks |
+| Revision | commit `84477612bba340ab98004a10f8b28a81c18e6169`, 2026-09-02 |
+| Licence | GPL-2.0: the GNU GPL v2 text verbatim in `LICENSE`, and GitHub reads the repository as GPL-2.0 |
+| In the repository | `assets/models/c172p.mesh`, 45,451 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: c182 - FlightGear's c182s
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/c182s`: `Models/c182s.xml` and the `Models/c182s.ac` it places |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL-2.0: the GNU GPL v2 text verbatim in `LICENSE` |
+| In the repository | `assets/models/c182.mesh`, 30,169 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: pa28 - FlightGear's PA28-161 Warrior II
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/PA28`: `Models/PA28-161-180.xml`, which is an include of `Models/PA28-161-160.xml`, and the `Models/PA28-161.ac` it places |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL-2.0: the GNU GPL v2 text verbatim in `LICENSE` |
+| In the repository | `assets/models/pa28.mesh`, 91,464 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: j3cub - FlightGear's J3Cub
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/J3Cub`: `Models/J3Cub.xml` and the `Models/J3Cub.ac` it places |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL-3.0: the GNU GPL v3 text verbatim in `copying.txt`, and `readme.txt` says "License: GPL (see file \"COPYING.txt\" for details)" |
+| In the repository | `assets/models/j3cub.mesh`, 51,387 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: 737-300 - FlightGear's 737-300
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/737-300`: `Models/737-300.xml` and the `Models/737-300.ac` it places |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL-3.0: the GNU GPL v3 text verbatim in `LICENSE.md`, and `README.md` says "This is the 737-300 in Progress and under GNU GPL v3.0" |
+| In the repository | `assets/models/737-300.mesh`, 48,318 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: 747-400 - FlightGear's 747-400
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/747-400`: `Models/747-400.xml`, and the `747-400_fuselage.ac`, `747-400_gear.ac`, `747-400_wings.ac` and four placements of `GE_CF6-80C2B1F.ac` it composes |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL-2.0: the GNU GPL v2 text verbatim in `COPYING` |
+| In the repository | `assets/models/747-400.mesh`, 24,382 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: 787-8 - FlightGear's 787-8
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/787-8`: `Models/787-8.xml` and the `Models/787-8.ac` it places |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL-2.0: the GNU GPL v2 text verbatim in `COPYING` |
+| In the repository | `assets/models/787-8.mesh`, 28,759 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Visual model: a320 - FlightGear's A320-family, the A320-200 with CFM56 engines
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/A320-family`: `Models/A320-200-CFM.xml`, through `A320-common.xml` and `Fuselage/fuselage.xml` to `Fuselage/res/A320-216.ac`, and `Fuselage/a320.cfm.xml` to `Fuselage/res/CFM56.ac` |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-19 |
+| Licence | GPL-2.0: the GNU GPL v2 text verbatim in `LICENSE`; the model files carry "Copyright (c) 2026 Josh Davidson (Octal450)" |
+| In the repository | `assets/models/a320.mesh`, 107,449 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
+
+### Aircraft with no visual model
+
+Eight aircraft ship none. Six have a FlightGear model whose directory
+states no licence, and two have no FlightGear model at all.
+
+### No visual model: a380
+
+| | |
+| --- | --- |
+| Why | FGAddon's `A380` has a model, but no `COPYING`, `LICENSE`, `README` or licence file of any kind at any level of its directory; `A380-set.xml` names the authors "Ampere.K, I.Cunningham, F.Dalvi, S.Hamilton, et al" and states no terms. FGAddon's policy is that its aircraft are GPL, but a policy is not a grant by the author, so nothing of it ships. |
+
+### No visual model: b2
+
+| | |
+| --- | --- |
+| Why | FGAddon's `B-2` has a model and no licence file at any level; `B-2-set.xml` names the author "Markus Zojer" and states no terms. |
+
+### No visual model: f15c
+
+| | |
+| --- | --- |
+| Why | FGAddon's `F-15` has a model and no licence file at any level; `README.txt` is a feature list crediting Richard Harrison and states no terms. |
+
+### No visual model: f22
+
+| | |
+| --- | --- |
+| Why | FGAddon's `Lockheed-Martin-FA-22A-Raptor` has a model and no licence file at any level; `f22-jsbsim-set.xml` names the author "Fabrizio Fracaroli" and states no terms. |
+
+### No visual model: f35a
+
+| | |
+| --- | --- |
+| Why | FlightGear has no F-35A. FGAddon's `F-35B` is the short take-off and vertical landing variant, a different airframe with a lift fan behind the cockpit, so it is not this aeroplane. |
+
+### No visual model: learjet35a
+
+| | |
+| --- | --- |
+| Why | FlightGear has no Learjet of any mark in FGAddon, so there is nothing to take. |
+
+### No visual model: mosquito-fb6
+
+| | |
+| --- | --- |
+| Why | FGAddon's `mosquito` has an FB Mk VI model and no licence file at any level; `mosquito-fbVI-set.xml` names the authors "Ludovic Brenta, Detlef Faber." and states no terms. |
+
+### No visual model: short_s23
+
+| | |
+| --- | --- |
+| Why | FGAddon's `Short_Empire` has a model and no licence file at any level; `AUTHORS` credits Anders Gidenstam, and the authors whose work the model borrows, and states no terms. |
 ### The Copernicus DEM, GLO-30 Public
 
 | | |

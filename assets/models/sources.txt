@@ -1,0 +1,32 @@
+# The FlightGear files glideslope's visual models are made from,
+# each pinned by SHA-256: name, size in bytes, SHA-256, URL.
+# Written by tools/make_models.py --refresh; see docs/ASSETS.md
+# for each model's source, revision and licence.
+fgmodel-737-300-Models_737-300.ac 3327850 5a236e16ef01f5e831274ac3e766b1550ad672e13a957f71692d51f4fe305ac7 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/737-300/Models/737-300.ac?format=raw
+fgmodel-737-300-Models_737-300.xml 50016 4bbed5e50331a143783a873063f33b7402f316879fe31867c055b4df109f052b https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/737-300/Models/737-300.xml?format=raw
+fgmodel-747-400-Models_747-400.xml 6155 8b5eaed391392f75a3a03325d02c19ce8e6a9c66f5417a5ec4ed0eecf6d6f5c1 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/747-400/Models/747-400.xml?format=raw
+fgmodel-747-400-Models_747-400_fuselage.ac 436835 258017fa7fb566c6d7eb101d700d4531793a49ce189eefeee2532c4a85d0ebad https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/747-400/Models/747-400_fuselage.ac?format=raw
+fgmodel-747-400-Models_747-400_fuselage.xml 16084 aaf777041e5af5613ce6f52316275278e900e7644caaf0d2a4bbae0f57ac37e1 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/747-400/Models/747-400_fuselage.xml?format=raw
+fgmodel-747-400-Models_747-400_gear.ac 965537 18cb098477e3447e365322b01beb267d116e59f393c8ef658ae46794a03d1141 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/747-400/Models/747-400_gear.ac?format=raw
+fgmodel-747-400-Models_747-400_gear.xml 19505 7c178273cf4e730b976adb2a6b99a018a2dc553b7412b768775128231ea3bb34 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/747-400/Models/747-400_gear.xml?format=raw
+fgmodel-747-400-Models_747-400_wings.ac 359899 a2e0d02ab6a37975d267a76afb6e09cf94a79ec2540bb34753fadfb2f09d4232 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/747-400/Models/747-400_wings.ac?format=raw
+fgmodel-747-400-Models_747-400_wings.xml 37494 4c2bdeb1d23221f94544e592968b9efa8e3797bdddf2202c6a7b5323ed36daba https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/747-400/Models/747-400_wings.xml?format=raw
+fgmodel-747-400-Models_GE_CF6-80C2B1F.ac 175449 7e6330a7fee9dc3f671b0607c5515ea308ed971f2674b6f7d16c063e0e77e5df https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/747-400/Models/GE_CF6-80C2B1F.ac?format=raw
+fgmodel-747-400-Models_GE_CF6-80C2B1F.xml 1071 bf91f2961e780dff98bfb12fc41b6f070d7a3b2e2e819d29ff1c55e35cbfb9e0 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/747-400/Models/GE_CF6-80C2B1F.xml?format=raw
+fgmodel-787-8-Models_787-8.ac 2695403 c168688d31a0feeab6172541bf78cd50629512c6e9dd57f9ee5dc9128cadffe6 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/787-8/Models/787-8.ac?format=raw
+fgmodel-787-8-Models_787-8.xml 69511 dde17a6d62089e6ba2ec7d47b2a8974ddc2dcc787b7b4acf7607468e3dae09f4 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/787-8/Models/787-8.xml?format=raw
+fgmodel-a320-Models_A320-200-CFM.xml 2376 359b106f759cc2152e7a0921f19efb9f3e49fcb287677d4f7f4d9ab0bf9fcdc2 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/A320-family/Models/A320-200-CFM.xml?format=raw
+fgmodel-a320-Models_A320-common.xml 19537 06c2c7b0f712424c806ed8f8af49c5875b37cbd22274490afe9d9642aa257cae https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/A320-family/Models/A320-common.xml?format=raw
+fgmodel-a320-Models_Fuselage_a320.cfm.xml 16500 2e4fafe2a8983505a731899ecef877e2f79dff7150e4cffadb9d81ec98bcce91 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/A320-family/Models/Fuselage/a320.cfm.xml?format=raw
+fgmodel-a320-Models_Fuselage_fuselage.xml 81300 528fcb4fe34f3313d059ba494f7e3226ec55215a790f7d5cad3533b25b081274 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/A320-family/Models/Fuselage/fuselage.xml?format=raw
+fgmodel-a320-Models_Fuselage_res_A320-216.ac 7157107 2f2448299448127dd95234ecae0d7abcc1682c425bb4885ee76eb13274ce0662 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/A320-family/Models/Fuselage/res/A320-216.ac?format=raw
+fgmodel-a320-Models_Fuselage_res_CFM56.ac 1411064 3b7641e838cd5b4df010058801747ff40620af64af470245c8a32fd2fcf4593e https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/A320-family/Models/Fuselage/res/CFM56.ac?format=raw
+fgmodel-c172p-Models_c172-common.ac 3202165 2026d777964edf0efd41db950392d19eccd503bf9f14288e1c6930a84072239b https://raw.githubusercontent.com/c172p-team/c172p/84477612bba340ab98004a10f8b28a81c18e6169/Models/c172-common.ac
+fgmodel-c172p-Models_c172p.xml 307123 46070342dc08ca8b0713429786e1a61c8547aad0fd929fabcd8728440f24c1da https://raw.githubusercontent.com/c172p-team/c172p/84477612bba340ab98004a10f8b28a81c18e6169/Models/c172p.xml
+fgmodel-c182-Models_c182s.ac 2123810 9324ba50bf9eb8e2e7215a4b1f5a44b8da2ec782c913d557d70df922daf0f436 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/c182s/Models/c182s.ac?format=raw
+fgmodel-c182-Models_c182s.xml 99947 3ba6df659a511f1d82101b8b9d7b35e134a421585796e8b7c573e0df4408f5a3 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/c182s/Models/c182s.xml?format=raw
+fgmodel-j3cub-Models_J3Cub.ac 3619371 a8fe24598d2f36de5c1aef15ed45485a64a301047298edf1e0a3299211983eaf https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/J3Cub/Models/J3Cub.ac?format=raw
+fgmodel-j3cub-Models_J3Cub.xml 237729 142af874552b50a569d875b149e69c1271e544b2dc88a9a273457b1a247afa95 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/J3Cub/Models/J3Cub.xml?format=raw
+fgmodel-pa28-Models_PA28-161-160.xml 49742 424ea94d1cb04570d91f34e3e6bfbf39360e86a5a5444455a6cacaf8c24ba3ec https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/PA28/Models/PA28-161-160.xml?format=raw
+fgmodel-pa28-Models_PA28-161-180.xml 81 8579cd8d3e7aeff2a95e342dd384abe19c967f16a8ef4e4f040f1c45fa735394 https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/PA28/Models/PA28-161-180.xml?format=raw
+fgmodel-pa28-Models_PA28-161.ac 6260258 27f0b9a19555e5975dffc622d8472deba695fc3fcff423ed9c8e8ecc2a5cccce https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/PA28/Models/PA28-161.ac?format=raw
