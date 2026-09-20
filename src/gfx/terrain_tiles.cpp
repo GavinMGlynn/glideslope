@@ -1,5 +1,8 @@
 #include "gfx/terrain_tiles.hpp"
 
+#include "platform/http.hpp"
+#include "world/json.hpp"
+
 #include "gfx/terrain_colour.hpp"
 #include "platform/http.hpp"
 
@@ -18,6 +21,7 @@
 #include <CesiumAsync/AsyncSystem.h>
 #include <CesiumAsync/CachingAssetAccessor.h>
 #include <CesiumAsync/SqliteCache.h>
+#include <CesiumRasterOverlays/BingMapsRasterOverlay.h>
 #include <CesiumAsync/HttpHeaders.h>
 #include <CesiumAsync/IAssetAccessor.h>
 #include <CesiumAsync/IAssetRequest.h>
@@ -55,6 +59,7 @@
 #include <glm/vec4.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <atomic>
 #include <cmath>
 #include <condition_variable>
@@ -75,6 +80,11 @@ void log_to_standard_error() {
     // Once: spdlog refuses a logger of a name it already holds.
     static const bool done = [] {
         spdlog::set_default_logger(spdlog::stderr_logger_mt("glideslope"));
+        // Warnings and worse only. Cesium Native says at info level which
+        // URLs it fetched, and a Cesium ion URL carries the user's own token
+        // in it - which would then be in whatever the output was kept in,
+        // including a CI log. What goes wrong is still said.
+        spdlog::set_level(spdlog::level::warn);
         return true;
     }();
     (void)done;
@@ -222,6 +232,54 @@ private:
 // Cesium Native's requests, through the platform's HTTPS. Plain GETs only:
 // nothing drawn yet needs a request header or a body, and a request that asks
 // for either fails rather than going out without them.
+// Puts a bearer token on every request to one place, and touches no other.
+// A token is a secret: it goes only to the host that issued it, so that a
+// tileset naming a URL elsewhere cannot make it leak.
+class AuthorisingAccessor final : public CesiumAsync::IAssetAccessor {
+public:
+    AuthorisingAccessor(std::shared_ptr<CesiumAsync::IAssetAccessor> next,
+                        std::string prefix, std::string token)
+        : next_(std::move(next)), prefix_(std::move(prefix)),
+          token_(std::move(token)) {}
+
+    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
+    get(const CesiumAsync::AsyncSystem& async, const std::string& url,
+        const std::vector<THeader>& headers) override {
+        return next_->get(async, url, with_token(url, headers));
+    }
+
+    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
+    request(const CesiumAsync::AsyncSystem& async, const std::string& verb,
+            const std::string& url, const std::vector<THeader>& headers,
+            const std::span<const std::byte>& body) override {
+        return next_->request(async, verb, url, with_token(url, headers), body);
+    }
+
+    void tick() noexcept override {
+        next_->tick();
+    }
+
+private:
+    std::vector<THeader> with_token(const std::string& url,
+                                    const std::vector<THeader>& headers) const {
+        std::vector<THeader> out = headers;
+        if (url.rfind(prefix_, 0) != 0) {
+            return out; // somewhere else: it gets nothing of ours
+        }
+        for (const auto& [name, value] : out) {
+            if (name == "Authorization") {
+                return out; // already carried
+            }
+        }
+        out.emplace_back("Authorization", "Bearer " + token_);
+        return out;
+    }
+
+    std::shared_ptr<CesiumAsync::IAssetAccessor> next_;
+    std::string prefix_;
+    std::string token_;
+};
+
 class PlatformAccessor final : public CesiumAsync::IAssetAccessor {
 public:
     CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
@@ -234,14 +292,47 @@ public:
     request(const CesiumAsync::AsyncSystem& async, const std::string& verb,
             const std::string& url, const std::vector<THeader>& headers,
             const std::span<const std::byte>& body) override {
-        const bool plain = verb == "GET" && headers.empty() && body.empty();
+        // Only GETs are made. A terrain provider asks for nothing else -
+        // Cesium ion and Google both serve tiles by GET - and a body going
+        // out is not something this needs to be able to do.
+        //
+        // The headers a provider asks for are sent, less any whose name or
+        // value holds a control character: a newline in either would end the
+        // header and begin whatever followed it, so those are dropped rather
+        // than passed to the operating system.
+        const bool only_get = verb == "GET" && body.empty();
+        std::vector<std::pair<std::string, std::string>> sent;
+        for (const auto& [name, value] : headers) {
+            const auto printable = [](const std::string& s) {
+                return std::none_of(s.begin(), s.end(), [](unsigned char c) {
+                    return c < 0x20 || c == 0x7F;
+                });
+            };
+            // How a body is compressed on the way is the HTTP layer's own
+            // business: each of the three undoes whatever it asked for. A
+            // provider's Accept-Encoding asking for something the layer did
+            // not negotiate hands back a body nothing can read - Cesium ion's
+            // layer.json arrives gzipped and unreadable - so it is not passed
+            // on.
+            std::string lower;
+            for (const char c : name) {
+                lower += static_cast<char>(
+                    std::tolower(static_cast<unsigned char>(c)));
+            }
+            if (lower == "accept-encoding") {
+                continue;
+            }
+            if (printable(name) && printable(value)) {
+                sent.emplace_back(name, value);
+            }
+        }
         return async.runInWorkerThread(
-            [verb, url, plain]() -> std::shared_ptr<CesiumAsync::IAssetRequest> {
+            [verb, url, only_get,
+             sent]() -> std::shared_ptr<CesiumAsync::IAssetRequest> {
                 auto request = std::make_shared<Request>(verb, url);
-                if (!plain) {
+                if (!only_get) {
                     std::fprintf(stderr,
-                                 "glideslope: %s %s refused: only plain GETs are "
-                                 "made\n",
+                                 "glideslope: %s %s refused: only GETs are made\n",
                                  verb.c_str(), url.c_str());
                     return request;
                 }
@@ -250,6 +341,7 @@ public:
                     q.url = url;
                     q.user_agent =
                         "glideslope (+https://github.com/GavinMGlynn/glideslope)";
+                    q.headers = sent;
                     request->set(platform::http_get(q));
                 } catch (const platform::HttpError& e) {
                     std::fprintf(stderr, "glideslope: %s: %s\n", url.c_str(), e.what());
@@ -871,11 +963,20 @@ private:
 
 } // namespace
 
+// Cesium ion's own asset numbers, which are the same for every account.
+constexpr std::int64_t ion_world_terrain_asset = 1;      // Cesium World Terrain
+constexpr std::int64_t ion_aerial_imagery_asset = 2;     // Bing Maps Aerial
+constexpr std::int64_t google_photorealistic_asset = 2275207; // through ion
+
 struct TerrainTiles::Impl {
     std::shared_ptr<std::atomic<int>> requests = std::make_shared<std::atomic<int>>(0);
     std::atomic<std::size_t> failures{0};
     std::atomic<std::size_t> skipped{0};
     bool imagery = false;
+    Provider provider = Provider::open;
+    std::shared_ptr<CesiumUtility::CreditSystem> credit_system;
+    // What the provider itself said must be shown, before a tile has loaded.
+    std::vector<std::string> from_provider;
     std::shared_ptr<WorkerPool> workers;
     CesiumAsync::AsyncSystem async;
     std::unique_ptr<Cesium3DTilesSelection::Tileset> tileset;
@@ -884,6 +985,186 @@ struct TerrainTiles::Impl {
     explicit Impl(int threads)
         : workers(std::make_shared<WorkerPool>(threads)), async(workers) {}
 };
+
+namespace {
+
+const std::vector<Provider>& providers() {
+    static const std::vector<Provider> all{Provider::open, Provider::ion,
+                                           Provider::google};
+    return all;
+}
+
+} // namespace
+
+const std::vector<Provider>& every_provider() {
+    return providers();
+}
+
+std::string_view name_of(Provider provider) {
+    switch (provider) {
+    case Provider::open:
+        return "open";
+    case Provider::ion:
+        return "ion";
+    case Provider::google:
+        return "google";
+    }
+    return "open";
+}
+
+std::optional<Provider> provider_named(std::string_view name) {
+    for (const Provider provider : providers()) {
+        if (name_of(provider) == name) {
+            return provider;
+        }
+    }
+    return std::nullopt;
+}
+
+std::string provider_names() {
+    std::string out;
+    for (const Provider provider : providers()) {
+        out += (out.empty() ? "" : ", ") + std::string(name_of(provider));
+    }
+    return out;
+}
+
+std::string why_not(Provider provider, const std::string& ion_token,
+                    const std::string& google_key) {
+    switch (provider) {
+    case Provider::open:
+        return {}; // the open data needs nothing of the user
+    case Provider::ion:
+        if (ion_token.empty()) {
+            return "Cesium ion needs your own token: put it in "
+                   "cesium-ion-token in glideslope's config directory, or set "
+                   "GLIDESLOPE_CESIUM_ION_TOKEN. One is free from "
+                   "https://cesium.com/ion/";
+        }
+        return {};
+    case Provider::google:
+        if (google_key.empty() && ion_token.empty()) {
+            return "Google's Photorealistic 3D Tiles need either your own "
+                   "Google Maps Platform key - google-maps-key in glideslope's "
+                   "config directory, or GLIDESLOPE_GOOGLE_MAPS_KEY - or your "
+                   "own Cesium ion token, which serves them too";
+        }
+        return {};
+    }
+    return {};
+}
+
+namespace {
+
+// What Cesium ion says about an asset: where its tiles are, and the token
+// that authorises them.
+// Everything up to the end of a URL's host: the place a token may go to.
+std::string host_of(const std::string& url) {
+    const std::size_t scheme = url.find("://");
+    if (scheme == std::string::npos) {
+        return url;
+    }
+    const std::size_t slash = url.find('/', scheme + 3);
+    return slash == std::string::npos ? url : url.substr(0, slash);
+}
+
+struct IonEndpoint {
+    std::string type;          // "TERRAIN", "IMAGERY" or "3DTILES"
+    std::string external_type; // "BING" for imagery ion does not serve itself
+    std::string url;
+    std::string access_token; // what ion serves itself is authorised by this
+    std::string key;          // what it does not is authorised by its own
+    std::string style;
+    std::vector<std::string> attributions; // HTML, as ion gives it
+};
+
+// Asks Cesium ion where an asset is.
+//
+// **This is done here rather than by Cesium Native's own ion loader**, which
+// cannot be used: in v0.64.0 `TileLoadInput::pAssetAccessor` is a reference
+// member, `CesiumIonTilesetLoader` holds a `shared_ptr` to a *derived*
+// accessor, and passing it makes a temporary `shared_ptr<IAssetAccessor>`
+// that is bound to that reference and destroyed at the end of the statement.
+// Every tile load then reads a dangling reference, which the sanitized build
+// catches as a stack-use-after-scope. The open provider never meets it,
+// because the types match there and no temporary is made. Asking ion for the
+// endpoint is one plain GET, and the tiles are then an ordinary tileset with
+// an Authorization header, which goes nowhere near that code.
+IonEndpoint ion_endpoint(std::int64_t asset, const std::string& token) {
+    platform::HttpRequest q;
+    q.url = "https://api.cesium.com/v1/assets/" + std::to_string(asset) +
+            "/endpoint?access_token=" + token;
+    q.user_agent = "glideslope (+https://github.com/GavinMGlynn/glideslope)";
+    const platform::HttpResponse response = platform::http_get(q);
+    if (response.status != 200) {
+        throw std::runtime_error(
+            "Cesium ion would not say where asset " + std::to_string(asset) +
+            " is: it answered " + std::to_string(response.status) +
+            (response.status == 401 || response.status == 403
+                 ? ", which means the token is not one it accepts"
+                 : ""));
+    }
+    const world::Json said = world::parse_json(std::string_view(
+        reinterpret_cast<const char*>(response.body.data()), response.body.size()));
+    const world::Json* url = said.find("url");
+    const world::Json* access = said.find("accessToken");
+    const world::Json* type = said.find("type");
+    IonEndpoint endpoint;
+    if (type != nullptr && type->kind() == world::Json::Kind::string) {
+        endpoint.type = type->string();
+    }
+    if (const world::Json* external = said.find("externalType");
+        external != nullptr && external->kind() == world::Json::Kind::string) {
+        endpoint.external_type = external->string();
+    }
+    // What ion serves itself carries a url and a token; what it does not -
+    // Bing's imagery, say - carries the other service's own url and key
+    // under "options" instead.
+    if (url != nullptr && access != nullptr) {
+        endpoint.url = url->string();
+        endpoint.access_token = access->string();
+    } else if (const world::Json* o = said.find("options");
+               o != nullptr && o->kind() == world::Json::Kind::object) {
+        if (const world::Json* u = o->find("url"); u != nullptr) {
+            endpoint.url = u->string();
+        }
+        if (const world::Json* k = o->find("key"); k != nullptr) {
+            endpoint.key = k->string();
+        }
+        if (const world::Json* s = o->find("mapStyle"); s != nullptr) {
+            endpoint.style = s->string();
+        }
+    }
+    if (endpoint.url.empty()) {
+        throw std::runtime_error("Cesium ion's answer for asset " +
+                                 std::to_string(asset) + " says nowhere to "
+                                 "fetch it from");
+    }
+    // Quantized-mesh terrain is served from a directory whose layer.json
+    // describes it; 3D Tiles are the URL itself.
+    if (endpoint.type == "TERRAIN") {
+        if (endpoint.url.back() != '/') {
+            endpoint.url += '/';
+        }
+        endpoint.url += "layer.json";
+    }
+    // What ion says must be shown wherever the asset is drawn.
+    if (const world::Json* credits = said.find("attributions");
+        credits != nullptr && credits->kind() == world::Json::Kind::array) {
+        for (const world::Json& credit : credits->array()) {
+            if (credit.kind() != world::Json::Kind::object) {
+                continue;
+            }
+            if (const world::Json* html = credit.find("html");
+                html != nullptr && html->kind() == world::Json::Kind::string) {
+                endpoint.attributions.push_back(html->string());
+            }
+        }
+    }
+    return endpoint;
+}
+
+} // namespace
 
 TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
                            world::HeightSource heights)
@@ -901,25 +1182,96 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
                                                        options.cache_file.string()));
     }
     accessor = std::make_shared<CountingAccessor>(accessor, impl_->requests);
+    // Cesium ion authorises every tile, not just the tileset that names them,
+    // so the token goes on each request to where that asset is served from.
+    // Cesium Native does this with an accessor of its own, which cannot be
+    // used here - see ion_endpoint below - so this is one of ours.
+    const auto authorising = [&accessor](const std::string& prefix,
+                                         const std::string& token) {
+        accessor = std::make_shared<AuthorisingAccessor>(accessor, prefix, token);
+    };
     Cesium3DTilesSelection::TilesetExternals externals{
         accessor, std::make_shared<RendererResources>(renderer, impl_->skipped),
         impl_->async, std::make_shared<CesiumUtility::CreditSystem>()};
 
-    impl_->imagery = options.imagery.has_value();
-    auto loader = std::make_unique<DemLoader>(options.region, std::move(heights),
-                                              impl_->imagery, impl_->failures);
-    auto root = std::make_unique<Tile>(
-        loader->make_tile(QuadtreeTileID(0, 0, 0), -1000.0, 9000.0));
+    impl_->credit_system = externals.pCreditSystem;
+    impl_->provider = options.provider;
+    impl_->imagery = options.provider == Provider::open && options.imagery.has_value();
 
     Cesium3DTilesSelection::TilesetOptions tileset_options;
     tileset_options.maximumScreenSpaceError = options.maximum_screen_space_error;
     tileset_options.ellipsoid = Ellipsoid::WGS84;
     // Fog culls what is hazy far away; the renderer draws no haze.
     tileset_options.enableFogCulling = false;
-    impl_->tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(
-        externals, std::move(loader), std::move(root), tileset_options);
 
-    if (options.imagery) {
+    if (options.provider != Provider::open) {
+        const std::string reason =
+            why_not(options.provider, options.ion_token, options.google_key);
+        if (!reason.empty()) {
+            throw std::runtime_error(reason);
+        }
+    }
+    switch (options.provider) {
+    case Provider::open: {
+        // The Copernicus DEM, built into tiles here: Cesium Native streams
+        // quantized-mesh and 3D Tiles, and nothing serves the DEM as either.
+        auto loader = std::make_unique<DemLoader>(options.region, std::move(heights),
+                                                  impl_->imagery, impl_->failures);
+        auto root = std::make_unique<Tile>(
+            loader->make_tile(QuadtreeTileID(0, 0, 0), -1000.0, 9000.0));
+        impl_->tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(
+            externals, std::move(loader), std::move(root), tileset_options);
+        break;
+    }
+    case Provider::ion: {
+        // Cesium World Terrain is ion asset 1, and Bing Maps Aerial - the
+        // imagery ion drapes on it - asset 2. Both are asked for by name and
+        // then fetched as ordinary tilesets; see ion_endpoint above for why.
+        const IonEndpoint terrain =
+            ion_endpoint(ion_world_terrain_asset, options.ion_token);
+        authorising(host_of(terrain.url), terrain.access_token);
+        externals.pAssetAccessor = accessor;
+        impl_->tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(
+            externals, terrain.url, tileset_options);
+        const IonEndpoint imagery =
+            ion_endpoint(ion_aerial_imagery_asset, options.ion_token);
+        impl_->from_provider = terrain.attributions;
+        impl_->from_provider.insert(impl_->from_provider.end(),
+                                    imagery.attributions.begin(),
+                                    imagery.attributions.end());
+        impl_->tileset->getOverlays().add(
+            CesiumUtility::IntrusivePointer<CesiumRasterOverlays::RasterOverlay>(
+                new CesiumRasterOverlays::BingMapsRasterOverlay(
+                    "ion imagery", imagery.url, imagery.key,
+                    imagery.style.empty()
+                        ? CesiumRasterOverlays::BingMapsStyle::AERIAL
+                        : imagery.style)));
+        break;
+    }
+    case Provider::google: {
+        // Photorealistic 3D Tiles carry their own imagery, so nothing is
+        // draped on them. A Google key reaches them directly; an ion token
+        // reaches the same tiles through ion's asset 2275207.
+        if (!options.google_key.empty()) {
+            impl_->tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(
+                externals,
+                "https://tile.googleapis.com/v1/3dtiles/root.json?key=" +
+                    options.google_key,
+                tileset_options);
+        } else {
+            const IonEndpoint google =
+                ion_endpoint(google_photorealistic_asset, options.ion_token);
+            impl_->from_provider = google.attributions;
+            authorising(host_of(google.url), google.access_token);
+            externals.pAssetAccessor = accessor;
+            impl_->tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(
+                externals, google.url, tileset_options);
+        }
+        break;
+    }
+    }
+
+    if (impl_->imagery && options.imagery) {
         const Imagery& imagery = *options.imagery;
         CesiumRasterOverlays::WebMapTileServiceRasterOverlayOptions wmts;
         wmts.format = imagery.format;
@@ -934,6 +1286,68 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
                 new CesiumRasterOverlays::WebMapTileServiceRasterOverlay(
                     "imagery", imagery.url, {}, wmts)));
     }
+}
+
+namespace {
+
+// Cesium Native's credits are HTML; the HUD draws plain text. Tags are taken
+// out and the text between them kept, which is what a credit says.
+std::string without_tags(const std::string& html) {
+    std::string out;
+    bool inside = false;
+    for (const char c : html) {
+        if (c == '<') {
+            inside = true;
+        } else if (c == '>') {
+            inside = false;
+        } else if (!inside) {
+            out += c;
+        }
+    }
+    // One space between words, and none either end.
+    std::string tidy;
+    bool space = true;
+    for (const char c : out) {
+        const bool blank = c == ' ' || c == '\t' || c == '\n' || c == '\r';
+        if (blank) {
+            space = true;
+            continue;
+        }
+        if (space && !tidy.empty()) {
+            tidy += ' ';
+        }
+        space = false;
+        tidy += c;
+    }
+    return tidy;
+}
+
+} // namespace
+
+Provider TerrainTiles::provider() const {
+    return impl_->provider;
+}
+
+std::vector<std::string> TerrainTiles::credits() const {
+    std::vector<std::string> out;
+    for (const std::string& html : impl_->from_provider) {
+        std::string text = without_tags(html);
+        if (!text.empty() && std::find(out.begin(), out.end(), text) == out.end()) {
+            out.push_back(std::move(text));
+        }
+    }
+    if (impl_->credit_system) {
+        const CesiumUtility::CreditsSnapshot& snapshot =
+            impl_->credit_system->getSnapshot();
+        for (const CesiumUtility::Credit& credit : snapshot.currentCredits) {
+            std::string text = without_tags(impl_->credit_system->getHtml(credit));
+            if (!text.empty() &&
+                std::find(out.begin(), out.end(), text) == out.end()) {
+                out.push_back(std::move(text));
+            }
+        }
+    }
+    return out;
 }
 
 Imagery open_imagery() {

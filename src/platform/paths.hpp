@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 
 namespace glideslope::platform {
 
@@ -18,5 +19,25 @@ std::filesystem::path data_directory();
 // or ~/.cache/glideslope elsewhere. Not created. Throws std::runtime_error if
 // no home directory can be found.
 std::filesystem::path cache_directory();
+
+// Where the user's own settings live - %APPDATA%\glideslope on Windows,
+// ~/Library/Application Support/glideslope on macOS, and
+// $XDG_CONFIG_HOME/glideslope or ~/.config/glideslope elsewhere. Not created.
+// Throws std::runtime_error if no home directory can be found.
+std::filesystem::path config_directory();
+
+// The user's own Cesium ion token, or empty if they have none.
+//
+// **A key belongs to the user and is never in the repository.** It is read at
+// run time, from GLIDESLOPE_CESIUM_ION_TOKEN if that is set, and otherwise
+// from the file `cesium-ion-token` in the config directory above. Leading and
+// trailing space is taken off; anything else is the token as given. A missing
+// file, an unreadable one and an empty one are all "none", because a provider
+// that needs one says so rather than failing.
+std::string cesium_ion_token();
+
+// The user's own Google Maps Platform key, the same way: from
+// GLIDESLOPE_GOOGLE_MAPS_KEY, or the file `google-maps-key`.
+std::string google_maps_key();
 
 } // namespace glideslope::platform

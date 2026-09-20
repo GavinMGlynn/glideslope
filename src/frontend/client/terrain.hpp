@@ -21,11 +21,16 @@ world::GeoRectangle cells_around(double latitude_deg, double longitude_deg, int 
 // with the open imagery on it, or tinted by height. Its DEM is its own, not
 // shared with the simulation's: tiles are made on worker threads. Imagery
 // tiles are kept in `cache` too, as long as their caching headers allow.
+// `provider` says where the drawn terrain comes from; the open one is the
+// DEM below, and the others are streamed with the user's own key, read at run
+// time by platform/paths.hpp. Throws std::runtime_error, saying what is
+// missing, for a provider whose key the user has not given.
 std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
                                                 const std::filesystem::path& data,
                                                 const std::filesystem::path& cache,
                                                 const world::GeoRectangle& region,
-                                                bool imagery);
+                                                bool imagery,
+                                                gfx::Provider provider);
 
 // The ground's height at a place, above sea level and the geoid's there, from
 // the same DEM and geoid.

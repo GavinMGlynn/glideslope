@@ -1,6 +1,9 @@
 #include "platform/paths.hpp"
 
+#include <cstddef>
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -111,6 +114,101 @@ std::filesystem::path cache_directory() {
     return home / ".cache" / "glideslope";
 #endif
 #endif
+}
+
+std::filesystem::path config_directory() {
+#if defined(_WIN32)
+    const auto roaming = environment_path("APPDATA");
+    if (roaming.empty()) {
+        throw std::runtime_error("APPDATA is not set");
+    }
+    return roaming / "glideslope";
+#else
+    const auto home = environment_path("HOME");
+#if defined(__APPLE__)
+    if (home.empty()) {
+        throw std::runtime_error("HOME is not set");
+    }
+    return home / "Library" / "Application Support" / "glideslope";
+#else
+    if (const auto xdg = environment_path("XDG_CONFIG_HOME"); xdg.is_absolute()) {
+        return xdg / "glideslope";
+    }
+    if (home.empty()) {
+        throw std::runtime_error("neither XDG_CONFIG_HOME nor HOME is set");
+    }
+    return home / ".config" / "glideslope";
+#endif
+#endif
+}
+
+namespace {
+
+// A key the user keeps: an environment variable first, then a file of their
+// own. Whitespace either end is not part of it - a file written by an editor
+// ends with a newline - and nothing else is touched.
+std::string secret(const char* variable, const char* file) {
+    const auto trim = [](std::string s) {
+        const auto space = [](unsigned char c) {
+            return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+        };
+        std::size_t from = 0;
+        while (from < s.size() && space(static_cast<unsigned char>(s[from]))) {
+            ++from;
+        }
+        std::size_t to = s.size();
+        while (to > from && space(static_cast<unsigned char>(s[to - 1]))) {
+            --to;
+        }
+        return s.substr(from, to - from);
+    };
+#if defined(_WIN32)
+    const std::wstring wide(variable,
+                            variable + std::char_traits<char>::length(variable));
+    const DWORD n = GetEnvironmentVariableW(wide.c_str(), nullptr, 0);
+    if (n != 0) {
+        std::wstring value(n, L'\0');
+        const DWORD written = GetEnvironmentVariableW(wide.c_str(), value.data(), n);
+        value.resize(written);
+        const std::string narrow(value.begin(), value.end());
+        if (!trim(narrow).empty()) {
+            return trim(narrow);
+        }
+    }
+#else
+    if (const char* value = std::getenv(variable); value != nullptr) {
+        if (!trim(value).empty()) {
+            return trim(value);
+        }
+    }
+#endif
+    std::error_code error;
+    const std::filesystem::path where = [&]() -> std::filesystem::path {
+        try {
+            return config_directory() / file;
+        } catch (const std::runtime_error&) {
+            return {}; // no home: the user has no key here either
+        }
+    }();
+    if (where.empty() || !std::filesystem::exists(where, error)) {
+        return {};
+    }
+    std::ifstream in(where, std::ios::binary);
+    if (!in) {
+        return {};
+    }
+    return trim(std::string((std::istreambuf_iterator<char>(in)),
+                            std::istreambuf_iterator<char>()));
+}
+
+} // namespace
+
+std::string cesium_ion_token() {
+    return secret("GLIDESLOPE_CESIUM_ION_TOKEN", "cesium-ion-token");
+}
+
+std::string google_maps_key() {
+    return secret("GLIDESLOPE_GOOGLE_MAPS_KEY", "google-maps-key");
 }
 
 } // namespace glideslope::platform

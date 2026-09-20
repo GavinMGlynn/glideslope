@@ -7,7 +7,8 @@
 //   glideslope [--headless] [--gpu-driver NAME] [--size WxH]
 //              [--screen flight|terrain|sky|origin|depth]
 //              [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z] [--toward LAT,LON,HEIGHT]
-//              [--imagery on|off] [--weather STATION [--microburst LAT,LON]...]
+//              [--imagery on|off] [--terrain open|ion|google]
+//              [--weather STATION [--microburst LAT,LON]...]
 //              [--metar REPORT [--station LAT,LON]] [--autopilot] [--plan PLAN]
 //              [--view NAME]
 //              [--shot FILE] [--shot-at TICK] [--trace]
@@ -72,6 +73,7 @@ struct Options {
     std::optional<glideslope::world::Ecef> at_ecef;
     std::optional<glideslope::world::Geodetic> toward;
     bool imagery = true;
+    std::string terrain_provider = "open";
     std::vector<glideslope::world::Microburst> microbursts;
     std::string weather_station;
     std::string metar;
@@ -93,6 +95,7 @@ void usage(std::FILE* out) {
         "                  [--size WxH] [--screen flight|terrain|sky|origin|depth]\n"
         "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
         "                  [--toward LAT,LON,HEIGHT] [--imagery on|off]\n"
+        "                  [--terrain open|ion|google]\n"
         "                  [--weather STATION [--microburst LAT,LON]...]\n"
         "                  [--metar REPORT [--station LAT,LON]]\n"
         "                  [--aircraft ID] [--on-ground] [--autopilot] [--plan PLAN]\n"
@@ -110,6 +113,10 @@ void usage(std::FILE* out) {
         "  --toward      where the terrain screen looks, as --at is given\n"
         "  --imagery     drape the open imagery on the terrain (the default), or\n"
         "                tint it by height instead\n"
+        "  --terrain     where the terrain drawn comes from: the open data, by\n"
+        "                default, or Cesium ion or Google's Photorealistic 3D Tiles\n"
+        "                with your own token or key. The ground the aircraft meets\n"
+        "                is the open DEM whichever is drawn\n"
         "  --weather     fly in the weather reported now at an airfield, by its\n"
         "                ICAO code - its METAR, and Open-Meteo's winds aloft\n"
         "  --microburst  a microburst in that weather at a latitude and longitude,\n"
@@ -294,6 +301,8 @@ int main(int argc, char** argv) {
             }
         } else if (a == "--aircraft" && has_value) {
             o.aircraft = std::string(args[++i]);
+        } else if (a == "--terrain" && has_value) {
+            o.terrain_provider = std::string(args[++i]);
         } else if (a == "--view" && has_value) {
             o.view = std::string(args[++i]);
         } else if (a == "--draw-aircraft" && has_value) {
@@ -373,6 +382,13 @@ int main(int argc, char** argv) {
         std::fputs("glideslope: only the flight has --aircraft, --on-ground and "
                    "--view\n",
                    stderr);
+        return 2;
+    }
+    if (!glideslope::gfx::provider_named(o.terrain_provider)) {
+        std::fprintf(stderr,
+                     "glideslope: there is no terrain %s; there is %s\n",
+                     o.terrain_provider.c_str(),
+                     glideslope::gfx::provider_names().c_str());
         return 2;
     }
     if (!glideslope::gfx::view_named(o.view)) {
@@ -520,7 +536,8 @@ int main(int argc, char** argv) {
                                                           o.at->longitude_deg, 0);
             terrain = glideslope::client::open_terrain(
                 renderer, glideslope::platform::data_directory(),
-                glideslope::platform::cache_directory(), region, o.imagery);
+                glideslope::platform::cache_directory(), region, o.imagery,
+                *glideslope::gfx::provider_named(o.terrain_provider));
         }
 
         // The weather to be seen: the flight's report's, made again when a new
@@ -691,12 +708,23 @@ int main(int argc, char** argv) {
                 draw.placement = flight->model_placement();
                 drawn.push_back(draw);
             }
-            // Whichever data is drawn, its credit is on screen.
+            // Whichever provider is drawing, its attribution is on screen.
+            // The open data's notices are its own; a streamed provider's come
+            // from Cesium Native as its tiles load, which is how ion's and
+            // Google's terms are met.
             std::vector<std::string> credits;
             if (terrain) {
-                credits.emplace_back(glideslope::world::copernicus_dem_notice);
-                if (o.imagery) {
-                    credits.emplace_back(glideslope::gfx::open_imagery().credit);
+                if (terrain->provider() == glideslope::gfx::Provider::open) {
+                    credits.emplace_back(glideslope::world::copernicus_dem_notice);
+                    if (o.imagery) {
+                        credits.emplace_back(glideslope::gfx::open_imagery().credit);
+                    }
+                }
+                for (std::string& credit : terrain->credits()) {
+                    if (std::find(credits.begin(), credits.end(), credit) ==
+                        credits.end()) {
+                        credits.push_back(std::move(credit));
+                    }
                 }
             }
             if (flight) {

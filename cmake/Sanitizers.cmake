@@ -21,6 +21,30 @@
 # and its address sanitizer needs its runtime DLLs found at run time, which is
 # setup nothing here has paid for yet.
 
+# **One check turned off, for vendored code only.**
+#
+# Cesium Native reads quantized-mesh terrain where it lies, with
+#
+#     return *reinterpret_cast<const T*>(data.data() + offset);
+#
+# at an arbitrary byte offset - CesiumQuantizedMeshTerrain's
+# QuantizedMeshLoader.cpp, readValue. Quantized mesh has unaligned fields by
+# design, so that is undefined behaviour on every terrain tile Cesium ion
+# serves, and -fno-sanitize-recover=all ends the program at the first one. It
+# is their code, not this project's, and the fix is theirs to make - a memcpy;
+# an issue is drafted for it in docs/PROJECT_STATUS.md. Until they do, the
+# alignment check alone is off for their targets, and every other check, and
+# all first-party code, is untouched.
+#
+# Take this away when Cesium Native is bumped past a release that fixes it: if
+# it is fixed, nothing changes; if it is not, the sanitized build says so
+# again.
+function(glideslope_allow_misaligned target)
+    if(GLIDESLOPE_ASAN AND NOT MSVC)
+        target_compile_options(${target} PRIVATE -fno-sanitize=alignment)
+    endif()
+endfunction()
+
 function(glideslope_sanitize target)
     if(GLIDESLOPE_ASAN AND NOT MSVC)
         target_compile_options(${target} PRIVATE

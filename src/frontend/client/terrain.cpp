@@ -1,5 +1,7 @@
 #include "terrain.hpp"
 
+#include "platform/paths.hpp"
+
 #include "world/dem.hpp"
 #include "world/download.hpp"
 #include "world/geoid.hpp"
@@ -63,13 +65,26 @@ std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
                                                 const std::filesystem::path& data,
                                                 const std::filesystem::path& cache,
                                                 const world::GeoRectangle& region,
-                                                bool imagery) {
+                                                bool imagery,
+                                                gfx::Provider provider) {
     const std::shared_ptr<Ground> ground = open_ground(data, cache);
 
     gfx::TerrainOptions options;
     options.region = region;
+    options.provider = provider;
+    // The user's own, read at run time and never in the repository.
+    options.ion_token = platform::cesium_ion_token();
+    options.google_key = platform::google_maps_key();
     if (imagery) {
         options.imagery = gfx::open_imagery();
+    }
+    if (provider != gfx::Provider::open) {
+        // A streamed provider covers the whole Earth and refines until it
+        // runs out of levels; the open one is built here and stops at the
+        // DEM's own spacing. Holding a streamed provider to four pixels means
+        // waiting for a great many tiles for one frame, so it is drawn to a
+        // coarser figure.
+        options.maximum_screen_space_error = 32.0;
     }
     options.cache_file = cache / "cesium-cache.sqlite";
     options.worker_threads =

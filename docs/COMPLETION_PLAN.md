@@ -441,13 +441,34 @@ quality: each is held to published figures before it is offered, as the Cessna
 - [ ] **Cesium ion as a visual provider** with the user's own token.
       *Verification: with a token, a `--shot` draws Cesium World Terrain with
       its attribution; without one, the provider says why it is unavailable and
-      its tests report themselves skipped.*
+      its tests report themselves skipped.* Begun 2026-09-21 and not finished.
+      `--terrain ion` draws Cesium World Terrain under Bing Maps Aerial with
+      ion's own attribution, and without a token it says what is missing and
+      where to put it - both seen by hand. **Still to do: a test that can be
+      kept.** Waiting for every tile a whole-Earth tileset refines to ran past
+      25 minutes against a cold cache, where the open provider's same test is
+      16 seconds; until that is brought down the drawing half is run by hand
+      and only the open provider's test is registered.
+      `PROJECT_STATUS.md` says what was built to get there, and names two
+      defects in Cesium Native it had to work around.
 - [ ] **Google Photorealistic 3D Tiles** with the user's own Google Maps
       Platform key or Cesium ion token. *Verification: the same checks as
-      Cesium ion, through both ways in.*
+      Cesium ion, through both ways in.* Begun 2026-09-21 and not finished:
+      both ways in are written, and neither has drawn. Without a key it says
+      what it needs, which is seen; through a Cesium ion token it reaches
+      ion's asset 2275207 and draws no tile at all, and why is not yet known.
+      No Google Maps Platform key is on this machine, so that way in is
+      unproven too.
 - [ ] **Attribution on screen for whichever provider is active.**
       *Verification: every provider, in every state, draws its attribution,
-      walked by test.*
+      walked by test.* Begun 2026-09-21 and not finished. Whichever provider
+      is drawing, its attribution is on screen: the open data's notices are
+      its own, and a streamed provider's come from what it says about itself
+      and from Cesium Native as its tiles load. The walk is written -
+      `tests/cmake/terrain_provider.cmake` takes the provider as a parameter
+      and counts the credit text along the bottom of the frame - but only the
+      open provider is registered, for the reasons above, so it does not yet
+      walk every provider.
 - [ ] **A measured visual-to-collision terrain mismatch.** *Verification: the
       bound for each provider at a set of reference airfields is stated in
       `PROJECT_STATUS.md`, with how it was measured.*

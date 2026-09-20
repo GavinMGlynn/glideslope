@@ -97,7 +97,16 @@ HttpResponse http_get(const HttpRequest& request) {
     if (!handle) {
         fail(request.url, "could not open the request");
     }
-    if (!WinHttpSendRequest(handle.get(), WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+    // The request's own headers, as CRLF-separated "name: value" lines, which
+    // is the form WinHttpSendRequest takes.
+    std::wstring sent;
+    for (const auto& [name, value] : request.headers) {
+        sent += widen(name) + L": " + widen(value) + L"\r\n";
+    }
+    if (!WinHttpSendRequest(handle.get(),
+                            sent.empty() ? WINHTTP_NO_ADDITIONAL_HEADERS
+                                         : sent.c_str(),
+                            sent.empty() ? 0 : static_cast<DWORD>(-1),
                             WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
         fail(request.url, "could not send the request");
     }

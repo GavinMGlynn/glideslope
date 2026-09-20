@@ -28,6 +28,8 @@ enum : int {
     curlopt_errorbuffer = 10010,
     curlopt_useragent = 10018,
     curlopt_headerdata = 10029,
+    curlopt_httpheader = 10023,
+    curlopt_accept_encoding = 10102,
     curlopt_low_speed_limit = 19,
     curlopt_low_speed_time = 20,
     curlopt_followlocation = 52,
@@ -48,6 +50,8 @@ struct Curl {
     int (*easy_perform)(Handle) = nullptr;
     int (*easy_getinfo)(Handle, int, ...) = nullptr;
     void (*easy_cleanup)(Handle) = nullptr;
+    void* (*slist_append)(void*, const char*) = nullptr;
+    void (*slist_free_all)(void*) = nullptr;
     const char* (*easy_strerror)(int) = nullptr;
     const char* (*version)() = nullptr;
     std::string error;
@@ -83,11 +87,15 @@ const Curl& curl() {
             symbol<int (*)(Handle, int, ...)>(c.library, "curl_easy_getinfo");
         c.easy_cleanup = symbol<void (*)(Handle)>(c.library, "curl_easy_cleanup");
         c.easy_strerror = symbol<const char* (*)(int)>(c.library, "curl_easy_strerror");
+        c.slist_append =
+            symbol<void* (*)(void*, const char*)>(c.library, "curl_slist_append");
+        c.slist_free_all = symbol<void (*)(void*)>(c.library, "curl_slist_free_all");
         c.version = symbol<const char* (*)()>(c.library, "curl_version");
         if (c.global_init == nullptr || c.easy_init == nullptr ||
             c.easy_setopt == nullptr || c.easy_perform == nullptr ||
             c.easy_getinfo == nullptr || c.easy_cleanup == nullptr ||
-            c.easy_strerror == nullptr || c.version == nullptr) {
+            c.easy_strerror == nullptr || c.version == nullptr ||
+            c.slist_append == nullptr || c.slist_free_all == nullptr) {
             c.error = "the system's libcurl lacks the functions it should have";
             return;
         }
@@ -169,6 +177,9 @@ HttpResponse http_get(const HttpRequest& request) {
     char error[256] = {};
     c.easy_setopt(handle, curlopt_url, request.url.c_str());
     c.easy_setopt(handle, curlopt_useragent, request.user_agent.c_str());
+    // Every encoding libcurl can undo, undone by it: a body arrives plain
+    // whatever the server chose to compress it with.
+    c.easy_setopt(handle, curlopt_accept_encoding, "");
     c.easy_setopt(handle, curlopt_followlocation, 1L);
     c.easy_setopt(handle, curlopt_maxredirs, 10L);
     c.easy_setopt(handle, curlopt_nosignal, 1L);
@@ -182,10 +193,28 @@ HttpResponse http_get(const HttpRequest& request) {
     c.easy_setopt(handle, curlopt_writedata, &transfer);
     c.easy_setopt(handle, curlopt_headerfunction, &on_header);
     c.easy_setopt(handle, curlopt_headerdata, &transfer);
+    // The request's own headers, if it has any. libcurl wants "name: value"
+    // lines, and owns none of them: the list is freed after the transfer.
+    void* sent = nullptr;
+    for (const auto& [name, value] : request.headers) {
+        const std::string line = name + ": " + value;
+        void* grown = c.slist_append(sent, line.c_str());
+        if (grown == nullptr) {
+            c.slist_free_all(sent);
+            c.easy_cleanup(handle);
+            throw HttpError(request.url + ": libcurl would not take the header " +
+                            name);
+        }
+        sent = grown;
+    }
+    if (sent != nullptr) {
+        c.easy_setopt(handle, curlopt_httpheader, sent);
+    }
     const int result = c.easy_perform(handle);
     long status = 0;
     c.easy_getinfo(handle, curlinfo_response_code, &status);
     c.easy_cleanup(handle);
+    c.slist_free_all(sent);
     if (transfer.too_big) {
         throw HttpError(request.url + ": the body is more than " +
                         std::to_string(request.max_body) + " bytes");

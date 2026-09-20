@@ -10,6 +10,7 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace glideslope::platform {
@@ -24,6 +25,11 @@ struct HttpError : std::runtime_error {
 struct HttpRequest {
     std::string url;
     std::string user_agent = "glideslope";
+    // Headers to send, name and value. A terrain provider's own asks for
+    // them: Cesium ion authorises a tile request with one. A name or value
+    // holding a control character is refused, so that nothing can be smuggled
+    // into the request by splitting a header across lines.
+    std::vector<std::pair<std::string, std::string>> headers;
     std::uint64_t max_body = std::uint64_t{64} << 20;
     int connect_timeout_seconds = 30;
     // A transfer stalled this long, with no bytes arriving, is abandoned.

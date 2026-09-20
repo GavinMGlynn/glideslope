@@ -195,6 +195,103 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Cesium ion as a visual terrain provider, 2026-09-21 — under way, not done
+
+Phase 5b's first item is begun. **Cesium ion draws, with its attribution, and
+a provider without its key says so rather than failing** - but the test that
+would hold it takes longer than a test may, so the item is not ticked. See
+"what is left" below.
+
+**A key belongs to the user and is never in the repository.**
+`platform::config_directory()` is where their settings live -
+`%APPDATA%\glideslope`, `~/Library/Application Support/glideslope`, or
+`$XDG_CONFIG_HOME/glideslope` - and `cesium_ion_token()` and
+`google_maps_key()` read one at run time, from an environment variable first
+and then a file of their own. A missing, unreadable or empty one is "none",
+because a provider that needs a key says what is missing and where to put it:
+
+    Cesium ion needs your own token: put it in cesium-ion-token in
+    glideslope's config directory, or set GLIDESLOPE_CESIUM_ION_TOKEN. One is
+    free from https://cesium.com/ion/
+
+**`--terrain open|ion|google`** chooses what is drawn. The ground the aircraft
+meets is the open DEM whichever is drawn, which is the rule that lets a server
+and every client agree on where the ground is.
+
+**Three things had to be built before any of it could fetch a tile.**
+
+1. *Requests carry headers.* The accessor refused anything but a plain GET
+   with no headers, and ion authorises every tile with one. `HttpRequest` now
+   carries headers and all three backends send them - libcurl's `slist`,
+   WinHTTP's CRLF block, NSURLSession's `setValue:forHTTPHeaderField:`. A
+   name or value holding a control character is dropped rather than passed
+   on, so nothing can be smuggled in by splitting a header across lines.
+2. *Content encoding is the HTTP layer's own business.* ion serves its
+   `layer.json` with `content-encoding: gzip` whether the client asks for it
+   or not. libcurl only undoes an encoding it negotiated, so a forwarded
+   `Accept-Encoding` left a body nothing could parse. libcurl now accepts
+   every encoding it can undo, and a provider's own `Accept-Encoding` is not
+   passed on.
+3. *A token goes only to the host that issued it.* `AuthorisingAccessor` puts
+   the bearer token on requests to one place and no other, so a tileset
+   naming a URL elsewhere cannot make it leak.
+
+**Cesium Native logged the token.** It says at info level which URLs it
+fetched, and an ion URL carries the token in it - which would put the user's
+token in whatever kept the output, a CI log included.
+`gfx::log_to_standard_error()` now also quiets the log to warnings and worse.
+
+**Two defects in Cesium Native v0.64.0, both found by the sanitized build.**
+Drafts of both are ready to post upstream; neither is glideslope's to fix.
+
+1. *A dangling reference on every ion tile load.*
+   `TileLoadInput::pAssetAccessor` is a reference member
+   (`const shared_ptr<IAssetAccessor>&`), and `CesiumIonTilesetLoader` passes
+   a `shared_ptr` to a *derived* accessor. The conversion makes a temporary
+   that is bound to the reference and destroyed at the end of the statement,
+   so every later use reads it dangling - `stack-use-after-scope`. The open
+   provider never meets it, because its types match and no temporary is made.
+   **Worked around**: ion's asset endpoint is resolved here, with one plain
+   GET, and the tiles are then an ordinary tileset with an Authorization
+   header, which goes nowhere near that code. `main` upstream still has the
+   same reference member, so bumping the pin would not have helped.
+2. *Misaligned loads on every terrain tile.*
+   `QuantizedMeshLoader::readValue` is
+   `return *reinterpret_cast<const T*>(data.data() + offset)` at an arbitrary
+   byte offset, and quantized mesh does not align its fields. With
+   `-fno-sanitize-recover=all` that ends the process, so a sanitized build
+   could not stream Cesium World Terrain at all. **Decided 2026-09-21 by the
+   project owner**: the alignment check alone is off for Cesium Native's own
+   targets - `glideslope_allow_misaligned` in `cmake/Sanitizers.cmake` - and
+   every other check, and all first-party code, is untouched. It goes away
+   when they fix it.
+
+**What it draws.** Mount Taranaki from the north-east, Cesium World Terrain
+under Bing Maps Aerial, 47 tiles at a screen-space error of 32, the deepest at
+level 12 - with ion's own attribution along the bottom: the USGS, CGIAR-CSI,
+Copernicus, Land Information New Zealand, data.gov.uk, Geoscience Australia,
+Microsoft, Mapbox, Earthstar Geographics SIO, Maxar and Airbus DS, and the
+free tier's "upgrade for commercial use".
+
+**What is left, to pick up from.**
+
+1. **The test takes too long to keep.** `tests/cmake/terrain_provider.cmake`
+   walks each provider in both its states, and the half that draws waits for
+   every tile the view needs so that the shot is the same everywhere. Against
+   a cold cache that ran past 25 minutes for ion, where the open provider's
+   equivalent is 25 seconds: a streamed provider covers the Earth and refines
+   until it runs out of levels. The frame is now 320x240 and the streamed
+   screen-space error 32; whether that is enough is the next thing to
+   measure. Until a provider's drawing is held by a test that can be kept,
+   the item stays open.
+2. **Google's Photorealistic 3D Tiles are written but unproven.** Both ways
+   in are there - a Google Maps Platform key directly, or an ion token
+   through ion's asset 2275207 - and neither has been seen to draw: this
+   machine has no Google key, and the ion way in has not been run.
+3. **The visual-to-collision mismatch is not measured.** That is the phase's
+   own fourth item.
+
+
 ### Views of the aeroplane, 2026-09-21 — item done
 
 Phase 5's last item. **The aeroplane is drawn, and `--view` says where it is

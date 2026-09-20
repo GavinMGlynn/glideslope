@@ -30,6 +30,12 @@ HttpResponse http_get(const HttpRequest& request) {
                 timeoutInterval:request.stall_timeout_seconds];
             [r setValue:[NSString stringWithUTF8String:request.user_agent.c_str()]
                 forHTTPHeaderField:@"User-Agent"];
+            // The request's own headers, if it has any.
+            for (const auto& header : request.headers) {
+                [r setValue:[NSString stringWithUTF8String:header.second.c_str()]
+                    forHTTPHeaderField:[NSString
+                                           stringWithUTF8String:header.first.c_str()]];
+            }
             NSURLSessionConfiguration* configuration =
                 [NSURLSessionConfiguration ephemeralSessionConfiguration];
             configuration.timeoutIntervalForRequest = request.stall_timeout_seconds;

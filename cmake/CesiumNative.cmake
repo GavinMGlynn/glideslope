@@ -59,7 +59,9 @@ endblock()
 
 # Its libraries are built with its own warnings, which are not this project's to
 # fix: they are not made errors here, where the compilers are not all the ones
-# Cesium Native is tested with. They are sanitized with the rest, as JSBSim is.
+# Cesium Native is tested with. They are sanitized with the rest, as JSBSim is,
+# but for the alignment check, which its quantized-mesh reader breaks on every
+# terrain tile - cmake/Sanitizers.cmake says why, and what would take it back.
 function(_glideslope_cesium_targets dir out)
     get_property(_targets DIRECTORY "${dir}" PROPERTY BUILDSYSTEM_TARGETS)
     get_property(_subdirs DIRECTORY "${dir}" PROPERTY SUBDIRECTORIES)
@@ -75,6 +77,8 @@ foreach(_t IN LISTS _cesium_targets)
     if(_type MATCHES "^(STATIC|SHARED|OBJECT|MODULE)_LIBRARY$|^EXECUTABLE$")
         set_target_properties(${_t} PROPERTIES COMPILE_WARNING_AS_ERROR OFF)
         glideslope_sanitize(${_t})
+        # ...but not the alignment check: see cmake/Sanitizers.cmake.
+        glideslope_allow_misaligned(${_t})
     endif()
 endforeach()
 
