@@ -808,7 +808,6 @@ double apart(const glideslope::world::Ecef& a, const glideslope::world::Ecef& b)
 GLIDESLOPE_TEST(the_cockpit_view_puts_the_eye_where_the_flight_model_says_the_pilots_is) {
     const std::map<std::string, ModelAlignment> aligned =
         read_alignments(alignment_file());
-    constexpr double metres_per_inch = 0.0254;
     std::size_t checked = 0;
     for (const auto& [id, a] : aligned) {
         glideslope::sim::Aircraft aircraft(data_dir() / "jsbsim", id);

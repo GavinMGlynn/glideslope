@@ -170,7 +170,19 @@ std::string secret(const char* variable, const char* file) {
         std::wstring value(n, L'\0');
         const DWORD written = GetEnvironmentVariableW(wide.c_str(), value.data(), n);
         value.resize(written);
-        const std::string narrow(value.begin(), value.end());
+        // Windows keeps its environment in UTF-16; a key is handed on as
+        // UTF-8, which is what every URL it goes into wants. Narrowing each
+        // unit by itself would be wrong for anything outside ASCII, and a
+        // key is not promised to be ASCII.
+        const int bytes = WideCharToMultiByte(CP_UTF8, 0, value.c_str(),
+                                              static_cast<int>(value.size()),
+                                              nullptr, 0, nullptr, nullptr);
+        std::string narrow(static_cast<std::size_t>(bytes < 0 ? 0 : bytes), '\0');
+        if (bytes > 0) {
+            WideCharToMultiByte(CP_UTF8, 0, value.c_str(),
+                                static_cast<int>(value.size()), narrow.data(),
+                                bytes, nullptr, nullptr);
+        }
         if (!trim(narrow).empty()) {
             return trim(narrow);
         }
