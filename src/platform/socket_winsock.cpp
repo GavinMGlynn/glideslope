@@ -82,7 +82,11 @@ std::optional<UdpSocket> UdpSocket::bound(std::uint16_t port, bool v6) {
         return std::nullopt;
     }
     u_long non_blocking = 1;
-    if (::ioctlsocket(fd, FIONBIO, &non_blocking) != 0) {
+    // **FIONBIO is an unsigned long and ioctlsocket takes a signed one.**
+    // The Windows SDK's own macro does not fit its own function's parameter,
+    // which clang-cl says plainly under -Wsign-conversion and MSVC does not
+    // mention at all. The cast is this project's, not the SDK's.
+    if (::ioctlsocket(fd, static_cast<long>(FIONBIO), &non_blocking) != 0) {
         ::closesocket(fd);
         winsock_down();
         return std::nullopt;
