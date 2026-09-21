@@ -21,8 +21,6 @@ using glideslope::test::check;
 namespace {
 
 constexpr int steps_per_second = 120;
-constexpr double degrees = 180.0 / 3.14159265358979323846;
-constexpr double feet_per_metre = 3.280839895013123;
 
 std::filesystem::path data() {
     return std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();

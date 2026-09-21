@@ -195,6 +195,44 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A checklist band the aeroplane can reach, 2026-09-21 — tail done
+
+The tail found writing the checklists: the tests proved a property was real
+and that the aircraft's own model drove it, but not that the figure was one
+the aeroplane could get to. A flap band of 33 to 35 degrees on a type whose
+flaps stop at 32 passed everything and would never have ticked once.
+
+**A lever and what it moves are held differently**, because they are
+different things. A command is the lever, and its travel is known without
+flying anything - 0 to 1, or -1 to 1 for the ones that go both ways. A
+position is where the aeroplane has got to, which only its own model knows,
+so its levers are worked through their travel and what the position really
+covers is measured.
+
+**The aeroplane is not flown to find out**, and three attempts taught why.
+Driving every lever to its stop at once - full throttle against full brakes,
+the trim hard over - put a tail-wheel aeroplane on its nose and off the end
+of its own aerodynamic tables. Retracting the undercarriage while the
+aeroplane stood on it did the same. Both end the flight inside JSBSim, which
+asserts rather than extrapolating. Only the configuration levers are worked,
+with the brakes holding the aeroplane still, and the undercarriage is read
+from the model instead: an aeroplane that never names `gear/gear-cmd-norm`
+or `gear/gear-pos-norm` has no undercarriage channel and its wheels stay
+down. `<retractable>` on a leg is not the marker - the Mosquito's legs do not
+carry it and its undercarriage still comes up.
+
+**A flying boat needs water under it.** Given dry land its hull tells the
+truth about dry land, and every hydrodynamic item looked unreachable: the
+S.23's "the hull in the water and carrying the boat" wanted
+`hydro/active-norm` at least 0.5 and measured 0 throughout. That was the
+test's fault, not the checklist's.
+
+**Verification run.**
+`every_checklist_band_is_one_its_aeroplanes_controls_can_reach`, registered,
+watched to fail with the Cessna's landing flaps put at 33 to 35 degrees:
+"c172p's landing ... wants fcs/flap-pos-deg between 33 and 35, but its levers
+only move it between 0 and 30".
+
 ### An autopilot that takes off, 2026-09-21 — groundwork, no item of its own
 
 **All four light aircraft take themselves off**, hold the centreline within

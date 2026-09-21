@@ -697,7 +697,7 @@ Found while implementing something else. Added when found, not when remembered.
       too. *(Found 2026-09-21 drawing the aeroplane.)* *Verification: the
       aeroplane's lighting follows it through a roll with no mesh remade.*
 
-- [ ] **A checklist item's band is not held against what the aeroplane can
+- [x] **A checklist item's band is not held against what the aeroplane can
       reach.** The tests prove the property exists and that the aircraft's own
       flight model names it, but not that its value can ever fall inside the
       item's band: a flap band of 33 to 35 degrees on a type whose flaps stop
@@ -706,7 +706,13 @@ Found while implementing something else. Added when found, not when remembered.
       same as a test keeping them right. *(Found 2026-09-21 writing the
       checklists.)* *Verification: every checked item's band is shown
       reachable by driving that aircraft's own controls, and an item put
-      outside its aeroplane's travel turns the test red.*
+      outside its aeroplane's travel turns the test red.* Done, 2026-09-21: a
+      lever is held to its own travel, and where a lever has got to is
+      measured by working it with the aeroplane standing still. States of the
+      flight - a speed, a height, an engine's speed - are counted and left
+      alone, because what they can reach is the whole envelope. Watched to
+      fail with the Cessna's landing flaps put at 33 to 35 degrees: "its
+      levers only move it between 0 and 30".
 
 - [x] **One download that fails once reds the tree.** CI sets
       `GLIDESLOPE_REQUIRE_NETWORK`, so a file that cannot be fetched is a

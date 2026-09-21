@@ -76,6 +76,7 @@ set(GLIDESLOPE_UNIT_TESTS
     flown_with_the_flaps_left_up_the_landing_flaps_item_stays_unticked_and_is_flagged
     the_pilot_ticks_their_own_items_and_only_their_own
     every_aircraft_has_a_checklist_for_every_phase_of_flight
+    every_checklist_band_is_one_its_aeroplanes_controls_can_reach
     no_checklist_item_rests_on_a_control_its_aircrafts_model_has_not_got
     every_checklist_item_names_a_state_its_own_aircraft_has_or_is_the_pilots
     an_item_is_done_when_the_aircrafts_state_is_inside_its_band

@@ -3,9 +3,14 @@
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/checklist.hpp"
+#include "sim/terrain.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <map>
+#include <memory>
+#include <utility>
 #include <iterator>
 #include <set>
 #include <stdexcept>
@@ -350,4 +355,223 @@ GLIDESLOPE_TEST(no_checklist_item_rests_on_a_control_its_aircrafts_model_has_not
     check(looked_at > 0, "some items name a control");
     check(against_the_model > 0,
           "some of them were held against the model's own files");
+}
+
+// **A band the aeroplane can never reach is an item that can never tick.**
+// The checks above prove the property is real and that the aircraft's own
+// model drives it. They do not prove the figure is one the aeroplane can get
+// to: a flap band of 33 to 35 degrees on a type whose flaps stop at 32 would
+// pass everything above and never tick once.
+//
+// A lever and what it moves are held differently, because they are different
+// things:
+//
+//   a command (`...-cmd-norm`) **is** the lever, and its travel is known
+//   without flying anything: 0 to 1, or -1 to 1 for the ones that go both
+//   ways. A band outside that is one no pilot could ever set.
+//
+//   a position (`...-pos-deg`, `...-pos-norm`) is where the aeroplane has
+//   got to, which only its own model knows. Its levers are worked through
+//   their travel with the aeroplane standing still, and what the position
+//   really covers is measured.
+//
+// **The aeroplane is not flown to find out.** An earlier version drove every
+// lever to its stop at once - full throttle against full brakes, the trim
+// hard over - and put a tail-wheel aeroplane on its nose, off the end of its
+// own aerodynamic tables, which JSBSim ends the flight for. Only the
+// configuration levers are moved here, and the brakes hold it where it is.
+//
+// **What is left out, and why.** A speed, a height or an engine's speed is a
+// state of the flight rather than of a lever. What those can reach is the
+// whole flight envelope, which this does not fly, so they are counted and
+// left alone.
+namespace {
+
+// Whether this model's undercarriage retracts, as its own files say.
+bool retractable(const std::string& model) {
+    for (const auto& file : std::filesystem::recursive_directory_iterator(
+             std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR) / "aircraft" / model)) {
+        if (!file.is_regular_file()) {
+            continue;
+        }
+        std::ifstream in(file.path(), std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(in)),
+                               std::istreambuf_iterator<char>());
+        // A fixed-gear aeroplane has no undercarriage channel at all, so it
+        // never names the command or the position; one that retracts drives
+        // them. `<retractable>` on a leg is not enough on its own: the
+        // Mosquito's legs do not carry it and its undercarriage still comes
+        // up.
+        if (text.find("gear/gear-cmd-norm") != std::string::npos ||
+            text.find("gear/gear-pos-norm") != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(every_checklist_band_is_one_its_aeroplanes_controls_can_reach) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    check(roster.size() == roster_size,
+          "the roster is " + std::to_string(roster_size) + " aircraft, not " +
+              std::to_string(roster.size()));
+
+    constexpr int steps_per_second = 120;
+    // The commands that go both ways; every other one runs 0 to 1.
+    const std::set<std::string> both_ways{
+        "fcs/elevator-cmd-norm", "fcs/aileron-cmd-norm", "fcs/rudder-cmd-norm",
+        "fcs/pitch-trim-cmd-norm", "fcs/roll-trim-cmd-norm", "fcs/yaw-trim-cmd-norm"};
+
+    std::size_t levers = 0;
+    std::size_t positions = 0;
+    std::size_t of_the_flight = 0;
+    std::vector<std::string> wrong;
+    for (const auto& entry : roster) {
+        const AircraftChecklists lists = glideslope::sim::find_checklists(data(), entry.id);
+        std::set<std::string> measure;
+        for (const Checklist& list : lists.phases) {
+            for (const ChecklistItem& item : list.items) {
+                if (item.pilots()) {
+                    continue;
+                }
+                const bool a_control = item.property.starts_with("fcs/") ||
+                                       item.property.starts_with("gear/") ||
+                                       item.property.starts_with("hydro/");
+                if (!a_control) {
+                    ++of_the_flight;
+                } else if (item.property.ends_with("-cmd-norm")) {
+                    // The lever itself: its travel is what a pilot can set.
+                    ++levers;
+                    const double least = both_ways.count(item.property) != 0 ? -1.0 : 0.0;
+                    if (item.high < least || item.low > 1.0) {
+                        wrong.push_back(entry.id + "'s " +
+                                        glideslope::sim::phase_name(list.phase) + ", \"" +
+                                        item.text + "\": wants " + item.property +
+                                        " between " + std::to_string(item.low) + " and " +
+                                        std::to_string(item.high) +
+                                        ", which is outside the lever's travel of " +
+                                        std::to_string(least) + " to 1");
+                    }
+                } else if (item.property.starts_with("gear/gear-pos")) {
+                    // **The undercarriage is not worked on the ground.**
+                    // Retracting it while the aeroplane stands on it drops
+                    // the aeroplane on its belly and ends the flight inside
+                    // JSBSim's own tables. What it can do is in the model:
+                    // a leg it says is retractable moves, and one it does
+                    // not stays down.
+                    ++positions;
+                    const bool retracts = retractable(entry.model);
+                    const double least = retracts ? 0.0 : 1.0;
+                    if (item.high < least || item.low > 1.0) {
+                        wrong.push_back(entry.id + "'s " +
+                                        glideslope::sim::phase_name(list.phase) + ", \"" +
+                                        item.text + "\": wants " + item.property +
+                                        " between " + std::to_string(item.low) + " and " +
+                                        std::to_string(item.high) + ", but its gear " +
+                                        (retracts ? "moves between 0 and 1"
+                                                  : "is fixed down at 1"));
+                    }
+                } else {
+                    measure.insert(item.property);
+                }
+            }
+        }
+        if (measure.empty()) {
+            continue;
+        }
+
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        // **A flying boat needs water under it**, or its hull tells the
+        // truth about dry land and every hydrodynamic item looks unreachable.
+        const bool water = entry.seaplane;
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; },
+            [water](double, double) { return water; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = entry.seaplane ? 6.0 : 0.0;
+        ic.terrain_elevation_ft = 0.0;
+        ic.airspeed_kts = 0.0;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        aircraft.initialize(ic);
+
+        std::map<std::string, std::pair<double, double>> range;
+        const auto watch = [&] {
+            for (const std::string& name : measure) {
+                double value = 0.0;
+                try {
+                    value = aircraft.property(name);
+                } catch (const std::out_of_range&) {
+                    continue;
+                }
+                const auto at = range.find(name);
+                if (at == range.end()) {
+                    range.emplace(name, std::pair{value, value});
+                } else {
+                    at->second.first = std::min(at->second.first, value);
+                    at->second.second = std::max(at->second.second, value);
+                }
+            }
+        };
+
+        // The configuration levers out and back, with time for the slow ones:
+        // the S.23's flaps are wound out by a motor that takes a full minute.
+        for (const double set : {0.0, 1.0, 0.0}) {
+            glideslope::sim::Controls c;
+            c.throttle = 0.0;
+            c.mixture = 1.0;
+            c.left_brake = 1.0;
+            c.right_brake = 1.0;
+            c.flaps = set;
+            c.gear = 1.0; // never on the ground; see above
+            c.speedbrake = set;
+            c.supercharger = set;
+            c.cooling_flaps = {set, set};
+            for (int i = 0; i < 70 * steps_per_second; ++i) {
+                aircraft.set_controls(c);
+                aircraft.step();
+                watch();
+            }
+        }
+
+        for (const Checklist& list : lists.phases) {
+            for (const ChecklistItem& item : list.items) {
+                if (item.pilots() || measure.count(item.property) == 0) {
+                    continue;
+                }
+                const auto at = range.find(item.property);
+                if (at == range.end()) {
+                    continue;
+                }
+                ++positions;
+                const double low = at->second.first;
+                const double high = at->second.second;
+                if (item.high < low || item.low > high) {
+                    wrong.push_back(
+                        entry.id + "'s " + glideslope::sim::phase_name(list.phase) +
+                        ", \"" + item.text + "\": wants " + item.property + " between " +
+                        std::to_string(item.low) + " and " + std::to_string(item.high) +
+                        ", but its levers only move it between " + std::to_string(low) +
+                        " and " + std::to_string(high));
+                }
+            }
+        }
+    }
+    if (!wrong.empty()) {
+        std::string all;
+        for (const std::string& one : wrong) {
+            all += "\n  " + one;
+        }
+        glideslope::test::fail(std::to_string(wrong.size()) +
+                               " items ask for something their aeroplane cannot "
+                               "reach:" + all);
+    }
+    check(levers > 0, "some items name a lever, held to its travel");
+    check(positions > 0, "some name where a control has got to, held to what it moves");
+    check(of_the_flight > 0,
+          "and some are states of the flight, which this leaves out");
 }
