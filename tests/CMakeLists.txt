@@ -20,6 +20,7 @@ add_executable(glideslope_tests
     unit/test_lander.cpp
     unit/test_departure.cpp
     unit/test_protocol.cpp
+    unit/test_socket.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -67,6 +68,11 @@ target_compile_definitions(glideslope_tests PRIVATE
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
+    an_address_written_down_and_read_back_is_the_same_address
+    anything_that_is_not_an_address_is_refused
+    a_datagram_sent_to_the_loopback_arrives_whole_and_says_where_from
+    a_datagram_too_large_for_the_smallest_path_is_refused
+    a_socket_gets_the_port_it_asks_for_and_no_two_share_one
     every_value_written_to_the_wire_reads_back_as_itself
     the_transport_document_and_the_code_agree_byte_for_byte
     the_wire_puts_the_least_significant_byte_first

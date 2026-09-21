@@ -80,6 +80,16 @@ with. Its body is one byte:
 is told that it is another protocol, rather than being told its version is
 wrong - which would be true but useless.
 
+## How large a datagram is
+
+**At most 1232 bytes, envelope and all.** IPv6 obliges every path to carry
+1280 bytes; 40 of those are its header and 8 more are UDP's, which leaves
+1232. Nothing this sends is ever fragmented, and a sender that offers more
+than 1232 bytes is refused rather than having them broken up for it.
+
+A datagram that arrives longer than the receiver's buffer is dropped, not
+cut: half a datagram is not a datagram.
+
 ## How values are written
 
 Inside a body, values are written one after another with no padding and no
@@ -130,7 +140,10 @@ must not trust a length it has not checked.
   anything today.
 - **The messages.** Which messages exist, what each carries, and which of them
   need the reliable layer. None is defined yet.
-- **The sockets.** `src/platform/` has no socket code, on any platform.
+- **Anyone to talk to.** The sockets exist - UDP, non-blocking, on BSD
+  sockets and on Winsock - but nothing listens on one, because there is no
+  server.
 
 Until those exist there is nothing to connect to, and a client written from
-this document can encode and decode an envelope and its values, and no more.
+this document can encode and decode an envelope and its values, and send them
+into the dark.

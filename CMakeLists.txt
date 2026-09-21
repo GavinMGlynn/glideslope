@@ -183,19 +183,23 @@ glideslope_configure(glideslope_world)
 # input and sockets arrive with the phases that need them.
 # ---------------------------------------------------------------------------
 add_library(glideslope_platform STATIC
-    src/platform/paths.cpp)
+    src/platform/paths.cpp
+    src/platform/socket.cpp)
 target_include_directories(glideslope_platform PUBLIC src)
 # HTTPS through what each system trusts - see src/platform/http.hpp.
 if(WIN32)
-    target_sources(glideslope_platform PRIVATE src/platform/http_winhttp.cpp)
-    target_link_libraries(glideslope_platform PRIVATE winhttp)
+    target_sources(glideslope_platform PRIVATE src/platform/http_winhttp.cpp
+                                               src/platform/socket_winsock.cpp)
+    target_link_libraries(glideslope_platform PRIVATE winhttp ws2_32)
 elseif(APPLE)
     target_sources(glideslope_platform PRIVATE src/platform/http_nsurlsession.mm)
     set_source_files_properties(src/platform/http_nsurlsession.mm
         PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     target_link_libraries(glideslope_platform PRIVATE "-framework Foundation")
+    target_sources(glideslope_platform PRIVATE src/platform/socket_posix.cpp)
 else()
-    target_sources(glideslope_platform PRIVATE src/platform/http_curl.cpp)
+    target_sources(glideslope_platform PRIVATE src/platform/http_curl.cpp
+                                               src/platform/socket_posix.cpp)
     target_link_libraries(glideslope_platform PRIVATE ${CMAKE_DL_LIBS})
 endif()
 glideslope_configure(glideslope_platform)
