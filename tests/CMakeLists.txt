@@ -21,6 +21,7 @@ add_executable(glideslope_tests
     unit/test_departure.cpp
     unit/test_protocol.cpp
     unit/test_socket.cpp
+    unit/test_reliable.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -68,6 +69,13 @@ target_compile_definitions(glideslope_tests PRIVATE
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
+    with_nothing_lost_every_reliable_message_arrives_once_and_in_order
+    under_every_pattern_of_loss_every_message_arrives_exactly_once_and_in_order
+    a_reliable_message_that_arrives_twice_is_handed_up_once
+    a_reliable_message_that_arrives_early_waits_for_the_ones_before_it
+    an_endpoint_with_nothing_to_say_still_acknowledges_what_it_has
+    a_reliable_endpoint_ignores_a_datagram_that_is_not_one_of_its_own
+    a_reliable_sender_refuses_once_too_many_are_waiting
     an_address_written_down_and_read_back_is_the_same_address
     anything_that_is_not_an_address_is_refused
     a_datagram_sent_to_the_loopback_arrives_whole_and_says_where_from

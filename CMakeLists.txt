@@ -143,7 +143,8 @@ glideslope_configure(glideslope_sim)
 # nothing - not the simulation, not a socket - because everything it does is
 # turning bytes into values and back, and that is what makes it fuzzable.
 add_library(glideslope_net STATIC
-    src/net/protocol.cpp)
+    src/net/protocol.cpp
+    src/net/reliable.cpp)
 target_include_directories(glideslope_net PUBLIC src)
 glideslope_configure(glideslope_net)
 

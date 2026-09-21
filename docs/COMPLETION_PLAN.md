@@ -576,7 +576,17 @@ checklists are part of. A lesson ends in a debrief, never a score
       here to try.
 - [ ] **Reliable delivery** for lobby, session, weather, aircraft definitions,
       terrain dataset and controller-swap messages. *Verification: every one
-      arrives exactly once and in order under injected loss.*
+      arrives exactly once and in order under injected loss.* Begun
+      2026-09-21 and not finished. The layer is built and its verification is
+      met: numbered messages, retransmission until acknowledged, in-order
+      delivery holding an early message for its predecessors, and duplicates
+      thrown away. Held against **every pattern of loss over twelve
+      datagrams in both directions - all 4,096 of them** - and in each one
+      every message arrived exactly once and in order. **Still to do: the
+      messages themselves.** The item names six kinds - lobby, session,
+      weather, aircraft definitions, terrain dataset, controller swap - and
+      not one of them exists yet, so what is proved is that the layer
+      delivers, not that those six go through it.
 - [ ] **The server** — `glideslope_server`, with `--headless`, `--players N`,
       `--port`, `--store FILE`, `--key HEX` and `--timeout`, and a dashboard
       otherwise. *Verification: every flag is exercised by a test, and a player
