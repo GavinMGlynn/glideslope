@@ -1,12 +1,12 @@
-# The Cessna 182S Skylane's checklists: this project's own, in its own words.
+# The Cessna 182S Skylane's checklists, written in this project's own words
+# from its Pilot's Operating Handbook, section 4, Normal Procedures, pages
+# 4-11 to 4-17 - the handbook docs/ASSETS.md already records for this
+# aeroplane's published figures, and which was read to write these.
 #
-# **They are not taken from the aeroplane's flight manual.** No such
-# manual was read to write them. What they follow is the ordinary
-# practice for the type, in the order it is flown; the speeds and
-# settings in them are this project's own figures, assets/figures/c182.xml,
-# whose sources docs/ASSETS.md records, and the flight model itself
-# wherever the model is what decides - a lever's gate, a flap's travel,
-# an engine's idle.
+# The handbook's order is kept: before starting engine, starting engine,
+# taxiing, before takeoff, normal takeoff, enroute climb, cruise, descent,
+# before landing, normal landing, after landing. Its figures are kept as it
+# gives them.
 #
 #   phase NAME                       one of: before-start, taxi, take-off,
 #                                    climb, cruise, descent, approach,
@@ -17,73 +17,77 @@
 #
 # with `#` beginning a comment; src/sim/checklist.hpp owns the format.
 #
-# The 182S's undercarriage is fixed, so nothing here names the gear. Its
-# propeller is not fixed-pitch, and the lever has items of its own. The engine
-# is fuel-injected, so there is no carburettor heat to pull; the cowl flaps,
-# which the flight model has not got, are the pilot's to confirm.
+# **The handbook's speeds are indicated; the simulation reads calibrated.**
+# The two differ by a knot or so at these speeds, so a band taken from the
+# handbook is opened by a knot at each end rather than being quoted exactly
+# and then failing on the difference.
+#
+# The flight model has no cowl flaps, no auxiliary fuel pump, no magneto
+# switch and no parking brake, so the handbook's items for those are the
+# pilot's to confirm. Its flaps travel to 38 degrees, which is the
+# handbook's FULL.
 
 phase before-start
-confirm Walk-round done, and the propeller area called clear
-confirm Seats upright, belts and harnesses fastened, both doors latched
-confirm Fuel selector on both tanks, master switch and beacon on
-check fcs/advance-cmd-norm >= 0.95 Propeller lever fully forward
-check fcs/mixture-cmd-norm >= 0.95 Mixture full rich
+confirm Preflight inspection complete and the passengers briefed
+confirm Seats, belts and harnesses adjusted and locked
+confirm Brakes tested and set, and the circuit breakers in
 check fcs/throttle-cmd-norm <= 0.25 Throttle open a quarter of an inch
+check fcs/advance-cmd-norm >= 0.9 Propeller lever at high RPM
+confirm Cowl flaps open and the fuel selector on both
+confirm Propeller area clear, master on, and the engine started
+check fcs/mixture-cmd-norm >= 0.95 Mixture advanced to rich once it fires
 
 phase taxi
-check propulsion/engine[0]/engine-rpm >= 500 Engine running and idling evenly
-confirm Cowl flaps open for the ground run
-check fcs/flap-pos-deg <= 0.5 Flaps up until the take-off is briefed
-confirm Brakes tried as the aeroplane first moves
-confirm Compass and the turn coordinator watched round the turns
-check fcs/throttle-cmd-norm <= 0.4 Taxi at a walking pace on low power
+check propulsion/engine[0]/engine-rpm >= 500 Engine running and the oil pressure up
+check fcs/flap-pos-deg <= 0.5 Flaps retracted after start
+check fcs/throttle-cmd-norm <= 0.4 Taxi at low engine speed, as the handbook asks
+confirm Brakes used as little as the taxi allows
+confirm Controls held for the wind, and caution in a quartering tailwind
 
 phase take-off
-range fcs/flap-pos-deg 0.0 20.5 Flaps up, or twenty degrees off a short field
-check fcs/mixture-cmd-norm >= 0.95 Mixture full rich
-range fcs/pitch-trim-cmd-norm -0.35 0.35 Elevator trim set for take-off
-confirm Controls free and correct, and the gauges read across as power comes up
-range propulsion/engine[0]/engine-rpm 2300.0 2450.0 Full throttle, the governor holding 2,400 rpm
-check velocities/vc-kts >= 57.0 Ease the nose wheel off at 57 knots
+confirm Cabin doors closed and locked, and the flight controls free and correct
+range fcs/flap-pos-deg 0.0 20.5 Wing flaps set for take-off, nought to twenty degrees
+check fcs/mixture-cmd-norm >= 0.95 Mixture rich
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Elevator and rudder trim set for take-off
+check fcs/throttle-cmd-norm >= 0.95 Full throttle and 2,400 RPM
+range propulsion/engine[0]/engine-rpm 2300.0 2500.0 The propeller governing at 2,400
+check velocities/vc-kts >= 49.0 Lift the nose wheel at 50 to 60 knots
 
 phase climb
-check fcs/throttle-cmd-norm >= 0.95 Throttle wide open
-check fcs/flap-pos-deg <= 0.5 Flaps up once the aeroplane is climbing away
-range velocities/vc-kts 76.0 94.0 Climb at 80 to 90 knots
-check fcs/mixture-cmd-norm >= 0.95 Mixture full rich below 3,000 feet
-confirm Cowl flaps open, and the temperatures and pressures in the green
+check fcs/throttle-cmd-norm >= 0.9 Full throttle, or 23 inches, and 2,400 RPM
+range velocities/vc-kts 84.0 96.0 Climb at 85 to 95 knots
+check fcs/flap-pos-deg <= 0.5 Wing flaps retracted
+check fcs/mixture-cmd-norm >= 0.9 Mixture rich, or at the placard's fuel flow
+confirm Cowl flaps open as required
 
 phase cruise
-range fcs/advance-cmd-norm 0.80 1.00 Propeller set between 2,100 and 2,400 rpm
-range fcs/throttle-cmd-norm 0.55 0.95 Power set between 55 and 80 per cent
-check fcs/flap-pos-deg <= 0.5 Flaps up
-check fcs/mixture-cmd-norm <= 0.95 Mixture leaned for the cruising height
-confirm Cowl flaps closed, altimeter set, and the aeroplane trimmed to hold its height
+range fcs/throttle-cmd-norm 0.4 0.9 Power set: 15 to 23 inches, and no more than 80 per cent
+range propulsion/engine[0]/engine-rpm 1950.0 2450.0 Propeller between 2,000 and 2,400 RPM
+check fcs/mixture-cmd-norm <= 0.95 Mixture leaned
+check fcs/flap-pos-deg <= 0.5 Wing flaps up
+confirm Elevator and rudder trim adjusted, and the cowl flaps closed
 
 phase descent
-range fcs/throttle-cmd-norm 0.10 0.65 Power back for the descent
-check fcs/mixture-cmd-norm >= 0.85 Mixture enriched as the aeroplane comes down
-check fcs/flap-pos-deg <= 0.5 Flaps up until the speed is back in the white arc
-confirm Altimeter set to the field's pressure, and its weather noted
-confirm Cowl flaps as the cylinder temperatures ask, cabin heat and air as wanted
+range fcs/throttle-cmd-norm 0.05 0.7 Power as the descent wants it
+check fcs/mixture-cmd-norm >= 0.85 Mixture enriched as required
+range fcs/flap-pos-deg 0.0 38.5 Flaps as desired, within their speeds
+confirm Fuel selector on both, and the cowl flaps closed
 
 phase approach
-check fcs/mixture-cmd-norm >= 0.95 Mixture full rich
-check fcs/advance-cmd-norm >= 0.95 Propeller fully forward, ready for a go-around
-range velocities/vc-kts 62.0 80.0 Approach at 65 to 75 knots
-range fcs/flap-pos-deg 0.0 38.5 Flaps as the approach asks, up to the full thirty-eight degrees
-confirm Landing light on, the runway in sight and the circuit clear
+check fcs/mixture-cmd-norm >= 0.95 Mixture rich
+check fcs/advance-cmd-norm >= 0.9 Propeller at high RPM
+confirm Seat backs upright, belts secured, and the landing light on
+range velocities/vc-kts 69.0 81.0 Approach at 70 to 80 knots with the flaps up
 
 phase landing
-range fcs/flap-pos-deg 20.0 38.5 Flaps twenty degrees to full
-range velocities/vc-kts 58.0 72.0 Over the fence at 60 to 70 knots
-check fcs/throttle-cmd-norm <= 0.25 Throttle closed in the flare
-confirm Touch down on the main wheels with the nose wheel held well off
-confirm Hold the nose up as the speed falls, and brake only once it is down
+range fcs/flap-pos-deg 20.0 38.5 Wing flaps full, below 100 knots
+range velocities/vc-kts 59.0 71.0 Sixty to seventy knots with the flaps full
+check fcs/throttle-cmd-norm <= 0.25 Power reduced to idle as the obstacle is cleared
+confirm Touch down on the main wheels, then lower the nose wheel gently
+confirm Braking the minimum required
 
 phase after-landing
-check fcs/flap-pos-deg <= 0.5 Flaps up
-check fcs/throttle-cmd-norm <= 0.35 Throttle back to a taxi power
+check fcs/flap-pos-deg <= 0.5 Wing flaps up
+check fcs/throttle-cmd-norm <= 0.35 Throttle back for the taxi
 check velocities/vc-kts <= 30.0 Clear of the runway and slowed to a taxi
-check fcs/advance-cmd-norm >= 0.95 Propeller lever fully forward again
-confirm Cowl flaps open, landing light off, and the trim reset
+confirm Cowl flaps open

@@ -723,17 +723,37 @@ is never silence.
 
 ### The aircraft checklists
 
+`assets/aircraft/*.checklist`: a checklist for each of the nine phases of
+flight for every aircraft in the roster. **Three of the sixteen are written
+from the aeroplane's own handbook; thirteen are not**, and which is which is
+in each file's own header as well as here.
+
+#### The three written from a handbook
+
 | | |
 | --- | --- |
-| What | `assets/aircraft/*.checklist`, a checklist for each of the nine phases of flight for every aircraft in the roster |
-| Source | **None.** They are written for this project, in its own words. No aircraft flight manual, pilot's notes or operating handbook was read to write them, and none is quoted or paraphrased. What they follow is the ordinary practice for each type, in the order it is flown |
-| Where the numbers come from | The speeds, settings and engine figures are this project's own published-figure files, `assets/figures/<id>.xml`, whose sources are recorded above; and the flight models themselves wherever the model is what decides - a lever's gate, a flap's travel, an engine's idle |
-| Licence | This project's, GPL-3.0-or-later, whose text ships as `LICENSE` |
-| What they are not | Not a substitute for an aircraft's real checklist, and not airworthy guidance. They exist to teach the simulator's aeroplanes |
+| Source | The same handbooks recorded above for these aeroplanes' published figures, read for their normal-procedures sections: the **Cessna 172P** POH and FAA Approved Airplane Flight Manual, 1981 Model 172P, section 4, pages 4-6 to 4-10, as copied at <https://tx435.cap.gov/media/cms/C172PPOHwoSupplements_0A69C5AA130B9.pdf> and <https://www.lsvr.de/de/wp-content/uploads/2019/10/POH-Cessna-172-P-D-EKRM.pdf> (the second read only to settle two figures the first had scanned badly); the **Cessna 182S** POH, section 4, pages 4-11 to 4-17, at <http://tssflyingclub.org/documents/C182S_POH.pdf>; and the **Piper PA-28-180 Cherokee "E"** Owner's Handbook, section III, pages 17 to 23, at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf> |
+| In the repository | `assets/aircraft/c172p.checklist`, `c182.checklist`, `pa28.checklist`: the items and their figures, in this project's own words and in the handbook's order. None of the handbooks' text, drawings or scans is here |
+| Conversions | The PA-28's handbook is in miles an hour and its file says so item by item; the Cessnas' speeds are indicated and the simulation reads calibrated, so each band is opened a knot at each end |
+| Licence | The words are this project's, GPL-3.0-or-later. Only facts are taken from the handbooks - what to do, in what order, at what figure |
 
-**Three of the sixteen could not have been written from a manual in any
-case**: no flight manual is public for the B-2A, the F-22A or the F-35A.
-`docs/COMPLETION_PLAN.md` names this where the item stands.
+#### The thirteen that are not
+
+| | |
+| --- | --- |
+| Source | **None.** They are written for this project, in its own words, following the ordinary practice for each type in the order it is flown. No manual was read for them |
+| Where the numbers come from | This project's own published-figure files, `assets/figures/<id>.xml`, whose sources are recorded above; and the flight models themselves wherever the model is what decides - a lever's gate, a flap's travel, an engine's idle |
+
+**Why those thirteen.** The **J-3 Cub**'s own manual was looked for and found
+only as scans: both copies recorded above for its figures carry no text
+layer, and the text versions that exist are a flying club's checklist and a
+flight-simulator vendor's manual, neither of them Piper's. **No flight manual
+is public for the B-2A, the F-22A or the F-35A** at all. The airliners' and
+the business jet's operating manuals are their operators' and are not
+published. `docs/COMPLETION_PLAN.md` names this where the item stands.
+
+**What none of them is**: a substitute for an aircraft's real checklist, or
+airworthy guidance. They exist to teach the simulator's aeroplanes.
 
 ## Planned sources
 

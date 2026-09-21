@@ -500,16 +500,21 @@ checklists are part of. A lesson ends in a debrief, never a score
       names a state of the aircraft that shows it done or is marked the pilot's
       to confirm; a test walks them all.* Begun 2026-09-21 and not finished.
       All sixteen aircraft have all nine phases, 144 checklists in all, and
-      six tests walk them: every item either names a state its own aircraft
-      really has or is the pilot's to confirm, and a file that is wrong is
-      refused where it is wrong. **Still to do: the words' provenance.** The
-      item asks for them to come from each aircraft's handbook or pilot's
-      notes, and no such manual was read to write them - they follow the
-      ordinary practice for the type, with their speeds and settings taken
-      from this project's own `assets/figures/<id>.xml`. `ASSETS.md` records
-      that plainly rather than naming a source that was not used. For three
-      of the sixteen - the B-2A, F-22A and F-35A - no flight manual is public
-      at all, so that half of the item cannot be met as written for them.
+      seven tests walk them: every item either names a state its own aircraft
+      really has or is the pilot's to confirm, every band is one its
+      aeroplane's controls can reach, and a file that is wrong is refused
+      where it is wrong. **Three of the sixteen are now written from the
+      aeroplane's own handbook** - the Cessna 172P's and 182S's Pilot's
+      Operating Handbooks and the PA-28-180's Owner's Handbook, each read
+      from the copies `ASSETS.md` records, their items and figures kept in
+      the handbook's own order. **Still to do: the other thirteen.** The
+      J-3 Cub's manual survives only as scans with no text in either copy
+      recorded; no flight manual is public for the B-2A, the F-22A or the
+      F-35A; and the airliners' and business jet's operating manuals are
+      their operators' and are not published. Those thirteen follow the
+      ordinary practice for the type with figures from this project's own
+      `assets/figures/<id>.xml`, and `ASSETS.md` says which is which rather
+      than naming a source that was not used.
 - [x] **Checklists on screen, ticking themselves.** *Verification: the test
       pilot flies the Cessna's before-take-off, take-off and climb by the book,
       and every item the aircraft can see ticks at the tick its state first
@@ -550,6 +555,20 @@ checklists are part of. A lesson ends in a debrief, never a score
       handbook's ground roll. Still missing: the circuit, the stalls, the
       turns, the lesson and debrief layer itself, and all of it for the other
       six classes of aircraft.
+      **The reference speeds a lesson needs are published for the light
+      aircraft and not for the rest**, which was looked into on 2026-09-21
+      rather than assumed. Only six of the sixteen publish a stall speed and
+      six a climb speed. The airliners' and business jet's operating manuals
+      are their operators' and are not published; the A320 family's stall
+      speed is not a tabulated figure at all, being defined as VS1g behind a
+      low-speed protection the crew cannot override, with operating speeds
+      referenced to that; and no flight manual is public for the B-2A, F-22A
+      or F-35A. **There is a way through that does not invent figures**:
+      `figures.cpp` already has a `stall_speed` flight that can measure any
+      model, so a lesson's reference speed could be measured from the
+      aeroplane it teaches rather than published for it. That is a decision
+      about what a lesson's figures mean, and it is the project owner's to
+      make, so it is written here rather than taken.
 - [ ] **The instructor demonstrates, then hands over.** *Verification: for
       each lesson the AI pilot flies the demonstration within the lesson's own
       limits, hands the controls to the player with no step in any control, and

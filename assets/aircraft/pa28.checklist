@@ -1,12 +1,8 @@
-# The Piper PA-28-180 Cherokee's checklists: this project's own, in its own words.
-#
-# **They are not taken from the aeroplane's flight manual.** No such
-# manual was read to write them. What they follow is the ordinary
-# practice for the type, in the order it is flown; the speeds and
-# settings in them are this project's own figures, assets/figures/pa28.xml,
-# whose sources docs/ASSETS.md records, and the flight model itself
-# wherever the model is what decides - a lever's gate, a flap's travel,
-# an engine's idle.
+# The Piper PA-28-180 Cherokee's checklists, written in this project's own
+# words from its Owner's Handbook for the Cherokee "E", section III,
+# Operating Instructions, pages 17 to 23 - the handbook docs/ASSETS.md
+# already records for this aeroplane's published figures, and which was read
+# to write these.
 #
 #   phase NAME                       one of: before-start, taxi, take-off,
 #                                    climb, cruise, descent, approach,
@@ -17,72 +13,78 @@
 #
 # with `#` beginning a comment; src/sim/checklist.hpp owns the format.
 #
-# The Cherokee's undercarriage is fixed and its propeller fixed-pitch, so
-# nothing here names the gear or a pitch lever. Its fuel selector has no both
-# position, and neither its electric fuel pump nor its carburettor heat is in
-# the flight model: those are the pilot's to confirm.
+# **The handbook is in miles an hour and the simulation is in knots.** Every
+# speed below is the handbook's figure converted, and the handbook's own
+# number is given beside it: 85 mph is 73.9 knots, 100 mph is 86.9, 115 mph
+# is 99.9, 50 to 60 mph is 43.4 to 52.1. A band is opened a knot at each end,
+# because the handbook's speeds are indicated and the simulation reads
+# calibrated.
+#
+# Only the approach has a numbered checklist in the handbook; the rest of
+# section III is written as prose, and these items follow what it says to do,
+# in the order it says to do it.
+#
+# The flight model has no electric fuel pump, no carburettor heat, no
+# magneto switch and no parking brake, so the handbook's items for those are
+# the pilot's to confirm. Its undercarriage is fixed and its propeller
+# fixed-pitch.
 
 phase before-start
-confirm Walk-round done, tanks dipped, and the propeller area called clear
-confirm The one door latched, seats upright and harnesses fastened
-confirm Fuel selector on the fuller tank, for the Cherokee has no both
+confirm Parking brake on, and the carburettor heat full cold
+confirm Fuel selector on the tank wanted, and the electric fuel pump on
+check fcs/throttle-cmd-norm <= 0.25 Throttle open about a quarter of an inch
 check fcs/mixture-cmd-norm >= 0.95 Mixture full rich
-check fcs/throttle-cmd-norm <= 0.25 Throttle open a quarter of an inch
-confirm Master switch on, and the electric fuel pump on for the start
+confirm Master switch on, and the starter engaged by the magneto switch
 
 phase taxi
-check propulsion/engine[0]/engine-rpm >= 500 Engine running and idling evenly
-check fcs/flap-pos-deg <= 0.5 Flaps up, the lever down between the seats
-confirm Brakes tried as the aeroplane first moves
-confirm Compass and the turn coordinator watched round the turns
-check fcs/throttle-cmd-norm <= 0.4 Taxi at a walking pace on low power
+check propulsion/engine[0]/engine-rpm >= 500 Engine running, and the throttle advanced to a taxi setting
+check fcs/flap-pos-deg <= 0.5 Flaps up
+check fcs/throttle-cmd-norm <= 0.4 Taxi slowly, with as little brake as will do
+confirm Brakes checked as she first moves
+confirm The taxiway ahead and the wind both allowed for
 
 phase take-off
-range fcs/flap-pos-deg 0.0 25.5 Flaps up, or twenty-five degrees off a short field
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Tab set slightly aft of neutral, for the loading
+range fcs/flap-pos-deg 0.0 25.5 Flaps up, or twenty-five degrees off a short or soft field
 check fcs/mixture-cmd-norm >= 0.95 Mixture full rich
-range fcs/pitch-trim-cmd-norm -0.35 0.35 Stabilator trim set for take-off
-confirm Electric fuel pump on, controls free, and the magnetos dropped evenly at 2,000 rpm
-check propulsion/engine[0]/engine-rpm >= 2275.0 Full throttle, and 2,275 rpm or better standing still
-check velocities/vc-kts >= 48.0 Ease the wheel back at 48 knots and let her fly off
+check fcs/throttle-cmd-norm >= 0.95 Full throttle
+check velocities/vc-kts >= 42.0 Let her accelerate to 43 to 52 knots (50 to 60 mph)
+confirm Ease back only enough to let her fly herself off, no more
 
 phase climb
-check fcs/throttle-cmd-norm >= 0.95 Throttle wide open
-check fcs/flap-pos-deg <= 0.5 Flaps up once the aeroplane is climbing away
-range velocities/vc-kts 70.0 88.0 Climb at 74 to 85 knots
-check fcs/mixture-cmd-norm >= 0.95 Mixture full rich below 5,000 feet
-confirm Electric fuel pump off, and the oil temperature and pressure in the green
+check fcs/throttle-cmd-norm >= 0.9 Full throttle for the climb
+check fcs/flap-pos-deg <= 0.5 Flaps up
+range velocities/vc-kts 63.0 88.0 Climb at 73.9 knots for best rate, or 86.9 en route
+check fcs/mixture-cmd-norm >= 0.9 Mixture rich
+confirm The nose lowered a little to let her accelerate to the climb speed
 
 phase cruise
-range propulsion/engine[0]/engine-rpm 2250.0 2700.0 Cruising rpm set between 2,300 and 2,650
+range fcs/throttle-cmd-norm 0.5 0.95 Power set for the cruise wanted
 check fcs/flap-pos-deg <= 0.5 Flaps up
-check fcs/mixture-cmd-norm <= 0.95 Mixture leaned for the cruising height
-confirm Tanks changed on the half hour, and the altimeter set
-confirm The aeroplane trimmed to hold its height hands off
+check fcs/mixture-cmd-norm <= 0.95 Mixture leaned for the altitude
+confirm Trimmed to hold the height, and the power table consulted
 
 phase descent
-range fcs/throttle-cmd-norm 0.10 0.65 Power back for the descent
-check fcs/mixture-cmd-norm >= 0.85 Mixture enriched as the aeroplane comes down
-check fcs/flap-pos-deg <= 0.5 Flaps up until the speed is back in the white arc
-confirm Altimeter set to the field's pressure, and its weather noted
-confirm Carburettor heat as the air asks, and the cabin heat as wanted
+range fcs/throttle-cmd-norm 0.1 0.7 Power back for the descent
+check fcs/mixture-cmd-norm >= 0.85 Mixture enriched as she comes down
+confirm Carburettor heat only if there is a sign of carburettor icing
+confirm Altimeter set to the field's pressure
 
 phase approach
-check fcs/mixture-cmd-norm >= 0.95 Mixture full rich
-confirm Electric fuel pump on, and the fuel on the fuller tank
-range velocities/vc-kts 64.0 80.0 Approach at 68 to 75 knots
-range fcs/flap-pos-deg 0.0 40.5 Flaps as the approach asks, up to the full forty degrees
-confirm Landing light on, the runway in sight and the circuit clear
+confirm Fuel on the proper tank, and the electric fuel pump on
+check fcs/mixture-cmd-norm >= 0.95 Mixture set rich
+range fcs/flap-pos-deg 0.0 40.5 Flaps set, and not above 99.9 knots (115 mph)
+confirm Seat belts fastened
+range velocities/vc-kts 63.0 76.0 Trimmed to about 73.9 knots (85 mph) with the flaps up, less three mph a notch
 
 phase landing
-range fcs/flap-pos-deg 25.0 40.5 Flaps twenty-five degrees to full
-range velocities/vc-kts 58.0 72.0 Over the fence at 62 to 70 knots
-check fcs/throttle-cmd-norm <= 0.25 Throttle closed in the flare
-confirm Hold her off and touch down on the main wheels first
-confirm Wheel held back as the speed falls, and the brakes used gently
+range fcs/flap-pos-deg 25.0 40.5 Full flap for a short and slow landing
+range velocities/vc-kts 52.0 70.0 Airspeed reduced through the flare, to contact near the stall
+check fcs/throttle-cmd-norm <= 0.3 Enough power to hold the path, and then closed
+confirm Hold the nose wheel off as long as it will stay off
 
 phase after-landing
-check fcs/flap-pos-deg <= 0.5 Flaps up
-check fcs/throttle-cmd-norm <= 0.35 Throttle back to a taxi power
-check velocities/vc-kts <= 30.0 Clear of the runway and slowed to a taxi
-confirm Electric fuel pump off, carburettor heat cold
-confirm Landing light off, strobes off, and the trim reset
+check fcs/flap-pos-deg <= 0.5 Flaps retracted before the brakes are used
+check velocities/vc-kts <= 30.0 Slowed, with back pressure holding her on the main wheels
+check fcs/throttle-cmd-norm <= 0.35 Throttle back for the taxi
+confirm Electric fuel pump off, at the pilot's discretion

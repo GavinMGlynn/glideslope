@@ -61,14 +61,16 @@ foreach(_line IN LISTS _lines)
 endforeach()
 file(WRITE "${_said}" "${_text}")
 
-# Seven lines: the take-off list's six items and the heading above them. If
+# Eight lines: the take-off list's seven items and the heading above them. If
 # the Cessna's take-off list changes length this must be changed with it,
-# which is the point - a silent change to what is taught is not wanted.
+# which is the point - a silent change to what is taught is not wanted. It
+# went from six items to seven on 2026-09-21, when the list was rewritten
+# from the handbook and the run-up joined it, and this is what said so.
 list(LENGTH _lines _count)
-if(NOT _count EQUAL 7)
+if(NOT _count EQUAL 8)
     message(FATAL_ERROR
             "the take-off checklist drew ${_count} lines, not the heading and "
-            "six items:\n${_text}")
+            "seven items:\n${_text}")
 endif()
 
 execute_process(COMMAND "${CHECK}" "${_shot}" "${_said}"

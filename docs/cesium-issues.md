@@ -5,8 +5,21 @@ Both were found building glideslope against Cesium Native v0.64.0 with
 (Rocky Linux 10). Neither is glideslope-specific: any sanitized build that
 streams a Cesium ion asset hits both.
 
-Checked against `main` on 2026-09-21: the reference member in issue 1 is
-still there.
+**Both checked against `main` on 2026-09-21**, by reading the files on
+GitHub rather than the pinned copy in `ext/`:
+
+- `TileLoadInput::pAssetAccessor` is still declared
+  `const std::shared_ptr<CesiumAsync::IAssetAccessor>& pAssetAccessor;`, and
+  so are its neighbours - `tile`, `contentOptions`, `asyncSystem`, `pLogger`
+  and `requestHeaders` are all `const` references. The hazard is the
+  struct's, not one member's.
+- `QuantizedMeshLoader::readValue` still returns
+  `*reinterpret_cast<const T*>(data.data() + offset);`, and it is not alone:
+  `parseQuantizedMesh` reads the header and the extension fields the same
+  way, and `decodeIndices` casts spans to typed pointers likewise. A fix
+  wants the whole file, not the one function.
+
+No issue matching either was found open on the tracker.
 
 ---
 
@@ -135,5 +148,7 @@ return value;
 ```
 
 which compiles to the same instruction on targets that allow unaligned access
-and is well defined everywhere. The same pattern appears in other readers in
-this file and is worth a sweep.
+and is well defined everywhere. **The same pattern appears throughout the
+file** - `parseQuantizedMesh` reads `QuantizedMeshHeader`, `extensionID` and
+`extensionLength` this way, and `decodeIndices` casts spans to typed pointers
+- so this wants a sweep rather than a one-line change.
