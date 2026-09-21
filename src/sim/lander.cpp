@@ -140,7 +140,10 @@ Controls Lander::fly() {
         const double want = std::clamp(-across_m_ * 2.0, -20.0, 20.0);
         const double error = std::remainder(runway_.heading_deg + want - s.heading_deg, 360.0);
         const double r_degps = s.r_radps * degrees;
-        c.rudder = std::clamp(0.10 * error - 0.30 * r_degps, -1.0, 1.0);
+        // **The model's rudder command yaws the nose left for a positive
+        // value** (sim/test_pilot.cpp), so holding the centreline takes the
+        // opposite sign from the correction wanted.
+        c.rudder = -std::clamp(0.10 * error - 0.30 * r_degps, -1.0, 1.0);
         c.aileron = std::clamp(-0.02 * s.roll_deg, -1.0, 1.0);
         c.throttle = 0.0;
         // **The stick comes back and stays back.** On a tailwheel aeroplane

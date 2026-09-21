@@ -543,7 +543,13 @@ checklists are part of. A lesson ends in a debrief, never a score
       Phase 8 below is the largest piece of it, and comes before this one
       although it is written after.** The classes of aircraft are also not
       data: `REQUIREMENTS.md` names seven in prose and no aircraft file says
-      which it is.
+      which it is. Two pieces of it are now built and tested, for the light
+      aircraft: an autopilot that flies an approach and lands (Phase 8's own
+      item, ticked below), and one that takes off - each light aircraft holds
+      the centreline within 1.4 m and is airborne within a third of its
+      handbook's ground roll. Still missing: the circuit, the stalls, the
+      turns, the lesson and debrief layer itself, and all of it for the other
+      six classes of aircraft.
 - [ ] **The instructor demonstrates, then hands over.** *Verification: for
       each lesson the AI pilot flies the demonstration within the lesson's own
       limits, hands the controls to the player with no step in any control, and

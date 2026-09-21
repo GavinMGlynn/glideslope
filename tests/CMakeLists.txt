@@ -18,6 +18,7 @@ add_executable(glideslope_tests
     unit/test_checklist.cpp
     unit/test_checklist_run.cpp
     unit/test_lander.cpp
+    unit/test_departure.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -65,6 +66,8 @@ target_compile_definitions(glideslope_tests PRIVATE
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
+    every_light_aircraft_takes_itself_off_and_climbs_away
+    the_take_off_speeds_come_from_each_aircrafts_published_figures
     every_light_aircraft_is_flown_down_a_glidepath_and_lands_in_calm_air
     every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_crosswind
     the_approach_speed_is_a_third_above_the_published_landing_stall
