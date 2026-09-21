@@ -726,15 +726,25 @@ checklists are part of. A lesson ends in a debrief, never a score
 Found while implementing something else. Added when found, not when remembered.
 
 - [ ] **Cesium ion on Windows, where a body arrives compressed unasked.**
-      WinHTTP does not undo a compressed body unless
-      `WINHTTP_OPTION_DECOMPRESSION` is set, and setting it made every
-      Open-Meteo fetch fail on all three Windows jobs - the transfer
-      abandoned, WinHTTP saying 2147500036 - where both Linux jobs passed. It
-      is off again, so a server that compresses a body unasked hands Windows
-      bytes it cannot read; Cesium ion serves its `layer.json` that way, so
-      ion is not yet known to work there. *(Found 2026-09-21 turning it on and
+      *(Found 2026-09-21 turning `WINHTTP_OPTION_DECOMPRESSION` on and
       watching CI.)* *Verification: a Windows machine fetches Cesium ion's
-      layer.json and reads it, and the weather still arrives.*
+      layer.json and reads it, and the weather still arrives.* **The cause
+      was found on 2026-09-22 by reading Microsoft's documentation instead of
+      guessing again.** The first attempt turned the option on, every
+      Open-Meteo fetch failed on all three Windows jobs, and it was turned
+      off with "why is not known" written beside it. Why: the body was read
+      by asking `WinHttpQueryDataAvailable` how much was there and stopping
+      when it said none - and its own documentation says not to use that
+      answer to decide a response has ended, because not all servers
+      terminate one properly. It is also not the decompressed length when an
+      encoding is being undone. The read loop now takes fixed chunks until a
+      read returns no bytes, which is the pattern that documentation asks for
+      and is right whether anything is being decompressed or not, and
+      `WinHttpSetOption`'s result is checked rather than assumed - an option
+      that did not take would leave the body compressed with nothing to say
+      so. **The weather half of the verification is what CI can answer**, and
+      it is the half that failed before; the ion half needs a token no CI job
+      has, so this stays open until a Windows machine with one tries it.
 
 - [ ] **A livery on the aeroplane, and its control surfaces moving.** A model
       ships no texture, so a surface takes the flat diffuse colour of its

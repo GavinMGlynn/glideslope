@@ -83,16 +83,25 @@ HttpResponse http_get(const HttpRequest& request) {
     if (!session) {
         fail(request.url, "no WinHTTP session");
     }
-    // **WinHTTP is not asked to undo a compressed body.** It would need
-    // WINHTTP_OPTION_DECOMPRESSION, and turning that on made every fetch from
-    // Open-Meteo fail on all three Windows jobs - the transfer abandoned,
-    // WinHTTP saying 2147500036 - while both Linux jobs, which use libcurl,
-    // passed the same tests. Why is not known, and cannot be found out from
-    // here: there is no Windows to try it on. Nothing asks for a compressed
-    // body, since a provider's own Accept-Encoding is not passed on, so this
-    // costs nothing until a server compresses one unasked - which Cesium ion
-    // does. That is a tail in COMPLETION_PLAN.md, and it is why Cesium ion is
-    // not yet known to work on Windows.
+    // **WinHTTP undoes a compressed body, where it can.** Turning this on
+    // once before made every Open-Meteo fetch fail on all three Windows jobs
+    // and it was turned off again without the cause being found. The cause
+    // was almost certainly the read loop below, which used
+    // WinHttpQueryDataAvailable to decide the body had ended - which
+    // Microsoft's documentation says not to do, and which is not the
+    // decompressed length when an encoding is being undone. That loop is
+    // fixed, so this is on again.
+    //
+    // **Its result is checked**, unlike last time: an option that did not
+    // take is an option that quietly does nothing, and the body would then
+    // arrive compressed with nothing to say so. Where it cannot be set -
+    // it wants Windows 8.1 - the body is left as it came and
+    // `content-encoding` is left on it, which is what tells a caller the
+    // bytes are not what they look like.
+    DWORD decompress = WINHTTP_DECOMPRESSION_FLAG_ALL;
+    const bool undoing =
+        WinHttpSetOption(session.get(), WINHTTP_OPTION_DECOMPRESSION, &decompress,
+                         sizeof decompress) == TRUE;
     const int connect_ms = request.connect_timeout_seconds * 1000;
     const int stall_ms = request.stall_timeout_seconds * 1000;
     WinHttpSetTimeouts(session.get(), connect_ms, connect_ms, stall_ms, stall_ms);
@@ -169,30 +178,35 @@ HttpResponse http_get(const HttpRequest& request) {
         }
     }
 
+    // **The end of a body is a read of no bytes, not a count of none.**
+    // WinHttpQueryDataAvailable's answer must not be used to decide that a
+    // response has ended - Microsoft says so plainly, because not all servers
+    // terminate a response properly - and it is not the decompressed length
+    // when WinHTTP is undoing an encoding. So the body is read in fixed
+    // chunks until a read returns nothing, which is what its documentation
+    // asks for and is right whether anything is being decompressed or not.
+    constexpr DWORD chunk = 16 * 1024; // its advice is 8 KiB or more
     for (;;) {
-        DWORD available = 0;
-        if (!WinHttpQueryDataAvailable(handle.get(), &available)) {
-            fail(request.url, "the transfer failed");
-        }
-        if (available == 0) {
-            break;
-        }
-        if (response.body.size() + available > request.max_body) {
-            throw HttpError(request.url + ": the body is more than " +
-                            std::to_string(request.max_body) + " bytes");
-        }
         const std::size_t at = response.body.size();
-        response.body.resize(at + available);
+        response.body.resize(at + chunk);
         DWORD read = 0;
-        if (!WinHttpReadData(handle.get(), response.body.data() + at, available,
-                             &read)) {
+        if (!WinHttpReadData(handle.get(), response.body.data() + at, chunk, &read)) {
             fail(request.url, "the transfer failed");
         }
         response.body.resize(at + read);
+        if (read == 0) {
+            break; // the end of the body, as a local file's end-of-file
+        }
+        if (response.body.size() > request.max_body) {
+            throw HttpError(request.url + ": the body is more than " +
+                            std::to_string(request.max_body) + " bytes");
+        }
     }
-    // WinHTTP undid the encoding above; those two describe the wire and
-    // not the body. See HttpResponse.
-    response.headers.erase("content-encoding");
+    // WinHTTP undid the encoding, so that header describes the wire and not
+    // the body - but only if the option took. See HttpResponse.
+    if (undoing) {
+        response.headers.erase("content-encoding");
+    }
     response.headers["content-length"] = std::to_string(response.body.size());
 
     return response;
