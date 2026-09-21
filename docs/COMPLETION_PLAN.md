@@ -884,13 +884,39 @@ Found while implementing something else. Added when found, not when remembered.
       the haze is brighter toward the sun than away from it; and rain is
       drawn out to the reported visibility.*
 - [ ] **Every aircraft's airframe meets the ground with its wheels up.**
-      *(Found making water, 2026-09-20.)* The 737-300, 747-400, A320, B-2A,
-      F-15C, F-22A and F-35A have no structure contact points, and JSBSim
-      gives a retracted wheel no force: landed with its wheels up, the 737
-      passes through the runway, 700 ft under it half a minute later. Their
-      fuselages', nacelles' and wing tips' heights on the ground are in the
-      airliners' planning documents and, for the F-22A, the Air Force's
-      rescue manual (T.O. 00-105E-9); the others' are not published.
+      *(Found making water, 2026-09-20.)* JSBSim gives a retracted wheel no
+      force: landed with its wheels up, the 737 passes through the runway,
+      700 ft under it half a minute later. **The list was checked on
+      2026-09-22 and was wrong in two places.** What matters is not whether
+      an aeroplane has contacts of type `STRUCTURE` but whether it has any
+      contact that never retracts - a `BOGEY` with `<retractable>0</retractable>`
+      catches it just as well, which is the idiom the A320 and the F-15C use.
+      Counted that way, **five have nothing to catch them**: the 737-300, the
+      747-400, the B-2A, the F-22A and the F-35A. The A320 has nine such
+      contacts and the F-15C six - wing tips, radome, belly, fins - and both
+      are already right.
+      **Sources found for three of the five.** FlightGear's own JSBSim flight
+      models carry airframe contacts this project can use, under the GPL it
+      already takes FGAddon's visual models under: the 737-300's has six, the
+      747-400's four, and the F-35B's two. Their structural frames agree with
+      this project's on x and y - the 737's nose gear is at 158, 0 in both,
+      its mains at 648, +/-100 - so the points transfer with z anchored to the
+      main gear, which is what sets the clearance. The B-2's FlightGear model
+      is YASim and carries no JSBSim contacts; the F-22's JSBSim model has
+      none either.
+      **And there is a better source than any of them, already here.** This
+      project ships a visual mesh for fourteen aircraft and
+      `assets/models/alignment.txt` records where each sits on its flight
+      model; `tools/align_models.py` already measures how far a contact is
+      from the mesh beneath it. The mesh is the airframe, in a frame this
+      project knows how to reach, so the belly, the wing tips, the nose and
+      the tail can be taken from it rather than placed by hand from a
+      published length. That covers the 737-300, the 747-400, the B-2 and the
+      F-22 - all four ship a mesh - and the F-35 as well once it has one.
+      **The F-35A becomes the F-35B, at the project owner's word
+      (2026-09-22)**, which is what makes that last one possible: FGAddon has
+      no F-35A, and its F-35B carries a JSBSim flight model with two airframe
+      contacts, a visual model, and a GPL-3.0 licence this project can take.
       *Verification: every aircraft landed on a runway with its wheels up
       comes to rest on its airframe, its centre of gravity above the ground,
       in a distance a stated friction gives.*
