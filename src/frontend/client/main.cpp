@@ -201,42 +201,6 @@ std::optional<std::array<double, 3>> parse_triple(std::string_view text) {
     return values;
 }
 
-// The keyboard, beside any flight controller: arrows for the elevator and
-// ailerons, Z and X for the rudder, Page Up and Page Down for the throttle, B
-// for the brakes. A key moves its control while held, and lets it go when
-// released, so that a stick left alone is not overridden every frame.
-class Keyboard {
-public:
-    void apply(glideslope::sim::Controls& c, double seconds) {
-        const bool* keys = SDL_GetKeyboardState(nullptr);
-        const auto axis = [&](double& control, SDL_Scancode minus, SDL_Scancode plus,
-                              bool& was) {
-            const double v = (keys[plus] ? 0.5 : 0.0) - (keys[minus] ? 0.5 : 0.0);
-            const bool held = keys[plus] || keys[minus];
-            if (held || was) {
-                control = v;
-            }
-            was = held;
-        };
-        axis(c.elevator, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, elevator_);
-        axis(c.aileron, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, aileron_);
-        axis(c.rudder, SDL_SCANCODE_Z, SDL_SCANCODE_X, rudder_);
-        const double throttle = (keys[SDL_SCANCODE_PAGEUP] ? 1.0 : 0.0) -
-                                (keys[SDL_SCANCODE_PAGEDOWN] ? 1.0 : 0.0);
-        c.throttle = std::clamp(c.throttle + 0.5 * seconds * throttle, 0.0, 1.0);
-        if (keys[SDL_SCANCODE_B] || brakes_) {
-            c.left_brake = c.right_brake = keys[SDL_SCANCODE_B] ? 1.0 : 0.0;
-        }
-        brakes_ = keys[SDL_SCANCODE_B];
-    }
-
-private:
-    bool elevator_ = false;
-    bool aileron_ = false;
-    bool rudder_ = false;
-    bool brakes_ = false;
-};
-
 } // namespace
 
 int main(int argc, char** argv) {
@@ -755,7 +719,7 @@ int main(int argc, char** argv) {
         glideslope::platform::ControlMapper mapper(glideslope::platform::parse_bindings(
             std::string(std::istreambuf_iterator<char>(bindings_file), {})));
         glideslope::platform::Joysticks joysticks;
-        Keyboard keys;
+        glideslope::platform::KeyboardControls keys;
         glideslope::sim::FixedStep clock;
         auto last = std::chrono::steady_clock::now();
         std::int64_t ticks = 0;
@@ -791,9 +755,12 @@ int main(int argc, char** argv) {
                 const auto now = std::chrono::steady_clock::now();
                 due = std::min<std::int64_t>(clock.advance(now - last), 24);
                 last = now;
+                int key_count = 0;
+                const bool* key_state = SDL_GetKeyboardState(&key_count);
                 keys.apply(controls,
                            static_cast<double>(due) /
-                               static_cast<double>(glideslope::sim::steps_per_second));
+                               static_cast<double>(glideslope::sim::steps_per_second),
+                           key_state, key_count);
             }
             mapper.apply(joysticks.read(), controls);
             for (std::int64_t i = 0; i < due; ++i) {

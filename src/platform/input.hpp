@@ -34,6 +34,9 @@ enum class Control {
     pitch_trim,
     throttle,
     mixture,
+    // The rpm lever of a constant-speed propeller, and the pitch lever of a
+    // two-pitch one: 0 its lowest rpm or coarse pitch, 1 its highest or fine.
+    propeller,
     flaps,
     left_brake,
     right_brake,
@@ -94,6 +97,32 @@ public:
 private:
     std::vector<Binding> bindings_;
     std::vector<DeviceState> previous_;
+};
+
+// **The keyboard, beside any flight controller.** The arrows fly it, Z and X
+// work the rudder, Page Up and Page Down the throttle, the comma and full
+// stop the mixture, and the square brackets the propeller; B holds the
+// brakes.
+//
+// A key moves its control while held and lets it go when released, so a stick
+// left alone is not overridden every frame. **The levers hold where they are
+// left**, as the throttle does: a mixture that sprang back to rich the moment
+// the key came up would be no use for leaning. An aeroplane with no propeller
+// lever or no mixture ignores them.
+//
+// It is given the key state rather than asking for it, so that it can be
+// worked without a window - which is how it is tested.
+class KeyboardControls {
+public:
+    // `keys` is SDL's keyboard state, indexed by scancode, of `count` entries.
+    void apply(sim::Controls& controls, double seconds, const bool* keys,
+               int count);
+
+private:
+    bool elevator_ = false;
+    bool aileron_ = false;
+    bool rudder_ = false;
+    bool brakes_ = false;
 };
 
 // Every flight controller SDL can see, opened as they appear. Needs SDL's

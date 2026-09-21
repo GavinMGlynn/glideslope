@@ -19,6 +19,7 @@ const std::map<std::string, Control>& control_names() {
         {"pitch_trim", Control::pitch_trim},
         {"throttle", Control::throttle},
         {"mixture", Control::mixture},
+        {"propeller", Control::propeller},
         {"flaps", Control::flaps},
         {"left_brake", Control::left_brake},
         {"right_brake", Control::right_brake},
@@ -46,6 +47,7 @@ std::vector<double*> fields(Control c, sim::Controls& controls) {
     case Control::pitch_trim: return {&controls.pitch_trim};
     case Control::throttle: return {&controls.throttle};
     case Control::mixture: return {&controls.mixture};
+    case Control::propeller: return {&controls.propeller};
     case Control::flaps: return {&controls.flaps};
     case Control::left_brake: return {&controls.left_brake};
     case Control::right_brake: return {&controls.right_brake};
@@ -318,6 +320,43 @@ std::vector<DeviceState> Joysticks::read() {
         it = present.count(it->first) == 0 ? open_.erase(it) : std::next(it);
     }
     return states;
+}
+
+void KeyboardControls::apply(sim::Controls& controls, double seconds,
+                             const bool* keys, int count) {
+    if (keys == nullptr) {
+        return;
+    }
+    const auto down = [&](SDL_Scancode code) {
+        const int at = static_cast<int>(code);
+        return at >= 0 && at < count && keys[at];
+    };
+    const auto axis = [&](double& control, SDL_Scancode minus, SDL_Scancode plus,
+                          bool& was) {
+        const double v = (down(plus) ? 0.5 : 0.0) - (down(minus) ? 0.5 : 0.0);
+        const bool held = down(plus) || down(minus);
+        if (held || was) {
+            control = v;
+        }
+        was = held;
+    };
+    axis(controls.elevator, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, elevator_);
+    axis(controls.aileron, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, aileron_);
+    axis(controls.rudder, SDL_SCANCODE_Z, SDL_SCANCODE_X, rudder_);
+
+    // The levers, moved while held and left where they are put.
+    const auto lever = [&](double& control, SDL_Scancode less, SDL_Scancode more) {
+        const double v = (down(more) ? 1.0 : 0.0) - (down(less) ? 1.0 : 0.0);
+        control = std::clamp(control + 0.5 * seconds * v, 0.0, 1.0);
+    };
+    lever(controls.throttle, SDL_SCANCODE_PAGEDOWN, SDL_SCANCODE_PAGEUP);
+    lever(controls.mixture, SDL_SCANCODE_COMMA, SDL_SCANCODE_PERIOD);
+    lever(controls.propeller, SDL_SCANCODE_LEFTBRACKET, SDL_SCANCODE_RIGHTBRACKET);
+
+    if (down(SDL_SCANCODE_B) || brakes_) {
+        controls.left_brake = controls.right_brake = down(SDL_SCANCODE_B) ? 1.0 : 0.0;
+    }
+    brakes_ = down(SDL_SCANCODE_B);
 }
 
 } // namespace glideslope::platform

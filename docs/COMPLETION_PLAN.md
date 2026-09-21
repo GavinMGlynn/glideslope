@@ -587,12 +587,24 @@ checklists are part of. A lesson ends in a debrief, never a score
       and every single-byte change there is. `TRANSPORT.md` says all of it
       byte for byte, says what the transport does not claim, and says what is
       not built - and a test holds the document and the code to each other.
-      **Still to do: everything that would make a session.** The
-      `Noise_IK_25519_ChaChaPoly_BLAKE2s` handshake and the sealing (libsodium
-      is not a dependency yet), the messages themselves, and sockets, which
-      `src/platform/` has none of on any platform. The second half of the
-      verification also needs a gearstick client to refuse, and there is none
-      here to try.
+      **Still to do: the handshake, the sealing and the messages.** The
+      sockets are built now (UDP on BSD sockets and on Winsock), and the
+      reliable layer is the item below. The second half of the verification
+      needs a gearstick client to refuse, and there is none here to try.
+      **How libsodium gets in was looked into on 2026-09-21 rather than
+      assumed**, and it is not as simple as a submodule: libsodium ships a
+      `Findsodium.cmake` and no CMake build of its own - autotools on Unix,
+      Visual Studio solutions on Windows - so a submodule under `ext/` would
+      need a CMakeLists written here for somebody else's library. vcpkg is
+      the way this project already builds thirty libraries and has a
+      libsodium port, **but `cmake/CesiumNative.cmake` refuses to configure
+      unless `vcpkg.json` lists exactly what Cesium Native's own manifest
+      lists, less curl**, so adding anything of this project's own fails the
+      build at once. That guard exists so upgrading Cesium Native cannot
+      quietly drop a dependency, and it keeps that purpose if it is changed
+      to hold that theirs is a subset of ours and that the difference is a
+      declared list of this project's own. That change comes with libsodium,
+      not before it.
 - [ ] **Reliable delivery** for lobby, session, weather, aircraft definitions,
       terrain dataset and controller-swap messages. *Verification: every one
       arrives exactly once and in order under injected loss.* Begun
@@ -846,7 +858,7 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification: every aircraft landed on a runway with its wheels up
       comes to rest on its airframe, its centre of gravity above the ground,
       in a distance a stated friction gives.*
-- [ ] **Propeller and mixture levers for the pilot.** *(Found making the
+- [x] **Propeller and mixture levers for the pilot.** *(Found making the
       Short S.23, 2026-09-20.)* The controls have a propeller lever and a
       mixture, which the figure flights set, but no key or binding works
       them: a pilot flies every aircraft full rich with its propeller at its
@@ -857,4 +869,11 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification: a binding and keys move each lever; the S.23 flown in
       coarse pitch at +2 1/2 lb from the controls turns its engines within
       their rated rpm at its top speed, and the Mosquito's rpm follows its
-      lever.*
+      lever.* Done, 2026-09-21: the controls gained a `propeller` a binding
+      can name, the quadrant's three levers now sit in the order the hand
+      finds them - throttle, propeller, mixture - and the keyboard works the
+      mixture with the comma and full stop and the propeller with the square
+      brackets, each lever staying where it is left. **The S.23 in coarse
+      pitch at NORMAL turns 2,169 rpm**, inside the Pegasus's rated 2,600,
+      where a pilot with no lever to move flew it at 3,185; the Mosquito's
+      airscrews turn 2,530 with the lever forward and 2,283 at four tenths.

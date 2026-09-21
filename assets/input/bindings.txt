@@ -8,10 +8,18 @@
 #   KIND button N CONTROL step AMOUNT     the control moved by AMOUNT at each press
 #   KIND hat N up|down|left|right CONTROL step AMOUNT
 #
-# CONTROL: aileron elevator rudder pitch_trim (-1..1), throttle mixture flaps
-# left_brake right_brake brakes (0..1). A stick pushed forward reads -1, so the
-# elevator's scale is 1 (nose down) and a throttle lever's is -1 (forward is
-# full). Flaps move in steps of a third: 10 degrees of the Cessna's 30.
+# CONTROL: aileron elevator rudder pitch_trim (-1..1), throttle mixture
+# propeller flaps left_brake right_brake brakes (0..1). A stick pushed forward
+# reads -1, so the elevator's scale is 1 (nose down) and a lever's is -1
+# (forward is full). Flaps move in steps of a third: 10 degrees of the
+# Cessna's 30.
+#
+# **A quadrant's three levers sit in the order the hand finds them**: throttle,
+# propeller, mixture, on its first three axes. The rudder is not on the
+# quadrant, because that is not where a rudder belongs. A propeller lever is
+# the rpm lever of a constant-speed airscrew and the pitch lever of a
+# two-pitch one - 1 is its highest rpm or fine pitch - and an aeroplane with
+# neither ignores it.
 #
 # Every axis, button and hat direction a device of up to eight axes, sixteen
 # buttons and one hat can have is bound; tests/unit/test_input.cpp walks them.
@@ -35,8 +43,8 @@ flight_stick button 7 mixture step 0.1
 flight_stick button 8 mixture step -0.1
 flight_stick button 9 left_brake hold
 flight_stick button 10 right_brake hold
-flight_stick button 11 flaps step -0.3333333
-flight_stick button 12 flaps step 0.3333333
+flight_stick button 11 propeller step -0.1
+flight_stick button 12 propeller step 0.1
 flight_stick button 13 pitch_trim step -0.05
 flight_stick button 14 pitch_trim step 0.05
 flight_stick button 15 brakes hold
@@ -46,9 +54,9 @@ flight_stick hat 0 left throttle step -0.1
 flight_stick hat 0 right throttle step 0.1
 
 throttle axis 0 throttle lever -1
-throttle axis 1 mixture lever -1
-throttle axis 2 flaps lever 1
-throttle axis 3 rudder centred 1
+throttle axis 1 propeller lever -1
+throttle axis 2 mixture lever -1
+throttle axis 3 flaps lever 1
 throttle axis 4 left_brake lever 1
 throttle axis 5 right_brake lever 1
 throttle axis 6 pitch_trim centred -1
@@ -64,8 +72,8 @@ throttle button 7 mixture step 0.1
 throttle button 8 mixture step -0.1
 throttle button 9 left_brake hold
 throttle button 10 right_brake hold
-throttle button 11 flaps step -0.3333333
-throttle button 12 flaps step 0.3333333
+throttle button 11 propeller step -0.1
+throttle button 12 propeller step 0.1
 throttle button 13 pitch_trim step -0.05
 throttle button 14 pitch_trim step 0.05
 throttle button 15 brakes hold

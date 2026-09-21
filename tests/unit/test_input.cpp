@@ -38,9 +38,9 @@ std::vector<Binding> committed_bindings() {
 std::vector<std::pair<const char*, double>> fields(const Controls& c) {
     return {{"elevator", c.elevator},     {"aileron", c.aileron},
             {"rudder", c.rudder},         {"throttle", c.throttle},
-            {"mixture", c.mixture},       {"flaps", c.flaps},
-            {"left_brake", c.left_brake}, {"right_brake", c.right_brake},
-            {"pitch_trim", c.pitch_trim}};
+            {"mixture", c.mixture},       {"propeller", c.propeller},
+            {"flaps", c.flaps},           {"left_brake", c.left_brake},
+            {"right_brake", c.right_brake}, {"pitch_trim", c.pitch_trim}};
 }
 
 std::string differences(const Controls& a, const Controls& b) {
@@ -137,6 +137,7 @@ GLIDESLOPE_TEST(
             controls.pitch_trim = 0.0; // and here
             controls.throttle = 0.5;
             controls.mixture = 0.5;
+            controls.propeller = 0.5; // and here: it rests at 1, with no room up
             mapper.apply(joysticks.read(), controls);
             const Controls before = controls;
             press();

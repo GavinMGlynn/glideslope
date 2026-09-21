@@ -22,6 +22,7 @@ add_executable(glideslope_tests
     unit/test_protocol.cpp
     unit/test_socket.cpp
     unit/test_reliable.cpp
+    unit/test_levers.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -69,6 +70,10 @@ target_compile_definitions(glideslope_tests PRIVATE
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
+    the_keyboard_moves_every_lever_it_names_and_leaves_it_where_it_is_put
+    a_binding_moves_every_lever_the_controls_have
+    the_short_s23_in_coarse_pitch_at_normal_boost_turns_within_its_rated_rpm
+    the_mosquitos_rpm_follows_its_propeller_lever
     with_nothing_lost_every_reliable_message_arrives_once_and_in_order
     under_every_pattern_of_loss_every_message_arrives_exactly_once_and_in_order
     a_reliable_message_that_arrives_twice_is_handed_up_once
