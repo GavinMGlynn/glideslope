@@ -30,9 +30,12 @@ set(ENV{LSAN_OPTIONS} "exitcode=0")
 set(_aircraft c172p)
 set(_tick 120)
 set(_size 320x240)
-# Two pixels: a rendered edge and a projected vertex are the same place to
-# within the pixel each lands in, and a driver may round the edge either way.
-set(_tolerance 2)
+# Five pixels, on a frame 320 across. A rendered edge and a projected vertex
+# are the same place to within the pixel each lands in; a driver may round the
+# edge either way; and the outline taken is the largest patch the two shots
+# differ by, which can leave out a wisp drawn detached from the rest - a
+# propeller blade a pixel wide - and pull an edge in by two or three.
+set(_tolerance 5)
 
 # Flies to the tick and shoots it. `view` names the view, `with` is on or off
 # for the aeroplane, and the shot and what it printed are put in the variables

@@ -103,42 +103,109 @@ struct Outline {
 // The pixels of `with` that differ from `without`: what the aeroplane covered.
 // A channel apart by more than `apart` counts, which lets a driver round a
 // pixel differently without being taken for an aeroplane.
+//
+// **A patch of a handful of pixels is not part of an aeroplane.** Two runs of
+// the same flight draw the same terrain - the shot waits for every tile - but
+// they are two runs, and on some drivers a few pixels elsewhere come out
+// differently: on Metal about 190 of them, scattered right across the frame,
+// which dragged the outline from 95..225 out to 71..319 and failed a test
+// that was measuring the right thing.
+//
+// So the pixels that differ are grouped into connected patches, and only
+// those of four pixels or more are kept. An aeroplane seen from above is
+// several patches - a wing here, a tailplane there, with ground between them
+// - so taking the largest alone is wrong; but every one of them is a patch of
+// substance, and a tile that landed a shade differently is not.
 Outline drawn_outline(const Image& with, const Image& without, int apart) {
-    Outline o;
-    o.left = with.width;
-    o.top = with.height;
-    o.right = -1;
-    o.bottom = -1;
-    double sum_x = 0.0;
-    double sum_y = 0.0;
-    for (int y = 0; y < with.height; ++y) {
-        for (int x = 0; x < with.width; ++x) {
-            const std::size_t at =
-                (static_cast<std::size_t>(y) * static_cast<std::size_t>(with.width) +
-                 static_cast<std::size_t>(x)) *
-                4;
-            int most = 0;
-            for (std::size_t c = 0; c < 3; ++c) {
-                most = std::max(most, std::abs(static_cast<int>(with.rgba[at + c]) -
-                                               static_cast<int>(without.rgba[at + c])));
-            }
-            if (most <= apart) {
-                continue;
-            }
-            o.left = std::min(o.left, x);
-            o.right = std::max(o.right, x);
-            o.top = std::min(o.top, y);
-            o.bottom = std::max(o.bottom, y);
+    const std::size_t wide = static_cast<std::size_t>(with.width);
+    const std::size_t high = static_cast<std::size_t>(with.height);
+    std::vector<char> differs(wide * high, 0);
+    for (std::size_t i = 0; i < wide * high; ++i) {
+        int most = 0;
+        for (std::size_t c = 0; c < 3; ++c) {
+            most = std::max(most, std::abs(static_cast<int>(with.rgba[i * 4 + c]) -
+                                           static_cast<int>(without.rgba[i * 4 + c])));
+        }
+        differs[i] = most > apart ? 1 : 0;
+    }
+
+    // The biggest patch, found by walking each one from its first pixel.
+    std::vector<char> seen(wide * high, 0);
+    Outline best;
+    std::vector<std::size_t> todo;
+    for (std::size_t start = 0; start < wide * high; ++start) {
+        if (differs[start] == 0 || seen[start] != 0) {
+            continue;
+        }
+        Outline patch;
+        patch.left = with.width;
+        patch.top = with.height;
+        patch.right = -1;
+        patch.bottom = -1;
+        double sum_x = 0.0;
+        double sum_y = 0.0;
+        todo.clear();
+        todo.push_back(start);
+        seen[start] = 1;
+        while (!todo.empty()) {
+            const std::size_t at = todo.back();
+            todo.pop_back();
+            const int x = static_cast<int>(at % wide);
+            const int y = static_cast<int>(at / wide);
+            patch.left = std::min(patch.left, x);
+            patch.right = std::max(patch.right, x);
+            patch.top = std::min(patch.top, y);
+            patch.bottom = std::max(patch.bottom, y);
             sum_x += x;
             sum_y += y;
-            ++o.count;
+            ++patch.count;
+            // Its four neighbours, and diagonally too: a thin wing drawn one
+            // pixel at a time is still one wing.
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const int nx = x + dx;
+                    const int ny = y + dy;
+                    if (nx < 0 || ny < 0 || nx >= with.width || ny >= with.height) {
+                        continue;
+                    }
+                    const std::size_t next =
+                        static_cast<std::size_t>(ny) * wide +
+                        static_cast<std::size_t>(nx);
+                    if (differs[next] != 0 && seen[next] == 0) {
+                        seen[next] = 1;
+                        todo.push_back(next);
+                    }
+                }
+            }
         }
+        constexpr long substance = 4;
+        if (patch.count < substance) {
+            continue;
+        }
+        if (best.count == 0) {
+            best = patch;
+            best.centre_x = sum_x;
+            best.centre_y = sum_y;
+            continue;
+        }
+        best.left = std::min(best.left, patch.left);
+        best.right = std::max(best.right, patch.right);
+        best.top = std::min(best.top, patch.top);
+        best.bottom = std::max(best.bottom, patch.bottom);
+        best.centre_x += sum_x;
+        best.centre_y += sum_y;
+        best.count += patch.count;
     }
-    if (o.count > 0) {
-        o.centre_x = sum_x / static_cast<double>(o.count);
-        o.centre_y = sum_y / static_cast<double>(o.count);
+    if (best.count == 0) {
+        best.left = with.width;
+        best.top = with.height;
+        best.right = -1;
+        best.bottom = -1;
+    } else {
+        best.centre_x /= static_cast<double>(best.count);
+        best.centre_y /= static_cast<double>(best.count);
     }
-    return o;
+    return best;
 }
 
 // The projection of gfx/scene.hpp, worked through by hand: a point in ECEF to
