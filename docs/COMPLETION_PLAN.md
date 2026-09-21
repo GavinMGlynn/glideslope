@@ -708,6 +708,20 @@ Found while implementing something else. Added when found, not when remembered.
       reachable by driving that aircraft's own controls, and an item put
       outside its aeroplane's travel turns the test red.*
 
+- [x] **One download that fails once reds the tree.** CI sets
+      `GLIDESLOPE_REQUIRE_NETWORK`, so a file that cannot be fetched is a
+      failure there rather than a skip - deliberately, because CI is what
+      proves the pinned files are still fetchable. But `tests/cmake/fetch.cmake`
+      tries each file once, so a third-party host being briefly unwell fails
+      the build: SourceForge did exactly that on 2026-09-21 and Rocky 9 went
+      red on a commit that had nothing to do with it. *(Found 2026-09-21
+      reading a red CI run.)* *Verification: a file that never arrives is
+      tried three times, says so each time, and then fails; a file already
+      present is not fetched at all.* Done, 2026-09-21: each file is tried
+      three times with three seconds between, and a wrong hash still fails at
+      once rather than being retried - the source changed, and trying again
+      would not change it back.
+
 - [ ] **Tests that run at once share one Cesium cache.** Up to four client
       tests run together against a single `cesium-cache.sqlite`, with nothing
       serialising them; SQLite refuses the write and Cesium Native logs

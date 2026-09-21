@@ -32,13 +32,30 @@ foreach(_line IN LISTS _lines)
         file(REMOVE "${_path}")
     endif()
     message(STATUS "${_name}: fetching ${_size} bytes from ${_url}")
-    file(DOWNLOAD "${_url}" "${_path}.part" STATUS _status TLS_VERIFY ON
-         INACTIVITY_TIMEOUT 60)
-    list(GET _status 0 _code)
+    # **Tried more than once.** A third party being briefly unwell is not a
+    # reason to red the tree: SourceForge was down for ten seconds on
+    # 2026-09-21 and Rocky 9 failed on a commit that had nothing to do with
+    # it. A file that never arrives still fails, after ${_tries} attempts.
+    set(_tries 3)
+    set(_code 1)
+    set(_why "not attempted")
+    foreach(_try RANGE 1 ${_tries})
+        file(DOWNLOAD "${_url}" "${_path}.part" STATUS _status TLS_VERIFY ON
+             INACTIVITY_TIMEOUT 60)
+        list(GET _status 0 _code)
+        list(GET _status 1 _why)
+        if(_code EQUAL 0)
+            break()
+        endif()
+        file(REMOVE "${_path}.part")
+        message(STATUS "${_name}: attempt ${_try} of ${_tries} failed: ${_why}")
+        if(_try LESS _tries)
+            execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 3)
+        endif()
+    endforeach()
     if(NOT _code EQUAL 0)
         file(REMOVE "${_path}.part")
-        list(GET _status 1 _why)
-        string(APPEND _failed "  ${_name}: ${_why}\n")
+        string(APPEND _failed "  ${_name}: ${_why} (after ${_tries} attempts)\n")
         continue()
     endif()
     # Checked here rather than by EXPECTED_HASH, which stops the script before
