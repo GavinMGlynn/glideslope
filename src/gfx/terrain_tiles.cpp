@@ -1590,7 +1590,7 @@ std::vector<std::optional<double>> TerrainTiles::heights_at(
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         if (!asked.isReady()) {
-            return out; // it never answered; every place is "no surface"
+            continue; // not this time; the loading above carries on regardless
         }
         const Cesium3DTilesSelection::SampleHeightResult result =
             asked.waitInMainThread();
@@ -1600,11 +1600,23 @@ std::vector<std::optional<double>> TerrainTiles::heights_at(
                 out[i] = result.positions[i].height;
             }
         }
-        if (!before.empty()) {
+        // **A place that has not answered is not a place that has settled.**
+        // Comparing "no answer" with "no answer" and calling them equal
+        // would stop the asking on the second round, which is the least
+        // loading time this can give - and a cell whose terrain is merely
+        // slow would be reported as having no surface. So every place must
+        // have a height, and two rounds running must agree on it.
+        bool all_answered = true;
+        for (const std::optional<double>& height : out) {
+            if (!height) {
+                all_answered = false;
+                break;
+            }
+        }
+        if (all_answered && !before.empty()) {
             bool same = true;
             for (std::size_t i = 0; i < out.size(); ++i) {
-                if (out[i].has_value() != before[i].has_value() ||
-                    (out[i] && std::abs(*out[i] - *before[i]) > settled_m)) {
+                if (!before[i] || std::abs(*out[i] - *before[i]) > settled_m) {
                     same = false;
                     break;
                 }

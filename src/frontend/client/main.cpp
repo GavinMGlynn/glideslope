@@ -608,7 +608,9 @@ int main(int argc, char** argv) {
                 const double flown_m =
                     flown.above_sea_level_m + flown.geoid_m; // above the ellipsoid
                 if (!drawn[i]) {
-                    std::printf("mismatch %s %.8f %.8f none flown %.3f\n",
+                    // No *drawn* surface here - the flown height is printed
+                    // beside it to say what was being compared against.
+                    std::printf("mismatch %s %.8f %.8f none-drawn flown %.3f\n",
                                 names[i].c_str(), places[i].latitude_deg,
                                 places[i].longitude_deg, flown_m);
                     continue;
