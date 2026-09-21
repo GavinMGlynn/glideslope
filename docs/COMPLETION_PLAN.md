@@ -922,28 +922,34 @@ Found while implementing something else. Added when found, not when remembered.
       pitch at NORMAL turns 2,169 rpm**, inside the Pegasus's rated 2,600,
       where a pilot with no lever to move flew it at 3,185; the Mosquito's
       airscrews turn 2,530 with the lever forward and 2,283 at four tenths.
-- [ ] **The visual alignment's height is fitted, and for three aircraft it is
-      badly fitted.** *(Found giving the aircraft an airframe, 2026-09-22.)*
+- [ ] **Four visual models are drawn sunk into the ground.** *(Found giving
+      the aircraft an airframe, 2026-09-22; measured properly 2026-09-22.)*
       `assets/models/alignment.txt` records where each visual model sits on
-      its flight model, fitted to the contacts the aeroplane stands on. The
-      fit is good for most, but the 747-400's is 2.48 m out, the F-22's 0.98 m
-      and the B-2's 0.53 m, because those meshes draw four bogies where the
-      flight model has three legs, or draw them where the flight model does
-      not. Measuring the airframe worked around it by anchoring height to the
-      wheels instead, which needs no alignment at all; the alignment itself
-      is still wrong by those amounts and the models are drawn that far off
-      the ground.
-      *Verification: every aircraft's visual model sits within a stated
-      distance of the contacts its flight model stands on, the same distance
-      for all of them.*
-- [ ] **The F-15C's airframe slides on the wrong friction.** *(Found giving
+      its flight model, fitted to the contacts the aeroplane stands on. For
+      eleven of the fifteen the fit puts the model's lowest point within ten
+      inches of where its wheels touch, and for seven of those within two.
+      For four it is far worse:
+      the 747-400 is drawn 2.15 m below the ground, the B-2 1.67 m, the F-22
+      0.86 m and the Mosquito 0.69 m. **There is a rule that would fix it**,
+      and `tools/ground.py` already relies on it: a model drawn with its
+      undercarriage down has a tyre as its lowest point, so that point
+      belongs at the aeroplane's lowest wheel contact. Anchoring the fit's
+      height there needs no change to the airframe contacts, which re-anchor
+      to the wheels themselves and so would not move.
+      *Verification: every visual model's lowest point sits within a stated
+      distance of its aeroplane's lowest wheel contact, the same distance for
+      all of them.*
+- [x] **The F-15C's airframe slides on the wrong friction.** *(Found giving
       the aircraft an airframe, 2026-09-22.)* Its six airframe contacts came
-      from the model it was made from and carry a rolling friction of 0.2,
-      where this project states 0.4 for an airframe scraping a runway. Landed
-      with its wheels up it slides 2,734 m where the stated friction gives
-      1,093 m.
+      from the model it was made from and carried a rolling friction of 0.2,
+      where this project states 0.4 for an airframe scraping a runway, on a
+      spring of 10,000 lb/ft - four feet of give under an aeroplane of 45,713
+      lb. Landed with its wheels up it slid 2,734 m and settled with its
+      centre of gravity below the runway.
       *Verification: the F-15C's wheels-up landing stops in the distance the
-      stated friction gives, as every other aircraft's does.*
+      stated friction gives, as every other aircraft's does.* Done,
+      2026-09-22: it now stops in 1,029 m where the stated friction gives
+      1,093, and rests 2.9 ft above the runway instead of 0.35 ft below it.
 - [x] **The F-35A becomes the F-35B.** *(Decided by the project owner,
       2026-09-22.)* The F-35A was the one aircraft with no visual model and
       the one that still fell through the runway with its wheels up, and both

@@ -45,6 +45,17 @@ The changes, and what each is for:
                         30,000 to 59,000 ft and Mach 0.9 to 2.4, which the
                         model meets to 27 ft/s, near what the chart can be read
                         to - and to the figures in assets/figures/f15c.xml.
+    Airframe contacts scrape instead of rolling
+                        The model's six contacts that never retract - its
+                        wing tips, its fin tips, its radome and its belly -
+                        are airframe, not wheels, but carried a rolling
+                        friction of 0.2 and a spring of 10,000 lb/ft, which
+                        is four feet of give under an aeroplane of 45,713 lb.
+                        Landed with its wheels up it slid 2,734 m where the
+                        0.4 this project states for an airframe scraping a
+                        runway gives 1,093, and settled with its centre of
+                        gravity below the runway. They now carry the
+                        friction, spring and damping tools/ground.py states.
 
   Engines (engine/F100-PW-220.xml, from JSBSim's F100-PW-229.xml)
     The F-15C's engine  The Standard Aircraft Characteristics' F100-PW-220,
@@ -73,10 +84,16 @@ import sys
 
 import airliner
 import fighter
+import ground
 from airliner import OUT, PINNED
 
 SCRIPT = "make_f15c"
 MODEL = "f15c"
+# Mission I's take-off weight (Standard Aircraft Characteristics page 4),
+# which is also the heaviest this model can be: its two tanks hold no more
+# and it carries no stores besides the missiles counted there.
+MAXIMUM_WEIGHT_LBS = 45713
+AIRFRAME_CONTACTS = 6  # its wing tips, fin tips, radome and belly
 ENGINE = "F100-PW-220"
 EMPTY_LBS = 28476
 TANK_LBS = 6727.5            # 13,455 lb of JP-4 in two tanks
@@ -134,6 +151,40 @@ def engine():
     return text
 
 
+def scraping_airframe(text):
+    """The contacts that never retract are airframe, so they scrape.
+
+    JSBSim tells a wheel from a wing tip by nothing but what the model says,
+    and this one said its wing tips were wheels. What never retracts is
+    airframe, and is given the friction and the stiffness tools/ground.py
+    states for one.
+    """
+    spring, damping = ground.stiffness(MAXIMUM_WEIGHT_LBS)
+    fields = ((r"static_friction", f"{ground.SCRAPE_FRICTION}", ""),
+              (r"dynamic_friction", f"{ground.SCRAPE_FRICTION}", ""),
+              (r"rolling_friction", f"{ground.SCRAPE_FRICTION}", ""),
+              (r"spring_coeff", f"{spring:.0f}", ' unit="LBS/FT"'),
+              (r"damping_coeff", f"{damping:.0f}", ' unit="LBS/FT/SEC"'))
+
+    def one(match):
+        body = match.group(0)
+        for tag, value, unit in fields:
+            body, hits = re.subn(rf"<{tag}[^>]*>[^<]*</{tag}>",
+                                 f"<{tag}{unit}> {value} </{tag}>", body)
+            if hits != 1:
+                raise SystemExit(f"{SCRIPT}: a contact has {hits} {tag}s, not one"
+                                 " - has the pinned model changed?")
+        return body
+
+    text, n = re.subn(
+        r"<contact type=\"BOGEY\"(?:(?!</contact>).)*?<retractable>0</retractable>"
+        r"(?:(?!</contact>).)*?</contact>", one, text, flags=re.S)
+    if n != AIRFRAME_CONTACTS:
+        raise SystemExit(f"{SCRIPT}: found {n} contacts that never retract, not "
+                         f"{AIRFRAME_CONTACTS} - has the pinned model changed?")
+    return text
+
+
 def airframe():
     text = (PINNED / "aircraft" / "f15" / "f15.xml").read_text()
     text = replace_once(
@@ -161,7 +212,7 @@ def airframe():
     if n != 2:
         raise SystemExit(f"{SCRIPT}: found {n} engines, not 2 - has the pinned model changed?")
     text = with_mach_lift(text)
-    return with_mach_drag(text)
+    return scraping_airframe(with_mach_drag(text))
 
 
 def with_mach_lift(text):

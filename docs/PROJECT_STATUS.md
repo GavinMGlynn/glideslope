@@ -374,9 +374,11 @@ this, and again on the count when the Mosquito's gear lever turned out to move
 an indicator while none of its contacts retract.
 
 **Tails found on the way**, both in `COMPLETION_PLAN.md`: the visual
-alignment's height is badly fitted for three aircraft, and the F-15C's
-airframe contacts still carry the old 0.2 friction and slide 2,734 m where the
-stated friction gives 1,093.
+alignment's height is badly fitted for three aircraft, which is still open;
+and the F-15C's airframe contacts carried the old 0.2 friction on a spring of
+10,000 lb/ft and slid 2,734 m, which was fixed the same day - it now stops in
+1,029 m where the stated friction gives 1,093, and rests 2.9 ft above the
+runway instead of 0.35 ft below it.
 
 
 ### Reliable delivery over an unreliable channel, 2026-09-21 — item begun, not done
