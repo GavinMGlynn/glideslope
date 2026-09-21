@@ -531,7 +531,19 @@ checklists are part of. A lesson ends in a debrief, never a score
       approach and landing - for each class of aircraft. *Verification: each
       lesson flown by the AI pilot to the book passes every stage; flown with a
       stated fault - rotating early, an approach too fast, no flap - the
-      debrief names that fault and no other.*
+      debrief names that fault and no other.* **Not started, and it cannot be
+      until the AI pilot can fly what the lessons teach.** Found 2026-09-21,
+      reading what the AI pilot does: it holds a heading, an altitude, a
+      vertical speed and a speed, and follows waypoints in the cruise. It
+      cannot take off - the client refuses `--on-ground` with `--autopilot`,
+      saying so - it cannot fly an approach or land, it never touches the
+      flaps, the gear, the brakes or the trim, and its gains are the Cessna's
+      and will not suit a jet. So a take-off lesson, a circuit, a stall and a
+      landing have no pilot to fly them. **The approach-and-landing item in
+      Phase 8 below is the largest piece of it, and comes before this one
+      although it is written after.** The classes of aircraft are also not
+      data: `REQUIREMENTS.md` names seven in prose and no aircraft file says
+      which it is.
 - [ ] **The instructor demonstrates, then hands over.** *Verification: for
       each lesson the AI pilot flies the demonstration within the lesson's own
       limits, hands the controls to the player with no step in any control, and
@@ -611,14 +623,22 @@ checklists are part of. A lesson ends in a debrief, never a score
       simulation thread and flown by the autopilot. *Verification: "take off,
       climb to 3,000 ft and orbit the CBD" produces a plan that the autopilot
       flies.*
-- [ ] **An autopilot that flies an approach and lands** - down a glidepath to
+- [x] **An autopilot that flies an approach and lands** - down a glidepath to
       a runway given by its threshold, heading and elevation, then a flare, a
       touchdown and the brakes; what the copilot below needs to bring an
       aircraft home. *(Added 2026-09-19 at the project owner's asking.)*
       *Verification: from 5 nm out, in calm air and in a 10-knot crosswind,
       each light aircraft is flown down a 3-degree glidepath and lands within
       5 m of the centreline, sinking under 300 ft/min, and stops on the
-      runway.*
+      runway.* Done, 2026-09-21, **out of order and on purpose**: Phase 5c's
+      lessons cannot be flown until something can land, so this was brought
+      forward. All four light aircraft fly the approach in calm air and in a
+      ten-knot crosswind and land: worst touchdown 255 ft/min, worst 3.99 m
+      from the centreline, each stopped within 722 m of a 3,000 m runway.
+      The approach speed is not a number written here - it is a third above
+      each aeroplane's own published landing stall, read from
+      `assets/figures/`, and an aircraft that publishes no stall speed is
+      refused rather than given a guess.
 - [ ] **The copilot flies with you.** It reads the aircraft's state and, every
       few seconds and off the simulation thread, changes the autopilot's modes
       and the flight plan as the flight goes - the pilot in command of the

@@ -17,6 +17,7 @@ add_executable(glideslope_tests
     unit/test_catalogue.cpp
     unit/test_checklist.cpp
     unit/test_checklist_run.cpp
+    unit/test_lander.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -64,6 +65,9 @@ target_compile_definitions(glideslope_tests PRIVATE
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
+    every_light_aircraft_is_flown_down_a_glidepath_and_lands_in_calm_air
+    every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_crosswind
+    the_approach_speed_is_a_third_above_the_published_landing_stall
     every_checklist_item_the_cessna_can_see_ticks_when_its_state_first_shows_it_done
     an_item_once_ticked_stays_ticked_though_the_aeroplane_moves_on
     flown_with_the_flaps_left_up_the_landing_flaps_item_stays_unticked_and_is_flagged
