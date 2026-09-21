@@ -560,7 +560,20 @@ checklists are part of. A lesson ends in a debrief, never a score
 - [ ] **The transport** — gearstick's, with its own magic value, written up
       byte for byte in `TRANSPORT.md`. *Verification: a client written from
       `TRANSPORT.md` alone completes a session, and a gearstick client is
-      refused cleanly.*
+      refused cleanly.* Begun 2026-09-21 and not finished. The envelope and
+      the encoding are built, tested and written up: six bytes of magic,
+      version and type, this project's own magic `GLDS`, little-endian
+      fixed-width integers, and a double as its IEEE-754 bits. A reader that
+      cannot run off the end of a datagram, walked against every truncation
+      and every single-byte change there is. `TRANSPORT.md` says all of it
+      byte for byte, says what the transport does not claim, and says what is
+      not built - and a test holds the document and the code to each other.
+      **Still to do: everything that would make a session.** The
+      `Noise_IK_25519_ChaChaPoly_BLAKE2s` handshake and the sealing (libsodium
+      is not a dependency yet), the messages themselves, and sockets, which
+      `src/platform/` has none of on any platform. The second half of the
+      verification also needs a gearstick client to refuse, and there is none
+      here to try.
 - [ ] **Reliable delivery** for lobby, session, weather, aircraft definitions,
       terrain dataset and controller-swap messages. *Verification: every one
       arrives exactly once and in order under injected loss.*

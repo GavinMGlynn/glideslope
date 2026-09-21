@@ -19,6 +19,7 @@ add_executable(glideslope_tests
     unit/test_checklist_run.cpp
     unit/test_lander.cpp
     unit/test_departure.cpp
+    unit/test_protocol.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -43,7 +44,7 @@ add_executable(glideslope_tests
     unit/test_restore.cpp
     unit/test_sky.cpp
     unit/test_model.cpp)
-target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_world glideslope_platform
+target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform
                                                glideslope_input glideslope_model)
 # Where tests/cmake/fetch.cmake puts the files the tests download. A directory
 # named by GLIDESLOPE_DOWNLOADS when configuring outlives the build tree, which
@@ -66,6 +67,13 @@ target_compile_definitions(glideslope_tests PRIVATE
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
+    every_value_written_to_the_wire_reads_back_as_itself
+    the_transport_document_and_the_code_agree_byte_for_byte
+    the_wire_puts_the_least_significant_byte_first
+    the_envelope_is_the_magic_then_the_version_then_the_type
+    an_envelope_that_is_wrong_is_refused_with_the_reason_it_is_wrong
+    every_truncation_of_a_datagram_is_refused_without_running_off_the_end
+    no_single_byte_changed_anywhere_in_a_datagram_can_break_the_reader
     every_light_aircraft_takes_itself_off_and_climbs_away
     the_take_off_speeds_come_from_each_aircrafts_published_figures
     every_light_aircraft_is_flown_down_a_glidepath_and_lands_in_calm_air

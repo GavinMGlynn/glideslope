@@ -139,6 +139,14 @@ target_compile_definitions(glideslope_sim PRIVATE
 target_link_libraries(glideslope_sim PUBLIC libJSBSim)
 glideslope_configure(glideslope_sim)
 
+# The network: the wire format, and the encoding and decoding of it. It links
+# nothing - not the simulation, not a socket - because everything it does is
+# turning bytes into values and back, and that is what makes it fuzzable.
+add_library(glideslope_net STATIC
+    src/net/protocol.cpp)
+target_include_directories(glideslope_net PUBLIC src)
+glideslope_configure(glideslope_net)
+
 # ...and links none, checked once every target_link_libraries below has run.
 cmake_language(DEFER CALL glideslope_check_sim_links glideslope_sim)
 
