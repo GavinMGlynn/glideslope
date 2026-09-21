@@ -85,7 +85,9 @@ std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
     if (imagery) {
         options.imagery = gfx::open_imagery();
     }
-    options.cache_file = cache / "cesium-cache.sqlite";
+    // Named apart from the downloads, so that two programs sharing this
+    // directory do not share one SQLite file. See platform/paths.hpp.
+    options.cache_file = platform::cesium_cache_file();
     options.worker_threads =
         static_cast<int>(std::clamp(std::thread::hardware_concurrency(), 2u, 8u));
     return std::make_unique<gfx::TerrainTiles>(

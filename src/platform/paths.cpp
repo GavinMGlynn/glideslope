@@ -87,6 +87,13 @@ std::filesystem::path environment_path(const char* name) {
 
 } // namespace
 
+std::filesystem::path cesium_cache_file() {
+    if (const auto set = environment_path("GLIDESLOPE_CESIUM_CACHE"); !set.empty()) {
+        return set;
+    }
+    return cache_directory() / "cesium-cache.sqlite";
+}
+
 std::filesystem::path cache_directory() {
     if (const auto set = environment_path("GLIDESLOPE_CACHE"); !set.empty()) {
         return set;

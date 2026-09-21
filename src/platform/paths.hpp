@@ -20,6 +20,18 @@ std::filesystem::path data_directory();
 // no home directory can be found.
 std::filesystem::path cache_directory();
 
+// **Where Cesium Native keeps its cache**, which is a single SQLite database.
+// `GLIDESLOPE_CESIUM_CACHE` names the file; without it, `cesium-cache.sqlite`
+// in the cache directory.
+//
+// It is named apart from everything else in that directory because two
+// programs sharing one of these files tread on each other:
+// `CesiumAsync::SqliteCache` turns on WAL but never sets a busy timeout, so a
+// second writer is refused at once rather than waiting - "database is locked"
+// - and the entry is simply not stored. Tests that run at once each name
+// their own.
+std::filesystem::path cesium_cache_file();
+
 // Where the user's own settings live - %APPDATA%\glideslope on Windows,
 // ~/Library/Application Support/glideslope on macOS, and
 // $XDG_CONFIG_HOME/glideslope or ~/.config/glideslope elsewhere. Not created.

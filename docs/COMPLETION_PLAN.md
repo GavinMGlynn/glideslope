@@ -808,7 +808,7 @@ Found while implementing something else. Added when found, not when remembered.
       once rather than being retried - the source changed, and trying again
       would not change it back.
 
-- [ ] **Tests that run at once share one Cesium cache.** Up to four client
+- [x] **Tests that run at once share one Cesium cache.** Up to four client
       tests run together against a single `cesium-cache.sqlite`, with nothing
       serialising them; SQLite refuses the write and Cesium Native logs
       "database is locked". Nothing is lost but the caching, so a tile is
@@ -821,9 +821,15 @@ Found while implementing something else. Added when found, not when remembered.
       set** - there is no `sqlite3_busy_timeout` or `sqlite3_busy_handler` in
       the file - so SQLite's default of zero applies and a second writer
       fails on its first attempt instead of waiting a moment. That is theirs
-      to fix and is drafted as a third issue in `docs/cesium-issues.md`. What
-      can be done here is to stop the tests sharing one file, which needs a
-      way to name the Cesium cache apart from the downloads directory.
+      to fix and is drafted as a third issue in `docs/cesium-issues.md`. Done
+      here, 2026-09-21, by stopping the tests sharing one file:
+      `GLIDESLOPE_CESIUM_CACHE` names it, `tests/cmake/client.cmake` gives
+      each test a name of its own under the same downloads directory - so
+      each still finds its own cache next run - and the shared leak check
+      fails any run that reports a locked database, which is the verification
+      enforced from one place for all thirteen client tests. It costs
+      nothing: 323 tests in 973 s against 977 to 1,006 before, the writes now
+      succeeding rather than failing and the tile being fetched again.
 - [ ] **Runways on the DEM.** *(Found writing `REQUIREMENTS.md`; open there.)*
       The terrain data shows a runway with bumps it does not have.
       *Verification: decided in `REQUIREMENTS.md`, and if runways are smoothed,

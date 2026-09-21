@@ -23,9 +23,31 @@
 # glideslope's code, SDL's, Cesium Native's, or a standard container inlined
 # into any of them - the test fails.
 
+# **Each test names its own Cesium cache.** Cesium Native keeps its cache in
+# one SQLite file, and `CesiumAsync::SqliteCache` turns on WAL but never sets
+# a busy timeout, so a second writer is refused at once - "database is locked"
+# - and the entry is simply not stored. Up to four client tests run at once
+# against one CACHE directory, so each is given a file of its own, named after
+# the script running it and the things that tell its runs apart. They stay in
+# CACHE, so each test still finds its own cache on the next run.
+if(DEFINED CACHE)
+    get_filename_component(_who "${CMAKE_SCRIPT_MODE_FILE}" NAME_WE)
+    set(ENV{GLIDESLOPE_CESIUM_CACHE}
+        "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}.sqlite")
+endif()
+
 # Judges the leak reports in a run's standard error, as described above: fails
 # the test for a leak allocated in the client, and says how many were not.
+#
+# **It also refuses a locked cache.** Two programs treading on one SQLite file
+# lose nothing but the caching, which is why it went unnoticed for so long, so
+# this makes it loud: a run that reports one fails.
 function(glideslope_judge_leaks stderr_text)
+    if(stderr_text MATCHES "database is locked")
+        message(FATAL_ERROR
+                "the Cesium cache was locked, so this run shared one with "
+                "another: GLIDESLOPE_CESIUM_CACHE is $ENV{GLIDESLOPE_CESIUM_CACHE}")
+    endif()
     string(REPLACE ";" "," _text "${stderr_text}")
     string(REPLACE "[" "<" _text "${_text}")
     string(REPLACE "]" ">" _text "${_text}")
