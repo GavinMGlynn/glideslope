@@ -1411,25 +1411,53 @@ std::vector<std::optional<double>> TerrainTiles::heights_at(
         ask.push_back(CesiumGeospatial::Cartographic::fromDegrees(
             g.longitude_deg, g.latitude_deg, 0.0));
     }
-    auto asked = impl_->tileset->sampleHeightMostDetailed(ask);
-    // The answer needs tiles, which need the workers, whose results are
-    // taken up here: waiting on the future alone would wait for ever.
-    constexpr int rounds = 3600; // at 50 ms, three minutes at most
-    for (int round = 0; round < rounds && !asked.isReady(); ++round) {
-        impl_->tileset->loadTiles();
-        impl_->async.dispatchMainThreadTasks();
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }
+    // **Asking once is not enough, and the answer says nothing about that.**
+    // A sample reports success whether or not the tiles beneath it had
+    // arrived: at Boston and Anchorage it answered, repeatably, with a
+    // surface tens of kilometres below the ellipsoid, while Denver and Las
+    // Vegas - whose two runway ends sit in one whole-degree cell rather than
+    // straddling two, so the same call had twice as long to load - answered
+    // properly. So it is asked again until two answers running agree, which
+    // is the only thing that says the tiles it needed were there.
+    constexpr int asks = 8;
+    constexpr double settled_m = 0.01;
     std::vector<std::optional<double>> out(places.size(), std::nullopt);
-    if (!asked.isReady()) {
-        return out; // it never answered; every place is "no surface"
-    }
-    const Cesium3DTilesSelection::SampleHeightResult result =
-        asked.waitInMainThread();
-    for (std::size_t i = 0; i < out.size() && i < result.positions.size(); ++i) {
-        if (i < result.sampleSuccess.size() && result.sampleSuccess[i]) {
-            out[i] = result.positions[i].height;
+    std::vector<std::optional<double>> before;
+    for (int ask_round = 0; ask_round < asks; ++ask_round) {
+        auto asked = impl_->tileset->sampleHeightMostDetailed(ask);
+        // The answer needs tiles, which need the workers, whose results are
+        // taken up here: waiting on the future alone would wait for ever.
+        constexpr int rounds = 1200; // at 50 ms, a minute at most
+        for (int round = 0; round < rounds && !asked.isReady(); ++round) {
+            impl_->tileset->loadTiles();
+            impl_->async.dispatchMainThreadTasks();
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
+        if (!asked.isReady()) {
+            return out; // it never answered; every place is "no surface"
+        }
+        const Cesium3DTilesSelection::SampleHeightResult result =
+            asked.waitInMainThread();
+        out.assign(places.size(), std::nullopt);
+        for (std::size_t i = 0; i < out.size() && i < result.positions.size(); ++i) {
+            if (i < result.sampleSuccess.size() && result.sampleSuccess[i]) {
+                out[i] = result.positions[i].height;
+            }
+        }
+        if (!before.empty()) {
+            bool same = true;
+            for (std::size_t i = 0; i < out.size(); ++i) {
+                if (out[i].has_value() != before[i].has_value() ||
+                    (out[i] && std::abs(*out[i] - *before[i]) > settled_m)) {
+                    same = false;
+                    break;
+                }
+            }
+            if (same) {
+                return out;
+            }
+        }
+        before = out;
     }
     return out;
 }

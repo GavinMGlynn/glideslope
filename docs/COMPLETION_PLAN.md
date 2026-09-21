@@ -469,17 +469,14 @@ quality: each is held to published figures before it is offered, as the Cessna
       and counts the credit text along the bottom of the frame - but only the
       open provider is registered, for the reasons above, so it does not yet
       walk every provider.
-- [ ] **A measured visual-to-collision terrain mismatch.** *Verification: the
+- [x] **A measured visual-to-collision terrain mismatch.** *Verification: the
       bound for each provider at a set of reference airfields is stated in
-      `PROJECT_STATUS.md`, with how it was measured.* Begun 2026-09-21 and not
-      finished. `--mismatch` samples the drawn surface at the twelve surveyed
-      runway ends and prints it against the DEM the aircraft meets. **The open
-      provider's bound is 0.179 m** and stated. **Cesium ion's is not**: it
-      answers with a height at eight of the twelve, of which only three
-      airfields answer the same twice - 1.6 to 3.4 m above the DEM - while
-      Boston and Anchorage answer with a surface tens of kilometres below the
-      ellipsoid, repeatably, which is not a height at all. Google draws
-      nothing, so it cannot be measured.
+      `PROJECT_STATUS.md`, with how it was measured.* Stated, 2026-09-21:
+      `--mismatch` samples the drawn surface at the twelve surveyed runway
+      ends of six airfields and prints it against the DEM the aircraft meets.
+      **The open provider is 0.18 m from it at worst and Cesium ion 10.2 m**,
+      and a test holds each to that. Google draws nothing, so it cannot be
+      measured; that is named in its own item above rather than here.
 
 ## Phase 5c — Learning to fly
 

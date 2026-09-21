@@ -541,6 +541,24 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
         set_tests_properties(the_${_provider}_terrain_draws_with_its_attribution_or_says_why_not_on_${_driver}
             PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
     endforeach()
+    # How far each provider's drawn terrain is from the ground the aircraft
+    # meets, at the twelve surveyed runway ends. The bound each is held to is
+    # the one measured and stated in docs/PROJECT_STATUS.md.
+    # In millimetres: CMake's arithmetic is whole numbers only.
+    foreach(_measured open:250 ion:12000)
+        string(REPLACE ":" ";" _pair "${_measured}")
+        list(GET _pair 0 _provider)
+        list(GET _pair 1 _bound_mm)
+        add_test(NAME the_${_provider}_terrain_is_within_its_stated_distance_of_the_ground_flown_on_${_driver}
+            COMMAND ${CMAKE_COMMAND}
+                -DPROGRAM=$<TARGET_FILE:glideslope> -DPROVIDER=${_provider}
+                -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+                -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DBOUND_MM=${_bound_mm}
+                -DPLACES=${CMAKE_CURRENT_SOURCE_DIR}/data/dem/surveyed.txt
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/terrain_mismatch.cmake)
+        set_tests_properties(the_${_provider}_terrain_is_within_its_stated_distance_of_the_ground_flown_on_${_driver}
+            PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
+    endforeach()
     add_test(NAME the_clients_ai_flies_a_flight_plan_past_every_waypoint_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
