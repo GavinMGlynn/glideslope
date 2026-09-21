@@ -86,6 +86,7 @@ import re
 import sys
 
 import airliner
+import ground
 from airliner import OUT, PINNED
 
 SCRIPT = "make_737_300"
@@ -101,6 +102,20 @@ FULL_FLAP_DRAG = 0.059
 FAN_DIAMETER_IN = 60.0
 WINDMILL_DRAG = 0.4
 BRAKING_FRICTION = "0.50"
+
+# **The airframe, so that a wheels-up landing meets the runway.** JSBSim gives
+# a retracted wheel no force, and this model had nothing else to touch the
+# ground with: landed with its wheels up it passed through the runway and was
+# 700 ft under it half a minute later.
+#
+# The points are measured from this aeroplane's own visual mesh by
+# tools/ground.py; see its docstring for how, and why the mesh is a better
+# source than any flight model that could be found. This aeroplane is the one
+# the method is checked against, because FlightGear's own 737-300 flight model
+# (FGAddon r21588) carries a belly and so gives an answer to compare with: it
+# puts the belly 43.7 in above the wheel contact where the mesh says 50.3, the
+# two agreeing to 6.5 in on a 33 m aeroplane.
+MAXIMUM_WEIGHT_LBS = 138500  # the -300's published maximum take-off weight
 
 
 def replace_once(text, pattern, replacement, what):
@@ -181,6 +196,13 @@ def airframe():
         text = replace_once(
             text, r"(<contact name=\"" + side + r" Main Gear\" type=\"BOGEY\">.*?<static_friction>)\s*0\.80\s*(</static_friction>)",
             rf"\g<1> {BRAKING_FRICTION} \2", f"the {side.lower()} main gear's friction")
+
+    # The airframe's own contacts, so that the aeroplane has something to land
+    # on with its wheels up. See AIRFRAME above for where they come from.
+    points = ground.contacts(MODEL, MAXIMUM_WEIGHT_LBS)
+    text = replace_once(text, r"(\n)(    </ground_reactions>)",
+                        "\n\n" + points.replace("\\", "\\\\") + r"\2",
+                        "the airframe's contacts")
 
     positions = iter(FLAP_DETENTS_DEG)
     m = re.search(r"<kinematic name=\"Flaps Control\">.*?</kinematic>", text, re.S)

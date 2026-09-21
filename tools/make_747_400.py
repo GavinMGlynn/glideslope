@@ -54,6 +54,7 @@ import re
 import sys
 
 import airliner
+import ground
 from airliner import OUT, PINNED
 
 SCRIPT = "make_747_400"
@@ -67,6 +68,13 @@ FAN_DIAMETER_IN = 93.0
 WINDMILL_DRAG = 0.4
 BRAKING_FRICTION = "0.5"
 NOSE_SPRING = "120000"
+
+# **The airframe, so that a wheels-up landing meets the runway.** JSBSim gives
+# a retracted wheel no force, and this model had nothing else to touch the
+# ground with: landed with its wheels up it went straight through it. The
+# points are measured from this aeroplane's own visual mesh by
+# tools/ground.py, which says how and why the mesh is the source.
+MAXIMUM_WEIGHT_LBS = 875000  # the -400's published maximum take-off weight
 
 
 def replace_once(text, pattern, replacement, what):
@@ -116,6 +124,14 @@ def airframe():
     text = replace_once(
         text, r"(name=\"NOSE_LG\">.*?<spring_coeff unit=\"LBS/FT\">)\s*22000\s*(</spring_coeff>)",
         rf"\g<1> {NOSE_SPRING} \2", "the nose gear's spring")
+
+    # The airframe's own contacts, so that the aeroplane has something to
+    # land on with its wheels up. See MAXIMUM_WEIGHT_LBS above.
+    points = ground.contacts(MODEL, MAXIMUM_WEIGHT_LBS)
+    text = replace_once(text, r"(\n)(    </ground_reactions>)",
+                        "\n\n" + points.replace("\\", "\\\\") + r"\2",
+                        "the airframe's contacts")
+
     text = replace_once(
         text,
         r"(<description>Drag_due_to_mach</description>.*?<tableData>\n).*?(\n\s*</tableData>)",

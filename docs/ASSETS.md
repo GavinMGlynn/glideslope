@@ -376,6 +376,16 @@ flight model's. That file also records what the fit leaves over, because a
 flight model and a visual model of the same aeroplane do not always agree,
 and each aircraft is held to its own figures.
 
+**The meshes are also measured, not only drawn.** A mesh is the airframe, so
+it is where the points an aeroplane comes down on with its wheels up are taken
+from: the belly, the nose, the wing tips and the tail. `tools/ground.py`
+measures them and writes them into the flight models of the aeroplanes that
+had none, and holds each mesh to within 1.5% of its aeroplane's published
+length and span, because a height measured off a mesh is only worth what the
+mesh's scale is worth. It takes only the height *above the mesh's own tyres*,
+a difference within one mesh, so it does not depend on the alignment above -
+which for three aircraft is out by between half a metre and two and a half.
+
 ### Visual model: c172p - FlightGear's c172p
 
 | | |

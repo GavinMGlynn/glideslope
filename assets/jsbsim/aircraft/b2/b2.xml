@@ -100,6 +100,83 @@
             <brake_group> RIGHT </brake_group>
             <retractable>1</retractable>
         </contact>
+        <contact type="STRUCTURE" name="NOSE">
+            <location unit="IN">
+                <x> 74.7 </x>
+                <y> -0.6 </y>
+                <z> -69.9 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 1346000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 237297 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="BELLY_1">
+            <location unit="IN">
+                <x> 232.5 </x>
+                <y> -0.6 </y>
+                <z> -86.1 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 1346000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 237297 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="BELLY_2">
+            <location unit="IN">
+                <x> 389.1 </x>
+                <y> -0.6 </y>
+                <z> -82.6 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 1346000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 237297 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="BELLY_3">
+            <location unit="IN">
+                <x> 517.2 </x>
+                <y> -0.7 </y>
+                <z> -75.6 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 1346000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 237297 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="LEFT_WING_TIP">
+            <location unit="IN">
+                <x> 758.7 </x>
+                <y> -968.3 </y>
+                <z> -33.4 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 1346000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 237297 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="RIGHT_WING_TIP">
+            <location unit="IN">
+                <x> 758.7 </x>
+                <y> 967.0 </y>
+                <z> -33.4 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 1346000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 237297 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="TAIL">
+            <location unit="IN">
+                <x> 748.5 </x>
+                <y> -0.6 </y>
+                <z> -41.9 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 1346000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 237297 </damping_coeff>
+        </contact>
     </ground_reactions>
     <propulsion>
         <engine file="F118-GE-100">

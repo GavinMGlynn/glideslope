@@ -747,11 +747,14 @@ GLIDESLOPE_TEST(each_visual_model_is_where_its_flight_model_says_the_aeroplane_i
           "every aligned model's span was held to its flight model's: " +
               std::to_string(spanned));
 
-    // Not every flight model describes the aeroplane beyond its
-    // undercarriage. Four state nothing but their wheels, so their span is
-    // the only shape they can be held to; they are named here so that a
-    // fifth cannot join them unnoticed.
-    const std::set<std::string> wheels_only{"737-300", "747-400", "b2", "f22"};
+    // **Every flight model now describes the aeroplane beyond its
+    // undercarriage.** Four once stated nothing but their wheels - the
+    // 737-300, the 747-400, the B-2 and the F-22 - so their span was the
+    // only shape they could be held to. Each has since gained the airframe
+    // contacts a wheels-up landing comes down on, measured from its own
+    // visual mesh by tools/ground.py. This set is empty so that an aeroplane
+    // losing its shape again cannot pass unnoticed.
+    const std::set<std::string> wheels_only{};
     std::set<std::string> found_wheels_only;
     for (const auto& [id, a] : aligned) {
         if (a.shape == 0) {
@@ -759,8 +762,8 @@ GLIDESLOPE_TEST(each_visual_model_is_where_its_flight_model_says_the_aeroplane_i
         }
     }
     check(found_wheels_only == wheels_only,
-          "the flight models that describe nothing but their undercarriage "
-          "are the four named: " +
+          "no flight model describes nothing but its undercarriage, but these "
+          "do: " +
               [&] {
                   std::string names;
                   for (const std::string& id : found_wheels_only) {

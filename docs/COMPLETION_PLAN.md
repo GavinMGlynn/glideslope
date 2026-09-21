@@ -885,41 +885,19 @@ Found while implementing something else. Added when found, not when remembered.
       drawn out to the reported visibility.*
 - [ ] **Every aircraft's airframe meets the ground with its wheels up.**
       *(Found making water, 2026-09-20.)* JSBSim gives a retracted wheel no
-      force: landed with its wheels up, the 737 passes through the runway,
-      700 ft under it half a minute later. **The list was checked on
-      2026-09-22 and was wrong in two places.** What matters is not whether
-      an aeroplane has contacts of type `STRUCTURE` but whether it has any
-      contact that never retracts - a `BOGEY` with `<retractable>0</retractable>`
-      catches it just as well, which is the idiom the A320 and the F-15C use.
-      Counted that way, **five have nothing to catch them**: the 737-300, the
-      747-400, the B-2A, the F-22A and the F-35A. The A320 has nine such
-      contacts and the F-15C six - wing tips, radome, belly, fins - and both
-      are already right.
-      **Sources found for three of the five.** FlightGear's own JSBSim flight
-      models carry airframe contacts this project can use, under the GPL it
-      already takes FGAddon's visual models under: the 737-300's has six, the
-      747-400's four, and the F-35B's two. Their structural frames agree with
-      this project's on x and y - the 737's nose gear is at 158, 0 in both,
-      its mains at 648, +/-100 - so the points transfer with z anchored to the
-      main gear, which is what sets the clearance. The B-2's FlightGear model
-      is YASim and carries no JSBSim contacts; the F-22's JSBSim model has
-      none either.
-      **And there is a better source than any of them, already here.** This
-      project ships a visual mesh for fourteen aircraft and
-      `assets/models/alignment.txt` records where each sits on its flight
-      model; `tools/align_models.py` already measures how far a contact is
-      from the mesh beneath it. The mesh is the airframe, in a frame this
-      project knows how to reach, so the belly, the wing tips, the nose and
-      the tail can be taken from it rather than placed by hand from a
-      published length. That covers the 737-300, the 747-400, the B-2 and the
-      F-22 - all four ship a mesh - and the F-35 as well once it has one.
-      **The F-35A becomes the F-35B, at the project owner's word
-      (2026-09-22)**, which is what makes that last one possible: FGAddon has
-      no F-35A, and its F-35B carries a JSBSim flight model with two airframe
-      contacts, a visual model, and a GPL-3.0 licence this project can take.
+      force, so an aeroplane whose only contacts are its undercarriage falls
+      straight through the runway when it is landed with its wheels up.
+      Every aircraft but one now has an airframe to come down on: the four
+      that had nothing - the 737-300, the 747-400, the B-2A and the F-22A -
+      gained a belly, a nose, two wing tips and a tail measured from their own
+      visual models, and an airframe now scrapes the runway instead of
+      rolling along it on a tyre's friction, which had the A320 still doing
+      118 knots after three minutes and 11 km. **The F-35A is the part still missing**: no F-35A
+      flight model or visual model carrying these points exists anywhere, so
+      it waits on the change to the F-35B, which has both.
       *Verification: every aircraft landed on a runway with its wheels up
       comes to rest on its airframe, its centre of gravity above the ground,
-      in a distance a stated friction gives.*
+      in a distance the stated friction gives.*
 - [x] **Propeller and mixture levers for the pilot.** *(Found making the
       Short S.23, 2026-09-20.)* The controls have a propeller lever and a
       mixture, which the figure flights set, but no key or binding works
@@ -939,3 +917,25 @@ Found while implementing something else. Added when found, not when remembered.
       pitch at NORMAL turns 2,169 rpm**, inside the Pegasus's rated 2,600,
       where a pilot with no lever to move flew it at 3,185; the Mosquito's
       airscrews turn 2,530 with the lever forward and 2,283 at four tenths.
+- [ ] **The visual alignment's height is fitted, and for three aircraft it is
+      badly fitted.** *(Found giving the aircraft an airframe, 2026-09-22.)*
+      `assets/models/alignment.txt` records where each visual model sits on
+      its flight model, fitted to the contacts the aeroplane stands on. The
+      fit is good for most, but the 747-400's is 2.48 m out, the F-22's 0.98 m
+      and the B-2's 0.53 m, because those meshes draw four bogies where the
+      flight model has three legs, or draw them where the flight model does
+      not. Measuring the airframe worked around it by anchoring height to the
+      wheels instead, which needs no alignment at all; the alignment itself
+      is still wrong by those amounts and the models are drawn that far off
+      the ground.
+      *Verification: every aircraft's visual model sits within a stated
+      distance of the contacts its flight model stands on, the same distance
+      for all of them.*
+- [ ] **The F-15C's airframe slides on the wrong friction.** *(Found giving
+      the aircraft an airframe, 2026-09-22.)* Its six airframe contacts came
+      from the model it was made from and carry a rolling friction of 0.2,
+      where this project states 0.4 for an airframe scraping a runway. Landed
+      with its wheels up it slides 2,734 m where the stated friction gives
+      1,093 m.
+      *Verification: the F-15C's wheels-up landing stops in the distance the
+      stated friction gives, as every other aircraft's does.*

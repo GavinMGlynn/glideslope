@@ -81,15 +81,29 @@ The changes, and what each is for:
                         tools/airliner.py), where JSBSim's generic turbofan
                         table held its thrust far too well with speed and
                         height.
+  Airframe contacts scrape instead of rolling
+                        The model's nine contacts that never retract - its
+                        wing tips, its engine nacelles, its nose and its tail -
+                        are airframe, not wheels, but carried JSBSim's rolling
+                        friction of 0.02, a tyre's. Landed with its wheels up
+                        the aeroplane rolled along on its wing tips: it was
+                        still doing 118 knots after three minutes and 11 km,
+                        and never stopped. They now carry the scraping
+                        friction, spring and damping tools/ground.py states for
+                        an airframe.
 """
 
+import re
 import sys
 
 import airliner
+import ground
 from airliner import OUT, PINNED
 
 SCRIPT = "make_a320"
 MODEL = "a320"
+MAXIMUM_WEIGHT_LBS = 172000  # the -200's published maximum take-off weight
+AIRFRAME_CONTACTS = 9        # its wing tips, nacelles, nose and tail
 ENGINE = "CFM56-5B4"
 TAKEOFF_THRUST_LBS = 27000
 OPERATING_EMPTY_LBS = 90927
@@ -155,6 +169,40 @@ def engine():
     text = replace_once(text, r"<milthrust>\s*25000\.0\s*</milthrust>",
                         f"<milthrust> {TAKEOFF_THRUST_LBS}.0 </milthrust>", "the thrust")
     return airliner.with_mattingly_thrust(text, SCRIPT)
+
+
+def scraping_airframe(text):
+    """The contacts that never retract are airframe, so they scrape.
+
+    JSBSim tells a wheel from a wing tip by nothing but what the model says,
+    and this one said its wing tips were wheels: the same 0.02 rolling
+    friction as its tyres. What never retracts is airframe, and is given the
+    friction and the stiffness tools/ground.py states for one.
+    """
+    spring, damping = ground.stiffness(MAXIMUM_WEIGHT_LBS)
+    fields = ((r"static_friction", f"{ground.SCRAPE_FRICTION}", ""),
+              (r"dynamic_friction", f"{ground.SCRAPE_FRICTION}", ""),
+              (r"rolling_friction", f"{ground.SCRAPE_FRICTION}", ""),
+              (r"spring_coeff", f"{spring:.0f}", ' unit="LBS/FT"'),
+              (r"damping_coeff", f"{damping:.0f}", ' unit="LBS/FT/SEC"'))
+
+    def one(match):
+        body = match.group(0)
+        for tag, value, unit in fields:
+            body, hits = re.subn(rf"<{tag}[^>]*>[^<]*</{tag}>",
+                                 f"<{tag}{unit}> {value} </{tag}>", body)
+            if hits != 1:
+                raise SystemExit(f"{SCRIPT}: a contact has {hits} {tag}s, not one"
+                                 " - has the pinned model changed?")
+        return body
+
+    text, n = re.subn(
+        r"<contact type=\"BOGEY\"(?:(?!</contact>).)*?<retractable>0</retractable>"
+        r"(?:(?!</contact>).)*?</contact>", one, text, flags=re.S)
+    if n != AIRFRAME_CONTACTS:
+        raise SystemExit(f"{SCRIPT}: found {n} contacts that never retract, not "
+                         f"{AIRFRAME_CONTACTS} - has the pinned model changed?")
+    return text
 
 
 def airframe():
@@ -253,7 +301,7 @@ def airframe():
     text = replace_once(text, r"(<axis name=\"DRAG\">\n)",
                         lambda m: m.group(1) + mach
                         + airliner.windmill_function(2, FAN_DIAMETER_IN, WINDMILL_DRAG) + "\n", "the drag axis")
-    return text
+    return scraping_airframe(text)
 
 
 def outputs():

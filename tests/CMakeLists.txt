@@ -23,6 +23,7 @@ add_executable(glideslope_tests
     unit/test_socket.cpp
     unit/test_reliable.cpp
     unit/test_levers.cpp
+    unit/test_wheels_up.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -70,6 +71,7 @@ target_compile_definitions(glideslope_tests PRIVATE
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
+    every_aircraft_put_down_with_its_wheels_up_rests_on_its_airframe
     the_keyboard_moves_every_lever_it_names_and_leaves_it_where_it_is_put
     a_binding_moves_every_lever_the_controls_have
     the_short_s23_in_coarse_pitch_at_normal_boost_turns_within_its_rated_rpm
@@ -374,6 +376,20 @@ add_test(NAME the_committed_model_alignment_is_what_its_script_measures
         -DSCRIPT=tools/align_models.py
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
 set_tests_properties(the_committed_model_alignment_is_what_its_script_measures
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+# The airframe contacts a wheels-up landing comes down on are measured from
+# the visual meshes by tools/ground.py. This holds what that measurement
+# claims: that each mesh is the aeroplane it says it is, within 1.5% of its
+# published length and span; that no airframe contact sits at or below the
+# wheels, where it would drag on every ordinary landing; and that the method
+# agrees, within 10 in, with FlightGear's own 737-300 - the one flight model
+# found anywhere that carries a belly of its own to compare with.
+add_test(NAME the_airframe_contacts_measured_from_the_meshes_agree_with_what_is_published
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/ground.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_airframe_contacts_measured_from_the_meshes_agree_with_what_is_published
     PROPERTIES SKIP_RETURN_CODE 77)
 
 # The committed DEM coverage is what the pinned tile lists make.

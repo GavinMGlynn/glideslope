@@ -36,6 +36,7 @@ import sys
 
 import airliner
 import fighter
+import ground
 import make_f15c
 import written
 from airliner import OUT, PINNED
@@ -130,6 +131,9 @@ def ground_reactions():
         out += written.bogey(f"{side}_MAIN", main_x, sign * 240.0, contact,
                              (1.0 - nose_share) / 2.0 * weight / 0.8, (1.0 - nose_share) / 2.0 * weight / 3.0,
                              0, side, "0.50")
+    # The airframe's own contacts, so that it has something to land on with
+    # its wheels up; measured from its visual mesh by tools/ground.py.
+    out += ground.contacts(MODEL, weight, wheel_z=contact)
     return out + "    </ground_reactions>\n"
 
 

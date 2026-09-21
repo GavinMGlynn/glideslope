@@ -93,6 +93,7 @@ import sys
 
 import airliner
 import fighter
+import ground
 import make_f15c
 from airliner import OUT, PINNED
 
@@ -124,6 +125,13 @@ PITCH_GAIN_PRESSURE = 1000.0
 # The roll stick's shaping: the roll rate it commands, as a fraction of the
 # model's, is the stick's travel times this plus the rest times its square.
 ROLL_STICK_CENTRE_GAIN = 0.25
+
+# **The airframe, so that a wheels-up landing meets the runway.** JSBSim gives
+# a retracted wheel no force, and this model had nothing else to touch the
+# ground with: landed with its wheels up it went straight through it. The
+# points are measured from this aeroplane's own visual mesh by
+# tools/ground.py, which says how and why the mesh is the source.
+MAXIMUM_WEIGHT_LBS = 83500  # the F-22A's published maximum take-off weight
 
 
 def replace_once(text, pattern, replacement, what):
@@ -182,6 +190,14 @@ def airframe():
     text, n = re.subn(r"<engine file=\"F119-PW-1\">", f'<engine file="{ENGINE}">', text)
     if n != 2:
         raise SystemExit(f"{SCRIPT}: found {n} engines, not 2 - has the pinned model changed?")
+
+    # The airframe's own contacts, so that the aeroplane has something to
+    # land on with its wheels up. See MAXIMUM_WEIGHT_LBS above.
+    points = ground.contacts(MODEL, MAXIMUM_WEIGHT_LBS)
+    text = replace_once(text, r"(\n)(    </ground_reactions>)",
+                        "\n\n" + points.replace("\\", "\\\\") + r"\2",
+                        "the airframe's contacts")
+
     text = with_mach_lift(text)
     text = with_mach_tail(text)
     text = with_pitch_gain_schedule(text)
