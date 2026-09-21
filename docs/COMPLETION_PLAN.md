@@ -714,6 +714,18 @@ Found while implementing something else. Added when found, not when remembered.
       fail with the Cessna's landing flaps put at 33 to 35 degrees: "its
       levers only move it between 0 and 30".
 
+- [ ] **Nothing here compiles first-party code under clang.** GCC does not
+      warn about an unused constant at namespace scope in C++ - not under
+      `-Wall -Wextra`, and not under `-Wunused-const-variable` at any level,
+      which it honours for C alone - so the class reaches CI and reds macOS
+      and Windows clang-cl together, as it did on 2026-09-21. Both Linux
+      builds are GCC, so no local build can catch it, and checking by hand
+      before a push is review, which this project does not rely on.
+      *(Found 2026-09-21 reading a red macOS build.)* *Verification: a test
+      compiles every first-party source under clang with the project's own
+      warnings, reports itself skipped where clang is not installed, and
+      turns red for an unused constant that GCC accepts.*
+
 - [x] **One download that fails once reds the tree.** CI sets
       `GLIDESLOPE_REQUIRE_NETWORK`, so a file that cannot be fetched is a
       failure there rather than a skip - deliberately, because CI is what

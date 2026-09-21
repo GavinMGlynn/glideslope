@@ -231,7 +231,17 @@ test's fault, not the checklist's.
 `every_checklist_band_is_one_its_aeroplanes_controls_can_reach`, registered,
 watched to fail with the Cessna's landing flaps put at 33 to 35 degrees:
 "c172p's landing ... wants fcs/flap-pos-deg between 33 and 35, but its levers
-only move it between 0 and 30".
+only move it between 0 and 30". It takes 68 seconds. 300 of 300 tests
+pass locally at `-j4`, in 1039 s.
+
+**What GCC cannot see.** The two constants this left unused when its trace
+came out were invisible to both Linux builds: GCC does not warn about an
+unused constant at namespace scope in C++, not under `-Wall -Wextra` and not
+under `-Wunused-const-variable` at any level, which it honours for C alone.
+Clang does, so macOS and Windows clang-cl went red together on a commit that
+both Linux jobs had passed. Every first-party file is now checked by hand
+under clang before a push, which is review rather than a check, and a tail
+records that.
 
 ### An autopilot that takes off, 2026-09-21 — groundwork, no item of its own
 
