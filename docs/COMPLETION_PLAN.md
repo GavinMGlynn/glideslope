@@ -510,11 +510,23 @@ checklists are part of. A lesson ends in a debrief, never a score
       that plainly rather than naming a source that was not used. For three
       of the sixteen - the B-2A, F-22A and F-35A - no flight manual is public
       at all, so that half of the item cannot be met as written for them.
-- [ ] **Checklists on screen, ticking themselves.** *Verification: the test
+- [x] **Checklists on screen, ticking themselves.** *Verification: the test
       pilot flies the Cessna's before-take-off, take-off and climb by the book,
       and every item the aircraft can see ticks at the tick its state first
       shows it done; flown with the flaps left up, that item stays unticked and
-      is flagged.*
+      is flagged.* Done, 2026-09-21: `--checklist PHASE` puts a phase's list
+      down the right of the screen, each item marked ticked or still to do,
+      and it ticks itself as the aeroplane flies. An item ticks at the first
+      tick its state shows it done and stays ticked, because a checklist
+      records that a thing was done, not that it is still true. Flown by the
+      book, every item of the taxi, take-off and climb lists that the
+      aeroplane can see is ticked; flown with the flaps up, the landing
+      list's flaps item never ticks and is flagged as outstanding. A frame
+      test reads the block back off a shot and holds every line to what the
+      flight said it drew. **The verification names a "before-take-off"
+      phase; there is none.** The nine phases are `FEATURES.md`'s, which go
+      from before start to taxi to take-off, so taxi is what was flown in its
+      place.
 - [ ] **Lessons** - take-off, the circuit, climbs and descents, turns, stalls,
       approach and landing - for each class of aircraft. *Verification: each
       lesson flown by the AI pilot to the book passes every stage; flown with a

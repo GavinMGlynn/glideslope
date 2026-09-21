@@ -85,6 +85,8 @@ struct Options {
     std::string plan;
     std::string aircraft = "c172p";
     std::string view = "cockpit";
+    // The phase whose checklist is on screen; empty shows none.
+    std::string checklist;
     // A test flag, as --shot and --trace are: the same frame shot with the
     // aeroplane and without it differ in exactly its pixels, which is how a
     // test finds the outline it draws.
@@ -99,6 +101,7 @@ void usage(std::FILE* out) {
         "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
         "                  [--toward LAT,LON,HEIGHT] [--imagery on|off]\n"
         "                  [--terrain open|ion|google] [--mismatch FILE]\n"
+        "                  [--checklist PHASE]\n"
         "                  [--weather STATION [--microburst LAT,LON]...]\n"
         "                  [--metar REPORT [--station LAT,LON]]\n"
         "                  [--aircraft ID] [--on-ground] [--autopilot] [--plan PLAN]\n"
@@ -120,6 +123,9 @@ void usage(std::FILE* out) {
         "                default, or Cesium ion or Google's Photorealistic 3D Tiles\n"
         "                with your own token or key. The ground the aircraft meets\n"
         "                is the open DEM whichever is drawn\n"
+        "  --checklist   show this phase of flight's checklist, which ticks itself\n"
+        "                as the aeroplane flies: before-start, taxi, take-off,\n"
+        "                climb, cruise, descent, approach, landing, after-landing\n"
         "  --mismatch    measure how far the drawn terrain is from the ground the\n"
         "                aircraft meets, at the places FILE names - one a line, a\n"
         "                name then a latitude and longitude - and print it; nothing\n"
@@ -314,6 +320,8 @@ int main(int argc, char** argv) {
             o.terrain_provider = std::string(args[++i]);
         } else if (a == "--view" && has_value) {
             o.view = std::string(args[++i]);
+        } else if (a == "--checklist" && has_value) {
+            o.checklist = std::string(args[++i]);
         } else if (a == "--draw-aircraft" && has_value) {
             const std::string_view value = args[++i];
             ok = value == "on" || value == "off";
@@ -405,6 +413,17 @@ int main(int argc, char** argv) {
                      o.view.c_str(), glideslope::gfx::view_names().c_str());
         return 2;
     }
+    glideslope::sim::Phase checklist_phase{};
+    if (!o.checklist.empty() && !glideslope::sim::phase_of(o.checklist, checklist_phase)) {
+        std::string phases;
+        for (const glideslope::sim::Phase phase : glideslope::sim::all_phases()) {
+            phases += (phases.empty() ? "" : ", ") + glideslope::sim::phase_name(phase);
+        }
+        std::fprintf(stderr,
+                     "glideslope: there is no phase of flight %s; there is %s\n",
+                     o.checklist.c_str(), phases.c_str());
+        return 2;
+    }
     if (o.on_ground && (o.autopilot || !o.plan.empty())) {
         std::fputs("glideslope: the AI cannot take off; --on-ground is flown by the pilot\n",
                    stderr);
@@ -494,6 +513,17 @@ int main(int argc, char** argv) {
             flight = std::make_unique<glideslope::client::Flight>(
                 glideslope::platform::data_directory(),
                 glideslope::platform::cache_directory(), start);
+            if (!o.checklist.empty()) {
+                flight->show_checklist(checklist_phase);
+                if (!flight->showing_checklist()) {
+                    std::fprintf(stderr,
+                                 "glideslope: the %s ships no checklists\n",
+                                 flight->aircraft().id.c_str());
+                    return 2;
+                }
+                std::printf("glideslope: showing the %s checklist\n",
+                            o.checklist.c_str());
+            }
             std::printf("glideslope: flying the %s (%s)%s\n", flight->aircraft().name.c_str(),
                         flight->aircraft().id.c_str(),
                         !start.on_ground           ? ""
@@ -902,6 +932,15 @@ int main(int argc, char** argv) {
                         std::printf(" %.9f", v);
                     }
                     std::printf("\n");
+                }
+                // What the checklist block says, so a test can hold what is
+                // on the frame to what the flight believes it drew.
+                if (flight && flight->showing_checklist()) {
+                    glideslope::gfx::HudReadings r = flight->hud();
+                    for (const std::string& line :
+                         glideslope::gfx::checklist_lines(r.checklist, o.width)) {
+                        std::printf("checklist: %s\n", line.c_str());
+                    }
                 }
                 glideslope::gfx::save_bmp(renderer.capture(), o.shot);
                 std::printf("glideslope: wrote tick %lld, frame %ld, to %s\n",

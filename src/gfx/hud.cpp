@@ -228,6 +228,60 @@ std::vector<std::string> credit_lines(const std::vector<std::string>& credits,
     return lines;
 }
 
+std::size_t checklist_columns(int width) {
+    // The right-hand half of the frame, with two characters' margin each
+    // side, at one screen pixel a font pixel: six pixels a character.
+    return static_cast<std::size_t>(std::max(1, width / 2 / 6 - 2));
+}
+
+std::vector<std::string> checklist_lines(const ChecklistOnScreen& showing, int width) {
+    if (showing.phase.empty()) {
+        return {};
+    }
+    const std::size_t columns = checklist_columns(width);
+    // Capitals, and nothing the font has not got: a comma would read as a
+    // question mark, which is worse than losing it.
+    const auto spellable = [](const std::string& from) {
+        std::string out;
+        for (const char c : from) {
+            const char up = static_cast<char>(
+                std::toupper(static_cast<unsigned char>(c)));
+            if (glyph(up) != nullptr) {
+                out.push_back(up);
+            }
+        }
+        return out;
+    };
+    std::size_t done = 0;
+    for (const auto& [ticked, text] : showing.items) {
+        done += ticked ? 1 : 0;
+    }
+    std::vector<std::string> lines;
+    lines.push_back(spellable(showing.phase) + " " + std::to_string(done) + "/" +
+                    std::to_string(showing.items.size()));
+    for (const auto& [ticked, text] : showing.items) {
+        lines.push_back(std::string(ticked ? "X " : "- ") + spellable(text));
+    }
+    for (std::string& line : lines) {
+        if (line.size() > columns) {
+            line.resize(columns);
+        }
+    }
+    return lines;
+}
+
+TextLayout checklist_layout(int width, int height, std::size_t lines) {
+    (void)height;
+    (void)lines;
+    TextLayout layout;
+    layout.scale = 1;
+    // Its right-hand edge two characters in from the frame's.
+    layout.left = width - static_cast<int>(checklist_columns(width) + 2) *
+                              layout.cell_width();
+    layout.top = 2 * layout.cell_height();
+    return layout;
+}
+
 TextLayout credit_layout(int width, int height, std::size_t lines) {
     (void)width;
     TextLayout layout;
@@ -314,6 +368,12 @@ Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     add_rect(mesh, cx - 3 * layout.scale, height / 2.0 - layout.scale,
              cx + 3 * layout.scale, height / 2.0 + layout.scale, width, height,
              hud_colour);
+    const std::vector<std::string> checklist =
+        checklist_lines(readings.checklist, width);
+    if (!checklist.empty()) {
+        add_text(mesh, checklist, checklist_layout(width, height, checklist.size()),
+                 width, height);
+    }
     // Last, over the horizon wherever it runs.
     add_credits(mesh, credit_lines(readings.credits, width), width, height);
     return mesh;

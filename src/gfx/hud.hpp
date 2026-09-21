@@ -15,9 +15,17 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace glideslope::gfx {
+
+// **A checklist on screen**: which phase's it is, and each of its items with
+// whether it has been ticked. Empty phase means none is showing.
+struct ChecklistOnScreen {
+    std::string phase; // as the data spells it, "take-off"
+    std::vector<std::pair<bool, std::string>> items; // ticked, and its words
+};
 
 struct HudReadings {
     double airspeed_kts = 0.0; // calibrated
@@ -34,6 +42,8 @@ struct HudReadings {
     // Whose data is on screen - each a credit its source asks for - shown
     // along the bottom.
     std::vector<std::string> credits;
+    // The checklist being worked through, if one is showing.
+    ChecklistOnScreen checklist;
 };
 
 // The HUD's lines, top to bottom:
@@ -93,6 +103,28 @@ TextLayout credit_layout(int width, int height, std::size_t lines);
 // drawn over a strip across the frame's bottom, from the layout's top down,
 // that darkens what is behind them by half, so they can be read over anything.
 Mesh credits_mesh(const std::vector<std::string>& credits, int width, int height);
+
+// **The checklist** is drawn down the top right, small as the credits are -
+// one screen pixel a font pixel - so a long item reads without crowding the
+// numbers down the left. Its first line is the phase and how much of it is
+// done; then one line an item, "X" for ticked and "-" for still to do. An
+// item too long for the line is cut rather than wrapped, so that every line
+// but the first begins with a mark and the two can never be told apart.
+//
+// The font has capitals, digits and a little punctuation and no more, so the
+// words are put in capitals and anything the font lacks - a comma - is
+// dropped.
+
+// How many characters a line of the checklist holds on a frame `width` wide.
+std::size_t checklist_columns(int width);
+
+// The checklist as the lines drawn, for a frame `width` wide. Empty when
+// nothing is showing.
+std::vector<std::string> checklist_lines(const ChecklistOnScreen& showing, int width);
+
+// Where `lines` lines of checklist go on a frame: the right-hand side, two
+// cells down from the top, as the HUD's own text starts.
+TextLayout checklist_layout(int width, int height, std::size_t lines);
 
 // The glyph for `c`: seven rows, the top first, each five bits with the
 // leftmost pixel the highest. Null for a character the font lacks.

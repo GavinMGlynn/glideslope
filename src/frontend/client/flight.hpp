@@ -8,6 +8,7 @@
 #include "gfx/scene.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/checklist_run.hpp"
 #include "sim/controller.hpp"
 #include "sim/navigator.hpp"
 #include "gfx/sky.hpp"
@@ -129,6 +130,15 @@ public:
 
     gfx::HudReadings hud() const;
 
+    // **The checklist on screen.** The aircraft's own lists are loaded with
+    // it; `show_checklist` says which phase's is on screen, and from then on
+    // it ticks itself as the aeroplane flies. Nothing shows until it is
+    // asked for.
+    void show_checklist(sim::Phase phase);
+    void hide_checklist();
+    // Which phase is showing, or nothing.
+    std::optional<sim::Phase> showing_checklist() const;
+
     // The weather report flown in now, or null without one; and where its
     // station is, for drawing its sky.
     const world::WeatherReport* weather_report() const;
@@ -189,6 +199,11 @@ private:
     double altitude_there_ft_ = 0.0;
     bool plan_flown_ = false;
     std::int64_t tick_ = 0;
+    // The aircraft's checklists, and the one being worked through. A run is
+    // kept whether or not one is showing, so that turning to a phase shows
+    // what the aeroplane has already done rather than an empty list.
+    std::optional<sim::ChecklistRun> checklist_;
+    bool checklist_showing_ = false;
     std::string weather_station_;
     std::vector<world::Microburst> microbursts_;
     std::shared_ptr<world::ReportedWeather> weather_;

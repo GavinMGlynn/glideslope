@@ -70,6 +70,15 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     aircraft_entry_ = sim::find_aircraft(data, start.aircraft);
     aircraft_ = std::make_unique<sim::Aircraft>(data / "jsbsim", aircraft_entry_.model);
 
+    // Its checklists. Every aircraft in the roster ships them and a test
+    // holds that, so a missing file is a fault - but not one worth ending a
+    // flight over, and the screen simply has none to show.
+    try {
+        checklist_.emplace(sim::find_checklists(data, aircraft_entry_.id));
+    } catch (const sim::ChecklistError&) {
+        checklist_.reset();
+    }
+
     // Its visual model, where it ships one: two aircraft do not, because
     // FlightGear has no Learjet 35A and no F-35A, and docs/ASSETS.md says so.
     // Where there is one, there is an alignment saying where it sits on this
@@ -152,6 +161,9 @@ void Flight::step(const sim::Controls& controls) {
     aircraft_->set_controls(controller_->fly());
     aircraft_->step();
     ++tick_;
+    if (checklist_) {
+        checklist_->update(*aircraft_, tick_);
+    }
     report_navigation();
     if (weather_) {
         refresh_weather();
@@ -359,7 +371,34 @@ gfx::HudReadings Flight::hud() const {
     if (weather_) {
         r.credits.push_back(world::open_meteo_credit);
     }
+    if (checklist_ && checklist_showing_) {
+        r.checklist.phase = sim::phase_name(checklist_->showing());
+        const sim::Checklist& list = checklist_->list();
+        const std::vector<sim::ItemProgress>& progress = checklist_->progress();
+        for (std::size_t i = 0; i < list.items.size() && i < progress.size(); ++i) {
+            r.checklist.items.emplace_back(progress[i].ticked, list.items[i].text);
+        }
+    }
     return r;
+}
+
+void Flight::show_checklist(sim::Phase phase) {
+    if (!checklist_) {
+        return; // this aircraft ships none
+    }
+    checklist_->show(phase);
+    checklist_showing_ = true;
+}
+
+void Flight::hide_checklist() {
+    checklist_showing_ = false;
+}
+
+std::optional<sim::Phase> Flight::showing_checklist() const {
+    if (!checklist_ || !checklist_showing_) {
+        return std::nullopt;
+    }
+    return checklist_->showing();
 }
 
 const world::WeatherReport* Flight::weather_report() const {

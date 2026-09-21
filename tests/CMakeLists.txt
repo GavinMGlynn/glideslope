@@ -16,6 +16,7 @@ add_executable(glideslope_tests
     unit/test_autopilot.cpp
     unit/test_catalogue.cpp
     unit/test_checklist.cpp
+    unit/test_checklist_run.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -63,6 +64,10 @@ target_compile_definitions(glideslope_tests PRIVATE
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
+    every_checklist_item_the_cessna_can_see_ticks_when_its_state_first_shows_it_done
+    an_item_once_ticked_stays_ticked_though_the_aeroplane_moves_on
+    flown_with_the_flaps_left_up_the_landing_flaps_item_stays_unticked_and_is_flagged
+    the_pilot_ticks_their_own_items_and_only_their_own
     every_aircraft_has_a_checklist_for_every_phase_of_flight
     no_checklist_item_rests_on_a_control_its_aircrafts_model_has_not_got
     every_checklist_item_names_a_state_its_own_aircraft_has_or_is_the_pilots
@@ -482,6 +487,10 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 else()
     set(GLIDESLOPE_GPU_DRIVERS vulkan)
 endif()
+add_executable(glideslope_checklist_check tools/checklist_check.cpp)
+target_link_libraries(glideslope_checklist_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_checklist_check)
+
 add_executable(glideslope_hud_check tools/hud_check.cpp)
 target_link_libraries(glideslope_hud_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_hud_check)
@@ -505,6 +514,14 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
     set_tests_properties(the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    add_test(NAME the_checklist_on_screen_is_the_one_the_flight_is_working_through_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_checklist_check>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_checklist.cmake)
+    set_tests_properties(the_checklist_on_screen_is_the_one_the_flight_is_working_through_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME the_hud_shows_a_jets_mach_and_flight_level_at_the_tick_it_was_shot_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
