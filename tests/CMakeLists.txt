@@ -181,9 +181,8 @@ set(GLIDESLOPE_UNIT_TESTS
     the_short_s23_floats_at_the_draught_its_general_arrangement_draws
     the_short_s23_reaches_its_published_speed_at_5500_ft
     the_short_s23_climbs_at_its_published_rate_at_sea_level
-    the_f35a_reaches_mach_1_6_at_its_best_altitude
-    the_f35a_still_climbs_at_50000_ft
-    the_f35a_flies_more_than_its_published_range_on_internal_fuel
+    the_f35b_reaches_mach_1_6_at_its_best_altitude
+    the_f35b_flies_more_than_its_published_range_on_internal_fuel
     the_b2_flies_at_high_subsonic_speed
     the_b2_still_climbs_at_its_published_ceiling
     the_b2_flies_about_its_published_range_unrefuelled
@@ -477,11 +476,11 @@ add_test(NAME the_committed_learjet_35a_is_what_its_script_writes
 set_tests_properties(the_committed_learjet_35a_is_what_its_script_writes
     PROPERTIES SKIP_RETURN_CODE 77)
 
-add_test(NAME the_committed_f35a_is_what_its_script_writes
+add_test(NAME the_committed_f35b_is_what_its_script_writes
     COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
-        -DSCRIPT=tools/make_f35a.py
+        -DSCRIPT=tools/make_f35b.py
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
-set_tests_properties(the_committed_f35a_is_what_its_script_writes
+set_tests_properties(the_committed_f35b_is_what_its_script_writes
     PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME the_committed_b2_is_what_its_script_writes
@@ -822,7 +821,7 @@ add_test(NAME the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files
 add_test(NAME the_cli_lists_the_aircraft_the_data_holds
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=aircraft -DEXIT=0
-        "-DSTDOUT_MATCHES=737-300 +Boeing 737-300 +model 737-300, starting at 250 KCAS, published figures.*747-400 +Boeing 747-400 +model 747-400, starting at 250 KCAS, published figures.*787-8 +Boeing 787-8 +model 787-8, starting at 250 KCAS, published figures.*a320 +Airbus A320 +model a320, starting at 250 KCAS, published figures.*a380 +Airbus A380-841 +model a380, starting at 250 KCAS, published figures.*b2 +Northrop Grumman B-2A Spirit +model b2, starting at 250 KCAS, published figures.*c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*f15c +McDonnell Douglas F-15C Eagle +model f15c, starting at 300 KCAS, published figures.*f22 +Lockheed Martin F-22A Raptor +model f22, starting at 300 KCAS, published figures.*f35a +Lockheed Martin F-35A Lightning II +model f35a, starting at 300 KCAS, published figures.*j3cub +Piper J-3 Cub +model j3cub, starting at 60 KCAS, published figures.*learjet35a +Gates Learjet 35A +model learjet35a, starting at 250 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures.*pa28 +Piper PA-28-180 Cherokee +model pa28, starting at 110 KCAS, published figures.*short_s23 +Short S.23 Empire Flying Boat +model short_s23, starting at 130 KCAS, a seaplane, published figures"
+        "-DSTDOUT_MATCHES=737-300 +Boeing 737-300 +model 737-300, starting at 250 KCAS, published figures.*747-400 +Boeing 747-400 +model 747-400, starting at 250 KCAS, published figures.*787-8 +Boeing 787-8 +model 787-8, starting at 250 KCAS, published figures.*a320 +Airbus A320 +model a320, starting at 250 KCAS, published figures.*a380 +Airbus A380-841 +model a380, starting at 250 KCAS, published figures.*b2 +Northrop Grumman B-2A Spirit +model b2, starting at 250 KCAS, published figures.*c172p +Cessna 172P Skyhawk +model c172p, starting at 100 KCAS, published figures, a selftest.*c182 +Cessna 182S Skylane +model c182, starting at 120 KCAS, published figures.*f15c +McDonnell Douglas F-15C Eagle +model f15c, starting at 300 KCAS, published figures.*f22 +Lockheed Martin F-22A Raptor +model f22, starting at 300 KCAS, published figures.*f35b +Lockheed Martin F-35B Lightning II +model f35b, starting at 300 KCAS, published figures.*j3cub +Piper J-3 Cub +model j3cub, starting at 60 KCAS, published figures.*learjet35a +Gates Learjet 35A +model learjet35a, starting at 250 KCAS, published figures.*mosquito-fb6 +de Havilland Mosquito FB Mk VI +model mosquito-fb6, starting at 220 KCAS, published figures.*pa28 +Piper PA-28-180 Cherokee +model pa28, starting at 110 KCAS, published figures.*short_s23 +Short S.23 Empire Flying Boat +model short_s23, starting at 130 KCAS, a seaplane, published figures"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_client_refuses_an_aircraft_the_data_does_not_hold

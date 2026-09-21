@@ -1,42 +1,72 @@
 #!/usr/bin/env python3
-"""make_f35a.py - glideslope's Lockheed Martin F-35A Lightning II, written from what is published.
+"""make_f35b.py - glideslope's Lockheed Martin F-35B Lightning II, written from what is published.
 
 JSBSim has no F-35. This script writes one from what is public, which is
-little: its size, weights and engine from the Air Force's fact sheet,
-Lockheed Martin's and Pratt & Whitney's; its lift and drag across the Mach
-range as the fighters' are made (tools/fighter.py), their numbers set to fly
-the published figures; and its stability and control derivatives, which are
-not public, those of the nearest fighter whose are - the F-4C, in NASA
-CR-2144. Its figures, in assets/figures/f35a.xml, are its maximum Mach, its
-ceiling and its range; nothing more is claimed.
+little: its size, weights and engine from Lockheed Martin's own documents;
+its lift and drag across the Mach range as the fighters' are made
+(tools/fighter.py), their numbers set to fly the published figures; and its
+stability and control derivatives, which are not public, those of the nearest
+fighter whose are - the F-4C, in NASA CR-2144. Its figures, in
+assets/figures/f35b.xml, are its maximum Mach and its range; nothing more is
+claimed.
 
-    python3 tools/make_f35a.py           write the files
-    python3 tools/make_f35a.py --check   exit 1 if what is committed differs
+**What this is not: the lift fan is not modelled.** The F-35B is a STOVL
+aeroplane, and its shaft-driven LiftFan, three-bearing swivel nozzle and roll
+posts are what make it one. None of that is here. This model flies the B's
+wing, weights, engine and published conventional figures, and takes off and
+lands on a runway like any other fighter. Hovering, vertical landing and short
+take-off are named in COMPLETION_PLAN.md as work not done, not quietly left
+out.
+
+**Why the B and not the A.** FGAddon has no F-35A, so the A could have no
+visual model and nothing to rest on with its wheels up. It has an F-35B, under
+a verbatim GPL-3.0, whose model draws its undercarriage - which is what
+tools/ground.py needs to measure an airframe. The project owner chose the
+variant on 2026-09-22.
+
+    python3 tools/make_f35b.py           write the files
+    python3 tools/make_f35b.py --check   exit 1 if what is committed differs
 
 Where each number comes from:
 
-  Lockheed Martin, F-35 Fast Facts (2020, 2021) and F-35A product card
-    Span 35 ft; length 51.4 ft; wing area 460 sq ft; empty weight 29,300 lb;
-    internal fuel 18,250 lb.
-  Pratt & Whitney, F135 product card and Fast Facts (2025)
-    The F135-PW-100: 43,000 lb with afterburner and 28,000 lb without, its
-    maker's "thrust class" - Lockheed Martin gives 40,000 and 25,000
-    "uninstalled"; the engine maker's are taken.
+  Lockheed Martin, F-35B product card (C2023, 23-08442_002, PIRA AER2023060207)
+    Length 51.2 ft; span 35 ft; wing area 460 sq ft; internal fuel 13,100 lb;
+    the F135-PW-600 at 38,000 lb with afterburner and 26,000 lb without;
+    Mach 1.6; range more than 900 nm on internal fuel; 7.0 g.
+  Lockheed Martin, F-35 Lightning II Program Status and Fast Facts (April 2020,
+  FG19-24749_004)
+    Empty weight 32,300 lb and height 14.3 ft, which the product card does not
+    give; maximum weight "60,000 lb class", which is the only maximum
+    published.
   NASA CR-2144, Heffley and Jewell, Aircraft Handling Qualities Data (1972),
   section IV, the F-4C
     Every moment's derivative, from its power approach (table IV-1), non-
-    dimensional and so carried to the F-35A's wing; its inertias at 38,925 lb
+    dimensional and so carried to the F-35B's wing; its inertias at 38,925 lb
     (table IV-2) as radii of gyration, scaled by the root of the wings' areas.
   JSBSim's F100-PW-229, made the F135 as tools/make_f15c.py makes the F100-
   PW-220 (tools/fighter.py's thrust with speed and height, the F100's shape),
   its throttle ratios set to fly the maximum Mach.
+
+**Two figures Lockheed publishes twice, differently, and which was taken.**
+Internal fuel is 13,100 lb on the product card and 13,500 lb in the April 2020
+Fast Facts. The product card is the later Lockheed publication and is the
+B's own, so 13,100 lb is used. Thrust is 38,000/26,000 lb on the B's product
+card and 40,000/25,000 lb in Fast Facts - but Fast Facts prints that same
+40,000/25,000 for the A, the B and the C, labelled "uninstalled thrust
+ratings", so it is a family figure and not the B's; the product card's is used.
+
+**What is published nowhere, and so is not claimed: a service ceiling.**
+Lockheed publishes none for any F-35, and the "above 50,000 feet" that the
+F-35A model was held to is the Air Force's, for the A. The F-35B is held to
+its maximum Mach and its range, and to no ceiling.
 
 Estimated, as nothing published gives them, each named below with its number:
 the mean aerodynamic chord and where the wing, the centre of gravity, the
 tanks, the engine and the gear are; the gear's springs; the lift's curve past
 its straight line; the drag's numbers; the fuel its engine burns; the
 surfaces' travel; and the pitch and yaw dampers its fly-by-wire flight
-controls stand for.
+controls stand for. The airframe's own contacts, which it rests on with its
+wheels up, are measured from its visual model by tools/ground.py.
 """
 
 import math
@@ -45,13 +75,14 @@ import sys
 
 import airliner
 import fighter
+import ground
 import make_f15c
 import written
 from airliner import OUT, PINNED
 
-SCRIPT = "make_f35a"
-MODEL = "f35a"
-ENGINE = "F135-PW-100"
+SCRIPT = "make_f35b"
+MODEL = "f35b"
+ENGINE = "F135-PW-600"
 
 SPAN_FT = 35.0
 AREA = 460.0
@@ -65,14 +96,14 @@ def mac(fraction):
     return LEMAC_IN + fraction * MAC_FT * 12.0
 
 
-EMPTY_LBS = 29300.0
-FUEL_LBS = 18250.0
+EMPTY_LBS = 32300.0
+FUEL_LBS = 13100.0
 # The F-4C's radii of gyration at 38,925 lb (CR-2144 table IV-2), scaled.
 F4C_WEIGHT, F4C_AREA = 38925.0, 530.0
 F4C_INERTIA = (25002.0, 122193.0, 139767.0, 2177.0)
 
-MILITARY_THRUST = "28000.0"
-MAXIMUM_THRUST = "43000.0"
+MILITARY_THRUST = "26000.0"
+MAXIMUM_THRUST = "38000.0"
 MILITARY_THROTTLE_RATIO = 1.10
 MAXIMUM_THROTTLE_RATIO = 1.10
 # Its fuel a pound of thrust an hour, dry: not published; a low-bypass
@@ -82,10 +113,20 @@ TSFC = 0.90
 # Lift: DATCOM's slope for its wing, straight to STRAIGHT_ALPHA, then rounding
 # to its greatest at STALL_ALPHA; drag (fighter.drag_functions), the numbers
 # set to fly the figures, the shape past Mach 1.2 the F-15C's.
+#
+# **WAVE_DRAG is what makes this aeroplane the B and not the A.** The F-35A
+# model reached its published Mach 1.6 on 43,000 lb of thrust at 0.066. The
+# F-35B has 38,000 lb and is 3,000 lb heavier empty, and at 0.066 it reached
+# only Mach 1.35. The wave drag is the number set to fly the figure, as this
+# script's docstring says of the drag: measured at 0.060 it gives Mach 1.48,
+# at 0.056 Mach 1.56, at 0.052 Mach 1.64, and at 0.054 Mach 1.61 against the
+# published 1.6. The range figure does not move with it - the range flight is
+# level at Mach 0.8, where there is no wave drag - so the two are set
+# independently.
 STRAIGHT_ALPHA = 0.30
 STALL_ALPHA = 0.55
 SUBSONIC_ZERO_LIFT_DRAG = 0.020
-WAVE_DRAG = 0.066
+WAVE_DRAG = 0.054
 SPAN_EFFICIENCY = 0.70
 SEPARATION_ALPHA = 0.35
 
@@ -137,7 +178,7 @@ def mass_balance():
 
 
 def ground_reactions():
-    weight = 70000.0
+    weight = 60000.0  # Fast Facts: the B is "60,000 lb class"
     main_x = mac(0.25) + 30.0
     nose_x = 150.0
     nose_share = (main_x - mac(0.25)) / (main_x - nose_x)
@@ -147,6 +188,9 @@ def ground_reactions():
     for side, sign in (("LEFT", -1.0), ("RIGHT", 1.0)):
         out += written.bogey(f"{side}_MAIN", main_x, sign * 70.0, -70.0, (1.0 - nose_share) / 2.0 * weight / 0.5,
                              (1.0 - nose_share) / 2.0 * weight / 2.0, 0, side, "0.50")
+    # The airframe's own contacts, so that it has something to land on with
+    # its wheels up; measured from its visual model by tools/ground.py.
+    out += ground.contacts(MODEL, weight, wheel_z=-70.0)
     return out + "    </ground_reactions>\n"
 
 
@@ -169,7 +213,7 @@ def propulsion():
 
 def flight_control():
     rad = math.radians
-    out = "    <flight_control name=\"F-35A\">\n        <channel name=\"Controls\">\n"
+    out = "    <flight_control name=\"F-35B\">\n        <channel name=\"Controls\">\n"
     out += ("            <pure_gain name=\"Pitch Damper\">\n"
             "                <input>velocities/q-aero-rad_sec</input>\n"
             f"                <gain>{PITCH_DAMPER_GAIN}</gain>\n"
@@ -262,13 +306,13 @@ def aerodynamics():
 
 def airframe():
     return ("<?xml version=\"1.0\"?>\n"
-            "<fdm_config name=\"Lockheed Martin F-35A\" version=\"2.0\" release=\"BETA\">\n"
+            "<fdm_config name=\"Lockheed Martin F-35B\" version=\"2.0\" release=\"BETA\">\n"
             "    <fileheader>\n"
-            "        <!-- glideslope: written by tools/make_f35a.py, which says where each number\n"
+            "        <!-- glideslope: written by tools/make_f35b.py, which says where each number\n"
             "             comes from. Do not edit it by hand. -->\n"
             "        <author>glideslope</author>\n"
             "        <filecreationdate>2026-09-19</filecreationdate>\n"
-            "        <description>Lockheed Martin F-35A Lightning II, F135-PW-100</description>\n"
+            "        <description>Lockheed Martin F-35B Lightning II, F135-PW-600</description>\n"
             "    </fileheader>\n"
             + metrics() + mass_balance() + ground_reactions() + propulsion() + flight_control()
             + aerodynamics() + "</fdm_config>\n")
@@ -277,8 +321,8 @@ def airframe():
 def engine():
     text = (PINNED / "engine" / "F100-PW-229.xml").read_text()
     text = airliner.replace_once(text, r"(<turbine_engine name=\")F100(\">)",
-                                 r"\g<1>" + ENGINE + r"\2\n  <!-- glideslope: JSBSim's F100-PW-229 made the F-35A's F135\n"
-                                 r"       by tools/make_f35a.py, which made it. Do not edit it by hand. -->",
+                                 r"\g<1>" + ENGINE + r"\2\n  <!-- glideslope: JSBSim's F100-PW-229 made the F-35B's F135\n"
+                                 r"       by tools/make_f35b.py, which made it. Do not edit it by hand. -->",
                                  "the engine's name", SCRIPT)
     text = airliner.replace_once(text, r"<milthrust>\s*17800\.0\s*</milthrust>",
                                  f"<milthrust>   {MILITARY_THRUST} </milthrust>", "the military thrust", SCRIPT)

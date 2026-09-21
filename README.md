@@ -9,7 +9,7 @@ aircraft to an AI pilot and take it back.
 > and a Piper J-3 Cub fly to their handbooks, an Airbus A320 and A380 and
 > Boeing 737-300, 747-400 and 787-8 to their airport-planning documents, a
 > Learjet 35A to its flight manual, an F-15C and F-22A to the Air Force's and
-> the Department of Defense's figures, an F-35A and B-2A to what is published
+> the Department of Defense's figures, an F-35B and B-2A to what is published
 > of them, a
 > Mosquito FB Mk VI to its wartime trials and Pilot's Notes, and a Short S.23
 > Empire flying boat, off the sea and lakes, to Flight's figures of 1936;

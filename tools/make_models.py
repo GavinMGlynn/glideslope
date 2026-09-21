@@ -175,6 +175,12 @@ AIRCRAFT = {
                          "I.Cunningham, F.Dalvi, S.Hamilton, et al' and "
                          "states no terms",
     ),
+    "f35b": dict(
+        dir="F-35B", entry="Models/F-35B.xml",
+        include=("Models/Engine.xml", "Models/Gear.xml"),
+        objects_out=("antennas",),
+        licence="GPL-3.0, the GNU GPL v3 text verbatim in License.txt",
+    ),
     "b2": dict(
         dir="B-2", entry="Models/b2-spirit.xml",
         include=(),
@@ -233,8 +239,6 @@ AIRCRAFT = {
 # FlightGear has no model of these at all.
 NO_MODEL = {
     "learjet35a": "FGAddon has no Learjet of any mark",
-    "f35a": "FGAddon has an F-35B, a different airframe with a lift fan, and "
-            "no F-35A",
 }
 
 MESH_MAGIC = b"GSMESH\0"

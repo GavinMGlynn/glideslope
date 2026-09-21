@@ -148,12 +148,14 @@ const std::map<std::string, Dimensions>& published() {
         {"j3cub", {6.83, 10.74}},
         // The air forces' and the manufacturers' figures, in feet and
         // inches: the B-2A 69 ft by 172 ft, the F-15C 63 ft 9 in by
-        // 42 ft 9 3/4 in, the F-22A 62 ft 1 in by 44 ft 6 in, the Mosquito
-        // FB Mk VI 41 ft 2 in by 54 ft 2 in and the Short S.23 88 ft by
-        // 114 ft. docs/ASSETS.md records each one's source.
+        // 42 ft 9 3/4 in, the F-22A 62 ft 1 in by 44 ft 6 in, the F-35B
+        // 51.2 ft by 35 ft, the Mosquito FB Mk VI 41 ft 2 in by 54 ft 2 in
+        // and the Short S.23 88 ft by 114 ft. docs/ASSETS.md records each
+        // one's source.
         {"b2", {21.03, 52.43}},
         {"f15c", {19.43, 13.05}},
         {"f22", {18.92, 13.56}},
+        {"f35b", {15.60, 10.67}},
         {"mosquito-fb6", {12.55, 16.51}},
         {"short_s23", {26.82, 34.75}},
         // The model is FlightGear's PA-28-161 Warrior II, whose figures these
@@ -226,12 +228,13 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_has_a_visual_model_or_a_named_reas
     }
     check(with + without == roster.size(),
           "every aircraft was looked at: " + std::to_string(roster.size()));
-    // The roster is sixteen aircraft; fourteen have a FlightGear model. The
-    // two that do not are the Learjet 35A and the F-35A, for which FGAddon
-    // has nothing. If either number moves, this says so.
+    // The roster is sixteen aircraft; fifteen have a FlightGear model. The
+    // one that does not is the Learjet 35A, for which FGAddon has nothing.
+    // The F-35A was the other, until it became the F-35B, which FGAddon does
+    // have. If either number moves, this says so.
     check(roster.size() == 16,
           "the roster is sixteen aircraft, not " + std::to_string(roster.size()));
-    check(with == 14, "fourteen of them ship a visual model, not " +
+    check(with == 15, "fifteen of them ship a visual model, not " +
                           std::to_string(with));
     check(absent.size() == without,
           "docs/ASSETS.md names exactly the " + std::to_string(without) +

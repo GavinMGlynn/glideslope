@@ -14,7 +14,7 @@ Air Force's and the Department of Defense's for the fighters, Flight
 magazine's for the S.23 - the Airbus
 A380's documents and the Boeing 747's published derivatives and the
 Learjet 35A's flight manual and NASA's measurements of the Learjet 23, and
-what is published of the F-35A and the B-2A (for flight models written
+what is published of the F-35B and the B-2A (for flight models written
 here), the Mosquito FB Mk VI's trials
 and Pilot's Notes (for a flight model written here), the Copernicus DEM, the
 EGM2008 geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from
@@ -295,29 +295,30 @@ documents' text or charts, none of which is in the repository. The flight
 manual's copy is a user's upload; its numbers agree with the type
 certificate's where both give them.
 
-### The Lockheed Martin F-35A and Northrop Grumman B-2A: what is published
+### The Lockheed Martin F-35B and Northrop Grumman B-2A: what is published
 
-The flight models - `assets/jsbsim/aircraft/f35a/f35a.xml` and
+The flight models - `assets/jsbsim/aircraft/f35b/f35b.xml` and
 `assets/jsbsim/aircraft/b2/b2.xml` - are written for this project by
-`tools/make_f35a.py` and `tools/make_b2.py`, whose docstrings name the source
+`tools/make_f35b.py` and `tools/make_b2.py`, whose docstrings name the source
 of each number and every estimate, and are under its licence,
-GPL-3.0-or-later. Their engines, `assets/jsbsim/engine/F135-PW-100.xml` and
+GPL-3.0-or-later. Their engines, `assets/jsbsim/engine/F135-PW-600.xml` and
 `assets/jsbsim/engine/F118-GE-100.xml`, are JSBSim's `engine/F100-PW-229.xml`
 (at `v1.3.1`, `3b25f25`) made each by the same scripts, and remain under
 JSBSim's LGPL-2.1, whose text ships as `licenses/JSBSim.txt`. A test fails if
 the committed files differ from what the scripts write. Their figures are
-`assets/figures/f35a.xml` and `assets/figures/b2.xml`. Much of both aircraft's
+`assets/figures/f35b.xml` and `assets/figures/b2.xml`. Much of both aircraft's
 performance, and all of their aerodynamics, is not public; what the models
-estimate is listed in `docs/PROJECT_STATUS.md`.
+estimate is listed in `docs/PROJECT_STATUS.md`. **The F-35B's lift fan is not
+modelled**, so none of its STOVL performance is claimed, and **no service
+ceiling is claimed for it**, because Lockheed Martin publishes none for any
+F-35.
 
 | Document | Copy consulted | What is taken from it |
 | --- | --- | --- |
-| United States Air Force, F-35A Lightning II fact sheet, current as of April 2014 | <https://www.af.mil/About-Us/Fact-Sheets/Display/Article/478441/f-35a-lightning-ii/>, read through the Internet Archive, SHA-256 `2d64722fc24da262fe926c604c60d123e6a2c3f79e332e6f5755f9ecc92384fe` | Its speed, ceiling and range |
-| Lockheed Martin, F-35 Fast Facts (2021) and F-35A product card | <https://www.f35.com/content/dam/lockheed-martin/aero/f35/documents/FG21-00000_001F35FastFactsV2_2021.pdf>, SHA-256 `bacf57950395ebba5ede4801e2bdd70ebcca2d700cdd36e06532a8070878845e`; <https://www.lockheedmartin.com/content/dam/lockheed-martin/aero/f35/documents/F-35A%20Product%20Card.pdf>, SHA-256 `9d59e8a609766765e80aa9395084788d4fad4c9953105ca4649707cd6411a1b1` | Span, length, wing area, empty weight, internal fuel; Mach 1.6 with full internal weapons; range |
-| Pratt & Whitney, F135 product card and Fast Facts (2025) | <https://filecache.mediaroom.com/mr5mr_prattwhitney/181677/download/me_f135_engine_pcard.pdf>, SHA-256 `6d3e85f0caf785ac7de2c65b8fbcfacf9eaf461ee9ffe5387094b89ae1419f9b`; the RTX newsroom's F135 fast facts, SHA-256 `94b309a01063ebf156f18886c1910e2213029612304ea5815590494a85336202` | The F135-PW-100's thrust class, with and without afterburner |
-| Department of Defense, Selected Acquisition Report, F-35, December 2022 | <https://www.esd.whs.mil/Portals/54/Documents/FOID/Reading%20Room/Selected_Acquisition_Reports/FY_2022_SARS/F-35_SAR_Dec_2022_25_July_2023.pdf>, read through the Internet Archive | Its combat radius, recorded but not flown: no profile is given |
+| Lockheed Martin, F-35B product card, ©2023, 23-08442_002, PIRA AER2023060207 | <https://www.f35.com/content/dam/lockheed-martin/aero/f35/documents/F-35B%20Product%20Card.pdf>, SHA-256 `cd353921c5351f37b51228fcbc2830a6967760f5084b1a2421f396e2b8571637` | Length 51.2 ft, span 35 ft, wing area 460 sq ft, internal fuel 13,100 lb, the F135-PW-600 at 38,000 lb Max and 26,000 lb Mil, Mach 1.6, range >900 n.mi, 7.0 g |
+| Lockheed Martin, F-35 Lightning II Program Status and Fast Facts, April 2020, FG19-24749_004 | <https://www.lockheedmartin.com/content/dam/lockheed-martin/aero/documents/F-35/FG19-24749_004%20F35FastFacts4_2020.pdf>, SHA-256 `fc7ad7c6443ffc357de5d30e61787ee73d002ae29b7acb77986bf00903480a03` | Empty weight 32,300 lb and height 14.3 ft, which the product card does not give; maximum weight "60,000 lb class". It is the newest Fast Facts carrying the specification table: the June 2023, November 2024 and March 2025 editions have dropped it. |
 | United States Air Force, B-2 Spirit fact sheet, current as of December 2015 | <https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104482/b-2-spirit/>, read through the Internet Archive, SHA-256 `cabe940c317105cc8d358dcee047675d2150ed9db9f034cb853ebd3f8da22c42` | Its size, weights, engines' thrust, speed, ceiling and range |
-| NASA CR-2144, Heffley and Jewell, Aircraft Handling Qualities Data, December 1972, section IV, the F-4C | As in the A380's entry above | The F-35A's moments' derivatives and inertias - the F-4C's, the nearest published fighter's |
+| NASA CR-2144, Heffley and Jewell, Aircraft Handling Qualities Data, December 1972, section IV, the F-4C | As in the A380's entry above | The F-35B's moments' derivatives and inertias - the F-4C's, the nearest published fighter's |
 
 **Only facts are taken** - numbers and a few words quoted with each figure -
 not the documents' text. Nothing suggests Lockheed Martin, Northrop Grumman,
@@ -476,6 +477,15 @@ which for three aircraft is out by between half a metre and two and a half.
 | Licence | GPL, on FGAddon's project-wide requirement that its content is GPL - a policy, not a grant stated by the author, on which the project owner decided on 2026-09-20 that this model ships. What was looked at: no licence file at any level, `B-2-set.xml` names the author "Markus Zojer" and states no terms, and `readme-spirit.txt` is a flying guide. |
 | In the repository | `assets/models/b2.mesh`, 5,612 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
 
+### Visual model: f35b - FlightGear's F-35B
+
+| | |
+| --- | --- |
+| Source | FGAddon, `Aircraft/F-35B`: `Models/F-35B.xml` and the `Models/F-35B.ac`, `Models/Engine.ac` and `Models/Gear.ac` it places |
+| Revision | Subversion r21588 of <https://svn.code.sf.net/p/flightgear/fgaddon/trunk>, 2026-09-22 |
+| Licence | GPL-3.0, the GNU GPL v3 text verbatim in `License.txt` |
+| In the repository | `assets/models/f35b.mesh`, 27,643 triangles, as `tools/make_models.py` makes it; a test fails if it differs. Its `antennas` object is left out: it is a nose air-data boom reaching 1.5 m past the radome, which would make the model 10% longer than the published aeroplane. Without it the mesh is 15.64 m against a published 51.2 ft. |
+
 ### Visual model: f15c - FlightGear's F-15C
 
 | | |
@@ -514,13 +524,7 @@ which for three aircraft is out by between half a metre and two and a half.
 
 ### Aircraft with no visual model
 
-Two aircraft ship none: FlightGear has no model of either.
-
-### No visual model: f35a
-
-| | |
-| --- | --- |
-| Why | FlightGear has no F-35A. FGAddon's `F-35B` is the short take-off and vertical landing variant, a different airframe with a lift fan behind the cockpit, so it is not this aeroplane. |
+One aircraft ships none: FlightGear has no model of it.
 
 ### No visual model: learjet35a
 
@@ -758,7 +762,7 @@ in each file's own header as well as here.
 only as scans: both copies recorded above for its figures carry no text
 layer, and the text versions that exist are a flying club's checklist and a
 flight-simulator vendor's manual, neither of them Piper's. **No flight manual
-is public for the B-2A, the F-22A or the F-35A** at all. The airliners' and
+is public for the B-2A, the F-22A or the F-35B** at all. The airliners' and
 the business jet's operating manuals are their operators' and are not
 published. `docs/COMPLETION_PLAN.md` names this where the item stands.
 

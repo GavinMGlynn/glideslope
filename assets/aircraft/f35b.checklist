@@ -1,9 +1,9 @@
-# The Lockheed Martin F-35A Lightning II's checklists: this project's own, in its own words.
+# The Lockheed Martin F-35B Lightning II's checklists: this project's own, in its own words.
 #
 # **They are not taken from the aeroplane's flight manual.** No such
 # manual was read to write them. What they follow is the ordinary
 # practice for the type, in the order it is flown; the speeds and
-# settings in them are this project's own figures, assets/figures/f35a.xml,
+# settings in them are this project's own figures, assets/figures/f35b.xml,
 # whose sources docs/ASSETS.md records, and the flight model itself
 # wherever the model is what decides - a lever's gate, a flap's travel,
 # an engine's idle.
@@ -16,6 +16,14 @@
 #   confirm TEXT...                  an item only the pilot can see done
 #
 # with `#` beginning a comment; src/sim/checklist.hpp owns the format.
+#
+# **The speeds here were written for the F-35A and were checked when this
+# became the F-35B, not carried over unexamined.** They hold because the two
+# weigh almost the same in combat trim: the B is 3,000 lb heavier empty but
+# carries 5,150 lb less fuel, so its combat weight is 39,750 lb against the
+# A's 39,995 - six tenths of a per cent apart - and its wing is the same 460
+# sq ft. What did change is the engine, an F135-PW-600 of 38,000 lb where the
+# A's F135-PW-100 gave 43,000.
 #
 # The model gives this aeroplane no flap lever and no speedbrake lever: its
 # flaperons are worked by the roll channel alone. So nothing here reads a

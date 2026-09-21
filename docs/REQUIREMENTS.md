@@ -149,7 +149,7 @@ are offered; where it ships none, one is written here from published data.
 | Airliners | Airbus A320, Boeing 737, 747, 787-8 | JSBSim's |
 | Airliners | Airbus A380 | Written here |
 | Fighters | F-15 Eagle, F-22 Raptor | JSBSim's |
-| Fighter | F-35A Lightning II | Written here |
+| Fighter | F-35B Lightning II | Written here |
 | Bomber | B-2 Spirit | Written here |
 
 JSBSim's other models - among them the P-51D, B-17G, DHC-6, Global 5000, MD-11
@@ -167,7 +167,7 @@ What the roster asks of everything else:
   a landplane must not roll out on it.
 - **Published figures.** Airliners are held to their manufacturers'
   airport-planning documents and type-certificate data sheets; light aircraft
-  and the Mosquito to their handbooks and pilot's notes. **Much of the F-35A's
+  and the Mosquito to their handbooks and pilot's notes. **Much of the F-35B's
   and B-2's performance is not public**: they are held to what is published and
   no more, and `PROJECT_STATUS.md` says which of their behaviour no figure
   pins.

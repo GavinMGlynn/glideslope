@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
-<fdm_config name="Lockheed Martin F-35A" version="2.0" release="BETA">
+<fdm_config name="Lockheed Martin F-35B" version="2.0" release="BETA">
     <fileheader>
-        <!-- glideslope: written by tools/make_f35a.py, which says where each number
+        <!-- glideslope: written by tools/make_f35b.py, which says where each number
              comes from. Do not edit it by hand. -->
         <author>glideslope</author>
         <filecreationdate>2026-09-19</filecreationdate>
-        <description>Lockheed Martin F-35A Lightning II, F135-PW-100</description>
+        <description>Lockheed Martin F-35B Lightning II, F135-PW-600</description>
     </fileheader>
     <metrics>
         <wingarea unit="FT2"> 460.0 </wingarea>
@@ -28,11 +28,11 @@
         </location>
     </metrics>
     <mass_balance>
-        <ixx unit="SLUG*FT2"> 16334 </ixx>
-        <iyy unit="SLUG*FT2"> 79830 </iyy>
-        <izz unit="SLUG*FT2"> 91312 </izz>
-        <ixz unit="SLUG*FT2"> 1422 </ixz>
-        <emptywt unit="LBS"> 29300 </emptywt>
+        <ixx unit="SLUG*FT2"> 18007 </ixx>
+        <iyy unit="SLUG*FT2"> 88004 </iyy>
+        <izz unit="SLUG*FT2"> 100661 </izz>
+        <ixz unit="SLUG*FT2"> 1568 </ixz>
+        <emptywt unit="LBS"> 32300 </emptywt>
         <location name="CG" unit="IN">
             <x> 345.7 </x>
             <y> 0.0 </y>
@@ -65,8 +65,8 @@
             <static_friction> 0.80 </static_friction>
             <dynamic_friction> 0.50 </dynamic_friction>
             <rolling_friction> 0.02 </rolling_friction>
-            <spring_coeff unit="LBS/FT"> 18606 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 4651 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 15948 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 3987 </damping_coeff>
             <max_steer unit="DEG"> 5 </max_steer>
             <brake_group> NONE </brake_group>
             <retractable>1</retractable>
@@ -80,8 +80,8 @@
             <static_friction> 0.50 </static_friction>
             <dynamic_friction> 0.50 </dynamic_friction>
             <rolling_friction> 0.02 </rolling_friction>
-            <spring_coeff unit="LBS/FT"> 60697 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 15174 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 52026 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 13007 </damping_coeff>
             <max_steer unit="DEG"> 0 </max_steer>
             <brake_group> LEFT </brake_group>
             <retractable>1</retractable>
@@ -95,15 +95,92 @@
             <static_friction> 0.50 </static_friction>
             <dynamic_friction> 0.50 </dynamic_friction>
             <rolling_friction> 0.02 </rolling_friction>
-            <spring_coeff unit="LBS/FT"> 60697 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 15174 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 52026 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 13007 </damping_coeff>
             <max_steer unit="DEG"> 0 </max_steer>
             <brake_group> RIGHT </brake_group>
             <retractable>1</retractable>
         </contact>
+        <contact type="STRUCTURE" name="NOSE">
+            <location unit="IN">
+                <x> 8.3 </x>
+                <y> -0.0 </y>
+                <z> 13.5 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 240000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="BELLY_1">
+            <location unit="IN">
+                <x> 109.1 </x>
+                <y> -0.0 </y>
+                <z> -6.9 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 240000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="BELLY_2">
+            <location unit="IN">
+                <x> 273.2 </x>
+                <y> -12.8 </y>
+                <z> -21.5 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 240000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="BELLY_3">
+            <location unit="IN">
+                <x> 431.3 </x>
+                <y> -0.0 </y>
+                <z> -19.6 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 240000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="LEFT_WING_TIP">
+            <location unit="IN">
+                <x> 457.9 </x>
+                <y> -206.4 </y>
+                <z> 24.9 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 240000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="RIGHT_WING_TIP">
+            <location unit="IN">
+                <x> 457.9 </x>
+                <y> 206.3 </y>
+                <z> 24.9 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 240000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="TAIL">
+            <location unit="IN">
+                <x> 539.3 </x>
+                <y> -5.1 </y>
+                <z> -1.8 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 240000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
+        </contact>
     </ground_reactions>
     <propulsion>
-        <engine file="F135-PW-100">
+        <engine file="F135-PW-600">
             <feed>0</feed>
             <feed>1</feed>
             <thruster file="direct">
@@ -120,8 +197,8 @@
                 <y> -40.0 </y>
                 <z> 0.0 </z>
             </location>
-            <capacity unit="LBS"> 9125 </capacity>
-            <contents unit="LBS"> 9125 </contents>
+            <capacity unit="LBS"> 6550 </capacity>
+            <contents unit="LBS"> 6550 </contents>
         </tank>
         <tank type="FUEL">
             <location unit="IN">
@@ -129,11 +206,11 @@
                 <y> 40.0 </y>
                 <z> 0.0 </z>
             </location>
-            <capacity unit="LBS"> 9125 </capacity>
-            <contents unit="LBS"> 9125 </contents>
+            <capacity unit="LBS"> 6550 </capacity>
+            <contents unit="LBS"> 6550 </contents>
         </tank>
     </propulsion>
-    <flight_control name="F-35A">
+    <flight_control name="F-35B">
         <channel name="Controls">
             <pure_gain name="Pitch Damper">
                 <input>velocities/q-aero-rad_sec</input>
@@ -297,20 +374,20 @@
                               0.70	0.02000
                               0.80	0.02000
                               0.85	0.02000
-                              0.90	0.02366
-                              0.95	0.03308
-                              1.00	0.04598
-                              1.05	0.06002
-                              1.10	0.07292
-                              1.20	0.08600
-                              1.30	0.08029
-                              1.40	0.07545
-                              1.60	0.06768
-                              1.80	0.06174
-                              2.00	0.05706
-                              2.20	0.05327
-                              2.40	0.05016
-                              2.60	0.04755
+                              0.90	0.02299
+                              0.95	0.03071
+                              1.00	0.04125
+                              1.05	0.05275
+                              1.10	0.06329
+                              1.20	0.07400
+                              1.30	0.06933
+                              1.40	0.06537
+                              1.60	0.05901
+                              1.80	0.05415
+                              2.00	0.05032
+                              2.20	0.04722
+                              2.40	0.04467
+                              2.60	0.04254
                         </tableData>
                     </table>
                 </product>

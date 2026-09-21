@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!--
+  The Lockheed Martin F-35B Lightning II's published figures, and the
+  conditions each was measured in, so far as they are given.
+
+  From Lockheed Martin's F-35B product card (C2023, 23-08442_002, PIRA
+  AER2023060207) and its F-35 Lightning II Program Status and Fast Facts
+  (April 2020, FG19-24749_004). Its performance is mostly not public: its
+  maximum Mach is given at no altitude, its range on no profile. The checks in
+  src/sim/figures.cpp fly one flight per <figure> and compare what JSBSim does
+  with the range given here; the tolerances are this project's.
+
+  **There is no ceiling figure here, and that is deliberate.** Lockheed
+  publishes no service ceiling for any F-35, and the "above 50,000 feet" the
+  F-35A was held to is the Air Force's fact sheet, for the A alone. Nothing
+  published gives the F-35B one, so none is claimed.
+
+  **The lift fan is not modelled** (tools/make_f35b.py), so none of the STOVL
+  figures - hover thrust, vertical landing, short take-off - can be checked
+  and none is listed.
+-->
+<published_figures aircraft="f35b" flaps_full_deg="0">
+  <source>Lockheed Martin F-35B product card (2023); Lockheed Martin F-35 Fast Facts (April 2020)</source>
+
+  <!-- 39,750 lb: the empty weight, 32,300 lb (Fast Facts); the pilot, 230
+       lb; two AIM-120s internally, 670 lb at 335 lb each (the Air Force's
+       AMRAAM fact sheet) - the F-35B's weapon bays are shorter than the
+       F-35A's and this project does not claim more than two; and half the
+       13,100 lb of internal fuel (product card). -->
+  <loading name="combat" total_lbs="39750">
+    <pointmass index="0" lbs="230"/>
+    <pointmass index="1" lbs="670"/>
+    <tank index="0" lbs="3275"/>
+    <tank index="1" lbs="3275"/>
+  </loading>
+
+  <!-- 46,300 lb: the same with its tanks full. -->
+  <loading name="full" total_lbs="46300">
+    <pointmass index="0" lbs="230"/>
+    <pointmass index="1" lbs="670"/>
+    <tank index="0" lbs="6550"/>
+    <tank index="1" lbs="6550"/>
+  </loading>
+
+  <figure name="maximum_mach" fuel_frozen="1" flight="best_level_mach" loading="combat"
+          unit="Mach" value="1.6" tolerance="0.05" altitude_ft="30000" altitude_to_ft="50000"
+          mach="1.3">
+    The product card's "Speed Mach 1.6"; Fast Facts gives Mach 1.6 "with full
+    internal weapons load". No altitude is given; flown level at every 2,000
+    ft from 30,000 to 50,000 ft at full throttle, the fastest.
+  </figure>
+
+  <figure name="range" flight="cruise_range" loading="full" unit="nmi" min="900" max="1500"
+          altitude_ft="40000" mach="0.8">
+    The product card's "Range (Internal Fuel) >900 n.mi/1,667 km"; Fast Facts
+    gives the same on the USMC profile. The profile is not published; flown
+    level at 40,000 ft and Mach 0.8, this project's choice, to the last of its
+    fuel with none kept back, so further than a profile with reserves goes.
+    1,500 nm bounds a model gone wrong.
+  </figure>
+</published_figures>

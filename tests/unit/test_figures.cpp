@@ -22,7 +22,7 @@ const char* const data_dir = GLIDESLOPE_TEST_DATA_DIR;
 
 // Every aircraft with published figures.
 const std::vector<std::string>& figured_models() {
-    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "a380", "b2", "c172p", "c182", "f15c", "f22", "f35a", "j3cub", "learjet35a", "mosquito-fb6", "pa28", "short_s23"};
+    static const std::vector<std::string> models = {"737-300", "747-400", "787-8", "a320", "a380", "b2", "c172p", "c182", "f15c", "f22", "f35b", "j3cub", "learjet35a", "mosquito-fb6", "pa28", "short_s23"};
     return models;
 }
 
@@ -282,16 +282,17 @@ GLIDESLOPE_TEST(the_learjet_35a_stalls_near_its_flight_manuals_speed_with_40_deg
     expect_figure("learjet35a", "stall_speed_flaps_40");
 }
 
-GLIDESLOPE_TEST(the_f35a_reaches_mach_1_6_at_its_best_altitude) {
-    expect_figure("f35a", "maximum_mach");
+GLIDESLOPE_TEST(the_f35b_reaches_mach_1_6_at_its_best_altitude) {
+    expect_figure("f35b", "maximum_mach");
 }
 
-GLIDESLOPE_TEST(the_f35a_still_climbs_at_50000_ft) {
-    expect_figure("f35a", "climb_rate_50000_ft");
-}
+// **The F-35B is held to no ceiling, and there is no test for one.** The
+// F-35A was held to the Air Force's "above 50,000 feet"; that figure is the
+// A's, and Lockheed publishes no service ceiling for any F-35. Nothing
+// published gives the B one, so nothing here claims it.
 
-GLIDESLOPE_TEST(the_f35a_flies_more_than_its_published_range_on_internal_fuel) {
-    expect_figure("f35a", "range");
+GLIDESLOPE_TEST(the_f35b_flies_more_than_its_published_range_on_internal_fuel) {
+    expect_figure("f35b", "range");
 }
 
 GLIDESLOPE_TEST(the_b2_flies_at_high_subsonic_speed) {
@@ -480,7 +481,11 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
         check(flown.count(name) == 1, "figures name a flight " + name +
                                           " that does not exist");
     }
-    check(figures_in_files == 94,
-          "ninety-four figures, one test each above; found " +
+    // Ninety-three, where there were ninety-four: the F-35A's ceiling went
+    // when it became the F-35B, because Lockheed Martin publishes no service
+    // ceiling for any F-35 and the "above 50,000 feet" the A was held to is
+    // the Air Force's, for the A alone.
+    check(figures_in_files == 93,
+          "ninety-three figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

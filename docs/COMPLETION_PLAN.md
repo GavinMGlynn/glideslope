@@ -254,9 +254,9 @@ The roster (`REQUIREMENTS.md`, section 4.2): light aircraft - the Piper J-3
 Cub, Cessna 172P, Piper PA-28 and Cessna 182; a seaplane, the Short S.23 Empire
 flying boat; from the Second World War, the de Havilland Mosquito; a business
 jet, the Learjet 35A; the airliners Airbus A320 and A380 and Boeing 737, 747
-and 787; the fighters F-15 Eagle, F-22 Raptor and F-35A Lightning II; and a
+and 787; the fighters F-15 Eagle, F-22 Raptor and F-35B Lightning II; and a
 bomber, the B-2 Spirit. JSBSim ships flight models for all but the A380, the
-Learjet, the Mosquito, the F-35A and the B-2, and those it ships are of uneven
+Learjet, the Mosquito, the F-35B and the B-2, and those it ships are of uneven
 quality: each is held to published figures before it is offered, as the Cessna
 172P was. The five it does not ship are written here, from published data.
 
@@ -337,15 +337,18 @@ quality: each is held to published figures before it is offered, as the Cessna
       FAR 25's 2.4, Mach 0.82 level at 41,000 ft against the Air Force's 0.81,
       still climbing at 45,000 ft, and its stalls with flaps up, 8 and 40
       within two knots of the manual's.
-- [x] **F-35A and B-2 flight models**, written here from what is published.
+- [x] **F-35B and B-2 flight models**, written here from what is published.
       Much of their performance is not public: they are held to what is -
       maximum speed, ceiling, and range where it is given - and nothing more
       is claimed. *Verification: each published figure inside its tolerance,
       with every source named in `ASSETS.md`, and `PROJECT_STATUS.md` saying
       which of the aircraft's behaviour no figure pins.* Stated, 2026-09-19,
-      CI run 35442214130: on every platform the F-35A flies Mach 1.62 against its
-      published 1.6, still climbs above 50,000 ft, and ranges 1,830 nm on
-      internal fuel against more than 1,200; the B-2A flies Mach 0.89 level
+      CI run 35442214130 for the F-35A, which flew Mach 1.62 against its
+      published 1.6 and ranged 1,830 nm against more than 1,200. **That
+      aeroplane is now the F-35B** (see the tails): it flies Mach 1.609
+      against the same published 1.6 and ranges 1,372 nm against more than
+      900, locally, and is held to no ceiling because none is published for
+      any F-35; the B-2A flies Mach 0.89 level
       at 40,000 ft, "high subsonic", still climbs at its 50,000 ft ceiling,
       and ranges 6,100 nm against about 6,000. Every source is in `ASSETS.md`,
       and `PROJECT_STATUS.md` says what no figure pins: nearly all of it.
@@ -386,9 +389,8 @@ quality: each is held to published figures before it is offered, as the Cessna
       with their source, revision and licence - eight on the terms their own
       directory states, six on FGAddon's project-wide GPL requirement, which
       the project owner decided on 2026-09-20 they ship on and which each
-      entry names as a policy rather than a grant. The Learjet 35A and the
-      F-35A ship none: FlightGear has no model of either, and `ASSETS.md`
-      says so. Every model is held by tests to its published length and span
+      entry names as a policy rather than a grant. The Learjet 35A ships
+      none: FlightGear has no Learjet of any mark, and `ASSETS.md` says so. Every model is held by tests to its published length and span
       and to facing the way it flies, and the committed meshes are checked
       against what the script makes. Nothing draws any of them yet - that is
       the views item below.
@@ -510,7 +512,7 @@ checklists are part of. A lesson ends in a debrief, never a score
       the handbook's own order. **Still to do: the other thirteen.** The
       J-3 Cub's manual survives only as scans with no text in either copy
       recorded; no flight manual is public for the B-2A, the F-22A or the
-      F-35A; and the airliners' and business jet's operating manuals are
+      F-35B; and the airliners' and business jet's operating manuals are
       their operators' and are not published. Those thirteen follow the
       ordinary practice for the type with figures from this project's own
       `assets/figures/<id>.xml`, and `ASSETS.md` says which is which rather
@@ -563,7 +565,7 @@ checklists are part of. A lesson ends in a debrief, never a score
       speed is not a tabulated figure at all, being defined as VS1g behind a
       low-speed protection the crew cannot override, with operating speeds
       referenced to that; and no flight manual is public for the B-2A, F-22A
-      or F-35A. **There is a way through that does not invent figures**:
+      or F-35B. **There is a way through that does not invent figures**:
       `figures.cpp` already has a `stall_speed` flight that can measure any
       model, so a lesson's reference speed could be measured from the
       aeroplane it teaches rather than published for it. That is a decision
@@ -883,21 +885,24 @@ Found while implementing something else. Added when found, not when remembered.
       no frame between changing more than a stated fraction of its pixels;
       the haze is brighter toward the sun than away from it; and rain is
       drawn out to the reported visibility.*
-- [ ] **Every aircraft's airframe meets the ground with its wheels up.**
+- [x] **Every aircraft's airframe meets the ground with its wheels up.**
       *(Found making water, 2026-09-20.)* JSBSim gives a retracted wheel no
       force, so an aeroplane whose only contacts are its undercarriage falls
-      straight through the runway when it is landed with its wheels up.
-      Every aircraft but one now has an airframe to come down on: the four
-      that had nothing - the 737-300, the 747-400, the B-2A and the F-22A -
-      gained a belly, a nose, two wing tips and a tail measured from their own
-      visual models, and an airframe now scrapes the runway instead of
-      rolling along it on a tyre's friction, which had the A320 still doing
-      118 knots after three minutes and 11 km. **The F-35A is the part still missing**: no F-35A
-      flight model or visual model carrying these points exists anywhere, so
-      it waits on the change to the F-35B, which has both.
+      straight through the runway when it is landed with its wheels up. Every
+      aircraft now has an airframe to come down on: the five that had nothing
+      - the 737-300, the 747-400, the B-2A, the F-22A and the F-35 - gained a
+      belly, a nose, two wing tips and a tail measured from their own visual
+      models, and an airframe now scrapes the runway instead of rolling along
+      it on a tyre's friction, which had the A320 still doing 118 knots after
+      three minutes and 11 km.
       *Verification: every aircraft landed on a runway with its wheels up
       comes to rest on its airframe, its centre of gravity above the ground,
-      in a distance the stated friction gives.*
+      in a distance the stated friction gives.* Done, 2026-09-22: all fifteen
+      landplanes rest on their airframes - the 747-400 at 4.9 ft above the
+      runway, the B-2 at 6.7, the F-22 at 1.3, the F-35B at 1.4 - and none
+      goes through it. The A320, which never stopped, now stops in 1,332 m.
+      The five whose wheels do not retract are flown too and held to what
+      applies to them, and the flying boat is left out with its reason.
 - [x] **Propeller and mixture levers for the pilot.** *(Found making the
       Short S.23, 2026-09-20.)* The controls have a propeller lever and a
       mixture, which the figure flights set, but no key or binding works
@@ -939,3 +944,36 @@ Found while implementing something else. Added when found, not when remembered.
       1,093 m.
       *Verification: the F-15C's wheels-up landing stops in the distance the
       stated friction gives, as every other aircraft's does.*
+- [x] **The F-35A becomes the F-35B.** *(Decided by the project owner,
+      2026-09-22.)* The F-35A was the one aircraft with no visual model and
+      the one that still fell through the runway with its wheels up, and both
+      had the same cause: FGAddon has no F-35A. It does have an F-35B, whose
+      visual model ships under a verbatim GPL-3.0 and draws its undercarriage,
+      which is what the airframe measurement needs. So the simulator models
+      the B instead - a change of variant, not of ambition: its own published
+      size, weights, engine and figures throughout, written from what is
+      published as the A was. **Its lift fan is not modelled**, so it takes
+      off and lands on a runway like any other fighter; hovering, vertical
+      landing and short take-off are named below as work not done.
+      *Verification: the F-35B flies its published maximum Mach and range;
+      its visual model sits on its flight model within the same distance
+      every other is held to; and it comes to rest on its airframe with its
+      wheels up, which empties the list of aircraft that do not.* Done,
+      2026-09-22: it flies Mach 1.609 against its published 1.6 and ranges
+      1,372 nm against more than 900; its model sits 0.31 m from the contacts
+      it stands on, better than most; and it rests on its airframe 1.4 ft
+      above the runway. **It is held to no ceiling**, because Lockheed Martin
+      publishes none for any F-35 - the "above 50,000 feet" the F-35A was
+      held to is the Air Force's, for the A.
+- [ ] **The F-35B cannot hover, land vertically or take off short.**
+      *(Found switching to the F-35B, 2026-09-22.)* The F-35B is a STOVL
+      aeroplane, and its shaft-driven LiftFan, three-bearing swivel nozzle
+      and roll posts are what make it one. None of that is modelled: the
+      flight model flies its wing, weights and engine in conventional flight
+      and uses a runway like any other fighter. Rolls-Royce publishes the
+      LiftSystem's component thrusts and Lockheed Martin the installed total,
+      so there are figures to build to; what is not published is how the
+      aeroplane handles on them.
+      *Verification: the F-35B hovers at its published vertical thrust, lands
+      vertically and takes off in a published short-take-off distance, each
+      figure named with its source.*

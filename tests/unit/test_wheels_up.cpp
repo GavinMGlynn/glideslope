@@ -136,12 +136,12 @@ double stated_distance_m(double knots) {
 // undercarriage at all, so it has no wheels to put up and a runway is not
 // where it lands.
 GLIDESLOPE_TEST(every_aircraft_put_down_with_its_wheels_up_rests_on_its_airframe) {
-    // The F-35A is the one aeroplane still without an airframe to rest on.
-    // No F-35A flight model carrying one exists: FGAddon has no F-35A at all,
-    // and this project ships no mesh for it to be measured from. It becomes
-    // the F-35B, which has both, and that is its own item; until then this
-    // names it rather than passing in silence over it.
-    const std::vector<std::string> awaiting_a_model{"f35a"};
+    // **Every aeroplane now has an airframe to rest on.** The F-35A was the
+    // last without one - no F-35A flight model carrying the points exists,
+    // and FGAddon has no F-35A to measure a mesh from - and it has since
+    // become the F-35B, which FGAddon does have. This list is empty so that
+    // an aeroplane losing its airframe again cannot pass unnoticed.
+    const std::vector<std::string> awaiting_a_model{};
 
     const auto roster = glideslope::sim::read_catalogue(data());
     check(roster.size() == 16, "the roster is sixteen aircraft, not " +

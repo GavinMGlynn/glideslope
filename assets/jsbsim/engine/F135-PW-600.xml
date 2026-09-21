@@ -11,11 +11,11 @@
     injected?       no
 -->
 
-<turbine_engine name="F135-PW-100">
-  <!-- glideslope: JSBSim's F100-PW-229 made the F-35A's F135
-       by tools/make_f35a.py, which made it. Do not edit it by hand. -->
-  <milthrust>   28000.0 </milthrust>
-  <maxthrust>   43000.0 </maxthrust>
+<turbine_engine name="F135-PW-600">
+  <!-- glideslope: JSBSim's F100-PW-229 made the F-35B's F135
+       by tools/make_f35b.py, which made it. Do not edit it by hand. -->
+  <milthrust>   26000.0 </milthrust>
+  <maxthrust>   38000.0 </maxthrust>
   <bypassratio>     0.4 </bypassratio>
   <tsfc>            0.90 </tsfc>
   <atsfc>           2.05 </atsfc>

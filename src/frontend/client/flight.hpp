@@ -107,7 +107,7 @@ public:
     gfx::Camera camera(gfx::View view, double orbit_rad = 0.0) const;
 
     // The aircraft's visual model, or null where it ships none - FlightGear
-    // has no Learjet 35A and no F-35A, and docs/ASSETS.md says so.
+    // has no Learjet 35A, and docs/ASSETS.md says so.
     const gfx::Model* model() const {
         return model_ ? &*model_ : nullptr;
     }

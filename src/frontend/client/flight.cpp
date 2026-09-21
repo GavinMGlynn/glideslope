@@ -79,8 +79,8 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
         checklist_.reset();
     }
 
-    // Its visual model, where it ships one: two aircraft do not, because
-    // FlightGear has no Learjet 35A and no F-35A, and docs/ASSETS.md says so.
+    // Its visual model, where it ships one: one aircraft does not, because
+    // FlightGear has no Learjet 35A, and docs/ASSETS.md says so.
     // Where there is one, there is an alignment saying where it sits on this
     // aeroplane, and a model without one is a mistake rather than an absence.
     const std::filesystem::path mesh =

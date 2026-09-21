@@ -1,7 +1,8 @@
-# The Lockheed Martin F-35A Lightning II, one F135-PW-100: a flight model
+# The Lockheed Martin F-35B Lightning II, one F135-PW-600: a flight model
 # written for glideslope from what is published of it - its size, weights and
-# engine, and its maximum Mach, ceiling and range (assets/figures/f35a.xml) -
-# by tools/make_f35a.py.
+# engine, and its maximum Mach and range (assets/figures/f35b.xml) - by
+# tools/make_f35b.py. The F-35B is a STOVL aeroplane and its lift fan is not
+# modelled: it takes off and lands on a runway like any other fighter.
 #
 #   name TEXT...                 what it is called
 #   model NAME                   its JSBSim model, in data/jsbsim/aircraft
@@ -11,6 +12,6 @@
 # Its published figures, if it has them, are data/figures/MODEL.xml, and its
 # selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
 
-name Lockheed Martin F-35A Lightning II
-model f35a
+name Lockheed Martin F-35B Lightning II
+model f35b
 start 300 0.47
