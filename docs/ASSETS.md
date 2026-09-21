@@ -715,6 +715,26 @@ A HUD cannot hold a link; the client shows the credit's text on screen and
 prints it with the link when the flight's weather is fetched, as
 `glideslope_cli weather` does.
 
+## Written here, from no outside source
+
+Some of what ships is this project's own writing rather than anyone else's
+data. It is recorded here so that the answer to "where did this come from"
+is never silence.
+
+### The aircraft checklists
+
+| | |
+| --- | --- |
+| What | `assets/aircraft/*.checklist`, a checklist for each of the nine phases of flight for every aircraft in the roster |
+| Source | **None.** They are written for this project, in its own words. No aircraft flight manual, pilot's notes or operating handbook was read to write them, and none is quoted or paraphrased. What they follow is the ordinary practice for each type, in the order it is flown |
+| Where the numbers come from | The speeds, settings and engine figures are this project's own published-figure files, `assets/figures/<id>.xml`, whose sources are recorded above; and the flight models themselves wherever the model is what decides - a lever's gate, a flap's travel, an engine's idle |
+| Licence | This project's, GPL-3.0-or-later, whose text ships as `LICENSE` |
+| What they are not | Not a substitute for an aircraft's real checklist, and not airworthy guidance. They exist to teach the simulator's aeroplanes |
+
+**Three of the sixteen could not have been written from a manual in any
+case**: no flight manual is public for the B-2A, the F-22A or the F-35A.
+`docs/COMPLETION_PLAN.md` names this where the item stands.
+
 ## Planned sources
 
 These are named in `REQUIREMENTS.md`. Their entries are filled in when they are

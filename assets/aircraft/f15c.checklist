@@ -1,0 +1,87 @@
+# The McDonnell Douglas F-15C Eagle's checklists: this project's own, in its own words.
+#
+# **They are not taken from the aeroplane's flight manual.** No such
+# manual was read to write them. What they follow is the ordinary
+# practice for the type, in the order it is flown; the speeds and
+# settings in them are this project's own figures, assets/figures/f15c.xml,
+# whose sources docs/ASSETS.md records, and the flight model itself
+# wherever the model is what decides - a lever's gate, a flap's travel,
+# an engine's idle.
+#
+#   phase NAME                       one of: before-start, taxi, take-off,
+#                                    climb, cruise, descent, approach,
+#                                    landing, after-landing
+#   check PROPERTY OP VALUE TEXT...  an item the aircraft can see done
+#   range PROPERTY LOW HIGH TEXT...  the same, where a band shows it done
+#   confirm TEXT...                  an item only the pilot can see done
+#
+# with `#` beginning a comment; src/sim/checklist.hpp owns the format.
+#
+# The model has no flap channel, so nothing here reads a flap setting: the
+# aeroplane's flaps are the pilot's to confirm. It does have a speedbrake
+# lever, and the lever moves the surface, but the aerodynamics draws no drag
+# from it yet, so the speedbrake items below say only where the lever is. Its
+# two F100s light their reheat above a throttle of 0.99, which is what "into
+# reheat" and "no reheat" mean here.
+
+phase before-start
+confirm Walk-round done and the aeroplane clear to start
+confirm Strapped in, harness tight and the ejection seat pins stowed
+confirm Oxygen on, mask checked and the canopy clear
+confirm Armament safe and the master arm off
+check fcs/throttle-cmd-norm <= 0.05 Both throttles closed
+check gear/gear-cmd-norm >= 0.95 Undercarriage lever down
+
+phase taxi
+check propulsion/engine[0]/n1 >= 35.0 Port engine running
+check propulsion/engine[1]/n1 >= 35.0 Starboard engine running
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever in
+confirm Brakes and nose wheel steering checked as the aeroplane first moves
+check fcs/throttle-cmd-norm <= 0.40 Taxi at a walking pace on low power
+
+phase take-off
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Stabilator trim set for the take-off
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever in
+confirm Controls free and correct, canopy closed and locked, and the flaps set by eye
+check fcs/throttle-cmd-norm >= 0.99 Both throttles fully forward, into reheat
+check velocities/vc-kts >= 130.0 Ease the nose up at 130 knots
+
+phase climb
+check gear/gear-cmd-norm <= 0.05 Undercarriage lever up
+check gear/gear-pos-norm <= 0.05 Undercarriage locked up
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever in
+range velocities/vc-kts 300.0 400.0 Climb at 300 to 400 knots
+confirm Engine instruments checked, and the fuel watched while the reheat is lit
+
+phase cruise
+range velocities/mach 0.75 0.92 Cruise at Mach 0.75 to 0.90
+range position/h-sl-ft 30000.0 45000.0 Level between 30,000 and 45,000 feet
+check fcs/throttle-cmd-norm <= 0.99 Military power, no reheat
+check gear/gear-pos-norm <= 0.05 Undercarriage up
+confirm Fuel checked against the leg still to fly
+
+phase descent
+check fcs/speedbrake-cmd-norm >= 0.50 Speedbrake lever out
+range fcs/throttle-cmd-norm 0.0 0.60 Throttles back for the descent
+check velocities/vc-kts <= 450.0 Down at no more than 450 knots
+confirm Altimeter set to the field's pressure
+
+phase approach
+check gear/gear-cmd-norm >= 0.95 Undercarriage lever down
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever in for the approach
+range velocities/vc-kts 145.0 175.0 Approach at 145 to 175 knots
+confirm Runway in sight and the landing light on
+
+phase landing
+range velocities/vc-kts 135.0 160.0 Over the threshold at 135 to 160 knots
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+check fcs/throttle-cmd-norm <= 0.25 Throttles closed in the flare
+confirm Hold the nose high after touchdown and let the aeroplane slow itself
+
+phase after-landing
+check position/h-agl-ft <= 50.0 Down and rolling
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever in
+check velocities/vc-kts <= 40.0 Clear of the runway and slowed to a taxi
+check fcs/throttle-cmd-norm <= 0.35 Throttles back to a taxi power
+confirm Master arm off and the landing light out

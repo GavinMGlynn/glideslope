@@ -1,0 +1,89 @@
+# The Lockheed Martin F-22A Raptor's checklists: this project's own, in its own words.
+#
+# **They are not taken from the aeroplane's flight manual.** No such
+# manual was read to write them. What they follow is the ordinary
+# practice for the type, in the order it is flown; the speeds and
+# settings in them are this project's own figures, assets/figures/f22.xml,
+# whose sources docs/ASSETS.md records, and the flight model itself
+# wherever the model is what decides - a lever's gate, a flap's travel,
+# an engine's idle.
+#
+#   phase NAME                       one of: before-start, taxi, take-off,
+#                                    climb, cruise, descent, approach,
+#                                    landing, after-landing
+#   check PROPERTY OP VALUE TEXT...  an item the aircraft can see done
+#   range PROPERTY LOW HIGH TEXT...  the same, where a band shows it done
+#   confirm TEXT...                  an item only the pilot can see done
+#
+# with `#` beginning a comment; src/sim/checklist.hpp owns the format.
+#
+# There is no flap lever on this aeroplane: the flight computer schedules the
+# trailing-edge flaps on speed, full down below 180 knots and in above 255,
+# so the flap items below read what it has done rather than what the pilot
+# has asked for. The speedbrake is out or in and nothing between, and it is
+# flown with the flaps, ailerons and rudders rather than a board of its own.
+# Its two F119s light their reheat above a throttle of 0.99, which is what
+# "into reheat" and "no reheat" mean here, and the aeroplane holds Mach 1.7
+# without ever lighting it.
+
+phase before-start
+confirm Walk-round done and the aeroplane clear to start
+confirm Strapped in, harness tight and the ejection seat pins stowed
+confirm Oxygen on, mask checked and the canopy clear
+confirm Weapons bay doors shut and the master arm off
+check fcs/throttle-cmd-norm <= 0.05 Both throttles closed
+check gear/gear-cmd-norm >= 0.95 Undercarriage lever down
+
+phase taxi
+check propulsion/engine[0]/n1 >= 35.0 Port engine running
+check propulsion/engine[1]/n1 >= 35.0 Starboard engine running
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake in
+confirm Brakes and nose wheel steering checked as the aeroplane first moves
+check fcs/throttle-cmd-norm <= 0.40 Taxi at a walking pace on low power
+
+phase take-off
+range fcs/flap-pos-deg 25.0 30.5 Trailing-edge flaps down, as the flight computer sets them below 180 knots
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Pitch trim set for the take-off
+confirm Controls free and correct, and the canopy closed and locked
+check fcs/throttle-cmd-norm >= 0.99 Both throttles fully forward, into reheat
+check velocities/vc-kts >= 130.0 Ease the nose up at 130 knots
+
+phase climb
+check gear/gear-cmd-norm <= 0.05 Undercarriage lever up
+check gear/gear-pos-norm <= 0.05 Undercarriage locked up
+check fcs/flap-pos-deg <= 0.5 Trailing-edge flaps in, as they come once past 255 knots
+range velocities/vc-kts 300.0 420.0 Climb at 300 to 420 knots
+confirm Engine instruments checked, and the fuel watched while the reheat is lit
+
+phase cruise
+range velocities/mach 1.40 1.80 Supercruise between Mach 1.4 and 1.8
+check fcs/throttle-cmd-norm <= 0.99 Military power, and no reheat to hold it
+range position/h-sl-ft 30000.0 50000.0 Level between 30,000 and 50,000 feet
+check fcs/flap-pos-deg <= 0.5 Trailing-edge flaps in
+confirm Fuel checked against the leg still to fly
+
+phase descent
+check fcs/speedbrake-cmd-norm >= 0.99 Speedbrake out, which on this aeroplane is all of it or none
+range fcs/throttle-cmd-norm 0.0 0.60 Throttles back for the descent
+check velocities/vc-kts <= 450.0 Down at no more than 450 knots
+confirm Altimeter set to the field's pressure
+
+phase approach
+check gear/gear-cmd-norm >= 0.95 Undercarriage lever down
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake in for the approach
+range fcs/flap-pos-deg 25.0 30.5 Trailing-edge flaps back down of their own accord
+range velocities/vc-kts 150.0 180.0 Approach at 150 to 180 knots
+
+phase landing
+range velocities/vc-kts 140.0 165.0 Over the threshold at 140 to 165 knots
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+check fcs/throttle-cmd-norm <= 0.25 Throttles closed in the flare
+confirm Hold the nose high after touchdown, then lower it and brake straight
+
+phase after-landing
+check position/h-agl-ft <= 50.0 Down and rolling
+check velocities/vc-kts <= 40.0 Clear of the runway and slowed to a taxi
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake in
+check fcs/throttle-cmd-norm <= 0.35 Throttles back to a taxi power
+confirm Master arm off, weapons bay doors shut and the landing light out

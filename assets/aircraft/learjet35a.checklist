@@ -1,0 +1,95 @@
+# The Gates Learjet 35A's checklists: this project's own, in its own words.
+#
+# **They are not taken from the aeroplane's flight manual.** No such
+# manual was read to write them. What they follow is the ordinary
+# practice for the type, in the order it is flown; the speeds and
+# settings in them are this project's own figures, assets/figures/learjet35a.xml,
+# whose sources docs/ASSETS.md records, and the flight model itself
+# wherever the model is what decides - a lever's gate, a flap's travel,
+# an engine's idle.
+#
+#   phase NAME                       one of: before-start, taxi, take-off,
+#                                    climb, cruise, descent, approach,
+#                                    landing, after-landing
+#   check PROPERTY OP VALUE TEXT...  an item the aircraft can see done
+#   range PROPERTY LOW HIGH TEXT...  the same, where a band shows it done
+#   confirm TEXT...                  an item only the pilot can see done
+#
+# with `#` beginning a comment; src/sim/checklist.hpp owns the format.
+#
+# The 35A's TFE731s are turbofans: there is no mixture and no pitch lever, so
+# nothing here names either, and the thrust set is read off the fan, N1 - 30
+# per cent at idle, 100 at take-off. Its spoilers are its airbrake and its
+# lift dump both, and it has no thrust reverser in this model, so the landing
+# run is the wheel brakes' work.
+#
+# The speeds are worked from the flight manual's charts as
+# assets/figures/learjet35a.xml quotes them: the stall with flaps 40 at the
+# maximum landing weight, 96.5 knots, sets a threshold speed a third above it;
+# the stall with flaps 8, 109 knots at 15,800 lb, sets the band the nose comes
+# up in across the weights. Mmo is 0.81 and the ceiling 45,000 feet, both the
+# manual's own.
+
+phase before-start
+confirm Walk-round done, covers and pins off, and the cabin door shut and latched
+check fcs/throttle-cmd-norm <= 0.05 Thrust levers closed
+check fcs/flap-pos-deg <= 0.5 Flaps up
+check fcs/speedbrake-pos-norm <= 0.05 Spoilers in
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Pitch trim set within the take-off band
+confirm Fuel quantity and balance checked, the tip tanks counted in
+
+phase taxi
+check propulsion/engine[0]/n2 >= 55 Left engine running, N2 up to its idle of 60 per cent
+check propulsion/engine[1]/n2 >= 55 Right engine running
+range fcs/flap-pos-deg 7.5 8.5 Flaps eight degrees, the take-off setting
+confirm Brakes and nosewheel steering checked as the aeroplane first moves
+check fcs/throttle-cmd-norm <= 0.35 Taxi at idle thrust, held back on the brakes rather than the levers
+
+phase take-off
+range fcs/flap-pos-deg 7.5 8.5 Flaps eight degrees
+check fcs/speedbrake-pos-norm <= 0.05 Spoilers in
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked for the roll
+check propulsion/engine[0]/n1 >= 90 Take-off thrust set, the fans up near 100 per cent
+range velocities/vc-kts 100 140 The nose up at 128 knots at the maximum weight, less as it lightens
+confirm Airspeed alive on both sides, the engine instruments in the green, the runway clear
+
+phase climb
+check gear/gear-pos-norm <= 0.05 Undercarriage up
+check fcs/flap-pos-deg <= 0.5 Flaps up once the second segment is behind
+range propulsion/engine[0]/n1 80 100 Climb thrust set
+range velocities/vc-kts 200 280 Climb at 250 knots, and on Mach above the changeover
+confirm Pressurisation climbing with the aeroplane, and the seat-belt sign on
+
+phase cruise
+range velocities/mach 0.60 0.81 Cruise held below Mach 0.81, the Mmo
+range position/h-sl-ft 25000 45000 Level in the flight levels, at or under the ceiling of 45,000 feet
+check fcs/flap-pos-deg <= 0.5 Flaps up
+check gear/gear-pos-norm <= 0.05 Undercarriage up
+check fcs/speedbrake-pos-norm <= 0.05 Spoilers in
+
+phase descent
+range propulsion/engine[0]/n1 25 75 Thrust back for the descent
+range velocities/vc-kts 150 300 Down at 250 to 300 knots, the spoilers used if the profile needs them
+confirm Altimeters set to the field's pressure at the transition level
+confirm Pressurisation set to the field's height, and the approach briefed
+
+phase approach
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked, three greens
+range fcs/flap-pos-deg 19.0 41.0 Flaps twenty on the base leg, forty on the final
+range velocities/vc-kts 120 160 Approach at 130 knots, a third above the stall with full flap
+check fcs/speedbrake-pos-norm <= 0.05 Spoilers in from the final approach fix
+confirm Landing clearance given, the runway in sight and the lights on
+
+phase landing
+check fcs/flap-pos-deg >= 39.0 Flaps forty degrees
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+range velocities/vc-kts 115 135 Over the threshold at 125 knots at the maximum landing weight
+check fcs/throttle-cmd-norm <= 0.15 Thrust levers closed in the flare
+check fcs/speedbrake-pos-norm >= 0.5 Spoilers out on touchdown, to put the weight on the wheels
+
+phase after-landing
+check fcs/flap-pos-deg <= 0.5 Flaps up
+check fcs/speedbrake-pos-norm <= 0.05 Spoilers in
+check velocities/vc-kts <= 30 Clear of the runway and slowed to a taxi
+check fcs/throttle-cmd-norm <= 0.2 Thrust levers at idle
+confirm Landing and strobe lights off, and the transponder to standby

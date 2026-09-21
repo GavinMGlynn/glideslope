@@ -1,0 +1,93 @@
+# The Boeing 737-300's checklists: this project's own, in its own words.
+#
+# **They are not taken from the aeroplane's flight manual.** No such
+# manual was read to write them. What they follow is the ordinary
+# practice for the type, in the order it is flown; the speeds and
+# settings in them are this project's own figures, assets/figures/737-300.xml,
+# whose sources docs/ASSETS.md records, and the flight model itself
+# wherever the model is what decides - a lever's gate, a flap's travel,
+# an engine's idle.
+#
+#   phase NAME                       one of: before-start, taxi, take-off,
+#                                    climb, cruise, descent, approach,
+#                                    landing, after-landing
+#   check PROPERTY OP VALUE TEXT...  an item the aircraft can see done
+#   range PROPERTY LOW HIGH TEXT...  the same, where a band shows it done
+#   confirm TEXT...                  an item only the pilot can see done
+#
+# with `#` beginning a comment; src/sim/checklist.hpp owns the format.
+#
+# The CFM56-3B1 has neither mixture nor propeller, so the engines are read by
+# their N1: thirty per cent at idle, a hundred wide open. The flaps travel
+# through the detents 1, 2, 5, 10, 15, 25, 30 and 40 degrees, and the
+# undercarriage retracts, so both are checks and not confirms.
+
+phase before-start
+confirm Walk-round done, the doors shut and the cabin reported secure
+confirm Auxiliary power unit running, and the bleeds and packs set for the start
+check fcs/throttle-cmd-norm <= 0.05 Thrust levers closed
+check fcs/flap-pos-deg <= 0.5 Flaps up
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever down and stowed
+confirm Parking brake set, beacon on, and the ground crew clear of the engines
+
+phase taxi
+range propulsion/engine[0]/n1 28.0 45.0 Left engine running, its thrust lever at idle
+range propulsion/engine[1]/n1 28.0 45.0 Right engine running, its thrust lever at idle
+range fcs/flap-pos-deg 4.5 15.5 Take-off flap set, five to fifteen degrees
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Stabiliser trimmed for the take-off weight
+confirm Brakes checked as the aircraft first moves, and the controls swept full travel
+check velocities/vc-kts <= 30.0 Taxi at no more than thirty knots
+
+phase take-off
+range fcs/flap-pos-deg 4.5 15.5 Flaps five to fifteen, as the take-off was planned
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+check propulsion/engine[0]/n1 >= 90.0 Left engine at take-off thrust
+check propulsion/engine[1]/n1 >= 90.0 Right engine at take-off thrust
+confirm Take-off briefed, transponder on, and the runway seen to be clear
+check velocities/vc-kts >= 145.0 Rotate at 145 knots at the maximum take-off weight
+
+phase climb
+check gear/gear-pos-norm <= 0.05 Undercarriage up
+check position/h-agl-ft >= 400.0 Climbing away from the runway
+check fcs/flap-pos-deg <= 0.5 Flaps up on the climb-out schedule
+range velocities/vc-kts 240.0 290.0 Climb at 250 knots below ten thousand feet, then 280
+check velocities/h-dot-fps >= 8.0 Going up at 500 feet a minute or better
+confirm Landing lights off above ten thousand feet, and engine anti-ice as it is needed
+
+phase cruise
+check fcs/flap-pos-deg <= 0.5 Flaps up
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake stowed
+range position/h-sl-ft 28000.0 37000.0 Level between FL280 and the ceiling of 37,000 feet
+range velocities/mach 0.70 0.80 Cruising near Mach 0.74, well inside the Mmo of 0.82
+confirm Fuel balanced between the tanks, and the altimeters on the standard setting
+
+phase descent
+check fcs/throttle-cmd-norm <= 0.55 Thrust levers back for the descent
+range velocities/h-dot-fps -55.0 -5.0 Coming down between 300 and 3,300 feet a minute
+range velocities/vc-kts 200.0 290.0 Down at 280 knots, and 250 below ten thousand feet
+check fcs/flap-pos-deg <= 0.5 Flaps still up
+confirm Altimeters set to the field's pressure passing the transition level
+confirm Approach briefed, and the cabin told to make ready for landing
+
+phase approach
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+range fcs/flap-pos-deg 9.5 30.5 Flaps ten to thirty as the speed comes back
+range velocities/vc-kts 135.0 185.0 Slowing through the flap speeds to the approach speed
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever stowed
+check position/h-agl-ft <= 3000.0 Below three thousand feet and settled on the path
+confirm Speedbrake armed, landing lights on, and the runway in sight
+
+phase landing
+range fcs/flap-pos-deg 25.0 40.5 Flaps thirty, or forty on a short runway
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+range velocities/vc-kts 128.0 150.0 Over the threshold at about 135 knots
+check position/h-agl-ft <= 50.0 Fifty feet and below, into the flare
+check fcs/throttle-cmd-norm <= 0.15 Thrust levers closed as the flare begins
+
+phase after-landing
+check fcs/flap-pos-deg <= 0.5 Flaps up
+check fcs/spoiler-cmd-norm <= 0.05 Flight spoilers in
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever down
+check propulsion/engine[0]/n1 <= 45.0 Thrust levers at idle
+check velocities/vc-kts <= 30.0 Clear of the runway and slowed to a taxi
+confirm Transponder to standby, landing lights off, and the auxiliary power unit on

@@ -1,0 +1,87 @@
+# The Northrop Grumman B-2A Spirit's checklists: this project's own, in its own words.
+#
+# **They are not taken from the aeroplane's flight manual.** No such
+# manual was read to write them. What they follow is the ordinary
+# practice for the type, in the order it is flown; the speeds and
+# settings in them are this project's own figures, assets/figures/b2.xml,
+# whose sources docs/ASSETS.md records, and the flight model itself
+# wherever the model is what decides - a lever's gate, a flap's travel,
+# an engine's idle.
+#
+#   phase NAME                       one of: before-start, taxi, take-off,
+#                                    climb, cruise, descent, approach,
+#                                    landing, after-landing
+#   check PROPERTY OP VALUE TEXT...  an item the aircraft can see done
+#   range PROPERTY LOW HIGH TEXT...  the same, where a band shows it done
+#   confirm TEXT...                  an item only the pilot can see done
+#
+# with `#` beginning a comment; src/sim/checklist.hpp owns the format.
+#
+# The flying wing has no tail, and the model gives it no flap lever and no
+# speedbrake lever: its elevons do the work of elevator, aileron and flap
+# together, and its split drag rudders answer the rudder pedals rather than a
+# lever of their own. So nothing here names a flap or a speedbrake setting,
+# and what a pilot would do with them is left as the pilot's to confirm. Its
+# four F118s are unaugmented: there is no reheat to check either.
+
+phase before-start
+confirm Walk-round done, the bay doors shut and the aeroplane clear to start
+confirm Both crew strapped in, harnesses tight and the ejection seat pins stowed
+confirm Oxygen on and both masks checked
+check fcs/throttle-cmd-norm <= 0.05 All four throttles closed
+check gear/gear-cmd-norm >= 0.95 Undercarriage lever down
+confirm Batteries and ground power on, and the engine bays called clear
+
+phase taxi
+check propulsion/engine[0]/n1 >= 35.0 Port outer engine running
+check propulsion/engine[3]/n1 >= 35.0 Starboard outer engine running
+confirm All four engines' gauges reading alike as they settle at idle
+confirm Brakes checked as the aeroplane first moves
+check fcs/throttle-cmd-norm <= 0.40 Taxi at a walking pace on low power
+
+phase take-off
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Elevon trim set for the take-off
+confirm Controls free and correct, and the take-off briefed
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked for the roll
+check fcs/throttle-cmd-norm >= 0.95 All four throttles fully forward
+check velocities/vc-kts >= 140.0 Ease the nose up at 140 knots
+
+phase climb
+check gear/gear-cmd-norm <= 0.05 Undercarriage lever up
+check gear/gear-pos-norm <= 0.05 Undercarriage locked up, which takes eight seconds
+range velocities/vc-kts 250.0 330.0 Climb at 250 to 320 knots
+check fcs/throttle-cmd-norm >= 0.85 Climb power set
+confirm Temperatures and pressures in the green on all four engines
+
+phase cruise
+range velocities/mach 0.70 0.85 High subsonic, Mach 0.70 to 0.85
+range position/h-sl-ft 35000.0 50000.0 Level between 35,000 and 50,000 feet
+check gear/gear-pos-norm <= 0.05 Undercarriage up
+confirm Altimeter set, and the wing trimmed to hold its height
+confirm Fuel balanced across the four tanks
+
+phase descent
+range fcs/throttle-cmd-norm 0.0 0.60 Throttles back for the descent
+check velocities/vc-kts <= 340.0 Down at no more than 340 knots
+confirm Altimeter set to the field's pressure
+confirm Nothing but the drag rudders to slow this wing, so the descent is begun early
+confirm Approach briefed and the landing weight known
+
+phase approach
+check gear/gear-cmd-norm >= 0.95 Undercarriage lever down
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+range velocities/vc-kts 140.0 170.0 Approach at 140 to 170 knots
+confirm Landing lights on and the runway in sight
+confirm Runway length checked against the landing weight
+
+phase landing
+range velocities/vc-kts 130.0 150.0 Over the threshold at 130 to 150 knots
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+check fcs/throttle-cmd-norm <= 0.25 Throttles closed in the flare
+confirm Hold the nose wheel off, lower it gently, then brake straight
+
+phase after-landing
+check position/h-agl-ft <= 50.0 Down and rolling
+check velocities/vc-kts <= 40.0 Clear of the runway and slowed to a taxi
+check fcs/throttle-cmd-norm <= 0.35 Throttles back to a taxi power
+confirm Landing lights off and the bay doors confirmed shut

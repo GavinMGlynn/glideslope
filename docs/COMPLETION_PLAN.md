@@ -498,7 +498,18 @@ checklists are part of. A lesson ends in a debrief, never a score
       source recorded in `ASSETS.md`. *Verification: every aircraft in the
       roster has a checklist for each phase of flight, and every item either
       names a state of the aircraft that shows it done or is marked the pilot's
-      to confirm; a test walks them all.*
+      to confirm; a test walks them all.* Begun 2026-09-21 and not finished.
+      All sixteen aircraft have all nine phases, 144 checklists in all, and
+      six tests walk them: every item either names a state its own aircraft
+      really has or is the pilot's to confirm, and a file that is wrong is
+      refused where it is wrong. **Still to do: the words' provenance.** The
+      item asks for them to come from each aircraft's handbook or pilot's
+      notes, and no such manual was read to write them - they follow the
+      ordinary practice for the type, with their speeds and settings taken
+      from this project's own `assets/figures/<id>.xml`. `ASSETS.md` records
+      that plainly rather than naming a source that was not used. For three
+      of the sixteen - the B-2A, F-22A and F-35A - no flight manual is public
+      at all, so that half of the item cannot be met as written for them.
 - [ ] **Checklists on screen, ticking themselves.** *Verification: the test
       pilot flies the Cessna's before-take-off, take-off and climb by the book,
       and every item the aircraft can see ticks at the tick its state first
@@ -647,6 +658,17 @@ Found while implementing something else. Added when found, not when remembered.
       make that unnecessary, at the cost of a normal on every terrain vertex
       too. *(Found 2026-09-21 drawing the aeroplane.)* *Verification: the
       aeroplane's lighting follows it through a roll with no mesh remade.*
+
+- [ ] **A checklist item's band is not held against what the aeroplane can
+      reach.** The tests prove the property exists and that the aircraft's own
+      flight model names it, but not that its value can ever fall inside the
+      item's band: a flap band of 33 to 35 degrees on a type whose flaps stop
+      at 32 would never tick, and nothing would say so. Each aircraft's bands
+      were flown and checked by hand when they were written, which is not the
+      same as a test keeping them right. *(Found 2026-09-21 writing the
+      checklists.)* *Verification: every checked item's band is shown
+      reachable by driving that aircraft's own controls, and an item put
+      outside its aeroplane's travel turns the test red.*
 
 - [ ] **Tests that run at once share one Cesium cache.** Up to four client
       tests run together against a single `cesium-cache.sqlite`, with nothing

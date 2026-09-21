@@ -1,0 +1,98 @@
+# The Short S.23 Empire Flying Boat's checklists: this project's own, in its own words.
+#
+# **They are not taken from the aeroplane's flight manual.** No such
+# manual was read to write them. What they follow is the ordinary
+# practice for the type, in the order it is flown; the speeds and
+# settings in them are this project's own figures, assets/figures/short_s23.xml,
+# whose sources docs/ASSETS.md records, and the flight model itself
+# wherever the model is what decides - a lever's gate, a flap's travel,
+# an engine's idle.
+#
+#   phase NAME                       one of: before-start, taxi, take-off,
+#                                    climb, cruise, descent, approach,
+#                                    landing, after-landing
+#   check PROPERTY OP VALUE TEXT...  an item the aircraft can see done
+#   range PROPERTY LOW HIGH TEXT...  the same, where a band shows it done
+#   confirm TEXT...                  an item only the pilot can see done
+#
+# with `#` beginning a comment; src/sim/checklist.hpp owns the format.
+#
+# The S.23 has no undercarriage at all: it takes off from water and alights on
+# it, so nothing here names a wheel, a brake or a gear lever. "Taxi" is taxiing
+# on the water and "after-landing" is after alighting, on the water still. Its
+# airscrews have two pitches and no feathering, FINE above the half and COARSE
+# below it; its mixture levers sit at NORMAL at the half and give take-off
+# boost, +4 1/4 lb, only through the gate at the rich end; its flaps are wound
+# out to twenty-five degrees by an electric motor that takes a full minute.
+#
+# The take-off figures - eight degrees on the step, off the water at 60 knots -
+# are the ones assets/figures/short_s23.xml flies Gouge's take-off tests at.
+# The approach speeds are worked from the 73 mph stalling speed in the
+# specification panel, which the model does not fly; the flaps' limit, 102
+# knots with them full out, is the boats' own.
+
+phase before-start
+confirm The boat head to wind on the buoy, the mooring party forward and the hatches shut
+confirm Fuel cocks on, the tank contents and the oil checked
+check fcs/throttle-cmd-norm <= 0.1 Throttles closed
+range fcs/mixture-cmd-norm 0.4 0.6 Mixture levers at NORMAL
+check fcs/advance-cmd-norm >= 0.6 Airscrew levers at FINE
+check fcs/flap-pos-deg <= 0.5 Flaps wound in
+
+phase taxi
+check propulsion/engine[0]/engine-rpm >= 300 The port outer slow-running, as all four should be
+check propulsion/engine[0]/fuel-pump-running-norm >= 0.1 The engine-driven fuel pumps turning with them
+check hydro/active-norm >= 0.5 The hull in the water and carrying the boat
+check hydro/v-kt <= 10.0 Taxiing on the water at under ten knots
+check fcs/throttle-cmd-norm <= 0.4 Low power on the water, the boat turned on the outer throttles
+confirm The water ahead clear of craft, moorings and floating timber
+
+phase take-off
+range fcs/flap-pos-deg 0.0 12.5 Flaps in, or a third out with a heavy load
+check fcs/advance-cmd-norm >= 0.6 Airscrews in FINE
+check fcs/mixture-cmd-norm >= 0.95 Mixture levers through the gate, for take-off boost
+range propulsion/engine[0]/boost-psi 3.5 4.5 Take-off boost on the gauges, +4 1/4 lb
+range hydro/pitch-deg 4.0 12.0 Held on the step at about eight degrees as she comes up over the hump
+check velocities/vc-kts >= 60 Off the water at 60 knots
+
+phase climb
+check fcs/flap-pos-deg <= 0.5 Flaps wound in, the motor taking a minute and a half
+check fcs/advance-cmd-norm >= 0.6 Airscrews left in FINE for the climb
+range propulsion/engine[0]/boost-psi 1.5 3.0 Mixture back to NORMAL and the climbing boost, +2 1/2 lb
+range velocities/vc-kts 90 115 Climb at 100 knots, for the 950 feet a minute the panel gives
+confirm The boat trimmed, and the cabin told they may move about
+
+phase cruise
+check fcs/advance-cmd-norm <= 0.4 Airscrews into COARSE for the cruise
+range fcs/mixture-cmd-norm 0.3 0.6 Mixture levers at NORMAL or a shade weak
+range velocities/vc-kts 110 150 Cruising at the schedule's 165 mph
+check fcs/flap-pos-deg <= 0.5 Flaps in
+confirm Fuel balanced between the wings, and the hour's consumption logged
+
+phase descent
+range fcs/throttle-cmd-norm 0.2 0.7 Throttles eased back, the engines kept warm
+check fcs/advance-cmd-norm <= 0.4 Airscrews left COARSE until the approach
+check velocities/vc-kts <= 150 Coming down at no more than 150 knots
+confirm The alighting area chosen from height, with its wind lane and its swell
+confirm Altimeter set to the sea's pressure
+
+phase approach
+check fcs/advance-cmd-norm >= 0.6 Airscrews into FINE, for the power a baulked approach would need
+check fcs/flap-pos-deg >= 12.0 Flaps half out or more
+range velocities/vc-kts 80 100 Approach at 85 knots, under the 102 the flaps allow
+check fcs/throttle-cmd-norm <= 0.6 Power coming off as the boat is brought down to the water
+confirm The alighting run clear of shipping, and a launch or a wind lane in sight
+
+phase landing
+check fcs/flap-pos-deg >= 20.0 Flaps fully out, twenty-five degrees
+range velocities/vc-kts 70 90 Held off at 75 knots and allowed to settle
+check fcs/throttle-cmd-norm <= 0.2 Throttles closed as the hull touches
+range hydro/pitch-deg 3.0 11.0 On to the main step, the bow well up
+confirm Kept straight on the rudder until she comes off the step and sits down
+
+phase after-landing
+check hydro/active-norm >= 0.5 The hull back in the water, the boat off the step
+check hydro/v-kt <= 10.0 Down to a taxiing speed on the water
+check fcs/flap-pos-deg <= 0.5 Flaps wound in
+check fcs/throttle-cmd-norm <= 0.35 Throttles back to slow running
+confirm The mooring party forward with the boathook, and the buoy picked up head to wind

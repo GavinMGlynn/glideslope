@@ -1,0 +1,86 @@
+# The Lockheed Martin F-35A Lightning II's checklists: this project's own, in its own words.
+#
+# **They are not taken from the aeroplane's flight manual.** No such
+# manual was read to write them. What they follow is the ordinary
+# practice for the type, in the order it is flown; the speeds and
+# settings in them are this project's own figures, assets/figures/f35a.xml,
+# whose sources docs/ASSETS.md records, and the flight model itself
+# wherever the model is what decides - a lever's gate, a flap's travel,
+# an engine's idle.
+#
+#   phase NAME                       one of: before-start, taxi, take-off,
+#                                    climb, cruise, descent, approach,
+#                                    landing, after-landing
+#   check PROPERTY OP VALUE TEXT...  an item the aircraft can see done
+#   range PROPERTY LOW HIGH TEXT...  the same, where a band shows it done
+#   confirm TEXT...                  an item only the pilot can see done
+#
+# with `#` beginning a comment; src/sim/checklist.hpp owns the format.
+#
+# The model gives this aeroplane no flap lever and no speedbrake lever: its
+# flaperons are worked by the roll channel alone. So nothing here reads a
+# flap or a speedbrake setting, and what a pilot would do with them is left
+# as the pilot's to confirm. Its one F135 lights its reheat above a throttle
+# of 0.99, which is what "into reheat" and "no reheat" mean here, and being a
+# single-engined aeroplane it has only engine 0 to read.
+
+phase before-start
+confirm Walk-round done and the aeroplane clear to start
+confirm Strapped in, harness tight and the ejection seat pins stowed
+confirm Oxygen on, mask checked and the canopy clear
+confirm Weapons bay doors shut and the master arm off
+check fcs/throttle-cmd-norm <= 0.05 Throttle closed
+check gear/gear-cmd-norm >= 0.95 Undercarriage lever down
+
+phase taxi
+check propulsion/engine[0]/n1 >= 35.0 The engine running and settled at idle
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+confirm Brakes and nose wheel steering checked as the aeroplane first moves
+confirm Flying controls swept through their travel and watched
+check fcs/throttle-cmd-norm <= 0.40 Taxi at a walking pace on low power
+
+phase take-off
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Pitch trim set for the take-off
+confirm Canopy closed and locked, and the take-off briefed
+confirm Flaperons and the take-off setting checked by eye, there being no flap lever to read
+check fcs/throttle-cmd-norm >= 0.99 Throttle fully forward, into reheat
+check velocities/vc-kts >= 140.0 Ease the nose up at 140 knots
+
+phase climb
+check gear/gear-cmd-norm <= 0.05 Undercarriage lever up
+check gear/gear-pos-norm <= 0.05 Undercarriage locked up
+range velocities/vc-kts 300.0 400.0 Climb at 300 to 400 knots
+check position/h-agl-ft >= 1000.0 Above a thousand feet and climbing away
+confirm Engine instruments and the fuel's rate of burn checked
+
+phase cruise
+range velocities/mach 0.75 0.90 Cruise at Mach 0.75 to 0.90
+range position/h-sl-ft 30000.0 45000.0 Level between 30,000 and 45,000 feet
+check fcs/throttle-cmd-norm <= 0.99 Military power, no reheat
+check gear/gear-pos-norm <= 0.05 Undercarriage up
+confirm Fuel checked against the leg still to fly
+
+phase descent
+range fcs/throttle-cmd-norm 0.0 0.60 Throttle back for the descent
+check velocities/vc-kts <= 450.0 Down at no more than 450 knots
+confirm Altimeter set to the field's pressure
+confirm No airbrake on this aeroplane to lean on, so the descent is begun early
+
+phase approach
+check gear/gear-cmd-norm >= 0.95 Undercarriage lever down
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+range velocities/vc-kts 145.0 175.0 Approach at 145 to 175 knots
+confirm Runway in sight and the landing light on
+confirm Weapons bay doors shut for the landing
+
+phase landing
+range velocities/vc-kts 140.0 160.0 Over the threshold at 140 to 160 knots
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
+check fcs/throttle-cmd-norm <= 0.25 Throttle closed in the flare
+confirm Fly it onto the main wheels and hold the nose off
+
+phase after-landing
+check position/h-agl-ft <= 50.0 Down and rolling
+check velocities/vc-kts <= 40.0 Clear of the runway and slowed to a taxi
+check fcs/throttle-cmd-norm <= 0.35 Throttle back to a taxi power
+confirm Master arm off and the landing light out

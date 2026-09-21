@@ -15,6 +15,7 @@ add_executable(glideslope_tests
     unit/test_air_motion.cpp
     unit/test_autopilot.cpp
     unit/test_catalogue.cpp
+    unit/test_checklist.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -62,6 +63,12 @@ target_compile_definitions(glideslope_tests PRIVATE
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
+    every_aircraft_has_a_checklist_for_every_phase_of_flight
+    no_checklist_item_rests_on_a_control_its_aircrafts_model_has_not_got
+    every_checklist_item_names_a_state_its_own_aircraft_has_or_is_the_pilots
+    an_item_is_done_when_the_aircrafts_state_is_inside_its_band
+    a_checklist_file_that_is_wrong_is_refused_and_says_where
+    the_nine_phases_of_flight_each_have_one_name_and_answer_to_it
     the_fixed_step_counts_steps_from_the_total_time_alone
     the_fixed_step_reports_how_far_it_is_into_the_next_step
     the_fixed_step_refuses_time_running_backwards
