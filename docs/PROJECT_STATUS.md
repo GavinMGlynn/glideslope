@@ -337,11 +337,24 @@ what tells a caller the bytes are not what they look like.
 2147500036" is 0x80004004, E_ABORT, which is not in WinHTTP's error range at
 all.
 
-**What CI can answer and what it cannot.** The weather half of the tail's
-verification - "and the weather still arrives" - is exactly what failed
-before, and `tests/unit/test_weather.cpp` fetches Open-Meteo on the Windows
-jobs, so CI is real evidence for it. The ion half needs a token no CI job
-has, so the tail stays open until a Windows machine with one tries it.
+**And CI said the diagnosis was wrong.** Turned on a second time with the
+loop fixed, every Open-Meteo fetch failed again on all three Windows jobs -
+but this time with a real WinHTTP code instead of a stale one: **12002,
+`ERROR_WINHTTP_TIMEOUT`, at `WinHttpSendRequest`**. That is raised before a
+single byte of the body is read, which is earlier than the read loop runs, so
+the loop was never the cause. Asking for a compressed body from that host,
+from those runners, times out the send; why is still not known.
+
+The option is off again - a red tree is the stop-everything condition - and
+the read-loop fix stays, because it is right on its own account whatever
+WinHTTP is asked to decompress. What has been gained is a symptom worth
+having: a known code at a known call, instead of "2147500036, why is not
+known". The next attempt starts from the send, not the read.
+
+**What CI can and cannot answer.** The weather half of the tail's
+verification is exactly what failed, and `tests/unit/test_weather.cpp`
+fetches Open-Meteo on the Windows jobs, so CI is real evidence for it - it is
+what produced this diagnosis. The ion half needs a token no CI job has.
 
 ### The propeller and mixture levers a pilot can reach, 2026-09-21 — tail done
 

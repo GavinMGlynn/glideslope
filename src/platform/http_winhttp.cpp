@@ -83,25 +83,28 @@ HttpResponse http_get(const HttpRequest& request) {
     if (!session) {
         fail(request.url, "no WinHTTP session");
     }
-    // **WinHTTP undoes a compressed body, where it can.** Turning this on
-    // once before made every Open-Meteo fetch fail on all three Windows jobs
-    // and it was turned off again without the cause being found. The cause
-    // was almost certainly the read loop below, which used
-    // WinHttpQueryDataAvailable to decide the body had ended - which
-    // Microsoft's documentation says not to do, and which is not the
-    // decompressed length when an encoding is being undone. That loop is
-    // fixed, so this is on again.
+    // **WinHTTP is not asked to undo a compressed body**, and the second
+    // attempt to make it said something the first did not.
     //
-    // **Its result is checked**, unlike last time: an option that did not
-    // take is an option that quietly does nothing, and the body would then
-    // arrive compressed with nothing to say so. Where it cannot be set -
-    // it wants Windows 8.1 - the body is left as it came and
-    // `content-encoding` is left on it, which is what tells a caller the
-    // bytes are not what they look like.
-    DWORD decompress = WINHTTP_DECOMPRESSION_FLAG_ALL;
-    const bool undoing =
-        WinHttpSetOption(session.get(), WINHTTP_OPTION_DECOMPRESSION, &decompress,
-                         sizeof decompress) == TRUE;
+    // Turning WINHTTP_OPTION_DECOMPRESSION on makes every Open-Meteo fetch
+    // fail on all three Windows jobs. The first time, the error was recorded
+    // as 2147500036, which is 0x80004004, E_ABORT - not a WinHTTP code at
+    // all, and a red herring. The second time it was **12002 at
+    // WinHttpSendRequest**: ERROR_WINHTTP_TIMEOUT, raised before a single
+    // byte of the body is read.
+    //
+    // That rules out the guess it was tried on - that the read loop below,
+    // which used WinHttpQueryDataAvailable to decide a body had ended, was
+    // the cause. It was wrong for its own reasons and is fixed, and the
+    // failure happens earlier than it runs.
+    //
+    // What is left is that asking for a compressed body from this host, from
+    // these runners, times out the send. Why is still not known. Nothing
+    // asks for a compressed body otherwise, since a provider's own
+    // Accept-Encoding is not passed on, so this costs nothing until a server
+    // compresses one unasked - which Cesium ion does. That is a tail in
+    // COMPLETION_PLAN.md, and it is why Cesium ion is not yet known to work
+    // on Windows.
     const int connect_ms = request.connect_timeout_seconds * 1000;
     const int stall_ms = request.stall_timeout_seconds * 1000;
     WinHttpSetTimeouts(session.get(), connect_ms, connect_ms, stall_ms, stall_ms);
@@ -202,11 +205,9 @@ HttpResponse http_get(const HttpRequest& request) {
                             std::to_string(request.max_body) + " bytes");
         }
     }
-    // WinHTTP undid the encoding, so that header describes the wire and not
-    // the body - but only if the option took. See HttpResponse.
-    if (undoing) {
-        response.headers.erase("content-encoding");
-    }
+    // **`content-encoding` is left on the response**, because nothing here
+    // undid one. A caller that sees it knows the bytes are not what they look
+    // like. See HttpResponse.
     response.headers["content-length"] = std::to_string(response.body.size());
 
     return response;

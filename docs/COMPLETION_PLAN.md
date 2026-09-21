@@ -736,15 +736,19 @@ Found while implementing something else. Added when found, not when remembered.
       by asking `WinHttpQueryDataAvailable` how much was there and stopping
       when it said none - and its own documentation says not to use that
       answer to decide a response has ended, because not all servers
-      terminate one properly. It is also not the decompressed length when an
-      encoding is being undone. The read loop now takes fixed chunks until a
-      read returns no bytes, which is the pattern that documentation asks for
-      and is right whether anything is being decompressed or not, and
-      `WinHttpSetOption`'s result is checked rather than assumed - an option
-      that did not take would leave the body compressed with nothing to say
-      so. **The weather half of the verification is what CI can answer**, and
-      it is the half that failed before; the ion half needs a token no CI job
-      has, so this stays open until a Windows machine with one tries it.
+      terminate one properly. The read loop now takes fixed chunks until a
+      read returns no bytes, which is what that documentation asks for and is
+      right whether anything is being decompressed or not - **but it was not
+      the cause, and CI said so.** Turned on a second time with the loop
+      fixed, every Open-Meteo fetch failed again, and this time with a real
+      WinHTTP code rather than a stale one: **12002, ERROR_WINHTTP_TIMEOUT,
+      at `WinHttpSendRequest`** - raised before a single byte of body is
+      read, which is earlier than the loop runs. So asking for a compressed
+      body from that host, from those runners, times out the send, and why is
+      still not known. The option is off again and the loop fix stays, being
+      right on its own account. The symptom is now a known code at a known
+      call rather than "why is not known"; the ion half needs a token no CI
+      job has.
 
 - [ ] **A livery on the aeroplane, and its control surfaces moving.** A model
       ships no texture, so a surface takes the flat diffuse colour of its
