@@ -751,25 +751,89 @@ private:
 };
 
 // What a tile's glTF becomes: the renderer's meshes, placed.
-struct LoadedTile {
-    std::vector<std::pair<Mesh, Placement>> meshes;
-};
-
-struct DrawnTile {
-    std::vector<Draw> draws;
-    bool imagery = false; // an imagery tile is attached
-};
-
-// An imagery tile: its pixels once decoded, then its texture on the GPU.
+// A picture ready for the GPU: an imagery tile's, or one out of a glTF.
 struct RasterPixels {
     int width = 0;
     int height = 0;
     std::vector<std::uint8_t> rgba;
 };
 
+struct LoadedTile {
+    std::vector<std::pair<Mesh, Placement>> meshes;
+    // **A tile's own textures, where it has them.** The open provider's
+    // tiles are coloured per vertex and Cesium ion's are draped with imagery,
+    // so neither needs these; Google's Photorealistic 3D Tiles carry their
+    // pictures inside their glTF, and without them they draw white. One
+    // entry per mesh above: which of `images` it uses, or -1 for none.
+    std::vector<int> mesh_image;
+    std::vector<RasterPixels> images;
+};
+
+struct DrawnTile {
+    std::vector<Draw> draws;
+    std::vector<TextureId> textures; // the tile's own, to free with it
+    bool imagery = false;            // an imagery tile is attached
+};
+
 struct RasterTexture {
     TextureId texture = no_texture;
 };
+
+// A decoded picture to RGBA, whatever it arrived as. Nothing but eight bits
+// a channel with three or four of them is taken: anything else is a picture
+// this does not know how to put on the GPU, and is drawn untextured rather
+// than wrongly.
+bool rgba_from_image(const CesiumImage::ImageAsset& image, RasterPixels& out) {
+    if (image.bytesPerChannel != 1 ||
+        (image.channels != 3 && image.channels != 4) || image.width <= 0 ||
+        image.height <= 0) {
+        return false;
+    }
+    out.width = image.width;
+    out.height = image.height;
+    const auto count = static_cast<std::size_t>(image.width) *
+                       static_cast<std::size_t>(image.height);
+    const auto channels = static_cast<std::size_t>(image.channels);
+    if (image.pixelData.size() < count * channels) {
+        return false;
+    }
+    out.rgba.resize(count * 4);
+    for (std::size_t i = 0; i < count; ++i) {
+        for (std::size_t c = 0; c < 3; ++c) {
+            out.rgba[i * 4 + c] =
+                static_cast<std::uint8_t>(image.pixelData[i * channels + c]);
+        }
+        out.rgba[i * 4 + 3] =
+            channels == 4
+                ? static_cast<std::uint8_t>(image.pixelData[i * channels + 3])
+                : 255;
+    }
+    return true;
+}
+
+// Which of a glTF's images a primitive's base colour comes from, or -1.
+int base_colour_image(const CesiumGltf::Model& gltf,
+                      const CesiumGltf::MeshPrimitive& primitive) {
+    if (primitive.material < 0 ||
+        static_cast<std::size_t>(primitive.material) >= gltf.materials.size()) {
+        return -1;
+    }
+    const auto& pbr =
+        gltf.materials[static_cast<std::size_t>(primitive.material)]
+            .pbrMetallicRoughness;
+    if (!pbr || !pbr->baseColorTexture) {
+        return -1;
+    }
+    const int32_t which = pbr->baseColorTexture->index;
+    if (which < 0 || static_cast<std::size_t>(which) >= gltf.textures.size()) {
+        return -1;
+    }
+    const int32_t source = gltf.textures[static_cast<std::size_t>(which)].source;
+    if (source < 0 || static_cast<std::size_t>(source) >= gltf.images.size()) {
+        return -1;
+    }
+    return source;
+}
 
 // Reads a vertex colour accessor of any type glTF allows into linear RGBA.
 bool read_colours(const CesiumGltf::Model& model, int32_t accessor,
@@ -878,10 +942,35 @@ void meshes_from_model(CesiumGltf::Model& model, const glm::dmat4& tile_transfor
                 }
             }
         }
+        // A tile's own picture, where it has one and no imagery is draped
+        // over it. Its coordinates are TEXCOORD_0; imagery brings its own
+        // above, and a mesh has room for one set.
+        int uses_image = -1;
+        if (overlay == primitive.attributes.end()) {
+            const int source = base_colour_image(gltf, primitive);
+            const auto texcoord = primitive.attributes.find("TEXCOORD_0");
+            if (source >= 0 && texcoord != primitive.attributes.end()) {
+                const CesiumGltf::AccessorView<glm::vec2> uvs(gltf, texcoord->second);
+                if (uvs.status() == CesiumGltf::AccessorViewStatus::Valid &&
+                    uvs.size() == positions.size()) {
+                    for (int64_t i = 0; i < uvs.size(); ++i) {
+                        const glm::vec2 uv = uvs[i];
+                        mesh.vertices[static_cast<std::size_t>(i)].uv = {uv.x, uv.y};
+                    }
+                    uses_image = source;
+                }
+            }
+        }
+
         const auto colour = primitive.attributes.find("COLOR_0");
         if (colour == primitive.attributes.end() ||
             !read_colours(gltf, colour->second, mesh.vertices)) {
+            // The shader draws the vertex colour times the texture, so a
+            // textured surface starts white and the picture is what is seen.
             std::array<float, 4> base{0.8f, 0.8f, 0.8f, 1.0f};
+            if (uses_image >= 0) {
+                base = {1.0f, 1.0f, 1.0f, 1.0f};
+            }
             if (primitive.material >= 0 &&
                 static_cast<std::size_t>(primitive.material) < gltf.materials.size()) {
                 const auto& pbr =
@@ -915,7 +1004,29 @@ void meshes_from_model(CesiumGltf::Model& model, const glm::dmat4& tile_transfor
             Mat3::columns({m[0][0], m[0][1], m[0][2]}, {m[1][0], m[1][1], m[1][2]},
                           {m[2][0], m[2][1], m[2][2]});
         out.meshes.emplace_back(std::move(mesh), placement);
+        out.mesh_image.push_back(uses_image);
     });
+
+    // Each picture the meshes above use, decoded once. The indices recorded
+    // are into the glTF's images; they become indices into `out.images`.
+    std::vector<int> where(model.images.size(), -1);
+    for (int& which : out.mesh_image) {
+        if (which < 0) {
+            continue;
+        }
+        const auto at = static_cast<std::size_t>(which);
+        if (where[at] < 0) {
+            RasterPixels pixels;
+            const auto& image = model.images[at];
+            if (!image.pAsset || !rgba_from_image(*image.pAsset, pixels)) {
+                which = -1;
+                continue;
+            }
+            where[at] = static_cast<int>(out.images.size());
+            out.images.push_back(std::move(pixels));
+        }
+        which = where[at];
+    }
 }
 
 class RendererResources final
@@ -945,10 +1056,22 @@ public:
             return nullptr;
         }
         auto drawn = std::make_unique<DrawnTile>();
-        for (const auto& [mesh, placement] : loaded->meshes) {
-            if (!mesh.indices.empty()) {
-                drawn->draws.push_back({renderer_.add_mesh(mesh), placement});
+        for (const RasterPixels& pixels : loaded->images) {
+            drawn->textures.push_back(renderer_.add_texture(
+                pixels.width, pixels.height, pixels.rgba.data()));
+        }
+        for (std::size_t i = 0; i < loaded->meshes.size(); ++i) {
+            const auto& [mesh, placement] = loaded->meshes[i];
+            if (mesh.indices.empty()) {
+                continue;
             }
+            Draw draw{renderer_.add_mesh(mesh), placement};
+            const int which =
+                i < loaded->mesh_image.size() ? loaded->mesh_image[i] : -1;
+            if (which >= 0 && static_cast<std::size_t>(which) < drawn->textures.size()) {
+                draw.texture = drawn->textures[static_cast<std::size_t>(which)];
+            }
+            drawn->draws.push_back(draw);
         }
         return drawn.release();
     }
@@ -960,6 +1083,9 @@ public:
             for (const Draw& d : drawn->draws) {
                 renderer_.remove_mesh(d.mesh);
             }
+            for (const TextureId id : drawn->textures) {
+                renderer_.remove_texture(id);
+            }
         }
     }
 
@@ -968,27 +1094,10 @@ public:
     // the scale and offset that take a tile's coordinates into its part of it.
     void* prepareRasterInLoadThread(CesiumImage::ImageAsset& image,
                                     const std::any& /*rendererOptions*/) override {
-        if (image.bytesPerChannel != 1 ||
-            (image.channels != 3 && image.channels != 4) || image.width <= 0 ||
-            image.height <= 0) {
+        auto pixels = std::make_unique<RasterPixels>();
+        if (!rgba_from_image(image, *pixels)) {
             ++skipped_;
             return nullptr;
-        }
-        auto pixels = std::make_unique<RasterPixels>();
-        pixels->width = image.width;
-        pixels->height = image.height;
-        const auto count = static_cast<std::size_t>(image.width) *
-                           static_cast<std::size_t>(image.height);
-        pixels->rgba.resize(count * 4);
-        const auto channels = static_cast<std::size_t>(image.channels);
-        for (std::size_t i = 0; i < count; ++i) {
-            for (std::size_t c = 0; c < 3; ++c) {
-                pixels->rgba[i * 4 + c] =
-                    static_cast<std::uint8_t>(image.pixelData[i * channels + c]);
-            }
-            pixels->rgba[i * 4 + 3] =
-                channels == 4 ? static_cast<std::uint8_t>(image.pixelData[i * 4 + 3])
-                              : 255;
         }
         return pixels.release();
     }
@@ -1617,6 +1726,7 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
         constexpr int steady_for = 60; // three seconds unchanged
         std::size_t was = 0;
         std::size_t was_deepest = 0;
+        std::size_t was_held = 0;
         int steady = 0;
         for (int round = 0; round < rounds; ++round) {
             const auto& loading = tileset.updateViewGroup(group, {view}, 0.0f);
@@ -1635,9 +1745,19 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
                     deepest = std::max<std::size_t>(deepest, id->level);
                 }
             }
-            steady = drawn == was && deepest == was_deepest ? steady + 1 : 0;
+            // How many tiles the tileset holds, which keeps rising while it
+            // is still refining. What is drawn can sit still for a moment
+            // part-way down, and the level cannot be watched at all for a
+            // tileset whose tiles are not a quadtree - Google's are not, and
+            // reported level 0 throughout while it was still coming.
+            const auto held =
+                static_cast<std::size_t>(tileset.getNumberOfTilesLoaded());
+            steady = drawn == was && deepest == was_deepest && held == was_held
+                         ? steady + 1
+                         : 0;
             was = drawn;
             was_deepest = deepest;
+            was_held = held;
             if (drawn > 0 && steady >= steady_for) {
                 break;
             }

@@ -526,9 +526,10 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
     # user's key and without one. A provider whose key this machine has not
     # got reports itself skipped - skipped, never passed.
     #
-    # Google draws its geometry and its attribution, and is held to both; it
-    # draws them untextured, which docs/PROJECT_STATUS.md sets out and which
-    # is why its item is not ticked.
+    # Google draws its own photographs and its attribution, and is held to
+    # both. Its item is not ticked because the other way in to it - a Google
+    # Maps Platform key used directly rather than an ion token - has no key
+    # on any machine here to prove it with.
     foreach(_provider open ion google)
         add_test(NAME the_${_provider}_terrain_draws_with_its_attribution_or_says_why_not_on_${_driver}
             COMMAND ${CMAKE_COMMAND}
@@ -543,7 +544,7 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
     # meets, at the twelve surveyed runway ends. The bound each is held to is
     # the one measured and stated in docs/PROJECT_STATUS.md.
     # In millimetres: CMake's arithmetic is whole numbers only.
-    foreach(_measured open:250 ion:12000)
+    foreach(_measured open:250 ion:12000 google:12000)
         string(REPLACE ":" ";" _pair "${_measured}")
         list(GET _pair 0 _provider)
         list(GET _pair 1 _bound_mm)

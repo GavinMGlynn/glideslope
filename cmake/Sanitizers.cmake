@@ -32,7 +32,7 @@
 # design, so that is undefined behaviour on every terrain tile Cesium ion
 # serves, and -fno-sanitize-recover=all ends the program at the first one. It
 # is their code, not this project's, and the fix is theirs to make - a memcpy;
-# an issue is drafted for it in docs/PROJECT_STATUS.md. Until they do, the
+# an issue is drafted for it in docs/cesium-issues.md. Until they do, the
 # alignment check alone is off for their targets, and every other check, and
 # all first-party code, is untouched.
 #

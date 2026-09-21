@@ -438,30 +438,31 @@ quality: each is held to published figures before it is offered, as the Cessna
 
 ## Phase 5b — Terrain providers
 
-- [ ] **Cesium ion as a visual provider** with the user's own token.
+- [x] **Cesium ion as a visual provider** with the user's own token.
       *Verification: with a token, a `--shot` draws Cesium World Terrain with
       its attribution; without one, the provider says why it is unavailable and
-      its tests report themselves skipped.* Begun 2026-09-21 and not finished.
-      `--terrain ion` draws Cesium World Terrain under Bing Maps Aerial with
-      ion's own attribution, and without a token it says what is missing and
-      where to put it - both seen by hand. **Still to do: a test that can be
-      kept.** Waiting for every tile a whole-Earth tileset refines to ran past
-      25 minutes against a cold cache, where the open provider's same test is
-      16 seconds; until that is brought down the drawing half is run by hand
-      and only the open provider's test is registered.
+      its tests report themselves skipped.* Done, 2026-09-21: `--terrain ion`
+      draws Cesium World Terrain under Bing Maps Aerial with ion's own
+      attribution, and without a token it says what is missing and where to
+      put it. One test walks both halves in 23 seconds and reports itself
+      skipped where there is no token. Waiting for every tile a whole-Earth
+      tileset refines to had run past 25 minutes, which is why this item
+      waited; a streamed provider is now given a bounded settling instead,
+      and its frame is not claimed to be the same on every machine.
       `PROJECT_STATUS.md` says what was built to get there, and names two
       defects in Cesium Native it had to work around.
 - [ ] **Google Photorealistic 3D Tiles** with the user's own Google Maps
       Platform key or Cesium ion token. *Verification: the same checks as
       Cesium ion, through both ways in.* Begun 2026-09-21 and not finished.
-      Through a Cesium ion token they draw, in 11 seconds, with Google's
-      attribution on screen, and a test holds them to both. **Still to do:
-      they draw white.** Their textures are inside their glTF, and this
-      renderer uploads only imagery draped as raster overlays, which is what
-      the other two providers use; "photorealistic" is the whole of what
-      these are for, so the item stays open. The other way in, a Google Maps
-      Platform key used directly, is written and unproven: there is no such
-      key on this machine. `PROJECT_STATUS.md` says what it took.
+      Through a Cesium ion token they draw with their own photographs on
+      them, refined - 452 tiles over Mount Taranaki - with Google's
+      attribution on screen, and a test holds them to drawing and to their
+      attribution. **Still to do: the other way in.** A Google Maps Platform
+      key used directly is written and has never been run, because there is
+      no such key on any machine here; `--terrain google` takes one in
+      preference to the ion token when it is there, so the test covers
+      whichever a machine has. Half of "through both ways in" is therefore
+      unproven, and a key is all it needs.
 
 - [x] **Attribution on screen for whichever provider is active.**
       *Verification: every provider, in every state, draws its attribution,
@@ -481,9 +482,9 @@ quality: each is held to published figures before it is offered, as the Cessna
       `PROJECT_STATUS.md`, with how it was measured.* Stated, 2026-09-21:
       `--mismatch` samples the drawn surface at the twelve surveyed runway
       ends of six airfields and prints it against the DEM the aircraft meets.
-      **The open provider is 0.18 m from it at worst and Cesium ion 10.2 m**,
-      and a test holds each to that. Google draws nothing, so it cannot be
-      measured; that is named in its own item above rather than here.
+      **The open provider is 0.18 m from it at worst, Cesium ion 10.2 m and
+      Google 10.1 m**, and a test holds each to that. All three are worst at
+      Barrow, where the Arctic coast is thinly surveyed by anyone.
 
 ## Phase 5c — Learning to fly
 

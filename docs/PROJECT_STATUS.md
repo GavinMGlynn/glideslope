@@ -197,9 +197,12 @@ are the risks the phase order is built around:
 
 ### Google's tiles draw, and nothing read them before, 2026-09-21
 
-**Google's Photorealistic 3D Tiles draw, with Google's attribution, and they
-draw white**, so Phase 5b's Google item is not ticked. Phase 5b's attribution
-item is: every provider, in both its states, is now walked by a test.
+**Google's Photorealistic 3D Tiles draw, photographs and all, with Google's
+attribution**, and their surface is 10.1 m from the ground flown at worst.
+Phase 5b's Google item is still not ticked, because the other way in to them
+- a Google Maps Platform key used directly - has no key here to prove it
+with. Phase 5b's attribution item is ticked: every provider, in both its
+states, is now walked by a test.
 
 **Nothing read a tile's content until its readers were registered.** Cesium
 Native keeps a table of converters - glTF, B3DM, PNTS, composite - looked up
@@ -227,21 +230,45 @@ four bytes of every response: 548 of them, all 200, 441 beginning `glTF`, and
   already has a session" says whether the key is there. Taking either for an
   answer is a 403. Each parameter is now merged on its own.
 
-**What is left.** It draws white. Photorealistic 3D Tiles carry their
-textures inside their glTF, and this renderer has no path for those: the only
-textures it uploads are imagery, draped as raster overlays, which is what the
-open provider and Cesium ion use. Until a tile's own textures are read and
-uploaded, Google's tiles are geometry in the right place and nothing more -
-and "photorealistic" is the whole of what they are for. The other way in, a
-Google Maps Platform key used directly rather than through Cesium ion, is
-written and still unproven: there is no such key on this machine.
+**They draw their own pictures now.** Photorealistic 3D Tiles carry their
+textures inside their glTF, and the only textures this renderer uploaded were
+imagery draped as raster overlays - which is what the open provider and
+Cesium ion use, so nothing had needed it. A primitive's base-colour texture
+is now followed to its image, decoded once per tile, uploaded with the tile
+and freed with it, and its TEXCOORD_0 read where no imagery is draped over
+it. A textured surface starts white, because the shader draws the vertex
+colour times the texture.
+
+**And they refine.** The settling that tells a streamed provider when it has
+arrived watched what was drawn and how deep it went. Google's tiles are not a
+quadtree, so their depth reads 0 throughout, and what is drawn can sit still
+for a moment part-way down - so it stopped at 19 tiles of smooth green. It
+now also watches how many tiles the tileset holds, which keeps rising while
+it is still refining: 452 tiles drawn of 795 held, and Mount Taranaki is a
+snow-capped cone with the coast behind it.
+
+**What is left: the other way in.** A Google Maps Platform key used directly,
+rather than through Cesium ion, is written and has never been run, because
+there is no such key on this machine. `--terrain google` takes it in
+preference to the ion token when one is there, so the test covers whichever
+the machine has; until one machine has a Google key, half of "through both
+ways in" is unproven and the item stays open.
+
+**Verification run.** 282 of 282 tests pass locally at `-j4`, in 1067 s.
+`the_google_terrain_draws_with_its_attribution_or_says_why_not_on_vulkan`
+takes 38 s and `the_google_terrain_is_within_its_stated_distance_of_the_ground_flown_on_vulkan`
+40 s; the second was watched to fail with its bound tightened to 5 m. The
+settling change is what let Phase 5b's first item be ticked as well:
+`the_ion_terrain_draws_with_its_attribution_or_says_why_not_on_vulkan` now
+takes 23 s, where waiting for a whole Earth had run past 25 minutes.
 
 
 ### The visual terrain against the terrain flown, 2026-09-21 — item done
 
 Phase 5b's "a measured visual-to-collision terrain mismatch". **The open
-provider's surface is 0.18 m from the ground an aircraft meets at worst, and
-Cesium ion's is 10.2 m**, at the twelve surveyed runway ends of six airfields.
+provider's surface is 0.18 m from the ground an aircraft meets at worst,
+Cesium ion's is 10.2 m and Google's is 10.1 m**, at the twelve surveyed
+runway ends of six airfields.
 
 **What the ground is.** The ground an aircraft meets is always the open DEM -
 the rule that lets a server and every client agree on where it is. A visual
@@ -256,20 +283,23 @@ One tileset is opened for each whole-degree cell rather than one for them
 all: the open provider builds its terrain over the region it is given, and a
 region from Barrow to Boston is most of a continent.
 
-| Airfield | open | Cesium ion |
-| --- | --- | --- |
-| KDEN, Denver | 0.08 m | 3.38 m |
-| KLAS, Las Vegas | 0.02 m | 1.67 m |
-| KBOS, Boston | 0.01 m | 2.44 m |
-| PAJN, Juneau | 0.02 m | 2.79 m |
-| PANC, Anchorage | **0.18 m** | 1.66 m |
-| PABR, Barrow | 0.05 m | **10.22 m** |
+| Airfield | open | Cesium ion | Google |
+| --- | --- | --- | --- |
+| KDEN, Denver | 0.08 m | 3.38 m | 2.94 m |
+| KLAS, Las Vegas | 0.02 m | 1.67 m | 0.77 m |
+| KBOS, Boston | 0.01 m | 2.44 m | 1.84 m |
+| PAJN, Juneau | 0.02 m | 2.79 m | 2.66 m |
+| PANC, Anchorage | **0.18 m** | 1.66 m | 0.23 m |
+| PABR, Barrow | 0.05 m | **10.22 m** | **10.12 m** |
 
 The open provider's figure is what it should be: the mesh drawn is built from
 the same DEM the aircraft meets, so what is left is its interpolation between
 the points it is built on. Cesium ion's is a different survey of the same
 ground, a metre or three out over most of them and ten at Barrow, where the
-Arctic coast is thinly surveyed by anyone.
+Arctic coast is thinly surveyed by anyone. Google's follows the same shape
+for the same reason, and agrees with ion's worst figure to a tenth of a
+metre - two independent surveys finding the same ten metres at Barrow is
+better evidence that the Arctic coast is the hard part than either alone.
 
 **Asking once is not enough, and the answer does not say so.** A sample
 reports success whether or not the tiles beneath it had arrived. Boston and
@@ -287,12 +317,14 @@ a bound, and a provider that gives one fails: a bound with 36 km in it would
 mean nothing.
 
 **Verification run.** `the_open_terrain_is_within_its_stated_distance_of_the_ground_flown_on_<driver>`
-holds the open provider to 0.25 m and Cesium ion to 12 m, the figures above
-with a little room; each takes about 45 seconds, and ion's reports itself
-skipped where there is no token. Watched to fail with the bound tightened to
-50 mm: "open's terrain is 179 mm from the ground flown at PANC-7R, beyond the
-50 mm stated in docs/PROJECT_STATUS.md". Google draws nothing, so it cannot
-be measured.
+holds the open provider to 0.25 m and Cesium ion and Google to 12 m each,
+the figures above with a little room; each takes about 45 seconds, and the
+two streamed ones report themselves skipped where there is no key. Watched to
+fail with the bound tightened to 50 mm: "open's terrain is 179 mm from the
+ground flown at PANC-7R, beyond the 50 mm stated in
+docs/PROJECT_STATUS.md", and again for Google with its bound at 5 m:
+"google's terrain is 10121 mm from the ground flown at PABR-8, beyond the
+5000 mm stated in docs/PROJECT_STATUS.md". Google's takes 40 seconds.
 
 ### Cesium ion as a visual terrain provider, 2026-09-21 — item done
 
@@ -372,8 +404,9 @@ terrain on every machine. A streamed provider has no such end, and asking
 Cesium Native for it - `updateViewGroupOffline`, which refines regardless of
 screen-space error - ran past 25 minutes. A streamed provider is given a
 settling instead: rounds of loading, taking up what the workers finish, until
-neither what is drawn nor how deep it goes has changed for three seconds, and
-never more than three quarters of a minute. **Its frame is therefore not
+what is drawn, how deep it goes and how many tiles the tileset holds have all
+stood still for three seconds, and never more than three quarters of a
+minute. **Its frame is therefore not
 claimed to be the same on every machine**, because what arrives depends on
 the network and on the provider; what is claimed is that it drew terrain and
 that its attribution is on it. With that, ion reaches level 13 at the same
@@ -385,34 +418,16 @@ Copernicus, Land Information New Zealand, data.gov.uk, Geoscience Australia,
 Microsoft, Mapbox, Earthstar Geographics SIO, Maxar and Airbus DS, and the
 free tier's "upgrade for commercial use".
 
-**What is left, to pick up from.**
-
-1. **Google's Photorealistic 3D Tiles are written and do not draw.** Both
-   ways in are there - a Google Maps Platform key directly, or an ion token
-   through ion's asset 2275207. Through ion it fetches 553 tiles and draws
-   none of them. Its test is written and not registered, because a test of
-   something that does not work is not a test. What is known, so that the
-   next attempt starts further along:
-
-   - **ion answers for it in a third shape.** Asset 2275207 comes back as
-     `externalType: 3DTILES` with `options.url` and *no* accessToken, where
-     terrain has a url and a token and Bing has `options` with a key. Putting
-     an empty bearer on its requests, which an earlier draft of this did, is
-     not the cause but was wrong and is fixed.
-   - **Its children carry neither session nor key.** Google's root names
-     child content as bare paths - `/v1/3dtiles/datasets/CgIYAQ/files/AJVs...`
-     - and fetching one by hand returns 404 unless the `session` and `key`
-     the root's own URL carries are put back on it. Cesium Native v0.64.0 has
-     no loader that does that, so `QueryAccessor` now carries them, for that
-     host and no other. Not the cause either, but needed.
-   - **What is left looks like content read as the wrong thing.** The errors
-     are `TilesetJsonLoader.cpp:900`, "Error when parsing JSON content ... at
-     byte offset 0", and a tile fetched by hand is a glTF binary whose first
-     four bytes are `glTF` - which is exactly what byte offset 0 of a JSON
-     parse would complain about. So Cesium appears to be reading Google's
-     binary tiles as external tilesets. That is where to look next.
-2. **The visual-to-collision mismatch is not measured.** That is the phase's
-   own fourth item.
+**Both things this left were picked up the same day**, and are written up
+under "Google's Photorealistic 3D Tiles" and "How far the terrain drawn is
+from the terrain flown" above. Google's tiles did not draw because
+`Cesium3DTilesContent::registerAllTileContentTypes()` had never been called,
+so every `glTF` body was offered to the JSON tileset reader and refused at
+byte offset 0 - the guess recorded here, that content was being read as the
+wrong thing, was right. The two things found on the way to it and kept are
+`QueryAccessor`, which carries Google's `session` and `key` onto child
+requests that name neither, and reading ion's third answer shape
+(`externalType: 3DTILES`, a url and no token).
 
 
 ### Views of the aeroplane, 2026-09-21 — item done
