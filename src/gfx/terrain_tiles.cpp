@@ -6,6 +6,7 @@
 #include "gfx/terrain_colour.hpp"
 #include "platform/http.hpp"
 
+#include <Cesium3DTilesContent/registerAllTileContentTypes.h>
 #include <Cesium3DTilesSelection/BoundingVolume.h>
 #include <Cesium3DTilesSelection/IPrepareRendererResources.h>
 #include <Cesium3DTilesSelection/Tile.h>
@@ -78,6 +79,30 @@
 #include <variant>
 
 namespace glideslope::gfx {
+
+namespace {
+
+// **Nothing reads a tile's content until its readers are registered.**
+// Cesium Native keeps a table of converters - glTF, B3DM, PNTS, composite -
+// looked up by the first bytes of what arrives, and
+// registerAllTileContentTypes() is what fills it. Without it a tileset whose
+// tiles are glTF loads every one of them and draws none: not knowing what a
+// body is, it falls back to reading it as an external tileset, and 441
+// perfectly good glTF binaries came back as "Error when parsing JSON
+// content, error code Invalid value. at byte offset 0".
+//
+// The open provider never needed it - it builds its glTF here - and neither
+// does Cesium ion's quantized mesh, which has a reader of its own. Google's
+// Photorealistic 3D Tiles are the first thing here that arrives as glTF.
+void register_tile_readers() {
+    static const bool done = [] {
+        Cesium3DTilesContent::registerAllTileContentTypes();
+        return true;
+    }();
+    (void)done;
+}
+
+} // namespace
 
 void log_to_standard_error() {
     // Once: spdlog refuses a logger of a name it already holds.
@@ -319,15 +344,36 @@ private:
         if (query_.empty() || url.rfind(prefix_, 0) != 0) {
             return url; // somewhere else: it is left alone
         }
-        const std::size_t question = url.find('?');
-        if (question == std::string::npos) {
-            return url + "?" + query_;
+        // **Each parameter on its own.** Google's child tiles carry a session
+        // of their own and no key, and its root carries a key and no session,
+        // so neither "it already has a query" nor "it already has a session"
+        // says whether the key is there. Taking either for an answer is a
+        // 403: what is missing is added, what is there stands.
+        std::string out = url;
+        std::size_t at = 0;
+        while (at < query_.size()) {
+            const std::size_t amp = query_.find('&', at);
+            const std::string one =
+                query_.substr(at, amp == std::string::npos ? amp : amp - at);
+            at = amp == std::string::npos ? query_.size() : amp + 1;
+            const std::size_t equals = one.find('=');
+            if (equals == std::string::npos || one.empty()) {
+                continue;
+            }
+            const std::string name = one.substr(0, equals + 1); // with its '='
+            const std::size_t question = out.find('?');
+            bool already = false;
+            if (question != std::string::npos) {
+                // As the whole query, the first parameter, or a later one.
+                already = out.compare(question + 1, name.size(), name) == 0 ||
+                          out.find("&" + name, question) != std::string::npos;
+            }
+            if (already) {
+                continue;
+            }
+            out += (question == std::string::npos ? "?" : "&") + one;
         }
-        // Already asked for by name: whatever it says stands.
-        if (url.find("session=", question) != std::string::npos) {
-            return url;
-        }
-        return url + "&" + query_;
+        return out;
     }
 
     std::shared_ptr<CesiumAsync::IAssetAccessor> next_;
@@ -1224,6 +1270,7 @@ IonEndpoint ion_endpoint(std::int64_t asset, const std::string& token) {
 TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
                            world::HeightSource heights)
     : impl_(std::make_unique<Impl>(options.worker_threads)) {
+    register_tile_readers();
     // What is fetched, through the platform's HTTPS, kept in Cesium Native's
     // SQLite cache for as long as its caching headers allow.
     std::shared_ptr<CesiumAsync::IAssetAccessor> accessor =

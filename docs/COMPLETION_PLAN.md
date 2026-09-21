@@ -453,22 +453,29 @@ quality: each is held to published figures before it is offered, as the Cessna
       defects in Cesium Native it had to work around.
 - [ ] **Google Photorealistic 3D Tiles** with the user's own Google Maps
       Platform key or Cesium ion token. *Verification: the same checks as
-      Cesium ion, through both ways in.* Begun 2026-09-21 and not finished:
-      both ways in are written, and neither has drawn. Without a key it says
-      what it needs, which is seen; through a Cesium ion token it reaches
-      ion's asset 2275207 and draws no tile at all, and why is not yet known.
-      No Google Maps Platform key is on this machine, so that way in is
-      unproven too.
-- [ ] **Attribution on screen for whichever provider is active.**
+      Cesium ion, through both ways in.* Begun 2026-09-21 and not finished.
+      Through a Cesium ion token they draw, in 11 seconds, with Google's
+      attribution on screen, and a test holds them to both. **Still to do:
+      they draw white.** Their textures are inside their glTF, and this
+      renderer uploads only imagery draped as raster overlays, which is what
+      the other two providers use; "photorealistic" is the whole of what
+      these are for, so the item stays open. The other way in, a Google Maps
+      Platform key used directly, is written and unproven: there is no such
+      key on this machine. `PROJECT_STATUS.md` says what it took.
+
+- [x] **Attribution on screen for whichever provider is active.**
       *Verification: every provider, in every state, draws its attribution,
-      walked by test.* Begun 2026-09-21 and not finished. Whichever provider
-      is drawing, its attribution is on screen: the open data's notices are
-      its own, and a streamed provider's come from what it says about itself
-      and from Cesium Native as its tiles load. The walk is written -
+      walked by test.* Stated, 2026-09-21: whichever provider is drawing, its
+      attribution is along the bottom of the frame - the open data's notices
+      are its own, and a streamed provider's come from what it says about
+      itself and from Cesium Native as its tiles load.
       `tests/cmake/terrain_provider.cmake` takes the provider as a parameter
-      and counts the credit text along the bottom of the frame - but only the
-      open provider is registered, for the reasons above, so it does not yet
-      walk every provider.
+      and walks all three, in both their states: with the user's key, where
+      it counts the credit text on the frame, and with the config directory
+      pointed at an empty place, where the provider must say what is missing
+      and where to put it rather than fail. A provider whose key this machine
+      has not got reports itself skipped.
+
 - [x] **A measured visual-to-collision terrain mismatch.** *Verification: the
       bound for each provider at a set of reference airfields is stated in
       `PROJECT_STATUS.md`, with how it was measured.* Stated, 2026-09-21:

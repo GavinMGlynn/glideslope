@@ -526,12 +526,10 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
     # user's key and without one. A provider whose key this machine has not
     # got reports itself skipped - skipped, never passed.
     #
-    # **Google is not here yet**: through a Cesium ion token it loads its
-    # tiles and draws none of them, its sub-tilesets arriving as JSON nothing
-    # can parse at byte offset 0. docs/PROJECT_STATUS.md says what is known.
-    # The script takes the provider as a parameter, so it joins this list
-    # when it draws.
-    foreach(_provider open ion)
+    # Google draws its geometry and its attribution, and is held to both; it
+    # draws them untextured, which docs/PROJECT_STATUS.md sets out and which
+    # is why its item is not ticked.
+    foreach(_provider open ion google)
         add_test(NAME the_${_provider}_terrain_draws_with_its_attribution_or_says_why_not_on_${_driver}
             COMMAND ${CMAKE_COMMAND}
                 -DPROGRAM=$<TARGET_FILE:glideslope> -DPROVIDER=${_provider}

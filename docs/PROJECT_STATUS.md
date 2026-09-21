@@ -195,6 +195,48 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Google's tiles draw, and nothing read them before, 2026-09-21
+
+**Google's Photorealistic 3D Tiles draw, with Google's attribution, and they
+draw white**, so Phase 5b's Google item is not ticked. Phase 5b's attribution
+item is: every provider, in both its states, is now walked by a test.
+
+**Nothing read a tile's content until its readers were registered.** Cesium
+Native keeps a table of converters - glTF, B3DM, PNTS, composite - looked up
+by the first bytes of what arrives, and `registerAllTileContentTypes()` fills
+it. Nothing called it. A tileset whose tiles are glTF therefore loaded every
+one of them and drew none: not knowing what a body was, Cesium fell back to
+reading it as an external tileset, and 441 perfectly good glTF binaries came
+back as "Error when parsing JSON content, error code Invalid value. at byte
+offset 0".
+
+It had never mattered. The open provider builds its glTF here, and Cesium
+ion's quantized mesh has a reader of its own; Google's is the first content
+that arrives as glTF and has to be recognised. Two guesses were wrong before
+this one - that the body was still compressed, and that it was an
+authorisation failure - and what settled it was printing the status and first
+four bytes of every response: 548 of them, all 200, 441 beginning `glTF`, and
+441 parse errors.
+
+**Two real faults were fixed on the way**, neither of them the cause:
+
+- A bearer token of ours went onto requests for anything Cesium ion points at
+  without a token of its own, which is how Google's asset was asked for.
+- Google's root carries a key and no session, and the child tiles it names
+  carry a session and no key, so neither "it already has a query" nor "it
+  already has a session" says whether the key is there. Taking either for an
+  answer is a 403. Each parameter is now merged on its own.
+
+**What is left.** It draws white. Photorealistic 3D Tiles carry their
+textures inside their glTF, and this renderer has no path for those: the only
+textures it uploads are imagery, draped as raster overlays, which is what the
+open provider and Cesium ion use. Until a tile's own textures are read and
+uploaded, Google's tiles are geometry in the right place and nothing more -
+and "photorealistic" is the whole of what they are for. The other way in, a
+Google Maps Platform key used directly rather than through Cesium ion, is
+written and still unproven: there is no such key on this machine.
+
+
 ### The visual terrain against the terrain flown, 2026-09-21 — item done
 
 Phase 5b's "a measured visual-to-collision terrain mismatch". **The open

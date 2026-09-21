@@ -228,7 +228,8 @@ target_link_libraries(glideslope_gfx PUBLIC SDL3::SDL3-static glideslope_world
                                             glideslope_model)
 # Cesium Native is behind gfx/terrain_tiles.hpp, and none of it is in a header
 # here.
-target_link_libraries(glideslope_gfx PRIVATE Cesium3DTilesSelection CesiumGltfContent)
+target_link_libraries(glideslope_gfx PRIVATE Cesium3DTilesSelection
+                                          Cesium3DTilesContent CesiumGltfContent)
 glideslope_shaders(glideslope_gfx
     src/gfx/shaders/mesh.vert
     src/gfx/shaders/mesh.frag)
