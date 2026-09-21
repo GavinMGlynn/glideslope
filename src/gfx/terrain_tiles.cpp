@@ -12,6 +12,7 @@
 #include <Cesium3DTilesSelection/TileContent.h>
 #include <Cesium3DTilesSelection/TileLoadResult.h>
 #include <Cesium3DTilesSelection/TileRefine.h>
+#include <Cesium3DTilesSelection/SampleHeightResult.h>
 #include <Cesium3DTilesSelection/Tileset.h>
 #include <Cesium3DTilesSelection/TilesetContentLoader.h>
 #include <Cesium3DTilesSelection/TilesetExternals.h>
@@ -30,6 +31,7 @@
 #include <CesiumGeometry/Axis.h>
 #include <CesiumGeometry/QuadtreeTileID.h>
 #include <CesiumGeospatial/BoundingRegion.h>
+#include <CesiumGeospatial/Cartographic.h>
 #include <CesiumGeospatial/Ellipsoid.h>
 #include <CesiumGeospatial/GeographicProjection.h>
 #include <CesiumGeospatial/GlobeRectangle.h>
@@ -1400,6 +1402,37 @@ std::string without_tags(const std::string& html) {
 }
 
 } // namespace
+
+std::vector<std::optional<double>> TerrainTiles::heights_at(
+    const std::vector<world::Geodetic>& places) {
+    std::vector<CesiumGeospatial::Cartographic> ask;
+    ask.reserve(places.size());
+    for (const world::Geodetic& g : places) {
+        ask.push_back(CesiumGeospatial::Cartographic::fromDegrees(
+            g.longitude_deg, g.latitude_deg, 0.0));
+    }
+    auto asked = impl_->tileset->sampleHeightMostDetailed(ask);
+    // The answer needs tiles, which need the workers, whose results are
+    // taken up here: waiting on the future alone would wait for ever.
+    constexpr int rounds = 3600; // at 50 ms, three minutes at most
+    for (int round = 0; round < rounds && !asked.isReady(); ++round) {
+        impl_->tileset->loadTiles();
+        impl_->async.dispatchMainThreadTasks();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    std::vector<std::optional<double>> out(places.size(), std::nullopt);
+    if (!asked.isReady()) {
+        return out; // it never answered; every place is "no surface"
+    }
+    const Cesium3DTilesSelection::SampleHeightResult result =
+        asked.waitInMainThread();
+    for (std::size_t i = 0; i < out.size() && i < result.positions.size(); ++i) {
+        if (i < result.sampleSuccess.size() && result.sampleSuccess[i]) {
+            out[i] = result.positions[i].height;
+        }
+    }
+    return out;
+}
 
 Provider TerrainTiles::provider() const {
     return impl_->provider;

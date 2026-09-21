@@ -32,6 +32,14 @@ std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
                                                 bool imagery,
                                                 gfx::Provider provider);
 
+// Terrain over `region` for `provider`, as above, but for measuring rather
+// than drawing: no imagery is draped on it, because what is being asked of it
+// is where its surface is and not what colour.
+std::unique_ptr<gfx::TerrainTiles> open_terrain_to_measure(
+    gfx::Renderer& renderer, const std::filesystem::path& data,
+    const std::filesystem::path& cache, const world::GeoRectangle& region,
+    gfx::Provider provider);
+
 // The ground's height at a place, above sea level and the geoid's there, from
 // the same DEM and geoid.
 world::GroundHeight ground_at(const std::filesystem::path& data,

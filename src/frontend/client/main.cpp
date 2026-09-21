@@ -40,6 +40,8 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cmath>
+#include <map>
 #include <array>
 #include <cctype>
 #include <charconv>
@@ -74,6 +76,7 @@ struct Options {
     std::optional<glideslope::world::Geodetic> toward;
     bool imagery = true;
     std::string terrain_provider = "open";
+    std::string mismatch;
     std::vector<glideslope::world::Microburst> microbursts;
     std::string weather_station;
     std::string metar;
@@ -95,7 +98,7 @@ void usage(std::FILE* out) {
         "                  [--size WxH] [--screen flight|terrain|sky|origin|depth]\n"
         "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
         "                  [--toward LAT,LON,HEIGHT] [--imagery on|off]\n"
-        "                  [--terrain open|ion|google]\n"
+        "                  [--terrain open|ion|google] [--mismatch FILE]\n"
         "                  [--weather STATION [--microburst LAT,LON]...]\n"
         "                  [--metar REPORT [--station LAT,LON]]\n"
         "                  [--aircraft ID] [--on-ground] [--autopilot] [--plan PLAN]\n"
@@ -117,6 +120,10 @@ void usage(std::FILE* out) {
         "                default, or Cesium ion or Google's Photorealistic 3D Tiles\n"
         "                with your own token or key. The ground the aircraft meets\n"
         "                is the open DEM whichever is drawn\n"
+        "  --mismatch    measure how far the drawn terrain is from the ground the\n"
+        "                aircraft meets, at the places FILE names - one a line, a\n"
+        "                name then a latitude and longitude - and print it; nothing\n"
+        "                is drawn and nothing is flown\n"
         "  --weather     fly in the weather reported now at an airfield, by its\n"
         "                ICAO code - its METAR, and Open-Meteo's winds aloft\n"
         "  --microburst  a microburst in that weather at a latitude and longitude,\n"
@@ -301,6 +308,8 @@ int main(int argc, char** argv) {
             }
         } else if (a == "--aircraft" && has_value) {
             o.aircraft = std::string(args[++i]);
+        } else if (a == "--mismatch" && has_value) {
+            o.mismatch = std::string(args[++i]);
         } else if (a == "--terrain" && has_value) {
             o.terrain_provider = std::string(args[++i]);
         } else if (a == "--view" && has_value) {
@@ -519,6 +528,116 @@ int main(int argc, char** argv) {
         }
         glideslope::gfx::Renderer renderer(o.driver, window, o.width, o.height);
         std::printf("glideslope: GPU driver %s\n", renderer.driver().c_str());
+
+        // **How far the terrain drawn is from the terrain flown.** The ground
+        // an aircraft meets is always the open DEM; a visual provider may put
+        // its surface somewhere else, and this says where, at each place
+        // named. Nothing is drawn and nothing is flown.
+        if (!o.mismatch.empty()) {
+            std::ifstream places_file(o.mismatch, std::ios::binary);
+            if (!places_file) {
+                std::fprintf(stderr, "glideslope: cannot read %s\n",
+                             o.mismatch.c_str());
+                return 2;
+            }
+            std::vector<std::string> names;
+            std::vector<glideslope::world::Geodetic> places;
+            std::string line;
+            while (std::getline(places_file, line)) {
+                if (line.empty() || line[0] == '#') {
+                    continue;
+                }
+                std::istringstream words(line);
+                std::string kind;
+                std::string name;
+                double latitude = 0.0;
+                double longitude = 0.0;
+                if (!(words >> kind >> name >> latitude >> longitude)) {
+                    continue;
+                }
+                if (kind != "airfield") {
+                    continue; // the item asks for airfields
+                }
+                names.push_back(name);
+                places.push_back({latitude, longitude, 0.0});
+            }
+            if (places.empty()) {
+                std::fputs("glideslope: that names no airfield\n", stderr);
+                return 2;
+            }
+            // **One tileset for each whole-degree cell, not one for them
+            // all.** The open provider builds its terrain over the region it
+            // is given, and a region from Barrow to Boston is most of a
+            // continent; the airfields sit in a handful of cells, so each
+            // cell is opened, asked about its own, and closed.
+            std::vector<std::optional<double>> drawn(places.size(), std::nullopt);
+            std::map<std::pair<int, int>, std::vector<std::size_t>> by_cell;
+            for (std::size_t i = 0; i < places.size(); ++i) {
+                by_cell[{static_cast<int>(std::floor(places[i].latitude_deg)),
+                         static_cast<int>(std::floor(places[i].longitude_deg))}]
+                    .push_back(i);
+            }
+            for (const auto& [cell, which] : by_cell) {
+                const glideslope::world::GeoRectangle region{
+                    static_cast<double>(cell.first),
+                    static_cast<double>(cell.second),
+                    static_cast<double>(cell.first + 1),
+                    static_cast<double>(cell.second + 1)};
+                auto measured = glideslope::client::open_terrain_to_measure(
+                    renderer, glideslope::platform::data_directory(),
+                    glideslope::platform::cache_directory(), region,
+                    *glideslope::gfx::provider_named(o.terrain_provider));
+                std::vector<glideslope::world::Geodetic> here;
+                for (const std::size_t i : which) {
+                    here.push_back(places[i]);
+                }
+                const std::vector<std::optional<double>> got =
+                    measured->heights_at(here);
+                for (std::size_t j = 0; j < which.size() && j < got.size(); ++j) {
+                    drawn[which[j]] = got[j];
+                }
+            }
+            double worst = 0.0;
+            std::size_t answered = 0;
+            for (std::size_t i = 0; i < places.size(); ++i) {
+                const glideslope::world::GroundHeight flown =
+                    glideslope::client::ground_at(
+                        glideslope::platform::data_directory(),
+                        glideslope::platform::cache_directory(),
+                        places[i].latitude_deg, places[i].longitude_deg);
+                const double flown_m =
+                    flown.above_sea_level_m + flown.geoid_m; // above the ellipsoid
+                if (!drawn[i]) {
+                    std::printf("mismatch %s %.8f %.8f none flown %.3f\n",
+                                names[i].c_str(), places[i].latitude_deg,
+                                places[i].longitude_deg, flown_m);
+                    continue;
+                }
+                const double off = *drawn[i] - flown_m;
+                // **A height has to be a height.** The land runs from the
+                // Dead Sea's shore to Everest, so a surface put tens of
+                // kilometres below the ellipsoid is not terrain that
+                // disagrees with the DEM - it is an answer that means
+                // nothing, and folding it into a bound would make the bound
+                // mean nothing too. It is printed and set aside.
+                if (*drawn[i] < -500.0 || *drawn[i] > 9000.0) {
+                    std::printf("mismatch %s %.8f %.8f drawn %.3f flown %.3f "
+                                "off %+.3f not-a-height\n",
+                                names[i].c_str(), places[i].latitude_deg,
+                                places[i].longitude_deg, *drawn[i], flown_m, off);
+                    continue;
+                }
+                ++answered;
+                worst = std::max(worst, std::abs(off));
+                std::printf("mismatch %s %.8f %.8f drawn %.3f flown %.3f off %+.3f\n",
+                            names[i].c_str(), places[i].latitude_deg,
+                            places[i].longitude_deg, *drawn[i], flown_m, off);
+            }
+            std::printf("glideslope: %s terrain answered with a height for %zu "
+                        "of %zu airfields, worst %.3f m from the ground flown\n",
+                        o.terrain_provider.c_str(), answered, places.size(), worst);
+            return answered == places.size() ? 0 : 1;
+        }
         std::vector<glideslope::gfx::Draw> draws = scene.draws;
         for (glideslope::gfx::Draw& draw : draws) {
             draw.mesh = renderer.add_mesh(scene.meshes.at(draw.mesh));

@@ -195,6 +195,61 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The visual terrain against the terrain flown, 2026-09-21 — under way, not done
+
+Phase 5b's "a measured visual-to-collision terrain mismatch" is begun.
+**The open provider's bound is measured and stated; Cesium ion's is not,
+because at a third of the airfields it does not answer with a height.**
+
+**What the ground is.** The ground an aircraft meets is always the open DEM -
+that is the rule that lets a server and every client agree on where it is. A
+visual provider may put its surface somewhere else, and how far is what this
+measures. `--mismatch FILE` names places, samples the drawn surface at each
+through Cesium Native's `sampleHeightMostDetailed`, asks the DEM for the same
+places, and prints both. The places are the twelve surveyed runway ends in
+`tests/data/dem/surveyed.txt`, six airfields from Denver to Barrow, already
+in the repository because the DEM itself is held to them.
+
+One tileset is opened for each whole-degree cell rather than one for them
+all: the open provider builds its terrain over the region it is given, and a
+region from Barrow to Boston is most of a continent.
+
+**The open provider: 0.179 m at worst, at all twelve.**
+
+| Airfield | Worst of its two ends |
+| --- | --- |
+| KDEN | 0.081 m |
+| KLAS | 0.018 m |
+| KBOS | 0.006 m |
+| PAJN | 0.015 m |
+| PANC | 0.179 m |
+| PABR | 0.046 m |
+
+That is what it should be: the drawn mesh is built from the same DEM the
+aircraft meets, so what is left is the mesh's own interpolation between the
+points it is built on.
+
+**Cesium ion: not established.** At eight of the twelve it answers with a
+height, and the worst of those is 10.2 m. But the eight are not one thing:
+
+- **KDEN, KLAS and PAJN answer the same on every run**, between 1.6 m and
+  3.4 m above the DEM. That is a real figure and the shape of one that would
+  be expected: a different survey of the same ground.
+- **PABR's answer moves between runs** - 14.0 m, then 10.2 m, then 5.3 m at
+  the same place - which is tiles still arriving when it was asked, not
+  terrain that disagrees.
+- **KBOS and PANC answer with something that is not a height**: 36.9 km and
+  12.4 km *below* the ellipsoid, the same to the millimetre on every run. No
+  land is there. Those are set aside rather than folded into a bound, because
+  a bound with one of those in it would mean nothing.
+
+So the honest position is that ion's surface sits a few metres above the DEM
+where it answers repeatably, and that the measurement is not yet trustworthy
+enough to state a bound. What is next: find why two of the six airfields
+answer with a depth rather than a height, and make the sampling wait for what
+it needs so that the same place gives the same answer twice.
+
+
 ### Cesium ion as a visual terrain provider, 2026-09-21 — item done
 
 Phase 5b's first item. **Cesium ion draws Cesium World Terrain under Bing

@@ -90,6 +90,8 @@ struct Outline {
     double centre_x = 0.0;
     double centre_y = 0.0;
     long count = 0;
+    std::vector<int> where_x; // every pixel of it, for asking where they lie
+    std::vector<int> where_y;
 
     std::string say() const {
         char text[160];
@@ -116,6 +118,15 @@ struct Outline {
 // several patches - a wing here, a tailplane there, with ground between them
 // - so taking the largest alone is wrong; but every one of them is a patch of
 // substance, and a tile that landed a shade differently is not.
+//
+// **An edge is where the pixels are, not where the last one is.** Even within
+// a patch, a sliver a pixel wide can run a long way: on Metal the aeroplane
+// seen from ahead has one reaching the right of the frame, which put its
+// right edge 94 px from where the model projects while its left edge was 1 px
+// away and it had the same number of pixels as elsewhere. So an edge is taken
+// at the hundredth of the pixels nearest it rather than at the outermost one.
+// A wingtip is hundreds of pixels and moves an edge; a sliver is not and does
+// not.
 Outline drawn_outline(const Image& with, const Image& without, int apart) {
     const std::size_t wide = static_cast<std::size_t>(with.width);
     const std::size_t high = static_cast<std::size_t>(with.height);
@@ -133,6 +144,10 @@ Outline drawn_outline(const Image& with, const Image& without, int apart) {
     std::vector<char> seen(wide * high, 0);
     Outline best;
     std::vector<std::size_t> todo;
+    std::vector<int> kept_x;
+    std::vector<int> kept_y;
+    std::vector<int> patch_x;
+    std::vector<int> patch_y;
     for (std::size_t start = 0; start < wide * high; ++start) {
         if (differs[start] == 0 || seen[start] != 0) {
             continue;
@@ -145,6 +160,8 @@ Outline drawn_outline(const Image& with, const Image& without, int apart) {
         double sum_x = 0.0;
         double sum_y = 0.0;
         todo.clear();
+        patch_x.clear();
+        patch_y.clear();
         todo.push_back(start);
         seen[start] = 1;
         while (!todo.empty()) {
@@ -158,6 +175,8 @@ Outline drawn_outline(const Image& with, const Image& without, int apart) {
             patch.bottom = std::max(patch.bottom, y);
             sum_x += x;
             sum_y += y;
+            patch_x.push_back(x);
+            patch_y.push_back(y);
             ++patch.count;
             // Its four neighbours, and diagonally too: a thin wing drawn one
             // pixel at a time is still one wing.
@@ -182,16 +201,8 @@ Outline drawn_outline(const Image& with, const Image& without, int apart) {
         if (patch.count < substance) {
             continue;
         }
-        if (best.count == 0) {
-            best = patch;
-            best.centre_x = sum_x;
-            best.centre_y = sum_y;
-            continue;
-        }
-        best.left = std::min(best.left, patch.left);
-        best.right = std::max(best.right, patch.right);
-        best.top = std::min(best.top, patch.top);
-        best.bottom = std::max(best.bottom, patch.bottom);
+        kept_x.insert(kept_x.end(), patch_x.begin(), patch_x.end());
+        kept_y.insert(kept_y.end(), patch_y.begin(), patch_y.end());
         best.centre_x += sum_x;
         best.centre_y += sum_y;
         best.count += patch.count;
@@ -201,10 +212,16 @@ Outline drawn_outline(const Image& with, const Image& without, int apart) {
         best.top = with.height;
         best.right = -1;
         best.bottom = -1;
-    } else {
-        best.centre_x /= static_cast<double>(best.count);
-        best.centre_y /= static_cast<double>(best.count);
+        return best;
     }
+    best.centre_x /= static_cast<double>(best.count);
+    best.centre_y /= static_cast<double>(best.count);
+    best.left = *std::min_element(kept_x.begin(), kept_x.end());
+    best.right = *std::max_element(kept_x.begin(), kept_x.end());
+    best.top = *std::min_element(kept_y.begin(), kept_y.end());
+    best.bottom = *std::max_element(kept_y.begin(), kept_y.end());
+    best.where_x = kept_x;
+    best.where_y = kept_y;
     return best;
 }
 
@@ -334,6 +351,8 @@ int main(int argc, char** argv) {
     double sum_x = 0.0;
     double sum_y = 0.0;
     long behind = 0;
+    std::vector<int> at_x;
+    std::vector<int> at_y;
     for (const glideslope::gfx::ModelVertex& v : model.vertices) {
         const glideslope::world::Ecef local{static_cast<double>(v.position[0]),
                                             static_cast<double>(v.position[1]),
@@ -352,10 +371,8 @@ int main(int argc, char** argv) {
             ++behind;
             continue;
         }
-        want.left = std::min(want.left, static_cast<int>(std::floor(x)));
-        want.right = std::max(want.right, static_cast<int>(std::ceil(x)));
-        want.top = std::min(want.top, static_cast<int>(std::floor(y)));
-        want.bottom = std::max(want.bottom, static_cast<int>(std::ceil(y)));
+        at_x.push_back(static_cast<int>(std::lround(x)));
+        at_y.push_back(static_cast<int>(std::lround(y)));
         sum_x += x;
         sum_y += y;
         ++want.count;
@@ -367,6 +384,10 @@ int main(int argc, char** argv) {
     }
     want.centre_x = sum_x / static_cast<double>(want.count);
     want.centre_y = sum_y / static_cast<double>(want.count);
+    want.left = *std::min_element(at_x.begin(), at_x.end());
+    want.right = *std::max_element(at_x.begin(), at_x.end());
+    want.top = *std::min_element(at_y.begin(), at_y.end());
+    want.bottom = *std::max_element(at_y.begin(), at_y.end());
 
     const Outline drew = drawn_outline(with, without, 1);
     std::printf("drawn:     %s\n", drew.say().c_str());
@@ -378,58 +399,71 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Only the part of the model in front of the camera can be drawn, and
-    // only the part on screen can be seen, so the edges are held where both
-    // agree there is one: inside the frame.
-    struct Edge {
-        const char* what;
-        int drew;
-        int want;
-    };
-    const Edge edges[] = {{"left", drew.left, want.left},
-                          {"right", drew.right, want.right},
-                          {"top", drew.top, want.top},
-                          {"bottom", drew.bottom, want.bottom}};
-    bool ok = true;
-    for (const Edge& e : edges) {
-        const bool clipped =
-            e.want < 0 || e.want >= (std::string(e.what) == "left" ||
-                                             std::string(e.what) == "right"
-                                         ? with.width
-                                         : with.height);
-        if (clipped) {
-            std::printf("  %-6s not held: the model reaches past the frame\n",
-                        e.what);
-            continue;
-        }
-        const int off = std::abs(e.drew - e.want);
-        std::printf("  %-6s drawn %4d, projected %4d, %d px apart\n", e.what,
-                    e.drew, e.want, off);
-        if (static_cast<double>(off) > tolerance) {
-            ok = false;
+    // **Where it is, not where its last pixel is.** Comparing the two
+    // outlines edge by edge sounds right and is not: one sliver a pixel wide
+    // moves an edge as far as the frame is wide, and on Metal the aeroplane
+    // seen from ahead has exactly that - the same number of pixels as
+    // anywhere else, one thread of them running to the right of the frame,
+    // and a right edge 94 px from where the model projects. Insetting both
+    // outlines by a share of themselves was tried and is no better: a share
+    // of the pixels drawn and a share of the vertices projected are not the
+    // same distance, because a model's vertices crowd where it has detail.
+    //
+    // So what is held is that the aeroplane's pixels lie where the model
+    // projects: nineteen in twenty of them inside the projected outline, with
+    // `tolerance` of room around it for a rendered edge and a projected
+    // vertex to land in different pixels. Every view here puts all of them
+    // inside; the twentieth is room for the thread, which on Metal is nine
+    // pixels of eight hundred. That catches an aeroplane drawn in the wrong
+    // place, at the wrong size, or not at all, while a thread of stray pixels
+    // costs a percent rather than a hundred pixels of edge.
+    const int room = static_cast<int>(std::lround(tolerance));
+    long inside = 0;
+    for (std::size_t i = 0; i < drew.where_x.size(); ++i) {
+        if (drew.where_x[i] >= want.left - room &&
+            drew.where_x[i] <= want.right + room &&
+            drew.where_y[i] >= want.top - room &&
+            drew.where_y[i] <= want.bottom + room) {
+            ++inside;
         }
     }
+    const double share = static_cast<double>(inside) /
+                         static_cast<double>(std::max<long>(drew.count, 1));
+    std::printf("  %ld of %ld drawn pixels lie in the projected outline with "
+                "%d px of room: %.2f%%\n",
+                inside, drew.count, room, share * 100.0);
+    bool ok = share >= 0.95;
+
+    // ...and that it fills that outline, so that a speck in the right place
+    // is not mistaken for an aeroplane. Half of each side, which the
+    // narrowest of the six views - the Cessna seen from ahead - clears.
+    const double wide = static_cast<double>(drew.right - drew.left + 1) /
+                        static_cast<double>(std::max(want.right - want.left + 1, 1));
+    const double high = static_cast<double>(drew.bottom - drew.top + 1) /
+                        static_cast<double>(std::max(want.bottom - want.top + 1, 1));
+    std::printf("  it fills %.0f%% of that outline across and %.0f%% down\n",
+                wide * 100.0, high * 100.0);
+    if (wide < 0.5 || high < 0.5) {
+        ok = false;
+    }
+
     const double centre_off =
         std::hypot(drew.centre_x - want.centre_x, drew.centre_y - want.centre_y);
     std::printf("  centre drawn %.1f,%.1f, projected %.1f,%.1f, %.1f px apart\n",
                 drew.centre_x, drew.centre_y, want.centre_x, want.centre_y,
                 centre_off);
-    (void)0;
     // The centre of the pixels drawn is not the centre of the vertices
-    // projected, and they are not meant to be the same: a model's vertices
-    // crowd where it has detail, and only the side facing the camera is
-    // drawn, so on a side view of the Cessna they sit 13 px apart on a
-    // 320 px frame. It is held to a tenth of the frame, which catches an
-    // aeroplane drawn somewhere else without pretending the two are one
-    // number. The edges above are what pin it.
-    const double centre_allowed = with.width / 10.0;
-    if (centre_off > centre_allowed) {
+    // projected, and they are not meant to be: a model's vertices crowd where
+    // it has detail, and only the side facing the camera is drawn, which on a
+    // side view of the Cessna is 13 px apart on a 320 px frame. A tenth of
+    // the frame catches an aeroplane drawn somewhere else.
+    if (centre_off > with.width / 10.0) {
         ok = false;
     }
     if (!ok) {
         std::fprintf(stderr,
                      "view_check: the aeroplane is not where the camera puts "
-                     "it, beyond %.1f px\n",
+                     "it, with %.1f px of room\n",
                      tolerance);
         return 1;
     }

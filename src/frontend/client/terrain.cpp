@@ -61,6 +61,13 @@ world::GroundHeight ground_at(const std::filesystem::path& data,
             ground->geoid.undulation(latitude_deg, longitude_deg)};
 }
 
+std::unique_ptr<gfx::TerrainTiles> open_terrain_to_measure(
+    gfx::Renderer& renderer, const std::filesystem::path& data,
+    const std::filesystem::path& cache, const world::GeoRectangle& region,
+    gfx::Provider provider) {
+    return open_terrain(renderer, data, cache, region, false, provider);
+}
+
 std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
                                                 const std::filesystem::path& data,
                                                 const std::filesystem::path& cache,

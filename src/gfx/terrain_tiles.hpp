@@ -152,6 +152,18 @@ public:
     // Which provider this is drawing.
     Provider provider() const;
 
+    // The height of the drawn surface above the ellipsoid at each place, in
+    // metres, or nothing where the provider has no surface there.
+    //
+    // **This is the terrain that is seen, not the terrain that is flown.**
+    // What an aircraft meets is always the open DEM, so that a server and
+    // every client agree on where the ground is; a visual provider may put
+    // its surface somewhere else, and how far is what this measures. It
+    // loads whatever tiles it needs to answer, so it is slow and is not for
+    // a frame.
+    std::vector<std::optional<double>> heights_at(
+        const std::vector<world::Geodetic>& places);
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
