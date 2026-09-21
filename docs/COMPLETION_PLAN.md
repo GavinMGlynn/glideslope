@@ -782,7 +782,7 @@ Found while implementing something else. Added when found, not when remembered.
       fail with the Cessna's landing flaps put at 33 to 35 degrees: "its
       levers only move it between 0 and 30".
 
-- [ ] **Nothing here compiles first-party code under clang.** GCC does not
+- [x] **Nothing here compiles first-party code under clang.** GCC does not
       warn about an unused constant at namespace scope in C++ - not under
       `-Wall -Wextra`, and not under `-Wunused-const-variable` at any level,
       which it honours for C alone - so the class reaches CI and reds macOS
@@ -792,7 +792,14 @@ Found while implementing something else. Added when found, not when remembered.
       *(Found 2026-09-21 reading a red macOS build.)* *Verification: a test
       compiles every first-party source under clang with the project's own
       warnings, reports itself skipped where clang is not installed, and
-      turns red for an unused constant that GCC accepts.*
+      turns red for an unused constant that GCC accepts.* Done, 2026-09-21:
+      `tests/cmake/clang_warnings.cmake` re-runs the compile commands CMake
+      already exports, under clang, syntax only, with the same flags the
+      build used and the unused-constant warning added - 93 first-party
+      sources in 100 seconds. Watched both ways with a constant nobody uses
+      put into `checklist.cpp`: GCC built it without a word, and the test
+      failed with "unused variable 'nobody_uses_this'
+      [-Werror,-Wunused-const-variable]".
 
 - [x] **One download that fails once reds the tree.** CI sets
       `GLIDESLOPE_REQUIRE_NETWORK`, so a file that cannot be fetched is a

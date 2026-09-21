@@ -718,6 +718,18 @@ add_test(NAME includes_that_only_look_like_presentation_are_allowed_in_the_simul
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/layering-allowed -DCASES=allowed
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/layering_includes.cmake)
 
+# **What GCC cannot see.** Both Linux builds are GCC, which does not warn
+# about an unused constant at namespace scope in C++ at any level; clang does,
+# and reds macOS and Windows clang-cl for it. This compiles every first-party
+# source under clang with the same flags the build used, and reports itself
+# skipped where clang is not installed.
+add_test(NAME every_first_party_source_compiles_clean_under_clang_too
+    COMMAND ${CMAKE_COMMAND} -DBUILD=${CMAKE_BINARY_DIR}
+        -DSOURCE=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/clang_warnings.cmake)
+set_tests_properties(every_first_party_source_compiles_clean_under_clang_too
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
+
 add_test(NAME sdl_linked_into_the_simulation_by_any_route_fails_the_configure
     COMMAND ${CMAKE_COMMAND} -DGLIDESLOPE_ROOT=${PROJECT_SOURCE_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/layering-links
