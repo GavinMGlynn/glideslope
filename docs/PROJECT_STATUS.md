@@ -288,6 +288,26 @@ here** - this machine is WSL - so CI's two Windows jobs are the first thing
 that will have compiled it. 312 of 312 tests pass locally at `-j4`,
 in 972 s.
 
+### Why the shared Cesium cache locks, 2026-09-22
+
+Read out of Cesium Native rather than guessed at. **It is not readers
+blocking writers**, which was the obvious guess: `SqliteCache` already turns
+on WAL - `PRAGMA journal_mode=WAL` at `SqliteCache.cpp:58`, run at line 214 -
+and that is the part that would otherwise hurt.
+
+**It is that no busy timeout is ever set.** The connection is opened with
+`sqlite3_open` and there is no `sqlite3_busy_timeout` or
+`sqlite3_busy_handler` anywhere in the file - the word "busy" does not appear
+in it. SQLite's default timeout is zero, so a second *writer* - a second
+process sharing the cache, which WAL does not serialise - gets `SQLITE_BUSY`
+on its first attempt instead of waiting a moment, and the store fails. That
+is what "database is locked" in our test logs has been all along.
+
+Their fix is one line after the open, and it is drafted as a third issue in
+`docs/cesium-issues.md`. Ours is to stop the tests sharing one file, which
+needs a way to name the Cesium cache apart from the downloads directory; the
+tail says so.
+
 ### Why WinHTTP's decompression failed, 2026-09-22
 
 **The first attempt turned the option on, watched every Open-Meteo fetch

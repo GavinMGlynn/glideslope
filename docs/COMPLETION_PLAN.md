@@ -810,7 +810,16 @@ Found while implementing something else. Added when found, not when remembered.
       "database is locked". Nothing is lost but the caching, so a tile is
       fetched again. *(Found 2026-09-21 fixing the log that cut a trace line
       in half.)* *Verification: the client tests run together and no run
-      reports a locked database.*
+      reports a locked database.* **The mechanism was read out of Cesium
+      Native on 2026-09-22 rather than guessed at.** It is not readers
+      blocking writers: `SqliteCache` already turns on WAL, which handles
+      that. It is that the connection is opened and **no busy timeout is ever
+      set** - there is no `sqlite3_busy_timeout` or `sqlite3_busy_handler` in
+      the file - so SQLite's default of zero applies and a second writer
+      fails on its first attempt instead of waiting a moment. That is theirs
+      to fix and is drafted as a third issue in `docs/cesium-issues.md`. What
+      can be done here is to stop the tests sharing one file, which needs a
+      way to name the Cesium cache apart from the downloads directory.
 - [ ] **Runways on the DEM.** *(Found writing `REQUIREMENTS.md`; open there.)*
       The terrain data shows a runway with bumps it does not have.
       *Verification: decided in `REQUIREMENTS.md`, and if runways are smoothed,

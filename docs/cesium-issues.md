@@ -152,3 +152,57 @@ and is well defined everywhere. **The same pattern appears throughout the
 file** - `parseQuantizedMesh` reads `QuantizedMeshHeader`, `extensionID` and
 `extensionLength` this way, and `decodeIndices` casts spans to typed pointers
 - so this wants a sweep rather than a one-line change.
+
+---
+
+## Issue 3 — `SqliteCache` sets no busy timeout, so a second process writing the cache fails at once
+
+**Title:** `SqliteCache` never calls `sqlite3_busy_timeout`, so concurrent writers get SQLITE_BUSY immediately
+
+**Body:**
+
+`SqliteCache` opens its database and turns on WAL:
+
+```cpp
+// CesiumAsync/src/SqliteCache.cpp:58, 214
+const std::string PRAGMA_WAL_SQL = "PRAGMA journal_mode=WAL";
+```
+
+WAL lets readers and a writer work at once, which is the hard part, and it is
+good that it is there. But the connection is opened with
+`sqlite3_open` and **nothing ever sets a busy timeout** - there is no call to
+`sqlite3_busy_timeout` or `sqlite3_busy_handler` anywhere in the file. SQLite's
+default timeout is zero, so a second *writer* - a second process sharing the
+cache, which WAL does not serialise - gets `SQLITE_BUSY` on its first attempt
+rather than waiting, and the store fails.
+
+**What it looks like**
+
+Several processes sharing one cache file log, repeatedly:
+
+```
+[error] [SqliteCache.cpp:590] database is locked
+[error] [SqliteCache.cpp:456] database is locked
+```
+
+Nothing is lost but the caching - the entry is simply not stored and the asset
+is fetched again next time - so it is easy to miss. It costs bandwidth and
+time in proportion to how much is being streamed.
+
+**To reproduce**
+
+Run two processes that stream the same tileset with the same
+`SqliteCache` database name, and watch the log.
+
+**Suggested fix**
+
+After `sqlite3_open` succeeds:
+
+```cpp
+CESIUM_SQLITE(sqlite3_busy_timeout)(pConnection, 5000); // milliseconds
+```
+
+A few seconds is generous for a cache write and turns a failure into a short
+wait. A caller who wants a different figure could be given one, but a default
+of zero is the one value that cannot be right.
+
