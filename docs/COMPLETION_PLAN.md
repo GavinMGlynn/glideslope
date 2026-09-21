@@ -922,23 +922,22 @@ Found while implementing something else. Added when found, not when remembered.
       pitch at NORMAL turns 2,169 rpm**, inside the Pegasus's rated 2,600,
       where a pilot with no lever to move flew it at 3,185; the Mosquito's
       airscrews turn 2,530 with the lever forward and 2,283 at four tenths.
-- [ ] **Four visual models are drawn sunk into the ground.** *(Found giving
-      the aircraft an airframe, 2026-09-22; measured properly 2026-09-22.)*
-      `assets/models/alignment.txt` records where each visual model sits on
-      its flight model, fitted to the contacts the aeroplane stands on. For
-      eleven of the fifteen the fit puts the model's lowest point within ten
-      inches of where its wheels touch, and for seven of those within two.
-      For four it is far worse:
-      the 747-400 is drawn 2.15 m below the ground, the B-2 1.67 m, the F-22
-      0.86 m and the Mosquito 0.69 m. **There is a rule that would fix it**,
-      and `tools/ground.py` already relies on it: a model drawn with its
-      undercarriage down has a tyre as its lowest point, so that point
-      belongs at the aeroplane's lowest wheel contact. Anchoring the fit's
-      height there needs no change to the airframe contacts, which re-anchor
-      to the wheels themselves and so would not move.
+- [x] **Four visual models are drawn sunk into the ground.** *(Found giving
+      the aircraft an airframe, 2026-09-22.)* `assets/models/alignment.txt`
+      records where each visual model sits on its flight model. Its height
+      was fitted along with its length, and the fit could buy a smaller
+      average error by burying a model whose mesh and flight model disagree
+      about where the undercarriage is: the 747-400 was drawn 2.15 m below
+      the ground, the B-2 1.67 m, the F-22 0.86 m and the Mosquito 0.69 m.
+      The height is now anchored instead of fitted - a model drawn with its
+      undercarriage down has a tyre as its lowest point, and that point
+      belongs at the aeroplane's lowest wheel contact.
       *Verification: every visual model's lowest point sits within a stated
       distance of its aeroplane's lowest wheel contact, the same distance for
-      all of them.*
+      all of them.* Done, 2026-09-22: all fifteen sit within a centimetre,
+      which is the alignment file's own rounding. The airframe contacts did
+      not move, because they anchor to the wheels themselves - and they now
+      lie within 2 mm of the mesh, where the 747-400's were 2.16 m from it.
 - [x] **The F-15C's airframe slides on the wrong friction.** *(Found giving
       the aircraft an airframe, 2026-09-22.)* Its six airframe contacts came
       from the model it was made from and carried a rolling friction of 0.2,

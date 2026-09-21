@@ -221,7 +221,28 @@ def measure(model_id: str):
         score = sum(left) / len(left)
         if best is None or score < best[0]:
             best = (score, offset, max(left))
-    _, offset, worst = best
+    _, offset, _fitted_worst = best
+
+    # **The height is anchored, not fitted.** A model drawn with its
+    # undercarriage down has a tyre as its lowest point, and an aeroplane
+    # standing on a runway has every wheel on the ground together, so that
+    # point belongs at its lowest wheel contact. There is nothing to fit.
+    #
+    # Fitting it let the walk trade height against length, because sinking a
+    # model brings its contacts nearer the mesh on average when the two
+    # disagree about where the undercarriage is. That drew the 747-400 2.15 m
+    # into the ground, the B-2 1.67, the F-22 0.86 and the Mosquito 0.69 -
+    # the 747-400's model has four bogies where its flight model has three
+    # legs, so no fit of three to four can be right, and the walk bought a
+    # smaller average by burying it. Only x is fitted now; y is nought by
+    # symmetry, and z is this.
+    offset = [offset[0], 0.0, max(t[2] for t in targets) - high[2]]
+    matched = [_beneath(points, [targets[i][k] - offset[k] for k in range(3)],
+                        radius)
+               for i in range(len(targets))]
+    worst = max(math.dist([targets[i][k] - offset[k] for k in range(3)],
+                          matched[i])
+                for i in range(len(targets)))
 
     # The contacts the aeroplane does not rest on are its shape, not its
     # undercarriage: a wingtip, a tailcone, a radome, a propeller tip. They

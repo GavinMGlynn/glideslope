@@ -261,6 +261,7 @@ set(GLIDESLOPE_UNIT_TESTS
     each_visual_model_is_its_aircrafts_size_and_faces_the_way_it_flies
     every_visual_model_is_aligned_to_the_aeroplane_it_draws
     each_visual_models_wheels_sit_on_the_ground_the_aeroplane_stands_on
+    every_visual_model_stands_on_the_ground_rather_than_in_it
     each_visual_model_is_where_its_flight_model_says_the_aeroplane_is
     the_cockpit_view_puts_the_eye_where_the_flight_model_says_the_pilots_is
     every_view_stands_where_its_name_says_and_looks_at_the_aeroplane

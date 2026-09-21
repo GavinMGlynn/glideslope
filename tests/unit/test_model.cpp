@@ -694,6 +694,52 @@ GLIDESLOPE_TEST(each_visual_models_wheels_sit_on_the_ground_the_aeroplane_stands
                 without);
 }
 
+// **Every visual model stands on the ground, not in it.** A model drawn with
+// its undercarriage down has a tyre as its lowest point, and an aeroplane
+// standing on a runway has every wheel on the ground together, so that point
+// belongs at its lowest contact. `tools/align_models.py` anchors the
+// alignment's height there rather than fitting it, and this holds the result.
+//
+// **It is worth holding because fitting the height got it wrong.** The walk
+// that fits the alignment could trade a model's height against its length -
+// sinking a model brings its contacts nearer the mesh on average when the
+// two disagree about where the undercarriage is - and it drew the 747-400
+// 2.15 m into the ground, the B-2 1.67, the F-22 0.86 and the Mosquito 0.69.
+GLIDESLOPE_TEST(every_visual_model_stands_on_the_ground_rather_than_in_it) {
+    const std::map<std::string, ModelAlignment> aligned =
+        read_alignments(alignment_file());
+    // A centimetre: the alignment file records its offsets to the millimetre,
+    // so the anchor cannot be held tighter than its own rounding.
+    constexpr double allowed_m = 0.01;
+    std::size_t stood = 0;
+    for (const auto& [id, a] : aligned) {
+        glideslope::sim::Aircraft aircraft(data_dir() / "jsbsim", id);
+        const Model model = read_model(models_dir() / (id + ".mesh"));
+
+        // +z is down, so the lowest thing is the greatest z.
+        double model_low = -1e30;
+        for (const auto& v : model.vertices) {
+            model_low = std::max(model_low,
+                                 static_cast<double>(v.position[2]) + a.offset[2]);
+        }
+        double contact_low = -1e30;
+        for (const std::array<double, 3>& c : contacts(aircraft)) {
+            contact_low = std::max(contact_low, c[2]);
+        }
+        check(std::abs(model_low - contact_low) <= allowed_m,
+              id + "'s model reaches " + std::to_string(model_low) +
+                  " m where its lowest contact is at " +
+                  std::to_string(contact_low) + " m, which is " +
+                  std::to_string((model_low - contact_low) * 100.0) +
+                  " cm out; positive is drawn into the ground");
+        ++stood;
+    }
+    check(stood == aligned.size(),
+          "every aligned model was stood on the ground: " + std::to_string(stood));
+    check(stood == 15, "fifteen aircraft ship a model, not " + std::to_string(stood));
+    std::printf("stood %zu models on the ground\n", stood);
+}
+
 GLIDESLOPE_TEST(each_visual_model_is_where_its_flight_model_says_the_aeroplane_is) {
     const std::map<std::string, ModelAlignment> aligned =
         read_alignments(alignment_file());
