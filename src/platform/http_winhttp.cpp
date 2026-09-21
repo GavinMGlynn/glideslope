@@ -83,13 +83,16 @@ HttpResponse http_get(const HttpRequest& request) {
     if (!session) {
         fail(request.url, "no WinHTTP session");
     }
-    // WinHTTP does not undo a compressed body unless it is asked to, and a
-    // server may compress one whether the client asked or not. Windows 8.1
-    // and later take this; on anything older it is ignored and a compressed
-    // body would arrive as it was sent.
-    DWORD decompress = WINHTTP_DECOMPRESSION_FLAG_ALL;
-    WinHttpSetOption(session.get(), WINHTTP_OPTION_DECOMPRESSION, &decompress,
-                     sizeof decompress);
+    // **WinHTTP is not asked to undo a compressed body.** It would need
+    // WINHTTP_OPTION_DECOMPRESSION, and turning that on made every fetch from
+    // Open-Meteo fail on all three Windows jobs - the transfer abandoned,
+    // WinHTTP saying 2147500036 - while both Linux jobs, which use libcurl,
+    // passed the same tests. Why is not known, and cannot be found out from
+    // here: there is no Windows to try it on. Nothing asks for a compressed
+    // body, since a provider's own Accept-Encoding is not passed on, so this
+    // costs nothing until a server compresses one unasked - which Cesium ion
+    // does. That is a tail in COMPLETION_PLAN.md, and it is why Cesium ion is
+    // not yet known to work on Windows.
     const int connect_ms = request.connect_timeout_seconds * 1000;
     const int stall_ms = request.stall_timeout_seconds * 1000;
     WinHttpSetTimeouts(session.get(), connect_ms, connect_ms, stall_ms, stall_ms);

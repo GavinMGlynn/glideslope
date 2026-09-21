@@ -617,6 +617,17 @@ checklists are part of. A lesson ends in a debrief, never a score
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [ ] **Cesium ion on Windows, where a body arrives compressed unasked.**
+      WinHTTP does not undo a compressed body unless
+      `WINHTTP_OPTION_DECOMPRESSION` is set, and setting it made every
+      Open-Meteo fetch fail on all three Windows jobs - the transfer
+      abandoned, WinHTTP saying 2147500036 - where both Linux jobs passed. It
+      is off again, so a server that compresses a body unasked hands Windows
+      bytes it cannot read; Cesium ion serves its `layer.json` that way, so
+      ion is not yet known to work there. *(Found 2026-09-21 turning it on and
+      watching CI.)* *Verification: a Windows machine fetches Cesium ion's
+      layer.json and reads it, and the weather still arrives.*
+
 - [ ] **A livery on the aeroplane, and its control surfaces moving.** A model
       ships no texture, so a surface takes the flat diffuse colour of its
       AC3D or 3D Studio material, and no control surface, propeller or
