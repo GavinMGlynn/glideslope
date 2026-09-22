@@ -193,6 +193,7 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
         glideslope::net::StatePacket s;
         s.simulation_time_s = 12.5;
         s.last_input_applied = 7;
+        s.your_aircraft = 1;
         for (int i = 0; i < 3; ++i) {
             glideslope::net::AircraftState a;
             a.index = static_cast<std::uint8_t>(i);

@@ -10,6 +10,7 @@
 // startup, because a client cannot begin an `IK` handshake without it.
 
 #include "net/handshake.hpp"
+#include "net/inputs.hpp"
 #include "net/inside.hpp"
 #include "net/keys.hpp"
 #include "net/protocol.hpp"
@@ -382,6 +383,14 @@ struct Connection {
     // would be a second thing to get right for nothing.
     std::vector<std::uint8_t> initiation;
     std::vector<std::uint8_t> answer;
+    // **The aircraft this client flies**, by the server's number for it, or
+    // `no_aircraft` if the server had none to give - which is what a server
+    // with nothing to fly has, since it has loaded no terrain to put one over.
+    std::uint8_t aircraft = glideslope::net::no_aircraft;
+    // Their inputs, and how far through them the server has got. The number
+    // goes back in every state update so the client knows what to reconcile.
+    glideslope::net::InputReceiver inputs;
+    std::uint32_t last_input_applied = 0;
 };
 
 // **How often the server says where everybody is.** `REQUIREMENTS.md` 6.6
@@ -428,13 +437,15 @@ public:
               glideslope::platform::cache_directory(), fetch_)),
           dem_(std::make_shared<glideslope::world::Dem>(coverage_, tiles_, &geoid_)) {
         const std::shared_ptr<glideslope::world::Dem> dem = dem_;
-        const auto ground = std::make_shared<glideslope::sim::FunctionTerrain>(
+        ground_ = std::make_shared<glideslope::sim::FunctionTerrain>(
             [dem](double lat, double lon) {
                 return dem->height_above_ellipsoid(lat, lon);
             },
             [dem](double lat, double lon) {
                 return dem->water(lat, lon) != glideslope::world::Water::none;
             });
+        const auto ground = ground_;
+        data_ = data;
         for (const Flown& f : fly) {
             const glideslope::sim::CatalogueEntry entry =
                 glideslope::sim::find_aircraft(data, f.id);
@@ -453,14 +464,20 @@ public:
             ic.engine_running = true;
             ic.gear = 0.0;
             aircraft->initialize(ic);
-            flown_.push_back({f.id, std::move(aircraft), nullptr});
+            // Nobody is flying it and no plan is either, so it holds enough
+            // power to stay up and nothing else.
+            glideslope::sim::Controls idling;
+            idling.throttle = 0.6;
+            flown_.push_back(
+                {f.id, std::move(aircraft), nullptr, next_index_, -1, idling});
+            ++next_index_;
         }
 
         // **The AI aircraft the server runs.** They fly one plan, stacked
         // `ai_stack_ft` apart so that they are not all in the same piece of
         // sky - one plan is what there is to fly, and a server that put four
         // aeroplanes in one place would be hiding that rather than saying it.
-        if (ai > 0) {
+        {
             const std::filesystem::path where =
                 plan_file.empty() ? data / "plans" / "sydney-harbour.plan" : plan_file;
             std::ifstream in(where, std::ios::binary);
@@ -511,10 +528,77 @@ public:
                     *aircraft, glideslope::sim::Controls{});
                 controller->to_ai(plan);
                 flown_.push_back({plan.aircraft + " (AI " + std::to_string(i + 1) + ")",
-                                  std::move(aircraft), std::move(controller)});
+                                  std::move(aircraft), std::move(controller),
+                                  next_index_, -1, {}});
+                ++next_index_;
                 ++ai_;
             }
+            // Kept so that a player joining later starts where the AI did.
+            start_ = from;
+            player_model_ = entry.model;
+            player_id_ = plan.aircraft;
+            player_airspeed_kts_ = entry.start_airspeed_kts;
         }
+    }
+
+    // **A player joining is given an aircraft**, at the place the flight plan
+    // starts and stacked clear of everything already in that piece of sky.
+    // Its number is the player's slot, so a client told which slot it has
+    // knows which line of a state update is its own.
+    //
+    // Nothing chooses the aeroplane yet: a player flies whatever the plan
+    // flies. `REQUIREMENTS.md` asks for an aircraft the player picks, and
+    // that is a session setting nobody has written.
+    std::uint8_t give(std::uint8_t slot) {
+        auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data_ / "jsbsim",
+                                                                    player_model_);
+        aircraft->set_terrain(ground_);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = start_.latitude_deg;
+        ic.longitude_deg = start_.longitude_deg;
+        // Above everything already flying, so that being given an aircraft
+        // never puts one inside another.
+        ic.altitude_ft = start_.altitude_ft +
+                         static_cast<double>(flown_.size() + 1) * ai_stack_ft;
+        ic.heading_deg = start_.heading_deg;
+        ic.airspeed_kts = player_airspeed_kts_;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        aircraft->initialize(ic);
+        const auto index = slot;
+        // Until their first input arrives they hold enough power to stay up:
+        // a player whose aircraft appeared with the throttle shut would be
+        // gliding before they had touched anything.
+        glideslope::sim::Controls idling;
+        idling.throttle = 0.6;
+        flown_.push_back({player_id_ + " (slot " + std::to_string(slot) + ")",
+                          std::move(aircraft), nullptr, index, static_cast<int>(slot),
+                          idling});
+        return index;
+    }
+
+    // **A player leaving takes their aircraft with them.** What else could
+    // happen - the aircraft handed to an AI pilot - is a session setting, and
+    // `COMPLETION_PLAN.md` has it as its own item.
+    void take(std::uint8_t index) {
+        std::erase_if(flown_, [index](const Aircraft& a) {
+            return a.slot >= 0 && a.index == index;
+        });
+    }
+
+    // **What the aircraft numbered `index` is being flown by**, held until
+    // something says otherwise. False if there is no such aircraft, or if an
+    // AI pilot is flying it - a client's inputs must not reach an aeroplane
+    // that is not theirs, and that check is here rather than at the caller
+    // because this is where the answer is known.
+    bool fly(std::uint8_t index, const glideslope::sim::Controls& controls) {
+        for (Aircraft& a : flown_) {
+            if (a.index == index && a.controller == nullptr) {
+                a.held = controls;
+                return true;
+            }
+        }
+        return false;
     }
 
     // One step of every aircraft, which is what "the server owns them" means.
@@ -526,9 +610,7 @@ public:
                 // fly" means at this end.
                 a.aircraft->set_controls(a.controller->fly());
             } else {
-                glideslope::sim::Controls held;
-                held.throttle = 0.6;
-                a.aircraft->set_controls(held);
+                a.aircraft->set_controls(a.held);
             }
             a.aircraft->step();
         }
@@ -538,6 +620,18 @@ public:
         std::string id;
         std::unique_ptr<glideslope::sim::Aircraft> aircraft;
         std::unique_ptr<glideslope::sim::Controller> controller; // null: flown by hand
+        // **The server's number for it, steady for as long as it flies**, and
+        // what a state update carries. A player's aircraft is numbered by
+        // their slot, so that a client told its slot knows its own line; the
+        // AI are numbered from `most_slots` upwards, and never move.
+        std::uint8_t index = 0;
+        int slot = -1; // -1: not a person's
+        // **What it is being flown by, between one input and the next.** A
+        // control is a position, not an event: a stick held over stays over
+        // until it is moved, and the aircraft steps 120 times a second while
+        // inputs arrive 30 times a second. So the last thing said is held
+        // and applied at every step.
+        glideslope::sim::Controls held;
     };
     const std::vector<Aircraft>& flown() const { return flown_; }
     int ai() const { return ai_; }
@@ -560,7 +654,20 @@ private:
     glideslope::world::DownloadedTiles tiles_;
     glideslope::world::Geoid geoid_;
     std::shared_ptr<glideslope::world::Dem> dem_;
+    std::shared_ptr<glideslope::sim::FunctionTerrain> ground_;
+    std::filesystem::path data_;
     std::vector<Aircraft> flown_;
+    // Where a player joining starts, and in what.
+    glideslope::sim::FlightPlan::Start start_;
+    std::string player_model_;
+    std::string player_id_;
+    double player_airspeed_kts_ = 0.0;
+    // **The next number to hand out to an aircraft nobody is flying.** It
+    // starts above the slots, because a player's aircraft is numbered by
+    // their slot: numbering the AI from nought would give the first of them
+    // the same number as the player in slot 0.
+    std::uint8_t next_index_ =
+        static_cast<std::uint8_t>(glideslope::net::most_slots);
     int ai_ = 0;
 };
 
@@ -589,12 +696,12 @@ std::string in_column(std::uint64_t bytes) {
 // ECEF metres; velocities come out as north, east and down and are turned
 // into the same frame, because a client extrapolating between two states
 // wants its velocity in the frame its positions are in.
-glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s,
-                                      std::uint32_t last_input_applied) {
+// The two fields meant for one client - `your_aircraft` and
+// `last_input_applied` - are left at their defaults here and filled in per
+// connection, because the packet is sealed to each one separately anyway.
+glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s) {
     glideslope::net::StatePacket packet;
     packet.simulation_time_s = clock_s;
-    packet.last_input_applied = last_input_applied;
-    std::uint8_t index = 0;
     for (const Fleet::Aircraft& a : fleet.flown()) {
         if (packet.aircraft.size() >= glideslope::net::most_aircraft_in_a_state) {
             break;
@@ -615,7 +722,7 @@ glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s,
             glideslope::world::ned_to_ecef(where, north_mps, east_mps, down_mps);
 
         glideslope::net::AircraftState out;
-        out.index = index;
+        out.index = a.index;
         out.controller = a.controller != nullptr ? glideslope::net::Controller::ai
                                                  : glideslope::net::Controller::person;
         out.x_m = at.x;
@@ -628,7 +735,6 @@ glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s,
         out.pitch_deg = static_cast<float>(s.pitch_deg);
         out.roll_deg = static_cast<float>(s.roll_deg);
         packet.aircraft.push_back(out);
-        ++index;
     }
     return packet;
 }
@@ -712,7 +818,7 @@ void refuse(glideslope::platform::UdpSocket& socket,
 // may be no session to seal a refusal with.
 void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPair& mine,
           glideslope::net::Slots& slots,
-          std::map<std::string, Connection>& connections,
+          std::map<std::string, Connection>& connections, Fleet* fleet,
           const glideslope::platform::Address& from,
           std::span<const std::uint8_t> datagram, double now_s, const Options& o) {
     glideslope::net::Reader reader(datagram);
@@ -785,6 +891,12 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         c.slot = *slot;
         c.last_heard_s = now_s;
         c.initiation.assign(body.begin(), body.end());
+        // **A slot is not an aeroplane.** A server with nothing to fly has no
+        // terrain loaded and nowhere to put one, so the client gets a slot
+        // and no aircraft, and its state updates say so with `no_aircraft`.
+        if (fleet != nullptr) {
+            c.aircraft = fleet->give(*slot);
+        }
 
         glideslope::net::Writer w =
             glideslope::net::begin(glideslope::net::Type::handshake_response);
@@ -853,8 +965,28 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             }
             return;
         }
+        case glideslope::net::Inside::inputs: {
+            // **What a client is allowed to say about its own flying, and
+            // the only thing.** It sends inputs, never state, so nothing here
+            // can put an aircraft anywhere: the worst a client can do is fly
+            // its own badly.
+            if (fleet == nullptr || c.aircraft == glideslope::net::no_aircraft) {
+                return;
+            }
+            const auto frames = c.inputs.received(inside.subspan(1));
+            for (const glideslope::net::InputFrame& frame : frames) {
+                if (frame.sequence <= c.last_input_applied) {
+                    continue;
+                }
+                if (!fleet->fly(c.aircraft,
+                                glideslope::sim::Controls::from_list(frame.controls))) {
+                    return;
+                }
+                c.last_input_applied = frame.sequence;
+            }
+            return;
+        }
         case glideslope::net::Inside::reliable:
-        case glideslope::net::Inside::inputs:
         case glideslope::net::Inside::state:
             // Named, not built: nothing sends these yet and nothing here
             // reads them. See docs/TRANSPORT.md, "What is not here yet".
@@ -971,7 +1103,7 @@ int run(const Options& o) {
         if (got > 0) {
             ++datagrams;
             bytes += got;
-            take(*socket, mine, slots, connections, from,
+            take(*socket, mine, slots, connections, fleet ? &*fleet : nullptr, from,
                  std::span<const std::uint8_t>(into.data(), got), up_s, o);
         }
 
@@ -981,19 +1113,19 @@ int run(const Options& o) {
         // position late.
         if (fleet && up_s - said_where_at_s >= state_every_s && !connections.empty()) {
             said_where_at_s = up_s;
-            const glideslope::net::StatePacket packet =
+            glideslope::net::StatePacket packet =
                 state_of(*fleet,
                          static_cast<double>(clock.steps_taken()) /
-                             static_cast<double>(glideslope::sim::steps_per_second),
-                         0);
-            if (const auto said = glideslope::net::write_state(packet)) {
-                for (auto& [address, c] : connections) {
-                    const auto to = glideslope::platform::address_of(address);
-                    if (to) {
-                        send_sealed(*socket, *to, c,
-                                    std::span<const std::uint8_t>(said->data(),
-                                                                  said->size()));
-                    }
+                             static_cast<double>(glideslope::sim::steps_per_second));
+            for (auto& [address, c] : connections) {
+                packet.your_aircraft = c.aircraft;
+                packet.last_input_applied = c.last_input_applied;
+                const auto said = glideslope::net::write_state(packet);
+                const auto to = glideslope::platform::address_of(address);
+                if (said && to) {
+                    send_sealed(*socket, *to, c,
+                                std::span<const std::uint8_t>(said->data(),
+                                                              said->size()));
                 }
             }
         }
@@ -1032,6 +1164,9 @@ int run(const Options& o) {
                 // restarting gets a fresh port. Releasing on the first to go
                 // quiet would take the slot from the one still flying.
                 const glideslope::net::PublicKey going = it->second.who;
+                if (fleet && it->second.aircraft != glideslope::net::no_aircraft) {
+                    fleet->take(it->second.aircraft);
+                }
                 it = connections.erase(it);
                 const bool elsewhere =
                     std::any_of(connections.begin(), connections.end(),

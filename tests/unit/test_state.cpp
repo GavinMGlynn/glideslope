@@ -52,6 +52,10 @@ StatePacket a_packet(std::size_t count) {
     StatePacket s;
     s.simulation_time_s = 1234.5;
     s.last_input_applied = 0xDEADBEEF;
+    // Named, so the round trip carries it; `no_aircraft` when there is none
+    // to name, which is the other thing it can hold.
+    s.your_aircraft = count > 0 ? static_cast<std::uint8_t>(1)
+                                : glideslope::net::no_aircraft;
     for (std::size_t i = 0; i < count; ++i) {
         s.aircraft.push_back(an_aircraft(static_cast<int>(i)));
     }
@@ -211,7 +215,7 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
             auto bytes = *write_state(honest);
             // Where that field's bytes are: the header, then the field's
             // place within the second aircraft.
-            const std::size_t header = 1 + 8 + 4 + 1;
+            const std::size_t header = glideslope::net::state_header_bytes;
             std::size_t at = 0;
             bool is_float = false;
             if (field == 0) {
@@ -256,7 +260,7 @@ GLIDESLOPE_TEST(a_state_packet_with_a_controller_that_is_not_one_is_refused) {
     check(whole.has_value(), "the packet can be written");
     // The controller is the second byte of the aircraft, which follows the
     // header and its index.
-    const std::size_t at = 1 + 8 + 4 + 1 + 1;
+    const std::size_t at = glideslope::net::state_header_bytes + 1;
     std::size_t taken = 0;
     std::size_t refused = 0;
     for (int byte = 0; byte <= 255; ++byte) {
@@ -291,6 +295,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_state_packet
     const std::vector<std::string> fields = {
         "the simulation's clock, seconds since the session began",
         "the newest input sequence from this client the server has applied",
+        "which aircraft below is this client's own, by index",
         "how many aircraft follow",
         "the server's number for this aircraft",
         "who is flying it",

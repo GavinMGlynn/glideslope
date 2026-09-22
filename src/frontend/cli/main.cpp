@@ -5,6 +5,7 @@
 // test, and inside the server.
 
 #include "net/handshake.hpp"
+#include "net/inputs.hpp"
 #include "net/inside.hpp"
 #include "net/keys.hpp"
 #include "net/protocol.hpp"
@@ -78,7 +79,9 @@ void print_usage(std::FILE* out) {
         "                            pings so that it can measure the round trip.\n"
         "                            --again sends the initiation a second time\n"
         "                            once the session is up, as a network that\n"
-        "                            duplicates a datagram would\n"
+        "                            duplicates a datagram would. --fly sends\n"
+        "                            inputs - full aileron - so the server has\n"
+        "                            something to fly this client's aircraft by\n"
         "  --data DIR                read data from DIR instead of data/ beside the\n"
         "                            program\n",
         out);
@@ -473,10 +476,16 @@ int air() {
 // dashboard; a client that answers is also a client the server does not let
 // go. Nothing else is sent, because nothing else is defined to go inside a
 // sealed body yet - see `docs/TRANSPORT.md`, "What is not here yet".
+// **How often a client sends its inputs.** REQUIREMENTS.md does not fix a
+// rate; 30 Hz is enough that the server never waits for one and few enough
+// that four clients do not flood it, and with four frames in every packet a
+// loss of three in a row still loses nothing.
+constexpr double inputs_every_s = 1.0 / 30.0;
+
 int stay(glideslope::platform::UdpSocket& socket,
          const glideslope::platform::Address& server, glideslope::net::Sealer& sealer,
          glideslope::net::Unsealer& unsealer, double seconds,
-         std::span<const std::uint8_t> initiation_again) {
+         std::span<const std::uint8_t> initiation_again, bool fly) {
     // **A test flag's work**: send the initiation once more, now that the
     // session is up. A network that duplicates a datagram does this by
     // itself, and a server that answered it with a fresh session would leave
@@ -490,6 +499,19 @@ int stay(glideslope::platform::UdpSocket& socket,
     int answered = 0;
     int heard = 0;
     std::size_t aircraft_last = 0;
+    // **What this client flies, if it was told to.** Full left aileron and a
+    // little up elevator: a thing no AI pilot on a flight plan would ever do,
+    // so an aircraft that rolls over is one being flown from here and could
+    // not be anything else.
+    glideslope::sim::Controls stick;
+    stick.throttle = 1.0;
+    stick.aileron = -1.0;
+    stick.elevator = 0.2;
+    glideslope::net::InputSender sending;
+    std::uint32_t sequence = 0;
+    double sent_inputs_at_s = -1.0;
+    std::uint32_t applied = 0;
+    double roll_seen_deg = 0.0;
     for (;;) {
         const double up_s =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
@@ -497,10 +519,27 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (up_s >= seconds) {
             break;
         }
+        if (fly && up_s - sent_inputs_at_s >= inputs_every_s) {
+            sent_inputs_at_s = up_s;
+            ++sequence;
+            sending.add(sequence, glideslope::net::as_sent(stick.as_list()));
+            std::vector<std::uint8_t> body{
+                static_cast<std::uint8_t>(glideslope::net::Inside::inputs)};
+            const std::vector<std::uint8_t> packet = sending.packet();
+            body.insert(body.end(), packet.begin(), packet.end());
+            glideslope::net::Writer iw =
+                glideslope::net::begin(glideslope::net::Type::sealed);
+            iw.bytes(sealer.seal(
+                std::span<const std::uint8_t>(body.data(), body.size())));
+            const std::vector<std::uint8_t> out = iw.take();
+            (void)socket.send(server,
+                              std::span<const std::uint8_t>(out.data(), out.size()));
+        }
+
         glideslope::platform::Address from;
         const std::size_t got = socket.receive(into, from);
         if (got <= glideslope::net::envelope_size) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
         glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
@@ -522,10 +561,25 @@ int stay(glideslope::platform::UdpSocket& socket,
         // no sky to draw them in.
         if (const auto state = glideslope::net::read_state(inside)) {
             ++heard;
+            applied = state->last_input_applied;
+            // **Its own aircraft**, which the server names in every update
+            // because a client cannot reconcile without knowing which line is
+            // its own.
+            for (const glideslope::net::AircraftState& a : state->aircraft) {
+                if (a.index == state->your_aircraft) {
+                    if (std::abs(static_cast<double>(a.roll_deg)) >
+                        std::abs(roll_seen_deg)) {
+                        roll_seen_deg = a.roll_deg;
+                    }
+                }
+            }
             if (heard == 1 || state->aircraft.size() != aircraft_last) {
                 aircraft_last = state->aircraft.size();
-                std::printf("state: %zu aircraft at %.3f s\n", state->aircraft.size(),
-                            state->simulation_time_s);
+                std::printf("state: %zu aircraft at %.3f s, mine is %d\n",
+                            state->aircraft.size(), state->simulation_time_s,
+                            state->your_aircraft == glideslope::net::no_aircraft
+                                ? -1
+                                : static_cast<int>(state->your_aircraft));
                 for (const glideslope::net::AircraftState& a : state->aircraft) {
                     const glideslope::world::Geodetic g =
                         glideslope::world::to_geodetic({a.x_m, a.y_m, a.z_m});
@@ -555,11 +609,16 @@ int stay(glideslope::platform::UdpSocket& socket,
     std::printf("stayed %.1f s, answered %d ping%s and heard %d state update%s\n",
                 seconds, answered, answered == 1 ? "" : "s", heard,
                 heard == 1 ? "" : "s");
+    if (fly) {
+        std::printf("sent %u input frames, the server applied %u\n", sequence,
+                    applied);
+        std::printf("my aircraft rolled to %.0f degrees\n", roll_seen_deg);
+    }
     return answered > 0 ? 0 : 1;
 }
 
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
-               bool again) {
+               bool again, bool fly) {
     const auto address = glideslope::platform::address_of(where);
     if (!address) {
         std::fprintf(stderr, "glideslope_cli: %s is not an address\n", where.c_str());
@@ -647,7 +706,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                     return stay(*socket, *address, sealer, unsealer, stay_s,
                                 again ? std::span<const std::uint8_t>(first.data(),
                                                                      first.size())
-                                      : std::span<const std::uint8_t>());
+                                      : std::span<const std::uint8_t>(),
+                                fly);
                 }
             }
         }
@@ -694,12 +754,17 @@ int main(int argc, char** argv) {
             return fly_figures(data, std::string(args[1]),
                                args.size() == 3 ? std::string(args[2]) : "");
         }
-        if (args.size() >= 3 && args.size() <= 5 && args[0] == "connect") {
+        if (args.size() >= 3 && args.size() <= 6 && args[0] == "connect") {
             double stay_s = 0.0;
             bool again = false;
+            bool fly = false;
             for (std::size_t i = 3; i < args.size(); ++i) {
                 if (args[i] == "--again") {
                     again = true;
+                    continue;
+                }
+                if (args[i] == "--fly") {
+                    fly = true;
                     continue;
                 }
                 stay_s = std::strtod(std::string(args[i]).c_str(), nullptr);
@@ -715,8 +780,13 @@ int main(int argc, char** argv) {
                                      "stay for, or there is nothing to watch\n");
                 return 2;
             }
+            if (fly && stay_s <= 0.0) {
+                std::fprintf(stderr, "glideslope_cli: --fly needs seconds to fly "
+                                     "for\n");
+                return 2;
+            }
             return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
-                              again);
+                              again, fly);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();

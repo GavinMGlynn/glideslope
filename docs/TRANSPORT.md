@@ -420,6 +420,7 @@ of order.
 | `u8` | `03`, the kind |
 | `f64` | the simulation's clock, seconds since the session began |
 | `u32` | the newest input sequence from this client the server has applied |
+| `u8` | which aircraft below is this client's own, by index, or `FF` for none |
 | `u8` | how many aircraft follow, at most 20 |
 
 Then, for each aircraft:
@@ -438,6 +439,12 @@ Then, for each aircraft:
 | `f32` | its pitch, degrees |
 | `f32` | its roll, degrees |
 
+**Two of the fields are meant for one client and not for the others**, which
+is why a state update is sealed to each connection separately rather than
+built once and sent to all: the input sequence and the index of this client's
+own aircraft. A client cannot reconcile its prediction without knowing which
+line is its own.
+
 **Positions are Earth-centred, Earth-fixed and double precision**, because the
 whole world is in play: there is no session origin for an aircraft to be near,
 and two aircraft in one session may be on opposite sides of the planet. The
@@ -446,13 +453,15 @@ the server's to hand out.
 
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
-full is 1,014 bytes, and 1,044 with the envelope and the sealing in front of
+full is 1,015 bytes, and 1,045 with the envelope and the sealing in front of
 it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 
 **A reader refuses**: a kind that is not `03`, fewer bytes than the fields
 need, any byte left over at the end, more than 20 aircraft, a controller this
-version does not know, and any NaN or infinity in any of the ten numbers.
+version does not know, and any NaN or infinity in any of the ten numbers. It
+does not refuse a `your_aircraft` that names no aircraft in the packet: a
+client that cannot find itself has no aircraft yet, which is what `FF` says.
 
 ## Sealing
 
@@ -491,10 +500,13 @@ startup.
   and `STATE` are numbered above and nothing sends or reads them, so the seven
   messages and the input packets - both defined and encoded - do not yet
   travel. `PING` and `PONG` do.
-- **Anything a client may say about its own flying.** The server sends state
-  25 times a second and reads nothing back but a `PONG`: a client's inputs
-  reach no aircraft, so a player cannot fly. A client is a spectator with a
-  slot.
+- **Any check on what a client sends.** A client's inputs reach its aircraft
+  with no range check and no rate limit: a value outside -1 to 1 cannot be
+  written, because the wire is a 16-bit fraction, but nothing stops a client
+  sending as fast as it likes. `docs/THREATS.md` says what that costs.
+- **Choosing an aeroplane.** A player flies whatever the server's flight plan
+  flies, and starts where it starts. `REQUIREMENTS.md` asks for the player to
+  pick, and that is a session setting nobody has written.
 - **Rate limiting, and the cookie an overloaded server would demand.** A
   server does an X25519 operation for any stranger that sends it an
   initiation. `docs/THREATS.md` says what that costs and what would bound it.
@@ -503,5 +515,7 @@ What a client written from this document **can** do today: complete the
 handshake with a server whose public key it was given, be admitted to a slot,
 seal and open datagrams under the keys that handshake agreed, answer the
 server's knocking so that it stays in its slot and the server can measure the
-round trip, **read where every aircraft is 25 times a second**, and be let go
-when it stops. What it cannot do is fly.
+round trip, **read where every aircraft is 25 times a second, and fly its own
+aircraft by sending inputs**, and be let go when it stops. What it cannot do
+is be told anything: none of the seven messages travels, so it never learns
+the lobby, the weather or what aeroplane anybody is in.

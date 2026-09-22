@@ -8,11 +8,6 @@
 namespace glideslope::net {
 namespace {
 
-// The kind byte, the clock, the input sequence and the count.
-constexpr std::size_t header_bytes = 1 + 8 + 4 + 1;
-// An index, a controller, three doubles and six floats.
-constexpr std::size_t per_aircraft_bytes = 1 + 1 + 3 * 8 + 6 * 4;
-
 bool a_number(double v) {
     return std::isfinite(v);
 }
@@ -24,7 +19,7 @@ bool a_number(float v) {
 } // namespace
 
 std::size_t state_bytes(std::size_t count) {
-    return header_bytes + count * per_aircraft_bytes;
+    return state_header_bytes + count * state_per_aircraft_bytes;
 }
 
 std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
@@ -53,6 +48,7 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
     w.u8(static_cast<std::uint8_t>(Inside::state));
     w.f64(state.simulation_time_s);
     w.u32(state.last_input_applied);
+    w.u8(state.your_aircraft);
     w.u8(static_cast<std::uint8_t>(state.aircraft.size()));
     for (const AircraftState& a : state.aircraft) {
         w.u8(a.index);
@@ -78,6 +74,7 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
     StatePacket out;
     out.simulation_time_s = r.f64();
     out.last_input_applied = r.u32();
+    out.your_aircraft = r.u8();
     const std::uint8_t count = r.u8();
     if (!r.ok() || count > most_aircraft_in_a_state) {
         return std::nullopt;

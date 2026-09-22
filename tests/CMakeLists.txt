@@ -957,6 +957,18 @@ add_test(NAME the_server_refuses_a_flag_with_nothing_after_it
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 # **The server flies every aircraft, each over its own terrain.** Two aircraft
+# **A client flies an aircraft on the server**, by sending inputs and nothing
+# else. Full aileron rolls it inverted, which no AI pilot on a plan would do;
+# see cmake/server_fly.cmake for the two ways this has been broken before.
+add_test(NAME a_clients_inputs_fly_its_aircraft_on_the_server
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_fly -DPORT=47862
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_fly.cmake)
+set_tests_properties(a_clients_inputs_fly_its_aircraft_on_the_server PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_fly)
+
 # **A client hears where every aircraft is**: the whole state stream, end to
 # end over a real socket, with the positions held to the place the flight plan
 # starts over. See cmake/server_state.cmake for why the places are checked.

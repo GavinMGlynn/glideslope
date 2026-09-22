@@ -83,13 +83,28 @@ if(_heard LESS 50 OR _heard GREATER 110)
                         "seconds, and 25 Hz is seventy-five")
 endif()
 
-# **Every aircraft the server is flying is in the packet**, and no more.
-if(NOT _out MATCHES "state: ([0-9]+) aircraft at ([0-9.]+) s")
+# **Every aircraft the server is flying is in the packet**, and no more. That
+# is the AI aircraft plus the one the client was given on joining: a slot
+# comes with an aeroplane when the server has terrain to put one over.
+math(EXPR _expected "${_ai} + 1")
+if(NOT _out MATCHES "state: ([0-9]+) aircraft at ([0-9.]+) s, mine is ([-0-9]+)")
     message(FATAL_ERROR "the client did not report the aircraft:\n${_out}")
 endif()
-if(NOT CMAKE_MATCH_1 EQUAL _ai)
+if(NOT CMAKE_MATCH_1 EQUAL _expected)
     message(FATAL_ERROR "the packet held ${CMAKE_MATCH_1} aircraft and the "
-                        "server is flying ${_ai}")
+                        "server is flying ${_ai} plus this client's own")
+endif()
+# **And the client knows which one is its own.** Without that it could not
+# reconcile a prediction against anything; -1 is what it prints when the
+# server gave it none.
+set(_mine ${CMAKE_MATCH_3})
+if(_mine LESS 0)
+    message(FATAL_ERROR "the server gave the client no aircraft, though it has "
+                        "terrain loaded and a slot to spare")
+endif()
+if(_mine GREATER 3)
+    message(FATAL_ERROR "the client's own aircraft is numbered ${_mine}, and a "
+                        "player's aircraft is numbered by their slot, 0 to 3")
 endif()
 
 # **And they are where they really are.** The flight plan starts over Sydney
@@ -100,8 +115,8 @@ if(NOT _lines)
     string(REGEX MATCHALL "\n  [0-9]+ at [^\n]+" _lines "${_out}")
 endif()
 list(LENGTH _lines _count)
-if(NOT _count EQUAL _ai)
-    message(FATAL_ERROR "${_count} aircraft lines were printed, not ${_ai}:\n${_out}")
+if(NOT _count EQUAL _expected)
+    message(FATAL_ERROR "${_count} aircraft lines were printed, not ${_expected}:\n${_out}")
 endif()
 
 set(_walked 0)
@@ -129,13 +144,14 @@ foreach(_line IN LISTS _lines)
     list(APPEND _heights ${_height})
     math(EXPR _walked "${_walked} + 1")
 endforeach()
-if(NOT _walked EQUAL _ai)
-    message(FATAL_ERROR "only ${_walked} of ${_ai} aircraft were held to a place")
+if(NOT _walked EQUAL _expected)
+    message(FATAL_ERROR "only ${_walked} of ${_expected} aircraft were held to a place")
 endif()
 
 # **Stacked 500 ft apart**, which is 152 m. A height lost on the way out would
 # leave them in the same place without moving either sideways, so this is the
-# check that catches it.
+# check that catches it. The first two lines are the AI aircraft - the fleet
+# is built before anybody joins, so a player's aircraft is always last.
 list(GET _heights 0 _first)
 list(GET _heights 1 _second)
 math(EXPR _gap "${_second} - ${_first}")
@@ -148,4 +164,5 @@ if(_gap LESS 100 OR _gap GREATER 250)
 endif()
 
 message(STATUS "the client heard ${_heard} state updates in three seconds, each "
-               "with ${_ai} aircraft over Sydney Harbour, ${_gap} m apart in height")
+               "with ${_expected} aircraft over Sydney Harbour - ${_ai} of the "
+               "server's ${_gap} m apart in height, and its own, numbered ${_mine}")

@@ -39,6 +39,15 @@ namespace glideslope::net {
 // is 1 to 4 and `--ai` is 0 to 16.
 inline constexpr std::size_t most_aircraft_in_a_state = 20;
 
+// What `your_aircraft` holds when this client has none.
+inline constexpr std::uint8_t no_aircraft = 255;
+
+// The kind byte, the clock, the input sequence, this client's own aircraft
+// and the count; then an index, a controller, three doubles and six floats
+// per aircraft. Named so that nothing has to count bytes twice.
+inline constexpr std::size_t state_header_bytes = 1 + 8 + 4 + 1 + 1;
+inline constexpr std::size_t state_per_aircraft_bytes = 1 + 1 + 3 * 8 + 6 * 4;
+
 // One aircraft, as the wire carries it.
 struct AircraftState {
     // The server's own number for this aircraft, steady for as long as it
@@ -68,6 +77,12 @@ struct StatePacket {
     // The newest input sequence from *this* client that the server has
     // applied. A client reconciles everything it has predicted after this.
     std::uint32_t last_input_applied = 0;
+    // **Which of the aircraft below is this client's own**, by index, or
+    // `no_aircraft`. A client cannot reconcile its prediction without knowing
+    // which line is its own, and it is here rather than in a `SESSION`
+    // message because this packet is already sealed to one client and already
+    // carries one thing meant only for them - `last_input_applied`.
+    std::uint8_t your_aircraft = no_aircraft;
     std::vector<AircraftState> aircraft;
 
     bool operator==(const StatePacket&) const = default;
