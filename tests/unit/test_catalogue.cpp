@@ -366,8 +366,8 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
                           std::filesystem::copy_options::recursive);
     {
         std::ofstream out(copy / "aircraft" / "trainer.aircraft", std::ios::binary);
-        out << "# A trainer, for the test.\nname Slow Trainer\nmodel c172p\nstart 80 "
-               "0.55\n";
+        out << "# A trainer, for the test.\nname Slow Trainer\nmodel c172p\nclass "
+               "light-aircraft\nstart 80 0.55\n";
     }
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(copy);
     check(catalogue.size() == glideslope::sim::read_catalogue(data()).size() + 1,
@@ -385,7 +385,8 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
     // A model the data does not hold is refused.
     {
         std::ofstream out(copy / "aircraft" / "ghost.aircraft", std::ios::binary);
-        out << "name Ghost\nmodel no_such_model\nstart 100 0.7\n";
+        out << "name Ghost\nmodel no_such_model\nclass light-aircraft\nstart 100 "
+               "0.7\n";
     }
     bool refused_model = false;
     try {
@@ -397,25 +398,36 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
     check(refused_model, "an aircraft whose model is not in the data is refused");
     std::filesystem::remove_all(copy);
 
-    check(refused("name A\nmodel c172p\nstart 100 0.7\nwings 2\n",
-                  "line 4: no command \"wings\""),
+    check(refused("name A\nmodel c172p\nclass light-aircraft\nstart 100 0.7\nwings 2\n",
+                  "line 5: no command \"wings\""),
           "a command it does not know, by its line");
-    check(refused("name A\nmodel c172p\nstart 100 1.5\n", "line 3: the throttle"),
+    check(refused("name A\nmodel c172p\nclass light-aircraft\nstart 100 1.5\n",
+                  "line 4: the throttle"),
           "a throttle past full");
-    check(refused("name A\nmodel c172p\n",
-                  "must give the aircraft's name, model and start"),
+    check(refused("name A\nmodel c172p\nclass light-aircraft\n",
+                  "must give the aircraft's name, model, start and class"),
           "an aircraft with no start");
-    check(refused("name A\nmodel c172p\nstart 100 0.7\nseaplane yes\n",
-                  "line 4: seaplane, alone"),
+    // **An aircraft that does not say which class it is, is refused.** A
+    // lesson is found by the class its aeroplane declares, so an aeroplane
+    // without one can be taught nothing - and until now nothing said so.
+    check(refused("name A\nmodel c172p\nstart 100 0.7\n",
+                  "must give the aircraft's name, model, start and class"),
+          "an aircraft with no class");
+    check(refused("name A\nmodel c172p\nclass biplane\nstart 100 0.7\n", "biplane"),
+          "an aircraft whose class is not one of the seven");
+    check(refused("name A\nmodel c172p\nclass light-aircraft\nstart 100 0.7\nseaplane yes\n",
+                  "line 5: seaplane, alone"),
           "a seaplane line with more on it");
-    check(glideslope::sim::parse_catalogue_entry("x", "name A\nmodel m\nstart 90 0.6\nseaplane\n")
+    check(glideslope::sim::parse_catalogue_entry(
+              "x", "name A\nmodel m\nclass seaplane\nstart 90 0.6\nseaplane\n")
                   .seaplane &&
-              !glideslope::sim::parse_catalogue_entry("x", "name A\nmodel m\nstart 90 0.6\n")
+              !glideslope::sim::parse_catalogue_entry(
+                   "x", "name A\nmodel m\nclass light-aircraft\nstart 90 0.6\n")
                    .seaplane,
           "an aircraft is a seaplane only if its file says so");
     check(glideslope::sim::parse_catalogue_entry("x",
                                                  "name Two  Words # a comment\nmodel "
-                                                 "m\nstart 90 0.6\n")
+                                                 "m\nclass light-aircraft\nstart 90 0.6\n")
                   .name == "Two Words",
           "a name of words, a comment after it");
     bool none = false;
