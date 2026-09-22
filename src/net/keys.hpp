@@ -15,7 +15,11 @@
 // item in `docs/COMPLETION_PLAN.md`.
 //
 // **A secret read from a file or a command line is still a secret.** Nothing
-// here writes one to a log, and `PublicKey` is the only half with a `text()`.
+// here writes one to a log, and `PublicKey` is the only half with a `text()`,
+// so a secret cannot reach a stream by the same reflex that prints a public
+// half. Writing a secret down at all goes through `secret_for_keeping()`,
+// which is named to be greppable and has exactly one caller: the server
+// putting its minted key in the store it was asked for.
 
 #include <array>
 #include <cstdint>
@@ -57,5 +61,11 @@ PublicKey public_from_secret(const SecretKey& secret);
 std::optional<SecretKey> secret_from_text(std::string_view text);
 // The same for a public half, which is what a client is given.
 std::optional<PublicKey> public_from_text(std::string_view text);
+
+// A secret written down, to be kept somewhere the operator asked for. This is
+// deliberately not `SecretKey::text()`: a secret should not be one member
+// access away from a log line. `secret_from_text()` reads back what this
+// writes.
+std::string secret_for_keeping(const SecretKey& secret);
 
 } // namespace glideslope::net

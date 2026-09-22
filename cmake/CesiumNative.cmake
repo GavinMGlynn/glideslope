@@ -21,8 +21,8 @@ endif()
 # missing is still caught - while letting this project depend on something
 # they do not.
 #
-# **libsodium** is the transport's: `Noise_IK_25519_ChaChaPoly_BLAKE2s` needs
-# X25519, ChaCha20-Poly1305 and BLAKE2s, and libsodium has all three
+# **libsodium** is the transport's: `Noise_IK_25519_ChaChaPoly_BLAKE2b` needs
+# X25519, ChaCha20-Poly1305 and BLAKE2b, and libsodium has all three
 # (REQUIREMENTS.md 6.7, docs/TRANSPORT.md). It comes through vcpkg rather than
 # as a submodule under ext/ because it ships no CMake build of its own -
 # autotools on Unix, Visual Studio solutions on Windows - so a submodule would

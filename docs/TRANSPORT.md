@@ -151,7 +151,7 @@ one datagram claiming `FFFFFFFF` would otherwise empty the send queue and
 nothing would send those messages again. A real client never hits this, since
 it only ever acknowledges what arrived. Telling a *forged* acknowledgement of
 a message that was sent from a real one is the sealing's job, and the sealing
-is not built - see "What is not here yet".
+is below.
 
 **The weather is two of them**, because it does not fit in one datagram. The
 forecast above a station is nineteen pressure levels as this project fetches
@@ -362,23 +362,85 @@ supercharger, speedbrake, the two throttle offsets, and the two cooling flaps.
 a flat list and takes them back the same way, which is what keeps this
 document and the simulation from drifting apart when a control is added.
 
+### What is inside a sealed body
+
+**Everything that is not a handshake or a refusal travels inside a `SEALED`
+datagram**, and there is more than one kind of thing to send. So the plaintext
+inside the seal begins with one byte saying which kind it is. That byte is
+inside the seal, not in the envelope, because nothing outside a session needs
+to know which of these a datagram is.
+
+| value | name | what follows |
+| --- | --- | --- |
+| `01` | `RELIABLE` | the reliable layer's datagram, carrying one message |
+| `02` | `INPUTS` | an input packet |
+| `03` | `STATE` | a state update from the server |
+| `04` | `PING` | `u64`, a token |
+| `05` | `PONG` | `u64`, the token from the `PING` it answers |
+
+A kind this version does not know is **ignored, not refused**: a client of a
+later version may send one, and dropping its session for it would make every
+future addition a breaking change. A kind it does know but cannot read - a
+`PING` that is not nine bytes - is ignored the same way.
+
+**`PING` and `PONG` are the keepalive and the round trip.** The server knocks
+on each connection once a second; the other end sends the same token straight
+back; the server takes the time between as the round trip and draws it on its
+dashboard. Only the token the server has outstanding counts, so an old or
+invented one tells it nothing. **A client that answers is also a client the
+server does not let go** when `--timeout` comes round, which is why the
+knocking is the server's job: the server is the one deciding who has gone.
+
+**`RELIABLE`, `INPUTS` and `STATE` are numbered here and nothing sends them.**
+The numbering is fixed before anything uses it so that it cannot move later;
+what each one would carry is defined above, or, for `STATE`, not at all.
+
+## Sealing
+
+**A `SEALED` datagram's body is ciphertext** under the keys the handshake
+agreed. Each end seals under the key it sends with and opens under the key it
+receives with, so the two directions never share a key and a datagram cannot
+be reflected back at the end that sent it.
+
+| written as | field |
+| --- | --- |
+| `u64` | the sequence number, from 0, one per direction |
+| bytes | the body, ChaCha20-Poly1305 sealed, with its 16-byte tag |
+
+The sequence number is the cipher's nonce: four bytes of nought then the
+number, least significant byte first, as ChaCha20-Poly1305's twelve. It is
+sent in the clear because it is not a secret, and it is the additional data
+the tag covers, so changing it only stops the body opening.
+
+**A replay window of 64.** The opener keeps the highest number it has opened
+and a bitmap of the 64 before it. A number it has already opened is refused,
+and so is one more than 64 behind the newest. **That is the stated limit**: a
+datagram delayed by more than the window cannot be told from a replay, and is
+refused rather than guessed at. Only a body that opens moves the window, so a
+datagram that is not ours cannot push the window forward.
+
+**The handshake** is `Noise_IK_25519_ChaChaPoly_BLAKE2b`. `REQUIREMENTS.md`
+6.7 names BLAKE2s; libsodium has no BLAKE2s, BLAKE2b is a hash the Noise
+specification defines, and the choice is recorded in
+`src/net/handshake.hpp` and `docs/PROJECT_STATUS.md`. The initiator must
+already know the responder's static public key, which the server prints at
+startup.
+
 ## What is not here yet
 
-- **The handshake.** `Noise_IK_25519_ChaChaPoly_BLAKE2s`, with libsodium's
-  primitives, as `REQUIREMENTS.md` 6.7 specifies. The client is to know the
-  server's static key out of band, from `--server-key`, which the server
-  prints at startup. Neither end is built, and libsodium is not yet a
-  dependency.
-- **Sealing.** `SEALED` bodies are to be ciphertext under the handshake's
-  keys, with a sequence number and a replay window per message. Nothing seals
-  anything today.
-- **The state updates a server sends back.** A client's inputs are defined
-  and built, above; the reconciliation state that answers them - position,
+- **Three of the five things a sealed body can hold.** `RELIABLE`, `INPUTS`
+  and `STATE` are numbered above and nothing sends or reads them, so the seven
+  messages and the input packets - both defined and encoded - do not yet
+  travel. `PING` and `PONG` do.
+- **The state updates a server sends back.** A client's inputs are defined and
+  built, above; the reconciliation state that answers them - position,
   orientation, velocities and the last input applied - is not.
-- **Anyone to talk to.** The sockets exist - UDP, non-blocking, on BSD
-  sockets and on Winsock - but nothing listens on one, because there is no
-  server.
+- **Rate limiting, and the cookie an overloaded server would demand.** A
+  server does an X25519 operation for any stranger that sends it an
+  initiation. `docs/THREATS.md` says what that costs and what would bound it.
 
-Until those exist there is nothing to connect to, and a client written from
-this document can encode and decode an envelope, its values, the seven
-reliable messages and a client's inputs, and send them into the dark.
+What a client written from this document **can** do today: complete the
+handshake with a server whose public key it was given, be admitted to a slot,
+seal and open datagrams under the keys that handshake agreed, answer the
+server's knocking so that it stays in its slot and the server can measure the
+round trip, and be let go when it stops. What it cannot do is fly.

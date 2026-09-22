@@ -1,23 +1,24 @@
 // glideslope_server - the server, which owns every aircraft.
 //
-// **What is not here yet.** The server parses its settings, binds its port
-// and shows its dashboard. It does not yet fly anything, accept anyone or
-// seal anything: the handshake and the sealing are still to do
-// (docs/TRANSPORT.md), and flying every aircraft is its own item in
-// docs/COMPLETION_PLAN.md. The dashboard therefore shows an empty session,
-// which is what there is.
+// **What is not here yet.** The server accepts a handshake, gives the client
+// a slot and opens what it seals - but nothing is done with what is opened:
+// no input reaches an aircraft and no state goes back. `--store` keeps
+// nothing. So a client can connect and be counted, and cannot yet fly.
 //
-// **`--key` is accepted and checked, not minted.** A server secret is an
-// X25519 static key; without libsodium there is nothing here to derive its
-// public half with, and a secret whose public half cannot be printed is of
-// no use to a client. So a key given is checked and kept, and a key not
-// given is reported as one this build cannot mint, rather than a random
-// number pretending to be one.
+// **`--key` is the server's static X25519 secret.** Given, it is checked and
+// used; not given, one is minted. Either way the public half is printed at
+// startup, because a client cannot begin an `IK` handshake without it.
 
+#include "net/handshake.hpp"
+#include "net/inside.hpp"
+#include "net/keys.hpp"
+#include "net/protocol.hpp"
+#include "net/sealing.hpp"
 #include "net/slots.hpp"
 #include "platform/http.hpp"
 #include "platform/paths.hpp"
 #include "platform/socket.hpp"
+#include "platform/store.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/controller.hpp"
@@ -39,6 +40,7 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -56,6 +58,10 @@ constexpr int default_players = 4;
 constexpr double default_timeout_s = 10.0;
 // A server secret is 32 bytes, written as hexadecimal.
 constexpr std::size_t key_hex_length = 64;
+
+// What the server's secret is called in the store. One name, forever: change
+// it and every kept key is orphaned and a fresh one minted in its place.
+constexpr const char* kept_key_name = "server-secret";
 // How often the dashboard is drawn, and how often the settings line is
 // repeated when there is no dashboard.
 constexpr double dashboard_every_s = 1.0;
@@ -92,6 +98,7 @@ struct Options {
     double timeout_s = default_timeout_s;
     bool headless = false;
     bool dry_run = false;
+    bool plain = false;
 };
 
 void print_usage(std::FILE* out) {
@@ -102,8 +109,11 @@ void print_usage(std::FILE* out) {
         "  --port N           the UDP port to listen on (default 47801). 0 asks\n"
         "                     the system for any free port, and the server prints\n"
         "                     the one it got, which is what a test wants\n"
-        "  --store FILE       where the session is kept\n"
-        "  --key HEX          the server's secret, 64 hexadecimal characters\n"
+        "  --store FILE       an SQLite file where the server's key is kept, so\n"
+        "                     that it survives a restart. Made if absent.\n"
+        "  --key HEX          the server's secret, 64 hexadecimal characters. Without\n"
+        "                     one a fresh key is minted; either way the public half is\n"
+        "                     printed at startup, which is what a client needs\n"
         "  --timeout SECONDS  how long a client may be silent (default 10)\n"
         "  --headless         no dashboard; print the settings and run\n"
         "  --data DIR         read data from DIR instead of data/ beside the program\n"
@@ -113,6 +123,9 @@ void print_usage(std::FILE* out) {
         "  --ai N             how many AI aircraft the server runs (default 4)\n"
         "  --plan FILE        the flight plan they fly (default plans/ in the data)\n"
         "  --seconds N        stop after N seconds instead of running until killed\n"
+        "  --plain            draw the dashboard as plain text, without the escape\n"
+        "                     codes that clear the screen, so that a test can read\n"
+        "                     it. Not with --headless, which has no dashboard\n"
         "  --dry-run          print the settings and exit without binding\n"
         "  --version          print the version\n"
         "  --help             print this\n"
@@ -136,6 +149,10 @@ std::string wrong_with(const Options& o) {
     if (o.ai < 0 || o.ai > most_ai) {
         return "--ai is " + std::to_string(o.ai) + ", and a server runs 0 to " +
                std::to_string(most_ai) + " AI aircraft";
+    }
+    if (o.plain && o.headless) {
+        return "--plain draws the dashboard and --headless has none, so the two "
+               "together say nothing";
     }
     if (o.seconds < 0.0) {
         return "--seconds is " + std::to_string(o.seconds) +
@@ -207,6 +224,8 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.headless = true;
         } else if (a == "--dry-run") {
             o.dry_run = true;
+        } else if (a == "--plain") {
+            o.plain = true;
         } else if (a == "--players") {
             if (!next(value)) return std::nullopt;
             const auto n = whole(value);
@@ -302,14 +321,15 @@ void print_settings(const Options& o, std::FILE* out) {
     std::fprintf(out, "players   %d\n", o.players);
     std::fprintf(out, "port      %u\n", static_cast<unsigned>(o.port));
     std::fprintf(out, "store     %s\n",
-                 o.store.empty() ? "(none: the session is not kept)"
+                 o.store.empty() ? "(none: a fresh key at every start)"
                                  : o.store.string().c_str());
     std::fprintf(out, "key       %s\n",
-                 o.key_hex.empty()
-                     ? "(none: this build cannot mint one, see --help)"
-                     : "given, 64 hexadecimal characters");
+                 o.key_hex.empty() ? "(none given: taken from the store, or minted)"
+                                   : "given, 64 hexadecimal characters");
     std::fprintf(out, "timeout   %.3f s\n", o.timeout_s);
-    std::fprintf(out, "dashboard %s\n", o.headless ? "no (--headless)" : "yes");
+    std::fprintf(out, "dashboard %s\n",
+                 o.headless ? "no (--headless)"
+                            : (o.plain ? "yes, plain text (--plain)" : "yes"));
     std::fprintf(out, "seconds   %s\n",
                  o.seconds > 0.0 ? std::to_string(o.seconds).c_str()
                                  : "(until killed)");
@@ -323,6 +343,61 @@ void print_settings(const Options& o, std::FILE* out) {
     for (const Flown& f : o.fly) {
         std::fprintf(out, "flying    %s from %.6f, %.6f\n", f.id.c_str(),
                      f.latitude_deg, f.longitude_deg);
+    }
+}
+
+// **Who is connected, and what is sealed to them.** One entry per address
+// that has completed a handshake: the keys agreed, the slot given, and when
+// it was last heard from, so that a silent client can be let go.
+//
+// **The address is how a datagram is matched to a session**, which is what
+// every UDP protocol does and is why the sealing matters: an address is
+// trivially forged, and what stops a forged datagram is that it does not
+// open.
+struct Connection {
+    glideslope::net::PublicKey who;
+    std::unique_ptr<glideslope::net::Sealer> sealing;
+    std::unique_ptr<glideslope::net::Unsealer> opening;
+    std::uint8_t slot = 0;
+    double last_heard_s = 0.0;
+    std::uint64_t datagrams = 0;
+    // What the dashboard shows. Bytes are whole datagrams, envelope and all,
+    // because that is what the link carries.
+    std::uint64_t bytes_in = 0;
+    std::uint64_t bytes_out = 0;
+    // The round trip, in seconds, and nothing until one has come back. One
+    // ping is outstanding at a time: a second would need a queue of tokens to
+    // tell the answers apart, and one a second is enough to draw.
+    double ping_s = -1.0;
+    std::uint64_t token = 0;
+    double token_sent_at_s = -1.0;
+    double pinged_at_s = -1.0;
+    // **The initiation this session came from, and the answer that was sent
+    // back.** A client whose answer went missing sends the same initiation
+    // again, and it must get the same answer: a second `Responder` would
+    // agree different keys and leave the client sealing under the first set.
+    // Kept whole rather than hashed - an initiation is 102 bytes, and a hash
+    // would be a second thing to get right for nothing.
+    std::vector<std::uint8_t> initiation;
+    std::vector<std::uint8_t> answer;
+};
+
+// How often the server knocks on a connection. Twice within one `--timeout`
+// at the default of ten seconds, and often enough that a number on the
+// dashboard is not stale.
+constexpr double ping_every_s = 1.0;
+
+// A sealed datagram to one connection, counting what it cost. The sealer's
+// sequence number moves whether or not the datagram arrives, which is what
+// the replay window on the other end expects.
+void send_sealed(glideslope::platform::UdpSocket& socket,
+                 const glideslope::platform::Address& to, Connection& c,
+                 std::span<const std::uint8_t> plain) {
+    glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::sealed);
+    w.bytes(c.sealing->seal(plain));
+    const std::vector<std::uint8_t> out = w.take();
+    if (socket.send(to, std::span<const std::uint8_t>(out.data(), out.size()))) {
+        c.bytes_out += out.size();
     }
 }
 
@@ -483,13 +558,36 @@ private:
 
 // The dashboard: who is connected, their ping and their traffic. The rows
 // come from the session itself rather than from a count, so what is on
-// screen is what the server would send in a `LOBBY`. There is nobody to show
-// until the handshake exists, and saying so is better than an empty table
-// that looks like a bug.
+// screen is what the server would send in a `LOBBY`. Empty slots are drawn
+// rather than hidden, so the table's shape is the session's player count.
+// Bytes, short enough for a column: 938, 12.3k, 4.1M.
+std::string in_column(std::uint64_t bytes) {
+    char buffer[16];
+    if (bytes < 1000) {
+        std::snprintf(buffer, sizeof buffer, "%llu",
+                      static_cast<unsigned long long>(bytes));
+    } else if (bytes < 1000 * 1000) {
+        std::snprintf(buffer, sizeof buffer, "%.1fk",
+                      static_cast<double>(bytes) / 1000.0);
+    } else {
+        std::snprintf(buffer, sizeof buffer, "%.1fM",
+                      static_cast<double>(bytes) / 1000000.0);
+    }
+    return buffer;
+}
+
 void draw_dashboard(const Options& o, const glideslope::net::Slots& slots,
+                    const std::map<std::string, Connection>& connections,
                     const Fleet* fleet, double up_s, std::uint64_t datagrams,
                     std::uint64_t bytes) {
-    std::printf("\033[H\033[2J");
+    if (o.plain) {
+        // No escape codes at all, so that what a test reads is what is drawn.
+        // Each pass is marked, because they follow one another down the page
+        // instead of replacing each other.
+        std::printf("--- dashboard at %.0f s ---\n", up_s);
+    } else {
+        std::printf("\033[H\033[2J");
+    }
     std::printf("glideslope_server  %.*s\n",
                 static_cast<int>(glideslope::sim::version().size()),
                 glideslope::sim::version().data());
@@ -497,14 +595,29 @@ void draw_dashboard(const Options& o, const glideslope::net::Slots& slots,
                 static_cast<unsigned>(o.port), up_s,
                 static_cast<unsigned long long>(datagrams),
                 static_cast<unsigned long long>(bytes));
-    std::printf("  slot  who              ping   in     out\n");
+    std::printf("  slot  who              ping     in     out\n");
     const glideslope::net::Lobby lobby = slots.lobby();
     for (const glideslope::net::Lobby::Slot& s : lobby.slots) {
-        const char* who = s.controller == glideslope::net::Controller::nobody
-                              ? "(open)"
-                              : s.name.c_str();
-        std::printf("  %-4d  %-15s  %5s  %5s  %5s\n", static_cast<int>(s.index), who,
-                    "-", "-", "-");
+        const bool open = s.controller == glideslope::net::Controller::nobody;
+        const char* who = open ? "(open)" : s.name.c_str();
+        // The connection this slot's traffic is on, if there is one. An AI
+        // aircraft holds a slot with nobody at the other end of a socket.
+        const Connection* c = nullptr;
+        for (const auto& [address, held] : connections) {
+            if (held.slot == s.index) {
+                c = &held;
+                break;
+            }
+        }
+        std::string ping = "-";
+        if (c != nullptr && c->ping_s >= 0.0) {
+            char buffer[16];
+            std::snprintf(buffer, sizeof buffer, "%.0f", c->ping_s * 1000.0);
+            ping = buffer;
+        }
+        std::printf("  %-4d  %-15s  %4s  %6s  %6s\n", static_cast<int>(s.index), who,
+                    ping.c_str(), c != nullptr ? in_column(c->bytes_in).c_str() : "-",
+                    c != nullptr ? in_column(c->bytes_out).c_str() : "-");
     }
     if (fleet != nullptr && !fleet->flown().empty()) {
         std::printf("\n  flying           latitude    longitude     ft agl\n");
@@ -515,9 +628,188 @@ void draw_dashboard(const Options& o, const glideslope::net::Slots& slots,
                         a.aircraft->property("position/h-agl-ft"));
         }
     }
-    std::printf("\n  nobody can connect yet: the handshake is not built.\n");
-    std::printf("  See docs/TRANSPORT.md, \"What is not here yet\".\n");
+    // What is not here yet, said on screen rather than left to be noticed.
+    std::printf("\n  ping is milliseconds, round trip. There is no way to drop a "
+                "client from here yet.\n");
     std::fflush(stdout);
+}
+
+// A public key as the session knows an identity: the same thirty-two bytes.
+glideslope::net::IdentityKey key_of(const glideslope::net::PublicKey& who) {
+    glideslope::net::IdentityKey out{};
+    std::copy(who.bytes.begin(), who.bytes.end(), out.begin());
+    return out;
+}
+
+void refuse(glideslope::platform::UdpSocket& socket,
+            const glideslope::platform::Address& to, glideslope::net::Refusal why) {
+    glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::refusal);
+    w.u8(static_cast<std::uint8_t>(why));
+    const std::vector<std::uint8_t> out = w.take();
+    (void)socket.send(to, std::span<const std::uint8_t>(out.data(), out.size()));
+}
+
+// **One datagram, taken.** The envelope decides what it is; a handshake makes
+// a session and a sealed body is opened under the one its address already
+// has. Anything else is refused with a reason, in the clear, because there
+// may be no session to seal a refusal with.
+void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPair& mine,
+          glideslope::net::Slots& slots,
+          std::map<std::string, Connection>& connections,
+          const glideslope::platform::Address& from,
+          std::span<const std::uint8_t> datagram, double now_s, const Options& o) {
+    glideslope::net::Reader reader(datagram);
+    glideslope::net::Envelope envelope;
+    glideslope::net::Refusal why{};
+    if (!glideslope::net::read_envelope(reader, envelope, why)) {
+        refuse(socket, from, why);
+        return;
+    }
+    const std::string who = from.text();
+    const std::span<const std::uint8_t> body =
+        datagram.subspan(glideslope::net::envelope_size);
+
+    switch (envelope.type) {
+    case glideslope::net::Type::handshake_initiation: {
+        const auto already = connections.find(who);
+        if (already != connections.end()) {
+            // **An address that already has a session is not given another
+            // one.** Two reasons, and they need different answers.
+            //
+            // The honest one: the client's answer was lost and it sent the
+            // same initiation again. It gets the same answer back, and
+            // nothing else changes - not the keys, not the slot, not the
+            // sequence numbers.
+            //
+            // The other: anybody can make a valid `IK` initiation to a public
+            // key, from any address they care to write on a datagram. If a
+            // different initiation were taken here it would replace a live
+            // player's keys, and that player would be off the server for the
+            // price of one datagram. So a different one is dropped in
+            // silence, and the address is usable again once the timeout
+            // sweep has let the old session go.
+            if (body.size() == already->second.initiation.size() &&
+                std::equal(body.begin(), body.end(),
+                           already->second.initiation.begin())) {
+                already->second.last_heard_s = now_s;
+                already->second.bytes_in += datagram.size();
+                const std::vector<std::uint8_t>& out = already->second.answer;
+                if (socket.send(from,
+                                std::span<const std::uint8_t>(out.data(), out.size()))) {
+                    already->second.bytes_out += out.size();
+                }
+            }
+            return;
+        }
+        if (slots.full()) {
+            refuse(socket, from, glideslope::net::Refusal::server_full);
+            return;
+        }
+        glideslope::net::Responder responder(mine);
+        const auto answer = responder.answer(body);
+        if (!answer) {
+            refuse(socket, from, glideslope::net::Refusal::bad_handshake);
+            return;
+        }
+        glideslope::net::Identity identity;
+        identity.key = key_of(answer->session.theirs);
+        identity.name = answer->session.theirs.text().substr(0, 8);
+        identity.controller = glideslope::net::Controller::person;
+        const auto slot = slots.admit(identity);
+        if (!slot) {
+            refuse(socket, from, glideslope::net::Refusal::server_full);
+            return;
+        }
+        Connection c;
+        c.who = answer->session.theirs;
+        c.sealing = std::make_unique<glideslope::net::Sealer>(answer->session.sending);
+        c.opening =
+            std::make_unique<glideslope::net::Unsealer>(answer->session.receiving);
+        c.slot = *slot;
+        c.last_heard_s = now_s;
+        c.initiation.assign(body.begin(), body.end());
+
+        glideslope::net::Writer w =
+            glideslope::net::begin(glideslope::net::Type::handshake_response);
+        w.bytes(answer->message);
+        c.answer = w.take();
+        const std::vector<std::uint8_t>& out = c.answer;
+        c.bytes_in += datagram.size();
+        if (socket.send(from, std::span<const std::uint8_t>(out.data(), out.size()))) {
+            c.bytes_out += out.size();
+        }
+        connections[who] = std::move(c);
+        if (o.headless) {
+            std::printf("admitted %s to slot %d\n", identity.name.c_str(),
+                        static_cast<int>(*slot));
+            std::fflush(stdout);
+        }
+        return;
+    }
+    case glideslope::net::Type::sealed: {
+        const auto it = connections.find(who);
+        if (it == connections.end()) {
+            refuse(socket, from, glideslope::net::Refusal::bad_handshake);
+            return;
+        }
+        const auto opened = it->second.opening->open(body);
+        if (!opened) {
+            // A datagram that does not open is not from this client,
+            // whatever its address says. It is dropped without a word: a
+            // refusal would only tell a forger that the address was right.
+            return;
+        }
+        Connection& c = it->second;
+        c.last_heard_s = now_s;
+        ++c.datagrams;
+        c.bytes_in += datagram.size();
+        // **What is inside the seal.** Its first byte says which kind it is.
+        // Two kinds are built; the rest are named in `net/inside.hpp` and
+        // arrive from nothing, so they are ignored rather than refused - a
+        // client of a later version may send one and must not be dropped for
+        // it.
+        if (opened->empty() || !glideslope::net::known_inside((*opened)[0])) {
+            return;
+        }
+        const std::span<const std::uint8_t> inside(opened->data(), opened->size());
+        switch (static_cast<glideslope::net::Inside>((*opened)[0])) {
+        case glideslope::net::Inside::ping: {
+            // Sent straight back, so that the other end can measure the trip.
+            const auto token = glideslope::net::knock_token(
+                glideslope::net::Inside::ping, inside);
+            if (token) {
+                const std::vector<std::uint8_t> pong =
+                    glideslope::net::knock(glideslope::net::Inside::pong, *token);
+                send_sealed(socket, from, c,
+                            std::span<const std::uint8_t>(pong.data(), pong.size()));
+            }
+            return;
+        }
+        case glideslope::net::Inside::pong: {
+            const auto token = glideslope::net::knock_token(
+                glideslope::net::Inside::pong, inside);
+            // Only the ping that is outstanding is answered. An old token, or
+            // one nobody sent, says nothing about the trip and is ignored.
+            if (token && c.token_sent_at_s >= 0.0 && *token == c.token) {
+                c.ping_s = now_s - c.token_sent_at_s;
+                c.token_sent_at_s = -1.0;
+            }
+            return;
+        }
+        case glideslope::net::Inside::reliable:
+        case glideslope::net::Inside::inputs:
+        case glideslope::net::Inside::state:
+            // Named, not built: nothing sends these yet and nothing here
+            // reads them. See docs/TRANSPORT.md, "What is not here yet".
+            return;
+        }
+        return;
+    }
+    case glideslope::net::Type::handshake_response:
+    case glideslope::net::Type::refusal:
+        // A server is not answered to and does not refuse a refusal.
+        return;
+    }
 }
 
 int run(const Options& o) {
@@ -529,10 +821,71 @@ int run(const Options& o) {
         return 1;
     }
 
+    // **The store**, if one was asked for. It is opened before the key,
+    // because the key is the first thing kept in it.
+    std::optional<glideslope::platform::Store> store;
+    if (!o.store.empty()) {
+        try {
+            store.emplace(o.store);
+        } catch (const glideslope::platform::StoreError& e) {
+            std::fprintf(stderr, "glideslope_server: %s\n", e.what());
+            return 2;
+        }
+    }
+
+    // **The server's static key.** Given with `--key`, or read back from the
+    // store, or minted. A client cannot begin an `IK` handshake without the
+    // public half, and it is given the key out of band - written down, pasted
+    // into a command line - so a server that minted a fresh one at every
+    // start would lock out every client it had. That is what the store is
+    // for: mint once, keep it, and the key survives the restart.
+    //
+    // `--key` wins over the store and is not written to it: a key given on
+    // the command line is the operator's to manage, and quietly copying it
+    // into a file they did not ask for is not this program's business.
+    glideslope::net::KeyPair mine;
+    const char* whence = "minted";
+    if (!o.key_hex.empty()) {
+        const auto secret = glideslope::net::secret_from_text(o.key_hex);
+        if (!secret) {
+            std::fprintf(stderr, "glideslope_server: --key is not a key\n");
+            return 2;
+        }
+        mine.secret = *secret;
+        mine.publik = glideslope::net::public_from_secret(mine.secret);
+        whence = "given";
+    } else if (store) {
+        if (const auto kept = store->get(kept_key_name)) {
+            const auto secret = glideslope::net::secret_from_text(*kept);
+            if (!secret) {
+                std::fprintf(stderr,
+                             "glideslope_server: the key kept in %s is not a key\n",
+                             o.store.string().c_str());
+                return 2;
+            }
+            mine.secret = *secret;
+            mine.publik = glideslope::net::public_from_secret(mine.secret);
+            whence = "kept";
+        } else {
+            mine = glideslope::net::mint_key_pair();
+            try {
+                store->set(kept_key_name, glideslope::net::secret_for_keeping(mine.secret));
+            } catch (const glideslope::platform::StoreError& e) {
+                std::fprintf(stderr, "glideslope_server: %s\n", e.what());
+                return 2;
+            }
+        }
+    } else {
+        mine = glideslope::net::mint_key_pair();
+    }
+    std::printf("server key is %s\n", whence);
+    std::printf("server key %s\n", mine.publik.text().c_str());
+    std::fflush(stdout);
+
     // The session the server keeps: its slots are what the dashboard shows
-    // and what a `LOBBY` would carry. Nobody is in it, because nobody can
-    // connect until the handshake exists.
-    const glideslope::net::Slots slots(static_cast<std::uint8_t>(o.players));
+    // and what a `LOBBY` would carry.
+    glideslope::net::Slots slots(static_cast<std::uint8_t>(o.players));
+    std::map<std::string, Connection> connections;
 
     // The aircraft it flies. Building this reaches the network for terrain,
     // so it is not built at all when there is nothing to fly.
@@ -555,13 +908,62 @@ int run(const Options& o) {
     for (;;) {
         glideslope::platform::Address from;
         const std::size_t got = socket->receive(into, from);
+        const auto now = std::chrono::steady_clock::now();
+        const double up_s = std::chrono::duration<double>(now - began).count();
         if (got > 0) {
             ++datagrams;
             bytes += got;
+            take(*socket, mine, slots, connections, from,
+                 std::span<const std::uint8_t>(into.data(), got), up_s, o);
         }
 
-        const auto now = std::chrono::steady_clock::now();
-        const double up_s = std::chrono::duration<double>(now - began).count();
+        // **The server knocks on every connection once a second**, and the
+        // answer is the round trip the dashboard draws. It is a keepalive
+        // too: a client that answers is a client the timeout sweep below
+        // will not let go, which is why the knock is the server's job and
+        // not the client's - the server is the one deciding who has gone.
+        for (auto& [address, c] : connections) {
+            if (up_s - c.pinged_at_s < ping_every_s) {
+                continue;
+            }
+            c.pinged_at_s = up_s;
+            ++c.token;
+            c.token_sent_at_s = up_s;
+            const std::vector<std::uint8_t> out =
+                glideslope::net::knock(glideslope::net::Inside::ping, c.token);
+            const auto to = glideslope::platform::address_of(address);
+            if (to) {
+                send_sealed(*socket, *to, c,
+                            std::span<const std::uint8_t>(out.data(), out.size()));
+            }
+        }
+
+        // **A client that has gone quiet is let go**, which is what
+        // `--timeout` is for. Its slot goes back to the session.
+        for (auto it = connections.begin(); it != connections.end();) {
+            if (up_s - it->second.last_heard_s > o.timeout_s) {
+                std::printf("let go %s after %.1f s of silence\n", it->first.c_str(),
+                            up_s - it->second.last_heard_s);
+                std::fflush(stdout);
+                // **The slot goes back only when nobody else is on that
+                // key.** A slot belongs to a key, not to an address, and one
+                // key may be connected from two addresses - a client
+                // restarting gets a fresh port. Releasing on the first to go
+                // quiet would take the slot from the one still flying.
+                const glideslope::net::PublicKey going = it->second.who;
+                it = connections.erase(it);
+                const bool elsewhere =
+                    std::any_of(connections.begin(), connections.end(),
+                                [&](const auto& other) {
+                                    return other.second.who == going;
+                                });
+                if (!elsewhere) {
+                    slots.release(key_of(going));
+                }
+            } else {
+                ++it;
+            }
+        }
 
         // **The simulation steps at a fixed rate**: every step that has
         // become due is taken, and the aircraft are stepped together so that
@@ -576,7 +978,8 @@ int run(const Options& o) {
         last = now;
 
         if (!o.headless && up_s - drawn_at_s >= dashboard_every_s) {
-            draw_dashboard(o, slots, fleet ? &*fleet : nullptr, up_s, datagrams, bytes);
+            draw_dashboard(o, slots, connections, fleet ? &*fleet : nullptr, up_s,
+                           datagrams, bytes);
             drawn_at_s = up_s;
         }
         if (o.seconds > 0.0 && up_s >= o.seconds) {

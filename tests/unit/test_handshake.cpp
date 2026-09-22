@@ -12,7 +12,7 @@
 using glideslope::net::Initiator;
 using glideslope::net::KeyPair;
 using glideslope::net::Responder;
-using glideslope::net::Session;
+using glideslope::net::SessionKeys;
 using glideslope::test::check;
 
 namespace {
@@ -69,7 +69,7 @@ GLIDESLOPE_TEST(two_honest_ends_complete_the_handshake_and_agree_on_their_keys) 
 GLIDESLOPE_TEST(two_handshakes_with_the_same_keys_give_different_sessions) {
     const KeyPair server = glideslope::net::mint_key_pair();
     const KeyPair client = glideslope::net::mint_key_pair();
-    std::vector<Session> sessions;
+    std::vector<SessionKeys> sessions;
     for (int i = 0; i < 8; ++i) {
         Initiator initiator(client, server.publik);
         Responder responder(server);
@@ -77,7 +77,7 @@ GLIDESLOPE_TEST(two_handshakes_with_the_same_keys_give_different_sessions) {
         check(answer.has_value(), "it completes");
         const auto session = initiator.finish(all_of(answer->message));
         check(session.has_value(), "both ways");
-        for (const Session& before : sessions) {
+        for (const SessionKeys& before : sessions) {
             check(!(before.sending == session->sending),
                   "no two handshakes gave the same key");
         }

@@ -62,7 +62,12 @@ struct TrafficKey {
 
 // What each end has when the handshake completes: a key to send under and a
 // key to receive under, and who the other end turned out to be.
-struct Session {
+//
+// **It is `SessionKeys` and not `Session`** because `net::Session` is already
+// the `SESSION` message's own structure - the one that says what a session is
+// called and when it began. The compiler caught the clash; the two are
+// different things and now read as different things.
+struct SessionKeys {
     TrafficKey sending;
     TrafficKey receiving;
     PublicKey theirs;
@@ -79,7 +84,7 @@ public:
 
     // The responder's answer. Nothing if it is not one - a wrong key, a
     // changed byte, a message that is too short - and the session if it is.
-    std::optional<Session> finish(std::span<const std::uint8_t> response,
+    std::optional<SessionKeys> finish(std::span<const std::uint8_t> response,
                                   std::vector<std::uint8_t>* payload = nullptr);
 
 private:
@@ -102,7 +107,7 @@ public:
     // is not one; the session and the answer if it is.
     struct Answer {
         std::vector<std::uint8_t> message;
-        Session session;
+        SessionKeys session;
     };
     std::optional<Answer> answer(std::span<const std::uint8_t> initiation,
                                  std::span<const std::uint8_t> payload = {},

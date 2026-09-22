@@ -21,14 +21,18 @@ add_executable(glideslope_tests
     unit/test_departure.cpp
     unit/test_fuzz.cpp
     unit/test_inputs.cpp
+    unit/test_inside.cpp
     unit/test_handshake.cpp
     unit/test_keys.cpp
+    unit/test_sealing.cpp
+    unit/test_session_over_a_socket.cpp
     unit/test_interpolation.cpp
     unit/test_prediction.cpp
     unit/test_messages.cpp
     unit/test_protocol.cpp
     unit/test_slots.cpp
     unit/test_socket.cpp
+    unit/test_store.cpp
     unit/test_reliable.cpp
     unit/test_levers.cpp
     unit/test_wheels_up.cpp
@@ -127,6 +131,15 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_turning_through_north_takes_the_short_way_round
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
     a_client_that_flew_different_inputs_is_put_back_where_the_server_says
+    the_kinds_inside_a_sealed_body_are_the_five_the_document_names
+    a_knock_written_and_read_back_carries_the_same_token
+    a_knock_that_is_not_one_is_not_read
+    the_transport_document_and_the_code_agree_about_a_sealed_body
+    a_store_gives_back_what_was_put_in_it
+    what_a_store_keeps_outlives_the_store_that_kept_it
+    a_store_keeps_awkward_values_unchanged
+    a_store_that_cannot_be_opened_says_so_rather_than_carrying_on
+    a_secret_kept_in_a_store_reads_back_as_the_same_key
     a_key_written_down_and_read_back_is_the_same_key
     a_secrets_public_half_is_the_one_rfc_7748_gives_for_it
     every_minted_key_is_its_own_and_its_halves_go_together
@@ -136,6 +149,14 @@ set(GLIDESLOPE_UNIT_TESTS
     every_change_to_an_initiation_is_refused
     every_change_to_a_handshake_answer_is_refused
     a_replayed_initiation_makes_a_session_the_replayer_cannot_read
+    what_is_sealed_opens_as_itself
+    a_sealed_body_does_not_open_under_another_key
+    a_sealed_body_that_arrives_twice_opens_once
+    every_order_of_arrival_opens_every_sealed_body_exactly_once
+    a_sealed_body_older_than_the_window_is_refused_and_the_limit_is_stated
+    every_change_to_a_sealed_body_is_refused
+    a_client_and_a_server_complete_a_session_over_a_socket
+    a_stranger_on_the_port_cannot_complete_a_session
     slots_are_the_same_whatever_order_the_players_connect_in
     a_players_slot_is_their_keys_rank_among_those_in_the_session
     a_session_is_full_at_its_player_count_and_the_next_is_refused
@@ -902,6 +923,18 @@ add_test(NAME the_server_refuses_a_timeout_that_is_not_a_length_of_time
         -DEXIT=2 "-DSTDERR_MATCHES=--timeout is 0.*and it must be more than nothing"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
+add_test(NAME the_server_refuses_plain_and_headless_together
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--plain --headless --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--plain draws the dashboard and --headless has none"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_says_when_its_dashboard_is_plain_text
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--plain --dry-run"
+        -DEXIT=0 "-DSTDOUT_MATCHES=dashboard +yes, plain text \\(--plain\\)"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
 add_test(NAME the_server_refuses_a_port_that_is_not_one
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--port 70000 --dry-run"
@@ -915,6 +948,51 @@ add_test(NAME the_server_refuses_a_flag_with_nothing_after_it
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 # **The server flies every aircraft, each over its own terrain.** Two aircraft
+# **A repeated handshake initiation does not take a live session away.** The
+# bug was here and is fixed; see cmake/server_duplicate.cmake for what it was.
+add_test(NAME a_repeated_handshake_initiation_does_not_take_a_live_session_away
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli>
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_duplicate -DPORT=47859
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_duplicate.cmake)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_duplicate)
+
+# **Every flag the server prints in its usage is one it takes.** A flag added
+# to the usage and not to the parser is documented and silently ignored; see
+# cmake/server_flags.cmake, which walks the usage text itself.
+add_test(NAME every_flag_the_server_prints_in_its_usage_is_one_it_takes
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_flags.cmake)
+
+# **The dashboard shows a real round trip and real traffic.** REQUIREMENTS.md
+# 6.6 asks for ping and traffic per client; this holds them to numbers that
+# came off a socket. See cmake/server_ping.cmake.
+add_test(NAME the_dashboard_shows_the_round_trip_and_the_traffic_of_a_client_that_stays
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli>
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_ping -DPORT=47858
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ping.cmake)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_ping)
+
+# **A server lets go a client it has not heard from**, which is the only way a
+# slot comes back when somebody's machine goes away. Two processes at once; see
+# cmake/server_timeout.cmake for how, and why the client is the first of them.
+add_test(NAME a_server_lets_go_a_client_it_has_not_heard_from_for_its_timeout
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli>
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_timeout -DPORT=47857
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_timeout.cmake)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_timeout)
+
+# **A server given a store keeps its key across restarts**, which is what makes
+# the public key a client was given out of band still good after a restart. See
+# cmake/server_store.cmake for the four ways a server comes by a key.
+add_test(NAME a_server_given_a_store_keeps_its_key_across_restarts
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_store
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_store.cmake)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_store)
+
 # on opposite sides of the world in one session; see cmake/server_flies.cmake
 # for why Sydney and Denver, and what makes it more than a smoke test.
 add_test(NAME the_server_flies_aircraft_on_opposite_sides_of_the_world_each_over_its_own_terrain

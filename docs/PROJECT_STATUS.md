@@ -197,6 +197,187 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A hole found by re-reading the threat document, 2026-09-22
+
+**What is missing first: nothing a client sends drives an aircraft.** A client
+connects, holds a slot, answers the server's knocking and is drawn on the
+dashboard. It cannot fly.
+
+**A second handshake initiation used to take a live session away.**
+`connections[who] = std::move(c)` was unconditional, so any datagram that the
+server could answer gave that address fresh keys - and **anybody can make a
+valid `IK` initiation, because it only needs the server's public key**. Replay
+a captured one with a player's source address and that player is off the
+server, in silence, for the price of one packet. It bit honest clients too:
+the client resends its initiation every 250 ms until answered, so two answers
+in flight left the client on the first set of keys and the server on the
+second.
+
+**It was found by making `THREATS.md` true again, not by a test.** The document
+had been written when the server accepted nothing; bringing it up to the code
+meant reading `take()` line by line against what the document claimed, and the
+claim "there is no per-peer connection table" turned into "there is one, and
+here is what it does wrong". Three more came out of the same reading: a
+displaced key was never released from `Slots`, so four `connect` runs from one
+address filled a four-player server for good; the table is keyed by address, so
+a replayed initiation from many spoofed addresses costs an X25519 apiece; and
+`SERVER_FULL` and `BAD_HANDSHAKE` go to senders that have not authenticated.
+The first two are fixed below. The third and fourth are written down and not
+defended - there is no rate limit of any kind.
+
+**The fix is one session per address.** The initiation that made a session is
+kept beside it: the same bytes get the same answer back, which is what an
+honest client whose answer was lost needs; different bytes are dropped without
+a word, so a stranger cannot rekey somebody's session. A slot goes back only
+when no connection is left on that key, because two addresses may share one.
+
+**Held by a test that was watched failing.**
+`a_repeated_handshake_initiation_does_not_take_a_live_session_away` runs a real
+client and a real server at once - the client completes a session, sends its
+initiation again, and must still be answering pings three seconds later.
+Against the code as it was it fails with "0 slots have a client on them after
+one client connected twice".
+
+**What it cost to find is worth saying.** The subagent that re-read the
+document found it; the hole was in code written earlier the same day, by me,
+and no test I wrote for that code would ever have caught it, because every one
+of them had a well-behaved client in it.
+
+### The store, and the timeout shown to work, 2026-09-22
+
+**What is missing first: what the store keeps is one key and nothing else.**
+There is no session in it - no slots, no aircraft, no history - because there
+is no session state yet worth surviving a restart. It is a table of names and
+values with one row in it.
+
+**But that row is the one that matters.** A client is given the server's
+public key out of band: written in a `server.txt`, pasted into a command line.
+A server that minted a fresh key at every start would lock out every client it
+had at each restart, which is exactly what `REQUIREMENTS.md` 6.6 means by
+"minted once and stored if not given". `--store FILE` is an SQLite file, made
+if it is not there, and `a_server_given_a_store_keeps_its_key_across_restarts`
+walks **all four ways a server comes by a key** - given on the command line,
+read from a store, minted into a store, minted with no store - and counts
+them, so a way that stopped being walked fails the test. Across three restarts
+against one store the key held; two starts with no store gave two different
+keys, which is the thing the store exists to prevent, shown to be real; and
+`--key` wins over the store without overwriting what the store holds, because
+a key given on a command line is the operator's to manage.
+
+**A secret is one member access away from a log line, unless it is not.**
+`SecretKey` still has no `text()`; writing one down goes through
+`net::secret_for_keeping()`, which is named to be greppable and has one
+caller. `PublicKey::text()` is the only thing a stray `printf` can reach.
+
+**The store was watched failing.** Opened on `:memory:` instead of its file,
+three of its five tests went red - the three that claim persistence - and the
+two that only claim a round trip inside one store stayed green, which is
+right. Against the server, making the key lookup use a name nothing writes
+turned `a_server_given_a_store...` red with "the second start should read the
+key, not minted it".
+
+**`--timeout` was taken and checked and drove nothing that any test watched.**
+Its parsing had tests; its effect had none, because until this week no client
+could connect to go quiet. Now one can:
+`a_server_lets_go_a_client_it_has_not_heard_from_for_its_timeout` runs the
+client and the server **at the same time**, the server admitting the client to
+slot 0 and letting it go 0.5 s after it exited, once - not once round every
+loop, which the test also holds.
+
+**Two processes at once, out of CMake, which has no way to start one in the
+background.** The commands of a single `execute_process` are a pipeline, so
+they run together: the client goes first and its output into the server's
+standard input, which the server never reads, and `OUTPUT_VARIABLE` catches
+the last command's output, which is the server's. Nothing else in this project
+needed two live processes before.
+
+**A comment that described code that was not there.** `connect_to` said
+"resending while nothing comes" above a loop that sent once and waited five
+seconds. It resends every 250 ms now, which the timeout test needs - both
+processes start at the same instant, so the first initiation goes out before
+the server has bound - and which a client over UDP owes anyway.
+
+**A line on the dashboard that had become a lie.** It said "nobody can connect
+yet: the handshake is not built". It now says what is still true: ping and
+traffic are not counted per player.
+
+**The dashboard shows ping and traffic now.** The server knocks on each
+connection once a second - a `PING` inside the seal carrying eight bytes, sent
+straight back as a `PONG` - and draws the round trip and the bytes each way.
+That knock is also the keepalive, which is why it is the server's job: the
+server is the one deciding who has gone. `--plain` draws the same rows without
+the escape codes that clear the screen, so a test can read them, and
+`the_dashboard_shows_the_round_trip_and_the_traffic_of_a_client_that_stays`
+holds a real round trip off a real socket.
+
+**What is inside a sealed body is now decided**, because more than one thing
+has to go in there. The plaintext begins with a byte saying which of five kinds
+it is; `PING` and `PONG` are built, `RELIABLE`, `INPUTS` and `STATE` are
+numbered and nothing sends them. The numbering is fixed before anything uses it
+so that it cannot move later, `TRANSPORT.md` writes it down, and a test holds
+the document and the code to each other.
+
+**And the server item still does not tick.** `REQUIREMENTS.md` 6.6 asks for "a
+live dashboard with connected clients, ping, traffic and a drop control". Ping
+and traffic are there; **the dashboard is drawn in a terminal rather than a
+window, and there is no way to drop a client from it.** Both are named in the
+item.
+
+**A flag that was documented and silently ignored.** `--plain` went into the
+usage text and the settings block and not into the parser, and passed both of
+its own tests, because neither of them looked at what the flag did. The lesson
+generalises, so the test does:
+`every_flag_the_server_prints_in_its_usage_is_one_it_takes` reads the usage
+text itself, runs the server with each flag it finds, and fails if the parser
+has never heard of one. Sixteen flags, counted against a written list, so a
+flag that stopped being listed fails too.
+
+### A session, over a socket, 2026-09-22
+
+**What is missing first: a session does nothing yet.** A client connects, is
+given a slot and can seal to the server, and nothing is done with what it
+seals - no input reaches an aircraft and no state goes back. So a client can
+connect and be counted, and cannot fly.
+
+**But it connects.** Run by hand: `glideslope_server` printed
+`server key bedf297d...`, `glideslope_cli connect 127.0.0.1:47900 <key>`
+answered `session with bedf297d...` and sealed 35 bytes, and the server
+logged `admitted 1f141fb4 to slot 0`. Held automatically by
+`a_client_and_a_server_complete_a_session_over_a_socket`, which puts a
+102-byte initiation and a 54-byte answer through the loopback in the
+envelopes they really travel in and seals both ways under different keys -
+every other test of the transport hands bytes from one object to another, and
+proves nothing about a wire that was never used.
+
+**Sealing.** A `SEALED` body is its sequence number and ChaCha20-Poly1305
+ciphertext. The number is the nonce and the additional data, so changing it
+only stops the body opening. A replay window of 64 refuses anything already
+opened and anything further behind than that, **and the limit is stated**: a
+datagram delayed by more than the window cannot be told from a replay. Only a
+body that opens moves the window, so something that is not ours cannot push it
+forward. Held over **all 720 orders of arrival** of six datagrams, each
+delivered once and twice, every one opening exactly once; 7,650 one-byte
+changes and 30 truncations refused. Both replay tests were watched failing
+with the window taken out.
+
+**Every one of the server's flags drives something now.** `--key` takes a
+static key or mints one, and prints the public half because a client cannot
+begin an `IK` handshake without it; `--timeout` lets go a client that has gone
+quiet and gives its slot back; `--players` bounds who gets in, and a fifth is
+refused with `SERVER_FULL`; and `--store` is below.
+
+**A datagram that does not open is dropped without a word.** A refusal would
+tell a forger that the address was right.
+
+**A line that had gone stale under me.** The settings block still printed "this
+build cannot mint one" of `--key` - true before libsodium and false after. Left
+alone it would have been a small lie at every startup.
+
+**And the same name collision twice.** The handshake's result was called
+`Session`, which is already the `SESSION` message's structure. It is
+`SessionKeys` now. The compiler caught it, as it caught `Slots` earlier.
+
+
 ### The handshake, and a decision taken without the owner, 2026-09-22
 
 **What is missing first: nothing is sealed yet.** The handshake agrees keys

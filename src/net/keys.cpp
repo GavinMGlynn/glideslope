@@ -53,6 +53,10 @@ std::optional<std::array<std::uint8_t, key_bytes>> from_hex(std::string_view tex
 
 } // namespace
 
+std::string secret_for_keeping(const SecretKey& secret) {
+    return to_hex(secret.bytes);
+}
+
 std::string PublicKey::text() const {
     return to_hex(bytes);
 }

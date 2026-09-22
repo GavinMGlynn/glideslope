@@ -605,9 +605,19 @@ checklists are part of. A lesson ends in a debrief, never a score
       **What is not claimed: that it matches the specification.** There are no
       published test vectors for this suite here, so what the tests show is
       that two honest ends agree and that nothing else does.
-      **Still to do: the sealing.** `SEALED` bodies are not yet ciphertext
-      under these keys, and there is no replay window. The second half of the verification
-      needs a gearstick client to refuse, and there is none here to try.
+      **The sealing is built, 2026-09-22.** A `SEALED` body is its sequence
+      number and ChaCha20-Poly1305 ciphertext under the handshake's keys; the
+      number is both the nonce and the additional data, and a replay window
+      of 64 refuses anything already opened and anything further behind than
+      that. Held over **all 720 orders of arrival** of six datagrams, each
+      delivered once and twice; 7,650 one-byte changes and 30 truncations
+      refused; both replay tests watched failing with the window taken out.
+      A client and a server complete a whole session over a real loopback
+      socket and seal both ways.
+      **Still to do, and it is the verification itself.** Neither half has
+      been done: no client has been written from `TRANSPORT.md` alone by
+      somebody who did not write the code, and there is no gearstick client
+      here to be refused. Until both, this item does not tick.
       **How libsodium gets in was looked into on 2026-09-21 rather than
       assumed**, and it is not as simple as a submodule: libsodium ships a
       `Findsodium.cmake` and no CMake build of its own - autotools on Unix,
@@ -638,23 +648,28 @@ checklists are part of. A lesson ends in a debrief, never a score
       from; the worst pattern took 21 datagrams.
 - [ ] **The server** — `glideslope_server`, with `--headless`, `--players N`,
       `--port`, `--store FILE`, `--key HEX` and `--timeout`, and a dashboard
-      otherwise. *Verification: every flag is exercised by a test, and a
-      player count outside 1 to 4 is refused.* **Begun 2026-09-22 and not
-      finished.** The binary exists, takes every flag the item names, binds
-      its port and draws a dashboard that refreshes each second with a row
-      per slot and the traffic it has seen; `--headless` prints its settings
-      and runs without one. Fourteen tests exercise every flag, both ends of
-      the 1 to 4 range and both sides of them, a key that is the wrong length
-      and a key that is not hexadecimal, a port that is not one, a flag with
-      nothing after it and an option it does not know. **Still to do: three
-      of the flags are taken and checked but drive nothing yet.** `--store`
-      names a file nothing is written to, because there is no session to
-      keep; `--key` is checked to be 64 hexadecimal characters but nothing
-      seals anything, and this build cannot mint one, having no libsodium to
-      derive a public half with; and `--timeout` cannot let a silent client
-      go, because no client can connect until the handshake exists. Each
-      waits on an item above or below it, and the server says so on screen
-      rather than looking as though it is working.
+      otherwise — **still to do: the dashboard is a terminal one, and
+      `REQUIREMENTS.md` 6.6 asks for a window showing each client's ping and
+      traffic with a control to drop them.** *Verification: every flag is
+      exercised by a test, and a player count outside 1 to 4 is refused.*
+      **The flags are done, 2026-09-22.** The binary
+      binds its port, admits clients through the handshake and draws a
+      dashboard that refreshes each second with a row per slot; `--headless`
+      prints its settings and runs without one. Sixteen tests exercise every
+      flag, both ends of the 1 to 4 range and both sides of them, a key that
+      is the wrong length and a key that is not hexadecimal, a port that is
+      not one, a flag with nothing after it and an option it does not know.
+      **Every flag now drives something, and two that used to drive nothing
+      are watched doing it.** `--store` is an SQLite file that keeps the
+      server's key, so a client given that key out of band still finds the
+      same server after a restart; all four ways a server comes by a key are
+      walked and counted. `--timeout` lets go a client that has gone quiet
+      and gives its slot back, watched with a real client connecting and
+      exiting while the server runs. **What is left is the dashboard itself:**
+      it is drawn in the terminal rather than in a window, it shows a row per
+      slot but no ping and no traffic for any of them, and there is no way to
+      drop a client from it. It says so on screen rather than looking as
+      though it works.
 - [x] **Lobby, identity and slot assignment.** *Verification: slots are assigned
       by the server, the same whatever order players connect in.* Done,
       2026-09-22. A player is known by a key, out of band - the static public
@@ -773,8 +788,16 @@ checklists are part of. A lesson ends in a debrief, never a score
       that takes the first byte of a body without checking there is one is
       caught on the empty seed.
 - [ ] **The server's test flags** — `--seconds N`, `--plain`, `--window-dump`,
-      `--window-shot`, `--window-press`. *Verification: each is used by a
-      ctest.*
+      `--window-shot`, `--window-press` — **still to do: the three
+      `--window-` flags, which wait on the dashboard being a window.**
+      *Verification: each is used by a ctest.* Two of the five are done,
+      2026-09-22: `--seconds N` stops the server after a set time, which
+      every server test uses to watch a whole run, and `--plain` draws the
+      dashboard without the escape codes that clear the screen, so a test can
+      read its rows. A test also walks every flag the usage text prints and
+      fails if the parser has never heard of one — `--plain` was documented
+      and silently ignored for an hour, and passed both of its own tests,
+      because neither looked at what it did.
 - [ ] **Network checks in CI** with injected latency, loss and jitter.
       *Verification: prediction error, correction size, interpolation error and
       the `--players` limit all checked against their stated bounds.*

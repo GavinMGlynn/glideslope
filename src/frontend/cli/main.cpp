@@ -4,7 +4,13 @@
 // the proof that the simulation can run where there is no window: in CI, in a
 // test, and inside the server.
 
+#include "net/handshake.hpp"
+#include "net/inside.hpp"
+#include "net/keys.hpp"
+#include "net/protocol.hpp"
+#include "net/sealing.hpp"
 #include "platform/http.hpp"
+#include "platform/socket.hpp"
 #include "platform/paths.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
@@ -29,7 +35,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <span>
 #include <stdexcept>
+#include <thread>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -62,6 +70,13 @@ void print_usage(std::FILE* out) {
         "                            ridge's lift - at a thousand places and times,\n"
         "                            for comparing platforms\n"
         "\n"
+        "  connect HOST:PORT KEY [SECONDS]\n"
+        "                            complete a session with a server and say so;\n"
+        "                            with SECONDS, stay that long answering its\n"
+        "                            pings so that it can measure the round trip.\n"
+        "                            --again sends the initiation a second time\n"
+        "                            once the session is up, as a network that\n"
+        "                            duplicates a datagram would\n"
         "  --data DIR                read data from DIR instead of data/ beside the\n"
         "                            program\n",
         out);
@@ -444,6 +459,185 @@ int air() {
 
 } // namespace
 
+// **Completes a session with a server, and says so.** This is a client in
+// the only sense the transport needs: it knows the server's static key, does
+// the handshake, seals something and is answered. It flies nothing.
+//
+// It is here rather than in the client proper because the transport can be
+// shown to work long before there is anything to fly over it, and a test
+// needs something to point at a server.
+// **Staying connected, which is answering the server's knocks.** The server
+// pings each connection once a second and draws the round trip on its
+// dashboard; a client that answers is also a client the server does not let
+// go. Nothing else is sent, because nothing else is defined to go inside a
+// sealed body yet - see `docs/TRANSPORT.md`, "What is not here yet".
+int stay(glideslope::platform::UdpSocket& socket,
+         const glideslope::platform::Address& server, glideslope::net::Sealer& sealer,
+         glideslope::net::Unsealer& unsealer, double seconds,
+         std::span<const std::uint8_t> initiation_again) {
+    // **A test flag's work**: send the initiation once more, now that the
+    // session is up. A network that duplicates a datagram does this by
+    // itself, and a server that answered it with a fresh session would leave
+    // this client sealing under keys the server had thrown away - so if the
+    // pings below stop being answered, that is what happened.
+    if (!initiation_again.empty()) {
+        (void)socket.send(server, initiation_again);
+    }
+    std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
+    const auto began = std::chrono::steady_clock::now();
+    int answered = 0;
+    for (;;) {
+        const double up_s =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
+                .count();
+        if (up_s >= seconds) {
+            break;
+        }
+        glideslope::platform::Address from;
+        const std::size_t got = socket.receive(into, from);
+        if (got <= glideslope::net::envelope_size) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            continue;
+        }
+        glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
+        glideslope::net::Envelope envelope;
+        glideslope::net::Refusal why{};
+        if (!glideslope::net::read_envelope(r, envelope, why) ||
+            envelope.type != glideslope::net::Type::sealed) {
+            continue;
+        }
+        const auto opened = unsealer.open(
+            std::span<const std::uint8_t>(into.data(), got)
+                .subspan(glideslope::net::envelope_size));
+        if (!opened) {
+            continue;
+        }
+        const auto token = glideslope::net::knock_token(
+            glideslope::net::Inside::ping,
+            std::span<const std::uint8_t>(opened->data(), opened->size()));
+        if (!token) {
+            continue;
+        }
+        const std::vector<std::uint8_t> pong =
+            glideslope::net::knock(glideslope::net::Inside::pong, *token);
+        glideslope::net::Writer w =
+            glideslope::net::begin(glideslope::net::Type::sealed);
+        w.bytes(sealer.seal(std::span<const std::uint8_t>(pong.data(), pong.size())));
+        const std::vector<std::uint8_t> out = w.take();
+        (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
+        ++answered;
+    }
+    std::printf("stayed %.1f s and answered %d ping%s\n", seconds, answered,
+                answered == 1 ? "" : "s");
+    return answered > 0 ? 0 : 1;
+}
+
+int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
+               bool again) {
+    const auto address = glideslope::platform::address_of(where);
+    if (!address) {
+        std::fprintf(stderr, "glideslope_cli: %s is not an address\n", where.c_str());
+        return 2;
+    }
+    const auto theirs = glideslope::net::public_from_text(key_hex);
+    if (!theirs) {
+        std::fprintf(stderr, "glideslope_cli: that is not a server key\n");
+        return 2;
+    }
+    auto socket = glideslope::platform::UdpSocket::bound(0);
+    if (!socket) {
+        std::fprintf(stderr, "glideslope_cli: cannot open a socket\n");
+        return 1;
+    }
+
+    const glideslope::net::KeyPair mine = glideslope::net::mint_key_pair();
+    glideslope::net::Initiator initiator(mine, *theirs);
+    glideslope::net::Writer w =
+        glideslope::net::begin(glideslope::net::Type::handshake_initiation);
+    w.bytes(initiator.begin());
+    const std::vector<std::uint8_t> first = w.take();
+    if (!socket->send(*address,
+                      std::span<const std::uint8_t>(first.data(), first.size()))) {
+        std::fprintf(stderr, "glideslope_cli: cannot send to %s\n", where.c_str());
+        return 1;
+    }
+
+    // Wait for the answer, resending while nothing comes: a handshake over
+    // UDP has to expect its first datagram to be lost, and a server that is
+    // not listening yet answers nothing at all. The same initiation goes out
+    // each time - `Noise_IK` makes one initiation, and a second would be a
+    // second handshake - which the server treats as a duplicate.
+    constexpr double resend_every_s = 0.25;
+    constexpr double give_up_after_s = 5.0;
+    std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
+    const auto began = std::chrono::steady_clock::now();
+    double sent_at_s = 0.0;
+    for (;;) {
+        glideslope::platform::Address from;
+        const std::size_t got = socket->receive(into, from);
+        const double waited =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
+                .count();
+        if (got > glideslope::net::envelope_size) {
+            glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
+            glideslope::net::Envelope envelope;
+            glideslope::net::Refusal why{};
+            if (glideslope::net::read_envelope(r, envelope, why)) {
+                if (envelope.type == glideslope::net::Type::refusal) {
+                    std::fprintf(stderr, "glideslope_cli: refused, reason %u\n",
+                                 static_cast<unsigned>(into[glideslope::net::envelope_size]));
+                    return 1;
+                }
+                if (envelope.type == glideslope::net::Type::handshake_response) {
+                    const auto session = initiator.finish(
+                        std::span<const std::uint8_t>(into.data(), got)
+                            .subspan(glideslope::net::envelope_size));
+                    if (!session) {
+                        std::fprintf(stderr,
+                                     "glideslope_cli: the answer did not open\n");
+                        return 1;
+                    }
+                    // And seal something, so the session is used and not
+                    // merely agreed. A pong nobody pinged for: the server
+                    // ignores a token it did not send, so this costs it
+                    // nothing and shows the seal works in this direction.
+                    glideslope::net::Sealer sealer(session->sending);
+                    glideslope::net::Unsealer unsealer(session->receiving);
+                    const std::vector<std::uint8_t> plain =
+                        glideslope::net::knock(glideslope::net::Inside::pong, 0);
+                    glideslope::net::Writer sw =
+                        glideslope::net::begin(glideslope::net::Type::sealed);
+                    sw.bytes(sealer.seal(
+                        std::span<const std::uint8_t>(plain.data(), plain.size())));
+                    const std::vector<std::uint8_t> out = sw.take();
+                    (void)socket->send(
+                        *address,
+                        std::span<const std::uint8_t>(out.data(), out.size()));
+                    std::printf("session with %s\n", session->theirs.text().c_str());
+                    std::printf("sealed %zu bytes to it\n", out.size());
+                    if (stay_s <= 0.0) {
+                        return 0;
+                    }
+                    return stay(*socket, *address, sealer, unsealer, stay_s,
+                                again ? std::span<const std::uint8_t>(first.data(),
+                                                                     first.size())
+                                      : std::span<const std::uint8_t>());
+                }
+            }
+        }
+        if (waited > give_up_after_s) {
+            std::fprintf(stderr, "glideslope_cli: no answer from %s\n", where.c_str());
+            return 1;
+        }
+        if (waited - sent_at_s >= resend_every_s) {
+            (void)socket->send(
+                *address, std::span<const std::uint8_t>(first.data(), first.size()));
+            sent_at_s = waited;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+}
+
 int main(int argc, char** argv) {
     std::vector<std::string_view> args(argv + 1, argv + argc);
     try {
@@ -473,6 +667,30 @@ int main(int argc, char** argv) {
         if ((args.size() == 2 || args.size() == 3) && args[0] == "figures") {
             return fly_figures(data, std::string(args[1]),
                                args.size() == 3 ? std::string(args[2]) : "");
+        }
+        if (args.size() >= 3 && args.size() <= 5 && args[0] == "connect") {
+            double stay_s = 0.0;
+            bool again = false;
+            for (std::size_t i = 3; i < args.size(); ++i) {
+                if (args[i] == "--again") {
+                    again = true;
+                    continue;
+                }
+                stay_s = std::strtod(std::string(args[i]).c_str(), nullptr);
+                if (!(stay_s > 0.0)) {
+                    std::fprintf(stderr,
+                                 "glideslope_cli: connect's seconds must be more "
+                                 "than nothing\n");
+                    return 2;
+                }
+            }
+            if (again && stay_s <= 0.0) {
+                std::fprintf(stderr, "glideslope_cli: --again needs seconds to "
+                                     "stay for, or there is nothing to watch\n");
+                return 2;
+            }
+            return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
+                              again);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();

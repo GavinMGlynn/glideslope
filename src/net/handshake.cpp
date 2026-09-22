@@ -203,7 +203,7 @@ std::vector<std::uint8_t> Initiator::begin(std::span<const std::uint8_t> payload
     return out;
 }
 
-std::optional<Session> Initiator::finish(std::span<const std::uint8_t> response,
+std::optional<SessionKeys> Initiator::finish(std::span<const std::uint8_t> response,
                                          std::vector<std::uint8_t>* payload) {
     if (!started() || !begun_ || response.size() < key_bytes + tag_bytes) {
         return std::nullopt;
@@ -237,7 +237,7 @@ std::optional<Session> Initiator::finish(std::span<const std::uint8_t> response,
         *payload = got;
     }
 
-    Session session;
+    SessionKeys session;
     // The initiator sends under the first key and receives under the second.
     s.split(session.sending, session.receiving);
     session.theirs = theirs_;

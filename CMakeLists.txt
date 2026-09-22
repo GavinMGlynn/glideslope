@@ -152,8 +152,10 @@ find_package(unofficial-sodium CONFIG REQUIRED)
 
 add_library(glideslope_net STATIC
     src/net/inputs.cpp
+    src/net/inside.cpp
     src/net/handshake.cpp
     src/net/keys.cpp
+    src/net/sealing.cpp
     src/net/interpolation.cpp
     src/net/messages.cpp
     src/net/protocol.cpp
@@ -199,6 +201,7 @@ glideslope_configure(glideslope_world)
 # input and sockets arrive with the phases that need them.
 # ---------------------------------------------------------------------------
 add_library(glideslope_platform STATIC
+    src/platform/store.cpp
     src/platform/paths.cpp
     src/platform/socket.cpp)
 target_include_directories(glideslope_platform PUBLIC src)
@@ -218,6 +221,8 @@ else()
                                                src/platform/socket_posix.cpp)
     target_link_libraries(glideslope_platform PRIVATE ${CMAKE_DL_LIBS})
 endif()
+find_package(unofficial-sqlite3 CONFIG REQUIRED)
+target_link_libraries(glideslope_platform PUBLIC unofficial::sqlite3::sqlite3)
 glideslope_configure(glideslope_platform)
 
 # ---------------------------------------------------------------------------
@@ -284,7 +289,7 @@ glideslope_configure(glideslope)
 # ---------------------------------------------------------------------------
 add_executable(glideslope_cli
     src/frontend/cli/main.cpp)
-target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_world glideslope_platform)
+target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform)
 glideslope_configure(glideslope_cli)
 
 # ---------------------------------------------------------------------------
