@@ -570,9 +570,26 @@ checklists are part of. A lesson ends in a debrief, never a score
       aircraft: an autopilot that flies an approach and lands (Phase 8's own
       item, ticked below), and one that takes off - each light aircraft holds
       the centreline within 1.4 m and is airborne within a third of its
-      handbook's ground roll. Still missing: the circuit, the stalls, the
-      turns, the lesson and debrief layer itself, and all of it for the other
-      six classes of aircraft.
+      handbook's ground roll. **The lesson and debrief layer is built,
+      2026-09-22.** A lesson is data - `assets/lessons/*.lesson`, a sequence
+      of stages each with what to do, what ends it, bands that must hold
+      through it and things that must be true by its end - and a runner flies
+      one and leaves a debrief: what to do differently, in the order it
+      happened, with no score. The first lesson is the light aircraft's
+      take-off, and all four fly it by the book with an empty debrief; flown
+      on part throttle the debrief holds one thing, and it is the throttle.
+      **One limitation is named rather than hidden**: a lesson teaches a
+      class, and the four light aeroplanes rotate between about 34 and about
+      55 knots, so the one speed a class-wide lesson can name is the lowest
+      of them - and a 172 hauled off early sails past it. Catching that needs
+      the lesson to say "her own rotation speed" rather than a number; the
+      figure is in every aeroplane's `figures/<id>.xml` and
+      `sim::departure_speeds` already reads it, and the format has no way to
+      refer to it. Until it has, a badly flown rotation is caught by the
+      attitude band and not by the speed.
+      Still missing: the circuit, the stalls, the
+      turns, lessons for the other
+      six classes of aircraft, and that speed reference.
       **The reference speeds a lesson needs are published for the light
       aircraft and not for the rest**, which was looked into on 2026-09-21
       rather than assumed. Only six of the sixteen publish a stall speed and

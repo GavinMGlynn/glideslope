@@ -1,0 +1,71 @@
+# The first lesson: a take-off in a light aeroplane, from lining up to five
+# hundred feet.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The figures are the class's, not one aeroplane's, and they are therefore
+# loose.** A lesson teaches a class (REQUIREMENTS.md 4.3), and the four light
+# aircraft here rotate between about 34 knots in the Cub and about 55 in the
+# 182, so a band that suits all four cannot be tight around any of them. The
+# rotation figure below is the lowest of them less a margin: it catches an
+# aeroplane hauled off the ground well before its speed, which is the fault
+# this lesson is for, and it will not catch a Cessna rotating five knots
+# early. A per-aeroplane lesson would be tighter, and the format already
+# allows one - `teaches` would become an aircraft - but the item asks for a
+# lesson a class, so this is a lesson a class.
+#
+# **The throttle is a `need` and not a `hold`**, because "open the throttle
+# smoothly to full" means it is not full at the first instant and should not
+# be. A band judged from the first tick of the roll would fault every
+# by-the-book take-off there is. It is judged where the teaching judges it: by
+# the time she leaves the ground.
+#
+# **The attitude band is measured, not guessed.** Flown by the book - by the
+# take-off autopilot, on the figures each aeroplane publishes - the four light
+# aircraft hold between -4.5 and 19.4 degrees once off the ground: the Cub
+# -2.5 to 18.3, the PA-28 -3.0 to 18.7, the 172 -3.9 to 19.1 and the 182 -4.5
+# to 19.4. The nose-down figures are the moment after lift-off, as she is let
+# settle into the climb. The band below is that range with about four degrees
+# of margin at each end, which passes every correctly flown take-off in the
+# class and still catches an aeroplane hauled into a steep climb or pushed
+# over into a dive.
+#
+# **What this lesson cannot catch, said where it matters.** "Rotating early"
+# is the fault a take-off lesson most wants to name, and the figure below
+# catches it only for the slowest aeroplane in the class. A 172 hauled off at
+# 47 knots, against the 55 or so it should use, is a long way early and sails
+# past a threshold set for a Cub. Catching that needs the lesson to be able to
+# say "her own rotation speed" rather than a number - the figure is already in
+# every aeroplane's `assets/figures/<id>.xml`, and `sim::departure_speeds`
+# already reads it - and the format has no way to say it. Until it has, what
+# catches a badly flown rotation here is the attitude band, not the speed.
+
+name Take-off in a light aeroplane
+teaches light-aircraft
+
+stage The roll
+do Line up on the centreline, then open the throttle smoothly to full
+do Keep straight with the rudder: she will swing left as the power comes in
+do Let the speed build. Do not hurry her off the ground
+need fcs/throttle-cmd-norm >= 0.90 Open the throttle fully for the take-off
+need velocities/vc-kts >= 32 Let her reach the rotation speed before easing the nose up
+until position/h-agl-ft >= 15
+
+stage The initial climb
+do Hold the climbing attitude and let the speed settle
+do Keep the wings level and the ball centred
+hold attitude/theta-deg -8.0 24.0 Hold the climbing attitude: the nose wandered
+until position/h-agl-ft >= 200
+
+stage Climbing away
+do Climb straight ahead to five hundred feet before turning
+hold velocities/vc-kts 45.0 120.0 Hold the climbing speed
+until position/h-agl-ft >= 500

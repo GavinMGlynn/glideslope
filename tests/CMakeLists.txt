@@ -35,6 +35,7 @@ add_executable(glideslope_tests
     unit/test_socket.cpp
     unit/test_store.cpp
     unit/test_reliable.cpp
+    unit/test_lesson.cpp
     unit/test_levers.cpp
     unit/test_wheels_up.cpp
     unit/test_controller.cpp
@@ -132,6 +133,10 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_turning_through_north_takes_the_short_way_round
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
     a_client_that_flew_different_inputs_is_put_back_where_the_server_says
+    a_lesson_written_down_and_read_back_is_the_one_that_was_written
+    a_lesson_file_that_is_wrong_is_refused_and_says_where
+    the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief
+    a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief
     every_aircraft_says_which_class_it_is_and_the_requirements_agree
     a_local_velocity_becomes_the_same_velocity_in_the_earths_frame
     a_state_packet_written_and_read_back_is_the_same_packet
