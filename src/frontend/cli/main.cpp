@@ -9,6 +9,7 @@
 #include "net/keys.hpp"
 #include "net/protocol.hpp"
 #include "net/sealing.hpp"
+#include "net/state.hpp"
 #include "platform/http.hpp"
 #include "platform/socket.hpp"
 #include "platform/paths.hpp"
@@ -18,6 +19,7 @@
 #include "sim/selftest.hpp"
 #include "sim/version.hpp"
 #include "world/dem.hpp"
+#include "world/geodesy.hpp"
 #include "world/download.hpp"
 #include "world/metar.hpp"
 #include "world/sky.hpp"
@@ -486,6 +488,8 @@ int stay(glideslope::platform::UdpSocket& socket,
     std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
     const auto began = std::chrono::steady_clock::now();
     int answered = 0;
+    int heard = 0;
+    std::size_t aircraft_last = 0;
     for (;;) {
         const double up_s =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
@@ -512,9 +516,30 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (!opened) {
             continue;
         }
-        const auto token = glideslope::net::knock_token(
-            glideslope::net::Inside::ping,
-            std::span<const std::uint8_t>(opened->data(), opened->size()));
+        const std::span<const std::uint8_t> inside(opened->data(), opened->size());
+        // **Where everybody is.** Nothing is done with it here beyond
+        // counting and printing it: this is the command-line tool, and it has
+        // no sky to draw them in.
+        if (const auto state = glideslope::net::read_state(inside)) {
+            ++heard;
+            if (heard == 1 || state->aircraft.size() != aircraft_last) {
+                aircraft_last = state->aircraft.size();
+                std::printf("state: %zu aircraft at %.3f s\n", state->aircraft.size(),
+                            state->simulation_time_s);
+                for (const glideslope::net::AircraftState& a : state->aircraft) {
+                    const glideslope::world::Geodetic g =
+                        glideslope::world::to_geodetic({a.x_m, a.y_m, a.z_m});
+                    std::printf("  %u at %.5f, %.5f  %.0f m  heading %.0f\n",
+                                static_cast<unsigned>(a.index), g.latitude_deg,
+                                g.longitude_deg, g.height_m,
+                                static_cast<double>(a.heading_deg));
+                }
+                std::fflush(stdout);
+            }
+            continue;
+        }
+        const auto token =
+            glideslope::net::knock_token(glideslope::net::Inside::ping, inside);
         if (!token) {
             continue;
         }
@@ -527,8 +552,9 @@ int stay(glideslope::platform::UdpSocket& socket,
         (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
         ++answered;
     }
-    std::printf("stayed %.1f s and answered %d ping%s\n", seconds, answered,
-                answered == 1 ? "" : "s");
+    std::printf("stayed %.1f s, answered %d ping%s and heard %d state update%s\n",
+                seconds, answered, answered == 1 ? "" : "s", heard,
+                heard == 1 ? "" : "s");
     return answered > 0 ? 0 : 1;
 }
 

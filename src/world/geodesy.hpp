@@ -43,4 +43,15 @@ Geodetic to_geodetic(const Ecef& e);
 // Distance between two points, straight through, in metres.
 double distance(const Ecef& p, const Ecef& q);
 
+// **A velocity where the aircraft is, in the frame the world is kept in.**
+// North, east and down are what a flight model gives; ECEF is what a position
+// is. This is the rotation between them at `at`, and nothing else: it turns a
+// vector, not a point, so it has no translation in it and the height of `at`
+// does not enter.
+//
+// Down is towards the ellipsoid, not towards the centre - the two differ by
+// up to about a tenth of a degree, which is the whole reason this uses the
+// geodetic latitude it is given.
+Ecef ned_to_ecef(const Geodetic& at, double north, double east, double down);
+
 } // namespace glideslope::world

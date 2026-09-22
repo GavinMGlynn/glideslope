@@ -54,4 +54,21 @@ double distance(const Ecef& p, const Ecef& q) {
                      (p.z - q.z) * (p.z - q.z));
 }
 
+
+Ecef ned_to_ecef(const Geodetic& at, double north, double east, double down) {
+    const double lat = at.latitude_deg * to_rad;
+    const double lon = at.longitude_deg * to_rad;
+    const double sin_lat = std::sin(lat);
+    const double cos_lat = std::cos(lat);
+    const double sin_lon = std::sin(lon);
+    const double cos_lon = std::cos(lon);
+    // The local basis in ECEF. Up is the ellipsoid normal; down is its
+    // negative, which is why the signs below are the way they are.
+    Ecef out;
+    out.x = -sin_lat * cos_lon * north - sin_lon * east - cos_lat * cos_lon * down;
+    out.y = -sin_lat * sin_lon * north + cos_lon * east - cos_lat * sin_lon * down;
+    out.z = cos_lat * north - sin_lat * down;
+    return out;
+}
+
 } // namespace glideslope::world

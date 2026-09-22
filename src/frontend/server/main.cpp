@@ -15,6 +15,7 @@
 #include "net/protocol.hpp"
 #include "net/sealing.hpp"
 #include "net/slots.hpp"
+#include "net/state.hpp"
 #include "platform/http.hpp"
 #include "platform/paths.hpp"
 #include "platform/socket.hpp"
@@ -27,6 +28,7 @@
 #include "sim/terrain.hpp"
 #include "sim/version.hpp"
 #include "world/dem.hpp"
+#include "world/geodesy.hpp"
 #include "world/download.hpp"
 
 #include <algorithm>
@@ -382,6 +384,12 @@ struct Connection {
     std::vector<std::uint8_t> answer;
 };
 
+// **How often the server says where everybody is.** `REQUIREMENTS.md` 6.6
+// asks for 20 to 30 Hz; 25 is the middle of it and divides the 120 Hz
+// simulation step exactly, so a state update always lands on a step boundary
+// rather than between two.
+constexpr double state_every_s = 1.0 / 25.0;
+
 // How often the server knocks on a connection. Twice within one `--timeout`
 // at the default of ten seconds, and often enough that a number on the
 // dashboard is not stale.
@@ -574,6 +582,55 @@ std::string in_column(std::uint64_t bytes) {
                       static_cast<double>(bytes) / 1000000.0);
     }
     return buffer;
+}
+
+// **Where every aircraft is, as the wire carries it.** Positions come out of
+// the flight model as latitude, longitude and height and go on the wire as
+// ECEF metres; velocities come out as north, east and down and are turned
+// into the same frame, because a client extrapolating between two states
+// wants its velocity in the frame its positions are in.
+glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s,
+                                      std::uint32_t last_input_applied) {
+    glideslope::net::StatePacket packet;
+    packet.simulation_time_s = clock_s;
+    packet.last_input_applied = last_input_applied;
+    std::uint8_t index = 0;
+    for (const Fleet::Aircraft& a : fleet.flown()) {
+        if (packet.aircraft.size() >= glideslope::net::most_aircraft_in_a_state) {
+            break;
+        }
+        const glideslope::sim::AircraftState s = a.aircraft->state();
+        const glideslope::world::Geodetic where{s.latitude_deg, s.longitude_deg,
+                                                s.altitude_ft / feet_per_metre};
+        const glideslope::world::Ecef at = glideslope::world::to_ecef(where);
+        // JSBSim gives the velocity in the local frame already, in feet a
+        // second, so nothing here has to rotate out of body axes.
+        const double north_mps =
+            a.aircraft->property("velocities/v-north-fps") / feet_per_metre;
+        const double east_mps =
+            a.aircraft->property("velocities/v-east-fps") / feet_per_metre;
+        const double down_mps =
+            a.aircraft->property("velocities/v-down-fps") / feet_per_metre;
+        const glideslope::world::Ecef v =
+            glideslope::world::ned_to_ecef(where, north_mps, east_mps, down_mps);
+
+        glideslope::net::AircraftState out;
+        out.index = index;
+        out.controller = a.controller != nullptr ? glideslope::net::Controller::ai
+                                                 : glideslope::net::Controller::person;
+        out.x_m = at.x;
+        out.y_m = at.y;
+        out.z_m = at.z;
+        out.vx_mps = static_cast<float>(v.x);
+        out.vy_mps = static_cast<float>(v.y);
+        out.vz_mps = static_cast<float>(v.z);
+        out.heading_deg = static_cast<float>(s.heading_deg);
+        out.pitch_deg = static_cast<float>(s.pitch_deg);
+        out.roll_deg = static_cast<float>(s.roll_deg);
+        packet.aircraft.push_back(out);
+        ++index;
+    }
+    return packet;
 }
 
 void draw_dashboard(const Options& o, const glideslope::net::Slots& slots,
@@ -903,6 +960,7 @@ int run(const Options& o) {
     std::uint64_t datagrams = 0;
     std::uint64_t bytes = 0;
     double drawn_at_s = -1.0;
+    double said_where_at_s = -1.0;
     // A datagram is at most this; anything larger is not one of ours.
     std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
     for (;;) {
@@ -915,6 +973,29 @@ int run(const Options& o) {
             bytes += got;
             take(*socket, mine, slots, connections, from,
                  std::span<const std::uint8_t>(into.data(), got), up_s, o);
+        }
+
+        // **Where everybody is, 25 times a second, to everybody connected.**
+        // Sent once and never repeated: a state update is worth nothing once
+        // a newer one exists, so repeating a lost one would deliver a stale
+        // position late.
+        if (fleet && up_s - said_where_at_s >= state_every_s && !connections.empty()) {
+            said_where_at_s = up_s;
+            const glideslope::net::StatePacket packet =
+                state_of(*fleet,
+                         static_cast<double>(clock.steps_taken()) /
+                             static_cast<double>(glideslope::sim::steps_per_second),
+                         0);
+            if (const auto said = glideslope::net::write_state(packet)) {
+                for (auto& [address, c] : connections) {
+                    const auto to = glideslope::platform::address_of(address);
+                    if (to) {
+                        send_sealed(*socket, *to, c,
+                                    std::span<const std::uint8_t>(said->data(),
+                                                                  said->size()));
+                    }
+                }
+            }
         }
 
         // **The server knocks on every connection once a second**, and the

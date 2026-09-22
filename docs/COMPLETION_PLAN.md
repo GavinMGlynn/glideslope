@@ -614,10 +614,19 @@ checklists are part of. A lesson ends in a debrief, never a score
       refused; both replay tests watched failing with the window taken out.
       A client and a server complete a whole session over a real loopback
       socket and seal both ways.
+      **The state stream is built, 2026-09-22.** A server says where every
+      aircraft is 25 times a second inside a sealed datagram - Earth-centred
+      double positions, because the whole world is in play and there is no
+      session origin to be near - and a client opens it and reads the
+      positions back out. Held end to end over a real socket, with the
+      aircraft held to the place the flight plan starts over and to the
+      500 ft the server stacks them apart, so a packet of the right size full
+      of the wrong place fails.
       **Still to do, and it is the verification itself.** Neither half has
       been done: no client has been written from `TRANSPORT.md` alone by
       somebody who did not write the code, and there is no gearstick client
-      here to be refused. Until both, this item does not tick.
+      here to be refused. Until both, this item does not tick. A client also
+      cannot yet fly: its inputs reach no aircraft.
       **How libsodium gets in was looked into on 2026-09-21 rather than
       assumed**, and it is not as simple as a submodule: libsodium ships a
       `Findsodium.cmake` and no CMake build of its own - autotools on Unix,

@@ -491,9 +491,10 @@ startup.
   and `STATE` are numbered above and nothing sends or reads them, so the seven
   messages and the input packets - both defined and encoded - do not yet
   travel. `PING` and `PONG` do.
-- **Anything sending a state update.** The packet is defined and built, above,
-  and no server writes one and no client reads one: the server flies its
-  aircraft and tells nobody where they are.
+- **Anything a client may say about its own flying.** The server sends state
+  25 times a second and reads nothing back but a `PONG`: a client's inputs
+  reach no aircraft, so a player cannot fly. A client is a spectator with a
+  slot.
 - **Rate limiting, and the cookie an overloaded server would demand.** A
   server does an X25519 operation for any stranger that sends it an
   initiation. `docs/THREATS.md` says what that costs and what would bound it.
@@ -502,4 +503,5 @@ What a client written from this document **can** do today: complete the
 handshake with a server whose public key it was given, be admitted to a slot,
 seal and open datagrams under the keys that handshake agreed, answer the
 server's knocking so that it stays in its slot and the server can measure the
-round trip, and be let go when it stops. What it cannot do is fly.
+round trip, **read where every aircraft is 25 times a second**, and be let go
+when it stops. What it cannot do is fly.

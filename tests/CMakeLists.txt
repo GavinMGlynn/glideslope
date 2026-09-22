@@ -132,6 +132,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_turning_through_north_takes_the_short_way_round
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
     a_client_that_flew_different_inputs_is_put_back_where_the_server_says
+    a_local_velocity_becomes_the_same_velocity_in_the_earths_frame
     a_state_packet_written_and_read_back_is_the_same_packet
     a_state_packet_filled_to_its_limits_fits_in_one_datagram
     every_truncation_of_a_state_packet_is_refused
@@ -956,6 +957,18 @@ add_test(NAME the_server_refuses_a_flag_with_nothing_after_it
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 # **The server flies every aircraft, each over its own terrain.** Two aircraft
+# **A client hears where every aircraft is**: the whole state stream, end to
+# end over a real socket, with the positions held to the place the flight plan
+# starts over. See cmake/server_state.cmake for why the places are checked.
+add_test(NAME a_client_hears_where_every_aircraft_is
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_state -DPORT=47860
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_state.cmake)
+set_tests_properties(a_client_hears_where_every_aircraft_is PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_state)
+
 # **A repeated handshake initiation does not take a live session away.** The
 # bug was here and is fixed; see cmake/server_duplicate.cmake for what it was.
 add_test(NAME a_repeated_handshake_initiation_does_not_take_a_live_session_away

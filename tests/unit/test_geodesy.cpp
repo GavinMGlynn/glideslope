@@ -137,3 +137,86 @@ GLIDESLOPE_TEST(the_geodetic_conversion_agrees_with_jsbsims_within_a_millimetre)
         fail("disagrees with JSBSim:" + failures);
     }
 }
+
+// **A velocity where the aircraft is, in the frame the world is kept in.** The
+// rotation is a rotation: it keeps lengths and angles, and it puts north, east
+// and down where they belong at every point on the Earth.
+GLIDESLOPE_TEST(a_local_velocity_becomes_the_same_velocity_in_the_earths_frame) {
+    using glideslope::world::Ecef;
+    using glideslope::world::Geodetic;
+    using glideslope::world::ned_to_ecef;
+
+    const auto length = [](const Ecef& v) {
+        return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    };
+    const auto dot = [](const Ecef& a, const Ecef& b) {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+    };
+
+    // **The three places where the answer can be written down.** At latitude
+    // and longitude nought the local axes line up with ECEF's, so each of the
+    // three has one answer and only one.
+    const Geodetic origin{0.0, 0.0, 0.0};
+    const Ecef n = ned_to_ecef(origin, 1.0, 0.0, 0.0);
+    check(std::abs(n.x) < 1e-12 && std::abs(n.y) < 1e-12 && std::abs(n.z - 1.0) < 1e-12,
+          "at 0, 0 north is towards the pole");
+    const Ecef e = ned_to_ecef(origin, 0.0, 1.0, 0.0);
+    check(std::abs(e.x) < 1e-12 && std::abs(e.y - 1.0) < 1e-12 && std::abs(e.z) < 1e-12,
+          "and east is towards 90 east");
+    const Ecef d = ned_to_ecef(origin, 0.0, 0.0, 1.0);
+    check(std::abs(d.x + 1.0) < 1e-12 && std::abs(d.y) < 1e-12 && std::abs(d.z) < 1e-12,
+          "and down is towards the centre");
+
+    // At the North Pole, north points along the prime meridian, backwards.
+    const Ecef pole_north = ned_to_ecef({90.0, 0.0, 0.0}, 1.0, 0.0, 0.0);
+    check(std::abs(pole_north.x + 1.0) < 1e-12 && std::abs(pole_north.z) < 1e-12,
+          "at the pole, north runs down the prime meridian");
+
+    // **Walked over the whole Earth**, not sampled near the equator: every
+    // ten degrees of latitude and twenty of longitude, which is 19 by 19.
+    std::size_t walked = 0;
+    for (int lat_deg = -90; lat_deg <= 90; lat_deg += 10) {
+        for (int lon_deg = -180; lon_deg <= 180; lon_deg += 20) {
+            const Geodetic at{static_cast<double>(lat_deg), static_cast<double>(lon_deg),
+                              1234.0};
+            const Ecef north = ned_to_ecef(at, 1.0, 0.0, 0.0);
+            const Ecef east = ned_to_ecef(at, 0.0, 1.0, 0.0);
+            const Ecef down = ned_to_ecef(at, 0.0, 0.0, 1.0);
+            // A rotation: each axis a unit vector, and the three at right
+            // angles to each other.
+            check(std::abs(length(north) - 1.0) < 1e-12, "north is a unit vector");
+            check(std::abs(length(east) - 1.0) < 1e-12, "east is a unit vector");
+            check(std::abs(length(down) - 1.0) < 1e-12, "down is a unit vector");
+            check(std::abs(dot(north, east)) < 1e-12, "north and east are at 90");
+            check(std::abs(dot(north, down)) < 1e-12, "north and down are at 90");
+            check(std::abs(dot(east, down)) < 1e-12, "east and down are at 90");
+
+            // Length is kept, for a velocity that is not along an axis.
+            const Ecef v = ned_to_ecef(at, 120.0, -85.0, 3.0);
+            const double was = std::sqrt(120.0 * 120.0 + 85.0 * 85.0 + 3.0 * 3.0);
+            check(std::abs(length(v) - was) < 1e-9,
+                  "a velocity keeps its speed at " + std::to_string(lat_deg) + ", " +
+                      std::to_string(lon_deg));
+
+            // **Down is towards the ellipsoid, not the centre**, which is the
+            // whole reason this takes a geodetic latitude. Away from the
+            // equator and the poles the two differ, and here they must.
+            const Ecef here = glideslope::world::to_ecef(at);
+            const double to_centre = std::sqrt(here.x * here.x + here.y * here.y +
+                                               here.z * here.z);
+            const double along =
+                -(down.x * here.x + down.y * here.y + down.z * here.z) / to_centre;
+            if (lat_deg != 0 && lat_deg != 90 && lat_deg != -90) {
+                check(along < 1.0 - 1e-9,
+                      "down is not straight at the centre at latitude " +
+                          std::to_string(lat_deg));
+            } else {
+                check(std::abs(along - 1.0) < 1e-9,
+                      "and is at the equator and the poles");
+            }
+            ++walked;
+        }
+    }
+    check(walked == 19 * 19,
+          "19 latitudes by 19 longitudes were walked, not " + std::to_string(walked));
+}
