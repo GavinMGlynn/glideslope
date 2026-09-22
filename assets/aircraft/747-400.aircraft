@@ -11,4 +11,5 @@
 
 name Boeing 747-400
 model 747-400
+class airliner
 start 250 0.58

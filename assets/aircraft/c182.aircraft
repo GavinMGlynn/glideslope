@@ -11,4 +11,5 @@
 
 name Cessna 182S Skylane
 model c182
+class light-aircraft
 start 120 0.65

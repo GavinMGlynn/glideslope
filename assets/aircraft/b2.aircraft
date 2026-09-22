@@ -13,4 +13,5 @@
 
 name Northrop Grumman B-2A Spirit
 model b2
+class bomber
 start 250 0.48

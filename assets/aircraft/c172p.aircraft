@@ -11,4 +11,5 @@
 
 name Cessna 172P Skyhawk
 model c172p
+class light-aircraft
 start 100 0.7

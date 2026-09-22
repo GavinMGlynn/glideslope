@@ -561,9 +561,12 @@ checklists are part of. A lesson ends in a debrief, never a score
       and will not suit a jet. So a take-off lesson, a circuit, a stall and a
       landing have no pilot to fly them. **The approach-and-landing item in
       Phase 8 below is the largest piece of it, and comes before this one
-      although it is written after.** The classes of aircraft are also not
-      data: `REQUIREMENTS.md` names seven in prose and no aircraft file says
-      which it is. Two pieces of it are now built and tested, for the light
+      although it is written after.** **The classes of aircraft are data now**, as of
+      2026-09-22: every one of the sixteen carries a `class` line - one of
+      light-aircraft, seaplane, second-world-war, business-jet, airliner,
+      fighter or bomber - a file without one is refused, and a test holds the
+      roster to `REQUIREMENTS.md`'s own table in section 4.2, aircraft by
+      aircraft, so the prose and the data cannot drift apart. Two pieces of it are now built and tested, for the light
       aircraft: an autopilot that flies an approach and lands (Phase 8's own
       item, ticked below), and one that takes off - each light aircraft holds
       the centreline within 1.4 m and is airborne within a third of its

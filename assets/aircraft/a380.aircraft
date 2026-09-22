@@ -12,4 +12,5 @@
 
 name Airbus A380-841
 model a380
+class airliner
 start 250 0.57

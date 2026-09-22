@@ -11,4 +11,5 @@
 
 name Piper J-3 Cub
 model j3cub
+class light-aircraft
 start 60 0.74

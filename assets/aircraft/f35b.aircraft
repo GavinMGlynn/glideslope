@@ -14,4 +14,5 @@
 
 name Lockheed Martin F-35B Lightning II
 model f35b
+class fighter
 start 300 0.47

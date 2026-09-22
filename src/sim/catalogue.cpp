@@ -9,10 +9,56 @@
 
 namespace glideslope::sim {
 
+std::string_view name_of(AircraftClass of) {
+    switch (of) {
+    case AircraftClass::light_aircraft:
+        return "light-aircraft";
+    case AircraftClass::seaplane:
+        return "seaplane";
+    case AircraftClass::second_world_war:
+        return "second-world-war";
+    case AircraftClass::business_jet:
+        return "business-jet";
+    case AircraftClass::airliner:
+        return "airliner";
+    case AircraftClass::fighter:
+        return "fighter";
+    case AircraftClass::bomber:
+        return "bomber";
+    }
+    return "";
+}
+
+std::optional<AircraftClass> class_from_name(std::string_view name) {
+    if (name == "light-aircraft") {
+        return AircraftClass::light_aircraft;
+    }
+    if (name == "seaplane") {
+        return AircraftClass::seaplane;
+    }
+    if (name == "second-world-war") {
+        return AircraftClass::second_world_war;
+    }
+    if (name == "business-jet") {
+        return AircraftClass::business_jet;
+    }
+    if (name == "airliner") {
+        return AircraftClass::airliner;
+    }
+    if (name == "fighter") {
+        return AircraftClass::fighter;
+    }
+    if (name == "bomber") {
+        return AircraftClass::bomber;
+    }
+    return std::nullopt;
+}
+
 CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view text) {
     CatalogueEntry e;
     e.id = id;
     bool started = false;
+    bool classed = false;
     std::istringstream in{std::string(text)};
     int line_number = 0;
     for (std::string line; std::getline(in, line);) {
@@ -63,6 +109,16 @@ CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view tex
             e.start_airspeed_kts = number(w[1], "the airspeed", 1.0, 1000.0);
             e.start_throttle = number(w[2], "the throttle", 0.0, 1.0);
             started = true;
+        } else if (w[0] == "class") {
+            if (w.size() != 2) {
+                throw wrong("class NAME");
+            }
+            const auto of = class_from_name(w[1]);
+            if (!of) {
+                throw wrong("no class \"" + w[1] + "\"");
+            }
+            e.aircraft_class = *of;
+            classed = true;
         } else if (w[0] == "seaplane") {
             if (w.size() != 1) {
                 throw wrong("seaplane, alone");
@@ -72,9 +128,9 @@ CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view tex
             throw wrong("no command \"" + w[0] + "\"");
         }
     }
-    if (e.name.empty() || e.model.empty() || !started) {
-        throw CatalogueError(id + ".aircraft must give the aircraft's name, model and "
-                                  "start");
+    if (e.name.empty() || e.model.empty() || !started || !classed) {
+        throw CatalogueError(id + ".aircraft must give the aircraft's name, model, "
+                                  "start and class");
     }
     return e;
 }

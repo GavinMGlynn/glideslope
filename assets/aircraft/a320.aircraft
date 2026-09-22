@@ -11,4 +11,5 @@
 
 name Airbus A320
 model a320
+class airliner
 start 250 0.42

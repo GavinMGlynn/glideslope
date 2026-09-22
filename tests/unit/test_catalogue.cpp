@@ -426,3 +426,102 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
     }
     check(none, "an aircraft the data does not hold is not found");
 }
+
+// **Every aircraft says what kind of flying it is for, and the roster agrees
+// with `REQUIREMENTS.md`'s own table.** A lesson is written against a class -
+// a circuit in a Cub and a circuit in a 747 are not the same lesson - so the
+// class has to be data rather than prose, and the prose has to go on
+// agreeing with it.
+GLIDESLOPE_TEST(every_aircraft_says_which_class_it_is_and_the_requirements_agree) {
+    const std::filesystem::path data = GLIDESLOPE_TEST_DATA_DIR;
+    const auto roster = glideslope::sim::read_catalogue(data.parent_path());
+    check(roster.size() == 16, "sixteen aircraft, not " + std::to_string(roster.size()));
+
+    // The seven names, and nothing else, round-trip through the pair that
+    // reads and writes them. All 7 walked and counted.
+    const std::vector<std::string> seven = {
+        "light-aircraft", "seaplane", "second-world-war", "business-jet",
+        "airliner",       "fighter",  "bomber"};
+    check(seven.size() == glideslope::sim::aircraft_class_count,
+          "seven classes, and the header says " +
+              std::to_string(glideslope::sim::aircraft_class_count));
+    std::size_t walked = 0;
+    for (const std::string& name : seven) {
+        const auto of = glideslope::sim::class_from_name(name);
+        check(of.has_value(), name + " is a class");
+        check(glideslope::sim::name_of(*of) == name, name + " reads back as itself");
+        ++walked;
+    }
+    check(walked == 7, "every class was walked");
+    check(!glideslope::sim::class_from_name("glider").has_value(),
+          "and a name that is not one of the seven is refused");
+    check(!glideslope::sim::class_from_name("").has_value(), "as is nothing");
+
+    // **The table in REQUIREMENTS.md, read and compared.** It names each
+    // class against the aircraft in it; every aircraft in the roster must
+    // appear in the row its own file claims.
+    const std::filesystem::path doc =
+        std::filesystem::path(GLIDESLOPE_TEST_PROJECT_DIR) / "docs" / "REQUIREMENTS.md";
+    std::ifstream in(doc);
+    check(in.good(), "docs/REQUIREMENTS.md is there");
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+
+    // What the document calls each class, against what a file calls it.
+    const std::vector<std::pair<std::string, std::string>> rows = {
+        {"light-aircraft", "| Light aircraft |"},
+        {"seaplane", "| Seaplane |"},
+        {"second-world-war", "| Second World War |"},
+        {"business-jet", "| Business jet |"},
+        {"airliner", "| Airliners |"},
+        {"fighter", "| Fighter"},
+        {"bomber", "| Bomber |"},
+    };
+    std::size_t said = 0;
+    for (const auto& [name, heading] : rows) {
+        check(text.find(heading) != std::string::npos,
+              "REQUIREMENTS.md still has a row for " + name);
+        ++said;
+    }
+    check(said == 7, "a row was looked for for every class");
+
+    // Each aircraft named in the document's table, in the row its file
+    // claims. The names are the document's, which are not the file ids.
+    const std::vector<std::pair<std::string, std::string>> named = {
+        {"j3cub", "Piper J-3 Cub"},      {"c172p", "Cessna 172P"},
+        {"pa28", "Piper PA-28"},         {"c182", "Cessna 182"},
+        {"short_s23", "Short S.23"},     {"mosquito-fb6", "Mosquito"},
+        {"learjet35a", "Learjet 35A"},   {"a320", "Airbus A320"},
+        {"737-300", "Boeing 737"},       {"747-400", "747"},
+        {"787-8", "787-8"},              {"a380", "Airbus A380"},
+        {"f15c", "F-15 Eagle"},          {"f22", "F-22 Raptor"},
+        {"f35b", "F-35B Lightning II"},  {"b2", "B-2 Spirit"},
+    };
+    check(named.size() == 16, "every aircraft has a name in the table");
+    std::size_t checked = 0;
+    for (const auto& [id, in_doc] : named) {
+        const auto it = std::find_if(roster.begin(), roster.end(),
+                                     [&](const auto& e) { return e.id == id; });
+        check(it != roster.end(), id + " is in the roster");
+        check(text.find(in_doc) != std::string::npos,
+              "REQUIREMENTS.md still names " + in_doc);
+        // The row it is named in must be the row its file claims. Find the
+        // line holding the aircraft, and check it begins with that class.
+        const std::size_t at = text.find(in_doc);
+        const std::size_t line_from = text.rfind('\n', at) + 1;
+        const std::string line = text.substr(line_from, text.find('\n', at) - line_from);
+        const std::string want =
+            std::string(glideslope::sim::name_of(it->aircraft_class));
+        bool right = false;
+        for (const auto& [name, heading] : rows) {
+            if (line.rfind(heading, 0) == 0) {
+                right = name == want;
+                break;
+            }
+        }
+        check(right, id + " says it is a " + want +
+                         ", and REQUIREMENTS.md names it on the line: " + line);
+        ++checked;
+    }
+    check(checked == 16, "all sixteen were held to the table");
+}

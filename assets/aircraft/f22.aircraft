@@ -12,4 +12,5 @@
 
 name Lockheed Martin F-22A Raptor
 model f22
+class fighter
 start 300 0.40

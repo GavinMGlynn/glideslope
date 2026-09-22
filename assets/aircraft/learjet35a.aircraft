@@ -13,4 +13,5 @@
 
 name Gates Learjet 35A
 model learjet35a
+class business-jet
 start 250 0.49
