@@ -843,11 +843,30 @@ checklists are part of. A lesson ends in a debrief, never a score
       the client stops predicting it and interpolates it like any other.*
 - [ ] **AI to player.** *Verification: the client resumes prediction from the
       next full state, with no step.*
-- [ ] **A player disconnecting**, the aircraft removed or handed to an AI by
-      session setting. *Verification: both settings, tested.*
-- [ ] **AI traffic with nobody connected.** *Verification: AI aircraft keep
+- [x] **A player disconnecting**, the aircraft removed or handed to an AI by
+      session setting. *Verification: both settings, tested.* Done,
+      2026-09-22. `--on-leave remove` takes the aircraft out of the sky and
+      `--on-leave ai` hands it to an AI pilot flying the server's plan;
+      `remove` is the default. A player leaves by going quiet - there is no
+      goodbye message and a crashed client could not send one - so the
+      `--timeout` sweep is what notices. Both settings are walked in one test
+      and counted, with a real client connecting and stopping, and under `ai`
+      the aircraft must have **moved** from where its owner left it, since an
+      AI pilot that flew nothing would pass a check that only counted
+      aeroplanes. An aircraft handed over is renumbered, because a player's
+      aircraft is numbered by their slot and that slot is about to be given
+      to somebody else.
+- [x] **AI traffic with nobody connected.** *Verification: AI aircraft keep
       flying on an empty server, and a client that joins later finds them
-      mid-flight.*
+      mid-flight.* Done, 2026-09-22. Both halves are held by one test: the
+      server flies two AI Cessnas with nobody connected, and a client that
+      waits five seconds before connecting finds **a clock reading 4.2 s and
+      both aircraft away from where the flight plan starts**. Its own
+      aircraft, made the moment it joined, is still on the start point and is
+      the control in that measurement - if everything in the packet had
+      moved, the test would be measuring the plan's start and not the passage
+      of time. A server that stepped its aircraft only while somebody was
+      connected fails it.
 - [ ] **Controller-swap continuity in the network checks.** *Verification:
       swaps under injected latency, loss and jitter stay within the stated
       bound.*

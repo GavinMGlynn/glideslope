@@ -81,7 +81,9 @@ void print_usage(std::FILE* out) {
         "                            once the session is up, as a network that\n"
         "                            duplicates a datagram would. --fly sends\n"
         "                            inputs - full aileron - so the server has\n"
-        "                            something to fly this client's aircraft by\n"
+        "                            something to fly this client's aircraft by.\n"
+        "                            --after N waits N seconds before connecting,\n"
+        "                            so as to join a session already running\n"
         "  --data DIR                read data from DIR instead of data/ beside the\n"
         "                            program\n",
         out);
@@ -618,7 +620,14 @@ int stay(glideslope::platform::UdpSocket& socket,
 }
 
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
-               bool again, bool fly) {
+               bool again, bool fly, double after_s) {
+    // **A test flag's work**: join a session that is already running. A
+    // client that connects the instant the server does learns nothing about
+    // whether the server was flying before it arrived.
+    if (after_s > 0.0) {
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(static_cast<long long>(after_s * 1000.0)));
+    }
     const auto address = glideslope::platform::address_of(where);
     if (!address) {
         std::fprintf(stderr, "glideslope_cli: %s is not an address\n", where.c_str());
@@ -754,11 +763,17 @@ int main(int argc, char** argv) {
             return fly_figures(data, std::string(args[1]),
                                args.size() == 3 ? std::string(args[2]) : "");
         }
-        if (args.size() >= 3 && args.size() <= 6 && args[0] == "connect") {
+        if (args.size() >= 3 && args.size() <= 8 && args[0] == "connect") {
             double stay_s = 0.0;
             bool again = false;
             bool fly = false;
+            double after_s = 0.0;
             for (std::size_t i = 3; i < args.size(); ++i) {
+                if (args[i] == "--after" && i + 1 < args.size()) {
+                    after_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
+                    ++i;
+                    continue;
+                }
                 if (args[i] == "--again") {
                     again = true;
                     continue;
@@ -786,7 +801,7 @@ int main(int argc, char** argv) {
                 return 2;
             }
             return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
-                              again, fly);
+                              again, fly, after_s);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();

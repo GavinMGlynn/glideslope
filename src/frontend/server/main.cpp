@@ -102,6 +102,8 @@ struct Options {
     bool headless = false;
     bool dry_run = false;
     bool plain = false;
+    // What becomes of an aircraft when the person flying it goes.
+    bool hand_to_ai_on_leave = false;
 };
 
 void print_usage(std::FILE* out) {
@@ -126,6 +128,10 @@ void print_usage(std::FILE* out) {
         "  --ai N             how many AI aircraft the server runs (default 4)\n"
         "  --plan FILE        the flight plan they fly (default plans/ in the data)\n"
         "  --seconds N        stop after N seconds instead of running until killed\n"
+        "  --on-leave WHAT    what becomes of an aircraft when the person flying\n"
+        "                     it goes: 'remove' takes it out of the sky (the\n"
+        "                     default), 'ai' hands it to an AI pilot flying the\n"
+        "                     server's plan\n"
         "  --plain            draw the dashboard as plain text, without the escape\n"
         "                     codes that clear the screen, so that a test can read\n"
         "                     it. Not with --headless, which has no dashboard\n"
@@ -227,6 +233,17 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.headless = true;
         } else if (a == "--dry-run") {
             o.dry_run = true;
+        } else if (a == "--on-leave") {
+            if (!next(value)) return std::nullopt;
+            if (value == "remove") {
+                o.hand_to_ai_on_leave = false;
+            } else if (value == "ai") {
+                o.hand_to_ai_on_leave = true;
+            } else {
+                why = "--on-leave wants 'remove' or 'ai', not '" +
+                      std::string(value) + "'";
+                return std::nullopt;
+            }
         } else if (a == "--plain") {
             o.plain = true;
         } else if (a == "--players") {
@@ -330,6 +347,9 @@ void print_settings(const Options& o, std::FILE* out) {
                  o.key_hex.empty() ? "(none given: taken from the store, or minted)"
                                    : "given, 64 hexadecimal characters");
     std::fprintf(out, "timeout   %.3f s\n", o.timeout_s);
+    std::fprintf(out, "on-leave  %s\n",
+                 o.hand_to_ai_on_leave ? "hand the aircraft to an AI pilot"
+                                       : "remove the aircraft");
     std::fprintf(out, "dashboard %s\n",
                  o.headless ? "no (--headless)"
                             : (o.plain ? "yes, plain text (--plain)" : "yes"));
@@ -533,8 +553,11 @@ public:
                 ++next_index_;
                 ++ai_;
             }
-            // Kept so that a player joining later starts where the AI did.
+            // Kept so that a player joining later starts where the AI did,
+            // and so that an aircraft left behind can be handed to an AI
+            // pilot to fly the same plan.
             start_ = from;
+            plan_ = plan;
             player_model_ = entry.model;
             player_id_ = plan.aircraft;
             player_airspeed_kts_ = entry.start_airspeed_kts;
@@ -577,13 +600,33 @@ public:
         return index;
     }
 
-    // **A player leaving takes their aircraft with them.** What else could
-    // happen - the aircraft handed to an AI pilot - is a session setting, and
-    // `COMPLETION_PLAN.md` has it as its own item.
-    void take(std::uint8_t index) {
-        std::erase_if(flown_, [index](const Aircraft& a) {
-            return a.slot >= 0 && a.index == index;
-        });
+    // **What becomes of an aircraft when the person flying it goes**, which
+    // `REQUIREMENTS.md` 6.5 makes a session setting: it is taken out of the
+    // sky, or handed to an AI pilot flying the server's plan. Returns what
+    // was done, so that the server can say so.
+    //
+    // **Handed over, it is renumbered.** A player's aircraft is numbered by
+    // their slot, and that slot is about to be given to somebody else; an
+    // aircraft keeping the number would be mistaken for the new player's.
+    bool take(std::uint8_t index, bool hand_to_ai) {
+        for (auto it = flown_.begin(); it != flown_.end(); ++it) {
+            if (it->slot < 0 || it->index != index) {
+                continue;
+            }
+            if (!hand_to_ai || plan_.waypoints.empty()) {
+                flown_.erase(it);
+                return false;
+            }
+            it->slot = -1;
+            it->index = next_index_++;
+            it->id = plan_.aircraft + " (AI, was slot " + std::to_string(index) + ")";
+            it->controller = std::make_unique<glideslope::sim::Controller>(
+                *it->aircraft, glideslope::sim::Controls{});
+            it->controller->to_ai(plan_);
+            ++ai_;
+            return true;
+        }
+        return false;
     }
 
     // **What the aircraft numbered `index` is being flown by**, held until
@@ -659,6 +702,7 @@ private:
     std::vector<Aircraft> flown_;
     // Where a player joining starts, and in what.
     glideslope::sim::FlightPlan::Start start_;
+    glideslope::sim::FlightPlan plan_;
     std::string player_model_;
     std::string player_id_;
     double player_airspeed_kts_ = 0.0;
@@ -1165,7 +1209,11 @@ int run(const Options& o) {
                 // quiet would take the slot from the one still flying.
                 const glideslope::net::PublicKey going = it->second.who;
                 if (fleet && it->second.aircraft != glideslope::net::no_aircraft) {
-                    fleet->take(it->second.aircraft);
+                    const bool to_ai =
+                        fleet->take(it->second.aircraft, o.hand_to_ai_on_leave);
+                    std::printf("their aircraft %s\n",
+                                to_ai ? "is now flown by an AI pilot"
+                                      : "is out of the sky");
                 }
                 it = connections.erase(it);
                 const bool elsewhere =

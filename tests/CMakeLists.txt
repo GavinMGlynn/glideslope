@@ -957,6 +957,31 @@ add_test(NAME the_server_refuses_a_flag_with_nothing_after_it
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 # **The server flies every aircraft, each over its own terrain.** Two aircraft
+# **AI aircraft keep flying with nobody connected**, and a client joining later
+# finds them mid-flight. See cmake/server_late.cmake for why its own aircraft
+# is the control in that measurement.
+add_test(NAME ai_aircraft_keep_flying_with_nobody_connected_and_a_late_client_finds_them_mid_flight
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_late -DPORT=47863
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_late.cmake)
+set_tests_properties(ai_aircraft_keep_flying_with_nobody_connected_and_a_late_client_finds_them_mid_flight
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_late)
+
+# **What becomes of an aircraft when its player goes**, both settings walked and
+# counted. See cmake/server_leave.cmake.
+add_test(NAME a_player_leaving_has_their_aircraft_removed_or_flown_on_by_an_ai_as_the_session_says
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_leave -DPORT=47864
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_leave.cmake)
+set_tests_properties(a_player_leaving_has_their_aircraft_removed_or_flown_on_by_an_ai_as_the_session_says
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_leave)
+
 # **A client flies an aircraft on the server**, by sending inputs and nothing
 # else. Full aileron rolls it inverted, which no AI pilot on a plan would do;
 # see cmake/server_fly.cmake for the two ways this has been broken before.
