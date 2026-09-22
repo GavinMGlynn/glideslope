@@ -70,6 +70,14 @@ Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
     const double climb_fpm = a_.property("velocities/h-dot-fps") * 60.0;
     bank_command_deg_ = a_.property("attitude/phi-deg");
     aileron_offset_ = controls.aileron + aileron_per_degps * p;
+    // **Engaging steps nothing, whatever attitude it is handed.** The loop
+    // starts commanding the attitude the aeroplane has, even when that is
+    // outside the envelope it is allowed to ask for, and walks into the
+    // envelope at its own pitch rate over the frames after. Seeding it to
+    // the clamped value instead left the first frame asking for a pitch it
+    // could not have and the elevator jumped by the difference: 0.21 of its
+    // travel at nineteen degrees nose up, 0.80 out of a diving turn, where a
+    // pilot's hand moves 0.017 in a frame.
     pitch_command_deg_ = a_.property("attitude/theta-deg");
     pitch_integral_deg_ = pitch_command_deg_ + pitch_per_fpm * climb_fpm;
     elevator_trim_ = controls.elevator + elevator_per_degps * q;
@@ -118,10 +126,16 @@ Controls Autopilot::fly() {
             -rate, rate);
     }
     const double climb_off = climb_wanted - climb_fpm;
-    const double pitch_wanted = pitch_integral_deg_ + pitch_per_fpm * climb_off;
+    // **The envelope bounds what is asked for, not where the loop starts.**
+    // Clamping the command itself would snap an aeroplane handed over
+    // outside the envelope straight to its edge in one frame, which is a
+    // jolt; clamping the target lets the command walk there at the pitch
+    // rate, which is the autopilot taking over rather than grabbing.
+    const double pitch_wanted = std::clamp(
+        pitch_integral_deg_ + pitch_per_fpm * climb_off, least_pitch_deg,
+        most_pitch_deg);
     const double pitch_next =
-        std::clamp(toward(pitch_command_deg_, pitch_wanted, pitch_rate_degps * dt),
-                   least_pitch_deg, most_pitch_deg);
+        toward(pitch_command_deg_, pitch_wanted, pitch_rate_degps * dt);
     // The integral winds only while the pitch asked for is the pitch given.
     if (pitch_next == pitch_wanted) {
         pitch_integral_deg_ += pitch_integral_per_fpm * climb_off * dt;

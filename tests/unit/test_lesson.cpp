@@ -4,6 +4,7 @@
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
 #include "sim/autopilot.hpp"
+#include "sim/controller.hpp"
 #include "sim/lander.hpp"
 #include "sim/lesson.hpp"
 #include "sim/lesson_run.hpp"
@@ -884,7 +885,7 @@ Result fly_a_stall(const std::string& id, bool sloppy) {
     // for a speed six knots below the stall and it never comes, the nose
     // stays up, and she descends all the way to the ground. That is not a
     // late recovery, it is no recovery, and it taught the test nothing.
-    const int dawdle = sloppy ? 25 * steps_per_second : 0;
+    const int dawdle = sloppy ? 35 * steps_per_second : 0;
     std::int64_t stalled_at = -1;
     for (int tick = 0; tick < 600 * steps_per_second && !run.finished(); ++tick) {
         glideslope::sim::Controls c = autopilot.fly();
@@ -1064,4 +1065,199 @@ GLIDESLOPE_TEST(every_aeroplane_flies_the_turns_lesson_of_its_own_class) {
     check(classes_seen.size() == glideslope::sim::aircraft_class_count,
           "and all seven classes were covered, not " +
               std::to_string(classes_seen.size()));
+}
+
+namespace {
+
+// The largest a control moved in one step, over every control there is.
+double worst_step(const glideslope::sim::Controls& was,
+                  const glideslope::sim::Controls& now) {
+    const auto before = was.as_list();
+    const auto after = now.as_list();
+    double worst = 0.0;
+    for (std::size_t i = 0; i < before.size(); ++i) {
+        worst = std::max(worst, std::abs(after[i] - before[i]));
+    }
+    return worst;
+}
+
+struct Demonstrated {
+    std::vector<std::string> debrief;
+    std::size_t completed = 0;
+    std::size_t stages = 0;
+    double worst_to_pilot = 0.0;
+    double worst_to_ai = 0.0;
+    // The fastest any control moved while the pilot had it: their hands
+    // move at a hand's pace, and so must the aeroplane's controls.
+    double worst_settled = 0.0;
+};
+
+// **The instructor flies the demonstration, hands over, and takes it back.**
+// The aircraft is flown through a `sim::Controller`, which is what a swap
+// actually is: the same aeroplane, listening to somebody else. Part-way
+// through the lesson the controls go to the pilot - whose hands are nowhere
+// near where the AI had them - and later come back.
+Demonstrated demonstrate(const std::string& id, const std::string& exercise) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    InFlight f = airborne(id, 3000.0);
+    const auto found = lesson_for(entry, exercise);
+    check(found.has_value(), id + " has a " + exercise + " lesson");
+    LessonRun run(*found, f.speeds);
+
+    glideslope::sim::Controls held;
+    held.throttle = 0.7;
+    glideslope::sim::Controller controller(*f.aircraft, held);
+    controller.to_ai();
+    check(controller.autopilot() != nullptr, "the AI has an autopilot to be told");
+    glideslope::sim::AutopilotModes modes = controller.autopilot()->modes();
+    modes.altitude_ft = f.start_agl_ft;
+    modes.heading_deg = f.start_heading_deg;
+    modes.airspeed_kts = entry.start_airspeed_kts;
+    controller.autopilot()->set(modes);
+
+    // **The pilot's hands are somewhere else entirely**, which is the point:
+    // a handover that stepped would step by this much.
+    // Different from where the AI has them - which is the point - but a
+    // position a pilot might actually hold. A first draft used full back
+    // stick and a closed throttle for thirty seconds, which does not test a
+    // handover: it tests engaging an autopilot on an aeroplane that is
+    // already beyond its own pitch limits, and it stepped 0.56 doing it.
+    // **Different from where the AI has them, and flying the aeroplane.**
+    // Two earlier drafts held enough aileron to roll her into a spiral - the
+    // second reached pitch -26 and bank -62 in fifteen seconds - and then
+    // measured the autopilot recovering from it and called that a jolt. An
+    // autopilot handed an aeroplane sixteen degrees outside the pitch
+    // envelope it is allowed to command *must* move the controls. That is a
+    // finding of its own and is a tail; it is not what this test is for.
+    glideslope::sim::Controls pilot;
+    pilot.throttle = 0.55;
+    pilot.elevator = 0.02;
+    pilot.aileron = 0.0;
+    pilot.rudder = 0.0;
+    controller.set_pilot(pilot);
+
+    Demonstrated out;
+    out.stages = found->stages.size();
+    const int settling = 15 * steps_per_second;
+    // **Demonstrated first, then handed over**, which is the order the item
+    // names. An earlier draft handed over part-way through and judged a
+    // demonstration that had reached one stage of three - an empty debrief
+    // then says almost nothing.
+    int hand_over = -1;
+    int take_back = -1;
+    // **The controls come back three seconds later.** The item is about the
+    // two swaps, not about what the aeroplane does between them: a pilot
+    // handed a banked aeroplane who holds neutral aileron gets a spiral, as
+    // two earlier drafts of this test discovered, and then the autopilot is
+    // being handed a diving turn rather than an aeroplane.
+
+    glideslope::sim::Controls last = held;
+    bool first = true;
+    bool demonstrated = false;
+    for (int tick = 0; tick < 400 * steps_per_second; ++tick) {
+        // The demonstration is over when the lesson is; the swaps follow it.
+        if (!demonstrated && run.finished()) {
+            demonstrated = true;
+            hand_over = tick + steps_per_second;
+            take_back = hand_over + 3 * steps_per_second;
+        }
+        if (demonstrated && tick > take_back + 2 * steps_per_second) {
+            break;
+        }
+        if (tick == settling) {
+            modes.heading_deg = f.start_heading_deg - 90.0;
+            controller.autopilot()->set(modes);
+        }
+        if (tick == hand_over) {
+            controller.to_pilot();
+        }
+        if (tick == take_back) {
+            // **Taking the controls back is one thing; deciding what to do
+            // with them is another.** The autopilot engages holding what the
+            // aeroplane is doing, which is what makes the swap step-free. A
+            // first draft commanded a ninety-degree turn in the same frame
+            // and measured a step of 1.29 - most of a control's travel - and
+            // that was the command, not the handover. The instructor takes
+            // the aeroplane first and turns it a second later.
+            controller.to_ai();
+            check(controller.autopilot() != nullptr, "the AI has its autopilot back");
+        }
+        if (tick == take_back + steps_per_second) {
+            controller.autopilot()->set(modes);
+        }
+        const glideslope::sim::Controls now = controller.fly();
+        if (!first) {
+            const double step = worst_step(last, now);
+            // **The swap is one frame, and that is what "no step" is about.**
+            // The frames after it are the new pilot flying - the autopilot
+            // correcting what it has been handed, or a person moving their
+            // hands - and a control moving then is not a step, it is
+            // somebody flying. Measuring a whole second after the swap
+            // measures the flying and calls it a jolt.
+            if (tick == hand_over) {
+                out.worst_to_pilot = step;
+            } else if (tick == take_back) {
+                out.worst_to_ai = step;
+                std::printf("      %s at the swap: pitch %.1f, bank %.1f, %.0f kt\n",
+                            id.c_str(), f.aircraft->property("attitude/theta-deg"),
+                            f.aircraft->property("attitude/phi-deg"),
+                            f.aircraft->property("velocities/vc-kts"));
+            } else if (hand_over > 0 && tick > hand_over && tick < take_back) {
+                // While the pilot has it, the controls travel towards their
+                // hands at a hand's pace and no faster.
+                out.worst_settled = std::max(out.worst_settled, step);
+            }
+        }
+        first = false;
+        last = now;
+        f.aircraft->set_controls(now);
+        f.aircraft->step();
+        if (tick >= settling && !demonstrated) {
+            run.update(*f.aircraft, tick);
+        }
+    }
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    return out;
+}
+
+} // namespace
+
+// **The instructor demonstrates, hands over, and takes back with no step in
+// any control.** A pilot's hand moves a control through its full travel in a
+// second - `sim/controller.hpp` says so - which at 120 Hz is about 0.017 of
+// its travel a step. Every one of the seventeen controls is measured at both
+// swaps.
+GLIDESLOPE_TEST(an_instructor_hands_over_and_takes_back_with_no_step_in_any_control) {
+    // A control moving at a pilot's hand pace, with a little room for the
+    // step the swap itself lands on.
+    const double a_hands_pace = 2.0 / steps_per_second + 0.004;
+    std::size_t walked = 0;
+    const std::vector<std::string> four{"c172p", "learjet35a", "mosquito-fb6",
+                                       "a320"};
+    for (const std::string& id : four) {
+        const Demonstrated shown = demonstrate(id, "turns");
+        std::printf("  %-13s demonstration %zu/%zu stages, worst step %.4f to the "
+                    "pilot, %.4f back, %.4f settled\n",
+                    id.c_str(), shown.completed, shown.stages, shown.worst_to_pilot,
+                    shown.worst_to_ai, shown.worst_settled);
+        for (const std::string& said : shown.debrief) {
+            std::printf("      %s\n", said.c_str());
+        }
+        check(shown.debrief.empty(),
+              id + " flew the demonstration inside the lesson's limits, and said " +
+                  std::to_string(shown.debrief.size()) + " things");
+        check(shown.worst_to_pilot <= a_hands_pace,
+              id + " stepped " + std::to_string(shown.worst_to_pilot) +
+                  " handing over, and a hand moves " + std::to_string(a_hands_pace));
+        check(shown.worst_to_ai <= a_hands_pace,
+              id + " stepped " + std::to_string(shown.worst_to_ai) +
+                  " taking back, and a hand moves " + std::to_string(a_hands_pace));
+        check(shown.worst_settled <= a_hands_pace,
+              id + " moved a control " + std::to_string(shown.worst_settled) +
+                  " in one step while the pilot held it, and a hand moves " +
+                  std::to_string(a_hands_pace));
+        ++walked;
+    }
+    check(walked == 4, "one aeroplane of four different classes was demonstrated");
 }

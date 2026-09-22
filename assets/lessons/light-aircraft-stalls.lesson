@@ -32,9 +32,12 @@
 # feet is therefore that with a hundred feet of margin.
 #
 # **What it takes to break it, said so the band can be judged.** The 172 left
-# twelve seconds past the stall loses about three hundred feet and scrapes
-# through; left twenty-five seconds it loses four hundred and thirty and is
-# named. A recovery that late is a long way from a recovery, and a band that
+# twenty-five seconds past the stall loses about three hundred and thirty feet
+# and scrapes through; left thirty-five seconds it loses four hundred and
+# twenty-eight and is named. (Those figures moved on 2026-09-22 when the
+# autopilot stopped snapping its pitch command to the edge of its envelope:
+# the same late recovery costs less height now, because the entry is flown
+# more gently.) A recovery that late is a long way from a recovery, and a band that
 # caught a twelve-second delay would be catching the difference between two
 # good recoveries rather than the difference between a good one and a bad
 # one.

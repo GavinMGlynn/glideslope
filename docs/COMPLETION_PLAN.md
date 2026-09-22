@@ -658,10 +658,27 @@ checklists are part of. A lesson ends in a debrief, never a score
       aeroplane it teaches rather than published for it. That is a decision
       about what a lesson's figures mean, and it is the project owner's to
       make, so it is written here rather than taken.
-- [ ] **The instructor demonstrates, then hands over.** *Verification: for
-      each lesson the AI pilot flies the demonstration within the lesson's own
-      limits, hands the controls to the player with no step in any control, and
-      takes them back on request the same way.*
+- [ ] **The instructor demonstrates, then hands over** — **still to do: only
+      the turns lesson.** The `sim::Controller`'s AI is the autopilot and the
+      navigator, and it does not wrap `Departure` or `Lander`, so it cannot
+      demonstrate a take-off, an approach or a stall. *Verification: for each
+      lesson the AI pilot flies the demonstration within the lesson's own
+      limits, hands the controls to the player with no step in any control,
+      and takes them back on request the same way.* **Done for turns,
+      2026-09-22**, across four classes - the Cessna, the Learjet, the
+      Mosquito and the A320. Each flies all three stages with an empty
+      debrief, then the controls go to a pilot whose hands are nowhere near
+      where the AI had them and come back three seconds later. **Every one of
+      the seventeen controls is measured at both swaps**: 0.0083 handing
+      over, 0.0017 to 0.0019 taking back, where a pilot's hand moves 0.0207
+      in a frame.
+      **It found a real defect.** Taking the controls back stepped the
+      elevator by up to 0.80 of its travel in one frame - forty times a
+      hand's pace. The autopilot seeded its pitch command to the attitude the
+      aeroplane had and then clamped the command to the envelope it may ask
+      for, so an aeroplane handed over outside that envelope snapped to its
+      edge in a frame. The envelope now bounds the *target*, and the command
+      walks to it at the loop's pitch rate. Fixed in `src/sim/autopilot.cpp`.
 
 ## Phase 6 — Client and server
 
