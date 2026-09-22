@@ -27,6 +27,8 @@ void Controller::to_ai() {
     catching_up_ = false;
     autopilot_.emplace(a_, applied_);
     navigator_.reset();
+    departure_.reset();
+    lander_.reset();
 }
 
 void Controller::to_ai(FlightPlan plan) {
@@ -34,15 +36,50 @@ void Controller::to_ai(FlightPlan plan) {
     navigator_.emplace(a_, std::move(plan));
 }
 
+void Controller::to_ai_take_off(const Runway& runway, const DepartureSpeeds& speeds,
+                                double to_ft) {
+    to_ai();
+    departure_.emplace(a_, runway, speeds, to_ft);
+}
+
+void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
+                                double glidepath_deg) {
+    to_ai();
+    lander_.emplace(a_, runway, speeds, glidepath_deg);
+}
+
 void Controller::to_pilot() {
     flying_ = Flying::pilot;
     catching_up_ = true;
     autopilot_.reset();
     navigator_.reset();
+    departure_.reset();
+    lander_.reset();
 }
 
 Controls Controller::fly() {
     if (flying_ == Flying::ai) {
+        // **A take-off or an approach flies itself until it is over**, and
+        // then the plain autopilot holds what the aeroplane is doing. The
+        // autopilot is engaged from the controls the departure or the landing
+        // left, so the aeroplane does not lurch at the moment the AI stops
+        // taking off and starts flying.
+        if (departure_) {
+            if (departure_->stage() != Departure::Stage::done) {
+                applied_ = departure_->fly();
+                return applied_;
+            }
+            departure_.reset();
+            autopilot_.emplace(a_, applied_);
+        }
+        if (lander_) {
+            if (lander_->stage() != Lander::Stage::stopped) {
+                applied_ = lander_->fly();
+                return applied_;
+            }
+            lander_.reset();
+            autopilot_.emplace(a_, applied_);
+        }
         if (navigator_) {
             autopilot_->set(navigator_->steer());
         }

@@ -658,10 +658,12 @@ checklists are part of. A lesson ends in a debrief, never a score
       aeroplane it teaches rather than published for it. That is a decision
       about what a lesson's figures mean, and it is the project owner's to
       make, so it is written here rather than taken.
-- [ ] **The instructor demonstrates, then hands over** — **still to do: only
-      the turns lesson.** The `sim::Controller`'s AI is the autopilot and the
-      navigator, and it does not wrap `Departure` or `Lander`, so it cannot
-      demonstrate a take-off, an approach or a stall. *Verification: for each
+- [ ] **The instructor demonstrates, then hands over** — **still to do: the
+      approach, the climb and the stall.** The AI pilot can now be handed a
+      runway and will take off from it or land on it, so a take-off is
+      demonstrated; the approach needs the same test written against
+      `to_ai_approach`, and the climb and the stall need their demonstrations
+      driving through a `Controller` rather than an autopilot directly. *Verification: for each
       lesson the AI pilot flies the demonstration within the lesson's own
       limits, hands the controls to the player with no step in any control,
       and takes them back on request the same way.* **Done for turns,
@@ -672,6 +674,13 @@ checklists are part of. A lesson ends in a debrief, never a score
       the seventeen controls is measured at both swaps**: 0.0083 handing
       over, 0.0017 to 0.0019 taking back, where a pilot's hand moves 0.0207
       in a frame.
+      **The AI pilot can take off and land now**, which it could not before:
+      `Controller::to_ai_take_off` and `to_ai_approach` hand it a runway, and
+      when the take-off or the landing is over the plain autopilot engages
+      from the controls it left, so the aeroplane does not lurch as the AI
+      stops taking off and starts flying. Four aeroplanes demonstrate a whole
+      take-off - all three stages, empty debrief - and hand over at 0.0083
+      and back at 0.0018.
       **It found a real defect.** Taking the controls back stepped the
       elevator by up to 0.80 of its travel in one frame - forty times a
       hand's pace. The autopilot seeded its pitch command to the attitude the

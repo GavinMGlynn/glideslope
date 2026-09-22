@@ -1261,3 +1261,121 @@ GLIDESLOPE_TEST(an_instructor_hands_over_and_takes_back_with_no_step_in_any_cont
     }
     check(walked == 4, "one aeroplane of four different classes was demonstrated");
 }
+
+namespace {
+
+// **A take-off demonstrated, then handed over.** The aeroplane stands on the
+// runway and the AI pilot flies it off - which it could not do at all until
+// `Controller` was given the take-off autopilot - and the lesson watches.
+Demonstrated demonstrate_a_take_off(const std::string& id) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const glideslope::sim::Runway runway = a_runway();
+    const auto speeds = glideslope::sim::departure_speeds(data(), entry.model);
+
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = 0.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+
+    const auto found = lesson_for(entry, "take-off");
+    check(found.has_value(), id + " has a take-off lesson");
+    LessonRun run(*found, glideslope::sim::LessonSpeeds{speeds.rotate_kts,
+                                                        speeds.climb_kts, 0.0, 0.0});
+
+    glideslope::sim::Controls standing;
+    glideslope::sim::Controller controller(aircraft, standing);
+    controller.to_ai_take_off(runway, speeds);
+    check(controller.departure() != nullptr, "the AI pilot has a take-off to fly");
+
+    glideslope::sim::Controls pilot;
+    pilot.throttle = 0.6;
+    pilot.elevator = 0.0;
+    controller.set_pilot(pilot);
+
+    Demonstrated out;
+    out.stages = found->stages.size();
+    int hand_over = -1;
+    int take_back = -1;
+    glideslope::sim::Controls last = standing;
+    bool first = true;
+    bool demonstrated = false;
+    for (int tick = 0; tick < 400 * steps_per_second; ++tick) {
+        if (!demonstrated && run.finished()) {
+            demonstrated = true;
+            hand_over = tick + steps_per_second;
+            take_back = hand_over + 3 * steps_per_second;
+        }
+        if (demonstrated && take_back > 0 && tick > take_back + steps_per_second) {
+            break;
+        }
+        if (tick == hand_over) {
+            controller.to_pilot();
+        }
+        if (tick == take_back) {
+            controller.to_ai();
+        }
+        const glideslope::sim::Controls now = controller.fly();
+        if (!first) {
+            const double step = worst_step(last, now);
+            if (tick == hand_over) {
+                out.worst_to_pilot = step;
+            } else if (tick == take_back) {
+                out.worst_to_ai = step;
+            }
+        }
+        first = false;
+        last = now;
+        aircraft.set_controls(now);
+        aircraft.step();
+        if (!demonstrated) {
+            run.update(aircraft, tick);
+        }
+    }
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    return out;
+}
+
+} // namespace
+
+// **The instructor demonstrates a take-off, then hands over.** Until
+// `sim::Controller` was given the take-off autopilot its AI could only be
+// handed an aeroplane already flying, so a take-off had no demonstration to
+// hand over from.
+GLIDESLOPE_TEST(an_instructor_demonstrates_a_take_off_and_hands_it_over) {
+    const double a_hands_pace = 2.0 / steps_per_second + 0.004;
+    const std::vector<std::string> flown{"c172p", "pa28", "j3cub", "mosquito-fb6"};
+    std::size_t walked = 0;
+    for (const std::string& id : flown) {
+        const Demonstrated shown = demonstrate_a_take_off(id);
+        std::printf("  %-13s take-off %zu/%zu stages, worst step %.4f over, "
+                    "%.4f back\n",
+                    id.c_str(), shown.completed, shown.stages, shown.worst_to_pilot,
+                    shown.worst_to_ai);
+        for (const std::string& said : shown.debrief) {
+            std::printf("      %s\n", said.c_str());
+        }
+        check(shown.completed == shown.stages,
+              id + " flew the whole take-off, " + std::to_string(shown.completed) +
+                  " of " + std::to_string(shown.stages) + " stages");
+        check(shown.debrief.empty(),
+              id + " demonstrated it inside the lesson's limits, and said " +
+                  std::to_string(shown.debrief.size()) + " things");
+        check(shown.worst_to_pilot <= a_hands_pace,
+              id + " stepped " + std::to_string(shown.worst_to_pilot) +
+                  " handing over");
+        check(shown.worst_to_ai <= a_hands_pace,
+              id + " stepped " + std::to_string(shown.worst_to_ai) + " taking back");
+        ++walked;
+    }
+    check(walked == 4, "four aeroplanes demonstrated a take-off");
+}

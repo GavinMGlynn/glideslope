@@ -15,6 +15,8 @@
 
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
+#include "sim/departure.hpp"
+#include "sim/lander.hpp"
 #include "sim/navigator.hpp"
 
 #include <optional>
@@ -46,6 +48,26 @@ public:
     // Hands the aircraft to the AI, holding what it is doing, or flying `plan`.
     void to_ai();
     void to_ai(FlightPlan plan);
+
+    // **The AI pilot can take off and land, not only hold and navigate.**
+    // Handing it a runway gives it the take-off autopilot or the approach
+    // autopilot instead of the plain one - which is what lets an instructor
+    // demonstrate a take-off or an approach and then hand the aeroplane over.
+    // Without these the AI could only be given an aeroplane already flying.
+    //
+    // `to_ai_take_off` flies from where the aeroplane stands to `to_ft` above
+    // the runway; `to_ai_approach` flies it down the glidepath to a stop.
+    // Both end by holding what the aeroplane is doing, so a demonstration
+    // that runs past its end does not fall out of the sky.
+    void to_ai_take_off(const Runway& runway, const DepartureSpeeds& speeds,
+                        double to_ft = 500.0);
+    void to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
+                        double glidepath_deg = 3.0);
+
+    // Where the take-off or the approach has got to, or nothing when the AI
+    // is not flying one.
+    const Departure* departure() const { return departure_ ? &*departure_ : nullptr; }
+    const Lander* lander() const { return lander_ ? &*lander_ : nullptr; }
     // Hands it back to the pilot.
     void to_pilot();
 
@@ -69,6 +91,8 @@ private:
     bool catching_up_ = false;
     std::optional<Autopilot> autopilot_;
     std::optional<Navigator> navigator_;
+    std::optional<Departure> departure_;
+    std::optional<Lander> lander_;
 };
 
 } // namespace glideslope::sim
