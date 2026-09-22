@@ -658,31 +658,32 @@ checklists are part of. A lesson ends in a debrief, never a score
       aeroplane it teaches rather than published for it. That is a decision
       about what a lesson's figures mean, and it is the project owner's to
       make, so it is written here rather than taken.
-- [ ] **The instructor demonstrates, then hands over** — **still to do: the
-      climb and the stall**, whose demonstrations need driving through a
-      `Controller` rather than an autopilot directly. The turns, the take-off
-      and the approach are demonstrated. *Verification: for each
-      lesson the AI pilot flies the demonstration within the lesson's own
-      limits, hands the controls to the player with no step in any control,
-      and takes them back on request the same way.* **Done for turns,
-      2026-09-22**, across four classes - the Cessna, the Learjet, the
-      Mosquito and the A320. Each flies all three stages with an empty
-      debrief, then the controls go to a pilot whose hands are nowhere near
-      where the AI had them and come back three seconds later. **Every one of
-      the seventeen controls is measured at both swaps**: 0.0083 handing
-      over, 0.0017 to 0.0019 taking back, where a pilot's hand moves 0.0207
-      in a frame.
-      **The AI pilot can take off and land now**, which it could not before:
+- [x] **The instructor demonstrates, then hands over** — done 2026-09-23.
+      *Verification: for each lesson the AI pilot flies the demonstration
+      within the lesson's own limits, hands the controls to the player with no
+      step in any control, and takes them back on request the same way.*
+      **All five exercises, and every aeroplane taught each one**, not a
+      sample: turns (16 aeroplanes), the take-off (5), the approach (6), the
+      climb and descent (5) and the stall (6). Each flies every stage of its
+      lesson to an empty debrief, then the controls go to a pilot whose hands
+      are nowhere near where the AI had them and come back three seconds
+      later. **Every one of the seventeen controls is measured at both
+      swaps**: 0.0083 handing over and **0.0000** taking back, where a pilot's
+      hand moves 0.0207 in a frame - and the Learjet hands back from 38
+      degrees nose up without moving a control.
+      **The AI pilot can take off and land**, which it could not before:
       `Controller::to_ai_take_off` and `to_ai_approach` hand it a runway, and
       when the take-off or the landing is over the plain autopilot engages
       from the controls it left, so the aeroplane does not lurch as the AI
-      stops taking off and starts flying. Four aeroplanes demonstrate a whole
-      take-off - all three stages, empty debrief - and hand over at 0.0083
-      and back at 0.0018.
-      **A whole approach is demonstrated too, 2026-09-23**: four aeroplanes
-      start two miles out on a three-degree glidepath, the AI flies all three
-      stages of the approach lesson to an empty debrief, and the controls go
-      to a pilot and come back. Handing over 0.0083, taking back 0.0000.
+      stops taking off and starts flying.
+      **The instructor asks for a speed, not for a throttle.** The stall was
+      flown by reaching into the controls the autopilot returned and setting
+      the throttle to 0 and then to 1 by hand - an exercise flown that way has
+      no controller to hand over, which is what kept this item open. Asking
+      the autopilot for a speed below the stall closes the throttle and holds
+      the height by raising the nose, which is the entry; asking for one above
+      the climbing speed opens it and puts the nose down, which is the
+      recovery.
       **It found two real defects, and neither was visible before.** Taking
       the controls back stepped the elevator by up to 0.80 of its travel in
       one frame - forty times a hand's pace - because the autopilot clamped

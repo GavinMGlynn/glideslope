@@ -577,7 +577,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                 if (a.index == state->your_aircraft) {
                     if (std::abs(static_cast<double>(a.roll_deg)) >
                         std::abs(roll_seen_deg)) {
-                        roll_seen_deg = a.roll_deg;
+                        roll_seen_deg = static_cast<double>(a.roll_deg);
                     }
                 }
             }

@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <set>
@@ -1262,8 +1263,8 @@ GLIDESLOPE_TEST(an_instructor_hands_over_and_takes_back_with_no_step_in_any_cont
     // step the swap itself lands on.
     const double a_hands_pace = 2.0 / steps_per_second + 0.004;
     std::size_t walked = 0;
-    const std::vector<std::string> four{"c172p", "learjet35a", "mosquito-fb6",
-                                       "a320"};
+    const auto four = everyone_taught("turns");
+    check(!four.empty(), "some aeroplane is taught turns");
     for (const std::string& id : four) {
         const Demonstrated shown = demonstrate(id, "turns");
         std::printf("  %-13s demonstration %zu/%zu stages, worst step %.4f to the "
@@ -1288,7 +1289,9 @@ GLIDESLOPE_TEST(an_instructor_hands_over_and_takes_back_with_no_step_in_any_cont
                   std::to_string(a_hands_pace));
         ++walked;
     }
-    check(walked == 4, "one aeroplane of four different classes was demonstrated");
+    check(walked == four.size(),
+          "every aeroplane taught the exercise demonstrated it: " +
+              std::to_string(walked) + " of " + std::to_string(four.size()));
 }
 
 namespace {
@@ -1382,7 +1385,8 @@ Demonstrated demonstrate_a_take_off(const std::string& id) {
 // hand over from.
 GLIDESLOPE_TEST(an_instructor_demonstrates_a_take_off_and_hands_it_over) {
     const double a_hands_pace = 2.0 / steps_per_second + 0.004;
-    const std::vector<std::string> flown{"c172p", "pa28", "j3cub", "mosquito-fb6"};
+    const auto flown = everyone_taught("take-off");
+    check(!flown.empty(), "some aeroplane is taught take-offs");
     std::size_t walked = 0;
     for (const std::string& id : flown) {
         const Demonstrated shown = demonstrate_a_take_off(id);
@@ -1406,7 +1410,9 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_take_off_and_hands_it_over) {
               id + " stepped " + std::to_string(shown.worst_to_ai) + " taking back");
         ++walked;
     }
-    check(walked == 4, "four aeroplanes demonstrated a take-off");
+    check(walked == flown.size(),
+          "every aeroplane taught the exercise demonstrated it: " +
+              std::to_string(walked) + " of " + std::to_string(flown.size()));
 }
 
 namespace {
@@ -1524,8 +1530,8 @@ Demonstrated demonstrate_an_approach(const std::string& id) {
 // **The instructor demonstrates an approach, then hands over.**
 GLIDESLOPE_TEST(an_instructor_demonstrates_an_approach_and_hands_it_over) {
     const double a_hands_pace = 2.0 / steps_per_second + 0.004;
-    const std::vector<std::string> flown{"c172p", "pa28", "learjet35a",
-                                         "mosquito-fb6"};
+    const auto flown = everyone_taught("approach-and-landing");
+    check(!flown.empty(), "some aeroplane is taught approaches");
     std::size_t walked = 0;
     for (const std::string& id : flown) {
         const Demonstrated shown = demonstrate_an_approach(id);
@@ -1549,5 +1555,238 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_an_approach_and_hands_it_over) {
               id + " stepped " + std::to_string(shown.worst_to_ai) + " taking back");
         ++walked;
     }
-    check(walked == 4, "four aeroplanes demonstrated an approach");
+    check(walked == flown.size(),
+          "every aeroplane taught the exercise demonstrated it: " +
+              std::to_string(walked) + " of " + std::to_string(flown.size()));
+}
+
+namespace {
+
+// **A demonstration flown in the air, through a `Controller`.** The climb and
+// the stall differ from the turns only in what the instructor asks the AI
+// pilot for, so everything else is shared: the aeroplane, the lesson
+// watching, the two swaps, and what is measured at them.
+//
+// `begin` sets what the autopilot holds before the exercise starts. `fly` is
+// called every tick of the demonstration, with the ticks since it began, and
+// is where the instructor tells the AI what to do next. **Neither of them
+// touches a control.** The climb and the stall were both flown by driving an
+// autopilot directly and reaching into the controls it returned - the stall
+// closed the throttle by hand - and an exercise flown that way has no
+// controller to hand over, which is why this item could not be ticked.
+using Begin = std::function<void(glideslope::sim::AutopilotModes&, const InFlight&)>;
+using Fly = std::function<void(glideslope::sim::Autopilot&, const LessonRun&,
+                               const InFlight&, int)>;
+
+Demonstrated demonstrate_in_the_air(const std::string& id, const std::string& exercise,
+                                    double start_ft, int settling_s, const Begin& begin,
+                                    const Fly& fly) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    InFlight f = airborne(id, start_ft);
+    const auto found = lesson_for(entry, exercise);
+    check(found.has_value(), id + " has a " + exercise + " lesson for its class");
+    LessonRun run(*found, f.speeds);
+
+    glideslope::sim::Controls held;
+    held.throttle = 0.7;
+    glideslope::sim::Controller controller(*f.aircraft, held);
+    controller.to_ai();
+    check(controller.autopilot() != nullptr, "the AI has an autopilot to be told");
+    glideslope::sim::AutopilotModes modes = controller.autopilot()->modes();
+    modes.heading_deg = f.start_heading_deg;
+    modes.altitude_ft = f.start_agl_ft;
+    modes.airspeed_kts = entry.start_airspeed_kts;
+    begin(modes, f);
+    controller.autopilot()->set(modes);
+
+    // The pilot's hands: somewhere a pilot might actually hold them, and
+    // nowhere near where the AI has the aeroplane's controls.
+    glideslope::sim::Controls pilot;
+    pilot.throttle = 0.55;
+    pilot.elevator = 0.02;
+    controller.set_pilot(pilot);
+
+    Demonstrated out;
+    out.stages = found->stages.size();
+    const int settling = settling_s * steps_per_second;
+    int hand_over = -1;
+    int take_back = -1;
+    glideslope::sim::Controls last = held;
+    bool first = true;
+    bool demonstrated = false;
+    for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
+        // Demonstrated first, then handed over - the order the item names.
+        if (!demonstrated && tick > settling && run.finished()) {
+            demonstrated = true;
+            hand_over = tick + steps_per_second;
+            take_back = hand_over + 3 * steps_per_second;
+        }
+        if (demonstrated && tick > take_back + 2 * steps_per_second) {
+            break;
+        }
+        if (tick >= settling && !demonstrated) {
+            fly(*controller.autopilot(), run, f, tick - settling);
+        }
+        if (tick == hand_over) {
+            controller.to_pilot();
+        }
+        if (tick == take_back) {
+            controller.to_ai();
+            check(controller.autopilot() != nullptr, "the AI has its autopilot back");
+        }
+        const glideslope::sim::Controls now = controller.fly();
+        if (!first) {
+            // The swap is one frame. The frames after it are somebody flying.
+            const double step = worst_step(last, now);
+            if (tick == hand_over) {
+                out.worst_to_pilot = step;
+            } else if (tick == take_back) {
+                out.worst_to_ai = step;
+            } else if (hand_over > 0 && tick > hand_over && tick < take_back) {
+                out.worst_settled = std::max(out.worst_settled, step);
+            }
+        }
+        first = false;
+        last = now;
+        f.aircraft->set_controls(now);
+        f.aircraft->step();
+        if (tick >= settling && !demonstrated) {
+            run.update(*f.aircraft, tick);
+        }
+    }
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    return out;
+}
+
+// Up at the climbing speed, level off, and back down: the instructor asks for
+// a height, and then for a lower one once she is levelled off up there.
+Demonstrated demonstrate_a_climb(const std::string& id) {
+    return demonstrate_in_the_air(
+        id, "climb-and-descent", 3000.0, 30,
+        [](glideslope::sim::AutopilotModes& m, const InFlight& f) {
+            // Climbing on rate alone while she settles: the height to level
+            // off at is set once the lesson has begun, because the lesson
+            // asks for nine hundred feet from *there*.
+            m.altitude_ft.reset();
+            m.vertical_speed_fpm = 600.0;
+            m.airspeed_kts = f.speeds.climb_kts;
+        },
+        [descending = false](glideslope::sim::Autopilot& ap, const LessonRun& run,
+                             const InFlight& f, int since) mutable {
+            glideslope::sim::AutopilotModes m = ap.modes();
+            const double agl = f.aircraft->property("position/h-agl-ft");
+            if (since == 0) {
+                m.altitude_ft = agl + 1100.0;
+                ap.set(m);
+            } else if (!descending && run.stage() >= 2) {
+                descending = true;
+                m.altitude_ft = agl - 700.0;
+                m.vertical_speed_fpm = 600.0;
+                m.airspeed_kts = f.speeds.climb_kts + 25.0;
+                ap.set(m);
+            }
+        });
+}
+
+// The clean stall, wings level, power off - and the recovery.
+//
+// **The instructor asks for a speed, not for a throttle.** Asking the
+// autopilot to hold a speed below the stall closes the throttle for it and
+// holds the height by raising the nose, which is the entry; asking for half
+// as much again as the stall speed opens the throttle and puts the nose down,
+// which is the recovery. The version this replaces reached into the controls
+// and set the throttle to 0 and then to 1 by hand, which no controller can
+// hand over.
+Demonstrated demonstrate_a_stall(const std::string& id, double start_ft) {
+    return demonstrate_in_the_air(
+        id, "stalls", start_ft, 20, [](glideslope::sim::AutopilotModes&, const InFlight&) {},
+        [recovering = false](glideslope::sim::Autopilot& ap, const LessonRun& run,
+                             const InFlight& f, int since) mutable {
+            glideslope::sim::AutopilotModes m = ap.modes();
+            if (since == 0) {
+                m.airspeed_kts = f.speeds.stall_kts - 10.0;
+                ap.set(m);
+            } else if (!recovering && run.stage() >= 1) {
+                recovering = true;
+                m.altitude_ft.reset();
+                m.vertical_speed_fpm = -600.0;
+                // **The speed asked for has to clear the one the lesson is
+                // waiting for.** The recovery stage ends at the climbing
+                // speed, and half as much again as the stall speed is *below*
+                // it in a Cessna - 72 knots against 76 - so she settled there
+                // and the stage never ended. The version this replaces got
+                // past it by holding the throttle wide open by hand, which
+                // was the throttle flying the aeroplane rather than the AI.
+                m.airspeed_kts = std::max(f.speeds.stall_kts * 1.5,
+                                          f.speeds.climb_kts + 10.0);
+                ap.set(m);
+            }
+        });
+}
+
+void report_and_check(const std::string& id, const std::string& what,
+                      const Demonstrated& shown) {
+    // A control moving at a pilot's hand pace, with a little room for the
+    // step the swap itself lands on.
+    const double a_hands_pace = 2.0 / steps_per_second + 0.004;
+    std::printf("  %-13s %s %zu/%zu stages, worst step %.4f over, %.4f back, "
+                "%.4f settled\n",
+                id.c_str(), what.c_str(), shown.completed, shown.stages,
+                shown.worst_to_pilot, shown.worst_to_ai, shown.worst_settled);
+    for (const std::string& said : shown.debrief) {
+        std::printf("      %s\n", said.c_str());
+    }
+    check(shown.completed == shown.stages,
+          id + " flew every stage of the " + what + ": " +
+              std::to_string(shown.completed) + " of " + std::to_string(shown.stages));
+    check(shown.debrief.empty(),
+          id + " flew the " + what + " inside the lesson's limits, and said " +
+              std::to_string(shown.debrief.size()) + " things");
+    check(shown.worst_to_pilot <= a_hands_pace,
+          id + " stepped " + std::to_string(shown.worst_to_pilot) +
+              " handing over, and a hand moves " + std::to_string(a_hands_pace));
+    check(shown.worst_to_ai <= a_hands_pace,
+          id + " stepped " + std::to_string(shown.worst_to_ai) +
+              " taking back, and a hand moves " + std::to_string(a_hands_pace));
+    check(shown.worst_settled <= a_hands_pace,
+          id + " moved a control " + std::to_string(shown.worst_settled) +
+              " in one step while the pilot held it, and a hand moves " +
+              std::to_string(a_hands_pace));
+}
+
+} // namespace
+
+// **The instructor demonstrates a climb and descent, then hands over.** Every
+// aeroplane whose class is taught the exercise flies it.
+GLIDESLOPE_TEST(an_instructor_demonstrates_a_climb_and_descent_and_hands_it_over) {
+    const auto taught = everyone_taught("climb-and-descent");
+    check(!taught.empty(), "some aeroplane is taught climbs and descents");
+    std::size_t walked = 0;
+    for (const std::string& id : taught) {
+        report_and_check(id, "climb", demonstrate_a_climb(id));
+        ++walked;
+    }
+    check(walked == taught.size(),
+          "every aeroplane taught the exercise demonstrated it: " +
+              std::to_string(walked) + " of " + std::to_string(taught.size()));
+}
+
+// **The instructor demonstrates a stall, then hands over.** Every aeroplane
+// whose class is taught the exercise flies it.
+GLIDESLOPE_TEST(an_instructor_demonstrates_a_stall_and_hands_it_over) {
+    const auto taught = everyone_taught("stalls");
+    check(!taught.empty(), "some aeroplane is taught stalls");
+    std::size_t walked = 0;
+    for (const std::string& id : taught) {
+        // A stall is practised where its aeroplane practises it: a clean jet
+        // at idle descends a long way while it slows.
+        const bool light = glideslope::sim::find_aircraft(data(), id).aircraft_class ==
+                           glideslope::sim::AircraftClass::light_aircraft;
+        report_and_check(id, "stall", demonstrate_a_stall(id, light ? 5000.0 : 20000.0));
+        ++walked;
+    }
+    check(walked == taught.size(),
+          "every aeroplane taught the exercise demonstrated it: " +
+              std::to_string(walked) + " of " + std::to_string(taught.size()));
 }
