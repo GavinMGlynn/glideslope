@@ -453,18 +453,19 @@ quality: each is held to published figures before it is offered, as the Cessna
       and its frame is not claimed to be the same on every machine.
       `PROJECT_STATUS.md` says what was built to get there, and names two
       defects in Cesium Native it had to work around.
-- [ ] **Google Photorealistic 3D Tiles** with the user's own Google Maps
+- [x] **Google Photorealistic 3D Tiles** with the user's own Google Maps
       Platform key or Cesium ion token. *Verification: the same checks as
-      Cesium ion, through both ways in.* Begun 2026-09-21 and not finished.
-      Through a Cesium ion token they draw with their own photographs on
-      them, refined - 452 tiles over Mount Taranaki - with Google's
-      attribution on screen, and a test holds them to drawing and to their
-      attribution. **Still to do: the other way in.** A Google Maps Platform
-      key used directly is written and has never been run, because there is
-      no such key on any machine here; `--terrain google` takes one in
-      preference to the ion token when it is there, so the test covers
-      whichever a machine has. Half of "through both ways in" is therefore
-      unproven, and a key is all it needs.
+      Cesium ion, through both ways in.* Done, 2026-09-22, when the project
+      owner supplied a Maps Platform key - which was the only thing missing.
+      **Both ways in are now drawn separately and counted**: the test gives
+      each its own configuration directory holding that one secret, so a
+      machine that has both cannot quietly test one twice. Each drew 241
+      tiles over Mount Taranaki with Google's attribution on screen, and a
+      way in this machine has no secret for is reported and skipped rather
+      than passed. Without either, the provider says which two things it will
+      take and where to put them. **Watched failing**: with the direct-key
+      branch disabled, the ion route still drew and the other was told it
+      "drew nothing", which is the half that had never run before today.
 
 - [x] **Attribution on screen for whichever provider is active.**
       *Verification: every provider, in every state, draws its attribution,

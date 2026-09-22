@@ -173,3 +173,110 @@ if(_lit LESS 200)
             "${_lit} pixels of credit text along the bottom of ${_shot}")
 endif()
 message(STATUS "${PROVIDER}: ${_lit} pixels of attribution on screen")
+
+# --- google: both ways in, each on its own ----------------------------------
+#
+# **The item asks for "the same checks as Cesium ion, through both ways in"**,
+# and the run above proves only whichever key this machine happens to have.
+# Google's tiles can be reached with a Cesium ion token or with a Google Maps
+# Platform key used directly, and the code prefers the key when both are
+# there - so on a machine with both, the ion route above is never taken and
+# would go untested for ever.
+#
+# So each way in is run again on its own, with a config directory holding that
+# one secret and the environment cleared of the other. A way in this machine
+# has no secret for is reported and skipped; both being absent cannot happen,
+# because the run above would have skipped the whole test.
+if(PROVIDER STREQUAL "google")
+    set(_ways 0)
+    set(_skipped 0)
+    # **Where this machine really keeps its secrets, read once.** Each way in
+    # below points XDG_CONFIG_HOME at a directory of its own, so asking the
+    # environment again inside the loop would find the previous way's
+    # directory and conclude that this machine has no key - which it did, and
+    # the second way in silently reported itself untestable.
+    set(_real_config "$ENV{XDG_CONFIG_HOME}")
+    if(_real_config STREQUAL "")
+        set(_real_config "$ENV{HOME}/.config")
+    endif()
+    set(_real_ion "$ENV{GLIDESLOPE_CESIUM_ION_TOKEN}")
+    set(_real_google "$ENV{GLIDESLOPE_GOOGLE_MAPS_KEY}")
+    foreach(_way ion-token google-maps-key)
+        if(_way STREQUAL "ion-token")
+            set(_file "cesium-ion-token")
+            set(_env GLIDESLOPE_CESIUM_ION_TOKEN)
+            set(_other GLIDESLOPE_GOOGLE_MAPS_KEY)
+        else()
+            set(_file "google-maps-key")
+            set(_env GLIDESLOPE_GOOGLE_MAPS_KEY)
+            set(_other GLIDESLOPE_CESIUM_ION_TOKEN)
+        endif()
+
+        # Where this machine keeps that secret: the environment first, as the
+        # program looks, then the config directory - both as they were before
+        # this loop began touching them.
+        if(_way STREQUAL "ion-token")
+            set(_secret "${_real_ion}")
+        else()
+            set(_secret "${_real_google}")
+        endif()
+        if(_secret STREQUAL "" AND EXISTS "${_real_config}/glideslope/${_file}")
+            file(READ "${_real_config}/glideslope/${_file}" _secret)
+            string(STRIP "${_secret}" _secret)
+        endif()
+        if(_secret STREQUAL "")
+            message(STATUS "google: no ${_file} on this machine, so that way in "
+                           "is not tested here")
+            math(EXPR _skipped "${_skipped} + 1")
+            continue()
+        endif()
+
+        # A config directory with this one secret in it and nothing else, so
+        # the program cannot fall back to the other way in.
+        set(_only "${WORK}/only-${_way}")
+        file(REMOVE_RECURSE "${_only}")
+        file(MAKE_DIRECTORY "${_only}/glideslope")
+        file(WRITE "${_only}/glideslope/${_file}" "${_secret}")
+        set(ENV{XDG_CONFIG_HOME} "${_only}")
+        unset(ENV{${_env}})
+        set(ENV{${_other}} "")
+
+        set(_one "${WORK}/google-via-${_way}-${DRIVER}.bmp")
+        file(REMOVE "${_one}")
+        execute_process(
+            COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size ${_size}
+                    --screen terrain --terrain google --at ${_at} --toward ${_toward}
+                    --shot-at 2 --shot "${_one}"
+            RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+        if(NOT EXISTS "${_one}")
+            if(_err MATCHES "could not download")
+                message(STATUS "google via ${_way}: the tiles could not be had")
+                math(EXPR _skipped "${_skipped} + 1")
+                continue()
+            endif()
+            message(FATAL_ERROR
+                    "google reached through ${_file} alone drew nothing. This is "
+                    "the way in that the ordinary run does not exercise when the "
+                    "machine has both secrets:\n${_err}")
+        endif()
+        if(NOT _out MATCHES "terrain of ([0-9]+) tiles")
+            message(FATAL_ERROR "google via ${_way} did not say what it drew:\n${_out}")
+        endif()
+        if(CMAKE_MATCH_1 LESS 1)
+            message(FATAL_ERROR "google via ${_way} drew no terrain at all")
+        endif()
+        message(STATUS "google via ${_file} alone: ${CMAKE_MATCH_1} tiles")
+        math(EXPR _ways "${_ways} + 1")
+    endforeach()
+
+    math(EXPR _tried "${_ways} + ${_skipped}")
+    if(NOT _tried EQUAL 2)
+        message(FATAL_ERROR "${_tried} ways in were considered, and there are two")
+    endif()
+    if(_ways EQUAL 0)
+        message(STATUS "neither way in could be tested on its own here")
+    else()
+        message(STATUS "google: ${_ways} of the 2 ways in drew on their own, "
+                       "${_skipped} not testable here")
+    endif()
+endif()
