@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -228,6 +229,89 @@ std::string cesium_ion_token() {
 
 std::string google_maps_key() {
     return secret("GLIDESLOPE_GOOGLE_MAPS_KEY", "google-maps-key");
+}
+
+namespace {
+
+// One line of a `server.txt`, or nothing if it is not one.
+std::optional<DefaultServer> a_server_line(const std::string& line) {
+    std::istringstream in(line);
+    std::string host;
+    std::string port;
+    std::string key;
+    std::string extra;
+    if (!(in >> host >> port >> key)) {
+        return std::nullopt;
+    }
+    if (in >> extra) {
+        return std::nullopt; // a fourth word is not part of this format
+    }
+    if (host.empty() || host[0] == '#') {
+        return std::nullopt;
+    }
+    // A port is a number from 1 to 65535: 0 means "any free port" to a
+    // server and is not something a client can be told to reach.
+    if (port.empty() || port.find_first_not_of("0123456789") != std::string::npos) {
+        return std::nullopt;
+    }
+    const unsigned long n = std::stoul(port);
+    if (n < 1 || n > 65535) {
+        return std::nullopt;
+    }
+    // The key is sixty-four hexadecimal digits, as a server prints it.
+    if (key.size() != 64) {
+        return std::nullopt;
+    }
+    for (const char c : key) {
+        const bool digit = (c >= '0' && c <= '9');
+        const bool lower = (c >= 'a' && c <= 'f');
+        const bool upper = (c >= 'A' && c <= 'F');
+        if (!digit && !lower && !upper) {
+            return std::nullopt;
+        }
+    }
+    DefaultServer out;
+    out.host = host;
+    out.port = static_cast<std::uint16_t>(n);
+    out.key_hex = key;
+    return out;
+}
+
+} // namespace
+
+std::optional<DefaultServer> read_default_server(std::string_view text) {
+    std::istringstream in{std::string(text)};
+    std::string line;
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (const auto server = a_server_line(line)) {
+            return server;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<DefaultServer> default_server() {
+    std::filesystem::path where;
+    if (const char* named = std::getenv("GLIDESLOPE_SERVER_TXT");
+        named != nullptr && *named != '\0') {
+        where = named;
+    } else {
+        try {
+            where = config_directory() / "server.txt";
+        } catch (const std::exception&) {
+            return std::nullopt;
+        }
+    }
+    std::ifstream in(where, std::ios::binary);
+    if (!in) {
+        return std::nullopt;
+    }
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    return read_default_server(text);
 }
 
 } // namespace glideslope::platform

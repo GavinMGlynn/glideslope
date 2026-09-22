@@ -73,6 +73,12 @@ void print_usage(std::FILE* out) {
         "                            ridge's lift - at a thousand places and times,\n"
         "                            for comparing platforms\n"
         "\n"
+        "  connect --server HOST PORT --server-key HEX [SECONDS] [--fly]\n"
+        "                            connect to a server named on the command line\n"
+        "  connect --online [SECONDS] [--fly]\n"
+        "                            connect to the server named in server.txt, a\n"
+        "                            line of host, port and public key in\n"
+        "                            glideslope's config directory\n"
         "  connect HOST:PORT KEY [SECONDS]\n"
         "                            complete a session with a server and say so;\n"
         "                            with SECONDS, stay that long answering its\n"
@@ -762,6 +768,65 @@ int main(int argc, char** argv) {
         if ((args.size() == 2 || args.size() == 3) && args[0] == "figures") {
             return fly_figures(data, std::string(args[1]),
                                args.size() == 3 ? std::string(args[2]) : "");
+        }
+        // **`connect --online`**, which reads the default server out of
+        // `server.txt` rather than being told it (`REQUIREMENTS.md` 6.6). The
+        // file names a host, a port and the server's public key - everything
+        // a client needs and nothing that is a secret.
+        // **`connect --server HOST PORT --server-key HEX`**, the other form
+        // `REQUIREMENTS.md` 6.6 names: the same three things as `server.txt`,
+        // given on the command line instead of in a file.
+        if (args.size() >= 5 && args[0] == "connect" && args[1] == "--server") {
+            std::string host;
+            std::string port;
+            std::string key;
+            double stay_s = 0.0;
+            bool fly = false;
+            for (std::size_t i = 1; i < args.size(); ++i) {
+                if (args[i] == "--server" && i + 2 < args.size()) {
+                    host = std::string(args[i + 1]);
+                    port = std::string(args[i + 2]);
+                    i += 2;
+                } else if (args[i] == "--server-key" && i + 1 < args.size()) {
+                    key = std::string(args[i + 1]);
+                    ++i;
+                } else if (args[i] == "--fly") {
+                    fly = true;
+                } else {
+                    stay_s = std::strtod(std::string(args[i]).c_str(), nullptr);
+                }
+            }
+            if (host.empty() || port.empty() || key.empty()) {
+                std::fprintf(stderr, "glideslope_cli: --server wants a host and a "
+                                     "port, and --server-key the key\n");
+                return 2;
+            }
+            return connect_to(host + ":" + port, key, stay_s, false, fly, 0.0);
+        }
+        if (args.size() >= 2 && args[0] == "connect" && args[1] == "--online") {
+            const auto server = glideslope::platform::default_server();
+            if (!server) {
+                std::fprintf(stderr,
+                             "glideslope_cli: --online needs a server.txt naming a "
+                             "host, a port and a key. None was found in "
+                             "glideslope's config directory, and "
+                             "GLIDESLOPE_SERVER_TXT names none either\n");
+                return 2;
+            }
+            std::printf("server.txt: %s port %u\n", server->host.c_str(),
+                        static_cast<unsigned>(server->port));
+            double stay_s = 0.0;
+            bool fly = false;
+            for (std::size_t i = 2; i < args.size(); ++i) {
+                if (args[i] == "--fly") {
+                    fly = true;
+                    continue;
+                }
+                stay_s = std::strtod(std::string(args[i]).c_str(), nullptr);
+            }
+            const std::string where =
+                server->host + ":" + std::to_string(server->port);
+            return connect_to(where, server->key_hex, stay_s, false, fly, 0.0);
         }
         if (args.size() >= 3 && args.size() <= 8 && args[0] == "connect") {
             double stay_s = 0.0;

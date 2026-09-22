@@ -32,6 +32,7 @@ add_executable(glideslope_tests
     unit/test_protocol.cpp
     unit/test_slots.cpp
     unit/test_state.cpp
+    unit/test_server_txt.cpp
     unit/test_socket.cpp
     unit/test_store.cpp
     unit/test_reliable.cpp
@@ -161,6 +162,8 @@ set(GLIDESLOPE_UNIT_TESTS
     a_knock_written_and_read_back_carries_the_same_token
     a_knock_that_is_not_one_is_not_read
     the_transport_document_and_the_code_agree_about_a_sealed_body
+    a_server_txt_names_a_host_a_port_and_a_key
+    anything_that_is_not_a_server_line_is_refused
     a_store_gives_back_what_was_put_in_it
     what_a_store_keeps_outlives_the_store_that_kept_it
     a_store_keeps_awkward_values_unchanged
@@ -1070,6 +1073,16 @@ add_test(NAME a_server_started_by_systemd_accepts_a_client
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_systemd.cmake)
 set_tests_properties(a_server_started_by_systemd_accepts_a_client PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/deploy)
+
+# **A client started with --online reaches the server server.txt names.** See
+# cmake/client_online.cmake, which names the file by the environment rather
+# than writing into the person's own config directory.
+add_test(NAME a_client_started_with_online_reaches_the_server_server_txt_names
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli>
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/online -DPORT=47871
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_online.cmake)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/online)
 
 # **A server given a store keeps its key across restarts**, which is what makes
 # the public key a client was given out of band still good after a restart. See

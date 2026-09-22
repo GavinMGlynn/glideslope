@@ -961,8 +961,19 @@ checklists are part of. A lesson ends in a debrief, never a score
       vcpkg: libsodium, SQLite and libcurl come from the distribution. It
       configures in **6 seconds against the full build's seven minutes** and
       builds the server in about thirty.
-- [ ] **`--online`** through a one-line `server.txt`. *Verification: a client
-      started with `--online` reaches the server `server.txt` names.*
+- [ ] **`--online`** through a one-line `server.txt` — **still to do: only
+      `glideslope_cli` has it. The client with the window cannot connect to
+      anything at all**, so a person who flies rather than types has no way to
+      use it. *Verification: a client started with `--online` reaches the
+      server `server.txt` names.* **Done for the command-line client,
+      2026-09-22**: `connect --online` reads a host, a port and a public key
+      from `server.txt` and reaches that server, and both forms
+      `REQUIREMENTS.md` 6.6 names work - `--online` and `--server HOST PORT
+      --server-key HEX`. The key in the file is not a secret: it is the half
+      a server prints at startup for this purpose, so the line may be sent to
+      anybody. Thirteen ways a line can fail to be one are refused and
+      counted, and a client with no `server.txt` says what it needs rather
+      than connecting to nothing.
 - [ ] **Four machines in one sky.** *Verification: four clients on different
       operating systems and one server-run AI Cessna fly together; a fifth
       client is refused; `--players 2` refuses a third; all are visible on the

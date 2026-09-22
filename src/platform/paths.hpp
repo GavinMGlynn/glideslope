@@ -1,6 +1,9 @@
 #pragma once
 
 #include <filesystem>
+#include <cstdint>
+#include <optional>
+#include <string_view>
 #include <string>
 
 namespace glideslope::platform {
@@ -51,5 +54,32 @@ std::string cesium_ion_token();
 // The user's own Google Maps Platform key, the same way: from
 // GLIDESLOPE_GOOGLE_MAPS_KEY, or the file `google-maps-key`.
 std::string google_maps_key();
+
+// **The default server, as a line anybody can send you.** `--online` reads
+// it: one line naming a host, a port and the server's public key, which is
+// what a client needs and all it needs (`REQUIREMENTS.md` 6.6).
+//
+//   glideslope.example.org 47801 49cf887b...8305fb75
+//
+// Separated by spaces, in that order. Blank lines and lines beginning with
+// `#` are skipped, so the file can say where it came from.
+//
+// **The key in it is not a secret** - it is the half a server prints at
+// startup for exactly this purpose - so unlike a token this file may be
+// passed around, posted, or committed to somebody else's repository.
+struct DefaultServer {
+    std::string host;
+    std::uint16_t port = 0;
+    std::string key_hex;
+};
+
+// The `server.txt` in the config directory, or nothing if there is none, it
+// cannot be read, or no line of it is one. From GLIDESLOPE_SERVER_TXT if that
+// names a file instead.
+std::optional<DefaultServer> default_server();
+
+// The same, read from `text` rather than from a file. Nothing if no line of
+// it names a host, a port and a key.
+std::optional<DefaultServer> read_default_server(std::string_view text);
 
 } // namespace glideslope::platform
