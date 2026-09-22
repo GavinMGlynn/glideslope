@@ -66,4 +66,26 @@
     this project's choice, from its maximum take-off weight to the last of its
     fuel.
   </figure>
+
+  <figure name="stall_speed_landing" flight="stall_speed" from="measured"
+          loading="light" unit="KCAS" value="95.42" tolerance="3"
+          flaps_deg="0" entry_kcas="200" gear="1">
+    **Measured, not published.** No flight manual for this aeroplane is
+    public, so there is no handbook stall speed to hold the model to. This is
+    what the model itself does, flown by the same deceleration the published
+    stall speeds are measured by, on 2026-09-23. What it asserts is that the
+    model still does what it did, not that the aeroplane does it. Measured
+    from entry speeds of 160, 200 and 240 knots it varies by 0.08 of a
+    knot, so the number is the model's and not the entry's.
+  </figure>
+
+  <figure name="climb_rate" from="measured" loading="light" unit="ft/min"
+          value="8271" tolerance_percent="5" speed_kcas="230">
+    **Measured, not published.** No flight manual for this aeroplane is
+    public, so there is no handbook rate of climb and no handbook climbing
+    speed. Both are the model's own, taken on 2026-09-23. Sweeping 200 to 420 knots the best rate is 8621 ft/min at 340 knots; this is the
+    lowest speed that still climbs within ninety-five per cent of it, which is
+    the speed a climb is actually flown at. Taking the peak itself would have
+    taught a climb faster than the aeroplane is operated.
+  </figure>
 </published_figures>

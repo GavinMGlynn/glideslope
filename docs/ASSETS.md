@@ -735,6 +735,53 @@ Some of what ships is this project's own writing rather than anyone else's
 data. It is recorded here so that the answer to "where did this come from"
 is never silence.
 
+### Figures measured from the flight models, where nothing is published
+
+Sixteen figures in `assets/figures/*.xml` carry `from="measured"`, added
+2026-09-23. **They are not from any source and no source is named for them.**
+They are what this project's own flight models do, measured once and written
+down, so that the aeroplanes whose manuals are not public can be taught
+something beyond turns - a lesson's reference speed has to come from
+somewhere, and inventing one would mean nothing.
+
+| | |
+| --- | --- |
+| Source | **None.** Each number is a measurement of this project's flight model, taken by the same flights in `src/sim/figures.cpp` that check the published figures |
+| What they assert | That the model still does what it did when the number was taken - **not** that the aeroplane does it. A published figure holds the model to the world; a measured figure holds the model to itself |
+| Stall speeds, in the landing configuration | 737-300 105.72, 787-8 113.71, A320 113.33, A380 104.86, B-2A 95.42, F-15C 151.06, F-35B 122.24, Short S.23 66.32 KCAS. Each was taken from three entry speeds a comfortable margin above the stall - 160, 200 and 240 knots, and 120 and 160 for the Short S.23 - and varies by at most 1.2 knots between them, so the number is the model's and not the entry's |
+| Rates of climb, and the speeds they are flown at | 737-300 4,438 ft/min at 260 kt, 787-8 5,457 at 300, A320 5,804 at 300, A380 4,773 at 270, B-2A 8,271 at 230, F-15C 24,569 at 200, F-35B 20,390 at 200, Learjet 35A 8,097 at 240. The Learjet is the one of these whose stall speed *is* published, so only its rate of climb is measured |
+| How the climbing speed was chosen | The rate was swept from 150 or 200 knots upwards and the speed taken is **the lowest that still climbs within ninety-five per cent of the best rate**, never below 1.3 times the measured stall speed, **and never below a speed the aeroplane can actually be climbed at**. The peak itself is no use: a jet's climb rate goes on rising to speeds it is never operated at - the A320's peaks at 400 knots - and a fighter's is flat within a few per cent over hundreds of knots, so for the F-15C and the F-35B the floor is what chose the speed |
+| Why "can actually be climbed at" is a separate condition | The sweep measures the rate at **full throttle**, and a fighter will climb at full throttle from almost any speed. A lesson does not: the autopilot holds a speed *and* a rate of climb, and near the stall it runs out of nose before it runs out of thrust. The F-35B at 160 knots - its 1.3-times-stall floor - pinned the nose at the fifteen degrees it is allowed, sat at nineteen degrees of alpha and sank at 2,000 ft/min. It was the only one of the eight this caught, and its speed is 200 rather than 160 because of it |
+| The weight each was measured at | **The stall speed and the rate of climb of a given aeroplane are measured at the same loading** - `landing` for the airliners, `light` for the B-2A, `clean` for the F-15C, `combat` for the F-35B, `standard` for the Short S.23, `landing` for the Learjet 35A - so that a lesson's two speeds describe the same aeroplane on the same flight. A published climbing speed is usually given at a take-off weight and a published stall speed at a landing weight, which is right for a handbook and wrong for a lesson that names both in one exercise. A heavier aeroplane climbs best a little faster than these numbers say |
+| Licence | This project's own measurements, GPL-3.0-or-later with the rest |
+
+**The Boeing 747-400 and the Lockheed Martin F-22A have no measured figures
+at all, and so are taught only turns.** They have no measured climbing speed
+either, and that follows from the stall speed rather than being a second
+problem: the climbing speed is floored at 1.3 times the stall speed, so
+without one there is nothing to anchor it to. The 747-400's ninety-five per
+cent cut lands at 360 knots, within five of its maximum operating speed,
+which is not a speed anything climbs at - the floor is what would have stopped
+that, and it has no floor. **An aeroplane's reference speeds hang together, and
+these two have none of them.**
+
+The stall speed is what neither will give. Measured the way the other eight
+were, the same aeroplane came out between 146 and 160 knots (the 747-400) and
+between 128 and 149 (the F-22A), depending only on the speed the deceleration
+was started from. A number that moves by twenty knots with the approach to it
+is not a measurement of anything, and is not written down. The other eight
+move by at most 1.2 knots over the same range.
+
+**Making the deceleration stop only on a sustained rise was tried, and made it
+worse.** The flight ends when the speed passes three knots above the slowest
+seen, and the thought was that a single sample there could be a phugoid rather
+than the stall. Requiring two seconds of it changed nothing at all for the
+eight that already held still - the same numbers to a hundredth of a knot,
+which is what a no-op looks like - and widened the 747-400's spread to 21.8
+knots and the F-22A's to 84.3, one run mushing all the way down to 57. The
+change was reverted. What those two do near the stall is not a late break in
+the measurement; it is the models themselves.
+
 ### The aircraft checklists
 
 `assets/aircraft/*.checklist`: a checklist for each of the nine phases of

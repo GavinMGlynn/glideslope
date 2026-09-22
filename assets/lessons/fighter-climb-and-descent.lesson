@@ -1,0 +1,46 @@
+# Climbs and descents, in a fighter: up at the climbing speed, level off, and
+# back down at a steady rate.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The speed is this aeroplane's own.** `climb` is the speed its rate of
+# climb was measured at, read from `assets/figures/<id>.xml`. For the
+# aeroplanes in this class that figure is **measured from the flight model
+# rather than published** - no flight manual for them is public - and the
+# figure itself says so and says what it means. `docs/ASSETS.md` records
+# which aeroplanes those are.
+#
+# **The heights are against where the stage began**, so the lesson can be
+# flown at any altitude: `start+900` is nine hundred feet above wherever this
+# was started, not above the sea.
+#
+# **The bands here are provisional** and are tightened against what the AI
+# pilot actually flies, aeroplane by aeroplane, rather than set by eye.
+
+name Climbs and descents in a fighter
+teaches fighter
+
+stage The climb
+do Set the climbing power and let the speed settle at the climbing speed
+do Hold the attitude the speed sits at, and keep the lookout going
+hold velocities/vc-kts climb-40 climb+40 Hold the climbing speed
+until position/h-agl-ft >= start+900
+
+stage Levelling off
+do Lower the nose at the height you want and let the speed build
+do Set the cruising power once the speed is there
+until velocities/h-dot-fps <= 3.0
+
+stage The descent
+do Bring the power back and let the nose down to a steady rate of descent
+do Hold the speed, and keep the engines warm
+hold velocities/vc-kts climb-40 climb+60 Hold the speed in the descent
+until position/h-agl-ft <= start-500

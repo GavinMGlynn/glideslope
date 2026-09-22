@@ -235,4 +235,45 @@ std::vector<Lesson> read_lessons(const std::filesystem::path& data) {
     return out;
 }
 
+
+namespace {
+
+void note_figure(const LessonNumber& number, std::vector<std::string>& out) {
+    if (!number.named() || number.reference == "start") {
+        return;
+    }
+    if (std::find(out.begin(), out.end(), number.reference) == out.end()) {
+        out.push_back(number.reference);
+    }
+}
+
+} // namespace
+
+std::vector<std::string> figures_named(const Lesson& lesson) {
+    std::vector<std::string> out;
+    for (const LessonStage& stage : lesson.stages) {
+        note_figure(stage.until_value, out);
+        for (const std::vector<LessonWatch>* watches : {&stage.holds, &stage.needs}) {
+            for (const LessonWatch& watch : *watches) {
+                note_figure(watch.low, out);
+                note_figure(watch.high, out);
+            }
+        }
+    }
+    return out;
+}
+
+std::string cannot_be_taught(const Lesson& lesson, const LessonSpeeds& speeds) {
+    for (const std::string& figure : figures_named(lesson)) {
+        const double has = figure == "rotate"  ? speeds.rotate_kts
+                           : figure == "climb" ? speeds.climb_kts
+                           : figure == "vref"  ? speeds.vref_kts
+                                               : speeds.stall_kts;
+        if (!(has > 0.0)) {
+            return "it names " + figure + ", which this aeroplane has not got";
+        }
+    }
+    return "";
+}
+
 } // namespace glideslope::sim

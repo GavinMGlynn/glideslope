@@ -325,6 +325,22 @@ set(GLIDESLOPE_UNIT_TESTS
     a_failed_jet_engine_stays_failed
     frozen_fuel_is_not_burned
     the_speedbrake_lever_moves_the_spoilers
+    the_boeing_737_300_stalls_where_its_own_model_said_it_would
+    the_boeing_787_8_stalls_where_its_own_model_said_it_would
+    the_airbus_a320_stalls_where_its_own_model_said_it_would
+    the_airbus_a380_stalls_where_its_own_model_said_it_would
+    the_b2_stalls_where_its_own_model_said_it_would
+    the_f15c_stalls_where_its_own_model_said_it_would
+    the_f35b_stalls_where_its_own_model_said_it_would
+    the_short_s23_stalls_where_its_own_model_said_it_would
+    the_boeing_737_300_climbs_at_the_rate_its_own_model_gave
+    the_boeing_787_8_climbs_at_the_rate_its_own_model_gave
+    the_airbus_a320_climbs_at_the_rate_its_own_model_gave
+    the_airbus_a380_climbs_at_the_rate_its_own_model_gave
+    the_b2_climbs_at_the_rate_its_own_model_gave
+    the_f15c_climbs_at_the_rate_its_own_model_gave
+    the_f35b_climbs_at_the_rate_its_own_model_gave
+    the_learjet_35a_climbs_at_the_rate_its_own_model_gave
     every_published_figure_has_a_flight_and_every_flight_a_figure
     an_aircraft_restored_in_every_phase_of_flight_tracks_the_original
     an_aircraft_put_back_to_an_earlier_snapshot_flies_on_as_a_fresh_restore_does

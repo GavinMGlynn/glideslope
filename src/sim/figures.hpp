@@ -3,6 +3,12 @@
 // Published figures: what an aircraft's handbook says it does, and flights that
 // check the flight model does it.
 //
+// **A figure may instead be measured from the model**, for an aeroplane whose
+// handbook is not public and publishes nothing - ten of the sixteen in the
+// roster. Such a figure carries `from="measured"`, and what it asserts is that
+// the model still does what it did when the number was taken, not that the
+// aeroplane does it. `docs/ASSETS.md` records which aeroplanes those are.
+//
 // An aircraft's figures file (assets/figures/<model>.xml) names each figure, the
 // range its measurement must land in, where the number comes from, the
 // conditions it was measured in and the loading it was measured at. Each
@@ -25,6 +31,14 @@ struct FigureSpec {
     std::string loading; // the loading it was measured at, by name
     std::string unit;
     std::string source;     // the file's words for where the number is from
+    // **Where the number came from.** `from="published"`, the default, means a
+    // handbook says it and the flight checks the model against the handbook.
+    // `from="measured"` means no handbook gives it and the number is what this
+    // project's own flight model does, measured once and written down - so the
+    // flight is not checking the model against the world, it is checking that
+    // the model still does what it did. The two are not the same claim and a
+    // figure says which it is making.
+    bool measured = false;
     double published = 0.0; // the handbook's number, or the middle of its range
     double low = 0.0;       // the measurement must land in [low, high]
     double high = 0.0;

@@ -220,13 +220,17 @@ GLIDESLOPE_TEST(the_approach_speed_is_a_third_above_the_published_landing_stall)
     }
     check(walked == 4, "every light aircraft's approach speed was worked out");
 
-    // An aircraft that publishes no stall speed has no reference speed, and
-    // saying so is better than guessing one. The B-2 publishes none.
+    // An aircraft with no stall speed has no reference speed, and saying so
+    // is better than guessing one. **This was the B-2A until 2026-09-23**,
+    // when it got a stall speed measured from its own model
+    // (docs/ASSETS.md). The 747-400 is the example now: measured the same
+    // way it came out anywhere between 146 and 160 knots depending only on
+    // the speed the deceleration started from, so it has none.
     bool refused = false;
     try {
-        (void)glideslope::sim::approach_speeds(data(), "b2");
+        (void)glideslope::sim::approach_speeds(data(), "747-400");
     } catch (const std::runtime_error&) {
         refused = true;
     }
-    check(refused, "an aircraft with no published stall speed is refused");
+    check(refused, "an aircraft with no stall speed at all is refused");
 }

@@ -459,6 +459,77 @@ GLIDESLOPE_TEST(the_short_s23_climbs_at_its_published_rate_at_sea_level) {
 // rather than never running. Each figure also has one test above;
 // registered_tests.cmake keeps those registered, and this keeps the two lists
 // the same size.
+
+// **These aeroplanes publish nothing to hold their models to.** No flight
+// manual for any of them is public, so their stall speeds and their rates of
+// climb are measured from the models themselves and written down
+// (docs/ASSETS.md). What each of these checks is that the model still does
+// what it did when the number was taken - not that the aeroplane does it.
+
+GLIDESLOPE_TEST(the_boeing_737_300_stalls_where_its_own_model_said_it_would) {
+    expect_figure("737-300", "stall_speed_landing");
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_stalls_where_its_own_model_said_it_would) {
+    expect_figure("787-8", "stall_speed_landing");
+}
+
+GLIDESLOPE_TEST(the_airbus_a320_stalls_where_its_own_model_said_it_would) {
+    expect_figure("a320", "stall_speed_landing");
+}
+
+GLIDESLOPE_TEST(the_airbus_a380_stalls_where_its_own_model_said_it_would) {
+    expect_figure("a380", "stall_speed_landing");
+}
+
+GLIDESLOPE_TEST(the_b2_stalls_where_its_own_model_said_it_would) {
+    expect_figure("b2", "stall_speed_landing");
+}
+
+GLIDESLOPE_TEST(the_f15c_stalls_where_its_own_model_said_it_would) {
+    expect_figure("f15c", "stall_speed_landing");
+}
+
+GLIDESLOPE_TEST(the_f35b_stalls_where_its_own_model_said_it_would) {
+    expect_figure("f35b", "stall_speed_landing");
+}
+
+GLIDESLOPE_TEST(the_short_s23_stalls_where_its_own_model_said_it_would) {
+    expect_figure("short_s23", "stall_speed_landing");
+}
+
+GLIDESLOPE_TEST(the_boeing_737_300_climbs_at_the_rate_its_own_model_gave) {
+    expect_figure("737-300", "climb_rate");
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_climbs_at_the_rate_its_own_model_gave) {
+    expect_figure("787-8", "climb_rate");
+}
+
+GLIDESLOPE_TEST(the_airbus_a320_climbs_at_the_rate_its_own_model_gave) {
+    expect_figure("a320", "climb_rate");
+}
+
+GLIDESLOPE_TEST(the_airbus_a380_climbs_at_the_rate_its_own_model_gave) {
+    expect_figure("a380", "climb_rate");
+}
+
+GLIDESLOPE_TEST(the_b2_climbs_at_the_rate_its_own_model_gave) {
+    expect_figure("b2", "climb_rate");
+}
+
+GLIDESLOPE_TEST(the_f15c_climbs_at_the_rate_its_own_model_gave) {
+    expect_figure("f15c", "climb_rate");
+}
+
+GLIDESLOPE_TEST(the_f35b_climbs_at_the_rate_its_own_model_gave) {
+    expect_figure("f35b", "climb_rate");
+}
+
+GLIDESLOPE_TEST(the_learjet_35a_climbs_at_the_rate_its_own_model_gave) {
+    expect_figure("learjet35a", "climb_rate");
+}
+
 GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     std::set<std::string> used;
     std::size_t figures_in_files = 0;
@@ -485,7 +556,11 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // when it became the F-35B, because Lockheed Martin publishes no service
     // ceiling for any F-35 and the "above 50,000 feet" the A was held to is
     // the Air Force's, for the A alone.
-    check(figures_in_files == 93,
-          "ninety-three figures, one test each above; found " +
+    // A hundred and nine, where there were ninety-three: sixteen measured
+    // figures were added on 2026-09-23 - a stall speed for eight aeroplanes
+    // that publish none and a rate of climb for eight - so that the classes
+    // they belong to can be taught something beyond turns.
+    check(figures_in_files == 109,
+          "a hundred and nine figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

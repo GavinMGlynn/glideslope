@@ -138,4 +138,21 @@ Lesson parse_lesson(const std::string& id, std::string_view text);
 // cannot read.
 std::vector<Lesson> read_lessons(const std::filesystem::path& data);
 
+// The figures a lesson names - any of "rotate", "climb", "vref" and "stall"
+// that appear anywhere in it, in that order, without repeats. `start` is not
+// among them: it is read off the aeroplane when a stage begins rather than
+// published about it.
+std::vector<std::string> figures_named(const Lesson& lesson);
+
+// **Why this aeroplane cannot be taught this lesson**, or an empty string if
+// it can. A lesson belongs to a class, but the figures belong to the
+// aeroplane, and the two do not always meet: eleven of the sixteen in the
+// roster publish no stall speed and most publish no rate of climb, so a
+// class's lesson can name a figure that one of its aeroplanes has not got.
+// `departure_speeds` and `approach_speeds` throw rather than guess, which is
+// right - a reference speed invented means nothing - and this says the same
+// thing without throwing, so that a caller can leave an aeroplane out and say
+// which figure it was missing.
+std::string cannot_be_taught(const Lesson& lesson, const LessonSpeeds& speeds);
+
 } // namespace glideslope::sim

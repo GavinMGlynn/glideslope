@@ -1525,6 +1525,17 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         spec.loading =
             e->HasAttribute("loading") ? e->GetAttributeValue("loading") : first_loading;
         spec.unit = e->GetAttributeValue("unit");
+        if (e->HasAttribute("from")) {
+            const std::string from = e->GetAttributeValue("from");
+            if (from == "measured") {
+                spec.measured = true;
+            } else if (from != "published") {
+                throw std::runtime_error(file.string() + " says figure '" + spec.name +
+                                         "' is from '" + from +
+                                         "', and a figure is from 'published' or "
+                                         "'measured'");
+            }
+        }
         if (flight_for(spec.flight) == nullptr) {
             throw std::runtime_error(file.string() + " measures figure '" + spec.name +
                                      "' by flight '" + spec.flight +

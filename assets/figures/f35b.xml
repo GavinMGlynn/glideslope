@@ -58,4 +58,32 @@
     fuel with none kept back, so further than a profile with reserves goes.
     1,500 nm bounds a model gone wrong.
   </figure>
+
+  <figure name="stall_speed_landing" flight="stall_speed" from="measured"
+          loading="combat" unit="KCAS" value="122.24" tolerance="3"
+          flaps_deg="0" entry_kcas="200" gear="1">
+    **Measured, not published.** No flight manual for this aeroplane is
+    public, so there is no handbook stall speed to hold the model to. This is
+    what the model itself does, flown by the same deceleration the published
+    stall speeds are measured by, on 2026-09-23. What it asserts is that the
+    model still does what it did, not that the aeroplane does it. Measured
+    from entry speeds of 160, 200 and 240 knots it varies by 1.13 of a
+    knot, so the number is the model's and not the entry's.
+  </figure>
+
+  <figure name="climb_rate" from="measured" loading="combat" unit="ft/min"
+          value="20390" tolerance_percent="5" speed_kcas="200">
+    **Measured, not published.** No flight manual for this aeroplane is
+    public, so there is no handbook rate of climb and no handbook climbing
+    speed. Both are the model's own, taken on 2026-09-23.
+    **The speed is not the one the ninety-five per cent test picked, nor the
+    1.3-times-the-stall floor under it, but the lowest speed the aeroplane can
+    actually be climbed at.** At 160 knots - 1.3 times its measured stall - it
+    will fly but it will not climb: the autopilot pinned the nose at its
+    fifteen-degree limit, sat at nineteen degrees of alpha and sank at two
+    thousand feet a minute, which is the back of the drag curve. 180 knots
+    still pins the nose and manages 112 ft/min; 190 climbs. 200 is taken
+    because it leaves room - the nose sits at 13.6 degrees of the fifteen it
+    is allowed, and the alpha at 12.
+  </figure>
 </published_figures>

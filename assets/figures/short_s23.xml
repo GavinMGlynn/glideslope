@@ -93,4 +93,19 @@
     Table II, 933 ft/min. Flown at +2 1/2 lb, the airscrews in fine pitch, at
     100 knots, no climbing speed being given.
   </figure>
+
+  <figure name="stall_speed_landing" flight="stall_speed" from="measured"
+          loading="standard" unit="KCAS" value="66.32" tolerance="3"
+          flaps_deg="25" entry_kcas="120" gear="1">
+    **Measured, not published.** No flight manual for this aeroplane is
+    public, so there is no handbook stall speed to hold the model to. This is
+    what the model itself does, flown by the same deceleration the published
+    stall speeds are measured by, on 2026-09-23. What it asserts is that the
+    model still does what it did, not that the aeroplane does it. Measured
+    from entry speeds of 120 and 160 knots it comes out the same to a
+    hundredth of a knot, so the number is the model's and not the entry's.
+    From 80 knots - only a fifth above the stall - it reads 69.2, because
+    there is not enough speed in hand to establish the deceleration before
+    the wing gives up; that is the entry being wrong, not the number.
+  </figure>
 </published_figures>

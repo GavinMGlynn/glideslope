@@ -174,12 +174,16 @@ GLIDESLOPE_TEST(the_take_off_speeds_come_from_each_aircrafts_published_figures) 
     check(worked_out == 1, "one has it worked from its stall, not " +
                                std::to_string(worked_out));
 
-    // An aircraft that publishes no climb speed has nothing to climb at.
+    // An aircraft with no climb speed at all has nothing to climb at.
+    // **This was the B-2A until 2026-09-23**, when it got a climbing speed
+    // measured from its own model (docs/ASSETS.md). The 747-400 is the
+    // example now: its stall speed will not hold still, so it has no measured
+    // figures either, and an aeroplane's reference speeds hang together.
     bool refused = false;
     try {
-        (void)glideslope::sim::departure_speeds(data(), "b2");
+        (void)glideslope::sim::departure_speeds(data(), "747-400");
     } catch (const std::runtime_error&) {
         refused = true;
     }
-    check(refused, "an aircraft with no published climb speed is refused");
+    check(refused, "an aircraft with no climb speed at all is refused");
 }

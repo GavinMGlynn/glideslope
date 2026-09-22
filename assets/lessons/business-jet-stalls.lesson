@@ -31,13 +31,19 @@
 # between a published low-level figure and where a clean aeroplane at height
 # actually gives up.
 
+# **A band's words are the words the debrief says**, so they have to describe
+# what the band measures. This one watches height and used to say "keep the
+# wings level", which is a true thing to say about a stall entry and not a
+# true thing to say about the height: a pilot who let her sink would have been
+# told to level the wings.
+
 name Stalls in a business jet
 teaches business-jet
 
 stage Entering the stall
 do Close the throttles and hold the height as the speed comes back
 do Keep the wings level: a wing drop is what you are avoiding
-hold position/h-agl-ft start-4000 start+400 Keep the wings level as the speed comes back
+hold position/h-agl-ft start-4000 start+400 Hold the height as the speed comes back
 until velocities/vc-kts <= stall+25
 
 stage The recovery

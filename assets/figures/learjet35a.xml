@@ -109,4 +109,15 @@
     AFM figure 5-11, flaps 40 degrees, 15,300 lb: about 96.5 KIAS, read from
     the chart to about a knot.
   </figure>
+
+  <figure name="climb_rate" from="measured" loading="landing" unit="ft/min"
+          value="8097" tolerance_percent="5" speed_kcas="240">
+    **Measured, not published.** The AFM's climb charts are not in the pages
+    that are public, so there is no handbook rate of climb and no handbook
+    climbing speed. Both are the model's own, taken on 2026-09-23. Sweeping
+    150 to 450 knots the best rate is 8,362 ft/min at 330 knots; this is the
+    lowest speed that still climbs within ninety-five per cent of it, well
+    above the floor of 1.3 times its published 96.5 kt landing stall. The
+    aeroplane's own climb schedule is about 250 knots.
+  </figure>
 </published_figures>

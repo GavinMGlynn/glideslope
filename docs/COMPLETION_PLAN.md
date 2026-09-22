@@ -496,12 +496,22 @@ pilot (Phase 4), which demonstrates, and on aircraft as data (Phase 5), which
 checklists are part of. A lesson ends in a debrief, never a score
 (`FEATURES.md`, deliberately not).
 
-- [ ] **Checklists as part of each aircraft's data**, for every phase of flight,
-      from its handbook or pilot's notes in this project's own words, each
-      source recorded in `ASSETS.md`. *Verification: every aircraft in the
+- [x] **Checklists as part of each aircraft's data**, for every phase of
+      flight, in this project's own words - **from the aeroplane's own
+      handbook where one is public, and otherwise from the ordinary practice
+      for the type** - with `ASSETS.md` saying which of the two each aeroplane
+      is, and why, aeroplane by aeroplane. *Verification: every aircraft in the
       roster has a checklist for each phase of flight, and every item either
       names a state of the aircraft that shows it done or is marked the pilot's
-      to confirm; a test walks them all.* Begun 2026-09-21 and not finished.
+      to confirm; a test walks them all.* Done 2026-09-23. **The wording was
+      narrowed that day, by the project owner, from "from its handbook or
+      pilot's notes"**: ten of the sixteen have no lawfully public manual - the
+      B-2A's, F-22A's and F-35B's do not exist publicly, the airliners' and the
+      Learjet's are their operators' and unpublished, and the Short S.23's were
+      searched for and not found - and the operator manuals that circulate on
+      document-sharing sites are reposted without permission and are not a
+      source this project will record. `ASSETS.md` names none where none was
+      read, rather than naming one that was not used.
       All sixteen aircraft have all nine phases, 144 checklists in all, and
       seven tests walk them: every item either names a state its own aircraft
       really has or is the pilot's to confirm, every band is one its
@@ -523,7 +533,8 @@ checklists are part of. A lesson ends in a debrief, never a score
       **The J-3 Cub was added the same day**, when "survives only as scans"
       turned out not to be a reason: a missing text layer stops a text search
       and stops nothing else, and its "Flying Hints" were read as pages.
-      **Still to do: the other ten.** No flight manual is public for the B-2A, the F-22A or the
+      **The other ten have no public manual**, and say so. No flight manual is
+      public for the B-2A, the F-22A or the
       F-35B; the Short S.23's were searched for and none found; and the
       airliners' and business jet's operating manuals are
       their operators' and are not published. Those ten follow the
@@ -1091,6 +1102,31 @@ checklists are part of. A lesson ends in a debrief, never a score
 ## Tails
 
 Found while implementing something else. Added when found, not when remembered.
+- [ ] **The runway lessons still fly at the model's default weight, not at
+      their figures'.** Found 2026-09-23, immediately after fixing it for the
+      lessons flown in the air. `airborne` now loads the aeroplane as the
+      loading its figures were measured at - which is what stopped the F-35B
+      flying a lesson at a weight its speeds were never measured for - but the
+      take-off lesson, the approach lesson, their two demonstrations and the
+      circuit each build their aeroplane directly and load nothing. So a
+      take-off is judged against a ground roll measured at one weight while
+      flying at another, and an approach against a reference speed for a
+      landing weight it is not at. They pass today, which means the difference
+      is small for those aeroplanes and not that it does not exist. *Verification:
+      every lesson flies its aeroplane at the weight the figures it is judged
+      against were measured at, and the bands are re-measured there.*
+- [ ] **The PA-28 loses five times the height the other light aircraft lose
+      entering a stall.** Found 2026-09-23 while flying the lessons at the
+      weight each aeroplane's own figures are measured at. Throttle closed and
+      the height held as the speed comes back, all four at maximum gross: the
+      Cessna 172P sinks 61 feet, the 182S 61, the J-3 Cub 28 - and the PA-28
+      **321**, at the same 2,400 lb as the 172. It is not the flying: the same
+      autopilot flies all four. Either the model's wing gives up earlier than
+      it should or it needs more pitch than the loop is allowed, and the
+      light-aircraft stalls lesson carries a band four hundred feet wide on
+      one aeroplane's account. *Verification: the four light aircraft enter a
+      stall by the book within the same band, and the lesson's band is set
+      from what they all do rather than from the worst of them.*
 - [ ] **The Learjet ends its landing roll nose down through the runway.**
       Found 2026-09-23 while demonstrating an approach: the Learjet flies the
       whole approach lesson and stops, and at the end of the rollout it is at
