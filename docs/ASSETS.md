@@ -738,34 +738,30 @@ is never silence.
 ### The aircraft checklists
 
 `assets/aircraft/*.checklist`: a checklist for each of the nine phases of
-flight for every aircraft in the roster. **Five of the sixteen are written
-from the aeroplane's own handbook; eleven are not**, and which is which is
+flight for every aircraft in the roster. **Six of the sixteen are written
+from the aeroplane's own handbook; ten are not**, and which is which is
 in each file's own header as well as here.
 
-#### The five written from a handbook
+#### The six written from a handbook
 
 | | |
 | --- | --- |
 | Source | The same handbooks recorded above for these aeroplanes' published figures, read for their normal-procedures sections: the **Cessna 172P** POH and FAA Approved Airplane Flight Manual, 1981 Model 172P, section 4, pages 4-6 to 4-10, as copied at <https://tx435.cap.gov/media/cms/C172PPOHwoSupplements_0A69C5AA130B9.pdf> and <https://www.lsvr.de/de/wp-content/uploads/2019/10/POH-Cessna-172-P-D-EKRM.pdf> (the second read only to settle two figures the first had scanned badly); the **Cessna 182S** POH, section 4, pages 4-11 to 4-17, at <http://tssflyingclub.org/documents/C182S_POH.pdf>; and the **Piper PA-28-180 Cherokee "E"** Owner's Handbook, section III, pages 17 to 23, at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf> |
-| Source, the other two | The **de Havilland Mosquito FB 6**'s Pilot's Notes, A.P. 2019E-P.N., January 1950, 2nd edition - the same Notes recorded above for its figures - read for its own "PILOT'S CHECK LIST", items 38 to 128 on pages 6 to 10, and Part II paragraphs 37 to 44 for the handling that goes with them, as scanned at <https://www.zenoswarbirdvideos.com/Images/Mosquito/MosquitoFB6Manual.pdf>; and the **McDonnell Douglas F-15C**'s flight manual, T.O. 1F-15A-1 for the F-15A/B/C/D from block 7 up, section II, Normal Procedures, pages 2-7 to 2-12, as scanned at <https://archive.org/details/f-15-manual> |
-| In the repository | `assets/aircraft/c172p.checklist`, `c182.checklist`, `pa28.checklist`, `mosquito-fb6.checklist`, `f15c.checklist`: the items and their figures, in this project's own words and in the handbook's order. None of the handbooks' text, drawings or scans is here |
-| Conversions | The PA-28's handbook is in miles an hour and its file says so item by item; the Cessnas' speeds are indicated and the simulation reads calibrated, so each band is opened a knot at each end |
+| Source, the other three | The **de Havilland Mosquito FB 6**'s Pilot's Notes, A.P. 2019E-P.N., January 1950, 2nd edition - the same Notes recorded above for its figures - read for its own "PILOT'S CHECK LIST", items 38 to 128 on pages 6 to 10, and Part II paragraphs 37 to 44 for the handling that goes with them, as scanned at <https://www.zenoswarbirdvideos.com/Images/Mosquito/MosquitoFB6Manual.pdf>; and the **McDonnell Douglas F-15C**'s flight manual, T.O. 1F-15A-1 for the F-15A/B/C/D from block 7 up, section II, Normal Procedures, pages 2-7 to 2-12, as scanned at <https://archive.org/details/f-15-manual>; and the **Piper J-3 Cub**'s Owner's Manual for the J3C-65 - again the manual already recorded above for its figures - read for its "Flying Hints", pages 37 to 42, sections A to H, at <https://stpeteair.org/wp-content/uploads/cub_owners_manual.pdf> |
+| In the repository | `assets/aircraft/c172p.checklist`, `c182.checklist`, `pa28.checklist`, `mosquito-fb6.checklist`, `f15c.checklist`, `j3cub.checklist`: the items and their figures, in this project's own words and in the handbook's order. None of the handbooks' text, drawings or scans is here |
+| Conversions | The PA-28's and the J-3 Cub's handbooks are in miles an hour and their files say so item by item; the Cessnas' speeds are indicated and the simulation reads calibrated, so each band is opened a knot at each end |
 | Licence | The words are this project's, GPL-3.0-or-later. Only facts are taken from the handbooks - what to do, in what order, at what figure |
 
-#### The eleven that are not
+#### The ten that are not
 
 | | |
 | --- | --- |
 | Source | **None.** They are written for this project, in its own words, following the ordinary practice for each type in the order it is flown. No manual was read for them |
 | Where the numbers come from | This project's own published-figure files, `assets/figures/<id>.xml`, whose sources are recorded above; and the flight models themselves wherever the model is what decides - a lever's gate, a flap's travel, an engine's idle |
 
-**Why those eleven, one by one**, so that the list accounts for every
+**Why those ten, one by one**, so that the list accounts for every
 aeroplane in it rather than for most of them:
 
-- the **J-3 Cub**'s own manual was looked for and found only as scans: both
-  copies recorded above for its figures carry no text layer, and the text
-  versions that exist are a flying club's checklist and a flight-simulator
-  vendor's manual, neither of them Piper's;
 - **no flight manual is public for the B-2A, the F-22A or the F-35B** at all;
 - the **737-300**'s, **747-400**'s, **787-8**'s, **A320**'s, **A380**'s and
   **Learjet 35A**'s operating manuals are their operators' and are not
@@ -777,7 +773,10 @@ aeroplane in it rather than for most of them:
 **An earlier version of this section named thirteen and explained ten.** The
 Mosquito and the F-15C were in the list with no reason given, and both had
 manuals that could be had - the Mosquito's were already recorded a few
-sections above this one, for its figures. Both are now written from them.
+sections above this one, for its figures. **And the reason given for the J-3
+Cub was not a reason**: its manual has no text layer, which stops a text
+search and stops nothing else. Its pages were read as pages. All three are now
+written from their manuals.
 
 **What none of them is**: a substitute for an aircraft's real checklist, or
 airworthy guidance. They exist to teach the simulator's aeroplanes.

@@ -1,12 +1,16 @@
-# The Piper J-3 Cub's checklists: this project's own, in its own words.
+# The Piper J-3 Cub's checklists: this project's own words, following the
+# aeroplane's own Owner's Manual.
 #
-# **They are not taken from the aeroplane's flight manual.** No such
-# manual was read to write them. What they follow is the ordinary
-# practice for the type, in the order it is flown; the speeds and
-# settings in them are this project's own figures, assets/figures/j3cub.xml,
-# whose sources docs/ASSETS.md records, and the flight model itself
-# wherever the model is what decides - a lever's gate, a flap's travel,
-# an engine's idle.
+# **The source is Piper's Owner's Manual for the J3C-65**, the same manual
+# docs/ASSETS.md records for this aircraft's figures, read for its "Flying
+# Hints", pages 37 to 42 - sections A to H: before starting the engine,
+# starting, warm-up, stopping, taxiing, general flying, approach and landing,
+# and parking. The copy read is the one ASSETS.md names, at
+# <https://stpeteair.org/wp-content/uploads/cub_owners_manual.pdf>.
+#
+# **It carries no text layer, and did not need one.** The item this file
+# belongs to had recorded the Cub as unsourceable because both copies are
+# scans; the pages were read as pages.
 #
 #   phase NAME                       one of: before-start, taxi, take-off,
 #                                    climb, cruise, descent, approach,
@@ -26,66 +30,80 @@
 #
 # The stick back is a negative elevator command, which is why the two items
 # that ask for it read as they do.
+#
+# **The manual is in miles an hour and the simulation reads knots**, so every
+# speed below is converted and both are given: airborne at 39 m.p.h. is 34
+# knots, best climb at 55 m.p.h. is 48, the cruise at 73 m.p.h. is 63, the
+# glide at 50 to 60 m.p.h. is 43 to 52, and the 122 m.p.h. never-dive is 106.
+# Each band is opened a little at each end, as the Cessnas' are, because the
+# simulation reads calibrated and the manual is indicated.
 
 phase before-start
-confirm Walk-round done, and the wire float on the tank cap showing fuel
-confirm Chocks in, brakes on, and someone at the controls
-confirm Switches off and throttle closed while the propeller is pulled through
-check fcs/throttle-cmd-norm <= 0.25 Throttle cracked a quarter of an inch
-confirm Contact called, and the propeller swung by hand
+# Sections A and B.
+confirm Fuel checked on the wire float at the tank cap, twelve gallons full
+confirm Oil checked to the four-quart mark, and the controls free
+confirm Chocks in, brakes on, and someone who knows the controls in the cabin
+confirm Ignition switch off and verified before the propeller is touched
+check fcs/throttle-cmd-norm <= 0.15 Throttle set about a tenth open, section B
+confirm Fuel shut-off on, contact called, and the propeller swung by hand
 
 phase taxi
-check propulsion/engine[0]/engine-rpm >= 500 Engine running and idling evenly
-check fcs/elevator-cmd-norm <= -0.40 Stick held back to keep the tail down
+# Section C, warm-up, and section E, taxiing.
+range propulsion/engine[0]/engine-rpm 500.0 800.0 Idling at 700, and 550 to 600 once warm, section C
+check fcs/elevator-cmd-norm <= -0.40 Stick held back taxiing upwind, section E
+confirm Oil pressure up within thirty seconds, and no more than 220 degrees
+confirm Magnetos checked at 2,100 with no more than 75 r.p.m. dropped, section C
 confirm Weave the nose left and right, for nothing is visible straight ahead
-confirm Brakes tried as she first moves, and the wind allowed for
-check fcs/throttle-cmd-norm <= 0.4 Taxi at a walking pace on low power
+check fcs/throttle-cmd-norm <= 0.4 Taxi at the speed of a fast walk, section E
 
 phase take-off
 range fcs/pitch-trim-cmd-norm -0.35 0.35 Trim set for take-off
 confirm Harness tight, controls free and correct, and the strip clear both ways
-check propulsion/engine[0]/engine-rpm >= 1950.0 Full throttle, and 1,950 rpm or better standing still
+check fcs/throttle-cmd-norm >= 0.95 Full throttle, headed into wind, section F
+check propulsion/engine[0]/engine-rpm >= 1950.0 Turning up towards the 2,300 take-off r.p.m., section F
 confirm Tail lifted to the flying attitude as she gathers speed
-check velocities/vc-kts >= 34.0 Let her fly herself off at about 34 knots
+check velocities/vc-kts >= 33.0 She flies herself off at about 39 m.p.h., 34 knots, section F
 
 phase climb
-check fcs/throttle-cmd-norm >= 0.95 Throttle wide open
-range velocities/vc-kts 43.0 55.0 Climb at 45 to 52 knots
+check fcs/throttle-cmd-norm >= 0.95 Throttle wide open, and not held there above three minutes, section F
+range velocities/vc-kts 43.0 55.0 Best climb at 55 m.p.h., 48 knots, section F
 check position/h-agl-ft >= 300.0 Three hundred feet before the first turn
 confirm The nose lowered every few hundred feet to look ahead
-confirm Oil pressure steady and the engine running evenly
+confirm Oil pressure steady and above thirty pounds, section C
 
 phase cruise
-range propulsion/engine[0]/engine-rpm 1950.0 2250.0 Cruising rpm about 2,150
-range velocities/vc-kts 55.0 72.0 Cruise at 58 to 68 knots
-confirm Carburettor heat tried, and left on if the air is damp and cool
+range propulsion/engine[0]/engine-rpm 1950.0 2250.0 Cruising at 2,150 r.p.m., section F
+range velocities/vc-kts 55.0 72.0 Which gives 73 m.p.h., 63 knots, section F
+confirm Carburettor heat used if the engine runs rough, and off once it is clear, section F
 confirm Altimeter set, and the fuel float watched as it sinks
-confirm Trimmed to hold her height, with a field always within gliding reach
+confirm Nothing above 122 m.p.h., 106 knots, which is the diving limit, section F
 
 phase descent
 range fcs/throttle-cmd-norm 0.10 0.60 Throttle back for the descent
-range velocities/vc-kts 43.0 60.0 Glide at 45 to 55 knots
-confirm Carburettor heat on before the throttle is closed
-confirm The engine warmed every minute or so on a long glide
+range velocities/vc-kts 43.0 60.0 Gliding between 50 and 60 m.p.h., 43 to 52 knots, section G
+confirm Carburettor heat on before the throttle is closed, section G
+confirm The engine cleared gently every 200 to 250 feet of a long glide, section G
 confirm Altimeter set to the field's pressure
 
 phase approach
-range velocities/vc-kts 42.0 55.0 Approach at 45 to 50 knots
+range velocities/vc-kts 42.0 55.0 Holding the glide, 50 to 60 m.p.h., section G
 check fcs/throttle-cmd-norm <= 0.50 Power well back on the approach
 confirm Carburettor heat on, and the strip and its windsock in sight
 confirm Sideslip off the height if she is high, for there are no flaps to help
 confirm The approach flown in a gentle curve so the strip stays in view
 
 phase landing
-range velocities/vc-kts 32.0 45.0 Over the hedge at 40 knots, slowing to the stall
+range velocities/vc-kts 32.0 45.0 Over the hedge at the bottom of the glide, slowing to the stall
 check fcs/throttle-cmd-norm <= 0.20 Throttle closed in the round-out
 check fcs/elevator-cmd-norm <= -0.70 Stick coming fully back as she settles
 confirm Three-pointed, or wheeled on if the wind is strong
 confirm Held straight with the rudder as she slows
 
 phase after-landing
+# Sections D and H.
 check velocities/vc-kts <= 25.0 Clear of the strip and slowed to a taxi
 check fcs/elevator-cmd-norm <= -0.40 Stick back again for the taxi
 check fcs/throttle-cmd-norm <= 0.35 Throttle back to a taxi power
-confirm Carburettor heat cold, and the trim reset
-confirm Chocks in and the brakes on before the switches go off
+confirm Carburettor heat off while idling, section D
+confirm The engine idled some minutes before the switch is cut, section D
+confirm Chocks in, ignition and fuel off, and the controls locked with the front belt, section H
