@@ -1,12 +1,15 @@
-# The McDonnell Douglas F-15C Eagle's checklists: this project's own, in its own words.
+# The McDonnell Douglas F-15C Eagle's checklists: this project's own words,
+# following the aeroplane's own flight manual.
 #
-# **They are not taken from the aeroplane's flight manual.** No such
-# manual was read to write them. What they follow is the ordinary
-# practice for the type, in the order it is flown; the speeds and
-# settings in them are this project's own figures, assets/figures/f15c.xml,
-# whose sources docs/ASSETS.md records, and the flight model itself
-# wherever the model is what decides - a lever's gate, a flap's travel,
-# an engine's idle.
+# **The source is T.O. 1F-15A-1**, the USAF flight manual for the F-15A, B, C
+# and D from block 7 up, section II, Normal Procedures, pages 2-7 to 2-12, as
+# scanned in the Internet Archive's copy at
+# <https://archive.org/details/f-15-manual>. docs/ASSETS.md records it.
+# What is below is that section's drills in this project's own words, cut
+# down to what a simulated aeroplane can be seen to do: the manual's radar,
+# IFF, INS alignment, ejection seat, canopy, oxygen and armament have nothing
+# here that could show them done, and are the pilot's to confirm or are left
+# out.
 #
 #   phase NAME                       one of: before-start, taxi, take-off,
 #                                    climb, cruise, descent, approach,
@@ -17,71 +20,90 @@
 #
 # with `#` beginning a comment; src/sim/checklist.hpp owns the format.
 #
-# The model has no flap channel, so nothing here reads a flap setting: the
-# aeroplane's flaps are the pilot's to confirm. It does have a speedbrake
-# lever, and the lever moves the surface, but the aerodynamics draws no drag
-# from it yet, so the speedbrake items below say only where the lever is. Its
-# two F100s light their reheat above a throttle of 0.99, which is what "into
-# reheat" and "no reheat" mean here.
+# The model has no flap channel, so nothing here reads a flap setting even
+# though the manual's drills turn on one: "Flaps - CHECK DOWN" before take-off
+# and "Flaps - UP" after landing are the pilot's to confirm here. It does have
+# a speedbrake lever, and the lever moves the surface, but the aerodynamics
+# draws no drag from it yet, so the speedbrake items below say only where the
+# lever is. Its two F100s light their reheat above a throttle of 0.99, which
+# is what "into reheat" and "no reheat" mean here.
+#
+# **The manual has no angle-of-attack channel here to read.** Its approach is
+# flown at on-speed AOA, 20 to 22 units, not at a speed; the speeds below are
+# this project's own figures in assets/figures/f15c.xml, and the manual's own
+# numbers are used where it gives them - 300 knots at the break, gear and
+# flaps below 250, aerobraking above 90.
 
 phase before-start
 confirm Walk-round done and the aeroplane clear to start
-confirm Strapped in, harness tight and the ejection seat pins stowed
-confirm Oxygen on, mask checked and the canopy clear
-confirm Armament safe and the master arm off
+confirm Strapped in, harness checked, and the ejection controls safety lever armed
+confirm Oxygen quantity checked and the oxygen test done
+confirm Armament master switch safe
 check fcs/throttle-cmd-norm <= 0.05 Both throttles closed
 check gear/gear-cmd-norm >= 0.95 Undercarriage lever down
 
 phase taxi
 check propulsion/engine[0]/n1 >= 35.0 Port engine running
 check propulsion/engine[1]/n1 >= 35.0 Starboard engine running
-check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever in
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake in
 confirm Brakes and nose wheel steering checked as the aeroplane first moves
 check fcs/throttle-cmd-norm <= 0.40 Taxi at a walking pace on low power
 
 phase take-off
-range fcs/pitch-trim-cmd-norm -0.35 0.35 Stabilator trim set for the take-off
-check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever in
-confirm Controls free and correct, canopy closed and locked, and the flaps set by eye
-check fcs/throttle-cmd-norm >= 0.99 Both throttles fully forward, into reheat
-check velocities/vc-kts >= 130.0 Ease the nose up at 130 knots
+# Before Takeoff, items 2 to 10, and the Takeoff paragraph.
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Take-off trim checked
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake in
+confirm Flight controls checked free, and the flaps checked down
+confirm Canopy closed and locked, and the pitot heat on
+range propulsion/engine[0]/n1 75.0 101.0 Engines advanced to 80 per cent, instruments checked
+check fcs/throttle-cmd-norm >= 0.90 Brakes released and the throttles up to military or maximum
+check velocities/vc-kts >= 115.0 Half aft stick at about 120 knots, rotating to ten degrees
 
 phase climb
+# Climb Techniques: military power, 350 knots to 0.90 Mach.
 check gear/gear-cmd-norm <= 0.05 Undercarriage lever up
 check gear/gear-pos-norm <= 0.05 Undercarriage locked up
-check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever in
-range velocities/vc-kts 300.0 400.0 Climb at 300 to 400 knots
-confirm Engine instruments checked, and the fuel watched while the reheat is lit
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake in
+range velocities/vc-kts 300.0 400.0 Climbing at 350 knots until 0.90 Mach
+confirm Engine instruments, cabin pressure, oxygen and fuel transfer watched
 
 phase cruise
-range velocities/mach 0.75 0.92 Cruise at Mach 0.75 to 0.90
+# Inflight: 0.90 Mach is what the military-power climb levels at.
+range velocities/mach 0.75 0.92 Holding 0.90 Mach or below
 range position/h-sl-ft 30000.0 45000.0 Level between 30,000 and 45,000 feet
 check fcs/throttle-cmd-norm <= 0.99 Military power, no reheat
 check gear/gear-pos-norm <= 0.05 Undercarriage up
-confirm Fuel checked against the leg still to fly
+confirm Internal against total fuel checked, and the transfer watched
 
 phase descent
-check fcs/speedbrake-cmd-norm >= 0.50 Speedbrake lever out
+# Descent Check/Before Landing: the two items the manual lists.
+check fcs/speedbrake-cmd-norm >= 0.50 Speedbrake out as required
 range fcs/throttle-cmd-norm 0.0 0.60 Throttles back for the descent
 check velocities/vc-kts <= 450.0 Down at no more than 450 knots
-confirm Altimeter set to the field's pressure
+confirm Armament master switch safe, and the altimeter set
 
 phase approach
-check gear/gear-cmd-norm >= 0.95 Undercarriage lever down
+# Normal Landing: 300 knots at the break, gear and flaps on downwind below
+# 250, on final at on-speed angle of attack.
+check gear/gear-cmd-norm >= 0.95 Undercarriage lever down on downwind, below 250 knots
 check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
-check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever in for the approach
-range velocities/vc-kts 145.0 175.0 Approach at 145 to 175 knots
-confirm Runway in sight and the landing light on
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake in for the approach
+range velocities/vc-kts 145.0 250.0 Speed reduced through the base turn to on-speed
+confirm Flaps down with the undercarriage, below 250 knots
+confirm On final at on-speed angle of attack, 20 to 22 units
 
 phase landing
-range velocities/vc-kts 135.0 160.0 Over the threshold at 135 to 160 knots
+range velocities/vc-kts 135.0 160.0 Over the threshold on speed
 check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
-check fcs/throttle-cmd-norm <= 0.25 Throttles closed in the flare
-confirm Hold the nose high after touchdown and let the aeroplane slow itself
+check fcs/throttle-cmd-norm <= 0.25 Throttles smoothly to idle at the flare
+confirm Nose raised to about thirteen degrees for aerodynamic braking, and not past fifteen
+confirm Aerobraking first, above 90 knots, and the wheel brakes after it
 
 phase after-landing
+# After Landing, items 1 to 8.
 check position/h-agl-ft <= 50.0 Down and rolling
-check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake lever in
+check fcs/speedbrake-cmd-norm <= 0.05 Speedbrake in
 check velocities/vc-kts <= 40.0 Clear of the runway and slowed to a taxi
 check fcs/throttle-cmd-norm <= 0.35 Throttles back to a taxi power
-confirm Master arm off and the landing light out
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Trim returned to take-off
+confirm Flaps up, and the ejection controls safety lever locked

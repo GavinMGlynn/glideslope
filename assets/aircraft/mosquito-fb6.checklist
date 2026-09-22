@@ -1,12 +1,17 @@
-# The de Havilland Mosquito FB Mk VI's checklists: this project's own, in its own words.
+# The de Havilland Mosquito FB Mk VI's checklists: this project's own words,
+# following the aeroplane's own Pilot's Notes.
 #
-# **They are not taken from the aeroplane's flight manual.** No such
-# manual was read to write them. What they follow is the ordinary
-# practice for the type, in the order it is flown; the speeds and
-# settings in them are this project's own figures, assets/figures/mosquito-fb6.xml,
-# whose sources docs/ASSETS.md records, and the flight model itself
-# wherever the model is what decides - a lever's gate, a flap's travel,
-# an engine's idle.
+# **The source is A.P. 2019E-P.N., January 1950, 2nd edition**, the same
+# Pilot's Notes docs/ASSETS.md already records for this aircraft's figures and
+# cites as [PN50]. Its own "PILOT'S CHECK LIST" runs to 128 numbered items on
+# pages 6 to 10, and Part II gives the handling that goes with them. What is
+# below is those drills in this project's own words, cut down to what a
+# simulated aeroplane can be seen to do: the Notes' external walk-round, its
+# dinghy, crash axe and first-aid kit, its intercom and its bomb doors have
+# nothing here that could show them done.
+#
+# The item or paragraph each check comes from is named against it, so that a
+# figure can be traced without reading the whole of Part II.
 #
 #   phase NAME                       one of: before-start, taxi, take-off,
 #                                    climb, cruise, descent, approach,
@@ -21,75 +26,103 @@
 # radiator shutters are open or shut and nothing between, and its supercharger
 # switch is AUTO or MOD, so both are read as over or under half.
 #
-# The Notes give no approach speed that has been found. The figures here are
-# worked from their stalling speeds in assets/figures/mosquito-fb6.xml -
-# 95 to 100 knots with the undercarriage and flaps down - a third above the
-# stall on the approach and a sixth over the boundary. The rest are the Notes'
-# own: 3,000 rpm for take-off, 2,850 for the climb, 2,650 continuous.
+# **Three things the Notes corrected.** An earlier version of this file was
+# written from ordinary practice for the type rather than from the Notes, and
+# it had the radiator shutters open for starting where para. 37 has them shut;
+# it put the fuel cocks on the main tanks where para. 37 starts on the outer
+# ones; and it climbed at 148 knots, the 1944 edition's 170 mph, where the
+# 1950 edition's para. 41 gives 150 knots.
+#
+# **The speed limits below are Part III's**, para. 52 (iv): undercarriage down
+# 155 knots, flaps not more than 25 degrees down 175 knots, flaps fully down
+# 130 knots. The stalling speeds are para. 43's, and are this project's
+# figures in assets/figures/mosquito-fb6.xml.
 
 phase before-start
-confirm Chocks in, the fire guard posted and the propellers called clear
-confirm Fuel cocks on the main tanks, and the contents checked
-check fcs/mixture-cmd-norm >= 0.95 Mixture levers up, where the carburettors do the rest
-check fcs/throttle-cmd-norm <= 0.2 Throttles half an inch open
-check fcs/advance-cmd-norm >= 0.95 Propeller levers fully forward, fully fine
-check fcs/cooling-flaps-cmd-norm[0] >= 0.5 Radiator shutters open for the ground
+# Check list items 38 to 51, and para. 37 (i).
+confirm Control locks removed and stowed, and the chocks in position
+check fcs/throttle-cmd-norm <= 0.2 Throttles half an inch open, item 53 and para. 37
+check fcs/advance-cmd-norm >= 0.95 R.p.m. control levers at the maximum r.p.m. position, para. 37
+check fcs/mixture-cmd-norm >= 0.95 Mixture up, where the carburettors do the rest
+check fcs/supercharger-cmd-norm <= 0.5 Superchargers at MOD, low gear, para. 37
+check fcs/cooling-flaps-cmd-norm[0] <= 0.5 Radiator shutters closed for the start, item 66 and para. 37
+check fcs/flap-pos-deg <= 0.5 Flaps up after the handpump check, item 65
+confirm Fuel cocks on the outer tanks and the transfer cock off, para. 37
+confirm Harness tight and locked, and the entrance door locked, items 84 and 85
 
 phase taxi
-check propulsion/engine[0]/engine-rpm >= 600 Port engine running and warming
-check propulsion/engine[1]/engine-rpm >= 600 Starboard engine running and warming
-check fcs/cooling-flaps-cmd-norm[0] >= 0.5 Radiator shutters open: a Merlin boils on the ground
+# Check list items 93 and 94, and para. 38: the shutters are opened as part
+# of exercising and testing, not before.
+check propulsion/engine[0]/engine-rpm >= 600 Port engine running, warmed at 1,200 r.p.m., para. 37
+check propulsion/engine[1]/engine-rpm >= 600 Starboard engine running and warming, para. 37
+check fcs/cooling-flaps-cmd-norm[0] >= 0.5 Radiator shutters opened at the magneto check, para. 38
 check fcs/flap-pos-deg <= 0.5 Flaps up
-confirm Brakes checked as the aircraft first moves, and the tail wheel free to castor
 check fcs/throttle-cmd-norm <= 0.4 Taxi on low power, turning on the outer throttle
+confirm Chocks clear and the brakes tested as soon as the aircraft moves, items 93 and 94
 
 phase take-off
-range fcs/flap-pos-deg 0.0 15.5 Flaps up, or fifteen degrees for a short run
+# Check list items 95 to 105, and para. 40.
+range fcs/pitch-trim-cmd-norm -0.35 0.35 Elevator trimmed one to one and a half divisions nose heavy, item 95
+check fcs/advance-cmd-norm >= 0.95 R.p.m. control levers at the maximum r.p.m. position, item 97
+range fcs/flap-pos-deg 0.0 15.5 Flaps up, or fifteen degrees down, item 99
+check fcs/supercharger-cmd-norm <= 0.5 Superchargers at MOD, item 100
+check fcs/cooling-flaps-cmd-norm[0] >= 0.5 Radiator shutters open, item 101
 check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
-check fcs/advance-cmd-norm >= 0.95 Propeller levers fully fine, for 3,000 rpm
-range fcs/pitch-trim-cmd-norm -0.35 0.35 Elevator trim set for take-off
-check fcs/throttle-cmd-norm >= 0.95 Throttles opened slowly to full, the swing held on the rudder
-check velocities/vc-kts >= 100 Unstick at about 100 knots and hold her down to the safety speed
+check fcs/throttle-cmd-norm >= 0.95 Throttles opened slowly, the swing held on the rudder, para. 40
+confirm Taxied forward a few yards to straighten the tailwheel, para. 40
 
 phase climb
-check gear/gear-pos-norm <= 0.05 Undercarriage up once there is no runway left to land on
-check fcs/flap-pos-deg <= 0.5 Flaps up by the safety speed, 155 knots at climbing power
-range propulsion/engine[0]/engine-rpm 2600 2950 Propeller levers back to the climbing gate, 2,850 rpm
+# Para. 41 (i) and (ii), and para. 40 (iv) to (vi).
+check gear/gear-pos-norm <= 0.05 Undercarriage up once comfortably airborne, para. 40
+check fcs/flap-pos-deg <= 0.5 Flaps up, the aircraft trimmed slightly tail heavy first, para. 40
+range propulsion/engine[0]/engine-rpm 2600 2950 Climbing at 2,850 r.p.m. in low gear, para. 41
+range velocities/vc-kts 130 170 Climbing at 150 knots, the speed for the maximum rate, para. 41
 check fcs/cooling-flaps-cmd-norm[0] >= 0.5 Radiator shutters open for the climb
-range velocities/vc-kts 130 170 Climb at 148 knots, the Notes' 170 mph
-check fcs/supercharger-cmd-norm >= 0.5 Supercharger switch at AUTO: FS gear comes in through 7,000 feet
+check fcs/supercharger-cmd-norm >= 0.5 Superchargers to AUTO as the obtainable boost falls, para. 41
+confirm Above 18,000 feet, two knots off the climbing speed for each 1,000 feet, para. 41
 
 phase cruise
+# Para. 44.
+range propulsion/engine[0]/engine-rpm 2000 2700 The lowest practicable r.p.m., and never above 2,650, paras. 44 and 51
 check fcs/cooling-flaps-cmd-norm[0] <= 0.5 Radiator shutters shut: open they cost the aircraft its speed
-range propulsion/engine[0]/engine-rpm 2000 2700 Propellers at 2,650 rpm or below, the continuous limit
+check fcs/supercharger-cmd-norm <= 0.5 Superchargers at MOD unless 2,650 r.p.m. would be passed, para. 44
 check fcs/flap-pos-deg <= 0.5 Flaps up
 check gear/gear-pos-norm <= 0.05 Undercarriage up
-confirm Drop tanks used first, and the cocks changed before either main tank runs low
+confirm Engines cleared every thirty minutes at 2,850 r.p.m. for thirty seconds, para. 44
 
 phase descent
+# Para. 42 (iv), flying at reduced airspeeds.
 range fcs/throttle-cmd-norm 0.1 0.6 Throttles back, but kept open enough to keep the engines warm
+range propulsion/engine[0]/engine-rpm 2000 2700 R.p.m. controls set to give 2,650, para. 42
 check fcs/cooling-flaps-cmd-norm[0] <= 0.5 Radiator shutters shut while the engines are cooling anyway
-check fcs/supercharger-cmd-norm >= 0.5 Supercharger at AUTO: MS gear returns below 6,500 feet
-confirm Altimeter set to the aerodrome's pressure
-confirm Fuel cocks back on the main tanks before the circuit
+check fcs/supercharger-cmd-norm >= 0.5 Supercharger left at AUTO on the way down
+confirm Speed reduced to 175 knots before the flaps are lowered fifteen degrees, para. 42
+confirm Altimeter set to the aerodrome's pressure, item 86
 
 phase approach
-check gear/gear-pos-norm >= 0.95 Undercarriage down and locked, and the indicators seen
-check fcs/advance-cmd-norm >= 0.95 Propeller levers fully fine, for the power a go-around would need
-range fcs/flap-pos-deg 20.0 45.5 Flaps down for the approach
-range velocities/vc-kts 115 140 Approach at 125 knots, a third above the stall with everything down
-check fcs/cooling-flaps-cmd-norm[0] >= 0.5 Radiator shutters open again for the slow running
+# Check list items 106 to 112, in the order the Notes give them.
+range velocities/vc-kts 100 160 Speed reduced to 155 knots for the undercarriage, item 110
+check gear/gear-pos-norm >= 0.95 Undercarriage down and locked, the green lights on, item 110
+range propulsion/engine[0]/engine-rpm 2700 2950 R.p.m. control levers set to give 2,850, item 111
+check fcs/supercharger-cmd-norm <= 0.5 Superchargers at MOD, item 109
+range fcs/flap-pos-deg 20.0 45.5 Flaps down once below 130 knots, item 112 and para. 52
+check fcs/cooling-flaps-cmd-norm[0] >= 0.5 Radiator shutters open for the slow running
+confirm Fullest tanks selected, item 108
 
 phase landing
-check fcs/flap-pos-deg >= 40.0 Flaps fully down, forty-five degrees
-check gear/gear-pos-norm >= 0.95 Undercarriage down and locked
-range velocities/vc-kts 105 120 Over the boundary at 110 knots
+# Item 112's note, and para. 52 (iv) for the speed the flaps may be fully
+# down at. The stall with everything down is 95 to 100 knots, para. 43.
+check fcs/flap-pos-deg >= 40.0 Flaps fully down, below 130 knots, item 112
+check gear/gear-pos-norm >= 0.95 Undercarriage re-selected down with the flaps down, item 112
+range velocities/vc-kts 105 130 Over the boundary above the 95 to 100 knot stall, para. 43
 check fcs/throttle-cmd-norm <= 0.2 Throttles closed in the hold-off
 confirm Wheels first with the tail up, and the brakes only once the speed has gone
 
 phase after-landing
-check fcs/flap-pos-deg <= 0.5 Flaps up
-check fcs/cooling-flaps-cmd-norm[0] >= 0.5 Radiator shutters open for the taxi in
+# Check list items 113 to 117, when clear of the landing area.
+check fcs/flap-pos-deg <= 0.5 Flaps up, selector neutral, item 113
+check fcs/cooling-flaps-cmd-norm[0] >= 0.5 Radiator shutters open, item 114
+check fcs/advance-cmd-norm >= 0.95 R.p.m. control levers to the maximum r.p.m. position, item 115
 check fcs/throttle-cmd-norm <= 0.35 Throttles back to a taxi power
-check velocities/vc-kts <= 30 Clear of the runway and slowed to a taxi
-confirm Brakes tried again, and the ground crew waved in ahead of the wing tips
+check velocities/vc-kts <= 30 Clear of the landing area and slowed to a taxi
+confirm Brake pressure sufficient for taxying, item 117
