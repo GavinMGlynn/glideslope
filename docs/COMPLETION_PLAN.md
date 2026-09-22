@@ -506,18 +506,28 @@ checklists are part of. A lesson ends in a debrief, never a score
       seven tests walk them: every item either names a state its own aircraft
       really has or is the pilot's to confirm, every band is one its
       aeroplane's controls can reach, and a file that is wrong is refused
-      where it is wrong. **Three of the sixteen are now written from the
+      where it is wrong. **Five of the sixteen are now written from the
       aeroplane's own handbook** - the Cessna 172P's and 182S's Pilot's
-      Operating Handbooks and the PA-28-180's Owner's Handbook, each read
-      from the copies `ASSETS.md` records, their items and figures kept in
-      the handbook's own order. **Still to do: the other thirteen.** The
+      Operating Handbooks, the PA-28-180's Owner's Handbook, the Mosquito
+      FB 6's Pilot's Notes (A.P. 2019E, January 1950) and the F-15C's flight
+      manual (T.O. 1F-15A-1) - each read from the copies `ASSETS.md`
+      records, their items and figures kept in the handbook's own order.
+      The last two were added on 2026-09-22, when the reason this item gave
+      for skipping them turned out not to cover them: it named thirteen and
+      explained ten, and the Mosquito's Notes were already in `ASSETS.md`
+      for its figures. Reading them corrected three things in the Mosquito's
+      file - radiator shutters open for starting where para. 37 shuts them,
+      fuel on the main tanks where it starts on the outer ones, and a climb
+      at the 1944 edition's 148 knots where the 1950 edition gives 150.
+      **Still to do: the other eleven.** The
       J-3 Cub's manual survives only as scans with no text in either copy
       recorded; no flight manual is public for the B-2A, the F-22A or the
-      F-35B; and the airliners' and business jet's operating manuals are
-      their operators' and are not published. Those thirteen follow the
+      F-35B; the Short S.23's were searched for and none found; and the
+      airliners' and business jet's operating manuals are
+      their operators' and are not published. Those eleven follow the
       ordinary practice for the type with figures from this project's own
       `assets/figures/<id>.xml`, and `ASSETS.md` says which is which rather
-      than naming a source that was not used.
+      than naming a source that was not used, aeroplane by aeroplane.
 - [x] **Checklists on screen, ticking themselves.** *Verification: the test
       pilot flies the Cessna's before-take-off, take-off and climb by the book,
       and every item the aircraft can see ticks at the tick its state first
