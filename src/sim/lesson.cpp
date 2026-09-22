@@ -38,6 +38,9 @@ double figure_of(const LessonNumber& number, const LessonSpeeds& speeds) {
     if (number.reference == "climb") {
         return speeds.climb_kts + number.offset;
     }
+    if (number.reference == "vref") {
+        return speeds.vref_kts + number.offset;
+    }
     return number.literal;
 }
 
@@ -46,7 +49,7 @@ bool read_number(std::string_view text, LessonNumber& out) {
     if (text.empty()) {
         return false;
     }
-    for (const char* name : {"rotate", "climb"}) {
+    for (const char* name : {"rotate", "climb", "vref"}) {
         const std::string_view head(name);
         if (text.size() >= head.size() && text.substr(0, head.size()) == head) {
             const std::string_view rest = text.substr(head.size());

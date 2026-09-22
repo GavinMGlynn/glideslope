@@ -3,6 +3,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
+#include "sim/lander.hpp"
 #include "sim/lesson.hpp"
 #include "sim/lesson_run.hpp"
 #include "sim/terrain.hpp"
@@ -364,4 +365,152 @@ GLIDESLOPE_TEST(rotating_early_is_caught_for_each_aeroplane_at_its_own_speed) {
         std::printf("    %s\n", said.c_str());
     }
     check(named, "and rotating early is named, which a class-wide number missed");
+}
+
+namespace {
+
+constexpr double degrees = 57.29577951308232;
+constexpr double metres_per_nm = 1852.0;
+constexpr double feet_per_metre = 3.280839895013123;
+
+double metres_per_degree_latitude(double latitude_deg) {
+    const double lat = latitude_deg / degrees;
+    return 111132.92 - 559.82 * std::cos(2.0 * lat) + 1.175 * std::cos(4.0 * lat) -
+           0.0023 * std::cos(6.0 * lat);
+}
+
+double metres_per_degree_longitude(double latitude_deg) {
+    const double lat = latitude_deg / degrees;
+    return 111412.84 * std::cos(lat) - 93.5 * std::cos(3.0 * lat) +
+           0.118 * std::cos(5.0 * lat);
+}
+
+struct Approached {
+    std::vector<std::string> debrief;
+    std::size_t completed = 0;
+    std::size_t stages = 0;
+    double least_kts = 1e9;
+    double most_kts = -1e9;
+    double vref_kts = 0.0;
+    // Per stage, so a band can be set from the stage it belongs to rather
+    // than from the whole flight.
+    std::vector<double> stage_least;
+    std::vector<double> stage_most;
+};
+
+// **Two miles out on the glidepath, down to a stop.** `fast_by_kts` is flown
+// by telling the approach autopilot a reference speed the aeroplane has not
+// got: it then flies a correct approach at the wrong speed, which is what an
+// approach flown fast is. The lesson still resolves `vref` from the
+// aeroplane's own published figures, so it sees the difference.
+Approached fly_the_approach(const std::string& id, double fast_by_kts) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const glideslope::sim::Runway runway = a_runway();
+    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+    auto flown_with = published;
+    flown_with.vref_kts += fast_by_kts;
+
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+
+    const double out_m = 2.0 * metres_per_nm;
+    const double heading = runway.heading_deg / degrees;
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg =
+        runway.threshold_lat_deg + (-out_m * std::cos(heading)) /
+                                       metres_per_degree_latitude(runway.threshold_lat_deg);
+    ic.longitude_deg =
+        runway.threshold_lon_deg + (-out_m * std::sin(heading)) /
+                                       metres_per_degree_longitude(runway.threshold_lat_deg);
+    ic.altitude_ft = runway.elevation_ft + (out_m + published.aim_m) *
+                                               std::tan(3.0 / degrees) * feet_per_metre;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = flown_with.vref_kts;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+
+    const auto lessons = glideslope::sim::read_lessons(data());
+    const auto it = std::find_if(lessons.begin(), lessons.end(), [](const Lesson& l) {
+        return l.id == "light-approach-and-landing";
+    });
+    check(it != lessons.end(), "the approach lesson is in the data");
+    const auto departure = glideslope::sim::departure_speeds(data(), entry.model);
+    LessonRun run(*it, glideslope::sim::LessonSpeeds{departure.rotate_kts,
+                                                     departure.climb_kts,
+                                                     published.vref_kts});
+
+    glideslope::sim::Lander lander(aircraft, runway, flown_with);
+    Approached out;
+    out.vref_kts = published.vref_kts;
+    out.stage_least.assign(it->stages.size(), 1e9);
+    out.stage_most.assign(it->stages.size(), -1e9);
+    for (int tick = 0; tick < 600 * steps_per_second && !run.finished(); ++tick) {
+        aircraft.set_controls(lander.fly());
+        aircraft.step();
+        const std::size_t which = run.stage();
+        run.update(aircraft, tick);
+        const double kts = aircraft.property("velocities/vc-kts");
+        if (which < out.stage_least.size()) {
+            out.stage_least[which] = std::min(out.stage_least[which], kts);
+            out.stage_most[which] = std::max(out.stage_most[which], kts);
+        }
+        if (aircraft.property("position/h-agl-ft") > 5.0) {
+            out.least_kts = std::min(out.least_kts, kts);
+            out.most_kts = std::max(out.most_kts, kts);
+        }
+    }
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    out.stages = it->stages.size();
+    return out;
+}
+
+} // namespace
+
+// **Flown by the book, the approach lesson leaves an empty debrief** - for
+// every light aeroplane, each down its own glidepath at its own speed.
+GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
+    std::size_t walked = 0;
+    for (const std::string& id : light_aircraft()) {
+        const Approached flown = fly_the_approach(id, 0.0);
+        std::printf("  %-6s vref %.0f:", id.c_str(), flown.vref_kts);
+        for (std::size_t i = 0; i < flown.stage_least.size(); ++i) {
+            if (flown.stage_most[i] > 0.0) {
+                std::printf("  stage %zu %.0f-%.0f", i, flown.stage_least[i],
+                            flown.stage_most[i]);
+            }
+        }
+        std::printf("  (%zu of %zu stages)\n", flown.completed, flown.stages);
+        for (const std::string& said : flown.debrief) {
+            std::printf("    %s\n", said.c_str());
+        }
+        check(flown.completed == flown.stages,
+              id + " got through all its stages, not " +
+                  std::to_string(flown.completed));
+        check(flown.debrief.empty(),
+              id + " flown by the book says nothing, and it said " +
+                  std::to_string(flown.debrief.size()) + " things");
+        ++walked;
+    }
+    check(walked == 4, "all four light aeroplanes were landed");
+}
+
+// **An approach flown fast is named in the debrief**, and a correct one is
+// not. The aeroplane flies a perfectly good approach - it is simply doing it
+// at a speed it has no business using.
+GLIDESLOPE_TEST(an_approach_flown_fast_is_named_in_the_debrief) {
+    const Approached fast = fly_the_approach("c172p", 20.0);
+    std::printf("  c172p vref %.0f, flown fast: %.0f to %.0f knots\n", fast.vref_kts,
+                fast.least_kts, fast.most_kts);
+    for (const std::string& said : fast.debrief) {
+        std::printf("    %s\n", said.c_str());
+    }
+    check(!fast.debrief.empty(), "an approach twenty knots fast is not faultless");
+    const bool named =
+        std::any_of(fast.debrief.begin(), fast.debrief.end(),
+                    [](const std::string& s) { return s == "Hold the approach speed"; });
+    check(named, "and the debrief says to hold the approach speed");
 }

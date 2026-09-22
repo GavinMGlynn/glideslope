@@ -15,8 +15,8 @@
 //   until PROPERTY OP VALUE       what ends the stage: a JSBSim property,
 //                                 `<=` or `>=`, and the figure. A figure is a
 //                                 number, or one the aeroplane publishes -
-//                                 `rotate`, `climb` - with an optional
-//                                 offset: `rotate-3`, `climb+10`
+//                                 `rotate`, `climb`, `vref` - with an
+//                                 optional offset: `rotate-3`, `vref+10`
 //   hold PROPERTY LOW HIGH TEXT...   a band that must hold for the whole
 //                                 stage; TEXT is what the debrief says if it
 //                                 is broken
@@ -58,7 +58,8 @@ struct LessonError : std::runtime_error {
 // speeds: the four light aircraft rotate between about 34 knots and about 55.
 // A literal number can only be the slowest of them, which catches nothing on
 // the fastest. So a figure may instead name one the aeroplane publishes -
-// `rotate`, `climb` - with an optional offset: `rotate-3`, `climb+10`.
+// `rotate`, `climb`, `vref` - with an optional offset: `rotate-3`,
+// `climb+10`.
 //
 // The names are the ones `sim::departure_speeds` works out from
 // `assets/figures/<id>.xml`, because those are the two a lesson needs and
@@ -75,12 +76,15 @@ struct LessonNumber {
 struct LessonSpeeds {
     double rotate_kts = 0.0;
     double climb_kts = 0.0;
+    // The speed over the threshold, 1.3 times the landing stall, which
+    // `sim::approach_speeds` works out from the same published figures.
+    double vref_kts = 0.0;
 };
 
 // The figure `number` means for an aeroplane with these speeds.
 double figure_of(const LessonNumber& number, const LessonSpeeds& speeds);
 
-// A figure as a lesson writes it: "55", "rotate", "rotate-3", "climb+10".
+// A figure as a lesson writes it: "55", "rotate", "rotate-3", "vref+10".
 // False for anything else, including a name there is none of.
 bool read_number(std::string_view text, LessonNumber& out);
 

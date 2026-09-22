@@ -1,0 +1,69 @@
+# The approach and the landing, in a light aeroplane: from the point the
+# aerodrome is in sight to the aeroplane stopped on the runway.
+#
+# **The source of the speeds is each aeroplane's own.** `vref` is the speed
+# over the threshold - by convention 1.3 times the stall speed with everything
+# down, which `sim::approach_speeds` works out from the published stall in
+# `assets/figures/<id>.xml`. The four light aircraft do not share one: writing
+# a number here would hold a Cessna to a Cub's speed and teach nothing. So
+# every speed below is `vref` with an offset.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The bands are set from what a correctly flown approach does**, measured by
+# flying all four light aeroplanes down a three-degree glidepath with the
+# approach autopilot and watching the speed, not guessed. An approach is flown
+# a little fast early and settles towards `vref` over the threshold, so the
+# band is open at the top and closer at the bottom: below `vref` on the
+# approach is the one that kills people.
+#
+# **No band watches the flare, and that is deliberate.** The flare is where
+# the speed is *meant* to go: the throttle closes, the nose comes up, and the
+# aeroplane is flown onto the wheels as the speed decays. A first draft of
+# this lesson held a speed band down to five feet and faulted every correct
+# landing there is - the PA-28 crossed its threshold at 64 knots and touched
+# at 37, which is a good landing, not a bad one. The speed is watched down to
+# twenty feet and let alone after that.
+#
+# **The measurement, so the band can be checked rather than believed.** Down a
+# three-degree glidepath from two miles, flown by the approach autopilot on
+# each aeroplane own published reference speed, the four hold - against their
+# own `vref` - between `vref-2` and `vref+5` on the approach, and between
+# `vref` and `vref+5` over the threshold: the 172 (vref 60) flew 58-64 then
+# 60-64, the 182 (vref 64) 61-69 then 64-69, the PA-28 (vref 64) 59-69 then
+# 61-68. The band below is `vref-8` to `vref+12`, which is that with about six
+# knots of margin at each end.
+#
+# **A first draft had `vref-5` at the bottom and the PA-28 failed it by a
+# knot.** A band set one knot outside what a correct approach actually does is
+# a band that faults good flying on a gusty day.
+
+name Approach and landing in a light aeroplane
+teaches light-aircraft
+
+stage The approach
+do Have the aerodrome in sight and join the approach on the runway heading
+do Set the landing flap and check the undercarriage
+do Hold the approach speed and let the aeroplane come down the glidepath
+hold velocities/vc-kts vref-8 vref+12 Hold the approach speed
+until position/h-agl-ft <= 50
+
+stage Over the threshold
+do Cross the threshold at the approach speed, on the centreline
+hold velocities/vc-kts vref-8 vref+12 Cross the threshold on speed
+until position/h-agl-ft <= 20
+
+stage The flare and the landing roll
+do Close the throttle and raise the nose to check the descent
+do Let the speed go: she should touch on the main wheels, nose high
+do Hold her straight with the rudder, and brake once she is rolling
+need fcs/throttle-cmd-norm <= 0.15 Close the throttle for the landing
+until velocities/vc-kts <= 20

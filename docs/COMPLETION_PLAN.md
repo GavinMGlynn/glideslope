@@ -586,8 +586,17 @@ checklists are part of. A lesson ends in a debrief, never a score
       wanting: a plain number could only be the slowest aeroplane in the
       class, so a 172 hauled off at 47 knots against its own 55 went
       unremarked. It is remarked now.
+      **The approach and landing is the second lesson, 2026-09-22**, and
+      `vref` joins `rotate` and `climb` as a figure an aeroplane publishes.
+      All four light aircraft fly it down a three-degree glidepath from two
+      miles with an empty debrief; flown twenty knots fast the debrief names
+      holding the approach speed and crossing the threshold on speed, both of
+      which are true. **No band watches the flare**, because the flare is
+      where the speed is meant to go - a first draft held one to five feet
+      and faulted every correct landing there is.
       Still missing: the circuit, the stalls, the
-      turns, and lessons for the other six classes of aircraft.
+      turns, climbs and descents, and lessons for the other six classes of
+      aircraft.
       **The reference speeds a lesson needs are published for the light
       aircraft and not for the rest**, which was looked into on 2026-09-21
       rather than assumed. Only six of the sixteen publish a stall speed and
