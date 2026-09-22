@@ -113,7 +113,7 @@ GLIDESLOPE_TEST(a_lesson_file_that_is_wrong_is_refused_and_says_where) {
         {"until without an operator", "name N\nstage S\ndo X\nuntil a 1\n"},
         {"until with a bad operator", "name N\nstage S\ndo X\nuntil a == 1\n"},
         {"until without a figure", "name N\nstage S\ndo X\nuntil a >= fast\n"},
-        {"a reference there is none of", "name N\nstage S\ndo X\nuntil a >= stall\n"},
+        {"a reference there is none of", "name N\nstage S\ndo X\nuntil a >= vne\n"},
         {"a reference with a bad offset", "name N\nstage S\ndo X\nuntil a >= rotate*3\n"},
         {"two untils in one stage", "name N\nstage S\ndo X\nuntil a >= 1\nuntil b >= 2\n"},
         {"hold without a band", "name N\nstage S\ndo X\nuntil a >= 1\nhold b 1 T\n"},
@@ -321,7 +321,18 @@ GLIDESLOPE_TEST(a_lesson_may_name_the_speeds_the_aeroplane_publishes) {
     check(glideslope::sim::read_number("climb+10", number) && number.named() &&
               number.reference == "climb" && std::abs(number.offset - 10.0) < 1e-9,
           "or goes on it");
-    check(!glideslope::sim::read_number("stall", number), "a name there is none of");
+    check(glideslope::sim::read_number("stall", number) && number.named() &&
+              number.reference == "stall",
+          "stall is one of them");
+    // **`stall` and `start` both begin with \"st\"**, and the first match
+    // wins, so both must still read as themselves.
+    check(glideslope::sim::read_number("start-150", number) && number.named() &&
+              number.reference == "start" && std::abs(number.offset + 150.0) < 1e-9,
+          "and start is not swallowed by stall");
+    check(glideslope::sim::read_number("stall+6", number) && number.named() &&
+              number.reference == "stall" && std::abs(number.offset - 6.0) < 1e-9,
+          "nor stall by start");
+    check(!glideslope::sim::read_number("vne", number), "a name there is none of");
     check(!glideslope::sim::read_number("rotate*3", number), "a bad offset");
     check(!glideslope::sim::read_number("", number), "and nothing at all");
 
@@ -439,9 +450,9 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
     });
     check(it != lessons.end(), "the approach lesson is in the data");
     const auto departure = glideslope::sim::departure_speeds(data(), entry.model);
-    LessonRun run(*it, glideslope::sim::LessonSpeeds{departure.rotate_kts,
-                                                     departure.climb_kts,
-                                                     published.vref_kts});
+    LessonRun run(*it, glideslope::sim::LessonSpeeds{
+                           departure.rotate_kts, departure.climb_kts,
+                           published.vref_kts, published.vref_kts / 1.3});
 
     glideslope::sim::Lander lander(aircraft, runway, flown_with);
     Approached out;
@@ -546,7 +557,10 @@ InFlight airborne(const std::string& id, double agl_ft) {
     out.aircraft->initialize(ic);
     const auto departure = glideslope::sim::departure_speeds(data(), entry.model);
     const auto approach = glideslope::sim::approach_speeds(data(), entry.model);
-    out.speeds = {departure.rotate_kts, departure.climb_kts, approach.vref_kts};
+    // The published stall is the reference speed divided by the 1.3 that
+    // made it, which is how `sim::approach_speeds` built it.
+    out.speeds = {departure.rotate_kts, departure.climb_kts, approach.vref_kts,
+                  approach.vref_kts / 1.3};
     out.start_agl_ft = agl_ft;
     out.start_heading_deg = 90.0;
     return out;
@@ -748,4 +762,108 @@ GLIDESLOPE_TEST(a_climb_at_the_wrong_speed_is_named_in_the_debrief) {
             return s == "Hold the climbing speed";
         });
     check(named, "and the debrief says to hold the climbing speed");
+}
+
+namespace {
+
+// **A stall, entered the way one is entered**: throttle closed, the height
+// held, the nose rising as the speed decays until the wing gives up. The
+// recovery is the control column forward and full power. `sloppy` recovers
+// late and lazily, which is what loses the height this lesson is about.
+Result fly_a_stall(const std::string& id, bool sloppy) {
+    InFlight f = airborne(id, 5000.0);
+    const Lesson lesson = the_lesson("light-stalls");
+    LessonRun run(lesson, f.speeds);
+
+    glideslope::sim::Controls controls;
+    controls.throttle = 0.6;
+    glideslope::sim::Autopilot autopilot(*f.aircraft, controls);
+    glideslope::sim::AutopilotModes modes = autopilot.modes();
+    modes.heading_deg = f.start_heading_deg;
+    modes.altitude_ft = f.start_agl_ft;
+    autopilot.set(modes);
+
+    Result out;
+    out.stages = lesson.stages.size();
+    const int settling = 20 * steps_per_second;
+    bool recovering = false;
+    // **The sloppy recovery is the same recovery, started late.** It is timed
+    // from the moment the lesson calls the stall rather than from a speed,
+    // because an aeroplane mushing in a stall does not go on slowing - wait
+    // for a speed six knots below the stall and it never comes, the nose
+    // stays up, and she descends all the way to the ground. That is not a
+    // late recovery, it is no recovery, and it taught the test nothing.
+    const int dawdle = sloppy ? 25 * steps_per_second : 0;
+    std::int64_t stalled_at = -1;
+    for (int tick = 0; tick < 600 * steps_per_second && !run.finished(); ++tick) {
+        glideslope::sim::Controls c = autopilot.fly();
+        if (tick >= settling && !recovering) {
+            // Throttle closed: the autopilot holds the height by raising the
+            // nose, and she slows towards the stall of her own accord.
+            c.throttle = 0.0;
+            if (run.stage() >= 1) {
+                if (stalled_at < 0) {
+                    stalled_at = tick;
+                }
+                if (tick - stalled_at >= dawdle) {
+                    recovering = true;
+                }
+            }
+        }
+        if (recovering) {
+            c.throttle = 1.0;
+            c.elevator = -0.45;
+            c.aileron = 0.0;
+        }
+        f.aircraft->set_controls(c);
+        f.aircraft->step();
+        if (tick >= settling) {
+            run.update(*f.aircraft, tick);
+            out.lowest_agl_ft =
+                std::min(out.lowest_agl_ft, f.aircraft->property("position/h-agl-ft"));
+        }
+    }
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    return out;
+}
+
+} // namespace
+
+// **A stall entered and recovered properly loses little height**, and the
+// lesson says nothing about it.
+GLIDESLOPE_TEST(the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief) {
+    std::size_t walked = 0;
+    for (const std::string& id : light_aircraft()) {
+        const Result flown = fly_a_stall(id, false);
+        std::printf("  %-6s lowest %.0f ft of 5000, %zu of %zu stages\n", id.c_str(),
+                    flown.lowest_agl_ft, flown.completed, flown.stages);
+        for (const std::string& said : flown.debrief) {
+            std::printf("    %s\n", said.c_str());
+        }
+        check(flown.completed == flown.stages,
+              id + " stalled and recovered, " + std::to_string(flown.completed) +
+                  " of " + std::to_string(flown.stages) + " stages");
+        check(flown.debrief.empty(),
+              id + " flown by the book says nothing, and it said " +
+                  std::to_string(flown.debrief.size()));
+        ++walked;
+    }
+    check(walked == 4, "all four were stalled");
+}
+
+// **A stall recovered late and lazily loses height, and is named for it.**
+GLIDESLOPE_TEST(a_stall_recovered_badly_is_named_in_the_debrief) {
+    const Result sloppy = fly_a_stall("c172p", true);
+    std::printf("  c172p recovered badly: lowest %.0f ft of 5000\n",
+                sloppy.lowest_agl_ft);
+    for (const std::string& said : sloppy.debrief) {
+        std::printf("    %s\n", said.c_str());
+    }
+    check(!sloppy.debrief.empty(), "a lazy recovery is not faultless");
+    const bool named = std::any_of(
+        sloppy.debrief.begin(), sloppy.debrief.end(), [](const std::string& s) {
+            return s == "Recover with the least height you can";
+        });
+    check(named, "and the debrief says so");
 }

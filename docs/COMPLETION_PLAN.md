@@ -604,7 +604,13 @@ checklists are part of. A lesson ends in a debrief, never a score
       climbing speed. Let sink through the turn, the debrief says to hold
       your height; flown thirty knots fast in the climb, it says to hold the
       climbing speed.
-      Still missing: the circuit, the stalls, and lessons for the other six
+      **Stalls are the fifth lesson, 2026-09-22**, and `stall` the fifth
+      figure an aeroplane may publish to one. The stall is entered the way
+      one is entered - throttle closed, the height held, the nose rising as
+      she slows - and all four recover losing between 59 and 196 feet with an
+      empty debrief. Left twenty-five seconds past the stall the 172 loses
+      430 and the debrief says to recover with the least height you can.
+      Still missing: the circuit, and lessons for the other six
       classes of aircraft.
       **The reference speeds a lesson needs are published for the light
       aircraft and not for the rest**, which was looked into on 2026-09-21

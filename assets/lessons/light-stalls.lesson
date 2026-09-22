@@ -1,0 +1,57 @@
+# The stall, in a light aeroplane: entering it, recognising it, and getting
+# out of it with the least height lost.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The speeds are each aeroplane's own.** `stall` is the published stall
+# speed with everything down, which `sim::approach_speeds` works out on the
+# way to the reference speed. The four light aircraft stall between about 33
+# knots and about 50: a number here would have the Cub stalling at the
+# Cessna's speed and teach nothing to either.
+#
+# **The height is against where the stage began.** A stall is practised at a
+# safe height, and what the lesson teaches is how little of it you need to
+# give up - not what the altimeter reads.
+#
+# **This is the clean stall, wings level, power off.** The stall in the
+# landing configuration and the stall off a turn are their own exercises and
+# are not written yet.
+#
+# **The height allowed in the recovery is measured.** Stalled from five
+# thousand feet and recovered as the wing gives up - control column forward,
+# full power - the four light aircraft lose between sixty and two hundred
+# feet: the Cub 59, the 172 189, the 182 196, the PA-28 170. Three hundred
+# feet is therefore that with a hundred feet of margin.
+#
+# **What it takes to break it, said so the band can be judged.** The 172 left
+# twelve seconds past the stall loses about three hundred feet and scrapes
+# through; left twenty-five seconds it loses four hundred and thirty and is
+# named. A recovery that late is a long way from a recovery, and a band that
+# caught a twelve-second delay would be catching the difference between two
+# good recoveries rather than the difference between a good one and a bad
+# one.
+
+name Stalls in a light aeroplane
+teaches light-aircraft
+
+stage Entering the stall
+do Close the throttle and hold the height as the speed comes back
+do Keep the wings level and the ball centred: a wing drop is what you are avoiding
+do Raise the nose as she slows, and watch the speed
+hold position/h-agl-ft start-200 start+200 Hold the height as the speed comes back
+until velocities/vc-kts <= stall+6
+
+stage The recovery
+do Move the control column forward to unstall the wing: that is the whole recovery
+do Full power as the nose comes down, and level the wings
+do Ease out of the descent once the speed is back, without stalling her again
+need position/h-agl-ft >= start-300 Recover with the least height you can
+until velocities/vc-kts >= climb

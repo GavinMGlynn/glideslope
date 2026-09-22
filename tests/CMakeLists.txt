@@ -145,6 +145,8 @@ set(GLIDESLOPE_UNIT_TESTS
     a_turn_that_loses_height_is_named_in_the_debrief
     the_climb_lesson_flown_by_the_book_leaves_an_empty_debrief
     a_climb_at_the_wrong_speed_is_named_in_the_debrief
+    the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief
+    a_stall_recovered_badly_is_named_in_the_debrief
     every_aircraft_says_which_class_it_is_and_the_requirements_agree
     a_local_velocity_becomes_the_same_velocity_in_the_earths_frame
     a_state_packet_written_and_read_back_is_the_same_packet

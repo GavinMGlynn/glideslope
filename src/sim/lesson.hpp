@@ -60,7 +60,7 @@ struct LessonError : std::runtime_error {
 // speeds: the four light aircraft rotate between about 34 knots and about 55.
 // A literal number can only be the slowest of them, which catches nothing on
 // the fastest. So a figure may instead name one the aeroplane publishes -
-// `rotate`, `climb`, `vref` - with an optional offset: `rotate-3`,
+// `rotate`, `climb`, `vref`, `stall` - with an optional offset: `rotate-3`,
 // `climb+10`.
 //
 // **`start` is the fourth, and it is not a speed.** It is whatever this
@@ -88,6 +88,9 @@ struct LessonSpeeds {
     // The speed over the threshold, 1.3 times the landing stall, which
     // `sim::approach_speeds` works out from the same published figures.
     double vref_kts = 0.0;
+    // The published stall speed with everything down, which is `vref` divided
+    // by the 1.3 that made it.
+    double stall_kts = 0.0;
 };
 
 // The figure `number` means for an aeroplane with these speeds.

@@ -197,6 +197,49 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Stalls, 2026-09-22
+
+**What is still missing: the circuit, and six of the seven classes.** Five of
+the six lessons exist, all for light aircraft.
+
+**The stall is entered the way a stall is entered**, not simulated: the
+throttle closes, the autopilot goes on holding the height by raising the
+nose, and she slows to the stall of her own accord. Recovered as the wing
+gives up - control column forward, full power - the four lose between fifty
+nine feet and a hundred and ninety six: the Cub 59, the PA-28 170, the 172
+189, the 182 196. The allowance is three hundred, which is that with a
+hundred feet of margin.
+
+**`stall` is the fifth figure a lesson may name**, after `rotate`, `climb`,
+`vref` and `start`. The four light aircraft stall between about 33 and about
+50 knots, so a number would have the Cub stalling at the Cessna speed.
+
+**A parser trap, caught by its own test.** `stall` and `start` both begin with
+"st" and the reference list is scanned in order, first match winning. The list
+puts `stall` first and a test now holds both `start-150` and `stall+6` to
+reading as themselves - because the next person to add a name beginning with
+"st" will not know this.
+
+**Two bad demonstrations, thrown away.** The first sloppy recovery used a
+gentler control movement as well as a later one, and flew the aeroplane into
+the ground: lowest four feet of five thousand. The test passed and the
+debrief named the right fault, but what it had demonstrated was that the
+lesson catches a crash, which is not what it is for.
+
+The second timed the recovery off a speed six knots below the stall - a speed
+that never comes, because an aeroplane mushing in a stall stops slowing. The
+recovery never triggered at all, the autopilot went on holding the nose up
+with no power, and she descended five thousand feet. That is not a late
+recovery, it is no recovery.
+
+**The demonstration that was kept changes one thing.** The same control
+movement, the same power, started late - timed from the moment the lesson
+calls the stall. Twelve seconds late costs about three hundred feet and
+scrapes through; twenty five costs four hundred and thirty and is named. That
+gap is in the lesson file, so the band can be judged rather than believed: a
+band that caught a twelve second delay would be catching the difference
+between two good recoveries.
+
 ### Turns, and climbs and descents, 2026-09-22
 
 **What is still missing: the circuit, the stalls, and six of the seven
