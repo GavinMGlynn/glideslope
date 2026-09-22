@@ -610,8 +610,18 @@ checklists are part of. A lesson ends in a debrief, never a score
       she slows - and all four recover losing between 59 and 196 feet with an
       empty debrief. Left twenty-five seconds past the stall the 172 loses
       430 and the debrief says to recover with the least height you can.
-      Still missing: the circuit, and lessons for the other six
-      classes of aircraft.
+      **`lesson/turned-deg` is the runner own property**, added 2026-09-22:
+      how far the aeroplane has turned since the stage began, signed and free
+      of the wrap at north. A raw heading cannot say "turned ninety degrees
+      left" - 340 is not less than 70 less eighty - so the turns lesson used
+      to work only because its test never crossed north.
+      **Still missing: the circuit**, which was written and withdrawn the
+      same day. The lesson data is sound and the autopilot is sound - a probe
+      commanded from 218 degrees to 250 while descending at 400 feet a minute
+      turned the short way, held its speed to a tenth of a knot and descended
+      at 396 - but the test that flies the pattern has a fault not yet found,
+      and a lesson whose test does not demonstrate it is not shipped.
+      Also missing: lessons for the other six classes of aircraft.
       **The reference speeds a lesson needs are published for the light
       aircraft and not for the rest**, which was looked into on 2026-09-21
       rather than assumed. Only six of the sixteen publish a stall speed and

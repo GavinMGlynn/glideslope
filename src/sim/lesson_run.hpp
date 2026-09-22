@@ -19,6 +19,15 @@
 // nothing else.** There is no score and no mark (`FEATURES.md`). A lesson
 // flown to the book leaves it empty.
 //
+// **One property is the runner's own, not the aeroplane's.**
+// `lesson/turned-deg` is how far the aeroplane has turned since the stage
+// began - signed, negative to the left, and free of the wrap at north. A
+// lesson cannot use `attitude/psi-deg` for this: a circuit turns through
+// three hundred and sixty degrees, so a heading of 340 is not "less than"
+// a start of 70 less eighty, and the stage would never end. Turning is a
+// difference, and differences are what the runner can work out and the data
+// cannot.
+//
 // This is the simulation's own: it reads the aircraft and keeps a state, and
 // draws nothing.
 
@@ -71,6 +80,10 @@ public:
 private:
     void judge_needs(const Aircraft& aircraft, std::int64_t tick);
     void remember_the_start(const Aircraft& aircraft);
+    // A property, the runner's own ones included. False if this aeroplane
+    // has not got it.
+    bool read(const Aircraft& aircraft, const std::string& property,
+              double& out) const;
 
     Lesson lesson_;
     LessonSpeeds speeds_;
@@ -81,6 +94,9 @@ private:
     // What each property this stage watches read when the stage began, which
     // is what a `start` in a figure resolves against.
     std::map<std::string, double> began_;
+    // The heading when the stage began, which `lesson/turned-deg` is measured
+    // from.
+    double heading_at_start_deg_ = 0.0;
     bool noted_ = false;
     std::vector<Fault> debrief_;
 };

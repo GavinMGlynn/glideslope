@@ -20,6 +20,13 @@
 # pick one. The right-hand version is the same lesson with the signs turned
 # over, and is not written until something needs it.
 #
+# **`lesson/turned-deg` is how far she has turned since the stage began**, and
+# it is the runner own, not the aeroplane. An earlier draft ended the turn on
+# `attitude/psi-deg <= start-60`, which works only while the turn does not
+# pass north: a heading of 340 is not less than 70 less sixty, and the stage
+# would never end. Turning is a difference, and a raw heading cannot express
+# one.
+#
 # The skill being taught is the height, not the bank: a turn that loses a
 # couple of hundred feet is the fault this lesson exists to name.
 #
@@ -50,7 +57,7 @@ do Hold the bank steady and the nose where it was
 do Keep the height: this is what the turn is for
 hold attitude/phi-deg -45.0 -12.0 Hold the bank steady through the turn
 hold position/h-agl-ft start-150 start+150 Hold your height through the turn
-until attitude/psi-deg <= start-60
+until lesson/turned-deg <= -60
 
 stage Rolling out
 do Roll the wings level and let the nose settle
