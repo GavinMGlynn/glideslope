@@ -200,11 +200,16 @@ add_library(glideslope_net STATIC
     src/net/interpolation.cpp
     src/net/messages.cpp
     src/net/protocol.cpp
+    src/net/session.cpp
     src/net/slots.cpp
     src/net/state.cpp
     src/net/reliable.cpp)
 target_include_directories(glideslope_net PUBLIC src)
-target_link_libraries(glideslope_net PUBLIC unofficial-sodium::sodium)
+# **The network links the platform**, because a client session owns its
+# socket. It still links nothing presentational, which is what the layering
+# check cares about.
+target_link_libraries(glideslope_net PUBLIC unofficial-sodium::sodium
+                                             glideslope_platform)
 glideslope_configure(glideslope_net)
 
 # ...and links none, checked once every target_link_libraries below has run.
@@ -337,7 +342,7 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
         src/frontend/client/main.cpp
         src/frontend/client/scenes.cpp
         src/frontend/client/terrain.cpp)
-    target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_sim glideslope_world
+    target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_net glideslope_sim glideslope_world
                                              glideslope_platform)
     glideslope_configure(glideslope)
 endif()

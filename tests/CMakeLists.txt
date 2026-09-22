@@ -1074,6 +1074,16 @@ add_test(NAME a_server_started_by_systemd_accepts_a_client
 set_tests_properties(a_server_started_by_systemd_accepts_a_client PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/deploy)
 
+# **And so does the client with the window**, which is the one a person flies.
+# Needs a GPU, so it skips where there is none; see cmake/client_online_window.cmake.
+add_test(NAME the_client_with_the_window_joins_the_server_server_txt_names
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/online -DPORT=47874 -DDRIVER=vulkan
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_online_window.cmake)
+set_tests_properties(the_client_with_the_window_joins_the_server_server_txt_names
+    PROPERTIES SKIP_RETURN_CODE 77)
+
 # **A client started with --online reaches the server server.txt names.** See
 # cmake/client_online.cmake, which names the file by the environment rather
 # than writing into the person's own config directory.

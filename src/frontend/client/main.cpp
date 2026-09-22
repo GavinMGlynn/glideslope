@@ -25,6 +25,7 @@
 #include "gfx/sky.hpp"
 #include "gfx/terrain_tiles.hpp"
 #include "platform/input.hpp"
+#include "net/session.hpp"
 #include "platform/paths.hpp"
 #include "scenes.hpp"
 #include "sim/catalogue.hpp"
@@ -77,6 +78,11 @@ struct Options {
     bool imagery = true;
     std::string terrain_provider = "open";
     std::string mismatch;
+    // **Where the server is**, if this client is to join one. `--online`
+    // reads it from server.txt; `--server`/`--server-key` say it outright.
+    std::string server;     // HOST:PORT
+    std::string server_key; // 64 hexadecimal digits
+    bool online = false;
     std::vector<glideslope::world::Microburst> microbursts;
     std::string weather_station;
     std::string metar;
@@ -108,6 +114,7 @@ void usage(std::FILE* out) {
         "                  [--view cockpit|ahead|behind|left|right|above|orbit]\n"
         "                  [--draw-aircraft on|off]\n"
         "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
+        "                  [--online | --server HOST PORT --server-key HEX]\n"
         "       glideslope --version | --help\n"
         "\n"
         "  --screen      what to show: the flight (the default), the terrain alone,\n"
@@ -222,6 +229,13 @@ int main(int argc, char** argv) {
             return 0;
         } else if (a == "--headless") {
             o.headless = true;
+        } else if (a == "--online") {
+            o.online = true;
+        } else if (a == "--server" && i + 2 < args.size()) {
+            o.server = std::string(args[i + 1]) + ":" + std::string(args[i + 2]);
+            i += 2;
+        } else if (a == "--server-key" && has_value) {
+            o.server_key = std::string(args[++i]);
         } else if (a == "--trace") {
             o.trace = true;
         } else if (a == "--gpu-driver" && has_value) {
@@ -724,8 +738,46 @@ int main(int argc, char** argv) {
         auto last = std::chrono::steady_clock::now();
         std::int64_t ticks = 0;
         long frames = 0;
+        // **Joining a server, if this client was told to.** The session is
+        // the network's, not this program's: `glideslope_cli` uses the same
+        // one. What the client does with it is still only to stay in it -
+        // the aircraft on screen are its own, and drawing the server's is
+        // the item below this one in `COMPLETION_PLAN.md`.
+        std::optional<glideslope::net::ClientSession> session;
+        if (o.online || !o.server.empty()) {
+            std::string where = o.server;
+            std::string key = o.server_key;
+            if (o.online) {
+                const auto named = glideslope::platform::default_server();
+                if (!named) {
+                    std::fprintf(stderr,
+                                 "glideslope: --online needs a server.txt naming a "
+                                 "host, a port and a key\n");
+                    return 2;
+                }
+                where = named->host + ":" + std::to_string(named->port);
+                key = named->key_hex;
+                std::printf("server.txt: %s port %u\n", named->host.c_str(),
+                            static_cast<unsigned>(named->port));
+            }
+            if (key.empty()) {
+                std::fprintf(stderr, "glideslope: --server needs --server-key\n");
+                return 2;
+            }
+            session = glideslope::net::ClientSession::connect(where, key);
+            if (!session) {
+                std::fprintf(stderr, "glideslope: cannot reach %s\n", where.c_str());
+                return 1;
+            }
+            std::printf("session with %s\n", session->theirs().text().c_str());
+            std::fflush(stdout);
+        }
+
         bool running = true;
         while (running) {
+            if (session) {
+                session->poll(0.0);
+            }
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_EVENT_QUIT) {

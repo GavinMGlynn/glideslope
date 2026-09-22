@@ -23,6 +23,17 @@ implementing something go in at the bottom the moment they are found.
 sed -n '/^## Phase /,/^## Tails/p' docs/COMPLETION_PLAN.md | grep '^- \[ \]'
 ```
 
+- [ ] **A `--terrain ion` run can hang for ever, past its own timeout.** Found
+      2026-09-22: five `glideslope --terrain ion` processes were still alive
+      after **a day and a half**, each wrapped in a `timeout -s TERM` of four
+      to eight minutes that had long since fired. They hold the GPU and the
+      Cesium cache, which is what the "database is locked" flake recorded
+      above is: a later run meets a process from a previous day. The TERM is
+      sent and ignored - something in the shutdown path waits on Cesium's
+      network or its cache without a deadline. *Verification: a terrain run
+      given a timeout is gone when the timeout has passed, and a run killed
+      part-way leaves no lock behind.*
+
 - [ ] **A published stall speed for the F-15C, which would give the fighter
       class its approach and stall lessons.** Found 2026-09-22 while looking
       for why ten aeroplanes can have only a turns lesson. The F-15's own
@@ -961,19 +972,21 @@ checklists are part of. A lesson ends in a debrief, never a score
       vcpkg: libsodium, SQLite and libcurl come from the distribution. It
       configures in **6 seconds against the full build's seven minutes** and
       builds the server in about thirty.
-- [ ] **`--online`** through a one-line `server.txt` — **still to do: only
-      `glideslope_cli` has it. The client with the window cannot connect to
-      anything at all**, so a person who flies rather than types has no way to
-      use it. *Verification: a client started with `--online` reaches the
-      server `server.txt` names.* **Done for the command-line client,
-      2026-09-22**: `connect --online` reads a host, a port and a public key
-      from `server.txt` and reaches that server, and both forms
-      `REQUIREMENTS.md` 6.6 names work - `--online` and `--server HOST PORT
-      --server-key HEX`. The key in the file is not a secret: it is the half
-      a server prints at startup for this purpose, so the line may be sent to
-      anybody. Thirteen ways a line can fail to be one are refused and
-      counted, and a client with no `server.txt` says what it needs rather
-      than connecting to nothing.
+- [x] **`--online`** through a one-line `server.txt`. *Verification: a client
+      started with `--online` reaches the server `server.txt` names.* Done,
+      2026-09-22, for **both** clients: `glideslope_cli` and the one with the
+      window. `server.txt` is one line naming a host, a port and the server's
+      public key - everything a client needs and nothing that is a secret,
+      since the key is the half a server prints at startup for exactly this
+      purpose. Both forms `REQUIREMENTS.md` 6.6 asks for work: `--online` and
+      `--server HOST PORT --server-key HEX`. Thirteen ways a line can fail to
+      be one are refused and counted, a client with no `server.txt` says what
+      it needs rather than connecting to nothing, and the tests name the file
+      through `GLIDESLOPE_SERVER_TXT` rather than writing into the person's
+      own config directory. **The session lives in `src/net/` now**, not in
+      one program's `main`: it was written inside the command-line client,
+      which is why the client with the window could not connect to anything
+      at all until today.
 - [ ] **Four machines in one sky.** *Verification: four clients on different
       operating systems and one server-run AI Cessna fly together; a fifth
       client is refused; `--players 2` refuses a third; all are visible on the
