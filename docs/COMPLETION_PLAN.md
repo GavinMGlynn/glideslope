@@ -23,45 +23,6 @@ implementing something go in at the bottom the moment they are found.
 sed -n '/^## Phase /,/^## Tails/p' docs/COMPLETION_PLAN.md | grep '^- \[ \]'
 ```
 
-- [ ] **A `--terrain ion` run can hang for ever, past its own timeout.** Found
-      2026-09-22: five `glideslope --terrain ion` processes were still alive
-      after **a day and a half**, each wrapped in a `timeout -s TERM` of four
-      to eight minutes that had long since fired. They hold the GPU and the
-      Cesium cache, which is what the "database is locked" flake recorded
-      above is: a later run meets a process from a previous day. The TERM is
-      sent and ignored - something in the shutdown path waits on Cesium's
-      network or its cache without a deadline. *Verification: a terrain run
-      given a timeout is gone when the timeout has passed, and a run killed
-      part-way leaves no lock behind.*
-
-- [ ] **A published stall speed for the F-15C, which would give the fighter
-      class its approach and stall lessons.** Found 2026-09-22 while looking
-      for why ten aeroplanes can have only a turns lesson. The F-15's own
-      flight manual does publish one: T.O. 1F-15A-1, Appendix A, the Stall
-      Speeds charts, whose worked sample gives **107 knots with flaps and
-      gear down at 40,000 lb, 15 degrees of bank, 10,000 feet and maximum
-      thrust**. That is not directly what this project's `stall_speed`
-      figures hold - those are power off and wings level - so taking it needs
-      either a figure that carries its bank and thrust as conditions, or the
-      1g power-off number read off the same chart rather than from its
-      sample. The manual is in the Internet Archive copy `ASSETS.md` already
-      records for the F-15C's checklist. *Verification: the F-15C stalls near
-      its published speed in the configuration the figure names, and its class
-      gains the approach and stall lessons.*
-
-- [ ] **The autopilot banks to its limit even when the aeroplane cannot
-      sustain the turn.** Found 2026-09-22 by probing every class through a
-      ninety-degree turn. At 3,000 feet the Cessna 172P holds its height to
-      within fifteen feet and its speed exactly, at 85 knots or 100. At
-      10,000 feet - near its ceiling - the same turn costs it 2,076 feet and
-      its speed decays to 46 knots, at either speed, because a thirty-degree
-      bank needs more lift than it has power for and nothing reduces the
-      bank. Every other class holds its height within sixteen feet at 10,000
-      feet, so this is an aeroplane near its ceiling rather than a class of
-      aeroplane. *Verification: a light aeroplane turned through ninety
-      degrees near its ceiling holds its height within the same band it holds
-      at three thousand feet.*
-
 The phase order is not arbitrary. The flight model and the state set/resume
 wrapper come before any renderer or network, because they answer the two
 questions that could sink the project cheaply: does it feel right, and can a
@@ -1074,6 +1035,43 @@ checklists are part of. A lesson ends in a debrief, never a score
 ## Tails
 
 Found while implementing something else. Added when found, not when remembered.
+
+- [ ] **A `--terrain ion` run can hang for ever, past its own timeout.** Found
+      2026-09-22: five `glideslope --terrain ion` processes were still alive
+      after **a day and a half**, each wrapped in a `timeout -s TERM` of four
+      to eight minutes that had long since fired. They hold the GPU and the
+      Cesium cache, which is what the "database is locked" flake recorded
+      above is: a later run meets a process from a previous day. The TERM is
+      sent and ignored - something in the shutdown path waits on Cesium's
+      network or its cache without a deadline. *Verification: a terrain run
+      given a timeout is gone when the timeout has passed, and a run killed
+      part-way leaves no lock behind.*
+- [ ] **A published stall speed for the F-15C, which would give the fighter
+      class its approach and stall lessons.** Found 2026-09-22 while looking
+      for why ten aeroplanes can have only a turns lesson. The F-15's own
+      flight manual does publish one: T.O. 1F-15A-1, Appendix A, the Stall
+      Speeds charts, whose worked sample gives **107 knots with flaps and
+      gear down at 40,000 lb, 15 degrees of bank, 10,000 feet and maximum
+      thrust**. That is not directly what this project's `stall_speed`
+      figures hold - those are power off and wings level - so taking it needs
+      either a figure that carries its bank and thrust as conditions, or the
+      1g power-off number read off the same chart rather than from its
+      sample. The manual is in the Internet Archive copy `ASSETS.md` already
+      records for the F-15C's checklist. *Verification: the F-15C stalls near
+      its published speed in the configuration the figure names, and its class
+      gains the approach and stall lessons.*
+- [ ] **The autopilot banks to its limit even when the aeroplane cannot
+      sustain the turn.** Found 2026-09-22 by probing every class through a
+      ninety-degree turn. At 3,000 feet the Cessna 172P holds its height to
+      within fifteen feet and its speed exactly, at 85 knots or 100. At
+      10,000 feet - near its ceiling - the same turn costs it 2,076 feet and
+      its speed decays to 46 knots, at either speed, because a thirty-degree
+      bank needs more lift than it has power for and nothing reduces the
+      bank. Every other class holds its height within sixteen feet at 10,000
+      feet, so this is an aeroplane near its ceiling rather than a class of
+      aeroplane. *Verification: a light aeroplane turned through ninety
+      degrees near its ceiling holds its height within the same band it holds
+      at three thousand feet.*
 
 - [ ] **Cesium ion on Windows, where a body arrives compressed unasked.**
       *(Found 2026-09-21 turning `WINHTTP_OPTION_DECOMPRESSION` on and

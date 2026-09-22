@@ -9,7 +9,7 @@
 #   tools/next_item.sh --all    every open item, in plan order
 plan="$(dirname "$0")/../docs/COMPLETION_PLAN.md"
 if [ "$1" = "--all" ]; then
-    awk '/^## Phase /{p=$0} /^## Tails/{exit} /^- \[ \]/{print p" | "$0}' "$plan"
+    awk '/^## Phase /{p=$0} /^## Tails/{exit} /^- \[ \]/{if (p != "") print p" | "$0}' "$plan"
     exit 0
 fi
-awk '/^## Phase /{p=$0} /^## Tails/{exit} /^- \[ \]/{print p; print; exit}' "$plan"
+awk '/^## Phase /{p=$0} /^## Tails/{exit} /^- \[ \]/{if (p != "") {print p; print; exit}}' "$plan"
