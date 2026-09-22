@@ -15,16 +15,18 @@ bool value_of(const Aircraft& aircraft, const std::string& property, double& out
     }
 }
 
-bool met(const LessonWatch& watch, double value) {
+bool met(const LessonWatch& watch, double value, const LessonSpeeds& speeds) {
+    const double low = figure_of(watch.low, speeds);
     if (watch.banded) {
-        return value >= watch.low && value <= watch.high;
+        return value >= low && value <= figure_of(watch.high, speeds);
     }
-    return watch.at_least ? value >= watch.low : value <= watch.low;
+    return watch.at_least ? value >= low : value <= low;
 }
 
 } // namespace
 
-LessonRun::LessonRun(Lesson lesson) : lesson_(std::move(lesson)) {
+LessonRun::LessonRun(Lesson lesson, LessonSpeeds speeds)
+    : lesson_(std::move(lesson)), speeds_(speeds) {
     if (!lesson_.stages.empty()) {
         already_.assign(lesson_.stages.front().holds.size(), false);
     }
@@ -37,7 +39,7 @@ void LessonRun::judge_needs(const Aircraft& aircraft, std::int64_t tick) {
         if (!value_of(aircraft, need.property, value)) {
             continue;
         }
-        if (!met(need, value)) {
+        if (!met(need, value, speeds_)) {
             debrief_.push_back({need.fault, stage.name, tick});
         }
     }
@@ -59,7 +61,7 @@ void LessonRun::update(const Aircraft& aircraft, std::int64_t tick) {
             if (!value_of(aircraft, stage.holds[i].property, value)) {
                 continue;
             }
-            if (!met(stage.holds[i], value)) {
+            if (!met(stage.holds[i], value, speeds_)) {
                 debrief_.push_back({stage.holds[i].fault, stage.name, tick});
                 already_[i] = true;
             }
@@ -70,8 +72,9 @@ void LessonRun::update(const Aircraft& aircraft, std::int64_t tick) {
         if (!value_of(aircraft, stage.until_property, ending)) {
             return; // nothing here can end it; a test catches that
         }
-        const bool over = stage.until_at_least ? ending >= stage.until_value
-                                               : ending <= stage.until_value;
+        const double ends_at = figure_of(stage.until_value, speeds_);
+        const bool over =
+            stage.until_at_least ? ending >= ends_at : ending <= ends_at;
         if (!over) {
             return;
         }

@@ -40,7 +40,10 @@ struct Fault {
 
 class LessonRun {
 public:
-    explicit LessonRun(Lesson lesson);
+    // `speeds` are this aeroplane own published figures, which is what a
+    // `rotate` or `climb` in the lesson resolves against. A lesson with no
+    // named figures in it does not care what they are.
+    LessonRun(Lesson lesson, LessonSpeeds speeds);
 
     // Read the aircraft, judge the current stage, and move on if it is over.
     // `tick` is the simulation's step count.
@@ -68,6 +71,7 @@ private:
     void judge_needs(const Aircraft& aircraft, std::int64_t tick);
 
     Lesson lesson_;
+    LessonSpeeds speeds_;
     std::size_t stage_ = 0;
     // One flag per hold of the current stage, so a broken band is recorded
     // once rather than on every tick.

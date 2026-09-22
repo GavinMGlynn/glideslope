@@ -28,6 +28,54 @@ std::string joined(const std::vector<std::string>& w, std::size_t from) {
 
 } // namespace
 
+double figure_of(const LessonNumber& number, const LessonSpeeds& speeds) {
+    if (!number.named()) {
+        return number.literal;
+    }
+    if (number.reference == "rotate") {
+        return speeds.rotate_kts + number.offset;
+    }
+    if (number.reference == "climb") {
+        return speeds.climb_kts + number.offset;
+    }
+    return number.literal;
+}
+
+bool read_number(std::string_view text, LessonNumber& out) {
+    out = LessonNumber{};
+    if (text.empty()) {
+        return false;
+    }
+    for (const char* name : {"rotate", "climb"}) {
+        const std::string_view head(name);
+        if (text.size() >= head.size() && text.substr(0, head.size()) == head) {
+            const std::string_view rest = text.substr(head.size());
+            out.reference = std::string(head);
+            if (rest.empty()) {
+                out.offset = 0.0;
+                return true;
+            }
+            if (rest[0] != '+' && rest[0] != '-') {
+                return false;
+            }
+            try {
+                std::size_t used = 0;
+                out.offset = std::stod(std::string(rest), &used);
+                return used == rest.size();
+            } catch (const std::exception&) {
+                return false;
+            }
+        }
+    }
+    try {
+        std::size_t used = 0;
+        out.literal = std::stod(std::string(text), &used);
+        return used == text.size();
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
 Lesson parse_lesson(const std::string& id, std::string_view text) {
     Lesson lesson;
     lesson.id = id;
@@ -92,10 +140,8 @@ Lesson parse_lesson(const std::string& id, std::string_view text) {
             }
             stage.until_property = w[1];
             stage.until_at_least = w[2] == ">=";
-            try {
-                stage.until_value = std::stod(w[3]);
-            } catch (const std::exception&) {
-                throw wrong("until wants a number, not \"" + w[3] + "\"");
+            if (!read_number(w[3], stage.until_value)) {
+                throw wrong("until wants a figure, not \"" + w[3] + "\"");
             }
         } else if (w[0] == "hold") {
             if (w.size() < 5) {
@@ -103,14 +149,15 @@ Lesson parse_lesson(const std::string& id, std::string_view text) {
             }
             LessonWatch watch;
             watch.property = w[1];
-            try {
-                watch.low = std::stod(w[2]);
-                watch.high = std::stod(w[3]);
-            } catch (const std::exception&) {
-                throw wrong("hold wants two numbers for its band");
+            if (!read_number(w[2], watch.low) || !read_number(w[3], watch.high)) {
+                throw wrong("hold wants two figures for its band");
             }
-            if (!(watch.low <= watch.high)) {
-                throw wrong("hold's band runs backwards");
+            // A band of two plain numbers must run the right way. One written
+            // against the aeroplane own speeds cannot be checked here,
+            // because the aeroplane is not known yet; a test flies them.
+            if (!watch.low.named() && !watch.high.named() &&
+                !(watch.low.literal <= watch.high.literal)) {
+                throw wrong("hold band runs backwards");
             }
             watch.banded = true;
             watch.fault = joined(w, 4);
@@ -122,10 +169,8 @@ Lesson parse_lesson(const std::string& id, std::string_view text) {
             LessonWatch watch;
             watch.property = w[1];
             watch.at_least = w[2] == ">=";
-            try {
-                watch.low = std::stod(w[3]);
-            } catch (const std::exception&) {
-                throw wrong("need wants a number, not \"" + w[3] + "\"");
+            if (!read_number(w[3], watch.low)) {
+                throw wrong("need wants a figure, not \"" + w[3] + "\"");
             }
             watch.high = watch.low;
             watch.fault = joined(w, 4);

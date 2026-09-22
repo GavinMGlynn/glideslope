@@ -79,11 +79,11 @@ GLIDESLOPE_TEST(a_lesson_written_down_and_read_back_is_the_one_that_was_written)
     check(first.doing[0] == "One thing to do", "in order");
     check(first.doing[1] == "And another", "in order");
     check(first.until_property == "velocities/vc-kts" && first.until_at_least &&
-              std::abs(first.until_value - 50.0) < 1e-9,
+              std::abs(first.until_value.literal - 50.0) < 1e-9,
           "and what ends it");
     check(first.holds.size() == 1 && first.holds[0].banded, "one band to hold");
-    check(std::abs(first.holds[0].low - 40.0) < 1e-9 &&
-              std::abs(first.holds[0].high - 60.0) < 1e-9,
+    check(std::abs(first.holds[0].low.literal - 40.0) < 1e-9 &&
+              std::abs(first.holds[0].high.literal - 60.0) < 1e-9,
           "with both its ends");
     check(first.holds[0].fault == "Hold the speed", "and what the debrief says");
     check(first.needs.size() == 1 && first.needs[0].at_least, "one need");
@@ -92,7 +92,7 @@ GLIDESLOPE_TEST(a_lesson_written_down_and_read_back_is_the_one_that_was_written)
     check(lesson.stages[1].name == "The second stage", "the second stage is read");
     check(lesson.stages[1].holds.empty() && lesson.stages[1].needs.empty(),
           "a stage may watch nothing");
-    check(std::abs(lesson.stages[1].until_value - 500.0) < 1e-9,
+    check(std::abs(lesson.stages[1].until_value.literal - 500.0) < 1e-9,
           "and a trailing comment does not spoil its number");
 }
 
@@ -110,7 +110,9 @@ GLIDESLOPE_TEST(a_lesson_file_that_is_wrong_is_refused_and_says_where) {
         {"a command there is none of", "name N\nfly fast\n"},
         {"until without an operator", "name N\nstage S\ndo X\nuntil a 1\n"},
         {"until with a bad operator", "name N\nstage S\ndo X\nuntil a == 1\n"},
-        {"until without a number", "name N\nstage S\ndo X\nuntil a >= fast\n"},
+        {"until without a figure", "name N\nstage S\ndo X\nuntil a >= fast\n"},
+        {"a reference there is none of", "name N\nstage S\ndo X\nuntil a >= stall\n"},
+        {"a reference with a bad offset", "name N\nstage S\ndo X\nuntil a >= rotate*3\n"},
         {"two untils in one stage", "name N\nstage S\ndo X\nuntil a >= 1\nuntil b >= 2\n"},
         {"hold without a band", "name N\nstage S\ndo X\nuntil a >= 1\nhold b 1 T\n"},
         {"hold with a backwards band", "name N\nstage S\ndo X\nuntil a >= 1\nhold b 9 1 T\n"},
@@ -131,7 +133,7 @@ GLIDESLOPE_TEST(a_lesson_file_that_is_wrong_is_refused_and_says_where) {
     }
     check(refused == wrong.size(),
           "all " + std::to_string(wrong.size()) + " ways of being wrong were walked");
-    check(refused == 16, "sixteen ways, and the list above holds sixteen");
+    check(refused == 18, "eighteen ways, and the list above holds eighteen");
 
     // And the one that is right is not refused.
     (void)parse_lesson("whole", a_whole_lesson());
@@ -188,7 +190,8 @@ Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
         return l.id == "light-take-off";
     });
     check(it != lesson.end(), "the light take-off lesson is in the data");
-    LessonRun run(*it);
+    LessonRun run(*it, glideslope::sim::LessonSpeeds{speeds.rotate_kts,
+                                                     speeds.climb_kts});
 
     glideslope::sim::Departure departure(aircraft, runway, speeds);
     double out_least = 1e9;
@@ -255,19 +258,13 @@ GLIDESLOPE_TEST(the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     check(walked == 4, "and there are four of them");
 }
 
-// **Flown with one stated fault, the debrief names that fault.** Two faults,
-// each flown on its own, and each the whole of what the debrief says.
+// **Flown with one stated fault, the debrief names that fault.** The
+// throttle case is exact: one thing said, and it is the throttle.
 //
-// **What this cannot yet show, said plainly.** The item's own example is
-// "rotating early", and for a Cessna this lesson does not catch it: a lesson
-// teaches a class, the four light aeroplanes rotate between about 34 knots
-// and about 55, so the one figure a class-wide lesson can name is the lowest
-// of them. A 172 hauled off at 47 knots is a long way early for a 172 and
-// well clear of that figure. Catching it needs the lesson to say "her own
-// rotation speed" rather than a number, which the format has no way to say -
-// `assets/lessons/light-take-off.lesson` and `COMPLETION_PLAN.md` both name
-// it as owed. What is shown below is the early rotation breaking the
-// attitude band, which it does, and the throttle fault, which is exact.
+// The early rotation below says two things, and both are true - she came off
+// early *and* the attitude wandered while she did it, which is what hauling
+// an aeroplane off the ground before its speed actually does. A debrief that
+// named only one of them would be hiding the other.
 GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
     // **Not opening the throttle.** Flown by the book in every other way, so
     // the debrief should hold this and nothing else.
@@ -303,4 +300,68 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
     }
     check(named, "the debrief names the attitude");
     check(book.debrief.empty(), "and the same take-off by the book says nothing");
+}
+
+// **A lesson may name the aeroplane's own published speeds**, because a class
+// does not share one. `rotate` and `climb` are what `departure_speeds` works
+// out from each aeroplane's figures, and an offset may follow.
+GLIDESLOPE_TEST(a_lesson_may_name_the_speeds_the_aeroplane_publishes) {
+    glideslope::sim::LessonNumber number;
+    check(glideslope::sim::read_number("55", number) && !number.named() &&
+              std::abs(number.literal - 55.0) < 1e-9,
+          "a plain number is a plain number");
+    check(glideslope::sim::read_number("rotate", number) && number.named() &&
+              number.reference == "rotate" && std::abs(number.offset) < 1e-9,
+          "a name on its own is that speed");
+    check(glideslope::sim::read_number("rotate-3", number) && number.named() &&
+              std::abs(number.offset + 3.0) < 1e-9,
+          "and an offset comes off it");
+    check(glideslope::sim::read_number("climb+10", number) && number.named() &&
+              number.reference == "climb" && std::abs(number.offset - 10.0) < 1e-9,
+          "or goes on it");
+    check(!glideslope::sim::read_number("stall", number), "a name there is none of");
+    check(!glideslope::sim::read_number("rotate*3", number), "a bad offset");
+    check(!glideslope::sim::read_number("", number), "and nothing at all");
+
+    // Resolved against two different aeroplanes, the same lesson figure is
+    // two different speeds - which is the whole point.
+    const glideslope::sim::LessonSpeeds cub{34.0, 48.0};
+    const glideslope::sim::LessonSpeeds cessna{55.0, 76.0};
+    glideslope::sim::LessonNumber rotate;
+    check(glideslope::sim::read_number("rotate-3", rotate), "reads");
+    check(std::abs(glideslope::sim::figure_of(rotate, cub) - 31.0) < 1e-9,
+          "the Cub is held to 31 knots");
+    check(std::abs(glideslope::sim::figure_of(rotate, cessna) - 52.0) < 1e-9,
+          "and the Cessna to 52");
+
+    // And the lesson in the data really does use one.
+    const auto lessons = glideslope::sim::read_lessons(data());
+    const auto it = std::find_if(lessons.begin(), lessons.end(),
+                                 [](const Lesson& l) { return l.id == "light-take-off"; });
+    check(it != lessons.end(), "the take-off lesson is there");
+    bool names_one = false;
+    for (const auto& stage : it->stages) {
+        for (const auto& need : stage.needs) {
+            names_one = names_one || need.low.named();
+        }
+    }
+    check(names_one, "and it holds each aeroplane to its own rotation speed");
+}
+
+// **Now the early rotation is caught for a Cessna too.** The fault the class
+// figure could not name is named, because the figure is the aeroplane own.
+GLIDESLOPE_TEST(rotating_early_is_caught_for_each_aeroplane_at_its_own_speed) {
+    const Flown early = fly_the_take_off("c172p", 14.0, 1.0);
+    const Flown book = fly_the_take_off("c172p", 0.0, 1.0);
+    std::printf("  c172p by the book: off at %.0f knots; early: %.0f\n",
+                book.off_at_kts, early.off_at_kts);
+    check(book.debrief.empty(), "by the book it says nothing");
+    const bool named = std::any_of(
+        early.debrief.begin(), early.debrief.end(), [](const std::string& s) {
+            return s == "Let her reach the rotation speed before easing the nose up";
+        });
+    for (const std::string& said : early.debrief) {
+        std::printf("    %s\n", said.c_str());
+    }
+    check(named, "and rotating early is named, which a class-wide number missed");
 }

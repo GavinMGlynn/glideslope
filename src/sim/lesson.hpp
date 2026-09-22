@@ -13,7 +13,10 @@
 //   do TEXT...                    what to do at this stage: what the pilot is
 //                                 told, and what the instructor demonstrates
 //   until PROPERTY OP VALUE       what ends the stage: a JSBSim property,
-//                                 `<=` or `>=`, and the figure
+//                                 `<=` or `>=`, and the figure. A figure is a
+//                                 number, or one the aeroplane publishes -
+//                                 `rotate`, `climb` - with an optional
+//                                 offset: `rotate-3`, `climb+10`
 //   hold PROPERTY LOW HIGH TEXT...   a band that must hold for the whole
 //                                 stage; TEXT is what the debrief says if it
 //                                 is broken
@@ -50,12 +53,43 @@ struct LessonError : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+// **A figure in a lesson, which may be the aeroplane own published one.** A
+// lesson teaches a class, and the aeroplanes in a class do not share their
+// speeds: the four light aircraft rotate between about 34 knots and about 55.
+// A literal number can only be the slowest of them, which catches nothing on
+// the fastest. So a figure may instead name one the aeroplane publishes -
+// `rotate`, `climb` - with an optional offset: `rotate-3`, `climb+10`.
+//
+// The names are the ones `sim::departure_speeds` works out from
+// `assets/figures/<id>.xml`, because those are the two a lesson needs and
+// they are already read from the aeroplane published figures.
+struct LessonNumber {
+    double literal = 0.0;
+    std::string reference; // empty: `literal` is the figure
+    double offset = 0.0;
+
+    bool named() const { return !reference.empty(); }
+};
+
+// The aeroplane own figures, for resolving the references above.
+struct LessonSpeeds {
+    double rotate_kts = 0.0;
+    double climb_kts = 0.0;
+};
+
+// The figure `number` means for an aeroplane with these speeds.
+double figure_of(const LessonNumber& number, const LessonSpeeds& speeds);
+
+// A figure as a lesson writes it: "55", "rotate", "rotate-3", "climb+10".
+// False for anything else, including a name there is none of.
+bool read_number(std::string_view text, LessonNumber& out);
+
 // What must hold, or must have become true. `low`/`high` are the band for a
 // `hold`; for a `need`, `low` is the figure and `at_least` says which way.
 struct LessonWatch {
     std::string property;
-    double low = 0.0;
-    double high = 0.0;
+    LessonNumber low;
+    LessonNumber high;
     bool banded = false;   // a `hold`: both ends count
     bool at_least = false; // a `need`: `>=` when true, `<=` when false
     std::string fault;     // what the debrief says when it is not met
@@ -66,7 +100,7 @@ struct LessonStage {
     std::vector<std::string> doing; // what to do, in the order given
     // What ends the stage.
     std::string until_property;
-    double until_value = 0.0;
+    LessonNumber until_value;
     bool until_at_least = false;
     std::vector<LessonWatch> holds;
     std::vector<LessonWatch> needs;

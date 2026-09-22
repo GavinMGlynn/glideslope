@@ -578,18 +578,16 @@ checklists are part of. A lesson ends in a debrief, never a score
       happened, with no score. The first lesson is the light aircraft's
       take-off, and all four fly it by the book with an empty debrief; flown
       on part throttle the debrief holds one thing, and it is the throttle.
-      **One limitation is named rather than hidden**: a lesson teaches a
-      class, and the four light aeroplanes rotate between about 34 and about
-      55 knots, so the one speed a class-wide lesson can name is the lowest
-      of them - and a 172 hauled off early sails past it. Catching that needs
-      the lesson to say "her own rotation speed" rather than a number; the
-      figure is in every aeroplane's `figures/<id>.xml` and
-      `sim::departure_speeds` already reads it, and the format has no way to
-      refer to it. Until it has, a badly flown rotation is caught by the
-      attitude band and not by the speed.
+      **A lesson figure may be the aeroplane own published speed**, which is
+      what makes teaching a class work: `rotate`, `climb`, with an offset -
+      `rotate-3` - resolved per aeroplane from its `figures/<id>.xml` through
+      `sim::departure_speeds`. The same line of data holds the Cub to 31
+      knots and the Cessna to 52. It was added the same day it was found
+      wanting: a plain number could only be the slowest aeroplane in the
+      class, so a 172 hauled off at 47 knots against its own 55 went
+      unremarked. It is remarked now.
       Still missing: the circuit, the stalls, the
-      turns, lessons for the other
-      six classes of aircraft, and that speed reference.
+      turns, and lessons for the other six classes of aircraft.
       **The reference speeds a lesson needs are published for the light
       aircraft and not for the rest**, which was looked into on 2026-09-21
       rather than assumed. Only six of the sixteen publish a stall speed and

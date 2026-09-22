@@ -137,6 +137,8 @@ set(GLIDESLOPE_UNIT_TESTS
     a_lesson_file_that_is_wrong_is_refused_and_says_where
     the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief
     a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief
+    a_lesson_may_name_the_speeds_the_aeroplane_publishes
+    rotating_early_is_caught_for_each_aeroplane_at_its_own_speed
     every_aircraft_says_which_class_it_is_and_the_requirements_agree
     a_local_velocity_becomes_the_same_velocity_in_the_earths_frame
     a_state_packet_written_and_read_back_is_the_same_packet
