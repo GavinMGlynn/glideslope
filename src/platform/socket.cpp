@@ -116,6 +116,18 @@ bool v6_of(const std::string& text, std::uint8_t* out) {
     if (seen_gap ? groups > 7 : groups != 8) {
         return false;
     }
+    // **The bound the writes below depend on, said where they are.** Every
+    // group is two bytes and there are sixteen to fill, so neither half may
+    // hold more than eight: `byte = 16 - after.size() * 2` underflows a
+    // `size_t` if it does, and the loop after it writes off the end of a
+    // caller's address. The guard above already makes that unreachable - a
+    // gap allows at most seven groups and no gap means exactly eight, all of
+    // them in `before` - but it says so through a ternary several lines up,
+    // which is a long way to carry an invariant that costs one line to state.
+    // GCC at -O2 cannot follow it either, and says so.
+    if (before.size() > 8 || after.size() > 8) {
+        return false;
+    }
     std::memset(out, 0, 16);
     std::size_t byte = 0;
     for (const std::uint16_t group : before) {

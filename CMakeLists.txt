@@ -1,8 +1,22 @@
 cmake_minimum_required(VERSION 3.28)
 
+# **A server does not need a GPU stack.** `-DGLIDESLOPE_SERVER_ONLY=ON` builds
+# the simulation, the network and the server and nothing else: no SDL, no
+# Cesium Native, no shaders, no client, and no vcpkg - the three libraries it
+# does need come from the system. That is what `deploy/Dockerfile` builds, and
+# it is the difference between an image that takes minutes and one that takes
+# most of an hour building a renderer nothing in it will ever run.
+#
+# It is read before anything else because it decides whether vcpkg's toolchain
+# is used at all, and a toolchain has to be chosen before project().
+option(GLIDESLOPE_SERVER_ONLY
+       "Build only the server: no SDL, no Cesium, no vcpkg" OFF)
+
 # vcpkg, for Cesium Native's dependencies: its toolchain before project(), and
 # the packages installed after the platform gate - see cmake/Vcpkg.cmake.
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/Vcpkg.cmake")
+if(NOT GLIDESLOPE_SERVER_ONLY)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/Vcpkg.cmake")
+endif()
 
 project(glideslope
     VERSION     0.1.0
@@ -41,12 +55,20 @@ include(Platform)
 glideslope_check_platform()
 
 # Cesium Native's dependencies, now that the compiler is one the project accepts.
-glideslope_vcpkg_install()
+if(NOT GLIDESLOPE_SERVER_ONLY)
+    glideslope_vcpkg_install()
+endif()
 
 # ---------------------------------------------------------------------------
 # Options
 # ---------------------------------------------------------------------------
 option(GLIDESLOPE_TESTS "Build the tests"                                       ON)
+if(GLIDESLOPE_SERVER_ONLY AND GLIDESLOPE_TESTS)
+    # The tests link the renderer and SDL, which a server-only build has not
+    # got. Saying so is better than failing to find a target halfway down.
+    message(STATUS "glideslope: server-only, so the tests are not built")
+    set(GLIDESLOPE_TESTS OFF)
+endif()
 option(GLIDESLOPE_ASAN  "Build with address and undefined-behaviour sanitizers" OFF)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -80,15 +102,21 @@ endfunction()
 include(Jsbsim)
 
 # SDL3, from ext/sdl - see cmake/Sdl.cmake. Linked by the presentation only.
-include(Sdl)
+if(NOT GLIDESLOPE_SERVER_ONLY)
+    include(Sdl)  # SDL
+endif()
 
 # The shader compiler, from glslang and SPIRV-Cross in ext/ - see
 # cmake/Shaders.cmake.
-include(Shaders)
+if(NOT GLIDESLOPE_SERVER_ONLY)
+    include(Shaders)  # the shader compiler
+endif()
 
 # Cesium Native, from ext/cesium-native - see cmake/CesiumNative.cmake. Linked by
 # the presentation only.
-include(CesiumNative)
+if(NOT GLIDESLOPE_SERVER_ONLY)
+    include(CesiumNative)  # Cesium Native
+endif()
 
 # ---------------------------------------------------------------------------
 # The data the programs read at run time: assets/, copied to data/ beside them -
@@ -150,7 +178,18 @@ glideslope_configure(glideslope_sim)
 # in here that cannot be done with arithmetic. It still links no socket, no
 # terrain and no flight model, which is what lets the whole of it be walked
 # against every pattern of loss without a network.
-find_package(unofficial-sodium CONFIG REQUIRED)
+if(GLIDESLOPE_SERVER_ONLY)
+    # The system's, found by hand: vcpkg is not here to provide a target.
+    find_library(GLIDESLOPE_SODIUM NAMES sodium REQUIRED)
+    find_path(GLIDESLOPE_SODIUM_INCLUDE NAMES sodium.h REQUIRED)
+    add_library(glideslope_sodium INTERFACE)
+    target_link_libraries(glideslope_sodium INTERFACE "${GLIDESLOPE_SODIUM}")
+    target_include_directories(glideslope_sodium
+                               INTERFACE "${GLIDESLOPE_SODIUM_INCLUDE}")
+    add_library(unofficial-sodium::sodium ALIAS glideslope_sodium)
+else()
+    find_package(unofficial-sodium CONFIG REQUIRED)
+endif()
 
 add_library(glideslope_net STATIC
     src/net/inputs.cpp
@@ -224,68 +263,85 @@ else()
                                                src/platform/socket_posix.cpp)
     target_link_libraries(glideslope_platform PRIVATE ${CMAKE_DL_LIBS})
 endif()
-find_package(unofficial-sqlite3 CONFIG REQUIRED)
+if(GLIDESLOPE_SERVER_ONLY)
+    find_library(GLIDESLOPE_SQLITE3 NAMES sqlite3 REQUIRED)
+    find_path(GLIDESLOPE_SQLITE3_INCLUDE NAMES sqlite3.h REQUIRED)
+    add_library(glideslope_sqlite3 INTERFACE)
+    target_link_libraries(glideslope_sqlite3 INTERFACE "${GLIDESLOPE_SQLITE3}")
+    target_include_directories(glideslope_sqlite3
+                               INTERFACE "${GLIDESLOPE_SQLITE3_INCLUDE}")
+    add_library(unofficial::sqlite3::sqlite3 ALIAS glideslope_sqlite3)
+else()
+    find_package(unofficial-sqlite3 CONFIG REQUIRED)
+endif()
 target_link_libraries(glideslope_platform PUBLIC unofficial::sqlite3::sqlite3)
 glideslope_configure(glideslope_platform)
+# **The presentation, built only when there is something to present.**
+# `-DGLIDESLOPE_SERVER_ONLY=ON` leaves all of this out - the input layer and
+# the renderer link SDL, the model loader and the renderer link Cesium
+# Native, and the client is all three. A server runs none of them.
+if(NOT GLIDESLOPE_SERVER_ONLY)
 
-# ---------------------------------------------------------------------------
-# Input - flight controllers through SDL, to the aircraft's controls. Apart
-# from glideslope_platform, which the CLI links, because it links SDL.
-# ---------------------------------------------------------------------------
-add_library(glideslope_input STATIC
-    src/platform/input.cpp)
-target_include_directories(glideslope_input PUBLIC src)
-target_link_libraries(glideslope_input PUBLIC glideslope_sim SDL3::SDL3-static)
-glideslope_configure(glideslope_input)
+    # ---------------------------------------------------------------------------
+    # Input - flight controllers through SDL, to the aircraft's controls. Apart
+    # from glideslope_platform, which the CLI links, because it links SDL.
+    # ---------------------------------------------------------------------------
+    add_library(glideslope_input STATIC
+        src/platform/input.cpp)
+    target_include_directories(glideslope_input PUBLIC src)
+    target_link_libraries(glideslope_input PUBLIC glideslope_sim SDL3::SDL3-static)
+    glideslope_configure(glideslope_input)
 
-# ---------------------------------------------------------------------------
-# The drawing that draws nothing: the aircraft visual models tools/make_models.py
-# makes, where each sits on its aeroplane and the views of it, the scene's
-# geometry - placements, cameras and the projection - and the terrain's colours
-# and light. Its own library because it is presentation that links nothing
-# presentational, so the unit tests hold all of it without SDL or Cesium Native
-# behind them, and glideslope_gfx is the part that needs a GPU.
-# ---------------------------------------------------------------------------
-add_library(glideslope_model STATIC
-    src/gfx/aircraft.cpp
-    src/gfx/model.cpp
-    src/gfx/scene.cpp
-    src/gfx/terrain_colour.cpp)
-target_include_directories(glideslope_model PUBLIC src)
-target_link_libraries(glideslope_model PUBLIC glideslope_world)
-glideslope_configure(glideslope_model)
+    # ---------------------------------------------------------------------------
+    # The drawing that draws nothing: the aircraft visual models tools/make_models.py
+    # makes, where each sits on its aeroplane and the views of it, the scene's
+    # geometry - placements, cameras and the projection - and the terrain's colours
+    # and light. Its own library because it is presentation that links nothing
+    # presentational, so the unit tests hold all of it without SDL or Cesium Native
+    # behind them, and glideslope_gfx is the part that needs a GPU.
+    # ---------------------------------------------------------------------------
+    add_library(glideslope_model STATIC
+        src/gfx/aircraft.cpp
+        src/gfx/model.cpp
+        src/gfx/scene.cpp
+        src/gfx/terrain_colour.cpp)
+    target_include_directories(glideslope_model PUBLIC src)
+    target_link_libraries(glideslope_model PUBLIC glideslope_world)
+    glideslope_configure(glideslope_model)
 
-# ---------------------------------------------------------------------------
-# The renderer - SDL_GPU over Vulkan, Direct3D 12 and Metal.
-# ---------------------------------------------------------------------------
-add_library(glideslope_gfx STATIC
-    src/gfx/hud.cpp
-    src/gfx/renderer.cpp
-    src/gfx/sky.cpp
-    src/gfx/terrain_tiles.cpp)
-target_include_directories(glideslope_gfx PUBLIC src)
-target_link_libraries(glideslope_gfx PUBLIC SDL3::SDL3-static glideslope_world
-                                            glideslope_model)
-# Cesium Native is behind gfx/terrain_tiles.hpp, and none of it is in a header
-# here.
-target_link_libraries(glideslope_gfx PRIVATE Cesium3DTilesSelection
-                                          Cesium3DTilesContent CesiumGltfContent)
-glideslope_shaders(glideslope_gfx
-    src/gfx/shaders/mesh.vert
-    src/gfx/shaders/mesh.frag)
-glideslope_configure(glideslope_gfx)
+    # ---------------------------------------------------------------------------
+    # The renderer - SDL_GPU over Vulkan, Direct3D 12 and Metal.
+    # ---------------------------------------------------------------------------
+    add_library(glideslope_gfx STATIC
+        src/gfx/hud.cpp
+        src/gfx/renderer.cpp
+        src/gfx/sky.cpp
+        src/gfx/terrain_tiles.cpp)
+    target_include_directories(glideslope_gfx PUBLIC src)
+    target_link_libraries(glideslope_gfx PUBLIC SDL3::SDL3-static glideslope_world
+                                                glideslope_model)
+    # Cesium Native is behind gfx/terrain_tiles.hpp, and none of it is in a header
+    # here.
+    target_link_libraries(glideslope_gfx PRIVATE Cesium3DTilesSelection
+                                              Cesium3DTilesContent CesiumGltfContent)
+    glideslope_shaders(glideslope_gfx
+        src/gfx/shaders/mesh.vert
+        src/gfx/shaders/mesh.frag)
+    glideslope_configure(glideslope_gfx)
 
-# ---------------------------------------------------------------------------
-# glideslope - the simulator.
-# ---------------------------------------------------------------------------
-add_executable(glideslope
-    src/frontend/client/flight.cpp
-    src/frontend/client/main.cpp
-    src/frontend/client/scenes.cpp
-    src/frontend/client/terrain.cpp)
-target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_sim glideslope_world
-                                         glideslope_platform)
-glideslope_configure(glideslope)
+    # ---------------------------------------------------------------------------
+    # glideslope - the simulator.
+    # ---------------------------------------------------------------------------
+    add_executable(glideslope
+        src/frontend/client/flight.cpp
+        src/frontend/client/main.cpp
+        src/frontend/client/scenes.cpp
+        src/frontend/client/terrain.cpp)
+    target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_sim glideslope_world
+                                             glideslope_platform)
+    glideslope_configure(glideslope)
+endif()
+
 
 # ---------------------------------------------------------------------------
 # glideslope_cli - the simulation with no window.
@@ -317,7 +373,12 @@ glideslope_configure(glideslope_server)
 # Everything of ours is installed as the `glideslope` component, and CPack is
 # told to package that component alone. JSBSim's src/ carries install rules for
 # its own library, headers and program, which do not belong in a download.
-install(TARGETS glideslope glideslope_cli glideslope_server RUNTIME DESTINATION . COMPONENT glideslope)
+if(GLIDESLOPE_SERVER_ONLY)
+    install(TARGETS glideslope_cli glideslope_server
+            RUNTIME DESTINATION . COMPONENT glideslope)
+else()
+    install(TARGETS glideslope glideslope_cli glideslope_server RUNTIME DESTINATION . COMPONENT glideslope)
+endif()
 # The client links SDL, statically; its licence travels with it.
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdl/LICENSE.txt"
         DESTINATION licenses RENAME SDL.txt COMPONENT glideslope)

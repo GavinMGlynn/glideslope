@@ -21,9 +21,17 @@ std::array<std::uint8_t, crypto_aead_chacha20poly1305_ietf_NPUBBYTES> nonce_of(
     return out;
 }
 
+// **Written by sizing the vector first, not by pushing eight times.** The
+// pushes are what GCC 14 at -O2 cannot follow: inlined into `Sealer::seal`
+// through `emplace_back` it decides the vector's buffer might be freed at a
+// non-zero offset and refuses the build. Growing once and writing into the
+// bytes says the same thing in a way the optimiser can see, and does one
+// fewer capacity check per byte besides.
 void write_sequence(std::vector<std::uint8_t>& out, std::uint64_t n) {
+    const std::size_t at = out.size();
+    out.resize(at + sequence_bytes);
     for (std::size_t i = 0; i < sequence_bytes; ++i) {
-        out.push_back(static_cast<std::uint8_t>((n >> (8 * i)) & 0xFF));
+        out[at + i] = static_cast<std::uint8_t>((n >> (8 * i)) & 0xFF);
     }
 }
 

@@ -1,0 +1,56 @@
+# A glideslope server, run by systemd.
+#
+#   sudo cp deploy/glideslope-server.service /etc/systemd/system/
+#   sudo useradd --system --home-dir /var/lib/glideslope --create-home glideslope
+#   sudo cp -r <the built tree> /opt/glideslope
+#   sudo systemctl enable --now glideslope-server
+#
+# **The key is what makes the store matter.** The server mints its static key
+# once and keeps it in `--store`; a client is given the public half out of band
+# and would be locked out if a restart minted a new one. `StateDirectory=` is
+# what gives the unit somewhere durable to put it.
+#
+# The server prints its public key at startup, so `journalctl -u
+# glideslope-server` is where an operator reads the key to hand out.
+
+[Unit]
+Description=Glideslope multiplayer flight simulator server
+Documentation=https://github.com/GavinMGlynn/glideslope
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/opt/glideslope/glideslope_server \
+    --headless \
+    --data /opt/glideslope/data \
+    --store /var/lib/glideslope/server.sqlite
+Restart=on-failure
+RestartSec=5s
+
+# **It needs no privilege at all.** It binds a high UDP port, reads its own
+# data and writes one SQLite file; everything below says so, so that a fault
+# in the parser is a fault in a process that can do nothing else.
+User=glideslope
+Group=glideslope
+StateDirectory=glideslope
+WorkingDirectory=/opt/glideslope
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

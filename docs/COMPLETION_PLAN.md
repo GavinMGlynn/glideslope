@@ -942,8 +942,25 @@ checklists are part of. A lesson ends in a debrief, never a score
       them a `WEATHER` message that at its limits could never have been sent
       - and two of which are items below. A test holds every message kind the
       code knows to being named in the document.
-- [ ] **Deployment** — a systemd unit and a Dockerfile under `deploy/`.
-      *Verification: a server started from each accepts a client.*
+- [ ] **Deployment** — a systemd unit and a Dockerfile under `deploy/` —
+      **still to do: the Dockerfile has never been built**, because Docker
+      Desktop's WSL integration is off on this machine and no daemon is
+      reachable. *Verification: a server started from each accepts a client.*
+      **The systemd half is done, 2026-09-22**: the unit that ships is run by
+      `systemd-run`, with only its paths pointed at the build, and a client
+      connects to it - "a server started by systemd admitted f21c7f56 to slot
+      0". `systemd-analyze verify` passes on the unit as written. It runs as
+      its own user with no privilege at all: `ProtectSystem=strict`,
+      `RestrictAddressFamilies=AF_INET AF_INET6`, `SystemCallFilter` down to
+      `@system-service` less `@privileged` and `@resources`, and
+      `StateDirectory=` for the one file it writes, its key store. Without
+      systemd the test reports itself skipped, never passed.
+      **`-DGLIDESLOPE_SERVER_ONLY=ON` is what makes a server image sane.** It
+      builds the simulation, the network and the server and leaves out SDL,
+      Cesium Native, the shaders, the renderer and the client, and uses no
+      vcpkg: libsodium, SQLite and libcurl come from the distribution. It
+      configures in **6 seconds against the full build's seven minutes** and
+      builds the server in about thirty.
 - [ ] **`--online`** through a one-line `server.txt`. *Verification: a client
       started with `--online` reaches the server `server.txt` names.*
 - [ ] **Four machines in one sky.** *Verification: four clients on different

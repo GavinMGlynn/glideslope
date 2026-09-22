@@ -1059,6 +1059,18 @@ add_test(NAME a_server_lets_go_a_client_it_has_not_heard_from_for_its_timeout
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_timeout.cmake)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_timeout)
 
+# **A server started by systemd accepts a client**, which is half the
+# deployment item: the unit that ships, with its paths pointed at the build.
+# The Dockerfile half needs a Docker daemon and is not tested here.
+add_test(NAME a_server_started_by_systemd_accepts_a_client
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DUNIT=${PROJECT_SOURCE_DIR}/deploy/glideslope-server.service
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/deploy -DPORT=47870
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_systemd.cmake)
+set_tests_properties(a_server_started_by_systemd_accepts_a_client PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/deploy)
+
 # **A server given a store keeps its key across restarts**, which is what makes
 # the public key a client was given out of band still good after a restart. See
 # cmake/server_store.cmake for the four ways a server comes by a key.
