@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -189,7 +190,7 @@ Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
 
     const auto lesson = glideslope::sim::read_lessons(data());
     const auto it = std::find_if(lesson.begin(), lesson.end(), [](const Lesson& l) {
-        return l.id == "light-take-off";
+        return l.id == "light-aircraft-take-off";
     });
     check(it != lesson.end(), "the light take-off lesson is in the data");
     LessonRun run(*it, glideslope::sim::LessonSpeeds{speeds.rotate_kts,
@@ -350,7 +351,7 @@ GLIDESLOPE_TEST(a_lesson_may_name_the_speeds_the_aeroplane_publishes) {
     // And the lesson in the data really does use one.
     const auto lessons = glideslope::sim::read_lessons(data());
     const auto it = std::find_if(lessons.begin(), lessons.end(),
-                                 [](const Lesson& l) { return l.id == "light-take-off"; });
+                                 [](const Lesson& l) { return l.id == "light-aircraft-take-off"; });
     check(it != lessons.end(), "the take-off lesson is there");
     bool names_one = false;
     for (const auto& stage : it->stages) {
@@ -446,7 +447,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
 
     const auto lessons = glideslope::sim::read_lessons(data());
     const auto it = std::find_if(lessons.begin(), lessons.end(), [](const Lesson& l) {
-        return l.id == "light-approach-and-landing";
+        return l.id == "light-aircraft-approach-and-landing";
     });
     check(it != lessons.end(), "the approach lesson is in the data");
     const auto departure = glideslope::sim::departure_speeds(data(), entry.model);
@@ -555,12 +556,27 @@ InFlight airborne(const std::string& id, double agl_ft) {
     ic.engine_running = true;
     ic.gear = 0.0;
     out.aircraft->initialize(ic);
-    const auto departure = glideslope::sim::departure_speeds(data(), entry.model);
-    const auto approach = glideslope::sim::approach_speeds(data(), entry.model);
-    // The published stall is the reference speed divided by the 1.3 that
-    // made it, which is how `sim::approach_speeds` built it.
-    out.speeds = {departure.rotate_kts, departure.climb_kts, approach.vref_kts,
-                  approach.vref_kts / 1.3};
+    // **An aeroplane that publishes no figures still has lessons.** Eleven of
+    // the sixteen publish no stall speed and most publish no rate of climb,
+    // and `departure_speeds` and `approach_speeds` throw rather than guess -
+    // which is right, a reference speed invented is a reference speed that
+    // means nothing. A lesson that names none of them, as the turns lesson
+    // does, is flown all the same; one that names them would fail to resolve
+    // and a test would catch it.
+    try {
+        const auto departure = glideslope::sim::departure_speeds(data(), entry.model);
+        out.speeds.rotate_kts = departure.rotate_kts;
+        out.speeds.climb_kts = departure.climb_kts;
+    } catch (const std::exception&) {
+    }
+    try {
+        const auto approach = glideslope::sim::approach_speeds(data(), entry.model);
+        out.speeds.vref_kts = approach.vref_kts;
+        // The published stall is the reference speed divided by the 1.3 that
+        // made it, which is how `sim::approach_speeds` built it.
+        out.speeds.stall_kts = approach.vref_kts / 1.3;
+    } catch (const std::exception&) {
+    }
     out.start_agl_ft = agl_ft;
     out.start_heading_deg = 90.0;
     return out;
@@ -586,7 +602,7 @@ struct Result {
 // lose height through it, which is the fault this lesson is for.
 Result fly_a_turn(const std::string& id, double sink_fpm) {
     InFlight f = airborne(id, 3000.0);
-    const Lesson lesson = the_lesson("light-turns");
+    const Lesson lesson = the_lesson("light-aircraft-turns");
     LessonRun run(lesson, f.speeds);
 
     glideslope::sim::Controls controls;
@@ -673,7 +689,7 @@ namespace {
 // climbing speed, which is the fault this lesson is for.
 Result fly_a_climb_and_descent(const std::string& id, double fast_by_kts) {
     InFlight f = airborne(id, 3000.0);
-    const Lesson lesson = the_lesson("light-climb-and-descent");
+    const Lesson lesson = the_lesson("light-aircraft-climb-and-descent");
     LessonRun run(lesson, f.speeds);
 
     glideslope::sim::Controls controls;
@@ -772,7 +788,7 @@ namespace {
 // late and lazily, which is what loses the height this lesson is about.
 Result fly_a_stall(const std::string& id, bool sloppy) {
     InFlight f = airborne(id, 5000.0);
-    const Lesson lesson = the_lesson("light-stalls");
+    const Lesson lesson = the_lesson("light-aircraft-stalls");
     LessonRun run(lesson, f.speeds);
 
     glideslope::sim::Controls controls;
@@ -866,4 +882,95 @@ GLIDESLOPE_TEST(a_stall_recovered_badly_is_named_in_the_debrief) {
             return s == "Recover with the least height you can";
         });
     check(named, "and the debrief says so");
+}
+
+namespace {
+
+// The turns lesson written for this aeroplane's own class.
+Lesson turns_for(const glideslope::sim::CatalogueEntry& entry) {
+    const std::string want =
+        std::string(glideslope::sim::name_of(entry.aircraft_class)) + "-turns";
+    const auto lessons = glideslope::sim::read_lessons(data());
+    const auto it = std::find_if(lessons.begin(), lessons.end(),
+                                 [&](const Lesson& l) { return l.id == want; });
+    check(it != lessons.end(), want + " is in the data");
+    return *it;
+}
+
+// **Any aeroplane, turned ninety degrees left by the autopilot.** Flown at
+// three thousand feet, where every class of them has power in hand: near its
+// ceiling a light aeroplane cannot sustain a thirty degree bank and the
+// autopilot banks to its limit anyway, which is a fault of the autopilot and
+// recorded as its own item.
+Result turn_any(const std::string& id) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    InFlight f = airborne(id, 3000.0);
+    const Lesson lesson = turns_for(entry);
+    LessonRun run(lesson, f.speeds);
+
+    glideslope::sim::Controls controls;
+    controls.throttle = 0.7;
+    glideslope::sim::Autopilot autopilot(*f.aircraft, controls);
+    glideslope::sim::AutopilotModes modes = autopilot.modes();
+    modes.altitude_ft = f.start_agl_ft;
+    modes.heading_deg = f.start_heading_deg;
+    modes.airspeed_kts = entry.start_airspeed_kts;
+    autopilot.set(modes);
+
+    Result out;
+    out.stages = lesson.stages.size();
+    const int settling = 20 * steps_per_second;
+    for (int tick = 0; tick < 400 * steps_per_second && !run.finished(); ++tick) {
+        if (tick == settling) {
+            modes.heading_deg = f.start_heading_deg - 90.0;
+            autopilot.set(modes);
+        }
+        f.aircraft->set_controls(autopilot.fly());
+        f.aircraft->step();
+        if (tick >= settling) {
+            run.update(*f.aircraft, tick);
+            out.lowest_agl_ft =
+                std::min(out.lowest_agl_ft, f.aircraft->property("position/h-agl-ft"));
+            out.steepest_bank_deg = std::min(
+                out.steepest_bank_deg, f.aircraft->property("attitude/phi-deg"));
+        }
+    }
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    return out;
+}
+
+} // namespace
+
+// **Every aeroplane in the roster turns to its own class's lesson.** Not one
+// of each class: all sixteen, because a lesson that suits the A320 and not
+// the A380 is a lesson that teaches one of them wrongly.
+GLIDESLOPE_TEST(every_aeroplane_flies_the_turns_lesson_of_its_own_class) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    check(roster.size() == 16, "sixteen aeroplanes");
+    std::size_t walked = 0;
+    std::set<std::string> classes_seen;
+    for (const auto& entry : roster) {
+        const Result flown = turn_any(entry.id);
+        std::printf("  %-13s %-17s banked %6.1f, height %5.0f of 3000, %zu/%zu\n",
+                    entry.id.c_str(),
+                    std::string(glideslope::sim::name_of(entry.aircraft_class)).c_str(),
+                    flown.steepest_bank_deg, flown.lowest_agl_ft, flown.completed,
+                    flown.stages);
+        for (const std::string& said : flown.debrief) {
+            std::printf("      %s\n", said.c_str());
+        }
+        check(flown.completed == flown.stages,
+              entry.id + " got round the turn, " + std::to_string(flown.completed) +
+                  " of " + std::to_string(flown.stages));
+        check(flown.debrief.empty(),
+              entry.id + " flown by the book says nothing, and it said " +
+                  std::to_string(flown.debrief.size()));
+        classes_seen.insert(std::string(glideslope::sim::name_of(entry.aircraft_class)));
+        ++walked;
+    }
+    check(walked == 16, "every aeroplane was turned, not " + std::to_string(walked));
+    check(classes_seen.size() == glideslope::sim::aircraft_class_count,
+          "and all seven classes were covered, not " +
+              std::to_string(classes_seen.size()));
 }

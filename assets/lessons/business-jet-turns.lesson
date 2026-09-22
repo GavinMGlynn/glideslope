@@ -1,0 +1,44 @@
+# Turns, in a business jet: rolling in, holding the turn, rolling out.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **This lesson names no speed**, which is why it exists for every class.
+# `vref`, `stall` and `climb` come from an aeroplane's published figures, and
+# only five of the sixteen publish a stall speed at all - the two Cessnas, the
+# PA-28, the Learjet and the Mosquito. A turn is taught on bank and height,
+# and both of those the simulation can see on any aeroplane.
+#
+# **The height is held against where the stage began**, not against a number:
+# a turn is flown wherever you happen to be, and what the lesson teaches is
+# that you come out of it at the height you went in at.
+#
+# **A left turn**, because a bank angle has a sign and a lesson has to pick
+# one. `lesson/turned-deg` is how far she has turned since the stage began,
+# which is what makes the measurement free of the wrap at north.
+
+name Turns in a business jet
+teaches business-jet
+
+stage Rolling into the turn
+do Look out, then roll smoothly into the turn to the left
+do Hold the nose up as the bank comes on: a turn needs more lift, not less
+until attitude/phi-deg <= -20
+
+stage Holding the turn
+do Hold the bank steady and the nose where it was
+do Keep the height: this is what the turn is for
+hold attitude/phi-deg -45.0 -12.0 Hold the bank steady through the turn
+hold position/h-agl-ft start-150 start+150 Hold your height through the turn
+until lesson/turned-deg <= -60
+
+stage Rolling out
+do Roll the wings level and let the nose settle
+until attitude/phi-deg >= -5

@@ -23,6 +23,19 @@ implementing something go in at the bottom the moment they are found.
 sed -n '/^## Phase /,/^## Tails/p' docs/COMPLETION_PLAN.md | grep '^- \[ \]'
 ```
 
+- [ ] **The autopilot banks to its limit even when the aeroplane cannot
+      sustain the turn.** Found 2026-09-22 by probing every class through a
+      ninety-degree turn. At 3,000 feet the Cessna 172P holds its height to
+      within fifteen feet and its speed exactly, at 85 knots or 100. At
+      10,000 feet - near its ceiling - the same turn costs it 2,076 feet and
+      its speed decays to 46 knots, at either speed, because a thirty-degree
+      bank needs more lift than it has power for and nothing reduces the
+      bank. Every other class holds its height within sixteen feet at 10,000
+      feet, so this is an aeroplane near its ceiling rather than a class of
+      aeroplane. *Verification: a light aeroplane turned through ninety
+      degrees near its ceiling holds its height within the same band it holds
+      at three thousand feet.*
+
 The phase order is not arbitrary. The flight model and the state set/resume
 wrapper come before any renderer or network, because they answer the two
 questions that could sink the project cheaply: does it feel right, and can a
@@ -621,7 +634,19 @@ checklists are part of. A lesson ends in a debrief, never a score
       turned the short way, held its speed to a tenth of a knot and descended
       at 396 - but the test that flies the pattern has a fault not yet found,
       and a lesson whose test does not demonstrate it is not shipped.
-      Also missing: lessons for the other six classes of aircraft.
+      **Every class has a turns lesson, 2026-09-22**, and every aeroplane in
+      the roster flies its own class's: all sixteen, all seven classes, each
+      through ninety degrees of left turn holding its height - the worst of
+      them, the 747-400, loses 55 feet of three thousand. That is possible
+      because **a turn names no speed**: `vref`, `stall` and `climb` come
+      from published figures and only five of the sixteen publish a stall
+      speed, while bank and height the simulation can see on anything.
+      Lessons are named `<class>-<exercise>`, which is a rule and not a
+      convention: the runner finds a lesson by the class its aeroplane
+      declares.
+      Still missing: take-offs, approaches, climbs and stalls for the six
+      classes other than light aircraft - all four name published speeds, and
+      eleven of the sixteen aeroplanes publish none.
       **The reference speeds a lesson needs are published for the light
       aircraft and not for the rest**, which was looked into on 2026-09-21
       rather than assumed. Only six of the sixteen publish a stall speed and
