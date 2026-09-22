@@ -28,6 +28,13 @@
 // difference, and differences are what the runner can work out and the data
 // cannot.
 //
+// **`lesson/flown-nm` is the runner's other one**: how far over the ground
+// the aeroplane has flown since the stage began, in nautical miles. A circuit
+// needs it. Its downwind leg is level and straight, so nothing about the
+// aeroplane's state says how far along it is - height, speed and heading all
+// read the same at either end - and the leg has to end somewhere for the base
+// turn to be a stage of its own.
+//
 // This is the simulation's own: it reads the aircraft and keeps a state, and
 // draws nothing.
 
@@ -95,8 +102,10 @@ private:
     // is what a `start` in a figure resolves against.
     std::map<std::string, double> began_;
     // The heading when the stage began, which `lesson/turned-deg` is measured
-    // from.
+    // from, and the place, which `lesson/flown-nm` is measured from.
     double heading_at_start_deg_ = 0.0;
+    double latitude_at_start_deg_ = 0.0;
+    double longitude_at_start_deg_ = 0.0;
     bool noted_ = false;
     std::vector<Fault> debrief_;
 };

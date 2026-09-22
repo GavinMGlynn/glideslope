@@ -47,6 +47,15 @@
 # out from its own `assets/figures/<id>.xml`. Each aeroplane in the class is
 # then held to its own speed, which is what teaching a class means.
 
+# **Keeping her straight is watched, because it is the first thing a take-off
+# asks for and nothing here used to ask it.** A Mosquito once swung forty-five
+# degrees off the centreline on its roll and its lesson said nothing, because
+# it watched the throttle, the rotation speed, the attitude and the climbing
+# speed and not the heading. Flown properly the five aeroplanes taught a
+# take-off swing between 1.1 and 11.1 degrees, so twenty degrees is that with
+# room - wide enough for honest technique in a tail-wheel aeroplane, and
+# nowhere near wide enough to miss a swing off the runway.
+
 name Take-off in a light aeroplane
 teaches light-aircraft
 
@@ -54,6 +63,7 @@ stage The roll
 do Line up on the centreline, then open the throttle smoothly to full
 do Keep straight with the rudder: she will swing left as the power comes in
 do Let the speed build. Do not hurry her off the ground
+hold lesson/turned-deg -20 20 Keep her straight on the take-off roll
 need fcs/throttle-cmd-norm >= 0.90 Open the throttle fully for the take-off
 need velocities/vc-kts >= rotate-3 Let her reach the rotation speed before easing the nose up
 until position/h-agl-ft >= 15

@@ -1,0 +1,124 @@
+# The circuit, in a light aeroplane: take off, fly the pattern left-hand at
+# circuit height, and land back on the runway you left.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The circuit is the first lesson that is a whole flight**, and the only one
+# that needs the aeroplane to be somewhere as well as doing something. The
+# other five are flown wherever the aeroplane happens to be; this one begins
+# and ends on the same runway.
+#
+# **Two of the stages end on the runner's own properties**, because nothing
+# about the aeroplane's state can end them. `lesson/turned-deg` ends a turn -
+# a heading cannot, because a circuit turns through three hundred and sixty
+# degrees and the wrap at north would end a stage that had not happened.
+# `lesson/flown-nm` says the downwind leg was long enough to be one: the leg is
+# level and straight, so height, speed and heading read the same at both ends
+# of it and how far along it is is the only thing that says where she is.
+#
+# **A stage that ends on a turn begins part-way through the one before.** The
+# turn on to downwind ends its own stage eighty degrees in, and the aeroplane
+# is still turning: the last twenty degrees fall inside the downwind leg. So
+# the downwind leg ends at fifty degrees of turn, not twenty. At twenty the
+# Cub's downwind leg lasted four seconds - the residual of the turn before it
+# was nineteen degrees - and the Cessna passed by a single degree, which is
+# not passing, it is luck. The turn on to final is measured the same way and
+# from the same kind of start, so it asks for a hundred and ten degrees of the
+# hundred and thirty that are left rather than the hundred and eighty the turn
+# really is.
+#
+# **The downwind leg ends when she turns, not after a set distance.** A first
+# draft ended it after a mile and a half, which is not where the leg ends -
+# she goes on downwind until she is far enough out to turn base - so three
+# miles of straight and level flying fell inside a stage called "base, and the
+# turn on to final", and a sink along the downwind leg was judged by a stage
+# that watches no height. It went unremarked.
+#
+# **The bands are measured, not guessed.** Flown by the AI pilot, the four
+# light aircraft hold the climbing speed between 6 knots under it and 9 over,
+# sit within 39 feet of circuit height down the whole downwind leg, and cross
+# the threshold between 5 knots under the reference speed and 5 over. The
+# bands here are those figures with room: a band set by eye is either so wide
+# it catches nothing or so narrow it faults correct flying, and both have
+# happened in this project.
+#
+# **The height band is measured from where the leg began, so it catches a
+# drift and not an altimeter setting.** An aeroplane flown round the whole
+# circuit a hundred feet low is flying a low circuit, which is a different
+# fault; one that sinks a hundred feet along the downwind leg is not holding
+# her height, which is this one.
+#
+# **The turns are left**, which is the usual direction and the one the numbers
+# here are signed for: `lesson/turned-deg` is negative to the left.
+#
+# **The circuit begins with a take-off**, because a circuit does. The first
+# stage watches no speed: she starts it standing still, and a band on the
+# climbing speed would fault every take-off there is for not already being at
+# it. The climb out is judged from two hundred feet, by which point the speed
+# has settled into the climb.
+#
+# **Landing is asked of the wheels, not of the altimeter.** `position/h-agl-ft`
+# is measured to the aeroplane's own reference point, not to its tyres, and a
+# Mosquito parked on the runway reads seven feet - so a lesson that asked for
+# five could never be satisfied by one, however well it was landed. `gear/wow`
+# is the weight on the wheels, which is the thing being asked about.
+#
+# **The heights are against where the stage began**, so the lesson can be flown
+# from any aerodrome: `start+400` is four hundred feet above where the climb
+# out started, not above the sea.
+
+name The circuit in a light aeroplane
+teaches light-aircraft
+
+stage The take-off
+do Full power, keep her straight on the centreline, and ease her off at the rotation speed
+do Let the speed build to the climbing speed once she is off the ground
+until position/h-agl-ft >= start+200
+
+stage The climb out
+do Climb away at the climbing speed, straight ahead
+do Do not turn until you are high enough: five hundred feet is the usual
+hold velocities/vc-kts climb-12 climb+15 Hold the climbing speed in the climb out
+hold lesson/turned-deg -25 25 Keep her straight until you are high enough to turn
+until position/h-agl-ft >= start+400
+
+stage The crosswind turn
+do Turn left on to crosswind, still climbing
+do A medium turn: this is a climbing turn, not a steep one
+until lesson/turned-deg <= -80
+
+stage Crosswind, and the turn on to downwind
+do Climb on to circuit height and level off there
+do Turn left on to downwind, parallel to the runway and the other way
+until lesson/turned-deg <= -80
+
+stage Downwind
+do Fly the downwind leg at circuit height, parallel to the runway
+do Hold the height and the speed: the landing checks are done along here
+hold position/h-agl-ft start-120 start+120 Hold the circuit height downwind
+need lesson/flown-nm >= 1.0 Fly a downwind leg long enough to do the checks and settle
+until lesson/turned-deg <= -50
+
+stage Base, and the turn on to final
+do Power back, turn left on to base and start down
+do Turn left on to final and line up with the runway
+until lesson/turned-deg <= -110
+
+stage Final
+do Hold the approach speed down to the threshold
+hold velocities/vc-kts vref-10 vref+15 Hold the approach speed on final
+until position/h-agl-ft <= 40
+
+stage The landing
+do Close the throttle over the threshold and hold her off
+do Let her settle on the main wheels, and keep her straight on the roll
+need gear/wow >= 0.5 Land her on the runway
+until velocities/vg-fps <= 1.0

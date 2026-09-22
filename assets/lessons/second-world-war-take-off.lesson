@@ -22,6 +22,15 @@
 # straight because a lesson that named a runway heading would only suit one
 # runway.
 
+# **Keeping her straight is watched, because it is the first thing a take-off
+# asks for and nothing here used to ask it.** A Mosquito once swung forty-five
+# degrees off the centreline on its roll and its lesson said nothing, because
+# it watched the throttle, the rotation speed, the attitude and the climbing
+# speed and not the heading. Flown properly the five aeroplanes taught a
+# take-off swing between 1.1 and 11.1 degrees, so twenty degrees is that with
+# room - wide enough for honest technique in a tail-wheel aeroplane, and
+# nowhere near wide enough to miss a swing off the runway.
+
 name Take-off in a wartime twin
 teaches second-world-war
 
@@ -29,6 +38,7 @@ stage The roll
 do Line up, then open the throttles slowly and evenly to full
 do Hold her straight on the rudder: she will swing as the power comes in
 do Let the speed build to the rotation speed. Do not hurry her off
+hold lesson/turned-deg -20 20 Keep her straight on the take-off roll
 need fcs/throttle-cmd-norm >= 0.90 Open the throttles fully for the take-off
 need velocities/vc-kts >= rotate-5 Let her reach the rotation speed before easing the nose up
 until position/h-agl-ft >= 15

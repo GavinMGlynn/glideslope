@@ -156,7 +156,21 @@ Controls Departure::fly() {
     c.throttle = throttle_;
 
     // --- the nose, down the centreline ------------------------------------
-    if (stage_ == Stage::roll || stage_ == Stage::rotate) {
+    //
+    // **On the ground is the roll, whatever the stage said** - the mirror of
+    // the rollout in `sim/lander.hpp`, and for the same reason: the wheels
+    // decide, not the height and not the stage. An aeroplane that has bounced
+    // is not flying. The Mosquito bounces at about 97 knots, which latched
+    // `unstuck_` and handed her to the airborne law - bank to hold a heading
+    // - while she was still on the runway at 115 knots. She rolled on for
+    // fourteen seconds with no steering on the wheels at all and swung 45
+    // degrees off the centreline, with the rudder sitting at a tenth of its
+    // travel because the airborne law only had a little sideslip to answer.
+    //
+    // `unstuck_` itself is left alone: where she first came off is where the
+    // ground roll ends, and the published take-off distances are measured
+    // from it.
+    if (stage_ == Stage::roll || stage_ == Stage::rotate || on_ground) {
         // On the ground the rudder and the nosewheel are one control, and
         // below the speed at which the rudder bites the brakes help it.
         const double want = std::clamp(-across_m_ * 2.0, -15.0, 15.0);

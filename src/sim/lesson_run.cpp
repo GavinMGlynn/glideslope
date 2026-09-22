@@ -1,6 +1,8 @@
 #include "sim/lesson_run.hpp"
 
+#include <cmath>
 #include <map>
+#include <numbers>
 #include <stdexcept>
 
 namespace glideslope::sim {
@@ -60,6 +62,24 @@ LessonRun::LessonRun(Lesson lesson, LessonSpeeds speeds)
     }
 }
 
+namespace {
+
+// Great-circle distance in nautical miles. A nautical mile is a minute of
+// arc by definition, so the Earth's mean radius in them is 180 * 60 / pi.
+double the_great_circle_nm(double from_lat_deg, double from_lon_deg, double to_lat_deg,
+                           double to_lon_deg) {
+    constexpr double to_radians = std::numbers::pi / 180.0;
+    constexpr double earth_nm = 180.0 * 60.0 / std::numbers::pi;
+    const double d_lat = (to_lat_deg - from_lat_deg) * to_radians;
+    const double d_lon = (to_lon_deg - from_lon_deg) * to_radians;
+    const double a = std::sin(d_lat / 2.0) * std::sin(d_lat / 2.0) +
+                     std::cos(from_lat_deg * to_radians) * std::cos(to_lat_deg * to_radians) *
+                         std::sin(d_lon / 2.0) * std::sin(d_lon / 2.0);
+    return earth_nm * 2.0 * std::atan2(std::sqrt(a), std::sqrt(1.0 - a));
+}
+
+} // namespace
+
 void LessonRun::judge_needs(const Aircraft& aircraft, std::int64_t tick) {
     const LessonStage& stage = lesson_.stages[stage_];
     for (const LessonWatch& need : stage.needs) {
@@ -77,6 +97,17 @@ void LessonRun::judge_needs(const Aircraft& aircraft, std::int64_t tick) {
 // has something to mean.
 bool LessonRun::read(const Aircraft& aircraft, const std::string& property,
                      double& out) const {
+    if (property == "lesson/flown-nm") {
+        double latitude = 0.0;
+        double longitude = 0.0;
+        if (!value_of(aircraft, "position/lat-geod-deg", latitude) ||
+            !value_of(aircraft, "position/long-gc-deg", longitude)) {
+            return false;
+        }
+        out = the_great_circle_nm(latitude_at_start_deg_, longitude_at_start_deg_,
+                                  latitude, longitude);
+        return true;
+    }
     if (property == "lesson/turned-deg") {
         double heading = 0.0;
         if (!value_of(aircraft, "attitude/psi-deg", heading)) {
@@ -91,6 +122,8 @@ bool LessonRun::read(const Aircraft& aircraft, const std::string& property,
 void LessonRun::remember_the_start(const Aircraft& aircraft) {
     began_.clear();
     (void)value_of(aircraft, "attitude/psi-deg", heading_at_start_deg_);
+    (void)value_of(aircraft, "position/lat-geod-deg", latitude_at_start_deg_);
+    (void)value_of(aircraft, "position/long-gc-deg", longitude_at_start_deg_);
     if (finished()) {
         return;
     }

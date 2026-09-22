@@ -1120,6 +1120,9 @@ struct Demonstrated {
     // The fastest any control moved while the pilot had it: their hands
     // move at a hand's pace, and so must the aeroplane's controls.
     double worst_settled = 0.0;
+    // The furthest her nose got from the runway heading on the take-off
+    // roll, which is what a band on keeping straight has to be set from.
+    double worst_swing_deg = 0.0;
 };
 
 // **The instructor flies the demonstration, hands over, and takes it back.**
@@ -1370,6 +1373,13 @@ Demonstrated demonstrate_a_take_off(const std::string& id) {
         aircraft.step();
         if (!demonstrated) {
             run.update(aircraft, tick);
+            if (run.stage() == 0) {
+                out.worst_swing_deg = std::max(
+                    out.worst_swing_deg,
+                    std::abs(std::remainder(
+                        aircraft.property("attitude/psi-deg") - runway.heading_deg,
+                        360.0)));
+            }
         }
     }
     out.debrief = run.debrief_lines();
@@ -1391,9 +1401,9 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_take_off_and_hands_it_over) {
     for (const std::string& id : flown) {
         const Demonstrated shown = demonstrate_a_take_off(id);
         std::printf("  %-13s take-off %zu/%zu stages, worst step %.4f over, "
-                    "%.4f back\n",
+                    "%.4f back, swung %.1f deg on the roll\n",
                     id.c_str(), shown.completed, shown.stages, shown.worst_to_pilot,
-                    shown.worst_to_ai);
+                    shown.worst_to_ai, shown.worst_swing_deg);
         for (const std::string& said : shown.debrief) {
             std::printf("      %s\n", said.c_str());
         }
@@ -1789,4 +1799,222 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_stall_and_hands_it_over) {
     check(walked == taught.size(),
           "every aeroplane taught the exercise demonstrated it: " +
               std::to_string(walked) + " of " + std::to_string(taught.size()));
+}
+
+namespace {
+
+// Where she is along the runway, in nautical miles: positive beyond the
+// threshold in the landing direction, negative before it. A circuit has to
+// know this and the aeroplane's own state cannot say it.
+double along_the_runway_nm(const glideslope::sim::Runway& r,
+                           const glideslope::sim::Aircraft& a) {
+    const double north_m = (a.property("position/lat-geod-deg") - r.threshold_lat_deg) *
+                           metres_per_degree_latitude(r.threshold_lat_deg);
+    const double east_m = (a.property("position/long-gc-deg") - r.threshold_lon_deg) *
+                          metres_per_degree_longitude(r.threshold_lat_deg);
+    const double h = r.heading_deg / degrees;
+    return (north_m * std::cos(h) + east_m * std::sin(h)) / metres_per_nm;
+}
+
+bool pointing_at(const glideslope::sim::Aircraft& a, double heading_deg) {
+    return std::abs(std::remainder(heading_deg - a.property("attitude/psi-deg"), 360.0)) <
+           10.0;
+}
+
+struct Circuit {
+    std::vector<std::string> debrief;
+    std::size_t completed = 0;
+    std::size_t stages = 0;
+    bool stopped = false;
+    double highest_agl_ft = 0.0;
+    // **What the bands are set from, rather than guessed at.** The speed
+    // through the climb out and down final, and the height held downwind,
+    // measured over every aeroplane that flies the lesson.
+    double slowest_climb_out_kts = 1e9;
+    double fastest_climb_out_kts = 0.0;
+    double lowest_downwind_ft = 1e9;
+    double highest_downwind_ft = 0.0;
+    double slowest_final_kts = 1e9;
+    double fastest_final_kts = 0.0;
+};
+
+// **The AI pilot flies a whole circuit.** The take-off autopilot flies her
+// off, the plain autopilot flies the pattern - a heading and a height a leg -
+// and the approach autopilot brings her back to the same runway she left.
+Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft = 0.0) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const glideslope::sim::Runway runway = a_runway();
+    const auto dep = glideslope::sim::departure_speeds(data(), entry.model);
+    const auto app = glideslope::sim::approach_speeds(data(), entry.model);
+
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = 0.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+
+    const auto found = lesson_for(entry, "circuit");
+    check(found.has_value(), id + " has a circuit lesson for its class");
+    LessonRun run(*found, glideslope::sim::LessonSpeeds{dep.rotate_kts, dep.climb_kts,
+                                                        app.vref_kts,
+                                                        app.vref_kts / 1.3});
+
+    glideslope::sim::Controls standing;
+    glideslope::sim::Controller controller(aircraft, standing);
+    // The climb out: straight ahead to six hundred feet.
+    controller.to_ai_take_off(runway, dep, 600.0);
+
+    // **A faster aeroplane flies a bigger circuit, and the two numbers that
+    // make it are one number.** The downwind leg is left at the distance
+    // where a three-degree glidepath passes through circuit height, so the
+    // approach autopilot is handed an aeroplane on its path rather than
+    // above or below it. A Mosquito flown round the Cessna's thousand-foot
+    // circuit and handed the approach at the Cessna's distance arrived low,
+    // still turning, and put itself into the ground.
+    const double circuit_ft =
+        std::clamp(1000.0 + (app.vref_kts - 60.0) * 8.0, 1000.0, 1600.0);
+    // A three-degree slope rises about 318 feet in a nautical mile, and the
+    // extra third of a mile leaves her a little above the path at the hand
+    // over, which is the side to be on.
+    const double leave_downwind_nm = circuit_ft / 318.0 + 0.33;
+    enum class Leg { climbing_out, crosswind, downwind, approach };
+    Leg leg = Leg::climbing_out;
+    bool sank = false;
+
+    Circuit out;
+    out.stages = found->stages.size();
+    std::size_t stage_was = 0;
+    for (int tick = 0; tick < 900 * steps_per_second && !run.finished(); ++tick) {
+        const double agl = aircraft.property("position/h-agl-ft");
+        const double along = along_the_runway_nm(runway, aircraft);
+        if (leg == Leg::climbing_out && agl >= 600.0) {
+            leg = Leg::crosswind;
+            controller.to_ai();
+            glideslope::sim::AutopilotModes m = controller.autopilot()->modes();
+            m.heading_deg = runway.heading_deg - 90.0;
+            m.altitude_ft = runway.elevation_ft + circuit_ft;
+            m.airspeed_kts = dep.climb_kts;
+            m.vertical_speed_fpm = 600.0;
+            controller.autopilot()->set(m);
+        } else if (leg == Leg::crosswind &&
+                   pointing_at(aircraft, runway.heading_deg - 90.0) &&
+                   agl >= circuit_ft - 100.0) {
+            leg = Leg::downwind;
+            glideslope::sim::AutopilotModes m = controller.autopilot()->modes();
+            m.heading_deg = runway.heading_deg - 180.0;
+            m.airspeed_kts = app.vref_kts + 20.0;
+            controller.autopilot()->set(m);
+        } else if (leg == Leg::downwind && sink_downwind_ft > 0.0 && along <= -1.0 &&
+                   !sank) {
+            // **The fault: she sinks along the downwind leg.** Not a low
+            // circuit - that is a different fault and the band is measured
+            // from where the leg began, on purpose - but a leg begun at
+            // circuit height and not held there.
+            sank = true;
+            std::printf("      sinking %.0f ft at %.2f nm, stage %zu, agl %.0f\n",
+                        sink_downwind_ft, along, run.stage(), agl);
+            glideslope::sim::AutopilotModes m = controller.autopilot()->modes();
+            m.altitude_ft = *m.altitude_ft - sink_downwind_ft;
+            controller.autopilot()->set(m);
+        } else if (leg == Leg::downwind && along <= -leave_downwind_nm) {
+            leg = Leg::approach;
+            controller.to_ai_approach(runway, app);
+        }
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        run.update(aircraft, tick);
+        out.highest_agl_ft = std::max(out.highest_agl_ft, agl);
+        const double kcas = aircraft.property("velocities/vc-kts");
+        if (run.stage() == 1) {
+            out.slowest_climb_out_kts = std::min(out.slowest_climb_out_kts, kcas);
+            out.fastest_climb_out_kts = std::max(out.fastest_climb_out_kts, kcas);
+        } else if (run.stage() == 4) {
+            out.lowest_downwind_ft = std::min(out.lowest_downwind_ft, agl);
+            out.highest_downwind_ft = std::max(out.highest_downwind_ft, agl);
+        } else if (run.stage() == 6) {
+            out.slowest_final_kts = std::min(out.slowest_final_kts, kcas);
+            out.fastest_final_kts = std::max(out.fastest_final_kts, kcas);
+        }
+        if (trace && (run.stage() != stage_was || tick % (30 * steps_per_second) == 0)) {
+            stage_was = run.stage();
+            std::printf("      %6.1f s  stage %zu  leg %d  agl %5.0f  along %+5.2f nm  "
+                        "hdg %3.0f  %3.0f kt\n",
+                        static_cast<double>(tick) / steps_per_second, run.stage(),
+                        static_cast<int>(leg), agl, along,
+                        aircraft.property("attitude/psi-deg"),
+                        aircraft.property("velocities/vc-kts"));
+        }
+    }
+    out.stopped = std::abs(aircraft.property("velocities/vg-fps")) < 1.0 &&
+                  aircraft.property("gear/wow") > 0.5;
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    return out;
+}
+
+} // namespace
+
+// **A circuit flown by the book leaves an empty debrief**, for every light
+// aeroplane: off the runway, round the pattern left-hand at circuit height,
+// and back on to the same runway.
+GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
+    const auto taught = everyone_taught("circuit");
+    check(!taught.empty(), "some aeroplane is taught the circuit");
+    std::size_t walked = 0;
+    for (const std::string& id : taught) {
+        const Circuit flown = fly_a_circuit(id, false);
+        std::printf("  %-13s circuit %zu/%zu stages, highest %.0f ft, %s\n", id.c_str(),
+                    flown.completed, flown.stages, flown.highest_agl_ft,
+                    flown.stopped ? "stopped on the runway" : "NOT STOPPED");
+        const auto d = glideslope::sim::departure_speeds(data(), 
+            glideslope::sim::find_aircraft(data(), id).model);
+        const auto a = glideslope::sim::approach_speeds(data(),
+            glideslope::sim::find_aircraft(data(), id).model);
+        std::printf("      climb out %.0f-%.0f kt (climb %.0f), downwind %.0f-%.0f ft, "
+                    "final %.0f-%.0f kt (vref %.0f)\n",
+                    flown.slowest_climb_out_kts, flown.fastest_climb_out_kts,
+                    d.climb_kts, flown.lowest_downwind_ft, flown.highest_downwind_ft,
+                    flown.slowest_final_kts, flown.fastest_final_kts, a.vref_kts);
+        for (const std::string& said : flown.debrief) {
+            std::printf("      %s\n", said.c_str());
+        }
+        check(flown.completed == flown.stages,
+              id + " flew every stage of the circuit: " +
+                  std::to_string(flown.completed) + " of " +
+                  std::to_string(flown.stages));
+        check(flown.stopped, id + " finished the circuit stopped on the runway");
+        check(flown.debrief.empty(),
+              id + " flew the circuit inside the lesson's limits, and said " +
+                  std::to_string(flown.debrief.size()) + " things");
+        ++walked;
+    }
+    check(walked == taught.size(),
+          "every aeroplane taught the circuit flew it: " + std::to_string(walked) +
+              " of " + std::to_string(taught.size()));
+}
+
+// **A circuit flown with one fault has that fault in its debrief, and no
+// other.** She is let sink two hundred and fifty feet along the downwind leg,
+// which is the one thing the lesson watches there.
+GLIDESLOPE_TEST(a_circuit_flown_low_downwind_is_named_in_the_debrief) {
+    const Circuit sunk = fly_a_circuit("c172p", false, 250.0);
+    std::printf("  c172p sinking downwind: %zu/%zu stages, downwind %.0f-%.0f ft\n",
+                sunk.completed, sunk.stages, sunk.lowest_downwind_ft,
+                sunk.highest_downwind_ft);
+    for (const std::string& said : sunk.debrief) {
+        std::printf("      %s\n", said.c_str());
+    }
+    check(sunk.debrief.size() == 1,
+          "the debrief holds one thing, and it said " +
+              std::to_string(sunk.debrief.size()));
+    check(sunk.debrief.front().find("circuit height") != std::string::npos,
+          "and the one thing is the circuit height: " + sunk.debrief.front());
 }

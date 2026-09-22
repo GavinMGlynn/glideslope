@@ -615,12 +615,27 @@ checklists are part of. A lesson ends in a debrief, never a score
       of the wrap at north. A raw heading cannot say "turned ninety degrees
       left" - 340 is not less than 70 less eighty - so the turns lesson used
       to work only because its test never crossed north.
-      **Still missing: the circuit**, which was written and withdrawn the
-      same day. The lesson data is sound and the autopilot is sound - a probe
-      commanded from 218 degrees to 250 while descending at 400 feet a minute
-      turned the short way, held its speed to a tenth of a knot and descended
-      at 396 - but the test that flies the pattern has a fault not yet found,
-      and a lesson whose test does not demonstrate it is not shipped.
+      **The circuit is the sixth lesson, 2026-09-23** - the first that is a
+      whole flight, off a runway and back on to the same one. Eight stages:
+      the take-off, the climb out, the crosswind turn, the turn on to
+      downwind, the downwind leg, base and the turn on to final, final, and
+      the landing. All four light aircraft and the Mosquito fly it to an
+      empty debrief; let sink two hundred and fifty feet along the downwind
+      leg, the debrief holds one thing and it is the circuit height.
+      `lesson/flown-nm` joins `lesson/turned-deg` as a property the runner
+      works out rather than the aeroplane holds: it says the downwind leg was
+      long enough to be one.
+      **It found two real defects.** The take-off autopilot latched "unstuck"
+      on a bounce and never unlatched, so a Mosquito that skipped once at 97
+      knots was steered by the airborne law - bank to hold a heading - while
+      still on the runway at 115. She rolled fourteen seconds with nothing
+      steering the wheels and swung forty-five degrees off the centreline.
+      The wheels decide now, whatever the stage says, which is the rule the
+      landing autopilot already followed. **And no take-off lesson watched the
+      heading at all**, which is why that had never been caught: they watched
+      the throttle, the rotation speed, the attitude and the climbing speed.
+      They watch keeping straight now, at twenty degrees against the 1.1 to
+      11.1 the five aeroplanes actually swing.
       **Every class has a turns lesson, 2026-09-22**, and every aeroplane in
       the roster flies its own class's: all sixteen, all seven classes, each
       through ninety degrees of left turn holding its height - the worst of
@@ -638,8 +653,8 @@ checklists are part of. A lesson ends in a debrief, never a score
       Learjet publishes a stall only, so it approaches, stalls and turns.
       Every aeroplane taught an exercise is flown through it: five take off,
       six approach, six stall, five climb, and all sixteen turn.
-      Still missing: the circuit, and take-offs, approaches, climbs and
-      stalls for the airliners, the fighters, the bomber and the flying boat
+      Still missing: take-offs, approaches, climbs, stalls and circuits
+      for the airliners, the fighters, the bomber and the flying boat
       - **none of those ten publishes a stall speed or a rate of climb**, and
       `sim::approach_speeds` and `sim::departure_speeds` throw rather than
       guess, which is right: a reference speed invented means nothing. Those
