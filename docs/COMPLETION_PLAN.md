@@ -23,6 +23,21 @@ implementing something go in at the bottom the moment they are found.
 sed -n '/^## Phase /,/^## Tails/p' docs/COMPLETION_PLAN.md | grep '^- \[ \]'
 ```
 
+- [ ] **A published stall speed for the F-15C, which would give the fighter
+      class its approach and stall lessons.** Found 2026-09-22 while looking
+      for why ten aeroplanes can have only a turns lesson. The F-15's own
+      flight manual does publish one: T.O. 1F-15A-1, Appendix A, the Stall
+      Speeds charts, whose worked sample gives **107 knots with flaps and
+      gear down at 40,000 lb, 15 degrees of bank, 10,000 feet and maximum
+      thrust**. That is not directly what this project's `stall_speed`
+      figures hold - those are power off and wings level - so taking it needs
+      either a figure that carries its bank and thrust as conditions, or the
+      1g power-off number read off the same chart rather than from its
+      sample. The manual is in the Internet Archive copy `ASSETS.md` already
+      records for the F-15C's checklist. *Verification: the F-15C stalls near
+      its published speed in the configuration the figure names, and its class
+      gains the approach and stall lessons.*
+
 - [ ] **The autopilot banks to its limit even when the aeroplane cannot
       sustain the turn.** Found 2026-09-22 by probing every class through a
       ninety-degree turn. At 3,000 feet the Cessna 172P holds its height to
