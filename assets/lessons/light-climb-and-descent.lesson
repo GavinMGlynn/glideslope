@@ -1,0 +1,42 @@
+# Climbs and descents, in a light aeroplane: up at the climbing speed, level
+# off, and back down at a steady rate.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The speeds are each aeroplane's own**: `climb` is the speed its published
+# climb rate was measured at, which `sim::departure_speeds` reads from
+# `assets/figures/<id>.xml`. The four light aircraft climb between about 48
+# knots and about 80, so a number here would teach the wrong speed to three
+# of them.
+#
+# **The heights are against where the stage began**, so the lesson can be
+# flown at any altitude: `start+1000` is a thousand feet above wherever this
+# was started, not a thousand feet above the sea.
+
+name Climbs and descents in a light aeroplane
+teaches light-aircraft
+
+stage The climb
+do Set the climbing power and let the speed settle at the climbing speed
+do Hold the nose where the speed sits right: look out, and lower it to see ahead
+hold velocities/vc-kts climb-15 climb+15 Hold the climbing speed
+until position/h-agl-ft >= start+900
+
+stage Levelling off
+do Lower the nose at the height you want and let the speed build
+do Set the cruising power once the speed is there
+until velocities/h-dot-fps <= 3.0
+
+stage The descent
+do Bring the power back and let the nose down to a steady rate of descent
+do Hold the speed and keep the engine warm
+hold velocities/vc-kts climb-15 climb+45 Hold the speed in the descent
+until position/h-agl-ft <= start-500

@@ -594,9 +594,18 @@ checklists are part of. A lesson ends in a debrief, never a score
       which are true. **No band watches the flare**, because the flare is
       where the speed is meant to go - a first draft held one to five feet
       and faulted every correct landing there is.
-      Still missing: the circuit, the stalls, the
-      turns, climbs and descents, and lessons for the other six classes of
-      aircraft.
+      **Turns, and climbs and descents, are the third and fourth lessons,
+      2026-09-22**, and `start` joins the figures a lesson may name: what
+      that watch own property read when the stage began, which is how a
+      lesson says "hold the height you are at" without knowing where the
+      aeroplane is. All four light aircraft fly both by the book with an
+      empty debrief - through ninety degrees of turn holding their height to
+      within ten feet, and up nine hundred feet and back down at their own
+      climbing speed. Let sink through the turn, the debrief says to hold
+      your height; flown thirty knots fast in the climb, it says to hold the
+      climbing speed.
+      Still missing: the circuit, the stalls, and lessons for the other six
+      classes of aircraft.
       **The reference speeds a lesson needs are published for the light
       aircraft and not for the rest**, which was looked into on 2026-09-21
       rather than assumed. Only six of the sixteen publish a stall speed and

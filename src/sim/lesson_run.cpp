@@ -1,5 +1,6 @@
 #include "sim/lesson_run.hpp"
 
+#include <map>
 #include <stdexcept>
 
 namespace glideslope::sim {
@@ -15,10 +16,23 @@ bool value_of(const Aircraft& aircraft, const std::string& property, double& out
     }
 }
 
-bool met(const LessonWatch& watch, double value, const LessonSpeeds& speeds) {
-    const double low = figure_of(watch.low, speeds);
+// A figure, with `start` resolved against what the property read when the
+// stage began.
+double figure(const LessonNumber& number, const LessonSpeeds& speeds,
+              const std::map<std::string, double>& began, const std::string& property) {
+    if (number.reference == "start") {
+        const auto it = began.find(property);
+        return (it == began.end() ? 0.0 : it->second) + number.offset;
+    }
+    return figure_of(number, speeds);
+}
+
+bool met(const LessonWatch& watch, double value, const LessonSpeeds& speeds,
+         const std::map<std::string, double>& began) {
+    const double low = figure(watch.low, speeds, began, watch.property);
     if (watch.banded) {
-        return value >= low && value <= figure_of(watch.high, speeds);
+        return value >= low && value <= figure(watch.high, speeds, began,
+                                               watch.property);
     }
     return watch.at_least ? value >= low : value <= low;
 }
@@ -39,13 +53,41 @@ void LessonRun::judge_needs(const Aircraft& aircraft, std::int64_t tick) {
         if (!value_of(aircraft, need.property, value)) {
             continue;
         }
-        if (!met(need, value, speeds_)) {
+        if (!met(need, value, speeds_, began_)) {
             debrief_.push_back({need.fault, stage.name, tick});
         }
     }
 }
 
+// What every property this stage watches reads now, so that a `start` in it
+// has something to mean.
+void LessonRun::remember_the_start(const Aircraft& aircraft) {
+    began_.clear();
+    if (finished()) {
+        return;
+    }
+    const LessonStage& stage = lesson_.stages[stage_];
+    const auto note = [&](const std::string& property) {
+        double value = 0.0;
+        if (value_of(aircraft, property, value)) {
+            began_[property] = value;
+        }
+    };
+    note(stage.until_property);
+    for (const LessonWatch& watch : stage.holds) {
+        note(watch.property);
+    }
+    for (const LessonWatch& watch : stage.needs) {
+        note(watch.property);
+    }
+}
+
 void LessonRun::update(const Aircraft& aircraft, std::int64_t tick) {
+    // The first tick of the lesson is the first stage own beginning.
+    if (!noted_) {
+        remember_the_start(aircraft);
+        noted_ = true;
+    }
     // **More than one stage may end on a tick**, when a stage's `until` is
     // already true as it begins. The loop is what lets the lesson move on
     // rather than sitting on a stage that was over before it started.
@@ -61,7 +103,7 @@ void LessonRun::update(const Aircraft& aircraft, std::int64_t tick) {
             if (!value_of(aircraft, stage.holds[i].property, value)) {
                 continue;
             }
-            if (!met(stage.holds[i], value, speeds_)) {
+            if (!met(stage.holds[i], value, speeds_, began_)) {
                 debrief_.push_back({stage.holds[i].fault, stage.name, tick});
                 already_[i] = true;
             }
@@ -72,7 +114,8 @@ void LessonRun::update(const Aircraft& aircraft, std::int64_t tick) {
         if (!value_of(aircraft, stage.until_property, ending)) {
             return; // nothing here can end it; a test catches that
         }
-        const double ends_at = figure_of(stage.until_value, speeds_);
+        const double ends_at =
+            figure(stage.until_value, speeds_, began_, stage.until_property);
         const bool over =
             stage.until_at_least ? ending >= ends_at : ending <= ends_at;
         if (!over) {
@@ -81,6 +124,7 @@ void LessonRun::update(const Aircraft& aircraft, std::int64_t tick) {
         judge_needs(aircraft, tick);
         ++stage_;
         already_.assign(finished() ? 0 : lesson_.stages[stage_].holds.size(), false);
+        remember_the_start(aircraft);
     }
 }
 

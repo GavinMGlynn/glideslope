@@ -41,6 +41,9 @@ double figure_of(const LessonNumber& number, const LessonSpeeds& speeds) {
     if (number.reference == "vref") {
         return speeds.vref_kts + number.offset;
     }
+    // `start` is the runner business: it alone knows when the stage began.
+    // Reaching here with one means nobody resolved it, and a figure of zero
+    // plus the offset is the least surprising thing to do.
     return number.literal;
 }
 
@@ -49,7 +52,7 @@ bool read_number(std::string_view text, LessonNumber& out) {
     if (text.empty()) {
         return false;
     }
-    for (const char* name : {"rotate", "climb", "vref"}) {
+    for (const char* name : {"rotate", "climb", "vref", "start"}) {
         const std::string_view head(name);
         if (text.size() >= head.size() && text.substr(0, head.size()) == head) {
             const std::string_view rest = text.substr(head.size());

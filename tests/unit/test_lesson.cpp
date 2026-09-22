@@ -3,6 +3,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
+#include "sim/autopilot.hpp"
 #include "sim/lander.hpp"
 #include "sim/lesson.hpp"
 #include "sim/lesson_run.hpp"
@@ -513,4 +514,238 @@ GLIDESLOPE_TEST(an_approach_flown_fast_is_named_in_the_debrief) {
         std::any_of(fast.debrief.begin(), fast.debrief.end(),
                     [](const std::string& s) { return s == "Hold the approach speed"; });
     check(named, "and the debrief says to hold the approach speed");
+}
+
+namespace {
+
+// An aeroplane trimmed out in level flight at `agl_ft`, ready to be flown by
+// the autopilot.
+struct InFlight {
+    std::unique_ptr<glideslope::sim::Aircraft> aircraft;
+    glideslope::sim::LessonSpeeds speeds;
+    double start_agl_ft = 0.0;
+    double start_heading_deg = 0.0;
+};
+
+InFlight airborne(const std::string& id, double agl_ft) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    InFlight out;
+    out.aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim",
+                                                               entry.model);
+    out.aircraft->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9461;
+    ic.longitude_deg = 151.1772;
+    ic.altitude_ft = agl_ft;
+    ic.terrain_elevation_ft = 0.0;
+    ic.heading_deg = 90.0;
+    ic.airspeed_kts = entry.start_airspeed_kts;
+    ic.engine_running = true;
+    ic.gear = 0.0;
+    out.aircraft->initialize(ic);
+    const auto departure = glideslope::sim::departure_speeds(data(), entry.model);
+    const auto approach = glideslope::sim::approach_speeds(data(), entry.model);
+    out.speeds = {departure.rotate_kts, departure.climb_kts, approach.vref_kts};
+    out.start_agl_ft = agl_ft;
+    out.start_heading_deg = 90.0;
+    return out;
+}
+
+Lesson the_lesson(const std::string& id) {
+    const auto lessons = glideslope::sim::read_lessons(data());
+    const auto it = std::find_if(lessons.begin(), lessons.end(),
+                                 [&](const Lesson& l) { return l.id == id; });
+    check(it != lessons.end(), id + " is in the data");
+    return *it;
+}
+
+struct Result {
+    std::vector<std::string> debrief;
+    std::size_t completed = 0;
+    std::size_t stages = 0;
+    double lowest_agl_ft = 1e9;
+    double steepest_bank_deg = 0.0;
+};
+
+// **A turn, flown by the autopilot.** `sink_fpm` other than zero makes her
+// lose height through it, which is the fault this lesson is for.
+Result fly_a_turn(const std::string& id, double sink_fpm) {
+    InFlight f = airborne(id, 3000.0);
+    const Lesson lesson = the_lesson("light-turns");
+    LessonRun run(lesson, f.speeds);
+
+    glideslope::sim::Controls controls;
+    controls.throttle = 0.7;
+    glideslope::sim::Autopilot autopilot(*f.aircraft, controls);
+    glideslope::sim::AutopilotModes modes = autopilot.modes();
+    modes.altitude_ft = f.start_agl_ft;
+    modes.heading_deg = f.start_heading_deg;
+    autopilot.set(modes);
+
+    Result out;
+    out.stages = lesson.stages.size();
+    // A moment to settle, then turn ninety degrees left.
+    for (int tick = 0; tick < 240 * steps_per_second && !run.finished(); ++tick) {
+        if (tick == 10 * steps_per_second) {
+            modes.heading_deg = f.start_heading_deg - 90.0;
+            if (sink_fpm != 0.0) {
+                modes.altitude_ft.reset();
+                modes.vertical_speed_fpm = sink_fpm;
+            }
+            autopilot.set(modes);
+        }
+        f.aircraft->set_controls(autopilot.fly());
+        f.aircraft->step();
+        if (tick >= 10 * steps_per_second) {
+            run.update(*f.aircraft, tick);
+            out.lowest_agl_ft =
+                std::min(out.lowest_agl_ft, f.aircraft->property("position/h-agl-ft"));
+            out.steepest_bank_deg = std::min(
+                out.steepest_bank_deg, f.aircraft->property("attitude/phi-deg"));
+        }
+    }
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    return out;
+}
+
+} // namespace
+
+// **A turn flown by the book keeps its height**, and the lesson says nothing.
+GLIDESLOPE_TEST(the_turns_lesson_flown_by_the_book_leaves_an_empty_debrief) {
+    std::size_t walked = 0;
+    for (const std::string& id : light_aircraft()) {
+        const Result flown = fly_a_turn(id, 0.0);
+        std::printf("  %-6s banked to %.0f degrees, lowest %.0f ft of 3000, "
+                    "%zu of %zu stages\n",
+                    id.c_str(), flown.steepest_bank_deg, flown.lowest_agl_ft,
+                    flown.completed, flown.stages);
+        for (const std::string& said : flown.debrief) {
+            std::printf("    %s\n", said.c_str());
+        }
+        check(flown.completed == flown.stages,
+              id + " got through the turn, " + std::to_string(flown.completed) +
+                  " of " + std::to_string(flown.stages) + " stages");
+        check(flown.debrief.empty(),
+              id + " flown by the book says nothing, and it said " +
+                  std::to_string(flown.debrief.size()));
+        ++walked;
+    }
+    check(walked == 4, "all four were turned");
+}
+
+// **A turn that loses height is named for losing height.** The bank is the
+// same; what is different is that she is let descend through it.
+GLIDESLOPE_TEST(a_turn_that_loses_height_is_named_in_the_debrief) {
+    const Result sinking = fly_a_turn("c172p", -1200.0);
+    std::printf("  c172p sinking: lowest %.0f ft of 3000, banked to %.0f\n",
+                sinking.lowest_agl_ft, sinking.steepest_bank_deg);
+    for (const std::string& said : sinking.debrief) {
+        std::printf("    %s\n", said.c_str());
+    }
+    check(!sinking.debrief.empty(), "losing height in a turn is not faultless");
+    const bool named = std::any_of(
+        sinking.debrief.begin(), sinking.debrief.end(), [](const std::string& s) {
+            return s == "Hold your height through the turn";
+        });
+    check(named, "and the debrief says to hold your height");
+}
+
+namespace {
+
+// **A climb, a level-off and a descent, flown by the autopilot.**
+// `fast_by_kts` other than zero flies the climb at a speed that is not the
+// climbing speed, which is the fault this lesson is for.
+Result fly_a_climb_and_descent(const std::string& id, double fast_by_kts) {
+    InFlight f = airborne(id, 3000.0);
+    const Lesson lesson = the_lesson("light-climb-and-descent");
+    LessonRun run(lesson, f.speeds);
+
+    glideslope::sim::Controls controls;
+    controls.throttle = 0.8;
+    glideslope::sim::Autopilot autopilot(*f.aircraft, controls);
+    glideslope::sim::AutopilotModes modes = autopilot.modes();
+    // Climbing on vertical speed alone while she settles: the height to
+    // level off at is set once the lesson has actually begun, because the
+    // lesson asks for nine hundred feet from *there* and she will have
+    // climbed some way before then.
+    modes.heading_deg = f.start_heading_deg;
+    modes.vertical_speed_fpm = 600.0;
+    modes.airspeed_kts = f.speeds.climb_kts + fast_by_kts;
+    autopilot.set(modes);
+
+    Result out;
+    out.stages = lesson.stages.size();
+    bool descending = false;
+    // **The lesson begins when the exercise does.** She starts at her cruise
+    // speed and the autopilot has to slow her to the climbing speed and get
+    // the climb established; a lesson that began on the first tick would be
+    // judging the settling, not the climb. Thirty seconds is comfortably
+    // more than any of the four needs.
+    const int settling = 30 * steps_per_second;
+    for (int tick = 0; tick < 600 * steps_per_second && !run.finished(); ++tick) {
+        f.aircraft->set_controls(autopilot.fly());
+        f.aircraft->step();
+        if (tick < settling) {
+            continue;
+        }
+        if (tick == settling) {
+            modes.altitude_ft = f.aircraft->property("position/h-agl-ft") + 1100.0;
+            autopilot.set(modes);
+        }
+        run.update(*f.aircraft, tick);
+        const double agl = f.aircraft->property("position/h-agl-ft");
+        out.lowest_agl_ft = std::min(out.lowest_agl_ft, agl);
+        // Once she is levelled off up there, bring her back down.
+        if (!descending && run.stage() >= 2) {
+            descending = true;
+            modes.altitude_ft = agl - 700.0;
+            modes.vertical_speed_fpm = 600.0;
+            modes.airspeed_kts = f.speeds.climb_kts + 25.0;
+            autopilot.set(modes);
+        }
+    }
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    return out;
+}
+
+} // namespace
+
+// **Climbing and descending by the book leaves an empty debrief**, for every
+// light aeroplane, each at its own climbing speed.
+GLIDESLOPE_TEST(the_climb_lesson_flown_by_the_book_leaves_an_empty_debrief) {
+    std::size_t walked = 0;
+    for (const std::string& id : light_aircraft()) {
+        const Result flown = fly_a_climb_and_descent(id, 0.0);
+        std::printf("  %-6s %zu of %zu stages\n", id.c_str(), flown.completed,
+                    flown.stages);
+        for (const std::string& said : flown.debrief) {
+            std::printf("    %s\n", said.c_str());
+        }
+        check(flown.completed == flown.stages,
+              id + " got through the climb and the descent, " +
+                  std::to_string(flown.completed) + " of " +
+                  std::to_string(flown.stages));
+        check(flown.debrief.empty(),
+              id + " flown by the book says nothing, and it said " +
+                  std::to_string(flown.debrief.size()));
+        ++walked;
+    }
+    check(walked == 4, "all four climbed and descended");
+}
+
+// **A climb flown at the wrong speed is named for it.**
+GLIDESLOPE_TEST(a_climb_at_the_wrong_speed_is_named_in_the_debrief) {
+    const Result fast = fly_a_climb_and_descent("c172p", 30.0);
+    for (const std::string& said : fast.debrief) {
+        std::printf("    %s\n", said.c_str());
+    }
+    check(!fast.debrief.empty(), "a climb thirty knots fast is not faultless");
+    const bool named = std::any_of(
+        fast.debrief.begin(), fast.debrief.end(), [](const std::string& s) {
+            return s == "Hold the climbing speed";
+        });
+    check(named, "and the debrief says to hold the climbing speed");
 }

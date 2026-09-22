@@ -15,8 +15,10 @@
 //   until PROPERTY OP VALUE       what ends the stage: a JSBSim property,
 //                                 `<=` or `>=`, and the figure. A figure is a
 //                                 number, or one the aeroplane publishes -
-//                                 `rotate`, `climb`, `vref` - with an
-//                                 optional offset: `rotate-3`, `vref+10`
+//                                 `rotate`, `climb`, `vref`, or `start` -
+//                                 what this property read when the stage
+//                                 began - with an optional offset:
+//                                 `rotate-3`, `vref+10`, `start-150`
 //   hold PROPERTY LOW HIGH TEXT...   a band that must hold for the whole
 //                                 stage; TEXT is what the debrief says if it
 //                                 is broken
@@ -61,6 +63,13 @@ struct LessonError : std::runtime_error {
 // `rotate`, `climb`, `vref` - with an optional offset: `rotate-3`,
 // `climb+10`.
 //
+// **`start` is the fourth, and it is not a speed.** It is whatever this
+// watch own property read when the stage began, which is how a lesson says
+// "hold the height you are at" or "hold this heading" without knowing where
+// the aeroplane is: `hold position/h-agl-ft start-150 start+150`. It is
+// resolved by the runner, which is the only thing that knows when a stage
+// began and what the aeroplane read then.
+//
 // The names are the ones `sim::departure_speeds` works out from
 // `assets/figures/<id>.xml`, because those are the two a lesson needs and
 // they are already read from the aeroplane published figures.
@@ -84,7 +93,8 @@ struct LessonSpeeds {
 // The figure `number` means for an aeroplane with these speeds.
 double figure_of(const LessonNumber& number, const LessonSpeeds& speeds);
 
-// A figure as a lesson writes it: "55", "rotate", "rotate-3", "vref+10".
+// A figure as a lesson writes it: "55", "rotate", "rotate-3", "vref+10",
+// "start-150".
 // False for anything else, including a name there is none of.
 bool read_number(std::string_view text, LessonNumber& out);
 

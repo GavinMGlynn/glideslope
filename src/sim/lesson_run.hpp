@@ -26,6 +26,7 @@
 #include "sim/lesson.hpp"
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -69,6 +70,7 @@ public:
 
 private:
     void judge_needs(const Aircraft& aircraft, std::int64_t tick);
+    void remember_the_start(const Aircraft& aircraft);
 
     Lesson lesson_;
     LessonSpeeds speeds_;
@@ -76,6 +78,10 @@ private:
     // One flag per hold of the current stage, so a broken band is recorded
     // once rather than on every tick.
     std::vector<bool> already_;
+    // What each property this stage watches read when the stage began, which
+    // is what a `start` in a figure resolves against.
+    std::map<std::string, double> began_;
+    bool noted_ = false;
     std::vector<Fault> debrief_;
 };
 

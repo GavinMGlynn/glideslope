@@ -1,0 +1,57 @@
+# Turns, in a light aeroplane: rolling in, holding the turn, rolling out.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The height is held against where the stage began**, not against a number.
+# A turn is flown anywhere; what the lesson teaches is that the aeroplane
+# comes out of it at the height it went in at. `start` is what the property
+# read when the stage began, so `start-200 start+200` is "within two hundred
+# feet of where you were" wherever that was.
+#
+# **This is a left turn**, because a bank angle has a sign and a lesson has to
+# pick one. The right-hand version is the same lesson with the signs turned
+# over, and is not written until something needs it.
+#
+# The skill being taught is the height, not the bank: a turn that loses a
+# couple of hundred feet is the fault this lesson exists to name.
+#
+# **The height band is measured.** Flown by the autopilot through ninety
+# degrees of left turn at about twenty-six degrees of bank, the four light
+# aircraft hold their height to within ten feet of where they started - the
+# 172 to 2,990 of 3,000, the 182 to 2,991, the PA-28 to 2,996, the Cub to
+# 3,003. A hundred and fifty feet is therefore fifteen times the error a
+# correctly flown turn actually makes, and is close to the hundred feet a
+# licence test allows.
+#
+# **A first draft allowed two hundred feet and caught nothing.** The turn
+# stage lasts about eleven seconds at this bank and speed, so an aeroplane let
+# sink at eight hundred feet a minute through it loses about a hundred and
+# fifty - inside the band. A band has to be set against how long the stage
+# lasts, not against how bad the flying feels.
+
+name Turns in a light aeroplane
+teaches light-aircraft
+
+stage Rolling into the turn
+do Look out, then roll smoothly into about thirty degrees of bank to the left
+do Hold the nose up as the bank comes on: a turn needs more lift, not less
+until attitude/phi-deg <= -20
+
+stage Holding the turn
+do Hold the bank steady and the nose where it was
+do Keep the height: this is what the turn is for
+hold attitude/phi-deg -45.0 -12.0 Hold the bank steady through the turn
+hold position/h-agl-ft start-150 start+150 Hold your height through the turn
+until attitude/psi-deg <= start-60
+
+stage Rolling out
+do Roll the wings level and let the nose settle
+until attitude/phi-deg >= -5
