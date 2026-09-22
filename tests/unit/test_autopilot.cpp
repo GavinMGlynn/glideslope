@@ -2,10 +2,12 @@
 
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
+#include "sim/catalogue.hpp"
 #include "world/weather.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <cstdio>
 #include <functional>
 #include <memory>
@@ -15,6 +17,7 @@
 using glideslope::sim::Aircraft;
 using glideslope::sim::Autopilot;
 using glideslope::sim::AutopilotModes;
+using glideslope::sim::CatalogueEntry;
 using glideslope::test::check;
 
 namespace {
@@ -223,41 +226,170 @@ GLIDESLOPE_TEST(the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb
               " kt off after a minute (at most 10)");
 }
 
-GLIDESLOPE_TEST(engaging_the_autopilot_moves_no_control_faster_than_a_pilots_hand) {
-    // The Cessna in a climbing turn on controls a pilot set, then the autopilot
-    // engaged, holding what the aircraft is doing: no control moves by more
-    // than a hundredth of its travel in any step - 1.2 of it a second - for
-    // five seconds.
-    Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+namespace {
+
+// GLIDESLOPE_TEST_DATA_DIR is the JSBSim root; the aircraft catalogue is
+// beside it, one level up.
+std::filesystem::path data() {
+    return std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+}
+
+// A state an aeroplane can be handed over in: the controls a pilot held, and
+// for how long, to fly it into that state.
+struct Handed {
+    const char* what;
+    double elevator;
+    double aileron;
+    double rudder;
+    double throttle;
+    double seconds;
+};
+
+// **The states an autopilot can be handed, not a sample of them.** The first
+// three are where one is normally engaged. The rest are where a pilot gives
+// up and asks for help - and they are the ones that found the defect: the
+// laws used to cancel their own damping through an integral clamped to the
+// control's travel, so a large sideslip or pitch rate broke the cancellation
+// and the control jumped to its stop. A Mosquito handed over skidding in its
+// landing roll moved the rudder its whole travel in one frame.
+const std::vector<Handed> handovers{
+    {"trimmed and level", 0.0, 0.0, 0.0, 0.65, 20.0},
+    {"a climbing turn", -0.05, 0.10, 0.03, 0.85, 20.0},
+    {"gliding, power off", 0.05, 0.0, 0.0, 0.0, 15.0},
+    {"skidding on full rudder", 0.0, 0.0, 1.0, 0.65, 6.0},
+    {"rolling on full aileron", 0.0, 1.0, 0.0, 0.65, 4.0},
+    {"bunted hard nose down", -1.0, 0.0, 0.0, 0.65, 4.0},
+    {"pulled into a stall", 1.0, 0.0, 0.0, 0.30, 8.0},
+    {"a spiral on crossed controls", 0.4, 0.8, -0.8, 0.85, 8.0},
+};
+
+// **A flight model is only asked what it can answer.** JSBSim's aerodynamic
+// tables are looked up on angle of attack, sideslip and Mach, and it asserts
+// on an index outside them - a 1930s flying boat put into a spiral at 20,000
+// ft left its own tables and aborted the run. So the fly-in stops as soon as
+// the aeroplane reaches the edge of what its model covers, and the autopilot
+// is handed the most extreme state that model can actually produce. This is a
+// limit of the flight models, not of the rule being tested.
+bool inside(const Aircraft& a, double most_deg, double most_mach, double least_ft) {
+    return std::abs(a.property("aero/alpha-deg")) <= most_deg &&
+           std::abs(a.property("aero/beta-deg")) <= most_deg &&
+           a.property("velocities/mach") <= most_mach &&
+           a.property("position/h-sl-ft") > least_ft;
+}
+
+// **The fly-in stops inside the envelope the measurement needs, not at its
+// edge.** Stopping at the same bound left the aeroplane already outside it
+// when the autopilot was handed over, and not one step could be measured - 19
+// of the 128 handovers measured nothing and the test said so rather than
+// passing on an empty walk.
+bool flying_into_it(const Aircraft& a) {
+    return inside(a, 18.0, 0.85, 3000.0);
+}
+
+bool answerable(const Aircraft& a) {
+    return inside(a, 25.0, 0.90, 1000.0);
+}
+
+// The largest a control moved in one step: the first step alone, which is the
+// handover, and the worst of the five seconds after, which is the autopilot
+// flying.
+struct Engaged {
+    double first = 0.0;
+    double after = 0.0;
+    int measured = 0;
+};
+
+Engaged engage_after(const CatalogueEntry& e, const Handed& h) {
+    Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
     glideslope::sim::InitialConditions ic;
     ic.latitude_deg = -33.9;
     ic.longitude_deg = 151.2;
-    ic.altitude_ft = 4000.0;
-    ic.airspeed_kts = 100.0;
+    // High enough that four seconds of full forward stick does not reach the
+    // ground before the autopilot is handed the aeroplane, and low enough to
+    // be within reach of every aeroplane the data holds - the slowest is a
+    // flying boat whose ceiling is about 16,000 ft.
+    ic.altitude_ft = 10000.0;
+    ic.airspeed_kts = e.start_airspeed_kts;
     ic.engine_running = true;
     aircraft.initialize(ic);
     glideslope::sim::Controls pilot;
-    pilot.aileron = 0.1;
-    pilot.elevator = -0.05;
-    pilot.rudder = 0.03;
-    pilot.throttle = 0.85;
-    for (int i = 0; i < 20 * steps_per_second; ++i) {
+    pilot.elevator = h.elevator;
+    pilot.aileron = h.aileron;
+    pilot.rudder = h.rudder;
+    pilot.throttle = h.throttle;
+    const int into_it = static_cast<int>(h.seconds * steps_per_second);
+    for (int i = 0; i < into_it && flying_into_it(aircraft); ++i) {
         aircraft.set_controls(pilot);
         aircraft.step();
     }
     Autopilot autopilot(aircraft, pilot);
+    Engaged worst;
     glideslope::sim::Controls before = pilot;
-    double most = 0.0;
-    for (int i = 0; i < 5 * steps_per_second; ++i) {
+    for (int i = 0; i < 5 * steps_per_second && answerable(aircraft); ++i) {
+        ++worst.measured;
         const glideslope::sim::Controls c = autopilot.fly();
-        most = std::max({most, std::abs(c.aileron - before.aileron),
-                         std::abs(c.elevator - before.elevator),
-                         std::abs(c.rudder - before.rudder),
-                         std::abs(c.throttle - before.throttle)});
+        const double step = std::max({std::abs(c.aileron - before.aileron),
+                                      std::abs(c.elevator - before.elevator),
+                                      std::abs(c.rudder - before.rudder),
+                                      std::abs(c.throttle - before.throttle)});
+        if (i == 0) {
+            worst.first = step;
+        } else {
+            worst.after = std::max(worst.after, step);
+        }
         aircraft.set_controls(c);
         aircraft.step();
         before = c;
     }
-    check(most <= 0.01, "no control moves more than 0.01 of its travel in a step: " +
-                            std::to_string(most));
+    return worst;
+}
+
+} // namespace
+
+// A pilot's hand moves a control through its full travel in about a second -
+// 1/120 of it in a 120 Hz step. **The autopilot must not move a control
+// faster than that: not on the step it is engaged, whatever state it is
+// handed, and not on any step it flies after.** This walks every aeroplane
+// the data holds through every state above to say so.
+GLIDESLOPE_TEST(the_autopilot_never_moves_a_control_faster_than_a_pilots_hand) {
+    // The loops rate limit to exactly this, so a step lands on the bar rather
+    // than under it and the comparison carries a rounding tolerance.
+    constexpr double a_hands_pace =
+        1.0 / static_cast<double>(steps_per_second) + 1e-9;
+    const std::vector<CatalogueEntry> catalogue =
+        glideslope::sim::read_catalogue(data());
+    check(!catalogue.empty(), "the data holds aircraft");
+    std::string failures;
+    std::size_t walked = 0;
+    double worst_first = 0.0;
+    double worst_after = 0.0;
+    for (const CatalogueEntry& e : catalogue) {
+        for (const Handed& h : handovers) {
+            ++walked;
+            const Engaged w = engage_after(e, h);
+            worst_first = std::max(worst_first, w.first);
+            worst_after = std::max(worst_after, w.after);
+            if (w.measured == 0) {
+                failures += "\n  " + e.id + ", " + h.what +
+                            ": not one step was measured - the aeroplane was already "
+                            "outside its flight model's tables before the handover";
+            } else if (!(w.first <= a_hands_pace)) {
+                failures += "\n  " + e.id + ", " + h.what + ": the first step moved " +
+                            std::to_string(w.first) + " of a control's travel";
+            } else if (!(w.after <= a_hands_pace)) {
+                failures += "\n  " + e.id + ", " + h.what + ": flying on, a step moved " +
+                            std::to_string(w.after) + " of a control's travel";
+            }
+        }
+    }
+    std::printf("%zu aeroplanes x %zu states = %zu handovers; worst first step %.4f, "
+                "worst step in the five seconds after %.4f (a hand moves %.4f)\n",
+                catalogue.size(), handovers.size(), walked, worst_first, worst_after,
+                a_hands_pace);
+    check(walked == catalogue.size() * handovers.size(),
+          "every aeroplane was handed over in every state: " + std::to_string(walked) +
+              " of " + std::to_string(catalogue.size() * handovers.size()));
+    check(failures.empty(),
+          "no step the autopilot takes moves a control faster than a pilot's hand:" +
+              failures);
 }

@@ -659,11 +659,9 @@ checklists are part of. A lesson ends in a debrief, never a score
       about what a lesson's figures mean, and it is the project owner's to
       make, so it is written here rather than taken.
 - [ ] **The instructor demonstrates, then hands over** — **still to do: the
-      approach, the climb and the stall.** The AI pilot can now be handed a
-      runway and will take off from it or land on it, so a take-off is
-      demonstrated; the approach needs the same test written against
-      `to_ai_approach`, and the climb and the stall need their demonstrations
-      driving through a `Controller` rather than an autopilot directly. *Verification: for each
+      climb and the stall**, whose demonstrations need driving through a
+      `Controller` rather than an autopilot directly. The turns, the take-off
+      and the approach are demonstrated. *Verification: for each
       lesson the AI pilot flies the demonstration within the lesson's own
       limits, hands the controls to the player with no step in any control,
       and takes them back on request the same way.* **Done for turns,
@@ -681,13 +679,29 @@ checklists are part of. A lesson ends in a debrief, never a score
       stops taking off and starts flying. Four aeroplanes demonstrate a whole
       take-off - all three stages, empty debrief - and hand over at 0.0083
       and back at 0.0018.
-      **It found a real defect.** Taking the controls back stepped the
-      elevator by up to 0.80 of its travel in one frame - forty times a
-      hand's pace. The autopilot seeded its pitch command to the attitude the
-      aeroplane had and then clamped the command to the envelope it may ask
-      for, so an aeroplane handed over outside that envelope snapped to its
-      edge in a frame. The envelope now bounds the *target*, and the command
-      walks to it at the loop's pitch rate. Fixed in `src/sim/autopilot.cpp`.
+      **A whole approach is demonstrated too, 2026-09-23**: four aeroplanes
+      start two miles out on a three-degree glidepath, the AI flies all three
+      stages of the approach lesson to an empty debrief, and the controls go
+      to a pilot and come back. Handing over 0.0083, taking back 0.0000.
+      **It found two real defects, and neither was visible before.** Taking
+      the controls back stepped the elevator by up to 0.80 of its travel in
+      one frame - forty times a hand's pace - because the autopilot clamped
+      its pitch *command* to the envelope instead of the target it walks
+      toward. Then the Learjet stepped the elevator 0.685 and the Mosquito
+      slammed the rudder its full travel: three of the loops seeded an
+      integral to cancel their own damping term so that engaging matched the
+      controls handed over, and **that cancellation broke whenever the damping
+      term was larger than the integral's limit** - a skidding aeroplane
+      seeded a rudder integral of 9, kept 1 of it, and the rudder went to its
+      stop. The loops now measure what they differ from the handed controls
+      on the first step and fade that offset out over two seconds, which
+      cannot break, and no loop may move a control faster than a hand at any
+      time. Fixed in `src/sim/autopilot.cpp`.
+      The test that was supposed to catch this flew one Cessna in one gentle
+      climbing turn. It now walks **every aeroplane the data holds through
+      every state one can be handed over in** - trimmed, turning, gliding,
+      skidding, rolling, bunted, stalled and spiralling, 128 handovers - and
+      on the old code it reports first steps of 1.80 of travel.
 
 ## Phase 6 — Client and server
 
@@ -1061,6 +1075,16 @@ checklists are part of. A lesson ends in a debrief, never a score
 ## Tails
 
 Found while implementing something else. Added when found, not when remembered.
+- [ ] **The Learjet ends its landing roll nose down through the runway.**
+      Found 2026-09-23 while demonstrating an approach: the Learjet flies the
+      whole approach lesson and stops, and at the end of the rollout it is at
+      **37 degrees nose down and a foot below the ground**. The Cessna, the
+      Piper and the Mosquito all finish level on their wheels. Nothing in the
+      approach itself is wrong - every stage is flown within the lesson's
+      limits - so this is the aeroplane settling onto its gear at the end,
+      not the flying. *Verification: every aeroplane the data holds, landed
+      by the AI pilot, is on its wheels at the end of its rollout - upright,
+      at an attitude its gear allows, and not below the surface.*
 
 - [ ] **A `--terrain ion` run can hang for ever, past its own timeout.** Found
       2026-09-22: five `glideslope --terrain ion` processes were still alive

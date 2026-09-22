@@ -66,12 +66,18 @@ private:
     Controls last_;
     double bank_command_deg_ = 0.0;
     double bank_integral_deg_ = 0.0;
-    double aileron_offset_ = 0.0;
     double pitch_command_deg_ = 0.0;
     double pitch_integral_deg_ = 0.0;
     double elevator_trim_ = 0.0;
     double rudder_integral_ = 0.0;
     double throttle_integral_ = 0.0;
+    // Engaging steps nothing: the first step measures what the laws give
+    // against the controls handed over, and that difference fades out.
+    bool engaging_ = true;
+    double fade_ = 1.0;
+    double aileron_offset_ = 0.0;
+    double elevator_offset_ = 0.0;
+    double rudder_offset_ = 0.0;
 };
 
 } // namespace glideslope::sim

@@ -1070,6 +1070,35 @@ GLIDESLOPE_TEST(every_aeroplane_flies_the_turns_lesson_of_its_own_class) {
 namespace {
 
 // The largest a control moved in one step, over every control there is.
+// The seventeen controls, in the order `Controls::as_list()` gives them, so
+// a step can name the control it happened in rather than only its size.
+const char* control_name(std::size_t i) {
+    static const char* names[] = {
+        "elevator",   "aileron",     "rudder",        "throttle",
+        "mixture",    "flaps",       "left brake",    "right brake",
+        "pitch trim", "propeller",   "gear",          "supercharger",
+        "throttle offset 0",         "throttle offset 1",
+        "cooling flap 0",            "cooling flap 1",
+        "speedbrake"};
+    return i < std::size(names) ? names[i] : "?";
+}
+
+std::size_t which_stepped(const glideslope::sim::Controls& was,
+                          const glideslope::sim::Controls& now) {
+    const auto before = was.as_list();
+    const auto after = now.as_list();
+    std::size_t worst = 0;
+    double most = -1.0;
+    for (std::size_t i = 0; i < before.size(); ++i) {
+        const double d = std::abs(after[i] - before[i]);
+        if (d > most) {
+            most = d;
+            worst = i;
+        }
+    }
+    return worst;
+}
+
 double worst_step(const glideslope::sim::Controls& was,
                   const glideslope::sim::Controls& now) {
     const auto before = was.as_list();
@@ -1378,4 +1407,147 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_take_off_and_hands_it_over) {
         ++walked;
     }
     check(walked == 4, "four aeroplanes demonstrated a take-off");
+}
+
+namespace {
+
+// **An approach demonstrated, then handed over.** Two miles out on the
+// glidepath, flown down by the AI pilot through a `Controller` - which is
+// what makes it a demonstration rather than a frontend flying a Lander.
+Demonstrated demonstrate_an_approach(const std::string& id) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const glideslope::sim::Runway runway = a_runway();
+    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    const double out_m = 2.0 * metres_per_nm;
+    const double heading = runway.heading_deg / degrees;
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg =
+        runway.threshold_lat_deg + (-out_m * std::cos(heading)) /
+                                       metres_per_degree_latitude(runway.threshold_lat_deg);
+    ic.longitude_deg =
+        runway.threshold_lon_deg + (-out_m * std::sin(heading)) /
+                                       metres_per_degree_longitude(runway.threshold_lat_deg);
+    ic.altitude_ft = runway.elevation_ft + (out_m + published.aim_m) *
+                                               std::tan(3.0 / degrees) * feet_per_metre;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = published.vref_kts;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+
+    const auto found = lesson_for(entry, "approach-and-landing");
+    check(found.has_value(), id + " has an approach lesson");
+    double rotate = 0.0;
+    double climb = 0.0;
+    try {
+        const auto d = glideslope::sim::departure_speeds(data(), entry.model);
+        rotate = d.rotate_kts;
+        climb = d.climb_kts;
+    } catch (const std::exception&) {
+    }
+    LessonRun run(*found, glideslope::sim::LessonSpeeds{rotate, climb,
+                                                        published.vref_kts,
+                                                        published.vref_kts / 1.3});
+
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.4;
+    flying.gear = 1.0;
+    glideslope::sim::Controller controller(aircraft, flying);
+    controller.to_ai_approach(runway, published);
+    check(controller.lander() != nullptr, "the AI pilot has an approach to fly");
+
+    glideslope::sim::Controls pilot;
+    pilot.throttle = 0.25;
+    pilot.gear = 1.0;
+    controller.set_pilot(pilot);
+
+    Demonstrated out;
+    out.stages = found->stages.size();
+    int hand_over = -1;
+    int take_back = -1;
+    glideslope::sim::Controls last = flying;
+    bool first = true;
+    bool demonstrated = false;
+    for (int tick = 0; tick < 600 * steps_per_second; ++tick) {
+        if (!demonstrated && run.finished()) {
+            demonstrated = true;
+            hand_over = tick + steps_per_second / 2;
+            take_back = hand_over + steps_per_second;
+        }
+        if (demonstrated && take_back > 0 && tick > take_back + steps_per_second / 2) {
+            break;
+        }
+        if (tick == hand_over) {
+            controller.to_pilot();
+        }
+        if (tick == take_back) {
+            controller.to_ai();
+        }
+        const glideslope::sim::Controls now = controller.fly();
+        if (!first) {
+            const double step = worst_step(last, now);
+            if (tick == hand_over) {
+                out.worst_to_pilot = step;
+            } else if (tick == take_back) {
+                out.worst_to_ai = step;
+                if (step > 0.05) {
+                    std::printf("      %s stepped %.3f in the %s, at %.0f kt, "
+                                "pitch %.1f, elevator %.3f to %.3f, agl %.0f\n",
+                                id.c_str(), step, control_name(which_stepped(last, now)),
+                                aircraft.property("velocities/vc-kts"),
+                                aircraft.property("attitude/theta-deg"),
+                                last.elevator, now.elevator,
+                                aircraft.property("position/h-agl-ft"));
+                }
+            }
+        }
+        first = false;
+        last = now;
+        aircraft.set_controls(now);
+        aircraft.step();
+        if (!demonstrated) {
+            run.update(aircraft, tick);
+        }
+    }
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    return out;
+}
+
+} // namespace
+
+// **The instructor demonstrates an approach, then hands over.**
+GLIDESLOPE_TEST(an_instructor_demonstrates_an_approach_and_hands_it_over) {
+    const double a_hands_pace = 2.0 / steps_per_second + 0.004;
+    const std::vector<std::string> flown{"c172p", "pa28", "learjet35a",
+                                         "mosquito-fb6"};
+    std::size_t walked = 0;
+    for (const std::string& id : flown) {
+        const Demonstrated shown = demonstrate_an_approach(id);
+        std::printf("  %-13s approach %zu/%zu stages, worst step %.4f over, "
+                    "%.4f back\n",
+                    id.c_str(), shown.completed, shown.stages, shown.worst_to_pilot,
+                    shown.worst_to_ai);
+        for (const std::string& said : shown.debrief) {
+            std::printf("      %s\n", said.c_str());
+        }
+        check(shown.completed == shown.stages,
+              id + " flew the whole approach, " + std::to_string(shown.completed) +
+                  " of " + std::to_string(shown.stages) + " stages");
+        check(shown.debrief.empty(),
+              id + " demonstrated it inside the lesson's limits, and said " +
+                  std::to_string(shown.debrief.size()) + " things");
+        check(shown.worst_to_pilot <= a_hands_pace,
+              id + " stepped " + std::to_string(shown.worst_to_pilot) +
+                  " handing over");
+        check(shown.worst_to_ai <= a_hands_pace,
+              id + " stepped " + std::to_string(shown.worst_to_ai) + " taking back");
+        ++walked;
+    }
+    check(walked == 4, "four aeroplanes demonstrated an approach");
 }

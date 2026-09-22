@@ -151,6 +151,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_aeroplane_flies_the_turns_lesson_of_its_own_class
     an_instructor_hands_over_and_takes_back_with_no_step_in_any_control
     an_instructor_demonstrates_a_take_off_and_hands_it_over
+    an_instructor_demonstrates_an_approach_and_hands_it_over
     every_aircraft_says_which_class_it_is_and_the_requirements_agree
     a_local_velocity_becomes_the_same_velocity_in_the_earths_frame
     a_state_packet_written_and_read_back_is_the_same_packet
@@ -413,7 +414,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_decks_pattern_covers_as_much_of_the_sky_as_its_eighths_say
     a_reports_visibility_and_precipitation_are_drawn_as_it_gives_them
     the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb
-    engaging_the_autopilot_moves_no_control_faster_than_a_pilots_hand
+    the_autopilot_never_moves_a_control_faster_than_a_pilots_hand
     a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wrong
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
     handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase

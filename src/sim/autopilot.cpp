@@ -43,7 +43,15 @@ constexpr double most_pitch_deg = 15.0;
 constexpr double elevator_per_degree = 0.05;
 constexpr double elevator_per_degps = 0.03;
 constexpr double trim_rate = 0.02;
-// Airspeed to throttle, which moves at a quarter of its travel a second.
+// **No loop moves a control faster than a pilot's hand: its full travel in a
+// second, 1/120 of it in a step.** In ordinary flight none of them comes near
+// this and the limit never binds. It binds where the laws are reading a fast
+// moving measurement - recovering from a spiral, the rudder's term follows
+// sideslip swinging tens of degrees a second - and there it once moved the
+// rudder from one stop to the other, 2.0 of travel, in a single frame.
+constexpr double a_hands_pace = 1.0 / static_cast<double>(steps_per_second);
+// Airspeed to throttle, which moves at a quarter of its travel a second -
+// slower than a hand, because an engine does not care to be slammed.
 constexpr double throttle_per_knot = 0.08;
 constexpr double throttle_integral_per_knot = 0.02;
 constexpr double throttle_rate = 0.25;
@@ -65,11 +73,8 @@ Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
     modes_.altitude_ft = a_.property("position/h-sl-ft");
     modes_.airspeed_kts = a_.property("velocities/vc-kts");
     // Each loop set to give the controls the aircraft has.
-    const double p = degrees(a_.property("velocities/p-rad_sec"));
-    const double q = degrees(a_.property("velocities/q-rad_sec"));
     const double climb_fpm = a_.property("velocities/h-dot-fps") * 60.0;
     bank_command_deg_ = a_.property("attitude/phi-deg");
-    aileron_offset_ = controls.aileron + aileron_per_degps * p;
     // **Engaging steps nothing, whatever attitude it is handed.** The loop
     // starts commanding the attitude the aeroplane has, even when that is
     // outside the envelope it is allowed to ask for, and walks into the
@@ -78,11 +83,20 @@ Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
     // could not have and the elevator jumped by the difference: 0.21 of its
     // travel at nineteen degrees nose up, 0.80 out of a diving turn, where a
     // pilot's hand moves 0.017 in a frame.
+    //
+    // The integrals below are only a starting guess - what was roughly
+    // holding the aeroplane. They used to carry a term cancelling the law's
+    // own damping so that the first step landed exactly on the handed
+    // control, and **that cancellation broke whenever the damping term was
+    // larger than the integral's own limit**: a Mosquito handed over skidding
+    // in its landing roll seeded a rudder integral of 9, kept 1 of it, and
+    // slammed the rudder to its stop - the full travel, in one frame. The
+    // first step in `fly()` now measures what the laws actually give and
+    // carries the difference as an offset instead, which cannot break.
     pitch_command_deg_ = a_.property("attitude/theta-deg");
     pitch_integral_deg_ = pitch_command_deg_ + pitch_per_fpm * climb_fpm;
-    elevator_trim_ = controls.elevator + elevator_per_degps * q;
-    rudder_integral_ =
-        controls.rudder + rudder_per_degree * a_.property("aero/beta-deg");
+    elevator_trim_ = controls.elevator;
+    rudder_integral_ = controls.rudder;
     throttle_integral_ = controls.throttle;
 }
 
@@ -105,16 +119,13 @@ Controls Autopilot::fly() {
                                  -most_bank_deg, most_bank_deg);
     }
     bank_command_deg_ = toward(bank_command_deg_, bank_wanted, bank_rate_degps * dt);
-    aileron_offset_ *= std::exp(-dt / offset_fade_s);
-    c.aileron = std::clamp(aileron_per_degree * (bank_command_deg_ - phi) -
-                               aileron_per_degps * p + aileron_offset_,
-                           -1.0, 1.0);
+    c.aileron = aileron_per_degree * (bank_command_deg_ - phi) - aileron_per_degps * p;
 
     // The ball, to rudder.
     const double beta = a_.property("aero/beta-deg");
     rudder_integral_ =
         std::clamp(rudder_integral_ - rudder_integral_rate * beta * dt, -1.0, 1.0);
-    c.rudder = std::clamp(-rudder_per_degree * beta + rudder_integral_, -1.0, 1.0);
+    c.rudder = -rudder_per_degree * beta + rudder_integral_;
 
     // Altitude, through vertical speed and pitch, to elevator.
     const double climb_fpm = a_.property("velocities/h-dot-fps") * 60.0;
@@ -144,9 +155,29 @@ Controls Autopilot::fly() {
     const double theta_off = pitch_command_deg_ - a_.property("attitude/theta-deg");
     const double q = degrees(a_.property("velocities/q-rad_sec"));
     elevator_trim_ = std::clamp(elevator_trim_ + trim_rate * theta_off * dt, -1.0, 1.0);
-    c.elevator = std::clamp(elevator_trim_ + elevator_per_degree * theta_off -
-                                elevator_per_degps * q,
-                            -1.0, 1.0);
+    c.elevator =
+        elevator_trim_ + elevator_per_degree * theta_off - elevator_per_degps * q;
+
+    // **What the laws differ from the controls they were handed, on the very
+    // first step, is an offset that fades over two seconds.** `last_` still
+    // holds those handed controls here, because it is only replaced at the
+    // end of this function. Measuring the offset rather than deriving it is
+    // what makes it exact: there is no term to get wrong, and no limit for it
+    // to fall foul of. The throttle is not in this - its law is already rate
+    // limited from `last_.throttle`, so it cannot step.
+    if (engaging_) {
+        engaging_ = false;
+        aileron_offset_ = last_.aileron - c.aileron;
+        elevator_offset_ = last_.elevator - c.elevator;
+        rudder_offset_ = last_.rudder - c.rudder;
+    }
+    c.aileron = std::clamp(c.aileron + aileron_offset_ * fade_, -1.0, 1.0);
+    c.elevator = std::clamp(c.elevator + elevator_offset_ * fade_, -1.0, 1.0);
+    c.rudder = std::clamp(c.rudder + rudder_offset_ * fade_, -1.0, 1.0);
+    fade_ *= std::exp(-dt / offset_fade_s);
+    c.aileron = toward(last_.aileron, c.aileron, a_hands_pace);
+    c.elevator = toward(last_.elevator, c.elevator, a_hands_pace);
+    c.rudder = toward(last_.rudder, c.rudder, a_hands_pace);
 
     // Airspeed, to throttle.
     if (modes_.airspeed_kts) {
