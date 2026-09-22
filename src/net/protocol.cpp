@@ -51,6 +51,13 @@ void Writer::f64(double v) {
     u64(bits);
 }
 
+void Writer::f32(float v) {
+    std::uint32_t bits = 0;
+    static_assert(sizeof(bits) == sizeof(v));
+    std::memcpy(&bits, &v, sizeof(bits));
+    u32(bits);
+}
+
 void Writer::text(std::string_view v) {
     const std::size_t count = std::min<std::size_t>(v.size(), 0xFFFFu);
     u16(static_cast<std::uint16_t>(count));
@@ -116,6 +123,13 @@ std::int32_t Reader::i32() {
 double Reader::f64() {
     const std::uint64_t bits = u64();
     double v = 0.0;
+    std::memcpy(&v, &bits, sizeof(v));
+    return v;
+}
+
+float Reader::f32() {
+    const std::uint32_t bits = u32();
+    float v = 0.0F;
     std::memcpy(&v, &bits, sizeof(v));
     return v;
 }

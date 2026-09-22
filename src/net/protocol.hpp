@@ -84,6 +84,10 @@ public:
     void u64(std::uint64_t v);
     void i32(std::int32_t v);
     void f64(double v);
+    // A float as its IEEE-754 bits, four bytes. Used where a double's range
+    // buys nothing - a velocity, an angle - and the bytes are worth saving.
+    // Never for a world position, which is double everywhere in this project.
+    void f32(float v);
     // A string as a two-byte length and that many bytes. A string longer
     // than 65,535 bytes is cut, because a length that cannot be written is
     // worse than a string that is shorter than asked.
@@ -111,6 +115,7 @@ public:
     std::uint64_t u64();
     std::int32_t i32();
     double f64();
+    float f32();
     // At most `most` bytes; a longer string breaks the reader rather than
     // being cut, because a caller asking for a bounded string has said what
     // it will accept.

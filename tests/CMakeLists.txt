@@ -31,6 +31,7 @@ add_executable(glideslope_tests
     unit/test_messages.cpp
     unit/test_protocol.cpp
     unit/test_slots.cpp
+    unit/test_state.cpp
     unit/test_socket.cpp
     unit/test_store.cpp
     unit/test_reliable.cpp
@@ -131,6 +132,13 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_turning_through_north_takes_the_short_way_round
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
     a_client_that_flew_different_inputs_is_put_back_where_the_server_says
+    a_state_packet_written_and_read_back_is_the_same_packet
+    a_state_packet_filled_to_its_limits_fits_in_one_datagram
+    every_truncation_of_a_state_packet_is_refused
+    every_single_byte_change_to_a_state_packet_is_read_or_refused
+    a_state_packet_refuses_a_nan_and_an_infinity_in_every_field
+    a_state_packet_with_a_controller_that_is_not_one_is_refused
+    the_transport_document_and_the_code_agree_about_the_state_packet
     the_kinds_inside_a_sealed_body_are_the_five_the_document_names
     a_knock_written_and_read_back_carries_the_same_token
     a_knock_that_is_not_one_is_not_read

@@ -160,6 +160,7 @@ add_library(glideslope_net STATIC
     src/net/messages.cpp
     src/net/protocol.cpp
     src/net/slots.cpp
+    src/net/state.cpp
     src/net/reliable.cpp)
 target_include_directories(glideslope_net PUBLIC src)
 target_link_libraries(glideslope_net PUBLIC unofficial-sodium::sodium)

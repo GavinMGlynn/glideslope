@@ -2,7 +2,9 @@
 
 #include "net/inputs.hpp"
 #include "net/messages.hpp"
+#include "net/inside.hpp"
 #include "net/protocol.hpp"
+#include "net/state.hpp"
 #include "net/reliable.hpp"
 
 #include <array>
@@ -74,9 +76,19 @@ std::vector<Parser> every_parser() {
                        glideslope::net::InputReceiver r;
                        (void)r.received(b);
                    }});
-    // `kind_of` is a reader too, and the cheapest one to forget.
+    out.push_back({"state", [](std::span<const std::uint8_t> b) {
+                       (void)glideslope::net::read_state(b);
+                   }});
+    // `kind_of` and `knock_token` are readers too, and the cheapest ones to
+    // forget: both are one line and both index into a caller's bytes.
     out.push_back({"kind_of", [](std::span<const std::uint8_t> b) {
                        (void)glideslope::net::kind_of(b);
+                   }});
+    out.push_back({"knock", [](std::span<const std::uint8_t> b) {
+                       (void)glideslope::net::knock_token(glideslope::net::Inside::ping,
+                                                          b);
+                       (void)glideslope::net::knock_token(glideslope::net::Inside::pong,
+                                                          b);
                    }});
     return out;
 }
@@ -177,6 +189,23 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
     // And things this project never writes, which is what actually arrives
     // when somebody points something else at the port.
     add("empty", {});
+    add("state", [] {
+        glideslope::net::StatePacket s;
+        s.simulation_time_s = 12.5;
+        s.last_input_applied = 7;
+        for (int i = 0; i < 3; ++i) {
+            glideslope::net::AircraftState a;
+            a.index = static_cast<std::uint8_t>(i);
+            a.controller = glideslope::net::Controller::person;
+            a.x_m = 6378137.0 + i;
+            a.y_m = -4517590.0;
+            a.z_m = 1234567.0;
+            a.vx_mps = 120.0F;
+            a.heading_deg = 90.0F;
+            s.aircraft.push_back(a);
+        }
+        return *glideslope::net::write_state(s);
+    }());
     add("one-byte", {0x00});
     add("all-ones", std::vector<std::uint8_t>(64, 0xFF));
     add("text", [] {
@@ -203,9 +232,9 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
 GLIDESLOPE_TEST(the_seed_corpus_goes_through_every_network_parser_under_sanitizers) {
     const std::vector<Parser> parsers = every_parser();
     const auto corpus = seeds();
-    check(parsers.size() == 11, "eleven parsers are fuzzed, not " +
+    check(parsers.size() == 13, "thirteen parsers are fuzzed, not " +
                                     std::to_string(parsers.size()));
-    check(corpus.size() == 18, "eighteen seeds - four envelopes, seven messages, a reliable datagram, an input packet and five things this project never writes - not " + std::to_string(corpus.size()));
+    check(corpus.size() == 19, "nineteen seeds - four envelopes, seven messages, a reliable datagram, an input packet, a state packet and five things this project never writes - not " + std::to_string(corpus.size()));
 
     std::uint64_t calls = 0;
 
@@ -310,6 +339,6 @@ GLIDESLOPE_TEST(the_seed_corpus_is_written_where_a_fuzzer_can_take_it) {
                   static_cast<std::streamsize>(bytes.size()));
         ++written;
     }
-    check(written == 18, "every seed was written, not " + std::to_string(written));
+    check(written == 19, "every seed was written, not " + std::to_string(written));
     std::printf("  wrote %zu seeds to %s\n", written, where.string().c_str());
 }

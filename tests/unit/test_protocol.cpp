@@ -65,6 +65,17 @@ GLIDESLOPE_TEST(every_value_written_to_the_wire_reads_back_as_itself) {
                                    std::numeric_limits<double>::lowest(),
                                    std::numeric_limits<double>::infinity(),
                                    -std::numeric_limits<double>::infinity()};
+    const std::vector<float> f32s{0.0F,
+                                  -0.0F,
+                                  1.0F,
+                                  -1.0F,
+                                  0.1F,
+                                  -33.9461F,
+                                  std::numeric_limits<float>::min(),
+                                  std::numeric_limits<float>::max(),
+                                  std::numeric_limits<float>::lowest(),
+                                  std::numeric_limits<float>::infinity(),
+                                  -std::numeric_limits<float>::infinity()};
     const std::vector<std::string> texts{"", "a", "the Short S.23 Empire flying boat",
                                          std::string(4096, 'x')};
 
@@ -85,6 +96,9 @@ GLIDESLOPE_TEST(every_value_written_to_the_wire_reads_back_as_itself) {
     }
     for (const auto v : f64s) {
         w.f64(v);
+    }
+    for (const auto v : f32s) {
+        w.f32(v);
     }
     for (const auto& v : texts) {
         w.text(v);
@@ -120,6 +134,14 @@ GLIDESLOPE_TEST(every_value_written_to_the_wire_reads_back_as_itself) {
               "a double reads back exactly");
         ++walked;
     }
+    for (const auto v : f32s) {
+        const float got = r.f32();
+        // Bit-for-bit, as the double above: -0.0 and the infinities count.
+        check(std::signbit(got) == std::signbit(v) &&
+                  (got == v || (std::isnan(got) && std::isnan(v))),
+              "a float reads back exactly");
+        ++walked;
+    }
     for (const auto& v : texts) {
         check(r.text() == v, "a string reads back");
         ++walked;
@@ -127,10 +149,10 @@ GLIDESLOPE_TEST(every_value_written_to_the_wire_reads_back_as_itself) {
     check(r.done(), "the whole datagram was read and nothing was left over");
     const std::size_t expected =
         u8s.size() + u16s.size() + u32s.size() + u64s.size() + i32s.size() +
-        f64s.size() + texts.size();
+        f64s.size() + f32s.size() + texts.size();
     check(walked == expected, "every value was walked: " + std::to_string(walked) +
                                   " of " + std::to_string(expected));
-    check(walked == 40, "there are 40 values in this walk, not " + std::to_string(walked));
+    check(walked == 51, "there are 51 values in this walk, not " + std::to_string(walked));
 }
 
 // **Little-endian, and said so.** A third party writing a client from

@@ -108,6 +108,7 @@ someone else write a client.
 | `u64` | 8 | |
 | `i32` | 4 | two's complement |
 | `f64` | 8 | its IEEE-754 bits, written as a `u64`; never a NaN or an infinity |
+| `f32` | 4 | its IEEE-754 bits, written as a `u32`; never a NaN or an infinity |
 | text | 2 + n | a `u16` length, then that many bytes, not terminated |
 | bytes | n | a length agreed by the message, then that many bytes |
 
@@ -115,6 +116,11 @@ someone else write a client.
 goes on the wire as its IEEE-754 bits in a `u64`, which has one
 representation rather than a compiler's choice of one. So `1.0` is
 `00 00 00 00 00 00 F0 3F`.
+
+**`f32` is for a velocity or an angle and never for a position.** A float has
+24 bits of mantissa, which at Earth's radius is half-metre steps - so every
+world position on this wire is an `f64`, and the only things written as `f32`
+are the ones a float holds far better than anything can measure them.
 
 **A number that is not one is not a value this protocol carries.** The eight
 bytes of an `f64` can say NaN or infinity as easily as they can say a
@@ -395,6 +401,59 @@ knocking is the server's job: the server is the one deciding who has gone.
 The numbering is fixed before anything uses it so that it cannot move later;
 what each one would carry is defined above, or, for `STATE`, not at all.
 
+### State updates
+
+**What the server sends back, and why the server is authoritative.** A client
+sends inputs and predicts its own aircraft from them; the server flies every
+aircraft for real and says, 20 to 30 times a second, where they all are. The
+client reconciles its prediction against its own aircraft's line and
+interpolates everybody else's.
+
+It rides inside a `SEALED` datagram as `Inside::state` (`03`), and **it is not
+reliable and must not be**: a state update is worth nothing once a newer one
+exists, so repeating a lost one would deliver stale positions late. Each is
+sent once; the sealing's replay window throws away an old one that arrives out
+of order.
+
+| written as | field |
+| --- | --- |
+| `u8` | `03`, the kind |
+| `f64` | the simulation's clock, seconds since the session began |
+| `u32` | the newest input sequence from this client the server has applied |
+| `u8` | how many aircraft follow, at most 20 |
+
+Then, for each aircraft:
+
+| written as | field |
+| --- | --- |
+| `u8` | the server's number for this aircraft, steady for as long as it flies |
+| `u8` | who is flying it, a `CONTROLLER` |
+| `f64` | its position, Earth-centred and Earth-fixed, metres, x |
+| `f64` | the same, y |
+| `f64` | the same, z |
+| `f32` | its velocity in the same frame, metres a second, x |
+| `f32` | the same, y |
+| `f32` | the same, z |
+| `f32` | its heading, degrees |
+| `f32` | its pitch, degrees |
+| `f32` | its roll, degrees |
+
+**Positions are Earth-centred, Earth-fixed and double precision**, because the
+whole world is in play: there is no session origin for an aircraft to be near,
+and two aircraft in one session may be on opposite sides of the planet. The
+number for an aircraft is not a slot - an AI aircraft has no slot - and it is
+the server's to hand out.
+
+**20 aircraft is the most one can hold**, which is the four players
+`--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
+full is 1,014 bytes, and 1,044 with the envelope and the sealing in front of
+it, inside the 1,232 a datagram holds; a test fills one to its limits and
+holds it to that.
+
+**A reader refuses**: a kind that is not `03`, fewer bytes than the fields
+need, any byte left over at the end, more than 20 aircraft, a controller this
+version does not know, and any NaN or infinity in any of the ten numbers.
+
 ## Sealing
 
 **A `SEALED` datagram's body is ciphertext** under the keys the handshake
@@ -432,9 +491,9 @@ startup.
   and `STATE` are numbered above and nothing sends or reads them, so the seven
   messages and the input packets - both defined and encoded - do not yet
   travel. `PING` and `PONG` do.
-- **The state updates a server sends back.** A client's inputs are defined and
-  built, above; the reconciliation state that answers them - position,
-  orientation, velocities and the last input applied - is not.
+- **Anything sending a state update.** The packet is defined and built, above,
+  and no server writes one and no client reads one: the server flies its
+  aircraft and tells nobody where they are.
 - **Rate limiting, and the cookie an overloaded server would demand.** A
   server does an X25519 operation for any stranger that sends it an
   initiation. `docs/THREATS.md` says what that costs and what would bound it.
