@@ -19,7 +19,15 @@ add_executable(glideslope_tests
     unit/test_checklist_run.cpp
     unit/test_lander.cpp
     unit/test_departure.cpp
+    unit/test_fuzz.cpp
+    unit/test_inputs.cpp
+    unit/test_handshake.cpp
+    unit/test_keys.cpp
+    unit/test_interpolation.cpp
+    unit/test_prediction.cpp
+    unit/test_messages.cpp
     unit/test_protocol.cpp
+    unit/test_slots.cpp
     unit/test_socket.cpp
     unit/test_reliable.cpp
     unit/test_levers.cpp
@@ -83,6 +91,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_endpoint_with_nothing_to_say_still_acknowledges_what_it_has
     a_reliable_endpoint_ignores_a_datagram_that_is_not_one_of_its_own
     a_reliable_sender_refuses_once_too_many_are_waiting
+    an_acknowledgement_of_a_message_that_was_never_sent_is_not_believed
     an_address_written_down_and_read_back_is_the_same_address
     anything_that_is_not_an_address_is_refused
     a_datagram_sent_to_the_loopback_arrives_whole_and_says_where_from
@@ -90,6 +99,49 @@ set(GLIDESLOPE_UNIT_TESTS
     a_socket_gets_the_port_it_asks_for_and_no_two_share_one
     every_value_written_to_the_wire_reads_back_as_itself
     the_transport_document_and_the_code_agree_byte_for_byte
+    every_message_writes_and_reads_back_what_went_into_it
+    no_message_reads_as_a_kind_it_is_not
+    every_truncation_of_every_message_is_refused
+    every_message_with_anything_trailing_is_refused
+    every_single_byte_change_to_every_message_is_read_or_refused
+    every_floating_point_field_of_every_message_refuses_a_nan_and_an_infinity
+    the_message_kinds_and_controllers_are_the_ones_the_document_names
+    every_reliable_message_arrives_exactly_once_and_in_order_under_loss
+    the_transport_document_and_the_code_agree_about_the_messages
+    every_message_filled_to_its_limits_fits_in_one_datagram
+    every_message_the_server_accepts_is_named_in_the_threats_document
+    every_control_goes_on_the_wire_and_comes_back_within_one_step
+    with_nothing_lost_every_input_frame_arrives_once_and_in_order
+    an_input_frame_arrives_exactly_when_a_packet_carrying_it_arrives
+    losing_a_whole_packets_worth_of_datagrams_in_a_row_does_lose_an_input
+    an_input_packet_that_arrives_twice_hands_up_nothing_the_second_time
+    an_input_receiver_refuses_anything_that_is_not_an_input_packet
+    every_control_the_flight_model_has_is_one_the_wire_carries
+    the_transport_document_and_the_code_agree_about_the_inputs
+    the_seed_corpus_goes_through_every_network_parser_under_sanitizers
+    the_seed_corpus_is_written_where_a_fuzzer_can_take_it
+    with_every_snapshot_arriving_an_aircraft_is_shown_where_it_was
+    the_interpolation_error_stays_within_its_bound_under_every_pattern_of_loss
+    the_interpolation_error_stays_within_its_bound_under_jitter
+    an_aircraft_nobody_has_heard_from_is_not_carried_on_for_ever
+    an_aircraft_turning_through_north_takes_the_short_way_round
+    prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
+    a_client_that_flew_different_inputs_is_put_back_where_the_server_says
+    a_key_written_down_and_read_back_is_the_same_key
+    a_secrets_public_half_is_the_one_rfc_7748_gives_for_it
+    every_minted_key_is_its_own_and_its_halves_go_together
+    two_honest_ends_complete_the_handshake_and_agree_on_their_keys
+    two_handshakes_with_the_same_keys_give_different_sessions
+    a_client_with_the_wrong_server_key_gets_nowhere
+    every_change_to_an_initiation_is_refused
+    every_change_to_a_handshake_answer_is_refused
+    a_replayed_initiation_makes_a_session_the_replayer_cannot_read
+    slots_are_the_same_whatever_order_the_players_connect_in
+    a_players_slot_is_their_keys_rank_among_those_in_the_session
+    a_session_is_full_at_its_player_count_and_the_next_is_refused
+    admitting_the_same_key_twice_is_one_player_and_releasing_frees_it
+    a_session_is_never_fewer_than_one_player_or_more_than_four
+    the_lobby_has_a_row_for_every_slot_with_the_open_ones_named
     the_wire_puts_the_least_significant_byte_first
     the_envelope_is_the_magic_then_the_version_then_the_type
     an_envelope_that_is_wrong_is_refused_with_the_reason_it_is_wrong
@@ -777,6 +829,159 @@ add_test(NAME every_compiler_is_refused_below_its_floor_and_accepted_at_it
 # glideslope_cli's whole surface, today: every command it accepts, none, one it
 # does not, and an aircraft with no files.
 # ---------------------------------------------------------------------------
+# **The server's flags, every one of them.** The item names six - --headless,
+# --players, --port, --store, --key and --timeout - and this exercises each,
+# alone and together, along with the two that every program here has and the
+# --dry-run that lets a server be asked what it would do without listening.
+add_test(NAME the_server_reports_the_project_version
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> -DARGS=--version -DEXIT=0
+        "-DSTDOUT_IS=glideslope_server ${PROJECT_VERSION}"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_prints_its_usage_when_asked
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> -DARGS=--help -DEXIT=0
+        "-DSTDOUT_MATCHES=usage: glideslope_server.*--players N.*--port N.*--store FILE.*--key HEX.*--timeout SECONDS.*--headless.*--dry-run"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_with_no_flags_takes_its_defaults
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> -DARGS=--dry-run -DEXIT=0
+        "-DSTDOUT_MATCHES=players +4.*port +47801.*store +\\(none.*key +\\(none.*timeout +10\\.000 s.*dashboard +yes"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_takes_every_flag_the_item_names_at_once
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server>
+        "-DARGS=--players 2 --port 47999 --store /tmp/glideslope-session.sqlite --key 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef --timeout 2.5 --headless --dry-run"
+        -DEXIT=0
+        "-DSTDOUT_MATCHES=players +2.*port +47999.*store +/tmp/glideslope-session\\.sqlite.*key +given, 64 hexadecimal.*timeout +2\\.500 s.*dashboard +no \\(--headless\\)"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+# **A player count outside 1 to 4 is refused**, which is the item's own
+# verification. Both ends of the range and both sides of them are tried.
+add_test(NAME the_server_refuses_a_session_of_no_players
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--players 0 --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--players is 0, and a session is 1 to 4 players"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_a_session_of_five_players
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--players 5 --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--players is 5, and a session is 1 to 4 players"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_accepts_a_session_of_one_player
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--players 1 --dry-run"
+        -DEXIT=0 "-DSTDOUT_MATCHES=players +1" -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_accepts_a_session_of_four_players
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--players 4 --dry-run"
+        -DEXIT=0 "-DSTDOUT_MATCHES=players +4" -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_a_key_that_is_not_a_server_secret
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--key abc --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--key is 3 characters, and a server secret is 64"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_a_key_that_is_not_hexadecimal
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server>
+        "-DARGS=--key z123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--key has 'z' in it, which is not a hexadecimal digit"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_a_timeout_that_is_not_a_length_of_time
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--timeout 0 --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--timeout is 0.*and it must be more than nothing"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_a_port_that_is_not_one
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--port 70000 --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--port wants a number from 0 to 65535"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_a_flag_with_nothing_after_it
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--players"
+        -DEXIT=2 "-DSTDERR_MATCHES=--players wants a value after it"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+# **The server flies every aircraft, each over its own terrain.** Two aircraft
+# on opposite sides of the world in one session; see cmake/server_flies.cmake
+# for why Sydney and Denver, and what makes it more than a smoke test.
+add_test(NAME the_server_flies_aircraft_on_opposite_sides_of_the_world_each_over_its_own_terrain
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_flies.cmake)
+set_tests_properties(the_server_flies_aircraft_on_opposite_sides_of_the_world_each_over_its_own_terrain
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
+
+# **Server-run AI aircraft, how many a server setting.**
+add_test(NAME the_server_runs_the_number_of_ai_aircraft_it_is_given_and_four_when_given_none
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ai.cmake)
+set_tests_properties(the_server_runs_the_number_of_ai_aircraft_it_is_given_and_four_when_given_none
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
+
+add_test(NAME the_server_refuses_more_ai_aircraft_than_it_will_run
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--ai 17 --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--ai is 17, and a server runs 0 to 16 AI aircraft"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_defaults_to_four_ai_aircraft
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--dry-run"
+        -DEXIT=0 "-DSTDOUT_MATCHES=ai +4 aircraft" -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_a_flight_that_is_not_an_aircraft_and_a_place
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--fly c172p --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--fly wants ID@LAT,LON"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_a_flight_from_somewhere_that_is_not_on_earth
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--fly c172p@91.0,0.0 --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--fly wants a latitude and longitude on Earth"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_a_fifth_aircraft_to_fly
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server>
+        "-DARGS=--fly c172p@0,0 --fly c172p@1,1 --fly c172p@2,2 --fly c172p@3,3 --fly c172p@4,4 --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--fly was given 5 times, and a session holds at most 4"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_a_length_of_time_that_is_negative
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--seconds -1 --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--seconds is -1.*a length of time is not negative"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_says_what_it_would_fly_and_for_how_long
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server>
+        "-DARGS=--fly c172p@-33.9,151.2 --fly f35b@40.7,-74.0 --seconds 5 --dry-run"
+        -DEXIT=0
+        "-DSTDOUT_MATCHES=seconds +5.*flying +c172p from -33\\.900000, 151\\.200000.*flying +f35b from 40\\.700000, -74\\.000000"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_refuses_an_option_it_does_not_know
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--fly-itself"
+        -DEXIT=2 "-DSTDERR_MATCHES=there is no option '--fly-itself'"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
 add_test(NAME the_cli_reports_the_project_version
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=--version -DEXIT=0

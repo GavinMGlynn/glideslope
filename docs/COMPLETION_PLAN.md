@@ -589,9 +589,24 @@ checklists are part of. A lesson ends in a debrief, never a score
       and every single-byte change there is. `TRANSPORT.md` says all of it
       byte for byte, says what the transport does not claim, and says what is
       not built - and a test holds the document and the code to each other.
-      **Still to do: the handshake, the sealing and the messages.** The
-      sockets are built now (UDP on BSD sockets and on Winsock), and the
-      reliable layer is the item below. The second half of the verification
+      **The handshake is built, 2026-09-22**: `Noise_IK` over X25519,
+      ChaCha20-Poly1305 and BLAKE2b, on libsodium. Two honest ends agree
+      crosswise and each learns who the other is; eight runs with the same
+      keys give eight different sessions; a client told the wrong server key
+      gets nowhere; **25,755 one-byte changes and 101 truncations of an
+      initiation, and 190 changes to an answer, are all refused**; and a
+      replayed initiation makes a session the replayer cannot read, which is
+      work done for a stranger and is named in `THREATS.md` rather than
+      defended. **The suite is BLAKE2b where `REQUIREMENTS.md` 6.7 says
+      BLAKE2s, and that is a decision taken without the project owner**:
+      libsodium has no BLAKE2s at all, BLAKE2b is a hash the Noise
+      specification defines, and the alternative was hand-written
+      cryptography in a project that has none. It is one line to reverse.
+      **What is not claimed: that it matches the specification.** There are no
+      published test vectors for this suite here, so what the tests show is
+      that two honest ends agree and that nothing else does.
+      **Still to do: the sealing.** `SEALED` bodies are not yet ciphertext
+      under these keys, and there is no replay window. The second half of the verification
       needs a gearstick client to refuse, and there is none here to try.
       **How libsodium gets in was looked into on 2026-09-21 rather than
       assumed**, and it is not as simple as a submodule: libsodium ships a
@@ -607,53 +622,179 @@ checklists are part of. A lesson ends in a debrief, never a score
       to hold that theirs is a subset of ours and that the difference is a
       declared list of this project's own. That change comes with libsodium,
       not before it.
-- [ ] **Reliable delivery** for lobby, session, weather, aircraft definitions,
+- [x] **Reliable delivery** for lobby, session, weather, aircraft definitions,
       terrain dataset and controller-swap messages. *Verification: every one
-      arrives exactly once and in order under injected loss.* Begun
-      2026-09-21 and not finished. The layer is built and its verification is
-      met: numbered messages, retransmission until acknowledged, in-order
-      delivery holding an early message for its predecessors, and duplicates
-      thrown away. Held against **every pattern of loss over twelve
-      datagrams in both directions - all 4,096 of them** - and in each one
-      every message arrived exactly once and in order. **Still to do: the
-      messages themselves.** The item names six kinds - lobby, session,
-      weather, aircraft definitions, terrain dataset, controller swap - and
-      not one of them exists yet, so what is proved is that the layer
-      delivers, not that those six go through it.
+      arrives exactly once and in order under injected loss.* Done,
+      2026-09-22. The layer numbers each message, repeats it until it is
+      acknowledged, hands them up in order and throws away a duplicate. The
+      six messages the item names now exist: each begins with a byte saying
+      which kind it is, and `TRANSPORT.md` writes every field of every one of
+      them out byte for byte, with a test holding the document and the code
+      to each other. **The weather is sent as its raw METAR** rather than as
+      twenty re-encoded fields, so two ends cannot read it differently. All
+      six were put through the layer under **every pattern of loss over
+      twelve datagrams - all 4,096** - and in each one every message arrived
+      exactly once, in order, and read back as the message it was written
+      from; the worst pattern took 21 datagrams.
 - [ ] **The server** — `glideslope_server`, with `--headless`, `--players N`,
       `--port`, `--store FILE`, `--key HEX` and `--timeout`, and a dashboard
-      otherwise. *Verification: every flag is exercised by a test, and a player
-      count outside 1 to 4 is refused.*
-- [ ] **Lobby, identity and slot assignment.** *Verification: slots are assigned
-      by the server, the same whatever order players connect in.*
-- [ ] **The server flies every aircraft**, at 120 Hz against the collision
+      otherwise. *Verification: every flag is exercised by a test, and a
+      player count outside 1 to 4 is refused.* **Begun 2026-09-22 and not
+      finished.** The binary exists, takes every flag the item names, binds
+      its port and draws a dashboard that refreshes each second with a row
+      per slot and the traffic it has seen; `--headless` prints its settings
+      and runs without one. Fourteen tests exercise every flag, both ends of
+      the 1 to 4 range and both sides of them, a key that is the wrong length
+      and a key that is not hexadecimal, a port that is not one, a flag with
+      nothing after it and an option it does not know. **Still to do: three
+      of the flags are taken and checked but drive nothing yet.** `--store`
+      names a file nothing is written to, because there is no session to
+      keep; `--key` is checked to be 64 hexadecimal characters but nothing
+      seals anything, and this build cannot mint one, having no libsodium to
+      derive a public half with; and `--timeout` cannot let a silent client
+      go, because no client can connect until the handshake exists. Each
+      waits on an item above or below it, and the server says so on screen
+      rather than looking as though it is working.
+- [x] **Lobby, identity and slot assignment.** *Verification: slots are assigned
+      by the server, the same whatever order players connect in.* Done,
+      2026-09-22. A player is known by a key, out of band - the static public
+      key the handshake will use - and **a slot is that key's rank among
+      those present**, not the order they arrived in, which is what
+      `REQUIREMENTS.md` 6.5 asks for: "the server decides who is which
+      player, not whoever connected first". So the assignment is a function
+      of who is in the session, and connecting the same people in any order
+      gives each the same slot. **Walked exhaustively**: every non-empty
+      subset of four players and every order each could arrive in - fifteen
+      subsets, 64 orders - all agreeing, with the four test keys deliberately
+      shuffled against their names so that assigning by arrival or by name
+      would fail. A session is full at its player count and the next is
+      refused; asking twice is one player; a count outside 1 to 4 is held to
+      it. The server's dashboard now draws its rows from the session itself,
+      so what is on screen is what a `LOBBY` would carry. **What a slot being
+      a property of the set costs, said plainly**: somebody joining can move
+      somebody already in, which is why the lobby is sent whole and a client
+      is told its slot rather than remembering it.
+- [x] **The server flies every aircraft**, at 120 Hz against the collision
       terrain, loading terrain around each aircraft anywhere on Earth.
-      *Verification: aircraft on opposite sides of the world fly in one session,
-      each over its own terrain.*
-- [ ] **Server-run AI aircraft**, how many a server setting, default 4.
+      *Verification: aircraft on opposite sides of the world fly in one
+      session, each over its own terrain.* Done, 2026-09-22. `--fly ID@LAT,LON`
+      gives the server an aeroplane and where it starts, up to the four a
+      session holds, and `--seconds N` stops it after a set time so that a
+      test can watch a whole run. One DEM serves them all and caches tiles as
+      it goes, so two aircraft on opposite sides of the world each pull their
+      own; every one is stepped on the one thread, because a DEM is not
+      thread-safe. **Two aircraft, Sydney and Denver, flew 2.003 s in 240
+      steps - 120 Hz exactly - and found ground at 77 ft and 5,183 ft above
+      the ellipsoid**, which is Sydney a few feet above the sea and Denver a
+      mile up, each held to a band that place really has. **The test was
+      watched failing**: a server given one flat terrain reports Denver's
+      ground at 0 ft and is told it is not over its own terrain.
+- [x] **Server-run AI aircraft**, how many a server setting, default 4.
       *Verification: a server runs the number it is given, and four when given
-      none.*
-- [ ] **Inputs streamed with redundancy.** *Verification: no input frame is lost
-      under injected loss.*
-- [ ] **Client prediction and reconciliation.** *Verification: prediction error
+      none.* Done, 2026-09-22. `--ai N` says how many, 0 to 16, and four when
+      it is not given. They fly a flight plan - `--plan FILE`, or the data's
+      `plans/sydney-harbour.plan` - through the same `sim::Controller` handed
+      to the AI that a player's aircraft would be, so an AI aeroplane on the
+      server is an aeroplane with its controller set to the AI and nothing
+      else. They are stacked 500 ft apart, because one plan is what there is
+      to fly and four aeroplanes in one piece of sky would hide that rather
+      than say it. **The count is read back out of the server** - it reports
+      how many it ran and a line per aeroplane flying - so a server that
+      printed a number and made a different number would fail. **Watched
+      failing**: a server that ignores `--ai` and always makes four is told
+      "asked for 2 AI aircraft and it ran 4".
+- [x] **Inputs streamed with redundancy.** *Verification: no input frame is
+      lost under injected loss.* Done, 2026-09-22. Inputs are not sent
+      reliably, they are sent repeatedly: a lost input frame is worth nothing
+      a moment later, so every packet carries the last four instead.
+      **Stated exactly**, because "no loss ever" is not true of anything: a
+      frame rides in the packet of its own number and the three after it, so
+      it arrives if and only if one of those four arrives. That is held frame
+      by frame over **every pattern of loss across twelve packets - all
+      4,096** - of which 1,490 lose nothing at all and 2,606 lose at least
+      one. Each control goes as a 16-bit fraction of -1 to 1, with both ends
+      exact and a step of 3e-5, and **the client must fly what it sent rather
+      than what its stick said**, so that its prediction and the server run
+      the same numbers. **Watched failing**: a receiver that keeps only the
+      newest frame is told "frame 1 did not arrive but a packet carrying it
+      did get through".
+- [x] **Client prediction and reconciliation.** *Verification: prediction error
       and correction size stay within stated bounds at 100 ms and 200 ms of
-      simulated latency.*
-- [ ] **Other aircraft interpolated 100 ms in the past**, extrapolating when
-      packets are late. *Verification: interpolation error stays within a stated
-      bound under loss and jitter.*
+      simulated latency.* Done, 2026-09-22. The client flies its own JSBSim on
+      its own inputs so the controls answer on the frame they are pressed, and
+      keeps every input the server has not acknowledged. When the server's
+      state arrives it puts the aircraft back to it and flies forward again
+      through the rest. A correction of more than 20 m is snapped rather than
+      hidden, because pretending smoothly to be somewhere wrong is worse than
+      a visible jump. **The key technical risk named in `REQUIREMENTS.md` -
+      setting a JSBSim instance to a given state - was already retired**:
+      `capture` and `restore` have their own tests. Measured on one machine,
+      the worst correction is **1.5 mm at 100 ms and 3.5 mm at 200 ms**, held
+      to 0.1 m: thirty times the worst seen, so the bound would catch a
+      reconciliation beginning to go wrong rather than merely being wide
+      enough to pass. **It is a bound for one machine and says so**; across
+      platforms it will be larger, and that is section 8.3's measurement. A
+      second test stops a reconciliation that does nothing from passing: a
+      client flown hard over on inputs the server never saw drifts 61 m, and
+      is put back to within a rounding error.
+- [x] **Other aircraft interpolated 100 ms in the past**, extrapolating when
+      packets are late. *Verification: interpolation error stays within a
+      stated bound under loss and jitter.* Done, 2026-09-22. An aircraft is
+      shown between the two snapshots straddling the moment 100 ms ago;
+      when none has arrived it is carried on from its last velocity, for at
+      most half a second, and when one does arrive the difference is taken up
+      over a quarter of a second rather than jumped. Angles go the short way
+      round the compass. **The bound is two metres, and it was reasoned
+      before it was measured**: carrying on straight through half a second of
+      a rate-one turn at 200 m/s leaves the arc by about 1.3 m. Measured over
+      **every pattern of loss across twelve snapshots - all 4,096** - the
+      worst is **1.309 m**, at the pattern that loses every snapshot but the
+      first; under jitter of up to 80 ms, which puts snapshots out of order,
+      it is 9 mm; with nothing lost at all it is 2.9 mm.
 - [ ] **Collisions resolved on the server**, mid-air and with the ground.
       *Verification: two aircraft put on a collision course collide on the
       server, and every client shows it.*
-- [ ] **Every network parser fuzzed** under sanitizers. *Verification: the seed
-      corpus goes through every parser in CI.*
+- [x] **Every network parser fuzzed** under sanitizers. *Verification: the
+      seed corpus goes through every parser in CI.* Done, 2026-09-22. Eleven
+      parsers - the envelope, all seven reliable messages, the kind byte, the
+      reliable layer and the input receiver - against eighteen seeds: every
+      datagram and message this project writes, and five things it never
+      would, among them an empty datagram, an HTTP request and 1,232 bytes of
+      one value. **Every seed goes through every parser**, not only the one
+      that wrote it, because a datagram arrives before anybody knows what it
+      is and a parser only ever shown its own output has not been tested.
+      Each is also cut to every length, changed a byte at a time at six
+      values, and mutated from a fixed seed so a failure can be had again:
+      **188,617 reads, none out of bounds**. The build already compiles with
+      `-fsanitize=address,undefined -fno-sanitize-recover=all`, so this is
+      under sanitizers by construction, and ctest runs it in CI with the
+      rest. The corpus is written out so it can be handed to libFuzzer or AFL
+      rather than only living inside the test. **Watched failing**: a reader
+      that takes the first byte of a body without checking there is one is
+      caught on the empty seed.
 - [ ] **The server's test flags** — `--seconds N`, `--plain`, `--window-dump`,
       `--window-shot`, `--window-press`. *Verification: each is used by a
       ctest.*
 - [ ] **Network checks in CI** with injected latency, loss and jitter.
       *Verification: prediction error, correction size, interpolation error and
       the `--players` limit all checked against their stated bounds.*
-- [ ] **`THREATS.md` written.** *Verification: every message the server accepts
-      is named in it with its defence, or with why it needs none.*
+- [x] **`THREATS.md` written.** *Verification: every message the server accepts
+      is named in it with its defence, or with why it needs none.* Done,
+      2026-09-22. It leads with what is missing - **the server accepts
+      nothing yet**, because there is no handshake and no sealing - and marks
+      every defence built, unwired or not built, so that nothing in it reads
+      as protection that is presently doing anything. It then names all four
+      datagram types and all seven reliable messages with their defences,
+      citing the limits the code actually enforces, and says which messages a
+      server would accept from a client at all: only `CONTROLLER_SWAP`, the
+      other six being server-to-client. Amplification, replay, an
+      unauthenticated datagram, exhaustion of the reliable layer's queues, a
+      client claiming a slot or a player count, and a wrong terrain dataset
+      each have a section. **Writing it found six disagreements between the
+      code and the documents**, four of which were fixed the same day - among
+      them a `WEATHER` message that at its limits could never have been sent
+      - and two of which are items below. A test holds every message kind the
+      code knows to being named in the document.
 - [ ] **Deployment** — a systemd unit and a Dockerfile under `deploy/`.
       *Verification: a server started from each accepts a client.*
 - [ ] **`--online`** through a one-line `server.txt`. *Verification: a client
@@ -982,3 +1123,50 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification: the F-35B hovers at its published vertical thrust, lands
       vertically and takes off in a published short-take-off distance, each
       figure named with its source.*
+- [ ] **The Cesium cache still locks when the rendering tests run together.**
+      *(Found running the suite, 2026-09-22.)* Each client test was given a
+      cache file of its own on 2026-09-22, which fixed the case then seen.
+      Adding nine tests changed how `ctest -j4` interleaves them and two
+      rendering tests failed on "database is locked" again, each with its own
+      named file - so a file per test is not enough. `CesiumAsync::SqliteCache`
+      turns on WAL and sets no busy timeout, so any concurrent access is
+      refused at once rather than waited for. The drawing itself was right in
+      both runs: the failing one still put 100% of its drawn pixels inside the
+      projected outline.
+      *Verification: the whole suite run at `-j4` reports no locked cache,
+      ten times over.*
+- [x] **The reliable layer believes an acknowledgement it is told.**
+      *(Found writing `THREATS.md`, 2026-09-22.)* `Reliable::received` takes
+      the acknowledgement number out of any datagram handed to it and drops
+      every message up to it, so one forged datagram carrying `0xFFFFFFFF`
+      empties the send queue and those messages are never sent again. The
+      layer's own header says it is fed by the transport above it and that
+      being fed rubbish is not a reason to stop, and once the sealing exists
+      nothing unauthenticated will reach it - but nothing enforces that
+      today, and the layer is reachable in tests and in any future caller
+      that forgets.
+      *Verification: a forged acknowledgement from outside the session
+      changes nothing that the session has not yet had acknowledged.* Done,
+      2026-09-22: the layer now keeps the highest number it has actually put
+      on the wire and ignores any acknowledgement above it, because an
+      endpoint cannot have received a message that was never sent. A forged
+      `0xFFFFFFFF` lets go of nothing and every message still arrives.
+      **What this does not do**: a forged acknowledgement of a message that
+      *was* sent is still believed, because nothing yet tells a forged
+      datagram from a real one - that is the handshake and the sealing, which
+      are named above as not built.
+- [x] **No message rejects a number that is not one.** *(Found writing
+      `THREATS.md`, 2026-09-22.)* Every `f64` on the wire is read as whatever
+      bits arrive, so a NaN or an infinity in a latitude, a microburst's
+      radius or the simulation's clock is accepted and handed up. A NaN
+      position would spread through the floating origin and the terrain
+      query; an infinite duration would never end.
+      *Verification: every floating-point field of every message refuses a
+      NaN and an infinity, and the space of fields walked is stated.* Done,
+      2026-09-22: the refusal is in the one reader every message field goes
+      through, so a field added later is checked without anyone remembering
+      to. All nineteen floating-point fields the seven messages carry are
+      walked - the other three kinds carry none, and are named - each with
+      both infinities and four NaNs, and each with five extreme but real
+      numbers that must still read. `docs/TRANSPORT.md` says so where it says
+      what a reader must refuse.

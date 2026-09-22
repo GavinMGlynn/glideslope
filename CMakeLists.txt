@@ -128,6 +128,7 @@ add_library(glideslope_sim STATIC
     src/sim/departure.cpp
     src/sim/controller.cpp
     src/sim/navigator.cpp
+    src/sim/prediction.cpp
     src/sim/test_pilot.cpp
     src/sim/version.cpp)
 
@@ -142,10 +143,24 @@ glideslope_configure(glideslope_sim)
 # The network: the wire format, and the encoding and decoding of it. It links
 # nothing - not the simulation, not a socket - because everything it does is
 # turning bytes into values and back, and that is what makes it fuzzable.
+# **glideslope_net links libsodium**, and nothing else outside the standard
+# library. The transport's handshake needs X25519, and a key is the one thing
+# in here that cannot be done with arithmetic. It still links no socket, no
+# terrain and no flight model, which is what lets the whole of it be walked
+# against every pattern of loss without a network.
+find_package(unofficial-sodium CONFIG REQUIRED)
+
 add_library(glideslope_net STATIC
+    src/net/inputs.cpp
+    src/net/handshake.cpp
+    src/net/keys.cpp
+    src/net/interpolation.cpp
+    src/net/messages.cpp
     src/net/protocol.cpp
+    src/net/slots.cpp
     src/net/reliable.cpp)
 target_include_directories(glideslope_net PUBLIC src)
+target_link_libraries(glideslope_net PUBLIC unofficial-sodium::sodium)
 glideslope_configure(glideslope_net)
 
 # ...and links none, checked once every target_link_libraries below has run.
@@ -273,6 +288,16 @@ target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_world gli
 glideslope_configure(glideslope_cli)
 
 # ---------------------------------------------------------------------------
+# glideslope_server - the server, which owns every aircraft. It links nothing
+# presentational: its dashboard is written to a terminal, not drawn.
+# ---------------------------------------------------------------------------
+add_executable(glideslope_server
+    src/frontend/server/main.cpp)
+target_link_libraries(glideslope_server PRIVATE glideslope_sim glideslope_net
+                                                glideslope_world glideslope_platform)
+glideslope_configure(glideslope_server)
+
+# ---------------------------------------------------------------------------
 # Packaging
 #
 # **A package is a folder somebody unpacks and runs in place**: a tarball on
@@ -284,7 +309,7 @@ glideslope_configure(glideslope_cli)
 # Everything of ours is installed as the `glideslope` component, and CPack is
 # told to package that component alone. JSBSim's src/ carries install rules for
 # its own library, headers and program, which do not belong in a download.
-install(TARGETS glideslope glideslope_cli RUNTIME DESTINATION . COMPONENT glideslope)
+install(TARGETS glideslope glideslope_cli glideslope_server RUNTIME DESTINATION . COMPONENT glideslope)
 # The client links SDL, statically; its licence travels with it.
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdl/LICENSE.txt"
         DESTINATION licenses RENAME SDL.txt COMPONENT glideslope)

@@ -1,8 +1,11 @@
 #include "harness.hpp"
 
+#include "net/protocol.hpp"
 #include "net/reliable.hpp"
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <span>
 #include <string>
 #include <vector>
@@ -263,4 +266,155 @@ GLIDESLOPE_TEST(a_reliable_sender_refuses_once_too_many_are_waiting) {
           "it queued " + std::to_string(glideslope::net::most_in_flight) +
               " and then refused, not " + std::to_string(queued));
     check(a.in_flight() == glideslope::net::most_in_flight, "and holds them all");
+}
+
+namespace {
+
+// **A datagram that is an acknowledgement and nothing else**: the reliable
+// layer's header with a message number of 0, then the number it claims to
+// have received everything up to. This is what a forger would send, because
+// it is the smallest datagram the layer will read.
+std::vector<std::uint8_t> an_acknowledgement_of(std::uint32_t acknowledges) {
+    glideslope::net::Writer w;
+    w.u32(0);
+    w.u32(acknowledges);
+    return w.take();
+}
+
+// An endpoint that has put `sent` messages on the wire and has `later` more
+// queued behind them that have not gone out yet.
+Reliable a_sender(std::uint32_t sent, std::uint32_t later) {
+    Reliable a;
+    for (std::uint32_t i = 0; i < sent; ++i) {
+        const std::vector<std::uint8_t> body = body_of(static_cast<int>(i));
+        check(a.send(all_of(body)), "a message is queued");
+    }
+    a.to_send(0.0); // those, and only those, are now on the wire
+    for (std::uint32_t i = 0; i < later; ++i) {
+        const std::vector<std::uint8_t> body = body_of(static_cast<int>(sent + i));
+        check(a.send(all_of(body)), "a later message is queued");
+    }
+    return a;
+}
+
+// What an acknowledgement of `ack` may let go of, for a sender that has put
+// `sent` messages on the wire: those numbered at or below it, and nothing at
+// all if it claims more than was ever sent.
+std::size_t may_let_go(std::uint32_t ack, std::uint32_t sent) {
+    return ack <= sent ? ack : 0;
+}
+
+// Feeds `a` one forged acknowledgement and says whether the queue is what it
+// should be afterwards.
+void feed_one(std::uint32_t sent, std::uint32_t later, std::uint32_t ack) {
+    Reliable a = a_sender(sent, later);
+    const std::vector<std::uint8_t> forged = an_acknowledgement_of(ack);
+    check(a.received(all_of(forged)).empty(),
+          "an acknowledgement is not a message and is handed up as nothing");
+    const std::size_t expected =
+        static_cast<std::size_t>(sent) + later - may_let_go(ack, sent);
+    check(a.in_flight() == expected,
+          "a sender that had put " + std::to_string(sent) + " on the wire with " +
+              std::to_string(later) + " behind them, told it was acknowledged up to " +
+              std::to_string(ack) + ", should hold " + std::to_string(expected) +
+              " and holds " + std::to_string(a.in_flight()));
+}
+
+} // namespace
+
+// **An acknowledgement of a message that was never sent is not believed.**
+// The far end cannot have received what this end never put on the wire, so a
+// datagram saying it did is either mangled or forged; believing one empties
+// the send queue of messages that have never been delivered, and nothing
+// sends them again. Nothing seals these datagrams yet, so the layer refuses
+// it on its own rather than trusting a caller to have checked.
+//
+// **The space, stated.** An acknowledgement is a `u32`, so there are
+// 4,294,967,296 a datagram could carry, which is too many to feed one at a
+// time. Three parts are walked and counted instead:
+//
+//   - every acknowledgement from 0 to two past the end, for every sender
+//     that has put 0 to 4 messages on the wire with 0 to 4 more queued
+//     behind them - 175 of them, which is every case where the answer
+//     changes as the number crosses what was sent;
+//   - the 64 far numbers a forger reaches for: every power of two, every
+//     power of two less one, and `0xFFFFFFFF`;
+//   - and one whole exchange, forged part-way through.
+//
+// Every acknowledgement not walked is strictly greater than the four
+// messages the sender had put on the wire, which is the case `0xFFFFFFFF`
+// walks: the layer compares against what it has sent and does no arithmetic
+// on the number itself, so there is nothing for a larger one to do
+// differently.
+GLIDESLOPE_TEST(an_acknowledgement_of_a_message_that_was_never_sent_is_not_believed) {
+    std::size_t fed = 0;
+
+    // The boundary, walked exhaustively.
+    std::size_t at_the_boundary = 0;
+    for (std::uint32_t sent = 0; sent <= 4; ++sent) {
+        for (std::uint32_t later = 0; later <= 4; ++later) {
+            for (std::uint32_t ack = 0; ack <= sent + later + 2; ++ack) {
+                feed_one(sent, later, ack);
+                ++at_the_boundary;
+                ++fed;
+            }
+        }
+    }
+    check(at_the_boundary == 175,
+          "every acknowledgement at the boundary was walked: " +
+              std::to_string(at_the_boundary) + " of 175");
+
+    // The far numbers, with four on the wire and two behind them.
+    std::vector<std::uint32_t> far;
+    for (int k = 0; k < 32; ++k) {
+        far.push_back(1u << k);
+        far.push_back((1u << k) - 1u);
+    }
+    far.push_back(0xFFFFFFFFu);
+    std::sort(far.begin(), far.end());
+    far.erase(std::unique(far.begin(), far.end()), far.end());
+    check(far.size() == 64,
+          "sixty-four distinct far acknowledgements, not " + std::to_string(far.size()));
+    for (const std::uint32_t ack : far) {
+        feed_one(4, 2, ack);
+        ++fed;
+    }
+
+    // And the whole of it: a forgery part-way through an exchange changes
+    // nothing about what still arrives.
+    Reliable a;
+    Reliable b;
+    for (int i = 0; i < 4; ++i) {
+        const std::vector<std::uint8_t> body = body_of(i);
+        check(a.send(all_of(body)), "a message is queued");
+    }
+    const std::vector<std::uint8_t> forged = an_acknowledgement_of(0xFFFFFFFFu);
+    check(a.received(all_of(forged)).empty(), "the forgery is handed up as nothing");
+    ++fed;
+    check(a.in_flight() == 4, "and the sender still holds all four, not " +
+                                  std::to_string(a.in_flight()));
+
+    std::vector<std::vector<std::uint8_t>> arrived;
+    double now_s = 0.0;
+    for (int round = 0; round < 20; ++round) {
+        for (const std::vector<std::uint8_t>& datagram : a.to_send(now_s)) {
+            for (std::vector<std::uint8_t>& got : b.received(all_of(datagram))) {
+                arrived.push_back(std::move(got));
+            }
+        }
+        for (const std::vector<std::uint8_t>& datagram : b.to_send(now_s)) {
+            check(a.received(all_of(datagram)).empty(), "b answers with acknowledgements");
+        }
+        if (a.in_flight() == 0) {
+            break;
+        }
+        now_s += glideslope::net::retry_after_s;
+    }
+    check(exactly_once_in_order(arrived, 4),
+          "all four still arrive, once each and in order, after the forgery");
+    check(a.in_flight() == 0, "and the real acknowledgements still clear the queue");
+
+    check(fed == 240, "240 acknowledgements were fed: " + std::to_string(fed));
+    std::printf("  240 acknowledgements fed: 175 at the boundary, 64 far ones, "
+                "and one mid-exchange\n");
 }

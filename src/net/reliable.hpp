@@ -17,6 +17,14 @@
 // the highest number below which nothing is missing, which acknowledges that
 // one and every one before it at once.
 //
+// **It does not believe an acknowledgement it could not have earned.** An
+// endpoint cannot have received a message that was never sent, so an
+// acknowledgement above the highest number this end has put on the wire is
+// ignored - otherwise one datagram carrying `0xFFFFFFFF` empties the send
+// queue and nothing sends those messages again. It cannot tell a forged
+// acknowledgement of a message that *was* sent from a real one; that is the
+// sealing's job, and the sealing is not built.
+//
 // **It is not a window.** There is no congestion control and no flight
 // limit: these messages are few, small and occasional, and the channel below
 // is a game's, not a file transfer's. `docs/TRANSPORT.md` says so where it
@@ -98,6 +106,9 @@ private:
 
     std::deque<Waiting> waiting_;
     std::uint32_t next_number_ = 1;
+    // The highest number actually put on the wire. An acknowledgement above
+    // this cannot be true and is not believed.
+    std::uint32_t highest_sent_ = 0;
 
     // What has been received: the highest number below which nothing is
     // missing, and the ones that arrived before their turn.

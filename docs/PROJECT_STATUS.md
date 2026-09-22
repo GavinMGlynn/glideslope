@@ -197,6 +197,491 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The handshake, and a decision taken without the owner, 2026-09-22
+
+**What is missing first: nothing is sealed yet.** The handshake agrees keys
+and neither end uses them. `SEALED` bodies are still plaintext and there is no
+replay window, so the transport is not yet private for a single byte.
+
+**The suite is not the one `REQUIREMENTS.md` 6.7 names, and the reason is
+libsodium.** It asks for `Noise_IK_25519_ChaChaPoly_BLAKE2s`. libsodium - the
+library that section chooses - ships `crypto_generichash_blake2b` and **no
+BLAKE2s at all**, which was checked against its installed headers rather than
+assumed. BLAKE2b is a hash the Noise specification itself defines, so
+`Noise_IK_25519_ChaChaPoly_BLAKE2b` is a real suite and not an invention. The
+alternatives were SHA-256, also native, or carrying a BLAKE2s of our own -
+hand-written cryptography in a project that has none. **The owner was asked
+and has not ruled**; the goal was reaffirmed instead, so the choice was taken
+rather than blocking on it. It is one line: `handshake_name` and the functions
+it names.
+
+**What the tests prove, and what they do not.** They prove two honest ends
+agree crosswise - each sends under the key the other receives under - that
+each learns who the other is, that eight runs with the same keys give eight
+different sessions, that a client told the wrong server key gets nowhere, and
+that **25,755 one-byte changes and 101 truncations of an initiation, and 190
+changes to an answer, are refused**. They do **not** prove it matches the Noise
+specification: there are no published vectors for this suite in the project,
+and conformance is not among the things shown. `THREATS.md` says so.
+
+**A replayed initiation is answered.** The responder has no memory and cannot
+tell, so it does the work; the session it makes is one the replayer cannot
+read, lacking the initiator's ephemeral secret. That is a denial of service,
+not a compromise, and it is named rather than defended.
+
+**A hole in my own test, not in the handshake.** The answer-tampering test
+made a fresh handshake for each change but decided what to skip from the
+*first* answer's bytes. The ephemeral key differs every run, so sometimes it
+"changed" a byte to the value it already had and then reported that an
+unmodified answer had been accepted. One acceptance in 191. The skip is now
+made against the answer actually being changed.
+
+**The server's static key is real too**: minted, printed and read back, held
+against **RFC 7748's own X25519 vector** - a round trip of our own could never
+say the key agreement had stopped being X25519.
+
+
+### Two things the wire believed that it should not, 2026-09-22 — two tails done
+
+**What is missing first: nothing has ever arrived over a network.** There is
+no handshake and no sealing, so every byte these two defences have turned
+away was put there by a test. They are the parsers' own defences, not a
+session's, and neither of them tells a forged datagram from a real one; that
+is the sealing's job and the sealing is not built. Both were found writing
+`THREATS.md` and both are in `COMPLETION_PLAN.md`'s tails.
+
+**An acknowledgement of a message that was never sent.** `Reliable::received`
+took the acknowledgement number out of any datagram handed to it and let go
+of every message up to it, so one datagram carrying `0xFFFFFFFF` emptied the
+send queue and nothing sent those messages again. The layer now keeps the
+highest number it has actually put on the wire and ignores anything above it:
+an endpoint cannot have received what was never sent. The rest of the
+datagram is read as before - this is one field not believed, not a reason to
+throw a message away - and every legitimate acknowledgement behaves exactly
+as it did.
+
+**The space, stated, because a `u32` has too many values to feed one at a
+time.** 240 acknowledgements are fed: **175 at the boundary**, which is every
+number from 0 to two past the end for every sender that has put 0 to 4
+messages on the wire with 0 to 4 more queued behind them; **64 far ones** -
+every power of two, every power of two less one, and `0xFFFFFFFF`; and one in
+the middle of a real exchange, after which all four messages still arrive
+once each and in order. Everything not walked is strictly above what was
+sent, which is the case `0xFFFFFFFF` walks, and the layer does no arithmetic
+on the number for a larger one to do differently.
+
+**Watched failing**: before the fix, *"a sender that had put 0 on the wire
+with 1 behind them, told it was acknowledged up to 1, should hold 1 and holds
+0"*.
+
+**A number that is not one.** Every `f64` was read as whatever bits arrived,
+so a NaN or an infinity in a latitude, a microburst's radius or the
+simulation's clock was accepted and handed up - a NaN position spreads
+through the floating origin and the terrain query, and an infinite duration
+never ends. **The refusal went where it cannot be forgotten**: one reader,
+wrapping the wire's `Reader`, through which every floating-point field of
+every message passes. A field added later is checked without anyone
+remembering to, and it wraps rather than derives so that reaching past it for
+something it does not forward is a compile error rather than a way round.
+`src/net/protocol.hpp`'s `Reader` is untouched, because the envelope and the
+input stream have their own rules about what they carry.
+
+**The space, stated**: the seven kinds carry **nineteen** floating-point
+fields between them - one in `SESSION`, three in `WEATHER` and six per
+microburst, five per pressure level and three per near-ground wind in
+`WEATHER_ALOFT`, one in `CONTROLLER_SWAP`. `LOBBY`, `AIRCRAFT` and
+`TERRAIN_DATASET` carry none at all, and are named in the test as left out
+for that reason. Each of the nineteen is overwritten with **six** patterns
+that are not a number - both infinities and NaNs quiet and signalling, signed
+and with a payload - and with **five** that are numbers however extreme, the
+largest finite double, the most negative, the smallest subnormal and both
+zeros, which must still read. **114 refused, 95 still read.** The test finds
+each field by writing a distinct dense-mantissa value into it and insisting
+its eight bytes appear in the encoded message once and once only, so the
+layout is not written out a second time to be got wrong.
+
+**Watched failing**: before the fix, *"session with +infinity at byte 34 must
+be refused"*.
+
+**`docs/TRANSPORT.md` says both**, where it says how values are written, what
+a reader must refuse, and what the reliable layer does with an
+acknowledgement; the test that holds that document to the code passes.
+
+
+### Other aircraft, shown a little in the past, 2026-09-22 — item done
+
+**What is missing first: no snapshot has ever arrived over a network.** There
+is no handshake and no state update on the wire, so every snapshot these
+tests use was put there by the test. What is built is the rule for showing an
+aircraft from snapshots that arrive late, out of order, or not at all.
+
+**Three behaviours, each with a stated limit.** An aircraft is drawn between
+the two snapshots straddling the moment 100 ms ago. When none has arrived it
+is carried on from its last velocity - marked as a guess - for at most half a
+second, because half a second at 200 m/s is 100 m and that is as far as this
+project will invent. When a snapshot finally arrives the difference is taken
+up over a quarter of a second, because the jump is the thing a player sees.
+
+**The bound was reasoned before it was measured, and the measurement agreed.**
+Two metres: carrying on straight through half a second of a rate-one turn at
+200 m/s leaves the arc by about 1.3 m. Measured over **every pattern of loss
+across twelve snapshots - all 4,096** - the worst is **1.309 m**, at the
+pattern that loses every snapshot but the first. Under jitter of up to 80 ms,
+which puts snapshots out of order, it is 9 mm; with nothing lost, 2.9 mm.
+
+**Two bugs in the blend, and the test found both.** The first measured the
+correction from `held_.back()` - which by then is the snapshot that *ended*
+the guess, not the one the guess was carried on from - and reported 20 m. The
+second, after that was fixed, compared one frame's answer with the previous
+frame's: those are answers for different moments, so it measured 16.7 ms of
+the aircraft's own motion, 3.3 m, and called it a jump. The correction is now
+worked out at one instant - what the guess would have said for this moment,
+against what is now known for the same moment - and the error fell to 24 mm
+in that case.
+
+**And one wrong measurement of mine.** The first run reported 10 m and I was
+about to raise the bound; the 10 m was the aircraft being held at the oldest
+snapshot for moments *before* any snapshot covered them, which is a startup
+artefact and not interpolation error. The test now measures from the first
+moment its snapshots cover, and the startup behaviour is held by its own
+test.
+
+
+### Every network parser fuzzed, 2026-09-22 — item done
+
+**What is missing first: nothing has ever reached these parsers over a
+network.** There is no handshake, so every byte they have seen was put there
+by a test. What is proved is that none of them can be made to read past the
+end of what it was given.
+
+**Eleven parsers, eighteen seeds, and every seed through every parser.** The
+parsers are the envelope, the seven reliable messages, the kind byte, the
+reliable layer and the input receiver. The seeds are every datagram and
+message this project writes plus five it never would - an empty datagram, one
+byte, sixty-four bytes of `0xFF`, an HTTP request and 1,232 bytes of `0xA5`.
+**Cross-feeding is the point**: a datagram arrives before anybody knows what
+it is, and a parser only ever shown its own output has not been tested at all.
+
+**188,617 reads, none out of bounds.** Each seed whole, cut to every length,
+changed a byte at a time at six values, and then mutated from a fixed seed -
+bytes changed, dropped, inserted, and two seeds joined - so that a failure can
+be had again.
+
+**It is under sanitizers by construction.** The build compiles with
+`-fsanitize=address,undefined -fno-sanitize-recover=all`, so a read past the
+end ends the test rather than printing and carrying on, and ctest runs it in
+CI with everything else. The corpus is written to `build/fuzz-corpus` so it
+can be handed to libFuzzer or AFL rather than only living inside the test.
+
+**Watched failing**: a `kind_of` that takes `body[0]` without checking there
+is a byte is caught on the empty seed, with UBSan reporting a reference bound
+to a null pointer and the test exiting non-zero.
+
+**A false alarm I raised against my own rig.** I first read that exit code
+through a pipe into `tail`, got `0`, and concluded the sanitizers were not
+failing the test - which would have been a hole in the whole project's test
+build. They were: `$?` after a pipe is the last command's, not the test's.
+The flags were right all along.
+
+
+### A client's inputs, streamed with redundancy, 2026-09-22 — item done
+
+**What is missing first: nothing sends them.** There is no handshake, so no
+client is connected and no input packet has ever crossed a socket. What is
+built is the stream itself, where it can be walked against every pattern of
+loss rather than against a network that happens to be working.
+
+**Repeated, not retransmitted.** A lost input frame is worth nothing a moment
+later - the aircraft has moved on - so waiting for an acknowledgement would
+deliver it too late to use and cost a round trip to find out. Every packet
+carries the last four frames instead, at 141 bytes.
+
+**The bound is stated, because "no loss ever" is not true.** A frame rides in
+the packet of its own number and the three after it, so **it arrives if and
+only if at least one of those four arrives**. That is the invariant, and it is
+held frame by frame over all **4,096** patterns of loss across twelve packets:
+1,490 lose nothing at all, 2,606 lose at least one.
+
+**The first shape of that test was wrong, and it caught itself.** It claimed
+nothing is lost unless four packets go in a row - true in the middle of a
+stream, false at its end, because losing only the last packet loses the last
+frame, which no later packet carries. Pattern 2048 found it. The rule above
+has no such edge.
+
+**Quantised, and the client flies what it sent.** Each control goes as a
+16-bit fraction of -1 to 1: both ends exact, a step of 3e-5, a quarter of a
+double's size. The client predicts on the rounded value rather than on what
+its stick said, because a prediction fed different inputs from the server
+would drift for a reason no measurement could explain - which is exactly the
+drift this project promises to bound.
+
+**`src/net/` still includes nothing but the standard library.** The wire does
+not know what a control is: `sim::Controls::as_list` hands seventeen numbers
+over and `from_list` takes them back, so the list lives with the flight model.
+`every_control_the_flight_model_has_is_one_the_wire_carries` holds
+`sizeof(sim::Controls)`, so a control added without being put in `as_list`
+fails rather than being quietly left out of every flight.
+
+**Watched failing**: a receiver that keeps only the newest frame, throwing the
+redundancy away, is told "frame 1 did not arrive but a packet carrying it did
+get through".
+
+
+### The server's AI aircraft, 2026-09-22 — item done
+
+**What is missing first: they all fly one plan.** There is one flight plan in
+the data, a tour of Sydney Harbour, so every AI aeroplane flies it. They are
+stacked 500 ft apart rather than put in one piece of sky, which says what is
+happening instead of hiding it. More plans, and aircraft that fly different
+ones, are not built.
+
+**An AI aeroplane is an aeroplane with its controller set to the AI.** It goes
+through `sim::Controller::to_ai(plan)`, the same path a player's aircraft
+takes when it is handed over, and its controls each step are what
+`Controller::fly()` returns - the autopilot steered by the navigator. Nothing
+on the server bypasses that, which is what keeps "the LLM plans, the
+controllers fly" true at this end.
+
+**Verified**,
+`the_server_runs_the_number_of_ai_aircraft_it_is_given_and_four_when_given_none`:
+asked for two it runs two, asked for one it runs one, and asked for nothing it
+runs four. The count is read back out of the server's own report and cross-
+checked against the number of aeroplanes it says it flew, so a server that
+printed a number and made a different number would fail. **Watched failing**:
+one that ignores `--ai` and always makes four is told "asked for 2 AI aircraft
+and it ran 4".
+
+**Seen flying**: three AI aircraft at 2,933, 3,429 and 3,929 ft over ground at
+72 ft off Bondi, each tracking north up the plan's first leg.
+
+**A CMake list cannot hold a list.** The test's cases were written
+`"2;2" "1;1" ";4"` and flattened into six elements, so every case read one
+number and the first comparison failed. They are `"asked:want"` now.
+
+
+### The server flies aircraft anywhere on Earth, 2026-09-22 — item done
+
+**What is missing first: nobody is flying them.** The server owns the
+aircraft and steps them, but no client can connect and no input reaches a
+control surface, so they fly at a fixed throttle and nothing else. What is
+proved is that the server simulates at a fixed rate against the real
+collision terrain wherever an aircraft is, not that anybody can fly one.
+
+**Two aircraft, Sydney and Denver, in one session.** `--fly ID@LAT,LON` gives
+the server an aeroplane and where it starts, up to the four a session holds;
+`--seconds N` stops it after a set time, which is what lets a test watch a
+whole run rather than kill one. `--port 0` asks the system for a free port and
+the server prints the one it got, so two tests never fight over a number.
+
+**One DEM, one thread.** A `Fleet` owns a single `world::Dem` and an aircraft
+per `--fly`, each with terrain over that DEM. The DEM caches tiles as it goes,
+so aircraft on opposite sides of the world each pull their own and neither
+waits for the other's; every aircraft is stepped on the one thread, because
+`PROJECT_STATUS.md` has said since the DEM was written that it is not
+thread-safe. Stepping is `sim::FixedStep`: every step that has become due is
+taken, so the rate is the simulation's and not the loop's.
+
+**Verified**,
+`the_server_flies_aircraft_on_opposite_sides_of_the_world_each_over_its_own_terrain`:
+the two flew **2.003 s in 240 steps - 120 Hz exactly** - and found ground at
+**77 ft** and **5,183 ft** above the ellipsoid. Those are the right numbers:
+Sydney Airport is a few feet above the sea with the geoid some 70 ft above the
+ellipsoid there, and Denver is 5,280 ft above the sea with the geoid about
+56 ft below it. Each is held to a band that place really has, so a server
+flying both over one terrain fails both bands at once.
+
+**The test was watched failing.** Given a flat terrain at the ellipsoid, it
+reports "the aeroplane over Denver found ground at 0 ft, which is outside the
+4500 to 6500 ft that place has: it is not over its own terrain". Reverting the
+bug makes it pass.
+
+**A contradiction of my own making.** The server refused `--port 0` - "name a
+port" - while the test that flies it asked for 0, so the verification skipped
+itself rather than running. A skipped verification is not one, so `--port 0`
+is now allowed and documented as what a test wants.
+
+
+### Slots, and who gets which, 2026-09-22 — item done
+
+**What is missing first: nobody can be admitted yet.** There is no handshake,
+so no key ever reaches the server and every session is empty. What is built
+is the rule about slots, and it is built where it can be walked exhaustively
+rather than watched over a network.
+
+**A slot is a key's rank, not an arrival.** `REQUIREMENTS.md` 6.5 says the
+server decides who is which player, "not whoever connected first", so slots
+cannot be handed out in order of arrival. A player is known by a key - the
+static public key the handshake will use - and their slot is that key's rank
+among those in the session. The assignment is therefore a function of who is
+present, not of the sequence, which is exactly what the item asks for.
+
+**What that costs, said plainly.** A slot is a property of the set, so
+somebody joining can move somebody already in: admit a key that sorts first
+and everybody after it shifts down one. That is the price of an assignment
+that does not depend on arrival order. The lobby is sent whole for this
+reason - a client is told its slot rather than remembering it.
+
+**Verified exhaustively**, `slots_are_the_same_whatever_order_the_players_connect_in`:
+every non-empty subset of four players and every order each could arrive in -
+**fifteen subsets, 64 orders** - all ending with the same person in the same
+slot. The four test keys are **deliberately shuffled against their names**,
+so an implementation that assigned by arrival, or alphabetically, would fail.
+Five more tests hold the rank rule itself, fullness at each player count 1 to
+4 with the next refused, a key admitted twice being one player, the 1 to 4
+clamp, and the lobby message round-tripping through the wire format.
+
+**The server draws its dashboard from it**, so the rows on screen are the
+rows a `LOBBY` would carry rather than a count of empty seats.
+
+**A name collision caught by the compiler, not by a test.** The class was
+first called `net::Session`, which is already the `SESSION` message's struct.
+It is `net::Slots` now, which is the requirement's own word.
+
+### `THREATS.md`, 2026-09-22 — item done
+
+**It leads with the fact that the server accepts nothing yet.** There is no
+handshake and no sealing, so `glideslope_server` binds a port, counts what
+arrives and drops every datagram unread. Every defence in the document is
+marked built, unwired or not built, so that none of it reads as protection
+that is presently doing anything: the envelope reader is built but **unwired**
+- `read_envelope` is called by its test and by nothing else in `src/`.
+
+**It names all four datagram types and all seven reliable messages** with the
+defence each has, citing the limits the code enforces rather than describing
+them in general terms, and says which of the seven a server would accept from
+a client at all - only `CONTROLLER_SWAP`; the rest are server-to-client, which
+materially narrows the surface. Amplification, replay, an unauthenticated
+datagram, exhaustion of the reliable layer's queues, a client claiming a slot
+or a player count, and a wrong terrain dataset each have a section.
+
+**Writing it found six disagreements between the code and the documents**,
+which is what writing it was for. Four were fixed the same day: the oversized
+`WEATHER` above; a turbulence severity byte free to carry anything when the
+flag before it said there was none; a slot index with no range check in three
+messages; and a server receive buffer of 1500 bytes where a datagram is 1232.
+Two were not, and are items in `COMPLETION_PLAN.md`: the reliable layer
+believing a forged acknowledgement, and no message rejecting a NaN.
+
+**Verified**, `every_message_the_server_accepts_is_named_in_the_threats_document`:
+every message kind the code knows is named in the document, and the count is
+held against the code's own list so a new kind cannot be added without being
+named in both.
+
+
+### The server binary and its flags, 2026-09-22 — item begun, not done
+
+**What is missing: three of its six flags drive nothing yet.** `--store`
+names a file nothing is written to, because there is no session to keep.
+`--key` is checked to be 64 hexadecimal characters but nothing seals
+anything, and this build cannot mint one: a server secret is an X25519 static
+key and there is no libsodium here to derive its public half with, so a
+secret whose public half cannot be printed would be of no use to a client.
+`--timeout` cannot let a silent client go, because no client can connect
+until the handshake exists. The dashboard says so on screen rather than
+showing an empty table that looks like a fault.
+
+**What works.** `glideslope_server` takes every flag the item names, checks
+each, binds its port and draws a dashboard that refreshes each second: the
+version, the port, how long it has been up, the datagrams and bytes it has
+seen, and a row per slot with who is in it, their ping and their traffic.
+`--headless` prints the settings and runs without one. `--dry-run` prints the
+settings and exits without binding, which is what lets a test exercise a flag
+without a server that has to be killed.
+
+**It links nothing presentational.** The dashboard is written to a terminal,
+not drawn, so the server links the simulation, the world and the platform and
+no SDL. It does not link the transport yet either, because it does not speak
+to anyone yet.
+
+**Verified**, fourteen tests: `--version` and `--help`; the defaults with no
+flags; **every one of the six flags together in one run**; both ends of the 1
+to 4 player range and both sides of them, which is the item's own
+verification; a key of the wrong length and a key that is not hexadecimal; a
+port that is not one; a timeout that is not a length of time; a flag with
+nothing after it; and an option it does not know.
+
+**Two things CMake does with a semicolon.** `-DARGS=--players;0` does not
+pass three arguments - `separate_arguments(... NATIVE_COMMAND)` splits on
+whitespace, so the whole thing arrived as one argument named
+`--players;0;--dry-run`. And a semicolon inside an expected pattern is a list
+separator too, so `--players is 0; a session is 1 to 4` became two patterns.
+Nine of the fourteen tests failed on those two until the arguments were
+separated by spaces and the server's own messages written without semicolons.
+
+
+### The reliable messages, 2026-09-22 — item done
+
+**What is missing first: nothing carries them yet.** There is no server and
+no handshake, so these messages are written, read and delivered between two
+endpoints in a test and nowhere else. What is proved is that the six exist,
+that they survive loss, and that a third party could write them from
+`TRANSPORT.md`.
+
+**The six the item names now exist**: the lobby, the session, the weather, an
+aircraft's definition, the terrain dataset and a controller swap. Each body
+begins with one byte saying which kind it is. `src/net/messages.hpp` defines
+them and `docs/TRANSPORT.md` writes every field of every one out byte for
+byte.
+
+**There are seven kinds, because the weather is two of them.** The first cut
+made the weather one message carrying the METAR and the forecast above it,
+with limits of a 1024-byte report, 64 pressure levels, 8 near-ground winds
+and 32 microbursts. At those limits its body was **5,419 bytes against the
+1,218 a datagram leaves** once the envelope and the reliable header are in
+front of it - 4,201 over - and even at the figures this project really
+fetches, nineteen levels and four winds, a report with a single microburst
+came to 1,235. Nothing fragments, so such a message could not be sent at all:
+the socket refuses it and the reliable layer would repeat it for ever. The
+report now goes as `WEATHER` and the forecast as `WEATHER_ALOFT`, the limits
+came down to 256 bytes, 24 levels, 4 winds and 16 microbursts, and
+`every_message_filled_to_its_limits_fits_in_one_datagram` fills every message
+to its limits and holds it to the datagram. The largest is now the forecast
+at **1,093 of 1,218**, and the forecast actually fetched is 877.
+
+**`src/net/` still includes nothing but the standard library.** The wire
+structures are the wire's, not the simulation's - turning a
+`world::WeatherReport` into a `net::Weather` is the server's job. That is what
+lets the whole transport be tested without a socket, a terrain tile or a
+flight model, which is how it can be put through 4,096 loss patterns.
+
+**The weather is sent as what it was made from.** A METAR is a line of text
+with twenty optional fields; re-encoding them is twenty chances for two ends
+to disagree. The raw report goes on the wire and the receiver parses it with
+the same code the sender did. The forecast above it has no such text, so its
+levels go as numbers.
+
+**Verified:**
+
+- `every_message_writes_and_reads_back_what_went_into_it` - seven kinds, every
+  field set to something that is not its default, so a field the writer forgot
+  cannot pass.
+- `no_message_reads_as_a_kind_it_is_not` - all **49 pairs**; the 42 that are
+  not a kind reading as itself are refused.
+- `every_truncation_of_every_message_is_refused` - **465 prefixes**.
+- `every_message_with_anything_trailing_is_refused` - nothing can be hidden
+  behind a message.
+- `every_single_byte_change_to_every_message_is_read_or_refused` - the whole
+  space, **118,575 changes**: 108,141 still read (most bytes are a double's,
+  where another value is another valid double) and 10,434 are refused. None
+  crashes and none reads as a kind it is not.
+- `the_message_kinds_and_controllers_are_the_ones_the_document_names` - seven
+  kinds and three controllers, and 249 of the 256 possible first bytes are no
+  kind at all.
+- `every_reliable_message_arrives_exactly_once_and_in_order_under_loss`
+  - **the item's own verification**: all seven real messages through the
+  reliable layer under all **4,096** patterns of loss over twelve datagrams.
+  In each one every message arrived exactly once, in order, and read back as
+  the message it was written from. The worst pattern took 21 datagrams.
+- `the_transport_document_and_the_code_agree_about_the_messages` - 7 kinds,
+  3 controllers and 8 limits read back out of `TRANSPORT.md` and held against
+  the code. It was watched failing when the limits changed and the document
+  had not, which is what it is for.
+
+**A build trap worth knowing.** `glideslope_net` lists its sources rather than
+globbing them, so `cmake --build --target glideslope_net` succeeded without
+compiling `messages.cpp` at all, and only the link of the tests found it.
+
+
 ### Every visual model stands on the ground, 2026-09-22 — tail done
 
 **The alignment's height was fitted, and the fit could buy accuracy by

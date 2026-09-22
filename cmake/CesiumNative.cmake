@@ -11,7 +11,23 @@ if(NOT EXISTS "${_cesium}/CMakeLists.txt")
 endif()
 
 # **vcpkg.json must list what Cesium Native's own manifest lists**, less curl,
-# so that upgrading Cesium Native cannot quietly leave a dependency out.
+# so that upgrading Cesium Native cannot quietly leave a dependency out - and
+# this project's own packages besides, each named here.
+#
+# The check was once that the two lists were equal, which meant this project
+# could not add a package of its own at all: doing so failed the configure at
+# once. It now holds that ours is theirs, less curl, plus exactly the list
+# below. That keeps what the check was for - a dependency of theirs going
+# missing is still caught - while letting this project depend on something
+# they do not.
+#
+# **libsodium** is the transport's: `Noise_IK_25519_ChaChaPoly_BLAKE2s` needs
+# X25519, ChaCha20-Poly1305 and BLAKE2s, and libsodium has all three
+# (REQUIREMENTS.md 6.7, docs/TRANSPORT.md). It comes through vcpkg rather than
+# as a submodule under ext/ because it ships no CMake build of its own -
+# autotools on Unix, Visual Studio solutions on Windows - so a submodule would
+# mean writing a CMakeLists here for somebody else's library.
+set(_glideslope_own_packages libsodium)
 function(_glideslope_manifest_names file out)
     file(READ "${file}" _json)
     string(JSON _count LENGTH "${_json}" dependencies)
@@ -32,9 +48,13 @@ endfunction()
 _glideslope_manifest_names("${PROJECT_SOURCE_DIR}/vcpkg.json" _ours)
 _glideslope_manifest_names("${_cesium}/vcpkg.json" _theirs)
 list(REMOVE_ITEM _theirs curl)
-if(NOT _ours STREQUAL _theirs)
-    message(FATAL_ERROR "vcpkg.json lists\n  ${_ours}\nbut ext/cesium-native/vcpkg.json, "
-                        "less curl, lists\n  ${_theirs}")
+set(_wanted ${_theirs} ${_glideslope_own_packages})
+list(SORT _wanted)
+if(NOT _ours STREQUAL _wanted)
+    message(FATAL_ERROR
+            "vcpkg.json lists\n  ${_ours}\nbut ext/cesium-native/vcpkg.json, less "
+            "curl, lists\n  ${_theirs}\nand this project's own are\n  "
+            "${_glideslope_own_packages}\nwhich together want\n  ${_wanted}")
 endif()
 
 # Cesium Native's options: no tests, no clang-tidy, no curl, nothing installed -

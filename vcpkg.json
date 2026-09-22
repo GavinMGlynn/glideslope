@@ -20,6 +20,7 @@
     "openssl",
     "s2geometry",
     "libjpeg-turbo",
+    "libsodium",
     "sqlite3",
     "tinyxml2",
     "libwebp",

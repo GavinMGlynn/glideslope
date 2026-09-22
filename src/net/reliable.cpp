@@ -30,6 +30,9 @@ std::vector<std::vector<std::uint8_t>> Reliable::to_send(double now_s) {
         w.bytes(std::span<const std::uint8_t>(one.body.data(), one.body.size()));
         out.push_back(w.take());
         one.last_sent_s = now_s;
+        if (one.number > highest_sent_) {
+            highest_sent_ = one.number;
+        }
         ++sent_;
     }
 
@@ -59,7 +62,17 @@ std::vector<std::vector<std::uint8_t>> Reliable::received(
     }
 
     // What the far end says it has. Everything at or below it can be let go.
-    if (acknowledges > acknowledged_) {
+    //
+    // **An acknowledgement of a message that was never sent is not
+    // believed.** The far end cannot have received what this end never put
+    // on the wire, so a datagram saying it did is either mangled or forged,
+    // and one carrying `0xFFFFFFFF` would empty the send queue of messages
+    // that have never been delivered - nothing sends them again. Nothing
+    // seals these datagrams yet, so the number is held against what has
+    // actually gone out rather than trusting the caller to have checked. The
+    // rest of the datagram is read as usual: this is one field not believed,
+    // not a reason to throw a message away.
+    if (acknowledges > acknowledged_ && acknowledges <= highest_sent_) {
         acknowledged_ = acknowledges;
     }
     while (!waiting_.empty() && waiting_.front().number <= acknowledged_) {

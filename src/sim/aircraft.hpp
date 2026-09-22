@@ -73,6 +73,42 @@ struct Controls {
     // on the ground the ground spoilers too. An aircraft without them
     // ignores it.
     double speedbrake = 0.0;
+
+    // **Every control as a flat list, and back again.** The wire sends a
+    // client's inputs to the server (net/inputs.hpp), and the network knows
+    // nothing about this structure: it is handed these numbers and hands
+    // them back. Keeping the list here rather than in the network is what
+    // stops the two drifting apart when a control is added - and
+    // `sizeof(Controls)` is held by a test, so a new field that is not put
+    // in here is caught rather than quietly left out of every flight.
+    static constexpr std::size_t control_count = 17;
+    std::array<double, control_count> as_list() const {
+        return {elevator,      aileron,    rudder,         throttle,
+                mixture,       flaps,      left_brake,     right_brake,
+                pitch_trim,    propeller,  gear,           supercharger,
+                speedbrake,    throttle_offset[0],         throttle_offset[1],
+                cooling_flaps[0],          cooling_flaps[1]};
+    }
+    static Controls from_list(const std::array<double, control_count>& v) {
+        Controls c;
+        c.elevator = v[0];
+        c.aileron = v[1];
+        c.rudder = v[2];
+        c.throttle = v[3];
+        c.mixture = v[4];
+        c.flaps = v[5];
+        c.left_brake = v[6];
+        c.right_brake = v[7];
+        c.pitch_trim = v[8];
+        c.propeller = v[9];
+        c.gear = v[10];
+        c.supercharger = v[11];
+        c.speedbrake = v[12];
+        c.throttle_offset = {v[13], v[14]};
+        c.cooling_flaps = {v[15], v[16]};
+        return c;
+    }
+    bool operator==(const Controls&) const = default;
 };
 
 // What is on board, by JSBSim's index for each point mass (seats, baggage) and
