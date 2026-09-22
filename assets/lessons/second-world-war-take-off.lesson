@@ -1,0 +1,45 @@
+# A take-off in a wartime twin: lining up to five hundred feet.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **Every speed here is the aeroplane own.** The Mosquito rotates at about 121
+# knots and climbs at about 148, against a Cessna 56 and 75, so a figure
+# written as a number would be meaningless across the two. `rotate` and
+# `climb` come from `assets/figures/mosquito-fb6.xml` through
+# `sim::departure_speeds`.
+#
+# **The swing on take-off is what this class is about.** A Merlin twin at full
+# power swings, and the Notes say so; the attitude band below catches an
+# aeroplane hauled off or held down, and the heading is the pilot own to keep
+# straight because a lesson that named a runway heading would only suit one
+# runway.
+
+name Take-off in a wartime twin
+teaches second-world-war
+
+stage The roll
+do Line up, then open the throttles slowly and evenly to full
+do Hold her straight on the rudder: she will swing as the power comes in
+do Let the speed build to the rotation speed. Do not hurry her off
+need fcs/throttle-cmd-norm >= 0.90 Open the throttles fully for the take-off
+need velocities/vc-kts >= rotate-5 Let her reach the rotation speed before easing the nose up
+until position/h-agl-ft >= 15
+
+stage The initial climb
+do Hold the climbing attitude and let the speed settle
+do Raise the undercarriage once there is no runway left to land on
+hold attitude/theta-deg -8.0 24.0 Hold the climbing attitude
+until position/h-agl-ft >= 200
+
+stage Climbing away
+do Climb straight ahead at the climbing speed
+hold velocities/vc-kts climb-70 climb+70 Hold the climbing speed
+until position/h-agl-ft >= 500

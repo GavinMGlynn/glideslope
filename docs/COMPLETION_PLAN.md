@@ -644,9 +644,19 @@ checklists are part of. A lesson ends in a debrief, never a score
       Lessons are named `<class>-<exercise>`, which is a rule and not a
       convention: the runner finds a lesson by the class its aeroplane
       declares.
-      Still missing: take-offs, approaches, climbs and stalls for the six
-      classes other than light aircraft - all four name published speeds, and
-      eleven of the sixteen aeroplanes publish none.
+      **The Mosquito class has all five lessons and the Learjet class three,
+      2026-09-22** - every lesson its aeroplane has the published figures to
+      support. The Mosquito publishes a rotation speed, a climbing speed and
+      a stall, so it takes off, climbs, approaches, stalls and turns; the
+      Learjet publishes a stall only, so it approaches, stalls and turns.
+      Every aeroplane taught an exercise is flown through it: five take off,
+      six approach, six stall, five climb, and all sixteen turn.
+      Still missing: the circuit, and take-offs, approaches, climbs and
+      stalls for the airliners, the fighters, the bomber and the flying boat
+      - **none of those ten publishes a stall speed or a rate of climb**, and
+      `sim::approach_speeds` and `sim::departure_speeds` throw rather than
+      guess, which is right: a reference speed invented means nothing. Those
+      lessons wait on figures, not on lesson-writing.
       **The reference speeds a lesson needs are published for the light
       aircraft and not for the rest**, which was looked into on 2026-09-21
       rather than assumed. Only six of the sixteen publish a stall speed and

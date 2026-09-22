@@ -1,0 +1,45 @@
+# The approach and the landing in a business jet.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **Every speed is `vref`**, the aeroplane own threshold speed, worked out by
+# `sim::approach_speeds` as 1.3 times its published stall with everything
+# down. Writing a number would hold one aeroplane to another speed.
+#
+# **No band watches the flare**, as in the light aircraft lesson: the flare is
+# where the speed is meant to go.
+#
+# **A jet begins its flare higher than a light aeroplane**, which is why the
+# speed is watched down to forty feet here and to twenty in the light aircraft
+# lesson. The Learjet crosses its threshold at about 125 knots and is down to
+# 95 by twenty feet: that is the flare doing its work, not an approach flown
+# slow, and a band that watched it would fault every correct landing the
+# aeroplane makes.
+
+name Approach and landing in a business jet
+teaches business-jet
+
+stage The approach
+do Join the approach on the runway heading, wheels and flap down
+do Hold the approach speed and let her come down the glidepath
+hold velocities/vc-kts vref-8 vref+15 Hold the approach speed
+until position/h-agl-ft <= 50
+
+stage Over the threshold
+do Cross the threshold at the approach speed, on the centreline
+hold velocities/vc-kts vref-8 vref+15 Cross the threshold on speed
+until position/h-agl-ft <= 40
+
+stage The flare and the landing roll
+do Close the throttles and check the descent
+do Hold her straight, and brake once she is rolling
+need fcs/throttle-cmd-norm <= 0.15 Close the throttles for the landing
+until velocities/vc-kts <= 30

@@ -1,0 +1,37 @@
+# The stall in a wartime twin: entering it, and getting out with least height lost.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# `stall` is the aeroplane own published stall speed with everything down,
+# which `sim::approach_speeds` works out on the way to the threshold speed.
+# The height allowed in the recovery is against where the recovery began.
+#
+# **The stall is called at `stall+25`, not at `stall`.** The published figure
+# is the stall with everything down at low level; a clean aeroplane practising
+# high breaks well above it, and waiting for the published speed means waiting
+# for one that never comes - she breaks, drops, and accelerates away in the
+# descent while the lesson watches. The margin is the gap between a published
+# low-level figure and where a clean aeroplane at height gives up.
+
+name Stalls in a wartime twin
+teaches second-world-war
+
+stage Entering the stall
+do Close the throttles and hold the height as the speed comes back
+do Keep the wings level: a wing drop is what you are avoiding
+hold position/h-agl-ft start-300 start+300 Hold the height as the speed comes back
+until velocities/vc-kts <= stall+25
+
+stage The recovery
+do Move the control column forward to unstall the wing
+do Full power as the nose comes down, and level the wings
+need position/h-agl-ft >= start-600 Recover with the least height you can
+until velocities/vc-kts >= stall+35

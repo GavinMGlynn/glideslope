@@ -1,0 +1,35 @@
+# Climbs and descents in a wartime twin.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# The speeds are the aeroplane own, from its Pilot's Notes through
+# `assets/figures/mosquito-fb6.xml`; the heights are against where the stage
+# began, so the exercise may be flown at any altitude.
+
+name Climbs and descents in a wartime twin
+teaches second-world-war
+
+stage The climb
+do Set the climbing power and hold the climbing speed
+do Keep the engine temperatures inside their limits as she climbs
+hold velocities/vc-kts climb-30 climb+30 Hold the climbing speed
+until position/h-agl-ft >= start+900
+
+stage Levelling off
+do Lower the nose at the height you want and let the speed build
+do Set the cruising power once the speed is there
+until velocities/h-dot-fps <= 3.0
+
+stage The descent
+do Bring the power back and let the nose down to a steady rate
+do Do not let her run away: this is a clean aeroplane and she will
+hold velocities/vc-kts climb-30 climb+90 Hold the speed in the descent
+until position/h-agl-ft <= start-500
