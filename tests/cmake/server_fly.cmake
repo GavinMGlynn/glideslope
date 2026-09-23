@@ -75,7 +75,11 @@ if(_applied EQUAL 0)
                         "the client sent: a client cannot fly")
 endif()
 math(EXPR _lost "${_sent} - ${_applied}")
-if(_lost GREATER 10)
+# A second's worth, thirty: the frames still in flight are however many the
+# client sends while the server is behind, and a debug server on a loaded
+# runner was over half a second behind - 17 of 178 unapplied at the end.
+# A server that drops inputs loses far more than that over six seconds.
+if(_lost GREATER 30)
     message(FATAL_ERROR "the server applied ${_applied} of ${_sent} input "
                         "frames, and ${_lost} is more than the few still in "
                         "flight at the end")

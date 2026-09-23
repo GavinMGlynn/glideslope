@@ -261,6 +261,8 @@ seconds, where a debug server on a busy Windows runner sent 32: it is 10,
 which still fails once a second, the thing it is there for.
 The input-frame floor in the flying test was the same: 100 of 180, where the
 same runner's debug client sent 97. It is 20; once a second would be six.
+Its count of inputs still in flight at the end, which it allowed ten, was
+seventeen on a loaded Ubuntu debug runner; it allows a second's worth, thirty.
 
 **One shard took 19 minutes** because the test holding all seven views'
 flights to one another had the seven as its ctest fixture, so whichever shard
