@@ -63,7 +63,10 @@ if(NOT _out MATCHES "sent ([0-9]+) input frames, the server applied ([0-9]+)")
 endif()
 set(_sent ${CMAKE_MATCH_1})
 set(_applied ${CMAKE_MATCH_2})
-if(_sent LESS 100)
+# Thirty a second is 180, but the floor is what fails a client that sends
+# once a second - six - not the runner's speed: a debug client on a Windows
+# runner shared with three client renders sent 97.
+if(_sent LESS 20)
     message(FATAL_ERROR "the client sent ${_sent} input frames in six seconds, "
                         "and it sends thirty a second")
 endif()

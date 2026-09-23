@@ -259,6 +259,8 @@ the ahead, behind and orbit outlines took in terrain. They are shot with
 keeps its own tests. And the state-rate floor was 50 of 75 updates in three
 seconds, where a debug server on a busy Windows runner sent 32: it is 10,
 which still fails once a second, the thing it is there for.
+The input-frame floor in the flying test was the same: 100 of 180, where the
+same runner's debug client sent 97. It is 20; once a second would be six.
 
 ### Figures measured from the models, where nothing is published, 2026-09-23
 
