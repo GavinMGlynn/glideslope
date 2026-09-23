@@ -1141,10 +1141,20 @@ Found while implementing something else. Added when found, not when remembered.
       circuit each build their aeroplane directly and load nothing. So a
       take-off is judged against a ground roll measured at one weight while
       flying at another, and an approach against a reference speed for a
-      landing weight it is not at. They pass today, which means the difference
-      is small for those aeroplanes and not that it does not exist. *Verification:
-      every lesson flies its aeroplane at the weight the figures it is judged
-      against were measured at, and the bands are re-measured there.*
+      landing weight it is not at.
+      **Tried the same day and reverted**, because it is not a one-line
+      change. Loading them costs what it cost the lessons flown in the air,
+      and more: the take-off lesson's climbing-speed band was a flat 45 to 120
+      knots - the span of four aeroplanes, and so not a band at all - which is
+      fixed and kept, but **the circuit comes apart**. A heavier Cessna climbs
+      more slowly, so it is further from the runway at every height, the
+      pattern no longer sits where the legs expect, and two of its bands break
+      at once: the nose wanders past the twenty-five degrees the climb-out
+      allows, and the downwind leg comes out shorter than the mile the lesson
+      asks for. The circuit's geometry has to be re-tuned at the new weight in
+      the same change. *Verification: every lesson flies its aeroplane at the
+      weight the figures it is judged against were measured at, the circuit
+      still flies its pattern, and the bands are re-measured there.*
 - [ ] **The PA-28 loses five times the height the other light aircraft lose
       entering a stall.** Found 2026-09-23 while flying the lessons at the
       weight each aeroplane's own figures are measured at. Throttle closed and

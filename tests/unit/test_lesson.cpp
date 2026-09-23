@@ -89,6 +89,37 @@ double a_climb_it_can_manage(const std::string& model) {
     return 600.0;
 }
 
+// **A reference speed belongs to a weight, so a lesson flies the aeroplane at
+// the weight its figures were measured at.** Without this the two are about
+// different aeroplanes: the F-35B's climbing speed was measured at its 39,750
+// lb combat loading and the lesson flew it at the 45,259 lb the model loads by
+// default, where that speed is below its flying speed. It sat at fifteen
+// degrees nose up and twenty-two degrees of alpha, mushing down at two
+// thousand feet a minute, and arrived on the ground still doing 160 knots.
+//
+// The climbing speed's loading is the one taken: it is the figure a lesson is
+// most likely to name, and for every aeroplane whose figures are measured the
+// stall was taken at the same loading on purpose. Call it before
+// `initialize`, as the figure flights do.
+void load_as_its_figures_were_measured(glideslope::sim::Aircraft& aircraft,
+                                       const std::string& model) {
+    try {
+        const auto figures = glideslope::sim::read_published_figures(
+            data() / "figures" / (model + ".xml"));
+        std::string wanted;
+        for (const auto& spec : figures.figures) {
+            if (spec.flight == "climb_rate") {
+                wanted = spec.loading;
+            }
+        }
+        const auto it = figures.loadings.find(wanted);
+        if (it != figures.loadings.end()) {
+            aircraft.load(it->second.loading);
+        }
+    } catch (const std::exception&) {
+    }
+}
+
 // **Where this aeroplane practises a stall.** A light aeroplane decelerates
 // to the stall in a few hundred feet; a clean jet at idle descends a long way
 // while it slows, and doing that from five thousand feet puts it in the
@@ -721,33 +752,7 @@ InFlight airborne(const std::string& id, double agl_ft, double start_kcas = 0.0)
         start_kcas > 0.0 ? start_kcas : entry.start_airspeed_kts;
     ic.engine_running = true;
     ic.gear = 0.0;
-    // **A reference speed belongs to a weight, so the lesson flies the
-    // aeroplane at the weight its figures were measured at.** Without this
-    // the two are about different aeroplanes: the F-35B's climbing speed was
-    // measured at its 39,750 lb combat loading and the lesson flew it at the
-    // 45,259 lb the model loads by default, where that speed is below its
-    // flying speed. It sat at fifteen degrees nose up and twenty-two degrees
-    // of alpha, mushing down at two thousand feet a minute, and arrived on
-    // the ground still doing 160 knots.
-    //
-    // The climbing speed's loading is the one taken: it is the figure a lesson
-    // is most likely to name, and for every aeroplane whose figures are
-    // measured the stall was taken at the same loading on purpose.
-    try {
-        const auto figures = glideslope::sim::read_published_figures(
-            data() / "figures" / (entry.model + ".xml"));
-        std::string wanted;
-        for (const auto& spec : figures.figures) {
-            if (spec.flight == "climb_rate") {
-                wanted = spec.loading;
-            }
-        }
-        const auto it = figures.loadings.find(wanted);
-        if (it != figures.loadings.end()) {
-            out.aircraft->load(it->second.loading);
-        }
-    } catch (const std::exception&) {
-    }
+    load_as_its_figures_were_measured(*out.aircraft, entry.model);
     out.aircraft->initialize(ic);
     // **An aeroplane that publishes no figures still has lessons.** Eleven of
     // the sixteen publish no stall speed and most publish no rate of climb,

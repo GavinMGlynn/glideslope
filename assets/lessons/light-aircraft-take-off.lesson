@@ -56,6 +56,15 @@
 # room - wide enough for honest technique in a tail-wheel aeroplane, and
 # nowhere near wide enough to miss a swing off the runway.
 
+# **The climbing speed is the aeroplane's own, not a number.** This band was
+# a flat 45 to 120 knots, which is the span of four different aeroplanes and
+# so is not a band at all: it let a Cessna climb out thirty knots slow without
+# a word. It is each aeroplane's published climbing speed now, twelve under to
+# fifteen over, the same as the circuit uses. Flown by the book at the weight
+# their own figures are measured at, the four climb away between seven under
+# their climbing speed and eight over, and the Mosquito, whose own lesson uses
+# the same shape of band, between one under and four over.
+
 name Take-off in a light aeroplane
 teaches light-aircraft
 
@@ -76,5 +85,5 @@ until position/h-agl-ft >= 200
 
 stage Climbing away
 do Climb straight ahead to five hundred feet before turning
-hold velocities/vc-kts 45.0 120.0 Hold the climbing speed
+hold velocities/vc-kts climb-12 climb+15 Hold the climbing speed
 until position/h-agl-ft >= 500
