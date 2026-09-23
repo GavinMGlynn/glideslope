@@ -84,7 +84,7 @@ jobs:
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
-          key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
           restore-keys: vcpkg-ubuntu-
       - uses: actions/cache/restore@v4
         with:
@@ -100,7 +100,7 @@ jobs:
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
-          key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
 
       - name: ${{ matrix.preset }} - build
         run: |
@@ -261,7 +261,7 @@ jobs:
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
-          key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
           restore-keys: vcpkg-rocky9-
       - uses: actions/cache/restore@v4
         with:
@@ -277,7 +277,7 @@ jobs:
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
-          key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
 
       - name: linux-release - build
         run: |
@@ -338,7 +338,7 @@ jobs:
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
-          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
           restore-keys: vcpkg-macos-
       - uses: actions/cache/restore@v4
         with:
@@ -352,7 +352,7 @@ jobs:
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
-          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
 
       - name: ${{ matrix.preset }} - build
         run: |
@@ -446,7 +446,7 @@ jobs:
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
           restore-keys: vcpkg-windows-
 
       - name: ${{ matrix.preset }} - configure
@@ -458,7 +458,7 @@ jobs:
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' && matrix.preset == 'windows-release' }}
         with:
           path: .vcpkg-archives
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
 
       - name: ${{ matrix.preset }} - build
         shell: cmd

@@ -62,9 +62,10 @@ add_executable(glideslope_tests
     unit/test_flight.cpp
     unit/test_restore.cpp
     unit/test_sky.cpp
-    unit/test_model.cpp)
+    unit/test_model.cpp
+    unit/test_imagery.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform
-                                               glideslope_input glideslope_model)
+                                               glideslope_input glideslope_model CesiumImage)
 # Where tests/cmake/fetch.cmake puts the files the tests download. A directory
 # named by GLIDESLOPE_DOWNLOADS when configuring outlives the build tree, which
 # is how CI keeps them between runs.
@@ -443,7 +444,8 @@ set(GLIDESLOPE_UNIT_TESTS
     every_aircraft_the_data_holds_that_alights_on_water_does_not_roll_out_on_it
     an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong
     no_flight_model_opens_a_network_socket
-    a_download_cannot_be_killed_by_a_server_hanging_up)
+    a_download_cannot_be_killed_by_a_server_hanging_up
+    a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)

@@ -26,6 +26,14 @@
 # The flight stands on the DEM and draws it, so it needs the tiles and the
 # geoid, fetched into CACHE: without the network the test is skipped (exit 77)
 # unless GLIDESLOPE_REQUIRE_NETWORK is set.
+#
+# **No imagery.** The two shots are two launches, and the imagery streams: a
+# tile slow or lost in one launch is drawn bare, or from its parent, while
+# the other has it, and the two frames then differ where that tile lies. CI
+# saw it in all three ways - the cockpit's two shots differing with no
+# aeroplane in either, and the ahead and orbit outlines taken in terrain. The
+# DEM is pinned and waited for, so without imagery the two shots differ by
+# the aeroplane alone. The imagery has its own tests.
 
 cmake_minimum_required(VERSION 3.28)
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
@@ -54,7 +62,7 @@ function(shoot view with shot said)
     execute_process(
         COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size ${_size}
                 --screen flight --aircraft ${_aircraft} --view ${view}
-                --draw-aircraft ${with} --trace
+                --draw-aircraft ${with} --imagery off --trace
                 --shot-at ${_tick} --shot "${_shot}"
         RESULT_VARIABLE _rc OUTPUT_FILE "${_said}" ERROR_VARIABLE _err)
     if(NOT _rc EQUAL 0 AND _err MATCHES "could not download")

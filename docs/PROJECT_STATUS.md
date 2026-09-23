@@ -238,6 +238,28 @@ scan off; glideslope has no modules. A macOS runner also lost DNS for
 api.open-meteo.com for longer than a fetch's three tries spanned (6 s),
 failing the weather and HUD tests; fetches now try five times, over 30 s.
 
+**The next run found a real bug in a dependency.** When an imagery tile times
+out, Cesium Native fills its place with the parent tile's pixels scaled up,
+through stb's resizer - and the stb that vcpkg's pinned checkout carries
+(stb_image_resize2 v2.10, 2024-07-29) writes a float past its decode buffer
+when scaling three-channel pixels, and reads a field through a pointer it has
+just freed. The sanitized macOS client stopped there in three tests. stb
+fixed both in v2.11 and v2.12; `cmake/ports/stb` is vcpkg's own port at stb's
+2026-08-02 commit (v2.18), pinned by SHA-512, as an overlay.
+`a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound` makes
+that blit: under v2.10 AddressSanitizer stopped it with a heap overflow (seen);
+under v2.18 it passes.
+
+**The view tests shot imagery that streamed.** Each view is two launches,
+with the aeroplane and without, and the outline is where the two frames
+differ. A tile slow in one launch and not the other made them differ in the
+terrain too: the cockpit's two shots differed with no aeroplane in either, and
+the ahead, behind and orbit outlines took in terrain. They are shot with
+`--imagery off` now, so the frames rest on the pinned DEM alone; the imagery
+keeps its own tests. And the state-rate floor was 50 of 75 updates in three
+seconds, where a debug server on a busy Windows runner sent 32: it is 10,
+which still fails once a second, the thing it is there for.
+
 ### Figures measured from the models, where nothing is published, 2026-09-23
 
 **What is still missing: the airliners, the fighters, the bomber and the

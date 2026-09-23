@@ -86,7 +86,10 @@ vcpkg at the commit Cesium Native v0.64.0 is built against,
 on Windows `C:\gs-vcpkg`, short because MSVC cannot open a path of more than
 260 characters and vcpkg builds deep under its root - rather than this tree - it is a tool, not a dependency - and installs the
 packages after the platform gate has accepted the compiler. The ports, and so
-every dependency's version, are that commit's. How each platform builds them is
+every dependency's version, are that commit's - but for stb, which
+`cmake/ports/stb` takes at `2c980bb59875b0d32144a71867fbdebb2f77cd20`
+(2026-08-02, pinned by SHA-512): that commit's stb had a resizer that wrote
+past its buffer, and Cesium Native resizes imagery. How each platform builds them is
 `cmake/triplets/`, whose README says why.
 
 **The first configure builds all thirty**, which takes most of an hour; vcpkg
