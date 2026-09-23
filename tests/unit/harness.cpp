@@ -60,6 +60,11 @@ int main(int argc, char** argv) {
         }
         try {
             t.body();
+            // Seen only when the test fails regardless: ctest shows a test's
+            // output then. A virtual-joystick test ended "SegFault" on Windows
+            // with no word before it, and this says whether the body had
+            // finished - a crash after it is the process exiting.
+            std::fprintf(stderr, "passed %s\n", argv[1]);
             return 0;
         } catch (const glideslope::test::Skip& s) {
             std::fprintf(stderr, "SKIPPED %s\n  %s\n", argv[1], s.reason.c_str());

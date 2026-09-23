@@ -32,6 +32,9 @@
 #include <dbghelp.h>
 #include <crtdbg.h>
 #include <cstdint>
+#include <algorithm>
+#include <cstdarg>
+#include <cstddef>
 #include <cstdio>
 #include <stdlib.h>
 #pragma comment(lib, "dbghelp.lib")
@@ -42,6 +45,27 @@ namespace glideslope::platform {
 #if defined(_WIN32)
 namespace detail {
 
+// Straight to the standard-error handle, not through the C runtime's stream:
+// a crash while the process is exiting comes after the runtime has closed its
+// streams, and anything printed through them then goes nowhere.
+#if defined(__clang__)
+__attribute__((format(printf, 1, 2)))
+#endif
+inline void say(const char* format, ...) {
+    char line[1024];
+    va_list args;
+    va_start(args, format);
+    const int n = std::vsnprintf(line, sizeof(line), format, args);
+    va_end(args);
+    if (n <= 0) {
+        return;
+    }
+    DWORD wrote = 0;
+    const DWORD length =
+        static_cast<DWORD>(std::min<std::size_t>(static_cast<std::size_t>(n), sizeof(line) - 1));
+    WriteFile(GetStdHandle(STD_ERROR_HANDLE), line, length, &wrote, nullptr);
+}
+
 // The exception and the stack it was raised on, to standard error - at most
 // three times in the process, so that an exception something handles in the
 // ordinary course cannot use up the report the crash after it needs.
@@ -50,7 +74,7 @@ inline void print_stack(EXCEPTION_POINTERS* info, const char* how) {
     if (InterlockedIncrement(&printed) > 3) {
         return;
     }
-    std::fprintf(stderr, "glideslope: %s exception 0x%08lx at %p\n", how,
+    say("glideslope: %s exception 0x%08lx at %p\n", how,
                  static_cast<unsigned long>(info->ExceptionRecord->ExceptionCode),
                  info->ExceptionRecord->ExceptionAddress);
 #if defined(_M_X64)
@@ -94,19 +118,18 @@ inline void print_stack(EXCEPTION_POINTERS* info, const char* how) {
         DWORD line_displacement = 0;
         const bool lined =
             SymGetLineFromAddr64(process, pc, &line_displacement, &line) != FALSE;
-        std::fprintf(stderr, "  #%-2d %s+0x%llx", depth, module,
+        say("  #%-2d %s+0x%llx", depth, module,
                      static_cast<unsigned long long>(pc - base));
         if (named) {
-            std::fprintf(stderr, " %s", symbol.info.Name);
+            say(" %s", symbol.info.Name);
         }
         if (lined) {
-            std::fprintf(stderr, " %s:%lu", line.FileName,
+            say(" %s:%lu", line.FileName,
                          static_cast<unsigned long>(line.LineNumber));
         }
-        std::fprintf(stderr, "\n");
+        say("\n");
     }
 #endif
-    std::fflush(stderr);
 }
 
 // **Seen first, before anything else in the process can handle it.** The
