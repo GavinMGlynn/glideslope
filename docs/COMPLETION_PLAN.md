@@ -664,12 +664,23 @@ checklists are part of. A lesson ends in a debrief, never a score
       Learjet publishes a stall only, so it approaches, stalls and turns.
       Every aeroplane taught an exercise is flown through it: five take off,
       six approach, six stall, five climb, and all sixteen turn.
-      Still missing: take-offs, approaches, climbs, stalls and circuits
-      for the airliners, the fighters, the bomber and the flying boat
-      - **none of those ten publishes a stall speed or a rate of climb**, and
-      `sim::approach_speeds` and `sim::departure_speeds` throw rather than
-      guess, which is right: a reference speed invented means nothing. Those
-      lessons wait on figures, not on lesson-writing.
+      **Climbs and descents are the seventh lesson, 2026-09-23**, and the
+      first taught to the classes that publish nothing: the airliners, the
+      fighters, the bomber, the flying boat and the business jet. Fourteen
+      aeroplanes fly it to an empty debrief. That is possible because the
+      project owner decided the same day that **a lesson's reference speed may
+      be measured from the flight model** where no handbook gives one, and
+      sixteen figures are now marked `from="measured"` (`ASSETS.md`).
+      Still missing for those classes: take-offs, approaches, stalls and
+      circuits. **The stalls lesson for them was written and withdrawn the
+      same day** - a swept-wing jet asked to slow to twenty-five knots above
+      its *landing* stall while flown *clean* has to stall to get there, and
+      departs rather than mushing; it is a tail, with what the trace showed.
+      **Two aeroplanes are taught turns alone and always will be until their
+      models change**: the 747-400 and the F-22A, whose stall speeds will not
+      hold still to be measured. The tests name them, with the figure they
+      lack, rather than flying them against a reference speed of zero -
+      which is what used to happen, silently.
       **The reference speeds a lesson needs are published for the light
       aircraft and not for the rest**, which was looked into on 2026-09-21
       rather than assumed. Only six of the sixteen publish a stall speed and
@@ -1102,6 +1113,25 @@ checklists are part of. A lesson ends in a debrief, never a score
 ## Tails
 
 Found while implementing something else. Added when found, not when remembered.
+- [ ] **A stalls lesson for the airliners, the fighters and the bomber needs
+      the landing configuration, which no lesson handles yet.** Written and
+      withdrawn 2026-09-23. A lesson's `stall` is the stall speed in the
+      landing configuration - flaps down, gear down - because that is what a
+      reference speed is for. The exercise is flown clean, and for a light
+      aeroplane the two are close enough that asking it to slow to six knots
+      above the landing stall works. **For a 737-300 they are nowhere near.**
+      Its landing stall is 105.7 knots and clean it gives up at about 155, so
+      an entry ending twenty-five knots above the landing stall asks for a
+      speed it cannot reach without stalling first - and a swept wing pushed
+      past the stall does not mush like a Cessna, it departs. Traced from
+      20,000 ft: it holds its height down to 159 knots at 12.6 degrees of
+      alpha, and thirty seconds later it is at **52 degrees of alpha, 26
+      degrees nose down and falling at 21,000 ft/min**, and nothing recovers
+      it. The climbs-and-descents lessons for these classes are written and
+      flying; only the stall needs this. *Verification: the approach to the
+      stall is flown in the configuration its reference speed is measured in,
+      and every aeroplane taught it recovers within the height the lesson
+      allows.*
 - [ ] **The runway lessons still fly at the model's default weight, not at
       their figures'.** Found 2026-09-23, immediately after fixing it for the
       lessons flown in the air. `airborne` now loads the aeroplane as the

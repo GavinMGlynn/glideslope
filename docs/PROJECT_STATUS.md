@@ -287,6 +287,20 @@ so rather than passing it off as a tolerance, and it is a tail.
 no longer is. They use the 747-400 now, whose stall speed is the one that
 would not hold still.
 
+**A stalls lesson for the airliners, fighters and bomber was written and
+withdrawn the same day.** A lesson's `stall` is the landing-configuration
+stall speed, and the exercise is flown clean. For a light aeroplane those are
+close enough that slowing to six knots above the landing stall works; for a
+737-300 the landing stall is 105.7 knots and clean it gives up at about 155,
+so an entry ending twenty-five knots above the landing stall asks for a speed
+it cannot reach without stalling first. Traced from 20,000 ft it holds its
+height down to 159 knots at 12.6 degrees of alpha, and thirty seconds later it
+is at 52 degrees of alpha, 26 degrees nose down and falling at 21,000 ft/min,
+and nothing recovers it. **A swept wing past the stall departs; it does not
+mush like a Cessna.** The exercise has to be flown in the configuration its
+reference speed is measured in, which no lesson handles yet, so it is a tail
+rather than a lesson with wider bands.
+
 **Still at the model's default weight: the take-off lesson, the approach
 lesson, their demonstrations and the circuit**, which each build their
 aeroplane directly rather than through `airborne`. They pass, which means the
