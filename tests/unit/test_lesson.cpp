@@ -251,6 +251,79 @@ std::vector<std::string> everyone_taught(const std::string& exercise) {
     return taught.able;
 }
 
+// **One aeroplane of each class taught `exercise`, for flying its faults.**
+// A fault belongs to a lesson and a lesson to a class, so a fault flown only
+// in the Cessna tested the light aircraft's lesson and no other: every
+// class's lesson has its own bands, its own words and its own figures. The
+// first aeroplane in the roster that can fly each class's lesson flies it,
+// and the lessons it covered are counted against the lessons there are.
+std::vector<std::string> one_of_each_class(const std::string& exercise) {
+    std::vector<std::string> out;
+    std::set<std::string> lessons;
+    std::set<std::string> covered;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        const auto lesson = lesson_for(entry, exercise);
+        if (!lesson) {
+            continue;
+        }
+        lessons.insert(lesson->id);
+        if (covered.count(lesson->id) != 0 ||
+            !glideslope::sim::cannot_be_taught(*lesson, figures_of(entry)).empty()) {
+            continue;
+        }
+        covered.insert(lesson->id);
+        out.push_back(entry.id);
+    }
+    std::printf("  %s: faults flown in %zu of the %zu classes' lessons\n", exercise.c_str(),
+                covered.size(), lessons.size());
+    check(covered.size() == lessons.size(),
+          "every class's " + exercise + " lesson has an aeroplane to fly its fault");
+    return out;
+}
+
+// **The fault and no other.** Every line of the debrief must be one this
+// lesson gives for `property` - the approach speed and the speed over the
+// threshold are one fault, flying fast, seen twice - and there must be one.
+//
+// `watches` names the properties the fault may be seen on; `need:` before
+// one takes only its `need`s - rotating early is the rotation-speed need and
+// the attitude it leaves, not the climbing-speed band on the same property.
+void names_that_fault_and_no_other(const std::string& id, const std::string& exercise,
+                                   const std::vector<std::string>& debrief,
+                                   const std::vector<std::string>& watches_on,
+                                   const std::string& fault) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const auto lesson = lesson_for(entry, exercise);
+    check(lesson.has_value(), id + " has a " + exercise + " lesson");
+    std::set<std::string> allowed;
+    for (const std::string& on : watches_on) {
+        const bool needs_only = on.rfind("need:", 0) == 0;
+        const std::string property = needs_only ? on.substr(5) : on;
+        for (const auto& stage : lesson->stages) {
+            for (const auto& w : stage.needs) {
+                if (w.property == property) {
+                    allowed.insert(w.fault);
+                }
+            }
+            if (!needs_only) {
+                for (const auto& w : stage.holds) {
+                    if (w.property == property) {
+                        allowed.insert(w.fault);
+                    }
+                }
+            }
+        }
+    }
+    for (const std::string& said : debrief) {
+        std::printf("      %-13s %s\n", id.c_str(), said.c_str());
+    }
+    check(!debrief.empty(), id + " " + fault + " is not faultless");
+    for (const std::string& said : debrief) {
+        check(allowed.count(said) != 0,
+              id + " " + fault + ", and the debrief named something else too: " + said);
+    }
+}
+
 const std::vector<std::string>& light_aircraft() {
     static const std::vector<std::string> ids{"c172p", "c182", "pa28", "j3cub"};
     return ids;
@@ -428,7 +501,17 @@ Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
         // the take-off autopilot's rotation speed instead and nothing
         // happens: an aeroplane below its stall will not fly, whatever the
         // nose is doing, and she simply rolls on with the nose up.
+        //
+        // **From 85 percent of her rotation speed, not from a standstill.**
+        // Held from the start of the roll, the stick kept the Mosquito's tail
+        // down the whole way, and hauled off at 107 knots she swung past the
+        // twenty degrees the roll allows: the debrief said keep her straight
+        // as well, which is a different fault. Easing back early is easing
+        // back before the speed is there, not before she moves. From 85
+        // percent she comes off at 110 against 160, and the Cessna at 51
+        // against 81.
         if (rotate_kts_override > 0.0 &&
+            aircraft.property("velocities/vc-kts") >= 0.85 * speeds.rotate_kts &&
             aircraft.property("position/h-agl-ft") < rotate_kts_override) {
             controls.elevator = std::max(controls.elevator, 0.30);
         }
@@ -501,40 +584,29 @@ GLIDESLOPE_TEST(the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief) {
 // an aeroplane off the ground before its speed actually does. A debrief that
 // named only one of them would be hiding the other.
 GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
-    // **Not opening the throttle.** Flown by the book in every other way, so
-    // the debrief should hold this and nothing else.
-    const Flown lazy = fly_the_take_off("c172p", 0.0, 0.80);
-    std::printf("  part throttle: off at %.0f knots, %zu fault(s)\n",
-                lazy.off_at_kts, lazy.debrief.size());
-    for (const std::string& said : lazy.debrief) {
-        std::printf("    %s\n", said.c_str());
-    }
-    check(lazy.debrief.size() == 1,
-          "the throttle fault and nothing else, not " +
-              std::to_string(lazy.debrief.size()) + " things");
-    check(lazy.debrief[0] == "Open the throttle fully for the take-off",
-          "and it is the throttle, not: " + lazy.debrief[0]);
+    for (const std::string& id : one_of_each_class("take-off")) {
+        // **Not opening the throttle.** Flown by the book in every other way.
+        const Flown lazy = fly_the_take_off(id, 0.0, 0.80);
+        std::printf("  %s on part throttle: off at %.0f knots\n", id.c_str(),
+                    lazy.off_at_kts);
+        names_that_fault_and_no_other(id, "take-off", lazy.debrief, {"fcs/throttle-cmd-norm"},
+                                      "taking off on part throttle");
 
-    // **Rotating early**, flown with a steady touch of back stick until she
-    // is off. She comes off at a speed a 172 has no business flying at, and
-    // the attitude band catches her.
-    const Flown early = fly_the_take_off("c172p", 14.0, 1.0);
-    const Flown book = fly_the_take_off("c172p", 0.0, 1.0);
-    std::printf("  by the book: off at %.0f knots; rotating early: off at %.0f\n",
-                book.off_at_kts, early.off_at_kts);
-    check(early.off_at_kts < book.off_at_kts - 3.0,
-          "she really did come off earlier: " + std::to_string(early.off_at_kts) +
-              " against " + std::to_string(book.off_at_kts));
-    check(!early.debrief.empty(), "and it is not flown faultlessly");
-    const bool named = std::any_of(
-        early.debrief.begin(), early.debrief.end(), [](const std::string& s) {
-            return s == "Hold the climbing attitude: the nose wandered";
-        });
-    for (const std::string& said : early.debrief) {
-        std::printf("    %s\n", said.c_str());
+        // **Rotating early**, with a steady touch of back stick until she is
+        // off: she comes off at a speed she has no business flying at, and
+        // the attitude band catches her.
+        const Flown early = fly_the_take_off(id, 14.0, 1.0);
+        const Flown book = fly_the_take_off(id, 0.0, 1.0);
+        std::printf("  %s by the book: off at %.0f knots; rotating early: off at %.0f\n",
+                    id.c_str(), book.off_at_kts, early.off_at_kts);
+        check(early.off_at_kts < book.off_at_kts - 3.0,
+              id + " really did come off earlier: " + std::to_string(early.off_at_kts) +
+                  " against " + std::to_string(book.off_at_kts));
+        names_that_fault_and_no_other(id, "take-off", early.debrief,
+                                      {"attitude/theta-deg", "need:velocities/vc-kts"},
+                                      "rotating early");
+        check(book.debrief.empty(), id + ": the same take-off by the book says nothing");
     }
-    check(named, "the debrief names the attitude");
-    check(book.debrief.empty(), "and the same take-off by the book says nothing");
 }
 
 // **A lesson may name the aeroplane's own published speeds**, because a class
@@ -811,17 +883,13 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
 // not. The aeroplane flies a perfectly good approach - it is simply doing it
 // at a speed it has no business using.
 GLIDESLOPE_TEST(an_approach_flown_fast_is_named_in_the_debrief) {
-    const Approached fast = fly_the_approach("c172p", 20.0);
-    std::printf("  c172p vref %.0f, flown fast: %.0f to %.0f knots\n", fast.vref_kts,
-                fast.least_kts, fast.most_kts);
-    for (const std::string& said : fast.debrief) {
-        std::printf("    %s\n", said.c_str());
+    for (const std::string& id : one_of_each_class("approach-and-landing")) {
+        const Approached fast = fly_the_approach(id, 20.0);
+        std::printf("  %s vref %.0f, flown fast: %.0f to %.0f knots\n", id.c_str(),
+                    fast.vref_kts, fast.least_kts, fast.most_kts);
+        names_that_fault_and_no_other(id, "approach-and-landing", fast.debrief,
+                                      {"velocities/vc-kts"}, "flying the approach fast");
     }
-    check(!fast.debrief.empty(), "an approach twenty knots fast is not faultless");
-    const bool named =
-        std::any_of(fast.debrief.begin(), fast.debrief.end(),
-                    [](const std::string& s) { return s == "Hold the approach speed"; });
-    check(named, "and the debrief says to hold the approach speed");
 }
 
 namespace {
@@ -975,18 +1043,13 @@ GLIDESLOPE_TEST(the_turns_lesson_flown_by_the_book_leaves_an_empty_debrief) {
 // **A turn that loses height is named for losing height.** The bank is the
 // same; what is different is that she is let descend through it.
 GLIDESLOPE_TEST(a_turn_that_loses_height_is_named_in_the_debrief) {
-    const Result sinking = fly_a_turn("c172p", -1200.0);
-    std::printf("  c172p sinking: lowest %.0f ft of 3000, banked to %.0f\n",
-                sinking.lowest_agl_ft, sinking.steepest_bank_deg);
-    for (const std::string& said : sinking.debrief) {
-        std::printf("    %s\n", said.c_str());
+    for (const std::string& id : one_of_each_class("turns")) {
+        const Result sinking = fly_a_turn(id, -1200.0);
+        std::printf("  %s sinking: lowest %.0f ft of 3000, banked to %.0f\n", id.c_str(),
+                    sinking.lowest_agl_ft, sinking.steepest_bank_deg);
+        names_that_fault_and_no_other(id, "turns", sinking.debrief, {"position/h-agl-ft"},
+                                      "losing height in the turn");
     }
-    check(!sinking.debrief.empty(), "losing height in a turn is not faultless");
-    const bool named = std::any_of(
-        sinking.debrief.begin(), sinking.debrief.end(), [](const std::string& s) {
-            return s == "Hold your height through the turn";
-        });
-    check(named, "and the debrief says to hold your height");
 }
 
 namespace {
@@ -1095,16 +1158,24 @@ GLIDESLOPE_TEST(the_climb_lesson_flown_by_the_book_leaves_an_empty_debrief) {
 
 // **A climb flown at the wrong speed is named for it.**
 GLIDESLOPE_TEST(a_climb_at_the_wrong_speed_is_named_in_the_debrief) {
-    const Result fast = fly_a_climb_and_descent("c172p", 30.0);
-    for (const std::string& said : fast.debrief) {
-        std::printf("    %s\n", said.c_str());
+    for (const std::string& id : one_of_each_class("climb-and-descent")) {
+        // **Fifteen knots past the top of its own lesson's band**, which is
+        // fifteen knots wide for a light aeroplane and forty for a jet: a
+        // fixed thirty was a fault in a Cessna and inside the band in a 737.
+        const auto lesson =
+            lesson_for(glideslope::sim::find_aircraft(data(), id), "climb-and-descent");
+        double above_kts = 0.0;
+        for (const auto& w : lesson->stages.front().holds) {
+            if (w.property == "velocities/vc-kts" && w.banded) {
+                above_kts = w.high.offset;
+            }
+        }
+        check(above_kts > 0.0, id + "'s climb holds a band above its climbing speed");
+        const Result fast = fly_a_climb_and_descent(id, above_kts + 15.0);
+        std::printf("  %s climbing %.0f knots fast\n", id.c_str(), above_kts + 15.0);
+        names_that_fault_and_no_other(id, "climb-and-descent", fast.debrief,
+                                      {"velocities/vc-kts"}, "climbing fast");
     }
-    check(!fast.debrief.empty(), "a climb thirty knots fast is not faultless");
-    const bool named = std::any_of(
-        fast.debrief.begin(), fast.debrief.end(), [](const std::string& s) {
-            return s == "Hold the climbing speed";
-        });
-    check(named, "and the debrief says to hold the climbing speed");
 }
 
 namespace {
@@ -1230,18 +1301,13 @@ GLIDESLOPE_TEST(the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief) {
 
 // **A stall recovered late and lazily loses height, and is named for it.**
 GLIDESLOPE_TEST(a_stall_recovered_badly_is_named_in_the_debrief) {
-    const Result sloppy = fly_a_stall("c172p", true);
-    std::printf("  c172p recovered badly: lowest %.0f ft of 5000\n",
-                sloppy.lowest_agl_ft);
-    for (const std::string& said : sloppy.debrief) {
-        std::printf("    %s\n", said.c_str());
+    for (const std::string& id : one_of_each_class("stalls")) {
+        const Result sloppy = fly_a_stall(id, true);
+        std::printf("  %s recovered badly: lowest %.0f ft\n", id.c_str(),
+                    sloppy.lowest_agl_ft);
+        names_that_fault_and_no_other(id, "stalls", sloppy.debrief, {"position/h-agl-ft"},
+                                      "recovering late and lazily");
     }
-    check(!sloppy.debrief.empty(), "a lazy recovery is not faultless");
-    const bool named = std::any_of(
-        sloppy.debrief.begin(), sloppy.debrief.end(), [](const std::string& s) {
-            return s == "Recover with the least height you can";
-        });
-    check(named, "and the debrief says so");
 }
 
 namespace {
@@ -2294,16 +2360,12 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
 // other.** She is let sink two hundred and fifty feet along the downwind leg,
 // which is the one thing the lesson watches there.
 GLIDESLOPE_TEST(a_circuit_flown_low_downwind_is_named_in_the_debrief) {
-    const Circuit sunk = fly_a_circuit("c172p", false, 250.0);
-    std::printf("  c172p sinking downwind: %zu/%zu stages, downwind %.0f-%.0f ft\n",
-                sunk.completed, sunk.stages, sunk.lowest_downwind_ft,
-                sunk.highest_downwind_ft);
-    for (const std::string& said : sunk.debrief) {
-        std::printf("      %s\n", said.c_str());
+    for (const std::string& id : one_of_each_class("circuit")) {
+        const Circuit sunk = fly_a_circuit(id, false, 250.0);
+        std::printf("  %s sinking downwind: %zu/%zu stages, downwind %.0f-%.0f ft\n",
+                    id.c_str(), sunk.completed, sunk.stages, sunk.lowest_downwind_ft,
+                    sunk.highest_downwind_ft);
+        names_that_fault_and_no_other(id, "circuit", sunk.debrief, {"position/h-agl-ft"},
+                                      "sinking along the downwind leg");
     }
-    check(sunk.debrief.size() == 1,
-          "the debrief holds one thing, and it said " +
-              std::to_string(sunk.debrief.size()));
-    check(sunk.debrief.front().find("circuit height") != std::string::npos,
-          "and the one thing is the circuit height: " + sunk.debrief.front());
 }
