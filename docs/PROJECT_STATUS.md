@@ -229,6 +229,15 @@ tests and a comparison now**, the views as the comparison's ctest fixture, so a
 shard that runs the comparison runs the seven with it. Run alone the eight took
 207 s. Every test also has a 900 s default timeout, so no hang can hold a job.
 
+**Splitting the views reopened the shared cache**: seven view tests running at
+once shared one Cesium cache until the view went into its name. On the first
+warm run macOS builds took 30 s and Rocky 52 s, but Ubuntu took 6 to 9
+minutes: GCC 14 has CMake scan every file for C++ modules, and ccache will not
+cache a scanned compile, so 80% of calls missed. Ubuntu configures with the
+scan off; glideslope has no modules. A macOS runner also lost DNS for
+api.open-meteo.com for longer than a fetch's three tries spanned (6 s),
+failing the weather and HUD tests; fetches now try five times, over 30 s.
+
 ### Figures measured from the models, where nothing is published, 2026-09-23
 
 **What is still missing: the airliners, the fighters, the bomber and the

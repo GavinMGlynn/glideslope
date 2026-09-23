@@ -24,10 +24,12 @@ Fetch http_fetch();
 // `attempts` times in all, waiting `wait` before the second try and twice as
 // long before each after. Services have bad minutes: aviationweather.gov
 // answers 504 now and then, and one of the weather services once answered an
-// empty 200 in CI. What comes back last is returned, or what it threw thrown;
-// any other status is returned at once.
+// empty 200 in CI. Networks have bad seconds too: a macOS runner could not
+// resolve api.open-meteo.com for longer than the 6 s three tries spanned, so
+// five tries span 30 s. What comes back last is returned, or what it threw
+// thrown; any other status is returned at once.
 platform::HttpResponse
-fetch_with_retries(const Fetch& fetch, const std::string& url, int attempts = 3,
+fetch_with_retries(const Fetch& fetch, const std::string& url, int attempts = 5,
                    std::chrono::milliseconds wait = std::chrono::milliseconds(2000));
 
 // A file pinned by SHA-256, from the cache or else fetched into it. Throws

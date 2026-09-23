@@ -92,8 +92,10 @@ jobs:
           key: ccache-ubuntu-${{ matrix.preset }}-${{ github.sha }}
           restore-keys: ccache-ubuntu-${{ matrix.preset }}-
 
+      # No module scanning: glideslope has no C++ modules, and ccache will not
+      # cache a compile GCC 14 has scanned - 80% of calls were uncacheable.
       - name: ${{ matrix.preset }} - configure
-        run: cmake --preset ${{ matrix.preset }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake --preset ${{ matrix.preset }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
       - uses: actions/cache/save@v4
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
