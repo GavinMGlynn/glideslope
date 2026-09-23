@@ -316,10 +316,9 @@ Found while implementing something else. Added when found, not when remembered.
       configuration.** *Verification: the stall is entered in the configuration
       its reference speed was measured in, and every aeroplane recovers within
       the lesson's height.*
-- [ ] **The runway lessons fly at the model's default weight, not their
-      figures'.** *Verification: every lesson flies at its figures' weight, with
-      the circuit still flying its pattern.* Missing: the circuit's geometry has
-      to be re-tuned at the new weight.
+- [x] **The runway lessons fly at their figures' weight.** *Verification:
+      every lesson flies at its figures' weight, with the circuit still flying
+      its pattern.* Done 2026-09-23.
 - [ ] **The PA-28 loses five times the height the other light aircraft lose
       entering a stall.** *Verification: all four enter a stall within the same
       band.*

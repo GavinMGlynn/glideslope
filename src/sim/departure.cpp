@@ -213,12 +213,18 @@ Controls Departure::fly() {
         rotate_pitch_ = std::min(rotate_pitch_ + 4.0 / steps_per_second, 10.0);
         want_pitch = rotate_pitch_;
     } else {
-        // Climbing: the attitude that holds the best climb speed. Slow, so it
-        // settles rather than chasing the phugoid.
+        // Climbing: the attitude that holds the best climb speed - half a
+        // degree of nose for each knot fast, and a slow trim that takes out
+        // what is left. **It was the trim alone**, at 2.4 degrees a second
+        // for each knot, and an integral with nothing to damp it feeds the
+        // phugoid: a J-3 Cub at its figures' weight swung between 3 degrees
+        // nose down and 18 up every eight seconds, and met the crosswind
+        // turn at the top of a zoom with the speed falling away, stalled in
+        // it and mushed seven hundred feet into the ground.
         const double fast_by = kcas - speeds_.climb_kts;
-        rotate_pitch_ = std::clamp(rotate_pitch_ + 0.04 * fast_by / steps_per_second * 60.0,
+        rotate_pitch_ = std::clamp(rotate_pitch_ + 0.2 * fast_by / steps_per_second,
                                    0.0, 15.0);
-        want_pitch = rotate_pitch_;
+        want_pitch = std::clamp(rotate_pitch_ + 0.5 * fast_by, 0.0, 15.0);
     }
     // Never past the incidence the aeroplane's own tables cover: JSBSim
     // asserts rather than extrapolating.

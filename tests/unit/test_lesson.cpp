@@ -101,23 +101,80 @@ double a_climb_it_can_manage(const std::string& model) {
 // most likely to name, and for every aeroplane whose figures are measured the
 // stall was taken at the same loading on purpose. Call it before
 // `initialize`, as the figure flights do.
+void load_as_measured(glideslope::sim::Aircraft& aircraft,
+                      const glideslope::sim::PublishedFigures& figures,
+                      const glideslope::sim::FigureSpec* spec) {
+    const std::string& name = spec != nullptr ? spec->loading : std::string();
+    const auto it = figures.loadings.find(name);
+    aircraft.load(it != figures.loadings.end() ? it->second.loading : figures.loading);
+}
+
 void load_as_its_figures_were_measured(glideslope::sim::Aircraft& aircraft,
                                        const std::string& model) {
     try {
         const auto figures = glideslope::sim::read_published_figures(
             data() / "figures" / (model + ".xml"));
-        std::string wanted;
+        const glideslope::sim::FigureSpec* climb = nullptr;
         for (const auto& spec : figures.figures) {
             if (spec.flight == "climb_rate") {
-                wanted = spec.loading;
+                climb = &spec;
             }
         }
-        const auto it = figures.loadings.find(wanted);
-        if (it != figures.loadings.end()) {
-            aircraft.load(it->second.loading);
+        if (climb != nullptr) {
+            load_as_measured(aircraft, figures, climb);
         }
     } catch (const std::exception&) {
     }
+}
+
+// **The runway lessons, likewise.** A take-off is judged against the speed
+// the aeroplane lifts off at - its published ground roll's, or else the
+// stall's it is worked from - so it flies at that figure's loading; an
+// approach against a third above the stall with the most flap, so it flies at
+// that stall's. Until 2026-09-23 they built their aeroplane and loaded
+// nothing, and flew at whatever the model carries by default.
+void load_for_the_take_off(glideslope::sim::Aircraft& aircraft, const std::string& model) {
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / (model + ".xml"));
+    for (const auto& spec : figures.figures) {
+        if (spec.flight == "takeoff_ground_roll" &&
+            spec.conditions.count("lift_off_kcas") != 0) {
+            load_as_measured(aircraft, figures, &spec);
+            return;
+        }
+    }
+    const glideslope::sim::FigureSpec* chosen = nullptr;
+    double least_flap_deg = 0.0;
+    for (const auto& spec : figures.figures) {
+        if (spec.flight == "stall_speed") {
+            const auto flap = spec.conditions.find("flaps_deg");
+            const double flap_deg = flap == spec.conditions.end() ? 0.0 : flap->second;
+            if (chosen == nullptr || flap_deg < least_flap_deg) {
+                chosen = &spec;
+                least_flap_deg = flap_deg;
+            }
+        }
+    }
+    load_as_measured(aircraft, figures, chosen);
+}
+
+void load_for_the_approach(glideslope::sim::Aircraft& aircraft, const std::string& model) {
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / (model + ".xml"));
+    const glideslope::sim::FigureSpec* chosen = nullptr;
+    double most_flap_deg = -1.0;
+    for (const auto& spec : figures.figures) {
+        if (spec.flight != "stall_speed") {
+            continue;
+        }
+        const auto flap = spec.conditions.find("flaps_deg");
+        const double flap_deg = flap == spec.conditions.end() ? 0.0 : flap->second;
+        if (flap_deg > most_flap_deg) {
+            most_flap_deg = flap_deg;
+            chosen = &spec;
+        }
+    }
+    load_as_measured(aircraft, figures, chosen);
 }
 
 // **Where this aeroplane practises a stall.** A light aeroplane decelerates
@@ -342,6 +399,7 @@ Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
     ic.airspeed_kts = 0.0;
     ic.engine_running = true;
     ic.gear = 1.0;
+    load_for_the_take_off(aircraft, entry.model);
     aircraft.initialize(ic);
 
     // **Its own class's lesson, not the light aircraft's.** This lookup was
@@ -617,6 +675,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
     ic.airspeed_kts = flown_with.vref_kts;
     ic.engine_running = true;
     ic.gear = 1.0;
+    load_for_the_approach(aircraft, entry.model);
     aircraft.initialize(ic);
 
     const auto found = lesson_for(entry, "approach-and-landing");
@@ -1478,6 +1537,7 @@ Demonstrated demonstrate_a_take_off(const std::string& id) {
     ic.airspeed_kts = 0.0;
     ic.engine_running = true;
     ic.gear = 1.0;
+    load_for_the_take_off(aircraft, entry.model);
     aircraft.initialize(ic);
 
     const auto found = lesson_for(entry, "take-off");
@@ -1613,6 +1673,7 @@ Demonstrated demonstrate_an_approach(const std::string& id) {
     ic.airspeed_kts = published.vref_kts;
     ic.engine_running = true;
     ic.gear = 1.0;
+    load_for_the_approach(aircraft, entry.model);
     aircraft.initialize(ic);
 
     const auto found = lesson_for(entry, "approach-and-landing");
@@ -2019,6 +2080,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     ic.airspeed_kts = 0.0;
     ic.engine_running = true;
     ic.gear = 1.0;
+    load_for_the_take_off(aircraft, entry.model);
     aircraft.initialize(ic);
 
     const auto found = lesson_for(entry, "circuit");
@@ -2029,8 +2091,16 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
 
     glideslope::sim::Controls standing;
     glideslope::sim::Controller controller(aircraft, standing);
-    // The climb out: straight ahead to six hundred feet.
-    controller.to_ai_take_off(runway, dep, 600.0);
+    // The climb out: straight ahead to six hundred and fifty feet. **Clear of
+    // where the lesson's climb out ends**, which is four hundred feet above
+    // where it began - about 605 ft. It used to turn at 600, and at the
+    // weight the Cessna's figures are measured at she climbs so slowly in a
+    // turn that she was thirty-eight degrees round before she climbed the
+    // last five feet: turning in the stage that asks her to fly straight, and
+    // every stage after it one turn early, so the downwind leg was counted
+    // inside the turn on to it.
+    constexpr double turn_crosswind_ft = 650.0;
+    controller.to_ai_take_off(runway, dep, turn_crosswind_ft);
 
     // **A faster aeroplane flies a bigger circuit, and the two numbers that
     // make it are one number.** The downwind leg is left at the distance
@@ -2055,7 +2125,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     for (int tick = 0; tick < 900 * steps_per_second && !run.finished(); ++tick) {
         const double agl = aircraft.property("position/h-agl-ft");
         const double along = along_the_runway_nm(runway, aircraft);
-        if (leg == Leg::climbing_out && agl >= 600.0) {
+        if (leg == Leg::climbing_out && agl >= turn_crosswind_ft) {
             leg = Leg::crosswind;
             controller.to_ai();
             glideslope::sim::AutopilotModes m = controller.autopilot()->modes();
