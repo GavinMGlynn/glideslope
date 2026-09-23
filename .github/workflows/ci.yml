@@ -530,12 +530,45 @@ jobs:
       - shell: cmd
         run: tar -xzf tree.tar.gz && del tree.tar.gz
 
+      # **A crash is written down by Windows, not only by the program.** Two
+      # tests crashed on the way out - after their work was done - and the
+      # program's own handlers (src/platform/no_crash_dialogs.hpp) printed
+      # nothing: a crash in the process's own shutdown comes where they
+      # cannot. Windows Error Reporting's local dumps catch it from outside,
+      # and the step after the tests reads each dump's stack with cdb.
+      - name: Keep a dump of any crash
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -PropertyType ExpandString -Value "$env:RUNNER_TEMP\dumps" -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType -PropertyType DWord -Value 1 -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount -PropertyType DWord -Value 20 -Force | Out-Null
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\dumps" | Out-Null
+
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
         run: ctest --preset ${{ matrix.preset }} -I ${{ matrix.shard }},,${{ matrix.of }}
+
+      - name: The stack of every crash
+        if: ${{ failure() }}
+        shell: pwsh
+        run: |
+          $dumps = Get-ChildItem "$env:RUNNER_TEMP\dumps" -Filter *.dmp -ErrorAction SilentlyContinue
+          if (-not $dumps) { Write-Output "no crash dumps"; exit 0 }
+          $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe' -ErrorAction SilentlyContinue
+          if (-not $cdb) { Write-Output "no cdb on this runner; dumps: $($dumps.Name -join ', ')"; exit 0 }
+          $symbols = (Get-ChildItem build\${{ matrix.preset }} -Recurse -Filter *.pdb | ForEach-Object { $_.DirectoryName } | Sort-Object -Unique) -join ';'
+          foreach ($d in $dumps) {
+            Write-Output "===== $($d.Name)"
+            & $cdb.FullName -z $d.FullName -y "$symbols" -c ".ecxr; kn 40; ~*kn 12; q" | Select-Object -Last 150
+          }
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with: { name: 'frames-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() }}
+        with: { name: 'dumps-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: '${{ runner.temp }}/dumps/*.dmp', if-no-files-found: ignore, retention-days: 3 }
 
   # ---------------------------------------------------------------------------
   # The same flights everywhere.

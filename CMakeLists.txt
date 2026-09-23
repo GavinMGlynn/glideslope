@@ -1,5 +1,22 @@
 cmake_minimum_required(VERSION 3.28)
 
+# **Under WSL, the Windows directories are taken off PATH for the configure.**
+# WSL appends every directory of Windows' own PATH, under /mnt/c, and every
+# find_path, find_file and find_program that does not find what it looks for
+# searches them all, through WSL's slow share of the Windows drive - and a
+# search that fails is not cached, so it is made again at every configure.
+# Profiled on 2026-09-23 a configure took eight and a half minutes, 224
+# seconds of it looking for ICU data files that are not there and about 150
+# more in SDL's OpenGL and X11 checks looking for GL/xmesa.h. A Linux build
+# never wants a Windows directory. Only WSL sets these variables; a native
+# Windows or macOS build keeps its PATH as it is.
+if(DEFINED ENV{WSL_DISTRO_NAME} OR DEFINED ENV{WSL_INTEROP})
+    string(REPLACE ":" ";" _glideslope_path "$ENV{PATH}")
+    list(FILTER _glideslope_path EXCLUDE REGEX "^/mnt/[A-Za-z]/")
+    string(REPLACE ";" ":" _glideslope_path "${_glideslope_path}")
+    set(ENV{PATH} "${_glideslope_path}")
+endif()
+
 # **A server does not need a GPU stack.** `-DGLIDESLOPE_SERVER_ONLY=ON` builds
 # the simulation, the network and the server and nothing else: no SDL, no
 # Cesium Native, no shaders, no client, and no vcpkg - the three libraries it

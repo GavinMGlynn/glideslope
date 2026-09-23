@@ -110,6 +110,35 @@ function(glideslope_vcpkg_install)
     if(NOT "${VCPKG_HOST_TRIPLET}" STREQUAL "")
         set(_host "--host-triplet=${VCPKG_HOST_TRIPLET}")
     endif()
+    # **Nothing to install is not worth fifty seconds.** vcpkg checks every
+    # package on every configure, which took fifty seconds when nothing had
+    # changed. What decides what is installed is the manifest, its
+    # configuration, the triplets, the overlay ports and vcpkg's own commit;
+    # when none of those has changed since the last install into this
+    # directory, it is skipped. A new build directory - every CI job - has no
+    # stamp, and installs.
+    file(GLOB_RECURSE _inputs
+         "${CMAKE_SOURCE_DIR}/cmake/triplets/*" "${CMAKE_SOURCE_DIR}/cmake/ports/*"
+         "${CMAKE_SOURCE_DIR}/ext/cesium-native/extern/vcpkg/ports/*")
+    list(SORT _inputs)
+    set(_what "${GLIDESLOPE_VCPKG_COMMIT} ${VCPKG_TARGET_TRIPLET} ${VCPKG_HOST_TRIPLET}")
+    foreach(_input IN ITEMS "${CMAKE_SOURCE_DIR}/vcpkg.json"
+                            "${CMAKE_SOURCE_DIR}/vcpkg-configuration.json" ${_inputs})
+        file(SHA256 "${_input}" _hash)
+        string(APPEND _what " ${_input}=${_hash}")
+    endforeach()
+    string(SHA256 _stamp_wanted "${_what}")
+    set(_stamp "${_VCPKG_INSTALLED_DIR}/.glideslope-installed")
+    if(EXISTS "${_stamp}")
+        file(READ "${_stamp}" _stamp_had)
+        if(_stamp_had STREQUAL _stamp_wanted)
+            message(STATUS "vcpkg: nothing has changed since the last install; not run")
+            set_property(DIRECTORY "${CMAKE_SOURCE_DIR}" APPEND PROPERTY
+                         CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/vcpkg.json"
+                         "${CMAKE_SOURCE_DIR}/vcpkg-configuration.json")
+            return()
+        endif()
+    endif()
     message(STATUS "vcpkg: installing Cesium Native's dependencies for ${VCPKG_TARGET_TRIPLET}")
     execute_process(
         COMMAND "${_exe}" install
@@ -125,6 +154,7 @@ function(glideslope_vcpkg_install)
     string(REGEX MATCH "All requested installations completed successfully in: [^\n]*"
            _done "${_out}")
     message(STATUS "vcpkg: ${_done}")
+    file(WRITE "${_stamp}" "${_stamp_wanted}")
     set_property(DIRECTORY "${CMAKE_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
                  "${CMAKE_SOURCE_DIR}/vcpkg.json" "${CMAKE_SOURCE_DIR}/vcpkg-configuration.json")
 endfunction()
