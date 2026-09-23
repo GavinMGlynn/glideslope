@@ -464,12 +464,21 @@ jobs:
         shell: cmd
         run: cmake --build --preset ${{ matrix.preset }}
 
-      # Programs and test data, not objects, import libraries or symbols.
+      # Programs and test data, not objects or import libraries - and of the
+      # symbols, only the programs' own PDBs, so that a crash in a test prints
+      # its stack with names (src/platform/no_crash_dialogs.hpp).
       - name: Pack what the tests need
-        shell: cmd
+        shell: bash
         run: |
-          tar -czf tree.tar.gz --exclude=*.obj --exclude=*.pdb --exclude=*.ilk --exclude=*.lib --exclude=CMakeFiles --exclude=.ninja_deps --exclude=.ninja_log --exclude=frames build/${{ matrix.preset }} || exit /b 1
-          dir tree.tar.gz
+          b=build/${{ matrix.preset }}
+          tar -cf tree.tar --exclude='*.obj' --exclude='*.pdb' --exclude='*.ilk' --exclude='*.lib' \
+              --exclude=CMakeFiles --exclude=.ninja_deps --exclude=.ninja_log --exclude=frames "$b"
+          for exe in "$b"/*.exe "$b"/tests/*.exe; do
+            pdb="${exe%.exe}.pdb"
+            if [ -f "$pdb" ]; then tar -rf tree.tar "$pdb"; ls -la "$pdb"; fi
+          done
+          gzip -1 tree.tar
+          ls -la tree.tar.gz
       - uses: actions/upload-artifact@v4
         with: { name: 'tree-windows-${{ matrix.preset }}', path: tree.tar.gz, retention-days: 1, compression-level: 0 }
 

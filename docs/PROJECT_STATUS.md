@@ -262,6 +262,21 @@ which still fails once a second, the thing it is there for.
 The input-frame floor in the flying test was the same: 100 of 180, where the
 same runner's debug client sent 97. It is 20; once a second would be six.
 
+**One shard took 19 minutes** because the test holding all seven views'
+flights to one another had the seven as its ctest fixture, so whichever shard
+ran it ran all seven, each two sanitized client launches. That test is gone:
+the cockpit view is the fixture, and each outside view holds its own flight to
+the cockpit's (seen to fail with the cockpit's account altered). A shard
+running any view now pulls in one other test, not six.
+
+**A Windows crash now prints its stack.** The virtual-joystick test
+segfaulted once on Windows debug with nothing in the log but "SegFault"; it
+passed the run before, and 200 runs under AddressSanitizer on Linux. Nothing
+in SDL's virtual driver explains it on reading, so it is not fixed.
+`no_crash_dialogs()` installs an unhandled-exception filter that prints the
+exception and a symbolized stack, and the Windows packs keep each program's
+PDB, so its next occurrence says where.
+
 ### Figures measured from the models, where nothing is published, 2026-09-23
 
 **What is still missing: the airliners, the fighters, the bomber and the

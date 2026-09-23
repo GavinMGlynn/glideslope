@@ -12,14 +12,15 @@
 # models have no interior, and its skin would be over the windscreen - so
 # there the two shots are identical.
 #
-# **One view a test, and a separate test that they all flew the same flight.**
-# This was one test shooting all seven views one after another, thirteen
-# launches of the client at about half a minute each: ten minutes, which was
-# the longest test in the suite by four times and put a floor under how short
-# any CI shard could be. Each view is its own test now, run in parallel, and
-# leaves a one-line account of the flight it flew in WORK; client_views_agree.cmake
-# holds the seven accounts to one another, which is what "changing the view
-# steps nothing in the flight" needs, and is the same comparison as before.
+# **One view a test, each held to the cockpit's flight.** This was one test
+# shooting all seven views one after another, thirteen launches of the client
+# at about half a minute each: ten minutes, which was the longest test in the
+# suite by four times and put a floor under how short any CI shard could be.
+# Each view is its own test now, and leaves a one-line account of the flight
+# it flew in WORK. The cockpit's is the reference - it is the other views'
+# ctest fixture, so it has always run first, in this run - and each outside
+# view's account must be the same, which is what "changing the view steps
+# nothing in the flight" needs.
 # Each view also holds its own two shots to each other: drawing the aeroplane
 # or not must not change the flight either.
 #
@@ -109,6 +110,19 @@ foreach(_view IN ITEMS ${VIEW})
     # that a view must not change.
     flight_of("${_with_said}" _trace)
     file(WRITE "${WORK}/view-${DRIVER}-${_view}.flight" "${_trace}\n")
+    if(NOT _view STREQUAL "cockpit")
+        set(_reference "${WORK}/view-${DRIVER}-cockpit.flight")
+        if(NOT EXISTS "${_reference}")
+            message(FATAL_ERROR "the cockpit view's flight is not in ${WORK}: "
+                                "it is this test's fixture, and must run first")
+        endif()
+        file(STRINGS "${_reference}" _cockpit)
+        if(NOT _cockpit STREQUAL _trace)
+            message(FATAL_ERROR
+                    "the ${_view} view flew a different flight from the cockpit's:\n"
+                    "  cockpit:  ${_cockpit}\n  ${_view}: ${_trace}")
+        endif()
+    endif()
 
     shoot(${_view} off _without _without_said)
     flight_of("${_without_said}" _trace_without)
