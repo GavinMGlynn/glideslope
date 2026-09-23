@@ -197,6 +197,38 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### CI split into builds and test shards, and a handshake that overflowed, 2026-09-23
+
+**CI had been red since 2026-09-21**, through two sessions of pushing, and the
+causes were stacked: each hid the next. libsodium's port needed autotools no
+runner had; a bare `std::getenv` failed MSVC; the clang-warnings test fed
+`cl`'s flags to `clang++`; two tests shared a Cesium cache; a timing threshold
+tested the runner's speed; the F-15C's airframe contacts were wheels with
+tyres; the belly landing idled its engines; and MSVC's debug runtime answered
+every failed assert with a dialog box nobody on a runner will click, so four
+tests hung until the job's limit cancelled it.
+
+**Once asserts reached the log, the hang was a real bug**: the handshake copied
+its 33-byte protocol name into a 32-byte hash. The last byte landed in the next
+member and was overwritten at once, so nothing ever misbehaved and
+AddressSanitizer - which guards objects, not the joins between their members -
+could not see it. It copies only what fits now, which is byte for byte what the
+hash held before. The larger fault underneath is a tail: Noise's BLAKE2b has a
+64-byte hash, this uses one cut to 32, so the protocol is not quite the Noise
+variant it is named after (`TRANSPORT.md` now says so).
+
+**The workflow is rebuilt for time.** The Ubuntu debug "build, test" step took
+53 minutes and Windows debug 90. Now every configuration builds in its own job;
+ccache keeps objects between runs on Linux and macOS; a build packs what its
+tests need (422 MB for Linux debug, compressed) and uploads it once; and its
+tests run in shards, `ctest -I k,,n`, each a job on its own runner. A shard
+cannot finish sooner than its longest test, and simulated on measured timings
+sharding stopped improving at 9.9 minutes whatever the number of shards,
+because one test took 592 s. **That test - every view shot in one - is seven
+tests and a comparison now**, the views as the comparison's ctest fixture, so a
+shard that runs the comparison runs the seven with it. Run alone the eight took
+207 s. Every test also has a 900 s default timeout, so no hang can hold a job.
+
 ### Figures measured from the models, where nothing is published, 2026-09-23
 
 **What is still missing: the airliners, the fighters, the bomber and the

@@ -496,6 +496,15 @@ startup.
 
 ## What is not here yet
 
+- **Noise's own BLAKE2b.** The handshake is named
+  `Noise_IK_25519_ChaChaPoly_BLAKE2b`, and Noise's BLAKE2b has a 64-byte
+  hash. This one uses BLAKE2b cut to 32 bytes for its hash, its chaining key
+  and its keys, and the protocol name - 33 bytes - is cut to the first 32 to
+  start the hash with, where Noise would pad it to 64. Both ends agree, so it
+  works; **a client built on a standard Noise library would not complete the
+  handshake**, and until this is changed the name above says more than the
+  bytes do. Found 2026-09-23, when copying the 33-byte name into a 32-byte
+  array showed up as a buffer overflow under MSVC's debug checks.
 - **Three of the five things a sealed body can hold.** `RELIABLE`, `INPUTS`
   and `STATE` are numbered above and nothing sends or reads them, so the seven
   messages and the input packets - both defined and encoded - do not yet

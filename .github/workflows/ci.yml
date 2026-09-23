@@ -19,98 +19,64 @@ concurrency:
 # without the network, and here must not. The downloads are kept between runs
 # in .downloads, keyed on the list that pins them.
 #
-# Cesium Native's dependencies are built by vcpkg (cmake/Vcpkg.cmake) - thirty
-# libraries, most of an hour's building on a hosted runner. vcpkg's binary
-# cache is kept between runs in .vcpkg-archives, keyed on everything that
-# decides what is built, and saved as soon as the first configure has filled
-# it, so a run whose tests fail still keeps what it built.
+# Cesium Native's dependencies are built by vcpkg (cmake/Vcpkg.cmake), and
+# vcpkg's binary cache is kept between runs in .vcpkg-archives, keyed on
+# everything that decides what is built.
 env:
   GLIDESLOPE_REQUIRE_WINDOW: 1
   GLIDESLOPE_REQUIRE_NETWORK: 1
   GLIDESLOPE_DOWNLOADS: .downloads
 
-# **No job may take an hour.** Each is stopped at 60 minutes: a run that long
-# is a fault to find, not to wait for. The tests run four at a time (three on
-# macOS's three cores; CMakePresets.json), the debug builds are optimised -
-# sanitized code at -O1 (cmake/Sanitizers.cmake), which keeps every sanitizer
-# check, and MSVC's at /O1 (the preset), which keeps its debug runtime and
-# iterator checks and gives up /RTC1, that only runs unoptimised - and
-# Windows' debug and release builds are two jobs run at once. A hosted runner can be half the speed of
-# another, so a job that takes half an hour here can take an hour there. A run that must build vcpkg's libraries afresh - most of an
-# hour - can be stopped by the limit; it saves them first, and the next run
-# finds them.
+# **Every configuration is built once, in a job of its own, and its tests are
+# split across several jobs that run at once.**
+#
+# This used to be one job per platform building debug and then release, and
+# running each whole suite after its build, all in one step: the Ubuntu job's
+# debug "build, test" step alone took 53 minutes, and Windows debug hit its
+# 90-minute limit. Now:
+#
+#   - Each configuration builds in its own job, all of them at once.
+#   - ccache keeps compiled objects between runs on Linux and macOS, so a push
+#     that changes one file recompiles one file. Without it every push
+#     compiled all of Cesium Native and everything of ours from nothing.
+#   - A build packs what its tests need - the programs, the test data, the
+#     CTest files, not the objects or static libraries - and uploads it once.
+#   - Its tests run in shards: shard k of n runs every nth test from the kth
+#     (`ctest -I k,,n`), each shard a job on its own runner, four tests at a
+#     time (three on macOS). A test's fixture - the downloads, the seven view
+#     tests before the one that compares them - comes with it wherever it runs.
+#   - Build and test are separate steps, so each one's time is in plain view.
+#
+# A shard cannot finish sooner than its longest test, which is why no test may
+# be very long: the view test that shot all seven views in one took ten
+# minutes, and is seven tests and a comparison now.
 #
 # **Every preset runs somewhere.** The Linux presets on Ubuntu (both) and Rocky 9
 # (release), the macOS presets on macOS, the Windows presets on Windows. A
 # preset that no job runs is a preset nobody knows still works.
 
 jobs:
-  linux-debian:
-    name: Linux x86_64 (GCC 14, Ubuntu)
+  # ---------------------------------------------------------------------------
+  # Ubuntu
+  # ---------------------------------------------------------------------------
+  ubuntu-build:
+    name: Ubuntu ${{ matrix.preset }} - build
     runs-on: ubuntu-latest
-    # **A job that runs out of time is reported as cancelled, not failed**,
-    # so it does not look like a red build and can be missed for a long while.
-    # Ubuntu builds both presets and runs the whole suite twice, the sanitized
-    # one included, where Rocky 9 builds release alone - which is why it takes
-    # four times as long. It ran 60 min 17 s and 60 min 15 s against a
-    # 60-minute limit on 2026-09-21 and was cancelled both times, so that
-    # platform had quietly stopped being checked. Raised with room for the
-    # suite to keep growing.
-    timeout-minutes: 150
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: { preset: [linux-debug, linux-release] }
+    env:
+      CXX: g++-14
+      CC: gcc-14
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 700M
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
-
-      - uses: actions/cache@v4
-        with:
-          path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
-
-      - name: Install dependencies
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          # apt on GitHub's hosted runners stalls intermittently
-          # (actions/runner-images#11382). gearstick learned that a hang is only
-          # beaten from outside, so each attempt is bounded and retried.
-          sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer \
-                              unattended-upgrades.service 2>/dev/null || true
-          APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
-                    -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60"
-          apt_run() {
-            for attempt in 1 2 3; do
-              if sudo timeout 240 apt-get $APT_OPTS "$@"; then return 0; fi
-              echo "::warning::apt attempt $attempt stalled; retrying"
-              sudo pkill -9 -f apt-get 2>/dev/null || true
-              sudo dpkg --configure -a 2>/dev/null || true
-              sleep 10
-            done
-            echo "::error::apt would not complete in three attempts"
-            return 1
-          }
-          apt_run update
-          # SDL's own list, from docs/README-linux.md at the pinned tag - it
-          # fails its configure without XTEST and XScrnSaver rather than doing
-          # without - and Mesa's lavapipe, the software Vulkan driver the
-          # frame tests render on, with the Vulkan loader.
-          # autoconf, autoconf-archive, automake and libtool: vcpkg's libsodium
-          # port builds with autotools and asks the system for them. Every other
-          # port was coming from the binary cache, so libsodium - added for the
-          # handshake on 2026-09-22 - was the first to build here, and every
-          # Linux and macOS job failed on it from then on.
-          apt_run install -y --no-install-recommends gcc-14 g++-14 ninja-build \
-            autoconf autoconf-archive automake libtool \
-            libx11-dev libxext-dev libxrandr-dev libxi-dev libxcursor-dev \
-            libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev \
-            libwayland-dev wayland-protocols libdecor-0-dev \
-            libgl-dev libegl-dev libdrm-dev libgbm-dev \
-            libpulse-dev libasound2-dev \
-            libdbus-1-dev libudev-dev libusb-1.0-0-dev \
-            mesa-vulkan-drivers libvulkan1 xvfb \
-            nasm zip unzip pkg-config
+      - uses: ./.github/actions/ubuntu-setup
 
       - name: Keep vcpkg's binary cache in the workspace
-        shell: bash
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
@@ -120,41 +86,44 @@ jobs:
           path: .vcpkg-archives
           key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
           restore-keys: vcpkg-ubuntu-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-ubuntu-${{ matrix.preset }}-${{ github.sha }}
+          restore-keys: ccache-ubuntu-${{ matrix.preset }}-
 
-      - name: linux-debug - configure
-        env: { CXX: g++-14, CC: gcc-14 }
-        run: cmake --preset linux-debug
+      - name: ${{ matrix.preset }} - configure
+        run: cmake --preset ${{ matrix.preset }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - uses: actions/cache/save@v4
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
           key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
 
-      - name: linux-debug - build, test
-        env: { CXX: g++-14, CC: gcc-14 }
+      - name: ${{ matrix.preset }} - build
         run: |
-          cmake --build --preset linux-debug
-          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset linux-debug || rc=$?
-          kill $xvfb
-          exit $rc
-
-      - name: linux-release - configure, build, test
-        # Runs even when the preset before it failed, so one red preset does
-        # not hide whether the next one is green.
+          ccache --zero-stats
+          cmake --build --preset ${{ matrix.preset }}
+          ccache --show-stats
+      - uses: actions/cache/save@v4
         if: ${{ !cancelled() }}
-        env: { CXX: g++-14, CC: gcc-14 }
+        with:
+          path: .ccache
+          key: ccache-ubuntu-${{ matrix.preset }}-${{ github.sha }}
+
+      - name: Pack what the tests need
         run: |
-          cmake --preset linux-release
-          cmake --build --preset linux-release
-          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset linux-release || rc=$?
-          kill $xvfb
-          exit $rc
+          tar -czf tree.tar.gz --exclude='*.o' --exclude='*.a' --exclude=CMakeFiles \
+              --exclude=.ninja_deps --exclude=.ninja_log --exclude='frames' \
+              build/${{ matrix.preset }}
+          ls -la tree.tar.gz
+      - uses: actions/upload-artifact@v4
+        with: { name: 'tree-ubuntu-${{ matrix.preset }}', path: tree.tar.gz, retention-days: 1, compression-level: 0 }
 
       # For the cross-platform job at the end: what this platform's release
       # build flies. See tests/cmake/cross_platform_flights.cmake.
       - name: Flights for the cross-platform check
+        if: ${{ matrix.preset == 'linux-release' }}
         run: |
           mkdir -p flights
           ./build/linux-release/glideslope_cli figures c172p > flights/ubuntu-gcc.figures.txt
@@ -162,17 +131,64 @@ jobs:
           ./build/linux-release/glideslope_cli air > flights/ubuntu-gcc.air.txt
           cat flights/*
       - uses: actions/upload-artifact@v4
+        if: ${{ matrix.preset == 'linux-release' }}
         with: { name: flights-ubuntu-gcc, path: flights/, if-no-files-found: error }
+
+  ubuntu-test:
+    name: Ubuntu ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
+    needs: ubuntu-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { preset: linux-debug, shard: 1, of: 4 }
+          - { preset: linux-debug, shard: 2, of: 4 }
+          - { preset: linux-debug, shard: 3, of: 4 }
+          - { preset: linux-debug, shard: 4, of: 4 }
+          - { preset: linux-release, shard: 1, of: 2 }
+          - { preset: linux-release, shard: 2, of: 2 }
+    env:
+      CXX: g++-14
+      CC: gcc-14
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/ubuntu-setup
+      - uses: actions/cache@v4
+        with:
+          path: .downloads
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+      - uses: actions/download-artifact@v4
+        with: { name: 'tree-ubuntu-${{ matrix.preset }}' }
+      - run: tar -xzf tree.tar.gz && rm tree.tar.gz
+
+      - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
+        run: |
+          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I ${{ matrix.shard }},,${{ matrix.of }} || rc=$?
+          kill $xvfb
+          exit $rc
       # Every frame the tests wrote, to look at.
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
-        with: { name: frames-ubuntu, path: build/linux-*/tests/frames/*.bmp, if-no-files-found: error }
+        with: { name: 'frames-ubuntu-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
 
-  linux-rhel:
-    name: Linux x86_64 (GCC 14, Rocky 9)
+  # ---------------------------------------------------------------------------
+  # Rocky 9: one release build and its tests, in one job - it is short enough
+  # that splitting it would cost more in setting up runners than it saves, and
+  # every extra runner is another dnf install against mirrors that have taken
+  # half an hour to answer.
+  # ---------------------------------------------------------------------------
+  rocky:
+    name: Rocky 9 linux-release - build, tests
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     container: rockylinux/rockylinux:9
+    env:
+      CCACHE_DIR: /__w/glideslope/glideslope/.ccache
+      CCACHE_MAXSIZE: 500M
     steps:
       # Rocky 9's own compiler is GCC 11, so the build uses gcc-toolset-14, as
       # REQUIREMENTS.md's RHEL note says. ninja-build is in CRB.
@@ -196,12 +212,10 @@ jobs:
           # Mesa's lavapipe for the frame tests.
           dnf_run install epel-release
           # autoconf, autoconf-archive, automake and libtool: vcpkg's libsodium
-          # port builds with autotools and asks the system for them. Every other
-          # port was coming from the binary cache, so libsodium - added for the
-          # handshake on 2026-09-22 - was the first to build here, and every
-          # Linux and macOS job failed on it from then on.
+          # port builds with autotools. ccache: a push that changes one file
+          # recompiles one file.
           dnf_run --enablerepo=crb install git cmake ninja-build gcc-c++ \
-            autoconf autoconf-archive automake libtool \
+            autoconf autoconf-archive automake libtool ccache \
             gcc-toolset-14-gcc-c++ \
             libX11-devel libXext-devel libXrandr-devel libXi-devel \
             libXcursor-devel libXfixes-devel libXScrnSaver-devel libXtst-devel \
@@ -247,21 +261,37 @@ jobs:
           path: .vcpkg-archives
           key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
           restore-keys: vcpkg-rocky9-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-rocky9-linux-release-${{ github.sha }}
+          restore-keys: ccache-rocky9-linux-release-
 
       - name: linux-release - configure
         run: |
           source /opt/rh/gcc-toolset-14/enable
-          cmake --preset linux-release
+          cmake --preset linux-release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - uses: actions/cache/save@v4
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
           key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
 
-      - name: linux-release - build, test
+      - name: linux-release - build
         run: |
           source /opt/rh/gcc-toolset-14/enable
+          ccache --zero-stats
           cmake --build --preset linux-release
+          ccache --show-stats
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() }}
+        with:
+          path: .ccache
+          key: ccache-rocky9-linux-release-${{ github.sha }}
+
+      - name: linux-release - tests
+        run: |
+          source /opt/rh/gcc-toolset-14/enable
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset linux-release || rc=$?
           kill $xvfb
@@ -278,34 +308,27 @@ jobs:
         with: { name: flights-rocky-gcc, path: flights/, if-no-files-found: error }
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
-        with: { name: frames-rocky, path: build/linux-release/tests/frames/*.bmp, if-no-files-found: error }
+        with: { name: frames-rocky, path: build/linux-release/tests/frames/*.bmp, if-no-files-found: ignore }
 
-  macos:
-    name: macOS arm64 (AppleClang)
+  # ---------------------------------------------------------------------------
+  # macOS
+  # ---------------------------------------------------------------------------
+  macos-build:
+    name: macOS ${{ matrix.preset }} - build
     runs-on: macos-15
-    timeout-minutes: 90
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: { preset: [macos-debug, macos-release] }
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 600M
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
-
-      - uses: actions/cache@v4
-        with:
-          path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
-
-      # autotools too: vcpkg's libsodium port builds with them.
-      - name: Install ninja, and nasm and autotools for vcpkg
-        run: brew install ninja nasm autoconf autoconf-archive automake libtool
-
-      # The newest Xcode the image carries, rather than whichever it selected.
-      - name: Use the newest Xcode on the image
-        run: |
-          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
-          if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
-          c++ --version
+      - uses: ./.github/actions/macos-setup
 
       - name: Keep vcpkg's binary cache in the workspace
-        shell: bash
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
@@ -315,30 +338,42 @@ jobs:
           path: .vcpkg-archives
           key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
           restore-keys: vcpkg-macos-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-macos-${{ matrix.preset }}-${{ github.sha }}
+          restore-keys: ccache-macos-${{ matrix.preset }}-
 
-      - name: macos-debug - configure
-        run: cmake --preset macos-debug
+      - name: ${{ matrix.preset }} - configure
+        run: cmake --preset ${{ matrix.preset }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
       - uses: actions/cache/save@v4
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
           key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
 
-      - name: macos-debug - build, test
+      - name: ${{ matrix.preset }} - build
         run: |
-          cmake --build --preset macos-debug
-          ctest --preset macos-debug
-
-      - name: macos-release - configure, build, test
-        # Runs even when the preset before it failed, so one red preset does
-        # not hide whether the next one is green.
+          ccache --zero-stats
+          cmake --build --preset ${{ matrix.preset }}
+          ccache --show-stats
+      - uses: actions/cache/save@v4
         if: ${{ !cancelled() }}
+        with:
+          path: .ccache
+          key: ccache-macos-${{ matrix.preset }}-${{ github.sha }}
+
+      - name: Pack what the tests need
         run: |
-          cmake --preset macos-release
-          cmake --build --preset macos-release
-          ctest --preset macos-release
+          tar -czf tree.tar.gz --exclude='*.o' --exclude='*.a' --exclude=CMakeFiles \
+              --exclude=.ninja_deps --exclude=.ninja_log --exclude='frames' \
+              build/${{ matrix.preset }}
+          ls -la tree.tar.gz
+      - uses: actions/upload-artifact@v4
+        with: { name: 'tree-macos-${{ matrix.preset }}', path: tree.tar.gz, retention-days: 1, compression-level: 0 }
 
       - name: Flights for the cross-platform check
+        if: ${{ matrix.preset == 'macos-release' }}
         run: |
           mkdir -p flights
           ./build/macos-release/glideslope_cli figures c172p > flights/macos-appleclang.figures.txt
@@ -346,25 +381,51 @@ jobs:
           ./build/macos-release/glideslope_cli air > flights/macos-appleclang.air.txt
           cat flights/*
       - uses: actions/upload-artifact@v4
+        if: ${{ matrix.preset == 'macos-release' }}
         with: { name: flights-macos-appleclang, path: flights/, if-no-files-found: error }
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with: { name: frames-macos, path: build/macos-*/tests/frames/*.bmp, if-no-files-found: error }
 
-  # Two jobs, run at once: MSVC's debug build, whose tests are the slowest -
-  # unoptimised, with the standard library's iterator checks - and the release
-  # builds, MSVC's and clang-cl's. One after another in one job they took most
-  # of two hours.
-  windows:
-    name: Windows x64 (${{ matrix.title }})
-    runs-on: windows-latest
-    timeout-minutes: 90
+  macos-test:
+    name: macOS ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
+    needs: macos-build
+    runs-on: macos-15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { part: debug, title: MSVC debug, first: windows-debug }
-          - { part: release, title: MSVC release and clang-cl, first: windows-release }
+          - { preset: macos-debug, shard: 1, of: 3 }
+          - { preset: macos-debug, shard: 2, of: 3 }
+          - { preset: macos-debug, shard: 3, of: 3 }
+          - { preset: macos-release, shard: 1, of: 2 }
+          - { preset: macos-release, shard: 2, of: 2 }
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/macos-setup
+      - uses: actions/cache@v4
+        with:
+          path: .downloads
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+      - uses: actions/download-artifact@v4
+        with: { name: 'tree-macos-${{ matrix.preset }}' }
+      - run: tar -xzf tree.tar.gz && rm tree.tar.gz
+
+      - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
+        run: ctest --preset ${{ matrix.preset }} -I ${{ matrix.shard }},,${{ matrix.of }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+
+  # ---------------------------------------------------------------------------
+  # Windows: MSVC's debug and release builds and clang-cl's, each its own job.
+  # ---------------------------------------------------------------------------
+  windows-build:
+    name: Windows ${{ matrix.preset }} - build
+    runs-on: windows-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: { preset: [windows-debug, windows-release, windows-clang] }
     # SDL says why it will not use a GPU driver only in its GPU log, which is
     # quiet by default; a failed frame test then shows the reason.
     env:
@@ -372,55 +433,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
-
-      - uses: actions/cache@v4
-        with:
-          path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
-
-      - uses: ilammy/msvc-dev-cmd@v1
-        with: { arch: x64 }
-
-      # Windows runners have no GPU, and no Vulkan loader or driver. Direct3D 12
-      # draws on WARP, which Windows has; Vulkan gets what the Linux jobs draw
-      # on: Mesa's lavapipe, from mesa-dist-win, and the Khronos loader from
-      # LunarG's runtime components. Each download is pinned by SHA-256.
-      - name: Install a software Vulkan driver
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $ProgressPreference = 'SilentlyContinue'
-          $dir = Join-Path $env:RUNNER_TEMP 'vulkan'
-          New-Item -ItemType Directory -Force $dir | Out-Null
-          function Fetch($url, $file, $sha256) {
-            Invoke-WebRequest -Uri $url -OutFile $file
-            $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
-            if ($actual -ne $sha256) { throw "$url is $actual, expected $sha256" }
-          }
-          Fetch 'https://github.com/pal1000/mesa-dist-win/releases/download/26.2.0/mesa3d-26.2.0-release-msvc.7z' `
-                "$dir\mesa.7z" 'dcb2719ef346dab5b609fcb193a5f13cfc4b0502e3f4de1ad43d349477402f47'
-          Fetch 'https://sdk.lunarg.com/sdk/download/1.4.357.0/windows/VulkanRT-X64-1.4.357.0-Components.zip' `
-                "$dir\runtime.zip" 'a14672efed15aafc7f5a16572d35cd3a3416eadf670aeee3cdf50ee32d5fbf83'
-          7z e "$dir\mesa.7z" "-o$dir" 'x64\vulkan_lvp.dll' 'x64\lvp_icd.x86_64.json' -y | Out-Null
-          7z e "$dir\runtime.zip" "-o$dir" 'VulkanRT-X64-1.4.357.0-Components\x64\vulkan-1.dll' 'VulkanRT-X64-1.4.357.0-Components\x64\vulkaninfo.exe' -y | Out-Null
-          foreach ($f in 'vulkan_lvp.dll', 'lvp_icd.x86_64.json', 'vulkan-1.dll', 'vulkaninfo.exe') {
-            if (-not (Test-Path "$dir\$f")) {
-              7z l "$dir\mesa.7z" | Select-String 'lvp|vulkan'
-              throw "$f was not in the archive where expected"
-            }
-          }
-          # Registered, not named by VK_DRIVER_FILES: the runner's processes are
-          # elevated, and the Vulkan loader ignores that variable in an elevated
-          # process. The registry it always reads.
-          $drivers = 'HKLM:\SOFTWARE\Khronos\Vulkan\Drivers'
-          New-Item -Path $drivers -Force | Out-Null
-          New-ItemProperty -Path $drivers -Name "$dir\lvp_icd.x86_64.json" -PropertyType DWord -Value 0 -Force | Out-Null
-          $dir | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
-          Get-Content "$dir\lvp_icd.x86_64.json"
-          # What the loader finds, before anything is built on it.
-          $env:PATH = "$dir;$env:PATH"
-          & "$dir\vulkaninfo.exe" --summary
-          if ($LASTEXITCODE -ne 0) { throw "the Vulkan loader found no usable driver" }
+      - uses: ./.github/actions/windows-setup
 
       - name: Keep vcpkg's binary cache in the workspace
         shell: bash
@@ -434,50 +447,84 @@ jobs:
           key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
           restore-keys: vcpkg-windows-
 
-      - name: ${{ matrix.first }} - configure
+      - name: ${{ matrix.preset }} - configure
         shell: cmd
-        run: cmake --preset ${{ matrix.first }}
+        run: |
+          if "${{ matrix.preset }}"=="windows-clang" (clang-cl --version || exit /b 1)
+          cmake --preset ${{ matrix.preset }}
       - uses: actions/cache/save@v4
-        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' && matrix.preset == 'windows-release' }}
         with:
           path: .vcpkg-archives
           key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**') }}
 
-      - name: ${{ matrix.first }} - build, test
+      - name: ${{ matrix.preset }} - build
         shell: cmd
-        run: |
-          cmake --build --preset ${{ matrix.first }} || exit /b 1
-          ctest --preset ${{ matrix.first }} || exit /b 1
+        run: cmake --build --preset ${{ matrix.preset }}
 
-      - name: windows-clang - configure, build, test
-        # Runs even when the preset before it failed, so one red preset does
-        # not hide whether the next one is green.
-        if: ${{ !cancelled() && matrix.part == 'release' }}
+      # Programs and test data, not objects, import libraries or symbols.
+      - name: Pack what the tests need
         shell: cmd
         run: |
-          clang-cl --version || exit /b 1
-          cmake --preset windows-clang || exit /b 1
-          cmake --build --preset windows-clang || exit /b 1
-          ctest --preset windows-clang || exit /b 1
+          tar -czf tree.tar.gz --exclude=*.obj --exclude=*.pdb --exclude=*.ilk --exclude=*.lib --exclude=CMakeFiles --exclude=.ninja_deps --exclude=.ninja_log --exclude=frames build/${{ matrix.preset }} || exit /b 1
+          dir tree.tar.gz
+      - uses: actions/upload-artifact@v4
+        with: { name: 'tree-windows-${{ matrix.preset }}', path: tree.tar.gz, retention-days: 1, compression-level: 0 }
 
       - name: Flights for the cross-platform check
-        if: ${{ matrix.part == 'release' }}
+        if: ${{ matrix.preset != 'windows-debug' }}
         shell: cmd
         run: |
           mkdir flights
-          build\windows-release\glideslope_cli.exe figures c172p > flights\windows-msvc.figures.txt || exit /b 1
-          build\windows-release\glideslope_cli.exe selftest > flights\windows-msvc.selftest.txt || exit /b 1
-          build\windows-release\glideslope_cli.exe air > flights\windows-msvc.air.txt || exit /b 1
-          build\windows-clang\glideslope_cli.exe figures c172p > flights\windows-clang-cl.figures.txt || exit /b 1
-          build\windows-clang\glideslope_cli.exe selftest > flights\windows-clang-cl.selftest.txt || exit /b 1
-          build\windows-clang\glideslope_cli.exe air > flights\windows-clang-cl.air.txt || exit /b 1
+          if "${{ matrix.preset }}"=="windows-release" (set tag=windows-msvc) else (set tag=windows-clang-cl)
+          build\${{ matrix.preset }}\glideslope_cli.exe figures c172p > flights\%tag%.figures.txt || exit /b 1
+          build\${{ matrix.preset }}\glideslope_cli.exe selftest > flights\%tag%.selftest.txt || exit /b 1
+          build\${{ matrix.preset }}\glideslope_cli.exe air > flights\%tag%.air.txt || exit /b 1
           type flights\*
       - uses: actions/upload-artifact@v4
-        if: ${{ matrix.part == 'release' }}
-        with: { name: flights-windows, path: flights/, if-no-files-found: error }
+        if: ${{ matrix.preset != 'windows-debug' }}
+        with: { name: 'flights-${{ matrix.preset }}', path: flights/, if-no-files-found: error }
+
+  windows-test:
+    name: Windows ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
+    needs: windows-build
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { preset: windows-debug, shard: 1, of: 6 }
+          - { preset: windows-debug, shard: 2, of: 6 }
+          - { preset: windows-debug, shard: 3, of: 6 }
+          - { preset: windows-debug, shard: 4, of: 6 }
+          - { preset: windows-debug, shard: 5, of: 6 }
+          - { preset: windows-debug, shard: 6, of: 6 }
+          - { preset: windows-release, shard: 1, of: 2 }
+          - { preset: windows-release, shard: 2, of: 2 }
+          - { preset: windows-clang, shard: 1, of: 2 }
+          - { preset: windows-clang, shard: 2, of: 2 }
+    env:
+      SDL_LOGGING: gpu=debug
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/windows-setup
+      - uses: actions/cache@v4
+        with:
+          path: .downloads
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+      - uses: actions/download-artifact@v4
+        with: { name: 'tree-windows-${{ matrix.preset }}' }
+      - shell: cmd
+        run: tar -xzf tree.tar.gz && del tree.tar.gz
+
+      - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
+        shell: cmd
+        run: ctest --preset ${{ matrix.preset }} -I ${{ matrix.shard }},,${{ matrix.of }}
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
-        with: { name: 'frames-windows-${{ matrix.part }}', path: build/windows-*/tests/frames/*.bmp, if-no-files-found: error }
+        with: { name: 'frames-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
 
   # ---------------------------------------------------------------------------
   # The same flights everywhere.
@@ -491,7 +538,7 @@ jobs:
   # ---------------------------------------------------------------------------
   cross-platform:
     name: The same flights everywhere
-    needs: [linux-debian, linux-rhel, macos, windows]
+    needs: [ubuntu-build, rocky, macos-build, windows-build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

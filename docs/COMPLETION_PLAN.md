@@ -1113,6 +1113,19 @@ checklists are part of. A lesson ends in a debrief, never a score
 ## Tails
 
 Found while implementing something else. Added when found, not when remembered.
+- [ ] **The handshake is not quite the Noise protocol it is named after.**
+      Found 2026-09-23. It is `Noise_IK_25519_ChaChaPoly_BLAKE2b`, and Noise's
+      BLAKE2b has a 64-byte hash; this uses BLAKE2b cut to 32 bytes, and starts
+      the hash with the 33-byte protocol name cut to 32 where Noise pads it to
+      64. Both ends agree, so sessions work, but a client built on any standard
+      Noise library would fail to complete the handshake - which is exactly
+      what the transport item's "a client written from TRANSPORT.md" would
+      find. It surfaced as a one-byte buffer overflow, copying the 33-byte
+      name into the 32-byte hash, which MSVC's debug checks caught and
+      AddressSanitizer could not; the overflow is fixed without changing a
+      byte on the wire. *Verification: the handshake completes against an
+      independent Noise implementation, and TRANSPORT.md's description of it
+      is byte for byte what is sent.*
 - [ ] **A stalls lesson for the airliners, the fighters and the bomber needs
       the landing configuration, which no lesson handles yet.** Written and
       withdrawn 2026-09-23. A lesson's `stall` is the stall speed in the

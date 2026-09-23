@@ -99,11 +99,26 @@ struct Symmetric {
     bool keyed = false;
 
     void initialize() {
-        // The name is shorter than the hash, so it is padded rather than
-        // hashed, as Noise says.
+        // **The name is 33 bytes and this hash is 32, so it does not fit.**
+        // This said "the name is shorter than the hash, so it is padded" and
+        // copied all 33 bytes into a 32-byte array. The last one landed in
+        // `ck`, the member after `h`, which the next line overwrites - so it
+        // never did any harm, and AddressSanitizer, which guards the edges of
+        // an object and not the join between two of its members, never saw
+        // it. MSVC's debug iterators did, on 2026-09-23, as soon as their
+        // reports were let out of a dialog box and into the log: every
+        // handshake failed with "cannot seek array iterator after end".
+        //
+        // Only what fits is copied now, which is exactly what `h` ended up
+        // holding before, so the handshake is the same on the wire, byte for
+        // byte. **What Noise itself asks is different**: its BLAKE2b has a
+        // 64-byte hash, which this 33-byte name would be padded into; this
+        // uses BLAKE2b cut to 32 bytes. docs/TRANSPORT.md says so, and it is
+        // a tail in COMPLETION_PLAN.md.
         h = {};
         const auto* name = reinterpret_cast<const std::uint8_t*>(handshake_name.data());
-        std::copy(name, name + handshake_name.size(), h.begin());
+        const std::size_t fits = std::min(handshake_name.size(), h.size());
+        std::copy(name, name + fits, h.begin());
         ck = h;
     }
     void mix_hash(std::span<const std::uint8_t> data) {

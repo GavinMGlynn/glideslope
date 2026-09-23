@@ -714,14 +714,26 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_aircraft.cmake)
     set_tests_properties(the_client_flies_the_aircraft_it_is_given_in_the_air_or_on_the_ground_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
-    add_test(NAME the_client_draws_the_aeroplane_where_each_view_puts_it_on_${_driver}
-        COMMAND ${CMAKE_COMMAND}
-            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_view_check>
-            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
-            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DMODELS=${GLIDESLOPE_DATA_DIR}/models
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_views.cmake)
-    set_tests_properties(the_client_draws_the_aeroplane_where_each_view_puts_it_on_${_driver}
-        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
+    # **One view a test.** Shooting all seven in one test took ten minutes,
+    # the longest in the suite by four times, and no CI shard could be
+    # shorter than it. Each view is its own test now, and they are the
+    # fixture of the test that holds their flights to one another.
+    foreach(_view cockpit ahead behind left right above orbit)
+        add_test(NAME the_client_draws_the_aeroplane_where_the_${_view}_view_puts_it_on_${_driver}
+            COMMAND ${CMAKE_COMMAND}
+                -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_view_check>
+                -DDRIVER=${_driver} -DVIEW=${_view} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+                -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DMODELS=${GLIDESLOPE_DATA_DIR}/models
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_views.cmake)
+        set_tests_properties(the_client_draws_the_aeroplane_where_the_${_view}_view_puts_it_on_${_driver}
+            PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads
+                       FIXTURES_SETUP views_${_driver})
+    endforeach()
+    add_test(NAME every_view_flies_the_same_flight_on_${_driver}
+        COMMAND ${CMAKE_COMMAND} -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_views_agree.cmake)
+    set_tests_properties(every_view_flies_the_same_flight_on_${_driver}
+        PROPERTIES FIXTURES_REQUIRED views_${_driver})
     # The open provider and Cesium ion, each in both its states: with the
     # user's key and without one. A provider whose key this machine has not
     # got reports itself skipped - skipped, never passed.

@@ -1,0 +1,49 @@
+name: Ubuntu setup
+description: >
+  What an Ubuntu job needs to build glideslope or run its tests - the same for
+  both, so that a test job finds exactly the machine its build was made on.
+
+runs:
+  using: composite
+  steps:
+    - name: Install dependencies
+      shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        # apt on GitHub's hosted runners stalls intermittently
+        # (actions/runner-images#11382). gearstick learned that a hang is only
+        # beaten from outside, so each attempt is bounded and retried.
+        sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer \
+                            unattended-upgrades.service 2>/dev/null || true
+        APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
+                  -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60"
+        apt_run() {
+          for attempt in 1 2 3; do
+            if sudo timeout 240 apt-get $APT_OPTS "$@"; then return 0; fi
+            echo "::warning::apt attempt $attempt stalled; retrying"
+            sudo pkill -9 -f apt-get 2>/dev/null || true
+            sudo dpkg --configure -a 2>/dev/null || true
+            sleep 10
+          done
+          echo "::error::apt would not complete in three attempts"
+          return 1
+        }
+        apt_run update
+        # SDL's own list, from docs/README-linux.md at the pinned tag - it
+        # fails its configure without XTEST and XScrnSaver rather than doing
+        # without - and Mesa's lavapipe, the software Vulkan driver the frame
+        # tests render on, with the Vulkan loader.
+        # autoconf, autoconf-archive, automake and libtool: vcpkg's libsodium
+        # port builds with autotools and asks the system for them.
+        # ccache: a push that changes one file recompiles one file.
+        apt_run install -y --no-install-recommends gcc-14 g++-14 ninja-build \
+          autoconf autoconf-archive automake libtool ccache \
+          libx11-dev libxext-dev libxrandr-dev libxi-dev libxcursor-dev \
+          libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev \
+          libwayland-dev wayland-protocols libdecor-0-dev \
+          libgl-dev libegl-dev libdrm-dev libgbm-dev \
+          libpulse-dev libasound2-dev \
+          libdbus-1-dev libudev-dev libusb-1.0-0-dev \
+          mesa-vulkan-drivers libvulkan1 xvfb \
+          nasm zip unzip pkg-config

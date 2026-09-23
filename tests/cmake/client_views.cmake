@@ -1,20 +1,27 @@
-# client_views.cmake - the aeroplane is drawn where each view puts it.
+# client_views.cmake - the aeroplane is drawn where one view puts it.
 #
 #   cmake -DPROGRAM=<glideslope> -DCHECK=<glideslope_view_check>
-#         -DDRIVER=<driver> -DWORK=<dir> -DCACHE=<downloads dir>
+#         -DDRIVER=<driver> -DVIEW=<view> -DWORK=<dir> -DCACHE=<downloads dir>
 #         -DMODELS=<data/models> -P client_views.cmake
 #
-# Flies the flight screen headless to a fixed tick and shoots it from every one
-# of the seven views. For each of the six outside views the same frame is shot
-# again with --draw-aircraft off; the pixels that differ between the two are
-# the aeroplane's own outline and nothing else's, and glideslope_view_check
-# holds that outline to the model projected from the same camera. In the
-# cockpit no aeroplane is drawn - the models have no interior, and its skin
-# would be over the windscreen - so there the two shots are identical.
+# Flies the flight screen headless to a fixed tick and shoots it from VIEW. For
+# an outside view the same frame is shot again with --draw-aircraft off; the
+# pixels that differ between the two are the aeroplane's own outline and
+# nothing else's, and glideslope_view_check holds that outline to the model
+# projected from the same camera. In the cockpit no aeroplane is drawn - the
+# models have no interior, and its skin would be over the windscreen - so
+# there the two shots are identical.
 #
-# Changing the view steps nothing in the flight, which is held by every view
-# having traced the same number of steps and left the flight in the same state
-# when the frame was shot.
+# **One view a test, and a separate test that they all flew the same flight.**
+# This was one test shooting all seven views one after another, thirteen
+# launches of the client at about half a minute each: ten minutes, which was
+# the longest test in the suite by four times and put a floor under how short
+# any CI shard could be. Each view is its own test now, run in parallel, and
+# leaves a one-line account of the flight it flew in WORK; client_views_agree.cmake
+# holds the seven accounts to one another, which is what "changing the view
+# steps nothing in the flight" needs, and is the same comparison as before.
+# Each view also holds its own two shots to each other: drawing the aeroplane
+# or not must not change the flight either.
 #
 # The flight stands on the DEM and draws it, so it needs the tiles and the
 # geoid, fetched into CACHE: without the network the test is skipped (exit 77)
@@ -65,9 +72,25 @@ function(shoot view with shot said)
 endfunction()
 
 set(_views cockpit ahead behind left right above orbit)
-set(_first_trace "")
+if(NOT VIEW IN_LIST _views)
+    message(FATAL_ERROR "VIEW is '${VIEW}'; it is one of ${_views}")
+endif()
 
-foreach(_view IN LISTS _views)
+# The flight a shot flew, as the agreement test compares it.
+function(flight_of said out)
+    file(STRINGS "${said}" _traces REGEX "^trace tick ")
+    if(NOT _traces)
+        message(FATAL_ERROR "${said} traced no flight at all")
+    endif()
+    list(LENGTH _traces _steps)
+    list(GET _traces -1 _last)
+    set(${out} "${_steps} steps, ${_last}" PARENT_SCOPE)
+endfunction()
+
+# An account left by an earlier run must not stand for this one.
+file(REMOVE "${WORK}/view-${DRIVER}-${VIEW}.flight")
+
+foreach(_view IN ITEMS ${VIEW})
     shoot(${_view} on _with _with_said)
 
     # Every view flies the same flight. What is compared is the last state
@@ -76,22 +99,16 @@ foreach(_view IN LISTS _views)
     # flight differently would still have a line numbered ${_tick} saying the
     # same thing - it is where the flight had got to when the frame was shot
     # that a view must not change.
-    file(STRINGS "${_with_said}" _traces REGEX "^trace tick ")
-    if(NOT _traces)
-        message(FATAL_ERROR "the ${_view} view traced no flight at all")
-    endif()
-    list(LENGTH _traces _steps)
-    list(GET _traces -1 _last)
-    set(_trace "${_steps} steps, ${_last}")
-    if(_first_trace STREQUAL "")
-        set(_first_trace "${_trace}")
-    elseif(NOT _trace STREQUAL _first_trace)
-        message(FATAL_ERROR
-                "the ${_view} view flew a different flight:\n  ${_trace}\n"
-                "  against\n  ${_first_trace}")
-    endif()
+    flight_of("${_with_said}" _trace)
+    file(WRITE "${WORK}/view-${DRIVER}-${_view}.flight" "${_trace}\n")
 
     shoot(${_view} off _without _without_said)
+    flight_of("${_without_said}" _trace_without)
+    if(NOT _trace_without STREQUAL _trace)
+        message(FATAL_ERROR
+                "drawing the aeroplane or not changed the ${_view} view's flight:\n"
+                "  with it:    ${_trace}\n  without it: ${_trace_without}")
+    endif()
 
     if(_view STREQUAL "cockpit")
         # Nothing of the aeroplane is drawn from inside it, so leaving it out
@@ -119,4 +136,4 @@ foreach(_view IN LISTS _views)
     endif()
 endforeach()
 
-message(STATUS "every view draws the aeroplane where its camera puts it")
+message(STATUS "the ${VIEW} view draws the aeroplane where its camera puts it")

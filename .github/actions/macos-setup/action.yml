@@ -1,0 +1,21 @@
+name: macOS setup
+description: >
+  What a macOS job needs to build glideslope or run its tests - the same for
+  both, so that a test job finds exactly the machine its build was made on.
+
+runs:
+  using: composite
+  steps:
+    # ninja and nasm for vcpkg, autotools for its libsodium port, and ccache so
+    # that a push which changes one file recompiles one file.
+    - name: Install ninja, nasm, autotools and ccache
+      shell: bash
+      run: brew install ninja nasm autoconf autoconf-archive automake libtool ccache
+
+    # The newest Xcode the image carries, rather than whichever it selected.
+    - name: Use the newest Xcode on the image
+      shell: bash
+      run: |
+        latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+        if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
+        c++ --version
