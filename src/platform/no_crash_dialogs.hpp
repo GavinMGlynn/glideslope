@@ -42,8 +42,15 @@ namespace glideslope::platform {
 #if defined(_WIN32)
 namespace detail {
 
-inline LONG WINAPI report_crash(EXCEPTION_POINTERS* info) {
-    std::fprintf(stderr, "glideslope: unhandled exception 0x%08lx at %p\n",
+// The exception and the stack it was raised on, to standard error - at most
+// three times in the process, so that an exception something handles in the
+// ordinary course cannot use up the report the crash after it needs.
+inline void print_stack(EXCEPTION_POINTERS* info, const char* how) {
+    static volatile LONG printed = 0;
+    if (InterlockedIncrement(&printed) > 3) {
+        return;
+    }
+    std::fprintf(stderr, "glideslope: %s exception 0x%08lx at %p\n", how,
                  static_cast<unsigned long>(info->ExceptionRecord->ExceptionCode),
                  info->ExceptionRecord->ExceptionAddress);
 #if defined(_M_X64)
@@ -100,6 +107,34 @@ inline LONG WINAPI report_crash(EXCEPTION_POINTERS* info) {
     }
 #endif
     std::fflush(stderr);
+}
+
+// **Seen first, before anything else in the process can handle it.** The
+// unhandled-exception filter alone printed nothing when the virtual-joystick
+// test next segfaulted on Windows: something handled the crash, or it came
+// where a top-level filter is never asked. A vectored handler is asked about
+// every exception first, so it reports the kinds that are crashes - and only
+// those, since exceptions are also raised and handled in the ordinary course
+// - and lets the search go on exactly as it would have.
+inline LONG WINAPI report_first_chance(EXCEPTION_POINTERS* info) {
+    switch (info->ExceptionRecord->ExceptionCode) {
+    case EXCEPTION_ACCESS_VIOLATION:
+    case EXCEPTION_ILLEGAL_INSTRUCTION:
+    case EXCEPTION_PRIV_INSTRUCTION:
+    case EXCEPTION_INT_DIVIDE_BY_ZERO:
+    case EXCEPTION_STACK_OVERFLOW:
+    case EXCEPTION_IN_PAGE_ERROR:
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+        print_stack(info, "first-chance");
+        break;
+    default:
+        break;
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+inline LONG WINAPI report_crash(EXCEPTION_POINTERS* info) {
+    print_stack(info, "unhandled");
     // Ends the process with the exception's code, and no Windows Error
     // Reporting dialog.
     return EXCEPTION_EXECUTE_HANDLER;
@@ -124,6 +159,7 @@ inline void no_crash_dialogs() {
     _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
 #endif
     // A crash prints its stack.
+    AddVectoredExceptionHandler(1, detail::report_first_chance);
     SetUnhandledExceptionFilter(detail::report_crash);
 #endif
 }
