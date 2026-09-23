@@ -1,4 +1,5 @@
 #include "harness.hpp"
+#include "platform/no_crash_dialogs.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -38,6 +39,9 @@ void fail(const std::string& message, std::source_location where) {
 // glideslope_tests --list        every test's name, one per line
 // glideslope_tests NAME          run that test; exit 0 if it passes
 int main(int argc, char** argv) {
+    // First: a failed assert prints and ends the program rather than
+    // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
+    glideslope::platform::no_crash_dialogs();
     using glideslope::test::registry;
     if (argc == 2 && std::string_view(argv[1]) == "--list") {
         for (const auto& t : registry()) {

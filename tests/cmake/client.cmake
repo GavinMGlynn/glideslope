@@ -30,10 +30,19 @@
 # against one CACHE directory, so each is given a file of its own, named after
 # the script running it and the things that tell its runs apart. They stay in
 # CACHE, so each test still finds its own cache on the next run.
+#
+# **IMAGERY tells two of them apart too**, and was missing: both Mount
+# Taranaki shots run frame_terrain.cmake with the same driver, one with the
+# imagery draped and one without, so they shared a file - and when ctest ran
+# them at the same moment on macOS, one was refused with "database is locked".
 if(DEFINED CACHE)
     get_filename_component(_who "${CMAKE_SCRIPT_MODE_FILE}" NAME_WE)
+    set(_imagery "")
+    if(IMAGERY)
+        set(_imagery "imagery")
+    endif()
     set(ENV{GLIDESLOPE_CESIUM_CACHE}
-        "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}.sqlite")
+        "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}${_imagery}.sqlite")
 endif()
 
 # Judges the leak reports in a run's standard error, as described above: fails

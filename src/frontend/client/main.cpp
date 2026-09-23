@@ -20,6 +20,7 @@
 // state after every tick.
 
 #include "flight.hpp"
+#include "platform/no_crash_dialogs.hpp"
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
 #include "gfx/sky.hpp"
@@ -211,6 +212,9 @@ std::optional<std::array<double, 3>> parse_triple(std::string_view text) {
 } // namespace
 
 int main(int argc, char** argv) {
+    // First: a failed assert prints and ends the program rather than
+    // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
+    glideslope::platform::no_crash_dialogs();
     // Before anything that can log: Cesium Native's log belongs on standard
     // error, not in the middle of a --trace line. See gfx/terrain_tiles.hpp.
     glideslope::gfx::log_to_standard_error();

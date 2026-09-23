@@ -5,6 +5,7 @@
 // test, and inside the server.
 
 #include "net/handshake.hpp"
+#include "platform/no_crash_dialogs.hpp"
 #include "net/inputs.hpp"
 #include "net/inside.hpp"
 #include "net/keys.hpp"
@@ -740,6 +741,9 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
 }
 
 int main(int argc, char** argv) {
+    // First: a failed assert prints and ends the program rather than
+    // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
+    glideslope::platform::no_crash_dialogs();
     std::vector<std::string_view> args(argv + 1, argv + argc);
     try {
         std::filesystem::path data;

@@ -10,6 +10,7 @@
 // startup, because a client cannot begin an `IK` handshake without it.
 
 #include "net/handshake.hpp"
+#include "platform/no_crash_dialogs.hpp"
 #include "net/inputs.hpp"
 #include "net/inside.hpp"
 #include "net/keys.hpp"
@@ -1286,6 +1287,9 @@ int run(const Options& o) {
 } // namespace
 
 int main(int argc, char** argv) {
+    // First: a failed assert prints and ends the program rather than
+    // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
+    glideslope::platform::no_crash_dialogs();
     const std::vector<std::string_view> args(argv + 1, argv + argc);
     try {
         if (args.size() == 1 && args[0] == "--version") {

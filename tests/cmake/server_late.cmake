@@ -64,7 +64,18 @@ endif()
 set(_count ${CMAKE_MATCH_1})
 set(_clock ${CMAKE_MATCH_2})
 set(_mine ${CMAKE_MATCH_3})
-if(_clock LESS 3)
+# **One second, not three: this is about whether it stepped, not how fast.**
+# A server that stepped only while somebody was connected would say a few
+# hundredths of a second in the first update it sent - the time between the
+# client arriving and the packet going out. One that steps on its own says
+# however far it got. On a quiet machine that is nearly the whole wait: here,
+# the server starts in 0.75 s and runs at real time after. On CI it shares a
+# four-core runner with three other tests, one of them rendering on the
+# software Vulkan driver across every core it can find, and it fell to a third
+# of real time - 1.7 s in five - and a threshold of three failed a server that
+# plainly had been flying. One second is still many times what a server that
+# waited for company would say.
+if(_clock LESS 1)
     message(FATAL_ERROR
             "the client joined after ${_wait} s and the simulation clock said "
             "${_clock} s. A server that steps only while somebody is connected "

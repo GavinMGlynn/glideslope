@@ -55,7 +55,12 @@ The changes, and what each is for:
                         0.4 this project states for an airframe scraping a
                         runway gives 1,093, and settled with its centre of
                         gravity below the runway. They now carry the
-                        friction, spring and damping tools/ground.py states.
+                        friction, spring and damping tools/ground.py states,
+                        and are STRUCTURE contacts rather than BOGEYs: left
+                        a wheel, each carried a tyre, whose sideways force
+                        rocked it wheels-up between belly and wing tips
+                        until it was thrown into the air and came down
+                        inverted through the runway.
 
   Engines (engine/F100-PW-220.xml, from JSBSim's F100-PW-229.xml)
     The F-15C's engine  The Standard Aircraft Characteristics' F100-PW-220,
@@ -174,7 +179,30 @@ def scraping_airframe(text):
             if hits != 1:
                 raise SystemExit(f"{SCRIPT}: a contact has {hits} {tag}s, not one"
                                  " - has the pinned model changed?")
-        return body
+        # **And they are airframe in kind, not only in friction.** A BOGEY is
+        # a wheel: JSBSim gives it a tyre, which makes a sideways force from
+        # the angle it slips at. Given a scraping friction but left a wheel,
+        # the F-15C landed wheels-up rocked between its belly and its wing
+        # tips, each tip kicked sideways by its tyre, until the rocking threw
+        # it 180 ft into the air and it came down inverted through the
+        # runway - on macOS, and on Linux for a start a tenth of a knot
+        # different. A STRUCTURE contact is a point that scrapes, which is
+        # what every other aeroplane's airframe is made of (tools/ground.py).
+        name = re.search(r'name="([^"]+)"', body).group(1)
+        where = {axis: re.search(rf"<{axis}>\s*([-0-9.]+)\s*</{axis}>", body).group(1)
+                 for axis in ("x", "y", "z")}
+        indent = "        "
+        return (f'<contact type="STRUCTURE" name="{name}">\n'
+                f'{indent}    <location unit="IN">\n'
+                f'{indent}        <x> {where["x"]} </x>\n'
+                f'{indent}        <y> {where["y"]} </y>\n'
+                f'{indent}        <z> {where["z"]} </z>\n'
+                f'{indent}    </location>\n'
+                f'{indent}    <static_friction> {ground.SCRAPE_FRICTION} </static_friction>\n'
+                f'{indent}    <dynamic_friction> {ground.SCRAPE_FRICTION} </dynamic_friction>\n'
+                f'{indent}    <spring_coeff unit="LBS/FT"> {spring:.0f} </spring_coeff>\n'
+                f'{indent}    <damping_coeff unit="LBS/FT/SEC"> {damping:.0f} </damping_coeff>\n'
+                f'{indent}</contact>')
 
     text, n = re.subn(
         r"<contact type=\"BOGEY\"(?:(?!</contact>).)*?<retractable>0</retractable>"

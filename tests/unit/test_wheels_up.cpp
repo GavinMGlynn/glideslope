@@ -55,11 +55,23 @@ struct Slide {
     double slid_m = 0.0;
     double seconds = 0.0;
     double from_kts = 0.0;
+    bool broke = false;     // the state stopped being a number
 };
 
 // **Put down on a runway with the wheels up.** Started just above the ground
-// below its approach speed with the gear commanded up and the engines closed,
-// and flown until it stops or until it is plainly through the runway.
+// below its approach speed with the gear commanded up and the engines shut
+// down, and flown until it stops or until it is plainly through the runway.
+//
+// **Shut down, not idling**, because a belly landing is made with the engines
+// off and because at idle this was not a test of the airframe at all. An F-22
+// with its engines idling and nobody at the stick settled on its tail with its
+// nose thirteen degrees up, where its wing carried enough of its weight that
+// idle thrust matched the friction; it trundled on at 79 knots for as long as
+// it was flown, and a start a tenth of a knot different decided whether it
+// stopped or not. On Windows the same situation lifted it off again and it
+// came down 2,045 ft through the runway. With the engines off, all ten
+// aeroplanes that retract come to rest from thirteen starts spread across two
+// knots - 130 of 130 - where idling, three of the F-22's did not.
 Slide put_down(const glideslope::sim::CatalogueEntry& entry) {
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
@@ -72,7 +84,7 @@ Slide put_down(const glideslope::sim::CatalogueEntry& entry) {
     ic.altitude_ft = 8.0;
     ic.heading_deg = 0.0;
     ic.airspeed_kts = 0.6 * entry.start_airspeed_kts;
-    ic.engine_running = true;
+    ic.engine_running = false;
     ic.gear = 0.0; // up, and this is what the whole test is about
     aircraft.initialize(ic);
 
@@ -92,7 +104,17 @@ Slide put_down(const glideslope::sim::CatalogueEntry& entry) {
     for (int tick = 0; tick < steps; ++tick) {
         aircraft.set_controls(c);
         aircraft.step();
-        out.lowest_ft = std::min(out.lowest_ft, aircraft.property("position/h-agl-ft"));
+        // **A NaN ends the run, loudly.** std::min against a NaN keeps the
+        // other value, so a state that had stopped being a number was stepped
+        // on for the rest of three minutes, looking like an aeroplane still
+        // sliding - and JSBSim asserts when it looks a NaN up in a table,
+        // which under MSVC's debug runtime waits on a dialog for ever.
+        const double agl = aircraft.property("position/h-agl-ft");
+        if (!std::isfinite(agl)) {
+            out.broke = true;
+            break;
+        }
+        out.lowest_ft = std::min(out.lowest_ft, agl);
         if (out.lowest_ft < -20.0) {
             break; // through the runway, not resting on it
         }
@@ -167,6 +189,11 @@ GLIDESLOPE_TEST(every_aircraft_put_down_with_its_wheels_up_rests_on_its_airframe
                     s.retracts ? "" : "  [wheels do not retract]");
         std::fflush(stdout);
 
+        if (s.broke) {
+            fell_through.push_back(entry.id + "'s state stopped being a number");
+            ++(s.retracts ? retracting : fixed); // still counted as walked
+            continue;
+        }
         const bool excused = std::find(awaiting_a_model.begin(), awaiting_a_model.end(),
                                        entry.id) != awaiting_a_model.end();
         if (s.retracts) {
