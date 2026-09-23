@@ -31,6 +31,9 @@
 # the script running it and the things that tell its runs apart. They stay in
 # CACHE, so each test still finds its own cache on the next run.
 #
+# **So does VIEW**, since the view test became one test a view: the seven ran
+# at once against one file and three were refused on macOS the first time.
+#
 # **IMAGERY tells two of them apart too**, and was missing: both Mount
 # Taranaki shots run frame_terrain.cmake with the same driver, one with the
 # imagery draped and one without, so they shared a file - and when ctest ran
@@ -42,7 +45,7 @@ if(DEFINED CACHE)
         set(_imagery "imagery")
     endif()
     set(ENV{GLIDESLOPE_CESIUM_CACHE}
-        "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}${_imagery}.sqlite")
+        "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}${_imagery}${VIEW}.sqlite")
 endif()
 
 # Judges the leak reports in a run's standard error, as described above: fails
