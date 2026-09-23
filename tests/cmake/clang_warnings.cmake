@@ -42,6 +42,27 @@ file(READ "${_commands}" _json)
 string(JSON _count LENGTH "${_json}")
 math(EXPR _last "${_count} - 1")
 
+# **A build whose compiler speaks MSVC's language is not re-run here.** Its
+# commands are cl's - /nologo, -std:c++20, /EHsc - and clang++ reads each of
+# those as a file it cannot find, which failed every Windows run from
+# 2026-09-21 until a later break hid it. Nor is it needed there: Windows CI
+# also builds every source with clang-cl, warnings as errors, and that build
+# is the clang pass this test exists to supply for the GCC-only Linux jobs. So
+# an MSVC-style build - cl or clang-cl - reports itself skipped, never passed.
+string(JSON _probe GET "${_json}" 0 command)
+separate_arguments(_probe_argv WINDOWS_COMMAND "${_probe}")
+list(GET _probe_argv 0 _probe_compiler)
+# Its backslashes made forward, or CMake on any host but Windows takes the
+# whole of C:\...\cl.exe for the file's name.
+file(TO_CMAKE_PATH "${_probe_compiler}" _probe_compiler)
+get_filename_component(_probe_name "${_probe_compiler}" NAME_WE)
+string(TOLOWER "${_probe_name}" _probe_name)
+if(_probe_name STREQUAL "cl" OR _probe_name STREQUAL "clang-cl")
+    message(STATUS "this build compiles with ${_probe_name}, whose commands clang++ "
+                   "cannot take; Windows' clang-cl build is its clang pass")
+    cmake_language(EXIT 77)
+endif()
+
 set(_walked 0)
 set(_skipped 0)
 set(_wrong "")

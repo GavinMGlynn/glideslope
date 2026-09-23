@@ -93,7 +93,13 @@ jobs:
           # fails its configure without XTEST and XScrnSaver rather than doing
           # without - and Mesa's lavapipe, the software Vulkan driver the
           # frame tests render on, with the Vulkan loader.
+          # autoconf, autoconf-archive, automake and libtool: vcpkg's libsodium
+          # port builds with autotools and asks the system for them. Every other
+          # port was coming from the binary cache, so libsodium - added for the
+          # handshake on 2026-09-22 - was the first to build here, and every
+          # Linux and macOS job failed on it from then on.
           apt_run install -y --no-install-recommends gcc-14 g++-14 ninja-build \
+            autoconf autoconf-archive automake libtool \
             libx11-dev libxext-dev libxrandr-dev libxi-dev libxcursor-dev \
             libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev \
             libwayland-dev wayland-protocols libdecor-0-dev \
@@ -189,7 +195,13 @@ jobs:
           # EPEL and CRB for SDL's X11 and Wayland development packages, and
           # Mesa's lavapipe for the frame tests.
           dnf_run install epel-release
+          # autoconf, autoconf-archive, automake and libtool: vcpkg's libsodium
+          # port builds with autotools and asks the system for them. Every other
+          # port was coming from the binary cache, so libsodium - added for the
+          # handshake on 2026-09-22 - was the first to build here, and every
+          # Linux and macOS job failed on it from then on.
           dnf_run --enablerepo=crb install git cmake ninja-build gcc-c++ \
+            autoconf autoconf-archive automake libtool \
             gcc-toolset-14-gcc-c++ \
             libX11-devel libXext-devel libXrandr-devel libXi-devel \
             libXcursor-devel libXfixes-devel libXScrnSaver-devel libXtst-devel \
@@ -281,8 +293,9 @@ jobs:
           path: .downloads
           key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
 
-      - name: Install ninja, and nasm for vcpkg
-        run: brew install ninja nasm
+      # autotools too: vcpkg's libsodium port builds with them.
+      - name: Install ninja, and nasm and autotools for vcpkg
+        run: brew install ninja nasm autoconf autoconf-archive automake libtool
 
       # The newest Xcode the image carries, rather than whichever it selected.
       - name: Use the newest Xcode on the image

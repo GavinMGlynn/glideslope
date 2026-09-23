@@ -94,8 +94,12 @@ keeps what it built in its binary cache (`~/.cache/vcpkg/archives`, or
 `VCPKG_DEFAULT_BINARY_CACHE`), and every configure after that, in any build
 directory, unpacks it in seconds. CI keeps that cache between runs. Building
 them needs, on Linux, Perl with `IPC::Cmd` (OpenSSL's build), NASM
-(libjpeg-turbo's) and make; on macOS, NASM; on Windows, nothing: vcpkg fetches
-what it needs.
+(libjpeg-turbo's), make, and autoconf, autoconf-archive, automake and libtool
+(libsodium's); on macOS, NASM and those four; on Windows, nothing: vcpkg
+fetches what it needs, and builds libsodium with MSBuild. **The autotools went
+missing from CI for two days** without anyone noticing, because every other
+package was being unpacked from the binary cache: libsodium, added for the
+handshake, was the first thing CI actually had to build.
 
 **Every package carries their licences**: Cesium Native's as
 `licenses/CesiumNative.txt`, and each vcpkg package's copyright file as

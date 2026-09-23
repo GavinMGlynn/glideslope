@@ -63,7 +63,13 @@ jobs:
           # SDL's development packages: the package build compiles the client
           # too, even though the package does not carry it yet.
           dnf_run install epel-release
+          # autoconf, autoconf-archive, automake and libtool: vcpkg's libsodium
+          # port builds with autotools and asks the system for them. Every other
+          # port was coming from the binary cache, so libsodium - added for the
+          # handshake on 2026-09-22 - was the first to build here, and every
+          # Linux and macOS job failed on it from then on.
           dnf_run --enablerepo=crb install git cmake ninja-build gcc-toolset-14-gcc-c++ \
+            autoconf autoconf-archive automake libtool \
             libX11-devel libXext-devel libXrandr-devel libXi-devel \
             libXcursor-devel libXfixes-devel libXScrnSaver-devel libXtst-devel \
             libxkbcommon-devel \
@@ -202,8 +208,9 @@ jobs:
       - uses: actions/checkout@v5
         with: { submodules: true }
 
-      - name: Install ninja, and nasm for vcpkg
-        run: brew install ninja nasm
+      # autotools too: vcpkg's libsodium port builds with them.
+      - name: Install ninja, and nasm and autotools for vcpkg
+        run: brew install ninja nasm autoconf autoconf-archive automake libtool
 
       - name: Use the newest Xcode on the image
         run: |

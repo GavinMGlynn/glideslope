@@ -294,11 +294,11 @@ std::optional<DefaultServer> read_default_server(std::string_view text) {
 }
 
 std::optional<DefaultServer> default_server() {
-    std::filesystem::path where;
-    if (const char* named = std::getenv("GLIDESLOPE_SERVER_TXT");
-        named != nullptr && *named != '\0') {
-        where = named;
-    } else {
+    // Through `environment_path`, as every other variable here is read: a
+    // bare std::getenv is deprecated under MSVC and fails the Windows build,
+    // and it could not carry a path that is not ASCII there anyway.
+    std::filesystem::path where = environment_path("GLIDESLOPE_SERVER_TXT");
+    if (where.empty()) {
         try {
             where = config_directory() / "server.txt";
         } catch (const std::exception&) {

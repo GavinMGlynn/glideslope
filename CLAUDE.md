@@ -127,7 +127,8 @@ copy on the Linux filesystem, not under `/mnt/c`.
 
 The first configure of a machine builds Cesium Native's dependencies through
 vcpkg (`cmake/Vcpkg.cmake`, `ext/README.md`): most of an hour, then kept in
-vcpkg's binary cache. On Linux that needs Perl's `IPC::Cmd`, NASM and make.
+vcpkg's binary cache. On Linux that needs Perl's `IPC::Cmd`, NASM, make, and
+autoconf, autoconf-archive, automake and libtool (libsodium's port).
 **Cap the build's parallelism in WSL** - `cmake --build --preset linux-debug -j8`,
 `ctest -j4`, and one build at a time: the sanitized build of the client links a
 binary of hundreds of megabytes, and ninja's default of every core at once has
