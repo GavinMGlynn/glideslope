@@ -211,10 +211,10 @@ ends in a debrief, never a score.
 - [ ] **Lessons** — take-off, the circuit, climbs and descents, turns, stalls,
       approach and landing — for each class of aircraft. *Verification: flown to
       the book every stage passes; flown with a stated fault, the debrief names
-      that fault and no other.* **In progress.** Missing: take-off, stalls and
-      the circuit for the airliners, fighters and bomber; take-off, approach,
-      stalls and the circuit for the seaplane; take-off and the circuit for
-      the business jet. The 747-400 and F-22A are taught turns alone.
+      that fault and no other.* **In progress.** Missing: take-off and the
+      circuit for the airliners, fighters, bomber, business jet and seaplane,
+      and the seaplane's approach. The 747-400 and F-22A are taught turns
+      alone.
 - [x] **The instructor demonstrates, then hands over.** *Verification: the AI
       pilot flies each lesson within its limits and hands the controls over and
       back with no step.* Done 2026-09-23.
@@ -312,16 +312,16 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The handshake is not quite the Noise protocol it is named after**, so a
       standard Noise client cannot complete it. *Verification: the handshake
       completes against an independent Noise implementation.*
-- [ ] **A stalls lesson for the airliners, fighters and bomber needs the landing
-      configuration.** *Verification: the stall is entered in the configuration
-      its reference speed was measured in, and every aeroplane recovers within
-      the lesson's height.*
+- [x] **Stalls entered in the landing configuration.** *Verification: the
+      stall is entered in the configuration its reference speed was measured
+      in, and every aeroplane recovers within the lesson's height.* Done
+      2026-09-23.
 - [x] **The runway lessons fly at their figures' weight.** *Verification:
       every lesson flies at its figures' weight, with the circuit still flying
       its pattern.* Done 2026-09-23.
-- [ ] **The PA-28 loses five times the height the other light aircraft lose
+- [x] **The PA-28 loses five times the height the other light aircraft lose
       entering a stall.** *Verification: all four enter a stall within the same
-      band.*
+      band.* Done 2026-09-23: it was the clean entry.
 - [ ] **The Learjet ends its landing roll nose down through the runway.**
       *Verification: every aeroplane the AI lands ends its rollout upright on
       its wheels.*

@@ -43,11 +43,11 @@ teaches business-jet
 stage Entering the stall
 do Close the throttles and hold the height as the speed comes back
 do Keep the wings level: a wing drop is what you are avoiding
-hold position/h-agl-ft start-4000 start+400 Hold the height as the speed comes back
+hold position/h-agl-ft start-150 start+100 Hold the height as the speed comes back
 until velocities/vc-kts <= stall+25
 
 stage The recovery
 do Move the control column forward to unstall the wing
 do Full power as the nose comes down, and level the wings
-need position/h-agl-ft >= start-600 Recover with the least height you can
+need position/h-agl-ft >= start-350 Recover with the least height you can
 until velocities/vc-kts >= stall+35

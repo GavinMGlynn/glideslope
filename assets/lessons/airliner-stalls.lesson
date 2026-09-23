@@ -1,0 +1,44 @@
+# The stall, in an airliner: entering it, recognising it, and getting out of it
+# with the least height lost.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The speed is this aeroplane's own.** `stall` is its stall speed in the
+# landing configuration. For the aeroplanes in this class that figure is
+# **measured from the flight model rather than published** - no flight manual
+# for them is public - and the figure itself says so. `docs/ASSETS.md` records
+# which aeroplanes those are, and which are left out for having no such figure
+# that holds still.
+#
+# **The stall is approached, not reached.** The entry ends a good margin above
+# the stall speed, because what this class of aeroplane does at the stall
+# itself is not something a lesson should be flying an aeroplane into: the
+# exercise is recognising the approach to it and getting out.
+#
+# **The stall is entered in the landing configuration**, flaps and gear down,
+# because `stall` is the stall with everything down: flown clean, a swept wing
+# asked for twenty-five knots above its landing stall has to stall to get
+# there, and departs. **The bands are measured**, with room: the 737-300 loses 128 feet at worst entering it and 896 in the recovery, the A380 887, the 787-8 482 and the A320 337.
+
+name Stalls in an airliner
+teaches airliner
+
+stage Entering the stall
+do Close the throttles and hold the height as the speed comes back
+do Keep the wings level: a wing drop is what you are avoiding
+hold position/h-agl-ft start-250 start+150 Hold the height as the speed comes back
+until velocities/vc-kts <= stall+25
+
+stage The recovery
+do Move the control column forward to unstall the wing
+do Full power as the nose comes down, and level the wings
+need position/h-agl-ft >= start-1300 Recover with the least height you can
+until velocities/vc-kts >= stall+35

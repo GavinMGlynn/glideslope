@@ -963,6 +963,7 @@ struct Result {
     // How far the height strayed from where the entry stage began, which is
     // what the entry's band is set from.
     double entry_low_ft = 0.0;
+    double recovery_began_ft = -1.0; // where the recovery stage began
     double entry_high_ft = 0.0;
     std::vector<std::string> debrief;
     std::size_t completed = 0;
@@ -1196,8 +1197,18 @@ Result fly_a_stall(const std::string& id, bool sloppy) {
     const Lesson lesson = *found;
     LessonRun run(lesson, f.speeds);
 
+    // **In the configuration its reference speed was measured in**: the
+    // landing flap and the gear down. `stall` is the stall with everything
+    // down, and flown clean a swept wing gives up long before it: asked to
+    // slow to twenty-five knots above its landing stall, a clean 737 has to
+    // stall to get there, and it departed - 52 degrees of alpha, 26 nose down
+    // and 21,000 ft/min, with nothing to recover it.
+    const double landing_flap =
+        glideslope::sim::approach_speeds(data(), stall_entry.model).flap;
     glideslope::sim::Controls controls;
     controls.throttle = 0.6;
+    controls.flaps = landing_flap;
+    controls.gear = 1.0;
     glideslope::sim::Autopilot autopilot(*f.aircraft, controls);
     glideslope::sim::AutopilotModes modes = autopilot.modes();
     modes.heading_deg = f.start_heading_deg;
@@ -1244,13 +1255,23 @@ Result fly_a_stall(const std::string& id, bool sloppy) {
             if (!recovery_set) {
                 recovery_set = true;
                 modes.altitude_ft.reset();
-                modes.vertical_speed_fpm = -600.0;
+                // **Nose down enough to gain the speed back**, which is
+                // more descent for a faster wing: 600 ft/min unloads a
+                // Cessna, and asked of an A380 flaps and gear down at 120
+                // knots it made her pitch up to hold so little sink, and
+                // porpoise between four degrees nose down and twenty-one up,
+                // stalling again each time, for four minutes. Twelve feet a
+                // minute for each knot of stall speed, and never less than
+                // six hundred.
+                modes.vertical_speed_fpm = -std::max(600.0, 12.0 * f.speeds.stall_kts);
                 modes.airspeed_kts = f.speeds.stall_kts * 1.5;
                 autopilot.set(modes);
             }
             c = autopilot.fly();
             c.throttle = 1.0;
         }
+        c.flaps = landing_flap;
+        c.gear = 1.0;
         f.aircraft->set_controls(c);
         f.aircraft->step();
         if (tick >= settling) {
@@ -1258,6 +1279,9 @@ Result fly_a_stall(const std::string& id, bool sloppy) {
             run.update(*f.aircraft, tick);
             const double agl = f.aircraft->property("position/h-agl-ft");
             out.lowest_agl_ft = std::min(out.lowest_agl_ft, agl);
+            if (!was_entering && out.recovery_began_ft < 0.0) {
+                out.recovery_began_ft = agl;
+            }
             if (was_entering) {
                 if (entry_began < 0.0) {
                     entry_began = agl;
@@ -1281,10 +1305,11 @@ GLIDESLOPE_TEST(the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     std::size_t walked = 0;
     for (const std::string& id : taught) {
         const Result flown = fly_a_stall(id, false);
-        std::printf("  %-13s lowest %6.0f ft, entry %+.0f to %+.0f ft, "
+        std::printf("  %-13s lowest %6.0f ft, entry %+.0f to %+.0f ft, recovery lost %.0f ft, "
                     "%zu of %zu stages\n",
                     id.c_str(), flown.lowest_agl_ft, flown.entry_low_ft,
-                    flown.entry_high_ft, flown.completed, flown.stages);
+                    flown.entry_high_ft, flown.recovery_began_ft - flown.lowest_agl_ft,
+                    flown.completed, flown.stages);
         for (const std::string& said : flown.debrief) {
             std::printf("    %s\n", said.c_str());
         }
@@ -1933,9 +1958,11 @@ using Begin = std::function<void(glideslope::sim::AutopilotModes&, const InFligh
 using Fly = std::function<void(glideslope::sim::Autopilot&, const LessonRun&,
                                const InFlight&, int)>;
 
+// `flaps` is the flap the exercise is flown with, set on the AI's controls
+// and the pilot's alike, so that handing over does not move it.
 Demonstrated demonstrate_in_the_air(const std::string& id, const std::string& exercise,
                                     double start_ft, int settling_s, const Begin& begin,
-                                    const Fly& fly) {
+                                    const Fly& fly, double flaps = 0.0) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     InFlight f = airborne(id, start_ft);
     const auto found = lesson_for(entry, exercise);
@@ -1944,6 +1971,7 @@ Demonstrated demonstrate_in_the_air(const std::string& id, const std::string& ex
 
     glideslope::sim::Controls held;
     held.throttle = 0.7;
+    held.flaps = flaps;
     glideslope::sim::Controller controller(*f.aircraft, held);
     controller.to_ai();
     check(controller.autopilot() != nullptr, "the AI has an autopilot to be told");
@@ -1959,6 +1987,7 @@ Demonstrated demonstrate_in_the_air(const std::string& id, const std::string& ex
     glideslope::sim::Controls pilot;
     pilot.throttle = 0.55;
     pilot.elevator = 0.02;
+    pilot.flaps = flaps;
     controller.set_pilot(pilot);
 
     Demonstrated out;
@@ -2054,6 +2083,10 @@ Demonstrated demonstrate_a_climb(const std::string& id) {
 // and set the throttle to 0 and then to 1 by hand, which no controller can
 // hand over.
 Demonstrated demonstrate_a_stall(const std::string& id, double start_ft) {
+    // Flaps and gear as they are for the landing, which is what `stall` is
+    // the stall speed in - the same as the lesson's own flight.
+    const double landing_flap = glideslope::sim::approach_speeds(
+        data(), glideslope::sim::find_aircraft(data(), id).model).flap;
     return demonstrate_in_the_air(
         id, "stalls", start_ft, 20, [](glideslope::sim::AutopilotModes&, const InFlight&) {},
         [recovering = false](glideslope::sim::Autopilot& ap, const LessonRun& run,
@@ -2065,7 +2098,9 @@ Demonstrated demonstrate_a_stall(const std::string& id, double start_ft) {
             } else if (!recovering && run.stage() >= 1) {
                 recovering = true;
                 m.altitude_ft.reset();
-                m.vertical_speed_fpm = -600.0;
+                // Nose down in proportion to the wing's speed, as the
+                // lesson's own recovery is flown.
+                m.vertical_speed_fpm = -std::max(600.0, 12.0 * f.speeds.stall_kts);
                 // **The speed asked for has to clear the one the lesson is
                 // waiting for.** The recovery stage ends at the climbing
                 // speed, and half as much again as the stall speed is *below*
@@ -2077,7 +2112,8 @@ Demonstrated demonstrate_a_stall(const std::string& id, double start_ft) {
                                           f.speeds.climb_kts + 10.0);
                 ap.set(m);
             }
-        });
+        },
+        landing_flap);
 }
 
 void report_and_check(const std::string& id, const std::string& what,
