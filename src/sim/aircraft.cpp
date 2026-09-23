@@ -7,6 +7,7 @@
 #include <FGFDMExec.h>
 #include <input_output/FGGroundCallback.h>
 #include <initialization/FGInitialCondition.h>
+#include <initialization/FGTrim.h>
 #include <input_output/FGPropertyManager.h>
 #include <math/FGColumnVector3.h>
 #include <math/FGLocation.h>
@@ -247,6 +248,9 @@ void Aircraft::initialize(const InitialConditions& ic) {
     fgic->SetThetaDegIC(0.0);
     fgic->SetPhiDegIC(0.0);
     fgic->SetVcalibratedKtsIC(ic.airspeed_kts);
+    if (ic.flight_path_deg != 0.0) {
+        fgic->SetFlightPathAngleDegIC(ic.flight_path_deg);
+    }
     if (retractable_gear(*exec_)) {
         exec_->SetPropertyValue("gear/gear-cmd-norm", ic.gear);
         exec_->SetPropertyValue("gear/gear-pos-norm", ic.gear);
@@ -264,7 +268,20 @@ void Aircraft::initialize(const InitialConditions& ic) {
     if (placed_on_water) {
         exec_->GetGroundReactions()->SetSolid(true);
     }
-    if (!exec_->RunIC()) {
+    // The flaps are a kinematic that runs to its command at the model's own
+    // rate; while JSBSim is trimming, it reaches the command in one step
+    // (FGKinemat::Run). So the initial conditions are run in trim for a start
+    // that asks for flap, and in the ordinary way for one that does not.
+    const bool flapped = ic.flaps > 0.0;
+    if (flapped) {
+        exec_->SetPropertyValue("fcs/flap-cmd-norm", ic.flaps);
+        exec_->SetTrimStatus(true);
+    }
+    const bool accepted = exec_->RunIC();
+    if (flapped) {
+        exec_->SetTrimStatus(false);
+    }
+    if (!accepted) {
         throw std::runtime_error("JSBSim refused the initial conditions for " + model_);
     }
     // A start on the ground puts the wheels on it. The altitude is the centre
@@ -294,7 +311,7 @@ void Aircraft::initialize(const InitialConditions& ic) {
     if (placed_on_water) {
         exec_->GetGroundReactions()->SetSolid(false);
     }
-    if (ic.engine_running) {
+    const auto start_engines = [&] {
         exec_->SetPropertyValue("propulsion/set-running", -1.0);
         // JSBSim settles running engines by stepping them half a second at a
         // time, which a constant-speed propeller's governor cannot follow: it
@@ -311,6 +328,35 @@ void Aircraft::initialize(const InitialConditions& ic) {
                 // The governor raises it to the fine stop on the first step.
                 exec_->SetPropertyValue(
                     "propulsion/engine[" + std::to_string(i) + "]/blade-angle", 0.0);
+            }
+        }
+    };
+    if (ic.engine_running) {
+        start_engines();
+    }
+    // **Trimmed where JSBSim can trim her, as she was where it cannot.** Its
+    // trim fails on the B-2, whose elevons are its elevator and its ailerons
+    // at once, and a failed trim leaves the state wherever the search gave
+    // up - so the start is set again, untrimmed, and `trimmed()` says so.
+    trimmed_ = false;
+    if (ic.trim) {
+        try {
+            exec_->DoTrim(JSBSim::tLongitudinal);
+            trimmed_ = true;
+        } catch (const std::exception&) {
+            if (flapped) {
+                exec_->SetTrimStatus(true);
+            }
+            const bool again = exec_->RunIC();
+            if (flapped) {
+                exec_->SetTrimStatus(false);
+            }
+            if (!again) {
+                throw std::runtime_error("JSBSim refused the initial conditions for " +
+                                         model_ + " after a trim that failed");
+            }
+            if (ic.engine_running) {
+                start_engines();
             }
         }
     }

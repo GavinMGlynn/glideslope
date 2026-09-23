@@ -641,6 +641,16 @@ struct Approached {
     // than from the whole flight.
     std::vector<double> stage_least;
     std::vector<double> stage_most;
+    // The descent through the approach stage, in feet a second, which is what
+    // its "down the glidepath, not out of the sky" band is set from.
+    double sink_least_fps = 1e9;
+    double sink_most_fps = -1e9;
+    // When the most negative of those came, in seconds from the start.
+    double sink_worst_at_s = 0.0;
+    // The descent at the moment the approach stage ended, fifty feet up: what
+    // the lesson's "arrive under control" need is set from.
+    double sink_at_end_fps = 0.0;
+    bool trimmed = false; // started trimmed on the path, as asked
 };
 
 // **Two miles out on the glidepath, down to a stop.** `fast_by_kts` is flown
@@ -656,6 +666,11 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
     flown_with.vref_kts += fast_by_kts;
 
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    // At the weight its reference speed was measured at: the B-2A's is taken
+    // at its light loading, and flown at the model's own weight 124 knots is
+    // below its stall - it fell at 110 ft/s and was passed, because every
+    // stage of an approach ends on a height.
+    load_as_its_figures_were_measured(aircraft, entry.model);
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
         [](double, double) { return 0.0; }, [](double, double) { return false; }));
 
@@ -676,6 +691,11 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
     ic.engine_running = true;
     ic.gear = 1.0;
     load_for_the_approach(aircraft, entry.model);
+    // Established on the approach: the flap it is flown with is already down,
+    // and it is already coming down the glidepath rather than level on it.
+    ic.flaps = flown_with.flap;
+    ic.flight_path_deg = -3.0;
+    ic.trim = true;
     aircraft.initialize(ic);
 
     const auto found = lesson_for(entry, "approach-and-landing");
@@ -712,6 +732,29 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
             out.stage_least[which] = std::min(out.stage_least[which], kts);
             out.stage_most[which] = std::max(out.stage_most[which], kts);
         }
+        if (which == 0 && run.stage() != 0) {
+            out.sink_at_end_fps = aircraft.property("velocities/h-dot-fps");
+        }
+        if ((id == "f35b" || id == "f15c") && tick % (2 * steps_per_second) == 0) {
+            std::printf("      %s %4.0f s  agl %5.0f  %4.0f kt  vs %6.1f fps  pitch %5.1f  "
+                        "alpha %5.1f  elev %+.2f  thr %.2f  stage %zu\n",
+                        id.c_str(), static_cast<double>(tick) / steps_per_second,
+                        aircraft.property("position/h-agl-ft"),
+                        aircraft.property("velocities/vc-kts"),
+                        aircraft.property("velocities/h-dot-fps"),
+                        aircraft.property("attitude/theta-deg"),
+                        aircraft.property("aero/alpha-deg"),
+                        aircraft.property("fcs/elevator-cmd-norm"),
+                        aircraft.property("fcs/throttle-cmd-norm"), run.stage());
+        }
+        if (which == 0) {
+            const double fps = aircraft.property("velocities/h-dot-fps");
+            if (fps < out.sink_least_fps) {
+                out.sink_least_fps = fps;
+                out.sink_worst_at_s = static_cast<double>(tick) / steps_per_second;
+            }
+            out.sink_most_fps = std::max(out.sink_most_fps, fps);
+        }
         if (aircraft.property("position/h-agl-ft") > 5.0) {
             out.least_kts = std::min(out.least_kts, kts);
             out.most_kts = std::max(out.most_kts, kts);
@@ -720,6 +763,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
     out.debrief = run.debrief_lines();
     out.completed = run.completed();
     out.stages = it->stages.size();
+    out.trimmed = aircraft.trimmed();
     return out;
 }
 
@@ -739,7 +783,11 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                             flown.stage_most[i]);
             }
         }
-        std::printf("  (%zu of %zu stages)\n", flown.completed, flown.stages);
+        std::printf("  descent %.1f to %.1f ft/s (worst at %.0f s), %.1f at 50 ft"
+                    "  (%zu of %zu stages)%s\n",
+                    flown.sink_least_fps, flown.sink_most_fps, flown.sink_worst_at_s,
+                    flown.sink_at_end_fps, flown.completed, flown.stages,
+                    flown.trimmed ? "" : ", started untrimmed: JSBSim cannot trim it");
         for (const std::string& said : flown.debrief) {
             std::printf("    %s\n", said.c_str());
         }
@@ -752,8 +800,11 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
         ++walked;
     }
     check(walked == taught.size(), "every aeroplane taught an approach was landed");
-    check(walked == 6,
-          "six: the four light aircraft, the Mosquito and the Learjet");
+    // Thirteen of the fifteen whose class is taught it: the four light
+    // aircraft, the Mosquito, the Learjet, four airliners, two fighters and
+    // the B-2A. The 747-400 and the F-22A are left out, having no stall speed
+    // to make a reference speed from - `everyone_taught` names them above.
+    check(walked == 13, "thirteen aeroplanes landed, not " + std::to_string(walked));
 }
 
 // **An approach flown fast is named in the debrief**, and a correct one is
@@ -1175,8 +1226,6 @@ GLIDESLOPE_TEST(the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief) {
         ++walked;
     }
     check(walked == taught.size(), "every aeroplane taught a stall was stalled");
-    check(walked == 6,
-          "six: the four light aircraft, the Mosquito and the Learjet");
 }
 
 // **A stall recovered late and lazily loses height, and is named for it.**
@@ -1655,6 +1704,11 @@ Demonstrated demonstrate_an_approach(const std::string& id) {
     const auto published = glideslope::sim::approach_speeds(data(), entry.model);
 
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    // At the weight its reference speed was measured at: the B-2A's is taken
+    // at its light loading, and flown at the model's own weight 124 knots is
+    // below its stall - it fell at 110 ft/s and was passed, because every
+    // stage of an approach ends on a height.
+    load_as_its_figures_were_measured(aircraft, entry.model);
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
         [](double, double) { return 0.0; }, [](double, double) { return false; }));
     const double out_m = 2.0 * metres_per_nm;
@@ -1674,6 +1728,11 @@ Demonstrated demonstrate_an_approach(const std::string& id) {
     ic.engine_running = true;
     ic.gear = 1.0;
     load_for_the_approach(aircraft, entry.model);
+    // Established on the approach: the flap it is flown with is already down,
+    // and it is already coming down the glidepath rather than level on it.
+    ic.flaps = published.flap;
+    ic.flight_path_deg = -3.0;
+    ic.trim = true;
     aircraft.initialize(ic);
 
     const auto found = lesson_for(entry, "approach-and-landing");

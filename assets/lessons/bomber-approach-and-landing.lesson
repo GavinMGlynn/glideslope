@@ -1,4 +1,5 @@
-# The approach and the landing in a wartime twin.
+# Approach and landing, in a bomber: down the glidepath at the reference speed,
+# across the threshold on speed, and on to the runway.
 #
 #   name TEXT...                   what the lesson is called
 #   teaches CLASS                  which class of aircraft it is for
@@ -10,12 +11,16 @@
 #
 # with `#` beginning a comment; src/sim/lesson.hpp owns the format.
 #
-# **Every speed is `vref`**, the aeroplane own threshold speed, worked out by
-# `sim::approach_speeds` as 1.3 times its published stall with everything
-# down. Writing a number would hold one aeroplane to another speed.
+# **The speed is this aeroplane's own.** `vref` is 1.3 times its stall speed
+# in the landing configuration. For the aeroplanes in this class that stall
+# speed is **measured from the flight model rather than published** - no
+# flight manual for them is public - and the figure says so. `docs/ASSETS.md`
+# records which aeroplanes those are, and which are left out for having no
+# stall speed that holds still.
 #
-# **No band watches the flare**, as in the light aircraft lesson: the flare is
-# where the speed is meant to go.
+# **The bands are measured, not guessed**: the B-2A flies it between on the speed and fourteen over, and crosses the threshold fourteen fast; that is the aeroplane as the autopilot flies it, and the band is wide on its account, each started with
+# its landing flap already down as an aeroplane established on the approach
+# would be.
 
 # **The approach watches the descent as well as the speed**, because every
 # stage of this lesson ends on a height, and a crash reaches a height as surely
@@ -29,20 +34,20 @@
 # first two or three seconds, before the elevator has caught it, the heavy
 # ones sink harder - the A380 to 31 ft/s, the A320 to 27, the 737 to 25.
 # Forty is room for that, and a long way short of a fall.
-name Approach and landing in a wartime twin
-teaches second-world-war
+name Approach and landing in a bomber
+teaches bomber
 
 stage The approach
 do Join the approach on the runway heading, wheels and flap down
 do Hold the approach speed and let her come down the glidepath
-hold velocities/vc-kts vref-8 vref+15 Hold the approach speed
+hold velocities/vc-kts vref-8 vref+20 Hold the approach speed
 need velocities/h-dot-fps >= -30 Arrive over the threshold coming down the glidepath, not falling
 until position/h-agl-ft <= 50
 
 stage Over the threshold
 do Cross the threshold at the approach speed, on the centreline
-hold velocities/vc-kts vref-8 vref+15 Cross the threshold on speed
-until position/h-agl-ft <= 20
+hold velocities/vc-kts vref-8 vref+20 Cross the threshold on speed
+until position/h-agl-ft <= 40
 
 stage The flare and the landing roll
 do Close the throttles and check the descent

@@ -46,6 +46,18 @@
 # knot.** A band set one knot outside what a correct approach actually does is
 # a band that faults good flying on a gusty day.
 
+# **The approach watches the descent as well as the speed**, because every
+# stage of this lesson ends on a height, and a crash reaches a height as surely
+# as a landing does. An Airbus A380 once started clean at its landing speed,
+# stalled, and fell from 688 feet to the runway in ten seconds at 6,800 ft/min
+# - and was passed through all three stages, caught only because its speed
+# band happened to break on the way down: it was falling at 113 feet a second.
+# **Forty feet a second is set from what was measured**, not from the
+# glidepath's arithmetic. A three-degree path at 200 knots asks for eighteen,
+# but an aeroplane started on the approach is not trimmed for it, and in the
+# first two or three seconds, before the elevator has caught it, the heavy
+# ones sink harder - the A380 to 31 ft/s, the A320 to 27, the 737 to 25.
+# Forty is room for that, and a long way short of a fall.
 name Approach and landing in a light aeroplane
 teaches light-aircraft
 
@@ -54,6 +66,7 @@ do Have the aerodrome in sight and join the approach on the runway heading
 do Set the landing flap and check the undercarriage
 do Hold the approach speed and let the aeroplane come down the glidepath
 hold velocities/vc-kts vref-8 vref+12 Hold the approach speed
+need velocities/h-dot-fps >= -30 Arrive over the threshold coming down the glidepath, not falling
 until position/h-agl-ft <= 50
 
 stage Over the threshold

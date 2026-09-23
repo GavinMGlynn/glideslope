@@ -226,14 +226,44 @@ Controls Lander::fly() {
         const double ground_fpm = s.airspeed_kts * 101.269 * std::tan(glidepath_rad_);
         const double want_fpm = std::clamp(-ground_fpm - high_m * 40.0, -1200.0, 300.0);
         const double fpm_error = want_fpm - s.climb_rate_fpm;
-        want_pitch = std::clamp(0.006 * fpm_error, -8.0, 10.0);
+        // **The attitude the path needs, plus a correction for being off
+        // it.** It was the correction alone, 0.006 degrees a foot a minute,
+        // so an aeroplane that needs its nose up on the glidepath could only
+        // get it by sinking faster than the path: twelve degrees, which the
+        // F-35B needs at its reference speed, took 2,000 ft/min of error. A
+        // light aeroplane flies the path near level and never showed it. The
+        // attitude is learnt, slowly, while the correction is not at a limit,
+        // and the limit is fifteen degrees, not ten.
+        if (!path_pitch_set_) {
+            path_pitch_ = s.pitch_deg;
+            path_pitch_set_ = true;
+        }
+        want_pitch = path_pitch_ + 0.006 * fpm_error;
+        if (want_pitch > -8.0 && want_pitch < 15.0) {
+            path_pitch_ = std::clamp(path_pitch_ + 0.0006 * fpm_error / steps_per_second,
+                                     -8.0, 15.0);
+        }
+        want_pitch = std::clamp(want_pitch, -8.0, 15.0);
         flare_pitch_ = s.pitch_deg;
 
-        // The speed, on the throttle.
+        // The speed, on the throttle - **and the path too, once the nose has
+        // run out.** Pitch for the path and power for the speed is right for
+        // an aeroplane on the front of its drag curve, which is where a
+        // reference speed is meant to put it. The F-35B at its reference speed
+        // is not: six knots fast, the throttle closed; it sank; the nose came
+        // up to the ten degrees it is allowed and to twenty degrees of alpha,
+        // which is all drag, and it sank at 43 ft/s onto the runway with the
+        // throttle still shut because the speed was still on target. On the
+        // back of the curve a pilot flies the path with the power. So a sink
+        // more than 300 ft/min faster than the glidepath asks for opens the
+        // throttle in proportion, and stops it winding back while it lasts.
+        // An approach that is on its path never comes near the margin.
         const double speed_error = speeds_.vref_kts - kcas;
-        throttle_ = std::clamp(throttle_ + speed_error * 0.004 / steps_per_second * 60.0,
-                               0.0, 1.0);
-        c.throttle = std::clamp(throttle_ + speed_error * 0.01, 0.0, 1.0);
+        const double sinking_fpm = std::max(0.0, fpm_error - 300.0);
+        throttle_ = std::clamp(
+            throttle_ + (speed_error * 0.004 * 60.0 + sinking_fpm * 0.0002) / steps_per_second,
+            0.0, 1.0);
+        c.throttle = std::clamp(throttle_ + speed_error * 0.01 + sinking_fpm * 0.0005, 0.0, 1.0);
     }
 
     const double pitch_error = want_pitch - s.pitch_deg;

@@ -118,6 +118,10 @@ private:
     // to the runway rather than down it.
     double across_trim_ = 0.0;
     double flare_pitch_ = 0.0;
+    // The attitude that holds the glidepath, learnt as she flies it; taken
+    // from the attitude she has on the first step of the approach.
+    double path_pitch_ = 0.0;
+    bool path_pitch_set_ = false;
     bool touched_ = false;
 
     void measure();

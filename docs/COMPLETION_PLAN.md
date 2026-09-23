@@ -211,10 +211,11 @@ ends in a debrief, never a score.
 - [ ] **Lessons** — take-off, the circuit, climbs and descents, turns, stalls,
       approach and landing — for each class of aircraft. *Verification: flown to
       the book every stage passes; flown with a stated fault, the debrief names
-      that fault and no other.* **In progress.** Missing: take-off, approach,
-      stalls and the circuit for the airliners, fighters, bomber and seaplane,
-      and take-off and the circuit for the business jet; the 747-400 and F-22A
-      are taught turns alone.
+      that fault and no other.* **In progress.** Missing: take-off, stalls and
+      the circuit for the airliners, fighters and bomber; take-off, approach,
+      stalls and the circuit for the seaplane; take-off and the circuit for
+      the business jet; and a fault flown for every class's lesson, not only
+      the light aircraft's. The 747-400 and F-22A are taught turns alone.
 - [x] **The instructor demonstrates, then hands over.** *Verification: the AI
       pilot flies each lesson within its limits and hands the controls over and
       back with no step.* Done 2026-09-23.

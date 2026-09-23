@@ -40,6 +40,30 @@ struct InitialConditions {
     // Retractable gear starts where this puts it, 1 down and 0 up, rather
     // than retracting in the first seconds of a flight begun in the air.
     double gear = 1.0;
+    // **The flaps start where this puts them**, 0 up and 1 fully down, rather
+    // than running out at their own rate from the first step. A flight begun
+    // on an approach is begun at a speed that belongs to the landing flap,
+    // and an A380 started clean at its landing reference speed of 136 knots
+    // stalled before its flaps were a third of the way out: it fell from 688
+    // feet to the runway in ten seconds at 31 degrees of alpha. 0, the
+    // default, leaves the flaps up and every other start exactly as it was.
+    double flaps = 0.0;
+    // **The flight path starts at this angle**, degrees, negative descending.
+    // A flight begun on an approach is begun on the glidepath, and one
+    // started level at the glidepath's height has to be pitched over into
+    // the descent first: the approach autopilot did it in the first few
+    // seconds and overshot, the A320 reaching 30 ft/s of sink three seconds
+    // in, which is a capture and not an approach. 0, the default, starts
+    // level, as every other start does.
+    double flight_path_deg = 0.0;
+    // **Trimmed for that flight path**: JSBSim's longitudinal trim finds the
+    // angle of attack, elevator and power that hold the speed on it. Without
+    // it the aeroplane starts with its nose on the path and no angle of
+    // attack at all, so no lift: an F-15C started on a three-degree approach
+    // dropped at 41 ft/s and ran from 196 knots to 208 in the first two
+    // seconds, before the autopilot's elevator had caught it. False, the
+    // default, leaves every other start exactly as it was.
+    bool trim = false;
 };
 
 // What the pilot is doing, each in JSBSim's normalised command range.
@@ -220,6 +244,10 @@ public:
     // with the engine running if asked. Throws std::runtime_error if JSBSim
     // refuses.
     void initialize(const InitialConditions& ic);
+    // Whether the last `initialize` asked to trim and JSBSim could.
+    bool trimmed() const {
+        return trimmed_;
+    }
 
     // The controls take effect from the next step.
     void set_controls(const Controls& controls);
@@ -260,6 +288,7 @@ private:
 
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
+    bool trimmed_ = false;
     bool initialized_ = false;
     std::shared_ptr<Terrain> terrain_;
     // Each contact point's height above the surface, by JSBSim's property:
