@@ -140,7 +140,9 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_nobody_has_heard_from_is_not_carried_on_for_ever
     an_aircraft_turning_through_north_takes_the_short_way_round
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
+    prediction_reconciled_from_motion_alone_stays_within_its_bound_at_100_and_200_ms
     a_client_that_flew_different_inputs_is_put_back_where_the_server_says
+    a_client_that_flew_different_inputs_is_put_back_by_the_servers_motion_alone
     a_lesson_written_down_and_read_back_is_the_one_that_was_written
     a_lesson_file_that_is_wrong_is_refused_and_says_where
     the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief
@@ -171,6 +173,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_truncation_of_a_state_packet_is_refused
     every_single_byte_change_to_a_state_packet_is_read_or_refused
     a_state_packet_refuses_a_nan_and_an_infinity_in_every_field
+    a_state_packet_carries_the_clients_own_motion
     a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_not_know
     a_state_packet_with_a_controller_that_is_not_one_is_refused
     the_transport_document_and_the_code_agree_about_the_state_packet

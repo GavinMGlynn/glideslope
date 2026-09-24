@@ -51,4 +51,22 @@ Prediction::Correction Prediction::reconcile(const AircraftSnapshot& server,
     return out;
 }
 
+Prediction::Correction Prediction::reconcile(const Motion& server,
+                                             std::uint32_t last_applied) {
+    const AircraftState was = aircraft_.state();
+    while (!held_.empty() && held_.front().sequence <= last_applied) {
+        held_.pop_front();
+    }
+    aircraft_.set_motion(server);
+    Correction out;
+    for (const Applied& a : held_) {
+        aircraft_.set_controls(a.controls);
+        aircraft_.step();
+        ++out.replayed;
+    }
+    out.moved_m = how_far_apart_m(was, aircraft_.state());
+    out.snapped = out.moved_m > snap_beyond_m;
+    return out;
+}
+
 } // namespace glideslope::sim

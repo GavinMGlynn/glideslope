@@ -175,23 +175,43 @@ GLIDESLOPE_TEST(every_single_byte_change_to_a_state_packet_is_read_or_refused) {
                 whole->size() * 8, refused, read_back);
 }
 
-// **A number that is not one is refused, in every field that holds one.** All
-// ten numeric fields of an aircraft and the clock, against a NaN and both
-// infinities: thirty-three cases, counted.
+// **A number that is not one is refused, in every field that holds one.** The
+// clock, the nine numbers of an aircraft, and the thirteen of the client's own
+// motion - twenty-three fields - against a NaN and both infinities: sixty-nine
+// cases, counted.
 GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const double up = std::numeric_limits<double>::infinity();
     const std::vector<double> wrong = {nan, up, -up};
 
+    // A packet with two aircraft and this client's own motion, so that every
+    // numeric field there is can be set.
+    const auto a_full_packet = [] {
+        StatePacket s = a_packet(2);
+        glideslope::net::OwnMotion m;
+        m.x_m = -4646000.5;
+        m.y_m = 2553000.25;
+        m.z_m = -3534000.75;
+        m.attitude = {0.5F, 0.5F, 0.5F, 0.5F};
+        m.uvw_mps = {55.0F, 1.5F, -2.0F};
+        m.pqr_radps = {0.01F, -0.02F, 0.03F};
+        s.yours = m;
+        return s;
+    };
+
     // Setting one field of a packet, by number, so the walk can say how many
     // fields there are and check it covered them.
-    const std::size_t fields = 10; // the clock, three positions, three
-                                   // velocities and three angles
+    const std::size_t fields = 23; // the clock; an aircraft's three positions,
+                                   // three velocities and three angles; and the
+                                   // own motion's three positions, four
+                                   // quaternion terms, three velocities and
+                                   // three rates
     std::size_t walked = 0;
     for (const double bad : wrong) {
         for (std::size_t field = 0; field < fields; ++field) {
-            StatePacket s = a_packet(2);
+            StatePacket s = a_full_packet();
             AircraftState& a = s.aircraft[1];
+            glideslope::net::OwnMotion& m = *s.yours;
             const auto f = static_cast<float>(bad);
             switch (field) {
             case 0: s.simulation_time_s = bad; break;
@@ -204,29 +224,42 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
             case 7: a.heading_deg = f; break;
             case 8: a.pitch_deg = f; break;
             case 9: a.roll_deg = f; break;
-            default: check(false, "a field that is not one of the ten"); break;
+            case 10: m.x_m = bad; break;
+            case 11: m.y_m = bad; break;
+            case 12: m.z_m = bad; break;
+            case 13: case 14: case 15: case 16: m.attitude[field - 13] = f; break;
+            case 17: case 18: case 19: m.uvw_mps[field - 17] = f; break;
+            case 20: case 21: case 22: m.pqr_radps[field - 20] = f; break;
+            default: check(false, "a field that is not one of the twenty-three"); break;
             }
             check(!write_state(s).has_value(),
                   "field " + std::to_string(field) + " refuses being written");
 
             // And a reader given those bytes anyway refuses them: a writer
             // that will not make one is not a defence against one arriving.
-            const StatePacket honest = a_packet(2);
-            auto bytes = *write_state(honest);
-            // Where that field's bytes are: the header, then the field's
-            // place within the second aircraft.
+            auto bytes = *write_state(a_full_packet());
             const std::size_t header = glideslope::net::state_header_bytes;
+            const std::size_t per = glideslope::net::state_per_aircraft_bytes;
             std::size_t at = 0;
             bool is_float = false;
             if (field == 0) {
                 at = 1;
-            } else {
-                // Past the aircraft's index, controller and condition.
-                at = header + glideslope::net::state_bytes(1) - header + 3;
+            } else if (field <= 9) {
+                // The second aircraft, past its index, controller and condition.
+                at = header + per + 3;
                 if (field <= 3) {
                     at += (field - 1) * 8;
                 } else {
                     at += 3 * 8 + (field - 4) * 4;
+                    is_float = true;
+                }
+            } else {
+                // The own motion, past both aircraft and its flag.
+                at = header + 2 * per + 1;
+                if (field <= 12) {
+                    at += (field - 10) * 8;
+                } else {
+                    at += 3 * 8 + (field - 13) * 4;
                     is_float = true;
                 }
             }
@@ -252,6 +285,46 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
     }
     check(walked == wrong.size() * fields,
           "all " + std::to_string(wrong.size() * fields) + " cases were walked");
+    check(walked == 69, "sixty-nine cases, not " + std::to_string(walked));
+}
+
+// **A state packet carries this client's own motion, and nothing but a flag
+// when there is none**: written and read back the same, the size the code says,
+// and a flag other than nought or one refused.
+GLIDESLOPE_TEST(a_state_packet_carries_the_clients_own_motion) {
+    StatePacket s = a_packet(3);
+    glideslope::net::OwnMotion m;
+    m.x_m = -4646000.5;
+    m.y_m = 2553000.25;
+    m.z_m = -3534000.75;
+    m.attitude = {0.9F, 0.1F, -0.2F, 0.3F};
+    m.uvw_mps = {55.0F, 1.5F, -2.0F};
+    m.pqr_radps = {0.01F, -0.02F, 0.03F};
+    s.yours = m;
+    const auto with = write_state(s);
+    check(with.has_value(), "a packet with the client's motion is written");
+    check(with->size() == glideslope::net::state_bytes(3, true),
+          "and is " + std::to_string(glideslope::net::state_bytes(3, true)) + " bytes, not " +
+              std::to_string(with->size()));
+    const auto back = read_state(all_of(*with));
+    check(back.has_value() && *back == s, "and is read back the same");
+
+    const auto without = write_state(a_packet(3));
+    check(without.has_value() && without->size() == glideslope::net::state_bytes(3),
+          "a packet without it carries its flag alone");
+    std::size_t refused = 0;
+    for (int flag = 2; flag < 256; ++flag) {
+        auto bytes = *without;
+        bytes[glideslope::net::state_bytes(3) - 1] = static_cast<std::uint8_t>(flag);
+        if (!read_state(all_of(bytes))) {
+            ++refused;
+        }
+    }
+    check(refused == 254, "every flag but nought and one is refused: " +
+                              std::to_string(refused) + " of 254");
+    check(glideslope::net::state_bytes(20, true) <= 1218,
+          "a full packet with the client's motion fits a datagram: " +
+              std::to_string(glideslope::net::state_bytes(20, true)) + " bytes");
 }
 
 // **A controller this version does not know is not a packet.** All 256 bytes

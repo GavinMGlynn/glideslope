@@ -75,7 +75,7 @@ struct Flight {
 // JSBSim at 120 Hz. The client flies each input as it is made; the server
 // sees it `one_way` frames later, and its state comes back `one_way` frames
 // after that, which is the round trip.
-Flight fly(int frames, int one_way, int snapshot_every) {
+Flight fly(int frames, int one_way, int snapshot_every, bool by_motion = false) {
     Aircraft server_aircraft(data() / "jsbsim", "c172p");
     Aircraft client_aircraft(data() / "jsbsim", "c172p");
     set_up(server_aircraft);
@@ -85,6 +85,7 @@ Flight fly(int frames, int one_way, int snapshot_every) {
     struct Posted {
         int arrives_at_frame = 0;
         AircraftSnapshot state;
+        glideslope::sim::Motion motion;
         std::uint32_t last_applied = 0;
     };
     std::deque<Posted> post;
@@ -102,7 +103,9 @@ Flight fly(int frames, int one_way, int snapshot_every) {
             server_aircraft.set_controls(flying(theirs));
             server_aircraft.step();
             if (theirs % snapshot_every == 0) {
-                post.push_back({frame + one_way, server_aircraft.capture(),
+                post.push_back({frame + one_way,
+                                by_motion ? AircraftSnapshot{} : server_aircraft.capture(),
+                                server_aircraft.motion(),
                                 static_cast<std::uint32_t>(theirs + 1)});
             }
         }
@@ -110,7 +113,8 @@ Flight fly(int frames, int one_way, int snapshot_every) {
         // And the server's word arrives a further `one_way` frames later.
         while (!post.empty() && post.front().arrives_at_frame <= frame) {
             const Prediction::Correction c =
-                client.reconcile(post.front().state, post.front().last_applied);
+                by_motion ? client.reconcile(post.front().motion, post.front().last_applied)
+                          : client.reconcile(post.front().state, post.front().last_applied);
             out.worst_correction_m = std::max(out.worst_correction_m, c.moved_m);
             out.worst_replayed = std::max(out.worst_replayed, c.replayed);
             if (c.snapped) {
@@ -179,6 +183,33 @@ GLIDESLOPE_TEST(prediction_and_correction_stay_within_their_bounds_at_100_and_20
     check(walked == 2, "both latencies were flown");
 }
 
+// **Reconciled from its motion alone**, which is what a state update can
+// carry, prediction stays within its bound too - at 100 and 200 ms. The
+// client's own engines and actuators, flown on the same inputs, are left as
+// they are; only where the aeroplane is, how it points, and how fast it goes
+// and turns are put right.
+GLIDESLOPE_TEST(prediction_reconciled_from_motion_alone_stays_within_its_bound_at_100_and_200_ms) {
+    constexpr double bound_m = 0.1;
+    std::size_t walked = 0;
+    for (const int latency_ms : {100, 200}) {
+        const int one_way = latency_ms * steps_per_second / 2000;
+        const Flight f = fly(6 * steps_per_second, one_way, steps_per_second / 20, true);
+        std::printf("  %3d ms by motion: %zu reconciliations, worst correction %.4f m, "
+                    "replayed up to %zu inputs\n",
+                    latency_ms, f.reconciliations, f.worst_correction_m, f.worst_replayed);
+        check(f.reconciliations > 50, "the server was heard from " +
+                                          std::to_string(f.reconciliations) + " times");
+        check(f.snapped == 0, "no correction was snapped at " + std::to_string(latency_ms) +
+                                  " ms: " + std::to_string(f.snapped));
+        check(f.worst_correction_m <= bound_m,
+              "at " + std::to_string(latency_ms) + " ms the worst correction by motion was " +
+                  std::to_string(f.worst_correction_m) + " m, over the " +
+                  std::to_string(bound_m) + " m bound");
+        ++walked;
+    }
+    check(walked == 2, "both latencies were flown");
+}
+
 // **A client that ignores the server drifts, and reconciling puts it back.**
 // Without this, a reconciliation that did nothing at all would pass the test
 // above, because doing nothing moves the aeroplane no distance.
@@ -225,5 +256,54 @@ GLIDESLOPE_TEST(a_client_that_flew_different_inputs_is_put_back_where_the_server
     check(apart_after < 0.01, "and is now where the server says, within " +
                                   std::to_string(apart_after) + " m");
     std::printf("  drifted %.0f m, snapped back to within %.4f m\n", apart_before,
+                apart_after);
+}
+
+// **And from the server's motion alone**, which is what goes over the wire:
+// the same drift, put right as far as where it is and how it moves - which is
+// all a state update carries.
+GLIDESLOPE_TEST(a_client_that_flew_different_inputs_is_put_back_by_the_servers_motion_alone) {
+    Aircraft server_aircraft(data() / "jsbsim", "c172p");
+    Aircraft client_aircraft(data() / "jsbsim", "c172p");
+    set_up(server_aircraft);
+    set_up(client_aircraft);
+    Prediction client(client_aircraft);
+
+    // The client holds the stick over; the server never saw that input.
+    Controls hard;
+    hard.throttle = 1.0;
+    hard.mixture = 1.0;
+    hard.aileron = 1.0;
+    hard.elevator = -0.3;
+    for (int i = 0; i < steps_per_second * 3; ++i) {
+        client.step(static_cast<std::uint32_t>(i + 1), hard);
+    }
+    Controls level;
+    level.throttle = 0.7;
+    level.mixture = 1.0;
+    for (int i = 0; i < steps_per_second * 3; ++i) {
+        server_aircraft.set_controls(level);
+        server_aircraft.step();
+    }
+
+    const double apart_before = glideslope::sim::how_far_apart_m(
+        client_aircraft.state(), server_aircraft.state());
+    check(apart_before > 50.0, "they had flown far apart: " +
+                                   std::to_string(apart_before) + " m");
+
+    // The server has applied everything; nothing is left to fly again.
+    const Prediction::Correction c = client.reconcile(
+        server_aircraft.motion(), static_cast<std::uint32_t>(steps_per_second * 3));
+    check(client.unacknowledged() == 0, "nothing was left unacknowledged");
+    check(c.replayed == 0, "and nothing had to be flown again");
+    check(c.snapped, "a correction that large is snapped, not hidden");
+    check(c.moved_m > 50.0, "the aeroplane was moved " + std::to_string(c.moved_m) +
+                                " m to where the server says");
+
+    const double apart_after = glideslope::sim::how_far_apart_m(
+        client_aircraft.state(), server_aircraft.state());
+    check(apart_after < 0.01, "and is now where the server says, within " +
+                                  std::to_string(apart_after) + " m");
+    std::printf("  by motion: drifted %.0f m, snapped back to within %.4f m\n", apart_before,
                 apart_after);
 }

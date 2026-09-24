@@ -556,6 +556,14 @@ std::optional<StateUpdate> read_state(std::span<const std::uint8_t> pt) {
         a.roll = r.f32();
         u.aircraft.push_back(a);
     }
+    // Added when TRANSPORT.md added it (2026-09-24): this client's own motion,
+    // after a flag. The client does not predict, so it reads it and moves on.
+    const std::uint8_t has_own = r.u8();
+    if (has_own > 0x01) r.fail();
+    if (has_own == 0x01) {
+        for (int j = 0; j < 3; ++j) static_cast<void>(r.f64());   // position
+        for (int j = 0; j < 10; ++j) static_cast<void>(r.f32());  // attitude, velocity, rates
+    }
     if (!r.complete()) return std::nullopt;
     return u;
 }

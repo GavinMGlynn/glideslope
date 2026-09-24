@@ -193,6 +193,19 @@ struct AircraftSnapshot {
                     // readable and writable
 };
 
+// **An aircraft's motion alone**: where it is, which way it points, how fast it
+// goes and turns - what a client's prediction is put right by, many times a
+// second. Not a snapshot: nothing of the engines, the actuators or the fuel,
+// which a client flying the same inputs already has, and which a restore
+// settles for two simulated seconds to write back - far too slow to do at
+// the rate state updates arrive.
+struct Motion {
+    std::array<double, 3> location_ecef_m{}; // Earth-centred, Earth-fixed
+    std::array<double, 4> attitude_local{};  // quaternion, body to north-east-down
+    std::array<double, 3> uvw_mps{};         // body-axis velocity relative to the Earth
+    std::array<double, 3> pqr_radps{};       // body-axis rates relative to the Earth
+};
+
 // One aircraft: a JSBSim instance loaded from model files.
 //
 // JSBSim's headers stay behind this class, so nothing that includes it compiles
@@ -288,6 +301,10 @@ public:
     // a different model. See aircraft.cpp for what is restored exactly, what
     // is settled, and why.
     void restore(const AircraftSnapshot& snapshot);
+    // Its motion, and its motion set - nothing else about it touched, and
+    // nothing settled: the integrator starts afresh from the new state.
+    Motion motion() const;
+    void set_motion(const Motion& m);
 
     // Any JSBSim property by name, for code that needs more than state()
     // reports - the published-figure checks read the gear, the flaps and the
