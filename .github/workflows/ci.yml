@@ -600,3 +600,57 @@ jobs:
         with: { pattern: flights-*, path: flights, merge-multiple: true }
       - name: Compare
         run: cmake -DDIR=flights -P tests/cmake/cross_platform_flights.cmake
+
+  # ---------------------------------------------------------------------------
+  # The server as it is deployed: deploy/Dockerfile's image, built with
+  # -DGLIDESLOPE_SERVER_ONLY=ON, and a server started from it accepting a
+  # client. Nothing built that configuration before this job, and the image
+  # had never been built at all - so neither was known to work.
+  # ---------------------------------------------------------------------------
+  server-image:
+    name: The server's container image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: recursive }
+      - name: Build the image
+        run: docker build -f deploy/Dockerfile -t glideslope-server .
+      - name: A server started from it accepts a client
+        run: |
+          docker run -d --name server --network host glideslope-server \
+              --headless --port 47801 --ai 0 --seconds 120 \
+              --store /var/lib/glideslope/server.sqlite
+          key=""
+          for i in $(seq 60); do
+            key=$(docker logs server 2>&1 | sed -n 's/^server key \([0-9a-f]\{64\}\)$/\1/p')
+            [ -n "$key" ] && break
+            sleep 1
+          done
+          if [ -z "$key" ]; then docker logs server; echo "the server printed no key"; exit 1; fi
+          docker run --rm --network host --entrypoint /opt/glideslope/glideslope_cli \
+              glideslope-server connect "127.0.0.1:47801" "$key" 3
+          docker logs server
+          docker logs server 2>&1 | grep -q "^admitted " || { echo "the server admitted nobody"; exit 1; }
+          docker run --rm --entrypoint /opt/glideslope/glideslope_server glideslope-server \
+              --window --seconds 1 --ai 0 2>&1 | tee window.txt || true
+          grep -q "built without one" window.txt || { echo "--window was not refused as built without one"; exit 1; }
+
+  # ---------------------------------------------------------------------------
+  # **CI passed**: every job above, green. It is the one check main's
+  # protection asks for, so that a job added, renamed or split into shards is
+  # covered without the protection being edited to name it.
+  # ---------------------------------------------------------------------------
+  all-green:
+    name: CI passed
+    if: ${{ always() }}
+    needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, windows-build,
+            windows-test, cross-platform, server-image]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null

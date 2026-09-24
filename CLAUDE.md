@@ -63,10 +63,23 @@ frame is not allowed.
 - **Coverage is asserted, not believed.** A test that walks a space states how
   big the space is and how much of it it covered, and fails when those differ.
   Anything left out is named in the test, with its reason.
-- **Commit each finished item and push — every commit, straight away.** A commit
-  that is only local has not landed: the Windows and Linux working copies meet
-  on GitHub and nowhere else. Rewriting history that is already pushed needs the
-  project owner's say-so.
+- **Each item on its own branch, into `main` by pull request when CI is green
+  everywhere.** `main` is protected on GitHub: nothing is pushed to it
+  directly, by anybody. Work an item on a branch named for it, commit as it
+  goes, and push every commit to that branch straight away - a commit only
+  local has not landed: the Windows and Linux working copies meet on GitHub and
+  nowhere else. Open its pull request with the first push; CI runs on every
+  push to it. It merges (`gh pr merge --rebase`) only when the one required
+  check, **CI passed**, is green - every job on every platform - with the
+  branch up to date with `main`. A red run is fixed on the branch. Rewriting
+  history that is already pushed needs the project owner's say-so.
+- **Before pushing code that is not Linux's alone** - sockets, windows, file
+  paths, anything under `#ifdef _WIN32` or Apple's - build it on Windows first:
+  `tools/windows_build.sh` builds this branch in the Windows working copy from
+  WSL. Code that only CI compiles is code nobody has compiled.
+- **A test that takes time takes simulated time.** Count steps, not seconds,
+  and bound what a slow machine could delay. Before pushing a test that runs
+  programs against each other, run it slowed: `tools/slow_ctest.sh -R NAME`.
 - **Every commit that lands an item updates both living docs in that same
   commit**: `docs/PROJECT_STATUS.md` (what now works, with its verification) and
   `docs/COMPLETION_PLAN.md` (tick the item, add any tails found on the way).
