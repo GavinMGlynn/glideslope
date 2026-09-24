@@ -591,8 +591,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { what: stick, regex: 'virtual_stick_and_throttle|bound_inputs_set_the_controls', times: 250 }
-          - { what: state, regex: '^a_client_hears_where_every_aircraft_is$|no_z_fighting_on_direct3d12', times: 40 }
+          - { what: stick, regex: 'virtual_stick_and_throttle|bound_inputs_set_the_controls', times: 2000 }
+          - { what: state, regex: '^a_client_hears_where_every_aircraft_is$|no_z_fighting_on_direct3d12', times: 60 }
     env:
       SDL_LOGGING: gpu=debug
     steps:
