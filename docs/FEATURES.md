@@ -166,8 +166,13 @@ the controls to an AI pilot whenever you like, then take them back.
   One option to fly with whoever else is online, with no address to type.
 
 - **Run your own server.** `WANTED`
-  A server anyone can run, with a live window showing who is connected, how
-  well, and what is flying.
+  A server anyone can run, in one of two ways, chosen when it starts. In a
+  terminal - the default, and what a server in the cloud with no screen runs -
+  it shows who is connected, how well and how much they are sending, and what
+  is flying, or just a log of what happens for a machine nobody watches. In a
+  window, when asked for, it shows the same things with a list of who came and
+  went and a button beside each player to drop them; closing the window stops
+  the server.
 
 ## The platform
 

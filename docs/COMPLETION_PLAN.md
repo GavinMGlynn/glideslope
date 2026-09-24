@@ -225,10 +225,15 @@ ends in a debrief, never a score.
 - [x] **Reliable delivery** for the session's messages. *Verification: every
       message arrives exactly once and in order under injected loss.* Done
       2026-09-22.
-- [ ] **The server** — `glideslope_server`, its flags and a dashboard.
-      *Verification: every flag is tested, and a player count outside 1 to 4 is
-      refused.* **In progress.** Missing: the dashboard is in the terminal, with
-      no ping, traffic or drop control; `REQUIREMENTS.md` 6.6 asks for a window.
+- [ ] **The server** — `glideslope_server`, its flags, and a dashboard in the
+      terminal by default or in an SDL window with `--window`: who is
+      connected, their ping and traffic, what is flying, a log of who came and
+      went, and a drop button per player. `--headless` runs with neither, as a
+      cloud host does. *Verification: every flag is tested, a player count
+      outside 1 to 4 is refused, the window shows the same facts as the
+      terminal, its drop button drops that player, `--window` with no display
+      is refused, and without `--window` it runs where no display library is
+      installed.* **In progress.** Missing: `--window` and the window.
 - [x] **Lobby, identity and slot assignment.** *Verification: slots come out the
       same whatever order players connect in.* Done 2026-09-22.
 - [x] **The server flies every aircraft**, anywhere on Earth. *Verification:
@@ -325,7 +330,7 @@ Found while implementing something else. Added when found, not when remembered.
       server numbers a player's aircraft by the slot it had on arrival, and a
       later player can be handed a number already flying. *Verification: four
       clients joining in the reverse of their keys' order each fly their own
-      aircraft, under four different numbers.*
+      aircraft, under four different numbers.* Done 2026-09-24.
 - [x] **Stalls entered in the landing configuration.** *Verification: the
       stall is entered in the configuration its reference speed was measured
       in, and every aeroplane recovers within the lesson's height.* Done
