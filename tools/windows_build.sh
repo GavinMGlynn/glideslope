@@ -51,10 +51,11 @@ if [[ -n "$(git.exe -C "$(wslpath -w "$clone")" status --porcelain --untracked-f
 fi
 win_clone="$(wslpath -w "$clone")"
 # This repository, as Windows reaches it: \\wsl.localhost\<distro>\... Git on
-# Windows would refuse it as owned by somebody else, so it is named safe for
-# this one command.
+# Windows refuses it as owned by somebody else; the upload-pack that reads it
+# is a process of its own, so it is told it is safe itself, for this fetch.
 here_unc="$(wslpath -w "$here")"
-git.exe -c "safe.directory=*" -C "$win_clone" fetch --quiet "$here_unc" "$commit"
+git.exe -C "$win_clone" fetch --quiet \
+    --upload-pack='git -c safe.directory=* upload-pack' "$here_unc" "$commit"
 git.exe -C "$win_clone" checkout --quiet -B "$branch" "$commit"
 git.exe -C "$win_clone" submodule update --quiet --init --recursive
 
