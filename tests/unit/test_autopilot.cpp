@@ -640,6 +640,9 @@ GLIDESLOPE_TEST(a_cessna_172p_near_its_ceiling_holds_its_height_through_a_turn_a
 GLIDESLOPE_TEST(a_cessna_182_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft) {
     turns_near_the_ceiling_as_at_3000_ft("c182");
 }
+// The Cub has power to spare near its ceiling, so this passes with the bank
+// limit or without it: it pins that the Cub turns as well as it did, not the
+// limit. The other three are the ones seen to fail without it.
 GLIDESLOPE_TEST(a_piper_cub_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft) {
     turns_near_the_ceiling_as_at_3000_ft("j3cub");
 }
