@@ -319,7 +319,6 @@ Found while implementing something else. Added when found, not when remembered.
       autopilot's stall recovery**, and falls 20,000 ft. *Verification: every
       aeroplane stalled and left for thirty seconds is recovered within its
       lesson's height.*
-
 - [x] **A client assumed the server's clock keeps real time**, and drew other
       aircraft from guesses when a slow server's clock ran behind. *Verification:
       against servers at 80%, 100% and 125% of real time, with jitter and loss,
