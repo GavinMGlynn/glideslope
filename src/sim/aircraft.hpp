@@ -249,6 +249,15 @@ public:
     // afloat or planing has no weight on any wheel. False for an aircraft
     // with no hydrodynamics.
     bool in_water() const;
+    // **What is touching the ground this step**: a wheel - a leg of the
+    // undercarriage, which retracts, steers or brakes - and any other part of
+    // the airframe: a wingtip, a nose, a belly, a flying boat's keel. What the
+    // server judges a crash by (sim/crash.hpp).
+    struct Contact {
+        bool wheels = false;
+        bool airframe = false;
+    };
+    Contact contact() const;
     // Whether the last `initialize` asked to trim and JSBSim could.
     bool trimmed() const {
         return trimmed_;

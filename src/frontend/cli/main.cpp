@@ -41,6 +41,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <span>
 #include <stdexcept>
 #include <thread>
@@ -498,7 +499,10 @@ constexpr double inputs_every_s = 1.0 / 30.0;
 int stay(glideslope::platform::UdpSocket& socket,
          const glideslope::platform::Address& server, glideslope::net::Sealer& sealer,
          glideslope::net::Unsealer& unsealer, double seconds,
-         std::span<const std::uint8_t> initiation_again, bool fly) {
+         std::span<const std::uint8_t> initiation_again, bool fly, const std::string& me) {
+    // **Every aircraft's condition, as last heard**, so that a change -
+    // a wreck, or a wreck flying again - is said once, when it is heard.
+    std::map<std::uint8_t, glideslope::net::Condition> heard_as;
     // **A test flag's work**: send the initiation once more, now that the
     // session is up. A network that duplicates a datagram does this by
     // itself, and a server that answered it with a fresh session would leave
@@ -588,6 +592,23 @@ int stay(glideslope::platform::UdpSocket& socket,
             // **Its own aircraft**, which the server names in every update
             // because a client cannot reconcile without knowing which line is
             // its own.
+            // **Told of a collision**: said on standard error, with this
+            // client's name, so that a test running several clients at once
+            // can read what each one heard (standard output goes on down a
+            // pipe to the next program).
+            for (const glideslope::net::AircraftState& a : state->aircraft) {
+                const auto was = heard_as.find(a.index);
+                if (was == heard_as.end() || was->second != a.condition) {
+                    if (a.condition == glideslope::net::Condition::wrecked) {
+                        std::fprintf(stderr, "client %s: aircraft %u is a wreck\n", me.c_str(),
+                                     static_cast<unsigned>(a.index));
+                    } else if (was != heard_as.end()) {
+                        std::fprintf(stderr, "client %s: aircraft %u flies again\n",
+                                     me.c_str(), static_cast<unsigned>(a.index));
+                    }
+                    heard_as[a.index] = a.condition;
+                }
+            }
             for (const glideslope::net::AircraftState& a : state->aircraft) {
                 if (a.index == state->your_aircraft) {
                     if (std::abs(static_cast<double>(a.roll_deg)) >
@@ -753,7 +774,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                 again ? std::span<const std::uint8_t>(first.data(),
                                                                      first.size())
                                       : std::span<const std::uint8_t>(),
-                                fly);
+                                fly, mine.publik.text().substr(0, 8));
                 }
             }
         }

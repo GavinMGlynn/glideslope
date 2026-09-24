@@ -158,6 +158,11 @@ the controls to an AI pilot whenever you like, then take them back.
   Your aircraft responds on the frame you move the stick, even with the server
   on the other side of the world.
 
+- **Crashes happen, and cost a flight, not the session.** `WANTED`
+  Aircraft that meet in the air, or come down harder than their undercarriage
+  can take, are wrecked - everyone sees it - and a few seconds later fly again
+  from where they started.
+
 - **Leaving does not crash the aircraft.** `WANTED`
   When a player drops out, their aircraft either leaves the sky or an AI pilot
   takes it over, whichever the session chose.

@@ -309,6 +309,11 @@ back when the next snapshot arrives.
 
 **Collisions** (mid-air and ground) are resolved on the server. Clients may show
 predicted ground contact for their own aircraft; the server's result wins.
+**A crashed aircraft is a wreck, then flies again** (the project owner,
+2026-09-24): it stops where it hit and every client is told it is wrecked; a
+few seconds later a player's aircraft starts again where the session starts
+players, and an AI aircraft starts its plan again. A crash costs the flight,
+not the session.
 
 ### 6.5 AI aircraft
 

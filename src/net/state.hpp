@@ -43,10 +43,19 @@ inline constexpr std::size_t most_aircraft_in_a_state = 20;
 inline constexpr std::uint8_t no_aircraft = 255;
 
 // The kind byte, the clock, the input sequence, this client's own aircraft
-// and the count; then an index, a controller, three doubles and six floats
-// per aircraft. Named so that nothing has to count bytes twice.
+// and the count; then an index, a controller, a condition, three doubles and
+// six floats per aircraft. Named so that nothing has to count bytes twice.
 inline constexpr std::size_t state_header_bytes = 1 + 8 + 4 + 1 + 1;
-inline constexpr std::size_t state_per_aircraft_bytes = 1 + 1 + 3 * 8 + 6 * 4;
+inline constexpr std::size_t state_per_aircraft_bytes = 1 + 1 + 1 + 3 * 8 + 6 * 4;
+
+// **Whether an aircraft is flying or a wreck.** Collisions are the server's
+// to decide (sim/crash.hpp), and every client is told: a wreck stays where it
+// hit for a few seconds, then flies again from the start.
+enum class Condition : std::uint8_t {
+    flying = 0,
+    wrecked = 1,
+};
+bool known_condition(std::uint8_t value);
 
 // One aircraft, as the wire carries it.
 struct AircraftState {
@@ -54,6 +63,7 @@ struct AircraftState {
     // flies. Not a slot: an AI aircraft has no slot.
     std::uint8_t index = 0;
     Controller controller = Controller::nobody;
+    Condition condition = Condition::flying;
     // Earth-centred, Earth-fixed, metres.
     double x_m = 0.0;
     double y_m = 0.0;
@@ -94,7 +104,8 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state);
 
 // A state packet out of a sealed body's plaintext. Nothing if it is not one:
 // too short, too long, the wrong kind, too many aircraft, anything left over
-// at the end, a controller this version does not know, or a non-finite
+// at the end, a controller or a condition this version does not know, or a
+// non-finite
 // number.
 std::optional<StatePacket> read_state(std::span<const std::uint8_t> body);
 

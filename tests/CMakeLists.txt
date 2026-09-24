@@ -39,6 +39,7 @@ add_executable(glideslope_tests
     unit/test_lesson.cpp
     unit/test_levers.cpp
     unit/test_wheels_up.cpp
+    unit/test_crash.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
     unit/test_dem.cpp
@@ -89,6 +90,10 @@ glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
     every_aircraft_put_down_with_its_wheels_up_rests_on_its_airframe
+    every_landplane_dropped_harder_than_its_gear_takes_is_wrecked_and_set_down_gently_is_not
+    an_aircraft_that_comes_down_on_its_airframe_is_wrecked
+    a_landplane_on_water_is_wrecked_and_a_flying_boat_afloat_is_not
+    two_aircraft_within_their_wingspans_have_collided_and_none_can_pass_between_steps
     the_keyboard_moves_every_lever_it_names_and_leaves_it_where_it_is_put
     a_binding_moves_every_lever_the_controls_have
     the_short_s23_in_coarse_pitch_at_normal_boost_turns_within_its_rated_rpm
@@ -166,6 +171,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_truncation_of_a_state_packet_is_refused
     every_single_byte_change_to_a_state_packet_is_read_or_refused
     a_state_packet_refuses_a_nan_and_an_infinity_in_every_field
+    a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_not_know
     a_state_packet_with_a_controller_that_is_not_one_is_refused
     the_transport_document_and_the_code_agree_about_the_state_packet
     the_kinds_inside_a_sealed_body_are_the_five_the_document_names
@@ -1000,6 +1006,14 @@ add_test(NAME the_server_refuses_the_windows_test_flags_without_a_window
         -DEXIT=2 "-DSTDERR_MATCHES=there is none without --window"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
+# **An aircraft flown by hand points where it is told**, and a heading off the
+# compass is refused.
+add_test(NAME the_server_refuses_a_heading_off_the_compass
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--fly c172p@-33.9,151.3,360 --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--fly wants a heading from 0 to 360"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
 # **A player count outside 1 to 4 is refused**, which is the item's own
 # verification. Both ends of the range and both sides of them are tried.
 add_test(NAME the_server_refuses_a_session_of_no_players
@@ -1195,6 +1209,18 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_no_display.cmake)
 endif()
+
+# **Two aircraft on a collision course collide on the server, every client is
+# told, and both fly again.** See cmake/server_collision.cmake.
+add_test(NAME two_aircraft_on_a_collision_course_collide_on_the_server_and_every_client_is_told
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_collision -DPORT=47852
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_collision.cmake)
+set_tests_properties(two_aircraft_on_a_collision_course_collide_on_the_server_and_every_client_is_told
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_collision)
 
 # **Every flag the server prints in its usage is one it takes.** A flag added
 # to the usage and not to the parser is documented and silently ignored; see

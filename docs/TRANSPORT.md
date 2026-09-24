@@ -531,6 +531,7 @@ Then, for each aircraft:
 | --- | --- |
 | `u8` | the server's number for this aircraft, steady for as long as it flies |
 | `u8` | who is flying it, a `CONTROLLER` |
+| `u8` | whether it is flying or a wreck: `00` flying, `01` wrecked |
 | `f64` | its position, Earth-centred and Earth-fixed, metres, x |
 | `f64` | the same, y |
 | `f64` | the same, z |
@@ -555,7 +556,7 @@ the server's to hand out.
 
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
-full is 1,015 bytes, and 1,045 with the envelope and the sealing in front of
+full is 1,035 bytes, and 1,065 with the envelope and the sealing in front of
 it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 
@@ -565,9 +566,14 @@ are given - a client is admitted, knocked on and kept, and never told where
 anything is. A client is given an aircraft when it is admitted if the server
 has one to give, and `FF` otherwise.
 
+**A wreck** is an aircraft that has crashed - into another, or into the ground
+harder than its gear takes. The server decides it and says it here, and the
+aircraft stays where it hit, a wreck, for a few seconds; then it flies again
+from where it started, under the same number, `00` again.
+
 **A reader refuses**: a kind that is not `03`, fewer bytes than the fields
-need, any byte left over at the end, more than 20 aircraft, a controller this
-version does not know, and any NaN or infinity in any of the ten numbers. It
+need, any byte left over at the end, more than 20 aircraft, a controller or a
+condition this version does not know, and any NaN or infinity in any of the ten numbers. It
 does not refuse a `your_aircraft` that names no aircraft in the packet: a
 client that cannot find itself has no aircraft yet, which is what `FF` says.
 

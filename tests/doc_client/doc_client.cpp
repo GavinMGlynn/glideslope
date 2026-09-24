@@ -523,6 +523,7 @@ std::optional<std::pair<std::uint8_t, std::span<const std::uint8_t>>> read_envel
 
 struct AircraftLine {
     std::uint8_t number = 0;
+    bool wrecked = false;
     float roll = 0.0f;
 };
 
@@ -546,6 +547,10 @@ std::optional<StateUpdate> read_state(std::span<const std::uint8_t> pt) {
         AircraftLine a;
         a.number = r.u8();
         if (r.u8() > 0x02) r.fail();  // a CONTROLLER this version does not know
+        // Added when TRANSPORT.md added it (2026-09-24): flying or a wreck.
+        const std::uint8_t condition = r.u8();
+        if (condition > 0x01) r.fail();  // a condition this version does not know
+        a.wrecked = condition == 0x01;
         for (int j = 0; j < 3; ++j) static_cast<void>(r.f64());  // position
         for (int j = 0; j < 5; ++j) static_cast<void>(r.f32());  // velocity, heading, pitch
         a.roll = r.f32();

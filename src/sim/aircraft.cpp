@@ -363,6 +363,31 @@ void Aircraft::initialize(const InitialConditions& ic) {
     initialized_ = true;
 }
 
+Aircraft::Contact Aircraft::contact() const {
+    Contact out;
+    const auto ground = exec_->GetGroundReactions();
+    for (int i = 0; i < ground->GetNumGearUnits(); ++i) {
+        const auto unit = ground->GetGearUnit(i);
+        if (!unit->GetWOW()) {
+            continue;
+        }
+        // **A wheel is a leg of the undercarriage**: one that retracts, steers
+        // or brakes. JSBSim's BOGEY is any rolling contact, and some models
+        // give the airframe rolling contacts too - the A320's nose, tail,
+        // engines and wingtips are BOGEYs - so the contact type alone called
+        // a belly landing on its engines a landing on wheels.
+        const bool wheel = unit->IsBogey() &&
+                           (unit->GetRetractable() || unit->GetSteerable() ||
+                            unit->GetBrakeGroup() != JSBSim::FGLGear::bgNone);
+        if (wheel) {
+            out.wheels = true;
+        } else {
+            out.airframe = true;
+        }
+    }
+    return out;
+}
+
 bool Aircraft::in_water() const {
     return hydrodynamics_ && exec_->GetPropertyValue("hydro/active-norm") > 0.0;
 }
