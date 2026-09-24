@@ -1408,6 +1408,16 @@ Result fly_a_stall(const std::string& id, bool sloppy) {
             const bool was_entering = run.stage() == 0;
             run.update(*f.aircraft, tick);
             const double agl = f.aircraft->property("position/h-agl-ft");
+            // **Into the ground is the end of the flight**, and the lesson is
+            // judged there: a B-2 left mushing for half a minute cannot be
+            // recovered by the autopilot's recovery (a tail), and flew into
+            // the ground on macOS with the recovery stage never over and
+            // nothing said.
+            if (agl <= 0.0) {
+                out.lowest_agl_ft = std::min(out.lowest_agl_ft, agl);
+                run.ended(*f.aircraft, tick);
+                break;
+            }
             out.lowest_agl_ft = std::min(out.lowest_agl_ft, agl);
             if (!was_entering && out.recovery_began_ft < 0.0) {
                 out.recovery_began_ft = agl;
@@ -1452,6 +1462,32 @@ GLIDESLOPE_TEST(the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief) {
         ++walked;
     }
     check(walked == taught.size(), "every aeroplane taught a stall was stalled");
+}
+
+// **A flight that ends before its lesson is judged where it ended.** A stage
+// that never came to its end - here one that ends at a speed no Cessna
+// reaches - has its needs judged when the flight ends: the one it has not met
+// is named and the one it has is not, the lesson is over, and nothing after
+// is judged. `ended` is what a lesson flown into the ground calls.
+GLIDESLOPE_TEST(a_lesson_whose_flight_ends_part_way_names_what_its_stage_still_needed) {
+    const Lesson lesson = parse_lesson(
+        "ends", "name Ends\nstage Climbing\ndo Climb\nuntil velocities/vc-kts >= 900\n"
+                "need position/h-agl-ft >= 100000 Climb higher than you can\n"
+                "need position/h-agl-ft >= 10 Stay off the ground\n");
+    InFlight f = airborne("c172p", 5000.0);
+    LessonRun run(lesson, f.speeds);
+    run.update(*f.aircraft, 0);
+    check(!run.finished() && run.debrief_lines().empty(),
+          "under way, the stage's needs are not due yet");
+    run.ended(*f.aircraft, 1);
+    const auto said = run.debrief_lines();
+    check(run.finished(), "the lesson is over once its flight is");
+    check(said.size() == 1 && said[0] == "Climb higher than you can",
+          "the need not met is named, and the one met is not: said " +
+              std::to_string(said.size()));
+    run.ended(*f.aircraft, 2);
+    run.update(*f.aircraft, 3);
+    check(run.debrief_lines().size() == 1, "and nothing after it is judged");
 }
 
 // **A stall recovered late and lazily loses height, and is named for it.**

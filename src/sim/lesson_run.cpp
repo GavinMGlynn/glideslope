@@ -189,6 +189,19 @@ void LessonRun::update(const Aircraft& aircraft, std::int64_t tick) {
     }
 }
 
+void LessonRun::ended(const Aircraft& aircraft, std::int64_t tick) {
+    if (finished()) {
+        return;
+    }
+    if (!noted_) {
+        remember_the_start(aircraft);
+        noted_ = true;
+    }
+    judge_needs(aircraft, tick);
+    stage_ = lesson_.stages.size();
+    already_.clear();
+}
+
 std::vector<std::string> LessonRun::debrief_lines() const {
     std::vector<std::string> out;
     out.reserve(debrief_.size());
