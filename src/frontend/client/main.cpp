@@ -20,6 +20,7 @@
 // state after every tick.
 
 #include "flight.hpp"
+#include "platform/end_process.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
@@ -211,7 +212,7 @@ std::optional<std::array<double, 3>> parse_triple(std::string_view text) {
 
 } // namespace
 
-int main(int argc, char** argv) {
+static int run_program(int argc, char** argv) {
     // First: a failed assert prints and ends the program rather than
     // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
     glideslope::platform::no_crash_dialogs();
@@ -985,4 +986,10 @@ int main(int argc, char** argv) {
     }
     SDL_Quit();
     return status;
+}
+
+int main(int argc, char** argv) {
+    // The process ends with its C runtime whole until every other thread has
+    // stopped - Windows' own threads too (platform/end_process.hpp).
+    glideslope::platform::end_process(run_program(argc, argv));
 }

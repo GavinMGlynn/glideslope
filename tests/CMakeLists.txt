@@ -63,7 +63,8 @@ add_executable(glideslope_tests
     unit/test_restore.cpp
     unit/test_sky.cpp
     unit/test_model.cpp
-    unit/test_imagery.cpp)
+    unit/test_imagery.cpp
+    unit/test_process_end.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform
                                                glideslope_input glideslope_model CesiumImage)
 # Where tests/cmake/fetch.cmake puts the files the tests download. A directory
@@ -451,11 +452,32 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong
     no_flight_model_opens_a_network_socket
     a_download_cannot_be_killed_by_a_server_hanging_up
-    a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound)
+    a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound
+    a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone)
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
+    # Registered below: its result is what the program says after main.
+    if(WIN32 AND _t STREQUAL "a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone")
+        continue()
+    endif()
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
 endforeach()
+
+# **A program that has ended can still allocate until its last thread is gone**
+# (tests/unit/test_process_end.cpp, src/platform/end_process.hpp). What it
+# checks happens after main has returned, in the loader's last call into the
+# program, so the ctest reads the line that call writes and the exit code both.
+# The timeout is for a runtime whose heap lock is gone: that can hang rather
+# than crash.
+if(WIN32)
+    add_test(NAME a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone
+        COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:glideslope_tests>
+            -DARGS=a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone
+            -DEXIT=0 "-DSTDERR_MATCHES=the runtime still allocates as the process ends"
+            -P ${GLIDESLOPE_EXPECT_RUN})
+    set_tests_properties(a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone
+        PROPERTIES TIMEOUT 120)
+endif()
 
 # The files the tests download - DEM tiles, the geoid - fetched once, before the
 # tests that read them, and checked against their pinned SHA-256.

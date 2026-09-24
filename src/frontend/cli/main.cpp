@@ -5,6 +5,7 @@
 // test, and inside the server.
 
 #include "net/handshake.hpp"
+#include "platform/end_process.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "net/inputs.hpp"
 #include "net/inside.hpp"
@@ -18,6 +19,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/figures.hpp"
+#include "sim/fixed_step.hpp"
 #include "sim/selftest.hpp"
 #include "sim/version.hpp"
 #include "world/dem.hpp"
@@ -179,7 +181,7 @@ int height(const std::filesystem::path& data, std::string_view latitude_text,
         if (copy.empty() || *end != '\0' || !(v >= low && v <= high)) {
             std::fprintf(stderr, "glideslope_cli: %s must be a number from %g to %g\n",
                          what, low, high);
-            std::exit(2);
+            glideslope::platform::end_process(2);
         }
         return v;
     };
@@ -306,7 +308,7 @@ int sky(const std::filesystem::path& data, std::string_view report,
         if (copy.empty() || *end != '\0' || !(v >= low && v <= high)) {
             std::fprintf(stderr, "glideslope_cli: %s must be a number from %g to %g\n",
                          what, low, high);
-            std::exit(2);
+            glideslope::platform::end_process(2);
         }
         return v;
     };
@@ -507,6 +509,11 @@ int stay(glideslope::platform::UdpSocket& socket,
     const auto began = std::chrono::steady_clock::now();
     int answered = 0;
     int heard = 0;
+    // The simulation's step in the first and the last update heard: a test
+    // counts the twenty-fifths of a second between them and expects an update
+    // for each.
+    long long first_step = -1;
+    long long last_step = -1;
     std::size_t aircraft_last = 0;
     // **What this client flies, if it was told to.** Full left aileron and a
     // little up elevator: a thing no AI pilot on a flight plan would ever do,
@@ -571,6 +578,11 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (const auto state = glideslope::net::read_state(inside)) {
             ++heard;
             applied = state->last_input_applied;
+            last_step = std::llround(state->simulation_time_s *
+                                     static_cast<double>(glideslope::sim::steps_per_second));
+            if (first_step < 0) {
+                first_step = last_step;
+            }
             // **Its own aircraft**, which the server names in every update
             // because a client cannot reconcile without knowing which line is
             // its own.
@@ -618,6 +630,10 @@ int stay(glideslope::platform::UdpSocket& socket,
     std::printf("stayed %.1f s, answered %d ping%s and heard %d state update%s\n",
                 seconds, answered, answered == 1 ? "" : "s", heard,
                 heard == 1 ? "" : "s");
+    if (heard > 0) {
+        std::printf("state updates from step %lld to step %lld of the simulation\n",
+                    first_step, last_step);
+    }
     if (fly) {
         std::printf("sent %u input frames, the server applied %u\n", sequence,
                     applied);
@@ -740,7 +756,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
     }
 }
 
-int main(int argc, char** argv) {
+static int run_program(int argc, char** argv) {
     // First: a failed assert prints and ends the program rather than
     // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
     glideslope::platform::no_crash_dialogs();
@@ -897,4 +913,10 @@ int main(int argc, char** argv) {
     // finds out.
     print_usage(stderr);
     return 2;
+}
+
+int main(int argc, char** argv) {
+    // The process ends with its C runtime whole until every other thread has
+    // stopped - Windows' own threads too (platform/end_process.hpp).
+    glideslope::platform::end_process(run_program(argc, argv));
 }

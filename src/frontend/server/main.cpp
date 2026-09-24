@@ -10,6 +10,7 @@
 // startup, because a client cannot begin an `IK` handshake without it.
 
 #include "net/handshake.hpp"
+#include "platform/end_process.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "net/inputs.hpp"
 #include "net/inside.hpp"
@@ -414,11 +415,30 @@ struct Connection {
     std::uint32_t last_input_applied = 0;
 };
 
-// **How often the server says where everybody is.** `REQUIREMENTS.md` 6.6
-// asks for 20 to 30 Hz; 25 is the middle of it and divides the 120 Hz
-// simulation step exactly, so a state update always lands on a step boundary
-// rather than between two.
-constexpr double state_every_s = 1.0 / 25.0;
+// **How often the server says where everybody is: 25 times for every second
+// the simulation flies.** `REQUIREMENTS.md` 6.6 asks for 20 to 30 Hz, and 25
+// is the middle of it. An update goes out on the first step at or after each
+// twenty-fifth of a simulated second - steps 5, 10, 15, 20, 24, 29, ... since
+// 120 / 25 is 4.8 - so it is always a state the simulation reached, never one
+// between two steps.
+//
+// **Counted in simulated time, not on the wall clock.** It used to be once
+// per 1/25 s of wall clock, checked once per pass of the loop - and a pass
+// took every step that had fallen due in one go. A debug server sharing a
+// runner fell behind, its passes grew, and it said where everybody was nine
+// times in three seconds (CI run 35857600253). A client cannot use an update
+// the simulation has not moved on for anyway.
+constexpr std::int64_t states_per_second = 25;
+
+// **At most this many steps between two looks at the network**, and fewer
+// than 4.8, so that no pass crosses two twenty-fifths of a second and every
+// update is sent. Steps due beyond it are owed, not dropped: a server behind
+// real time catches up over the passes after, answering its clients all the
+// while, rather than going quiet for as long as the catching up takes.
+constexpr std::int64_t most_steps_between_looks = 4;
+static_assert(most_steps_between_looks * states_per_second <
+                  glideslope::sim::steps_per_second,
+              "a pass must not cross two state updates");
 
 // How often the server knocks on a connection. Twice within one `--timeout`
 // at the default of ten seconds, and often enough that a number on the
@@ -1134,10 +1154,15 @@ int run(const Options& o) {
     const auto began = std::chrono::steady_clock::now();
     auto last = began;
     glideslope::sim::FixedStep clock;
+    // Steps the clock says are due and the fleet has not yet taken, and the
+    // steps it has; see most_steps_between_looks.
+    std::int64_t owed = 0;
+    std::int64_t stepped = 0;
+    // The twenty-fifth of a simulated second the last update was for.
+    std::int64_t said_where_for = -1;
     std::uint64_t datagrams = 0;
     std::uint64_t bytes = 0;
     double drawn_at_s = -1.0;
-    double said_where_at_s = -1.0;
     // A datagram is at most this; anything larger is not one of ours.
     std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
     for (;;) {
@@ -1150,29 +1175,6 @@ int run(const Options& o) {
             bytes += got;
             take(*socket, mine, slots, connections, fleet ? &*fleet : nullptr, from,
                  std::span<const std::uint8_t>(into.data(), got), up_s, o);
-        }
-
-        // **Where everybody is, 25 times a second, to everybody connected.**
-        // Sent once and never repeated: a state update is worth nothing once
-        // a newer one exists, so repeating a lost one would deliver a stale
-        // position late.
-        if (fleet && up_s - said_where_at_s >= state_every_s && !connections.empty()) {
-            said_where_at_s = up_s;
-            glideslope::net::StatePacket packet =
-                state_of(*fleet,
-                         static_cast<double>(clock.steps_taken()) /
-                             static_cast<double>(glideslope::sim::steps_per_second));
-            for (auto& [address, c] : connections) {
-                packet.your_aircraft = c.aircraft;
-                packet.last_input_applied = c.last_input_applied;
-                const auto said = glideslope::net::write_state(packet);
-                const auto to = glideslope::platform::address_of(address);
-                if (said && to) {
-                    send_sealed(*socket, *to, c,
-                                std::span<const std::uint8_t>(said->data(),
-                                                              said->size()));
-                }
-            }
         }
 
         // **The server knocks on every connection once a second**, and the
@@ -1234,13 +1236,40 @@ int run(const Options& o) {
         // become due is taken, and the aircraft are stepped together so that
         // they share one clock.
         if (fleet) {
-            const std::int64_t due = clock.advance(
+            owed += clock.advance(
                 std::chrono::duration_cast<std::chrono::nanoseconds>(now - last));
-            for (std::int64_t i = 0; i < due; ++i) {
+            const std::int64_t n = std::min(owed, most_steps_between_looks);
+            for (std::int64_t i = 0; i < n; ++i) {
                 fleet->step();
             }
+            owed -= n;
+            stepped += n;
         }
         last = now;
+
+        // **Where everybody is, 25 times a simulated second, to everybody
+        // connected.** Sent once and never repeated: a state update is worth
+        // nothing once a newer one exists, so repeating a lost one would
+        // deliver a stale position late.
+        const std::int64_t twenty_fifth =
+            stepped * states_per_second / glideslope::sim::steps_per_second;
+        if (fleet && twenty_fifth > said_where_for) {
+            said_where_for = twenty_fifth;
+            glideslope::net::StatePacket packet =
+                state_of(*fleet, static_cast<double>(stepped) /
+                                     static_cast<double>(glideslope::sim::steps_per_second));
+            for (auto& [address, c] : connections) {
+                packet.your_aircraft = c.aircraft;
+                packet.last_input_applied = c.last_input_applied;
+                const auto said = glideslope::net::write_state(packet);
+                const auto to = glideslope::platform::address_of(address);
+                if (said && to) {
+                    send_sealed(*socket, *to, c,
+                                std::span<const std::uint8_t>(said->data(),
+                                                              said->size()));
+                }
+            }
+        }
 
         if (!o.headless && up_s - drawn_at_s >= dashboard_every_s) {
             draw_dashboard(o, slots, connections, fleet ? &*fleet : nullptr, up_s,
@@ -1257,13 +1286,25 @@ int run(const Options& o) {
         }
     }
 
+    // **The steps still owed are taken**, with nobody left to answer, so that
+    // what it says it flew below is the time it was given, however far behind
+    // a busy machine left it.
+    if (fleet) {
+        std::printf("was %lld step%s behind at the end\n", static_cast<long long>(owed),
+                    owed == 1 ? "" : "s");
+        for (; owed > 0; --owed) {
+            fleet->step();
+            ++stepped;
+        }
+    }
+
     // **What it flew, so that a run can be checked.** One line per aircraft:
     // where it is, how high, and the ground under it - which is the thing
     // that differs between two aircraft on opposite sides of the world.
     std::printf("ran %.3f s, %lld steps\n",
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
                     .count(),
-                static_cast<long long>(clock.steps_taken()));
+                static_cast<long long>(stepped));
     if (fleet) {
         for (const Fleet::Aircraft& a : fleet->flown()) {
             const glideslope::sim::AircraftState s = a.aircraft->state();
@@ -1286,7 +1327,7 @@ int run(const Options& o) {
 
 } // namespace
 
-int main(int argc, char** argv) {
+static int run_program(int argc, char** argv) {
     // First: a failed assert prints and ends the program rather than
     // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
     glideslope::platform::no_crash_dialogs();
@@ -1318,4 +1359,10 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "glideslope_server: %s\n", e.what());
         return 1;
     }
+}
+
+int main(int argc, char** argv) {
+    // The process ends with its C runtime whole until every other thread has
+    // stopped - Windows' own threads too (platform/end_process.hpp).
+    glideslope::platform::end_process(run_program(argc, argv));
 }

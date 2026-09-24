@@ -80,13 +80,13 @@ jobs:
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
           key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
           restore-keys: vcpkg-ubuntu-
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         with:
           path: .ccache
           key: ccache-ubuntu-${{ matrix.preset }}-${{ github.sha }}
@@ -96,7 +96,7 @@ jobs:
       # cache a compile GCC 14 has scanned - 80% of calls were uncacheable.
       - name: ${{ matrix.preset }} - configure
         run: cmake --preset ${{ matrix.preset }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
@@ -107,7 +107,7 @@ jobs:
           ccache --zero-stats
           cmake --build --preset ${{ matrix.preset }}
           ccache --show-stats
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: ${{ !cancelled() }}
         with:
           path: .ccache
@@ -119,7 +119,7 @@ jobs:
               --exclude=.ninja_deps --exclude=.ninja_log --exclude='frames' \
               build/${{ matrix.preset }}
           ls -la tree.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: 'tree-ubuntu-${{ matrix.preset }}', path: tree.tar.gz, retention-days: 1, compression-level: 0 }
 
       # For the cross-platform job at the end: what this platform's release
@@ -132,7 +132,7 @@ jobs:
           ./build/linux-release/glideslope_cli selftest > flights/ubuntu-gcc.selftest.txt
           ./build/linux-release/glideslope_cli air > flights/ubuntu-gcc.air.txt
           cat flights/*
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ matrix.preset == 'linux-release' }}
         with: { name: flights-ubuntu-gcc, path: flights/, if-no-files-found: error }
 
@@ -158,11 +158,11 @@ jobs:
       - uses: actions/checkout@v5
         with: { submodules: true }
       - uses: ./.github/actions/ubuntu-setup
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .downloads
           key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: 'tree-ubuntu-${{ matrix.preset }}' }
       - run: tar -xzf tree.tar.gz && rm tree.tar.gz
 
@@ -173,7 +173,7 @@ jobs:
           kill $xvfb
           exit $rc
       # Every frame the tests wrote, to look at.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'frames-ubuntu-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
 
@@ -233,7 +233,7 @@ jobs:
       - uses: actions/checkout@v5
         with: { submodules: true }
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .downloads
           key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
@@ -257,13 +257,13 @@ jobs:
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
           key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
           restore-keys: vcpkg-rocky9-
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         with:
           path: .ccache
           key: ccache-rocky9-linux-release-${{ github.sha }}
@@ -273,7 +273,7 @@ jobs:
         run: |
           source /opt/rh/gcc-toolset-14/enable
           cmake --preset linux-release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
@@ -285,7 +285,7 @@ jobs:
           ccache --zero-stats
           cmake --build --preset linux-release
           ccache --show-stats
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: ${{ !cancelled() }}
         with:
           path: .ccache
@@ -306,9 +306,9 @@ jobs:
           ./build/linux-release/glideslope_cli selftest > flights/rocky-gcc.selftest.txt
           ./build/linux-release/glideslope_cli air > flights/rocky-gcc.air.txt
           cat flights/*
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: flights-rocky-gcc, path: flights/, if-no-files-found: error }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: frames-rocky, path: build/linux-release/tests/frames/*.bmp, if-no-files-found: ignore }
 
@@ -334,13 +334,13 @@ jobs:
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
           key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
           restore-keys: vcpkg-macos-
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         with:
           path: .ccache
           key: ccache-macos-${{ matrix.preset }}-${{ github.sha }}
@@ -348,7 +348,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - configure
         run: cmake --preset ${{ matrix.preset }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
@@ -359,7 +359,7 @@ jobs:
           ccache --zero-stats
           cmake --build --preset ${{ matrix.preset }}
           ccache --show-stats
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: ${{ !cancelled() }}
         with:
           path: .ccache
@@ -371,7 +371,7 @@ jobs:
               --exclude=.ninja_deps --exclude=.ninja_log --exclude='frames' \
               build/${{ matrix.preset }}
           ls -la tree.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: 'tree-macos-${{ matrix.preset }}', path: tree.tar.gz, retention-days: 1, compression-level: 0 }
 
       - name: Flights for the cross-platform check
@@ -382,7 +382,7 @@ jobs:
           ./build/macos-release/glideslope_cli selftest > flights/macos-appleclang.selftest.txt
           ./build/macos-release/glideslope_cli air > flights/macos-appleclang.air.txt
           cat flights/*
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ matrix.preset == 'macos-release' }}
         with: { name: flights-macos-appleclang, path: flights/, if-no-files-found: error }
 
@@ -404,17 +404,17 @@ jobs:
       - uses: actions/checkout@v5
         with: { submodules: true }
       - uses: ./.github/actions/macos-setup
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .downloads
           key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: 'tree-macos-${{ matrix.preset }}' }
       - run: tar -xzf tree.tar.gz && rm tree.tar.gz
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: ctest --preset ${{ matrix.preset }} -I ${{ matrix.shard }},,${{ matrix.of }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
 
@@ -442,7 +442,7 @@ jobs:
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
@@ -454,7 +454,7 @@ jobs:
         run: |
           if "${{ matrix.preset }}"=="windows-clang" (clang-cl --version || exit /b 1)
           cmake --preset ${{ matrix.preset }}
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' && matrix.preset == 'windows-release' }}
         with:
           path: .vcpkg-archives
@@ -479,7 +479,7 @@ jobs:
           done
           gzip -1 tree.tar
           ls -la tree.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: 'tree-windows-${{ matrix.preset }}', path: tree.tar.gz, retention-days: 1, compression-level: 0 }
 
       - name: Flights for the cross-platform check
@@ -492,7 +492,7 @@ jobs:
           build\${{ matrix.preset }}\glideslope_cli.exe selftest > flights\%tag%.selftest.txt || exit /b 1
           build\${{ matrix.preset }}\glideslope_cli.exe air > flights\%tag%.air.txt || exit /b 1
           type flights\*
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ matrix.preset != 'windows-debug' }}
         with: { name: 'flights-${{ matrix.preset }}', path: flights/, if-no-files-found: error }
 
@@ -521,11 +521,11 @@ jobs:
       - uses: actions/checkout@v5
         with: { submodules: true }
       - uses: ./.github/actions/windows-setup
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .downloads
           key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: 'tree-windows-${{ matrix.preset }}' }
       - shell: cmd
         run: tar -xzf tree.tar.gz && del tree.tar.gz
@@ -535,7 +535,10 @@ jobs:
       # program's own handlers (src/platform/no_crash_dialogs.hpp) printed
       # nothing: a crash in the process's own shutdown comes where they
       # cannot. Windows Error Reporting's local dumps catch it from outside,
-      # and the step after the tests reads each dump's stack with cdb.
+      # and the step after the tests reads each dump's stack with cdb. The
+      # programs write a dump of their own first crash too, into the same
+      # folder, from inside the fault (GLIDESLOPE_CRASH_DUMPS): WER's is of the
+      # process as it died, which can be long after the fault that began it.
       - name: Keep a dump of any crash
         shell: pwsh
         run: |
@@ -545,6 +548,7 @@ jobs:
           New-ItemProperty -Path $key -Name DumpType -PropertyType DWord -Value 1 -Force | Out-Null
           New-ItemProperty -Path $key -Name DumpCount -PropertyType DWord -Value 20 -Force | Out-Null
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\dumps" | Out-Null
+          "GLIDESLOPE_CRASH_DUMPS=$env:RUNNER_TEMP\dumps" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
@@ -559,14 +563,19 @@ jobs:
           $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe' -ErrorAction SilentlyContinue
           if (-not $cdb) { Write-Output "no cdb on this runner; dumps: $($dumps.Name -join ', ')"; exit 0 }
           $symbols = (Get-ChildItem build\${{ matrix.preset }} -Recurse -Filter *.pdb | ForEach-Object { $_.DirectoryName } | Sort-Object -Unique) -join ';'
+          # Windows' own symbols from Microsoft's server, so ntdll's frames are
+          # named rather than guessed from its exports.
+          $symbols = "$symbols;srv*$env:RUNNER_TEMP\symbols*https://msdl.microsoft.com/download/symbols"
+          # The exception, its thread's stack deep enough to reach the thread's
+          # start, every other thread's, and the debugger's own analysis.
           foreach ($d in $dumps) {
             Write-Output "===== $($d.Name)"
-            & $cdb.FullName -z $d.FullName -y "$symbols" -c ".ecxr; kn 40; ~*kn 12; q" | Select-Object -Last 150
+            & $cdb.FullName -z $d.FullName -y "$symbols" -c ".exr -1; .ecxr; kn 200; ~*kn 60; !analyze -v; q"
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'frames-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ failure() }}
         with: { name: 'dumps-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: '${{ runner.temp }}/dumps/*.dmp', if-no-files-found: ignore, retention-days: 3 }
 
@@ -587,7 +596,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { pattern: flights-*, path: flights, merge-multiple: true }
       - name: Compare
         run: cmake -DDIR=flights -P tests/cmake/cross_platform_flights.cmake

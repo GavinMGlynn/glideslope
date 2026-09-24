@@ -1,0 +1,48 @@
+name: MSVC developer environment
+description: >
+  Puts the x64 MSVC toolchain on the job's environment, as a Developer Command
+  Prompt would: vswhere finds the newest Visual Studio, vcvarsall.bat x64 runs,
+  and every variable it set or changed is exported to the steps after this one.
+  It replaces ilammy/msvc-dev-cmd@v1, which does the same in JavaScript but
+  targets Node.js 20 and has had no release since 2024 - and a dozen lines of
+  PowerShell are a smaller dependency than an unmaintained action.
+
+runs:
+  using: composite
+  steps:
+    - name: Enter the MSVC x64 developer environment
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        if (-not $vs) { throw 'vswhere found no Visual Studio with the x64 C++ tools' }
+        $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvarsall.bat'
+        Write-Host "vcvarsall: $vcvars"
+        $before = @{}
+        Get-ChildItem env: | ForEach-Object { $before[$_.Name] = $_.Value }
+        # Through a batch file of its own, so that no quoting passes between
+        # PowerShell and cmd.
+        $script = Join-Path $env:RUNNER_TEMP 'msvc-dev-env.cmd'
+        Set-Content -Path $script -Encoding ascii -Value "@call `"$vcvars`" x64 >nul`r`n@if errorlevel 1 exit /b 1`r`n@set"
+        $lines = & cmd.exe /d /c $script
+        if ($LASTEXITCODE -ne 0) { throw "vcvarsall.bat x64 failed with $LASTEXITCODE" }
+        $pathLike = 'PATH', 'INCLUDE', 'LIB', 'LIBPATH'
+        $exported = 0
+        foreach ($line in $lines) {
+          $eq = $line.IndexOf('=')
+          if ($eq -le 0) { continue }
+          $name = $line.Substring(0, $eq)
+          $value = $line.Substring($eq + 1)
+          if ($before.ContainsKey($name) -and $before[$name] -ceq $value) { continue }
+          if ($pathLike -contains $name.ToUpper()) {
+            # vcvarsall prepends without looking; keep the first of each entry.
+            $value = (($value -split ';') | Where-Object { $_ } | Select-Object -Unique) -join ';'
+          }
+          "$name=$value" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          $exported++
+        }
+        Write-Host "exported $exported variables"
+        if (-not ($lines | Where-Object { $_ -like 'VCToolsInstallDir=*' })) {
+          throw 'vcvarsall.bat ran but set no VCToolsInstallDir'
+        }
