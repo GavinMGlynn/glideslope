@@ -115,6 +115,8 @@ struct Options {
     bool window = false;
     // Stop once everybody who joined has gone, for tests.
     bool until_empty = false;
+    // Written once the aircraft are flying, for a test that joins late.
+    std::string ready_file;
     bool window_dump = false;
     std::string window_shot;
     std::string window_press;
@@ -148,6 +150,8 @@ void print_usage(std::FILE* out) {
         "  --until-empty      stop once every client that joined has gone and been\n"
         "                     let go - for a test, which then waits on its clients\n"
         "                     rather than on the machine's speed\n"
+        "  --ready-file FILE  write FILE once the aircraft are built and flying -\n"
+        "                     for a test that must join a session under way\n"
         "  --on-leave WHAT    what becomes of an aircraft when the person flying\n"
         "                     it goes: 'remove' takes it out of the sky (the\n"
         "                     default), 'ai' hands it to an AI pilot flying the\n"
@@ -277,6 +281,9 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.window = true;
         } else if (a == "--until-empty") {
             o.until_empty = true;
+        } else if (a == "--ready-file") {
+            if (!next(value)) return std::nullopt;
+            o.ready_file = std::string(value);
         } else if (a == "--window-dump") {
             o.window_dump = true;
         } else if (a == "--window-shot") {
@@ -1437,6 +1444,13 @@ int run(const Options& o) {
 
     std::printf("listening on port %u\n", static_cast<unsigned>(socket->port()));
     std::fflush(stdout);
+    // **Flying from here**: the terrain is built and the clock starts. A test
+    // that must join a session already under way waits on this, not on a
+    // number of seconds from launch - a debug server on a slow runner took
+    // all five of them to get this far.
+    if (!o.ready_file.empty()) {
+        std::ofstream(o.ready_file) << "flying\n";
+    }
 
     const auto began = std::chrono::steady_clock::now();
     auto last = began;

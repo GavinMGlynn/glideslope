@@ -94,6 +94,8 @@ void print_usage(std::FILE* out) {
         "                            something to fly this client's aircraft by.\n"
         "                            --after N waits N seconds before connecting,\n"
         "                            so as to join a session already running.\n"
+        "                            --after-ready FILE counts that wait from when\n"
+        "                            FILE appears (the server's --ready-file).\n"
         "                            --key HEX connects as the player whose secret\n"
         "                            key that is, rather than a new one.\n"
         "                            --heard FILE also writes each aircraft heard\n"
@@ -560,18 +562,35 @@ int stay(glideslope::platform::UdpSocket& socket,
     double sent_inputs_at_s = -1.0;
     std::uint32_t applied = 0;
     double roll_seen_deg = 0.0;
+    double last_heard_s = 0.0;
     for (;;) {
         const double up_s =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
                 .count();
-        if (up_s >= seconds ||
-            (until_flying_again > 0 && flown_again >= until_flying_again)) {
+        if (until_flying_again > 0 && flown_again >= until_flying_again) {
+            break;
+        }
+        // **When the time is up, a client that flew waits for the server to
+        // have applied the last input it sent** - resending it, in case it
+        // was lost - so that what it says about its inputs is what the server
+        // did with all of them, not how far behind a slow machine had fallen
+        // at the moment it stopped. A minute is the most it waits, and a
+        // server that has said nothing for five seconds - gone, or it has
+        // dropped this client - is not waited for.
+        constexpr double wait_for_the_last_input_s = 60.0;
+        constexpr double server_gone_quiet_s = 5.0;
+        const bool finishing = up_s >= seconds;
+        if (finishing &&
+            (!fly || applied >= sequence || up_s >= seconds + wait_for_the_last_input_s ||
+             up_s - last_heard_s >= server_gone_quiet_s)) {
             break;
         }
         if (fly && up_s - sent_inputs_at_s >= inputs_every_s) {
             sent_inputs_at_s = up_s;
-            ++sequence;
-            sending.add(sequence, glideslope::net::as_sent(stick.as_list()));
+            if (!finishing) {
+                ++sequence;
+                sending.add(sequence, glideslope::net::as_sent(stick.as_list()));
+            }
             std::vector<std::uint8_t> body{
                 static_cast<std::uint8_t>(glideslope::net::Inside::inputs)};
             const std::vector<std::uint8_t> packet = sending.packet();
@@ -591,6 +610,7 @@ int stay(glideslope::platform::UdpSocket& socket,
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
+        last_heard_s = up_s;
         glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
         glideslope::net::Envelope envelope;
         glideslope::net::Refusal why{};
@@ -693,10 +713,25 @@ int stay(glideslope::platform::UdpSocket& socket,
 
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
                bool again, bool fly, double after_s, const std::string& secret_hex = "",
-               const std::string& heard_file = "", int until_flying_again = 0) {
+               const std::string& heard_file = "", int until_flying_again = 0,
+               const std::string& ready_file = "") {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
-    // whether the server was flying before it arrived.
+    // whether the server was flying before it arrived. With `--after-ready`
+    // the wait begins when the server says it is flying, not when this
+    // started: a debug server on a slow runner spent the whole of a five
+    // second wait building its terrain. Five minutes is the most it waits for
+    // that.
+    if (!ready_file.empty()) {
+        const auto asked = std::chrono::steady_clock::now();
+        while (!std::filesystem::exists(ready_file)) {
+            if (std::chrono::steady_clock::now() - asked > std::chrono::minutes(5)) {
+                std::fprintf(stderr, "glideslope_cli: %s never appeared\n", ready_file.c_str());
+                return 1;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+    }
     if (after_s > 0.0) {
         std::this_thread::sleep_for(
             std::chrono::milliseconds(static_cast<long long>(after_s * 1000.0)));
@@ -917,7 +952,7 @@ static int run_program(int argc, char** argv) {
                 server->host + ":" + std::to_string(server->port);
             return connect_to(where, server->key_hex, stay_s, false, fly, 0.0);
         }
-        if (args.size() >= 3 && args.size() <= 14 && args[0] == "connect") {
+        if (args.size() >= 3 && args.size() <= 16 && args[0] == "connect") {
             double stay_s = 0.0;
             bool again = false;
             bool fly = false;
@@ -925,6 +960,7 @@ static int run_program(int argc, char** argv) {
             std::string secret_hex;
             std::string heard_file;
             int until_flying_again = 0;
+            std::string ready_file;
             for (std::size_t i = 3; i < args.size(); ++i) {
                 if (args[i] == "--until-flying-again" && i + 1 < args.size()) {
                     until_flying_again = std::atoi(std::string(args[i + 1]).c_str());
@@ -938,6 +974,11 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--heard" && i + 1 < args.size()) {
                     heard_file = std::string(args[i + 1]);
+                    ++i;
+                    continue;
+                }
+                if (args[i] == "--after-ready" && i + 1 < args.size()) {
+                    ready_file = std::string(args[i + 1]);
                     ++i;
                     continue;
                 }
@@ -974,7 +1015,7 @@ static int run_program(int argc, char** argv) {
             }
             return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
                               again, fly, after_s, secret_hex, heard_file,
-                              until_flying_again);
+                              until_flying_again, ready_file);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();

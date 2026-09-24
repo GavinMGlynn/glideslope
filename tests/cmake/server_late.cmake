@@ -9,7 +9,10 @@
 # with nobody watching is easy to believe and easy to get wrong in the other
 # direction - a server that only stepped its aircraft when a client was
 # connected would pass any test that connected at the start. So the client
-# waits five seconds before it connects, and what it finds must be a session
+# waits five seconds from when the server says it is flying (its
+# `--ready-file`) before it connects - not five seconds from launch, which a
+# debug server on a slow runner spent building its terrain, so that the
+# client arrived as it started - and what it finds must be a session
 # already running: a clock past the moment it joined, and aircraft that have
 # moved away from where the flight plan starts.
 #
@@ -47,10 +50,13 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
+set(_ready "${WORK}/flying")
+file(REMOVE "${_ready}")
 execute_process(
-    COMMAND "${SERVER}" --port ${PORT} --seconds 10 --ai 2 --headless
-            --data "${DATA}" --timeout 30 --store "${_store}"
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 2 --after ${_wait}
+    COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 2 --headless
+            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 2 --after-ready "${_ready}"
+            --after ${_wait}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the client did not finish well:\n${_err}\n${_out}")
