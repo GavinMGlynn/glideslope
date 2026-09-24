@@ -317,10 +317,6 @@ Found while implementing something else. Added when found, not when remembered.
       fresh copy into place.** Seen on CI: `cannot open ...S34_00_E151_00_DEM.tif`.
       *Verification: many processes fetching and reading one tile at once on
       Windows all read it.*
-- [ ] **`a_clients_inputs_fly_its_aircraft_on_the_server` counts inputs still in
-      flight on a slow runner** (133 of 178 applied on CI). *Verification: the
-      client waits for the server to apply its last input rather than
-      stopping on the clock.*
 - [ ] **Over a network a client's own aircraft is corrected by metres**, because
       the server does not say how far into its latest input it had flown.
       *Verification: through 200 ms with jitter and loss, the worst prediction

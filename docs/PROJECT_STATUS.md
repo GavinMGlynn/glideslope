@@ -314,6 +314,10 @@ The 20 m correction bound and the relay's loss check were not made to fail.
   with the window flies on a server. The measured figures also depend on
   three programs keeping time on a loaded machine, as a real network does;
   the nightly run repeats them five times.
+- **A client whose time is up stops predicting.** Since the input test's fix
+  it waits, making no new inputs, for the server to apply its last one. A
+  prediction keyed by input can only replay nothing there, and fell a round
+  trip behind (31 m). It no longer predicts or measures once it is waiting.
 - **A program in a pipeline that outlives the next one is killed.** In a
   CMake pipeline each program's standard output feeds the next. A client ahead
   of one that left sooner died of SIGPIPE when it printed. The pipeline is now

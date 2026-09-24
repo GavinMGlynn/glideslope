@@ -924,7 +924,11 @@ int stay(glideslope::platform::UdpSocket& socket,
         // client reads its socket dry each frame: reading one datagram a
         // pass, a slow client drew from updates that had arrived and sat
         // unread.
-        if (predicting && drained) {
+        // Its time up, a client waiting for its last input to be applied
+        // makes no new ones, and a prediction keyed by input could only
+        // replay nothing and fall a round trip behind: it stops predicting,
+        // and measuring, there.
+        if (predicting && drained && !finishing) {
             predicting->advance(up_s, sequence, stick);
             predicting->render(up_s);
         }
@@ -957,7 +961,7 @@ int stay(glideslope::platform::UdpSocket& socket,
         // no sky to draw them in.
         if (const auto state = glideslope::net::read_state(inside)) {
             ++heard;
-            if (predicting) {
+            if (predicting && !finishing) {
                 predicting->heard(*state, up_s);
             }
             if (track_out) {
