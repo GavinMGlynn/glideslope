@@ -11,6 +11,7 @@
 #include "sim/checklist_run.hpp"
 #include "sim/controller.hpp"
 #include "sim/navigator.hpp"
+#include "sim/prediction.hpp"
 #include "gfx/sky.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
@@ -53,6 +54,37 @@ struct FlightStart {
     std::optional<sim::FlightPlan> plan;
 };
 
+// **An aircraft's axes**, from where it is and how it is pointing: the body's
+// forward, right and down in the Earth-centred frame, and its position.
+struct Axes {
+    world::Ecef forward;
+    world::Ecef right;
+    world::Ecef down;
+    world::Ecef position;
+};
+Axes axes_at(const world::Ecef& position, double heading_deg, double pitch_deg,
+             double roll_deg);
+
+// **An aeroplane's visual model and where it sits on it**, by its catalogue
+// id, or nothing where it ships none - FlightGear has no Learjet 35A, and
+// docs/ASSETS.md says so. A model with no alignment is a mistake, and throws.
+struct Visual {
+    gfx::Model model;
+    gfx::ModelAlignment alignment;
+};
+std::optional<Visual> visual_of(const std::filesystem::path& data, const std::string& id);
+
+// The sun, in the body frame of an aircraft placed so: what its mesh is lit by.
+world::Ecef sun_in_body_of(const gfx::Placement& placement);
+
+// **Where another aircraft's model goes**: about its centre of gravity, which
+// is all a state update says, moved by its model's alignment. Its own client
+// draws it about its visual reference point instead, which it can read from
+// the flight model it flies; the two are a few metres apart.
+gfx::Placement placement_of(const world::Ecef& centre, double heading_deg,
+                            double pitch_deg, double roll_deg,
+                            const gfx::ModelAlignment& alignment);
+
 inline constexpr double weather_refresh_seconds = 15 * 60.0;
 inline constexpr double weather_blend_seconds = 5 * 60.0;
 
@@ -86,6 +118,19 @@ public:
     // AI does. Each waypoint of a plan the AI passes is printed as it is
     // passed: how close it came, and at what altitude.
     void step(const sim::Controls& controls);
+
+    // **Flown on a server.** `adopt` puts the aircraft where the server says
+    // it is - position, attitude, velocity and rates - and from then on each
+    // step is a prediction (sim::Prediction), flown on the controls as they
+    // were sent and kept under the sequence they were sent with
+    // (`set_input_sequence`), until `reconcile` puts it right from the
+    // server's word. The AI pilot is not flown on a server: taking it and
+    // giving it back there is Phase 7's.
+    void adopt(const sim::Motion& motion);
+    bool predicting() const { return prediction_ != nullptr; }
+    void set_input_sequence(std::uint32_t sequence) { sequence_ = sequence; }
+    sim::Prediction::Correction reconcile(const sim::Motion& motion,
+                                          std::uint32_t last_applied);
 
     // Hands the aircraft to the AI - flying what is left of the plan, if any
     // is - or back to the pilot (sim/controller.hpp).
@@ -164,12 +209,6 @@ private:
 
     // The body's axes in ECEF - forward, starboard and down - and the
     // aircraft's position, which JSBSim reports at its centre of gravity.
-    struct Axes {
-        world::Ecef forward;
-        world::Ecef right;
-        world::Ecef down;
-        world::Ecef position;
-    };
     Axes axes() const;
     // A structural point, in the body frame relative to the model's origin.
     std::array<double, 3> from_model_origin(const char* what) const;
@@ -188,6 +227,9 @@ private:
     std::unique_ptr<sim::Aircraft> aircraft_;
     // Made at the first step, from the pilot's controls then.
     std::unique_ptr<sim::Controller> controller_;
+    // On a server: the prediction, and the sequence of the inputs being flown.
+    std::unique_ptr<sim::Prediction> prediction_;
+    std::uint32_t sequence_ = 0;
     bool start_with_ai_ = false;
     // The plan, its altitudes above the ellipsoid as the aircraft's are, and
     // how far along it the AI has flown: the waypoints passed, the closest the

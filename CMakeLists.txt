@@ -358,6 +358,7 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
     add_executable(glideslope
         src/frontend/client/flight.cpp
         src/frontend/client/main.cpp
+        src/frontend/client/online.cpp
         src/frontend/client/scenes.cpp
         src/frontend/client/terrain.cpp)
     target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_net glideslope_sim glideslope_world

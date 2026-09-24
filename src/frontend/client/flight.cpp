@@ -83,20 +83,10 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     // FlightGear has no Learjet 35A, and docs/ASSETS.md says so.
     // Where there is one, there is an alignment saying where it sits on this
     // aeroplane, and a model without one is a mistake rather than an absence.
-    const std::filesystem::path mesh =
-        data / "models" / (aircraft_entry_.id + ".mesh");
-    if (std::filesystem::exists(mesh)) {
-        model_ = gfx::read_model(mesh);
+    if (auto visual = visual_of(data, aircraft_entry_.id)) {
+        model_ = std::move(visual->model);
         model_radius_ = gfx::model_radius(*model_);
-        const std::map<std::string, gfx::ModelAlignment> aligned =
-            gfx::read_alignments(data / "models" / "alignment.txt");
-        const auto found = aligned.find(aircraft_entry_.id);
-        if (found == aligned.end()) {
-            throw std::runtime_error(aircraft_entry_.id +
-                                     " has a visual model and no alignment in "
-                                     "models/alignment.txt");
-        }
-        alignment_ = found->second;
+        alignment_ = visual->alignment;
     }
     const std::shared_ptr<world::Dem> dem = dem_;
     aircraft_->set_terrain(std::make_shared<sim::FunctionTerrain>(
@@ -150,7 +140,31 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     }
 }
 
+void Flight::adopt(const sim::Motion& motion) {
+    aircraft_->set_motion(motion);
+    prediction_ = std::make_unique<sim::Prediction>(*aircraft_);
+}
+
+sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
+                                              std::uint32_t last_applied) {
+    if (!prediction_) {
+        return {};
+    }
+    return prediction_->reconcile(motion, last_applied);
+}
+
 void Flight::step(const sim::Controls& controls) {
+    if (prediction_) {
+        prediction_->step(sequence_, controls);
+        ++tick_;
+        if (checklist_) {
+            checklist_->update(*aircraft_, tick_);
+        }
+        if (weather_) {
+            refresh_weather();
+        }
+        return;
+    }
     if (!controller_) {
         controller_ = std::make_unique<sim::Controller>(*aircraft_, controls);
         if (start_with_ai_) {
@@ -255,10 +269,53 @@ void Flight::refresh_weather() {
     }
 }
 
-Flight::Axes Flight::axes() const {
+Axes Flight::axes() const {
     const sim::AircraftState s = aircraft_->state();
-    const double lat = s.latitude_deg * radians;
-    const double lon = s.longitude_deg * radians;
+    return axes_at(world::to_ecef({s.latitude_deg, s.longitude_deg,
+                                   aircraft_->property("position/geod-alt-ft") * 0.3048}),
+                   s.heading_deg, s.pitch_deg, s.roll_deg);
+}
+
+std::optional<Visual> visual_of(const std::filesystem::path& data, const std::string& id) {
+    const std::filesystem::path mesh = data / "models" / (id + ".mesh");
+    if (!std::filesystem::exists(mesh)) {
+        return std::nullopt;
+    }
+    const std::map<std::string, gfx::ModelAlignment> aligned =
+        gfx::read_alignments(data / "models" / "alignment.txt");
+    const auto found = aligned.find(id);
+    if (found == aligned.end()) {
+        throw std::runtime_error(id + " has a visual model and no alignment in "
+                                      "models/alignment.txt");
+    }
+    return Visual{gfx::read_model(mesh), found->second};
+}
+
+world::Ecef sun_in_body_of(const gfx::Placement& placement) {
+    const world::Geodetic g = world::to_geodetic(placement.origin);
+    const world::Ecef sun = gfx::sun_from(gfx::up_at(g.latitude_deg, g.longitude_deg));
+    // The same vector along the body's own axes: the transpose of the
+    // rotation that takes body to world.
+    return gfx::transpose(placement.world_from_local) * sun;
+}
+
+gfx::Placement placement_of(const world::Ecef& centre, double heading_deg,
+                            double pitch_deg, double roll_deg,
+                            const gfx::ModelAlignment& alignment) {
+    const Axes a = axes_at(centre, heading_deg, pitch_deg, roll_deg);
+    gfx::Placement placement;
+    placement.origin = add(a.position, add(add(scale(a.forward, alignment.offset[0]),
+                                               scale(a.right, alignment.offset[1])),
+                                           scale(a.down, alignment.offset[2])));
+    placement.world_from_local = gfx::Mat3::columns(a.forward, a.right, a.down);
+    return placement;
+}
+
+Axes axes_at(const world::Ecef& position, double heading_deg, double pitch_deg,
+             double roll_deg) {
+    const world::Geodetic g = world::to_geodetic(position);
+    const double lat = g.latitude_deg * radians;
+    const double lon = g.longitude_deg * radians;
     const world::Ecef north{-std::sin(lat) * std::cos(lon),
                             -std::sin(lat) * std::sin(lon), std::cos(lat)};
     const world::Ecef east{-std::sin(lon), std::cos(lon), 0.0};
@@ -267,20 +324,18 @@ Flight::Axes Flight::axes() const {
     const auto ned = [&](double n, double e, double d) {
         return add(add(scale(north, n), scale(east, e)), scale(down, d));
     };
-    const double cp = std::cos(s.heading_deg * radians);
-    const double sp = std::sin(s.heading_deg * radians);
-    const double ct = std::cos(s.pitch_deg * radians);
-    const double st = std::sin(s.pitch_deg * radians);
-    const double cr = std::cos(s.roll_deg * radians);
-    const double sr = std::sin(s.roll_deg * radians);
+    const double cp = std::cos(heading_deg * radians);
+    const double sp = std::sin(heading_deg * radians);
+    const double ct = std::cos(pitch_deg * radians);
+    const double st = std::sin(pitch_deg * radians);
+    const double cr = std::cos(roll_deg * radians);
+    const double sr = std::sin(roll_deg * radians);
     // The body's axes in north-east-down: forward, right and down.
     Axes a;
     a.forward = ned(ct * cp, ct * sp, -st);
     a.right = ned(sr * st * cp - cr * sp, sr * st * sp + cr * cp, sr * ct);
     a.down = ned(cr * st * cp + sr * sp, cr * st * sp - sr * cp, cr * ct);
-    a.position =
-        world::to_ecef({s.latitude_deg, s.longitude_deg,
-                        aircraft_->property("position/geod-alt-ft") * 0.3048});
+    a.position = position;
     return a;
 }
 

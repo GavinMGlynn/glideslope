@@ -219,6 +219,50 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Four machines in one sky: the client with the window flies on a server, 2026-09-25 — in progress
+
+**What is missing first.** The four-client run across Windows and Linux,
+with a client refused, has not been flown. The item stays open until it has.
+
+**What works now.**
+- **`AIRCRAFT` travels.** It is keyed by the aircraft's number, not a slot's,
+  because an AI aircraft has no slot. The server introduces every aircraft to
+  each client as it is admitted, and to every client when one appears, over
+  the reliable layer. Both the session library and `glideslope_cli`
+  acknowledge it and keep a roster. The predicting client flies its own
+  aircraft as the model the server names. `--predict` takes no model now.
+- **The client with the window joins, and is given an aircraft.**
+  - It connects before it builds its flight, and waits until the server has
+    said which aircraft is its own and what aeroplane that is. The flight is
+    built there and set to the server's motion.
+  - From then on it predicts. It sends the stick thirty times a second, flies
+    exactly what it sent, and reconciles on each newer update
+    (`client/online.hpp`).
+  - It draws every other aircraft with its own model, 100 ms behind the
+    session clock. Each is placed at its centre of gravity, which is a few
+    metres from where its own client draws it, and lit for how it is pointing.
+  - A server with nothing to fly gives it no aircraft. After ten seconds with
+    no word of one, the client says so and flies alone. Ten seconds is
+    enough, because a server answers the handshake only once its aircraft are
+    flying.
+- **Online, a shot keeps real time and draws only its own frame.** Thousands
+  of headless frames ran the software Vulkan driver out of memory. That is a
+  tail.
+
+**Verified** by `the_client_with_the_window_flies_the_servers_aircraft_and_draws_the_others`.
+- **The run.** A server with one AI Cessna, and the client with the window
+  taking a shot ten seconds in.
+- **What it must say.**
+  - It was given a Cessna.
+  - It drew exactly one other aircraft: the AI, under another number, 469 m
+    away.
+  - Its prediction made over a hundred corrections, the worst 2.3 m, none too
+    large to hide.
+- **Seen to fail.** With the client made to draw nobody else, the test went
+  red.
+- **Also changed.** `the_client_with_the_window_joins_the_server_server_txt_names`
+  now also requires the client to say it was given no aircraft.
+
 ### A lesson flown into the ground says what it needed, 2026-09-25
 
 **Found by this pull request's macOS runs.** `a_stall_recovered_badly_is_named_in_the_debrief`

@@ -273,7 +273,9 @@ ends in a debrief, never a score.
       started with `--online` reaches the server it names.* Done 2026-09-22.
 - [ ] **Four machines in one sky.** *Verification: four clients on different
       systems and an AI Cessna fly together, extra clients are refused, and
-      prediction error stays within bound.*
+      prediction error stays within bound.* In progress: the client with the
+      window flies on a server and draws the others; the four-machine run has
+      not been flown.
 
 ## Phase 7 — User/AI controller swap across the network
 
@@ -313,6 +315,9 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [ ] **A headless client drawing thousands of frames runs the software
+      Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a
+      headless client draws ten thousand frames, and its memory stays level.*
 - [ ] **A B-2 left mushing for half a minute cannot be recovered by the
       autopilot's stall recovery**, and falls 20,000 ft. *Verification: every
       aeroplane stalled and left for thirty seconds is recovered within its

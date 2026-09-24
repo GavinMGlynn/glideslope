@@ -1342,6 +1342,18 @@ add_test(NAME the_client_with_the_window_joins_the_server_server_txt_names
 set_tests_properties(the_client_with_the_window_joins_the_server_server_txt_names
     PROPERTIES SKIP_RETURN_CODE 77)
 
+# **The client with the window flies the aircraft the server gives it, and
+# draws the others.** Needs a GPU and the DEM; see cmake/client_on_server.cmake.
+add_test(NAME the_client_with_the_window_flies_the_servers_aircraft_and_draws_the_others
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_server -DPORT=47884 -DDRIVER=vulkan
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
+set_tests_properties(the_client_with_the_window_flies_the_servers_aircraft_and_draws_the_others
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server)
+
 # **A client started with --online reaches the server server.txt names.** See
 # cmake/client_online.cmake, which names the file by the environment rather
 # than writing into the person's own config directory.

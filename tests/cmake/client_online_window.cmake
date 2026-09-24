@@ -60,6 +60,11 @@ endif()
 if(NOT CMAKE_MATCH_1 STREQUAL _key)
     message(FATAL_ERROR "it joined ${CMAKE_MATCH_1}, and server.txt names ${_key}")
 endif()
+# A server with nothing to fly (`--ai 0`) gives nobody an aircraft, and the
+# client says so and flies alone rather than waiting for ever.
+if(NOT _out MATCHES "the server gave this client no aircraft; flying alone")
+    message(FATAL_ERROR "the client did not say it was given no aircraft:\n${_out}")
+endif()
 
 message(STATUS "the client with the window joined ${_key} from server.txt, and "
                "still drew its frame")
