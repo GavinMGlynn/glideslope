@@ -34,6 +34,10 @@
 
 namespace {
 
+// Set by the thread that reads standard input, when it ends. Not the main
+// thread's to own: that thread is still waiting on its read when main returns.
+std::atomic<bool> input_ended{false};
+
 struct Held {
     std::chrono::steady_clock::time_point due;
     bool to_server = false;
@@ -51,7 +55,8 @@ double number(const char* text) {
 int main(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: glideslope_impair LISTEN_PORT SERVER_HOST:PORT --delay MS "
-                             "--jitter MS --loss PERCENT --seed N [--quiet-for S] [--seconds S]\n");
+                             "--jitter MS --loss PERCENT --seed N [--until-input-ends] "
+                             "[--seconds S]\n");
         return 2;
     }
     const auto listen_port = static_cast<std::uint16_t>(std::atoi(argv[1]));
@@ -103,9 +108,8 @@ int main(int argc, char** argv) {
 
     // Standard input read to its end on a thread of its own, because reading
     // it waits and the relaying must not.
-    std::atomic<bool> input_ended{false};
     if (until_input_ends) {
-        std::thread([&input_ended] {
+        std::thread([] {
             while (std::fgetc(stdin) != EOF) {
             }
             input_ended = true;
@@ -139,8 +143,14 @@ int main(int argc, char** argv) {
             busy = true;
             const std::string client = from.text();
             if (!upstream.count(client)) {
-                upstream[client] = std::make_unique<glideslope::platform::UdpSocket>(
-                    std::move(*glideslope::platform::UdpSocket::bound(0)));
+                auto socket = glideslope::platform::UdpSocket::bound(0);
+                if (!socket) {
+                    std::fprintf(stderr, "impair: no socket towards the server for %s\n",
+                                 client.c_str());
+                    continue;
+                }
+                upstream[client] =
+                    std::make_unique<glideslope::platform::UdpSocket>(std::move(*socket));
                 client_of[client] = from;
             }
             hold(true, *server, client, buffer.data(), got);
@@ -152,7 +162,10 @@ int main(int argc, char** argv) {
                 hold(false, client_of[client], client, buffer.data(), got);
             }
         }
-        // What is due, delivered - in the order it falls due, not the order it came.
+        // What is due, delivered. Each datagram is due by its own delay, so one
+        // can overtake another; those falling due in one pass go in the order
+        // they came. (Windows sleeps longer than asked, which makes a pass
+        // longer there - harsher than stated, never kinder.)
         for (auto it = held.begin(); it != held.end();) {
             if (it->due > now) {
                 ++it;
@@ -177,5 +190,8 @@ int main(int argc, char** argv) {
                 static_cast<unsigned long long>(up), static_cast<unsigned long long>(down),
                 static_cast<unsigned long long>(dropped_up),
                 static_cast<unsigned long long>(dropped_down));
-    return 0;
+    std::fflush(stdout);
+    // Out without the runtime's tidying up, which can wait on standard
+    // input's lock - held by the reading thread, if the input has not ended.
+    std::_Exit(0);
 }

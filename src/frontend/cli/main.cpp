@@ -561,6 +561,9 @@ public:
                     before_.pop_front();
                 }
             }
+            if (sequence > 0 && (joining_.empty() || joining_.back() != sequence)) {
+                joining_.push_back(sequence);
+            }
             return;
         }
         for (; stepped_ < due; ++stepped_) {
@@ -588,7 +591,14 @@ public:
             offset_s_ = offset;
             clock_known_ = true;
         }
-        if (state.yours) {
+        // **An update older than one already used is not used again** for
+        // this client's own aircraft: the network reorders them, the newer
+        // one has put it right already, and the inputs the older would have
+        // it fly again are gone. The other aircraft take it - interpolation
+        // sorts its snapshots itself.
+        const bool newest = !reconciled_s_ || state.simulation_time_s > *reconciled_s_;
+        if (state.yours && newest) {
+            reconciled_s_ = state.simulation_time_s;
             const glideslope::net::OwnMotion& y = *state.yours;
             glideslope::sim::Motion m;
             m.location_ecef_m = {y.x_m, y.y_m, y.z_m};
@@ -658,6 +668,9 @@ public:
             if (!shown.known()) continue;
             const glideslope::net::RemoteState got = shown.at(now);
             ++shown_;
+            if (shown.extrapolating()) {
+                ++extrapolated_;
+            }
             if (track_) {
                 // Where it was drawn, back in the Earth-centred frame, and the
                 // session time it was drawn as being at.
@@ -685,7 +698,8 @@ public:
                       "flown while joining, before the server had applied one, not compared)",
                       compared_, worst_error_m_, joining_.size());
         lines.emplace_back(line);
-        std::snprintf(line, sizeof line, "interpolated: %zu aircraft drawn", shown_);
+        std::snprintf(line, sizeof line, "interpolated: %zu aircraft drawn, %zu of them carried on "
+                      "past the newest update", shown_, extrapolated_);
         lines.emplace_back(line);
         return lines;
     }
@@ -760,6 +774,8 @@ private:
     std::map<std::uint8_t, glideslope::net::Interpolated> others_;
     std::ostream* track_ = nullptr;
     std::size_t shown_ = 0;
+    std::size_t extrapolated_ = 0;
+    std::optional<double> reconciled_s_;
     std::map<std::uint32_t, std::array<double, 3>> predicted_at_;
     std::size_t compared_ = 0;
     std::vector<std::uint32_t> joining_;

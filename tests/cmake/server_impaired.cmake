@@ -76,7 +76,11 @@ file(REMOVE "${_truth}" "${_shown}" "${_predicting}" "${_extra}")
 execute_process(
     # Each program's standard output goes down the pipe to the next, so each
     # comes before one that outlives it: one that wrote to a pipe whose reader
-    # had gone was killed for it.
+    # had gone was killed for it. (That protects the run that goes well: a
+    # server still running when the relay gives up at 290 s dies of it, and
+    # the exit codes below say so.) None of them reads its standard input
+    # but the relay, so each may write no more than a pipe holds - a few
+    # lines, not a trace.
     #
     # Asks after the other two are in: four seconds of resending at a quarter
     # of a second would have to be lost for it to overtake the one that
@@ -155,7 +159,17 @@ if(_error GREATER_EQUAL PREDICT_M)
     message(FATAL_ERROR "the worst prediction error was ${_error} m, the bound ${PREDICT_M} m:\n${_said}")
 endif()
 
-# **Interpolation**: every other aircraft drawn within 2 m of the truth.
+# **Interpolation**: every other aircraft drawn within 2 m of the truth, and
+# some of them carried on past the newest update - a lost update the jitter
+# made later still - so that the guessing and the blending back were drawn
+# and judged, not only the plain interpolating between two updates.
+if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them carried on")
+    message(FATAL_ERROR "the predicting client did not say what it drew:\n${_said}")
+endif()
+if(CMAKE_MATCH_2 EQUAL 0)
+    message(FATAL_ERROR "none of the ${CMAKE_MATCH_1} frames drawn was carried on past the "
+                        "newest update: the guessing was never tested\n${_said}")
+endif()
 execute_process(COMMAND "${CHECK}" "${_truth}" "${_shown}" 2
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _judged)
 message(STATUS "${_judged}")

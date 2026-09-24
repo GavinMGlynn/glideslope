@@ -103,7 +103,9 @@ GLIDESLOPE_TEST(a_state_packet_written_and_read_back_is_the_same_packet) {
 // and the sealing in front of it. If it did not, the server would silently
 // stop being able to say where everybody is on a full session.
 GLIDESLOPE_TEST(a_state_packet_filled_to_its_limits_fits_in_one_datagram) {
-    const auto bytes = write_state(a_packet(glideslope::net::most_aircraft_in_a_state));
+    auto full = a_packet(glideslope::net::most_aircraft_in_a_state);
+    full.yours = glideslope::net::OwnMotion{};
+    const auto bytes = write_state(full);
     check(bytes.has_value(), "a full packet can be written");
     const std::size_t on_the_wire = glideslope::net::envelope_size +
                                     glideslope::net::sealing_overhead + bytes->size();
@@ -417,4 +419,30 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_state_packet
     check(says(std::to_string(glideslope::net::most_aircraft_in_a_state) +
                " aircraft"),
           "and says how many aircraft one can hold");
+    // **And how big a full one is**, with the client's own motion: the
+    // figures the document gives, from the code, with their thousands
+    // separated as the document writes them.
+    const auto with_commas = [](std::size_t n) {
+        std::string digits = std::to_string(n);
+        for (auto at = static_cast<std::ptrdiff_t>(digits.size()) - 3; at > 0; at -= 3) {
+            digits.insert(static_cast<std::size_t>(at), ",");
+        }
+        return digits;
+    };
+    const std::size_t full =
+        glideslope::net::state_bytes(glideslope::net::most_aircraft_in_a_state, true);
+    const std::size_t sealed =
+        glideslope::net::envelope_size + glideslope::net::sealing_overhead + full;
+    check(says("is " + with_commas(full) + " bytes, and " + with_commas(sealed) + " with the"),
+          "the document says a full packet is " + with_commas(full) + " bytes, and " +
+              with_commas(sealed) + " sealed");
+    const std::vector<std::string> own = {
+        "`01` if the motion follows, `00` if this client has no aircraft",
+        "its attitude, a unit quaternion from north-east-down to the body, scalar first",
+        "its velocity relative to the Earth along its own axes",
+        "its rotation rates about those axes",
+    };
+    for (const std::string& field : own) {
+        check(says(field), "the document names '" + field + "'");
+    }
 }

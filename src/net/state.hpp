@@ -84,8 +84,8 @@ struct AircraftState {
 // **The client's own aircraft's motion**, which only its own state update
 // carries - the rest of the packet says where every aircraft is for drawing
 // it; this is what the client's prediction is put right by (sim::Motion,
-// sim::Prediction). Metres, the quaternion body to north-east-down, metres a
-// second and radians a second along the body's axes.
+// sim::Prediction). Metres, the quaternion from north-east-down to the body,
+// metres a second and radians a second along the body's axes.
 struct OwnMotion {
     double x_m = 0.0; // Earth-centred, Earth-fixed
     double y_m = 0.0;
