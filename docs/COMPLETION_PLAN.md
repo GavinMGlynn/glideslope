@@ -320,7 +320,7 @@ Found while implementing something else. Added when found, not when remembered.
       completes against an independent Noise implementation.* Done 2026-09-24:
       both ends match the `cacophony` implementation's known-answer vector byte
       for byte.
-- [ ] **Two players can be given the same aircraft number.** A slot is a key's
+- [x] **Two players can be given the same aircraft number.** A slot is a key's
       rank, so a player whose key sorts first moves everyone after them; the
       server numbers a player's aircraft by the slot it had on arrival, and a
       later player can be handed a number already flying. *Verification: four

@@ -1135,6 +1135,18 @@ set_tests_properties(a_client_written_from_the_transport_document_alone_complete
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_doc_client)
 
+# **Four players joining in the worst order each fly their own aircraft**,
+# under four numbers. See cmake/server_slots.cmake.
+add_test(NAME four_players_joining_in_the_reverse_of_their_keys_order_each_fly_their_own_aircraft
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_slots -DPORT=47854
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_slots.cmake)
+set_tests_properties(four_players_joining_in_the_reverse_of_their_keys_order_each_fly_their_own_aircraft
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_slots)
+
 # **Every flag the server prints in its usage is one it takes.** A flag added
 # to the usage and not to the parser is documented and silently ignored; see
 # cmake/server_flags.cmake, which walks the usage text itself.

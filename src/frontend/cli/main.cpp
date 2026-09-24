@@ -92,7 +92,9 @@ void print_usage(std::FILE* out) {
         "                            inputs - full aileron - so the server has\n"
         "                            something to fly this client's aircraft by.\n"
         "                            --after N waits N seconds before connecting,\n"
-        "                            so as to join a session already running\n"
+        "                            so as to join a session already running.\n"
+        "                            --key HEX connects as the player whose secret\n"
+        "                            key that is, rather than a new one\n"
         "  --data DIR                read data from DIR instead of data/ beside the\n"
         "                            program\n",
         out);
@@ -643,7 +645,7 @@ int stay(glideslope::platform::UdpSocket& socket,
 }
 
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
-               bool again, bool fly, double after_s) {
+               bool again, bool fly, double after_s, const std::string& secret_hex = "") {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived.
@@ -667,7 +669,19 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
         return 1;
     }
 
-    const glideslope::net::KeyPair mine = glideslope::net::mint_key_pair();
+    // **A test flag's work, too**: `--key` makes this client a known player,
+    // so that a test can choose which way the players' keys sort and so
+    // build the order of arrival it means to, rather than hope for it.
+    glideslope::net::KeyPair mine = glideslope::net::mint_key_pair();
+    if (!secret_hex.empty()) {
+        const auto secret = glideslope::net::secret_from_text(secret_hex);
+        if (!secret) {
+            std::fprintf(stderr, "glideslope_cli: --key wants 64 hexadecimal digits\n");
+            return 2;
+        }
+        mine.secret = *secret;
+        mine.publik = glideslope::net::public_from_secret(*secret);
+    }
     glideslope::net::Initiator initiator(mine, *theirs);
     glideslope::net::Writer w =
         glideslope::net::begin(glideslope::net::Type::handshake_initiation);
@@ -848,12 +862,18 @@ static int run_program(int argc, char** argv) {
                 server->host + ":" + std::to_string(server->port);
             return connect_to(where, server->key_hex, stay_s, false, fly, 0.0);
         }
-        if (args.size() >= 3 && args.size() <= 8 && args[0] == "connect") {
+        if (args.size() >= 3 && args.size() <= 10 && args[0] == "connect") {
             double stay_s = 0.0;
             bool again = false;
             bool fly = false;
             double after_s = 0.0;
+            std::string secret_hex;
             for (std::size_t i = 3; i < args.size(); ++i) {
+                if (args[i] == "--key" && i + 1 < args.size()) {
+                    secret_hex = std::string(args[i + 1]);
+                    ++i;
+                    continue;
+                }
                 if (args[i] == "--after" && i + 1 < args.size()) {
                     after_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
                     ++i;
@@ -886,7 +906,7 @@ static int run_program(int argc, char** argv) {
                 return 2;
             }
             return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
-                              again, fly, after_s);
+                              again, fly, after_s, secret_hex);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();

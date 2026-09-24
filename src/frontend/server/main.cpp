@@ -383,7 +383,6 @@ struct Connection {
     glideslope::net::PublicKey who;
     std::unique_ptr<glideslope::net::Sealer> sealing;
     std::unique_ptr<glideslope::net::Unsealer> opening;
-    std::uint8_t slot = 0;
     double last_heard_s = 0.0;
     std::uint64_t datagrams = 0;
     // What the dashboard shows. Bytes are whole datagrams, envelope and all,
@@ -587,8 +586,15 @@ public:
 
     // **A player joining is given an aircraft**, at the place the flight plan
     // starts and stacked clear of everything already in that piece of sky.
-    // Its number is the player's slot, so a client told which slot it has
-    // knows which line of a state update is its own.
+    //
+    // **Its number is the lowest no player's aircraft is flying under**, not
+    // the player's slot. It was the slot, and a slot is the rank of a key
+    // among those present (net/slots.hpp): a player whose key sorts first
+    // moves everyone after them down one, while their aircraft keep the
+    // numbers they were given - so the next to arrive could be handed a number
+    // already flying, and two clients each took the other's line of the state
+    // update for their own. A number is the aircraft's for as long as it
+    // flies; the state update tells each client which is its own.
     //
     // Nothing chooses the aeroplane yet: a player flies whatever the plan
     // flies. `REQUIREMENTS.md` asks for an aircraft the player picks, and
@@ -609,7 +615,12 @@ public:
         ic.engine_running = true;
         ic.gear = 0.0;
         aircraft->initialize(ic);
-        const auto index = slot;
+        std::uint8_t index = 0;
+        while (std::any_of(flown_.begin(), flown_.end(), [&](const Aircraft& a) {
+            return a.slot >= 0 && a.index == index;
+        })) {
+            ++index;
+        }
         // Until their first input arrives they hold enough power to stay up:
         // a player whose aircraft appeared with the throttle shut would be
         // gliding before they had touched anything.
@@ -626,9 +637,9 @@ public:
     // sky, or handed to an AI pilot flying the server's plan. Returns what
     // was done, so that the server can say so.
     //
-    // **Handed over, it is renumbered.** A player's aircraft is numbered by
-    // their slot, and that slot is about to be given to somebody else; an
-    // aircraft keeping the number would be mistaken for the new player's.
+    // **Handed over, it is renumbered.** A player's aircraft has a player's
+    // number, which is about to be free for somebody else; an aircraft keeping
+    // it would be mistaken for the new player's.
     bool take(std::uint8_t index, bool hand_to_ai) {
         for (auto it = flown_.begin(); it != flown_.end(); ++it) {
             if (it->slot < 0 || it->index != index) {
@@ -677,6 +688,8 @@ public:
                 a.aircraft->set_controls(a.held);
             }
             a.aircraft->step();
+            a.most_roll_deg =
+                std::max(a.most_roll_deg, std::abs(a.aircraft->state().roll_deg));
         }
     }
 
@@ -685,9 +698,9 @@ public:
         std::unique_ptr<glideslope::sim::Aircraft> aircraft;
         std::unique_ptr<glideslope::sim::Controller> controller; // null: flown by hand
         // **The server's number for it, steady for as long as it flies**, and
-        // what a state update carries. A player's aircraft is numbered by
-        // their slot, so that a client told its slot knows its own line; the
-        // AI are numbered from `most_slots` upwards, and never move.
+        // what a state update carries. A player's aircraft has the lowest
+        // number below `most_slots` that no other player's has; the AI are
+        // numbered from `most_slots` upwards, and never move.
         std::uint8_t index = 0;
         int slot = -1; // -1: not a person's
         // **What it is being flown by, between one input and the next.** A
@@ -696,6 +709,9 @@ public:
         // inputs arrive 30 times a second. So the last thing said is held
         // and applied at every step.
         glideslope::sim::Controls held;
+        // The furthest it has banked, either way: what a test reads to know
+        // that the inputs meant for it were the ones it flew by.
+        double most_roll_deg = 0.0;
     };
     const std::vector<Aircraft>& flown() const { return flown_; }
     int ai() const { return ai_; }
@@ -728,9 +744,8 @@ private:
     std::string player_id_;
     double player_airspeed_kts_ = 0.0;
     // **The next number to hand out to an aircraft nobody is flying.** It
-    // starts above the slots, because a player's aircraft is numbered by
-    // their slot: numbering the AI from nought would give the first of them
-    // the same number as the player in slot 0.
+    // starts above the players' numbers, which are below `most_slots`, so an
+    // AI never shares a number with a player.
     std::uint8_t next_index_ =
         static_cast<std::uint8_t>(glideslope::net::most_slots);
     int ai_ = 0;
@@ -804,6 +819,12 @@ glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s) {
     return packet;
 }
 
+glideslope::net::IdentityKey key_of(const glideslope::net::PublicKey& who) {
+    glideslope::net::IdentityKey out{};
+    std::copy(who.bytes.begin(), who.bytes.end(), out.begin());
+    return out;
+}
+
 void draw_dashboard(const Options& o, const glideslope::net::Slots& slots,
                     const std::map<std::string, Connection>& connections,
                     const Fleet* fleet, double up_s, std::uint64_t datagrams,
@@ -831,8 +852,10 @@ void draw_dashboard(const Options& o, const glideslope::net::Slots& slots,
         // The connection this slot's traffic is on, if there is one. An AI
         // aircraft holds a slot with nobody at the other end of a socket.
         const Connection* c = nullptr;
+        // Looked up by key each time, not remembered: a slot is a key's rank,
+        // and moves when somebody whose key sorts first arrives.
         for (const auto& [address, held] : connections) {
-            if (held.slot == s.index) {
+            if (slots.slot_of(key_of(held.who)) == s.index) {
                 c = &held;
                 break;
             }
@@ -863,11 +886,6 @@ void draw_dashboard(const Options& o, const glideslope::net::Slots& slots,
 }
 
 // A public key as the session knows an identity: the same thirty-two bytes.
-glideslope::net::IdentityKey key_of(const glideslope::net::PublicKey& who) {
-    glideslope::net::IdentityKey out{};
-    std::copy(who.bytes.begin(), who.bytes.end(), out.begin());
-    return out;
-}
 
 void refuse(glideslope::platform::UdpSocket& socket,
             const glideslope::platform::Address& to, glideslope::net::Refusal why) {
@@ -953,7 +971,6 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         c.sealing = std::make_unique<glideslope::net::Sealer>(answer->session.sending);
         c.opening =
             std::make_unique<glideslope::net::Unsealer>(answer->session.receiving);
-        c.slot = *slot;
         c.last_heard_s = now_s;
         c.initiation.assign(body.begin(), body.end());
         // **A slot is not an aeroplane.** A server with nothing to fly has no
@@ -1316,6 +1333,9 @@ int run(const Options& o) {
             std::printf("flew %s at %.6f, %.6f  %.0f ft agl over ground %lld ft\n",
                         a.id.c_str(), s.latitude_deg, s.longitude_deg, agl,
                         static_cast<long long>(std::llround(s.altitude_ft - agl)));
+            std::printf("  number %d, %s, banked as far as %.0f degrees\n",
+                        static_cast<int>(a.index), a.slot >= 0 ? "a player's" : "an AI's",
+                        a.most_roll_deg);
         }
         std::printf("ran %d AI aircraft\n", fleet->ai());
         std::printf("fetched %d terrain tile%s\n", fleet->tiles_fetched(),
