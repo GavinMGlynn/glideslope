@@ -637,6 +637,45 @@ jobs:
           grep -q "built without one" window.txt || { echo "--window was not refused as built without one"; exit 1; }
 
   # ---------------------------------------------------------------------------
+  # **Packaging, when the build could have changed it** - package.yml, called
+  # here so that a pull request that breaks a package fails its gate rather
+  # than main after it. What counts as the build is the list below; a change
+  # outside it cannot change what a package holds.
+  # ---------------------------------------------------------------------------
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - id: decide
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BASE" 2>/dev/null; then
+            echo "no base to compare with; packaging anyway"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE" "$HEAD")
+          echo "$changed"
+          if echo "$changed" | grep -Eq '^(CMakeLists\.txt|CMakePresets\.json|cmake/|ext/|assets/|\.gitmodules|vcpkg\.json|vcpkg-configuration\.json|\.github/workflows/package\.yml|src/frontend/)'; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  package:
+    name: Package
+    needs: changes
+    if: ${{ needs.changes.outputs.build == 'true' }}
+    uses: ./.github/workflows/package.yml
+
+  # ---------------------------------------------------------------------------
   # **CI passed**: every job above, green. It is the one check main's
   # protection asks for, so that a job added, renamed or split into shards is
   # covered without the protection being edited to name it.
@@ -645,7 +684,7 @@ jobs:
     name: CI passed
     if: ${{ always() }}
     needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, windows-build,
-            windows-test, cross-platform, server-image]
+            windows-test, cross-platform, server-image, changes, package]
     runs-on: ubuntu-latest
     steps:
       - name: Every job passed
@@ -653,4 +692,7 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
         run: |
           echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null
+          # Packaging is skipped when nothing it depends on changed, which is
+          # a pass; anything else skipped, failed or cancelled is not.
+          echo "$NEEDS" | jq -e 'to_entries | all(.[];
+              .value.result == "success" or (.key == "package" and .value.result == "skipped"))' > /dev/null

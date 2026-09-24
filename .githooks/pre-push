@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# pre-push - what can be known in a few minutes, before CI takes half an hour.
+#
+#   1. Nothing goes to main: it is protected on GitHub, and this says so here
+#      rather than after the upload.
+#   2. The linux-debug build, incrementally, where there is one: warnings are
+#      errors, so a build is most of what a compiler can say.
+#   3. The quick tests: every test ctest last measured under five seconds,
+#      from its own cost data - a list nobody has to keep.
+#   4. A reminder, not a refusal: code for Windows or Apple is compiled by
+#      tools/windows_build.sh before it is pushed (CLAUDE.md).
+#
+# `git push --no-verify` skips it. GLIDESLOPE_PUSH_QUICK=0 skips the build and
+# tests alone.
+
+set -uo pipefail
+root="$(git rev-parse --show-toplevel)"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [[ "$remote_ref" == "refs/heads/main" ]]; then
+        echo "pre-push: main takes pull requests only - push a branch (tools/start_item.sh)" >&2
+        exit 1
+    fi
+    if [[ "$local_sha" =~ ^0+$ ]]; then
+        continue
+    fi
+    base="$remote_sha"
+    if [[ "$base" =~ ^0+$ ]]; then
+        base="$(git merge-base "$local_sha" origin/main 2>/dev/null || echo "$local_sha")"
+    fi
+    if git diff "$base" "$local_sha" | grep -Eq '^\+.*(_WIN32|__APPLE__|_MSC_VER)' \
+       || git diff --name-only "$base" "$local_sha" | grep -Eq '^src/platform/|\.github/'; then
+        echo "pre-push: this touches Windows or Apple code - has tools/windows_build.sh built it?" >&2
+    fi
+done
+
+if [[ "${GLIDESLOPE_PUSH_QUICK:-1}" == "0" ]] || [[ ! -d "$root/build/linux-debug" ]]; then
+    exit 0
+fi
+cd "$root" || exit 1
+if ! cmake --build --preset linux-debug -j8 > /tmp/glideslope-pre-push-build.log 2>&1; then
+    tail -30 /tmp/glideslope-pre-push-build.log >&2
+    echo "pre-push: the linux-debug build fails (log in /tmp/glideslope-pre-push-build.log)" >&2
+    exit 1
+fi
+costs="build/linux-debug/Testing/Temporary/CTestCostData.txt"
+if [[ -f "$costs" ]]; then
+    quick="$(awk '/^---/ { exit } NF >= 3 && $3 + 0 < 5 { printf "%s^%s$", sep, $1; sep = "|" }' "$costs")"
+    if [[ -n "$quick" ]]; then
+        if ! ctest --preset linux-debug -j8 -R "$quick" > /tmp/glideslope-pre-push-tests.log 2>&1; then
+            grep -E 'Failed|\*\*\*' /tmp/glideslope-pre-push-tests.log >&2
+            echo "pre-push: a quick test fails (log in /tmp/glideslope-pre-push-tests.log)" >&2
+            exit 1
+        fi
+        echo "pre-push: $(grep -o '[0-9]* tests passed\|tests passed, [0-9]* tests failed out of [0-9]*' /tmp/glideslope-pre-push-tests.log | head -1)" >&2
+    fi
+fi
+exit 0

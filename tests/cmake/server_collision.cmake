@@ -50,10 +50,12 @@ endif()
 set(_one e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26)
 set(_two d1b109e3db55e52705b4664f92a64ab2c0a03c0e6d62fb9af829e908a06d48fc)
 execute_process(
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 24 --after 1 --key ${_one}
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 24 --after 1 --key ${_two}
-    COMMAND "${SERVER}" --port ${PORT} --seconds 28 --ai 0 --headless --data "${DATA}"
-            --timeout 30 --store "${_store}"
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1 --key ${_one}
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1 --key ${_two}
+    # Until both clients have gone, which is long enough on any machine for the
+    # collision and the flying again they are waiting to hear.
+    COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 0 --headless
+            --data "${DATA}" --timeout 3 --store "${_store}"
             --fly 737-300@-33.90,151.40,0 --fly 737-300@-33.87,151.40,180
     RESULT_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 

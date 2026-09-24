@@ -59,8 +59,11 @@ execute_process(
             --key 103fdaa7d7170fce52c4ee825179422582fc096901f46a78d763058a9aa74d1e
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 8 --fly --after 4
             --key 9a47cf83f2e50ebb1bb176f4072fa4ad962b89d8cf09527d1ce6abd308f89ba2
-    COMMAND "${SERVER}" --port ${PORT} --seconds 13 --ai 1 --headless --players 4
-            --data "${DATA}" --timeout 30 --store "${_store}"
+    # Until the last of them has gone, however long a slow machine takes to
+    # let them all in: a fixed thirteen seconds stopped a server on CI before
+    # the fourth client had flown its aeroplane over.
+    COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
+            --players 4 --data "${DATA}" --timeout 3 --store "${_store}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
 string(REGEX MATCHALL "number [0-9]+, a player's, banked as far as [0-9]+ degrees"

@@ -73,6 +73,15 @@ frame is not allowed.
   check, **CI passed**, is green - every job on every platform - with the
   branch up to date with `main`. A red run is fixed on the branch. Rewriting
   history that is already pushed needs the project owner's say-so.
+- **Start an item with `tools/start_item.sh BRANCH "title"`**: the branch from
+  an up-to-date `main`, pushed, with its draft pull request open - CI runs on
+  pull requests, so a branch without one is tested by nothing. Merge with
+  `gh pr ready && gh pr merge --rebase --delete-branch` when CI passed is green.
+- **The hooks are on in every working copy**: `git config core.hooksPath
+  .githooks`. pre-commit refuses a debugging marker, a tracked change left
+  unstaged, a key, and a plan tick without PROJECT_STATUS.md; pre-push refuses
+  `main`, builds, and runs the quick tests. `--no-verify` only with the reason
+  in the commit message.
 - **Before pushing code that is not Linux's alone** - sockets, windows, file
   paths, anything under `#ifdef _WIN32` or Apple's - build it on Windows first:
   `tools/windows_build.sh` builds this branch in the Windows working copy from
