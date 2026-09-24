@@ -604,6 +604,19 @@ forward again through every input it has sent since that sequence. How far
 that moves the aircraft is the correction; a small one is hidden by blending
 it in, and one larger than about a wingspan is not.
 
+**The first update is already a trip old**, so a client should keep the
+inputs it sends before it has heard one, and fly those the server has not
+yet applied forward from it. Until the server has applied an input of the
+client's, though, the client is joining rather than predicting: the server
+flew the aircraft for that trip on no input of the client's, and the client
+cannot know how.
+
+**What the server does not say** is how far into its newest input it had
+flown when it took the motion. It flies an input from when that input arrives,
+so an input that jitter makes late is flown late, and a client that assumes
+every input lasted as long as it did on its own screen is wrong by the
+aeroplane's speed times the jitter. At 50 m/s and 60 ms that is 3 m.
+
 Nothing else about the aircraft is sent - its engines, its controls' positions,
 its fuel: the client, flying the same inputs, already has them, and sending
 them would make every update many times larger for nothing.
