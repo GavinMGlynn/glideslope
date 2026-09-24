@@ -371,9 +371,23 @@ Found while implementing something else. Added when found, not when remembered.
       speed.** The F-15C lifts off at 230 knots where its flight manual gives
       157. *Verification: each lifts off within ten knots of its rotation
       speed, and can be rotated early.*
-- [ ] **The Learjet ends its landing roll nose down through the runway.**
+- [x] **The Learjet ends its landing roll nose down through the runway.**
       *Verification: every aeroplane the AI lands ends its rollout upright on
-      its wheels.*
+      its wheels.* Done 2026-09-24: the Learjet already stopped level; three
+      jets bounced off the runway and one rocked a wingtip on to it. Jets now
+      land as jets are landed - nose down, spoilers out, brakes on.
+- [ ] **The F-35B's circuit touches down two kilometres short of the
+      runway**, at 165 knots, and rolls on to it. Nothing checks where along
+      the runway a circuit touches. *Verification: every circuit touches down
+      on the runway, past its threshold.*
+- [ ] **Taking an aeroplane back on its landing roll does not finish the
+      landing**: it is handed the plain autopilot, which never stops it.
+      *Verification: an approach taken back on the roll is landed to a stop.*
+- [ ] **The B-2A cannot slow down on the approach.** With nothing to add drag
+      it crosses the threshold fourteen knots fast with its throttles shut,
+      and floats nearly two feet off the runway after it touches.
+      *Verification: the B-2A crosses the threshold within five knots of its
+      reference speed.*
 - [ ] **A `--terrain ion` run can hang for ever, past its own timeout.**
       *Verification: a timed-out run is gone and leaves no cache lock.*
 - [ ] **A published stall speed for the F-15C**, from its flight manual. The

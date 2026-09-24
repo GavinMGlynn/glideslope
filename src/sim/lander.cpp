@@ -76,7 +76,7 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
 Lander::Lander(const Aircraft& aircraft, const Runway& runway,
                const ApproachSpeeds& speeds, double glidepath_deg)
     : a_(aircraft), runway_(runway), speeds_(speeds),
-      glidepath_rad_(glidepath_deg / degrees) {
+      glidepath_rad_(glidepath_deg / degrees), jet_(aircraft.figures().jet) {
     measure();
     throttle_ = 0.5;
 }
@@ -114,6 +114,7 @@ Controls Lander::fly() {
     if (on_ground && !touched_) {
         touched_ = true;
         touchdown_pitch_deg_ = s.pitch_deg;
+        lowering_pitch_deg_ = s.pitch_deg;
         touchdown_above_m_ = above_m_;
         touchdown_sink_fpm_ = -s.climb_rate_fpm;
         touchdown_across_m_ = across_m_;
@@ -160,14 +161,32 @@ Controls Lander::fly() {
             (rolling_kts - 0.5 * speeds_.vref_kts) / std::max(1.0, 0.5 * speeds_.vref_kts), 0.0,
             1.0);
         const double most_deg = 20.0 - 15.0 * fast;
-        const double want = std::clamp(-across_m_ * 2.0, -most_deg, most_deg);
+        // **And back to it over three seconds of her roll, not a fixed
+        // distance.** Two degrees of heading for each metre off the line is
+        // a gentle correction at thirty knots and at a hundred and ninety a
+        // swerve: an F-15C with her nose-wheel down steered for the line
+        // that hard, crossed it, and weaved either side of it with a growing
+        // swing until she rocked a wingtip on to the runway. The track that
+        // regains the line in three seconds of travel - never nearer than
+        // the old two degrees a metre - is the same law made to fit her speed.
+        const double regain_m =
+            std::max(1.0 / (2.0 / degrees), 3.0 * rolling_kts * 0.514444);
+        const double want =
+            std::clamp(-std::atan(across_m_ / regain_m) * degrees, -most_deg, most_deg);
         const double error = std::remainder(runway_.heading_deg + want - s.heading_deg, 360.0);
         const double r_degps = s.r_radps * degrees;
         // **The model's rudder command yaws the nose left for a positive
         // value** (sim/test_pilot.cpp), so holding the centreline takes the
         // opposite sign from the correction wanted.
         c.rudder = -std::clamp(0.10 * error - 0.30 * r_degps, -1.0, 1.0);
-        c.aileron = std::clamp(-0.02 * s.roll_deg, -1.0, 1.0);
+        // **The wings are held level as they are in the air**: the FAA's
+        // Airplane Flying Handbook (FAA-H-8083-3C, chapter 9, "After-Landing
+        // Roll") has the ailerons keep the wings level on the ground "in
+        // much the same way they are used in flight", so the flying law's
+        // gains are used, rate as well as angle. The angle alone, at 0.02, let
+        // an F-15C with her nose-wheel down at 190 knots rock to 18 degrees
+        // of bank as she weaved and put a wingtip on the runway.
+        c.aileron = std::clamp(-0.035 * s.roll_deg - 0.02 * s.p_radps * degrees, -1.0, 1.0);
         c.throttle = 0.0;
         // **The stick comes back as she slows, and then stays back.** On a
         // tailwheel aeroplane that is what holds the tail down; brakes
@@ -197,6 +216,24 @@ Controls Lander::fly() {
         const double hold = std::clamp(
             0.05 * hold_error - 0.05 * s.q_radps * degrees + pitch_trim_, -1.0, 1.0);
         c.elevator = flying * hold + (1.0 - flying) * 1.0;
+        // **A jet is landed as the handbook lands a jet**, not as it lands a
+        // Cub. The FAA's Airplane Flying Handbook (FAA-H-8083-3C), chapter
+        // 16, "Touchdown and Rollout": the nose-wheel is lowered on to the
+        // runway immediately after touchdown - a jet's landing distance
+        // charts assume within four seconds - because held nose high she
+        // decelerates poorly and her wing still lifts; and the spoilers are
+        // deployed immediately after touchdown, to spoil that lift and put
+        // her weight on the wheels. Held at the attitude she touched at, a
+        // 737 touching at 134 knots with her wing still carrying her rode
+        // her gear's rebound twelve feet back into the air, and an A320 and
+        // a B-2A did the same. So the nose comes down (`lower_the_nose`,
+        // below) and the spoilers come out, and the stick is never brought
+        // back on the ground: pulled fully back at half the reference speed,
+        // as a tailwheel aeroplane's is, it would lift a jet's nose again.
+        if (jet_) {
+            c.elevator = lower_the_nose(s);
+            c.speedbrake = 1.0;
+        }
         // **The brakes hold a deceleration, as an autobrake does** - the 737's
         // are 4, 5, 7.2 and 14 feet a second squared at settings 1, 2, 3 and
         // MAX. They were a pressure that
@@ -221,7 +258,13 @@ Controls Lander::fly() {
             autobrake_fps2_ = std::clamp(vg_fps * vg_fps / (2.0 * left_ft), 5.0, 14.0);
         }
         const double autobrake_fps2 = autobrake_fps2_;
-        if (vg_kts < 0.9 * speeds_.vref_kts) {
+        // **A jet brakes from the touch**: the handbook's chapter 16 begins
+        // braking "as soon after touchdown and wheel spin-up as possible",
+        // with the nose-wheel already coming down and the spoilers putting
+        // her weight on the wheels. Waiting for nine tenths of the reference
+        // speed, an F-15C with her nose down - no longer braking on her
+        // wing's drag - took twenty seconds to get there and ran 3.4 km.
+        if (jet_ || vg_kts < 0.9 * speeds_.vref_kts) {
             brake_ = std::clamp(brake_ + 0.1 * (autobrake_fps2 - decel_fps2_) / steps_per_second,
                                 0.0, 1.0);
         }
@@ -377,6 +420,19 @@ Controls Lander::fly() {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg);
         }
         want_pitch = flare_pitch_;
+        // **A jet that has touched and come up again is not flared again.**
+        // Her nose goes on down towards the runway as it was going, and her
+        // spoilers stay out: the flare's law held the attitude she bounced
+        // at and let it creep up, and an A320 and a B-2A touching with their
+        // wings still carrying them - the B-2A fourteen knots fast, with no
+        // flap to slow her - climbed away at 360 ft/min to thirty feet with
+        // the throttles shut. Lowering the nose takes the angle of attack
+        // off the wing, which is what the handbook lowers it for.
+        if (jet_ && touched_) {
+            c.elevator = lower_the_nose(s);
+            c.speedbrake = 1.0;
+            return c;
+        }
     } else {
         // The glidepath, from the threshold: how high the aeroplane should be
         // where it is, and the sink that holds it there.
@@ -461,6 +517,33 @@ Controls Lander::fly() {
     pitch_trim_ = std::clamp(pitch_trim_ + 0.02 * pitch_error / steps_per_second, -0.8, 0.8);
     c.elevator = std::clamp(0.05 * pitch_error - 0.05 * q_degps + pitch_trim_, -1.0, 1.0);
     return c;
+}
+
+double Lander::lower_the_nose(const AircraftState& s) {
+    // The attitude wanted falls from the one she touched at to a degree below
+    // level - past where any jet here rests on its nose-wheel - in three
+    // seconds, inside the handbook's four; never slower than a degree and a
+    // half a second. At a degree and a half a second a B-2A touching at
+    // seven and a half degrees, fourteen knots fast, still carried her
+    // weight on her wing for three seconds and floated off the runway.
+    constexpr double level_deg = -1.0;
+    const double rate_degps = std::max(1.5, (touchdown_pitch_deg_ - level_deg) / 3.0);
+    lowering_pitch_deg_ =
+        std::max(level_deg, lowering_pitch_deg_ - rate_degps / steps_per_second);
+    // **Firmly: three times the flying law's gain, on the attitude and on its
+    // rate.** A jet still rotating in the flare as she touches carries the
+    // rotation on - an A320 touching at two and a half degrees a second went
+    // from seven degrees to eight and a half after the wheels met the runway
+    // under the flying law's gain, and her wing lifted her off her rebounding
+    // gear. The trim learns what holds the attitude while the nose is coming
+    // down, and no longer: once it is down the runway holds it, and a trim
+    // still learning would wind the stick fully forward by the time she
+    // stopped.
+    const double error = lowering_pitch_deg_ - s.pitch_deg;
+    if (lowering_pitch_deg_ > level_deg) {
+        pitch_trim_ = std::clamp(pitch_trim_ + 0.02 * error / steps_per_second, -0.8, 0.8);
+    }
+    return std::clamp(0.15 * error - 0.15 * s.q_radps * degrees + pitch_trim_, -1.0, 1.0);
 }
 
 } // namespace glideslope::sim

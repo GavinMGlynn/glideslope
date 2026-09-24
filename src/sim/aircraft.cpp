@@ -167,6 +167,13 @@ AircraftFigures Aircraft::figures() const {
     f.chord_ft = exec_->GetPropertyValue("metrics/cbarw-ft");
     f.empty_weight_lbs = exec_->GetPropertyValue("inertia/empty-weight-lbs");
     f.engines = static_cast<int>(exec_->GetPropulsion()->GetNumEngines());
+    f.jet = f.engines > 0;
+    for (std::size_t i = 0; i < exec_->GetPropulsion()->GetNumEngines(); ++i) {
+        if (exec_->GetPropulsion()->GetEngine(static_cast<unsigned>(i))->GetType() !=
+            JSBSim::FGEngine::etTurbine) {
+            f.jet = false;
+        }
+    }
     return f;
 }
 

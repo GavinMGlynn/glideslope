@@ -67,6 +67,19 @@ The changes, and what each is for:
                         rises at the clean wing's slope to TAKEOFF_CLMAX at 16
                         degrees and stalls there as the model did; at 73,500
                         kg its V2 is 150 knots, an A320's.
+    Ground spoilers, added
+                        The model's speedbrake only added drag, over two
+                        seconds, and nothing took the wing's lift away on the
+                        runway: an A320 touching at 145 knots at 400 ft/min
+                        rode its gear's rebound four to fourteen feet back
+                        into the air however its nose was lowered. An A320's
+                        ground spoilers come out at touchdown, and the FAA's
+                        Airplane Flying Handbook (FAA-H-8083-3C, chapter 16)
+                        gives their purpose: they spoil much of the lift and
+                        put the weight on the wheels. They now come out with
+                        the speedbrake lever while a wheel has weight on it,
+                        and take the lift down as JSBSim's own 737's ground
+                        spoilers do - in 0.6 seconds, to six tenths of it.
     Drag_of_windmilling_engines, added
                         As the 737-300's: a stopped CFM56-5A's 68.3 in fan
                         windmills, with a drag area of about 0.4 of its
@@ -147,6 +160,46 @@ GROUND_EFFECT = """        <function name="aero/function/kCLge">
                     0.9000	1.0030
                     1.0000	1.0020
                     1.1000	1.0000
+                </tableData>
+            </table>
+        </function>
+"""
+# The ground spoilers: out with the speedbrake lever while a wheel has weight
+# on it, in JSBSim's 737's 0.6 seconds, and taking the lift off as its do - to
+# six tenths of it by a tenth of their travel.
+GROUND_SPOILERS = """        <channel name="Ground Spoilers">
+            <fcs_function name="Ground Spoilers Armed">
+                <function>
+                    <product>
+                        <property>fcs/speedbrake-cmd-norm</property>
+                        <property>gear/wow</property>
+                    </product>
+                </function>
+                <output>fcs/ground-spoiler-cmd-norm</output>
+            </fcs_function>
+            <kinematic name="Ground Spoilers">
+                <input>fcs/ground-spoiler-cmd-norm</input>
+                <traverse>
+                    <setting>
+                        <position>0</position>
+                        <time>0</time>
+                    </setting>
+                    <setting>
+                        <position>1</position>
+                        <time>0.6</time>
+                    </setting>
+                </traverse>
+                <output>fcs/ground-spoiler-pos-norm</output>
+            </kinematic>
+        </channel>
+"""
+GROUND_SPOILER_LIFT = """        <function name="aero/function/kCLsp">
+            <description>Change_in_lift_due_to_ground_spoilers</description>
+            <table>
+                <independentVar>fcs/ground-spoiler-pos-norm</independentVar>
+                <tableData>
+                    0.0000	1.0
+                    0.1000	0.6
                 </tableData>
             </table>
         </function>
@@ -253,11 +306,15 @@ def airframe():
             values[3] = values[4] = zero_lift + LIFT_SLOPE * alpha
         reshaped.append("                              " + "\t".join(f"{v:.4f}" for v in values))
     text = (text[:m.start(1)] + m.group(1) + "<property>aero/function/kCLge</property>\n                      "
+            + "<property>aero/function/kCLsp</property>\n                      "
             + m.group(2) + "\n".join(reshaped) + m.group(4) + text[m.end(4):])
     text = replace_once(
         text, r"(<description>Drag_due_to_landing_gear</description>.*?<value>)0\.0400(</value>)",
         r"\g<1>" + GEAR_DRAG + r"\2", "the gear's drag")
-    text = replace_once(text, r"(<aerodynamics>\n)", lambda mm: mm.group(1) + "\n" + GROUND_EFFECT, "the aerodynamics")
+    text = replace_once(text, r"(<aerodynamics>\n)",
+                        lambda mm: mm.group(1) + "\n" + GROUND_EFFECT + GROUND_SPOILER_LIFT, "the aerodynamics")
+    text = replace_once(text, r"(\n    </flight_control>)", lambda mm: "\n" + GROUND_SPOILERS.rstrip("\n") + mm.group(1),
+                        "the end of the flight controls")
 
     flap_rows = "\n".join(
         f"                            {deg}\t{0.0 if deg == 0 else LEADING_EDGE_DRAG + (FULL_FLAP_DRAG - LEADING_EDGE_DRAG) * (deg / 40.0) ** 1.5:.4f}"
