@@ -861,6 +861,30 @@ public:
     static constexpr double wreck_s = 5.0;
 
     const std::vector<Aircraft>& flown() const { return flown_; }
+
+    // **The motion of the aircraft numbered `index`**, for its client's
+    // prediction to be put right by, or nothing if there is no such aircraft.
+    std::optional<glideslope::net::OwnMotion> motion_of(std::uint8_t index) const {
+        for (const Aircraft& a : flown_) {
+            if (a.index != index) {
+                continue;
+            }
+            const glideslope::sim::Motion m = a.aircraft->motion();
+            glideslope::net::OwnMotion out;
+            out.x_m = m.location_ecef_m[0];
+            out.y_m = m.location_ecef_m[1];
+            out.z_m = m.location_ecef_m[2];
+            for (std::size_t i = 0; i < 4; ++i) {
+                out.attitude[i] = static_cast<float>(m.attitude_local[i]);
+            }
+            for (std::size_t i = 0; i < 3; ++i) {
+                out.uvw_mps[i] = static_cast<float>(m.uvw_mps[i]);
+                out.pqr_radps[i] = static_cast<float>(m.pqr_radps[i]);
+            }
+            return out;
+        }
+        return std::nullopt;
+    }
     int ai() const { return ai_; }
     int tiles_fetched() const { return tiles_.downloads(); }
 
@@ -1549,6 +1573,10 @@ int run(const Options& o) {
             for (auto& [address, c] : connections) {
                 packet.your_aircraft = c.aircraft;
                 packet.last_input_applied = c.last_input_applied;
+                // Its own aircraft's motion, which only its own packet carries.
+                packet.yours = c.aircraft != glideslope::net::no_aircraft
+                                   ? fleet->motion_of(c.aircraft)
+                                   : std::nullopt;
                 const auto said = glideslope::net::write_state(packet);
                 const auto to = glideslope::platform::address_of(address);
                 if (said && to) {

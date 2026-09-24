@@ -28,6 +28,7 @@
 
 #include "net/messages.hpp"
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -80,6 +81,25 @@ struct AircraftState {
     bool operator==(const AircraftState&) const = default;
 };
 
+// **The client's own aircraft's motion**, which only its own state update
+// carries - the rest of the packet says where every aircraft is for drawing
+// it; this is what the client's prediction is put right by (sim::Motion,
+// sim::Prediction). Metres, the quaternion body to north-east-down, metres a
+// second and radians a second along the body's axes.
+struct OwnMotion {
+    double x_m = 0.0; // Earth-centred, Earth-fixed
+    double y_m = 0.0;
+    double z_m = 0.0;
+    std::array<float, 4> attitude{};
+    std::array<float, 3> uvw_mps{};
+    std::array<float, 3> pqr_radps{};
+
+    bool operator==(const OwnMotion&) const = default;
+};
+
+// The flag and the motion after it: three doubles and ten floats.
+inline constexpr std::size_t own_motion_bytes = 1 + 3 * 8 + 10 * 4;
+
 struct StatePacket {
     // The simulation's clock, seconds since the session began. What the
     // client interpolates against.
@@ -94,6 +114,8 @@ struct StatePacket {
     // carries one thing meant only for them - `last_input_applied`.
     std::uint8_t your_aircraft = no_aircraft;
     std::vector<AircraftState> aircraft;
+    // This client's own aircraft's motion, when it has one.
+    std::optional<OwnMotion> yours;
 
     bool operator==(const StatePacket&) const = default;
 };
@@ -110,6 +132,6 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state);
 std::optional<StatePacket> read_state(std::span<const std::uint8_t> body);
 
 // How many bytes a packet carrying `count` aircraft takes.
-std::size_t state_bytes(std::size_t count);
+std::size_t state_bytes(std::size_t count, bool with_yours = false);
 
 } // namespace glideslope::net

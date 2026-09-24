@@ -542,6 +542,22 @@ Then, for each aircraft:
 | `f32` | its pitch, degrees: positive nose up |
 | `f32` | its roll, degrees: positive right wing down |
 
+After the last aircraft, **this client's own aircraft's motion**, so that its
+prediction can be put right (see "Predicting your own aircraft" below):
+
+| written as | field |
+| --- | --- |
+| `u8` | `01` if the motion follows, `00` if this client has no aircraft |
+| `f64` | its position, Earth-centred and Earth-fixed, metres, x |
+| `f64` | the same, y |
+| `f64` | the same, z |
+| `f32` x4 | its attitude, a unit quaternion from north-east-down to the body, scalar first |
+| `f32` x3 | its velocity relative to the Earth along its own axes - forward, right, down - metres a second |
+| `f32` x3 | its rotation rates about those axes - roll, pitch, yaw - radians a second |
+
+A flag other than `00` or `01`, or a NaN or infinity in any of the thirteen
+numbers, makes the packet unreadable.
+
 **Two of the fields are meant for one client and not for the others**, which
 is why a state update is sealed to each connection separately rather than
 built once and sent to all: the input sequence and the index of this client's
@@ -556,8 +572,8 @@ the server's to hand out.
 
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
-full is 1,035 bytes, and 1,065 with the envelope and the sealing in front of
-it, inside the 1,232 a datagram holds; a test fills one to its limits and
+full, with the client's own motion, is 1,099 bytes, and 1,129 with the
+envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 
 **A server with nothing to fly sends no state updates at all.** Until the
@@ -576,6 +592,21 @@ need, any byte left over at the end, more than 20 aircraft, a controller or a
 condition this version does not know, and any NaN or infinity in any of the ten numbers. It
 does not refuse a `your_aircraft` that names no aircraft in the packet: a
 client that cannot find itself has no aircraft yet, which is what `FF` says.
+
+### Predicting your own aircraft
+
+**A client flies its own aircraft ahead of the server**, so that its controls
+answer at once, and puts it right when the server's word arrives - a round
+trip late. The server's word is the motion at the end of the state update,
+and the newest input sequence it had applied. The client sets its own flight
+model's position, attitude, velocity and rates to that motion, and flies it
+forward again through every input it has sent since that sequence. How far
+that moves the aircraft is the correction; a small one is hidden by blending
+it in, and one larger than about a wingspan is not.
+
+Nothing else about the aircraft is sent - its engines, its controls' positions,
+its fuel: the client, flying the same inputs, already has them, and sending
+them would make every update many times larger for nothing.
 
 ## Sealing
 

@@ -754,6 +754,56 @@ void Aircraft::restore(const AircraftSnapshot& s) {
     exec_->Setsim_time(s.sim_time_s);
 }
 
+Motion Aircraft::motion() const {
+    constexpr double m_per_ft = 0.3048;
+    Motion m;
+    const auto& vs = exec_->GetPropagate()->GetVState();
+    for (unsigned i = 1; i <= 3; ++i) {
+        m.location_ecef_m[i - 1] = vs.vLocation(i) * m_per_ft;
+        m.uvw_mps[i - 1] = vs.vUVW(i) * m_per_ft;
+        m.pqr_radps[i - 1] = vs.vPQR(i);
+    }
+    for (unsigned i = 1; i <= 4; ++i) {
+        m.attitude_local[i - 1] = vs.qAttitudeLocal(i);
+    }
+    return m;
+}
+
+void Aircraft::set_motion(const Motion& m) {
+    constexpr double ft_per_m = 1.0 / 0.3048;
+    const auto propagate = exec_->GetPropagate();
+    JSBSim::FGPropagate::VehicleState vs = propagate->GetVState();
+    const JSBSim::FGColumnVector3 location_ecef(m.location_ecef_m[0] * ft_per_m,
+                                                m.location_ecef_m[1] * ft_per_m,
+                                                m.location_ecef_m[2] * ft_per_m);
+    JSBSim::FGLocation location = vs.vLocation;
+    location = location_ecef;
+    vs.vLocation = location;
+    vs.vUVW = JSBSim::FGColumnVector3(m.uvw_mps[0] * ft_per_m, m.uvw_mps[1] * ft_per_m,
+                                      m.uvw_mps[2] * ft_per_m);
+    vs.vPQR = JSBSim::FGColumnVector3(m.pqr_radps[0], m.pqr_radps[1], m.pqr_radps[2]);
+    for (unsigned i = 1; i <= 4; ++i) {
+        vs.qAttitudeLocal(i) = m.attitude_local[i - 1];
+    }
+    // The same frame arithmetic as restore(): the inertial position and
+    // attitude follow from the Earth-fixed ones at this instant.
+    const JSBSim::FGMatrix33 i2ec = inertial_to_earth(propagate->GetEarthPositionAngle());
+    vs.vInertialPosition = i2ec.Transposed() * location_ecef;
+    const JSBSim::FGMatrix33 i2l = location.GetTec2l() * i2ec;
+    vs.qAttitudeECI = i2l.GetQuaternion() * vs.qAttitudeLocal;
+    propagate->SetVState(vs);
+    const JSBSim::FGColumnVector3& omega = exec_->GetInertial()->GetOmegaPlanet();
+    propagate->SetInertialVelocity(propagate->GetTb2i() * vs.vUVW +
+                                   omega * vs.vInertialPosition);
+    // Recompute everything that follows from the state - the forces, the
+    // ground under it - without advancing the clock, and forget the old
+    // derivatives, which belong to where it was.
+    exec_->SuspendIntegration();
+    exec_->Run();
+    exec_->ResumeIntegration();
+    propagate->InitializeDerivatives();
+}
+
 double Aircraft::property(const std::string& name) const {
     if (!exec_->GetPropertyManager()->HasNode(name)) {
         throw std::out_of_range(model_ + " has no property " + name);

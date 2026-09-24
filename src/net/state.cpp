@@ -18,8 +18,10 @@ bool a_number(float v) {
 
 } // namespace
 
-std::size_t state_bytes(std::size_t count) {
-    return state_header_bytes + count * state_per_aircraft_bytes;
+std::size_t state_bytes(std::size_t count, bool with_yours) {
+    // The flag that says whether this client's motion follows is always there.
+    return state_header_bytes + count * state_per_aircraft_bytes +
+           (with_yours ? own_motion_bytes : 1);
 }
 
 std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
@@ -44,6 +46,16 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
             return std::nullopt;
         }
     }
+    if (state.yours) {
+        const OwnMotion& m = *state.yours;
+        bool numbers = a_number(m.x_m) && a_number(m.y_m) && a_number(m.z_m);
+        for (const float v : m.attitude) numbers = numbers && a_number(v);
+        for (const float v : m.uvw_mps) numbers = numbers && a_number(v);
+        for (const float v : m.pqr_radps) numbers = numbers && a_number(v);
+        if (!numbers) {
+            return std::nullopt;
+        }
+    }
 
     Writer w;
     w.u8(static_cast<std::uint8_t>(Inside::state));
@@ -64,6 +76,22 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         w.f32(a.heading_deg);
         w.f32(a.pitch_deg);
         w.f32(a.roll_deg);
+    }
+    w.u8(state.yours ? 1 : 0);
+    if (state.yours) {
+        const OwnMotion& m = *state.yours;
+        w.f64(m.x_m);
+        w.f64(m.y_m);
+        w.f64(m.z_m);
+        for (const float v : m.attitude) {
+            w.f32(v);
+        }
+        for (const float v : m.uvw_mps) {
+            w.f32(v);
+        }
+        for (const float v : m.pqr_radps) {
+            w.f32(v);
+        }
     }
     return w.take();
 }
@@ -122,6 +150,39 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
             return std::nullopt;
         }
         out.aircraft.push_back(a);
+    }
+    // **This client's own motion**, after a flag saying whether it is there.
+    const std::uint8_t has_yours = r.u8();
+    if (!r.ok() || has_yours > 1) {
+        return std::nullopt;
+    }
+    if (has_yours == 1) {
+        OwnMotion m;
+        m.x_m = r.f64();
+        m.y_m = r.f64();
+        m.z_m = r.f64();
+        for (float& v : m.attitude) {
+            v = r.f32();
+        }
+        for (float& v : m.uvw_mps) {
+            v = r.f32();
+        }
+        for (float& v : m.pqr_radps) {
+            v = r.f32();
+        }
+        if (!r.ok() || !a_number(m.x_m) || !a_number(m.y_m) || !a_number(m.z_m)) {
+            return std::nullopt;
+        }
+        for (const float v : m.attitude) {
+            if (!a_number(v)) return std::nullopt;
+        }
+        for (const float v : m.uvw_mps) {
+            if (!a_number(v)) return std::nullopt;
+        }
+        for (const float v : m.pqr_radps) {
+            if (!a_number(v)) return std::nullopt;
+        }
+        out.yours = m;
     }
     // **Anything trailing means it is not this packet.** A reader that
     // ignored the tail would take a longer thing for a shorter one.

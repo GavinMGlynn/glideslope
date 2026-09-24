@@ -61,6 +61,11 @@ public:
     // forward again through every input after `last_applied`, and says how
     // far it moved in doing so.
     Correction reconcile(const AircraftSnapshot& server, std::uint32_t last_applied);
+    // **The same, from the server's word on its motion alone**, which is what
+    // a state update can carry: the client's own engines and actuators, flown
+    // on the same inputs, are left as they are. This is what runs over the
+    // network; the snapshot above is too large to send and too slow to apply.
+    Correction reconcile(const Motion& server, std::uint32_t last_applied);
 
     std::size_t unacknowledged() const { return held_.size(); }
     std::uint32_t newest() const { return held_.empty() ? 0 : held_.back().sequence; }
