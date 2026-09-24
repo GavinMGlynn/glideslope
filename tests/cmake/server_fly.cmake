@@ -48,8 +48,11 @@ if(NOT _rc EQUAL 0)
 endif()
 
 execute_process(
-    COMMAND "${SERVER}" --port ${PORT} --seconds 8 --ai 1 --headless
-            --data "${DATA}" --timeout 30 --store "${_store}"
+    # Until the client has gone, which is when the server has applied its
+    # last input: a fixed eight seconds stopped a debug server on CI with a
+    # third of them still unread.
+    COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
+            --data "${DATA}" --timeout 3 --store "${_store}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 6 --fly
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rc EQUAL 0)
@@ -74,15 +77,13 @@ if(_applied EQUAL 0)
     message(FATAL_ERROR "the server applied none of the ${_sent} input frames "
                         "the client sent: a client cannot fly")
 endif()
-math(EXPR _lost "${_sent} - ${_applied}")
-# A second's worth, thirty: the frames still in flight are however many the
-# client sends while the server is behind, and a debug server on a loaded
-# runner was over half a second behind - 17 of 178 unapplied at the end.
-# A server that drops inputs loses far more than that over six seconds.
-if(_lost GREATER 30)
-    message(FATAL_ERROR "the server applied ${_applied} of ${_sent} input "
-                        "frames, and ${_lost} is more than the few still in "
-                        "flight at the end")
+# **Every one.** The client, its six seconds up, waits for the server to have
+# applied the last input it sent (glideslope_cli's `stay`), so nothing is in
+# flight when it says what was applied: a count short of what was sent is a
+# server that did not get there. It used to allow thirty short, for the frames
+# a slow server had not yet read, and a debug server on CI fell sixty behind.
+if(NOT _applied EQUAL _sent)
+    message(FATAL_ERROR "the server applied ${_applied} of ${_sent} input frames:\n${_out}")
 endif()
 
 # **And the aeroplane did what it was told.** Past 90 degrees it is inverted.

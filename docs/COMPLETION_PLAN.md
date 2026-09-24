@@ -312,11 +312,15 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [x] **Two server tests counted wall-clock seconds on slow runners**: one
+      counted inputs still in flight, and a late client arrived before a slow
+      server was flying. *Verification: the client waits for its last input to
+      be applied, and the late one for the server to say it is flying; each is
+      seen to fail on a deliberate bug.* Done 2026-09-24.
 - [x] **The hooks' test, run by the pre-push hook, committed into the
       repository being pushed** and set it bare. *Verification: run with git's
       hook variables naming a decoy repository, it leaves the decoy exactly as
       it was.* Done 2026-09-24.
-
 - [x] **CI's actions run on Node.js 20, which GitHub has deprecated.**
       *Verification: a CI run's annotations name no action as targeting
       Node.js 20.* Done 2026-09-24.
