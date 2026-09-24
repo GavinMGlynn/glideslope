@@ -165,9 +165,12 @@ endif()
 if(NOT _judged MATCHES "interpolation: ([0-9]+) of")
     message(FATAL_ERROR "the check did not say how many it judged:\n${_judged}")
 endif()
-# Two others - the AI and the client that hears everything - at 60 frames a
-# second for most of twenty seconds.
-if(CMAKE_MATCH_1 LESS 1500)
+# Two others - the AI and the client that hears everything - drawn for most of
+# twenty seconds. At 60 frames a second that is over 2,000; a Windows client,
+# whose shortest sleep is longer, drew 1,492. The floor is what says the run
+# hardly happened - thirty frames a second for ten seconds - and the check
+# itself holds the share judged to 95% of those drawn.
+if(CMAKE_MATCH_1 LESS 600)
     message(FATAL_ERROR "only ${CMAKE_MATCH_1} frames were judged:\n${_judged}")
 endif()
 
