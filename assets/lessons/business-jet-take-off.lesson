@@ -22,6 +22,12 @@
 # degrees in the initial climb and climbs away 45 to 54 knots above its
 # rotation speed - faster than V2 and ten, because it has thrust to spare and
 # the climb law will not raise its nose past twelve degrees of alpha.
+#
+# **The roll ends five feet above where she stood**, not fifteen above the
+# runway: the Learjet 35A gains four knots a second, and rotated early she
+# left the runway at 115 knots and was at 121 by fifteen feet - inside the
+# five knots short of her rotation speed the roll allows, so an early
+# rotation went unremarked (2026-09-26).
 
 name Take-off in a business jet
 teaches business-jet
@@ -33,7 +39,7 @@ do Let the speed build to the rotation speed. Do not hurry her off
 hold lesson/turned-deg -20 20 Keep her straight on the take-off roll
 need fcs/throttle-cmd-norm >= 0.90 Set take-off thrust with the throttles
 need velocities/vc-kts >= rotate-5 Let her reach the rotation speed before easing the nose up
-until position/h-agl-ft >= 15
+until position/h-agl-ft >= start+5
 
 stage The initial climb
 do Rotate smoothly to the take-off attitude and hold it

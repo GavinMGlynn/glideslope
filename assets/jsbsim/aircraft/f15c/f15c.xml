@@ -34,7 +34,7 @@
         <vtailarea unit="FT2"> 46.96 </vtailarea>
         <vtailarm unit="FT"> 0 </vtailarm>
         <location name="AERORP" unit="IN">
-            <x> -234.15 </x>
+            <x> -208.85 </x>
             <y> 0 </y>
             <z> 0 </z>
         </location>
@@ -57,7 +57,7 @@
         <ixz unit="SLUG*FT2"> 520 </ixz>
         <emptywt unit="LBS"> 28476 </emptywt>
         <location name="CG" unit="IN">
-            <x> -236.39 </x>
+            <x> -211.09 </x>
             <y> 0 </y>
             <z> 4.5 </z>
         </location>
@@ -72,7 +72,7 @@
         <pointmass name="Stores">
             <weight unit="LBS"> 0 </weight>
             <location unit="IN">
-                <x> -236.39 </x>
+                <x> -211.09 </x>
                 <y> 0 </y>
                 <z> 4.5 </z>
             </location>
@@ -227,7 +227,7 @@
         </engine>
         <tank type="FUEL">    <!-- Tank number 0 -->
             <location unit="IN">
-                <x> -236.39 </x>
+                <x> -211.09 </x>
                 <y> 0 </y>
                 <z> 4.5 </z>
             </location>
@@ -236,7 +236,7 @@
         </tank>
         <tank type="FUEL">    <!-- Tank number 1 -->
             <location unit="IN">
-                <x> -236.39 </x>
+                <x> -211.09 </x>
                 <y> 0 </y>
                 <z> 4.5 </z>
             </location>

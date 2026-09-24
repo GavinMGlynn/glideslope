@@ -45,6 +45,28 @@ The changes, and what each is for:
                         30,000 to 59,000 ft and Mach 0.9 to 2.4, which the
                         model meets to 27 ft/s, near what the chart can be read
                         to - and to the figures in assets/figures/f15c.xml.
+    The centre of gravity over its main wheels
+                        The model's centre of gravity was 50 in ahead of its
+                        main wheels and 90 in above the ground: seen from the
+                        ground, the wheels were 29 degrees behind it, where
+                        Raymer (Aircraft Design: A Conceptual Approach,
+                        "tipback angle") has them 15. So much of its weight sat
+                        on the nose wheel that the stabilator could not lift it
+                        until 149 knots with the stick fully back, where the
+                        F-15's flight manual (T.O. 1F-15A-1, figure A3-6,
+                        maximum performance take-off, military thrust) has it
+                        off at 91 at the same weight, 36,946 lb - and the take-
+                        off autopilot's half stick not until 220. The centre of
+                        gravity, with the fuel, the stores and the aerodynamic
+                        reference point that the pitching moments are taken
+                        about, is moved aft together until the wheels are 15
+                        degrees behind it (TIP_BACK_DEG), 25 in; the wheels
+                        stay where the visual model draws them. Nothing
+                        changes in the air - the centre of gravity keeps its
+                        place against the aerodynamics - and on the ground the
+                        nose wheel comes off at 98 knots at 36,946 lb, 103 at
+                        41,286 and 107 at 45,713, against the manual's 91, 100
+                        and 111.
     Airframe contacts scrape instead of rolling
                         The model's six contacts that never retract - its
                         wing tips, its fin tips, its radome and its belly -
@@ -84,6 +106,7 @@ The changes, and what each is for:
                         which at height was a quarter of the military thrust.
 """
 
+import math
 import re
 import sys
 
@@ -128,6 +151,13 @@ SPAN_EFFICIENCY = 0.487
 SUPERSONIC_LIFT_DRAG = 0.63
 # Where the lift curve leaves its straight line, and the flow the wing.
 SEPARATION_ALPHA = 0.21
+# The main wheels this far behind the centre of gravity, seen from the ground
+# (Raymer's tipback angle); the model's own centre of gravity, aerodynamic
+# reference point and main wheels, inches, which it is worked from.
+TIP_BACK_DEG = 15.0
+PINNED_CG = (-236.39, 4.5)
+PINNED_AERORP_X = -234.15
+MAIN_WHEELS = (-187.0, -85.4)
 
 
 def replace_once(text, pattern, replacement, what):
@@ -239,8 +269,29 @@ def airframe():
     text, n = re.subn(r"<engine file=\"F100-PW-229\">", f'<engine file="{ENGINE}">', text)
     if n != 2:
         raise SystemExit(f"{SCRIPT}: found {n} engines, not 2 - has the pinned model changed?")
-    text = with_mach_lift(text)
+    text = with_mach_lift(over_its_wheels(text))
     return scraping_airframe(with_mach_drag(text))
+
+
+def over_its_wheels(text):
+    """The centre of gravity moved aft, with everything placed at it and the
+    aerodynamic reference point, until the main wheels are TIP_BACK_DEG
+    behind it."""
+    for side in ("LEFT", "RIGHT"):
+        m = re.search(rf'name="MLG_{side}">\s*<location unit="IN">\s*<x>\s*([-0-9.]+)\s*</x>'
+                      r'\s*<y>[^<]*</y>\s*<z>\s*([-0-9.]+)\s*</z>', text)
+        if not m or (float(m.group(1)), float(m.group(2))) != MAIN_WHEELS:
+            raise SystemExit(f"{SCRIPT}: the main wheels have moved - has the pinned model changed?")
+    arm = (PINNED_CG[1] - MAIN_WHEELS[1]) * math.tan(math.radians(TIP_BACK_DEG))
+    aft = MAIN_WHEELS[0] - arm - PINNED_CG[0]
+    # The centre of gravity, the stores and the two tanks are all at it.
+    text, n = re.subn(rf"<x>\s*{PINNED_CG[0]}\s*</x>", f"<x> {PINNED_CG[0] + aft:.2f} </x>", text)
+    if n != 4:
+        raise SystemExit(f"{SCRIPT}: found {n} things at the centre of gravity, not 4"
+                         " - has the pinned model changed?")
+    return replace_once(
+        text, rf'(<location name="AERORP" unit="IN">\s*<x>)\s*{PINNED_AERORP_X}\s*(</x>)',
+        rf"\g<1> {PINNED_AERORP_X + aft:.2f} \2", "the aerodynamic reference point")
 
 
 def with_mach_lift(text):

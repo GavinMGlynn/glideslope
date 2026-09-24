@@ -45,7 +45,8 @@ struct DepartureSpeeds {
     // Zero for a landplane, which rolls with the stick where it sits.
     double running_pitch_deg = 0.0;
     // Whether `rotate_kts` is the aeroplane's own published lift-off speed or
-    // was worked from its published stall. The caller may want to say so.
+    // was worked from its stall or measured from its model. The caller may
+    // want to say so.
     bool rotate_is_published = false;
 };
 
@@ -55,13 +56,16 @@ struct DepartureSpeeds {
 // The lift-off speed is the one its published take-off roll was measured at
 // where it has one; where it has not - the Cub publishes no take-off roll -
 // it is a seventh above the published stall, which is the usual relation, and
-// `rotate_is_published` says which it was. **An aeroplane with a published
-// take-off field length** rotates from its stall at that field length's flap,
-// and takes off with that flap, where it has a stall speed there; a jet's
-// flaps-up stall is its landing stall's for want of any other, and 1.15 times
-// that with the flaps up is below the speed a clean airliner flies at. Throws std::runtime_error where
-// the aircraft publishes neither a climb speed nor anything to work a
-// rotation speed from.
+// `rotate_is_published` says which it was.
+// **A take-off roll measured from the model** gives the lift-off speed too,
+// where the stall's cannot be flown on a runway: the F-35B's stall is at 31
+// degrees of incidence (its figures). **An aeroplane with a published take-off
+// field length** rotates from its stall at that field length's flap, and
+// takes off with that flap, where it has a stall speed there; a jet's flaps-up
+// stall is its landing stall's for want of any other, and 1.15 times that with
+// the flaps up is below the speed a clean airliner flies at. Throws
+// std::runtime_error where the aircraft publishes neither a climb speed nor
+// anything to work a rotation speed from.
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
                                  const std::string& model);
 
@@ -86,6 +90,10 @@ public:
     // How far down the runway the wheels left it, in metres, or 0 before.
     double unstuck_along_m() const { return unstuck_along_m_; }
 
+    // The speed the rotation began at, knots, or 0 before: a little short of
+    // the rotation speed, by as much as she gains while the nose comes up.
+    double rotation_began_kts() const { return rotation_began_kts_; }
+
 private:
     const Aircraft& a_;
     Runway runway_;
@@ -97,10 +105,27 @@ private:
     double across_m_ = 0.0;
     double above_m_ = 0.0;
     double unstuck_along_m_ = 0.0;
+    // Her height above the runway standing on it.
+    double standing_m_ = 0.0;
+    // Whether she stands on a tail wheel: a wheel on the centreline behind
+    // her main wheels.
+    bool tail_wheel_ = false;
+    double tail_pitch_deg_ = 0.0; // the attitude the tail is being raised to
 
     double throttle_ = 0.0;
     double pitch_trim_ = 0.0;
+    double last_elevator_ = 0.0; // the stick as this autopilot last put it
+    double climb_target_kts_ = 0.0; // the speed asked of her in the climb
+    double climb_gain_ktps_ = 0.0;  // and how fast it builds
+    double pull_ = 0.0; // the stick brought back while the nose will not come
     double rotate_pitch_ = 0.0;
+    bool rotation_begun_ = false;
+    double rotation_began_kts_ = 0.0;
+    bool rotated_off_ = false; // whether she was rotated off the ground
+    bool was_on_ground_ = true;
+    double left_at_pitch_deg_ = 0.0; // her attitude as her wheels last left the ground
+    double last_kcas_ = 0.0;
+    double accel_ktps_ = 0.0;
     bool unstuck_ = false;
 
     void measure();

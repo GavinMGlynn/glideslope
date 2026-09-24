@@ -65,45 +65,45 @@
             <static_friction> 0.80 </static_friction>
             <dynamic_friction> 0.50 </dynamic_friction>
             <rolling_friction> 0.02 </rolling_friction>
-            <spring_coeff unit="LBS/FT"> 15948 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 3987 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 10493 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 2623 </damping_coeff>
             <max_steer unit="DEG"> 5 </max_steer>
             <brake_group> NONE </brake_group>
             <retractable>1</retractable>
         </contact>
         <contact type="BOGEY" name="LEFT_MAIN">
             <location unit="IN">
-                <x> 375.7 </x>
+                <x> 364.5 </x>
                 <y> -70.0 </y>
                 <z> -70.0 </z>
             </location>
             <static_friction> 0.50 </static_friction>
             <dynamic_friction> 0.50 </dynamic_friction>
             <rolling_friction> 0.02 </rolling_friction>
-            <spring_coeff unit="LBS/FT"> 52026 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 13007 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 54753 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 13688 </damping_coeff>
             <max_steer unit="DEG"> 0 </max_steer>
             <brake_group> LEFT </brake_group>
             <retractable>1</retractable>
         </contact>
         <contact type="BOGEY" name="RIGHT_MAIN">
             <location unit="IN">
-                <x> 375.7 </x>
+                <x> 364.5 </x>
                 <y> 70.0 </y>
                 <z> -70.0 </z>
             </location>
             <static_friction> 0.50 </static_friction>
             <dynamic_friction> 0.50 </dynamic_friction>
             <rolling_friction> 0.02 </rolling_friction>
-            <spring_coeff unit="LBS/FT"> 52026 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 13007 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 54753 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 13688 </damping_coeff>
             <max_steer unit="DEG"> 0 </max_steer>
             <brake_group> RIGHT </brake_group>
             <retractable>1</retractable>
         </contact>
         <contact type="STRUCTURE" name="NOSE">
             <location unit="IN">
-                <x> 8.3 </x>
+                <x> 0.8 </x>
                 <y> -0.0 </y>
                 <z> 13.5 </z>
             </location>
@@ -114,7 +114,7 @@
         </contact>
         <contact type="STRUCTURE" name="BELLY_1">
             <location unit="IN">
-                <x> 109.1 </x>
+                <x> 101.6 </x>
                 <y> -0.0 </y>
                 <z> -6.9 </z>
             </location>
@@ -125,7 +125,7 @@
         </contact>
         <contact type="STRUCTURE" name="BELLY_2">
             <location unit="IN">
-                <x> 273.2 </x>
+                <x> 265.7 </x>
                 <y> -12.8 </y>
                 <z> -21.5 </z>
             </location>
@@ -136,7 +136,7 @@
         </contact>
         <contact type="STRUCTURE" name="BELLY_3">
             <location unit="IN">
-                <x> 431.3 </x>
+                <x> 423.8 </x>
                 <y> -0.0 </y>
                 <z> -19.6 </z>
             </location>
@@ -147,7 +147,7 @@
         </contact>
         <contact type="STRUCTURE" name="LEFT_WING_TIP">
             <location unit="IN">
-                <x> 457.9 </x>
+                <x> 450.4 </x>
                 <y> -206.4 </y>
                 <z> 24.9 </z>
             </location>
@@ -158,7 +158,7 @@
         </contact>
         <contact type="STRUCTURE" name="RIGHT_WING_TIP">
             <location unit="IN">
-                <x> 457.9 </x>
+                <x> 450.4 </x>
                 <y> 206.3 </y>
                 <z> 24.9 </z>
             </location>
@@ -169,7 +169,7 @@
         </contact>
         <contact type="STRUCTURE" name="TAIL">
             <location unit="IN">
-                <x> 539.3 </x>
+                <x> 531.8 </x>
                 <y> -5.1 </y>
                 <z> -1.8 </z>
             </location>

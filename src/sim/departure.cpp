@@ -14,6 +14,13 @@ constexpr double feet_per_metre = 3.280839895013123;
 constexpr double steps_per_second = 120.0;
 // Below this the rudder is too soft to hold the nose, and the brakes help.
 constexpr double rudder_bites_kts = 60.0;
+// How far past the rotation speed a rotation begun there may leave the
+// runway before it is begun sooner, knots.
+constexpr double lift_off_after_kts = 3.0;
+// The least a take-off climbs to the screen height, degrees of flight path.
+constexpr double climb_floor_deg = 3.0;
+// A model's pitch trim for take-off, where its flight manual gives one.
+constexpr const char* takeoff_trim_property = "fcs/pitch-trim-takeoff-norm";
 
 double metres_per_degree_latitude(double latitude_deg) {
     const double lat = latitude_deg / degrees;
@@ -35,6 +42,12 @@ const FigureSpec* by_flight(const PublishedFigures& figures, const std::string& 
         }
     }
     return nullptr;
+}
+
+// How long the rotation takes: the nose raised from where she sits to the
+// take-off attitude at a pilot's four degrees a second.
+double rotation_lead_s(double pitch_deg) {
+    return std::max(0.0, (10.0 - pitch_deg) / 4.0);
 }
 
 double condition(const FigureSpec& spec, const std::string& name, double missing) {
@@ -108,7 +121,7 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
     if (const FigureSpec* roll = by_flight(figures, "takeoff_ground_roll");
         roll != nullptr && condition(*roll, "lift_off_kcas", 0.0) > 0.0) {
         speeds.rotate_kts = condition(*roll, "lift_off_kcas", 0.0);
-        speeds.rotate_is_published = true;
+        speeds.rotate_is_published = !roll->measured;
         const double flap_deg = condition(*roll, "flaps_deg", 0.0);
         speeds.flap = figures.flaps_full_deg > 0.0
                           ? std::clamp(flap_deg / figures.flaps_full_deg, 0.0, 1.0)
@@ -147,6 +160,24 @@ Departure::Departure(const Aircraft& aircraft, const Runway& runway,
                      const DepartureSpeeds& speeds, double to_ft)
     : a_(aircraft), runway_(runway), speeds_(speeds), to_ft_(to_ft) {
     measure();
+    standing_m_ = above_m_;
+    tail_pitch_deg_ = a_.state().pitch_deg;
+    // **A tail wheel is a wheel on the centreline behind the main wheels**,
+    // which are the ones off it - read from the model's own gear, so that
+    // nothing here names an aeroplane. JSBSim's structural x runs aft.
+    double aftmost_main_in = -1e9;
+    double aftmost_centre_in = -1e9;
+    for (int unit = 0;; ++unit) {
+        const std::string at = "gear/unit[" + std::to_string(unit) + "]/";
+        if (!a_.has_property(at + "WOW")) {
+            break;
+        }
+        const double x = a_.property(at + "x-position");
+        double& aftmost =
+            std::abs(a_.property(at + "y-position")) > 1.0 ? aftmost_main_in : aftmost_centre_in;
+        aftmost = std::max(aftmost, x);
+    }
+    tail_wheel_ = aftmost_main_in > -1e9 && aftmost_centre_in > aftmost_main_in;
 }
 
 void Departure::measure() {
@@ -171,16 +202,43 @@ Controls Departure::fly() {
     c.mixture = 1.0;
     c.propeller = 1.0;
     c.flaps = speeds_.flap;
+    // **Trimmed for take-off**, where the aeroplane's model says what that
+    // is: the Learjet 35A's flight manual sets its stabilizer for take-off by
+    // the centre of gravity (figure 2-2), and without it the elevator alone
+    // could not lift her nose wheel until twenty knots past her rotation
+    // speed. An aeroplane with no such setting is left at none.
+    if (a_.has_property(takeoff_trim_property)) {
+        c.pitch_trim = a_.property(takeoff_trim_property);
+    }
 
     // A hull in the water is on the ground, as far as a take-off goes: it has
     // no weight on any wheel, and taken for airborne it would be flown by the
     // airborne law from a standstill.
     const bool on_ground = a_.property("gear/wow") > 0.5 || a_.in_water();
     const bool on_water = speeds_.running_pitch_deg > 0.0;
-    if (!unstuck_ && !on_ground && above_m_ * feet_per_metre > 5.0) {
+    if (!unstuck_ && !on_ground && (above_m_ - standing_m_) * feet_per_metre > 5.0) {
         unstuck_ = true;
         unstuck_along_m_ = along_m_;
     }
+    // **Rotated off the runway, or bounced off it.** As the wheels leave,
+    // the stick as it was - whoever held it, this autopilot or a pilot
+    // rotating her early; JSBSim's command is nose down positive - says
+    // which. The climb below is held off the runway only if she was rotated.
+    if (was_on_ground_ && !on_ground && !rotated_off_) {
+        rotated_off_ = rotation_begun_ || -a_.property("fcs/elevator-cmd-norm") > 0.2;
+    }
+    if (was_on_ground_ && !on_ground) {
+        left_at_pitch_deg_ = s.pitch_deg;
+    }
+    was_on_ground_ = on_ground;
+    // **Rotated by a pilot, the rotation is carried on from there.** Back
+    // stick on the roll that this autopilot did not put there - a pilot
+    // rotating her early - begins the rotation stage, so that the stick she
+    // is handed back with is held and the nose not put back down on to the
+    // runway: in the roll stage the stick goes to neutral, and a J-3 Cub
+    // pulled off at 30 knots and let go ran on to 39 before she left.
+    const bool pilot_rotated = stage_ == Stage::roll && on_ground &&
+                               -a_.property("fcs/elevator-cmd-norm") > 0.2;
 
     if (stage_ != Stage::done && above_m_ * feet_per_metre >= to_ft_) {
         stage_ = Stage::done;
@@ -190,9 +248,33 @@ Controls Departure::fly() {
         if (above_m_ * feet_per_metre > 200.0) {
             c.flaps = 0.0;
         }
-    } else if (kcas >= speeds_.rotate_kts) {
+    } else if (kcas >= speeds_.rotate_kts || (!on_water && pilot_rotated) ||
+               (!on_water && kcas + std::max(0.0, accel_ktps_ * rotation_lead_s(s.pitch_deg) -
+                                                      lift_off_after_kts) >=
+                                 speeds_.rotate_kts)) {
+        // **The rotation begins as early as it takes**, so that she leaves
+        // the ground within lift_off_after_kts of the speed she should leave
+        // it at. `rotate_kts` is that speed - a published lift-off speed, or
+        // a seventh above the stall - and a rotation begun there leaves the
+        // ground as far past it as she accelerates while the nose comes up:
+        // for an airliner or a light aeroplane a few knots, which is left as
+        // it was, but an F-15C gains thirteen knots a second, and rotated
+        // from 174 knots it was off at 201. The F-15's own flight manual
+        // brings the stick back at 120 knots for a take-off at 141 (T.O.
+        // 1F-15A-1, section II and figure A3-6). On the water the hull is
+        // held on the step until the speed itself, as its published take-off
+        // is flown.
         stage_ = Stage::rotate;
+        if (rotation_began_kts_ == 0.0) {
+            rotation_began_kts_ = kcas;
+        }
     }
+    // How fast she is gaining speed, smoothed over a second.
+    if (last_kcas_ > 0.0) {
+        const double now = (kcas - last_kcas_) * steps_per_second;
+        accel_ktps_ += (now - accel_ktps_) / steps_per_second;
+    }
+    last_kcas_ = kcas;
 
     // **The throttle goes fully open over three seconds** and stays there:
     // an engine slammed open swings a tail-wheel aeroplane off the runway.
@@ -269,16 +351,72 @@ Controls Departure::fly() {
         want_pitch = speeds_.running_pitch_deg + (stage_ == Stage::rotate ? 3.0 : 0.0);
         // The climb begins from the attitude she left the water at.
         rotate_pitch_ = want_pitch;
-    } else if (stage_ == Stage::roll) {
+    } else if (stage_ == Stage::roll && !(tail_wheel_ && kcas >= 0.5 * speeds_.rotate_kts)) {
         // The stick is held where the aeroplane sits: a tail-wheel aeroplane
         // wants its tail down until it has the speed to lift it.
         c.elevator = 0.0;
+        last_elevator_ = c.elevator;
         return c;
+    } else if (stage_ == Stage::roll) {
+        // **A tail-wheel aeroplane's tail comes up on the roll** - from half
+        // her rotation speed, two degrees a second, until she rolls level on
+        // her main wheels - and she is rotated from there. Left on three
+        // points, the Mosquito sat at twelve degrees of incidence, close to
+        // her stall, and flew herself off at 90 knots before her rotation
+        // speed, which pulling the stick back could only make later: she was
+        // already at the attitude that lifts most.
+        tail_pitch_deg_ = std::max(tail_pitch_deg_ - 2.0 / steps_per_second, 0.0);
+        want_pitch = tail_pitch_deg_;
+        rotate_pitch_ = s.pitch_deg;
     } else if (stage_ == Stage::rotate) {
         // **The nose comes up at a pilot's rate**, not at once, and stops at
-        // a take-off attitude the aeroplane can carry.
+        // a take-off attitude the aeroplane can carry - **from the attitude
+        // she sits at**, not from level. An F-15C sits two degrees nose up,
+        // and an attitude asked for from nothing was below her own: the
+        // elevator went nose down at the rotation speed, and she ran on for
+        // another twenty-five knots before it had come back up through
+        // neutral.
+        if (!rotation_begun_) {
+            rotation_begun_ = true;
+            rotate_pitch_ = std::max(rotate_pitch_, s.pitch_deg);
+            // **The push that held a tail up is let go as she is rotated.**
+            // Wound into the trim on the roll and left there, it carried the
+            // Mosquito's nose from fifteen degrees to below the horizon as
+            // she climbed away, and flew her back on to the runway.
+            pitch_trim_ = std::max(pitch_trim_, 0.0);
+        }
         rotate_pitch_ = std::min(rotate_pitch_ + 4.0 / steps_per_second, 10.0);
-        want_pitch = rotate_pitch_;
+        want_pitch = on_ground ? rotate_pitch_ : std::max(rotate_pitch_, left_at_pitch_deg_);
+        // **While the nose will not come, the stick goes further back** -
+        // half its travel a second, as the F-15's flight manual has the
+        // stick brought back (T.O. 1F-15A-1, figure A3-6: one half aft stick
+        // over one second). The attitude law alone asks a twentieth of the
+        // travel for each degree the nose is short, and its trim winds in
+        // at three hundredths a second: an aeroplane heavy on its nose
+        // wheel, which needs the stick well back to lift it, was held on
+        // the runway by it thirty knots past its rotation speed. **And
+        // eased off again as the nose comes**, a quarter of the travel a
+        // second: left in, it carried an airliner's nose on past twenty
+        // degrees once she had lifted it, and down again through the
+        // horizon as the law took it out. **Held while she is off the
+        // ground** too, before she has climbed clear of it, as it is on it:
+        // a PA-28 lifted off at 55 knots in ground effect, the pull went,
+        // and she settled back on to the runway.
+        // **The stick is taken over where a pilot held it**: further back
+        // than this autopilot last put it is a pilot's pull, and it becomes
+        // the pull the law eases off from. Let go all at once, a PA-28
+        // hauled off at 49 knots dropped her nose from fifteen degrees to
+        // six and settled back on to the runway.
+        const double held = -a_.property("fcs/elevator-cmd-norm");
+        if (held > last_elevator_ + 0.05) {
+            pull_ = std::min(pull_ + held - last_elevator_, 1.0);
+        }
+        const double lagging_deg = want_pitch - s.pitch_deg;
+        if (lagging_deg > 1.0 && s.q_radps * degrees < 4.0) {
+            pull_ = std::min(pull_ + 0.5 / steps_per_second, 1.0);
+        } else if (lagging_deg <= 1.0) {
+            pull_ = std::max(pull_ - 0.25 / steps_per_second, 0.0);
+        }
     } else {
         // Climbing: the attitude that holds the best climb speed - half a
         // degree of nose for each knot fast, and a slow trim that takes out
@@ -288,10 +426,60 @@ Controls Departure::fly() {
         // nose down and 18 up every eight seconds, and met the crosswind
         // turn at the top of a zoom with the speed falling away, stalled in
         // it and mushed seven hundred feet into the ground.
-        const double fast_by = kcas - speeds_.initial_climb_kts;
-        rotate_pitch_ = std::clamp(rotate_pitch_ + 0.2 * fast_by / steps_per_second,
+        //
+        // **The speed asked of her builds from the one she left the ground
+        // at** to the speed she climbs out at - as fast as she was gaining
+        // speed on the runway, and all of it within twenty seconds at most:
+        // she is accelerated in the climb, as she is flown, not asked for
+        // all of it at once. Asked for all of it at once, 13 knots short, an
+        // A380 off the runway at 162 knots was pitched from nineteen degrees
+        // to five below the horizon and flown back on to it at 185, and the
+        // Mosquito, off at 103 and asked for 148, was put back on the runway
+        // and left it again at 120. Asked for it no faster than she had been
+        // gaining speed, a B-2A on part throttle, which gains it slowly and
+        // has 110 knots to gain, was still short of its climbing speed at the
+        // top of the lesson's climb. On the water she is asked for all of
+        // it, as her published take-off is flown. **And short of it, the
+        // trim is wound on a quarter as fast** as it is when she is fast.
+        //
+        // (Until 2026-09-26 the speed asked began at the climbing speed
+        // itself, so none of this was flown.)
+        if (climb_target_kts_ == 0.0) {
+            climb_target_kts_ =
+                on_water ? speeds_.initial_climb_kts : std::min(kcas, speeds_.initial_climb_kts);
+            climb_gain_ktps_ =
+                std::max({accel_ktps_, 1.0, (speeds_.initial_climb_kts - climb_target_kts_) / 20.0});
+        }
+        climb_target_kts_ = std::min(climb_target_kts_ + climb_gain_ktps_ / steps_per_second,
+                                     speeds_.initial_climb_kts);
+        const double fast_by = kcas - climb_target_kts_;
+        const double ki = fast_by < 0.0 ? 0.05 : 0.2;
+        rotate_pitch_ = std::clamp(rotate_pitch_ + ki * fast_by / steps_per_second,
                                    0.0, 15.0);
         want_pitch = std::clamp(rotate_pitch_ + 0.5 * fast_by, 0.0, 15.0);
+        // **A take-off climbs: it never goes back down to the runway to
+        // gain speed.** A landplane leaves the ground at its rotation speed,
+        // below the speed it climbs out at - a Cessna 182 twenty-five knots
+        // below it - and the law above asks for the nose down to gain the
+        // rest. It got it: the 182 climbed to sixteen feet, was pitched down
+        // to level and settled back on to the runway, and ran on to 88 knots
+        // before it left it again; the Mosquito to 158, the B-2A to 241. So
+        // the nose is never put below the attitude that climbs - her
+        // incidence and climb_floor_deg more - until she is 35 ft up, the
+        // screen height a take-off is measured to, nor below the one that
+        // holds her level after it; she accelerates climbing, as she is
+        // flown.
+        //
+        // **Once she has been rotated** - by this autopilot, or by a pilot
+        // with the stick back rotating her early. An aeroplane that hops off
+        // the runway on the roll, as the Mosquito did at 90 knots from three
+        // points before her tail was raised on it, is not flying, and is let
+        // back down on to it.
+        if (!on_water && rotated_off_) {
+            const bool screen = (above_m_ - standing_m_) * feet_per_metre < 35.0;
+            want_pitch = std::max(want_pitch, a_.property("aero/alpha-deg") +
+                                                  (screen ? climb_floor_deg : 0.0));
+        }
         // **Off the water, she is held off it.** A flying boat unsticks forty
         // knots below her climbing speed, and the law above answered that by
         // putting the nose down to gain it: the S.23 left the water at 77
@@ -303,15 +491,33 @@ Controls Departure::fly() {
         }
     }
     // Never past the incidence the aeroplane's own tables cover: JSBSim
-    // asserts rather than extrapolating.
+    // asserts rather than extrapolating. **Past it, the nose comes down by
+    // as much as she is past it**, not merely no further up: holding the
+    // attitude left a PA-28 hauled off early at fifteen degrees of
+    // incidence, and the climb's floor above - her incidence and three
+    // degrees - took her on up to thirty.
     if (a_.property("aero/alpha-deg") > 12.0) {
-        want_pitch = std::min(want_pitch, s.pitch_deg);
+        want_pitch = std::min(want_pitch, s.pitch_deg - (a_.property("aero/alpha-deg") - 12.0));
     }
 
     const double pitch_error = want_pitch - s.pitch_deg;
     const double q_degps = s.q_radps * degrees;
-    pitch_trim_ = std::clamp(pitch_trim_ + 0.03 * pitch_error / steps_per_second, -0.8, 0.8);
-    c.elevator = std::clamp(0.05 * pitch_error - 0.05 * q_degps + pitch_trim_, -1.0, 1.0);
+    if (stage_ != Stage::rotate) {
+        pitch_trim_ = std::clamp(pitch_trim_ + 0.03 * pitch_error / steps_per_second, -0.8, 0.8);
+        // **Out of the rotation, the pull is eased off only as the nose
+        // comes up to where it is wanted**, and held while it is short of
+        // it. Taken out at its own rate whatever the nose was doing, while
+        // the trim winds in at three hundredths a second, the stick went
+        // forward faster than the trim followed: a PA-28 off at 55 knots had
+        // her nose put down from eight degrees to four and was back on the
+        // runway, leaving it for good at 63.
+        if (pitch_error < 1.0) {
+            pull_ = std::max(pull_ - 1.0 / steps_per_second, 0.0);
+        }
+    }
+    c.elevator =
+        std::clamp(0.05 * pitch_error - 0.05 * q_degps + pitch_trim_ + pull_, -1.0, 1.0);
+    last_elevator_ = c.elevator;
     return c;
 }
 

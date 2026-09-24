@@ -195,7 +195,6 @@
         <channel name="Controls">
             <summer name="Elevator Sum">
                 <input>fcs/elevator-cmd-norm</input>
-                <input>fcs/pitch-trim-cmd-norm</input>
                 <clipto><min>-1</min><max>1</max></clipto>
             </summer>
             <aerosurface_scale name="Elevator">
@@ -203,6 +202,38 @@
                 <range><min>-0.2793</min><max>0.2618</max></range>
                 <output>fcs/elevator-pos-rad</output>
             </aerosurface_scale>
+            <kinematic name="Stabilizer Trim">
+                <input>fcs/pitch-trim-cmd-norm</input>
+                <traverse>
+                    <setting>
+                        <position> -1 </position>
+                        <time> 0 </time>
+                    </setting>
+                    <setting>
+                        <position> 1 </position>
+                        <time> 16.0 </time>
+                    </setting>
+                </traverse>
+                <output>fcs/stabilizer-trim-norm</output>
+            </kinematic>
+            <aerosurface_scale name="Stabilizer">
+                <input>fcs/stabilizer-trim-norm</input>
+                <range><min>-0.1326</min><max>0.0070</max></range>
+                <output>fcs/stabilizer-pos-rad</output>
+            </aerosurface_scale>
+            <fcs_function name="Pitch Trim Takeoff Norm">
+                <function>
+                    <table>
+                        <independentVar>inertia/cg-x-in</independentVar>
+                        <tableData>
+                            366.31	1.0000
+                            378.72	0.9474
+                            385.34	0.6579
+                            387.00	0.6579
+                        </tableData>
+                    </table>
+                </function>
+            </fcs_function>
             <summer name="Aileron Sum">
                 <input>fcs/aileron-cmd-norm</input>
                 <input>fcs/roll-trim-cmd-norm</input>
@@ -379,6 +410,15 @@
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/elevator-pos-rad</property>
                     <value>0.342</value>
+                </product>
+            </function>
+            <function name="aero/coefficient/CLstab">
+                <description>Lift_due_to_stabilizer</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <property>fcs/stabilizer-pos-rad</property>
+                    <value>0.69654</value>
                 </product>
             </function>
             <function name="aero/coefficient/CLspoilers">
@@ -663,6 +703,16 @@
                     <property>metrics/cbarw-ft</property>
                     <property>fcs/elevator-pos-rad</property>
                     <value>-1.036</value>
+                </product>
+            </function>
+            <function name="aero/coefficient/Cmstab">
+                <description>Pitch_moment_due_to_stabilizer</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <property>metrics/cbarw-ft</property>
+                    <property>fcs/stabilizer-pos-rad</property>
+                    <value>-2.11</value>
                 </product>
             </function>
             <function name="aero/coefficient/Cmflaps">
