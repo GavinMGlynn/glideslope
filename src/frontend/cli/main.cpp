@@ -662,6 +662,9 @@ public:
         if (!clock_known_ || local_s - rendered_s_ < 1.0 / 60.0) {
             return;
         }
+        if (rendered_s_ >= 0.0) {
+            longest_between_frames_s_ = std::max(longest_between_frames_s_, local_s - rendered_s_);
+        }
         rendered_s_ = local_s;
         const double now = local_s + offset_s_;
         for (auto& [index, shown] : others_) {
@@ -699,7 +702,8 @@ public:
                       compared_, worst_error_m_, joining_.size());
         lines.emplace_back(line);
         std::snprintf(line, sizeof line, "interpolated: %zu aircraft drawn, %zu of them carried on "
-                      "past the newest update", shown_, extrapolated_);
+                      "past the newest update; the longest between frames %.0f ms",
+                      shown_, extrapolated_, longest_between_frames_s_ * 1000.0);
         lines.emplace_back(line);
         return lines;
     }
@@ -775,6 +779,7 @@ private:
     std::ostream* track_ = nullptr;
     std::size_t shown_ = 0;
     std::size_t extrapolated_ = 0;
+    double longest_between_frames_s_ = 0.0;
     std::optional<double> reconciled_s_;
     std::map<std::uint32_t, std::array<double, 3>> predicted_at_;
     std::size_t compared_ = 0;
@@ -867,6 +872,7 @@ int stay(glideslope::platform::UdpSocket& socket,
     std::uint32_t applied = 0;
     double roll_seen_deg = 0.0;
     double last_heard_s = 0.0;
+    bool drained = true;
     for (;;) {
         const double up_s =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
@@ -914,14 +920,21 @@ int stay(glideslope::platform::UdpSocket& socket,
                               std::span<const std::uint8_t>(out.data(), out.size()));
         }
 
-        if (predicting) {
+        // **Everything waiting is read before a frame is drawn**, as a real
+        // client reads its socket dry each frame: reading one datagram a
+        // pass, a slow client drew from updates that had arrived and sat
+        // unread.
+        if (predicting && drained) {
             predicting->advance(up_s, sequence, stick);
             predicting->render(up_s);
         }
         glideslope::platform::Address from;
         const std::size_t got = socket.receive(into, from);
+        drained = got == 0;
         if (got <= glideslope::net::envelope_size) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (drained) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
             continue;
         }
         last_heard_s = up_s;

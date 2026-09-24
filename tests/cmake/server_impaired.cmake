@@ -163,8 +163,16 @@ endif()
 # some of them carried on past the newest update - a lost update the jitter
 # made later still - so that the guessing and the blending back were drawn
 # and judged, not only the plain interpolating between two updates.
-if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them carried on")
+if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them carried on[^;]*; the longest between frames ([0-9]+) ms")
     message(FATAL_ERROR "the predicting client did not say what it drew:\n${_said}")
+endif()
+# **A client that kept time**, or this measures the machine: drawing sixty
+# frames a second, a gap of a quarter of a second between two is a client
+# that stalled, and anything it drew after is late for that reason, not the
+# network's.
+if(CMAKE_MATCH_3 GREATER 250)
+    message(FATAL_ERROR "the predicting client went ${CMAKE_MATCH_3} ms without drawing a "
+                        "frame: it could not keep time on this machine\n${_said}")
 endif()
 if(CMAKE_MATCH_2 EQUAL 0)
     message(FATAL_ERROR "none of the ${CMAKE_MATCH_1} frames drawn was carried on past the "
@@ -174,7 +182,8 @@ execute_process(COMMAND "${CHECK}" "${_truth}" "${_shown}" 2
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _judged)
 message(STATUS "${_judged}")
 if(NOT _rc EQUAL 0)
-    message(FATAL_ERROR "interpolation out of bound:\n${_judged}")
+    message(FATAL_ERROR "interpolation out of bound:\n${_judged}\n${_said}\n"
+                        "what the server said:\n${_err}")
 endif()
 if(NOT _judged MATCHES "interpolation: ([0-9]+) of")
     message(FATAL_ERROR "the check did not say how many it judged:\n${_judged}")
