@@ -2,16 +2,18 @@
 # windows_build.sh - build this branch on Windows, from WSL, before pushing it.
 #
 #   tools/windows_build.sh [PRESET] [TARGET...]
+#   WINDOWS_TEST=REGEX tools/windows_build.sh ...   and then run those tests
 #
 # PRESET is a Windows configure/build preset, windows-debug unless given; the
 # TARGETs, if any, are built instead of everything. What it does:
 #
-#   1. refuses unless this branch has no uncommitted changes and is pushed -
-#      the Windows working copy gets it from GitHub, which is the only place
-#      the two copies meet (CLAUDE.md);
+#   1. refuses unless this working copy has no uncommitted changes;
 #   2. refuses unless the Windows working copy has no changes to tracked files,
-#      then checks the same commit out there;
-#   3. builds it with MSVC, through vcvarsall, as CI's Windows jobs do.
+#      then fetches this commit into it straight from this repository, through
+#      WSL's network path - before it is pushed, which is the point: it is
+#      how code that is not Linux's alone is compiled before CI sees it;
+#   3. builds it with MSVC, through vcvarsall, as CI's Windows jobs do, and
+#      runs the tests WINDOWS_TEST names, if it names any.
 #
 # **Why it exists**: the Windows code paths - sockets, windows, anything under
 # #ifdef _WIN32 - were first compiled by CI, after they had been pushed to
@@ -38,11 +40,6 @@ if [[ -n "$(git -C "$here" status --porcelain --untracked-files=no)" ]]; then
     echo "windows_build: commit first - there are uncommitted changes here" >&2
     exit 2
 fi
-git -C "$here" fetch --quiet origin "$branch" 2>/dev/null || true
-if [[ "$(git -C "$here" rev-parse "origin/$branch" 2>/dev/null)" != "$commit" ]]; then
-    echo "windows_build: push first - origin/$branch is not $commit" >&2
-    exit 2
-fi
 
 if [[ ! -d "$clone/.git" ]]; then
     echo "windows_build: no Windows working copy at $clone" >&2
@@ -53,8 +50,12 @@ if [[ -n "$(git.exe -C "$(wslpath -w "$clone")" status --porcelain --untracked-f
     exit 2
 fi
 win_clone="$(wslpath -w "$clone")"
-git.exe -C "$win_clone" fetch --quiet origin
-git.exe -C "$win_clone" checkout --quiet -B "$branch" "origin/$branch"
+# This repository, as Windows reaches it: \\wsl.localhost\<distro>\... Git on
+# Windows would refuse it as owned by somebody else, so it is named safe for
+# this one command.
+here_unc="$(wslpath -w "$here")"
+git.exe -c "safe.directory=*" -C "$win_clone" fetch --quiet "$here_unc" "$commit"
+git.exe -C "$win_clone" checkout --quiet -B "$branch" "$commit"
 git.exe -C "$win_clone" submodule update --quiet --init --recursive
 
 vswhere="/mnt/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
@@ -77,6 +78,9 @@ cd /d "$win_clone" || exit /b 1
 cmake --preset $preset || exit /b 1
 cmake --build --preset $preset $build_args || exit /b 1
 EOF
+if [[ -n "${WINDOWS_TEST:-}" ]]; then
+    echo "ctest --preset $preset --output-on-failure -R \"$WINDOWS_TEST\" || exit /b 1" >> "$batch"
+fi
 echo "windows_build: $branch at ${commit:0:7}, preset $preset, in $win_clone"
 status=0
 cmd.exe /c "$(wslpath -w "$batch")" || status=$?
