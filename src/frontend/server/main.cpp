@@ -1430,6 +1430,19 @@ int run(const Options& o) {
     // **What the window showed**, for a test: every line it drew and every
     // button, and the lines the terminal would have printed for the same
     // moment, which must be the same text.
+    // **A last frame, of how things ended**, so that what the window last
+    // showed is the end and not a frame from before something the operator
+    // pressed on it - which on a slow machine was the whole of the drop. A
+    // press drawn now does nothing: the server has stopped.
+    if (window) {
+        const double end_s = std::chrono::duration<double>(
+                                 std::chrono::steady_clock::now() - began)
+                                 .count();
+        last_drawn = gather_dashboard(socket->port(), slots, connections,
+                                      fleet ? &*fleet : nullptr, happened, end_s,
+                                      datagrams, bytes);
+        (void)window->draw(last_drawn);
+    }
     if (window && o.window_dump) {
         for (const std::string& line : window->drawn()) {
             std::printf("window: %s\n", line.c_str());
@@ -1442,7 +1455,10 @@ int run(const Options& o) {
     }
     if (window && !o.window_shot.empty()) {
         if (window->shot(o.window_shot)) {
-            std::printf("wrote %s\n", o.window_shot.c_str());
+            // Its size as drawn, which is the window's unless the screen is
+            // smaller: a small screen - macOS on CI - shrinks it to fit.
+            std::printf("wrote %s, %d by %d\n", o.window_shot.c_str(),
+                        window->frame_width(), window->frame_height());
         } else {
             std::fprintf(stderr, "glideslope_server: could not write %s\n",
                          o.window_shot.c_str());

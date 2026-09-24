@@ -112,11 +112,25 @@ if(NOT _out MATCHES "window: [^\n]*admitted [0-9a-f]+ to slot 0" OR
 endif()
 
 # **The frame**: the window's size, and its background in the corner.
-bmp_load("${_shot}")
-if(NOT BMP_WIDTH EQUAL 1120 OR NOT BMP_HEIGHT EQUAL 720)
-    message(FATAL_ERROR "the window's frame is ${BMP_WIDTH} by ${BMP_HEIGHT}, not 1120 by 720")
+# The size is the one the server says it drew: 1120 by 720 unless the screen
+# is smaller, as macOS's on CI is, where the window is shrunk to fit.
+if(NOT _out MATCHES "wrote [^\n]*window\\.bmp, ([0-9]+) by ([0-9]+)")
+    message(FATAL_ERROR "the server did not say it wrote the window's frame:\n${_out}")
 endif()
-bmp_pixel(_corner 1119 719)
+set(_w ${CMAKE_MATCH_1})
+set(_h ${CMAKE_MATCH_2})
+if(_w LESS 400 OR _h LESS 300 OR _w GREATER 1120 OR _h GREATER 720)
+    message(FATAL_ERROR "the window's frame is ${_w} by ${_h}, which is not a window "
+                        "of up to 1120 by 720 that can be read")
+endif()
+bmp_load("${_shot}")
+if(NOT BMP_WIDTH EQUAL _w OR NOT BMP_HEIGHT EQUAL _h)
+    message(FATAL_ERROR "the frame written is ${BMP_WIDTH} by ${BMP_HEIGHT}, and the "
+                        "server said ${_w} by ${_h}")
+endif()
+math(EXPR _right "${_w} - 1")
+math(EXPR _bottom "${_h} - 1")
+bmp_pixel(_corner ${_right} ${_bottom})
 if(NOT _corner MATCHES "^18;22;30;")
     message(FATAL_ERROR "the window's corner is ${_corner}, not its background 18;22;30")
 endif()

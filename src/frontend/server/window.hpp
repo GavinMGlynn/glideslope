@@ -58,8 +58,10 @@ public:
     // What the last frame drew, a line of text at a time, and its buttons as
     // `[label]`.
     const std::vector<std::string>& drawn() const { return drawn_; }
-    // Writes the last frame kept as a BMP.
+    // Writes the last frame kept as a BMP, and how big it was.
     bool shot(const std::string& path) const;
+    int frame_width() const;
+    int frame_height() const;
 
 private:
     Window() = default;

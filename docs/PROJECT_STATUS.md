@@ -262,6 +262,17 @@ or `--plain`, and the window's test flags without it. Leaks allocated entirely
 in the display's own libraries are counted and named, as the client's tests
 do; one with a frame in glideslope fails.
 
+**What CI found in it, and was fixed the same day.** The client written from
+`TRANSPORT.md` did not compile on Windows - its Winsock branch had never been
+built, and windows.h's `min` and `max` macros broke `std::max` (`NOMINMAX`,
+added with a note). Its "rolled to" was the roll in its last update, and an
+aeroplane held over rolls on round: 46 degrees on CI after a whole turn - it
+now reports the furthest it banked. On a slow runner the drop came on the
+window's last frame, which the dump then showed from before it took effect:
+the server now draws one last frame as it stops. macOS's runner has a small
+screen and shrank the window to 1024 by 653: the server now says the size it
+wrote, and the test holds the frame to that.
+
 **Not yet proven: the server-only build.** `-DGLIDESLOPE_SERVER_ONLY=ON`,
 which `deploy/Dockerfile` builds, has no SDL; there the window is
 `window_none.cpp`, and `--window` is refused as "built without one". It was

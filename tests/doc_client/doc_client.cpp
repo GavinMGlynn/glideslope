@@ -23,6 +23,12 @@
 #include <vector>
 
 #ifdef _WIN32
+// Added after the client was written, when CI first compiled this branch:
+// windows.h defines `min` and `max` as macros unless told not to, which breaks
+// std::min and std::max. It changes nothing about the protocol.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
 using Socket = SOCKET;
@@ -752,6 +758,13 @@ int main(int argc, char** argv) {
                     mine = a.number;
                     if (u->clock >= my_clock) {
                         my_clock = u->clock;
+                    }
+                    // The furthest it banked, either way. Changed after the
+                    // client was written, from the roll in the last update:
+                    // an aeroplane held at full aileron rolls on round, so the
+                    // last roll can be anything - 46 degrees on CI after a
+                    // whole turn. It is the test's measure, not the protocol.
+                    if (std::fabs(a.roll) > std::fabs(my_roll)) {
                         my_roll = a.roll;
                     }
                 }

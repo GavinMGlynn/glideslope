@@ -153,6 +153,14 @@ std::optional<std::string> Window::draw(const Dashboard& d) {
     return pressed;
 }
 
+int Window::frame_width() const {
+    return frame_ != nullptr ? frame_->w : 0;
+}
+
+int Window::frame_height() const {
+    return frame_ != nullptr ? frame_->h : 0;
+}
+
 bool Window::shot(const std::string& path) const {
     return frame_ != nullptr && SDL_SaveBMP(frame_, path.c_str());
 }

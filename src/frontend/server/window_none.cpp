@@ -21,6 +21,14 @@ std::optional<std::string> Window::draw(const Dashboard&) {
     return std::nullopt;
 }
 
+int Window::frame_width() const {
+    return 0;
+}
+
+int Window::frame_height() const {
+    return 0;
+}
+
 bool Window::shot(const std::string&) const {
     return false;
 }
