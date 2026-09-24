@@ -95,7 +95,9 @@ void print_usage(std::FILE* out) {
         "                            --after N waits N seconds before connecting,\n"
         "                            so as to join a session already running.\n"
         "                            --key HEX connects as the player whose secret\n"
-        "                            key that is, rather than a new one\n"
+        "                            key that is, rather than a new one.\n"
+        "                            --heard FILE also writes each aircraft heard\n"
+        "                            becoming a wreck, and flying again, to FILE\n"
         "  --data DIR                read data from DIR instead of data/ beside the\n"
         "                            program\n",
         out);
@@ -499,7 +501,23 @@ constexpr double inputs_every_s = 1.0 / 30.0;
 int stay(glideslope::platform::UdpSocket& socket,
          const glideslope::platform::Address& server, glideslope::net::Sealer& sealer,
          glideslope::net::Unsealer& unsealer, double seconds,
-         std::span<const std::uint8_t> initiation_again, bool fly, const std::string& me) {
+         std::span<const std::uint8_t> initiation_again, bool fly, const std::string& me,
+         const std::string& heard_file) {
+    // **What was heard, into a file of its own** when asked (`--heard FILE`):
+    // a test running several clients in one pipeline reads each one's file.
+    // Standard error was meant to do it, and on Windows a pipeline's
+    // standard error came back empty.
+    std::ofstream heard_out;
+    if (!heard_file.empty()) {
+        heard_out.open(heard_file, std::ios::app);
+    }
+    const auto say_heard = [&](const std::string& line) {
+        std::fprintf(stderr, "client %s: %s\n", me.c_str(), line.c_str());
+        if (heard_out) {
+            heard_out << "client " << me << ": " << line << '\n';
+            heard_out.flush();
+        }
+    };
     // **Every aircraft's condition, as last heard**, so that a change -
     // a wreck, or a wreck flying again - is said once, when it is heard.
     std::map<std::uint8_t, glideslope::net::Condition> heard_as;
@@ -600,11 +618,9 @@ int stay(glideslope::platform::UdpSocket& socket,
                 const auto was = heard_as.find(a.index);
                 if (was == heard_as.end() || was->second != a.condition) {
                     if (a.condition == glideslope::net::Condition::wrecked) {
-                        std::fprintf(stderr, "client %s: aircraft %u is a wreck\n", me.c_str(),
-                                     static_cast<unsigned>(a.index));
+                        say_heard("aircraft " + std::to_string(a.index) + " is a wreck");
                     } else if (was != heard_as.end()) {
-                        std::fprintf(stderr, "client %s: aircraft %u flies again\n",
-                                     me.c_str(), static_cast<unsigned>(a.index));
+                        say_heard("aircraft " + std::to_string(a.index) + " flies again");
                     }
                     heard_as[a.index] = a.condition;
                 }
@@ -666,7 +682,8 @@ int stay(glideslope::platform::UdpSocket& socket,
 }
 
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
-               bool again, bool fly, double after_s, const std::string& secret_hex = "") {
+               bool again, bool fly, double after_s, const std::string& secret_hex = "",
+               const std::string& heard_file = "") {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived.
@@ -780,7 +797,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                 again ? std::span<const std::uint8_t>(first.data(),
                                                                      first.size())
                                       : std::span<const std::uint8_t>(),
-                                fly, mine.publik.text().substr(0, 8));
+                                fly, mine.publik.text().substr(0, 8), heard_file);
                 }
             }
         }
@@ -889,15 +906,21 @@ static int run_program(int argc, char** argv) {
                 server->host + ":" + std::to_string(server->port);
             return connect_to(where, server->key_hex, stay_s, false, fly, 0.0);
         }
-        if (args.size() >= 3 && args.size() <= 10 && args[0] == "connect") {
+        if (args.size() >= 3 && args.size() <= 12 && args[0] == "connect") {
             double stay_s = 0.0;
             bool again = false;
             bool fly = false;
             double after_s = 0.0;
             std::string secret_hex;
+            std::string heard_file;
             for (std::size_t i = 3; i < args.size(); ++i) {
                 if (args[i] == "--key" && i + 1 < args.size()) {
                     secret_hex = std::string(args[i + 1]);
+                    ++i;
+                    continue;
+                }
+                if (args[i] == "--heard" && i + 1 < args.size()) {
+                    heard_file = std::string(args[i + 1]);
                     ++i;
                     continue;
                 }
@@ -933,7 +956,7 @@ static int run_program(int argc, char** argv) {
                 return 2;
             }
             return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
-                              again, fly, after_s, secret_hex);
+                              again, fly, after_s, secret_hex, heard_file);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();

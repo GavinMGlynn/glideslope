@@ -49,9 +49,16 @@ endif()
 # The clients' names are the first eight digits of their public keys.
 set(_one e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26)
 set(_two d1b109e3db55e52705b4664f92a64ab2c0a03c0e6d62fb9af829e908a06d48fc)
+# Each client writes what it heard to a file of its own: on Windows the
+# standard error of a pipeline came back empty.
+set(_heard_one "${WORK}/heard-one.txt")
+set(_heard_two "${WORK}/heard-two.txt")
+file(REMOVE "${_heard_one}" "${_heard_two}")
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1 --key ${_one}
+            --heard "${_heard_one}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1 --key ${_two}
+            --heard "${_heard_two}"
     # Until both clients have gone, which is long enough on any machine for the
     # collision and the flying again they are waiting to hear.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 0 --headless
@@ -72,20 +79,18 @@ foreach(_said IN ITEMS
     endif()
 endforeach()
 
-# **And every client heard it.**
-string(REGEX MATCHALL "client ([0-9a-f]+): " _names "${_err}")
-list(REMOVE_DUPLICATES _names)
-list(LENGTH _names _clients)
-if(NOT _clients EQUAL 2)
-    message(FATAL_ERROR "${_clients} clients said what they heard, not two:\n${_err}")
-endif()
+# **And every client heard it**, each in its own file.
 set(_heard 0)
-foreach(_name IN LISTS _names)
+foreach(_file IN ITEMS "${_heard_one}" "${_heard_two}")
+    if(NOT EXISTS "${_file}")
+        message(FATAL_ERROR "a client heard nothing at all - ${_file} was never written:\n${_err}")
+    endif()
+    file(READ "${_file}" _said)
     foreach(_what IN ITEMS "aircraft 4 is a wreck" "aircraft 5 is a wreck"
                            "aircraft 4 flies again" "aircraft 5 flies again")
-        string(FIND "${_err}" "${_name}${_what}" _at)
+        string(FIND "${_said}" "${_what}" _at)
         if(_at LESS 0)
-            message(FATAL_ERROR "'${_name}' never heard '${_what}':\n${_err}")
+            message(FATAL_ERROR "a client never heard '${_what}':\n${_said}")
         endif()
         math(EXPR _heard "${_heard} + 1")
     endforeach()

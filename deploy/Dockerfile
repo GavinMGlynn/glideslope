@@ -27,7 +27,7 @@ FROM rockylinux/rockylinux:10 AS build
 
 RUN dnf install -y --setopt=install_weak_deps=False dnf-plugins-core epel-release \
  && dnf config-manager --set-enabled crb \
- && dnf install -y --setopt=install_weak_deps=False \
+ && dnf install -y --allowerasing --setopt=install_weak_deps=False \
         gcc-c++ cmake ninja-build git \
         libsodium-devel sqlite-devel libcurl-devel \
  && dnf clean all
@@ -45,9 +45,12 @@ RUN cmake -S . -B /build -G Ninja \
 # --- what ships --------------------------------------------------------------
 FROM rockylinux/rockylinux:10
 
+# `--allowerasing`: the image carries curl-minimal, whose libcurl-minimal
+# conflicts with the full libcurl; dnf may swap one for the other. And
+# shadow-utils, for useradd, which the minimal image has not got.
 RUN dnf install -y --setopt=install_weak_deps=False epel-release \
- && dnf install -y --setopt=install_weak_deps=False \
-        libsodium sqlite-libs libcurl \
+ && dnf install -y --allowerasing --setopt=install_weak_deps=False \
+        libsodium sqlite-libs libcurl shadow-utils \
  && dnf clean all \
  && useradd --system --home-dir /var/lib/glideslope --create-home glideslope
 
