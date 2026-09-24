@@ -593,6 +593,17 @@ condition this version does not know, and any NaN or infinity in any of the ten 
 does not refuse a `your_aircraft` that names no aircraft in the packet: a
 client that cannot find itself has no aircraft yet, which is what `FF` says.
 
+### The session's clock
+
+**Every update is stamped with the simulation's clock, and a client must not
+assume that clock keeps time with its own.** A server that cannot keep real
+time - a slow machine, a loaded one - runs its clock slower, and a client that
+took the fastest update it ever heard and counted on from there in real time
+would get further ahead of the server every second, drawing other aircraft
+where nothing it had heard put them. Fit the rate as well as the offset, over
+the last few seconds of updates; the update that says the clock is furthest
+on, at that rate, is the one that waited least in the network.
+
 ### Predicting your own aircraft
 
 **A client flies its own aircraft ahead of the server**, so that its controls

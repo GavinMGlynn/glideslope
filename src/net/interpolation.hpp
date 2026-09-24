@@ -90,4 +90,47 @@ private:
     bool has_guessed_from_ = false;
 };
 
+// **The server's clock, as seen from here.** A client draws other aircraft
+// 100 ms behind the session's clock, so it must know what that clock says
+// now - and all it has are updates, each stamped with the session time and
+// each arriving late by a latency that varies.
+//
+// **Its rate is fitted, not assumed.** A server that cannot keep real time -
+// a debug build on a loaded machine - runs its clock slower than this one.
+// An estimate that took the fastest update ever heard, and assumed the two
+// clocks ran together, ran further ahead of such a server every second, and
+// the aircraft drawn from it were guesses carried past everything known: a
+// server at 80% of real time had them drawn 190 m from where they were. So
+// the rate is fitted over the last `window_s` of updates, and the offset is
+// then the one the fastest-arriving of them gives at that rate - the
+// update that waited least in the network says most nearly what the clock
+// was when it arrived.
+class SessionClock {
+public:
+    // How much of the past the fit is made over.
+    static constexpr double window_s = 2.0;
+
+    // An update stamped `session_s`, heard at this machine's `local_s`.
+    void heard(double session_s, double local_s);
+
+    bool known() const { return !heard_.empty(); }
+    // The session's time at this machine's `local_s`, as nearly as the
+    // updates say.
+    double now(double local_s) const;
+    // How fast the session's clock runs against this one: 1 for a server
+    // keeping real time.
+    double rate() const { return rate_; }
+
+private:
+    struct Heard {
+        double session_s = 0.0;
+        double local_s = 0.0;
+    };
+    std::deque<Heard> heard_;
+    double rate_ = 1.0;
+    // The session's time at local nought, on the fitted line through the
+    // fastest-arriving update.
+    double at_zero_s_ = 0.0;
+};
+
 } // namespace glideslope::net

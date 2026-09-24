@@ -585,12 +585,8 @@ public:
     }
 
     void heard(const glideslope::net::StatePacket& state, double local_s) {
-        // The session clock, as well as the freshest update says it.
-        const double offset = state.simulation_time_s - local_s;
-        if (!clock_known_ || offset > offset_s_) {
-            offset_s_ = offset;
-            clock_known_ = true;
-        }
+        // The session clock, at the rate it runs (net::SessionClock).
+        clock_.heard(state.simulation_time_s, local_s);
         // **An update older than one already used is not used again** for
         // this client's own aircraft: the network reorders them, the newer
         // one has put it right already, and the inputs the older would have
@@ -659,14 +655,14 @@ public:
 
     // Shows every other aircraft at `local_s`, as a 60 Hz screen would.
     void render(double local_s) {
-        if (!clock_known_ || local_s - rendered_s_ < 1.0 / 60.0) {
+        if (!clock_.known() || local_s - rendered_s_ < 1.0 / 60.0) {
             return;
         }
         if (rendered_s_ >= 0.0) {
             longest_between_frames_s_ = std::max(longest_between_frames_s_, local_s - rendered_s_);
         }
         rendered_s_ = local_s;
-        const double now = local_s + offset_s_;
+        const double now = clock_.now(local_s);
         for (auto& [index, shown] : others_) {
             if (!shown.known()) continue;
             const glideslope::net::RemoteState got = shown.at(now);
@@ -770,8 +766,7 @@ private:
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
     std::deque<std::pair<std::uint32_t, glideslope::sim::Controls>> before_;
-    bool clock_known_ = false;
-    double offset_s_ = 0.0;
+    glideslope::net::SessionClock clock_;
     double rendered_s_ = -1.0;
     std::optional<glideslope::world::Geodetic> origin_;
     std::array<double, 3> origin_ecef_{};

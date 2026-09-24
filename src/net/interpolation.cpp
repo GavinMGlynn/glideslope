@@ -143,4 +143,51 @@ RemoteState Interpolated::at(double now_s) {
     return answer;
 }
 
+void SessionClock::heard(double session_s, double local_s) {
+    heard_.push_back({session_s, local_s});
+    while (heard_.size() > 2 && local_s - heard_.front().local_s > window_s) {
+        heard_.pop_front();
+    }
+    // The rate: a least-squares line through what the window holds, once it
+    // holds enough of a span to say anything - until then, real time. Held
+    // between a half and twice, which no server that is running at all is
+    // outside, so that a burst of updates cannot make it absurd.
+    const double span = heard_.back().local_s - heard_.front().local_s;
+    if (heard_.size() >= 5 && span >= window_s / 4.0) {
+        double sl = 0.0;
+        double ss = 0.0;
+        for (const Heard& h : heard_) {
+            sl += h.local_s;
+            ss += h.session_s;
+        }
+        const double n = static_cast<double>(heard_.size());
+        const double ml = sl / n;
+        const double ms = ss / n;
+        double sll = 0.0;
+        double sls = 0.0;
+        for (const Heard& h : heard_) {
+            sll += (h.local_s - ml) * (h.local_s - ml);
+            sls += (h.local_s - ml) * (h.session_s - ms);
+        }
+        if (sll > 0.0) {
+            rate_ = std::clamp(sls / sll, 0.5, 2.0);
+        }
+    }
+    // The offset: at that rate, the update that says the clock is furthest
+    // on is the one that waited least. Only the last half of the window is
+    // looked at, because the line is carried on from that update to now, and
+    // any error in the rate grows with how far it is carried.
+    double best = heard_.back().session_s - rate_ * heard_.back().local_s;
+    for (const Heard& h : heard_) {
+        if (heard_.back().local_s - h.local_s <= window_s / 2.0) {
+            best = std::max(best, h.session_s - rate_ * h.local_s);
+        }
+    }
+    at_zero_s_ = best;
+}
+
+double SessionClock::now(double local_s) const {
+    return at_zero_s_ + rate_ * local_s;
+}
+
 } // namespace glideslope::net
