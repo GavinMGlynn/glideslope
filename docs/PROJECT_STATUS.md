@@ -19,7 +19,7 @@ anything proved elsewhere names the CI run.
 
 ---
 
-## The honest summary, 2026-09-24
+## The honest summary, 2026-09-25
 
 **A Cessna 172P flies to its handbook over the real ground, in the real weather,
 with a HUD and flight controllers, and the ground is drawn - satellite imagery
@@ -36,8 +36,8 @@ platform's package draws a frame of it on Vulkan, Direct3D 12 or Metal: sky,
 HUD and the terrain, drawn by Cesium Native from the DEM over the cells around
 where the flight starts, with EOX's Sentinel-2 cloudless imagery on it. There
 are sixteen aircraft, fifteen of them drawn from FlightGear models, and a
-server that flies them for up to four clients, which is not finished (Phase
-6, below). The weather is real: METARs and winds aloft, fetched live,
+server that flies them for up to four clients, each predicting its own and
+drawing the rest (Phase 6, below). The weather is real: METARs and winds aloft, fetched live,
 set JSBSim's wind, temperature and pressure, and the air moves as a pattern of
 its own - gusts, turbulence, a boundary layer, reported shear, microbursts,
 thermals and the terrain's lift - the same on every machine - and the weather
@@ -139,15 +139,21 @@ turns alone, having no stall or climbing speed; the F-15C, F-35B and
 Learjet are not flown rotating early (a tail). See the log for 2026-09-22
 to 2026-09-24.
 
-**Phase 6, client and server, is in progress — 16 of 17 items.** A server
-flies every aircraft, wherever on Earth, with AI aircraft of its own, and
-resolves collisions; clients join a lobby, stream their inputs, predict their
-own aircraft and reconcile, and see the others 100 ms in the past, over a
-reliable layer whose every parser is fuzzed - and all of that holds, within
-stated bounds, through 200 ms of latency with jitter and loss; the server
-deploys as a systemd unit or a container image. Missing: four machines in one
-sky - the graphical client does not yet fly on a server or draw the server's
-aircraft, and nothing on the wire says which model an aircraft is.
+**Phase 6, client and server, is complete — 17 of 17 items.** A server flies
+every aircraft, wherever on Earth, with AI aircraft of its own, and resolves
+collisions. Clients join, are told what every aircraft is, stream their
+inputs, predict their own aircraft and reconcile, and see the others 100 ms in
+the past, over a reliable layer whose every parser is fuzzed. All of that
+holds, within stated bounds, through 200 ms of latency with jitter and loss.
+The client with the window flies on a server and draws everyone. Four clients
+on Windows and Linux have flown together with an AI Cessna, and a fifth was
+refused. The server deploys as a systemd unit or a container image. Still
+missing from multiplayer:
+- choosing an aeroplane: a player flies what the server's plan flies;
+- the lobby, the session, the weather and the terrain dataset: they are
+  defined and do not yet travel;
+- handing an aircraft between a person and the AI across the network, which
+  is Phase 7.
 
 ## Gaps
 
@@ -156,8 +162,10 @@ are the risks the phase order is built around:
 
 - **Restore settles what it cannot read.** It holds the aircraft at the captured
   state for two simulated seconds so JSBSim's hidden engine and actuator states
-  converge; a restore is therefore not free, and whether that cost suits
-  reconciliation many times a second is a question for Phase 6.
+  converge; a restore is therefore not free. Reconciliation does not use it:
+  it sets the aircraft's motion alone (`Aircraft::set_motion`), and the
+  client's own engines and actuators, flown on the same inputs, stay as they
+  are.
 - **Sixteen aircraft are checked, and the handling of those written here is
   estimated.** The Cessna 172P and 182S, the Piper PA-28-180 and the Piper
   J-3 Cub fly to their handbooks, the Airbus A320 and A380 and Boeing
@@ -219,10 +227,32 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Four machines in one sky: the client with the window flies on a server, 2026-09-25 — in progress
+### Four machines in one sky, 2026-09-25 — item done, and Phase 6 with it
 
-**What is missing first.** The four-client run across Windows and Linux,
-with a client refused, has not been flown. The item stays open until it has.
+**Flown.** `tools/four_machines.sh` was run from WSL. The server ran on
+Windows, with room for four players and one AI Cessna. Four clients joined
+it:
+
+- from Windows, over 127.0.0.1: the client with the window on Direct3D 12,
+  and a predicting `glideslope_cli`;
+- from Linux, across WSL's network to the Windows host: the client with the
+  window on Vulkan, and a predicting `glideslope_cli`.
+
+A fifth asked from Linux once the four were in. The script checks every
+figure below, and fails if any is wrong.
+
+| client | given | drew | worst correction | worst prediction error |
+|---|---|---|---|---|
+| with the window, Windows | a Cessna | the other four | 2.8 m, none snapped | - |
+| with the window, Linux | a Cessna | the other four | 5.1 m, none snapped | - |
+| `glideslope_cli`, Windows | a Cessna | - | - | 3.3 m |
+| `glideslope_cli`, Linux | a Cessna | - | - | 2.3 m |
+| the fifth | refused, reason 5 (`SERVER_FULL`) | | | |
+
+The server flew all five aircraft, and each client was told all five were
+Cessnas. The run takes about a minute. It is not in CI, because it is two
+operating systems on one network. Its parts run in CI one machine at a time:
+the network checks, and the client with the window on a server.
 
 **What works now.**
 - **`AIRCRAFT` travels.** It is keyed by the aircraft's number, not a slot's,
