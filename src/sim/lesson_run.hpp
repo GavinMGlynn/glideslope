@@ -13,7 +13,9 @@
 // **A `need` is judged once, when the stage ends**, because flap down by the
 // time you turn final is not a fault until you have turned final. A lesson
 // that is abandoned part-way leaves the current stage's needs unjudged: they
-// have not come due.
+// have not come due. **A flight that ends part-way is another matter** - an
+// aeroplane flown into the ground has no later in which to meet them - and
+// `ended` judges the current stage's needs as they stand.
 //
 // **The debrief is what to do differently, in the order it happened, and
 // nothing else.** There is no score and no mark (`FEATURES.md`). A lesson
@@ -70,6 +72,12 @@ public:
     // has not got is a fault for a test to catch, not a reason to end a
     // flight.
     void update(const Aircraft& aircraft, std::int64_t tick);
+
+    // **The flight is over before the lesson is** - in the ground, most
+    // likely - so what the current stage needed is judged now, as it stands:
+    // a stall recovery that ends in the ground did not recover with the
+    // least height. Nothing is judged if the lesson was already over.
+    void ended(const Aircraft& aircraft, std::int64_t tick);
 
     const Lesson& lesson() const { return lesson_; }
     // Which stage is being flown. Equal to the number of stages once the

@@ -158,6 +158,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_climb_at_the_wrong_speed_is_named_in_the_debrief
     the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief
     a_stall_recovered_badly_is_named_in_the_debrief
+    a_lesson_whose_flight_ends_part_way_names_what_its_stage_still_needed
     every_aeroplane_flies_the_turns_lesson_of_its_own_class
     an_instructor_hands_over_and_takes_back_with_no_step_in_any_control
     an_instructor_demonstrates_a_take_off_and_hands_it_over
