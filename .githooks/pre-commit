@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# pre-commit - refuses a commit that is plainly not finished.
+#
+# Turned on in a working copy with `git config core.hooksPath .githooks`
+# (CLAUDE.md). `git commit --no-verify` skips it, for the rare commit that
+# means to do one of these things - say so in its message.
+#
+#   1. A marker left from debugging: TEMPDBG, DELIBERATE BUG or EXPERIMENT in
+#      a line being added. Each has been left in a working tree by accident.
+#   2. A tracked file changed and not staged: the commit is not everything the
+#      work touched. The collisions commit went out without the CMakeLists.txt
+#      that built it. GLIDESLOPE_PARTIAL=1 lets a deliberate split through.
+#   3. Something that looks like a key or a token (CLAUDE.md: none in the
+#      repository, ever).
+#   4. An item ticked in COMPLETION_PLAN.md with no change to
+#      PROJECT_STATUS.md in the same commit (CLAUDE.md: both living docs).
+
+set -uo pipefail
+problems=()
+
+# The files that are about these rules, and so must be able to name them.
+exempt='^(\.githooks/|tests/cmake/githooks\.cmake:)'
+added="$(git diff --cached -U0 --no-color -- . | awk '
+    /^\+\+\+ / { file = substr($0, 7); next }
+    /^\+/ && !/^\+\+\+/ { print file ":" substr($0, 2) }' | grep -Ev "$exempt" || true)"
+
+if markers="$(printf '%s\n' "$added" | grep -E 'TEMPDBG|DELIBERATE BUG|// EXPERIMENT')"; then
+    problems+=("a debugging marker is being committed:"$'\n'"$markers")
+fi
+
+if [[ "${GLIDESLOPE_PARTIAL:-0}" != "1" ]]; then
+    if unstaged="$(git diff --name-only)" && [[ -n "$unstaged" ]]; then
+        problems+=("tracked files are changed and not staged - is the commit everything?"$'\n'"$unstaged"$'\n'"(GLIDESLOPE_PARTIAL=1 if the split is meant)")
+    fi
+fi
+
+if secrets="$(printf '%s\n' "$added" | grep -E 'AIza[0-9A-Za-z_-]{35}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[A-Za-z0-9_-]{20,}\.eyJ[A-Za-z0-9_-]{20,}')"; then
+    problems+=("something that looks like a key or a token:"$'\n'"$secrets")
+fi
+
+if git diff --cached -U0 -- docs/COMPLETION_PLAN.md | grep -q '^+- \[x\]' \
+   && ! git diff --cached --quiet -- docs/COMPLETION_PLAN.md \
+   && git diff --cached --quiet -- docs/PROJECT_STATUS.md; then
+    problems+=("an item is ticked in COMPLETION_PLAN.md and PROJECT_STATUS.md is not in the commit")
+fi
+
+if ((${#problems[@]})); then
+    for p in "${problems[@]}"; do
+        printf 'pre-commit: %s\n\n' "$p" >&2
+    done
+    echo "pre-commit: refused (git commit --no-verify to override, and say why)" >&2
+    exit 1
+fi

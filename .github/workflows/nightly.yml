@@ -1,0 +1,63 @@
+# Nightly: the tests that run programs against each other, over and over.
+#
+# **Why**: a test with a server and its clients in it depends on how they
+# overlap in time, and a test that passed once on a fast machine failed on a
+# slow runner - fewer players let in, a drop that came on the last frame, an
+# aeroplane that had not flown long enough. A pull request's run tries each
+# once. This tries each five times, every night, on main, so that one that
+# only sometimes passes is found here rather than in somebody's pull request.
+#
+# The tests chosen are the ones whose names say they run a server, a client, a
+# window or a package against each other - the ones timing can break.
+name: nightly
+
+on:
+  schedule:
+    # 17:00 UTC is three in the morning in Sydney, when nobody is pushing.
+    - cron: '0 17 * * *'
+  workflow_dispatch:
+
+jobs:
+  repeat:
+    name: The multi-process tests, five times each
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CXX: g++-14
+      CC: gcc-14
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 700M
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/ubuntu-setup
+      - name: Keep vcpkg's binary cache in the workspace
+        run: |
+          mkdir -p .vcpkg-archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@v6
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          restore-keys: vcpkg-ubuntu-
+      - uses: actions/cache/restore@v6
+        with:
+          path: .ccache
+          key: ccache-ubuntu-linux-debug-${{ github.sha }}
+          restore-keys: ccache-ubuntu-linux-debug-
+      - uses: actions/cache@v6
+        with:
+          path: .downloads
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+      - name: Build
+        run: |
+          cmake --preset linux-debug -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
+          cmake --build --preset linux-debug
+      - name: Five times each
+        run: |
+          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
+          rc=0
+          DISPLAY=:99 ctest --preset linux-debug -j2 --repeat until-fail:5 \
+              -R 'server|client|window|players|collision|systemd|online|package' || rc=$?
+          kill $xvfb
+          exit $rc

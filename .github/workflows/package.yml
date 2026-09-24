@@ -17,24 +17,15 @@
 # seconds of the flight screen in Sydney's weather and writes its frame -
 # uploaded, one from every platform.
 #
-# Not on every push: packaging changes when the packaging rules do. On demand,
-# and when the build or this file changes.
+# **Part of every pull request's gate when the build could have changed it**:
+# ci.yml calls this workflow when the build, the assets, the dependencies or
+# this file changed (its `changes` job decides), and "CI passed" counts it. On
+# demand too.
 name: package
 
 on:
+  workflow_call:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'CMakeLists.txt'
-      - 'CMakePresets.json'
-      - 'cmake/**'
-      - 'ext/**'
-      - 'assets/**'
-      - '.gitmodules'
-      - 'vcpkg.json'
-      - 'vcpkg-configuration.json'
-      - '.github/workflows/package.yml'
 
 jobs:
   linux:

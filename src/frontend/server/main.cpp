@@ -113,6 +113,8 @@ struct Options {
     // The dashboard in a window instead of the terminal, and the window's
     // test flags.
     bool window = false;
+    // Stop once everybody who joined has gone, for tests.
+    bool until_empty = false;
     bool window_dump = false;
     std::string window_shot;
     std::string window_press;
@@ -143,6 +145,9 @@ void print_usage(std::FILE* out) {
         "  --ai N             how many AI aircraft the server runs (default 4)\n"
         "  --plan FILE        the flight plan they fly (default plans/ in the data)\n"
         "  --seconds N        stop after N seconds instead of running until killed\n"
+        "  --until-empty      stop once every client that joined has gone and been\n"
+        "                     let go - for a test, which then waits on its clients\n"
+        "                     rather than on the machine's speed\n"
         "  --on-leave WHAT    what becomes of an aircraft when the person flying\n"
         "                     it goes: 'remove' takes it out of the sky (the\n"
         "                     default), 'ai' hands it to an AI pilot flying the\n"
@@ -270,6 +275,8 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.headless = true;
         } else if (a == "--window") {
             o.window = true;
+        } else if (a == "--until-empty") {
+            o.until_empty = true;
         } else if (a == "--window-dump") {
             o.window_dump = true;
         } else if (a == "--window-shot") {
@@ -715,6 +722,11 @@ public:
                 continue;
             }
             if (!hand_to_ai || plan_.waypoints.empty()) {
+                // Said as it goes, as the end of the run says it of the rest:
+                // a test that waits for its clients to leave finds their
+                // aircraft gone by the end.
+                std::printf("  number %d, a player's, banked as far as %.0f degrees\n",
+                            static_cast<int>(it->index), it->most_roll_deg);
                 flown_.erase(it);
                 return false;
             }
@@ -1412,6 +1424,7 @@ int run(const Options& o) {
     glideslope::net::Slots slots(static_cast<std::uint8_t>(o.players));
     std::map<std::string, Connection> connections;
     glideslope::server::Happenings happened;
+    bool anyone_joined = false;
     // What the window last drew, for --window-dump.
     glideslope::server::Dashboard last_drawn;
 
@@ -1564,6 +1577,18 @@ int run(const Options& o) {
             drawn_at_s = up_s;
         }
         if (o.seconds > 0.0 && up_s >= o.seconds) {
+            break;
+        }
+        // **Everybody who came has gone**, for a test that waits on its
+        // clients: a fixed length of time was the machine's speed's to decide,
+        // and a slow runner stopped the server before its last client had
+        // flown. Once somebody has joined and every connection has been let
+        // go, the server stops.
+        if (!connections.empty()) {
+            anyone_joined = true;
+        }
+        if (o.until_empty && anyone_joined && connections.empty()) {
+            std::printf("everybody who joined has gone\n");
             break;
         }
         if (got == 0) {

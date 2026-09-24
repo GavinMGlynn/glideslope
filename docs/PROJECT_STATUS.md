@@ -241,6 +241,32 @@ each push cancelled the run before it, so failures surfaced late and stacked.
   loop, at the lowest priority - roughly a slow, shared runner - for tests that
   run programs against each other. CLAUDE.md now asks that a test taking time
   take simulated time.
+- **Packaging is in the gate**: `package.yml` is called from `ci.yml` when the
+  build, the assets, the dependencies or a frontend changed (a `changes` job
+  decides), and CI passed counts it - a pull request that breaks a package
+  fails its own gate, not `main` after it.
+- **A pull request from the first push**: `tools/start_item.sh` makes the
+  branch, pushes it and opens a draft pull request, because CI runs on pull
+  requests and a branch pushed without one is tested by nothing.
+- **Hooks in the working copy** (`.githooks/`, turned on with
+  `git config core.hooksPath .githooks`): pre-commit refuses a debugging
+  marker, a tracked file changed and not staged, a key or token, and a plan
+  tick without PROJECT_STATUS.md; pre-push refuses `main`, builds linux-debug
+  and runs every test ctest last measured under five seconds, and reminds of
+  `tools/windows_build.sh` for Windows or Apple code. Plain shell scripts, not
+  lefthook: the project prefers no dependency. `the_pre_commit_hook_refuses_an_unfinished_commit_and_nothing_else`
+  walks all eight cases; its first draft compared a macro's argument as a
+  variable and checked nothing - seen to pass with the hook broken, fixed, and
+  then seen to fail with the marker check removed.
+- **Nightly** (`nightly.yml`): the tests that run programs against each other,
+  five times each on `main`, so that a test that only sometimes passes is
+  found there. Three of them were already doing it: a server stopped by the
+  clock rather than by its clients - a fixed thirteen seconds on a slow runner
+  ended before the fourth player had flown - and a client that gave up on a
+  server after five seconds, less than a debug server takes to build its
+  terrain. The server now takes `--until-empty` (a test flag: stop once every
+  client that joined has gone), the client waits a minute, and a departing
+  player's aircraft says how far it banked as it goes.
 - CI builds the server's container image (`deploy/Dockerfile`, the server-only
   configuration) and a server started from it must accept a client and refuse
   `--window` as built without one. The image is now Rocky Linux 10, as the

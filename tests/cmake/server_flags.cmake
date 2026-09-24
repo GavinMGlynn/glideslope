@@ -45,10 +45,12 @@ list(LENGTH _flags _count)
 # changes, rather than quietly walking a smaller one.
 # --window and its three test flags, --window-dump, --window-shot and
 # --window-press, draw the dashboard in an SDL window and read it back
-# (cmake/server_window.cmake).
+# (cmake/server_window.cmake). --until-empty stops a server once its clients
+# have gone, for tests that wait on clients rather than on the clock.
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
-              --help --window --window-dump --window-shot --window-press)
+              --help --window --window-dump --window-shot --window-press
+              --until-empty)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)

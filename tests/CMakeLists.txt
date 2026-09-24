@@ -1222,6 +1222,13 @@ set_tests_properties(two_aircraft_on_a_collision_course_collide_on_the_server_an
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_collision)
 
+# **The pre-commit hook refuses what it says it refuses**, and nothing else.
+# See cmake/githooks.cmake.
+add_test(NAME the_pre_commit_hook_refuses_an_unfinished_commit_and_nothing_else
+    COMMAND ${CMAKE_COMMAND} -DHOOKS=${PROJECT_SOURCE_DIR}/.githooks
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/githooks
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/githooks.cmake)
+
 # **Every flag the server prints in its usage is one it takes.** A flag added
 # to the usage and not to the parser is documented and silently ignored; see
 # cmake/server_flags.cmake, which walks the usage text itself.

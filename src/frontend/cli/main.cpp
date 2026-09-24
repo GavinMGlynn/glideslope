@@ -719,8 +719,14 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
     // not listening yet answers nothing at all. The same initiation goes out
     // each time - `Noise_IK` makes one initiation, and a second would be a
     // second handshake - which the server treats as a duplicate.
+    //
+    // **A minute before giving up**, not five seconds: a server builds its
+    // terrain after binding its socket and answers nothing until it has, and
+    // a debug server on a busy CI runner took longer than five seconds - so
+    // clients started with it gave up, and tests found fewer players than
+    // they had started. What arrives meanwhile waits in the socket.
     constexpr double resend_every_s = 0.25;
-    constexpr double give_up_after_s = 5.0;
+    constexpr double give_up_after_s = 60.0;
     std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
     const auto began = std::chrono::steady_clock::now();
     double sent_at_s = 0.0;
