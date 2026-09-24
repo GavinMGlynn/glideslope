@@ -19,19 +19,23 @@
 # the flight model and the build fails without it.
 
 # --- the build ---------------------------------------------------------------
-FROM rockylinux:9 AS build
+# **Rocky Linux 10, as the server is hosted on** - an EC2 instance running it,
+# or Fargate running this. Its CMake (3.30) and GCC (14) are new enough as they
+# come; Rocky 9's CMake, 3.26, was not, which nobody knew until CI first built
+# this image. libsodium is in EPEL, and ninja in CRB.
+FROM rockylinux/rockylinux:10 AS build
 
-RUN dnf install -y --setopt=install_weak_deps=False \
-        gcc-toolset-13 cmake ninja-build git \
+RUN dnf install -y --setopt=install_weak_deps=False dnf-plugins-core epel-release \
+ && dnf config-manager --set-enabled crb \
+ && dnf install -y --setopt=install_weak_deps=False \
+        gcc-c++ cmake ninja-build git \
         libsodium-devel sqlite-devel libcurl-devel \
  && dnf clean all
 
 WORKDIR /src
 COPY . .
 
-# gcc-toolset puts a newer compiler somewhere the default PATH does not look.
-RUN . /opt/rh/gcc-toolset-13/enable \
- && cmake -S . -B /build -G Ninja \
+RUN cmake -S . -B /build -G Ninja \
         -DGLIDESLOPE_SERVER_ONLY=ON \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/out \
@@ -39,9 +43,10 @@ RUN . /opt/rh/gcc-toolset-13/enable \
  && cmake --install /build --component glideslope
 
 # --- what ships --------------------------------------------------------------
-FROM rockylinux:9
+FROM rockylinux/rockylinux:10
 
-RUN dnf install -y --setopt=install_weak_deps=False \
+RUN dnf install -y --setopt=install_weak_deps=False epel-release \
+ && dnf install -y --setopt=install_weak_deps=False \
         libsodium sqlite-libs libcurl \
  && dnf clean all \
  && useradd --system --home-dir /var/lib/glideslope --create-home glideslope
