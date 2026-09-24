@@ -309,10 +309,16 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
-- [ ] **CI's actions run on Node.js 20, which GitHub has deprecated.**
+- [x] **CI's actions run on Node.js 20, which GitHub has deprecated.**
       *Verification: a CI run's annotations name no action as targeting
-      Node.js 20.* In progress: moved to the Node 24 majors; not yet seen in a
-      run.
+      Node.js 20.* Done 2026-09-24.
+- [x] **Windows debug programs can crash on their way out**, when Windows
+      starts a thread as they exit. *Verification: a program can still
+      allocate in the last call the loader makes into it, and the tests that
+      crashed run hundreds of times without a crash.* Done 2026-09-24.
+- [x] **The state-stream test measured the runner, not the server.**
+      *Verification: every update is counted against the simulation's own
+      steps, exactly, and one dropped in ten fails it.* Done 2026-09-24.
 - [ ] **The handshake is not quite the Noise protocol it is named after**, so a
       standard Noise client cannot complete it. *Verification: the handshake
       completes against an independent Noise implementation.*

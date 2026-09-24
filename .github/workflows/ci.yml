@@ -579,46 +579,6 @@ jobs:
         if: ${{ failure() }}
         with: { name: 'dumps-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: '${{ runner.temp }}/dumps/*.dmp', if-no-files-found: ignore, retention-days: 3 }
 
-  # TEMPORARY - removed before the branch is merged. The exit crash and the
-  # state-rate failure were each seen once in several runs, so each test is
-  # run here over and over on the debug build, beside others for load.
-  windows-repeat:
-    name: Windows windows-debug - repeat ${{ matrix.what }}
-    needs: windows-build
-    runs-on: windows-latest
-    timeout-minutes: 50
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { what: stick, regex: 'virtual_stick_and_throttle|bound_inputs_set_the_controls', times: 2000 }
-          - { what: state, regex: '^a_client_hears_where_every_aircraft_is$|no_z_fighting_on_direct3d12', times: 60 }
-    env:
-      SDL_LOGGING: gpu=debug
-    steps:
-      - uses: actions/checkout@v5
-        with: { submodules: true }
-      - uses: ./.github/actions/windows-setup
-      - uses: actions/cache@v6
-        with:
-          path: .downloads
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
-      - uses: actions/download-artifact@v8
-        with: { name: 'tree-windows-windows-debug' }
-      - shell: cmd
-        run: tar -xzf tree.tar.gz && del tree.tar.gz
-      - name: Keep a dump of any crash
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\dumps" | Out-Null
-          "GLIDESLOPE_CRASH_DUMPS=$env:RUNNER_TEMP\dumps" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-      - name: repeat ${{ matrix.what }} ${{ matrix.times }} times
-        shell: cmd
-        run: ctest --preset windows-debug -R "${{ matrix.regex }}" --repeat until-fail:${{ matrix.times }} -j2
-      - uses: actions/upload-artifact@v7
-        if: ${{ failure() }}
-        with: { name: 'dumps-repeat-${{ matrix.what }}', path: '${{ runner.temp }}/dumps/*.dmp', if-no-files-found: ignore, retention-days: 3 }
-
   # ---------------------------------------------------------------------------
   # The same flights everywhere.
   #
