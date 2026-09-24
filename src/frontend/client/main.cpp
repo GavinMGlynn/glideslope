@@ -20,6 +20,7 @@
 // state after every tick.
 
 #include "flight.hpp"
+#include "online.hpp"
 #include "platform/end_process.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "gfx/hud.hpp"
@@ -464,6 +465,73 @@ static int run_program(int argc, char** argv) {
         std::unique_ptr<glideslope::client::Flight> flight;
         glideslope::client::FlightStart start;
         glideslope::client::Scene scene;
+        const auto started = std::chrono::steady_clock::now();
+        const auto seconds_since_start = [&] {
+            return std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
+                .count();
+        };
+        // **Joining a server, if this client was told to.** The session is
+        // the network's, not this program's: `glideslope_cli` uses the same
+        // one. What the client does with it is still only to stay in it -
+        // once joined, the flight on screen is the aircraft the server gave it,
+        // predicted here (client/online.hpp), and every other one is drawn.
+        std::optional<glideslope::net::ClientSession> session;
+        std::optional<glideslope::client::Online> online;
+        std::optional<glideslope::client::Joined> joined;
+        if (o.online || !o.server.empty()) {
+            std::string where = o.server;
+            std::string key = o.server_key;
+            if (o.online) {
+                const auto named = glideslope::platform::default_server();
+                if (!named) {
+                    std::fprintf(stderr,
+                                 "glideslope: --online needs a server.txt naming a "
+                                 "host, a port and a key\n");
+                    return 2;
+                }
+                where = named->host + ":" + std::to_string(named->port);
+                key = named->key_hex;
+                std::printf("server.txt: %s port %u\n", named->host.c_str(),
+                            static_cast<unsigned>(named->port));
+            }
+            if (key.empty()) {
+                std::fprintf(stderr, "glideslope: --server needs --server-key\n");
+                return 2;
+            }
+            session = glideslope::net::ClientSession::connect(where, key);
+            if (!session) {
+                std::fprintf(stderr, "glideslope: cannot reach %s\n", where.c_str());
+                return 1;
+            }
+            std::printf("session with %s\n", session->theirs().text().c_str());
+            std::fflush(stdout);
+            // **Given an aircraft, or not.** A server answers the handshake
+            // only once its terrain is built and its aircraft are flying, and
+            // from then on says where they are every twenty-fifth of a
+            // simulated second. So a session with no word of an aircraft for
+            // ten seconds is with a server that has nothing to fly, and this
+            // flies alone and says so.
+            online.emplace(std::move(*session));
+            joined = online->join(10.0, [&] { return seconds_since_start(); });
+            if (joined) {
+                const glideslope::world::Geodetic g = glideslope::world::to_geodetic(
+                    {joined->motion.location_ecef_m[0], joined->motion.location_ecef_m[1],
+                     joined->motion.location_ecef_m[2]});
+                start.aircraft = joined->aircraft_id;
+                start.latitude_deg = g.latitude_deg;
+                start.longitude_deg = g.longitude_deg;
+                start.height_m = g.height_m;
+                start.on_ground = false;
+                std::printf("glideslope: the server gave this client aircraft %u, the %s\n",
+                            static_cast<unsigned>(joined->number),
+                            joined->aircraft_id.c_str());
+            } else {
+                std::printf("glideslope: the server gave this client no aircraft; "
+                            "flying alone\n");
+            }
+            std::fflush(stdout);
+        }
+
         if (o.screen == "flight") {
             if (o.at) {
                 start.latitude_deg = o.at->latitude_deg;
@@ -496,6 +564,9 @@ static int run_program(int argc, char** argv) {
             flight = std::make_unique<glideslope::client::Flight>(
                 glideslope::platform::data_directory(),
                 glideslope::platform::cache_directory(), start);
+            if (joined) {
+                flight->adopt(joined->motion);
+            }
             if (!o.checklist.empty()) {
                 flight->show_checklist(checklist_phase);
                 if (!flight->showing_checklist()) {
@@ -717,6 +788,17 @@ static int run_program(int argc, char** argv) {
             // Five degrees, as the cosine of the angle between them.
             return sun.x * lit_by.x + sun.y * lit_by.y + sun.z * lit_by.z < 0.9962;
         };
+        // On a server: the other aircraft's models, by what they are, and a
+        // mesh for each, lit for how it is pointing.
+        std::map<std::string, std::optional<glideslope::client::Visual>> models;
+        struct OtherMesh {
+            glideslope::gfx::MeshId id = 0;
+            bool made = false;
+            glideslope::world::Ecef lit_by{};
+            std::string aircraft_id;
+        };
+        std::map<std::uint8_t, OtherMesh> other_meshes;
+        std::vector<glideslope::client::Other> others_now;
         glideslope::sim::Controls controls;
         if (o.on_ground) {
             // Standing: idling, its wheels down and braked.
@@ -743,45 +825,11 @@ static int run_program(int argc, char** argv) {
         auto last = std::chrono::steady_clock::now();
         std::int64_t ticks = 0;
         long frames = 0;
-        // **Joining a server, if this client was told to.** The session is
-        // the network's, not this program's: `glideslope_cli` uses the same
-        // one. What the client does with it is still only to stay in it -
-        // the aircraft on screen are its own, and drawing the server's is
-        // the item below this one in `COMPLETION_PLAN.md`.
-        std::optional<glideslope::net::ClientSession> session;
-        if (o.online || !o.server.empty()) {
-            std::string where = o.server;
-            std::string key = o.server_key;
-            if (o.online) {
-                const auto named = glideslope::platform::default_server();
-                if (!named) {
-                    std::fprintf(stderr,
-                                 "glideslope: --online needs a server.txt naming a "
-                                 "host, a port and a key\n");
-                    return 2;
-                }
-                where = named->host + ":" + std::to_string(named->port);
-                key = named->key_hex;
-                std::printf("server.txt: %s port %u\n", named->host.c_str(),
-                            static_cast<unsigned>(named->port));
-            }
-            if (key.empty()) {
-                std::fprintf(stderr, "glideslope: --server needs --server-key\n");
-                return 2;
-            }
-            session = glideslope::net::ClientSession::connect(where, key);
-            if (!session) {
-                std::fprintf(stderr, "glideslope: cannot reach %s\n", where.c_str());
-                return 1;
-            }
-            std::printf("session with %s\n", session->theirs().text().c_str());
-            std::fflush(stdout);
-        }
-
         bool running = true;
         while (running) {
-            if (session) {
-                session->poll(0.0);
+            if (online && !(joined && flight)) {
+                // In a session without an aircraft: kept, and nothing more.
+                online->idle(seconds_since_start());
             }
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
@@ -804,8 +852,10 @@ static int run_program(int argc, char** argv) {
                 }
             }
             std::int64_t due = 0;
-            if (shooting) {
+            if (shooting && !joined) {
                 // Two ticks a frame, or as many as keep the flight to 300.
+                // (On a server a flight keeps real time, shot or not: the
+                // server's aircraft does.)
                 due = std::min<std::int64_t>(std::max<std::int64_t>(2, o.shot_at / 300),
                                              o.shot_at - ticks);
             } else {
@@ -820,9 +870,13 @@ static int run_program(int argc, char** argv) {
                            key_state, key_count);
             }
             mapper.apply(joysticks.read(), controls);
+            // On a server, what is flown is what was last sent.
+            const glideslope::sim::Controls flown =
+                joined && flight ? online->fly(seconds_since_start(), controls, *flight)
+                                 : controls;
             for (std::int64_t i = 0; i < due; ++i) {
                 if (flight) {
-                    flight->step(controls);
+                    flight->step(flown);
                     if (o.trace) {
                         std::printf("%s\n", flight->trace().c_str());
                     }
@@ -833,6 +887,16 @@ static int run_program(int argc, char** argv) {
             // The frame shot waits for every terrain tile its view needs, so
             // the same command draws the same terrain everywhere.
             const bool shot_now = shooting && ticks >= o.shot_at;
+            // **On a server, a shot draws only its own frame.** The flight
+            // keeps real time there, so the frames before it are as many as
+            // the machine can draw - thousands - where a shot flown by ticks
+            // has three hundred at most, and drawing them all headless ran
+            // the software Vulkan driver out of memory (a tail). Nobody sees
+            // them; the flight and the session go on all the same.
+            if (shooting && joined && !shot_now) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
             // The orbit goes round once a minute of the flight's own time, so
             // the same command puts it in the same place every run.
             constexpr double orbit_rad_per_s = 6.283185307179586 / 60.0;
@@ -883,6 +947,51 @@ static int run_program(int argc, char** argv) {
                 draw.placement = flight->model_placement();
                 drawn.push_back(draw);
             }
+            // **Everybody else, on a server**: each with its own model, lit
+            // for how it is pointing, and drawn where the updates put it
+            // 100 ms ago (client/online.hpp).
+            if (online && joined && o.draw_aircraft) {
+                others_now = online->others(seconds_since_start());
+                for (const glideslope::client::Other& other : others_now) {
+                    if (other.aircraft_id.empty()) {
+                        continue; // not yet introduced
+                    }
+                    auto model = models.find(other.aircraft_id);
+                    if (model == models.end()) {
+                        model = models.emplace(other.aircraft_id,
+                                               glideslope::client::visual_of(
+                                                   glideslope::platform::data_directory(),
+                                                   other.aircraft_id))
+                                    .first;
+                    }
+                    if (!model->second) {
+                        continue; // this aeroplane ships no visual model
+                    }
+                    const glideslope::gfx::Placement placement = glideslope::client::placement_of(
+                        other.centre, other.heading_deg, other.pitch_deg, other.roll_deg,
+                        model->second->alignment);
+                    const glideslope::world::Ecef sun =
+                        glideslope::client::sun_in_body_of(placement);
+                    OtherMesh& mesh = other_meshes[other.number];
+                    const bool moved = mesh.made && sun.x * mesh.lit_by.x + sun.y * mesh.lit_by.y +
+                                                            sun.z * mesh.lit_by.z <
+                                                        0.9962;
+                    if (!mesh.made || moved || mesh.aircraft_id != other.aircraft_id) {
+                        if (mesh.made) {
+                            renderer.remove_mesh(mesh.id);
+                        }
+                        mesh.id = renderer.add_mesh(
+                            glideslope::gfx::mesh_from_model(model->second->model, sun));
+                        mesh.made = true;
+                        mesh.lit_by = sun;
+                        mesh.aircraft_id = other.aircraft_id;
+                    }
+                    glideslope::gfx::Draw draw;
+                    draw.mesh = mesh.id;
+                    draw.placement = placement;
+                    drawn.push_back(draw);
+                }
+            }
             // Whichever provider is drawing, its attribution is on screen.
             // The open data's notices are its own; a streamed provider's come
             // from Cesium Native as its tiles load, which is how ion's and
@@ -918,6 +1027,24 @@ static int run_program(int argc, char** argv) {
             }
             ++frames;
 
+            if (shot_now && online && joined && flight) {
+                // **What it drew of the server's sky, and how its own was
+                // flown**: for a test to read, and for anybody to believe.
+                const glideslope::world::Ecef me = flight->model_placement().origin;
+                for (const glideslope::client::Other& other : others_now) {
+                    const double away = std::hypot(other.centre.x - me.x, other.centre.y - me.y,
+                                                   other.centre.z - me.z);
+                    std::printf("glideslope: drew aircraft %u, the %s, %.0f m away%s\n",
+                                static_cast<unsigned>(other.number),
+                                other.aircraft_id.empty() ? "(not yet said)"
+                                                          : other.aircraft_id.c_str(),
+                                away, other.wrecked ? ", a wreck" : "");
+                }
+                std::printf("glideslope: predicted: %zu corrections, the worst %.3f m, "
+                            "%zu too large to hide\n",
+                            online->corrections(), online->worst_correction_m(),
+                            online->snapped());
+            }
             if (shot_now) {
                 if (terrain) {
                     const auto counts = terrain->counts();
