@@ -27,6 +27,7 @@
 #include "platform/store.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/crash.hpp"
 #include "sim/controller.hpp"
 #include "sim/navigator.hpp"
 #include "sim/fixed_step.hpp"
@@ -91,6 +92,7 @@ struct Flown {
     std::string id;
     double latitude_deg = 0.0;
     double longitude_deg = 0.0;
+    double heading_deg = 0.0; // true; north unless given
 };
 
 struct Options {
@@ -134,7 +136,8 @@ void print_usage(std::FILE* out) {
         "  --timeout SECONDS  how long a client may be silent (default 10)\n"
         "  --headless         no dashboard; print the settings and run\n"
         "  --data DIR         read data from DIR instead of data/ beside the program\n"
-        "  --fly ID@LAT,LON   fly this aircraft from here; may be given up to four\n"
+        "  --fly ID@LAT,LON[,HEADING]  fly this aircraft from here, pointing north\n"
+        "                     or HEADING; may be given up to four\n"
         "                     times, and the server flies them all at 120 Hz over\n"
         "                     the collision terrain wherever on Earth they are\n"
         "  --ai N             how many AI aircraft the server runs (default 4)\n"
@@ -338,18 +341,29 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.seconds = *n;
         } else if (a == "--fly") {
             if (!next(value)) return std::nullopt;
-            // ID@LAT,LON - the aircraft and where it starts.
+            // ID@LAT,LON[,HEADING] - the aircraft, where it starts, and which
+            // way it points: north unless told.
             const std::string spec(value);
             const std::size_t at = spec.find('@');
             const std::size_t comma = spec.find(',', at == std::string::npos ? 0 : at);
             if (at == std::string::npos || comma == std::string::npos || at == 0) {
-                why = "--fly wants ID@LAT,LON, not '" + spec + "'";
+                why = "--fly wants ID@LAT,LON[,HEADING], not '" + spec + "'";
                 return std::nullopt;
             }
             Flown f;
             f.id = spec.substr(0, at);
+            const std::size_t third = spec.find(',', comma + 1);
             const auto lat = number(spec.substr(at + 1, comma - at - 1));
-            const auto lon = number(spec.substr(comma + 1));
+            const auto lon = number(spec.substr(
+                comma + 1, third == std::string::npos ? std::string::npos : third - comma - 1));
+            if (third != std::string::npos) {
+                const auto heading = number(spec.substr(third + 1));
+                if (!heading || *heading < 0.0 || *heading >= 360.0) {
+                    why = "--fly wants a heading from 0 to 360, not '" + spec + "'";
+                    return std::nullopt;
+                }
+                f.heading_deg = *heading;
+            }
             if (!lat || !lon || *lat < -90.0 || *lat > 90.0 || *lon < -180.0 ||
                 *lon > 180.0) {
                 why = "--fly wants a latitude and longitude on Earth, not '" + spec + "'";
@@ -544,16 +558,23 @@ public:
                 dem->height_above_ellipsoid(f.latitude_deg, f.longitude_deg) *
                 feet_per_metre;
             ic.altitude_ft = ic.terrain_elevation_ft + 3000.0;
+            ic.heading_deg = f.heading_deg;
             ic.airspeed_kts = entry.start_airspeed_kts;
             ic.engine_running = true;
             ic.gear = 0.0;
             aircraft->initialize(ic);
-            // Nobody is flying it and no plan is either, so it holds enough
-            // power to stay up and nothing else.
+            // **Nobody is flying it and no plan is either, so its autopilot
+            // holds the course it started on**: its heading, its height and its
+            // speed. Held controls alone - enough power to stay up and nothing
+            // else - let a Cessna roll off into a slow turn, 58 degrees of bank
+            // in half a minute, so that two set on a collision course circled
+            // apart instead.
             glideslope::sim::Controls idling;
             idling.throttle = 0.6;
             flown_.push_back(
                 {f.id, std::move(aircraft), nullptr, next_index_, -1, idling});
+            remember_start(flown_.back(), ic, entry.seaplane);
+            hold_course(flown_.back());
             ++next_index_;
         }
 
@@ -614,6 +635,8 @@ public:
                 flown_.push_back({plan.aircraft + " (AI " + std::to_string(i + 1) + ")",
                                   std::move(aircraft), std::move(controller),
                                   next_index_, -1, {}});
+                remember_start(flown_.back(), ic, entry.seaplane);
+                flown_.back().on_plan = true;
                 ++next_index_;
                 ++ai_;
             }
@@ -625,6 +648,7 @@ public:
             player_model_ = entry.model;
             player_id_ = plan.aircraft;
             player_airspeed_kts_ = entry.start_airspeed_kts;
+            player_seaplane_ = entry.seaplane;
         }
     }
 
@@ -673,6 +697,7 @@ public:
         flown_.push_back({player_id_ + " (slot " + std::to_string(slot) + ")",
                           std::move(aircraft), nullptr, index, static_cast<int>(slot),
                           idling});
+        remember_start(flown_.back(), ic, player_seaplane_);
         return index;
     }
 
@@ -720,9 +745,26 @@ public:
         return false;
     }
 
-    // One step of every aircraft, which is what "the server owns them" means.
-    void step() {
+    // **One step of every aircraft**, which is what "the server owns them"
+    // means - and **the collisions resolved**, which is the server's to decide
+    // (sim/crash.hpp): each aircraft judged against the ground, and every two
+    // still flying against each other. A wreck stays where it hit, not
+    // stepped, for `wreck_s` of simulated time, then flies again from where it
+    // started. What happened is returned, a line each, for the log.
+    std::vector<std::string> step() {
+        ++steps_;
+        const double now_s =
+            static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
+        std::vector<std::string> happened;
         for (Aircraft& a : flown_) {
+            if (a.wrecked_at_s >= 0.0) {
+                if (now_s - a.wrecked_at_s >= wreck_s) {
+                    fly_again(a);
+                    happened.push_back("aircraft " + std::to_string(a.index) + ", " + a.id +
+                                       ", flies again");
+                }
+                continue;
+            }
             if (a.controller) {
                 // The AI pilot: its autopilot and navigator decide the
                 // controls, which is what "the LLM plans, the controllers
@@ -734,7 +776,31 @@ public:
             a.aircraft->step();
             a.most_roll_deg =
                 std::max(a.most_roll_deg, std::abs(a.aircraft->state().roll_deg));
+            if (const auto why = a.judge.judge(*a.aircraft)) {
+                wreck(a, now_s, *why, happened);
+            }
         }
+        // Every two still flying, closer than the mean of their wingspans.
+        for (std::size_t i = 0; i < flown_.size(); ++i) {
+            for (std::size_t j = i + 1; j < flown_.size(); ++j) {
+                Aircraft& a = flown_[i];
+                Aircraft& b = flown_[j];
+                if (a.wrecked_at_s >= 0.0 || b.wrecked_at_s >= 0.0) {
+                    continue;
+                }
+                const glideslope::world::Ecef pa = where(a);
+                const glideslope::world::Ecef pb = where(b);
+                const double at_a[3] = {pa.x, pa.y, pa.z};
+                const double at_b[3] = {pb.x, pb.y, pb.z};
+                if (glideslope::sim::collided(at_a, a.span_ft, at_b, b.span_ft)) {
+                    wreck(a, now_s, "collided with aircraft " + std::to_string(b.index),
+                          happened);
+                    wreck(b, now_s, "collided with aircraft " + std::to_string(a.index),
+                          happened);
+                }
+            }
+        }
+        return happened;
     }
 
     struct Aircraft {
@@ -756,12 +822,84 @@ public:
         // The furthest it has banked, either way: what a test reads to know
         // that the inputs meant for it were the ones it flew by.
         double most_roll_deg = 0.0;
+        // **Where it started, and what it crashes by**: flown again from
+        // `start` after a wreck; judged against the ground by `judge`, and
+        // against other aircraft by its wingspan.
+        glideslope::sim::InitialConditions start{};
+        double span_ft = 0.0;
+        glideslope::sim::GroundJudge judge{false};
+        // When it was wrecked, on the simulation's clock, or below nought
+        // while it flies.
+        double wrecked_at_s = -1.0;
+        int wrecks = 0;
+        // Flying the server's plan, as an AI aircraft does; otherwise an
+        // aircraft with a controller holds the course it started on.
+        bool on_plan = false;
     };
+    // **How long a wreck stays a wreck**, in simulated seconds, before it
+    // flies again (REQUIREMENTS.md 6.4: a crash costs the flight, not the
+    // session).
+    static constexpr double wreck_s = 5.0;
+
     const std::vector<Aircraft>& flown() const { return flown_; }
     int ai() const { return ai_; }
     int tiles_fetched() const { return tiles_.downloads(); }
 
 private:
+    void remember_start(Aircraft& a, const glideslope::sim::InitialConditions& ic,
+                        bool alights_on_water) {
+        a.start = ic;
+        a.span_ft = a.aircraft->figures().wingspan_ft;
+        a.judge = glideslope::sim::GroundJudge(alights_on_water);
+    }
+
+    static glideslope::world::Ecef where(const Aircraft& a) {
+        const glideslope::sim::AircraftState s = a.aircraft->state();
+        return glideslope::world::to_ecef(glideslope::world::Geodetic{
+            s.latitude_deg, s.longitude_deg, s.altitude_ft / feet_per_metre});
+    }
+
+    static void wreck(Aircraft& a, double now_s, const std::string& why,
+                      std::vector<std::string>& happened) {
+        if (a.wrecked_at_s >= 0.0) {
+            return;
+        }
+        a.wrecked_at_s = now_s;
+        ++a.wrecks;
+        happened.push_back("aircraft " + std::to_string(a.index) + ", " + a.id +
+                           ", is a wreck: " + why);
+    }
+
+    // **Flown again from where it started**: the flight model set back to its
+    // start, the judge told it has not hit anything, and an AI pilot given
+    // its plan again from the beginning. A player's inputs go on arriving and
+    // fly it as before.
+    void fly_again(Aircraft& a) {
+        a.aircraft->initialize(a.start);
+        a.judge.reset();
+        a.wrecked_at_s = -1.0;
+        if (a.on_plan) {
+            a.controller = std::make_unique<glideslope::sim::Controller>(
+                *a.aircraft, glideslope::sim::Controls{});
+            a.controller->to_ai(plan_);
+        } else if (a.controller) {
+            hold_course(a);
+        }
+    }
+
+    // **The course it started on, held by its autopilot**: heading, height and
+    // speed, from `start`.
+    static void hold_course(Aircraft& a) {
+        a.controller =
+            std::make_unique<glideslope::sim::Controller>(*a.aircraft, a.held);
+        a.controller->to_ai();
+        glideslope::sim::AutopilotModes m = a.controller->autopilot()->modes();
+        m.heading_deg = a.start.heading_deg;
+        m.altitude_ft = a.start.altitude_ft;
+        m.airspeed_kts = a.start.airspeed_kts;
+        a.controller->autopilot()->set(m);
+    }
+
     static glideslope::world::DemCoverage read_coverage(
         const std::filesystem::path& data) {
         std::ifstream in(data / "dem" / "coverage.txt", std::ios::binary);
@@ -787,6 +925,8 @@ private:
     std::string player_model_;
     std::string player_id_;
     double player_airspeed_kts_ = 0.0;
+    bool player_seaplane_ = false;
+    std::int64_t steps_ = 0;
     // **The next number to hand out to an aircraft nobody is flying.** It
     // starts above the players' numbers, which are below `most_slots`, so an
     // AI never shares a number with a player.
@@ -849,6 +989,8 @@ glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s) {
         out.index = a.index;
         out.controller = a.controller != nullptr ? glideslope::net::Controller::ai
                                                  : glideslope::net::Controller::person;
+        out.condition = a.wrecked_at_s >= 0.0 ? glideslope::net::Condition::wrecked
+                                              : glideslope::net::Condition::flying;
         out.x_m = at.x;
         out.y_m = at.y;
         out.z_m = at.z;
@@ -1355,7 +1497,11 @@ int run(const Options& o) {
                 std::chrono::duration_cast<std::chrono::nanoseconds>(now - last));
             const std::int64_t n = std::min(owed, most_steps_between_looks);
             for (std::int64_t i = 0; i < n; ++i) {
-                fleet->step();
+                for (const std::string& line : fleet->step()) {
+                    std::printf("%s\n", line.c_str());
+                    std::fflush(stdout);
+                    happened.add(up_s, line);
+                }
             }
             owed -= n;
             stepped += n;
@@ -1472,7 +1618,9 @@ int run(const Options& o) {
         std::printf("was %lld step%s behind at the end\n", static_cast<long long>(owed),
                     owed == 1 ? "" : "s");
         for (; owed > 0; --owed) {
-            fleet->step();
+            for (const std::string& line : fleet->step()) {
+                std::printf("%s\n", line.c_str());
+            }
             ++stepped;
         }
     }
@@ -1496,7 +1644,9 @@ int run(const Options& o) {
                         a.id.c_str(), s.latitude_deg, s.longitude_deg, agl,
                         static_cast<long long>(std::llround(s.altitude_ft - agl)));
             std::printf("  number %d, %s, banked as far as %.0f degrees\n",
-                        static_cast<int>(a.index), a.slot >= 0 ? "a player's" : "an AI's",
+                        static_cast<int>(a.index),
+                        a.slot >= 0 ? "a player's"
+                                    : (a.on_plan ? "an AI's" : "held on its course"),
                         a.most_roll_deg);
         }
         std::printf("ran %d AI aircraft\n", fleet->ai());

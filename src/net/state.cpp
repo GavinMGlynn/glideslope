@@ -39,7 +39,8 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
             !a_number(a.roll_deg)) {
             return std::nullopt;
         }
-        if (!known_controller(static_cast<std::uint8_t>(a.controller))) {
+        if (!known_controller(static_cast<std::uint8_t>(a.controller)) ||
+            !known_condition(static_cast<std::uint8_t>(a.condition))) {
             return std::nullopt;
         }
     }
@@ -53,6 +54,7 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
     for (const AircraftState& a : state.aircraft) {
         w.u8(a.index);
         w.u8(static_cast<std::uint8_t>(a.controller));
+        w.u8(static_cast<std::uint8_t>(a.condition));
         w.f64(a.x_m);
         w.f64(a.y_m);
         w.f64(a.z_m);
@@ -64,6 +66,11 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         w.f32(a.roll_deg);
     }
     return w.take();
+}
+
+bool known_condition(std::uint8_t value) {
+    return value == static_cast<std::uint8_t>(Condition::flying) ||
+           value == static_cast<std::uint8_t>(Condition::wrecked);
 }
 
 std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
@@ -91,6 +98,11 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
             return std::nullopt;
         }
         a.controller = static_cast<Controller>(controller);
+        const std::uint8_t condition = r.u8();
+        if (!known_condition(condition)) {
+            return std::nullopt;
+        }
+        a.condition = static_cast<Condition>(condition);
         a.x_m = r.f64();
         a.y_m = r.f64();
         a.z_m = r.f64();

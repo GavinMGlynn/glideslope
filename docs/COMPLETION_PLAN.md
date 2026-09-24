@@ -249,9 +249,13 @@ ends in a debrief, never a score.
 - [x] **Other aircraft interpolated 100 ms in the past.** *Verification:
       interpolation error stays within its bound under loss and jitter.* Done
       2026-09-22.
-- [ ] **Collisions resolved on the server**, mid-air and with the ground.
-      *Verification: two aircraft on a collision course collide on the server,
-      and every client shows it.*
+- [x] **Collisions resolved on the server**, mid-air and with the ground: a
+      crashed aircraft is a wreck for a few seconds, then flies again from the
+      start. *Verification: two aircraft on a collision course collide on the
+      server, every client reading the state is told, and both fly again; a
+      hard landing wrecks and a good one does not.* Done 2026-09-24. The
+      graphical client does not draw the server's aircraft yet, wrecks or not;
+      that is "Four machines in one sky".
 - [x] **Every network parser fuzzed** under sanitizers. *Verification: the seed
       corpus goes through every parser in CI.* Done 2026-09-22.
 - [x] **The server's test flags.** *Verification: each is used by a ctest.*
@@ -263,8 +267,8 @@ ends in a debrief, never a score.
       is named with its defence.* Done 2026-09-22.
 - [ ] **Deployment** — a systemd unit and a Dockerfile under `deploy/`.
       *Verification: a server started from each accepts a client.* **In
-      progress.** Missing: the Dockerfile has never been built, as no Docker
-      daemon is reachable here.
+      progress.** Missing: the Dockerfile's image has not yet been built green;
+      CI builds it and starts a server from it from 2026-09-24.
 - [x] **`--online`** through a one-line `server.txt`. *Verification: a client
       started with `--online` reaches the server it names.* Done 2026-09-22.
 - [ ] **Four machines in one sky.** *Verification: four clients on different

@@ -221,7 +221,8 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
             if (field == 0) {
                 at = 1;
             } else {
-                at = header + glideslope::net::state_bytes(1) - header + 2;
+                // Past the aircraft's index, controller and condition.
+                at = header + glideslope::net::state_bytes(1) - header + 3;
                 if (field <= 3) {
                     at += (field - 1) * 8;
                 } else {
@@ -276,6 +277,34 @@ GLIDESLOPE_TEST(a_state_packet_with_a_controller_that_is_not_one_is_refused) {
     check(refused == 253, "and 253 are not, not " + std::to_string(refused));
 }
 
+// **Every byte a condition could be, walked**: flying and wrecked are read,
+// and the other 254 make the whole packet unreadable rather than being taken
+// for one of them. A wreck is said and read back as a wreck.
+GLIDESLOPE_TEST(a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_not_know) {
+    StatePacket wreck = a_packet(2);
+    wreck.aircraft[1].condition = glideslope::net::Condition::wrecked;
+    const auto said = write_state(wreck);
+    check(said.has_value(), "a packet with a wreck in it is written");
+    const auto heard = read_state(*said);
+    check(heard.has_value() && *heard == wreck, "and read back the same, the wreck a wreck");
+
+    const std::size_t at = glideslope::net::state_header_bytes + 2; // the first aircraft's
+    std::size_t taken = 0;
+    std::size_t refused = 0;
+    for (int value = 0; value < 256; ++value) {
+        auto bytes = *write_state(a_packet(1));
+        bytes[at] = static_cast<std::uint8_t>(value);
+        if (read_state(bytes)) {
+            ++taken;
+        } else {
+            ++refused;
+        }
+    }
+    check(taken == 2, "two bytes are conditions, not " + std::to_string(taken));
+    check(refused == 254, "and 254 are not, not " + std::to_string(refused));
+    check(taken + refused == 256, "every byte was tried");
+}
+
 // **The document and the code agree about the state packet**, field for
 // field, so that a client written from `TRANSPORT.md` reads what this writes.
 GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_state_packet) {
@@ -299,6 +328,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_state_packet
         "how many aircraft follow",
         "the server's number for this aircraft",
         "who is flying it",
+        "whether it is flying or a wreck",
         "its position, Earth-centred and Earth-fixed, metres",
         "its velocity in the same frame, metres a second",
         "its heading, degrees",
