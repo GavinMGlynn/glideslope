@@ -237,10 +237,14 @@ each push cancelled the run before it, so failures surfaced late and stacked.
 - `tools/windows_build.sh` builds the current, pushed branch in the Windows
   working copy from WSL, with MSVC through vcvarsall, refusing if either copy
   has uncommitted tracked changes.
-- `tools/slow_ctest.sh` runs chosen tests pinned to one CPU shared with a busy
-  loop, at the lowest priority - roughly a slow, shared runner - for tests that
-  run programs against each other. CLAUDE.md now asks that a test taking time
-  take simulated time.
+- **No slow-runner imitation.** A `tools/slow_ctest.sh` was written - tests
+  pinned to a busy CPU - and taken out the same day: at a CPU and a half, and
+  at one CPU alone, it passed the four-player test that CI had failed; at one
+  busy CPU it reproduced that failure, and ran the fixed, event-driven tests
+  past half an hour each. CI's runners are slow in more ways than the CPU - a
+  cold disk, a server building its terrain - and no setting imitated them
+  both ways. What stands instead is the rule in CLAUDE.md (a test waits on
+  events, never the clock) and the nightly repeats on real runners.
 - **Packaging is in the gate**: `package.yml` is called from `ci.yml` when the
   build, the assets, the dependencies or a frontend changed (a `changes` job
   decides), and CI passed counts it - a pull request that breaks a package

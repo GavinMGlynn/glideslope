@@ -86,9 +86,11 @@ frame is not allowed.
   paths, anything under `#ifdef _WIN32` or Apple's - build it on Windows first:
   `tools/windows_build.sh` builds this branch in the Windows working copy from
   WSL. Code that only CI compiles is code nobody has compiled.
-- **A test that takes time takes simulated time.** Count steps, not seconds,
-  and bound what a slow machine could delay. Before pushing a test that runs
-  programs against each other, run it slowed: `tools/slow_ctest.sh -R NAME`.
+- **A test that takes time takes simulated time, and waits on events.** Count
+  steps, not seconds; a server under test runs until its clients have gone
+  (`--until-empty`), not for a fixed time; nothing gives up on a slow machine
+  sooner than a slow machine needs. The nightly workflow repeats the
+  multi-process tests on real runners, and a failure there is a red tree.
 - **Every commit that lands an item updates both living docs in that same
   commit**: `docs/PROJECT_STATUS.md` (what now works, with its verification) and
   `docs/COMPLETION_PLAN.md` (tick the item, add any tails found on the way).
