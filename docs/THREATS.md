@@ -155,11 +155,13 @@ under "What is deliberately not defended" and no allowlist is planned.
 
 **What the handshake does not claim** is written in its own header and repeated
 here because this is the document that says what is defended: it is not
-reviewed cryptography, and there are no specification test vectors for this
-suite in the project, so "it matches the Noise specification" is not among the
-things proved. What is proved, in `tests/unit/test_handshake.cpp`, is that two
-honest ends agree and nothing else does - a wrong key, a changed byte, a
-replayed message and a truncated one all fail.
+reviewed cryptography. What is proved, in `tests/unit/test_handshake.cpp`, is
+that both ends write the Noise community's `cacophony` known-answer vector for
+`Noise_IK_25519_ChaChaPoly_BLAKE2b` byte for byte - the handshake and the
+transport keys it splits into - so it matches the Noise specification as an
+independent implementation reads it; and that two honest ends agree and
+nothing else does - a wrong key, a changed byte, a replayed message and a
+truncated one all fail.
 
 **`HANDSHAKE_RESPONSE` (`02`) is one a server should never accept at all**,
 because a server never initiates, and **that rule is now in code**: `take()`

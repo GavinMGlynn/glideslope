@@ -26,12 +26,17 @@
 //     <- e, ee, se
 //
 // **What this does not claim.** It is not reviewed cryptography. It is a
-// careful reading of the Noise specification built on libsodium's primitives,
-// held by tests that say two honest ends agree and that nothing else does -
-// a wrong key, a changed byte, a replayed message and a truncated one all
-// fail. There are no specification test vectors for this suite in the
-// project, so "it matches the specification" is not among the things proved.
-// `docs/THREATS.md` says so where it says what is defended.
+// careful reading of the Noise specification (revision 34) built on
+// libsodium's primitives, held to the Noise community's own known-answer
+// vector for this exact suite - the `cacophony` vectors, byte for byte, the
+// handshake and the transport keys it splits into - and by tests that say a
+// wrong key, a changed byte, a replayed message and a truncated one all fail.
+// `docs/THREATS.md` says what is defended.
+//
+// **It is Noise as the specification writes it**, since 2026-09-24. Before,
+// BLAKE2b was cut to 32 bytes where Noise's is 64, the 33-byte protocol name
+// was cut to fit, and no prologue was mixed in, so a client built on any
+// standard Noise library could not complete it.
 
 #include "net/keys.hpp"
 
@@ -49,14 +54,16 @@ namespace glideslope::net {
 inline constexpr std::string_view handshake_name =
     "Noise_IK_25519_ChaChaPoly_BLAKE2b";
 
-// Noise's hash is 32 bytes here, as is its chaining key and its cipher key.
-inline constexpr std::size_t hash_bytes = 32;
+// Noise's BLAKE2b is 64 bytes, as is its chaining key; its cipher keys are
+// the first 32 bytes of what the HKDF gives.
+inline constexpr std::size_t hash_bytes = 64;
+inline constexpr std::size_t cipher_key_bytes = 32;
 // ChaCha20-Poly1305's tag.
 inline constexpr std::size_t tag_bytes = 16;
 
 // A key for sealing traffic once the handshake is done.
 struct TrafficKey {
-    std::array<std::uint8_t, hash_bytes> bytes{};
+    std::array<std::uint8_t, cipher_key_bytes> bytes{};
     bool operator==(const TrafficKey&) const = default;
 };
 
@@ -77,7 +84,12 @@ struct SessionKeys {
 // static public key.
 class Initiator {
 public:
-    Initiator(const KeyPair& mine, const PublicKey& theirs);
+    // `prologue` is Noise's: data both ends must agree on, mixed into the
+    // hash first. The protocol uses none. `ephemeral` is for a known-answer
+    // test only, which must fix the key a real handshake makes fresh.
+    Initiator(const KeyPair& mine, const PublicKey& theirs,
+              std::span<const std::uint8_t> prologue = {},
+              std::optional<KeyPair> ephemeral = std::nullopt);
 
     // The first message, to be sent as a HANDSHAKE_INITIATION body.
     std::vector<std::uint8_t> begin(std::span<const std::uint8_t> payload = {});
@@ -90,10 +102,13 @@ public:
 private:
     KeyPair mine_;
     PublicKey theirs_;
+    std::vector<std::uint8_t> prologue_;
+    std::optional<KeyPair> fixed_ephemeral_;
     KeyPair ephemeral_;
     std::array<std::uint8_t, hash_bytes> h_{};
     std::array<std::uint8_t, hash_bytes> ck_{};
-    std::array<std::uint8_t, hash_bytes> k_{};
+    std::array<std::uint8_t, cipher_key_bytes> k_{};
+    std::uint64_t n_ = 0;
     bool have_key_ = false;
     bool begun_ = false;
 };
@@ -101,7 +116,9 @@ private:
 // **The responder**, which is the server.
 class Responder {
 public:
-    explicit Responder(const KeyPair& mine);
+    // `prologue` and `ephemeral` as for the initiator.
+    explicit Responder(const KeyPair& mine, std::span<const std::uint8_t> prologue = {},
+                       std::optional<KeyPair> ephemeral = std::nullopt);
 
     // Reads the first message and writes the answer. Nothing if the message
     // is not one; the session and the answer if it is.
@@ -115,6 +132,8 @@ public:
 
 private:
     KeyPair mine_;
+    std::vector<std::uint8_t> prologue_;
+    std::optional<KeyPair> fixed_ephemeral_;
 };
 
 } // namespace glideslope::net

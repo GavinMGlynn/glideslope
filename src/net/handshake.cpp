@@ -9,13 +9,17 @@ namespace glideslope::net {
 namespace {
 
 using Hash = std::array<std::uint8_t, hash_bytes>;
+using CipherKey = std::array<std::uint8_t, cipher_key_bytes>;
+// X25519's output, which is 32 bytes whatever the hash is: held in a `Hash`
+// once that was 64 bytes, a DH mixed its 32 and 32 zeros into the key.
+using Shared = std::array<std::uint8_t, key_bytes>;
 
 bool started() {
     static const bool ok = sodium_init() >= 0;
     return ok;
 }
 
-// BLAKE2b, with the 32-byte output Noise asks of a 32-byte hash.
+// BLAKE2b, with its full 64-byte output, as Noise's HASHLEN for it is 64.
 Hash hash_of(std::span<const std::uint8_t> a, std::span<const std::uint8_t> b = {}) {
     Hash out{};
     crypto_generichash_blake2b_state state;
@@ -73,7 +77,7 @@ void hkdf2(const Hash& ck, std::span<const std::uint8_t> ikm, Hash& out1, Hash& 
 }
 
 // X25519. False if the far end's key is one that gives nothing away.
-bool agree(const SecretKey& mine, const PublicKey& theirs, Hash& out) {
+bool agree(const SecretKey& mine, const PublicKey& theirs, Shared& out) {
     return crypto_scalarmult_curve25519(out.data(), mine.bytes.data(),
                                         theirs.bytes.data()) == 0;
 }
@@ -94,31 +98,19 @@ std::array<std::uint8_t, crypto_aead_chacha20poly1305_ietf_NPUBBYTES> nonce_of(
 struct Symmetric {
     Hash h{};
     Hash ck{};
-    Hash k{};
+    CipherKey k{};
     std::uint64_t n = 0;
     bool keyed = false;
 
+    // Noise's InitializeSymmetric: the name, which at 33 bytes is shorter
+    // than the 64-byte hash, padded with zeros to it; the chaining key the
+    // same. (Until 2026-09-24 the hash was cut to 32 bytes and so was the
+    // name, and no standard Noise could talk to it.)
     void initialize() {
-        // **The name is 33 bytes and this hash is 32, so it does not fit.**
-        // This said "the name is shorter than the hash, so it is padded" and
-        // copied all 33 bytes into a 32-byte array. The last one landed in
-        // `ck`, the member after `h`, which the next line overwrites - so it
-        // never did any harm, and AddressSanitizer, which guards the edges of
-        // an object and not the join between two of its members, never saw
-        // it. MSVC's debug iterators did, on 2026-09-23, as soon as their
-        // reports were let out of a dialog box and into the log: every
-        // handshake failed with "cannot seek array iterator after end".
-        //
-        // Only what fits is copied now, which is exactly what `h` ended up
-        // holding before, so the handshake is the same on the wire, byte for
-        // byte. **What Noise itself asks is different**: its BLAKE2b has a
-        // 64-byte hash, which this 33-byte name would be padded into; this
-        // uses BLAKE2b cut to 32 bytes. docs/TRANSPORT.md says so, and it is
-        // a tail in COMPLETION_PLAN.md.
         h = {};
         const auto* name = reinterpret_cast<const std::uint8_t*>(handshake_name.data());
-        const std::size_t fits = std::min(handshake_name.size(), h.size());
-        std::copy(name, name + fits, h.begin());
+        static_assert(handshake_name.size() <= hash_bytes, "the name fits the hash");
+        std::copy(name, name + handshake_name.size(), h.begin());
         ck = h;
     }
     void mix_hash(std::span<const std::uint8_t> data) {
@@ -129,7 +121,8 @@ struct Symmetric {
         Hash next_k{};
         hkdf2(ck, ikm, next_ck, next_k);
         ck = next_ck;
-        k = next_k;
+        // A 64-byte hash's output is cut to the cipher's 32-byte key.
+        std::copy(next_k.begin(), next_k.begin() + cipher_key_bytes, k.begin());
         n = 0;
         keyed = true;
     }
@@ -166,8 +159,8 @@ struct Symmetric {
         Hash a{};
         Hash b{};
         hkdf2(ck, {}, a, b);
-        first.bytes = a;
-        second.bytes = b;
+        std::copy(a.begin(), a.begin() + cipher_key_bytes, first.bytes.begin());
+        std::copy(b.begin(), b.begin() + cipher_key_bytes, second.bytes.begin());
     }
 };
 
@@ -175,8 +168,10 @@ struct Symmetric {
 
 // ---- the initiator ------------------------------------------------------
 
-Initiator::Initiator(const KeyPair& mine, const PublicKey& theirs)
-    : mine_(mine), theirs_(theirs) {}
+Initiator::Initiator(const KeyPair& mine, const PublicKey& theirs,
+                     std::span<const std::uint8_t> prologue, std::optional<KeyPair> ephemeral)
+    : mine_(mine), theirs_(theirs), prologue_(prologue.begin(), prologue.end()),
+      fixed_ephemeral_(ephemeral) {}
 
 std::vector<std::uint8_t> Initiator::begin(std::span<const std::uint8_t> payload) {
     if (!started() || begun_) {
@@ -184,13 +179,16 @@ std::vector<std::uint8_t> Initiator::begin(std::span<const std::uint8_t> payload
     }
     Symmetric s;
     s.initialize();
+    // The prologue is mixed in whether or not there is one: an empty one
+    // is still hashed, as Noise has it.
+    s.mix_hash(prologue_);
     // The pre-message: the initiator already knows the responder's static.
     s.mix_hash(std::span<const std::uint8_t>(theirs_.bytes));
 
-    ephemeral_ = mint_key_pair();
+    ephemeral_ = fixed_ephemeral_ ? *fixed_ephemeral_ : mint_key_pair();
     s.mix_hash(std::span<const std::uint8_t>(ephemeral_.publik.bytes));
 
-    Hash shared{};
+    Shared shared{};
     if (!agree(ephemeral_.secret, theirs_, shared)) {
         return {};
     }
@@ -213,6 +211,7 @@ std::vector<std::uint8_t> Initiator::begin(std::span<const std::uint8_t> payload
     h_ = s.h;
     ck_ = s.ck;
     k_ = s.k;
+    n_ = s.n;
     have_key_ = s.keyed;
     begun_ = true;
     return out;
@@ -227,6 +226,7 @@ std::optional<SessionKeys> Initiator::finish(std::span<const std::uint8_t> respo
     s.h = h_;
     s.ck = ck_;
     s.k = k_;
+    s.n = n_;
     s.keyed = have_key_;
 
     PublicKey their_ephemeral;
@@ -234,7 +234,7 @@ std::optional<SessionKeys> Initiator::finish(std::span<const std::uint8_t> respo
               their_ephemeral.bytes.begin());
     s.mix_hash(std::span<const std::uint8_t>(their_ephemeral.bytes));
 
-    Hash shared{};
+    Shared shared{};
     if (!agree(ephemeral_.secret, their_ephemeral, shared)) {
         return std::nullopt;
     }
@@ -261,7 +261,9 @@ std::optional<SessionKeys> Initiator::finish(std::span<const std::uint8_t> respo
 
 // ---- the responder ------------------------------------------------------
 
-Responder::Responder(const KeyPair& mine) : mine_(mine) {}
+Responder::Responder(const KeyPair& mine, std::span<const std::uint8_t> prologue,
+                     std::optional<KeyPair> ephemeral)
+    : mine_(mine), prologue_(prologue.begin(), prologue.end()), fixed_ephemeral_(ephemeral) {}
 
 std::optional<Responder::Answer> Responder::answer(
     std::span<const std::uint8_t> initiation, std::span<const std::uint8_t> payload,
@@ -273,6 +275,7 @@ std::optional<Responder::Answer> Responder::answer(
     }
     Symmetric s;
     s.initialize();
+    s.mix_hash(prologue_);
     s.mix_hash(std::span<const std::uint8_t>(mine_.publik.bytes));
 
     PublicKey their_ephemeral;
@@ -280,7 +283,7 @@ std::optional<Responder::Answer> Responder::answer(
               their_ephemeral.bytes.begin());
     s.mix_hash(std::span<const std::uint8_t>(their_ephemeral.bytes));
 
-    Hash shared{};
+    Shared shared{};
     if (!agree(mine_.secret, their_ephemeral, shared)) {
         return std::nullopt;
     }
@@ -311,7 +314,7 @@ std::optional<Responder::Answer> Responder::answer(
     }
 
     // And the answer.
-    const KeyPair ephemeral = mint_key_pair();
+    const KeyPair ephemeral = fixed_ephemeral_ ? *fixed_ephemeral_ : mint_key_pair();
     s.mix_hash(std::span<const std::uint8_t>(ephemeral.publik.bytes));
     if (!agree(ephemeral.secret, their_ephemeral, shared)) {
         return std::nullopt;

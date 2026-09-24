@@ -4,11 +4,11 @@ How a glideslope client and a glideslope server speak to each other, byte for
 byte, so that a third party could write a working client from this document
 alone.
 
-**This describes what exists.** The envelope and the encoding below are built
-and tested. The handshake and the sealing are specified in
-`REQUIREMENTS.md` section 6.7 and are **not built yet**; the section "What is
-not here yet" at the end says exactly what is missing, so that nothing in this
-document is mistaken for something a client could talk to today.
+**This describes what exists.** The envelope, the handshake, the sealing,
+inputs, state updates and the keepalive are built and tested. The
+section "What is not here yet" at the end says exactly what is missing - the
+reliable messages are defined here and do not yet travel - so that nothing in
+this document is mistaken for something a client could talk to today.
 
 ## What the transport does not claim
 
@@ -78,7 +78,60 @@ with. Its body is one byte:
 
 **The magic is checked before the version.** A datagram from another protocol
 is told that it is another protocol, rather than being told its version is
-wrong - which would be true but useless.
+wrong - which would be true but useless. **The length is checked before
+either**: fewer than 6 bytes is `TOO_SHORT`, whatever they are, and an empty
+datagram is not answered at all.
+
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `01`, and
+type `04`, then the reason - whatever the datagram it answers said its version
+was. The server sends one:
+
+- to a datagram whose envelope it cannot read, with the reason above;
+- **instead of a handshake answer**: `SERVER_FULL` when every slot is taken,
+  and `BAD_HANDSHAKE` when the initiation does not complete;
+- to a `SEALED` datagram from an address that has no session: `BAD_HANDSHAKE`.
+
+It sends nothing back to a `HANDSHAKE_RESPONSE` or a `REFUSAL`, which a server
+is never sent, nor to a `SEALED` datagram that does not open under its
+address's session. **A refusal is not sealed, so anybody can forge one.** A
+client should believe one only while it is waiting for the answer to its
+handshake, which is the only time the server has a reason to send it one.
+
+## Starting a session
+
+**A session is an address.** The server knows which session a `SEALED`
+datagram belongs to by the address and port it came from and nothing else -
+nothing on the wire names a session - so a client sends everything from one
+socket. A client whose address changes is a stranger to the server, and must
+handshake again once its old session has been let go.
+
+**The handshake is two datagrams**, with no framing of their own: the body of
+each is exactly one Noise message (see "Sealing" for the suite).
+
+| datagram | body | size with an empty payload |
+| --- | --- | --- |
+| `HANDSHAKE_INITIATION`, client to server | Noise message one: the client's ephemeral key (32), its static key sealed (32 + 16), the payload sealed (n + 16) | 96, so a 102-byte datagram |
+| `HANDSHAKE_RESPONSE`, server to client | Noise message two: the server's ephemeral key (32), the payload sealed (n + 16) | 48, so a 54-byte datagram |
+
+**The payloads are empty.** The server ignores whatever the initiation's
+payload holds and sends an empty one back. **The answer is the admission**:
+a client that gets a `HANDSHAKE_RESPONSE` has a slot, and one that gets
+`SERVER_FULL` has not. The client is not told which slot; the lobby that
+would say so is one of the reliable messages, which do not travel yet.
+
+**A lost handshake is sent again, unchanged.** If no answer comes, the client
+sends the same initiation, byte for byte. The server answers a repeat of the
+initiation it has already taken from that address with the same answer and
+changes nothing. A *different* initiation from an address that already has a
+session is dropped without a word, so that nobody can take a live player's
+session with one datagram; the address can start again once the server has
+let the old session go.
+
+**A session ends when the server stops hearing from it.** There is no
+goodbye. The server lets a session go when no datagram that opens under it
+has arrived for its `--timeout` (10 seconds unless it was told otherwise),
+and its slot goes back to the session; any sealed datagram that opens counts,
+so a client sending inputs, or only answering the server's `PING`s, is kept.
 
 ## How large a datagram is
 
@@ -106,6 +159,7 @@ someone else write a client.
 | `u16` | 2 | |
 | `u32` | 4 | |
 | `u64` | 8 | |
+| `i16` | 2 | two's complement |
 | `i32` | 4 | two's complement |
 | `f64` | 8 | its IEEE-754 bits, written as a `u64`; never a NaN or an infinity |
 | `f32` | 4 | its IEEE-754 bits, written as a `u32`; never a NaN or an infinity |
@@ -342,6 +396,7 @@ have not been sent yet.
 
 | written as | field |
 | --- | --- |
+| `u8` | `02`, the kind (see "What is inside a sealed body") |
 | `u32` | the newest frame's sequence number, from 1 |
 | `u8` | how many frames follow, 1 to 4 |
 | | then, per frame, oldest first: |
@@ -361,12 +416,39 @@ flew the stick's exact number while the server flew the rounded one, the two
 would diverge for a reason no measurement could explain. So the client rounds
 first and flies the rounded value.
 
-The seventeen controls, in order: elevator, aileron, rudder, throttle,
-mixture, flaps, left brake, right brake, pitch trim, propeller, gear,
-supercharger, speedbrake, the two throttle offsets, and the two cooling flaps.
-**The wire does not know what they are**: the flight model hands them over as
-a flat list and takes them back the same way, which is what keeps this
-document and the simulation from drifting apart when a control is added.
+The seventeen controls, in order, **every one of them sent in every frame**:
+a frame is the whole cockpit, and the server flies exactly what it says. A
+control a client does not move must be sent at the value that leaves the
+aeroplane alone - which for several is not nought.
+
+| # | control | range used | means | leave it at |
+| --- | --- | --- | --- | --- |
+| 0 | elevator | -1 to 1 | +1 nose up | 0 |
+| 1 | aileron | -1 to 1 | +1 rolls right (right wing down) | 0 |
+| 2 | rudder | -1 to 1 | +1 yaws the nose left, as JSBSim's own command does | 0 |
+| 3 | throttle | 0 to 1 | 1 full power | as wanted |
+| 4 | mixture | 0 to 1 | 1 full rich; 0 cuts the engine | 1 |
+| 5 | flaps | 0 to 1 | 1 fully down | 0 |
+| 6 | left brake | 0 to 1 | 1 full | 0 |
+| 7 | right brake | 0 to 1 | 1 full | 0 |
+| 8 | pitch trim | -1 to 1 | +1 nose up | 0 |
+| 9 | propeller | 0 to 1 | 1 highest rpm | 1 |
+| 10 | gear | 0 or 1 | 1 down, 0 up | 1 |
+| 11 | supercharger | 0 or 1 | 1 automatic, 0 held in low gear | 1 |
+| 12 | speedbrake | 0 to 1 | 1 fully out | 0 |
+| 13 | throttle offset, port engine | -1 to 1 | added to the throttle for that engine | 0 |
+| 14 | throttle offset, starboard engine | -1 to 1 | the same | 0 |
+| 15 | cooling flaps, port engine | 0 to 1 | 1 open | 0 |
+| 16 | cooling flaps, starboard engine | 0 to 1 | the same | 0 |
+
+An aeroplane without a control ignores it. **Nothing is clamped on the way in**
+but each engine's throttle-plus-offset, which is held to 0 to 1: a value outside
+a control's range reaches the flight model as it is, so a client must not send
+one. **Frames of all zeros are not "no input"**: they cut the mixture and raise
+the gear. The wire itself does not know what the controls are - the flight
+model hands them over as a flat list and takes them back the same way, which is
+what keeps the list above and the simulation from drifting apart when a control
+is added; a test holds the count to seventeen.
 
 ### What is inside a sealed body
 
@@ -375,6 +457,10 @@ datagram**, and there is more than one kind of thing to send. So the plaintext
 inside the seal begins with one byte saying which kind it is. That byte is
 inside the seal, not in the envelope, because nothing outside a session needs
 to know which of these a datagram is.
+
+The kind byte is the first byte of the plaintext and belongs to what
+follows it: the input packet's and the state update's tables below begin with
+it, and there is no second one.
 
 | value | name | what follows |
 | --- | --- | --- |
@@ -397,9 +483,10 @@ invented one tells it nothing. **A client that answers is also a client the
 server does not let go** when `--timeout` comes round, which is why the
 knocking is the server's job: the server is the one deciding who has gone.
 
-**`RELIABLE`, `INPUTS` and `STATE` are numbered here and nothing sends them.**
-The numbering is fixed before anything uses it so that it cannot move later;
-what each one would carry is defined above, or, for `STATE`, not at all.
+**`RELIABLE` is numbered here and nothing sends it yet.** The numbering is
+fixed before anything uses it so that it cannot move later. A client sends
+`INPUTS`, `PING` and `PONG`; the server sends `STATE`, `PING` and `PONG`, and
+ignores a `STATE` or a `RELIABLE` from a client.
 
 ### State updates
 
@@ -409,8 +496,9 @@ aircraft for real and says, 20 to 30 times a second, where they all are. The
 client reconciles its prediction against its own aircraft's line and
 interpolates everybody else's.
 
-It rides inside a `SEALED` datagram as `Inside::state` (`03`), and **it is not
-reliable and must not be**: a state update is worth nothing once a newer one
+It rides inside a `SEALED` datagram as the kind `STATE` (`03`) - the kind
+byte is the table's first row, not a second byte in front of it - and **it is
+not reliable and must not be**: a state update is worth nothing once a newer one
 exists, so repeating a lost one would deliver stale positions late. Each is
 sent once; the sealing's replay window throws away an old one that arrives out
 of order.
@@ -420,7 +508,7 @@ of order.
 | `u8` | `03`, the kind |
 | `f64` | the simulation's clock, seconds since the session began |
 | `u32` | the newest input sequence from this client the server has applied |
-| `u8` | which aircraft below is this client's own, by index, or `FF` for none |
+| `u8` | `your_aircraft`: the number, as below, of this client's own aircraft, or `FF` for none - its number, not its place in the list |
 | `u8` | how many aircraft follow, at most 20 |
 
 Then, for each aircraft:
@@ -457,6 +545,12 @@ full is 1,015 bytes, and 1,045 with the envelope and the sealing in front of
 it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 
+**A server with nothing to fly sends no state updates at all.** Until the
+server is flying aircraft - AI aircraft, or a flight plan the players' aircraft
+are given - a client is admitted, knocked on and kept, and never told where
+anything is. A client is given an aircraft when it is admitted if the server
+has one to give, and `FF` otherwise.
+
 **A reader refuses**: a kind that is not `03`, fewer bytes than the fields
 need, any byte left over at the end, more than 20 aircraft, a controller this
 version does not know, and any NaN or infinity in any of the ten numbers. It
@@ -477,38 +571,36 @@ be reflected back at the end that sent it.
 
 The sequence number is the cipher's nonce: four bytes of nought then the
 number, least significant byte first, as ChaCha20-Poly1305's twelve. It is
-sent in the clear because it is not a secret, and it is the additional data
-the tag covers, so changing it only stops the body opening.
+sent in the clear because it is not a secret, and **its eight bytes as written
+are the additional data the tag covers** - those eight and nothing else, not
+the envelope - so changing it only stops the body opening.
+
+**Which key is which.** Noise's `Split()` gives two keys. The first is the
+client's sending key and the server's receiving key; the second is the
+server's sending key and the client's receiving key.
 
 **A replay window of 64.** The opener keeps the highest number it has opened
 and a bitmap of the 64 before it. A number it has already opened is refused,
-and so is one more than 64 behind the newest. **That is the stated limit**: a
+and so is one 64 or more behind the newest: 63 behind is the oldest opened. **That is the stated limit**: a
 datagram delayed by more than the window cannot be told from a replay, and is
 refused rather than guessed at. Only a body that opens moves the window, so a
 datagram that is not ours cannot push the window forward.
 
-**The handshake** is `Noise_IK_25519_ChaChaPoly_BLAKE2b`. `REQUIREMENTS.md`
-6.7 names BLAKE2s; libsodium has no BLAKE2s, BLAKE2b is a hash the Noise
-specification defines, and the choice is recorded in
+**The handshake** is `Noise_IK_25519_ChaChaPoly_BLAKE2b`, exactly as the Noise
+Protocol Framework (revision 34) defines it, with an empty prologue: any
+standard Noise implementation of that suite completes it, and this project's
+matches the Noise community's `cacophony` known-answer vector for it byte for
+byte. `REQUIREMENTS.md` 6.7 names BLAKE2s; libsodium has no BLAKE2s, BLAKE2b
+is a hash the Noise specification defines, and the choice is recorded in
 `src/net/handshake.hpp` and `docs/PROJECT_STATUS.md`. The initiator must
 already know the responder's static public key, which the server prints at
 startup.
 
 ## What is not here yet
 
-- **Noise's own BLAKE2b.** The handshake is named
-  `Noise_IK_25519_ChaChaPoly_BLAKE2b`, and Noise's BLAKE2b has a 64-byte
-  hash. This one uses BLAKE2b cut to 32 bytes for its hash, its chaining key
-  and its keys, and the protocol name - 33 bytes - is cut to the first 32 to
-  start the hash with, where Noise would pad it to 64. Both ends agree, so it
-  works; **a client built on a standard Noise library would not complete the
-  handshake**, and until this is changed the name above says more than the
-  bytes do. Found 2026-09-23, when copying the 33-byte name into a 32-byte
-  array showed up as a buffer overflow under MSVC's debug checks.
-- **Three of the five things a sealed body can hold.** `RELIABLE`, `INPUTS`
-  and `STATE` are numbered above and nothing sends or reads them, so the seven
-  messages and the input packets - both defined and encoded - do not yet
-  travel. `PING` and `PONG` do.
+- **The reliable messages.** `RELIABLE` is numbered above and nothing sends
+  or reads it, so the seven messages - defined and encoded - do not yet
+  travel. `INPUTS`, `STATE`, `PING` and `PONG` do.
 - **Any check on what a client sends.** A client's inputs reach its aircraft
   with no range check and no rate limit: a value outside -1 to 1 cannot be
   written, because the wire is a 16-bit fraction, but nothing stops a client

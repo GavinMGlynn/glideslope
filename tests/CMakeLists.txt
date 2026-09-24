@@ -182,6 +182,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_secrets_public_half_is_the_one_rfc_7748_gives_for_it
     every_minted_key_is_its_own_and_its_halves_go_together
     two_honest_ends_complete_the_handshake_and_agree_on_their_keys
+    the_handshake_is_noise_ik_byte_for_byte_as_the_cacophony_vector_has_it
     two_handshakes_with_the_same_keys_give_different_sessions
     a_client_with_the_wrong_server_key_gets_nowhere
     every_change_to_an_initiation_is_refused

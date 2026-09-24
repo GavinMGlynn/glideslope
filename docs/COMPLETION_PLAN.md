@@ -307,9 +307,11 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
-- [ ] **The handshake is not quite the Noise protocol it is named after**, so a
+- [x] **The handshake is not quite the Noise protocol it is named after**, so a
       standard Noise client cannot complete it. *Verification: the handshake
-      completes against an independent Noise implementation.*
+      completes against an independent Noise implementation.* Done 2026-09-24:
+      both ends match the `cacophony` implementation's known-answer vector byte
+      for byte.
 - [x] **Stalls entered in the landing configuration.** *Verification: the
       stall is entered in the configuration its reference speed was measured
       in, and every aeroplane recovers within the lesson's height.* Done

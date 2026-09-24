@@ -295,7 +295,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_state_packet
     const std::vector<std::string> fields = {
         "the simulation's clock, seconds since the session began",
         "the newest input sequence from this client the server has applied",
-        "which aircraft below is this client's own, by index",
+        "the number, as below, of this client's own aircraft",
         "how many aircraft follow",
         "the server's number for this aircraft",
         "who is flying it",
