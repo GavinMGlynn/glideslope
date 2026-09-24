@@ -592,10 +592,12 @@ public:
             const glideslope::net::OwnMotion& y = *state.yours;
             glideslope::sim::Motion m;
             m.location_ecef_m = {y.x_m, y.y_m, y.z_m};
-            for (std::size_t i = 0; i < 4; ++i) m.attitude_local[i] = y.attitude[i];
+            for (std::size_t i = 0; i < 4; ++i) {
+                m.attitude_local[i] = static_cast<double>(y.attitude[i]);
+            }
             for (std::size_t i = 0; i < 3; ++i) {
-                m.uvw_mps[i] = y.uvw_mps[i];
-                m.pqr_radps[i] = y.pqr_radps[i];
+                m.uvw_mps[i] = static_cast<double>(y.uvw_mps[i]);
+                m.pqr_radps[i] = static_cast<double>(y.pqr_radps[i]);
             }
             if (!prediction_) {
                 start(m, state.last_input_applied);
@@ -636,10 +638,11 @@ public:
             glideslope::net::RemoteState r;
             r.time_s = state.simulation_time_s;
             local(a.x_m, a.y_m, a.z_m, true, r.north_m, r.east_m, r.down_m);
-            local(a.vx_mps, a.vy_mps, a.vz_mps, false, r.north_mps, r.east_mps, r.down_mps);
-            r.heading_deg = a.heading_deg;
-            r.pitch_deg = a.pitch_deg;
-            r.roll_deg = a.roll_deg;
+            local(static_cast<double>(a.vx_mps), static_cast<double>(a.vy_mps),
+                  static_cast<double>(a.vz_mps), false, r.north_mps, r.east_mps, r.down_mps);
+            r.heading_deg = static_cast<double>(a.heading_deg);
+            r.pitch_deg = static_cast<double>(a.pitch_deg);
+            r.roll_deg = static_cast<double>(a.roll_deg);
             others_[a.index].received(r);
         }
     }
