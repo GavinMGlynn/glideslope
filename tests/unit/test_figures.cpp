@@ -545,6 +545,10 @@ GLIDESLOPE_TEST(the_f35b_climbs_at_the_rate_its_own_model_gave) {
     expect_figure("f35b", "climb_rate");
 }
 
+GLIDESLOPE_TEST(the_f35b_takes_off_in_the_ground_roll_its_own_model_gave) {
+    expect_figure("f35b", "takeoff_ground_roll");
+}
+
 GLIDESLOPE_TEST(the_learjet_35a_climbs_at_the_rate_its_own_model_gave) {
     expect_figure("learjet35a", "climb_rate");
 }
@@ -581,7 +585,10 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // they belong to can be taught something beyond turns.
     // A hundred and thirteen: four airliners' stalls at their take-off flaps,
     // measured the same way on the same day, for their take-off lessons.
-    check(figures_in_files == 113,
-          "a hundred and thirteen figures, one test each above; found " +
+    // A hundred and fourteen: the F-35B's ground roll to the speed it can
+    // lift off at, measured on 2026-09-24, which gives its take-off its
+    // rotation speed (its stall's cannot be flown on a runway).
+    check(figures_in_files == 114,
+          "a hundred and fourteen figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

@@ -509,10 +509,13 @@ Found while implementing something else. Added when found, not when remembered.
 - [x] **The PA-28 loses five times the height the other light aircraft lose
       entering a stall.** *Verification: all four enter a stall within the same
       band.* Done 2026-09-23: it was the clean entry.
-- [ ] **The F-15C, F-35B and Learjet leave the ground far past their rotation
+- [x] **The F-15C, F-35B and Learjet leave the ground far past their rotation
       speed.** The F-15C lifts off at 230 knots where its flight manual gives
       157. *Verification: each lifts off within ten knots of its rotation
-      speed, and can be rotated early.*
+      speed, and can be rotated early.* Done 2026-09-26, for every landplane
+      in the catalogue: all thirteen with a take-off leave within ten knots of
+      their rotation speed, and pulled back early leave sooner and climb
+      away. The Mosquito and the PA-28 were fixed on the way.
 - [x] **The Learjet ends its landing roll nose down through the runway.**
       *Verification: every aeroplane the AI lands ends its rollout upright on
       its wheels.* Done 2026-09-24: the Learjet already stopped level; three

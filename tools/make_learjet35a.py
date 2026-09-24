@@ -21,7 +21,11 @@ Where each number comes from:
     and -16.72 at rest (WB-4); the fuel: 357 gallons in the tip tanks at
     station 385.6, 374 in the wings at 385.8 and 200 in the fuselage at 440.2
     (WB-17 and A10CE), at 6.7 lb a gallon; the flaps' settings, 8 and 20
-    degrees for take-off and 40 for landing (5-1); the yaw damper (1-14B).
+    degrees for take-off and 40 for landing (5-1); the yaw damper (1-14B);
+    and the horizontal stabilizer's take-off setting for the centre of
+    gravity, 7.6 degrees nose up at 5% of the chord to 7.2 at 20% and 5.0 at
+    28% and aft (figure 2-2, TAKEOFF TRIM - CG FUNCTION), which is also the
+    most nose-up setting it names.
     Its stall speeds (figure 5-11) set the lift's maximum at each flap
     setting, which the figures then fly.
   FAA type certificate data sheet A10CE, revision 67
@@ -42,6 +46,11 @@ Where each number comes from:
     sideslip, -0.097 at no incidence to -0.149 at 14 degrees, and the yawing
     moment, 0.143 to 0.166 (figure 30); each aileron's rolling moment, 0.080
     (figure 25); the rudder's yawing moment, -0.0745 (figure 27).
+  and, from its figure 7 - the same elevator settings at tail incidences of
+    0.4 and -7 degrees, flaps up - the stabilizer's pitching moment, 0.0368 a
+    degree, 2.11 a radian: the pitching moment at no incidence goes from 0.051
+    to 0.323 as the stabilizer goes from 0.4 to -7. The stabilizer's travel
+    nose down is the tunnel aircraft's, 0.4 degrees.
   NASA TN D-7647, Wingrove's identification of a Lear Jet's longitudinal
   coefficients from flight (1974), table II
     The lift slope, 5.12; the lift and pitching moment at no incidence, 0.111
@@ -134,6 +143,26 @@ DRAG_DIVERGENCE = 0.77
 CL_DE, CL_Q = 0.342, 7.0     # the lift of pitch rate: the tunnel's tail's
 CM_ZERO, CM_ALPHA, CM_DE, CM_Q, CM_ADOT = 0.066, -0.810, -1.036, -16.46, -5.0
 FLAP_PITCH = -0.03           # at 40 degrees
+# **The trimmable horizontal stabilizer.** The pitch trim moves it, not the
+# elevator: the 35A trims by its stabilizer, and is set for take-off by it
+# (the AFM's figure 2-2). Its pitching moment a radian (TN D-6573 figure 7),
+# its lift by the elevator's ratio of lift to moment - the same tail at the
+# same arm - and its travel: nose up to the AFM's greatest take-off setting,
+# nose down to the tunnel aircraft's. Its rate is estimated: its whole travel
+# in sixteen seconds, half a degree a second.
+#
+# **Why it is here.** With the pitch trim on the elevator, and no take-off
+# setting, the elevator alone had to lift the nose wheel, and could not until
+# 132 knots with the stick fully back - its rotation speed is 125 - so she
+# left the runway at 152 by the book, and pulled early no sooner. Set, she
+# leaves at 129 by the book and at 114 pulled early.
+CM_STAB = -2.11
+CL_STAB = CL_DE * CM_STAB / CM_DE
+STAB_NOSE_UP_DEG, STAB_NOSE_DOWN_DEG = 7.6, 0.4
+STAB_TRAVEL_S = 16.0
+# The AFM's figure 2-2: the take-off setting, degrees nose up, by the centre
+# of gravity's place along the chord.
+TAKEOFF_TRIM = [(0.05, 7.6), (0.20, 7.2), (0.28, 5.0), (0.30, 5.0)]
 # Lateral: TN D-6573's; the damping and side force estimated (see above).
 CL_BETA = [(0.0, -0.097), (0.14, -0.120), (0.244, -0.149)]
 CN_BETA = [(0.0, 0.143), (0.14, 0.143), (0.244, 0.166)]
@@ -218,8 +247,29 @@ def propulsion():
 def flight_control():
     rad = math.radians
     out = "    <flight_control name=\"Learjet 35A\">\n        <channel name=\"Controls\">\n"
-    out += written.surface("Elevator", ["fcs/elevator-cmd-norm", "fcs/pitch-trim-cmd-norm"], -rad(16), rad(15),
-                           "fcs/elevator-pos-rad")
+    out += written.surface("Elevator", ["fcs/elevator-cmd-norm"], -rad(16), rad(15), "fcs/elevator-pos-rad")
+    # The stabilizer, run by the pitch trim at its own rate; the pitch trim's
+    # -1 is its full nose-up travel, as the elevator's command's is.
+    out += written.kinematic("Stabilizer Trim", "fcs/pitch-trim-cmd-norm", [-1, 1], [0, STAB_TRAVEL_S],
+                             "fcs/stabilizer-trim-norm")
+    out += ("            <aerosurface_scale name=\"Stabilizer\">\n"
+            "                <input>fcs/stabilizer-trim-norm</input>\n"
+            f"                <range><min>{-rad(STAB_NOSE_UP_DEG):.4f}</min><max>{rad(STAB_NOSE_DOWN_DEG):.4f}</max></range>\n"
+            "                <output>fcs/stabilizer-pos-rad</output>\n"
+            "            </aerosurface_scale>\n")
+    # The AFM's take-off setting for where the centre of gravity is, as a
+    # pitch trim - positive nose up, as glideslope's controls have it - for
+    # whoever sets it before take-off.
+    rows = "".join(f"                            {mac(f):.2f}\t{deg / STAB_NOSE_UP_DEG:.4f}\n"
+                   for f, deg in TAKEOFF_TRIM)
+    out += ("            <fcs_function name=\"Pitch Trim Takeoff Norm\">\n"
+            "                <function>\n"
+            "                    <table>\n"
+            "                        <independentVar>inertia/cg-x-in</independentVar>\n"
+            f"                        <tableData>\n{rows}                        </tableData>\n"
+            "                    </table>\n"
+            "                </function>\n"
+            "            </fcs_function>\n")
     out += written.surface("Aileron", ["fcs/aileron-cmd-norm", "fcs/roll-trim-cmd-norm"], -rad(18), rad(18),
                            "fcs/left-aileron-pos-rad")
     out += ("            <pure_gain name=\"Right Aileron\">\n"
@@ -273,6 +323,7 @@ def aerodynamics():
         w.coefficient("CLalpha", "Lift_due_to_alpha_and_flaps", [q, s, "aero/function/kCLge", lift_table(t)]),
         w.coefficient("CLq", "Lift_due_to_pitch_rate", [q, s, "aero/ci2vel", "velocities/q-aero-rad_sec", CL_Q]),
         w.coefficient("CLde", "Lift_due_to_elevator", [q, s, "fcs/elevator-pos-rad", CL_DE]),
+        w.coefficient("CLstab", "Lift_due_to_stabilizer", [q, s, "fcs/stabilizer-pos-rad", CL_STAB]),
         w.coefficient("CLspoilers", "Lift_lost_to_spoilers", [q, s, "fcs/speedbrake-pos-norm", -0.15]),
     ]
     drag = [
@@ -305,6 +356,7 @@ def aerodynamics():
         w.coefficient("Cmq", "Pitch_moment_due_to_pitch_rate", [q, s, c, "aero/ci2vel", "velocities/q-aero-rad_sec", CM_Q]),
         w.coefficient("Cmadot", "Pitch_moment_due_to_alpha_rate", [q, s, c, "aero/ci2vel", "aero/alphadot-rad_sec", CM_ADOT]),
         w.coefficient("Cmde", "Pitch_moment_due_to_elevator", [q, s, c, "fcs/elevator-pos-rad", CM_DE]),
+        w.coefficient("Cmstab", "Pitch_moment_due_to_stabilizer", [q, s, c, "fcs/stabilizer-pos-rad", CM_STAB]),
         w.coefficient("Cmflaps", "Pitch_moment_due_to_flaps", [q, s, c, w.table1("fcs/flap-pos-deg", [
             (d, FLAP_PITCH * d / 40.0) for d in FLAP_DEGREES], t)]),
     ]

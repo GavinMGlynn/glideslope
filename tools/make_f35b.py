@@ -177,20 +177,33 @@ def mass_balance():
             "    </mass_balance>\n")
 
 
+# **The main wheels 15 degrees behind the centre of gravity, seen from the
+# ground** - Raymer's tipback angle (Aircraft Design: A Conceptual Approach),
+# the least that keeps a tail-heavy aeroplane off its tail, and so the most
+# weight that is left on the nose wheel. They were an estimated 30 in behind
+# it, 23 degrees, which put so much weight on the nose wheel that the
+# stabilator could not lift it until 183 knots with the stick fully back,
+# against a rotation speed of 141. The F-15C's flight manual is the check on
+# the rule: the same 15 degrees brings its nose wheel off within 7 knots of
+# the manual's (tools/make_f15c.py).
+TIP_BACK_DEG = 15.0
+WHEEL_Z = -70.0                    # the wheels' contact, below the centre of gravity
+
+
 def ground_reactions():
     weight = 60000.0  # Fast Facts: the B is "60,000 lb class"
-    main_x = mac(0.25) + 30.0
+    main_x = mac(0.25) - WHEEL_Z * math.tan(math.radians(TIP_BACK_DEG))
     nose_x = 150.0
     nose_share = (main_x - mac(0.25)) / (main_x - nose_x)
     out = "    <ground_reactions>\n"
-    out += written.bogey("NOSE", nose_x, 0.0, -70.0, nose_share * weight / 0.5, nose_share * weight / 2.0,
+    out += written.bogey("NOSE", nose_x, 0.0, WHEEL_Z, nose_share * weight / 0.5, nose_share * weight / 2.0,
                          5, "NONE", "0.80")
     for side, sign in (("LEFT", -1.0), ("RIGHT", 1.0)):
-        out += written.bogey(f"{side}_MAIN", main_x, sign * 70.0, -70.0, (1.0 - nose_share) / 2.0 * weight / 0.5,
+        out += written.bogey(f"{side}_MAIN", main_x, sign * 70.0, WHEEL_Z, (1.0 - nose_share) / 2.0 * weight / 0.5,
                              (1.0 - nose_share) / 2.0 * weight / 2.0, 0, side, "0.50")
     # The airframe's own contacts, so that it has something to land on with
     # its wheels up; measured from its visual model by tools/ground.py.
-    out += ground.contacts(MODEL, weight, wheel_z=-70.0)
+    out += ground.contacts(MODEL, weight, wheel_z=WHEEL_Z)
     return out + "    </ground_reactions>\n"
 
 

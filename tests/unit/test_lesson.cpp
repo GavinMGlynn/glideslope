@@ -461,6 +461,8 @@ struct Flown {
     // from.
     double climb_least_kts = 1e9;
     double climb_most_kts = -1e9;
+    // The speed the take-off autopilot began its rotation at.
+    double rotation_began_kts = 0.0;
 };
 
 // **A flying boat takes off from water and alights on it.** The runway's
@@ -474,21 +476,33 @@ void settle_afloat(glideslope::sim::Aircraft& aircraft) {
     }
 }
 
-// **A take-off, flown either by the book or with one fault.** `rotate_early`
-// hauls her off the ground the moment there is enough elevator authority;
+// Whether any main wheel is on the ground: a wheel off the centreline. A
+// tail-wheel aeroplane pulled off early can drag its tail wheel along the
+// runway with its main wheels clear of it.
+bool on_its_main_wheels(const glideslope::sim::Aircraft& aircraft) {
+    for (int unit = 0;; ++unit) {
+        const std::string at = "gear/unit[" + std::to_string(unit) + "]/";
+        if (!aircraft.has_property(at + "WOW")) {
+            return false;
+        }
+        if (std::abs(aircraft.property(at + "y-position")) > 1.0 &&
+            aircraft.property(at + "WOW") > 0.5) {
+            return true;
+        }
+    }
+}
+
+// **A take-off, flown either by the book or with one fault.** From
+// `early_from_kts`, where it is not 0, she is rotated early (below);
 // `throttle` caps the power. Both are flown against the same lesson.
-Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
+Flown fly_the_take_off(const std::string& id, double early_from_kts,
                        double throttle_cap) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     const glideslope::sim::Runway runway = a_runway();
     auto speeds = glideslope::sim::departure_speeds(data(), entry.model);
-    // **Rotating early is flown, not faked.** The take-off is the same
-    // take-off in every other way - the autopilot still keeps her straight
-    // and still climbs away - it is simply told to bring the nose up at a
-    // speed she has no business flying at. Hauling the stick back instead
-    // would break the attitude band as well, and the item asks for a debrief
-    // that names one fault.
-    (void)rotate_kts_override;
+    // **Rotating early is the one thing different** (below): the take-off is
+    // the same take-off in every other way - the autopilot still keeps her
+    // straight and still climbs her away.
 
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
@@ -532,31 +546,37 @@ Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
     double out_off_at_kts = 0.0;
     double out_climb_least = 1e9;
     double out_climb_most = -1e9;
+    bool pulled = false;
+    bool let_go = false;
     for (int tick = 0; tick < 300 * steps_per_second && !run.finished(); ++tick) {
         glideslope::sim::Controls controls = departure.fly();
-        // **Rotating early is flown, not faked.** A steady touch of back
-        // stick while the wheels are still down brings her off before her
-        // speed is there - which is what rotating early is - without the
-        // wild attitude that hauling the stick fully back would give. Lower
-        // the take-off autopilot's rotation speed instead and nothing
-        // happens: an aeroplane below its stall will not fly, whatever the
-        // nose is doing, and she simply rolls on with the nose up.
+        // **Rotating early is flown, not faked.** The stick comes fully
+        // back before her speed is there, and is held there until her main
+        // wheels leave the runway; then the take-off autopilot has her
+        // again, and carries on from the stick it is handed
+        // (`sim::Departure`). Held on beyond that, it kept a J-3 Cub's tail
+        // wheel on the runway at thirty knots and seventeen degrees of
+        // incidence, and she never climbed away; half back, as it was until
+        // 2026-09-26, would not lift the noses of the F-15C, the F-35B or
+        // the Learjet 35A.
         //
-        // **Half back, as the F-15's flight manual has a normal take-off**
-        // (T.O. 1F-15A-1, section II): three tenths brought the Cessna off
-        // early and not the B-2, which needs more stick to raise the wing.
+        // **From 85 percent of the speed she is rotated at by the book, not
+        // from a standstill.** Held from the start of the roll, the stick
+        // kept the Mosquito's tail down the whole way, and hauled off at 107
+        // knots she swung past the twenty degrees the roll allows: the
+        // debrief said keep her straight as well, which is a different
+        // fault. Easing back early is easing back before the speed is there,
+        // not before she moves.
         //
-        // **From 85 percent of her rotation speed, not from a standstill.**
-        // Held from the start of the roll, the stick kept the Mosquito's tail
-        // down the whole way, and hauled off at 107 knots she swung past the
-        // twenty degrees the roll allows: the debrief said keep her straight
-        // as well, which is a different fault. Easing back early is easing
-        // back before the speed is there, not before she moves. From 85
-        // percent she comes off at 110 against 160, and the Cessna at 51
-        // against 81.
-        if (rotate_kts_override > 0.0 &&
-            aircraft.property("velocities/vc-kts") >= 0.85 * speeds.rotate_kts &&
-            aircraft.property("position/h-agl-ft") < rotate_kts_override) {
+        // **Of the speed the book begins the rotation at**, which is short
+        // of the rotation speed by what she gains while the nose comes up
+        // (`sim::Departure`). An F-15C gains thirteen knots a second, and
+        // the book's rotation begins at 85 percent of her rotation speed -
+        // where her own flight manual begins it - so pulling from there was
+        // no earlier than the book.
+        if (early_from_kts > 0.0 && entry.seaplane &&
+            aircraft.property("velocities/vc-kts") >= early_from_kts &&
+            aircraft.property("position/h-agl-ft") < 14.0) {
             // **A flying boat's is the nose held low on the step.** The
             // water, not the elevator, sets her attitude there in this model:
             // held fully back the Short S.23 planed at the running attitude
@@ -564,7 +584,14 @@ Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
             // handbook warns of on the step is the other one - the nose too
             // low, the bow digging in, and porpoising - which a little
             // forward stick flies.
-            controls.elevator = entry.seaplane ? -0.3 : std::max(controls.elevator, 0.50);
+            controls.elevator = -0.3;
+        } else if (early_from_kts > 0.0 && !entry.seaplane && !let_go &&
+                   on_its_main_wheels(aircraft) &&
+                   aircraft.property("velocities/vc-kts") >= early_from_kts) {
+            controls.elevator = std::max(controls.elevator, 1.0);
+            pulled = true;
+        } else if (pulled) {
+            let_go = true;
         }
         if (throttle_cap < 1.0) {
             controls.throttle = std::min(controls.throttle, throttle_cap);
@@ -595,7 +622,8 @@ Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
         where.push_back(fault.stage);
     }
     return {run.debrief_lines(), where, run.completed(), it->stages.size(), out_least,
-            out_most, out_off_at_kts, out_climb_least, out_climb_most};
+            out_most, out_off_at_kts, out_climb_least, out_climb_most,
+            departure.rotation_began_kts()};
 }
 
 } // namespace
@@ -634,6 +662,147 @@ GLIDESLOPE_TEST(the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     check(walked == 14, "fourteen aeroplanes took off, not " + std::to_string(walked));
 }
 
+// **Every landplane leaves the runway within ten knots of its rotation
+// speed, and sooner when it is rotated early.** The F-15C, the F-35B and the
+// Learjet 35A did neither until 2026-09-24: by the book they left at 217, 229
+// and 152 knots against rotation speeds of 174, 141 and 125, and pulled early
+// they came off no sooner - their noses would not come up. The Mosquito left
+// at 158 against 121, and the PA-28 at 63 against 48. What it took is in
+// docs/PROJECT_STATUS.md for 2026-09-26.
+//
+// **Off the ground by the book is the last time the wheels leave it** before
+// she is 35 ft above where she stood, so that an aeroplane that settles back
+// on to the runway is off where she left it for good - rotated early as
+// well. **Rotated early** is the stick fully back from 85 percent of the
+// speed the book begins her rotation at, held until her main wheels leave
+// the runway and then handed back to the take-off autopilot. Hauled off
+// early, the A380 comes off at 138 knots and settles back before leaving
+// for good at 155, which is what rotating early does to an aeroplane; the
+// first lift-off is printed beside the last. Each is flown at the loading
+// its take-off lesson flies her at.
+GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early) {
+    struct Off {
+        double kts = 0.0;
+        bool flew = false;
+        double rotation_began_kts = 0.0;
+        double first = 0.0;
+    };
+    const auto fly = [](const glideslope::sim::CatalogueEntry& entry,
+                        const glideslope::sim::DepartureSpeeds& speeds, double early_from_kts) {
+        const glideslope::sim::Runway runway = a_runway();
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.airspeed_kts = 0.0;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        load_for_the_take_off(aircraft, entry.model);
+        aircraft.initialize(ic);
+        glideslope::sim::Departure departure(aircraft, runway, speeds);
+        const double standing_ft = aircraft.property("position/h-agl-ft");
+        Off off;
+        bool was_down = true;
+        bool pulled = false;
+        bool let_go = false;
+        for (int tick = 0; tick < 300 * steps_per_second; ++tick) {
+            glideslope::sim::Controls c = departure.fly();
+            if (early_from_kts > 0.0 && !let_go && on_its_main_wheels(aircraft) &&
+                aircraft.property("velocities/vc-kts") >= early_from_kts) {
+                c.elevator = std::max(c.elevator, 1.0);
+                pulled = true;
+            } else if (pulled) {
+                let_go = true;
+            }
+            aircraft.set_controls(c);
+            aircraft.step();
+            const bool down = aircraft.property("gear/wow") > 0.5;
+            if (was_down && !down) {
+                off.kts = aircraft.property("velocities/vc-kts");
+                if (off.first == 0.0) {
+                    off.first = off.kts;
+                }
+            }
+            was_down = down;
+            if (aircraft.property("position/h-agl-ft") > standing_ft + 35.0) {
+                off.flew = true;
+                break;
+            }
+        }
+        off.rotation_began_kts = departure.rotation_began_kts();
+        return off;
+    };
+
+    std::size_t catalogue = 0;
+    std::size_t walked = 0;
+    std::vector<std::string> left_out;
+    std::vector<std::string> wrong;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        ++catalogue;
+        // **Left out, each for its reason.** A flying boat's run is flown on
+        // the step to a published water take-off, not rotated, and rotating
+        // early is flown there as the nose held low (the fault test below).
+        if (entry.seaplane) {
+            left_out.push_back(entry.id + ": a flying boat, which is not rotated");
+            continue;
+        }
+        glideslope::sim::DepartureSpeeds speeds;
+        try {
+            speeds = glideslope::sim::departure_speeds(data(), entry.model);
+        } catch (const std::runtime_error& e) {
+            // No climbing speed, and so no take-off to fly.
+            left_out.push_back(entry.id + ": " + e.what());
+            continue;
+        }
+        const Off book = fly(entry, speeds, 0.0);
+        // A tail-wheel aeroplane may fly herself off before the book begins
+        // any rotation - the Mosquito does, from three points - and then
+        // early is 85 percent of the speed she left at.
+        const Off early = fly(entry, speeds,
+                              0.85 * (book.rotation_began_kts > 0.0 ? book.rotation_began_kts
+                                                                    : book.first));
+        std::printf("  %-13s rotation speed %5.1f kt: off at %5.1f (%+5.1f) by the book "
+                    "(first %5.1f), %5.1f rotated early (first %5.1f)\n",
+                    entry.id.c_str(), speeds.rotate_kts, book.kts, book.kts - speeds.rotate_kts,
+                    book.first, early.kts, early.first);
+        std::fflush(stdout);
+        ++walked;
+        // Every aeroplane is flown before any is judged, so that a failure
+        // names all of them and not the first.
+        if (!book.flew || !early.flew) {
+            wrong.push_back(entry.id + " did not take off both ways");
+        }
+        if (std::abs(book.kts - speeds.rotate_kts) > 10.0) {
+            wrong.push_back(entry.id + " left the runway at " + std::to_string(book.kts) +
+                            " knots by the book, not within ten of its rotation speed, " +
+                            std::to_string(speeds.rotate_kts));
+        }
+        if (!(early.kts < book.kts - 3.0)) {
+            wrong.push_back(entry.id + " rotated early left the runway at " +
+                            std::to_string(early.kts) + " knots, not sooner than by the book, " +
+                            std::to_string(book.kts));
+        }
+    }
+    for (const std::string& why : left_out) {
+        std::printf("  left out - %s\n", why.c_str());
+    }
+    std::string all;
+    for (const std::string& what : wrong) {
+        all += "\n    " + what;
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong:" + all);
+    // Sixteen aircraft: thirteen landplanes with a take-off to fly, two with
+    // no climbing speed and one flying boat.
+    check(catalogue == 16, "sixteen aircraft in the catalogue, not " + std::to_string(catalogue));
+    check(walked + left_out.size() == catalogue, "every aircraft flown or named");
+    check(walked == 13, "thirteen landplanes flown, not " + std::to_string(walked));
+}
+
 // **Flown with one stated fault, the debrief names that fault.** The
 // throttle case is exact: one thing said, and it is the throttle.
 //
@@ -654,25 +823,9 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
         // off: she comes off at a speed she has no business flying at, and
         // the attitude band catches her.
 
-        // **Left out: the F-15C, the F-35B and the Learjet 35A**, whose noses
-        // do not come up in these models until well past their rotation
-        // speeds, whatever the stick does. Pulled half back from 85 percent of
-        // the rotation speed they left the ground at 220 (F-15C), 213 (F-35B)
-        // and 161 knots (Learjet), by the book at 230, 213 and 160, against
-        // rotation speeds of 174, 141 and 125. Early is five knots short of
-        // the rotation speed, which none of them can reach. The F-15C's flight
-        // manual has its nosewheel off at about 130 knots and the aeroplane
-        // off at 157 (T.O. 1F-15A-1, figure A3-6), so it is the models', and
-        // a tail in COMPLETION_PLAN.md.
-        if (id == "f15c" || id == "f35b" || id == "learjet35a") {
-            std::printf("  %s left out of rotating early: its nose does not come up "
-                        "until well past its rotation speed\n",
-                        id.c_str());
-            continue;
-        }
         const std::string rotated = id;
-        const Flown early = fly_the_take_off(rotated, 14.0, 1.0);
         const Flown book = fly_the_take_off(rotated, 0.0, 1.0);
+        const Flown early = fly_the_take_off(rotated, 0.85 * book.rotation_began_kts, 1.0);
         // **A flying boat is flown nose low on the step** instead (see
         // `fly_the_take_off`): she porpoises, and does not come off sooner -
         // later, or not at all.
@@ -760,8 +913,8 @@ GLIDESLOPE_TEST(a_lesson_may_name_the_speeds_the_aeroplane_publishes) {
 // **Now the early rotation is caught for a Cessna too.** The fault the class
 // figure could not name is named, because the figure is the aeroplane own.
 GLIDESLOPE_TEST(rotating_early_is_caught_for_each_aeroplane_at_its_own_speed) {
-    const Flown early = fly_the_take_off("c172p", 14.0, 1.0);
     const Flown book = fly_the_take_off("c172p", 0.0, 1.0);
+    const Flown early = fly_the_take_off("c172p", 0.85 * book.rotation_began_kts, 1.0);
     std::printf("  c172p by the book: off at %.0f knots; early: %.0f\n",
                 book.off_at_kts, early.off_at_kts);
     check(book.debrief.empty(), "by the book it says nothing");

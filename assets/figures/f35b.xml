@@ -71,6 +71,23 @@
     knot, so the number is the model's and not the entry's.
   </figure>
 
+  <figure name="takeoff_ground_roll" flight="takeoff_ground_roll" from="measured"
+          loading="combat" unit="ft" value="2008" tolerance_percent="10"
+          flaps_deg="0" lift_off_kcas="189">
+    **Measured, not published**, and the speed it leaves the runway at is this
+    figure's reason for being here. No F-35 take-off speed is public. The
+    one the stall gives, 1.15 times it, is 141 knots, and the model cannot fly
+    there on a runway: the stall above was measured at 31 degrees of
+    incidence, with its engine holding up a third of its weight, and no
+    aeroplane is rotated to 31 degrees with its tail on the concrete. Held at
+    the take-off autopilot's ten degrees from 100 knots, on 2026-09-24, it
+    left the runway at 172 knots - its minimum unstick speed at that
+    attitude - and the speed it lifts off at here is 1.1 times that, as
+    FAR 25.107 has a lift-off speed at least 110 per cent of the minimum
+    unstick speed. The ground roll is what this figure's own flight measures
+    to it, and is held so that the model still does what it did.
+  </figure>
+
   <figure name="climb_rate" from="measured" loading="combat" unit="ft/min"
           value="20390" tolerance_percent="5" speed_kcas="200">
     **Measured, not published.** No flight manual for this aeroplane is

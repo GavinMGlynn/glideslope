@@ -227,6 +227,141 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Every landplane leaves the runway at its rotation speed, and sooner rotated early, 2026-09-26 — item done
+
+**What is missing first.**
+- **The 747-400 and the F-22A fly no take-off**: neither has a climbing
+  speed in its figures, so `sim::departure_speeds` refuses them, as before.
+  The Short S.23 is a flying boat and is not rotated. All three are named in
+  the test with their reasons.
+- **Hauled off early, the A380 settles back.** She leaves the runway at 138
+  knots, touches again and leaves for good at 155, three short of her
+  rotation speed. That is what rotating early does, and it is still sooner
+  than by the book; the test prints the first lift-off beside the last.
+- **The F-15C leaves 9.2 knots past its rotation speed**, inside the ten
+  allowed but not by much. Its rotation speed is 1.15 times its landing
+  stall at its take-off flap; the flight manual's lift-off is 157 knots at
+  the same weight, so the model's rotation speed is itself high.
+- **Only the business-jet and wartime-twin take-off lessons judge the
+  lift-off speed five feet above where she stood**; the others still judge
+  it fifteen feet above the runway (below).
+
+**What works.** `every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early`
+walks the whole catalogue - sixteen aircraft, thirteen flown, three named -
+and asserts that count. Each is flown twice at the loading its take-off
+lesson uses: by the book, and rotated early, which is the stick fully back
+from 85 percent of the speed the book begins its rotation at, held until the
+main wheels leave, then handed back to the take-off autopilot. Off the
+ground is the last time the wheels leave before she is 35 ft above where she
+stood. By the book each must be off within ten knots of its rotation speed;
+rotated early, more than three knots sooner than by the book, and climbing
+away.
+
+| Aircraft | Rotation speed, kt | Off by the book, kt | Off rotated early, kt |
+| --- | --- | --- | --- |
+| 737-300 | 150.9 | 155.3 (+4.3) | 133.0 |
+| 787-8 | 174.0 | 177.4 (+3.4) | 152.4 |
+| A320 | 144.2 | 145.7 (+1.5) | 122.8 |
+| A380 | 157.3 | 160.5 (+3.2) | 154.5 (first 137.5) |
+| B-2A | 109.7 | 116.2 (+6.4) | 95.7 |
+| C172P | 55.6 | 57.9 (+2.3) | 46.5 |
+| C182 | 57.5 | 59.4 (+1.9) | 54.6 |
+| F-15C | 173.7 | 182.9 (+9.2) | 153.2 |
+| F-35B | 189.0 | 197.3 (+8.3) | 167.3 |
+| J-3 Cub | 37.9 | 38.4 (+0.5) | 32.5 |
+| Learjet 35A | 125.3 | 128.2 (+2.9) | 114.3 |
+| Mosquito FB VI | 120.7 | 117.0 (-3.8) | 94.9 |
+| PA-28 | 47.8 | 54.8 (+7.0) | 48.6 |
+
+**The models** (made by their scripts, whose docstrings say why; a test
+fails if the committed files differ):
+- **F-15C** (`tools/make_f15c.py`): its centre of gravity, with the stores,
+  the tanks and the aerodynamic reference point, moved aft until the main
+  wheels are 15 degrees behind it seen from the ground - Raymer's tipback
+  angle - where they were 29. The nose wheel now comes off at 98, 103 and
+  107 knots at 36,946, 41,286 and 45,713 lb, against T.O. 1F-15A-1 figure
+  A3-6's 91, 100 and 111. Nothing changes in the air.
+- **F-35B** (`tools/make_f35b.py`): its main wheels placed by the same 15
+  degrees, where they were an estimated 23. Its rotation speed is now a
+  measured lift-off speed, 189 KCAS (`assets/figures/f35b.xml`,
+  `takeoff_ground_roll`, measured): its stall is at 31 degrees of incidence,
+  which cannot be flown on a runway, so 1.15 times it, 141, was a speed it
+  never reached. Held at ten degrees from 100 knots it leaves at 172, its
+  minimum unstick speed at that attitude, and FAR 25.107 puts a lift-off
+  speed at 110 per cent of that. A figure test holds the ground roll to it,
+  2,008 ft: a hundred and fourteen figures now.
+- **Learjet 35A** (`tools/make_learjet35a.py`): a trimmable horizontal
+  stabilizer, run by the pitch trim (TN D-6573 figure 7 for its moment; the
+  AFM's travel), and the AFM's figure 2-2 take-off setting by the centre of
+  gravity as `fcs/pitch-trim-takeoff-norm`, which the take-off autopilot
+  sets where a model has it.
+
+**The take-off autopilot** (`sim::Departure`), none of it naming an
+aircraft:
+- **The rotation begins early enough** to be off by the rotation speed: as
+  far before it as she gains while the nose comes up at four degrees a
+  second. An F-15C gains thirteen knots a second.
+- **From the attitude she sits at**, not from level, and **the stick goes
+  further back while the nose will not come** (half its travel a second, as
+  the F-15's manual has it), eased off a quarter a second as it comes, and
+  held while she is off the ground but short of her attitude.
+- **Rotated by a pilot, it carries on from there**: back stick on the roll it
+  did not put there begins the rotation, it takes the stick over where the
+  pilot held it, and holds the attitude she left the ground at.
+- **Out of the rotation the pull is eased off only as the nose reaches where
+  it is wanted.** Taken out at its own rate, it put the PA-28 back on the
+  runway after she lifted off, and she left for good at 63.
+- **Past twelve degrees of incidence the nose comes down by as much**, not
+  merely no further up: the climb's floor - her incidence and three degrees
+  - otherwise took a PA-28 hauled off early on up to thirty.
+- **A tail-wheel aeroplane's tail comes up on the roll**, from half her
+  rotation speed, until she rolls level on her main wheels, and that push is
+  let go as she is rotated. A tail wheel is read from the model's gear - a
+  wheel on the centreline behind the main wheels. Left on three points the
+  Mosquito sat at twelve degrees of incidence and flew herself off at 90,
+  was put back down, and left at 158 against 121; pulling back could only
+  make that later.
+- **A take-off is off the ground five feet above where she stood**, not five
+  feet above the runway: the Mosquito stands nearly seven feet up, and any
+  hop counted as the climb.
+- **The speed asked for in the climb builds from the lift-off speed**, as
+  fast as she was gaining speed and within twenty seconds at most. The
+  unfinished work described this but began the ramp at the climbing speed,
+  so it never ran; asked for all of it at once, the A380 and the Mosquito
+  were flown back on to the runway.
+
+**The lessons.** The business-jet and wartime-twin take-offs now end the roll
+five feet above where she stood (`start+5`), not fifteen above the runway:
+rotated early, the Learjet left at 115 knots and was at 121 by fifteen feet,
+inside the five knots short of its rotation speed the roll allows, so the
+debrief said nothing; the Mosquito, standing seven feet up, likewise.
+
+**Rotating early, in the fault test,** is now the same as here: the stick
+fully back until the main wheels leave, where it was a fixed half or full
+stick below fourteen feet. The F-15C and the Learjet 35A, which fly it for
+their classes, are no longer left out of it, and the debrief of each of the
+six landplanes it flies names the early rotation.
+
+**Seen to fail.**
+- **On main's F-15C, F-35B and Learjet models** with this autopilot, the
+  test is red, five wrong: the F-15C off at 186.1 (+12.4), the F-35B at 203.4
+  (+14.4) and rotated early at 201.9, no sooner, and the Learjet at 142.6
+  (+17.3) and rotated early at 142.4, no sooner.
+- **On the unfinished autopilot of 2026-09-24** with these models, red, seven
+  wrong: the Mosquito off by the book at 158.0 (+37.3) and the PA-28 at 63.0
+  (+15.2); and rotated early, the A320 left for good at 173.5, the C172P at
+  58.0, the Cub at 39.1, the Mosquito at 158.3 and the PA-28 at 63.8 - each
+  hopped off early, was put back on the runway, and left no sooner than by
+  the book.
+
+**Verification.** The full suite in linux-debug, less the fixed-port network
+tests (`-E "no_step_at|hold_at_(100|200)_ms|server_|client_on_server|four_players|initiation"`):
+513 tests, none failed; 4 reported themselves skipped: the tile held open
+for deletion, the end-of-process allocation, and the two plans asked of a
+language model. **The selftest hash does not move**: `30ac70b84cab7d7c` in
+linux-debug, the same as main's linux-debug build; the selftest replays a
+pilot's inputs in the Cessna and flies no take-off autopilot.
+
 ### A client says it is leaving, and is let go at once, 2026-09-26 — tail done
 
 **What is missing first.** A goodbye is not reliable: three copies, and if

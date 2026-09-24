@@ -177,6 +177,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_lesson_written_down_and_read_back_is_the_one_that_was_written
     a_lesson_file_that_is_wrong_is_refused_and_says_where
     the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief
+    every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early
     a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief
     a_lesson_may_name_the_speeds_the_aeroplane_publishes
     rotating_early_is_caught_for_each_aeroplane_at_its_own_speed
@@ -394,6 +395,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_b2_climbs_at_the_rate_its_own_model_gave
     the_f15c_climbs_at_the_rate_its_own_model_gave
     the_f35b_climbs_at_the_rate_its_own_model_gave
+    the_f35b_takes_off_in_the_ground_roll_its_own_model_gave
     the_learjet_35a_climbs_at_the_rate_its_own_model_gave
     every_published_figure_has_a_flight_and_every_flight_a_figure
     an_aircraft_restored_in_every_phase_of_flight_tracks_the_original
