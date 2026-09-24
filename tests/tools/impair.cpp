@@ -17,12 +17,17 @@
 // way, and how many it dropped. What it reads from standard input it passes
 // on to standard error, so that the program before it can still be heard.
 //
+// With `--gap MS --every S`, everything from the server is dropped for MS
+// milliseconds once every S seconds as well: a hole in the updates a client
+// must draw across, made rather than hoped for from random loss.
+//
 // It is what `tc netem` does, without needing to be root or on Linux, so that
 // the same check runs on every CI platform.
 
 #include "platform/socket.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <atomic>
@@ -57,7 +62,7 @@ int main(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: glideslope_impair LISTEN_PORT SERVER_HOST:PORT --delay MS "
                              "--jitter MS --loss PERCENT --seed N [--until-input-ends] "
-                             "[--seconds S]\n");
+                             "[--seconds S] [--gap MS --every S]\n");
         return 2;
     }
     const auto listen_port = static_cast<std::uint16_t>(std::atoi(argv[1]));
@@ -67,6 +72,7 @@ int main(int argc, char** argv) {
         return 2;
     }
     double delay_ms = 0.0, jitter_ms = 0.0, loss = 0.0, seconds = 600.0;
+    double gap_ms = 0.0, gap_every_s = 0.0;
     unsigned seed = 1;
     bool until_input_ends = false;
     for (int i = 3; i < argc; i += 2) {
@@ -85,6 +91,8 @@ int main(int argc, char** argv) {
         else if (flag == "--loss") loss = number(argv[i + 1]) / 100.0;
         else if (flag == "--seed") seed = static_cast<unsigned>(std::strtoul(argv[i + 1], nullptr, 10));
         else if (flag == "--seconds") seconds = number(argv[i + 1]);
+        else if (flag == "--gap") gap_ms = number(argv[i + 1]);
+        else if (flag == "--every") gap_every_s = number(argv[i + 1]);
         else {
             std::fprintf(stderr, "impair: no option %s\n", flag.c_str());
             return 2;
@@ -122,8 +130,20 @@ int main(int argc, char** argv) {
     const auto began = std::chrono::steady_clock::now();
     std::vector<std::uint8_t> buffer(glideslope::platform::largest_datagram);
 
+    std::uint64_t gapped = 0;
+    const auto gaps_from = std::chrono::steady_clock::now();
     const auto hold = [&](bool to_server, const glideslope::platform::Address& to,
                           const std::string& client, const std::uint8_t* data, std::size_t n) {
+        // In a gap, nothing from the server gets through.
+        if (!to_server && gap_ms > 0.0 && gap_every_s > 0.0) {
+            const double into_s = std::fmod(
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - gaps_from).count(),
+                gap_every_s);
+            if (into_s >= gap_every_s - gap_ms / 1000.0) {
+                ++gapped;
+                return;
+            }
+        }
         if (unit(random) < loss) {
             ++(to_server ? dropped_up : dropped_down);
             return;
@@ -194,6 +214,7 @@ int main(int argc, char** argv) {
                 static_cast<unsigned long long>(up), static_cast<unsigned long long>(down),
                 static_cast<unsigned long long>(dropped_up),
                 static_cast<unsigned long long>(dropped_down));
+    std::printf("impair: %llu dropped in gaps\n", static_cast<unsigned long long>(gapped));
     std::fflush(stdout);
     // Out without the runtime's tidying up, which can wait on standard
     // input's lock - held by the reading thread, if the input has not ended.
