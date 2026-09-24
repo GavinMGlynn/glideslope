@@ -74,7 +74,6 @@ public:
     // Every other aircraft, where it is to be drawn at `local_s`.
     std::vector<Other> others(double local_s);
 
-    const net::ClientSession& session() const { return session_; }
     std::size_t corrections() const { return corrections_; }
     std::size_t snapped() const { return snapped_; }
     double worst_correction_m() const { return worst_correction_m_; }

@@ -514,14 +514,6 @@ static int run_program(int argc, char** argv) {
             online.emplace(std::move(*session));
             joined = online->join(10.0, [&] { return seconds_since_start(); });
             if (joined) {
-                const glideslope::world::Geodetic g = glideslope::world::to_geodetic(
-                    {joined->motion.location_ecef_m[0], joined->motion.location_ecef_m[1],
-                     joined->motion.location_ecef_m[2]});
-                start.aircraft = joined->aircraft_id;
-                start.latitude_deg = g.latitude_deg;
-                start.longitude_deg = g.longitude_deg;
-                start.height_m = g.height_m;
-                start.on_ground = false;
                 std::printf("glideslope: the server gave this client aircraft %u, the %s\n",
                             static_cast<unsigned>(joined->number),
                             joined->aircraft_id.c_str());
@@ -560,6 +552,21 @@ static int run_program(int argc, char** argv) {
                     std::string(std::istreambuf_iterator<char>(plan_file), {}));
                 std::printf("glideslope: flying the plan %s, %zu waypoints\n",
                             path.string().c_str(), start.plan->waypoints.size());
+            }
+            // **On a server, the server's word wins**: what aeroplane and
+            // where, over `--aircraft`, `--at` and `--on-ground`; and nothing
+            // of the AI's, whose flying there is Phase 7's.
+            if (joined) {
+                const glideslope::world::Geodetic g = glideslope::world::to_geodetic(
+                    {joined->motion.location_ecef_m[0], joined->motion.location_ecef_m[1],
+                     joined->motion.location_ecef_m[2]});
+                start.aircraft = joined->aircraft_id;
+                start.latitude_deg = g.latitude_deg;
+                start.longitude_deg = g.longitude_deg;
+                start.height_m = g.height_m;
+                start.on_ground = false;
+                start.autopilot = false;
+                start.plan.reset();
             }
             flight = std::make_unique<glideslope::client::Flight>(
                 glideslope::platform::data_directory(),
@@ -952,6 +959,16 @@ static int run_program(int argc, char** argv) {
             // 100 ms ago (client/online.hpp).
             if (online && joined && o.draw_aircraft) {
                 others_now = online->others(seconds_since_start());
+                // An aircraft no longer in the sky takes its mesh with it.
+                for (auto it = other_meshes.begin(); it != other_meshes.end();) {
+                    const bool still = std::any_of(
+                        others_now.begin(), others_now.end(),
+                        [&](const glideslope::client::Other& o2) { return o2.number == it->first; });
+                    if (!still && it->second.made) {
+                        renderer.remove_mesh(it->second.id);
+                    }
+                    it = still ? std::next(it) : other_meshes.erase(it);
+                }
                 for (const glideslope::client::Other& other : others_now) {
                     if (other.aircraft_id.empty()) {
                         continue; // not yet introduced

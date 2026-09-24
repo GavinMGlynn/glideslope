@@ -491,7 +491,7 @@ struct Connection {
     // that one is introduced once, and again if its number comes to mean
     // another aircraft.
     glideslope::net::Reliable reliable;
-    std::map<std::uint8_t, std::string> introduced;
+    std::map<std::uint8_t, std::pair<std::string, std::string>> introduced;
 };
 
 // **How often the server says where everybody is: 25 times for every second
@@ -1604,14 +1604,19 @@ int run(const Options& o) {
                                      static_cast<double>(glideslope::sim::steps_per_second));
             const std::vector<glideslope::net::AircraftDefinition> who = fleet->who();
             for (auto& [address, c] : connections) {
-                // **Every aircraft introduced**, before it is first said to
-                // be anywhere, and again if its number has come to mean
-                // another; numbers no longer flying are forgotten.
-                std::map<std::uint8_t, std::string> now_flying;
+                // **Every aircraft introduced**, and again if its number has
+                // come to mean another. Numbers no longer flying are
+                // forgotten here, every update: a number taken out of the sky
+                // and given to another aircraft later is always introduced
+                // again, whatever that aircraft is, because between the two it
+                // was not flying. The id and the model are compared as well,
+                // for a number that changed hands between two updates.
+                std::map<std::uint8_t, std::pair<std::string, std::string>> now_flying;
                 for (const glideslope::net::AircraftDefinition& d : who) {
-                    now_flying[d.aircraft] = d.model;
+                    now_flying[d.aircraft] = {d.id, d.model};
                     const auto was = c.introduced.find(d.aircraft);
-                    if (was == c.introduced.end() || was->second != d.model) {
+                    if (was == c.introduced.end() ||
+                        was->second != std::make_pair(d.id, d.model)) {
                         const std::vector<std::uint8_t> body = glideslope::net::write(d);
                         (void)c.reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
                     }
@@ -1625,12 +1630,10 @@ int run(const Options& o) {
                                    : std::nullopt;
                 const auto said = glideslope::net::write_state(packet);
                 const auto to = glideslope::platform::address_of(address);
-                if (said && to) {
-                    send_sealed(*socket, *to, c,
-                                std::span<const std::uint8_t>(said->data(),
-                                                              said->size()));
-                }
-                // And what must arrive, first time or again.
+                // What must arrive goes first, so that an aircraft is
+                // introduced before the update that first names it - on the
+                // wire at least; the network may still reorder them, and a
+                // client draws nothing it has not been told the model of.
                 if (to) {
                     for (const std::vector<std::uint8_t>& datagram : c.reliable.to_send(up_s)) {
                         std::vector<std::uint8_t> body{
@@ -1639,6 +1642,11 @@ int run(const Options& o) {
                         send_sealed(*socket, *to, c,
                                     std::span<const std::uint8_t>(body.data(), body.size()));
                     }
+                }
+                if (said && to) {
+                    send_sealed(*socket, *to, c,
+                                std::span<const std::uint8_t>(said->data(),
+                                                              said->size()));
                 }
             }
         }

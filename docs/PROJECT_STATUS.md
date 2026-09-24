@@ -251,7 +251,20 @@ figure below, and fails if any is wrong.
 
 The server flew all five aircraft, and each client was told all five were
 Cessnas. The run takes about a minute. It is not in CI, because it is two
-operating systems on one network. Its parts run in CI one machine at a time:
+operating systems on one network.
+
+**What the review found**, all fixed before the merge:
+- **The server's word did not win.** The client took the aircraft the
+  server gave it, and then `--aircraft`, which defaults to the Cessna, wrote
+  over it. Every test passed, because the server gives players Cessnas. The
+  test now asks for an F-15C and must fly the server's Cessna. With the old
+  order restored it goes red.
+- A mesh was kept for every aircraft ever seen; one that leaves takes its
+  mesh with it now.
+- The server compares an aircraft's id as well as its model before
+  introducing it again. It sends what must arrive before the update that
+  names the aircraft.
+- The network check counts different aircraft introduced, not lines. Its parts run in CI one machine at a time:
 the network checks, and the client with the window on a server.
 
 **What works now.**
