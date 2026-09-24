@@ -2554,6 +2554,13 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                   std::to_string(flown.completed) + " of " +
                   std::to_string(flown.stages));
         check(flown.stopped, id + " finished the circuit stopped on the runway");
+        // **And touched down on it**, not beside it and steered back: the
+        // F-15C once touched 109 metres right of the centreline and still
+        // stopped on the runway, which the check above could not see. Ten
+        // metres keeps the main wheels well on a 45-metre runway.
+        check(std::abs(flown.touch_across_m) <= 10.0,
+              id + " touched down " + std::to_string(flown.touch_across_m) +
+                  " m from the centreline, which is not within 10");
         check(flown.debrief.empty(),
               id + " flew the circuit inside the lesson's limits, and said " +
                   std::to_string(flown.debrief.size()) + " things");

@@ -198,14 +198,38 @@ Controls Lander::fly() {
         const double hold = std::clamp(
             0.05 * hold_error - 0.05 * s.q_radps * degrees + pitch_trim_, -1.0, 1.0);
         c.elevator = flying * hold + (1.0 - flying) * 1.0;
-        // The brakes come on as the aeroplane slows, not the moment it
-        // touches, and come off altogether if the nose is going down anyway.
-        double brake = 0.5 * std::clamp((0.9 * speeds_.vref_kts - vg_kts) /
-                                            std::max(1.0, speeds_.vref_kts),
-                                        0.0, 1.0);
-        if (s.pitch_deg < -4.0) {
-            brake = 0.0;
+        // **The brakes hold a deceleration, as an autobrake does** - the 737's
+        // are 4, 5, 7.2 and 14 feet a second squared at settings 1, 2, 3 and
+        // MAX. They were a pressure that
+        // grew as she slowed - half at most, and only near a stop - which
+        // stopped a Cessna and let a 787 roll off the far end of a 3,000
+        // metre runway. They come on once she is below nine tenths of the
+        // reference speed, not the moment she touches, and come off
+        // altogether if the nose is going down anyway.
+        const double vg_fps = a_.property("velocities/vg-fps");
+        if (last_vg_fps_ >= 0.0) {
+            const double slowing = (last_vg_fps_ - vg_fps) * steps_per_second;
+            decel_fps2_ += (slowing - decel_fps2_) / (0.5 * steps_per_second);
         }
+        last_vg_fps_ = vg_fps;
+        // **Set for the runway, as a pilot sets it**: the deceleration that
+        // stops her with 300 metres to spare, from where and how fast she
+        // touched, and never less than autobrake 2 nor more than MAX's 14.
+        // At autobrake 2 an F-15C touching at 196 knots needs 3.3 km.
+        if (autobrake_fps2_ <= 0.0) {
+            const double left_ft =
+                std::max(1.0, runway_.length_m - touchdown_along_m_ - 300.0) * feet_per_metre;
+            autobrake_fps2_ = std::clamp(vg_fps * vg_fps / (2.0 * left_ft), 5.0, 14.0);
+        }
+        const double autobrake_fps2 = autobrake_fps2_;
+        if (vg_kts < 0.9 * speeds_.vref_kts) {
+            brake_ = std::clamp(brake_ + 0.1 * (autobrake_fps2 - decel_fps2_) / steps_per_second,
+                                0.0, 1.0);
+        }
+        if (s.pitch_deg < -4.0) {
+            brake_ = 0.0;
+        }
+        const double brake = brake_;
         // **And the brakes steer when the rudder is not enough.** A
         // castoring tailwheel steers nothing, and a Mosquito's rudder at full
         // travel could not hold a swing that grew from four to eighteen
@@ -274,21 +298,12 @@ Controls Lander::fly() {
     const double eta = std::clamp(-(offset_angle + track_angle), -1.5708, 1.5708);
     const double lateral_mps2 = 4.0 * zeta * zeta * ground_mps * ground_mps / l1_m *
                                 std::sin(eta);
-    // A steady offset - propeller torque, asking for a little aileron to hold
-    // the wings level - is what a proportional law leaves standing: a PA-28
-    // touched down nine metres off without this. So a little bank is wound
-    // in against it, and only near the line, where it cannot wind up on the
-    // way in from a circuit two miles out.
-    // A 787 needs more of it than a light aeroplane: its wings held level
-    // left it flying parallel to the centreline 72 metres off, so it winds
-    // within 150 metres, slowly - a roll-loop integral tried instead added
-    // enough lag to set the approach swinging fifty metres either side.
-    if (std::abs(across_m_) < 150.0) {
-        bank_trim_deg_ = std::clamp(bank_trim_deg_ - across_m_ * 0.003 / steps_per_second,
-                                    -5.0, 5.0);
-    }
+    // (A steady offset is not wound out here: the aileron's own trim, below,
+    // takes the steady bank that caused it. An integral on the offset, as
+    // there was, set a slow F-15C swinging 130 metres either side of the
+    // centreline all the way down final.)
     const double want_bank = std::clamp(
-        std::atan(lateral_mps2 / 9.80665) * degrees + bank_trim_deg_, -most_bank_deg,
+        std::atan(lateral_mps2 / 9.80665) * degrees, -most_bank_deg,
         most_bank_deg);
     const double p_degps = s.p_radps * degrees;
     // **With a trim for what holds a steady bank against the aileron**: the

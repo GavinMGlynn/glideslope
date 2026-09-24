@@ -1,0 +1,73 @@
+# The circuit, in an airliner: take off, fly the pattern left-hand at circuit
+# height, and land back on the runway you left.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The pattern is a jet's**, as Boeing's 737 Flight Crew Training Manual
+# describes a visual circuit: about 1,500 ft above the runway, the downwind
+# leg flown with the take-off flap out at its manoeuvring speed about two
+# miles abeam, the gear down and more flap before the turn on to base, and
+# the landing flap set before final. The stages are the light aircraft's -
+# see light-aircraft-circuit.lesson for why each ends where it does.
+#
+# **The bands are measured, with room.** Flown by the AI pilot round a
+# 1,500 ft circuit: the 737-300, 787-8, A320 and A380 climb out at 168 to 197
+# knots, V2 and ten or a little over; hold 1,460 to 1,500 ft downwind; and
+# fly final at vref-9 to vref+11. The downwind band is 150 ft
+# either side, half as much again as the FAA's Airline Transport Pilot ACS
+# allows (100 ft) and inside the 250 ft the fault is flown with.
+
+name The circuit in an airliner
+teaches airliner
+
+stage The take-off
+do Take-off thrust, keep her straight on the centreline, and rotate at the rotation speed
+do Gear up and climb away once she is off the ground
+until position/h-agl-ft >= start+200
+
+stage The climb out
+do Climb away straight ahead, the take-off flap still out
+do Do not turn until you are high enough
+hold velocities/vc-kts rotate-10 rotate+80 Hold the take-off safety speed in the climb out
+hold lesson/turned-deg -25 25 Keep her straight until you are high enough to turn
+until position/h-agl-ft >= start+400
+
+stage The crosswind turn
+do Turn left on to crosswind, still climbing
+until lesson/turned-deg <= -80
+
+stage Crosswind, and the turn on to downwind
+do Climb on to circuit height and level off there
+do Turn left on to downwind, about two miles abeam the runway
+until lesson/turned-deg <= -80
+
+stage Downwind
+do Fly the downwind leg at circuit height, parallel to the runway, the take-off flap out
+do Hold the height and the speed: the landing checks are done along here
+hold position/h-agl-ft start-150 start+150 Hold the circuit height downwind
+need lesson/flown-nm >= 1.0 Fly a downwind leg long enough to do the checks and settle
+until lesson/turned-deg <= -50
+
+stage Base, and the turn on to final
+do Gear down and more flap, power back, turn left on to base and start down
+do Landing flap, and turn left on to final to line up with the runway
+until lesson/turned-deg <= -110
+
+stage Final
+do Hold the approach speed down to the threshold
+hold velocities/vc-kts vref-10 vref+15 Hold the approach speed on final
+until position/h-agl-ft <= 40
+
+stage The landing
+do Close the thrust levers over the threshold and flare
+do Let her settle on the main wheels, and keep her straight on the roll
+need gear/wow >= 0.5 Land her on the runway
+until velocities/vg-fps <= 1.0

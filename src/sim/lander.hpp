@@ -116,8 +116,11 @@ private:
     double kcas_rate_ = 0.0;   // knots a second, smoothed over half a second
     double last_throttle_ = 0.0; // the last step's, which near the ground opens slowly
     double rudder_trim_ = 0.0;
-    double aileron_trim_ = 0.0; // what holds a steady bank against the aileron
-    double bank_trim_deg_ = 0.0; // held against a steady offset, near the line
+    double aileron_trim_ = 0.0;
+    double autobrake_fps2_ = 0.0; // set at the touch, for the runway left
+    double brake_ = 0.0;         // held to the autobrake's deceleration
+    double last_vg_fps_ = -1.0;  // the last step's groundspeed
+    double decel_fps2_ = 0.0;    // how fast she is slowing, smoothed // what holds a steady bank against the aileron
     double flare_pitch_ = 0.0;
     // The attitude that holds the glidepath, learnt as she flies it; taken
     // from the attitude she has on the first step of the approach.
