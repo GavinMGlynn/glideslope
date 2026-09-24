@@ -219,11 +219,9 @@ ends in a debrief, never a score.
 
 ## Phase 6 — Client and server
 
-- [ ] **The transport** — gearstick's, with its own magic value, written up in
+- [x] **The transport** — gearstick's, with its own magic value, written up in
       `TRANSPORT.md`. *Verification: a client written from `TRANSPORT.md` alone
-      completes a session, and a gearstick client is refused.* **In progress.**
-      Missing: the verification itself — no client written from the document
-      alone, and no gearstick client to refuse.
+      completes a session, and a gearstick client is refused.* Done 2026-09-24.
 - [x] **Reliable delivery** for the session's messages. *Verification: every
       message arrives exactly once and in order under injected loss.* Done
       2026-09-22.
@@ -312,6 +310,12 @@ Found while implementing something else. Added when found, not when remembered.
       completes against an independent Noise implementation.* Done 2026-09-24:
       both ends match the `cacophony` implementation's known-answer vector byte
       for byte.
+- [ ] **Two players can be given the same aircraft number.** A slot is a key's
+      rank, so a player whose key sorts first moves everyone after them; the
+      server numbers a player's aircraft by the slot it had on arrival, and a
+      later player can be handed a number already flying. *Verification: four
+      clients joining in the reverse of their keys' order each fly their own
+      aircraft, under four different numbers.*
 - [x] **Stalls entered in the landing configuration.** *Verification: the
       stall is entered in the configuration its reference speed was measured
       in, and every aeroplane recovers within the lesson's height.* Done

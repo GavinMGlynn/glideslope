@@ -1081,6 +1081,38 @@ add_test(NAME a_repeated_handshake_initiation_does_not_take_a_live_session_away
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_duplicate.cmake)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_duplicate)
 
+# **A gearstick client is refused.** gearstick's first datagram, made from its
+# own TRANSPORT.md by tools/make_gearstick_hello.py, sent to a running server;
+# the answer must be NOT_THIS_PROTOCOL. See cmake/server_gearstick.cmake.
+add_executable(glideslope_datagram_check tools/datagram_check.cpp)
+target_link_libraries(glideslope_datagram_check PRIVATE glideslope_platform)
+glideslope_configure(glideslope_datagram_check)
+add_test(NAME a_gearstick_client_is_refused_as_not_this_protocol
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCHECK=$<TARGET_FILE:glideslope_datagram_check>
+        -DHELLO=${CMAKE_CURRENT_SOURCE_DIR}/data/gearstick_hello.hex -DPORT=47856
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_gearstick.cmake)
+
+# **A client written from docs/TRANSPORT.md alone completes a session.** It
+# links libsodium and the system's sockets, nothing of this project's; see
+# cmake/server_doc_client.cmake, which also holds its includes to that.
+add_executable(glideslope_doc_client doc_client/doc_client.cpp)
+target_link_libraries(glideslope_doc_client PRIVATE unofficial-sodium::sodium)
+if(WIN32)
+    target_link_libraries(glideslope_doc_client PRIVATE ws2_32)
+endif()
+glideslope_configure(glideslope_doc_client)
+add_test(NAME a_client_written_from_the_transport_document_alone_completes_a_session
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDOC_CLIENT=$<TARGET_FILE:glideslope_doc_client>
+        -DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/doc_client/doc_client.cpp
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_doc_client -DPORT=47855
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_doc_client.cmake)
+set_tests_properties(a_client_written_from_the_transport_document_alone_completes_a_session
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_doc_client)
+
 # **Every flag the server prints in its usage is one it takes.** A flag added
 # to the usage and not to the parser is documented and silently ignored; see
 # cmake/server_flags.cmake, which walks the usage text itself.

@@ -5,7 +5,10 @@ byte, so that a third party could write a working client from this document
 alone.
 
 **This describes what exists.** The envelope, the handshake, the sealing,
-inputs, state updates and the keepalive are built and tested. The
+inputs, state updates and the keepalive are built and tested, and a client
+written from this document alone - `tests/doc_client/doc_client.cpp`, by
+somebody who read it and the Noise specification and nothing else of this
+project - completes a session with the server in `ctest`. The
 section "What is not here yet" at the end says exactly what is missing - the
 reliable messages are defined here and do not yet travel - so that nothing in
 this document is mistaken for something a client could talk to today.
@@ -120,7 +123,11 @@ a client that gets a `HANDSHAKE_RESPONSE` has a slot, and one that gets
 would say so is one of the reliable messages, which do not travel yet.
 
 **A lost handshake is sent again, unchanged.** If no answer comes, the client
-sends the same initiation, byte for byte. The server answers a repeat of the
+sends the same initiation, byte for byte - this project's client every quarter
+of a second, until it gives up after however long it was told to wait; the
+interval is the client's to choose. A `HANDSHAKE_RESPONSE` that does not
+complete the handshake is dropped, and the client goes on waiting: it may be
+forged, and the real one may still come. The server answers a repeat of the
 initiation it has already taken from that address with the same answer and
 changes nothing. A *different* initiation from an address that already has a
 session is dropped without a word, so that nobody can take a live player's
@@ -130,7 +137,7 @@ let the old session go.
 **A session ends when the server stops hearing from it.** There is no
 goodbye. The server lets a session go when no datagram that opens under it
 has arrived for its `--timeout` (10 seconds unless it was told otherwise),
-and its slot goes back to the session; any sealed datagram that opens counts,
+and its slot is free for somebody else; any sealed datagram that opens counts,
 so a client sending inputs, or only answering the server's `PING`s, is kept.
 
 ## How large a datagram is
@@ -410,6 +417,10 @@ its two's-complement bits. `-32767` is -1 and `32767` is 1, both exact, so a
 control held hard over arrives hard over. The step is about 3e-5, far finer
 than any stick, and a quarter of what a double would cost.
 
+**A value is rounded to the nearest step**: the `i16` is `v x 32767` rounded
+to the nearest whole number, halves away from nought, and read back as that
+over 32767.
+
 **A client must fly what it sent, not what its stick said.** The client
 predicts its own aircraft by running the flight model on its own inputs; if it
 flew the stick's exact number while the server flew the rounded one, the two
@@ -470,6 +481,9 @@ it, and there is no second one.
 | `04` | `PING` | `u64`, a token |
 | `05` | `PONG` | `u64`, the token from the `PING` it answers |
 
+**A client refuses nothing.** Refusals are the server's, sent to strangers;
+a client drops what it cannot read, in silence.
+
 A kind this version does not know is **ignored, not refused**: a client of a
 later version may send one, and dropping its session for it would make every
 future addition a breaking change. A kind it does know but cannot read - a
@@ -492,7 +506,7 @@ ignores a `STATE` or a `RELIABLE` from a client.
 
 **What the server sends back, and why the server is authoritative.** A client
 sends inputs and predicts its own aircraft from them; the server flies every
-aircraft for real and says, 20 to 30 times a second, where they all are. The
+aircraft for real and says, 25 times a second, where they all are. The
 client reconciles its prediction against its own aircraft's line and
 interpolates everybody else's.
 
@@ -523,9 +537,9 @@ Then, for each aircraft:
 | `f32` | its velocity in the same frame, metres a second, x |
 | `f32` | the same, y |
 | `f32` | the same, z |
-| `f32` | its heading, degrees |
-| `f32` | its pitch, degrees |
-| `f32` | its roll, degrees |
+| `f32` | its heading, degrees: true, 0 to 360, clockwise from north |
+| `f32` | its pitch, degrees: positive nose up |
+| `f32` | its roll, degrees: positive right wing down |
 
 **Two of the fields are meant for one client and not for the others**, which
 is why a state update is sealed to each connection separately rather than
