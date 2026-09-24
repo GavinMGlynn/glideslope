@@ -453,6 +453,11 @@ set(GLIDESLOPE_UNIT_TESTS
     a_reports_visibility_and_precipitation_are_drawn_as_it_gives_them
     the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb
     the_autopilot_never_moves_a_control_faster_than_a_pilots_hand
+    every_light_aeroplane_the_data_holds_is_turned_near_its_ceiling
+    a_cessna_172p_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
+    a_cessna_182_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
+    a_piper_cub_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
+    a_cherokee_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
     a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wrong
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
     handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase
@@ -507,6 +512,15 @@ set_tests_properties(
     the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
     an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
     PROPERTIES FIXTURES_REQUIRED downloads)
+# Each flies an aeroplane to its ceiling and through sixteen turns, settled
+# level before each: about four minutes on a Linux debug build, and more on a
+# slower machine or compiler.
+set_tests_properties(
+    a_cessna_172p_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
+    a_cessna_182_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
+    a_piper_cub_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
+    a_cherokee_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
+    PROPERTIES TIMEOUT 1800)
 # Twelve tiles, fetched by the first to want them; two tests fetching the same
 # tile at once is safe (src/world/download.cpp), so none of these waits on
 # another.

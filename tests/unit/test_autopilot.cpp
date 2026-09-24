@@ -3,6 +3,8 @@
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/departure.hpp"
+#include "sim/test_pilot.hpp"
 #include "world/weather.hpp"
 
 #include <algorithm>
@@ -392,4 +394,255 @@ GLIDESLOPE_TEST(the_autopilot_never_moves_a_control_faster_than_a_pilots_hand) {
     check(failures.empty(),
           "no step the autopilot takes moves a control faster than a pilot's hand:" +
               failures);
+}
+
+namespace {
+
+// **Near an aeroplane's ceiling, as the AI flies it**: the height at which
+// its best rate of climb has fallen to 50 ft/min - halfway from its service
+// ceiling, where it is 100 (the FAA's Pilot's Handbook of Aeronautical
+// Knowledge, FAA-H-8083-25, chapter 11), to its absolute ceiling, where it is
+// none. It is found by flying it - full throttle, the mixture where the AI
+// leaves it, its published best-climb speed held on the elevator by the test
+// pilot - from 6,000 ft until a half-minute's climb is 50 ft/min or less, and
+// it is the height reached then.
+constexpr double near_the_ceiling_fpm = 50.0;
+double near_the_ceiling_ft(const CatalogueEntry& e, double climb_kts) {
+    Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 6000.0;
+    ic.airspeed_kts = climb_kts;
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    glideslope::sim::TestPilot pilot(aircraft);
+    glideslope::sim::Controls c;
+    c.throttle = 1.0;
+    constexpr int window = 30 * steps_per_second;
+    double window_start_ft = altitude(aircraft);
+    // An hour is far longer than any of these takes; reaching it says the
+    // climb never slowed, which is a flight model fault and not a ceiling.
+    for (int i = 1; i <= 3600 * steps_per_second; ++i) {
+        c.elevator = pilot.pitch_to(pilot.pitch_for_speed(climb_kts));
+        c.aileron = pilot.roll_to(0.0);
+        c.rudder = pilot.coordinate();
+        aircraft.set_controls(c);
+        aircraft.step();
+        if (i % window == 0) {
+            const double climbed = altitude(aircraft) - window_start_ft;
+            // Settled first: the first two windows are the pilot finding its
+            // pitch.
+            if (i > 2 * window && climbed * 2.0 <= near_the_ceiling_fpm) {
+                return altitude(aircraft);
+            }
+            window_start_ft = altitude(aircraft);
+        }
+    }
+    check(false, e.id + " was still climbing after an hour at full throttle");
+    return 0.0;
+}
+
+// Level flight on the autopilot, holding its height, its speed and its
+// heading, until it has settled: what it held over the last half minute.
+struct Level {
+    double worst_ft = 0.0;       // off the height
+    double kts = 0.0;            // the speed it held
+    bool throttle_at_stop = true; // the throttle full throughout
+    bool settled = false;        // the speed settled within ten minutes
+};
+
+// **Level until it has settled, not for a set time**: an aeroplane asked for
+// a speed it cannot reach near its ceiling slows to the one it can for
+// minutes, and a turn begun while it is still slowing would be charged with
+// that. Settled is half a minute in which the airspeed moves less than half a
+// knot - after a first half minute, when the autopilot has just been handed
+// the aeroplane.
+Level settle(Aircraft& aircraft, Autopilot& autopilot, double altitude_ft, bool handed) {
+    constexpr int window = 30 * steps_per_second;
+    Level l;
+    for (int w = 0; !l.settled && w < 20; ++w) {
+        const double from_kts = airspeed(aircraft);
+        l.worst_ft = 0.0;
+        l.throttle_at_stop = true;
+        for (int i = 0; i < window; ++i) {
+            const glideslope::sim::Controls c = autopilot.fly();
+            aircraft.set_controls(c);
+            aircraft.step();
+            l.worst_ft = std::max(l.worst_ft, std::abs(altitude(aircraft) - altitude_ft));
+            l.throttle_at_stop = l.throttle_at_stop && c.throttle >= 0.999;
+        }
+        l.settled = (w >= 1 || !handed) && std::abs(airspeed(aircraft) - from_kts) < 0.5;
+    }
+    l.kts = airspeed(aircraft);
+    return l;
+}
+
+// A turn on the autopilot of `by_deg`, left or right - ninety degrees given
+// three minutes to turn and settle, right round given six. A turn of more
+// than ninety degrees is asked for ninety degrees ahead at a time, as a
+// heading bug is wound round, until the last ninety.
+struct Turn {
+    double worst_ft = 0.0;        // off the height
+    double least_kts = 1e9;       // the slowest it flew
+    double most_bank_deg = 0.0;
+    double turned_deg = 0.0;
+    double heading_off_deg = 0.0; // at the end
+};
+
+Turn turn(Aircraft& aircraft, Autopilot& autopilot, double altitude_ft, double by_deg) {
+    AutopilotModes modes = autopilot.modes();
+    const double start_deg = heading(aircraft);
+    const double to = std::remainder(start_deg + by_deg, 360.0);
+    double last = start_deg;
+    Turn t;
+    const double seconds = std::abs(by_deg) > 90.0 ? 360.0 : 180.0;
+    for (int i = 0; i < static_cast<int>(seconds * steps_per_second); ++i) {
+        const double left = by_deg - t.turned_deg;
+        modes.heading_deg =
+            std::abs(left) > 90.0
+                ? std::fmod(heading(aircraft) + std::copysign(90.0, left) + 720.0, 360.0)
+                : std::fmod(to + 360.0, 360.0);
+        autopilot.set(modes);
+        aircraft.set_controls(autopilot.fly());
+        aircraft.step();
+        t.turned_deg += std::remainder(heading(aircraft) - last, 360.0);
+        last = heading(aircraft);
+        t.worst_ft = std::max(t.worst_ft, std::abs(altitude(aircraft) - altitude_ft));
+        t.least_kts = std::min(t.least_kts, airspeed(aircraft));
+        t.most_bank_deg =
+            std::max(t.most_bank_deg, std::abs(aircraft.property("attitude/phi-deg")));
+    }
+    t.heading_off_deg = std::remainder(heading(aircraft) - to, 360.0);
+    return t;
+}
+
+// The light aeroplanes the data holds, each flown by a test of its own below
+// so that they run side by side.
+const std::vector<std::string> light_aeroplanes{"c172p", "c182", "j3cub", "pa28"};
+
+// **An aeroplane near its ceiling has almost no power to spare, and a turn
+// asks for more**: the lift that holds the height in a turn is its weight over
+// the cosine of the bank, and the induced drag grows with the square of it.
+// The autopilot used to bank to its full limit regardless, and the pitch that
+// held the height bled the speed - a Cessna 182 turning once round slowed
+// from 82 knots to 60. This turns the aeroplane through ninety degrees and
+// through a full circle, each way, at 3,000 ft and near its ceiling, asked for
+// its best-climb speed and for the speed it starts a flight at - 16 turns -
+// and holds every one to the bands a turn at 3,000 ft is held to. **It is
+// the full circles that find the fault**: a ninety-degree turn is over
+// before the old autopilot had spent more than four knots, and the Cub has
+// the power to spare for either.
+void turns_near_the_ceiling_as_at_3000_ft(const std::string& id) {
+    // The height band: the calm-air altitude band of
+    // the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb.
+    constexpr double band_ft = 20.0;
+    // The turn ends on its heading within the calm-air heading band.
+    constexpr double heading_band_deg = 2.0;
+    // And near the speed it held level: a turn that keeps its height by
+    // bleeding the airspeed toward the stall is not a turn the aeroplane
+    // sustains.
+    constexpr double speed_band_kts = 5.0;
+    const CatalogueEntry e = glideslope::sim::find_aircraft(data(), id);
+    const double climb_kts = glideslope::sim::departure_speeds(data(), e.model).climb_kts;
+    const double ceiling_ft = near_the_ceiling_ft(e, climb_kts);
+    std::string failures;
+    std::size_t turns = 0;
+    // One flight for each height and speed: the autopilot handed the
+    // aeroplane there, and each turn flown from level flight settled after
+    // the last.
+    for (const double altitude_ft : {3000.0, ceiling_ft}) {
+        for (const double kts : {climb_kts, e.start_airspeed_kts}) {
+            Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = -33.9;
+            ic.longitude_deg = 151.2;
+            ic.altitude_ft = altitude_ft;
+            ic.heading_deg = 0.0;
+            ic.airspeed_kts = kts;
+            ic.engine_running = true;
+            aircraft.initialize(ic);
+            glideslope::sim::Controls controls;
+            controls.throttle = e.start_throttle;
+            Autopilot autopilot(aircraft, controls);
+            AutopilotModes modes = autopilot.modes();
+            modes.heading_deg = 0.0;
+            modes.altitude_ft = altitude_ft;
+            modes.airspeed_kts = kts;
+            autopilot.set(modes);
+            bool handed = true;
+            for (const double by : {90.0, -90.0, 360.0, -360.0}) {
+                ++turns;
+                const Level l = settle(aircraft, autopilot, altitude_ft, handed);
+                handed = false;
+                const Turn t = turn(aircraft, autopilot, altitude_ft, by);
+                char line[400];
+                std::snprintf(line, sizeof line,
+                              "%s at %.0f ft, %.1f kt asked, turning %+.0f: level within "
+                              "%.1f ft at %.1f kt%s; in the turn within %.1f ft, %.1f kt "
+                              "at the slowest, %.1f degrees of bank at most, %.0f degrees "
+                              "turned, finally %.2f off the heading",
+                              e.id.c_str(), altitude_ft, kts, by, l.worst_ft, l.kts,
+                              l.throttle_at_stop ? ", the throttle at its stop" : "",
+                              t.worst_ft, t.least_kts, t.most_bank_deg, t.turned_deg,
+                              t.heading_off_deg);
+                std::printf("%s\n", line);
+                if (!l.settled) {
+                    failures += std::string("\n  ") + line +
+                                " - the speed had not settled after ten minutes level";
+                } else if (altitude_ft != 3000.0 && kts != climb_kts && !l.throttle_at_stop) {
+                    // **The situation is built, not hoped for**: near its
+                    // ceiling, asked for the speed it starts a flight at, the
+                    // aeroplane has no more throttle to give.
+                    failures += std::string("\n  ") + line +
+                                " - the throttle was not at its stop, so this is not "
+                                "near the ceiling";
+                } else if (!(l.worst_ft <= band_ft && t.worst_ft <= band_ft &&
+                             t.least_kts >= l.kts - speed_band_kts &&
+                             std::abs(t.turned_deg - by) <= heading_band_deg &&
+                             std::abs(t.heading_off_deg) <= heading_band_deg)) {
+                    failures += std::string("\n  ") + line;
+                }
+            }
+        }
+    }
+    std::printf("%s: 2 heights x 2 speeds x 4 turns = %zu turns, near the ceiling at "
+                "%.0f ft\n",
+                id.c_str(), turns, ceiling_ft);
+    check(turns == 16, "every turn was flown: " + std::to_string(turns) + " of 16");
+    check(failures.empty(), "each turn holds its height within " + std::to_string(band_ft) +
+                                " ft and its speed within " + std::to_string(speed_band_kts) +
+                                " kt, and ends on its heading:" + failures);
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(every_light_aeroplane_the_data_holds_is_turned_near_its_ceiling) {
+    std::vector<std::string> found;
+    for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
+        if (e.aircraft_class == glideslope::sim::AircraftClass::light_aircraft) {
+            found.push_back(e.id);
+        }
+    }
+    std::sort(found.begin(), found.end());
+    std::string listed;
+    for (const std::string& id : found) {
+        listed += " " + id;
+    }
+    check(found == light_aeroplanes,
+          "the light aeroplanes turned near their ceilings are the four the data holds; "
+          "it holds" + listed);
+}
+
+GLIDESLOPE_TEST(a_cessna_172p_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft) {
+    turns_near_the_ceiling_as_at_3000_ft("c172p");
+}
+GLIDESLOPE_TEST(a_cessna_182_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft) {
+    turns_near_the_ceiling_as_at_3000_ft("c182");
+}
+GLIDESLOPE_TEST(a_piper_cub_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft) {
+    turns_near_the_ceiling_as_at_3000_ft("j3cub");
+}
+GLIDESLOPE_TEST(a_cherokee_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft) {
+    turns_near_the_ceiling_as_at_3000_ft("pa28");
 }

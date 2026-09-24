@@ -219,6 +219,84 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The autopilot banks only as far as the aeroplane can sustain, 2026-09-24 — tail done
+
+**What was found first: the tail's diagnosis was wrong, and the fault was
+real.** The tail said the Cessna 172P lost 2,076 feet in a ninety-degree
+turn at 10,000 feet because the bank was more than it could sustain.
+Measured again, it lost the height before the turn began: 10,000 feet is
+above its ceiling as the AI flies it - full rich, because nothing the AI
+flies leans the mixture - and wings level the altitude hold had already
+spent its airspeed down to 47 knots. That is two faults of their own, now
+tails: **the altitude hold flies an aeroplane into the stall when asked for a
+height it cannot hold**, and **the AI never leans the mixture**, which puts
+the light aeroplanes' ceilings on the autopilot at 8,200 to 8,500 feet
+against the 172P handbook's 13,000.
+
+The bank fault is there all the same, just below the ceiling. Where each
+light aeroplane's best climb has fallen to 50 ft/min - halfway from its
+service ceiling (100 ft/min, the FAA's Pilot's Handbook of Aeronautical
+Knowledge, chapter 11) to its absolute ceiling - a ninety-degree turn held
+the height and cost at most four knots, but **a full circle did not**: the
+old autopilot banked to 25 degrees throughout, the pitch held the height by
+spending the airspeed, and the 182 slowed from 82 knots to 60, the 172P from
+75 to 66, the Cherokee from 74 to 66 and from 81 to 72.
+
+**What changed** (`src/sim/autopilot.cpp`). While the throttle is at its
+stop and the wings are banked, a turn may spend 3 knots' worth of the
+aeroplane's total energy - its height plus its true airspeed's kinetic
+height, `h + V²/2g` - and then no more: from there the bank limit is an
+integral on how far the energy is below that allowance (0.05 °/s per foot)
+and on its rate (0.02 °/s per ft/min, smoothed over a second), between 10 and
+25 degrees. A descent asked for is not counted as spent. When the throttle has
+more to give, or the wings come level, the limit returns to 25 degrees at
+5 °/s, so in every flight where the throttle is not at its stop the autopilot
+flies exactly as before. The energy is counted from when the bank passes 5
+degrees, not from when the throttle reaches its stop, so what the airspeed
+lost while the throttle was still opening counts too.
+
+**Why this and not a fixed schedule.** Real autopilots limit bank by fixed
+numbers - 22 degrees for Garmin's GFC 700 (its training overview:
+"maximum commanded ... bank (22°)"), and the A320's flight guidance a
+schedule on speed that drops to 15 degrees with an engine out. A fixed
+number would have to be low enough for the worst case and would slow every
+turn everywhere else; nothing tells this autopilot its aeroplane's power. The
+rule it applies instead is the sustained turn's - how much load factor an
+aeroplane holds without losing height or speed is set by its excess power
+(Hurt, *Aerodynamics for Naval Aviators*, NAVWEPS 00-80T-80) - measured the
+way Lambregts' total energy control measures it (AIAA 83-2239, 1983): by the
+total energy's rate, which the throttle cannot make up once it is at its
+stop.
+
+**Verification.** `a_cessna_172p_…`, `a_cessna_182_…`, `a_piper_cub_…` and
+`a_cherokee_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft`,
+one test per aeroplane so that they run side by side, and
+`every_light_aeroplane_the_data_holds_is_turned_near_its_ceiling`, which
+fails if the catalogue's light aeroplanes are other than those four. Each
+finds its aeroplane's height near the ceiling by flying it there, then flies
+16 turns: at 3,000 ft and near the ceiling, asked for its published
+best-climb speed and for its start speed (which near the ceiling it cannot
+reach, so its throttle is at its stop - asserted, not assumed), turning 90
+and 360 degrees each way, each from level flight settled until its airspeed
+moves less than half a knot in half a minute. Every turn holds its height
+within 20 ft (the calm-air altitude band), its speed within 5 kt of the
+level speed, and ends within 2 degrees of its heading. Measured, near the
+ceiling: height within 4.2 to 9.3 ft; the most any turn cost in speed is 4.0
+knots (the 182 turning left at its stop, 86.3 to 82.3); at 3,000 ft within
+11 ft and 0.9 knots, as before. 64 turns, four aeroplanes.
+
+**Seen to fail.** With the limit disabled (the turn never counted as having
+spent its allowance), the 172P, 182 and Cherokee tests failed, each on its
+full circles near the ceiling (the 182 down to 59.7 knots from 82), and
+passed again with it restored. **The Cub's test passes either way**: near its
+ceiling it has the power for a 25-degree turn and loses at most three knots,
+so it is covered but does not discriminate. No ninety-degree turn failed
+without the limit, which is why the circles are in the test.
+
+**Nothing else moves.** The selftest replays a pilot's inputs and does not use
+the autopilot; its hash is unchanged. The rest of the suite - the capture
+and handover tests, the navigator, the lessons, the circuits, the server's
+AI - is green; none of them flies with the throttle at its stop in a turn.
 ### Every aeroplane the AI lands stays on its wheels, 2026-09-24 — tail done
 
 **The Learjet was no longer ending nose down; three jets were bouncing, and
@@ -8949,8 +9027,11 @@ Found while implementing something else. Added when found, not when remembered.
 
 #### The autopilot banks to its limit even when the aeroplane cannot sustain the turn.
 
-- [ ] **The autopilot banks to its limit even when the aeroplane cannot
-      sustain the turn.** Found 2026-09-22 by probing every class through a
+- [x] **The autopilot banks to its limit even when the aeroplane cannot
+      sustain the turn.** Done 2026-09-24 - see the log entry of that date,
+      which also corrects the diagnosis below: at 10,000 feet the Cessna was
+      above its ceiling as the AI flies it, and lost the height before the
+      turn began. Found 2026-09-22 by probing every class through a
       ninety-degree turn. At 3,000 feet the Cessna 172P holds its height to
       within fifteen feet and its speed exactly, at 85 knots or 100. At
       10,000 feet - near its ceiling - the same turn costs it 2,076 feet and
@@ -8961,6 +9042,39 @@ Found while implementing something else. Added when found, not when remembered.
       aeroplane. *Verification: a light aeroplane turned through ninety
       degrees near its ceiling holds its height within the same band it holds
       at three thousand feet.*
+
+#### The altitude hold flies an aeroplane into the stall when asked for a height it cannot hold.
+
+- [ ] **The altitude hold flies an aeroplane into the stall when asked for a
+      height it cannot hold.** Found 2026-09-24 working the tail above. Asked
+      to hold a height above its ceiling, the autopilot's throttle goes to its
+      stop and its pitch keeps asking for the height, so the airspeed is spent
+      until the aeroplane is on the back of its drag curve and mushing: wings
+      level, with no turn at all, the Cessna 172P asked for 10,000 ft at 100
+      knots is at 47 knots and 340 feet low after a minute; the 182 is at 50
+      knots, the Cub at 27, and the Cherokee at 65 and 530 feet low. Garmin's GFC 700 has
+      underspeed protection for exactly this, and Lambregts' total energy
+      control gives speed the priority when thrust runs out; both need a floor
+      speed, which for these aeroplanes is their published best-climb speed,
+      and the autopilot is not told it. The same thing will happen to a climb
+      asked for at more than the aeroplane can climb. *Verification: a light
+      aeroplane asked for a height above its ceiling gives up height, not
+      airspeed, and never drops below its best-climb speed.*
+
+#### The AI never leans the mixture.
+
+- [ ] **The AI never leans the mixture.** Found 2026-09-24 working the tail
+      above. Nothing the AI flies - the autopilot, the navigator, the lander,
+      the departure - moves the mixture from full rich, and JSBSim's piston
+      engine loses power to an over-rich mixture as the air thins. So on the
+      autopilot the light aeroplanes' ceilings - where their best climb falls to
+      50 ft/min - are 8,200 to 8,500 ft (Cessna 172P 8,524, 182 8,302,
+      Cherokee 8,215, Cub 8,445), against the 172P handbook's 13,000. Leaned
+      to 0.7 the 172P holds 100 knots level at 12,000 ft and 99 at 14,000.
+      The published-figure checks already lean for best power
+      (`lean_for_best_power` in src/sim/figures.cpp); the AI does not.
+      *Verification: the AI climbs each light aeroplane to within its
+      handbook's tolerance of its published service ceiling.*
 
 #### Cesium ion on Windows, where a body arrives compressed unasked.
 

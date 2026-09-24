@@ -8,8 +8,10 @@
 // **Loops within loops**, each on the aircraft's state as its instruments
 // show it:
 //
-//   heading -> bank, 25 degrees at most, with an integral near the heading that
-//     finds the bank it needs held -> aileron, damped by the roll rate;
+//   heading -> bank, 25 degrees at most - and no more than the aeroplane can
+//     sustain, when its throttle has no more to give - with an integral near
+//     the heading that finds the bank it needs held -> aileron, damped by the
+//     roll rate;
 //   the ball -> rudder, with an integral that finds what a turn needs;
 //   altitude -> vertical speed, at most the climb rate asked for -> pitch,
 //     with an integral -> elevator, damped by the pitch rate, with an
@@ -66,6 +68,14 @@ private:
     Controls last_;
     double bank_command_deg_ = 0.0;
     double bank_integral_deg_ = 0.0;
+    // The most bank the aeroplane sustains, as its energy says: the energy,
+    // in feet, at the start of the turn and a step ago, its rate, and whether
+    // the turn has spent what it may.
+    double sustained_bank_deg_ = 25.0;
+    double turn_energy_ft_ = 0.0;
+    double last_energy_ft_ = 0.0;
+    double energy_fpm_ = 0.0;
+    bool spent_ = false;
     double pitch_command_deg_ = 0.0;
     double pitch_integral_deg_ = 0.0;
     double elevator_trim_ = 0.0;
