@@ -52,7 +52,7 @@ if [[ -f "$costs" ]]; then
             echo "pre-push: a quick test fails (log in /tmp/glideslope-pre-push-tests.log)" >&2
             exit 1
         fi
-        echo "pre-push: $(grep -o '[0-9]* tests passed\|tests passed, [0-9]* tests failed out of [0-9]*' /tmp/glideslope-pre-push-tests.log | head -1)" >&2
+        echo "pre-push: $(grep -o '[0-9]*% tests passed, [0-9]* tests failed out of [0-9]*' /tmp/glideslope-pre-push-tests.log | head -1)" >&2
     fi
 fi
 exit 0
