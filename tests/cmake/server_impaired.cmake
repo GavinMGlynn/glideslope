@@ -136,9 +136,13 @@ set(_snapped "${CMAKE_MATCH_3}")
 # model the server named.
 string(REGEX MATCHALL "aircraft [0-9]+ is c172p" _introduced "${_said}")
 list(LENGTH _introduced _introductions)
-if(NOT _introductions EQUAL 3)
-    message(FATAL_ERROR "the predicting client was told what ${_introductions} aircraft were, "
-                        "not the 3 flying:\n${_said}")
+set(_distinct ${_introduced})
+list(REMOVE_DUPLICATES _distinct)
+list(LENGTH _distinct _different)
+if(NOT _introductions EQUAL 3 OR NOT _different EQUAL 3)
+    message(FATAL_ERROR "the predicting client was told ${_introductions} times, of "
+                        "${_different} different aircraft, and there are 3 flying, each "
+                        "told once:\n${_said}")
 endif()
 if(_corrections LESS 200)
     message(FATAL_ERROR "only ${_corrections} corrections: its own aircraft was hardly flown")
