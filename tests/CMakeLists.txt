@@ -139,6 +139,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_interpolation_error_stays_within_its_bound_under_jitter
     an_aircraft_nobody_has_heard_from_is_not_carried_on_for_ever
     an_aircraft_turning_through_north_takes_the_short_way_round
+    the_client_follows_the_servers_clock_at_the_servers_own_rate
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
     prediction_reconciled_from_motion_alone_stays_within_its_bound_at_100_and_200_ms
     a_client_that_flew_different_inputs_is_put_back_where_the_server_says

@@ -242,3 +242,77 @@ GLIDESLOPE_TEST(an_aircraft_turning_through_north_takes_the_short_way_round) {
     check(from_north < 1.0, "halfway is heading " + std::to_string(half.heading_deg) +
                                 ", which should be about north");
 }
+
+// **The client follows the server's clock at the server's own rate.** A
+// server at 80%, 100% and 125% of real time, each with no jitter, 30 ms and
+// 60 ms of it, over 100 ms of latency and one update in twenty lost - nine
+// sessions of a minute each, updates twenty-five a second. What the client
+// can know is the session's time less the least latency, and after the first
+// two seconds (the window the rate is fitted over) its estimate must never
+// run more than 20 ms ahead of that nor more than 50 ms behind. The client
+// draws 100 ms behind the clock: a fifth of that ahead still draws between
+// updates, and half of it behind only spends some of the margin. (Its frames
+// come sixty a second, so an update is heard up to 17 ms after it arrived,
+// which is most of what behind there is.) A clock that assumed real time,
+// as the first one did, is 12 s ahead of an 80% server after a minute.
+GLIDESLOPE_TEST(the_client_follows_the_servers_clock_at_the_servers_own_rate) {
+    constexpr double least_latency_s = 0.100;
+    std::size_t sessions = 0;
+    double worst_ahead_s = 0.0;
+    double worst_behind_s = 0.0;
+    for (const double rate : {0.8, 1.0, 1.25}) {
+        for (const double jitter_s : {0.0, 0.030, 0.060}) {
+            std::mt19937_64 random(7);
+            std::uniform_real_distribution<double> unit(0.0, 1.0);
+            // Updates as the server sends them, then as they arrive, in
+            // arrival order.
+            struct Arrival {
+                double local_s;
+                double session_s;
+            };
+            std::vector<Arrival> arrivals;
+            for (double session_s = 0.0; session_s < 60.0 * rate; session_s += 0.04) {
+                if (unit(random) < 0.05) continue;
+                const double sent_local_s = session_s / rate;
+                arrivals.push_back({sent_local_s + least_latency_s + jitter_s * unit(random),
+                                    session_s});
+            }
+            std::sort(arrivals.begin(), arrivals.end(),
+                      [](const Arrival& a, const Arrival& b) { return a.local_s < b.local_s; });
+            glideslope::net::SessionClock clock;
+            std::size_t next = 0;
+            std::size_t judged = 0;
+            for (double local_s = 0.0; local_s < 60.0; local_s += 1.0 / 60.0) {
+                for (; next < arrivals.size() && arrivals[next].local_s <= local_s; ++next) {
+                    clock.heard(arrivals[next].session_s, local_s);
+                }
+                if (!clock.known() || local_s < arrivals.front().local_s + 2.0) continue;
+                const double knowable_s = (local_s - least_latency_s) * rate;
+                const double error_s = clock.now(local_s) - knowable_s;
+                worst_ahead_s = std::max(worst_ahead_s, error_s);
+                worst_behind_s = std::min(worst_behind_s, error_s);
+                check(error_s <= 0.020,
+                      "at " + std::to_string(rate) + " of real time with " +
+                          std::to_string(jitter_s * 1000.0) + " ms of jitter the clock ran " +
+                          std::to_string(error_s * 1000.0) + " ms ahead at " +
+                          std::to_string(local_s) + " s");
+                check(error_s >= -0.050,
+                      "at " + std::to_string(rate) + " of real time with " +
+                          std::to_string(jitter_s * 1000.0) + " ms of jitter the clock ran " +
+                          std::to_string(-error_s * 1000.0) + " ms behind at " +
+                          std::to_string(local_s) + " s");
+                ++judged;
+            }
+            check(judged > 3000, "the clock was judged at " + std::to_string(judged) +
+                                     " frames of a minute");
+            check(std::abs(clock.rate() - rate) < 0.01,
+                  "the rate fitted is " + std::to_string(clock.rate()) + ", not " +
+                      std::to_string(rate));
+            ++sessions;
+        }
+    }
+    check(sessions == 9, "nine sessions, three rates by three jitters, not " +
+                             std::to_string(sessions));
+    std::printf("  9 sessions: at worst %.1f ms ahead and %.1f ms behind\n",
+                worst_ahead_s * 1000.0, -worst_behind_s * 1000.0);
+}

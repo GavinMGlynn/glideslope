@@ -313,6 +313,12 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [x] **A client assumed the server's clock keeps real time**, and drew other
+      aircraft from guesses when a slow server's clock ran behind. *Verification:
+      against servers at 80%, 100% and 125% of real time, with jitter and loss,
+      the client's clock stays within 20 ms ahead and 50 ms behind.* Done
+      2026-09-25.
+
 - [ ] **On Windows a DEM tile can fail to open while another test renames a
       fresh copy into place.** Seen on CI: `cannot open ...S34_00_E151_00_DEM.tif`.
       *Verification: many processes fetching and reading one tile at once on
