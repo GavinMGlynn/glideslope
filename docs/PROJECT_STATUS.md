@@ -264,7 +264,16 @@ operating systems on one network.
 - The server compares an aircraft's id as well as its model before
   introducing it again. It sends what must arrive before the update that
   names the aircraft.
-- The network check counts different aircraft introduced, not lines. Its parts run in CI one machine at a time:
+- The network check counts different aircraft introduced, not lines.
+
+**And what CI found.** On Rocky 9, the network check at 100 ms drew no frame
+past the newest update, and failed for never having tested the guessing.
+Whether any happened was left to random loss, and the new session clock
+leaves fewer to chance. The relay now makes the situation: `--gap 200
+--every 4` drops everything from the server for a fifth of a second every four
+seconds. That is twice the 100 ms the others are drawn behind, so every run
+carries aircraft across it: 102 and 170 frames here. The test also requires
+the relay to have made its gaps. Its parts run in CI one machine at a time:
 the network checks, and the client with the window on a server.
 
 **What works now.**

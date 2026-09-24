@@ -98,6 +98,10 @@ execute_process(
     # stops when the server does.
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay ${DELAY} --jitter ${JITTER}
             --loss ${LOSS} --seed ${SEED} --until-input-ends --seconds 290
+            # A fifth of a second with nothing from the server, every four:
+            # twice the 100 ms the others are drawn behind, so the client
+            # must carry them past the newest update, every run.
+            --gap 200 --every 4
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 message(STATUS "exit codes: ${_rcs}\n${_out}")
 # The one too many is refused (1); every other program finished as it should.
@@ -115,6 +119,9 @@ set(_lost_up "${CMAKE_MATCH_3}")
 set(_lost_down "${CMAKE_MATCH_4}")
 if(_up LESS 100 OR _down LESS 100)
     message(FATAL_ERROR "the relay carried ${_up} and ${_down} datagrams: hardly a session")
+endif()
+if(NOT _out MATCHES "impair: ([0-9]+) dropped in gaps" OR CMAKE_MATCH_1 EQUAL 0)
+    message(FATAL_ERROR "the relay made no gaps in the updates:\n${_out}")
 endif()
 if(LOSS GREATER 0 AND (_lost_up EQUAL 0 OR _lost_down EQUAL 0))
     message(FATAL_ERROR "the relay lost ${_lost_up} and ${_lost_down}: loss was not tested both ways")
@@ -173,9 +180,10 @@ if(_error GREATER_EQUAL PREDICT_M)
 endif()
 
 # **Interpolation**: every other aircraft drawn within 2 m of the truth, and
-# some of them carried on past the newest update - a lost update the jitter
-# made later still - so that the guessing and the blending back were drawn
-# and judged, not only the plain interpolating between two updates.
+# some of them carried on past the newest update - across the relay's gaps,
+# which are made for it, so that the guessing and the blending back were
+# drawn and judged, not only the plain interpolating between two updates.
+# (Left to random loss, a run at 100 ms on CI had none.)
 if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them carried on[^;]*; the longest between frames ([0-9]+) ms")
     message(FATAL_ERROR "the predicting client did not say what it drew:\n${_said}")
 endif()
