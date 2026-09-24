@@ -88,7 +88,7 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 5 --after 6
             --heard "${_extra}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 20 --after 2
-            --predict c172p --heard "${_predicting}" --track "${_shown}"
+            --predict --heard "${_predicting}" --track "${_shown}"
     # Hears everything, and outlasts the one that predicts.
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1
             --track "${_truth}"
@@ -131,6 +131,15 @@ endif()
 set(_corrections "${CMAKE_MATCH_1}")
 set(_worst "${CMAKE_MATCH_2}")
 set(_snapped "${CMAKE_MATCH_3}")
+# **Told what every aircraft is** (`AIRCRAFT`, over the reliable layer): the
+# AI and both players, each once - its own among them, which it flies as the
+# model the server named.
+string(REGEX MATCHALL "aircraft [0-9]+ is c172p" _introduced "${_said}")
+list(LENGTH _introduced _introductions)
+if(NOT _introductions EQUAL 3)
+    message(FATAL_ERROR "the predicting client was told what ${_introductions} aircraft were, "
+                        "not the 3 flying:\n${_said}")
+endif()
 if(_corrections LESS 200)
     message(FATAL_ERROR "only ${_corrections} corrections: its own aircraft was hardly flown")
 endif()

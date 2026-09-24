@@ -76,7 +76,7 @@ WeatherAloft a_weather_aloft() {
 
 AircraftDefinition an_aircraft() {
     AircraftDefinition m;
-    m.slot = 2;
+    m.aircraft = 6;
     m.id = "f35b";
     m.model = "f35b";
     return m;
@@ -208,7 +208,7 @@ std::vector<Kind> every_kind() {
     out.push_back({Message::aircraft, "aircraft", glideslope::net::write(aircraft),
                    [aircraft](std::span<const std::uint8_t> b) {
                        AircraftDefinition got;
-                       return glideslope::net::read(b, got) && got.slot == aircraft.slot &&
+                       return glideslope::net::read(b, got) && got.aircraft == aircraft.aircraft &&
                               got.id == aircraft.id && got.model == aircraft.model;
                    },
                    [](std::span<const std::uint8_t> b) {

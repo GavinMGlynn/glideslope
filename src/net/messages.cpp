@@ -334,7 +334,7 @@ bool read(std::span<const std::uint8_t> body, WeatherAloft& out) {
 
 std::vector<std::uint8_t> write(const AircraftDefinition& m) {
     Writer w = begin_message(Message::aircraft);
-    w.u8(m.slot);
+    w.u8(m.aircraft);
     w.text(m.id);
     w.text(m.model);
     return w.take();
@@ -347,8 +347,8 @@ bool read(std::span<const std::uint8_t> body, AircraftDefinition& out) {
         return false;
     }
     AircraftDefinition got;
-    got.slot = r.u8();
-    if (!r.ok() || got.slot >= most_slots) {
+    got.aircraft = r.u8();
+    if (!r.ok()) {
         return false;
     }
     got.id = r.text(most_name_bytes);

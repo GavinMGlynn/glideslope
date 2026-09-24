@@ -13,7 +13,9 @@
 #include "sim/prediction.hpp"
 #include "net/inside.hpp"
 #include "net/keys.hpp"
+#include "net/messages.hpp"
 #include "net/protocol.hpp"
+#include "net/reliable.hpp"
 #include "net/sealing.hpp"
 #include "net/state.hpp"
 #include "platform/http.hpp"
@@ -110,8 +112,8 @@ void print_usage(std::FILE* out) {
         "                            --until-flying-again N leaves once N aircraft\n"
         "                            have been heard flying again, SECONDS the most\n"
         "                            it will wait.\n"
-        "                            --predict MODEL flies its own aircraft (a MODEL,\n"
-        "                            as the server does) ahead of the server and puts\n"
+        "                            --predict flies its own aircraft (as the model\n"
+        "                            the server says it is) ahead of the server, puts\n"
         "                            it right by each update, shows the others 100 ms\n"
         "                            behind, and says how far its own was put right\n"
         "                            --track FILE writes where every aircraft was\n"
@@ -517,7 +519,7 @@ int air() {
 // loss of three in a row still loses nothing.
 constexpr double inputs_every_s = 1.0 / 30.0;
 
-// **A client that predicts** (`connect ... --predict MODEL`): what a real
+// **A client that predicts** (`connect ... --predict`): what a real
 // client does with its own aircraft and everybody else's, measured.
 //
 // Its own aircraft is flown here, at 120 Hz, on the inputs this client sends,
@@ -531,7 +533,11 @@ constexpr double inputs_every_s = 1.0 / 30.0;
 // (tests/tools/interpolation_check.cpp).
 class Predicting {
 public:
-    Predicting(std::string model) : model_(std::move(model)) {}
+    // What the server has said each aircraft is (`AIRCRAFT`): its own is
+    // flown as the model the server flies it as, and not before it is known.
+    void introduced(std::uint8_t aircraft, const std::string& model) {
+        models_[aircraft] = model;
+    }
 
     // **The pilot**: the controls keep changing, so that when an input
     // arrives, late or not at all, matters - a stick held still would make
@@ -606,7 +612,10 @@ public:
                 m.pqr_radps[i] = static_cast<double>(y.pqr_radps[i]);
             }
             if (!prediction_) {
-                start(m, state.last_input_applied);
+                const auto model = models_.find(state.your_aircraft);
+                if (model != models_.end()) {
+                    start(m, model->second, state.last_input_applied);
+                }
             } else {
                 // **The prediction error**: where the server says the
                 // aircraft was when it had got to an input, against where
@@ -705,9 +714,10 @@ public:
     }
 
 private:
-    void start(const glideslope::sim::Motion& m, std::uint32_t last_applied) {
+    void start(const glideslope::sim::Motion& m, const std::string& model,
+               std::uint32_t last_applied) {
         aircraft_ = std::make_unique<glideslope::sim::Aircraft>(
-            glideslope::platform::data_directory() / "jsbsim", model_);
+            glideslope::platform::data_directory() / "jsbsim", model);
         aircraft_->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
             [](double, double) { return 0.0; }, [](double, double) { return false; }));
         const glideslope::world::Geodetic g = glideslope::world::to_geodetic(
@@ -761,7 +771,7 @@ private:
                 origin_ecef_[2] + std::cos(lat) * n - std::sin(lat) * d};
     }
 
-    std::string model_;
+    std::map<std::uint8_t, std::string> models_;
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
@@ -791,13 +801,16 @@ int stay(glideslope::platform::UdpSocket& socket,
          glideslope::net::Unsealer& unsealer, double seconds,
          std::span<const std::uint8_t> initiation_again, bool fly, const std::string& me,
          const std::string& heard_file, int until_flying_again,
-         const std::string& predict_model, const std::string& track_file) {
+         bool predict, const std::string& track_file) {
     // A client that predicts flies a pilot of its own (Predicting::pilot).
     std::optional<Predicting> predicting;
-    if (!predict_model.empty()) {
-        predicting.emplace(predict_model);
+    if (predict) {
+        predicting.emplace();
         fly = true;
     }
+    // **What must arrive**: the server's reliable messages, acknowledged,
+    // and what each aircraft is, said as it is heard.
+    glideslope::net::Reliable reliable;
     // **Stay until what is waited for is heard** (`--until-flying-again N`):
     // a test waiting for a collision and the flying again after it waits for
     // that, with SECONDS only the most it will wait. Thirty seconds of the
@@ -915,6 +928,17 @@ int stay(glideslope::platform::UdpSocket& socket,
                               std::span<const std::uint8_t>(out.data(), out.size()));
         }
 
+        // Acknowledgements of what must arrive, when any are owed.
+        for (const std::vector<std::uint8_t>& datagram : reliable.to_send(up_s)) {
+            std::vector<std::uint8_t> body{
+                static_cast<std::uint8_t>(glideslope::net::Inside::reliable)};
+            body.insert(body.end(), datagram.begin(), datagram.end());
+            glideslope::net::Writer rw = glideslope::net::begin(glideslope::net::Type::sealed);
+            rw.bytes(sealer.seal(std::span<const std::uint8_t>(body.data(), body.size())));
+            const std::vector<std::uint8_t> out = rw.take();
+            (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
+        }
+
         // **Everything waiting is read before a frame is drawn**, as a real
         // client reads its socket dry each frame: reading one datagram a
         // pass, a slow client drew from updates that had arrived and sat
@@ -1018,6 +1042,20 @@ int stay(glideslope::platform::UdpSocket& socket,
             }
             continue;
         }
+        if (!inside.empty() &&
+            inside[0] == static_cast<std::uint8_t>(glideslope::net::Inside::reliable)) {
+            for (const std::vector<std::uint8_t>& message : reliable.received(inside.subspan(1))) {
+                glideslope::net::AircraftDefinition d;
+                if (glideslope::net::read(
+                        std::span<const std::uint8_t>(message.data(), message.size()), d)) {
+                    say_heard("aircraft " + std::to_string(d.aircraft) + " is " + d.id);
+                    if (predicting) {
+                        predicting->introduced(d.aircraft, d.model);
+                    }
+                }
+            }
+            continue;
+        }
         const auto token =
             glideslope::net::knock_token(glideslope::net::Inside::ping, inside);
         if (!token) {
@@ -1055,7 +1093,7 @@ int stay(glideslope::platform::UdpSocket& socket,
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
                bool again, bool fly, double after_s, const std::string& secret_hex = "",
                const std::string& heard_file = "", int until_flying_again = 0,
-               const std::string& ready_file = "", const std::string& predict_model = "",
+               const std::string& ready_file = "", bool predict = false,
                const std::string& track_file = "") {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
@@ -1190,7 +1228,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                                                      first.size())
                                       : std::span<const std::uint8_t>(),
                                 fly, mine.publik.text().substr(0, 8), heard_file,
-                                until_flying_again, predict_model, track_file);
+                                until_flying_again, predict, track_file);
                 }
             }
         }
@@ -1308,7 +1346,7 @@ static int run_program(int argc, char** argv) {
             std::string heard_file;
             int until_flying_again = 0;
             std::string ready_file;
-            std::string predict_model;
+            bool predict = false;
             std::string track_file;
             for (std::size_t i = 3; i < args.size(); ++i) {
                 if (args[i] == "--track" && i + 1 < args.size()) {
@@ -1316,9 +1354,8 @@ static int run_program(int argc, char** argv) {
                     ++i;
                     continue;
                 }
-                if (args[i] == "--predict" && i + 1 < args.size()) {
-                    predict_model = std::string(args[i + 1]);
-                    ++i;
+                if (args[i] == "--predict") {
+                    predict = true;
                     continue;
                 }
                 if (args[i] == "--until-flying-again" && i + 1 < args.size()) {
@@ -1374,7 +1411,7 @@ static int run_program(int argc, char** argv) {
             }
             return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
                               again, fly, after_s, secret_hex, heard_file,
-                              until_flying_again, ready_file, predict_model, track_file);
+                              until_flying_again, ready_file, predict, track_file);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();

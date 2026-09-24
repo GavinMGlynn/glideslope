@@ -19,11 +19,14 @@
 // handshake, which a server treats as a duplicate.
 
 #include "net/keys.hpp"
+#include "net/messages.hpp"
+#include "net/reliable.hpp"
 #include "net/sealing.hpp"
 #include "net/state.hpp"
 #include "platform/socket.hpp"
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -58,6 +61,14 @@ public:
     // Where every aircraft was in the newest state update, and which of them
     // is this client's own - `no_aircraft` until the server says.
     const std::vector<AircraftState>& aircraft() const { return aircraft_; }
+    // **Every state update since the last time this was asked**, oldest
+    // first - at most `most_states_kept` of them, which is a few seconds.
+    std::vector<StatePacket> take_states();
+    static constexpr std::size_t most_states_kept = 128;
+    // **What each aircraft is**, by its number, as the server's `AIRCRAFT`
+    // messages said. An aircraft said to be somewhere before it has been
+    // introduced is not in here yet.
+    const std::map<std::uint8_t, AircraftDefinition>& roster() const { return roster_; }
     std::uint8_t your_aircraft() const { return mine_; }
     double simulation_time_s() const { return clock_s_; }
 
@@ -84,6 +95,11 @@ private:
     double clock_s_ = 0.0;
     std::uint32_t applied_ = 0;
     std::vector<AircraftState> aircraft_;
+    std::vector<StatePacket> fresh_;
+    Reliable reliable_;
+    std::map<std::uint8_t, AircraftDefinition> roster_;
+
+    void read_what_arrived();
 };
 
 } // namespace glideslope::net
