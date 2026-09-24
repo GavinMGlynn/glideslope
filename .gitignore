@@ -25,3 +25,6 @@ __pycache__/
 
 # Files the tests download, when GLIDESLOPE_DOWNLOADS puts them here (CI does)
 .downloads/
+
+# Claude Code agents' worktrees, each a checkout of its own.
+.claude/worktrees/

@@ -75,6 +75,16 @@ frame is not allowed.
   history that is already pushed needs the project owner's say-so, which is
   given for feature branches (`--force-with-lease`, to rebase onto `main`) and
   never for `main`.
+- **Every pull request is read before it merges**, by the `pr-reviewer`
+  agent (`.claude/agents/pr-reviewer.md`): the diff against these rules and for
+  correctness. It only reports; its findings are fixed on the branch, or said
+  why not, before the merge.
+- **Tails go to agents, narrowly and time-boxed**: one agent per tail, each in
+  its own worktree and pull request, at most three at once (memory, and CI's
+  runners), building with `-j6` at most. An agent that has not committed
+  within about an hour stops and reports rather than widening its scope. It
+  opens its pull request and does not merge; it never uses `--no-verify`, and
+  never kills processes by a pattern another agent's could match.
 - **Start an item with `tools/start_item.sh BRANCH "title"`**: the branch from
   an up-to-date `main`, pushed, with its draft pull request open - CI runs on
   pull requests, so a branch without one is tested by nothing. Merge with
