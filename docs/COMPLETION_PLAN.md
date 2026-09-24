@@ -394,9 +394,20 @@ Found while implementing something else. Added when found, not when remembered.
       fighters' approach and stall lessons fly a stall measured on the model,
       which gives a 196-knot reference speed. *Verification: the F-15C stalls
       near its published speed, and its approach is flown at the manual's.*
-- [ ] **The autopilot banks to its limit even when the aeroplane cannot sustain
+- [x] **The autopilot banks to its limit even when the aeroplane cannot sustain
       the turn.** *Verification: a light aeroplane near its ceiling holds its
-      height through a 90-degree turn as it does at 3,000 ft.*
+      height through a 90-degree turn as it does at 3,000 ft.* Done
+      2026-09-24: all four light aeroplanes, through quarter turns and full
+      circles, each way, at two speeds.
+- [ ] **The altitude hold flies an aeroplane into the stall when asked for a
+      height it cannot hold.** Above its ceiling it keeps pitching up at full
+      throttle until the Cessna is at 46 knots and sinking. *Verification: a
+      light aeroplane asked for a height above its ceiling gives up height, not
+      airspeed, and never drops below its best-climb speed.*
+- [ ] **The AI never leans the mixture**, so on the autopilot a light
+      aeroplane's ceiling is about 8,500 ft - the Cessna 172P's handbook gives
+      13,000. *Verification: the AI climbs each light aeroplane to within its
+      handbook's tolerance of its published service ceiling.*
 - [ ] **Cesium ion on Windows, where a body arrives compressed unasked.**
       *Verification: a Windows machine fetches and reads ion's layer.json, and
       the weather still arrives.* Missing: why asking for compression times out
