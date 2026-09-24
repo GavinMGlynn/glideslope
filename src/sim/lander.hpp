@@ -129,8 +129,15 @@ private:
     bool touched_ = false;
     double touchdown_pitch_deg_ = 0.0; // held through the rollout while she can fly
     double touchdown_above_m_ = 0.0;   // above the runway as the wheels met it
+    // A jet is landed as a jet (the constructor reads it from the model): its
+    // nose lowered as soon as it touches, towards `lowering_pitch_deg_`,
+    // which falls from the attitude it touched at, and its spoilers out.
+    bool jet_ = false;
+    double lowering_pitch_deg_ = 0.0;
 
     void measure();
+    // A jet's elevator from the touch on: the nose lowered to the runway.
+    double lower_the_nose(const AircraftState& s);
 };
 
 } // namespace glideslope::sim

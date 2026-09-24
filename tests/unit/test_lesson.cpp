@@ -1,3 +1,4 @@
+#include "after_touch.hpp"
 #include "harness.hpp"
 
 #include "sim/aircraft.hpp"
@@ -812,6 +813,11 @@ struct Approached {
     // the lesson's "arrive under control" need is set from.
     double sink_at_end_fps = 0.0;
     bool trimmed = false; // started trimmed on the path, as asked
+    // From the touch to the stop, which is further than the lesson watches:
+    // it ends at thirty knots, and the Learjet's nose went through the
+    // runway after that.
+    glideslope::test::AfterTouch after;
+    bool stopped = false;
 };
 
 // **Two miles out on the glidepath, down to a stop.** `fast_by_kts` is flown
@@ -917,11 +923,26 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
             }
             out.sink_most_fps = std::max(out.sink_most_fps, fps);
         }
+        out.after.watch(aircraft);
         if (aircraft.property("position/h-agl-ft") > 5.0) {
             out.least_kts = std::min(out.least_kts, kts);
             out.most_kts = std::max(out.most_kts, kts);
         }
     }
+    // **On to the stop**, which the lesson does not wait for, watching her
+    // all the way. A flying boat is done below twenty knots on the water, as
+    // her lesson is: afloat with her engines idling she is never quite still.
+    const bool seaplane = entry.seaplane;
+    const auto done = [&] {
+        return seaplane ? aircraft.in_water() && aircraft.property("velocities/vc-kts") <= 20.0
+                        : lander.stage() == glideslope::sim::Lander::Stage::stopped;
+    };
+    for (int tick = 0; tick < 300 * steps_per_second && run.finished() && !done(); ++tick) {
+        aircraft.set_controls(lander.fly());
+        aircraft.step();
+        out.after.watch(aircraft);
+    }
+    out.stopped = done();
     out.debrief = run.debrief_lines();
     out.completed = run.completed();
     out.stages = it->stages.size();
@@ -936,6 +957,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
 GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     const auto taught = everyone_taught("approach-and-landing");
     std::size_t walked = 0;
+    std::vector<std::string> came_down_badly;
     for (const std::string& id : taught) {
         const Approached flown = fly_the_approach(id, 0.0);
         std::printf("  %-6s vref %.0f:", id.c_str(), flown.vref_kts);
@@ -950,6 +972,10 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                     flown.sink_least_fps, flown.sink_most_fps, flown.sink_worst_at_s,
                     flown.sink_at_end_fps, flown.completed, flown.stages,
                     flown.trimmed ? "" : ", started untrimmed: JSBSim cannot trim it");
+        std::printf("         after touching: rolled %.1f, pitched down to %.1f, rose %.1f ft, "
+                    "%s\n",
+                    flown.after.worst_roll_deg, flown.after.least_pitch_deg,
+                    flown.after.highest_ft, flown.stopped ? "stopped" : "NOT STOPPED");
         for (const std::string& said : flown.debrief) {
             std::printf("    %s\n", said.c_str());
         }
@@ -959,8 +985,21 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
         check(flown.debrief.empty(),
               id + " flown by the book says nothing, and it said " +
                   std::to_string(flown.debrief.size()) + " things");
+        check(flown.stopped, id + " came to a stop after the approach");
+        for (const std::string& wrong : flown.after.what_went_wrong(id)) {
+            came_down_badly.push_back(wrong);
+        }
         ++walked;
     }
+    // **Every one of them stayed on its wheels, the right way up**, from the
+    // touch to the stop - named all together, so one run shows them all.
+    for (const std::string& wrong : came_down_badly) {
+        std::printf("  CAME DOWN BADLY: %s\n", wrong.c_str());
+    }
+    check(came_down_badly.empty(),
+          std::to_string(came_down_badly.size()) +
+              " things went wrong after touching down at the end of the approach lesson, "
+              "the first: " + (came_down_badly.empty() ? "" : came_down_badly.front()));
     check(walked == taught.size(), "every aeroplane taught an approach was landed");
     // Fourteen of the sixteen: the four light aircraft, the Mosquito, the
     // Learjet, four airliners, two fighters, the B-2A and the Short S.23 -
@@ -1572,6 +1611,8 @@ struct Demonstrated {
     // The furthest her nose got from the runway heading on the take-off
     // roll, which is what a band on keeping straight has to be set from.
     double worst_swing_deg = 0.0;
+    // For a demonstration that lands: from the touch to the end.
+    glideslope::test::AfterTouch after;
 };
 
 // **The instructor flies the demonstration, hands over, and takes it back.**
@@ -1992,6 +2033,7 @@ Demonstrated demonstrate_an_approach(const std::string& id) {
         last = now;
         aircraft.set_controls(now);
         aircraft.step();
+        out.after.watch(aircraft);
         if (!demonstrated) {
             run.update(aircraft, tick);
         }
@@ -2009,6 +2051,7 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_an_approach_and_hands_it_over) {
     const auto flown = everyone_taught("approach-and-landing");
     check(!flown.empty(), "some aeroplane is taught approaches");
     std::size_t walked = 0;
+    std::vector<std::string> came_down_badly;
     for (const std::string& id : flown) {
         const Demonstrated shown = demonstrate_an_approach(id);
         std::printf("  %-13s approach %zu/%zu stages, worst step %.4f over, "
@@ -2029,11 +2072,31 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_an_approach_and_hands_it_over) {
                   " handing over");
         check(shown.worst_to_ai <= a_hands_pace,
               id + " stepped " + std::to_string(shown.worst_to_ai) + " taking back");
+        std::printf("      after touching: rolled %.1f, pitched down to %.1f, rose %.1f ft\n",
+                    shown.after.worst_roll_deg, shown.after.least_pitch_deg,
+                    shown.after.highest_ft);
+        for (const std::string& wrong : shown.after.what_went_wrong(id)) {
+            came_down_badly.push_back(wrong);
+        }
         ++walked;
     }
+    // **And every one stayed the right way up on its wheels from the touch
+    // to the hand-over** - which is where the demonstration's landing ends:
+    // the AI's landing roll goes to the stop in the approach lesson's test
+    // above. Taken back on the roll, she is given the plain autopilot, not
+    // the landing (a tail in docs/COMPLETION_PLAN.md).
+    for (const std::string& wrong : came_down_badly) {
+        std::printf("  CAME DOWN BADLY: %s\n", wrong.c_str());
+    }
+    check(came_down_badly.empty(),
+          std::to_string(came_down_badly.size()) +
+              " things went wrong after touching down in the demonstration, the first: " +
+              (came_down_badly.empty() ? "" : came_down_badly.front()));
     check(walked == flown.size(),
           "every aeroplane taught the exercise demonstrated it: " +
               std::to_string(walked) + " of " + std::to_string(flown.size()));
+    check(walked == 14, "fourteen aeroplanes demonstrated an approach, not " +
+                            std::to_string(walked));
 }
 
 namespace {
@@ -2314,6 +2377,10 @@ struct Circuit {
     double stop_along_m = 0.0;  // where she stopped, beyond the threshold
     double stop_across_m = 0.0; // and right of the centreline
     double touch_across_m = 1e9; // right of the centreline where she touched
+    double touch_along_m = 0.0;  // and how far beyond the threshold
+    double touch_kts = 0.0;      // and how fast
+    // From the touch back on to the runway to the stop.
+    glideslope::test::AfterTouch after;
     std::vector<std::string> debrief;
     std::size_t completed = 0;
     std::size_t stages = 0;
@@ -2552,9 +2619,14 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
             run.update(aircraft, tick);
         }
         out.highest_agl_ft = std::max(out.highest_agl_ft, agl);
+        if (leg == Leg::approach) {
+            out.after.watch(aircraft);
+        }
         if (out.touch_across_m > 1e8 && leg == Leg::approach &&
             (aircraft.property("gear/wow") > 0.5 || aircraft.in_water())) {
             out.touch_across_m = across_the_runway_m(runway, aircraft);
+            out.touch_along_m = along_the_runway_nm(runway, aircraft) * metres_per_nm;
+            out.touch_kts = aircraft.property("velocities/vc-kts");
         }
         const double kcas = aircraft.property("velocities/vc-kts");
         if (run.stage() == 1) {
@@ -2606,14 +2678,19 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     const auto taught = everyone_taught("circuit");
     check(!taught.empty(), "some aeroplane is taught the circuit");
     std::size_t walked = 0;
+    std::vector<std::string> came_down_badly;
     for (const std::string& id : taught) {
         const Circuit flown = fly_a_circuit(id, false);
         std::printf("  %-13s circuit %zu/%zu stages, highest %.0f ft, %s\n", id.c_str(),
                     flown.completed, flown.stages, flown.highest_agl_ft,
                     flown.stopped ? "stopped on the runway" : "NOT STOPPED on the runway");
-        std::printf("      touched %.1f m right of the centreline; stopped %.0f m beyond the "
-                    "threshold, %.1f m right of it\n",
-                    flown.touch_across_m, flown.stop_along_m, flown.stop_across_m);
+        std::printf("      touched %.1f m right of the centreline, %.0f m beyond the threshold "
+                    "at %.0f kt; stopped %.0f m beyond the threshold, %.1f m right of it\n",
+                    flown.touch_across_m, flown.touch_along_m, flown.touch_kts,
+                    flown.stop_along_m, flown.stop_across_m);
+        std::printf("      after touching: rolled %.1f, pitched down to %.1f, rose %.1f ft\n",
+                    flown.after.worst_roll_deg, flown.after.least_pitch_deg,
+                    flown.after.highest_ft);
         const auto d = glideslope::sim::departure_speeds(data(), 
             glideslope::sim::find_aircraft(data(), id).model);
         const auto a = glideslope::sim::approach_speeds(data(),
@@ -2641,11 +2718,26 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
         check(flown.debrief.empty(),
               id + " flew the circuit inside the lesson's limits, and said " +
                   std::to_string(flown.debrief.size()) + " things");
+        for (const std::string& wrong : flown.after.what_went_wrong(id)) {
+            came_down_badly.push_back(wrong);
+        }
         ++walked;
     }
+    // **Every one of them stayed on its wheels, the right way up**, from the
+    // touch back on the runway to the stop.
+    for (const std::string& wrong : came_down_badly) {
+        std::printf("  CAME DOWN BADLY: %s\n", wrong.c_str());
+    }
+    check(came_down_badly.empty(),
+          std::to_string(came_down_badly.size()) +
+              " things went wrong after touching down at the end of the circuit, the first: " +
+              (came_down_badly.empty() ? "" : came_down_badly.front()));
     check(walked == taught.size(),
           "every aeroplane taught the circuit flew it: " + std::to_string(walked) +
               " of " + std::to_string(taught.size()));
+    // Fourteen of the sixteen: the 747-400 and the F-22A have no rotation or
+    // climbing speed to fly one with - `everyone_taught` names them above.
+    check(walked == 14, "fourteen aeroplanes flew the circuit, not " + std::to_string(walked));
 }
 
 // **A circuit flown with one fault has that fault in its debrief, and no

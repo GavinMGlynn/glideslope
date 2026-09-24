@@ -115,7 +115,7 @@ entertainment purposes only."
 | | |
 | --- | --- |
 | Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/A320/A320.xml`, `engine/CFM56_5.xml`, `engine/direct.xml` |
-| Changes | Made by `tools/make_a320.py` with `tools/airliner.py`, whose docstrings list each change and why: made the A320-214, with the CFM56-5B4's 27,000 lb; weights, tanks and payload; the pitch stiffness; the drag, rebuilt as induced and flap drag, with a Mach drag rise and a windmilling engine's drag; the gear's drag; ground effect and the lift with the take-off flaps; the engines' thrust with height and speed. |
+| Changes | Made by `tools/make_a320.py` with `tools/airliner.py`, whose docstrings list each change and why: made the A320-214, with the CFM56-5B4's 27,000 lb; weights, tanks and payload; the pitch stiffness; the drag, rebuilt as induced and flap drag, with a Mach drag rise and a windmilling engine's drag; the gear's drag; ground effect and the lift with the take-off flaps; ground spoilers that take the lift off on the runway, as JSBSim's 737's do; the engines' thrust with height and speed. |
 | In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/a320/a320.xml`, `engine/CFM56-5B4.xml`, `engine/direct.xml`); a test fails if they differ |
 | Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
 

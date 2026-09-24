@@ -26,6 +26,10 @@ struct AircraftFigures {
     double chord_ft = 0.0;
     double empty_weight_lbs = 0.0;
     int engines = 0;
+    // Every engine a jet - a turbojet or a turbofan, not a propeller: what
+    // the FAA's Airplane Flying Handbook (FAA-H-8083-3C) teaches in its own
+    // chapter 16, and lands differently (sim/lander.cpp).
+    bool jet = false;
 };
 
 // Where and how an aircraft starts.
