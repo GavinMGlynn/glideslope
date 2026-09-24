@@ -966,7 +966,7 @@ add_test(NAME the_server_prints_its_usage_when_asked
 add_test(NAME the_server_with_no_flags_takes_its_defaults
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_server> -DARGS=--dry-run -DEXIT=0
-        "-DSTDOUT_MATCHES=players +4.*port +47801.*store +\\(none.*key +\\(none.*timeout +10\\.000 s.*dashboard +yes"
+        "-DSTDOUT_MATCHES=players +4.*port +47801.*store +\\(none.*key +\\(none.*timeout +10\\.000 s.*dashboard +in the terminal"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_server_takes_every_flag_the_item_names_at_once
@@ -975,6 +975,29 @@ add_test(NAME the_server_takes_every_flag_the_item_names_at_once
         "-DARGS=--players 2 --port 47999 --store /tmp/glideslope-session.sqlite --key 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef --timeout 2.5 --headless --dry-run"
         -DEXIT=0
         "-DSTDOUT_MATCHES=players +2.*port +47999.*store +/tmp/glideslope-session\\.sqlite.*key +given, 64 hexadecimal.*timeout +2\\.500 s.*dashboard +no \\(--headless\\)"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+# **The window is a choice made at start, and a clear one.** It is not with
+# --headless or --plain, and its test flags are nothing without it.
+add_test(NAME the_server_draws_its_dashboard_in_a_window_when_asked
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--window --dry-run" -DEXIT=0
+        "-DSTDOUT_MATCHES=dashboard +in a window \\(--window\\)"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+add_test(NAME the_server_refuses_a_window_with_no_dashboard
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--window --headless --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--window draws the dashboard in a window and --headless has none"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+add_test(NAME the_server_refuses_a_window_drawn_as_plain_text
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--window --plain --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--plain is how the terminal's dashboard is drawn"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+add_test(NAME the_server_refuses_the_windows_test_flags_without_a_window
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--window-dump --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=there is none without --window"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 # **A player count outside 1 to 4 is refused**, which is the item's own
@@ -1029,7 +1052,7 @@ add_test(NAME the_server_refuses_plain_and_headless_together
 add_test(NAME the_server_says_when_its_dashboard_is_plain_text
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--plain --dry-run"
-        -DEXIT=0 "-DSTDOUT_MATCHES=dashboard +yes, plain text \\(--plain\\)"
+        -DEXIT=0 "-DSTDOUT_MATCHES=dashboard +in the terminal, plain text \\(--plain\\)"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_server_refuses_a_port_that_is_not_one
@@ -1146,6 +1169,32 @@ add_test(NAME four_players_joining_in_the_reverse_of_their_keys_order_each_fly_t
 set_tests_properties(four_players_joining_in_the_reverse_of_their_keys_order_each_fly_their_own_aircraft
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_slots)
+
+# **The server's window**: it shows the dashboard the terminal would, its drop
+# button drops a player, and it writes a frame. See cmake/server_window.cmake.
+add_test(NAME the_servers_window_shows_the_terminals_dashboard_and_its_drop_button_drops_a_player
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_window -DPORT=47853
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_window.cmake)
+set_tests_properties(the_servers_window_shows_the_terminals_dashboard_and_its_drop_button_drops_a_player
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_window)
+
+# **A server in the cloud has no display**, and needs none: on Linux, where it
+# is hosted, it names no display library, runs with no display, and refuses
+# --window there rather than running without it. See
+# cmake/server_no_display.cmake.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(NAME the_server_links_no_display_library
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope_server> -DSYSTEM=${CMAKE_SYSTEM_NAME}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/binary_dependencies.cmake)
+    add_test(NAME the_server_runs_with_no_display_and_refuses_a_window_there
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_no_display.cmake)
+endif()
 
 # **Every flag the server prints in its usage is one it takes.** A flag added
 # to the usage and not to the parser is documented and silently ignored; see

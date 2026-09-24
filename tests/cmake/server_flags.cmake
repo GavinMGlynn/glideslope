@@ -43,9 +43,12 @@ list(LENGTH _flags _count)
 # The flags REQUIREMENTS.md 6.6 and 8 name, plus the ones the server grew to
 # fly aircraft for a test. Written out so that this test fails when the set
 # changes, rather than quietly walking a smaller one.
+# --window and its three test flags, --window-dump, --window-shot and
+# --window-press, draw the dashboard in an SDL window and read it back
+# (cmake/server_window.cmake).
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
-              --help)
+              --help --window --window-dump --window-shot --window-press)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)

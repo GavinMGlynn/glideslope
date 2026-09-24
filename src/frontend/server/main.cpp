@@ -9,6 +9,8 @@
 // used; not given, one is minted. Either way the public half is printed at
 // startup, because a client cannot begin an `IK` handshake without it.
 
+#include "frontend/server/dashboard.hpp"
+#include "frontend/server/window.hpp"
 #include "net/handshake.hpp"
 #include "platform/end_process.hpp"
 #include "platform/no_crash_dialogs.hpp"
@@ -70,6 +72,8 @@ constexpr const char* kept_key_name = "server-secret";
 // How often the dashboard is drawn, and how often the settings line is
 // repeated when there is no dashboard.
 constexpr double dashboard_every_s = 1.0;
+// And how often the window is drawn, which answers a click.
+constexpr double window_every_s = 0.1;
 // The most aircraft a server flies, which is a session's four players.
 constexpr std::size_t most_flown = 4;
 // How many AI aircraft a server runs unless told otherwise
@@ -104,6 +108,12 @@ struct Options {
     bool headless = false;
     bool dry_run = false;
     bool plain = false;
+    // The dashboard in a window instead of the terminal, and the window's
+    // test flags.
+    bool window = false;
+    bool window_dump = false;
+    std::string window_shot;
+    std::string window_press;
     // What becomes of an aircraft when the person flying it goes.
     bool hand_to_ai_on_leave = false;
 };
@@ -137,6 +147,16 @@ void print_usage(std::FILE* out) {
         "  --plain            draw the dashboard as plain text, without the escape\n"
         "                     codes that clear the screen, so that a test can read\n"
         "                     it. Not with --headless, which has no dashboard\n"
+        "  --window           draw the dashboard in a window instead of the\n"
+        "                     terminal, with a button to drop each player; closing\n"
+        "                     it stops the server. Needs a display: without this\n"
+        "                     the server needs none, as a host in the cloud has\n"
+        "  --window-dump      with --window: at the end, print what the window\n"
+        "                     drew and what the terminal would have, for tests\n"
+        "  --window-shot FILE with --window: at the end, write its last frame as a\n"
+        "                     BMP\n"
+        "  --window-press LABEL  with --window: press this button - 'drop 0' - the\n"
+        "                     first time it is drawn, for tests\n"
         "  --dry-run          print the settings and exit without binding\n"
         "  --version          print the version\n"
         "  --help             print this\n"
@@ -160,6 +180,18 @@ std::string wrong_with(const Options& o) {
     if (o.ai < 0 || o.ai > most_ai) {
         return "--ai is " + std::to_string(o.ai) + ", and a server runs 0 to " +
                std::to_string(most_ai) + " AI aircraft";
+    }
+    if (o.window && o.headless) {
+        return "--window draws the dashboard in a window and --headless has none, "
+               "so the two together say nothing";
+    }
+    if (o.window && o.plain) {
+        return "--plain is how the terminal's dashboard is drawn, and --window draws "
+               "it in a window instead";
+    }
+    if (!o.window && (o.window_dump || !o.window_shot.empty() || !o.window_press.empty())) {
+        return "--window-dump, --window-shot and --window-press are about the window, "
+               "and there is none without --window";
     }
     if (o.plain && o.headless) {
         return "--plain draws the dashboard and --headless has none, so the two "
@@ -233,6 +265,16 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         std::string_view value;
         if (a == "--headless") {
             o.headless = true;
+        } else if (a == "--window") {
+            o.window = true;
+        } else if (a == "--window-dump") {
+            o.window_dump = true;
+        } else if (a == "--window-shot") {
+            if (!next(value)) return std::nullopt;
+            o.window_shot = std::string(value);
+        } else if (a == "--window-press") {
+            if (!next(value)) return std::nullopt;
+            o.window_press = std::string(value);
         } else if (a == "--dry-run") {
             o.dry_run = true;
         } else if (a == "--on-leave") {
@@ -354,7 +396,9 @@ void print_settings(const Options& o, std::FILE* out) {
                                        : "remove the aircraft");
     std::fprintf(out, "dashboard %s\n",
                  o.headless ? "no (--headless)"
-                            : (o.plain ? "yes, plain text (--plain)" : "yes"));
+                            : (o.window ? "in a window (--window)"
+                                        : (o.plain ? "in the terminal, plain text (--plain)"
+                                                   : "in the terminal")));
     std::fprintf(out, "seconds   %s\n",
                  o.seconds > 0.0 ? std::to_string(o.seconds).c_str()
                                  : "(until killed)");
@@ -819,16 +863,74 @@ glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s) {
     return packet;
 }
 
+// A public key as the session knows an identity: the same thirty-two bytes.
 glideslope::net::IdentityKey key_of(const glideslope::net::PublicKey& who) {
     glideslope::net::IdentityKey out{};
     std::copy(who.bytes.begin(), who.bytes.end(), out.begin());
     return out;
 }
 
-void draw_dashboard(const Options& o, const glideslope::net::Slots& slots,
-                    const std::map<std::string, Connection>& connections,
-                    const Fleet* fleet, double up_s, std::uint64_t datagrams,
-                    std::uint64_t bytes) {
+// **What the dashboard shows, gathered once** for whichever draws it - the
+// terminal or the window (dashboard.hpp) - so the two cannot disagree.
+glideslope::server::Dashboard gather_dashboard(
+    std::uint16_t port, const glideslope::net::Slots& slots,
+    const std::map<std::string, Connection>& connections, const Fleet* fleet,
+    const glideslope::server::Happenings& happened, double up_s, std::uint64_t datagrams,
+    std::uint64_t bytes) {
+    glideslope::server::Dashboard d;
+    d.heading = "glideslope_server  " + std::string(glideslope::sim::version());
+    char traffic[128];
+    std::snprintf(traffic, sizeof traffic, "port %u   up %.0f s   %llu datagrams, %llu bytes",
+                  static_cast<unsigned>(port), up_s,
+                  static_cast<unsigned long long>(datagrams),
+                  static_cast<unsigned long long>(bytes));
+    d.traffic = traffic;
+    const glideslope::net::Lobby lobby = slots.lobby();
+    for (const glideslope::net::Lobby::Slot& s : lobby.slots) {
+        const bool open = s.controller == glideslope::net::Controller::nobody;
+        glideslope::server::DashboardSlot row;
+        row.slot = static_cast<int>(s.index);
+        row.who = open ? "(open)" : s.name;
+        // The connection this slot's traffic is on, if there is one. An AI
+        // aircraft holds a slot with nobody at the other end of a socket.
+        // Looked up by key each time, not remembered: a slot is a key's rank,
+        // and moves when somebody whose key sorts first arrives.
+        const Connection* c = nullptr;
+        for (const auto& [address, held] : connections) {
+            if (slots.slot_of(key_of(held.who)) == s.index) {
+                c = &held;
+                row.address = address;
+                break;
+            }
+        }
+        row.ping = "-";
+        if (c != nullptr && c->ping_s >= 0.0) {
+            char buffer[16];
+            std::snprintf(buffer, sizeof buffer, "%.0f", c->ping_s * 1000.0);
+            row.ping = buffer;
+        }
+        row.in = c != nullptr ? in_column(c->bytes_in) : "-";
+        row.out = c != nullptr ? in_column(c->bytes_out) : "-";
+        d.slots.push_back(std::move(row));
+    }
+    if (fleet != nullptr) {
+        for (const Fleet::Aircraft& a : fleet->flown()) {
+            const glideslope::sim::AircraftState s = a.aircraft->state();
+            char line[160];
+            std::snprintf(line, sizeof line, "  %-14s %10.5f  %11.5f  %9.0f", a.id.c_str(),
+                          s.latitude_deg, s.longitude_deg,
+                          a.aircraft->property("position/h-agl-ft"));
+            d.flying.emplace_back(line);
+        }
+    }
+    d.happened.assign(happened.lines().begin(), happened.lines().end());
+    // Short enough for the window's seventy columns.
+    d.footer = "  ping is ms, round trip. Players are dropped from --window.";
+    return d;
+}
+
+// The dashboard in the terminal.
+void print_dashboard(const Options& o, const glideslope::server::Dashboard& d, double up_s) {
     if (o.plain) {
         // No escape codes at all, so that what a test reads is what is drawn.
         // Each pass is marked, because they follow one another down the page
@@ -837,55 +939,11 @@ void draw_dashboard(const Options& o, const glideslope::net::Slots& slots,
     } else {
         std::printf("\033[H\033[2J");
     }
-    std::printf("glideslope_server  %.*s\n",
-                static_cast<int>(glideslope::sim::version().size()),
-                glideslope::sim::version().data());
-    std::printf("port %u   up %.0f s   %llu datagrams, %llu bytes\n\n",
-                static_cast<unsigned>(o.port), up_s,
-                static_cast<unsigned long long>(datagrams),
-                static_cast<unsigned long long>(bytes));
-    std::printf("  slot  who              ping     in     out\n");
-    const glideslope::net::Lobby lobby = slots.lobby();
-    for (const glideslope::net::Lobby::Slot& s : lobby.slots) {
-        const bool open = s.controller == glideslope::net::Controller::nobody;
-        const char* who = open ? "(open)" : s.name.c_str();
-        // The connection this slot's traffic is on, if there is one. An AI
-        // aircraft holds a slot with nobody at the other end of a socket.
-        const Connection* c = nullptr;
-        // Looked up by key each time, not remembered: a slot is a key's rank,
-        // and moves when somebody whose key sorts first arrives.
-        for (const auto& [address, held] : connections) {
-            if (slots.slot_of(key_of(held.who)) == s.index) {
-                c = &held;
-                break;
-            }
-        }
-        std::string ping = "-";
-        if (c != nullptr && c->ping_s >= 0.0) {
-            char buffer[16];
-            std::snprintf(buffer, sizeof buffer, "%.0f", c->ping_s * 1000.0);
-            ping = buffer;
-        }
-        std::printf("  %-4d  %-15s  %4s  %6s  %6s\n", static_cast<int>(s.index), who,
-                    ping.c_str(), c != nullptr ? in_column(c->bytes_in).c_str() : "-",
-                    c != nullptr ? in_column(c->bytes_out).c_str() : "-");
+    for (const std::string& line : glideslope::server::dashboard_lines(d)) {
+        std::printf("%s\n", line.c_str());
     }
-    if (fleet != nullptr && !fleet->flown().empty()) {
-        std::printf("\n  flying           latitude    longitude     ft agl\n");
-        for (const Fleet::Aircraft& a : fleet->flown()) {
-            const glideslope::sim::AircraftState s = a.aircraft->state();
-            std::printf("  %-14s %10.5f  %11.5f  %9.0f\n", a.id.c_str(),
-                        s.latitude_deg, s.longitude_deg,
-                        a.aircraft->property("position/h-agl-ft"));
-        }
-    }
-    // What is not here yet, said on screen rather than left to be noticed.
-    std::printf("\n  ping is milliseconds, round trip. There is no way to drop a "
-                "client from here yet.\n");
     std::fflush(stdout);
 }
-
-// A public key as the session knows an identity: the same thirty-two bytes.
 
 void refuse(glideslope::platform::UdpSocket& socket,
             const glideslope::platform::Address& to, glideslope::net::Refusal why) {
@@ -903,7 +961,8 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
           glideslope::net::Slots& slots,
           std::map<std::string, Connection>& connections, Fleet* fleet,
           const glideslope::platform::Address& from,
-          std::span<const std::uint8_t> datagram, double now_s, const Options& o) {
+          std::span<const std::uint8_t> datagram, double now_s, const Options& o,
+          glideslope::server::Happenings& happened) {
     glideslope::net::Reader reader(datagram);
     glideslope::net::Envelope envelope;
     glideslope::net::Refusal why{};
@@ -990,6 +1049,8 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             c.bytes_out += out.size();
         }
         connections[who] = std::move(c);
+        happened.add(now_s, "admitted " + identity.name + " to slot " +
+                                std::to_string(static_cast<int>(*slot)) + " from " + who);
         if (o.headless) {
             std::printf("admitted %s to slot %d\n", identity.name.c_str(),
                         static_cast<int>(*slot));
@@ -1083,7 +1144,58 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
     }
 }
 
+// **A connection let go**, for going quiet or by the operator's drop button:
+// its aircraft taken out of the sky or handed to an AI pilot as `--on-leave`
+// says, and its slot given back. Returns the connection after it.
+std::map<std::string, Connection>::iterator let_go(
+    std::map<std::string, Connection>& connections,
+    std::map<std::string, Connection>::iterator it, glideslope::net::Slots& slots,
+    Fleet* fleet, const Options& o) {
+    // **The slot goes back only when nobody else is on that key.** A slot
+    // belongs to a key, not to an address, and one key may be connected from
+    // two addresses - a client restarting gets a fresh port. Releasing on the
+    // first to go would take the slot from the one still flying.
+    const glideslope::net::PublicKey going = it->second.who;
+    if (fleet != nullptr && it->second.aircraft != glideslope::net::no_aircraft) {
+        const bool to_ai = fleet->take(it->second.aircraft, o.hand_to_ai_on_leave);
+        std::printf("their aircraft %s\n",
+                    to_ai ? "is now flown by an AI pilot" : "is out of the sky");
+    }
+    it = connections.erase(it);
+    const bool elsewhere =
+        std::any_of(connections.begin(), connections.end(),
+                    [&](const auto& other) { return other.second.who == going; });
+    if (!elsewhere) {
+        slots.release(key_of(going));
+    }
+    return it;
+}
+
 int run(const Options& o) {
+    // **The window, if one was asked for**, before anything else: a server
+    // told to draw a window that cannot is refused at once, with the reason,
+    // rather than running without the thing it was asked to show.
+    std::unique_ptr<glideslope::server::Window> window;
+    if (o.window) {
+        std::string why;
+        window = glideslope::server::Window::open(why);
+        if (!window) {
+            std::fprintf(stderr,
+                         "glideslope_server: --window needs a display, and could not "
+                         "open a window: %s\n",
+                         why.c_str());
+            return 1;
+        }
+        if (o.window_dump) {
+            window->keep_text();
+        }
+        if (!o.window_shot.empty()) {
+            window->keep_frame();
+        }
+        if (!o.window_press.empty()) {
+            window->press(o.window_press);
+        }
+    }
     std::optional<glideslope::platform::UdpSocket> socket =
         glideslope::platform::UdpSocket::bound(o.port);
     if (!socket) {
@@ -1157,6 +1269,9 @@ int run(const Options& o) {
     // and what a `LOBBY` would carry.
     glideslope::net::Slots slots(static_cast<std::uint8_t>(o.players));
     std::map<std::string, Connection> connections;
+    glideslope::server::Happenings happened;
+    // What the window last drew, for --window-dump.
+    glideslope::server::Dashboard last_drawn;
 
     // The aircraft it flies. Building this reaches the network for terrain,
     // so it is not built at all when there is nothing to fly.
@@ -1191,7 +1306,7 @@ int run(const Options& o) {
             ++datagrams;
             bytes += got;
             take(*socket, mine, slots, connections, fleet ? &*fleet : nullptr, from,
-                 std::span<const std::uint8_t>(into.data(), got), up_s, o);
+                 std::span<const std::uint8_t>(into.data(), got), up_s, o, happened);
         }
 
         // **The server knocks on every connection once a second**, and the
@@ -1222,28 +1337,11 @@ int run(const Options& o) {
                 std::printf("let go %s after %.1f s of silence\n", it->first.c_str(),
                             up_s - it->second.last_heard_s);
                 std::fflush(stdout);
-                // **The slot goes back only when nobody else is on that
-                // key.** A slot belongs to a key, not to an address, and one
-                // key may be connected from two addresses - a client
-                // restarting gets a fresh port. Releasing on the first to go
-                // quiet would take the slot from the one still flying.
-                const glideslope::net::PublicKey going = it->second.who;
-                if (fleet && it->second.aircraft != glideslope::net::no_aircraft) {
-                    const bool to_ai =
-                        fleet->take(it->second.aircraft, o.hand_to_ai_on_leave);
-                    std::printf("their aircraft %s\n",
-                                to_ai ? "is now flown by an AI pilot"
-                                      : "is out of the sky");
-                }
-                it = connections.erase(it);
-                const bool elsewhere =
-                    std::any_of(connections.begin(), connections.end(),
-                                [&](const auto& other) {
-                                    return other.second.who == going;
-                                });
-                if (!elsewhere) {
-                    slots.release(key_of(going));
-                }
+                happened.add(up_s, "let go " + it->first + " after " +
+                                       std::to_string(static_cast<int>(
+                                           up_s - it->second.last_heard_s)) +
+                                       " s of silence");
+                it = let_go(connections, it, slots, fleet ? &*fleet : nullptr, o);
             } else {
                 ++it;
             }
@@ -1288,9 +1386,35 @@ int run(const Options& o) {
             }
         }
 
-        if (!o.headless && up_s - drawn_at_s >= dashboard_every_s) {
-            draw_dashboard(o, slots, connections, fleet ? &*fleet : nullptr, up_s,
-                           datagrams, bytes);
+        // **The window is pumped every pass and drawn ten times a second**,
+        // so a click is answered at once; closing it stops the server.
+        if (window) {
+            if (!window->pump()) {
+                std::printf("the window was closed\n");
+                break;
+            }
+            if (up_s - drawn_at_s >= window_every_s) {
+                last_drawn = gather_dashboard(socket->port(), slots, connections,
+                                              fleet ? &*fleet : nullptr, happened, up_s,
+                                              datagrams, bytes);
+                const auto drop = window->draw(last_drawn);
+                drawn_at_s = up_s;
+                if (drop) {
+                    const auto it = connections.find(*drop);
+                    if (it != connections.end()) {
+                        std::printf("dropped %s by the operator\n", drop->c_str());
+                        std::fflush(stdout);
+                        happened.add(up_s, "dropped " + *drop + " by the operator");
+                        (void)let_go(connections, it, slots, fleet ? &*fleet : nullptr, o);
+                    }
+                }
+            }
+        } else if (!o.headless && up_s - drawn_at_s >= dashboard_every_s) {
+            print_dashboard(o,
+                            gather_dashboard(socket->port(), slots, connections,
+                                             fleet ? &*fleet : nullptr, happened, up_s,
+                                             datagrams, bytes),
+                            up_s);
             drawn_at_s = up_s;
         }
         if (o.seconds > 0.0 && up_s >= o.seconds) {
@@ -1300,6 +1424,28 @@ int run(const Options& o) {
             // Nothing to do: the socket does not block, so without this the
             // server would spin a core for no reason.
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+    }
+
+    // **What the window showed**, for a test: every line it drew and every
+    // button, and the lines the terminal would have printed for the same
+    // moment, which must be the same text.
+    if (window && o.window_dump) {
+        for (const std::string& line : window->drawn()) {
+            std::printf("window: %s\n", line.c_str());
+        }
+        // The terminal's lines for the very facts the window's last frame
+        // was drawn from, so that nothing but the drawing can differ.
+        for (const std::string& line : glideslope::server::dashboard_lines(last_drawn)) {
+            std::printf("terminal: %s\n", line.c_str());
+        }
+    }
+    if (window && !o.window_shot.empty()) {
+        if (window->shot(o.window_shot)) {
+            std::printf("wrote %s\n", o.window_shot.c_str());
+        } else {
+            std::fprintf(stderr, "glideslope_server: could not write %s\n",
+                         o.window_shot.c_str());
         }
     }
 

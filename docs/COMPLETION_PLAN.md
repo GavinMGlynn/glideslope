@@ -225,7 +225,7 @@ ends in a debrief, never a score.
 - [x] **Reliable delivery** for the session's messages. *Verification: every
       message arrives exactly once and in order under injected loss.* Done
       2026-09-22.
-- [ ] **The server** — `glideslope_server`, its flags, and a dashboard in the
+- [x] **The server** — `glideslope_server`, its flags, and a dashboard in the
       terminal by default or in an SDL window with `--window`: who is
       connected, their ping and traffic, what is flying, a log of who came and
       went, and a drop button per player. `--headless` runs with neither, as a
@@ -233,7 +233,7 @@ ends in a debrief, never a score.
       outside 1 to 4 is refused, the window shows the same facts as the
       terminal, its drop button drops that player, `--window` with no display
       is refused, and without `--window` it runs where no display library is
-      installed.* **In progress.** Missing: `--window` and the window.
+      installed.* Done 2026-09-24.
 - [x] **Lobby, identity and slot assignment.** *Verification: slots come out the
       same whatever order players connect in.* Done 2026-09-22.
 - [x] **The server flies every aircraft**, anywhere on Earth. *Verification:
@@ -254,9 +254,8 @@ ends in a debrief, never a score.
       and every client shows it.*
 - [x] **Every network parser fuzzed** under sanitizers. *Verification: the seed
       corpus goes through every parser in CI.* Done 2026-09-22.
-- [ ] **The server's test flags.** *Verification: each is used by a ctest.* **In
-      progress.** Missing: `--window-dump`, `--window-shot` and
-      `--window-press`, which wait on the dashboard being a window.
+- [x] **The server's test flags.** *Verification: each is used by a ctest.*
+      Done 2026-09-24.
 - [ ] **Network checks in CI** with injected latency, loss and jitter.
       *Verification: prediction, correction, interpolation and the player limit
       all within their bounds.*

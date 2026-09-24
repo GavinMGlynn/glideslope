@@ -328,8 +328,13 @@ predicted ground contact for their own aircraft; the server's result wins.
 
 - Separate binary, `glideslope_server`.
 - Fixed 120 Hz simulation step for all aircraft; replication at 20–30 Hz.
-- `--headless` for no window; otherwise a live dashboard with connected clients,
-  ping, traffic and a drop control.
+- A live dashboard - connected clients, ping, traffic, what is flying, who came
+  and went - in the terminal by default, or in an SDL window with `--window`,
+  which adds a drop control per player; `--headless` for neither. **The window
+  is a choice made at start, not a default** (the project owner, 2026-09-24):
+  the server is to be hosted headless in the cloud - an EC2 instance running
+  Rocky Linux 10, or Fargate - so it must run where no display library is
+  installed, and does unless `--window` is given.
 - `--players N`: how many players the server accepts, 1 to 4 (default 4). A
   fifth connection is refused with a message saying the session is full.
 - `--port`, `--store FILE` (SQLite), `--key HEX` (server secret, minted once and

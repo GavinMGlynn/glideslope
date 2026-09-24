@@ -374,13 +374,24 @@ target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_net glide
 glideslope_configure(glideslope_cli)
 
 # ---------------------------------------------------------------------------
-# glideslope_server - the server, which owns every aircraft. It links nothing
-# presentational: its dashboard is written to a terminal, not drawn.
+# glideslope_server - the server, which owns every aircraft. Its dashboard is
+# in the terminal, or in an SDL window with --window: SDL is linked statically
+# and loads a display library only when that window is asked for, so a server
+# without --window runs where none is installed, as a host in the cloud has.
 # ---------------------------------------------------------------------------
 add_executable(glideslope_server
-    src/frontend/server/main.cpp)
+    src/frontend/server/main.cpp
+    src/frontend/server/dashboard.cpp)
 target_link_libraries(glideslope_server PRIVATE glideslope_sim glideslope_net
                                                 glideslope_world glideslope_platform)
+# A server-only build has no SDL at all, and so no window: --window is refused
+# there, saying why (window_none.cpp).
+if(GLIDESLOPE_SERVER_ONLY)
+    target_sources(glideslope_server PRIVATE src/frontend/server/window_none.cpp)
+else()
+    target_sources(glideslope_server PRIVATE src/frontend/server/window.cpp)
+    target_link_libraries(glideslope_server PRIVATE SDL3::SDL3-static)
+endif()
 glideslope_configure(glideslope_server)
 
 # ---------------------------------------------------------------------------
