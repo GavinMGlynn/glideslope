@@ -13,9 +13,11 @@
 // program runs, after ExitProcess has stopped every other thread, so it comes
 // after any teardown the runtime does. There it allocates as JSBSim's
 // thread_local does - make_shared - and says so on standard error, straight to
-// the handle. The ctest (tests/CMakeLists.txt, through expect_run.cmake) passes only if that
-// line arrives and the program exits 0. Ended through exit(), a debug build
-// has no heap by then and crashes (seen: CI, the harness returning from main).
+// the handle. The ctest (tests/CMakeLists.txt, through expect_run.cmake) passes
+// only if that line arrives and the program exits 0. Ended through exit(), a
+// debug build has no heap by then: on CI (run 35940490213, the harness still
+// returning from main) the line never came, the loader swallowing whatever the
+// allocation raised, and the test failed.
 //
 // It is Windows' runtime and Windows' loader, so elsewhere the test says it is
 // skipped, never passed.
@@ -42,18 +44,27 @@ std::atomic<bool> armed{false};
 
 } // namespace
 
+namespace {
+
+void say(const char* line) {
+    DWORD wrote = 0;
+    WriteFile(GetStdHandle(STD_ERROR_HANDLE), line, static_cast<DWORD>(std::strlen(line)),
+              &wrote, nullptr);
+}
+
+} // namespace
+
 extern "C" void NTAPI glideslope_process_end_probe(PVOID, DWORD reason, PVOID) {
     if (reason != DLL_PROCESS_DETACH || !armed.load()) {
         return;
     }
+    // First, that the call came at all - so that a failure says which of the
+    // two it was.
+    say("the process's end reached the program's last call\n");
     // What JSBSim's GlobalLogger does in every thread that starts.
     const auto allocated = std::make_shared<std::string>(64, 'x');
-    const char* line = allocated->size() == 64
-                           ? "the runtime still allocates as the process ends\n"
-                           : "an allocation at the process's end came back wrong\n";
-    DWORD wrote = 0;
-    WriteFile(GetStdHandle(STD_ERROR_HANDLE), line, static_cast<DWORD>(std::strlen(line)),
-              &wrote, nullptr);
+    say(allocated->size() == 64 ? "the runtime still allocates as the process ends\n"
+                                : "an allocation at the process's end came back wrong\n");
 }
 
 // Into the image's TLS callback list, which the loader calls on every thread's

@@ -5,6 +5,7 @@
 // test, and inside the server.
 
 #include "net/handshake.hpp"
+#include "platform/end_process.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "net/inputs.hpp"
 #include "net/inside.hpp"
@@ -180,7 +181,7 @@ int height(const std::filesystem::path& data, std::string_view latitude_text,
         if (copy.empty() || *end != '\0' || !(v >= low && v <= high)) {
             std::fprintf(stderr, "glideslope_cli: %s must be a number from %g to %g\n",
                          what, low, high);
-            std::exit(2);
+            glideslope::platform::end_process(2);
         }
         return v;
     };
@@ -307,7 +308,7 @@ int sky(const std::filesystem::path& data, std::string_view report,
         if (copy.empty() || *end != '\0' || !(v >= low && v <= high)) {
             std::fprintf(stderr, "glideslope_cli: %s must be a number from %g to %g\n",
                          what, low, high);
-            std::exit(2);
+            glideslope::platform::end_process(2);
         }
         return v;
     };
@@ -755,7 +756,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
     }
 }
 
-int main(int argc, char** argv) {
+static int run_program(int argc, char** argv) {
     // First: a failed assert prints and ends the program rather than
     // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
     glideslope::platform::no_crash_dialogs();
@@ -912,4 +913,10 @@ int main(int argc, char** argv) {
     // finds out.
     print_usage(stderr);
     return 2;
+}
+
+int main(int argc, char** argv) {
+    // The process ends with its C runtime whole until every other thread has
+    // stopped - Windows' own threads too (platform/end_process.hpp).
+    glideslope::platform::end_process(run_program(argc, argv));
 }
