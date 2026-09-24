@@ -37,6 +37,13 @@ done
 if [[ "${GLIDESLOPE_PUSH_QUICK:-1}" == "0" ]] || [[ ! -d "$root/build/linux-debug" ]]; then
     exit 0
 fi
+# **The build and the tests do not see git's hook environment.** Git exports
+# GIT_DIR and its like to a hook, and a test that makes a scratch repository
+# inherited them and committed into this one instead (2026-09-24). Everything
+# git itself needed from them is done above.
+while read -r var; do
+    unset "$var"
+done < <(git rev-parse --local-env-vars)
 cd "$root" || exit 1
 if ! cmake --build --preset linux-debug -j8 > /tmp/glideslope-pre-push-build.log 2>&1; then
     tail -30 /tmp/glideslope-pre-push-build.log >&2

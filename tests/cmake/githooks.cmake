@@ -10,6 +10,20 @@
 # counted, and the count is held to the number of cases.
 
 cmake_minimum_required(VERSION 3.28)
+
+# **Git's own environment, cleared first.** Run from a git hook - pre-push
+# runs the quick tests, and this is one - git has exported GIT_DIR and its
+# like, and every git command below would have acted on the repository being
+# pushed instead of the scratch one: on 2026-09-24 it committed its cases onto
+# two pull requests' branches, deleting the tree, and set that repository bare
+# with this test's name and address. These are the variables
+# `git rev-parse --local-env-vars` names.
+foreach(_var GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG GIT_CONFIG_PARAMETERS
+        GIT_CONFIG_COUNT GIT_OBJECT_DIRECTORY GIT_DIR GIT_WORK_TREE GIT_IMPLICIT_WORK_TREE
+        GIT_GRAFT_FILE GIT_INDEX_FILE GIT_NO_REPLACE_OBJECTS GIT_REPLACE_REF_BASE GIT_PREFIX
+        GIT_SHALLOW_FILE GIT_COMMON_DIR)
+    unset(ENV{${_var}})
+endforeach()
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/docs")
 
@@ -21,6 +35,15 @@ function(git)
 endfunction()
 
 git(init -q -b main)
+# **And this is the scratch repository**, before anything is written to it.
+execute_process(COMMAND git rev-parse --absolute-git-dir WORKING_DIRECTORY "${WORK}"
+                OUTPUT_VARIABLE _git_dir OUTPUT_STRIP_TRAILING_WHITESPACE)
+file(REAL_PATH "${WORK}/.git" _scratch_git)
+file(REAL_PATH "${_git_dir}" _git_dir)
+if(NOT _git_dir STREQUAL _scratch_git)
+    message(FATAL_ERROR "git is working in ${_git_dir}, not the scratch repository "
+                        "${_scratch_git}: nothing more is tried")
+endif()
 git(config user.email test@example.com)
 git(config user.name "hook test")
 git(config core.hooksPath "${HOOKS}")
@@ -94,6 +117,13 @@ git(add a.txt)
 git(commit -q -m "plain")
 expect(accepted "a plain commit")
 
+# **Every commit that went through went into the scratch repository**: the
+# first, and the four let through.
+execute_process(COMMAND git rev-list --count HEAD WORKING_DIRECTORY "${WORK}"
+                OUTPUT_VARIABLE _commits OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT _commits EQUAL 4)
+    message(FATAL_ERROR "the scratch repository holds ${_commits} commits, not the 4 let through")
+endif()
 if(NOT _cases EQUAL 8)
     message(FATAL_ERROR "${_cases} cases were tried, and there are 8")
 endif()
