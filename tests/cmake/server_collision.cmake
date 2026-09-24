@@ -55,10 +55,13 @@ set(_heard_one "${WORK}/heard-one.txt")
 set(_heard_two "${WORK}/heard-two.txt")
 file(REMOVE "${_heard_one}" "${_heard_two}")
 execute_process(
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1 --key ${_one}
-            --heard "${_heard_one}"
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1 --key ${_two}
-            --heard "${_heard_two}"
+    # Each stays until it has heard both fly again - waiting for what it is
+    # waiting for, with ten minutes only the most it will: thirty seconds of
+    # the clock was less than a debug server on CI took to get there.
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 600 --after 1 --key ${_one}
+            --heard "${_heard_one}" --until-flying-again 2
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 600 --after 1 --key ${_two}
+            --heard "${_heard_two}" --until-flying-again 2
     # Until both clients have gone, which is long enough on any machine for the
     # collision and the flying again they are waiting to hear.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 0 --headless
