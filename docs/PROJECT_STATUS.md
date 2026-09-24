@@ -136,14 +136,15 @@ turns alone, having no stall or climbing speed; the F-15C, F-35B and
 Learjet are not flown rotating early (a tail). See the log for 2026-09-22
 to 2026-09-24.
 
-**Phase 6, client and server, is in progress — 10 of 17 items.** A server
-flies every aircraft, wherever on Earth, with AI aircraft of its own; clients
-join a lobby, stream their inputs, predict their own aircraft and reconcile,
-and see the others 100 ms in the past, over a reliable layer whose every
-parser is fuzzed. Missing: the transport's verification (no client written
-from `TRANSPORT.md` alone), the server's dashboard as a window and the test
-flags that wait on it, collisions, the network checks in CI, a Dockerfile
-that has been built, and four machines in one sky.
+**Phase 6, client and server, is in progress — 15 of 17 items.** A server
+flies every aircraft, wherever on Earth, with AI aircraft of its own, and
+resolves collisions; clients join a lobby, stream their inputs, predict their
+own aircraft and reconcile, and see the others 100 ms in the past, over a
+reliable layer whose every parser is fuzzed - and all of that holds, within
+stated bounds, through 200 ms of latency with jitter and loss. Missing: the
+Deployment item's tick (its Dockerfile is built; its pull request is open),
+and four machines in one sky - the graphical client does not yet draw the
+server's aircraft.
 
 ## Gaps
 
@@ -215,6 +216,89 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Prediction, interpolation and the player limit through a worse network, 2026-09-24 — item done
+
+**What was built.** The Phase 6 item "Network checks in CI with injected
+latency, loss and jitter".
+
+- **`glideslope_impair`** (`tests/tools/impair.cpp`) is a UDP relay that
+  delays, jitters and drops datagrams both ways, drawn from a seed. It gives
+  each client a socket of its own towards the server, so the server still
+  tells them apart. It does what `tc netem` does, without needing root or
+  Linux, so the same check runs on every CI platform. It stops when its
+  standard input ends, which, last in a test's pipeline, is when the server
+  has gone.
+- **`glideslope_cli connect --predict MODEL`** is what a real client does,
+  measured. It flies its own JSBSim on a pilot whose controls never stop
+  changing, and reconciles it from each update's own-motion block. It draws
+  every other aircraft 100 ms behind at 60 Hz. `--track FILE` writes down
+  every update heard and every frame drawn.
+- **`glideslope_interpolation_check`** judges one client's frames against
+  another client's updates. That other client is connected straight to the
+  server and hears everything.
+- **The tests** are
+  `prediction_interpolation_and_the_player_limit_hold_at_100_ms_with_jitter_and_loss`
+  and `..._at_200_ms_...` (`tests/cmake/server_impaired.cmake`):
+  - 100 ms with 30 ms of jitter and 5% loss; 200 ms with 60 ms of jitter and
+    10% loss.
+  - Each runs a server with room for two, the reference client, the predicting
+    client, and a third client through the relay that must be refused as full.
+
+**The bounds, and one run's figures (Linux, debug build).**
+
+| | bound | 100 ms | 200 ms |
+|---|---|---|---|
+| prediction error, worst | 8 m / 10 m | 3.2 m | 5.4 m |
+| correction, worst (none may snap) | 20 m | 3.2 m | 4.6 m |
+| interpolation error, worst | 2 m | 0.025 m | 0.040 m |
+| the third client | refused as full | refused | refused |
+
+The test also asserts:
+
+- that the relay lost datagrams both ways;
+- that at least 150 updates were compared and 1,500 frames judged;
+- that joining took no more than 30 inputs.
+
+**Each was seen to fail** on a deliberate bug, and each bug was reverted:
+
+- reconciliation that replays nothing: a worst prediction error of 30.7 m;
+- an interpolator that draws the present instead of 100 ms ago: every frame
+  was 4.8 m out;
+- a player limit off by one: the third client was let in.
+
+The 20 m correction bound and the relay's loss check were not made to fail.
+
+**What was learned on the way.**
+
+- **Correction size cannot see a client that lags.** The first measure was the
+  size of each correction. With the replay deleted, it still passed: a client
+  put back to each update, which never flies forward again, is always behind
+  by the latency, but only a little behind the previous update, so its
+  corrections are small. The prediction error is now measured directly. Where
+  the server says the aircraft was on input *k* is held against where this
+  client had flown it on input *k*.
+- **A client that joins is a trip behind, and says so.** The first update is a
+  trip old, and the server flew the aircraft for that trip before any input of
+  the client's arrived. The client now keeps the inputs it flies before it has
+  an aircraft and flies them forward from the first update. The inputs flown
+  before the server has applied any are counted and not compared (12 to 17 at
+  200 ms).
+- **The first interpolation judge judged itself.** Held against the updates it
+  had heard, a client can only agree with itself, because what it lost it
+  never knew. The judge is now the reference client that hears everything.
+  For its first 100 ms, an aircraft is held where it was first heard to be
+  (`net/interpolation.cpp`, by design). Those frames, six to eight a run, are
+  counted and left out.
+- **Corrections are metres, not the millimetres measured in-process.** The
+  server applies an input when it arrives, so an input made late by jitter is
+  flown late. The server also does not say how far into its latest input it
+  had flown. At 50 m/s, 60 ms of jitter is 3 m. This is within the bounds and
+  is what they were set from; it is a tail in `COMPLETION_PLAN.md`.
+- **A program in a pipeline that outlives the next one is killed.** In a
+  CMake pipeline each program's standard output feeds the next. A client ahead
+  of one that left sooner died of SIGPIPE when it printed. The pipeline is now
+  ordered by lifetime, and the test holds every exit code (the refused client
+  1, all others 0).
 ### Two server tests wait for what they are waiting for, 2026-09-24 — tails done
 
 Both failed on CI's slow runners, on pull requests that had not touched what
@@ -8332,6 +8416,12 @@ checklists are part of. A lesson ends in a debrief, never a score
       second test stops a reconciliation that does nothing from passing: a
       client flown hard over on inputs the server never saw drifts 61 m, and
       is put back to within a rounding error.
+      **Over a network, 2026-09-24**: the figures above are in-process, where
+      the server's word arrives with the exact step it was taken at. Through
+      `glideslope_impair`, at 200 ms with jitter and loss, the prediction error
+      is metres. The server flies an input from when it arrives, and does not
+      say how far into it it had flown. See the log entry "Prediction,
+      interpolation and the player limit through a worse network".
 
 #### Other aircraft interpolated 100 ms in the past
 

@@ -1146,6 +1146,11 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_duplicate)
 # **A gearstick client is refused.** gearstick's first datagram, made from its
 # own TRANSPORT.md by tools/make_gearstick_hello.py, sent to a running server;
 # the answer must be NOT_THIS_PROTOCOL. See cmake/server_gearstick.cmake.
+add_executable(glideslope_impair tools/impair.cpp)
+target_link_libraries(glideslope_impair PRIVATE glideslope_platform)
+glideslope_configure(glideslope_impair)
+add_executable(glideslope_interpolation_check tools/interpolation_check.cpp)
+glideslope_configure(glideslope_interpolation_check)
 add_executable(glideslope_datagram_check tools/datagram_check.cpp)
 target_link_libraries(glideslope_datagram_check PRIVATE glideslope_platform)
 glideslope_configure(glideslope_datagram_check)
@@ -1224,6 +1229,30 @@ add_test(NAME two_aircraft_on_a_collision_course_collide_on_the_server_and_every
 set_tests_properties(two_aircraft_on_a_collision_course_collide_on_the_server_and_every_client_is_told
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_collision)
+
+# **Prediction, interpolation and the player limit hold through a network
+# made worse on purpose** - at 100 ms and at 200 ms each way, with jitter and
+# loss. See cmake/server_impaired.cmake.
+foreach(_net IN ITEMS "100;30;5;11;47880;8" "200;60;10;12;47882;10")
+    list(GET _net 0 _delay)
+    list(GET _net 1 _jitter)
+    list(GET _net 2 _loss)
+    list(GET _net 3 _seed)
+    list(GET _net 4 _port)
+    list(GET _net 5 _predict_m)
+    set(_name prediction_interpolation_and_the_player_limit_hold_at_${_delay}_ms_with_jitter_and_loss)
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+            -DCHECK=$<TARGET_FILE:glideslope_interpolation_check>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_impaired_${_delay}
+            -DPORT=${_port} -DDELAY=${_delay} -DJITTER=${_jitter} -DLOSS=${_loss}
+            -DSEED=${_seed} -DPREDICT_M=${_predict_m}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_impaired.cmake)
+    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_impaired_${_delay})
+endforeach()
 
 # **The pre-commit hook refuses what it says it refuses**, and nothing else.
 # See cmake/githooks.cmake.

@@ -260,9 +260,10 @@ ends in a debrief, never a score.
       corpus goes through every parser in CI.* Done 2026-09-22.
 - [x] **The server's test flags.** *Verification: each is used by a ctest.*
       Done 2026-09-24.
-- [ ] **Network checks in CI** with injected latency, loss and jitter.
+- [x] **Network checks in CI** with injected latency, loss and jitter.
       *Verification: prediction, correction, interpolation and the player limit
-      all within their bounds.*
+      all within their bounds.* Done 2026-09-24: at 100 and 200 ms, with jitter
+      and loss.
 - [x] **`THREATS.md` written.** *Verification: every message the server accepts
       is named with its defence.* Done 2026-09-22.
 - [x] **Deployment** — a systemd unit and a Dockerfile under `deploy/`.
@@ -312,6 +313,10 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [ ] **Over a network a client's own aircraft is corrected by metres**, because
+      the server does not say how far into its latest input it had flown.
+      *Verification: through 200 ms with jitter and loss, the worst prediction
+      error is under a metre.*
 - [x] **Two server tests counted wall-clock seconds on slow runners**: one
       counted inputs still in flight, and a late client arrived before a slow
       server was flying. *Verification: the client waits for its last input to

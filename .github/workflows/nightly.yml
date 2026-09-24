@@ -58,6 +58,6 @@ jobs:
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0
           DISPLAY=:99 ctest --preset linux-debug -j2 --repeat until-fail:5 \
-              -R 'server|client|window|players|collision|systemd|online|package' || rc=$?
+              -R 'server|client|window|player|collision|systemd|online|package' || rc=$?
           kill $xvfb
           exit $rc
