@@ -19,7 +19,7 @@ anything proved elsewhere names the CI run.
 
 ---
 
-## The honest summary, 2026-09-18
+## The honest summary, 2026-09-24
 
 **A Cessna 172P flies to its handbook over the real ground, in the real weather,
 with a HUD and flight controllers, and the ground is drawn - satellite imagery
@@ -35,8 +35,9 @@ HOTAS and yokes, with a HUD that tests read back out of the frame, and every
 platform's package draws a frame of it on Vulkan, Direct3D 12 or Metal: sky,
 HUD and the terrain, drawn by Cesium Native from the DEM over the cells around
 where the flight starts, with EOX's Sentinel-2 cloudless imagery on it. There
-is no aircraft model, cockpit or server, and one aircraft of the sixteen the
-roster now names. The weather is real: METARs and winds aloft, fetched live,
+are sixteen aircraft, fifteen of them drawn from FlightGear models, and a
+server that flies them for up to four clients, which is not finished (Phase
+6, below). The weather is real: METARs and winds aloft, fetched live,
 set JSBSim's wind, temperature and pressure, and the air moves as a pattern of
 its own - gusts, turbulence, a boundary layer, reported shear, microbursts,
 thermals and the terrain's lift - the same on every machine - and the weather
@@ -117,13 +118,32 @@ holds for heading, altitude, airspeed and vertical speed; flight plans flown
 past their waypoints; the user/AI controller swap; and `--autopilot`, with
 which the client's AI flies a plan. It was begun before Phase 3b was
 finished, which it should not have been; its work stopped until 3b was
-proved. **Phase 5c, learning to fly, is new and not started:
-0 of 4 items.** Added
-2026-09-18, as were the sixteen-aircraft roster of Phase 5 and a tail for
-terrain over the whole Earth; see the log. On 2026-09-19 Phase 8 gained an
-autopilot that flies an approach and lands, and a copilot that flies with
-you - changing the autopilot's modes and the plan as the flight goes, never a
-control surface - and the drawn weather's gaps became a tail.
+proved. **Phase 5b, terrain providers, is complete — 4 of 4 items**: Cesium ion
+and Google Photorealistic 3D Tiles with the user's own token or key, each
+with its attribution on screen, and the gap between visual and collision
+terrain measured at reference airfields.
+
+**Phase 5c, learning to fly, is complete — 4 of 4 items** (2026-09-24):
+checklists in every aircraft's data, ticking themselves on screen; lessons -
+take-off, the circuit, climbs and descents, turns, stalls, and approach and
+landing - for all seven classes, 42 lesson files, each flown by the book to
+an empty debrief by every aeroplane whose figures give the speeds it names,
+and each flown with a stated fault naming that fault and no other; and the
+instructor, the AI pilot, demonstrating each and handing the controls over
+and back with no step. The AI pilot takes off, flies the pattern, lands and
+stops - on water, too, in the flying boat. The 747-400 and F-22A are taught
+turns alone, having no stall or climbing speed; the F-15C, F-35B and
+Learjet are not flown rotating early (a tail). See the log for 2026-09-22
+to 2026-09-24.
+
+**Phase 6, client and server, is in progress — 10 of 17 items.** A server
+flies every aircraft, wherever on Earth, with AI aircraft of its own; clients
+join a lobby, stream their inputs, predict their own aircraft and reconcile,
+and see the others 100 ms in the past, over a reliable layer whose every
+parser is fuzzed. Missing: the transport's verification (no client written
+from `TRANSPORT.md` alone), the server's dashboard as a window and the test
+flags that wait on it, collisions, the network checks in CI, a Dockerfile
+that has been built, and four machines in one sky.
 
 ## Gaps
 
@@ -175,15 +195,13 @@ are the risks the phase order is built around:
   coastlines are within the dataset's stated 4 m.
 - **A landplane on water ditches, and nothing more.** It is stopped where it
   meets the water and held there; nothing of a ditching - the airframe
-  striking the water, floating, sinking - is modelled. And seven of the
-  models have no structure contact points: with their wheels up they pass
-  through a runway, which a tail in `COMPLETION_PLAN.md` puts right.
+  striking the water, floating, sinking - is modelled.
 - **The aeroplane is drawn, with no livery and nothing on it moving.** A
   model carries no texture, so each surface is the flat diffuse colour of its
   material, and no control surface, propeller or undercarriage moves: they
   are welded where the model has them, gear down. Its light is baked into the
-  mesh, which is made again when it has banked five degrees. Two aircraft
-  have no model at all and are drawn as nothing. All of that is tails in
+  mesh, which is made again when it has banked five degrees. The Learjet
+  35A has no model at all and is drawn as nothing. All of that is tails in
   `COMPLETION_PLAN.md`. Where a model and its
   flight model disagree about the aeroplane, the disagreement is measured
   and each aircraft held to its own figure rather than made to vanish: the
@@ -196,6 +214,341 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### A flying boat alights on water, takes off from it, and flies the circuit, 2026-09-24
+
+**The Short S.23 flies the approach and alighting lesson to an empty
+debrief**, down a three-degree glidepath on to open water. `Aircraft::in_water`
+is JSBSim's `hydro/active-norm`, and `sim::Lander` counts the hull in the
+water as touching as it counts weight on a wheel. The lesson is the FAA's
+Seaplane, Skiplane, and Float/Ski Equipped Helicopter Operations Handbook
+(FAA-H-8083-23), chapter 6. Fourteen aeroplanes now land in the approach
+lesson.
+
+**And takes off from it, and flies the circuit back on to it.** The S.23's
+take-off is two stages, over the hump and on the step, so that a planing
+attitude band (6 to 14 degrees; she planes at 7.7 to 12.2) watches the step
+and not the plowing below it. Rotating early is not a flying boat's fault in
+this model: held fully back she planes at the running attitude anyway and
+comes off at the same 78 knots, the water and not the elevator setting her
+attitude. The fault flown instead is the FAA seaplane handbook's (chapter 4,
+"Porpoising"): the nose held low on the step, which porpoises her between
+-5 and +7 degrees in growing oscillations and never lets her off. Its
+debrief names the planing attitude and nothing else. The take-off harness
+now takes the lift-off speed at the end of the first stage that ends on
+height, not of the first stage.
+
+Her circuit ends, as her approach does, off the step below 20 knots on the
+water - afloat with the engines idling she is never quite still - within the
+water lane and 30 m of its line; she touches 8.9 m from it. Her downwind
+band is the light aircraft's 120 ft, where a provisional 200 was; sinking
+250 ft is named. Fourteen aeroplanes take off by the book and fourteen fly
+the circuit.
+
+**The circuit is demonstrated and handed over, too.** The instructor item's
+verification asks it of each lesson, and there were demonstrations of the
+take-off, the approach, the climb and descent, the stall and the turns, but
+not the circuit. `an_instructor_demonstrates_a_circuit_and_hands_it_over`
+flies it for all fourteen aeroplanes taught it through a `Controller`, then
+hands over and takes back: 0.0083 of a control's travel over and nothing
+back, against a hand's 0.017 a step. Watched to fail with the handover made
+to jump to the pilot's hands: the 737 stepped 1.0.
+
+**The lessons are complete**: take-off, the circuit, climbs and descents,
+turns, stalls, and approach and landing, for all seven classes - 42 lesson
+files - each flown by the book to an empty debrief by every aeroplane whose
+figures give the speeds it names, and each flown with a stated fault in one
+aeroplane of every class, naming that fault and no other. Named exceptions:
+the 747-400 and F-22A have no stall or climbing speed and are taught turns
+alone; the F-15C, F-35B and Learjet are not flown rotating early (their
+noses do not come up until well past their rotation speeds - a tail), their
+classes' take-off fault being part throttle.
+
+### The circuit for the jets, 2026-09-24
+
+**The airliners, the business jet, the fighters and the bomber fly the
+circuit to an empty debrief** - thirteen aeroplanes in all, round a 1,500 ft
+pattern flown with the take-off flap as Boeing's 737 FCTM flies a visual
+circuit, and back on to the runway they left. Sinking 250 ft along the
+downwind leg is named, and nothing else, in every class that flies one. The
+circuit test now also asks that she touch down within 10 m of the centreline,
+not only stop on the runway: the F-15C touched 109 m to the right and still
+passed. It went red with the old offset integral put back (the 787 at 16.9
+m). What it took, in `sim::Lander`:
+
+- **The brakes hold an autobrake's deceleration** once she is below nine
+  tenths of the reference speed (and none while the nose is going down), set
+  at the touch for the runway that is left: the rate that stops her with 300 m to spare, never
+  less than the 737's autobrake 2 (5 ft/s^2) nor more than its MAX (14).
+  They were a pressure growing to half as she slowed, and the 787 rolled off
+  the far end of a 3,000 m runway.
+- **No integral on the offset from the centreline.** The small bank wound in
+  within 150 m of the line set a 196-knot F-15C swinging 130 m either side
+  of it all the way down final; the aileron's trim now takes the steady bank
+  that was its reason. Every circuit touches within 6.1 m.
+
+The downwind band for the jets is 150 ft either side, where the lessons had
+a provisional 300 - wider than the fault, which went unseen. The FAA's
+Airline Transport Pilot ACS holds altitude to 100 ft. The bands in each
+lesson's header are the ones measured, with room.
+
+### Landings that stay landed, 2026-09-24
+
+**Every light aeroplane the AI landed was bouncing, and no test said so.**
+The landing tests asked for a gentle first touch and a stop on the runway,
+and never which way up she stopped. The rollout's stick went fully back the
+moment the wheels touched, at nearly flying speed: the C172P went 53 ft back
+into the air in calm air and came down 16 degrees nose down; the J3 Cub
+stalled out of its bounce on to its back and still passed. Both light
+aircraft landing tests now also require her to stay within 15 degrees of
+bank, above 10 degrees nose down and under 3 ft from the touch to the stop,
+and went red on the old lander before anything was changed. What
+`sim::Lander` does now, each from a source:
+
+- **The rollout holds the attitude she touched at, less up to two degrees
+  while she is fast**, and brings the stick back as she slows, fully back by
+  half the reference speed - the FAA's Airplane Flying Handbook
+  (FAA-H-8083-3C) chapter 14 lands a tailwheel aeroplane with a little
+  forward pressure to keep the main wheels down.
+- **A bounce is flown with the flare's law**, not the rollout's: more than a
+  foot above where the wheels met the runway, with no weight on them.
+- **The round out asks for as much nose as the path needs**: one and a half
+  times the change of flight path the sink error means at her speed, which is
+  the old 0.02 degrees per ft/min for the Cub and a third of it for a
+  Mosquito at 120 knots, which was asked for thirteen degrees in two and a
+  half seconds and ballooned to 73 ft. The handbook (chapter 9) has the round
+  out's rate proportional to the rate of closure. Climbing in the flare, the
+  nose is held, never pushed.
+- **Speed is flown mostly in proportion, with its trend fed back**, as an
+  autothrottle flies it: 0.05 of the throttle a knot, an integral of 0.02 a
+  knot a second, and 0.1 against each knot a second the speed is changing.
+  The integral was 0.24 and set the Mosquito's throttles swinging from shut
+  to full every six seconds down final; every aeroplane in the approach
+  lesson now crosses the threshold within two knots of its reference speed.
+  Below twice the flare height the throttle opens no faster than half its
+  travel a second, and in the flare it closes over two seconds rather than
+  in one step - the handbook reduces power gradually through the round out,
+  and shutting both the Mosquito's throttles at once rolled her three
+  degrees on the torque.
+- **The aileron has a trim term** for what holds a steady bank against it,
+  as the rudder already had.
+- **The rollout steers gently while fast** - five degrees off the runway
+  heading at most at the reference speed, twenty by half of it - **and with
+  the brakes when the rudder runs out**: past half its travel the rudder
+  brings in the brake on the side the nose is wanted and lets the other off.
+  The Mosquito's castoring tailwheel steers nothing and her rudder could not
+  hold a swing growing to 18 degrees a second; her Pilot's Notes give
+  differential brakes from the rudder bar.
+- **The approach flies the centreline by L1 guidance** (Park, Deyst and How,
+  AIAA 2004-4900), with its look-ahead never inside the turn she can fly at
+  25 degrees of bank. Steering by heading, 0.6 degrees a metre, a 787 handed
+  the approach from a circuit S-turned 370 m either side of the line.
+
+**The circuit harness slows on base**, to 1.4 times the landing stall as the
+handbook's chapter 9 has it, rather than carrying the downwind leg's twenty
+knots over the reference on to final. Verification: the light aircraft land
+upright, on the centreline, in calm air and a 10-knot crosswind; the five
+four light aircraft's and the Mosquito's circuits by the book leave empty
+debriefs, the Mosquito touching 5.6 m from the centreline (it was 25.7) and
+the others within 3.5 m.
+
+### Take-offs for the jets, 2026-09-23
+
+**Thirteen aeroplanes now take off to an empty debrief**, in six classes: the
+airliners, the business jet, the fighters and the bomber join the light
+aircraft and the Mosquito. What it took:
+
+- **A jet rotates from its stall at its take-off flap.** `departure_speeds`
+  worked every rotation from 1.15 times the cleanest published stall - for an
+  airliner its landing stall, flaps fully down - and took off with the flaps
+  up: a 737 would have been asked to leave the runway at 121 knots with a
+  clean stall of about 155. An aeroplane with a published take-off field
+  length now rotates at 1.15 times its stall at that field length's flap,
+  takes off with that flap, and climbs out at `initial_climb_kts`, V2 and ten.
+  The airliners' stalls at their take-off flaps are **measured**, as their
+  landing stalls were - 737-300 131.25 at flap 5, 787-8 151.29 at 5, A320
+  125.38 at 10, A380 136.76 at 17, at their maximum loading, gear down, each
+  from entries of 160, 200 and 240 knots (the 787's 160 too close to its stall
+  to use) - and written into their figures as `stall_speed_takeoff`.
+- **Military power, not afterburner.** Full throttle for the take-off
+  autopilot is 0.99, below which JSBSim does not light an afterburner. T.O.
+  1F-15A-1 gives MIL as a normal take-off; in afterburner the F-15C gained 24
+  knots a second. And its climb away is 350 knots in its manual, which the
+  fighter lesson's band - its climbing speed to 180 above it - allows.
+- **Each class's lesson judges its own climb-out**: an airliner's and a
+  business jet's against V2 (the rotation speed and five up), a fighter's and
+  a bomber's against their climbing speed, which they accelerate straight to.
+  The bands are measured, with room.
+
+**Faults.** Part throttle is flown and named in all six classes. Rotating
+early is flown with half the stick back from 85 percent of the rotation speed
+- the F-15's manual's normal technique - and is named in the airliner, the
+bomber, the light aircraft and the Mosquito. **The F-15C, F-35B and Learjet
+35A are left out of it by name**: their noses do not come up until well past
+their rotation speeds whatever the stick does - off at 220, 213 and 161 knots
+pulled early, 230, 213 and 160 by the book, against 174, 141 and 125. The
+F-15C's manual (figure A3-6) has its nosewheel off at about 130 and the
+aeroplane off at 157 at 55,000 lb, so that is the models' and is a tail.
+
+### A configure in WSL takes seconds, not eight minutes, 2026-09-23
+
+**A configure of the Linux debug build took 8 minutes 21 seconds; it takes 2
+to 3 now.** Profiled with CMake's own `--profiling-output`: almost all of it
+was `find_path` and `find_file` searching the Windows directories WSL appends
+to PATH, through WSL's slow share of the Windows drive - 224 seconds looking
+for ICU's data files, about 150 in SDL's OpenGL and X11 checks looking for
+GL/xmesa.h, 35 for liburing.h - searches that fail and so are made again at
+every configure. `CMakeLists.txt` takes `/mnt/*` off PATH before anything else,
+only when WSL's own variables say it is WSL. SDL still finds X11, Wayland,
+OpenGL and Vulkan. **vcpkg's install is skipped when nothing that decides it
+has changed**: a stamp in the install directory holds a hash of the manifest,
+its configuration, the triplets, the overlay ports and vcpkg's commit. It was
+fifty seconds of checking at every configure; a new directory, which is every
+CI job's, has no stamp and installs.
+
+This is the cost that made every new lesson file, which a configure-time glob
+picks up, a ten-minute wait.
+
+**A Windows crash is dumped by Windows too.** Two tests have crashed on the
+way out on Windows debug with nothing printed by the program's own handlers.
+The Windows test jobs now keep Windows Error Reporting's local dumps and read
+each one's stack with cdb after a failed shard, and upload the dumps.
+
+### Stalls for every class, entered in the landing configuration, 2026-09-23
+
+**Fourteen aeroplanes now stall and recover to an empty debrief**, in seven
+classes: the airliners, the fighters, the bomber and the flying boat join the
+light aircraft, the Mosquito and the Learjet. The 747-400 and F-22A are left
+out by name, having no stall speed.
+
+- **The entry is flown flaps and gear down**, as they are for the landing,
+  because a lesson's `stall` is the stall with everything down. Flown clean
+  the 737 had to stall to reach twenty-five knots above its landing stall and
+  departed: 52 degrees of alpha, 26 nose down, 21,000 ft/min. In the landing
+  configuration it recovers losing 896 ft. The instructor's demonstration
+  flies the same configuration, on the AI's controls and the pilot's alike, so
+  handing over moves no flap.
+- **The recovery unloads in proportion to the wing**: the autopilot is asked
+  for twelve feet a minute of descent for each knot of stall speed, never less
+  than six hundred. At six hundred the A380, flaps down at 120 knots, pitched
+  up to hold so little sink and porpoised between four degrees nose down and
+  twenty-one up, stalling again each time, for four minutes; at 1,260 it
+  recovers losing 887 ft.
+- **The bands are measured**, with half as much again for room. Entry and
+  recovery, worst of each class: light aircraft 74 and 151 ft, Mosquito 40
+  and 380, Learjet 58 and 225, airliners 128 and 896, fighters 468 (the
+  F-35B) and 260, B-2 8 and 91, Short S.23 36 and 71. The light aircraft's
+  entry band was 400 ft wide on the PA-28's account alone: clean it lost 321
+  ft entering the stall, five times the others; in the landing configuration
+  it loses 62, and the band is 150.
+
+**Verification:** `the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief`
+and `an_instructor_demonstrates_a_stall_and_hands_it_over` fly all fourteen;
+`a_stall_recovered_badly_is_named_in_the_debrief` flies one aeroplane of each
+of the seven classes' lessons late and names the height lost and nothing else.
+
+### Every class's lesson is flown with its fault, 2026-09-23
+
+**The fault half of the Lessons item's verification now covers every class's
+lesson, not only the light aircraft's.** The six fault tests each flew the
+Cessna 172P, which tested one lesson file of each exercise out of up to seven.
+They now fly the first aeroplane of each class that can fly its class's lesson,
+and assert that every class's lesson was covered: take-off 2 of 2, approach 6
+of 6, turns 7 of 7, climbs and descents 7 of 7, stalls 3 of 3, circuit 2 of 2.
+
+**"Names that fault and no other" is checked, not only "names that fault".**
+Every line of the debrief must be one its own lesson gives for the property
+the fault is seen on - the speed for an approach or a climb flown fast, the
+height for a turn or a downwind leg that sinks and a stall recovered late, the
+throttle for a take-off on part power, the rotation speed and the attitude for
+rotating early. Four of the six used to check only that the fault was there.
+
+**Two faults had to be flown the way they are meant, and the checks found
+it.** A climb thirty knots fast is outside a light aeroplane's fifteen-knot
+band and inside a jet's forty, so the 737 flew it to an empty debrief; the
+fault is now flown fifteen knots past the top of each lesson's own band. And
+rotating early held back stick from a standstill, which kept the Mosquito's
+tail down the whole roll: hauled off at 107 knots she swung, and the debrief
+named keeping her straight as well. The stick now comes back from 85 percent
+of her rotation speed - off at 110 against 160, and the Cessna at 51 against
+81 - and each debrief names the rotation speed and nothing it should not.
+
+### Approaches for the airliners, the fighters and the bomber, 2026-09-23
+
+**Every aeroplane that publishes or has measured a landing stall now flies
+its class's approach lesson to an empty debrief**: the 737-300, 787-8, A320
+and A380, the B-2, the F-15C and F-35B, the Learjet, the Mosquito and the
+four light aircraft - thirteen. The 747-400 and F-22A are left out by name:
+neither has a reference speed. What it took:
+
+- **An approach starts established on it.** `InitialConditions` gained
+  `flaps` (the landing flap already down, set in one step by running the
+  initial conditions in trim mode), `flight_path_deg` (already on the
+  three-degree path, not level at its height) and `trim` (JSBSim's
+  longitudinal trim for that path). Started clean at its landing speed the
+  A380 stalled before its flaps were a third out and fell 688 ft in ten
+  seconds; started on the path but untrimmed - nose on the path, no angle of
+  attack, no lift - the F-15C dropped at 41 ft/s and ran from 196 knots to 208
+  before the elevator caught it. JSBSim cannot trim the B-2 or the Mosquito;
+  they start as they did, the Mosquito's engines started again the way every
+  constant-speed propeller's are, and the test says which started untrimmed.
+- **The approach autopilot learns the attitude the path needs.** Its pitch
+  was proportional to the vertical-speed error alone, so an aeroplane that
+  flies the path nose-up could hold that attitude only by sinking faster than
+  the path: the F-35B needs about twelve degrees at its reference speed, which
+  took 2,000 ft/min of error, and the limit was ten. A slow trim now learns the
+  attitude, from the one it has on the first step, and the limit is fifteen.
+- **Power for the path on the back of the drag curve.** A sink more than 300
+  ft/min faster than the glidepath asks opens the throttle in proportion. On
+  its path an approach never comes near that margin.
+- **Every approach lesson watches the descent**, `velocities/h-dot-fps >=
+  -30` by the threshold: every stage ends on a height, and a crash reaches a
+  height as surely as a landing does. The A380 that fell 688 ft was passed
+  through all three stages.
+
+**Verification:** `the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief`
+flies all thirteen: the airliners within 3 to 6 knots of their reference
+speed, the F-15C 195 to 198 against 196, the F-35B 159 to 166 against 159,
+none sinking faster than 35 ft/s. **Not yet done:** the fault test still flies
+only the Cessna.
+
+### The runway lessons fly at their figures' weight, 2026-09-23
+
+**Every lesson now flies its aeroplane at the weight the figures it is judged
+against were measured at.** The lessons flown in the air already did; the
+take-off lesson, the approach lesson, their two demonstrations and the circuit
+built their aeroplane and loaded nothing. A take-off now loads the loading of
+the figure its rotation speed comes from - the published ground roll where it
+gives a lift-off speed, otherwise the flaps-up stall - and an approach the
+loading of the stall with the most flap, which is the one its reference speed
+is a third above. The circuit flies at the take-off's loading; for the five
+aeroplanes taught it every figure is at one loading anyway.
+
+**Two things broke at the new weights, and both were real.**
+
+- **The circuit turned crosswind inside the stage that asks her to fly
+  straight.** The lesson's climb out ends four hundred feet above where it
+  began, about 605 ft; the circuit flight turned at 600. Lighter, the Cessna
+  climbed the last five feet within a few degrees of turn; at 2,400 lb she was
+  38 degrees round, so "keep her straight" was broken and every later stage
+  began one turn early - the downwind leg was counted inside the turn on to it
+  and came out short of its mile. The circuit flight turns at 650 ft now.
+- **The take-off autopilot's climb law had nothing to damp it.** It held the
+  climbing speed with a pitch trim alone, 2.4 degrees a second for each knot
+  off, and an integral with no proportional term feeds the phugoid: the J-3
+  Cub, at its Trainer loading, swung between 3 degrees nose down and 18 up
+  every eight seconds. It met the crosswind turn at the top of a zoom with the
+  speed falling, bled to 32 knots with 44 degrees of bank, stalled, and mushed
+  seven hundred feet into the ground at 38 degrees of alpha with the elevator
+  held fully up. The law is half a degree of nose a knot and a trim of 0.2
+  degrees a second a knot; the Cessna's climb out, which swung 69 to 83 knots
+  against its 75, now holds 75 to 78.
+
+**Verification:** all five aeroplanes taught the circuit - the 172P, the 182S,
+the J-3 Cub, the PA-28 and the Mosquito - fly it to an empty debrief at their
+figures' weights; the take-off and approach lessons, their faults and both
+demonstrations pass there; and the whole suite, 480 tests, passed on Linux
+debug.
 
 ### CI split into builds and test shards, and a handshake that overflowed, 2026-09-23
 
@@ -2899,6 +3252,17 @@ seconds each. 297 of 297 tests pass locally at `-j4`, in 1471 s.
 for it, there is no airfield data, and it does not go around. It flies no
 part of a circuit and cannot take off, which is still what Phase 5c's lessons
 need next.
+
+**Superseded 2026-09-24** (see "Landings that stay landed"): every one of
+these landings bounced, which nothing asked. The rollout no longer puts the
+stick full aft at the touch, the brakes hold an autobrake's deceleration, the
+centreline is flown by L1 guidance with no cross-track integral, and the
+flare, the speed loop and the power near the ground are all different. Flown
+now, calm then crosswind: the Cessna 172P 121 and 123 ft/min, 0.09 and 0.08 m,
+stopped at 674 and 629 m; the 182S 131 and 138 ft/min, 1.55 and 0.75 m, 658
+and 633 m; the PA-28 133 and 135 ft/min, 0.98 and 1.60 m, 630 and 614 m; the
+Cub 139 and 140 ft/min, 0.02 and 0.04 m, 479 and 431 m - each staying down,
+within 6.3 degrees of bank and 3.3 nose down from the touch to the stop.
 
 ### Checklists on screen, ticking themselves, 2026-09-21 — item done
 
@@ -6354,304 +6718,11 @@ the project is GPL-3.0-or-later.
 
 ---
 
-### The runway lessons fly at their figures' weight, 2026-09-23
-
-**Every lesson now flies its aeroplane at the weight the figures it is judged
-against were measured at.** The lessons flown in the air already did; the
-take-off lesson, the approach lesson, their two demonstrations and the circuit
-built their aeroplane and loaded nothing. A take-off now loads the loading of
-the figure its rotation speed comes from - the published ground roll where it
-gives a lift-off speed, otherwise the flaps-up stall - and an approach the
-loading of the stall with the most flap, which is the one its reference speed
-is a third above. The circuit flies at the take-off's loading; for the five
-aeroplanes taught it every figure is at one loading anyway.
-
-**Two things broke at the new weights, and both were real.**
-
-- **The circuit turned crosswind inside the stage that asks her to fly
-  straight.** The lesson's climb out ends four hundred feet above where it
-  began, about 605 ft; the circuit flight turned at 600. Lighter, the Cessna
-  climbed the last five feet within a few degrees of turn; at 2,400 lb she was
-  38 degrees round, so "keep her straight" was broken and every later stage
-  began one turn early - the downwind leg was counted inside the turn on to it
-  and came out short of its mile. The circuit flight turns at 650 ft now.
-- **The take-off autopilot's climb law had nothing to damp it.** It held the
-  climbing speed with a pitch trim alone, 2.4 degrees a second for each knot
-  off, and an integral with no proportional term feeds the phugoid: the J-3
-  Cub, at its Trainer loading, swung between 3 degrees nose down and 18 up
-  every eight seconds. It met the crosswind turn at the top of a zoom with the
-  speed falling, bled to 32 knots with 44 degrees of bank, stalled, and mushed
-  seven hundred feet into the ground at 38 degrees of alpha with the elevator
-  held fully up. The law is half a degree of nose a knot and a trim of 0.2
-  degrees a second a knot; the Cessna's climb out, which swung 69 to 83 knots
-  against its 75, now holds 75 to 78.
-
-**Verification:** all five aeroplanes taught the circuit - the 172P, the 182S,
-the J-3 Cub, the PA-28 and the Mosquito - fly it to an empty debrief at their
-figures' weights; the take-off and approach lessons, their faults and both
-demonstrations pass there; and the whole suite, 480 tests, passed on Linux
-debug.
-
-### Approaches for the airliners, the fighters and the bomber, 2026-09-23
-
-**Every aeroplane that publishes or has measured a landing stall now flies
-its class's approach lesson to an empty debrief**: the 737-300, 787-8, A320
-and A380, the B-2, the F-15C and F-35B, the Learjet, the Mosquito and the
-four light aircraft - thirteen. The 747-400 and F-22A are left out by name:
-neither has a reference speed. What it took:
-
-- **An approach starts established on it.** `InitialConditions` gained
-  `flaps` (the landing flap already down, set in one step by running the
-  initial conditions in trim mode), `flight_path_deg` (already on the
-  three-degree path, not level at its height) and `trim` (JSBSim's
-  longitudinal trim for that path). Started clean at its landing speed the
-  A380 stalled before its flaps were a third out and fell 688 ft in ten
-  seconds; started on the path but untrimmed - nose on the path, no angle of
-  attack, no lift - the F-15C dropped at 41 ft/s and ran from 196 knots to 208
-  before the elevator caught it. JSBSim cannot trim the B-2 or the Mosquito;
-  they start as they did, the Mosquito's engines started again the way every
-  constant-speed propeller's are, and the test says which started untrimmed.
-- **The approach autopilot learns the attitude the path needs.** Its pitch
-  was proportional to the vertical-speed error alone, so an aeroplane that
-  flies the path nose-up could hold that attitude only by sinking faster than
-  the path: the F-35B needs about twelve degrees at its reference speed, which
-  took 2,000 ft/min of error, and the limit was ten. A slow trim now learns the
-  attitude, from the one it has on the first step, and the limit is fifteen.
-- **Power for the path on the back of the drag curve.** A sink more than 300
-  ft/min faster than the glidepath asks opens the throttle in proportion. On
-  its path an approach never comes near that margin.
-- **Every approach lesson watches the descent**, `velocities/h-dot-fps >=
-  -30` by the threshold: every stage ends on a height, and a crash reaches a
-  height as surely as a landing does. The A380 that fell 688 ft was passed
-  through all three stages.
-
-**Verification:** `the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief`
-flies all thirteen: the airliners within 3 to 6 knots of their reference
-speed, the F-15C 195 to 198 against 196, the F-35B 159 to 166 against 159,
-none sinking faster than 35 ft/s. **Not yet done:** the fault test still flies
-only the Cessna.
-
-### Every class's lesson is flown with its fault, 2026-09-23
-
-**The fault half of the Lessons item's verification now covers every class's
-lesson, not only the light aircraft's.** The six fault tests each flew the
-Cessna 172P, which tested one lesson file of each exercise out of up to seven.
-They now fly the first aeroplane of each class that can fly its class's lesson,
-and assert that every class's lesson was covered: take-off 2 of 2, approach 6
-of 6, turns 7 of 7, climbs and descents 7 of 7, stalls 3 of 3, circuit 2 of 2.
-
-**"Names that fault and no other" is checked, not only "names that fault".**
-Every line of the debrief must be one its own lesson gives for the property
-the fault is seen on - the speed for an approach or a climb flown fast, the
-height for a turn or a downwind leg that sinks and a stall recovered late, the
-throttle for a take-off on part power, the rotation speed and the attitude for
-rotating early. Four of the six used to check only that the fault was there.
-
-**Two faults had to be flown the way they are meant, and the checks found
-it.** A climb thirty knots fast is outside a light aeroplane's fifteen-knot
-band and inside a jet's forty, so the 737 flew it to an empty debrief; the
-fault is now flown fifteen knots past the top of each lesson's own band. And
-rotating early held back stick from a standstill, which kept the Mosquito's
-tail down the whole roll: hauled off at 107 knots she swung, and the debrief
-named keeping her straight as well. The stick now comes back from 85 percent
-of her rotation speed - off at 110 against 160, and the Cessna at 51 against
-81 - and each debrief names the rotation speed and nothing it should not.
-
-### Stalls for every class, entered in the landing configuration, 2026-09-23
-
-**Fourteen aeroplanes now stall and recover to an empty debrief**, in seven
-classes: the airliners, the fighters, the bomber and the flying boat join the
-light aircraft, the Mosquito and the Learjet. The 747-400 and F-22A are left
-out by name, having no stall speed.
-
-- **The entry is flown flaps and gear down**, as they are for the landing,
-  because a lesson's `stall` is the stall with everything down. Flown clean
-  the 737 had to stall to reach twenty-five knots above its landing stall and
-  departed: 52 degrees of alpha, 26 nose down, 21,000 ft/min. In the landing
-  configuration it recovers losing 896 ft. The instructor's demonstration
-  flies the same configuration, on the AI's controls and the pilot's alike, so
-  handing over moves no flap.
-- **The recovery unloads in proportion to the wing**: the autopilot is asked
-  for twelve feet a minute of descent for each knot of stall speed, never less
-  than six hundred. At six hundred the A380, flaps down at 120 knots, pitched
-  up to hold so little sink and porpoised between four degrees nose down and
-  twenty-one up, stalling again each time, for four minutes; at 1,260 it
-  recovers losing 887 ft.
-- **The bands are measured**, with half as much again for room. Entry and
-  recovery, worst of each class: light aircraft 74 and 151 ft, Mosquito 40
-  and 380, Learjet 58 and 225, airliners 128 and 896, fighters 468 (the
-  F-35B) and 260, B-2 8 and 91, Short S.23 36 and 71. The light aircraft's
-  entry band was 400 ft wide on the PA-28's account alone: clean it lost 321
-  ft entering the stall, five times the others; in the landing configuration
-  it loses 62, and the band is 150.
-
-**Verification:** `the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief`
-and `an_instructor_demonstrates_a_stall_and_hands_it_over` fly all fourteen;
-`a_stall_recovered_badly_is_named_in_the_debrief` flies one aeroplane of each
-of the seven classes' lessons late and names the height lost and nothing else.
-
-### A configure in WSL takes seconds, not eight minutes, 2026-09-23
-
-**A configure of the Linux debug build took 8 minutes 21 seconds; it takes 2
-to 3 now.** Profiled with CMake's own `--profiling-output`: almost all of it
-was `find_path` and `find_file` searching the Windows directories WSL appends
-to PATH, through WSL's slow share of the Windows drive - 224 seconds looking
-for ICU's data files, about 150 in SDL's OpenGL and X11 checks looking for
-GL/xmesa.h, 35 for liburing.h - searches that fail and so are made again at
-every configure. `CMakeLists.txt` takes `/mnt/*` off PATH before anything else,
-only when WSL's own variables say it is WSL. SDL still finds X11, Wayland,
-OpenGL and Vulkan. **vcpkg's install is skipped when nothing that decides it
-has changed**: a stamp in the install directory holds a hash of the manifest,
-its configuration, the triplets, the overlay ports and vcpkg's commit. It was
-fifty seconds of checking at every configure; a new directory, which is every
-CI job's, has no stamp and installs.
-
-This is the cost that made every new lesson file, which a configure-time glob
-picks up, a ten-minute wait.
-
-**A Windows crash is dumped by Windows too.** Two tests have crashed on the
-way out on Windows debug with nothing printed by the program's own handlers.
-The Windows test jobs now keep Windows Error Reporting's local dumps and read
-each one's stack with cdb after a failed shard, and upload the dumps.
-
-### Take-offs for the jets, 2026-09-23
-
-**Thirteen aeroplanes now take off to an empty debrief**, in six classes: the
-airliners, the business jet, the fighters and the bomber join the light
-aircraft and the Mosquito. What it took:
-
-- **A jet rotates from its stall at its take-off flap.** `departure_speeds`
-  worked every rotation from 1.15 times the cleanest published stall - for an
-  airliner its landing stall, flaps fully down - and took off with the flaps
-  up: a 737 would have been asked to leave the runway at 121 knots with a
-  clean stall of about 155. An aeroplane with a published take-off field
-  length now rotates at 1.15 times its stall at that field length's flap,
-  takes off with that flap, and climbs out at `initial_climb_kts`, V2 and ten.
-  The airliners' stalls at their take-off flaps are **measured**, as their
-  landing stalls were - 737-300 131.25 at flap 5, 787-8 151.29 at 5, A320
-  125.38 at 10, A380 136.76 at 17, at their maximum loading, gear down, each
-  from entries of 160, 200 and 240 knots (the 787's 160 too close to its stall
-  to use) - and written into their figures as `stall_speed_takeoff`.
-- **Military power, not afterburner.** Full throttle for the take-off
-  autopilot is 0.99, below which JSBSim does not light an afterburner. T.O.
-  1F-15A-1 gives MIL as a normal take-off; in afterburner the F-15C gained 24
-  knots a second. And its climb away is 350 knots in its manual, which the
-  fighter lesson's band - its climbing speed to 180 above it - allows.
-- **Each class's lesson judges its own climb-out**: an airliner's and a
-  business jet's against V2 (the rotation speed and five up), a fighter's and
-  a bomber's against their climbing speed, which they accelerate straight to.
-  The bands are measured, with room.
-
-**Faults.** Part throttle is flown and named in all six classes. Rotating
-early is flown with half the stick back from 85 percent of the rotation speed
-- the F-15's manual's normal technique - and is named in the airliner, the
-bomber, the light aircraft and the Mosquito. **The F-15C, F-35B and Learjet
-35A are left out of it by name**: their noses do not come up until well past
-their rotation speeds whatever the stick does - off at 220, 213 and 161 knots
-pulled early, 230, 213 and 160 by the book, against 174, 141 and 125. The
-F-15C's manual (figure A3-6) has its nosewheel off at about 130 and the
-aeroplane off at 157 at 55,000 lb, so that is the models' and is a tail.
-
-### Landings that stay landed, 2026-09-24
-
-**Every light aeroplane the AI landed was bouncing, and no test said so.**
-The landing tests asked for a gentle first touch and a stop on the runway,
-and never which way up she stopped. The rollout's stick went fully back the
-moment the wheels touched, at nearly flying speed: the C172P went 53 ft back
-into the air in calm air and came down 16 degrees nose down; the J3 Cub
-stalled out of its bounce on to its back and still passed. Both light
-aircraft landing tests now also require her to stay within 15 degrees of
-bank, above 10 degrees nose down and under 3 ft from the touch to the stop,
-and went red on the old lander before anything was changed. What
-`sim::Lander` does now, each from a source:
-
-- **The rollout holds the attitude she touched at, less up to two degrees
-  while she is fast**, and brings the stick back as she slows, fully back by
-  half the reference speed - the FAA's Airplane Flying Handbook
-  (FAA-H-8083-3C) chapter 14 lands a tailwheel aeroplane with a little
-  forward pressure to keep the main wheels down.
-- **A bounce is flown with the flare's law**, not the rollout's: more than a
-  foot above where the wheels met the runway, with no weight on them.
-- **The round out asks for as much nose as the path needs**: one and a half
-  times the change of flight path the sink error means at her speed, which is
-  the old 0.02 degrees per ft/min for the Cub and a third of it for a
-  Mosquito at 120 knots, which was asked for thirteen degrees in two and a
-  half seconds and ballooned to 73 ft. The handbook (chapter 9) has the round
-  out's rate proportional to the rate of closure. Climbing in the flare, the
-  nose is held, never pushed.
-- **Speed is flown mostly in proportion, with its trend fed back**, as an
-  autothrottle flies it: 0.05 of the throttle a knot, an integral of 0.02 a
-  knot a second, and 0.1 against each knot a second the speed is changing.
-  The integral was 0.24 and set the Mosquito's throttles swinging from shut
-  to full every six seconds down final; every aeroplane in the approach
-  lesson now crosses the threshold within two knots of its reference speed.
-  Below twice the flare height the throttle opens no faster than half its
-  travel a second, and in the flare it closes over two seconds rather than
-  in one step - the handbook reduces power gradually through the round out,
-  and shutting both the Mosquito's throttles at once rolled her three
-  degrees on the torque.
-- **The aileron has a trim term** for what holds a steady bank against it,
-  as the rudder already had.
-- **The rollout steers gently while fast** - five degrees off the runway
-  heading at most at the reference speed, twenty by half of it - **and with
-  the brakes when the rudder runs out**: past half its travel the rudder
-  brings in the brake on the side the nose is wanted and lets the other off.
-  The Mosquito's castoring tailwheel steers nothing and her rudder could not
-  hold a swing growing to 18 degrees a second; her Pilot's Notes give
-  differential brakes from the rudder bar.
-- **The approach flies the centreline by L1 guidance** (Park, Deyst and How,
-  AIAA 2004-4900), with its look-ahead never inside the turn she can fly at
-  25 degrees of bank. Steering by heading, 0.6 degrees a metre, a 787 handed
-  the approach from a circuit S-turned 370 m either side of the line.
-
-**The circuit harness slows on base**, to 1.4 times the landing stall as the
-handbook's chapter 9 has it, rather than carrying the downwind leg's twenty
-knots over the reference on to final. Verification: the light aircraft land
-upright, on the centreline, in calm air and a 10-knot crosswind; the five
-light-class aeroplanes' circuits by the book leave empty debriefs, the
-Mosquito touching 5.6 m from the centreline (it was 25.7) and the others
-within 3.5 m.
-
-### The circuit for the jets, 2026-09-24
-
-**The airliners, the business jet, the fighters and the bomber fly the
-circuit to an empty debrief** - thirteen aeroplanes in all, round a 1,500 ft
-pattern flown with the take-off flap as Boeing's 737 FCTM flies a visual
-circuit, and back on to the runway they left. Sinking 250 ft along the
-downwind leg is named, and nothing else, in every class that flies one. The
-circuit test now also asks that she touch down within 10 m of the centreline,
-not only stop on the runway: the F-15C touched 109 m to the right and still
-passed. It went red with the old offset integral put back (the 787 at 16.9
-m). What it took, in `sim::Lander`:
-
-- **The brakes hold an autobrake's deceleration**, set at the touch for the
-  runway that is left: the rate that stops her with 300 m to spare, never
-  less than the 737's autobrake 2 (5 ft/s^2) nor more than its MAX (14).
-  They were a pressure growing to half as she slowed, and the 787 rolled off
-  the far end of a 3,000 m runway.
-- **No integral on the offset from the centreline.** The small bank wound in
-  within 150 m of the line set a 196-knot F-15C swinging 130 m either side
-  of it all the way down final; the aileron's trim now takes the steady bank
-  that was its reason. Every circuit touches within 6.1 m.
-
-The downwind band for the jets is 150 ft either side, where the lessons had
-a provisional 300 - wider than the fault, which went unseen. The FAA's
-Airline Transport Pilot ACS holds altitude to 100 ft. The bands in each
-lesson's header are the ones measured, with room.
-
-### A flying boat alights on water, 2026-09-24
-
-**The Short S.23 flies the approach and alighting lesson to an empty
-debrief**, down a three-degree glidepath on to open water. `Aircraft::in_water`
-is JSBSim's `hydro/active-norm`, and `sim::Lander` counts the hull in the
-water as touching as it counts weight on a wheel. The lesson is the FAA's
-Seaplane, Skiplane, and Float/Ski Equipped Helicopter Operations Handbook
-(FAA-H-8083-23), chapter 6. Fourteen aeroplanes now land in the approach
-lesson. The S.23's take-off is not taught yet: rotated early she comes off
-the water at the same 77.6 knots as by the book, so the fault the take-off
-lesson names has nothing to catch.
-
 ## Detail moved from the completion plan, 2026-09-23
+
+**A snapshot, not the current state.** The ticks and "missing" lines below
+are the plan as it stood on 2026-09-23; `COMPLETION_PLAN.md` is the list of
+what is done now, and the log above says what changed since.
 
 `COMPLETION_PLAN.md` was cut down to a short task list on 2026-09-23. What it
 held beyond that is kept here verbatim, phase by phase and item by item, as it

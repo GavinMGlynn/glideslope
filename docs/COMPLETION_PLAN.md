@@ -208,12 +208,11 @@ ends in a debrief, never a score.
 - [x] **Checklists on screen, ticking themselves.** *Verification: flown by the
       book, items tick as they are done; with the flaps left up, that item is
       flagged.* Done 2026-09-21.
-- [ ] **Lessons** — take-off, the circuit, climbs and descents, turns, stalls,
+- [x] **Lessons** — take-off, the circuit, climbs and descents, turns, stalls,
       approach and landing — for each class of aircraft. *Verification: flown to
       the book every stage passes; flown with a stated fault, the debrief names
-      that fault and no other.* **In progress.** Missing: the seaplane's
-      take-off and circuit, on water. The 747-400 and F-22A are taught turns
-      alone.
+      that fault and no other.* Done 2026-09-24. The 747-400 and F-22A are
+      taught turns alone, having no stall or climbing speed.
 - [x] **The instructor demonstrates, then hands over.** *Verification: the AI
       pilot flies each lesson within its limits and hands the controls over and
       back with no step.* Done 2026-09-23.
@@ -330,9 +329,10 @@ Found while implementing something else. Added when found, not when remembered.
       its wheels.*
 - [ ] **A `--terrain ion` run can hang for ever, past its own timeout.**
       *Verification: a timed-out run is gone and leaves no cache lock.*
-- [ ] **A published stall speed for the F-15C**, from its flight manual, to give
-      the fighters approach and stall lessons. *Verification: the F-15C stalls
-      near its published speed, and its class gains both lessons.*
+- [ ] **A published stall speed for the F-15C**, from its flight manual. The
+      fighters' approach and stall lessons fly a stall measured on the model,
+      which gives a 196-knot reference speed. *Verification: the F-15C stalls
+      near its published speed, and its approach is flown at the manual's.*
 - [ ] **The autopilot banks to its limit even when the aeroplane cannot sustain
       the turn.** *Verification: a light aeroplane near its ceiling holds its
       height through a 90-degree turn as it does at 3,000 ft.*

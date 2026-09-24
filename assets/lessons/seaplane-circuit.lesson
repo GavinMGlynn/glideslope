@@ -1,0 +1,73 @@
+# The circuit, in a flying boat: off the water, round the pattern
+# left-hand at circuit height, and back down on the water she left.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The take-off and the alighting are the flying-boat lessons' own**
+# (seaplane-take-off.lesson, seaplane-approach-and-landing.lesson, and the
+# sources they name); the pattern between them is the light aircraft's, and
+# its stages end where light-aircraft-circuit.lesson says, for the reasons it
+# gives.
+#
+# **The bands are the light aircraft's, and are met with room**: flown by
+# the AI pilot round a 1,200 ft circuit the Short S.23 climbs out at 99 to 103
+# knots against the 100 she publishes, holds 1,177 to 1,210 ft downwind, and
+# flies final at 82 to 94 knots against a reference speed of 86. She touches
+# the water within 9 m of the line she took off along. Sinking 250 ft
+# downwind is outside the 120 either side the band allows.
+
+name The circuit in a flying boat
+teaches seaplane
+
+stage The take-off
+do Full power, keep her straight, hold the running attitude on to the step, and lift her off at the rotation speed
+do Let the speed build to the climbing speed once she is off the ground
+until position/h-agl-ft >= start+200
+
+stage The climb out
+do Climb away at the climbing speed, straight ahead
+do Do not turn until you are high enough: five hundred feet is the usual
+hold velocities/vc-kts climb-12 climb+15 Hold the climbing speed in the climb out
+hold lesson/turned-deg -25 25 Keep her straight until you are high enough to turn
+until position/h-agl-ft >= start+400
+
+stage The crosswind turn
+do Turn left on to crosswind, still climbing
+do A medium turn: this is a climbing turn, not a steep one
+until lesson/turned-deg <= -80
+
+stage Crosswind, and the turn on to downwind
+do Climb on to circuit height and level off there
+do Turn left on to downwind, parallel to the runway and the other way
+until lesson/turned-deg <= -80
+
+stage Downwind
+do Fly the downwind leg at circuit height, parallel to the runway
+do Hold the height and the speed: the landing checks are done along here
+hold position/h-agl-ft start-120 start+120 Hold the circuit height downwind
+need lesson/flown-nm >= 1.0 Fly a downwind leg long enough to do the checks and settle
+until lesson/turned-deg <= -50
+
+stage Base, and the turn on to final
+do Power back, turn left on to base and start down
+do Turn left on to final and line up with the runway
+until lesson/turned-deg <= -110
+
+stage Final
+do Hold the approach speed down to the threshold
+hold velocities/vc-kts vref-10 vref+15 Hold the approach speed on final
+until position/h-agl-ft <= 40
+
+stage The landing
+do Raise the nose to the step attitude as the water comes up, and close the throttles once she is on it
+do Keep the nose up as she comes off the step, and keep her straight
+need hydro/active-norm >= 0.5 Put her down on the water
+until velocities/vc-kts <= 20

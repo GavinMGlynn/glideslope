@@ -1,0 +1,74 @@
+# A take-off from water in a flying boat: afloat to five hundred feet.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The technique is the one the sources give.** The run is held at the
+# hull's running attitude - over the hump, where she plows, and on to the step,
+# where she planes - and the nose raised from the rotation speed until she is
+# clear: Arthur Gouge's account of the Short S.23's take-off tests (Flight,
+# 17 December 1936, p. 649), whose running attitude of eight degrees and
+# rotation at sixty knots `assets/figures/short_s23.xml` records; the FAA's
+# Seaplane, Skiplane, and Float/Ski Equipped Helicopter Operations Handbook
+# (FAA-H-8083-23), chapter 4, on the planing attitude and on porpoising, which
+# an attitude too low or too high on the step sets off; and the FlightGear
+# model's own handling notes - "keep the control column back, take off pitch
+# is about 9 deg", flap no more than a third - which its author says are his
+# reading of the records, not the aeroplane's instructions.
+#
+# **There is no runway to keep straight on**, but there is a heading, and a
+# swing on the water is a waterloop in the making: the heading is watched as
+# a landplane's is.
+#
+# **The step has an attitude, and a fault either side of it.** The FAA's
+# handbook (chapter 4, "Porpoising") has a seaplane plane smoothly only in a
+# moderately tolerant range of pitch: held too low, the bow digs in and she
+# porpoises, in oscillations that grow until she noses in; held too high, she
+# porpoises the other way and can be thrown off the water too slow. The run is
+# two stages, so that the band watches the step and not the hump below it,
+# where she plows nose-high at any attitude. Flown by the AI pilot the S.23
+# planes at 7.7 to 12.2 degrees; with the stick held forward on the step she
+# porpoises between -5 and +7 degrees and never leaves the water. Held fully
+# back she planes as by the book: the water, not the elevator, sets her
+# attitude on the step in this model, so the nose-high fault is not flown.
+#
+# **The bands are measured**, with room: flown by the AI pilot the Short S.23
+# comes off the water at 78 knots - the FlightGear notes' "minimum getting off
+# speed" is 78 mph - holds -0.8 to 15.6 degrees of pitch in the initial climb
+# and climbs away at 99 to 104 knots against the 100 it publishes.
+
+name Take-off from water in a flying boat
+teaches seaplane
+
+stage Over the hump
+do Throttles open smoothly and evenly to full
+do Hold her straight with rudder and throttles, the wings level
+do Stick back as she plows, and let her climb over the hump on to the step
+hold lesson/turned-deg -20 20 Keep her straight on the take-off run
+need fcs/throttle-cmd-norm >= 0.90 Open the throttles fully for the take-off
+until velocities/vc-kts >= rotate-15
+
+stage On the step
+do Hold the planing attitude on the step, neither nose high nor nose low
+do Keep her straight, and let her fly off at the rotation speed
+hold lesson/turned-deg -20 20 Keep her straight on the take-off run
+hold attitude/theta-deg 6.0 14.0 Hold the planing attitude on the step
+need velocities/vc-kts >= rotate-5 Let her reach the rotation speed before lifting her off
+until position/h-agl-ft >= 20
+
+stage The initial climb
+do Ease her off the step and hold the climbing attitude
+hold attitude/theta-deg -5.0 20.0 Hold the climbing attitude
+until position/h-agl-ft >= 200
+
+stage Climbing away
+do Climb straight ahead at the climbing speed
+hold velocities/vc-kts climb-15 climb+15 Hold the climbing speed
+until position/h-agl-ft >= 500

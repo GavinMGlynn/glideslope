@@ -142,10 +142,9 @@ Controls Lander::fly() {
 
     // --- where the nose points -------------------------------------------
     //
-    // The centreline is held by turning towards it: an offset asks for a
-    // track correction, limited so that a long way out it flies an intercept
-    // rather than an aerobatic turn. The rudder keeps the ball in the middle
-    // while flying, and holds the runway heading once the wheels are down.
+    // On the ground the nosewheel, the rudder and the brakes hold the
+    // centreline; in the air L1 guidance does, below, and the rudder keeps
+    // the ball in the middle.
     const double heading_error_to_runway =
         std::remainder(runway_.heading_deg - s.heading_deg, 360.0);
     if (stage_ == Stage::rollout || stage_ == Stage::stopped) {
@@ -444,7 +443,7 @@ Controls Lander::fly() {
                                 0.0, 1.0);
         // **Near the ground the power comes on only a little at a time.**
         // Below twice the flare height the throttle may close as fast as it
-        // likes and open by a tenth of its travel a second: chasing a speed
+        // likes and open by half its travel a second: chasing a speed
         // a few knots low there took a Mosquito's throttles from shut to
         // full and back in two seconds at forty feet, and the swing both her
         // propellers turning one way put on carried her 26 metres off the

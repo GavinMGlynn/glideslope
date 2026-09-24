@@ -155,6 +155,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_instructor_demonstrates_an_approach_and_hands_it_over
     an_instructor_demonstrates_a_climb_and_descent_and_hands_it_over
     an_instructor_demonstrates_a_stall_and_hands_it_over
+    an_instructor_demonstrates_a_circuit_and_hands_it_over
     the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief
     a_circuit_flown_low_downwind_is_named_in_the_debrief
     every_aircraft_says_which_class_it_is_and_the_requirements_agree

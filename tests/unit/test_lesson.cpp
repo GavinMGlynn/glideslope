@@ -520,6 +520,11 @@ Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
                                                         speeds.climb_kts});
 
     glideslope::sim::Departure departure(aircraft, runway, speeds);
+    std::size_t lift_off_stage = 0;
+    while (lift_off_stage + 1 < it->stages.size() &&
+           it->stages[lift_off_stage].until_property != "position/h-agl-ft") {
+        ++lift_off_stage;
+    }
     double out_least = 1e9;
     double out_most = -1e9;
     double out_off_at_kts = 0.0;
@@ -550,7 +555,14 @@ Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
         if (rotate_kts_override > 0.0 &&
             aircraft.property("velocities/vc-kts") >= 0.85 * speeds.rotate_kts &&
             aircraft.property("position/h-agl-ft") < rotate_kts_override) {
-            controls.elevator = std::max(controls.elevator, 0.50);
+            // **A flying boat's is the nose held low on the step.** The
+            // water, not the elevator, sets her attitude there in this model:
+            // held fully back the Short S.23 planed at the running attitude
+            // and came off at the same 78 knots. The fault the FAA's seaplane
+            // handbook warns of on the step is the other one - the nose too
+            // low, the bow digging in, and porpoising - which a little
+            // forward stick flies.
+            controls.elevator = entry.seaplane ? -0.3 : std::max(controls.elevator, 0.50);
         }
         if (throttle_cap < 1.0) {
             controls.throttle = std::min(controls.throttle, throttle_cap);
@@ -559,7 +571,10 @@ Flown fly_the_take_off(const std::string& id, double rotate_kts_override,
         aircraft.step();
         const std::size_t was = run.stage();
         run.update(aircraft, tick);
-        if (run.stage() > was && was == 0) {
+        // Off, when the stage that ends on her height ends: the first
+        // stage for a landplane, and the one on the step after the hump for
+        // a flying boat.
+        if (run.stage() > was && was == lift_off_stage) {
             out_off_at_kts = aircraft.property("velocities/vc-kts");
         }
         if (aircraft.property("position/h-agl-ft") > 15.0) {
@@ -610,13 +625,11 @@ GLIDESLOPE_TEST(the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     }
     check(walked == taught.size(),
           "every aeroplane whose class teaches a take-off was flown");
-    // Thirteen of the sixteen: the four light aircraft, the Mosquito, the
-    // Learjet, four airliners, two fighters and the B-2A. The 747-400 and the
-    // F-22A have no stall to rotate from and are named above; the Short S.23
-    // has no take-off lesson yet - rotated early she comes off the water no
-    // sooner, so that fault is not taught to her - and that is in
-    // COMPLETION_PLAN.md.
-    check(walked == 13, "thirteen aeroplanes took off, not " + std::to_string(walked));
+    // Fourteen of the sixteen: the four light aircraft, the Mosquito, the
+    // Learjet, four airliners, two fighters, the B-2A and the Short S.23, off
+    // the water. The 747-400 and the F-22A have no stall to rotate from and
+    // are named above.
+    check(walked == 14, "fourteen aeroplanes took off, not " + std::to_string(walked));
 }
 
 // **Flown with one stated fault, the debrief names that fault.** The
@@ -658,6 +671,21 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
         const std::string rotated = id;
         const Flown early = fly_the_take_off(rotated, 14.0, 1.0);
         const Flown book = fly_the_take_off(rotated, 0.0, 1.0);
+        // **A flying boat is flown nose low on the step** instead (see
+        // `fly_the_take_off`): she porpoises, and does not come off sooner -
+        // later, or not at all.
+        if (glideslope::sim::find_aircraft(data(), id).seaplane) {
+            std::printf("  %s by the book: off at %.0f knots; nose low on the step: %s\n",
+                        id.c_str(), book.off_at_kts,
+                        early.off_at_kts > 0.0 ? "off later" : "never off the water");
+            check(early.off_at_kts == 0.0 || early.off_at_kts > book.off_at_kts,
+                  id + " held nose low on the step did not come off sooner");
+            names_that_fault_and_no_other(id, "take-off", early.debrief,
+                                          {"attitude/theta-deg"},
+                                          "held nose low on the step");
+            check(book.debrief.empty(), id + ": the same take-off by the book says nothing");
+            continue;
+        }
         std::printf("  %s by the book: off at %.0f knots; rotating early: off at %.0f\n",
                     rotated.c_str(), book.off_at_kts, early.off_at_kts);
         check(early.off_at_kts < book.off_at_kts - 3.0,
@@ -2305,7 +2333,10 @@ struct Circuit {
 // **The AI pilot flies a whole circuit.** The take-off autopilot flies her
 // off, the plain autopilot flies the pattern - a heading and a height a leg -
 // and the approach autopilot brings her back to the same runway she left.
-Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft = 0.0) {
+// With `demo`, the instructor then hands over and takes back, as the other
+// demonstrations do, and the steps at the two swaps go there.
+Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft = 0.0,
+                      Demonstrated* demo = nullptr) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     const glideslope::sim::Runway runway = a_runway();
     const auto dep = glideslope::sim::departure_speeds(data(), entry.model);
@@ -2388,7 +2419,35 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     Circuit out;
     out.stages = found->stages.size();
     std::size_t stage_was = 0;
-    for (int tick = 0; tick < 900 * steps_per_second && !run.finished(); ++tick) {
+    // **The pilot's hands**, for a demonstration: throttle back and the
+    // wheels down, as after the approach demonstration.
+    glideslope::sim::Controls pilot;
+    pilot.throttle = 0.25;
+    pilot.gear = 1.0;
+    controller.set_pilot(pilot);
+    int hand_over = -1;
+    int take_back = -1;
+    glideslope::sim::Controls last;
+    bool first = true;
+    for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
+        if (run.finished()) {
+            if (demo == nullptr) {
+                break;
+            }
+            if (hand_over < 0) {
+                hand_over = tick + steps_per_second / 2;
+                take_back = hand_over + steps_per_second;
+            }
+            if (tick > take_back + steps_per_second / 2) {
+                break;
+            }
+            if (tick == hand_over) {
+                controller.to_pilot();
+            }
+            if (tick == take_back) {
+                controller.to_ai();
+            }
+        }
         const double agl = aircraft.property("position/h-agl-ft");
         const double along = along_the_runway_nm(runway, aircraft);
         if (leg == Leg::climbing_out && agl >= turn_crosswind_ft) {
@@ -2478,9 +2537,20 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
             leg == Leg::intercept) {
             flown.flaps = dep.flap;
         }
+        if (demo != nullptr) {
+            if (!first && tick == hand_over) {
+                demo->worst_to_pilot = worst_step(last, flown);
+            } else if (!first && tick == take_back) {
+                demo->worst_to_ai = worst_step(last, flown);
+            }
+            first = false;
+            last = flown;
+        }
         aircraft.set_controls(flown);
         aircraft.step();
-        run.update(aircraft, tick);
+        if (!run.finished()) {
+            run.update(aircraft, tick);
+        }
         out.highest_agl_ft = std::max(out.highest_agl_ft, agl);
         if (out.touch_across_m > 1e8 && leg == Leg::approach &&
             (aircraft.property("gear/wow") > 0.5 || aircraft.in_water())) {
@@ -2512,7 +2582,14 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     const double along_nm = along_the_runway_nm(runway, aircraft);
     out.stop_along_m = along_nm * metres_per_nm;
     out.stop_across_m = across_the_runway_m(runway, aircraft);
-    out.stopped = std::abs(aircraft.property("velocities/vg-fps")) < 1.0 &&
+    // **A flying boat comes off the step, not to a stop**: afloat with her
+    // engines idling she is never quite still, and her lesson ends, as her
+    // approach lesson does, below twenty knots on the water.
+    const bool slowed = entry.seaplane
+                            ? aircraft.property("velocities/vc-kts") <= 20.0 &&
+                                  aircraft.in_water()
+                            : std::abs(aircraft.property("velocities/vg-fps")) < 1.0;
+    out.stopped = slowed &&
                   along_nm >= 0.0 && along_nm * metres_per_nm <= runway.length_m &&
                   std::abs(across_the_runway_m(runway, aircraft)) <= 30.0;
     out.debrief = run.debrief_lines();
@@ -2583,4 +2660,37 @@ GLIDESLOPE_TEST(a_circuit_flown_low_downwind_is_named_in_the_debrief) {
         names_that_fault_and_no_other(id, "circuit", sunk.debrief, {"position/h-agl-ft"},
                                       "sinking along the downwind leg");
     }
+}
+
+// **The instructor demonstrates a circuit, then hands over**, as for every
+// other exercise: flown by the AI pilot through a `Controller` from the
+// runway round the pattern and back, then the controls to the pilot and back
+// with no step. The item's verification asks it of each lesson, and the
+// circuit had none until 2026-09-24.
+GLIDESLOPE_TEST(an_instructor_demonstrates_a_circuit_and_hands_it_over) {
+    const double a_hands_pace = 2.0 / steps_per_second + 0.004;
+    const auto flown = everyone_taught("circuit");
+    check(!flown.empty(), "some aeroplane is taught the circuit");
+    std::size_t walked = 0;
+    for (const std::string& id : flown) {
+        Demonstrated shown;
+        const Circuit circuit = fly_a_circuit(id, false, 0.0, &shown);
+        std::printf("  %-13s circuit %zu/%zu stages, worst step %.4f over, %.4f back\n",
+                    id.c_str(), circuit.completed, circuit.stages, shown.worst_to_pilot,
+                    shown.worst_to_ai);
+        check(circuit.completed == circuit.stages,
+              id + " flew the whole circuit, " + std::to_string(circuit.completed) + " of " +
+                  std::to_string(circuit.stages) + " stages");
+        check(circuit.debrief.empty(),
+              id + " demonstrated it inside the lesson's limits, and said " +
+                  std::to_string(circuit.debrief.size()) + " things");
+        check(shown.worst_to_pilot <= a_hands_pace,
+              id + " stepped " + std::to_string(shown.worst_to_pilot) + " handing over");
+        check(shown.worst_to_ai <= a_hands_pace,
+              id + " stepped " + std::to_string(shown.worst_to_ai) + " taking back");
+        ++walked;
+    }
+    check(walked == flown.size(), "every aeroplane taught the circuit demonstrated it: " +
+                                      std::to_string(walked) + " of " +
+                                      std::to_string(flown.size()));
 }
