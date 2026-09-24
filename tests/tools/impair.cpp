@@ -14,7 +14,8 @@
 // It stops after S seconds (600 unless given) or, with `--until-input-ends`,
 // when its standard input ends - which, last in a test's pipeline, is when the
 // server before it has gone - and says what it did: how many datagrams each
-// way, and how many it dropped.
+// way, and how many it dropped. What it reads from standard input it passes
+// on to standard error, so that the program before it can still be heard.
 //
 // It is what `tc netem` does, without needing to be root or on Linux, so that
 // the same check runs on every CI platform.
@@ -110,7 +111,10 @@ int main(int argc, char** argv) {
     // it waits and the relaying must not.
     if (until_input_ends) {
         std::thread([] {
-            while (std::fgetc(stdin) != EOF) {
+            // Passed on to standard error, so that a test that fails can
+            // show what the program before this one in its pipeline said.
+            for (int c; (c = std::fgetc(stdin)) != EOF;) {
+                std::fputc(c, stderr);
             }
             input_ended = true;
         }).detach();
