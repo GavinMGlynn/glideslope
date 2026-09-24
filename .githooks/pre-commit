@@ -18,8 +18,9 @@
 set -uo pipefail
 problems=()
 
-# The files that are about these rules, and so must be able to name them.
-exempt='^(\.githooks/|tests/cmake/githooks\.cmake:)'
+# The files that are about these rules, and so must be able to name them -
+# the hooks, their test, and the reviewer that looks for the same leftovers.
+exempt='^(\.githooks/|tests/cmake/githooks\.cmake:|\.claude/agents/pr-reviewer\.md:)'
 added="$(git diff --cached -U0 --no-color -- . | awk '
     /^\+\+\+ / { file = substr($0, 7); next }
     /^\+/ && !/^\+\+\+/ { print file ":" substr($0, 2) }' | grep -Ev "$exempt" || true)"
