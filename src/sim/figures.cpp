@@ -1509,6 +1509,7 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         out.loadings[name] = read_loading(e);
         if (out.loadings.size() == 1) {
             first_loading = name;
+            out.first_loading = name;
             out.total_lbs = out.loadings[name].total_lbs;
             out.loading = out.loadings[name].loading;
         }

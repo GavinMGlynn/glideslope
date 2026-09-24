@@ -69,6 +69,13 @@ struct Landing {
     double stopped_along_m = 0.0;
     double worst_across_on_final_m = 0.0; // inside a mile
     double seconds = 0.0;
+    // From the first touch to the stop: how far she banked, how far her nose
+    // went down, and how high she went again. A landing that bounces, or ends
+    // on its nose or its back, is not one - and stopping says nothing about
+    // which way up she stopped.
+    double worst_roll_after_touch_deg = 0.0;
+    double least_pitch_after_touch_deg = 0.0;
+    double highest_after_touch_ft = 0.0;
 };
 
 // **From five miles out, on the glidepath, down to a stop.** `crosswind_kts`
@@ -121,9 +128,25 @@ Landing land(const std::string& id, double crosswind_kts) {
 
     Lander lander(aircraft, runway, speeds);
     Landing out;
+    double on_the_ground_agl_ft = -1.0;
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
         aircraft.set_controls(lander.fly());
         aircraft.step();
+        if (lander.touchdown_sink_fpm() != 0.0 || lander.touchdown_along_m() != 0.0) {
+            const auto s = aircraft.state();
+            // The height of her centre of gravity as the wheels first met
+            // the runway is what "on the ground" is for this aeroplane.
+            if (on_the_ground_agl_ft < 0.0) {
+                on_the_ground_agl_ft = aircraft.property("position/h-agl-ft");
+            }
+            out.worst_roll_after_touch_deg =
+                std::max(out.worst_roll_after_touch_deg, std::abs(s.roll_deg));
+            out.least_pitch_after_touch_deg =
+                std::min(out.least_pitch_after_touch_deg, s.pitch_deg);
+            out.highest_after_touch_ft = std::max(
+                out.highest_after_touch_ft,
+                aircraft.property("position/h-agl-ft") - on_the_ground_agl_ft);
+        }
         if (lander.stage() == Lander::Stage::approach && lander.along_m() < metres_per_nm &&
             lander.along_m() > 0.0) {
             out.worst_across_on_final_m =
@@ -144,11 +167,32 @@ Landing land(const std::string& id, double crosswind_kts) {
         out.seconds = 900.0;
     }
     std::printf("  %s: touched at %.0f ft/min, %.2f m across, %.0f m along; "
-                "stopped %.0f m along after %.0f s; worst %.2f m across on final\n",
+                "stopped %.0f m along after %.0f s; worst %.2f m across on final; "
+                "after touching, rolled %.1f, pitched down to %.1f, rose %.1f ft\n",
                 id.c_str(), out.sink_fpm, out.across_m, out.along_m,
-                out.stopped_along_m, out.seconds, out.worst_across_on_final_m);
+                out.stopped_along_m, out.seconds, out.worst_across_on_final_m,
+                out.worst_roll_after_touch_deg, out.least_pitch_after_touch_deg,
+                out.highest_after_touch_ft);
     std::fflush(stdout);
     return out;
+}
+
+// **She stays on her wheels, the right way up, from the touch to the stop.**
+// Without this the J3 Cub passed while bouncing forty feet back into the air,
+// stalling and ending on its back: it touched gently, and it did stop.
+// Fifteen degrees of bank puts a light aeroplane's wingtip near the runway;
+// a nose ten degrees down is a nosewheel aeroplane on its nose or a
+// tailwheel one over it; and three feet up is a bounce, not a rollout.
+void stayed_down_and_upright(const std::string& id, const Landing& l, const std::string& where) {
+    check(l.worst_roll_after_touch_deg < 15.0,
+          id + " banked " + std::to_string(l.worst_roll_after_touch_deg) +
+              " degrees after touching down" + where);
+    check(l.least_pitch_after_touch_deg > -10.0,
+          id + "'s nose went " + std::to_string(l.least_pitch_after_touch_deg) +
+              " degrees down after touching down" + where);
+    check(l.highest_after_touch_ft < 3.0,
+          id + " went " + std::to_string(l.highest_after_touch_ft) +
+              " ft back into the air after touching down" + where);
 }
 
 } // namespace
@@ -175,6 +219,7 @@ GLIDESLOPE_TEST(every_light_aircraft_is_flown_down_a_glidepath_and_lands_in_calm
         check(l.stopped_along_m <= a_runway().length_m,
               id + " ran " + std::to_string(l.stopped_along_m) +
                   " m along a " + std::to_string(a_runway().length_m) + " m runway");
+        stayed_down_and_upright(id, l, "");
     }
     check(walked == light_aircraft().size(),
           "every light aircraft was landed: " + std::to_string(walked) + " of " +
@@ -199,6 +244,7 @@ GLIDESLOPE_TEST(every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_cross
         check(l.stopped, id + " did not stop in the crosswind");
         check(l.stopped_along_m <= a_runway().length_m,
               id + " ran " + std::to_string(l.stopped_along_m) + " m in the crosswind");
+        stayed_down_and_upright(id, l, " in the crosswind");
     }
     check(walked == 4, "all four light aircraft were landed in a crosswind");
 }

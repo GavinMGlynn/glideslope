@@ -244,6 +244,11 @@ public:
     // with the engine running if asked. Throws std::runtime_error if JSBSim
     // refuses.
     void initialize(const InitialConditions& ic);
+    // **Whether the hull is in the water**, as JSBSim's hydrodynamics has it:
+    // for a flying boat, what the wheels' weight is for a landplane - a hull
+    // afloat or planing has no weight on any wheel. False for an aircraft
+    // with no hydrodynamics.
+    bool in_water() const;
     // Whether the last `initialize` asked to trim and JSBSim could.
     bool trimmed() const {
         return trimmed_;

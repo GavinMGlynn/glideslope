@@ -30,8 +30,20 @@ namespace glideslope::sim {
 // How this aeroplane is taken off, from its own published figures.
 struct DepartureSpeeds {
     double rotate_kts = 55.0; // the nose comes up here
-    double climb_kts = 75.0;  // held once the wheels are off
+    double climb_kts = 75.0;  // the best climb speed, published or measured
+    // **What the take-off itself climbs away at.** For an aeroplane that
+    // publishes a take-off roll it is `climb_kts`; for a jet, whose best
+    // climb speed is an en-route one of 260 knots or more, it is V2 and ten
+    // knots - 1.2 times the stall at the take-off flap, and ten - which is
+    // what a jet climbs out at before it cleans up and accelerates.
+    double initial_climb_kts = 75.0;
     double flap = 0.0;        // the take-off flap setting, 0 to 1
+    // **A flying boat's running attitude on the water**, degrees, held from
+    // the start of the run until the rotation speed, and three more from
+    // there until the hull is clear - as Arthur Gouge flew the Short S.23's
+    // take-off tests and as its published water take-off figure records.
+    // Zero for a landplane, which rolls with the stick where it sits.
+    double running_pitch_deg = 0.0;
     // Whether `rotate_kts` is the aeroplane's own published lift-off speed or
     // was worked from its published stall. The caller may want to say so.
     bool rotate_is_published = false;
@@ -43,7 +55,11 @@ struct DepartureSpeeds {
 // The lift-off speed is the one its published take-off roll was measured at
 // where it has one; where it has not - the Cub publishes no take-off roll -
 // it is a seventh above the published stall, which is the usual relation, and
-// `rotate_is_published` says which it was. Throws std::runtime_error where
+// `rotate_is_published` says which it was. **An aeroplane with a published
+// take-off field length** rotates from its stall at that field length's flap,
+// and takes off with that flap, where it has a stall speed there; a jet's
+// flaps-up stall is its landing stall's for want of any other, and 1.15 times
+// that with the flaps up is below the speed a clean airliner flies at. Throws std::runtime_error where
 // the aircraft publishes neither a climb speed nor anything to work a
 // rotation speed from.
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,

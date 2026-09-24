@@ -63,6 +63,46 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
                                  "it was measured at");
     }
 
+    speeds.initial_climb_kts = speeds.climb_kts;
+
+    // A flying boat's published water take-off gives the run's attitude, the
+    // speed it is raised from and the flap it was flown with - at the loading
+    // a figure naming none is flown at, which is the standard boat.
+    for (const FigureSpec& spec : figures.figures) {
+        if (spec.flight == "water_takeoff" && spec.loading == figures.first_loading &&
+            condition(spec, "rotate_kcas", 0.0) > 0.0) {
+            speeds.rotate_kts = condition(spec, "rotate_kcas", 0.0);
+            speeds.rotate_is_published = true;
+            speeds.running_pitch_deg = condition(spec, "running_pitch_deg", 8.0);
+            const double flap_deg = condition(spec, "flaps_deg", 0.0);
+            speeds.flap = figures.flaps_full_deg > 0.0
+                              ? std::clamp(flap_deg / figures.flaps_full_deg, 0.0, 1.0)
+                              : 0.0;
+            return speeds;
+        }
+    }
+
+    // A published take-off field length names the flap it is flown with. The
+    // stall at that flap, where the aeroplane has one, is what it rotates
+    // from, and it climbs away at V2 and ten.
+    if (const FigureSpec* field = by_flight(figures, "takeoff_field_length");
+        field != nullptr) {
+        const double field_flap_deg = condition(*field, "flaps_deg", 0.0);
+        for (const FigureSpec& spec : figures.figures) {
+            if (spec.flight == "stall_speed" &&
+                std::abs(condition(spec, "flaps_deg", -1.0) - field_flap_deg) < 0.5) {
+                speeds.rotate_kts = 1.15 * spec.published;
+                speeds.rotate_is_published = false;
+                speeds.initial_climb_kts = 1.2 * spec.published + 10.0;
+                speeds.flap = figures.flaps_full_deg > 0.0
+                                  ? std::clamp(field_flap_deg / figures.flaps_full_deg,
+                                               0.0, 1.0)
+                                  : 0.0;
+                return speeds;
+            }
+        }
+    }
+
     // The take-off roll, where it has one, gives both the lift-off speed and
     // the flap it was flown with.
     if (const FigureSpec* roll = by_flight(figures, "takeoff_ground_roll");
@@ -132,7 +172,11 @@ Controls Departure::fly() {
     c.propeller = 1.0;
     c.flaps = speeds_.flap;
 
-    const bool on_ground = a_.property("gear/wow") > 0.5;
+    // A hull in the water is on the ground, as far as a take-off goes: it has
+    // no weight on any wheel, and taken for airborne it would be flown by the
+    // airborne law from a standstill.
+    const bool on_ground = a_.property("gear/wow") > 0.5 || a_.in_water();
+    const bool on_water = speeds_.running_pitch_deg > 0.0;
     if (!unstuck_ && !on_ground && above_m_ * feet_per_metre > 5.0) {
         unstuck_ = true;
         unstuck_along_m_ = along_m_;
@@ -152,7 +196,16 @@ Controls Departure::fly() {
 
     // **The throttle goes fully open over three seconds** and stays there:
     // an engine slammed open swings a tail-wheel aeroplane off the runway.
-    throttle_ = std::min(throttle_ + 1.0 / (3.0 * steps_per_second), 1.0);
+    //
+    // **Fully open is 0.99: military power, not afterburner.** JSBSim lights
+    // an afterburning turbine's reheat above 0.99, and the F-15's own flight
+    // manual (T.O. 1F-15A-1, section II, "Takeoff") gives MIL as a normal
+    // take-off. In afterburner the F-15C, light and clean, gained 24 knots
+    // a second and was off the ground eighty knots past its rotation speed
+    // whatever was done with the stick. To any other engine 0.99 is full
+    // throttle, less a hundredth.
+    constexpr double full = 0.99;
+    throttle_ = std::min(throttle_ + 1.0 / (3.0 * steps_per_second), full);
     c.throttle = throttle_;
 
     // --- the nose, down the centreline ------------------------------------
@@ -173,7 +226,12 @@ Controls Departure::fly() {
     if (stage_ == Stage::roll || stage_ == Stage::rotate || on_ground) {
         // On the ground the rudder and the nosewheel are one control, and
         // below the speed at which the rudder bites the brakes help it.
-        const double want = std::clamp(-across_m_ * 2.0, -15.0, 15.0);
+        //
+        // **On open water there is no centreline, only a heading**, and a
+        // hull answers its rudder slowly: steering back to a line as a
+        // runway asks, the Short S.23 weaved twenty degrees either side of
+        // her heading and never came off the water.
+        const double want = on_water ? 0.0 : std::clamp(-across_m_ * 2.0, -15.0, 15.0);
         const double error =
             std::remainder(runway_.heading_deg + want - s.heading_deg, 360.0);
         const double r_degps = s.r_radps * degrees;
@@ -181,7 +239,9 @@ Controls Departure::fly() {
         // command yaws the nose left for a positive value**
         // (sim/test_pilot.cpp), so the rudder takes the opposite sign; the
         // brake is on the side being turned towards.
-        const double turn = std::clamp(0.10 * error - 0.30 * r_degps, -1.0, 1.0);
+        const double turn = on_water
+                                ? std::clamp(0.05 * error - 0.60 * r_degps, -1.0, 1.0)
+                                : std::clamp(0.10 * error - 0.30 * r_degps, -1.0, 1.0);
         c.rudder = -turn;
         if (kcas < rudder_bites_kts) {
             c.left_brake = std::max(-turn, 0.0) * 0.5;
@@ -201,13 +261,20 @@ Controls Departure::fly() {
 
     // --- the elevator ------------------------------------------------------
     double want_pitch = 0.0;
-    if (stage_ == Stage::roll) {
+    if (on_water && (stage_ == Stage::roll || stage_ == Stage::rotate)) {
+        // **On the water the hull is held at its running attitude** - over
+        // the hump and on to the step, where too low an attitude or too high
+        // sets off porpoising (FAA-H-8083-23, chapter 4) - and three degrees
+        // higher from the rotation speed until it is clear.
+        want_pitch = speeds_.running_pitch_deg + (stage_ == Stage::rotate ? 3.0 : 0.0);
+        // The climb begins from the attitude she left the water at.
+        rotate_pitch_ = want_pitch;
+    } else if (stage_ == Stage::roll) {
         // The stick is held where the aeroplane sits: a tail-wheel aeroplane
         // wants its tail down until it has the speed to lift it.
         c.elevator = 0.0;
         return c;
-    }
-    if (stage_ == Stage::rotate) {
+    } else if (stage_ == Stage::rotate) {
         // **The nose comes up at a pilot's rate**, not at once, and stops at
         // a take-off attitude the aeroplane can carry.
         rotate_pitch_ = std::min(rotate_pitch_ + 4.0 / steps_per_second, 10.0);
@@ -221,10 +288,19 @@ Controls Departure::fly() {
         // nose down and 18 up every eight seconds, and met the crosswind
         // turn at the top of a zoom with the speed falling away, stalled in
         // it and mushed seven hundred feet into the ground.
-        const double fast_by = kcas - speeds_.climb_kts;
+        const double fast_by = kcas - speeds_.initial_climb_kts;
         rotate_pitch_ = std::clamp(rotate_pitch_ + 0.2 * fast_by / steps_per_second,
                                    0.0, 15.0);
         want_pitch = std::clamp(rotate_pitch_ + 0.5 * fast_by, 0.0, 15.0);
+        // **Off the water, she is held off it.** A flying boat unsticks forty
+        // knots below her climbing speed, and the law above answered that by
+        // putting the nose down to gain it: the S.23 left the water at 77
+        // knots, was pitched from nine degrees to three and went straight
+        // back in. Below fifty feet she keeps her running attitude and
+        // accelerates in ground effect, as a flying boat is flown off.
+        if (on_water && above_m_ * feet_per_metre < 50.0) {
+            want_pitch = std::max(want_pitch, speeds_.running_pitch_deg);
+        }
     }
     // Never past the incidence the aeroplane's own tables cover: JSBSim
     // asserts rather than extrapolating.

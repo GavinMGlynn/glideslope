@@ -363,6 +363,10 @@ void Aircraft::initialize(const InitialConditions& ic) {
     initialized_ = true;
 }
 
+bool Aircraft::in_water() const {
+    return hydrodynamics_ && exec_->GetPropertyValue("hydro/active-norm") > 0.0;
+}
+
 void Aircraft::set_controls(const Controls& c) {
     exec_->SetPropertyValue("fcs/elevator-cmd-norm", -c.elevator);
     exec_->SetPropertyValue("fcs/aileron-cmd-norm", c.aileron);

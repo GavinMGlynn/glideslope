@@ -59,6 +59,7 @@ struct PublishedFigures {
     double total_lbs = 0.0;
     Loading loading;
     std::map<std::string, FigureLoading> loadings; // every loading, by name
+    std::string first_loading;                     // the first's name
     std::vector<FigureSpec> figures;
 };
 

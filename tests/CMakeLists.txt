@@ -333,6 +333,10 @@ set(GLIDESLOPE_UNIT_TESTS
     the_b2_stalls_where_its_own_model_said_it_would
     the_f15c_stalls_where_its_own_model_said_it_would
     the_f35b_stalls_where_its_own_model_said_it_would
+    the_boeing_737_300_stalls_at_its_take_off_flap_where_its_own_model_said_it_would
+    the_boeing_787_8_stalls_at_its_take_off_flap_where_its_own_model_said_it_would
+    the_airbus_a320_stalls_at_its_take_off_flap_where_its_own_model_said_it_would
+    the_airbus_a380_stalls_at_its_take_off_flap_where_its_own_model_said_it_would
     the_short_s23_stalls_where_its_own_model_said_it_would
     the_boeing_737_300_climbs_at_the_rate_its_own_model_gave
     the_boeing_787_8_climbs_at_the_rate_its_own_model_gave

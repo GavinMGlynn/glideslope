@@ -81,6 +81,18 @@
     altitude a thrust-limited ceiling.
   </figure>
 
+  <figure name="stall_speed_takeoff" flight="stall_speed" from="measured"
+          loading="maximum" unit="KCAS" value="136.76" tolerance="3"
+          flaps_deg="17" entry_kcas="200" gear="1">
+    **Measured, not published**, as the landing stall below is: the stall at
+    the take-off flap, 17 degrees, at the maximum loading the take-off
+    field length is flown at, gear down. It is what a take-off lesson rotates
+    from - at 1.15 times it, where the field length's own VR is 0.95 of 1.2
+    times it - so that a jet is not asked to leave the runway at 1.15 times
+    its landing stall with its flaps up. Measured 2026-09-23 from entries of 160, 200 and 240
+    knots: 136.47, 136.76 and 136.76.
+  </figure>
+
   <figure name="stall_speed_landing" flight="stall_speed" from="measured"
           loading="landing" unit="KCAS" value="104.86" tolerance="3"
           flaps_deg="32" entry_kcas="200" gear="1">

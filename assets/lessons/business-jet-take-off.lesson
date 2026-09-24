@@ -1,0 +1,47 @@
+# A take-off in a business jet: lining up to five hundred feet.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The rotation speed is this aeroplane's own**, worked by
+# `sim::departure_speeds` from its stall at the take-off flap its published
+# field length is flown with, or clean where it has no flaps. **The climb away
+# is judged against it, not against `climb`**, which for a jet is the speed
+# it climbs at en route - 260 knots or more - and not one it leaves the runway
+# at: a jet climbs out at V2 and ten, a little above its rotation speed, and
+# cleans up and accelerates above five hundred feet.
+#
+# **The bands are measured**, with room: the Learjet 35A holds 12.6 to 17.9
+# degrees in the initial climb and climbs away 45 to 54 knots above its
+# rotation speed - faster than V2 and ten, because it has thrust to spare and
+# the climb law will not raise its nose past twelve degrees of alpha.
+
+name Take-off in a business jet
+teaches business-jet
+
+stage The roll
+do Line up, then set take-off thrust smoothly and evenly
+do Hold her straight on the rudder down the centreline
+do Let the speed build to the rotation speed. Do not hurry her off
+hold lesson/turned-deg -20 20 Keep her straight on the take-off roll
+need fcs/throttle-cmd-norm >= 0.90 Set take-off thrust with the throttles
+need velocities/vc-kts >= rotate-5 Let her reach the rotation speed before easing the nose up
+until position/h-agl-ft >= 15
+
+stage The initial climb
+do Rotate smoothly to the take-off attitude and hold it
+do Gear up once there is no runway left to land on
+hold attitude/theta-deg 5.0 25.0 Hold the climbing attitude
+until position/h-agl-ft >= 200
+
+stage Climbing away
+do Climb straight ahead at V2 and ten
+hold velocities/vc-kts rotate+5 rotate+70 Hold the take-off safety speed
+until position/h-agl-ft >= 500

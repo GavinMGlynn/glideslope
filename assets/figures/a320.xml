@@ -77,6 +77,18 @@
     300 ft/min, the margin that makes an altitude a thrust-limited ceiling.
   </figure>
 
+  <figure name="stall_speed_takeoff" flight="stall_speed" from="measured"
+          loading="maximum" unit="KCAS" value="125.38" tolerance="3"
+          flaps_deg="10" entry_kcas="200" gear="1">
+    **Measured, not published**, as the landing stall below is: the stall at
+    the take-off flap, 10 degrees, at the maximum loading the take-off
+    field length is flown at, gear down. It is what a take-off lesson rotates
+    from - at 1.15 times it, where the field length's own VR is 0.95 of 1.2
+    times it - so that a jet is not asked to leave the runway at 1.15 times
+    its landing stall with its flaps up. Measured 2026-09-23 from entries of 160, 200 and 240
+    knots: 125.47, 125.38 and 125.36.
+  </figure>
+
   <figure name="stall_speed_landing" flight="stall_speed" from="measured"
           loading="landing" unit="KCAS" value="113.33" tolerance="3"
           flaps_deg="40" entry_kcas="200" gear="1">

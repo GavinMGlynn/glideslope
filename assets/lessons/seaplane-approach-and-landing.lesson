@@ -1,0 +1,52 @@
+# The approach and alighting, in a flying boat: down a three-degree
+# glidepath to the water, on to the step, and off it to rest.
+#
+#   name TEXT...                   what the lesson is called
+#   teaches CLASS                  which class of aircraft it is for
+#   stage TEXT...                  a stage, in the order flown
+#   do TEXT...                     what to do at this stage
+#   until PROPERTY <=|>= VALUE     what ends the stage
+#   hold PROPERTY LOW HIGH TEXT... a band that must hold for the whole stage
+#   need PROPERTY <=|>= VALUE TEXT...  what must be true by the stage's end
+#
+# with `#` beginning a comment; src/sim/lesson.hpp owns the format.
+#
+# **The technique is the FAA's**, from its Seaplane, Skiplane, and Float/Ski
+# Equipped Helicopter Operations Handbook (FAA-H-8083-23), chapter 6, "Normal
+# Landing": full flap and a stabilised approach at the approach speed; the
+# nose raised to the attitude she taxies on the step at as the water comes up,
+# and touching down on the step; the throttles closed once she is definitely
+# on the water, and the attitude held until she comes off the step. The
+# FlightGear model's notes add "beware of water-loops - keep the nose up".
+# The approach speed is `vref`, a third above the stall with everything
+# down, which for the Short S.23 is measured from its model (ASSETS.md).
+#
+# **Alighting is asked of the hull, not of any wheel**: `hydro/active-norm` is
+# JSBSim's own word for the hull being in the water.
+#
+# **The bands are the other classes'**, and are met with room: flown by the
+# AI pilot the Short S.23, whose reference speed is 86 knots, holds 85 to 88
+# down the approach and 87 over the water, and is on the water with her
+# throttles closed.
+
+name Approach and alighting in a flying boat
+teaches seaplane
+
+stage The approach
+do Join the approach into wind, flaps fully down
+do Hold the approach speed and let her come down the glidepath
+hold velocities/vc-kts vref-10 vref+15 Hold the approach speed
+need velocities/h-dot-fps >= -30 Arrive over the water coming down the glidepath, not falling
+until position/h-agl-ft <= 50
+
+stage Over the water
+do Hold the approach speed as the water comes up
+hold velocities/vc-kts vref-10 vref+15 Cross on to the water on speed
+until position/h-agl-ft <= 40
+
+stage Alighting and the run
+do Raise the nose to the step attitude and touch down on the step
+do Close the throttles once she is on the water, and keep the nose up as she comes off the step
+need fcs/throttle-cmd-norm <= 0.15 Close the throttles once she is on the water
+need hydro/active-norm >= 0.5 Put her down on the water
+until velocities/vc-kts <= 20

@@ -112,17 +112,20 @@ private:
     // The loops' own state, advanced one step a call.
     double pitch_trim_ = 0.0;
     double throttle_ = 0.0;
+    double last_kcas_ = -1.0;  // the last step's airspeed, for its trend
+    double kcas_rate_ = 0.0;   // knots a second, smoothed over half a second
+    double last_throttle_ = 0.0; // the last step's, which near the ground opens slowly
     double rudder_trim_ = 0.0;
-    // The steady drift off the centreline that a wind, or a propeller's
-    // slipstream, puts on: without it the aeroplane flies a track parallel
-    // to the runway rather than down it.
-    double across_trim_ = 0.0;
+    double aileron_trim_ = 0.0; // what holds a steady bank against the aileron
+    double bank_trim_deg_ = 0.0; // held against a steady offset, near the line
     double flare_pitch_ = 0.0;
     // The attitude that holds the glidepath, learnt as she flies it; taken
     // from the attitude she has on the first step of the approach.
     double path_pitch_ = 0.0;
     bool path_pitch_set_ = false;
     bool touched_ = false;
+    double touchdown_pitch_deg_ = 0.0; // held through the rollout while she can fly
+    double touchdown_above_m_ = 0.0;   // above the runway as the wheels met it
 
     void measure();
 };

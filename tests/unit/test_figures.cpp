@@ -498,6 +498,25 @@ GLIDESLOPE_TEST(the_short_s23_stalls_where_its_own_model_said_it_would) {
     expect_figure("short_s23", "stall_speed_landing");
 }
 
+// The same four airliners' stalls at their take-off flaps, which a take-off
+// lesson rotates from (sim::departure_speeds).
+
+GLIDESLOPE_TEST(the_boeing_737_300_stalls_at_its_take_off_flap_where_its_own_model_said_it_would) {
+    expect_figure("737-300", "stall_speed_takeoff");
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_stalls_at_its_take_off_flap_where_its_own_model_said_it_would) {
+    expect_figure("787-8", "stall_speed_takeoff");
+}
+
+GLIDESLOPE_TEST(the_airbus_a320_stalls_at_its_take_off_flap_where_its_own_model_said_it_would) {
+    expect_figure("a320", "stall_speed_takeoff");
+}
+
+GLIDESLOPE_TEST(the_airbus_a380_stalls_at_its_take_off_flap_where_its_own_model_said_it_would) {
+    expect_figure("a380", "stall_speed_takeoff");
+}
+
 GLIDESLOPE_TEST(the_boeing_737_300_climbs_at_the_rate_its_own_model_gave) {
     expect_figure("737-300", "climb_rate");
 }
@@ -560,7 +579,9 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // figures were added on 2026-09-23 - a stall speed for eight aeroplanes
     // that publish none and a rate of climb for eight - so that the classes
     // they belong to can be taught something beyond turns.
-    check(figures_in_files == 109,
-          "a hundred and nine figures, one test each above; found " +
+    // A hundred and thirteen: four airliners' stalls at their take-off flaps,
+    // measured the same way on the same day, for their take-off lessons.
+    check(figures_in_files == 113,
+          "a hundred and thirteen figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
