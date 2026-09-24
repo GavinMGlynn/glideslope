@@ -136,15 +136,15 @@ turns alone, having no stall or climbing speed; the F-15C, F-35B and
 Learjet are not flown rotating early (a tail). See the log for 2026-09-22
 to 2026-09-24.
 
-**Phase 6, client and server, is in progress — 15 of 17 items.** A server
+**Phase 6, client and server, is in progress — 16 of 17 items.** A server
 flies every aircraft, wherever on Earth, with AI aircraft of its own, and
 resolves collisions; clients join a lobby, stream their inputs, predict their
 own aircraft and reconcile, and see the others 100 ms in the past, over a
 reliable layer whose every parser is fuzzed - and all of that holds, within
-stated bounds, through 200 ms of latency with jitter and loss. Missing: the
-Deployment item's tick (its Dockerfile is built; its pull request is open),
-and four machines in one sky - the graphical client does not yet draw the
-server's aircraft.
+stated bounds, through 200 ms of latency with jitter and loss; the server
+deploys as a systemd unit or a container image. Missing: four machines in one
+sky - the graphical client does not yet fly on a server or draw the server's
+aircraft, and nothing on the wire says which model an aircraft is.
 
 ## Gaps
 

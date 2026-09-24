@@ -72,7 +72,9 @@ frame is not allowed.
   push to it. It merges (`gh pr merge --rebase`) only when the one required
   check, **CI passed**, is green - every job on every platform - with the
   branch up to date with `main`. A red run is fixed on the branch. Rewriting
-  history that is already pushed needs the project owner's say-so.
+  history that is already pushed needs the project owner's say-so, which is
+  given for feature branches (`--force-with-lease`, to rebase onto `main`) and
+  never for `main`.
 - **Start an item with `tools/start_item.sh BRANCH "title"`**: the branch from
   an up-to-date `main`, pushed, with its draft pull request open - CI runs on
   pull requests, so a branch without one is tested by nothing. Merge with
