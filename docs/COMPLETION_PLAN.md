@@ -312,6 +312,11 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [x] **The hooks' test, run by the pre-push hook, committed into the
+      repository being pushed** and set it bare. *Verification: run with git's
+      hook variables naming a decoy repository, it leaves the decoy exactly as
+      it was.* Done 2026-09-24.
+
 - [x] **CI's actions run on Node.js 20, which GitHub has deprecated.**
       *Verification: a CI run's annotations name no action as targeting
       Node.js 20.* Done 2026-09-24.

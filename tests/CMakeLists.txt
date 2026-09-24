@@ -1229,6 +1229,14 @@ add_test(NAME the_pre_commit_hook_refuses_an_unfinished_commit_and_nothing_else
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/githooks
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/githooks.cmake)
 
+# **Run as a git hook runs it, the hooks' test leaves the repository being
+# pushed alone.** See cmake/githooks_in_a_hook.cmake.
+add_test(NAME the_hooks_test_run_from_a_hook_changes_its_scratch_repository_and_not_the_one_pushed
+    COMMAND ${CMAKE_COMMAND} -DTEST=${CMAKE_CURRENT_SOURCE_DIR}/cmake/githooks.cmake
+        -DHOOKS=${PROJECT_SOURCE_DIR}/.githooks
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/githooks_in_a_hook
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/githooks_in_a_hook.cmake)
+
 # **Every flag the server prints in its usage is one it takes.** A flag added
 # to the usage and not to the parser is documented and silently ignored; see
 # cmake/server_flags.cmake, which walks the usage text itself.
