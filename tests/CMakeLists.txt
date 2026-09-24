@@ -1252,7 +1252,13 @@ foreach(_net IN ITEMS "100;30;5;11;47880;8" "200;60;10;12;47882;10")
             -DPORT=${_port} -DDELAY=${_delay} -DJITTER=${_jitter} -DLOSS=${_loss}
             -DSEED=${_seed} -DPREDICT_M=${_predict_m}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_impaired.cmake)
-    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77)
+    # **Alone on the machine.** What these measure is kept in real time by
+    # five programs - a server flying three aircraft, two clients, one of them
+    # flying its own and flying it again on every update, and the relay - and
+    # on a CI runner shared with three other tests a debug client fell so far
+    # behind that it sent a third of its inputs. That is the runner, not the
+    # network, and not what is being measured.
+    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_impaired_${_delay})
 endforeach()
 
