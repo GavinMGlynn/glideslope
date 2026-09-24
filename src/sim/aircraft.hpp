@@ -201,7 +201,8 @@ struct AircraftSnapshot {
 // the rate state updates arrive.
 struct Motion {
     std::array<double, 3> location_ecef_m{}; // Earth-centred, Earth-fixed
-    std::array<double, 4> attitude_local{};  // quaternion, body to north-east-down
+    // A quaternion, north-east-down to the body (JSBSim's qAttitudeLocal).
+    std::array<double, 4> attitude_local{};
     std::array<double, 3> uvw_mps{};         // body-axis velocity relative to the Earth
     std::array<double, 3> pqr_radps{};       // body-axis rates relative to the Earth
 };

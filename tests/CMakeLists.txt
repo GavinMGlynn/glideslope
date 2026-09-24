@@ -1146,11 +1146,6 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_duplicate)
 # **A gearstick client is refused.** gearstick's first datagram, made from its
 # own TRANSPORT.md by tools/make_gearstick_hello.py, sent to a running server;
 # the answer must be NOT_THIS_PROTOCOL. See cmake/server_gearstick.cmake.
-add_executable(glideslope_impair tools/impair.cpp)
-target_link_libraries(glideslope_impair PRIVATE glideslope_platform)
-glideslope_configure(glideslope_impair)
-add_executable(glideslope_interpolation_check tools/interpolation_check.cpp)
-glideslope_configure(glideslope_interpolation_check)
 add_executable(glideslope_datagram_check tools/datagram_check.cpp)
 target_link_libraries(glideslope_datagram_check PRIVATE glideslope_platform)
 glideslope_configure(glideslope_datagram_check)
@@ -1229,6 +1224,13 @@ add_test(NAME two_aircraft_on_a_collision_course_collide_on_the_server_and_every
 set_tests_properties(two_aircraft_on_a_collision_course_collide_on_the_server_and_every_client_is_told
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_collision)
+
+# The relay that makes the network worse, and the judge of what was drawn.
+add_executable(glideslope_impair tools/impair.cpp)
+target_link_libraries(glideslope_impair PRIVATE glideslope_platform)
+glideslope_configure(glideslope_impair)
+add_executable(glideslope_interpolation_check tools/interpolation_check.cpp)
+glideslope_configure(glideslope_interpolation_check)
 
 # **Prediction, interpolation and the player limit hold through a network
 # made worse on purpose** - at 100 ms and at 200 ms each way, with jitter and

@@ -572,7 +572,7 @@ the server's to hand out.
 
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
-full, with the client's own motion, is 1,099 bytes, and 1,129 with the
+full, with the client's own motion, is 1,100 bytes, and 1,130 with the
 envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 
@@ -614,8 +614,14 @@ cannot know how.
 **What the server does not say** is how far into its newest input it had
 flown when it took the motion. It flies an input from when that input arrives,
 so an input that jitter makes late is flown late, and a client that assumes
-every input lasted as long as it did on its own screen is wrong by the
-aeroplane's speed times the jitter. At 50 m/s and 60 ms that is 3 m.
+every input lasted as long as it did on its own screen is wrong by up to the
+aeroplane's speed times the jitter and an input's length: at 50 m/s, 60 ms of
+jitter and inputs thirty a second, 5 m.
+
+**An update can arrive after a newer one** - the network reorders them - and
+a client must not put its aircraft back to it: it has already been put right
+by the newer one, and the inputs the older one would have it fly again are
+gone.
 
 Nothing else about the aircraft is sent - its engines, its controls' positions,
 its fuel: the client, flying the same inputs, already has them, and sending

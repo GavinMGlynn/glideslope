@@ -248,15 +248,20 @@ latency, loss and jitter".
 
 | | bound | 100 ms | 200 ms |
 |---|---|---|---|
-| prediction error, worst | 8 m / 10 m | 3.2 m | 5.4 m |
-| correction, worst (none may snap) | 20 m | 3.2 m | 4.6 m |
-| interpolation error, worst | 2 m | 0.025 m | 0.040 m |
+| prediction error, worst | 8 m / 10 m | 4.6 m | 4.6 m |
+| correction, worst (none may snap) | 20 m | 3.7 m | 5.1 m |
+| interpolation error, worst | 2 m | 0.052 m | 0.171 m |
+| frames carried on past the newest update | some | 20 | 94 |
 | the third client | refused as full | refused | refused |
 
 The test also asserts:
 
 - that the relay lost datagrams both ways;
-- that at least 150 updates were compared and 1,500 frames judged;
+- that at least 150 updates were compared and 600 frames judged (a Windows
+  client, whose shortest sleep is longer, drew 1,492 where Linux drew 2,200);
+- that some frames were carried on past the newest update, so that the
+  guessing and the blending back were judged, not only interpolating between
+  two updates;
 - that joining took no more than 30 inputs.
 
 **Each was seen to fail** on a deliberate bug, and each bug was reverted:
@@ -292,8 +297,23 @@ The 20 m correction bound and the relay's loss check were not made to fail.
 - **Corrections are metres, not the millimetres measured in-process.** The
   server applies an input when it arrives, so an input made late by jitter is
   flown late. The server also does not say how far into its latest input it
-  had flown. At 50 m/s, 60 ms of jitter is 3 m. This is within the bounds and
-  is what they were set from; it is a tail in `COMPLETION_PLAN.md`.
+  had flown. At 50 m/s, 60 ms of jitter and an input's thirtieth of a second
+  are 5 m. That is what the bounds were set from, with room for a slow
+  runner, and it is a tail in `COMPLETION_PLAN.md`.
+- **An update that arrives after a newer one was put right by** (found by the
+  review). The relay reorders updates when the jitter is wider than the 40 ms
+  between them. The client put its aircraft back to the older update and could
+  not fly the inputs since, because the newer update had already released
+  them, so it ended up an update behind. It now uses only an update newer than
+  the last one it used. No test pins this on its own: the figures it moved sit inside
+  the bounds either way.
+- **What the predicting client does not do yet.** It flies a Cessna because it
+  is told to (`--predict c172p`), not because the server says so: nothing on
+  the wire names an aircraft's model. It flies over flat ground at sea level,
+  not the DEM. Both belong to "Four machines in one sky", where the client
+  with the window flies on a server. The measured figures also depend on
+  three programs keeping time on a loaded machine, as a real network does;
+  the nightly run repeats them five times.
 - **A program in a pipeline that outlives the next one is killed.** In a
   CMake pipeline each program's standard output feeds the next. A client ahead
   of one that left sooner died of SIGPIPE when it printed. The pipeline is now
