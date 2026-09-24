@@ -5,8 +5,9 @@
 #         -P server_state.cmake
 #
 # **What this pins** is the whole state stream, end to end and over a real
-# socket: the server flies its aircraft, says where they are 25 times a second
-# inside a sealed datagram, and a client opens it and reads positions back out.
+# socket: the server flies its aircraft, says where they are 25 times a
+# simulated second inside a sealed datagram, and a client opens it and reads
+# positions back out.
 #
 # **Why the positions are checked and not just the count.** A state packet
 # carries Earth-centred, Earth-fixed metres, and the server builds them from
@@ -71,19 +72,37 @@ if(NOT CMAKE_MATCH_1 STREQUAL _key)
     message(FATAL_ERROR "the client got a session with the wrong key")
 endif()
 
-# **At about 25 Hz.** Three seconds should be seventy-five; the bounds are
-# wide enough that a busy machine does not fail and narrow enough that once a
-# second, or as fast as the loop will go, does. The floor is ten, not fifty:
-# a debug server on a Windows runner shared with three client renders fell
-# behind the clock and sent 32, and what the floor is for - once a second - is
-# three.
+# **One update for every twenty-fifth of a simulated second, and no more.**
+# This was counted against the wall clock - three seconds should be
+# seventy-five - with a floor lowered from fifty to ten as debug servers on
+# busy runners fell behind real time, until one sent nine (CI run
+# 35857600253): the count measured the runner. The server counts its updates
+# in simulated time now (states_per_second in src/frontend/server/main.cpp),
+# so the rule has an exact answer however fast the machine is: the client
+# says the step of the first update and of the last it heard, and between them
+# there must be one update per twenty-fifth of a second crossed. A dropped update, a doubled
+# one, an update per pass of the loop or once a second all fail it.
 if(NOT _out MATCHES "heard ([0-9]+) state update")
     message(FATAL_ERROR "the client said nothing about state updates:\n${_out}")
 endif()
 set(_heard ${CMAKE_MATCH_1})
-if(_heard LESS 10 OR _heard GREATER 110)
-    message(FATAL_ERROR "the client heard ${_heard} state updates in three "
-                        "seconds, and 25 Hz is seventy-five")
+if(NOT _out MATCHES "state updates from step ([0-9]+) to step ([0-9]+) of the simulation")
+    message(FATAL_ERROR "the client did not say which steps it heard:\n${_out}")
+endif()
+set(_first_step ${CMAKE_MATCH_1})
+set(_last_step ${CMAKE_MATCH_2})
+math(EXPR _span "${_last_step} - ${_first_step}")
+# A fifth of a second of simulation at the least - a tenth of real time over
+# the three seconds - or the count below would say little.
+if(_span LESS 24)
+    message(FATAL_ERROR "the client heard updates over only ${_span} steps of the "
+                        "simulation in three seconds")
+endif()
+math(EXPR _updates "${_last_step} * 25 / 120 - ${_first_step} * 25 / 120 + 1")
+if(NOT _heard EQUAL _updates)
+    message(FATAL_ERROR "the client heard ${_heard} state updates from step "
+                        "${_first_step} to step ${_last_step}, and one for every "
+                        "twenty-fifth of a second between them is ${_updates}")
 endif()
 
 # **Every aircraft the server is flying is in the packet**, and no more. That
@@ -166,6 +185,7 @@ if(_gap LESS 100 OR _gap GREATER 250)
                         "the server stacks them 500 ft - about 152 m - apart")
 endif()
 
-message(STATUS "the client heard ${_heard} state updates in three seconds, each "
+message(STATUS "the client heard ${_heard} state updates in three seconds - one "
+               "for each 1/25 s from step ${_first_step} to ${_last_step} - each "
                "with ${_expected} aircraft over Sydney Harbour - ${_ai} of the "
                "server's ${_gap} m apart in height, and its own, numbered ${_mine}")

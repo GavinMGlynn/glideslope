@@ -535,7 +535,10 @@ jobs:
       # program's own handlers (src/platform/no_crash_dialogs.hpp) printed
       # nothing: a crash in the process's own shutdown comes where they
       # cannot. Windows Error Reporting's local dumps catch it from outside,
-      # and the step after the tests reads each dump's stack with cdb.
+      # and the step after the tests reads each dump's stack with cdb. The
+      # programs write a dump of their own first crash too, into the same
+      # folder, from inside the fault (GLIDESLOPE_CRASH_DUMPS): WER's is of the
+      # process as it died, which can be long after the fault that began it.
       - name: Keep a dump of any crash
         shell: pwsh
         run: |
@@ -545,6 +548,7 @@ jobs:
           New-ItemProperty -Path $key -Name DumpType -PropertyType DWord -Value 1 -Force | Out-Null
           New-ItemProperty -Path $key -Name DumpCount -PropertyType DWord -Value 20 -Force | Out-Null
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\dumps" | Out-Null
+          "GLIDESLOPE_CRASH_DUMPS=$env:RUNNER_TEMP\dumps" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
@@ -559,9 +563,14 @@ jobs:
           $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe' -ErrorAction SilentlyContinue
           if (-not $cdb) { Write-Output "no cdb on this runner; dumps: $($dumps.Name -join ', ')"; exit 0 }
           $symbols = (Get-ChildItem build\${{ matrix.preset }} -Recurse -Filter *.pdb | ForEach-Object { $_.DirectoryName } | Sort-Object -Unique) -join ';'
+          # Windows' own symbols from Microsoft's server, so ntdll's frames are
+          # named rather than guessed from its exports.
+          $symbols = "$symbols;srv*$env:RUNNER_TEMP\symbols*https://msdl.microsoft.com/download/symbols"
+          # The exception, its thread's stack deep enough to reach the thread's
+          # start, every other thread's, and the debugger's own analysis.
           foreach ($d in $dumps) {
             Write-Output "===== $($d.Name)"
-            & $cdb.FullName -z $d.FullName -y "$symbols" -c ".ecxr; kn 40; ~*kn 12; q" | Select-Object -Last 150
+            & $cdb.FullName -z $d.FullName -y "$symbols" -c ".exr -1; .ecxr; kn 200; ~*kn 60; !analyze -v; q"
           }
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}

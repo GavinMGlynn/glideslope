@@ -18,6 +18,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/figures.hpp"
+#include "sim/fixed_step.hpp"
 #include "sim/selftest.hpp"
 #include "sim/version.hpp"
 #include "world/dem.hpp"
@@ -507,6 +508,11 @@ int stay(glideslope::platform::UdpSocket& socket,
     const auto began = std::chrono::steady_clock::now();
     int answered = 0;
     int heard = 0;
+    // The simulation's step in the first and the last update heard: a test
+    // counts the twenty-fifths of a second between them and expects an update
+    // for each.
+    long long first_step = -1;
+    long long last_step = -1;
     std::size_t aircraft_last = 0;
     // **What this client flies, if it was told to.** Full left aileron and a
     // little up elevator: a thing no AI pilot on a flight plan would ever do,
@@ -571,6 +577,11 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (const auto state = glideslope::net::read_state(inside)) {
             ++heard;
             applied = state->last_input_applied;
+            last_step = std::llround(state->simulation_time_s *
+                                     static_cast<double>(glideslope::sim::steps_per_second));
+            if (first_step < 0) {
+                first_step = last_step;
+            }
             // **Its own aircraft**, which the server names in every update
             // because a client cannot reconcile without knowing which line is
             // its own.
@@ -618,6 +629,10 @@ int stay(glideslope::platform::UdpSocket& socket,
     std::printf("stayed %.1f s, answered %d ping%s and heard %d state update%s\n",
                 seconds, answered, answered == 1 ? "" : "s", heard,
                 heard == 1 ? "" : "s");
+    if (heard > 0) {
+        std::printf("state updates from step %lld to step %lld of the simulation\n",
+                    first_step, last_step);
+    }
     if (fly) {
         std::printf("sent %u input frames, the server applied %u\n", sequence,
                     applied);
