@@ -309,6 +309,10 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [ ] **CI's actions run on Node.js 20, which GitHub has deprecated.**
+      *Verification: a CI run's annotations name no action as targeting
+      Node.js 20.* In progress: moved to the Node 24 majors; not yet seen in a
+      run.
 - [ ] **The handshake is not quite the Noise protocol it is named after**, so a
       standard Noise client cannot complete it. *Verification: the handshake
       completes against an independent Noise implementation.*
