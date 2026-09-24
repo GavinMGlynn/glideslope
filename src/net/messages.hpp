@@ -143,9 +143,11 @@ struct WeatherAloft {
     std::vector<NearGroundWind> near_ground;
 };
 
-// **An aircraft's definition**: which aeroplane a slot is flying.
+// **An aircraft's definition**: which aeroplane an aircraft is, by the
+// server's number for it - the number state updates carry. Not a slot: an AI
+// aircraft has none, and a client must know what it is to draw it.
 struct AircraftDefinition {
-    std::uint8_t slot = 0;
+    std::uint8_t aircraft = 0;
     std::string id;    // the catalogue's, "c172p"
     std::string model; // the JSBSim model's directory
 };

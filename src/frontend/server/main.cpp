@@ -17,7 +17,9 @@
 #include "net/inputs.hpp"
 #include "net/inside.hpp"
 #include "net/keys.hpp"
+#include "net/messages.hpp"
 #include "net/protocol.hpp"
+#include "net/reliable.hpp"
 #include "net/sealing.hpp"
 #include "net/slots.hpp"
 #include "net/state.hpp"
@@ -484,6 +486,12 @@ struct Connection {
     // goes back in every state update so the client knows what to reconcile.
     glideslope::net::InputReceiver inputs;
     std::uint32_t last_input_applied = 0;
+    // **What must arrive**: the reliable messages to this client, and what
+    // each aircraft has been introduced to it as - its model, by number - so
+    // that one is introduced once, and again if its number comes to mean
+    // another aircraft.
+    glideslope::net::Reliable reliable;
+    std::map<std::uint8_t, std::string> introduced;
 };
 
 // **How often the server says where everybody is: 25 times for every second
@@ -588,6 +596,8 @@ public:
             flown_.push_back(
                 {f.id, std::move(aircraft), nullptr, next_index_, -1, idling});
             remember_start(flown_.back(), ic, entry.seaplane);
+            flown_.back().catalogue_id = f.id;
+            flown_.back().model = entry.model;
             hold_course(flown_.back());
             ++next_index_;
         }
@@ -650,6 +660,8 @@ public:
                                   std::move(aircraft), std::move(controller),
                                   next_index_, -1, {}});
                 remember_start(flown_.back(), ic, entry.seaplane);
+                flown_.back().catalogue_id = plan.aircraft;
+                flown_.back().model = entry.model;
                 flown_.back().on_plan = true;
                 ++next_index_;
                 ++ai_;
@@ -712,6 +724,8 @@ public:
                           std::move(aircraft), nullptr, index, static_cast<int>(slot),
                           idling});
         remember_start(flown_.back(), ic, player_seaplane_);
+        flown_.back().catalogue_id = player_id_;
+        flown_.back().model = player_model_;
         return index;
     }
 
@@ -823,7 +837,7 @@ public:
     }
 
     struct Aircraft {
-        std::string id;
+        std::string id; // as the dashboard names it: "c172p (AI 1)"
         std::unique_ptr<glideslope::sim::Aircraft> aircraft;
         std::unique_ptr<glideslope::sim::Controller> controller; // null: flown by hand
         // **The server's number for it, steady for as long as it flies**, and
@@ -847,6 +861,10 @@ public:
         glideslope::sim::InitialConditions start{};
         double span_ft = 0.0;
         glideslope::sim::GroundJudge judge{false};
+        // What it is, as the catalogue and JSBSim name it: what a client
+        // is told (`AIRCRAFT`) so that it can draw it, and fly its own.
+        std::string catalogue_id{};
+        std::string model{};
         // When it was wrecked, on the simulation's clock, or below nought
         // while it flies.
         double wrecked_at_s = -1.0;
@@ -861,6 +879,16 @@ public:
     static constexpr double wreck_s = 5.0;
 
     const std::vector<Aircraft>& flown() const { return flown_; }
+
+    // **What every aircraft is**, by its number: what each client is told,
+    // once, as a reliable `AIRCRAFT` message.
+    std::vector<glideslope::net::AircraftDefinition> who() const {
+        std::vector<glideslope::net::AircraftDefinition> out;
+        for (const Aircraft& a : flown_) {
+            out.push_back({a.index, a.catalogue_id, a.model});
+        }
+        return out;
+    }
 
     // **The motion of the aircraft numbered `index`**, for its client's
     // prediction to be put right by, or nothing if there is no such aircraft.
@@ -1315,6 +1343,10 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             return;
         }
         case glideslope::net::Inside::reliable:
+            // A client sends the server nothing it must act on yet - only
+            // its acknowledgements of what the server sent, which this takes.
+            (void)c.reliable.received(inside.subspan(1));
+            return;
         case glideslope::net::Inside::state:
             // Named, not built: nothing sends these yet and nothing here
             // reads them. See docs/TRANSPORT.md, "What is not here yet".
@@ -1570,7 +1602,21 @@ int run(const Options& o) {
             glideslope::net::StatePacket packet =
                 state_of(*fleet, static_cast<double>(stepped) /
                                      static_cast<double>(glideslope::sim::steps_per_second));
+            const std::vector<glideslope::net::AircraftDefinition> who = fleet->who();
             for (auto& [address, c] : connections) {
+                // **Every aircraft introduced**, before it is first said to
+                // be anywhere, and again if its number has come to mean
+                // another; numbers no longer flying are forgotten.
+                std::map<std::uint8_t, std::string> now_flying;
+                for (const glideslope::net::AircraftDefinition& d : who) {
+                    now_flying[d.aircraft] = d.model;
+                    const auto was = c.introduced.find(d.aircraft);
+                    if (was == c.introduced.end() || was->second != d.model) {
+                        const std::vector<std::uint8_t> body = glideslope::net::write(d);
+                        (void)c.reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                    }
+                }
+                c.introduced = std::move(now_flying);
                 packet.your_aircraft = c.aircraft;
                 packet.last_input_applied = c.last_input_applied;
                 // Its own aircraft's motion, which only its own packet carries.
@@ -1583,6 +1629,16 @@ int run(const Options& o) {
                     send_sealed(*socket, *to, c,
                                 std::span<const std::uint8_t>(said->data(),
                                                               said->size()));
+                }
+                // And what must arrive, first time or again.
+                if (to) {
+                    for (const std::vector<std::uint8_t>& datagram : c.reliable.to_send(up_s)) {
+                        std::vector<std::uint8_t> body{
+                            static_cast<std::uint8_t>(glideslope::net::Inside::reliable)};
+                        body.insert(body.end(), datagram.begin(), datagram.end());
+                        send_sealed(*socket, *to, c,
+                                    std::span<const std::uint8_t>(body.data(), body.size()));
+                    }
                 }
             }
         }

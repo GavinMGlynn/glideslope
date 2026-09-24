@@ -107,10 +107,29 @@ void ClientSession::send_the_initiation_again() {
 }
 
 void ClientSession::poll(double now_s) {
-    (void)now_s;
     if (!socket_ || !opening_ || !sealing_) {
         return;
     }
+    read_what_arrived();
+    // **What must arrive is acknowledged**, and anything of its own that
+    // must, repeated until it has.
+    for (const std::vector<std::uint8_t>& datagram : reliable_.to_send(now_s)) {
+        std::vector<std::uint8_t> body{static_cast<std::uint8_t>(Inside::reliable)};
+        body.insert(body.end(), datagram.begin(), datagram.end());
+        Writer w = begin(Type::sealed);
+        w.bytes(sealing_->seal(all_of(body)));
+        const std::vector<std::uint8_t> out = w.take();
+        (void)socket_->send(server_, all_of(out));
+    }
+}
+
+std::vector<StatePacket> ClientSession::take_states() {
+    std::vector<StatePacket> out;
+    out.swap(fresh_);
+    return out;
+}
+
+void ClientSession::read_what_arrived() {
     std::vector<std::uint8_t> into(platform::largest_datagram);
     // Everything waiting, not one: a frame may be a long time after the last.
     for (;;) {
@@ -137,6 +156,20 @@ void ClientSession::poll(double now_s) {
             applied_ = state->last_input_applied;
             mine_ = state->your_aircraft;
             aircraft_ = state->aircraft;
+            // Every one kept for the caller, in the order they came: an
+            // interpolation wants each snapshot, not only the newest.
+            if (fresh_.size() < most_states_kept) {
+                fresh_.push_back(*state);
+            }
+            continue;
+        }
+        if (!inside.empty() && inside[0] == static_cast<std::uint8_t>(Inside::reliable)) {
+            for (const std::vector<std::uint8_t>& message : reliable_.received(inside.subspan(1))) {
+                AircraftDefinition d;
+                if (read(all_of(message), d)) {
+                    roster_[d.aircraft] = d;
+                }
+            }
             continue;
         }
         if (const auto token = knock_token(Inside::ping, inside)) {

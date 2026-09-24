@@ -342,12 +342,17 @@ this project actually fetches - nineteen levels and four winds - is 877.
 
 ### `AIRCRAFT`
 
-Which aeroplane a slot is flying.
+Which aeroplane an aircraft is, by the server's number for it - the number
+state updates carry. Not a slot's index: an AI aircraft has no slot, and a
+client must know what every aircraft is to draw it. The server sends one for
+every aircraft to each client as it is admitted, and to every client when an
+aircraft appears; a number taken out of the sky and later given to another
+aircraft is introduced again.
 
 | written as | field |
 | --- | --- |
 | `u8` | `04`, the kind |
-| `u8` | the slot's index |
+| `u8` | the aircraft's number, as a state update gives it |
 | text | the catalogue's id, `c172p`, at most 64 bytes |
 | text | the JSBSim model's directory, at most 64 bytes |
 
@@ -679,9 +684,10 @@ startup.
 
 ## What is not here yet
 
-- **The reliable messages.** `RELIABLE` is numbered above and nothing sends
-  or reads it, so the seven messages - defined and encoded - do not yet
-  travel. `INPUTS`, `STATE`, `PING` and `PONG` do.
+- **Six of the seven reliable messages.** `AIRCRAFT` travels: the server
+  sends one for every aircraft, inside `RELIABLE`, and a client acknowledges
+  it. The lobby, the session, the weather, the terrain dataset and a
+  controller swap are defined and encoded, and nothing sends them yet.
 - **Any check on what a client sends.** A client's inputs reach its aircraft
   with no range check and no rate limit: a value outside -1 to 1 cannot be
   written, because the wire is a 16-bit fraction, but nothing stops a client
@@ -697,7 +703,7 @@ What a client written from this document **can** do today: complete the
 handshake with a server whose public key it was given, be admitted to a slot,
 seal and open datagrams under the keys that handshake agreed, answer the
 server's knocking so that it stays in its slot and the server can measure the
-round trip, **read where every aircraft is 25 times a second, and fly its own
-aircraft by sending inputs**, and be let go when it stops. What it cannot do
-is be told anything: none of the seven messages travels, so it never learns
-the lobby, the weather or what aeroplane anybody is in.
+round trip, **read where every aircraft is 25 times a second, learn what
+aeroplane each one is, and fly its own aircraft by sending inputs**, and be
+let go when it stops. What it cannot do is be told anything else: it never
+learns the lobby, the weather or the terrain dataset.

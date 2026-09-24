@@ -146,7 +146,7 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
     add("weather_aloft", glideslope::net::write(aloft));
 
     glideslope::net::AircraftDefinition aircraft;
-    aircraft.slot = 1;
+    aircraft.aircraft = 1;
     aircraft.id = "c172p";
     aircraft.model = "c172p";
     add("aircraft", glideslope::net::write(aircraft));
