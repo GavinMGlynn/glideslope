@@ -265,10 +265,9 @@ ends in a debrief, never a score.
       all within their bounds.*
 - [x] **`THREATS.md` written.** *Verification: every message the server accepts
       is named with its defence.* Done 2026-09-22.
-- [ ] **Deployment** — a systemd unit and a Dockerfile under `deploy/`.
-      *Verification: a server started from each accepts a client.* **In
-      progress.** Missing: the Dockerfile's image has not yet been built green;
-      CI builds it and starts a server from it from 2026-09-24.
+- [x] **Deployment** — a systemd unit and a Dockerfile under `deploy/`.
+      *Verification: a server started from each accepts a client.* Done
+      2026-09-24.
 - [x] **`--online`** through a one-line `server.txt`. *Verification: a client
       started with `--online` reaches the server it names.* Done 2026-09-22.
 - [ ] **Four machines in one sky.** *Verification: four clients on different
