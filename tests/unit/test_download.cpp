@@ -1,6 +1,7 @@
 #include "harness.hpp"
 #include "tiff_writer.hpp"
 
+#include "world/byte_source.hpp"
 #include "world/dem.hpp"
 #include "world/digest.hpp"
 #include "world/download.hpp"
@@ -10,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <mutex>
 #include <thread>
 #include <string>
 #include <vector>
@@ -267,4 +269,130 @@ GLIDESLOPE_TEST(
                   calls == 1,
               "status " + std::to_string(refusal) + " is not tried again");
     }
+}
+
+// **Many at once, fetching and reading one tile.** Tests run in parallel and
+// a flight and its terrain fetch the same tiles, so one process renames a
+// fresh copy into place while another opens it. On Windows a file being
+// renamed is held open for deletion, and a reader that does not share
+// deletion could not open it then: CI saw `cannot open ...DEM.tif`.
+//
+// Each round starts with no file. Tile fetchers (DownloadedTiles, as the
+// terrain fetches) and pinned fetchers (fetch_pinned, as the geoid is
+// fetched, to the same path) all start at once on a barrier with readers
+// that wait for the file to appear and open it that instant - the moment a
+// rename has just put it there. Every one of them reads the whole file.
+GLIDESLOPE_TEST(many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole) {
+    using glideslope::world::ByteSource;
+    using glideslope::world::FileSource;
+    constexpr int rounds = 200;
+    constexpr int tile_fetchers = 4;
+    constexpr int pinned_fetchers = 4;
+    constexpr int readers = 8;
+    constexpr int threads = tile_fetchers + pinned_fetchers + readers;
+    constexpr int fetchers = tile_fetchers + pinned_fetchers;
+    constexpr DemCell cell{-34, 151};
+
+    // Big enough that writing it takes a while; a tile's shape at the front.
+    std::vector<std::uint8_t> body = small_tile();
+    body.resize(std::size_t{1} << 18, std::uint8_t{0x5a});
+    const std::string md5 = glideslope::world::md5_hex(body);
+    const std::string sha = glideslope::world::sha256_hex(body);
+    const std::string name = glideslope::world::dem_tile_name(DemDataset::glo30, cell);
+    const std::string url = glideslope::world::dem_tile_url(DemDataset::glo30, cell);
+    // The network, standing in: its own answer each call, nothing shared.
+    const glideslope::world::Fetch fetch = [&body, &md5](const std::string&) {
+        HttpResponse r;
+        r.status = 200;
+        r.body = body;
+        r.headers["etag"] = "\"" + md5 + "\"";
+        return r;
+    };
+
+    const auto whole = [&body](const ByteSource& source) {
+        if (source.size() != body.size()) {
+            return false;
+        }
+        std::vector<std::uint8_t> got(body.size());
+        source.read(0, got);
+        return got == body;
+    };
+
+    std::atomic<int> tile_reads{0};
+    std::atomic<int> pinned_reads{0};
+    std::atomic<int> plain_reads{0};
+    std::atomic<int> failures{0};
+    std::string first_failure;
+    std::mutex failure_mutex;
+    const auto failed = [&](const std::string& why) {
+        const std::lock_guard lock(failure_mutex);
+        if (failures++ == 0) {
+            first_failure = why;
+        }
+    };
+
+    for (int round = 0; round < rounds; ++round) {
+        const auto cache = scratch("many-at-once");
+        const std::filesystem::path dir = cache / "copernicus-dem-30m";
+        const std::filesystem::path path = dir / (name + ".tif");
+        std::atomic<int> waiting{threads};
+        std::atomic<int> fetched{0};
+        const auto start_together = [&waiting] {
+            --waiting;
+            while (waiting.load() > 0) {
+                std::this_thread::yield();
+            }
+        };
+        std::vector<std::thread> running;
+        for (int i = 0; i < threads; ++i) {
+            running.emplace_back([&, i] {
+                start_together();
+                try {
+                    if (i < tile_fetchers) {
+                        DownloadedTiles tiles(cache, fetch);
+                        const auto source = tiles.open(DemDataset::glo30, cell);
+                        whole(*source) ? void(++tile_reads)
+                                       : failed("a fetched tile was not whole");
+                    } else if (i < fetchers) {
+                        const auto kept = glideslope::world::fetch_pinned(
+                            dir, name + ".tif", url, sha, fetch);
+                        whole(FileSource(kept)) ? void(++pinned_reads)
+                                                : failed("a pinned file was not whole");
+                    } else {
+                        // Opened the moment it appears. Once every fetcher
+                        // has finished it is there, or something failed.
+                        while (!std::filesystem::exists(path)) {
+                            if (fetched.load() == fetchers) {
+                                failed("no fetcher left the file in place");
+                                return;
+                            }
+                            std::this_thread::yield();
+                        }
+                        whole(FileSource(path)) ? void(++plain_reads)
+                                                : failed("a file read was not whole");
+                    }
+                } catch (const std::exception& e) {
+                    failed(e.what());
+                }
+                if (i < fetchers) {
+                    ++fetched;
+                }
+            });
+        }
+        for (std::thread& t : running) {
+            t.join();
+        }
+    }
+    check(failures == 0, std::to_string(failures.load()) + " of " +
+                             std::to_string(rounds * threads) +
+                             " reads failed; the first: " + first_failure);
+    check(tile_reads == rounds * tile_fetchers,
+          std::to_string(tile_reads.load()) + " tile fetches read the tile whole, of " +
+              std::to_string(rounds * tile_fetchers));
+    check(pinned_reads == rounds * pinned_fetchers,
+          std::to_string(pinned_reads.load()) + " pinned fetches read it whole, of " +
+              std::to_string(rounds * pinned_fetchers));
+    check(plain_reads == rounds * readers,
+          std::to_string(plain_reads.load()) + " readers read it whole, of " +
+              std::to_string(rounds * readers));
 }
