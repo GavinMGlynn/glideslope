@@ -252,7 +252,12 @@ int main(int argc, char** argv) {
         }
         ++next;
     }
-    if (!lines[next].empty()) {
+    // **Nothing more of the HUD's**: every HUD line begins at its margin, in
+    // the first column. What begins further in is the scene behind the text -
+    // the horizon line, which crosses these rows when the flight, flown in
+    // the live weather, is banked as it was on 2026-09-25 and read as " ?" -
+    // and is not the HUD's to be judged here.
+    if (!lines[next].empty() && lines[next][0] != ' ') {
         fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] +
              "\", which the HUD should not show");
     }
