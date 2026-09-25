@@ -228,6 +228,12 @@ public:
 
     AircraftFigures figures() const;
 
+    // Where the model was loaded from: the JSBSim root given above. The
+    // aeroplane's published figures are beside it, in figures/.
+    const std::filesystem::path& jsbsim_root() const {
+        return jsbsim_root_;
+    }
+
     // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
     // elevation, from now on. Heights, InitialConditions' altitude included,
     // are then above the WGS84 ellipsoid, which is JSBSim's sea level; the
@@ -327,6 +333,7 @@ private:
     void apply_ground(double latitude_deg, double longitude_deg);
     bool meets_the_surface() const;
 
+    std::filesystem::path jsbsim_root_;
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;

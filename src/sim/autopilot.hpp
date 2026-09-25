@@ -18,6 +18,16 @@
 //     integral that finds the trim;
 //   airspeed -> throttle, with an integral.
 //
+// **Asked for a height it cannot hold, it gives up height, not airspeed.**
+// When the climb asked for would take the airspeed below the aeroplane's
+// best-climb speed - or the speed asked for, where that is slower - the climb
+// is held back so the airspeed stays there, the throttle opens to its stop,
+// and the aeroplane climbs as far as it can at that speed, or comes down,
+// rather than pitching up into the stall. The best-climb speed is the
+// aeroplane's own, from its published figures (sim/departure.hpp's
+// `departure_speeds`), in the figures directory beside the JSBSim root it was
+// loaded from; an aeroplane that publishes none has no such floor.
+//
 // **Engaging it steps nothing.** It starts from the controls the aircraft has
 // and the attitude it is in: each integral is set so the first controls it
 // gives are those, and the bank, pitch and throttle it asks for move from
@@ -69,6 +79,15 @@ private:
     const Aircraft& a_;
     AutopilotModes modes_;
     Controls last_;
+    // The best-climb speed, knots calibrated; none where the aeroplane
+    // publishes no climb speed.
+    std::optional<double> best_climb_kts_;
+    // Holding the speed rather than the height: the most climb the altitude
+    // hold may ask for, found by an integral on the airspeed, while it binds.
+    bool holding_speed_ = false;
+    double climb_limit_fpm_ = 0.0;
+    double last_kts_ = 0.0;
+    double kts_per_s_ = 0.0; // the airspeed's trend, smoothed over a second
     double bank_command_deg_ = 0.0;
     double bank_integral_deg_ = 0.0;
     // The most bank the aeroplane sustains, as its energy says: the energy,

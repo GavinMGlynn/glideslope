@@ -649,3 +649,176 @@ GLIDESLOPE_TEST(a_piper_cub_near_its_ceiling_holds_its_height_through_a_turn_as_
 GLIDESLOPE_TEST(a_cherokee_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft) {
     turns_near_the_ceiling_as_at_3000_ft("pa28");
 }
+
+namespace {
+
+// **Asked for a height it cannot hold, an aeroplane gives up height, not
+// airspeed.** The altitude hold pitches up for the height asked of it, and
+// once the throttle has no more to give the speed pays for every foot: the
+// old autopilot flew a Cessna asked for a height above its ceiling to 46
+// knots and sinking, in the stall. It must fly no slower than the
+// aeroplane's best-climb speed - the speed at which it climbs fastest, so
+// that a height it cannot hold there it can hold nowhere - and let the height
+// go.
+//
+// Two situations, each handed over at the two speeds the turns above are
+// flown at - the best-climb speed and the speed a flight starts at - and
+// flown until it has settled:
+//
+//   level near its ceiling at the speed it was handed over at, settled there
+//     as the turns above are, then asked for 3,000 ft higher, which it cannot
+//     reach: the throttle goes to its stop - ten minutes;
+//   level at 6,000 ft with the throttle left at a fifth, as a pilot might
+//     leave it, and no speed held - so the throttle will give no more - asked
+//     to hold that height, which on that power it cannot: it must come down -
+//     five minutes, and it must stay clear of the ground.
+//
+// **Not handed over above its ceiling**, which would be the plainer second
+// situation: with the mixture full rich, as the AI leaves it, the engine
+// stops a thousand feet above the ceiling - JSBSim's piston engine runs too
+// rich to fire as the air thins - and a glide is not what is being asked.
+// The engine running throughout is checked, not assumed.
+//
+// The airspeed may never fall more than the calm-air airspeed band of
+// the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb below the
+// best-climb speed, and ends within that band of it. On too little power the
+// aeroplane ends lower than it began; near its ceiling it climbs what it can,
+// and ends no lower than it began, within the calm-air altitude band. **That
+// last is not given**: asked for the best-climb speed itself, the throttle and
+// the elevator once shared the speed between them, and the Cherokee came down
+// 1,250 ft on part throttle.
+void gives_up_height_not_airspeed(const std::string& id) {
+    constexpr double speed_band_kts = 2.0;
+    // The calm-air altitude band of the same test.
+    constexpr double height_band_ft = 20.0;
+    const CatalogueEntry e = glideslope::sim::find_aircraft(data(), id);
+    const double climb_kts = glideslope::sim::departure_speeds(data(), e.model).climb_kts;
+    const double ceiling_ft = near_the_ceiling_ft(e, climb_kts);
+    struct Situation {
+        const char* what;
+        double from_ft;
+        double asked_ft;
+        bool speed_held; // the throttle holds the speed handed over at
+        double throttle; // as handed over
+        double seconds;  // flown for
+    };
+    const Situation situations[] = {
+        {"near its ceiling, asked for 3,000 ft more", ceiling_ft, ceiling_ft + 3000.0,
+         true, e.start_throttle, 600.0},
+        {"at 6,000 ft on a fifth of its throttle, asked to hold it", 6000.0, 6000.0, false,
+         0.2, 300.0},
+    };
+    std::string failures;
+    std::size_t flights = 0;
+    for (const Situation& s : situations) {
+        for (const double kts : {climb_kts, e.start_airspeed_kts}) {
+            ++flights;
+            Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = -33.9;
+            ic.longitude_deg = 151.2;
+            ic.altitude_ft = s.from_ft;
+            ic.heading_deg = 0.0;
+            ic.airspeed_kts = kts;
+            ic.engine_running = true;
+            aircraft.initialize(ic);
+            glideslope::sim::Controls controls;
+            controls.throttle = s.throttle;
+            Autopilot autopilot(aircraft, controls);
+            AutopilotModes modes = autopilot.modes();
+            modes.heading_deg = 0.0;
+            modes.altitude_ft = s.asked_ft;
+            bool settled = true;
+            if (s.speed_held) {
+                // Level where it was handed over, settled, before it is asked
+                // for more: what the handover itself does to the speed is
+                // not the altitude hold's to answer for.
+                modes.airspeed_kts = kts;
+                modes.altitude_ft = s.from_ft;
+                autopilot.set(modes);
+                settled = settle(aircraft, autopilot, s.from_ft, true).settled;
+                modes.altitude_ft = s.asked_ft;
+            } else {
+                modes.airspeed_kts.reset();
+            }
+            autopilot.set(modes);
+            const double start_ft = altitude(aircraft);
+            double least_kts = airspeed(aircraft);
+            double highest_ft = altitude(aircraft);
+            double lowest_ft = altitude(aircraft);
+            double least_rpm = aircraft.property("propulsion/engine/engine-rpm");
+            for (int i = 0; i < static_cast<int>(s.seconds * steps_per_second); ++i) {
+                aircraft.set_controls(autopilot.fly());
+                aircraft.step();
+                least_rpm =
+                    std::min(least_rpm, aircraft.property("propulsion/engine/engine-rpm"));
+                least_kts = std::min(least_kts, airspeed(aircraft));
+                highest_ft = std::max(highest_ft, altitude(aircraft));
+                lowest_ft = std::min(lowest_ft, altitude(aircraft));
+            }
+            const double end_ft = altitude(aircraft);
+            const double end_kts = airspeed(aircraft);
+            char line[400];
+            std::snprintf(line, sizeof line,
+                          "%s %s, handed over at %.1f kt (best climb %.1f): %.1f kt at "
+                          "the slowest, %.1f kt at the end; from %.0f ft to %.0f ft, "
+                          "%.0f at the highest, %.0f at the lowest",
+                          e.id.c_str(), s.what, kts, climb_kts, least_kts, end_kts,
+                          start_ft, end_ft, highest_ft, lowest_ft);
+            std::printf("%s\n", line);
+            if (!settled) {
+                failures += std::string("\n  ") + line +
+                            " - the speed had not settled after ten minutes level";
+            } else if (!(least_rpm > 0.0)) {
+                // **The situation is built, not hoped for**: an engine that
+                // stops leaves a glide, which is not what is being asked.
+                failures += std::string("\n  ") + line + " - the engine stopped";
+            } else if (!(lowest_ft > 1000.0)) {
+                failures += std::string("\n  ") + line + " - it came too near the ground";
+            } else if (!(least_kts >= climb_kts - speed_band_kts &&
+                         std::abs(end_kts - climb_kts) <= speed_band_kts &&
+                         (s.speed_held ? end_ft >= start_ft - height_band_ft
+                                       : end_ft < start_ft))) {
+                failures += std::string("\n  ") + line;
+            }
+        }
+    }
+    std::printf("%s: 2 situations x 2 speeds = %zu flights, near the ceiling at %.0f ft\n",
+                id.c_str(), flights, ceiling_ft);
+    check(flights == 4, "every flight was flown: " + std::to_string(flights) + " of 4");
+    check(failures.empty(),
+          "asked for a height it cannot hold, each gives up height and flies within " +
+              std::to_string(speed_band_kts) + " kt of its best-climb speed:" + failures);
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(every_light_aeroplane_the_data_holds_is_asked_for_a_height_it_cannot_hold) {
+    std::vector<std::string> found;
+    for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
+        if (e.aircraft_class == glideslope::sim::AircraftClass::light_aircraft) {
+            found.push_back(e.id);
+        }
+    }
+    std::sort(found.begin(), found.end());
+    std::string listed;
+    for (const std::string& id : found) {
+        listed += " " + id;
+    }
+    check(found == light_aeroplanes,
+          "the light aeroplanes asked for a height they cannot hold are the four "
+          "the data holds; it holds" + listed);
+}
+
+GLIDESLOPE_TEST(a_cessna_172p_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed) {
+    gives_up_height_not_airspeed("c172p");
+}
+GLIDESLOPE_TEST(a_cessna_182_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed) {
+    gives_up_height_not_airspeed("c182");
+}
+GLIDESLOPE_TEST(a_piper_cub_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed) {
+    gives_up_height_not_airspeed("j3cub");
+}
+GLIDESLOPE_TEST(a_cherokee_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed) {
+    gives_up_height_not_airspeed("pa28");
+}

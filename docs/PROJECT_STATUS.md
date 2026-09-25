@@ -405,6 +405,105 @@ the look and the count cannot fail it spuriously.
 - the geoid left out of a plan's heights: 72 ft at Sydney, so the orbit's
   height bound is 50 ft.
 
+### Asked for a height it cannot hold, the autopilot gives up height, 2026-09-25 — tail in progress
+
+**What is missing first: six tests that passed on `main` fail with this
+change.**
+- **Three near-ceiling turns.** In
+  `a_cessna_172p_/a_cessna_182_/a_cherokee_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft`,
+  at the ceiling and asked for the best-climb speed, a turn now loses 21 to
+  32 ft against a 20 ft band. The speed stays within 2.1 knots.
+  - The cause: the new floor takes the energy the turn spends as height
+    rather than speed, and it acts before the turn's bank limit (the tail done
+    on 2026-09-24) has found the bank the aeroplane can sustain.
+  - The two rules need reconciling. One way: the turn's allowance of 3 knots
+    of energy is spent against the floor, not against the speed.
+- **The Learjet 35A in the stall lessons.** In
+  `the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief` and
+  `an_instructor_demonstrates_a_stall_and_hands_it_over` it loses 235 ft
+  entering the stall.
+  - The cause: with its gear and flaps down at 20,000 ft it cannot make the
+    250 knots it is holding at full throttle, and it gives up height for it
+    before the entry begins.
+  - It needs a better answer to "a speed asked for that the aeroplane cannot
+    make": neither the floor at the speed asked, nor 5 knots below it, avoids
+    it.
+- **The Cessna 182 in the circuit lesson.** In
+  `the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief` it touches
+  down 12.7 m from the centreline (the limit is 10). Not yet looked into.
+
+Separately, the AI still flies with the mixture full rich, so the ceiling it
+gives up height at is about 8,500 ft rather than the handbook's. That is the
+next tail, "The AI never leans the mixture".
+
+**Before**, asked for a height it could not reach, the altitude hold went on
+pitching up with the throttle at its stop and paid for the height with speed.
+Asked for 3,000 ft above its ceiling, a Cessna 172P slowed to 44 knots, a
+Cessna 182 and a Cherokee to 50, and a Cub to 5, which then spun down to the
+ground.
+
+**Now** (`sim/autopilot.cpp`) the least the altitude hold may fly at is the
+aeroplane's best-climb speed (`departure_speeds`, read from its figures file
+beside the JSBSim root, for which `Aircraft` now keeps that root), or 5 knots
+below a slower speed asked for. When the throttle has no more to give - at its
+stop, or no speed held - and the airspeed five seconds ahead on its trend would
+be within a knot of the least, the climb the altitude hold may ask for is
+limited by an integral on the airspeed (30 ft/min a second per knot above the
+least, 500 ft/min per knot it moves), and while that limit binds the throttle
+opens to its stop. The aeroplane climbs what it can at that speed, or comes
+down; the limit lets go when it no longer binds. It is the underspeed
+protection of total energy control (Lambregts, AIAA 83-2239), as a floor only.
+The code's comment records each version that was tried and failed.
+
+**What the new tests verify.**
+`every_light_aeroplane_the_data_holds_is_asked_for_a_height_it_cannot_hold`
+checks that the four light aeroplanes are the ones the catalogue holds. One
+test per aeroplane,
+`a_<aeroplane>_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed`,
+flies 2 situations x 2 speeds - its best-climb speed and the speed a flight
+starts at - which is 16 flights, counted.
+- **The situations.**
+  - Level near its ceiling, settled there, then asked for 3,000 ft more; ten
+    minutes.
+  - At 6,000 ft on a fifth of its throttle with no speed held, asked to hold
+    that height; five minutes.
+- **The checks.**
+  - None may fall more than 2 knots below its best-climb speed: the calm-air
+    airspeed band.
+  - Each must end within 2 knots of that speed.
+  - With a speed held, each must end no lower than it began.
+  - On little power, each must end lower than it began and clear of the
+    ground.
+  - The engine must run throughout.
+- **Measured.**
+  - The slowest any flight went was 1.5 knots under its best-climb speed: the
+    Cherokee and the Cub near their ceilings, handed over at that speed.
+  - Near their ceilings all four climbed on at their best-climb speeds, to
+    between 8,300 and 8,580 ft.
+  - On little power all four came down at that speed.
+
+**Seen to fail.**
+- **Against the autopilot before this change**, all four were red, with the
+  speeds given above.
+- **Holding the speed without opening the throttle.** The Cherokee came down
+  1,250 ft on part throttle when it could have climbed. That is why a flight
+  with a speed held must end no lower than it began.
+
+**Not handed over above the ceiling**, which would be the plainer situation.
+At full rich the engine stops about 1,000 ft above the ceiling. JSBSim's
+piston engine meters fuel as the mixture times sea-level pressure over
+ambient pressure, and above an equivalence ratio of about 1.8 it will not
+fire. The test says so.
+
+**Elsewhere.** The stall lesson's own flight now asks for a speed 10 knots
+below the stall as it closes the throttle, as the instructor's demonstration
+already did. Without that the altitude hold keeps the best-climb speed and
+never stalls. Of the autopilot, lander, departure, lesson, navigator,
+circuit, stall and controller tests, 57 of 63 pass; the six above fail. The
+selftest replays a pilot's inputs and does not use the autopilot; its hash is
+unchanged.
+
+
 
 ### A weather service's bad answer is fetched again, 2026-09-25 — tail done
 
