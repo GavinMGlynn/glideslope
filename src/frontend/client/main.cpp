@@ -77,7 +77,7 @@ public:
     KeptAlive(glideslope::client::Online& online, std::function<double()> clock)
         : thread_([this, &online, clock = std::move(clock)] {
               while (!stop_.load()) {
-                  online.idle(clock());
+                  online.keep(clock());
                   std::this_thread::sleep_for(std::chrono::milliseconds(20));
               }
           }) {}

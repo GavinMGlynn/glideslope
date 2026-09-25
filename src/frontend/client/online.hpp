@@ -76,6 +76,15 @@ public:
         (void)session_.take_states();
     }
 
+    // **Kept in the session while the flight is built**: the server's pings
+    // answered and what must arrive acknowledged, and every update left
+    // waiting, to be heard in order when flying begins - as they were before
+    // there was anything to keep it, so the flight is put right from all of
+    // them and not from the newest alone.
+    void keep(double local_s) {
+        session_.poll(local_s);
+    }
+
     // Every other aircraft, where it is to be drawn at `local_s`.
     std::vector<Other> others(double local_s);
 
