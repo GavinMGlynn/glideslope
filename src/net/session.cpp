@@ -157,10 +157,14 @@ void ClientSession::read_what_arrived() {
             mine_ = state->your_aircraft;
             aircraft_ = state->aircraft;
             // Every one kept for the caller, in the order they came: an
-            // interpolation wants each snapshot, not only the newest.
-            if (fresh_.size() < most_states_kept) {
-                fresh_.push_back(*state);
+            // interpolation wants each snapshot, not only the newest. Past
+            // the most kept, the oldest go: a client that has not asked for
+            // seconds wants where things are now, and keeping the first few
+            // seconds instead put one right by the whole way flown since.
+            if (fresh_.size() >= most_states_kept) {
+                fresh_.erase(fresh_.begin());
             }
+            fresh_.push_back(*state);
             continue;
         }
         if (!inside.empty() && inside[0] == static_cast<std::uint8_t>(Inside::reliable)) {

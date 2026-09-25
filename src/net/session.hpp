@@ -62,7 +62,8 @@ public:
     // is this client's own - `no_aircraft` until the server says.
     const std::vector<AircraftState>& aircraft() const { return aircraft_; }
     // **Every state update since the last time this was asked**, oldest
-    // first - at most `most_states_kept` of them, which is a few seconds.
+    // first - at most `most_states_kept` of them, which is a few seconds; the
+    // newest, when more came.
     std::vector<StatePacket> take_states();
     static constexpr std::size_t most_states_kept = 128;
     // **What each aircraft is**, by its number, as the server's `AIRCRAFT`

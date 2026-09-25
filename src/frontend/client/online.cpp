@@ -107,12 +107,21 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
     // from, with the inputs since already let go.
     if (state.yours && state.your_aircraft == mine_ &&
         (!reconciled_s_ || state.simulation_time_s > *reconciled_s_)) {
-        reconciled_s_ = state.simulation_time_s;
-        const auto c = flight.reconcile(motion_of(*state.yours), state.last_input_applied);
-        ++corrections_;
-        worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
-        if (c.snapped) {
-            ++snapped_;
+        // **The first word since joining is where it is**, not a correction:
+        // a machine slow to build its flight after joining heard nothing of
+        // it for seconds while the server flew it on, and was then put right
+        // by the whole way flown - 46 m, too far to hide.
+        if (!reconciled_s_) {
+            reconciled_s_ = state.simulation_time_s;
+            flight.adopt(motion_of(*state.yours));
+        } else {
+            reconciled_s_ = state.simulation_time_s;
+            const auto c = flight.reconcile(motion_of(*state.yours), state.last_input_applied);
+            ++corrections_;
+            worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
+            if (c.snapped) {
+                ++snapped_;
+            }
         }
     }
     // **Everybody else, to be drawn behind the clock.**

@@ -1238,6 +1238,25 @@ With one try, it goes red.
 because the hand-over and take-back leave some twelve seconds of the twenty to
 compare, and a slow server sends fewer updates a second.
 
+### A client slow to start is not put right by the way flown while it started, 2026-09-26
+
+Brought here from the take-over branch, where it was found, because the
+handshake fix needs it: the four-player test's clients join slow runners.
+
+**Found by CI on another branch: a client slow to start was put right too
+far.** The client with the window, joining a slow Linux debug runner's
+server, was once put right by more than the 20 m a correction may hide. Built
+on purpose, with the client standing still five seconds after joining
+(`--slow-start 5`, now in `client_on_server.cmake`), it failed every time,
+at 45 m. Two causes, each fixed and each seen to fail without its fix:
+- **The session kept the first 128 updates** that came while nobody asked
+  for them, about five seconds' worth, and dropped the rest. A client that
+  asked later heard the oldest, then one from seconds on. It now keeps the
+  newest 128. Without this: 42 m.
+- **The first update after joining was taken as a correction** to where the
+  client had been at the join, seconds before. It is now where the aircraft
+  is, as the command-line client already had it. Without this: 57 m.
+
 ### Ride along in any AI aircraft, 2026-09-25 — item done
 
 **What is missing first.**

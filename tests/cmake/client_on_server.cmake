@@ -12,6 +12,13 @@
 # number, and how its own aircraft's prediction went: put right all through,
 # never too far to hide - under the 20 m that is.
 #
+# **A slow machine joining**, built on purpose: the client stands still five
+# seconds after joining (`--slow-start 5`), as one building its flight slowly
+# does, while the server flies its aircraft on. What it hears first after
+# that is where its aircraft is, not a correction: a Linux debug runner on
+# CI, slow to build, was put right too far to hide by the whole way flown
+# meanwhile.
+#
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
 
@@ -50,7 +57,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
-            --shot "${_shot}" --shot-at 1200 --view behind --aircraft f15c
+            --shot "${_shot}" --shot-at 1200 --view behind --aircraft f15c --slow-start 5
             --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
