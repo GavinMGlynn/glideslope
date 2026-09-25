@@ -9,7 +9,8 @@
 #
 #   1. refuses unless this working copy has no uncommitted changes;
 #   2. refuses unless the Windows working copy has no changes to tracked files,
-#      then fetches this commit into it straight from this repository, through
+#      then fetches this commit into it straight from this repository's git
+#      directory - the common one, so a git worktree works too - through
 #      WSL's network path - before it is pushed, which is the point: it is
 #      how code that is not Linux's alone is compiled before CI sees it;
 #   3. builds it with MSVC, through vcvarsall, as CI's Windows jobs do, and
@@ -50,12 +51,17 @@ if [[ -n "$(git.exe -C "$(wslpath -w "$clone")" status --porcelain --untracked-f
     exit 2
 fi
 win_clone="$(wslpath -w "$clone")"
-# This repository, as Windows reaches it: \\wsl.localhost\<distro>\... Git on
-# Windows refuses it as owned by somebody else; the upload-pack that reads it
-# is a process of its own, so it is told it is safe itself, for this fetch.
-here_unc="$(wslpath -w "$here")"
+# This repository, as Windows reaches it: \\wsl.localhost\<distro>\... It is
+# fetched from the repository's git directory, not its working tree: in a git
+# worktree, where agents work, .git is a file naming the real directory by its
+# Linux path, which Git on Windows cannot follow. Every worktree keeps its
+# objects in the common git directory, so the commit is there whichever
+# working tree made it. Git on Windows refuses the directory as owned by
+# somebody else; the upload-pack that reads it is a process of its own, so it
+# is told it is safe itself, for this fetch.
+repo_unc="$(wslpath -w "$(git -C "$here" rev-parse --path-format=absolute --git-common-dir)")"
 git.exe -C "$win_clone" fetch --quiet \
-    --upload-pack='git -c safe.directory=* upload-pack' "$here_unc" "$commit"
+    --upload-pack='git -c safe.directory=* upload-pack' "$repo_unc" "$commit"
 git.exe -C "$win_clone" checkout --quiet -B "$branch" "$commit"
 git.exe -C "$win_clone" submodule update --quiet --init --recursive
 

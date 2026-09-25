@@ -336,10 +336,6 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
-- [ ] **A HUD test fails, rather than skipping, when the weather service
-      does not answer** (Windows CI, 2026-09-25: WinHTTP 12002 from
-      Open-Meteo). *Verification: with no weather to be had, the HUD tests
-      that fly in live weather report themselves skipped.*
 - [ ] **The four-player test once counted five players' aircraft** on a slow
       Windows debug runner: likely a client let go and joining again.
       *Verification: the cause found, and the test run a hundred times on
@@ -353,19 +349,17 @@ Found while implementing something else. Added when found, not when remembered.
       Open-Meteo). *Verification: with no weather to be had, the HUD tests
       that fly in live weather report themselves skipped.* Done 2026-09-25:
       skipped even where the network is required, since live weather is
-      never kept; a missing DEM still fails there.
-
       never kept. A service that refuses the request, or an answer that
-      can't be read, still fails, and so does a missing DEM.
-
+      can't be read, still fails there, and so does a missing DEM.
 - [x] **The HUD check read the horizon, crossing the rows below the HUD, as a
       line of the HUD.** *Verification: a line that does not begin at the
       HUD's margin is not judged, and an extra HUD line still is.* Done
       2026-09-25.
-- [ ] **`tools/windows_build.sh` does not work from a git worktree**, where
+- [x] **`tools/windows_build.sh` does not work from a git worktree**, where
       agents work: Windows git cannot follow a worktree's `.git` file.
       *Verification: an agent's worktree builds on Windows with the script
-      as it stands.*
+      as it stands.* Done 2026-09-26: it fetches from the repository's
+      common git directory instead of the working tree.
 - [x] **The horizon can cross the HUD's own rows**, and three HUD checks
       compare those lines exactly, so a live-weather test can fail on how the
       flight happened to be banked. *Verification: a frame with the horizon
