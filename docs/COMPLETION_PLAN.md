@@ -358,7 +358,8 @@ Found while implementing something else. Added when found, not when remembered.
 
 - [ ] **Windows debug test programs crash on their way out on the development
       machine**, in a thread Windows starts after exit - about one run in five
-      of the message tests, on `main` as well (2026-09-25). CI's Windows
+      of the message tests, on `main` as well (2026-09-25); or hang there
+      until their timeout, a test that passes alone in five seconds. CI's Windows
       runners have not shown it since it was fixed there. *Verification: the
       message tests run a hundred times on the development machine without a
       crash.*
