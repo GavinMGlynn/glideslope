@@ -242,6 +242,18 @@ std::vector<Kind> every_kind() {
                        ControllerSwap got;
                        return glideslope::net::read(b, got);
                    }});
+
+    glideslope::net::Watch watch;
+    watch.aircraft = 6;
+    out.push_back({Message::watch, "watch", glideslope::net::write(watch),
+                   [watch](std::span<const std::uint8_t> b) {
+                       glideslope::net::Watch got;
+                       return glideslope::net::read(b, got) && got.aircraft == watch.aircraft;
+                   },
+                   [](std::span<const std::uint8_t> b) {
+                       glideslope::net::Watch got;
+                       return glideslope::net::read(b, got);
+                   }});
     return out;
 }
 
@@ -251,6 +263,18 @@ std::vector<Kind> every_kind() {
 // has every field set to something that is not its default, so a field the
 // writer forgot cannot pass.
 GLIDESLOPE_TEST(every_message_writes_and_reads_back_what_went_into_it) {
+    // **Every kind there is**, not every kind remembered: the walks below go
+    // through `every_kind`, and a kind added to the code and not to it would
+    // be walked by none of them.
+    std::size_t known = 0;
+    for (int kind = 0; kind < 256; ++kind) {
+        if (glideslope::net::known_message(static_cast<std::uint8_t>(kind))) {
+            ++known;
+        }
+    }
+    check(every_kind().size() == known,
+          std::to_string(every_kind().size()) + " kinds are walked, and the code knows " +
+              std::to_string(known));
     std::size_t walked = 0;
     for (const Kind& k : every_kind()) {
         check(!k.bytes.empty(), k.name + " writes something");
@@ -263,8 +287,9 @@ GLIDESLOPE_TEST(every_message_writes_and_reads_back_what_went_into_it) {
         std::printf("  %-16s %zu bytes\n", k.name.c_str(), k.bytes.size());
         ++walked;
     }
-    // **The space this walked, stated**: the six kinds the item names.
-    check(walked == 7, "seven kinds were walked, not " + std::to_string(walked));
+    // **The space this walked, stated**: the six kinds the item names, the
+    // forecast, and which aircraft a client watches.
+    check(walked == 8, "eight kinds were walked, not " + std::to_string(walked));
 }
 
 // **A body of one kind is never read as another.** All thirty-six pairs are
@@ -286,8 +311,8 @@ GLIDESLOPE_TEST(no_message_reads_as_a_kind_it_is_not) {
             ++pairs;
         }
     }
-    check(pairs == 49, "all forty-nine pairs were tried, not " + std::to_string(pairs));
-    check(refused == 42, "forty-two of them are refused, not " + std::to_string(refused));
+    check(pairs == 64, "all sixty-four pairs were tried, not " + std::to_string(pairs));
+    check(refused == 56, "fifty-six of them are refused, not " + std::to_string(refused));
 }
 
 // **Every truncation of every message is refused.** A datagram can arrive
@@ -317,7 +342,7 @@ GLIDESLOPE_TEST(every_message_with_anything_trailing_is_refused) {
         check(!k.reads(longer), k.name + " with a byte after it must be refused");
         ++walked;
     }
-    check(walked == 7, "every kind was tried");
+    check(walked == 8, "every kind was tried");
 }
 
 // **Every single-byte change to every message either reads or is refused,
@@ -405,7 +430,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
 // exchange finishes and the test can say what came out.
 GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_loss) {
     const std::vector<Kind> kinds = every_kind();
-    check(kinds.size() == 7, "the six the item names, and the forecast");
+    check(kinds.size() == 8, "the six the item names, the forecast, and a watch");
 
     constexpr int mask_width = 12;
     constexpr std::uint32_t patterns = 1u << mask_width;
@@ -486,13 +511,13 @@ GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_l
                                   std::to_string(walked) + " of " +
                                   std::to_string(patterns));
     check(patterns == 4096, "there are 4,096 patterns over twelve datagrams");
-    // Seven messages with nothing lost are over in eight datagrams - seven
+    // Eight messages with nothing lost are over in nine datagrams - eight
     // out and one acknowledgement back - so a pattern whose set bits all lie
-    // at 8 to 11 never touches anything. There are 2^4 = 16 of those,
-    // including the empty one, which leaves 4,080 that do lose something.
-    check(with_loss == 4080, "4,080 of the patterns lost something, not " +
+    // at 9 to 11 never touches anything. There are 2^3 = 8 of those,
+    // including the empty one, which leaves 4,088 that do lose something.
+    check(with_loss == 4088, "4,088 of the patterns lost something, not " +
                                  std::to_string(with_loss));
-    std::printf("  7 messages through 4,096 loss patterns; worst took %llu datagrams\n",
+    std::printf("  8 messages through 4,096 loss patterns; worst took %llu datagrams\n",
                 static_cast<unsigned long long>(worst_datagrams));
 }
 

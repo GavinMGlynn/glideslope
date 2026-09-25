@@ -214,9 +214,10 @@ from a replay and is refused.
 of the five are built.** A `ping` is answered with a `pong` carrying the same
 token, which is how the dashboard's round trip is measured and how a client
 stays alive against `--timeout`; a `pong` is believed only when its token is
-the one outstanding. `reliable`, `inputs` and `state` are named and refused by
-nothing, because nothing sends them: **no message of the seven, no input and no
-state has ever crossed a sealed body.** A first byte the server does not know
+the one outstanding. `inputs` go from each client and are applied to its own
+aircraft only; `state` goes from the server; `reliable` carries the messages
+both ways, and the server acts on a client's `CONTROLLER_SWAP` and `WATCH`
+alone (above). A first byte the server does not know
 is ignored rather than refused, deliberately, so that a later version's client
 is not dropped for speaking one.
 
@@ -255,14 +256,13 @@ built sends both before.** That is a disagreement between this document's
 advice and the code, named here rather than quietly dropped; nothing in
 `docs/COMPLETION_PLAN.md` carries it yet.
 
-### The seven reliable messages, and which way each goes
+### The eight reliable messages, and which way each goes
 
-**Six of the seven are only ever sent by the server, which is most of the
+**Six of the eight are only ever sent by the server, which is most of the
 answer to "what can a client say".** The server owns the lobby, the session
-clock, the weather, which aeroplane each slot is flying and which terrain
-dataset everyone agrees on (`REQUIREMENTS.md` 6.3); a client sends none of
-them and a server that is handed one has been handed something with no
-meaning.
+clock, the weather, what each aircraft is and which terrain dataset everyone
+agrees on (`REQUIREMENTS.md` 6.3); a client sends none of them and a server
+that is handed one has been handed something with no meaning.
 
 | message | who sends it | would a server accept it |
 | --- | --- | --- |
@@ -273,35 +273,35 @@ meaning.
 | `TERRAIN_DATASET` | server | no |
 | `CONTROLLER_SWAP` | server, and a client asking | **yes** |
 | `WEATHER_ALOFT` | server | no |
+| `WATCH` | a client | **yes** |
 
-**So `CONTROLLER_SWAP` is the only one of the seven with a client-to-server
+**So `CONTROLLER_SWAP` and `WATCH` are the two with a client-to-server
 threat surface**, and the readers for the other six matter in the opposite
 direction: they are what defends a client against a server that is hostile,
 broken or a different version. That direction is not hypothetical - a client
-is told a server's host, port and key by whoever ran the server. Today that is
-`glideslope_cli connect HOST:PORT KEY`, both on a command line; the one-line
-`server.txt` of `REQUIREMENTS.md` 6.6, and the `--server-key` flag beside it,
-are not built.
+is told a server's host, port and key by whoever ran the server: on a command
+line (`glideslope_cli connect HOST:PORT KEY`, `glideslope --server HOST PORT
+--server-key KEY`) or in the one-line `server.txt` of `REQUIREMENTS.md` 6.6.
+The two a client acts on are `AIRCRAFT`, which names the model it loads -
+a catalogue id it looks up, never a path it opens - and `CONTROLLER_SWAP`.
 
-The check that the server drops the other six is **not built**, and the reason
-has changed: there is a peer now, and its sealed datagrams do open, but nothing
-reads a message out of one. `take()` never calls `kind_of`, because the
-`reliable` kind inside a sealed body is named and not built, so the server has
-no message kind to accept or drop. Outside `src/net/` the only message any
-program touches is the `LOBBY` the server's dashboard builds from `Slots` to
-draw its own table, and that one is never written to the wire.
+**The server drops the other six** (2026-09-25). It reads every reliable
+message a client sends, acts on a `CONTROLLER_SWAP` or a `WATCH` and on nothing
+else: anything else is acknowledged, so that the client stops repeating it,
+and let go. The server's dashboard also builds a `LOBBY` from `Slots` to draw
+its own table, and that one is never written to the wire.
 
-Common to all seven, in `src/net/messages.cpp`, and all built:
+Common to all eight, in `src/net/messages.cpp`, and all built:
 
 - **A body is read as the kind its first byte says and never as another.**
   `after_kind` refuses at once if the kind byte is not the one being asked
-  for. All forty-nine pairs are tried by `no_message_reads_as_a_kind_it_is_not`,
-  and forty-two of them are refused.
+  for. All sixty-four pairs are tried by `no_message_reads_as_a_kind_it_is_not`,
+  and fifty-six of them are refused.
 - **A message with anything trailing is refused**, so nothing can be hidden
   behind one: every reader ends on `r.done()`, which is true only when nothing
   went wrong and nothing is left unread.
   `every_message_with_anything_trailing_is_refused` appends one byte to each
-  of the seven.
+  of the eight.
 - **A message that has been cut short is refused.** The `Reader` marks itself
   broken on the first read it cannot satisfy, answers zero from then on and
   never runs off the end of its buffer; `ok()` at the end is the only thing
@@ -349,7 +349,7 @@ The limits themselves, from `src/net/messages.hpp`, each of which
 chosen so that its message fits in one datagram: `most_message_bytes` is 1218,
 being 1232 less the six-byte envelope and the reliable layer's eight-byte
 header, and `every_message_filled_to_its_limits_fits_in_one_datagram` fills
-every one of the seven to its limits and holds it under that. A limit set
+every one of the eight to its limits and holds it under that. A limit set
 loosely is not a harmless limit here - it is a message that cannot be sent at
 all, because nothing fragments.
 
@@ -452,19 +452,28 @@ checks the name and the version against `most_name_bytes`, requires exactly
 
 #### `CONTROLLER_SWAP`
 
-**This is the one message a server would accept from a client, and the reader
-cannot defend the thing that matters about it.** `slot` is refused at 4 and
-above, which stops it addressing anything out of range, but **a slot in range
-is still unrelated to who sent it**: a client asking to swap slot 3 while
-sitting in slot 0 writes a message that reads perfectly, and no reader can tell
-otherwise, because a reader does not know whose datagram it is. That check
-belongs at the server, above the reader, and **the server now has what it needs
-and does not do it**: a `Connection` holds the key the address authenticated as
-and the slot `Slots` gave that key, so the sender's own slot is one lookup
-away - but nothing reads a `CONTROLLER_SWAP` out of a sealed body, so there is
-nothing yet to check it against. `at_simulation_time_s` is refused if it is a
-NaN or an infinity, and is otherwise any finite double: a time long past and a
-time in the next century both read.
+**A client may ask for its own aircraft, and nothing else.** The message names
+an aircraft by number, and a reader cannot tell whose datagram it is, so the
+check is the server's: it honours a swap only when the number is the one the
+sender's `Connection` flies, and only to `PERSON` or `AI`. A client asking for
+another player's aircraft, an AI's, or one that does not exist is
+acknowledged and nothing more (`Fleet::hand`, 2026-09-25). A player's
+aircraft keeps its number and slot either way, so a swap cannot move anybody
+else. `at_simulation_time_s` is refused if it is a NaN or an infinity; from a
+client it is ignored, and the time the server announces is its own clock's.
+Nothing limits how often a client may ask: each swap is a controller change
+and a reliable message to every client, so a client asking a hundred times a
+second costs the server that. A rate limit is owed (below).
+
+#### `WATCH`
+
+**A client says which aircraft it is watching**, by number, or none. It
+changes only what that client is told: the watched aircraft's controls, in its
+own state updates, fourteen bytes. Any number reads; one that is not flying is
+told nothing. It tells a client nothing it could not see already - where every
+aircraft is - beyond the positions of one aircraft's controls, which is what
+riding along is for. Watching another player's aircraft is allowed: its
+controls are no more private than its position.
 
 What is checked: the slot against `most_slots`; `to` against
 `known_controller`, so the message is unreadable rather than defaulting if the
@@ -569,9 +578,9 @@ duplicate suppression, not a replay defence**, and the difference matters: it
 exists so that retransmission delivers exactly once, it does not reject a
 replayed message carrying a number that has not been delivered yet, and it
 believes whatever datagram it is handed. It is no substitute for the window the
-sealing now has - and it is **unwired**: no `Reliable` exists in
-`glideslope_server` or in either client, so the only duplicate suppression
-running anywhere today is the sealing's window.
+sealing has, which is in front of it: since 2026-09-25 the server and both
+clients run a `Reliable` inside the sealed body, and what reaches it has
+already opened under the session's keys and passed the replay window.
 
 The message that would hurt is `CONTROLLER_SWAP`, because it carries its own
 effective time: a swap captured from one session and replayed into another
@@ -712,13 +721,9 @@ works out a player's slot as the rank of their key among the keys present, so
 connecting the same three people in any of the six orders gives each the same
 slot - `slots_are_the_same_whatever_order_the_players_connect_in` and
 `a_players_slot_is_their_keys_rank_among_those_in_the_session` hold it. There
-is no message in which a client asks for a slot. **The one place a client
-names a slot is `CONTROLLER_SWAP`, and that byte is checked for range and not
-for ownership**, which is why it is a sharp edge of this document: a slot of 4
-or more is refused by the reader, and a slot of 0 to 3 that is not the sender's
-own can only be caught by a server that knows whose datagram it is - which the
-server now does, from the `Connection` the address authenticated into, and does
-not use, because nothing reads a `CONTROLLER_SWAP` out of a sealed body.
+is no message in which a client asks for a slot. **A client names an aircraft
+in `CONTROLLER_SWAP`**, and the server honours it only for the aircraft the
+sender's `Connection` flies (above).
 
 A player count cannot be claimed either: `players_allowed` is the server's
 `--players`, refused outside 1 to 4 before the server starts
@@ -786,7 +791,9 @@ the code now stands:
 - the turbulence severity byte was free to carry anything when the flag
   before it said there was none, and is now held to `00`;
 - a slot index was a raw byte with no range check in `LOBBY`, `AIRCRAFT` and
-  `CONTROLLER_SWAP`, and 4 or more is now refused;
+  `CONTROLLER_SWAP`, and 4 or more is now refused in `LOBBY`; `AIRCRAFT` and
+  `CONTROLLER_SWAP` have since named an aircraft's number instead, any byte,
+  checked by the server against what the sender flies;
 - the server's receive buffer was 1500 bytes where a datagram is 1232, and is
   now `platform::largest_datagram`;
 - the reliable layer believed any acknowledgement it was told, and now ignores
@@ -859,14 +866,11 @@ defence becomes possible, not a wish list.
    ends of this and are fixed; what is left is the smaller, honest case.
 7. **A cookie reply or a per-address handshake budget**, and no refusal sent to
    an address that has not authenticated.
-8. **Direction, on every message.** `HANDSHAKE_RESPONSE` and `REFUSAL` are
-   already dropped by the server; what is missing is everything inside a sealed
-   body, because nothing reads a message out of one. When it does, a server
-   must drop `LOBBY`, `SESSION`, `WEATHER`, `WEATHER_ALOFT`, `AIRCRAFT` and
-   `TERRAIN_DATASET` from a client.
-9. **`CONTROLLER_SWAP` checked at the server**: the sender's own slot, which
-   the connection table now knows and does not use; a finite time the server
-   may override with its own clock; and a rate limit. This lands with Phase 7.
+8. **Direction, on every message.** Done 2026-09-25: the server acts on a
+   client's `CONTROLLER_SWAP` and `WATCH` and on nothing else.
+9. **A rate limit on `CONTROLLER_SWAP` and `WATCH`.** The sender's own
+   aircraft is checked and the server's clock used (2026-09-25); how often a
+   client may ask is not limited.
 10. **Input ranges and rates.** The range is the wire format's already; what is
     owed is the rate limit and refusing a sequence far ahead of the server's.
 11. **The terrain dataset hash checked before use**, and the dataset name
