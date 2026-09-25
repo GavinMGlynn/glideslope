@@ -318,6 +318,11 @@ ends in a debrief, never a score.
 - [ ] **The model never drives a control surface.** *Verification: the copilot
       can produce only a flight plan and autopilot modes, checked at configure
       time.*
+- [ ] **A different model on each AI aircraft** - Claude, ChatGPT, or none -
+      chosen per aircraft by the server or when an aircraft is handed to the
+      AI, each with its owner's key. *Verification: one scenario is planned
+      and flown with each provider from its recorded answers, in CI without a
+      key; a provider without a key is refused, not faked.*
 - [ ] **Reinforcement-learning agents** (stretch goal). *Verification: an agent
       trained through JSBSim's gym-style wrappers lands within stated limits.*
 
