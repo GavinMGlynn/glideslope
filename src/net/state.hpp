@@ -100,6 +100,31 @@ struct OwnMotion {
 // The flag and the motion after it: three doubles and ten floats.
 inline constexpr std::size_t own_motion_bytes = 1 + 3 * 8 + 10 * 4;
 
+// **The controls of the aircraft this client is watching** (`WATCH`), which
+// only its own state update carries: riding along in another aircraft shows
+// what its pilot, a person's or the AI's, is doing with the controls. There is
+// no room for every aircraft's in a full packet, so one client is told of the
+// one it watches. Each control is a 16-bit fraction, as inputs are
+// (net/inputs.hpp): the aileron and rudder (right positive) and elevator (back
+// positive) from -1 to 1, the throttle and flaps from 0 to 1, and the gear -
+// down at 1 - or none where it does not retract.
+struct Watched {
+    std::uint8_t aircraft = 0;
+    double aileron = 0.0;
+    double elevator = 0.0;
+    double rudder = 0.0;
+    double throttle = 0.0;
+    double flaps = 0.0;
+    std::optional<double> gear;
+
+    bool operator==(const Watched&) const = default;
+};
+
+// The flag, the aircraft's number and six controls.
+inline constexpr std::size_t watched_bytes = 1 + 1 + 6 * 2;
+// What the gear is written as where it does not retract.
+inline constexpr std::int16_t gear_fixed = -32768;
+
 struct StatePacket {
     // The simulation's clock, seconds since the session began. What the
     // client interpolates against.
@@ -116,6 +141,8 @@ struct StatePacket {
     std::vector<AircraftState> aircraft;
     // This client's own aircraft's motion, when it has one.
     std::optional<OwnMotion> yours;
+    // The controls of the aircraft this client is watching, when it is.
+    std::optional<Watched> watched;
 
     bool operator==(const StatePacket&) const = default;
 };
@@ -132,6 +159,7 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state);
 std::optional<StatePacket> read_state(std::span<const std::uint8_t> body);
 
 // How many bytes a packet carrying `count` aircraft takes.
-std::size_t state_bytes(std::size_t count, bool with_yours = false);
+std::size_t state_bytes(std::size_t count, bool with_yours = false,
+                        bool with_watched = false);
 
 } // namespace glideslope::net

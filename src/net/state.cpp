@@ -1,5 +1,6 @@
 #include "net/state.hpp"
 
+#include "net/inputs.hpp"
 #include "net/inside.hpp"
 #include "net/protocol.hpp"
 
@@ -18,10 +19,11 @@ bool a_number(float v) {
 
 } // namespace
 
-std::size_t state_bytes(std::size_t count, bool with_yours) {
-    // The flag that says whether this client's motion follows is always there.
+std::size_t state_bytes(std::size_t count, bool with_yours, bool with_watched) {
+    // The flags that say whether this client's motion follows, and the
+    // watched aircraft's controls, are always there.
     return state_header_bytes + count * state_per_aircraft_bytes +
-           (with_yours ? own_motion_bytes : 1);
+           (with_yours ? own_motion_bytes : 1) + (with_watched ? watched_bytes : 1);
 }
 
 std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
@@ -92,6 +94,15 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         for (const float v : m.pqr_radps) {
             w.f32(v);
         }
+    }
+    w.u8(state.watched ? 1 : 0);
+    if (state.watched) {
+        const Watched& c = *state.watched;
+        w.u8(c.aircraft);
+        for (const double v : {c.aileron, c.elevator, c.rudder, c.throttle, c.flaps}) {
+            w.u16(static_cast<std::uint16_t>(quantise(v)));
+        }
+        w.u16(static_cast<std::uint16_t>(c.gear ? quantise(*c.gear) : gear_fixed));
     }
     return w.take();
 }
@@ -183,6 +194,34 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
             if (!a_number(v)) return std::nullopt;
         }
         out.yours = m;
+    }
+    // **The watched aircraft's controls**, after a flag of their own.
+    const std::uint8_t has_watched = r.u8();
+    if (!r.ok() || has_watched > 1) {
+        return std::nullopt;
+    }
+    if (has_watched == 1) {
+        Watched c;
+        c.aircraft = r.u8();
+        // The value that means "fixed" is not a control: nothing writes it
+        // for one, and a control read from it would lie outside -1 to 1.
+        bool controls = true;
+        for (double* v : {&c.aileron, &c.elevator, &c.rudder, &c.throttle, &c.flaps}) {
+            const auto wire = static_cast<std::int16_t>(r.u16());
+            controls = controls && wire != gear_fixed;
+            *v = unquantise(wire);
+        }
+        if (!controls) {
+            return std::nullopt;
+        }
+        const auto gear = static_cast<std::int16_t>(r.u16());
+        if (!r.ok()) {
+            return std::nullopt;
+        }
+        if (gear != gear_fixed) {
+            c.gear = unquantise(gear);
+        }
+        out.watched = c;
     }
     // **Anything trailing means it is not this packet.** A reader that
     // ignored the tail would take a longer thing for a shorter one.

@@ -68,6 +68,10 @@ std::vector<Parser> every_parser() {
                        glideslope::net::ControllerSwap m;
                        (void)glideslope::net::read(b, m);
                    }});
+    out.push_back({"watch", [](std::span<const std::uint8_t> b) {
+                       glideslope::net::Watch m;
+                       (void)glideslope::net::read(b, m);
+                   }});
     out.push_back({"reliable", [](std::span<const std::uint8_t> b) {
                        glideslope::net::Reliable r;
                        (void)r.received(b);
@@ -163,6 +167,10 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
     swap.at_simulation_time_s = 99.5;
     add("controller_swap", glideslope::net::write(swap));
 
+    glideslope::net::Watch watch;
+    watch.aircraft = 4;
+    add("watch", glideslope::net::write(watch));
+
     // A reliable datagram, as the layer puts one on the wire.
     {
         glideslope::net::Reliable sender;
@@ -233,9 +241,9 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
 GLIDESLOPE_TEST(the_seed_corpus_goes_through_every_network_parser_under_sanitizers) {
     const std::vector<Parser> parsers = every_parser();
     const auto corpus = seeds();
-    check(parsers.size() == 13, "thirteen parsers are fuzzed, not " +
+    check(parsers.size() == 14, "fourteen parsers are fuzzed, not " +
                                     std::to_string(parsers.size()));
-    check(corpus.size() == 19, "nineteen seeds - four envelopes, seven messages, a reliable datagram, an input packet, a state packet and five things this project never writes - not " + std::to_string(corpus.size()));
+    check(corpus.size() == 20, "twenty seeds - four envelopes, eight messages, a reliable datagram, an input packet, a state packet and five things this project never writes - not " + std::to_string(corpus.size()));
 
     std::uint64_t calls = 0;
 
@@ -340,6 +348,6 @@ GLIDESLOPE_TEST(the_seed_corpus_is_written_where_a_fuzzer_can_take_it) {
                   static_cast<std::streamsize>(bytes.size()));
         ++written;
     }
-    check(written == 19, "every seed was written, not " + std::to_string(written));
+    check(written == 20, "every seed was written, not " + std::to_string(written));
     std::printf("  wrote %zu seeds to %s\n", written, where.string().c_str());
 }

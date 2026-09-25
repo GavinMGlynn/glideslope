@@ -56,6 +56,7 @@ enum class Message : std::uint8_t {
     terrain_dataset = 5,
     controller_swap = 6,
     weather_aloft = 7,
+    watch = 8,
 };
 
 // Whether `kind` is one this version knows.
@@ -173,6 +174,12 @@ struct ControllerSwap {
     double at_simulation_time_s = 0.0;
 };
 
+// **Which aircraft a client is watching**, by the server's number for it, or
+// `no_aircraft` for none: riding along in it, and told its controls.
+struct Watch {
+    std::uint8_t aircraft = 0;
+};
+
 // **The most of each variable-length thing a message may carry.** A reader
 // that trusted a count could be told to hold four billion slots by six
 // bytes; these are what this protocol will accept, and anything more breaks
@@ -215,6 +222,7 @@ std::vector<std::uint8_t> write(const WeatherAloft& m);
 std::vector<std::uint8_t> write(const AircraftDefinition& m);
 std::vector<std::uint8_t> write(const TerrainDataset& m);
 std::vector<std::uint8_t> write(const ControllerSwap& m);
+std::vector<std::uint8_t> write(const Watch& m);
 
 // Which kind a body is, or nothing if it is empty or a kind this version
 // does not know.
@@ -232,5 +240,6 @@ bool read(std::span<const std::uint8_t> body, WeatherAloft& out);
 bool read(std::span<const std::uint8_t> body, AircraftDefinition& out);
 bool read(std::span<const std::uint8_t> body, TerrainDataset& out);
 bool read(std::span<const std::uint8_t> body, ControllerSwap& out);
+bool read(std::span<const std::uint8_t> body, Watch& out);
 
 } // namespace glideslope::net

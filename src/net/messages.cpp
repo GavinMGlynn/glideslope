@@ -118,6 +118,7 @@ bool known_message(std::uint8_t kind) {
     case Message::weather:
     case Message::aircraft:
     case Message::terrain_dataset:
+    case Message::watch:
     case Message::controller_swap:
     case Message::weather_aloft:
         return true;
@@ -384,6 +385,29 @@ bool read(std::span<const std::uint8_t> body, TerrainDataset& out) {
         return false;
     }
     out = std::move(got);
+    return true;
+}
+
+// ---- which aircraft is watched -------------------------------------------
+
+std::vector<std::uint8_t> write(const Watch& m) {
+    Writer w = begin_message(Message::watch);
+    w.u8(m.aircraft);
+    return w.take();
+}
+
+bool read(std::span<const std::uint8_t> body, Watch& out) {
+    bool is_kind = false;
+    MessageReader r = after_kind(body, Message::watch, is_kind);
+    if (!is_kind) {
+        return false;
+    }
+    Watch got;
+    got.aircraft = r.u8();
+    if (!r.done()) {
+        return false;
+    }
+    out = got;
     return true;
 }
 
