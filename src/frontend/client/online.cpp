@@ -97,6 +97,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
     // The watched aircraft's controls, by the time they were true.
     if (state.watched && state.watched->aircraft == watching_) {
         watched_[state.simulation_time_s] = *state.watched;
+        ++watched_heard_;
         while (watched_.size() > 64) {
             watched_.erase(watched_.begin());
         }
@@ -195,7 +196,11 @@ std::optional<net::Watched> Online::watched_controls(double local_s) const {
         return watched_.rbegin()->second;
     }
     if (after == watched_.begin()) {
-        return std::nullopt;
+        // **Before the oldest kept: held there**, as past the newest. A client
+        // whose clock runs more than the 64 kept behind them - a slow debug
+        // build on a Windows runner did - would otherwise show no controls at
+        // all, for as long as it ran.
+        return watched_.begin()->second;
     }
     const auto before = std::prev(after);
     const double span = after->first - before->first;
