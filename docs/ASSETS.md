@@ -18,7 +18,7 @@ what is published of the F-35B and the B-2A (for flight models written
 here), the Mosquito FB Mk VI's trials
 and Pilot's Notes (for a flight model written here), the Copernicus DEM, the
 EGM2008 geoid grid, EOX's Sentinel-2 cloudless imagery, METARs from
-aviationweather.gov and winds aloft from Open-Meteo** - the DEM, the geoid and the imagery fetched
+aviationweather.gov, winds aloft from Open-Meteo and OurAirports' runways** - the DEM, the geoid, the imagery and the runways fetched
 as they are needed, the weather when it is asked for, with one recorded
 response of each weather service committed for the tests, and **eight
 aircraft visual models from FlightGear's aircraft**, converted from their
@@ -609,6 +609,17 @@ copyright sign, so on screen the notice is in capitals with "(C)" for "©"; a
 test reads it back out of the frame. (c)'s sentence is in `README.md`, which
 every package carries, with the notice. Nothing says or suggests the Copernicus
 programme endorses this project, as (d) asks.
+
+### Every runway in the world, OurAirports' `runways.csv`
+
+| | |
+| --- | --- |
+| Source | OurAirports' data, <https://github.com/davidmegginson/ourairports-data>, the file `runways.csv` |
+| What it is | Every runway OurAirports knows of, one line a runway: its airport, length and surface, whether it is closed, and each end's ident, position, elevation and true heading. 48,267 runways; 27,116 ends with a place and a heading, open and not a helipad |
+| Pinned | The repository's commit `a46b8eb13173dc6351a7b6abaf34bd0ec9db48d0` (2026-09-25); `tests/data/downloads/files.txt`: `ourairports-runways.csv`, 3,965,993 bytes, SHA-256 `ae9a7661f230731cb4fef3a291991cd440f8a68593f41d773092798fc6ec9a8c` |
+| In the repository | Nothing: fetched, as the DEM is |
+| Use | Where a plan that takes off takes off from (`world/runways.hpp`): a language model names a runway, and where it is comes from here |
+| Licence | **Public domain.** The repository's `LICENSE` is the Unlicense: "This is free and unencumbered software released into the public domain." |
 
 ### The EGM2008 geoid, GeographicLib's 5-minute grid
 
