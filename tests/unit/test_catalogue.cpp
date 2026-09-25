@@ -567,6 +567,8 @@ GLIDESLOPE_TEST(an_aircraft_named_from_the_wire_is_one_in_the_catalogue_or_none)
               "\"" + id + "\" names no aircraft");
     }
     check(strangers.size() == 8, "eight strangers tried");
+}
+
 // **An aircraft says its gear retracts where its model has retracting gear,
 // and nowhere else** - every one in the catalogue, against its model's own
 // file. JSBSim has a gear command for fixed gear too, and a HUD that asked
