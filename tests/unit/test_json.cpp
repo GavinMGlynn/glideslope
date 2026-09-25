@@ -3,6 +3,7 @@
 #include "world/json.hpp"
 
 #include <cmath>
+#include <limits>
 #include <string>
 
 using glideslope::test::check;
@@ -106,4 +107,52 @@ GLIDESLOPE_TEST(json_documents_rfc_8259_does_not_allow_are_refused) {
         check(std::string(e.what()).find("not an object") != std::string::npos,
               "asking an array for a key says it is not an object");
     }
+}
+
+GLIDESLOPE_TEST(a_json_value_is_written_as_rfc_8259_has_it_and_reads_back_the_same) {
+
+    using glideslope::world::write_json;
+    // What a language model's API is asked with, in miniature: every kind of
+    // value, nested, and a string with every character that must be escaped.
+    std::string awkward = "a \"quoted\" back\\slash, a\nnew line, a\ttab, a\rreturn, ";
+    awkward += std::string(1, '\x01');
+    awkward += " and \xC3\xA9 as it is";
+    const Json value = Json::make_object(
+        {{"model", Json::make_string("a model")},
+         {"input", Json::make_string(awkward)},
+         {"temperature", Json::make_number(0.0)},
+         {"figures", Json::make_array({Json::make_number(3000), Json::make_number(-33.8688),
+                                       Json::make_number(0.1), Json::make_number(1e300),
+                                       Json::make_number(0.1 + 0.2)})},
+         {"store", Json::make_boolean(false)},
+         {"nothing", Json::make_null()},
+         {"empty", Json::make_object({})}});
+    const std::string text = write_json(value);
+    check(text ==
+              "{\"model\":\"a model\",\"input\":\"a \\\"quoted\\\" back\\\\slash, a\\nnew line, "
+              "a\\ttab, a\\rreturn, \\u0001 and \xC3\xA9 as it is\",\"temperature\":0,"
+              "\"figures\":[3000,-33.8688,0.1,1e+300,0.30000000000000004],"
+              "\"store\":false,\"nothing\":null,\"empty\":{}}",
+          "written exactly: " + text);
+    // And it reads back to the same values.
+    const Json back = glideslope::world::parse_json(text);
+    check(back.at("input").string() == awkward, "the string reads back the same");
+    const auto& figures = back.at("figures").array();
+    check(figures.size() == 5 && figures[0].number() == 3000.0 &&
+              figures[1].number() == -33.8688 && figures[2].number() == 0.1 &&
+              figures[3].number() == 1e300 && figures[4].number() == 0.1 + 0.2,
+          "every number reads back to the same double");
+    check(write_json(back) == text, "and writes out the same again");
+
+    std::size_t refused = 0;
+    for (const double n : {std::numeric_limits<double>::quiet_NaN(),
+                           std::numeric_limits<double>::infinity(),
+                           -std::numeric_limits<double>::infinity()}) {
+        try {
+            (void)write_json(Json::make_array({Json::make_number(n)}));
+        } catch (const glideslope::world::JsonError&) {
+            ++refused;
+        }
+    }
+    check(refused == 3, "a NaN and both infinities refused, which JSON cannot hold");
 }

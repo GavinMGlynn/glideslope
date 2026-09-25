@@ -429,6 +429,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_bindings_file_that_cannot_be_read_is_refused_by_line
     json_documents_rfc_8259_allows_are_read_into_their_values
     json_documents_rfc_8259_does_not_allow_are_refused
+    a_json_value_is_written_as_rfc_8259_has_it_and_reads_back_the_same
     every_recorded_metar_is_read_as_aviationweather_decodes_it
     every_recorded_metars_visibility_weather_and_cloud_are_read_as_aviationweather_decodes_them
     metar_groups_are_read_in_every_form_and_trends_are_not_read_as_observations

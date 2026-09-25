@@ -1,9 +1,116 @@
 #include "world/json.hpp"
 
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 
 namespace glideslope::world {
+
+namespace {
+
+void write_string(const std::string& s, std::string& out) {
+    out += '"';
+    for (const char c : s) {
+        const auto u = static_cast<unsigned char>(c);
+        switch (c) {
+        case '"':
+            out += "\\\"";
+            break;
+        case '\\':
+            out += "\\\\";
+            break;
+        case '\n':
+            out += "\\n";
+            break;
+        case '\r':
+            out += "\\r";
+            break;
+        case '\t':
+            out += "\\t";
+            break;
+        default:
+            if (u < 0x20) {
+                char escaped[8];
+                std::snprintf(escaped, sizeof escaped, "\\u%04x", static_cast<unsigned>(u));
+                out += escaped;
+            } else {
+                out += c;
+            }
+        }
+    }
+    out += '"';
+}
+
+void write_value(const Json& v, std::string& out) {
+    switch (v.kind()) {
+    case Json::Kind::null:
+        out += "null";
+        break;
+    case Json::Kind::boolean:
+        out += v.boolean() ? "true" : "false";
+        break;
+    case Json::Kind::number: {
+        const double n = v.number();
+        if (!std::isfinite(n)) {
+            throw JsonError("JSON cannot hold a number that is not finite");
+        }
+        char text[32];
+        // A whole number as one; any other with the fewest digits that read
+        // back to the same double, so that 0.1 is written 0.1.
+        if (n == std::floor(n) && std::abs(n) < 9007199254740992.0) {
+            std::snprintf(text, sizeof text, "%.0f", n);
+        } else {
+            for (int digits = 15; digits <= 17; ++digits) {
+                std::snprintf(text, sizeof text, "%.*g", digits, n);
+                if (std::strtod(text, nullptr) == n) {
+                    break;
+                }
+            }
+        }
+        out += text;
+        break;
+    }
+    case Json::Kind::string:
+        write_string(v.string(), out);
+        break;
+    case Json::Kind::array: {
+        out += '[';
+        bool first = true;
+        for (const Json& e : v.array()) {
+            if (!first) {
+                out += ',';
+            }
+            first = false;
+            write_value(e, out);
+        }
+        out += ']';
+        break;
+    }
+    case Json::Kind::object: {
+        out += '{';
+        bool first = true;
+        for (const auto& [key, e] : v.object()) {
+            if (!first) {
+                out += ',';
+            }
+            first = false;
+            write_string(key, out);
+            out += ':';
+            write_value(e, out);
+        }
+        out += '}';
+        break;
+    }
+    }
+}
+
+} // namespace
+
+std::string write_json(const Json& value) {
+    std::string out;
+    write_value(value, out);
+    return out;
+}
 
 namespace {
 
