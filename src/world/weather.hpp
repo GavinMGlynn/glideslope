@@ -11,6 +11,7 @@
 #include "world/metar.hpp"
 #include "world/winds_aloft.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -34,9 +35,12 @@ std::vector<SurfaceReport> parse_aviationweather(std::string_view json);
 
 // The latest METAR for a station - an ICAO location indicator, four letters or
 // digits, in either case - from aviationweather.gov. Throws MetarError for a
-// station that is not one or has no METAR, DemError - the download error - if
-// none can be had, or the parse errors above.
-SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch);
+// station that is not one or has no METAR, ServiceUnavailable if nothing
+// answered or a server error was all it answered, DemError for any other
+// answer that is not a report, or the parse errors above. `retry_wait` is
+// fetch_with_retries' wait; a test shortens it.
+SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch,
+                          std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
 
 // The International Standard Atmosphere's temperature at a height, degrees C.
 double isa_temperature_c(double height_m);
@@ -124,11 +128,12 @@ sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
 
 // A station's weather now: its latest METAR, and Open-Meteo's winds aloft over
 // it for the hour `time` ("YYYY-MM-DDTHH:00", UTC). Throws as fetch_metar and
-// fetch_winds_aloft do, a download that failed as DemError beginning "the
-// weather could not be had: ". Open-Meteo's data must be credited wherever it is shown:
-// open_meteo_credit.
+// fetch_winds_aloft do, with a service that did not answer - and only that -
+// as ServiceUnavailable beginning "the weather could not be had: ".
+// Open-Meteo's data must be credited wherever it is shown: open_meteo_credit.
 WeatherReport fetch_weather(const std::string& station, const std::string& time,
-                            const Fetch& fetch);
+                            const Fetch& fetch,
+                            std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
 
 // What CC BY 4.0 and Open-Meteo's terms ask to be shown beside its data.
 inline constexpr const char* open_meteo_credit = "Weather data by Open-Meteo.com";

@@ -355,6 +355,9 @@ Found while implementing something else. Added when found, not when remembered.
       skipped even where the network is required, since live weather is
       never kept; a missing DEM still fails there.
 
+      never kept. A service that refuses the request, or an answer that
+      can't be read, still fails, and so does a missing DEM.
+
 - [x] **The HUD check read the horizon, crossing the rows below the HUD, as a
       line of the HUD.** *Verification: a line that does not begin at the
       HUD's margin is not judged, and an extra HUD line still is.* Done

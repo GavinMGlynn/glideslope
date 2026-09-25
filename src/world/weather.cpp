@@ -23,7 +23,8 @@ std::vector<SurfaceReport> parse_aviationweather(std::string_view text) {
     return reports;
 }
 
-SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch) {
+SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch,
+                          std::chrono::milliseconds retry_wait) {
     // Checked before it goes into a URL.
     std::string id = station;
     const bool alphanumeric = std::all_of(id.begin(), id.end(), [](char c) {
@@ -50,13 +51,17 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch) {
     for (int attempt = 1;; ++attempt) {
         platform::HttpResponse r;
         try {
-            r = fetch_with_retries(fetch, url);
+            r = fetch_with_retries(fetch, url, 5, retry_wait);
         } catch (const platform::HttpError& e) {
-            throw DemError(std::string("could not download: ") + e.what());
+            throw ServiceUnavailable(std::string("could not download: ") + e.what());
         }
         // No content is how it says it has no report for a station.
         if (r.status == 204) {
             throw MetarError("aviationweather.gov has no METAR for " + id);
+        }
+        if (r.status >= 500) {
+            throw ServiceUnavailable("could not download " + url + ": status " +
+                                     std::to_string(r.status));
         }
         if (r.status != 200) {
             throw DemError("could not download " + url + ": status " +
@@ -81,18 +86,21 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch) {
 }
 
 WeatherReport fetch_weather(const std::string& station, const std::string& time,
-                            const Fetch& fetch) {
+                            const Fetch& fetch, std::chrono::milliseconds retry_wait) {
     WeatherReport report;
-    // **A download that failed says it was the weather's**, so that what
-    // runs a flight can tell a weather service that did not answer - live,
-    // somebody else's, and never kept - from data it fetches once and keeps.
+    // **A service that did not answer says it was the weather's**, so that
+    // what runs a flight can tell a weather service that did not answer -
+    // live, somebody else's, and never kept - from data it fetches once and
+    // keeps. Only that: a refusal or an answer that does not parse is ours to
+    // mend, and stays the error it was.
     try {
-        report.surface = fetch_metar(station, fetch);
+        report.surface = fetch_metar(station, fetch, retry_wait);
         report.air_seed = air_seed_of(report.surface.metar);
         report.aloft = fetch_winds_aloft(report.surface.latitude_deg,
-                                         report.surface.longitude_deg, time, fetch);
-    } catch (const DemError& e) {
-        throw DemError(std::string("the weather could not be had: ") + e.what());
+                                         report.surface.longitude_deg, time, fetch,
+                                         retry_wait);
+    } catch (const ServiceUnavailable& e) {
+        throw ServiceUnavailable(std::string("the weather could not be had: ") + e.what());
     }
     return report;
 }

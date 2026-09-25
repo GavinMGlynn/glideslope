@@ -10,6 +10,7 @@
 #include <iterator>
 #include <random>
 #include <span>
+#include <stdexcept>
 #include <system_error>
 #include <thread>
 
@@ -97,9 +98,52 @@ platform::HttpResponse fetch_with_retries(const Fetch& fetch, const std::string&
     }
 }
 
+bool weather_service_allowed(const std::string& service) {
+    const auto rest_is = [&](std::size_t from, bool any_host) {
+        std::size_t at = from;
+        if (any_host) {
+            while (at < service.size() &&
+                   (std::isalnum(static_cast<unsigned char>(service[at])) != 0 ||
+                    service[at] == '.' || service[at] == '-')) {
+                ++at;
+            }
+            if (at == from) {
+                return false;
+            }
+        }
+        if (at == service.size()) {
+            return true;
+        }
+        if (service[at] != ':' || at + 1 == service.size() || service.size() - at > 6) {
+            return false;
+        }
+        for (std::size_t i = at + 1; i < service.size(); ++i) {
+            if (std::isdigit(static_cast<unsigned char>(service[i])) == 0) {
+                return false;
+            }
+        }
+        return true;
+    };
+    for (const std::string loopback : {"http://127.0.0.1", "http://localhost"}) {
+        if (service.rfind(loopback, 0) == 0) {
+            return rest_is(loopback.size(), false);
+        }
+    }
+    const std::string https = "https://";
+    return service.rfind(https, 0) == 0 && rest_is(https.size(), true);
+}
+
 std::string weather_host(const std::string& own) {
     std::string instead = platform::weather_service();
-    return instead.empty() ? own : instead;
+    if (instead.empty()) {
+        return own;
+    }
+    if (!weather_service_allowed(instead)) {
+        throw std::runtime_error("GLIDESLOPE_WEATHER_SERVICE is \"" + instead +
+                                 "\": it must be an https:// host, or http:// to "
+                                 "127.0.0.1 or localhost");
+    }
+    return instead;
 }
 
 Fetch http_fetch() {

@@ -958,3 +958,120 @@ GLIDESLOPE_TEST(an_answer_that_is_not_json_is_fetched_again_and_then_taken_for_a
     }
     check(cases == 4, "both services, read on a retry and given up on: four cases");
 }
+
+GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be_had) {
+    // **Every way a weather fetch can fail, at both services**: which of them
+    // is "the weather could not be had" - ServiceUnavailable, which the HUD
+    // tests skip on - and which is a fault to be fixed, and stays one. A
+    // misspelt Open-Meteo variable is answered 400; that must never read as a
+    // service having a bad minute, or the tests that fly in the weather would
+    // skip for good.
+    const auto recorded = [](const char* name) {
+        std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) / "data/weather" / name,
+                         std::ios::binary);
+        const std::string text(std::istreambuf_iterator<char>(in), {});
+        return std::vector<std::uint8_t>(text.begin(), text.end());
+    };
+    const auto metar = recorded("aviationweather-metars-2026-09-17T1600Z.json");
+    struct Failure {
+        const char* what;
+        int status; // 0: nothing answers
+        std::string body;
+        bool unavailable;
+    };
+    const std::vector<Failure> failures{
+        {"nothing answers", 0, "", true},
+        {"a 500 to every retry", 500, "", true},
+        {"a 502 to every retry", 502, "", true},
+        {"a 503 to every retry", 503, "", true},
+        {"a 504 to every retry", 504, "", true},
+        {"a 400, as a misspelt variable is answered", 400,
+         R"({"error":true,"reason":"Cannot initialize WeatherVariable"})", false},
+        {"a 401", 401, "", false},
+        {"a 403", 403, "", false},
+        {"a 404", 404, "", false},
+        {"a 429", 429, "", false},
+        {"a 200 that is not JSON", 200, "<html>Service unavailable</html>", false},
+        {"a 200 of JSON that is not an answer", 200, R"({"unexpected": [1, 2, 3]})", false},
+    };
+    std::size_t cases = 0;
+    for (const bool at_metar : {true, false}) {
+        for (const Failure& f : failures) {
+            const std::string name =
+                std::string(at_metar ? "aviationweather.gov: " : "Open-Meteo: ") + f.what;
+            int asked = 0;
+            const glideslope::world::Fetch fetch =
+                [&](const std::string& url) -> glideslope::platform::HttpResponse {
+                glideslope::platform::HttpResponse r;
+                const bool failing =
+                    (url.find("aviationweather") != std::string::npos) == at_metar;
+                if (!failing) {
+                    r.status = 200;
+                    r.body = metar;
+                    return r;
+                }
+                ++asked;
+                if (f.status == 0) {
+                    throw glideslope::platform::HttpError(url + ": no response");
+                }
+                r.status = f.status;
+                r.body.assign(f.body.begin(), f.body.end());
+                return r;
+            };
+            bool unavailable = false;
+            std::string said;
+            try {
+                (void)glideslope::world::fetch_weather("CYYZ", "2026-09-17T16:00", fetch,
+                                                      std::chrono::milliseconds(0));
+                fail(name + ": the weather was had");
+            } catch (const glideslope::world::ServiceUnavailable& e) {
+                unavailable = true;
+                said = e.what();
+            } catch (const std::exception& e) {
+                said = e.what();
+            }
+            const bool says_so = said.find("the weather could not be had") != std::string::npos;
+            check(unavailable == f.unavailable && says_so == f.unavailable,
+                  name + (f.unavailable ? ": should be weather not to be had, "
+                                        : ": should be a fault, not weather not to be had, ") +
+                      "and is: " + said);
+            check(asked >= 1, name + ": the failing service was asked");
+            ++cases;
+        }
+    }
+    check(cases == 2 * failures.size() && cases == 24,
+          std::to_string(cases) + " cases, not every failure at both services");
+}
+
+GLIDESLOPE_TEST(the_weather_may_be_asked_elsewhere_only_over_https_or_of_the_loopback) {
+    using glideslope::world::weather_service_allowed;
+    const std::vector<std::string> allowed{
+        "https://aviationweather.gov", "https://api.open-meteo.com", "https://example.org:8443",
+        "http://127.0.0.1",            "http://127.0.0.1:1",         "http://127.0.0.1:65535",
+        "http://localhost",            "http://localhost:8080"};
+    const std::vector<std::string> refused{"",
+                                           "http://example.org",
+                                           "http://127.0.0.1.example.org",
+                                           "http://localhost.example.org",
+                                           "http://127.0.0.1:80/path",
+                                           "http://127.0.0.1:",
+                                           "http://127.0.0.1:123456",
+                                           "http://127.0.0.1@example.org",
+                                           "http://localhost:8080@example.org",
+                                           "http://10.0.0.1",
+                                           "ftp://127.0.0.1",
+                                           "file:///etc/passwd",
+                                           "https://",
+                                           "https://example.org/path",
+                                           "https://user@example.org",
+                                           "https://example.org?x",
+                                           "HTTP://example.org",
+                                           "127.0.0.1:1"};
+    for (const std::string& s : allowed) {
+        check(weather_service_allowed(s), "should be allowed: " + s);
+    }
+    for (const std::string& s : refused) {
+        check(!weather_service_allowed(s), "should be refused: " + s);
+    }
+    check(allowed.size() == 8 && refused.size() == 18, "8 allowed and 18 refused");
+}

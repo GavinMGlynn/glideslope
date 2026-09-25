@@ -17,10 +17,27 @@ namespace glideslope::world {
 
 using Fetch = std::function<platform::HttpResponse(const std::string& url)>;
 
+// **A weather service that did not answer**: nothing answered at all, or
+// the service answered a server error (5xx) to every one of its retries. The
+// weather is live and somebody else's, so this is the one failure a flight's
+// caller may take for "there is no weather to be had". An answer that refuses
+// the request (4xx) or does not parse is not this: it is a fault of the
+// request or of the reading, and is thrown as DemError or the parse's error.
+struct ServiceUnavailable : DemError {
+    using DemError::DemError;
+};
+
 // **A weather service's scheme and host**: `own`, such as
 // "https://aviationweather.gov", unless platform::weather_service() names
-// another for a test.
+// another for a test. Throws std::runtime_error if it names one that
+// weather_service_allowed refuses.
 std::string weather_host(const std::string& own);
+
+// **Where the weather may be asked instead**: an `https://` host, with a port
+// or without, or `http://127.0.0.1` or `http://localhost`, with a port or
+// without - the loopback, for a stub a test runs. Nothing else: weather asked
+// over plain HTTP of another machine could be read and changed on the way.
+bool weather_service_allowed(const std::string& service);
 
 // A GET through the platform's HTTP client, with a body limit to suit a DEM tile.
 Fetch http_fetch();
