@@ -287,7 +287,6 @@ int run() {
     const std::vector<std::string> credits{glideslope::world::copernicus_dem_notice,
                                            glideslope::world::open_meteo_credit};
     constexpr double degrees = 180.0 / 3.14159265358979323846;
-    std::FILE* quiet = std::tmpfile();
 
     // One size's frames, counted. Each size is walked on a thread of its own:
     // they share nothing but what they read, and the file judge_hud writes to.
@@ -454,8 +453,7 @@ int run() {
                                 std::string said;
                                 try {
                                     said = glideslope::test::judge_hud(
-                                        frame, state, 1, credits,
-                                        quiet != nullptr ? quiet : stdout);
+                                        frame, state, 1, credits, nullptr);
                                 } catch (const glideslope::test::HudWrong& e) {
                                     fail(std::string(name) + ": " + e.what());
                                 }
@@ -498,9 +496,6 @@ int run() {
     const std::size_t expected_frames = all.expected_frames;
     const std::size_t frames_clear = all.frames_clear;
     const std::size_t judged_clear = all.judged_clear;
-    if (quiet != nullptr) {
-        std::fclose(quiet);
-    }
     std::printf("%zu frames, the horizon whole in %zu; the HUD judged whole in %zu of the %zu "
                 "where the text is clear; where the frame is too narrow for that, %zu judged "
                 "and %zu with the horizon over the text\n",
