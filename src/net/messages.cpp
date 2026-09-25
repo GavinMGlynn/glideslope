@@ -391,7 +391,7 @@ bool read(std::span<const std::uint8_t> body, TerrainDataset& out) {
 
 std::vector<std::uint8_t> write(const ControllerSwap& m) {
     Writer w = begin_message(Message::controller_swap);
-    w.u8(m.slot);
+    w.u8(m.aircraft);
     w.u8(static_cast<std::uint8_t>(m.to));
     w.f64(m.at_simulation_time_s);
     return w.take();
@@ -404,8 +404,8 @@ bool read(std::span<const std::uint8_t> body, ControllerSwap& out) {
         return false;
     }
     ControllerSwap got;
-    got.slot = r.u8();
-    if (!r.ok() || got.slot >= most_slots) {
+    got.aircraft = r.u8();
+    if (!r.ok()) {
         return false;
     }
     const std::uint8_t to = r.u8();

@@ -371,12 +371,27 @@ from the server for a reason no measurement would explain.
 
 ### `CONTROLLER_SWAP`
 
-An aircraft handed between a person and an AI pilot.
+An aircraft handed between a person and an AI pilot, by the server's number
+for it. **It travels both ways.** A client asks for its own aircraft to be
+handed to the AI pilot (`02`) or back to it (`01`), with the time written as
+nought; the server honours it only for that client's own aircraft, and says
+so to every client, with the time it took effect. A request for another's
+aircraft, or to `NOBODY`, is acknowledged and nothing more.
+
+While the AI flies an aircraft, the server applies none of its client's
+inputs, and a state update gives its controller as `AI`. A client whose
+aircraft has been handed over stops predicting it and draws it from the
+updates like any other; given it back, it predicts again from the next
+update carrying its motion, and until the server has applied an input sent
+since, it knows nothing of how it is being flown. The server brings the
+controls from the AI's to the pilot's at the pace of a hand - full travel in a
+second - rather than jumping them, so for that second the pilot's inputs are
+not yet all it flies.
 
 | written as | field |
 | --- | --- |
 | `u8` | `06`, the kind |
-| `u8` | the slot's index |
+| `u8` | the aircraft's number, as a state update gives it |
 | `u8` | the `CONTROLLER` it is going to |
 | `f64` | when it takes effect, on the simulation's clock |
 
@@ -684,10 +699,9 @@ startup.
 
 ## What is not here yet
 
-- **Six of the seven reliable messages.** `AIRCRAFT` travels: the server
-  sends one for every aircraft, inside `RELIABLE`, and a client acknowledges
-  it. The lobby, the session, the weather, the terrain dataset and a
-  controller swap are defined and encoded, and nothing sends them yet.
+- **Five of the seven reliable messages.** `AIRCRAFT` and `CONTROLLER_SWAP`
+  travel, inside `RELIABLE`. The lobby, the session, the weather and the
+  terrain dataset are defined and encoded, and nothing sends them yet.
 - **Any check on what a client sends.** A client's inputs reach its aircraft
   with no range check and no rate limit: a value outside -1 to 1 cannot be
   written, because the wire is a 16-bit fraction, but nothing stops a client

@@ -95,7 +95,7 @@ TerrainDataset a_dataset() {
 
 ControllerSwap a_swap() {
     ControllerSwap m;
-    m.slot = 1;
+    m.aircraft = 5;
     m.to = Controller::ai;
     m.at_simulation_time_s = 987.25;
     return m;
@@ -234,7 +234,7 @@ std::vector<Kind> every_kind() {
                    glideslope::net::write(swap),
                    [swap](std::span<const std::uint8_t> b) {
                        ControllerSwap got;
-                       return glideslope::net::read(b, got) && got.slot == swap.slot &&
+                       return glideslope::net::read(b, got) && got.aircraft == swap.aircraft &&
                               got.to == swap.to &&
                               got.at_simulation_time_s == swap.at_simulation_time_s;
                    },

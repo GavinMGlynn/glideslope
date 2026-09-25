@@ -163,9 +163,11 @@ struct TerrainDataset {
     std::vector<std::uint8_t> sha256;
 };
 
-// **A controller swap**: an aircraft handed between a person and an AI pilot.
+// **A controller swap**: an aircraft handed between a person and an AI pilot,
+// by the server's number for it. A client asks for its own with one, and the
+// server says it has happened with another, to every client.
 struct ControllerSwap {
-    std::uint8_t slot = 0;
+    std::uint8_t aircraft = 0;
     Controller to = Controller::nobody;
     // When it takes effect, on the simulation's clock.
     double at_simulation_time_s = 0.0;

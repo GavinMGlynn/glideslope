@@ -770,10 +770,45 @@ public:
     // because this is where the answer is known.
     bool fly(std::uint8_t index, const glideslope::sim::Controls& controls) {
         for (Aircraft& a : flown_) {
-            if (a.index == index && a.controller == nullptr) {
+            if (a.index == index && !ai_flying(a)) {
                 a.held = controls;
                 return true;
             }
+        }
+        return false;
+    }
+
+    // **A player's aircraft handed to an AI pilot, or taken back** - Phase 7.
+    // It keeps its number and its slot; only who flies it changes. The AI
+    // holds what the aircraft is doing (sim::Controller::to_ai), and the
+    // controller carries the controls across in either direction, which is
+    // what makes a swap no step (the user/AI swap, Phase 4). Returns whether
+    // anything changed: a player's aircraft, not already in those hands.
+    bool hand(std::uint8_t index, bool to_ai) {
+        for (Aircraft& a : flown_) {
+            if (a.index != index || a.slot < 0 || a.wrecked_at_s >= 0.0) {
+                continue;
+            }
+            if (to_ai == ai_flying(a)) {
+                return false;
+            }
+            if (!a.controller) {
+                a.controller = std::make_unique<glideslope::sim::Controller>(*a.aircraft, a.held);
+            }
+            if (to_ai) {
+                a.controller->to_ai();
+            } else {
+                a.controller->set_pilot(a.held);
+                a.controller->to_pilot();
+            }
+            announced_.push_back(
+                {index, to_ai ? glideslope::net::Controller::ai : glideslope::net::Controller::person,
+                 static_cast<double>(steps_) /
+                     static_cast<double>(glideslope::sim::steps_per_second)});
+            std::printf("aircraft %u handed to %s\n", static_cast<unsigned>(index),
+                        to_ai ? "the AI" : "its pilot");
+            std::fflush(stdout);
+            return true;
         }
         return false;
     }
@@ -801,7 +836,10 @@ public:
             if (a.controller) {
                 // The AI pilot: its autopilot and navigator decide the
                 // controls, which is what "the LLM plans, the controllers
-                // fly" means at this end.
+                // fly" means at this end. A player's aircraft given back to
+                // them has one too, flying their inputs, and carrying the
+                // controls across from the AI's without a step.
+                a.controller->set_pilot(a.held);
                 a.aircraft->set_controls(a.controller->fly());
             } else {
                 a.aircraft->set_controls(a.held);
@@ -873,12 +911,25 @@ public:
         // aircraft with a controller holds the course it started on.
         bool on_plan = false;
     };
+
+    // Whether an AI pilot has it, rather than a person - a controller of its
+    // own is not enough to say: a player's aircraft given back keeps one.
+    static bool ai_flying(const Aircraft& a) {
+        return a.controller && a.controller->flying() == glideslope::sim::Controller::Flying::ai;
+    }
     // **How long a wreck stays a wreck**, in simulated seconds, before it
     // flies again (REQUIREMENTS.md 6.4: a crash costs the flight, not the
     // session).
     static constexpr double wreck_s = 5.0;
 
     const std::vector<Aircraft>& flown() const { return flown_; }
+
+    // **The swaps made since last asked**, for every client to be told.
+    std::vector<glideslope::net::ControllerSwap> announced() {
+        std::vector<glideslope::net::ControllerSwap> out;
+        out.swap(announced_);
+        return out;
+    }
 
     // **What every aircraft is**, by its number: what each client is told,
     // once, as a reliable `AIRCRAFT` message.
@@ -1004,6 +1055,8 @@ private:
     std::uint8_t next_index_ =
         static_cast<std::uint8_t>(glideslope::net::most_slots);
     int ai_ = 0;
+    // Swaps made and not yet told to every client.
+    std::vector<glideslope::net::ControllerSwap> announced_;
 };
 
 // The dashboard: who is connected, their ping and their traffic. The rows
@@ -1058,8 +1111,8 @@ glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s) {
 
         glideslope::net::AircraftState out;
         out.index = a.index;
-        out.controller = a.controller != nullptr ? glideslope::net::Controller::ai
-                                                 : glideslope::net::Controller::person;
+        out.controller = Fleet::ai_flying(a) ? glideslope::net::Controller::ai
+                                      : glideslope::net::Controller::person;
         out.condition = a.wrecked_at_s >= 0.0 ? glideslope::net::Condition::wrecked
                                               : glideslope::net::Condition::flying;
         out.x_m = at.x;
@@ -1343,9 +1396,21 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             return;
         }
         case glideslope::net::Inside::reliable:
-            // A client sends the server nothing it must act on yet - only
-            // its acknowledgements of what the server sent, which this takes.
-            (void)c.reliable.received(inside.subspan(1));
+            // **What a client may ask**: its own aircraft handed to the AI
+            // pilot or taken back (`CONTROLLER_SWAP`). Anything else, or a
+            // swap for an aircraft not its own, is acknowledged and let go:
+            // a client flies its own aircraft and no other.
+            for (const std::vector<std::uint8_t>& message : c.reliable.received(inside.subspan(1))) {
+                glideslope::net::ControllerSwap swap;
+                if (fleet != nullptr && c.aircraft != glideslope::net::no_aircraft &&
+                    glideslope::net::read(
+                        std::span<const std::uint8_t>(message.data(), message.size()), swap) &&
+                    swap.aircraft == c.aircraft &&
+                    (swap.to == glideslope::net::Controller::ai ||
+                     swap.to == glideslope::net::Controller::person)) {
+                    (void)fleet->hand(c.aircraft, swap.to == glideslope::net::Controller::ai);
+                }
+            }
             return;
         case glideslope::net::Inside::state:
             // Named, not built: nothing sends these yet and nothing here
@@ -1603,6 +1668,7 @@ int run(const Options& o) {
                 state_of(*fleet, static_cast<double>(stepped) /
                                      static_cast<double>(glideslope::sim::steps_per_second));
             const std::vector<glideslope::net::AircraftDefinition> who = fleet->who();
+            const std::vector<glideslope::net::ControllerSwap> swaps = fleet->announced();
             for (auto& [address, c] : connections) {
                 // **Every aircraft introduced**, and again if its number has
                 // come to mean another. Numbers no longer flying are
@@ -1622,6 +1688,12 @@ int run(const Options& o) {
                     }
                 }
                 c.introduced = std::move(now_flying);
+                // **Every swap, to everybody**: whose aircraft, to whom, and
+                // when on the simulation's clock.
+                for (const glideslope::net::ControllerSwap& swap : swaps) {
+                    const std::vector<std::uint8_t> body = glideslope::net::write(swap);
+                    (void)c.reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                }
                 packet.your_aircraft = c.aircraft;
                 packet.last_input_applied = c.last_input_applied;
                 // Its own aircraft's motion, which only its own packet carries.
