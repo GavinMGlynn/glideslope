@@ -12,6 +12,7 @@
 #include "gfx/renderer.hpp"
 #include "gfx/scene.hpp"
 
+#include <optional>
 #include <array>
 #include <cstdint>
 #include <string>
@@ -27,6 +28,19 @@ struct ChecklistOnScreen {
     std::vector<std::pair<bool, std::string>> items; // ticked, and its words
 };
 
+// **Where the controls are**, as the flight model has them: the stick's
+// aileron (right positive) and elevator (back positive), the rudder (right
+// positive), the throttle and the flaps from nought to one, and the gear -
+// down at one - where it retracts.
+struct ControlsShown {
+    double aileron = 0.0;
+    double elevator = 0.0;
+    double rudder = 0.0;
+    double throttle = 0.0;
+    double flaps = 0.0;
+    std::optional<double> gear; // none: it does not retract
+};
+
 struct HudReadings {
     double airspeed_kts = 0.0; // calibrated
     double altitude_ft = 0.0;  // above sea level
@@ -39,6 +53,10 @@ struct HudReadings {
     // What the AI is flying - "HOLD", or "NAV" and the waypoint it is flying
     // to - or empty when the pilot flies.
     std::string autopilot;
+    // Whether the AI pilot has the aircraft: the HUD says who is flying, always.
+    bool ai_flying = false;
+    // The controls, when there is an aircraft to read them from.
+    std::optional<ControlsShown> controls;
     // Whose data is on screen - each a credit its source asks for - shown
     // along the bottom.
     std::vector<std::string> credits;
@@ -55,7 +73,14 @@ struct HudReadings {
 //   BANK   -5.0
 //   MACH 0.82                  from hud_mach_from, and only then
 //   FL 350                     from hud_flight_level_from_ft, and only then
-//   AP  NAV THE HEADS          while the AI flies, and only then
+//   FLYING PILOT               who has the aircraft, always: PILOT, or AI
+//   FLYING AI NAV THE HEADS    and what the AI is flying - HOLD, or NAV and
+//                              the waypoint it is flying to
+//   STICK +0.30 -0.05          aileron and elevator, from -1 to 1
+//   RUDDER +0.00
+//   THROTTLE 0.70              from 0 to 1
+//   FLAPS 0.33                 from 0 to 1
+//   GEAR DOWN                  or UP, and only where it retracts
 // Speeds, altitudes, headings and vertical speeds to the nearest whole unit;
 // pitch and bank to a tenth of a degree; the Mach number to a hundredth; the
 // flight level to the nearest hundred feet of pressure altitude.
