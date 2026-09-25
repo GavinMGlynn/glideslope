@@ -181,10 +181,10 @@ inline std::string judge_hud(const gfx::Frame& frame, const std::map<std::string
     }
     // **Nothing more of the HUD's**: every HUD line begins at its margin, in
     // the first column. What begins further in is the scene behind the text -
-    // the horizon line, which crosses these rows below the HUD's own (it is
-    // kept out of the HUD's, gfx::hud_text_block) when the flight, flown in
-    // the live weather, is banked as it was on 2026-09-25 and read as " ?" -
-    // and is not the HUD's to be judged here.
+    // the horizon line, which on a frame too narrow for the text to be kept
+    // clear of it (gfx::hud_text_clear_of_horizon) can cross these rows, and
+    // did at the old, larger text on 2026-09-25, read as " ?" - and is not
+    // the HUD's to be judged here.
     if (!lines[next].empty() && lines[next][0] != ' ') {
         fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] +
              "\", which the HUD should not show");

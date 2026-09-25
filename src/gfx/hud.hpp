@@ -97,7 +97,10 @@ inline constexpr double hud_flight_level_from_ft = 18000.0;
 
 // Where text goes on a frame of `width` by `height` pixels: every font pixel a
 // `scale`-pixel square, a character cell six font pixels wide and ten high,
-// starting two cells in from the top left.
+// starting two cells in from the top left. For the HUD (hud_layout) the scale
+// is a pixel for every 240 of the frame's smaller side, but no larger than
+// keeps the text block clear of the horizon (hud_text_clear_of_horizon), and
+// never less than one.
 struct TextLayout {
     int scale = 1;
     int left = 0; // pixels
@@ -164,10 +167,8 @@ const std::string& font_characters();
 inline constexpr std::array<float, 4> hud_colour{0.2f, 1.0f, 0.4f, 1.0f};
 
 // **The HUD's text block**: its lines, top to bottom, each hud_columns cells
-// wide - or as wide as its longest line, if that is longer - in screen
-// pixels. The horizon is never drawn inside it, so a frame's HUD reads back
-// whole whatever the attitude: the horizon runs across the middle third of
-// the frame and, pitched and banked, crosses the right-hand end of every row.
+// wide, in screen pixels. hud_lines cuts any line longer than that - only a
+// waypoint's name can make one.
 inline constexpr std::size_t hud_columns = 24;
 struct PixelBox {
     double left = 0.0;
@@ -177,11 +178,11 @@ struct PixelBox {
 };
 PixelBox hud_text_block(const HudReadings& readings, int width, int height);
 
-// **The horizon line**, whole, before the text block is taken out of it: its
-// centre from (x0, y0) to (x1, y1), in screen pixels, `thickness` across.
-// Across the middle third of the frame, moved down the screen as the nose
-// rises - a degree of pitch a hundredth of the height - and turned against the
-// bank.
+// **The horizon line**: its centre from (x0, y0) to (x1, y1), in screen
+// pixels, `thickness` across. Across the middle third of the frame, moved
+// down the screen as the nose rises - a degree of pitch a hundredth of the
+// height - and turned against the bank. It is drawn whole, always: it is the
+// instrument.
 struct HorizonLine {
     double x0 = 0.0;
     double y0 = 0.0;
@@ -191,10 +192,20 @@ struct HorizonLine {
 };
 HorizonLine hud_horizon(const HudReadings& readings, int width, int height);
 
+// **Whether the HUD's text is clear of the horizon on a frame this size**:
+// whether the text block ends, with a pixel to spare, left of the furthest
+// left any pixel of the horizon can reach, at any pitch and bank - a third of
+// the width less half the line's thickness. hud_layout makes it so wherever
+// it can, by drawing the text no larger than fits; on a frame too narrow for
+// even the smallest text to fit - under hud_narrowest_clear_width - it cannot,
+// and there the horizon, drawn whole, can cross the right-hand end of the
+// text's rows.
+bool hud_text_clear_of_horizon(int width, int height);
+inline constexpr int hud_narrowest_clear_width = 474;
+
 // The HUD for `readings` on a frame of `width` by `height`: its text, the
-// horizon line, stopped short of the text block wherever it would cross it,
-// and the credits over their strip, last, over the line wherever it runs. In
-// clip space, drawn over everything else.
+// horizon line, whole, and the credits over their strip, last, over the line
+// wherever it runs. In clip space, drawn over everything else.
 Mesh hud_mesh(const HudReadings& readings, int width, int height);
 
 // Text read back from a frame drawn with `layout`: `lines` lines of `columns`
