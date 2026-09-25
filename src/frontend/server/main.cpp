@@ -962,7 +962,7 @@ public:
             w.rudder = m.property("fcs/rudder-cmd-norm");
             w.throttle = m.property("fcs/throttle-cmd-norm[0]");
             w.flaps = m.property("fcs/flap-cmd-norm");
-            if (m.has_property("gear/gear-cmd-norm")) {
+            if (m.gear_retracts()) {
                 w.gear = m.property("gear/gear-cmd-norm");
             }
             return w;
