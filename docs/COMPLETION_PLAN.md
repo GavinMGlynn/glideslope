@@ -368,10 +368,12 @@ Found while implementing something else. Added when found, not when remembered.
       left of the horizon, which is drawn whole. On windows under 474 pixels
       wide, even the smallest text reaches it, and the horizon is drawn over
       the text there.
-- [ ] **The horizon can cross the checklist's rows** too, down the top right,
+- [x] **The horizon can cross the checklist's rows** too, down the top right,
       and the checklist test compares them whole. *Verification: a frame with
       the horizon drawn across every checklist row, built on purpose, is read
-      correctly.*
+      correctly.* Done 2026-09-26: the checklist is drawn over a panel that
+      dims what is behind it by half, as the credits are, so the horizon
+      shows through it rather than crossing its letters.
 - [x] **A weather service's answer that is not JSON ended the flight.**
       *Verification: an answer that is not JSON is fetched again, and three
       in a row are a download that failed.* Done 2026-09-25.

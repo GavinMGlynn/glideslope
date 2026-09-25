@@ -795,6 +795,17 @@ add_test(NAME the_horizon_level_with_every_hud_row_is_drawn_whole_and_the_hud_re
     COMMAND glideslope_hud_horizon_check)
 set_tests_properties(the_horizon_level_with_every_hud_row_is_drawn_whole_and_the_hud_read_and_judged_whole
     PROPERTIES PROCESSORS 4)
+add_executable(glideslope_checklist_horizon_check tools/checklist_horizon_check.cpp)
+target_link_libraries(glideslope_checklist_horizon_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_checklist_horizon_check)
+# **The horizon across every checklist row, on purpose**: the checklist reads
+# whole over its panel, and the horizon shows through it. It walks the panel's
+# layouts and each frame size on threads of their own, so it asks ctest for
+# four processors.
+add_test(NAME the_horizon_across_every_checklist_row_leaves_the_checklist_read_whole
+    COMMAND glideslope_checklist_horizon_check)
+set_tests_properties(the_horizon_across_every_checklist_row_leaves_the_checklist_read_whole
+    PROPERTIES PROCESSORS 4)
 glideslope_configure(glideslope_hud_check)
 add_executable(glideslope_sky_check tools/sky_check.cpp)
 target_link_libraries(glideslope_sky_check PRIVATE glideslope_gfx)

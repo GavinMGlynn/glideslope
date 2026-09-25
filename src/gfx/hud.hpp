@@ -115,6 +115,14 @@ struct TextLayout {
 
 TextLayout hud_layout(int width, int height);
 
+// A box of screen pixels, its right and bottom edges exclusive.
+struct PixelBox {
+    double left = 0.0;
+    double top = 0.0;
+    double right = 0.0; // exclusive
+    double bottom = 0.0;
+};
+
 // **Credits** - the notices data sources ask to be shown with their data - are
 // drawn small along the bottom left: one screen pixel a font pixel, each
 // credit wrapped at its spaces to the frame's width, in capitals, with a
@@ -157,6 +165,20 @@ std::vector<std::string> checklist_lines(const ChecklistOnScreen& showing, int w
 // cells down from the top, as the HUD's own text starts.
 TextLayout checklist_layout(int width, int height, std::size_t lines);
 
+// **The checklist's panel**: the checklist is drawn over a panel that darkens
+// what is behind it by half - the horizon included - as the credits' strip
+// does, so the checklist reads whole wherever the horizon runs. The horizon
+// is not cut for it: it shows through the panel, dimmed. The checklist sits
+// in the frame's right half and the horizon reaches two-thirds across, so at
+// the right pitch and bank it crosses any of the checklist's rows; keeping
+// the checklist right of the horizon instead, as the HUD's text is kept left
+// of it, would cut every item at a third of the width.
+//
+// The panel is a cell wider than the checklist's `checklist_columns` each
+// side, a line above its first line and a line below its last - an empty line
+// that reads as one, so a reader can tell that nothing is drawn under it.
+PixelBox checklist_panel(int width, int height, std::size_t lines);
+
 // The glyph for `c`: seven rows, the top first, each five bits with the
 // leftmost pixel the highest. Null for a character the font lacks.
 const std::array<std::uint8_t, 7>* glyph(char c);
@@ -170,12 +192,6 @@ inline constexpr std::array<float, 4> hud_colour{0.2f, 1.0f, 0.4f, 1.0f};
 // wide, in screen pixels. hud_lines cuts any line longer than that - only a
 // waypoint's name can make one.
 inline constexpr std::size_t hud_columns = 24;
-struct PixelBox {
-    double left = 0.0;
-    double top = 0.0;
-    double right = 0.0; // exclusive
-    double bottom = 0.0;
-};
 PixelBox hud_text_block(const HudReadings& readings, int width, int height);
 
 // **The horizon line**: its centre from (x0, y0) to (x1, y1), in screen
@@ -204,8 +220,9 @@ bool hud_text_clear_of_horizon(int width, int height);
 inline constexpr int hud_narrowest_clear_width = 474;
 
 // The HUD for `readings` on a frame of `width` by `height`: its text, the
-// horizon line, whole, and the credits over their strip, last, over the line
-// wherever it runs. In clip space, drawn over everything else.
+// horizon line, whole, the checklist over its panel, and the credits over
+// their strip, last - both panel and strip over the line wherever it runs. In
+// clip space, drawn over everything else.
 Mesh hud_mesh(const HudReadings& readings, int width, int height);
 
 // Text read back from a frame drawn with `layout`: `lines` lines of `columns`
