@@ -942,7 +942,7 @@ static int run_program(int argc, char** argv) {
 
             // The frame shot waits for every terrain tile its view needs, so
             // the same command draws the same terrain everywhere.
-            const bool shot_now = shooting && ticks >= o.shot_at;
+            bool shot_now = shooting && ticks >= o.shot_at;
             // **On a server, everybody else as they are now**, and the one
             // being ridden along in, if any.
             if (online && joined) {
@@ -957,6 +957,15 @@ static int run_program(int argc, char** argv) {
                             break;
                         }
                     }
+                }
+                // **Riding along, the shot waits for what it is of**: an
+                // aircraft ridden in, and its controls, which come some
+                // updates after the server is told - later than the shot's
+                // tick on a slow machine, which then drew a HUD without them.
+                if (shot_now && o.ride_along &&
+                    (!rode_along || (online->watching() != glideslope::net::no_aircraft &&
+                                     !online->watched_controls(seconds_since_start())))) {
+                    shot_now = false;
                 }
             }
             // **On a server, a shot draws only its own frame.** The flight
