@@ -537,3 +537,28 @@ GLIDESLOPE_TEST(every_aircraft_says_which_class_it_is_and_the_requirements_agree
     }
     check(checked == 16, "all sixteen were held to the table");
 }
+
+// **An id from the wire names an aircraft in the catalogue, or none.** A
+// server's `AIRCRAFT` message gives the id a client loads a model by, and an
+// id joined to a path as it stood would open whatever it was told to. Every
+// aircraft's own id is known; ids that climb out of the data, or name nothing,
+// are not - each case counted.
+GLIDESLOPE_TEST(an_aircraft_named_from_the_wire_is_one_in_the_catalogue_or_none) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    std::size_t known = 0;
+    for (const auto& e : roster) {
+        const auto found = glideslope::sim::known_aircraft(data(), e.id);
+        check(found.has_value() && found->id == e.id && found->model == e.model,
+              e.id + " is known, with its own model");
+        ++known;
+    }
+    check(known == roster.size() && known == 16, "all sixteen are known");
+    const std::vector<std::string> strangers = {
+        "", "../../../etc/passwd", "../jsbsim/aircraft/c172p/c172p", "c172p/../f15c",
+        "/etc/passwd", "C172P", "c172p ", "no-such-aircraft"};
+    for (const std::string& id : strangers) {
+        check(!glideslope::sim::known_aircraft(data(), id).has_value(),
+              "\"" + id + "\" names no aircraft");
+    }
+    check(strangers.size() == 8, "eight strangers tried");
+}

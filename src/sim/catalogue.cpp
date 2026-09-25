@@ -176,4 +176,14 @@ CatalogueEntry find_aircraft(const std::filesystem::path& data, const std::strin
     throw CatalogueError("no aircraft " + id + " in " + (data / "aircraft").string());
 }
 
+std::optional<CatalogueEntry> known_aircraft(const std::filesystem::path& data,
+                                             const std::string& id) {
+    for (CatalogueEntry& e : read_catalogue(data)) {
+        if (e.id == id) {
+            return e;
+        }
+    }
+    return std::nullopt;
+}
+
 } // namespace glideslope::sim

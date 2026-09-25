@@ -462,6 +462,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wrong
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
     handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase
+    an_aircraft_named_from_the_wire_is_one_in_the_catalogue_or_none
     every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_air
     every_aircraft_the_data_holds_takes_off_from_a_runway
     every_aircraft_the_data_holds_that_alights_on_water_does_not_roll_out_on_it
