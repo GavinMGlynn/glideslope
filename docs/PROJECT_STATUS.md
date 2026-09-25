@@ -412,9 +412,23 @@ the look and the count cannot fail it spuriously.
 
 **What is still missing.** The AI still flies with the mixture full rich, so
 the ceiling it gives up height at is about 8,500 ft rather than the handbook's.
-That is the next tail, "The AI never leans the mixture". The floor is the
-aeroplane's published best-climb speed and acts only clean. The 747-400
-publishes no climb speed and has no floor.
+That is the next tail, "The AI never leans the mixture".
+
+**Only light aeroplanes have the floor, and only clean.** A light
+aeroplane's climb speed is its handbook's best rate of climb, and the floor
+stands on that. Every other class's climb speed is a different thing:
+- the jets' were measured on the model at a chosen speed;
+- the Mosquito's is one climb test's speed;
+- the S.23's is its sea-level climb at one boost.
+
+None of them is a speed below which no height can be held, so the other
+twelve aircraft have no floor, as before. That includes the 747-400 and the
+F-22, which publish no climb speed at all.
+`every_aircraft_the_data_holds_has_a_speed_floor_or_is_named_without_one`
+names each of the twelve with its reason and counts all sixteen. The floor
+is read once, when the model loads (`Aircraft::climb_floor_kts`). A light
+aeroplane that publishes no climb speed fails to load rather than fly
+without the floor unnoticed.
 
 **Before**, asked for a height it could not reach, the altitude hold went on
 pitching up with the throttle at its stop and paid for the height with speed.
@@ -424,16 +438,25 @@ ground.
 
 **Now** (`sim/autopilot.cpp`) the altitude hold has a floor on the airspeed.
 - **The least speed** is the aeroplane's best-climb speed, or 5 knots below a
-  slower speed asked for. The best-climb speed comes from `departure_speeds`,
-  read from its figures file beside the JSBSim root; `Aircraft` now keeps
-  that root.
+  slower speed asked for. The best-climb speed is `departure_speeds`', read
+  from the catalogue and figures beside the JSBSim root when the model
+  loads.
 - **When it acts:** only clean (flaps up, and gear up where it retracts), and
   when the throttle has no more to give - at its stop, or no speed held. It
   acts when the airspeed, five seconds ahead on its trend, would come within a
   knot of the least.
 - **What it does:** the climb the altitude hold may ask for is limited by an
   integral on the airspeed (30 ft/min a second per knot above the least, 500
-  ft/min per knot it moves). While that binds, the throttle opens to its stop.
+  ft/min per knot it moves). The limit is kept between the climb asked for and
+  the descent the pitch envelope's least pitch (-10 degrees) gives at the
+  speed, so it cannot wind up. Review asked for the vertical speed the
+  altitude hold captures heights at as the lower bound. That was tried and
+  failed: on a fifth of its throttle the Cherokee needs more sink than that to
+  keep its speed, and it slowed to 63 knots. While the limit
+  binds, the throttle opens to its stop.
+- **Flaps or gear out:** there is no floor, and a hold already running is let
+  go. The airspeed's trend is kept current even so, so nothing jumps when the
+  aeroplane is clean again.
   The aeroplane climbs what it can at that speed, or comes down. The limit
   lets go when it no longer binds.
 - **In a turn** the least is 3 knots lower: the bank limit's own allowance
@@ -497,20 +520,39 @@ then green.
   centreline. The floor was acting on base with the flaps out. With the clean
   rule it passes, so the change caused it, and the clean rule fixed it.
 
-**The near-ceiling turn test now also waits for the height to settle.**
-`settle` in test_autopilot.cpp used to call level flight settled when the
-speed was steady. It now also needs the height to move less than 5 ft in the
-half minute, and the bands are unchanged. The reason: handed over near its
-ceiling at its best-climb speed, the C182 sinks 23 ft before the throttle
-reaches its stop. The altitude hold can no longer buy that back with speed,
-so it climbs back at the 30 ft/min the aeroplane has there. Its speed is
-steady long before its height, so without this the first turn was charged
-with the handover.
+**The hand-over is pinned on its own.** Handed over at its best-climb speed
+with the throttle it starts a flight at, an aeroplane sinks while the
+throttle comes up.
+- **At 3,000 ft** it sinks 21-31 ft and is back within the 20 ft band in
+  13-18 s. That is the same with the floor or without it, and on `main`.
+- **Near the ceiling** the floor will not buy the height back with speed. The
+  aeroplane climbs back at the little climb it has there: 26-39 ft, back in
+  35-50 s. Without the floor it is 22-32 ft, back in 15-22 s.
+
+So the near-ceiling turn test now checks, as its own named failure, two
+things. Near the ceiling a hand-over may cost no more than 15 ft beyond the
+same aeroplane's hand-over at 3,000 ft (measured: 2-8 ft more). And every
+hand-over is back within the band inside 90 s (measured: 50 at most). The
+room is for drift between machines. Seen to fail: allowed no more than at
+3,000 ft, the C172P's 26.5 ft against 21.2 turned it red. Level flight before each turn also counts as
+settled only once the height has stopped moving (under 5 ft in the half
+minute) as well as the speed, so a turn is not charged with the hand-over.
+The turns' own bands are unchanged.
+
+**From review.**
+- `a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_flies_on_its_throttle`
+  holds the C172P, C182 and Cherokee on the floor near their ceilings, puts
+  the flaps out, and then asks each to descend. Each throttle comes off its
+  stop in 40-67 s; the limit is two minutes.
+  - Seen to fail: with a hold left standing when the flaps went out, all
+    three throttles stayed at their stops for the whole three minutes.
+  - The Cub is named as left out: it has no flaps and fixed gear, so it is
+    always clean.
 
 **Elsewhere.** The stall lesson's own flight now asks for a speed 10 knots
 below the stall as it closes the throttle, as the instructor's demonstration
 already did. The autopilot, lander, departure, lesson, navigator, circuit,
-stall and controller tests pass: 63 of 63. The selftest replays a pilot's
+stall and controller tests, with the two added from review, pass: 65 of 65. The selftest replays a pilot's
 inputs and does not use the autopilot; its hash is unchanged.
 
 

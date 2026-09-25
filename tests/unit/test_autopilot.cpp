@@ -12,7 +12,9 @@
 #include <filesystem>
 #include <cstdio>
 #include <functional>
+#include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -449,8 +451,16 @@ struct Level {
     double worst_ft = 0.0;       // off the height
     double kts = 0.0;            // the speed it held
     bool throttle_at_stop = true; // the throttle full throughout
-    bool settled = false;        // the speed settled within ten minutes
+    bool settled = false;        // the speed and height settled in ten minutes
+    // From the first step: the most it was off the height, and when it was
+    // last off it by more than the calm-air altitude band.
+    double sag_ft = 0.0;
+    double back_s = 0.0;
 };
+
+// The calm-air altitude band of
+// the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb.
+constexpr double altitude_band_ft = 20.0;
 
 // **Level until it has settled, not for a set time**: an aeroplane asked for
 // a speed it cannot reach near its ceiling slows to the one it can for
@@ -466,6 +476,7 @@ struct Level {
 Level settle(Aircraft& aircraft, Autopilot& autopilot, double altitude_ft, bool handed) {
     constexpr int window = 30 * steps_per_second;
     Level l;
+    int flown = 0;
     for (int w = 0; !l.settled && w < 20; ++w) {
         const double from_kts = airspeed(aircraft);
         const double from_ft = altitude(aircraft);
@@ -475,7 +486,13 @@ Level settle(Aircraft& aircraft, Autopilot& autopilot, double altitude_ft, bool 
             const glideslope::sim::Controls c = autopilot.fly();
             aircraft.set_controls(c);
             aircraft.step();
-            l.worst_ft = std::max(l.worst_ft, std::abs(altitude(aircraft) - altitude_ft));
+            ++flown;
+            const double off_ft = std::abs(altitude(aircraft) - altitude_ft);
+            l.worst_ft = std::max(l.worst_ft, off_ft);
+            l.sag_ft = std::max(l.sag_ft, off_ft);
+            if (off_ft > altitude_band_ft) {
+                l.back_s = static_cast<double>(flown) / steps_per_second;
+            }
             l.throttle_at_stop = l.throttle_at_stop && c.throttle >= 0.999;
         }
         l.settled = (w >= 1 || !handed) && std::abs(airspeed(aircraft) - from_kts) < 0.5 &&
@@ -543,7 +560,21 @@ const std::vector<std::string> light_aeroplanes{"c172p", "c182", "j3cub", "pa28"
 void turns_near_the_ceiling_as_at_3000_ft(const std::string& id) {
     // The height band: the calm-air altitude band of
     // the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb.
-    constexpr double band_ft = 20.0;
+    constexpr double band_ft = altitude_band_ft;
+    // **The hand-over, pinned on its own.** Handed over at its best-climb
+    // speed with the throttle it starts a flight at, an aeroplane sinks while
+    // the throttle comes up: 21 to 31 ft at 3,000 ft, back within the band in
+    // 13 to 18 s, with the altitude hold's speed floor or without it. Near its
+    // ceiling the floor will not buy the height back with speed, so it comes
+    // back at the little climb the aeroplane has there: 26 to 39 ft, 2 to 8
+    // ft more than at 3,000 ft, back in 35 to 50 s. So near the ceiling the
+    // hand-over may cost no more than 15 ft beyond what the same hand-over
+    // costs at 3,000 ft, and every hand-over is back within the band in a
+    // minute and a half - room for the drift between machines, and far short
+    // of a hand-over the floor let sink away.
+    constexpr double handover_more_than_at_3000_ft = 15.0;
+    constexpr double handover_back_s = 90.0;
+    std::map<double, double> sag_at_3000_ft; // by the speed asked
     // The turn ends on its heading within the calm-air heading band.
     constexpr double heading_band_deg = 2.0;
     // And near the speed it held level: a turn that keeps its height by
@@ -581,7 +612,6 @@ void turns_near_the_ceiling_as_at_3000_ft(const std::string& id) {
             for (const double by : {90.0, -90.0, 360.0, -360.0}) {
                 ++turns;
                 const Level l = settle(aircraft, autopilot, altitude_ft, handed);
-                handed = false;
                 const Turn t = turn(aircraft, autopilot, altitude_ft, by);
                 char line[400];
                 std::snprintf(line, sizeof line,
@@ -594,9 +624,30 @@ void turns_near_the_ceiling_as_at_3000_ft(const std::string& id) {
                               t.worst_ft, t.least_kts, t.most_bank_deg, t.turned_deg,
                               t.heading_off_deg);
                 std::printf("%s\n", line);
+                if (handed && altitude_ft == 3000.0) {
+                    sag_at_3000_ft[kts] = l.sag_ft;
+                }
+                if (handed) {
+                    std::printf("  handed over: %.1f ft off at most, back within %.0f ft "
+                                "after %.0f s\n",
+                                l.sag_ft, altitude_band_ft, l.back_s);
+                }
                 if (!l.settled) {
                     failures += std::string("\n  ") + line +
-                                " - the speed had not settled after ten minutes level";
+                                " - the speed or the height had not settled after ten "
+                                "minutes level";
+                } else if (handed &&
+                           !((altitude_ft == 3000.0 ||
+                              l.sag_ft <= sag_at_3000_ft.at(kts) +
+                                              handover_more_than_at_3000_ft) &&
+                             l.back_s <= handover_back_s)) {
+                    char sag[200];
+                    std::snprintf(sag, sizeof sag,
+                                  " - handed over, it was %.1f ft off (%.1f at 3,000 ft) "
+                                  "and back within %.0f ft after %.0f s (at most %.0f)",
+                                  l.sag_ft, sag_at_3000_ft.count(kts) ? sag_at_3000_ft.at(kts) : 0.0,
+                                  altitude_band_ft, l.back_s, handover_back_s);
+                    failures += std::string("\n  ") + line + sag;
                 } else if (altitude_ft != 3000.0 && kts != climb_kts && !l.throttle_at_stop) {
                     // **The situation is built, not hoped for**: near its
                     // ceiling, asked for the speed it starts a flight at, the
@@ -610,6 +661,7 @@ void turns_near_the_ceiling_as_at_3000_ft(const std::string& id) {
                              std::abs(t.heading_off_deg) <= heading_band_deg)) {
                     failures += std::string("\n  ") + line;
                 }
+                handed = false;
             }
         }
     }
@@ -828,4 +880,156 @@ GLIDESLOPE_TEST(a_piper_cub_asked_for_a_height_it_cannot_hold_gives_up_height_no
 }
 GLIDESLOPE_TEST(a_cherokee_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed) {
     gives_up_height_not_airspeed("pa28");
+}
+
+// **Which aircraft have a speed floor, and which have none, said by name.**
+// Every light aeroplane has one, its published best-climb speed, read when
+// its model loads; every other aircraft has none, and is named here with the
+// reason. A light aeroplane whose figures give no climb speed does not load
+// at all, rather than fly without the floor unnoticed.
+GLIDESLOPE_TEST(every_aircraft_the_data_holds_has_a_speed_floor_or_is_named_without_one) {
+    const std::map<std::string, std::string> without = {
+        {"737-300", "an airliner"},
+        {"747-400", "an airliner, and it publishes no climb speed"},
+        {"787-8", "an airliner"},
+        {"a320", "an airliner"},
+        {"a380", "an airliner"},
+        {"b2", "a bomber"},
+        {"f15c", "a fighter"},
+        {"f22", "a fighter, and it publishes no climb speed"},
+        {"f35b", "a fighter"},
+        {"learjet35a", "a business jet"},
+        {"mosquito-fb6", "a Second World War aeroplane"},
+        {"short_s23", "a seaplane"},
+    };
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    std::string failures;
+    std::size_t with_floor = 0;
+    std::size_t named = 0;
+    for (const CatalogueEntry& e : catalogue) {
+        const Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+        const std::optional<double> floor_kts = aircraft.climb_floor_kts();
+        const bool light = e.aircraft_class == glideslope::sim::AircraftClass::light_aircraft;
+        if (light) {
+            const double climb_kts =
+                glideslope::sim::departure_speeds(data(), e.model).climb_kts;
+            if (!floor_kts || *floor_kts != climb_kts) {
+                failures += "\n  " + e.id + " is a light aeroplane without its best-climb "
+                            "speed, " + std::to_string(climb_kts) + " kt, as its floor";
+            } else {
+                ++with_floor;
+                std::printf("%s: a floor at %.1f kt\n", e.id.c_str(), *floor_kts);
+            }
+        } else if (floor_kts) {
+            failures += "\n  " + e.id + " is not a light aeroplane and has a floor";
+        } else if (without.count(e.id) == 0) {
+            failures += "\n  " + e.id + " has no floor and is not named here";
+        } else {
+            ++named;
+            std::printf("%s: no floor - %s\n", e.id.c_str(), without.at(e.id).c_str());
+        }
+    }
+    std::printf("%zu aircraft: %zu with a floor, %zu named without one\n", catalogue.size(),
+                with_floor, named);
+    check(failures.empty(), "each aircraft has a floor or is named without one:" + failures);
+    check(with_floor + named == catalogue.size() && named == without.size(),
+          "every aircraft is accounted for, and every name here is an aircraft: " +
+              std::to_string(with_floor) + " with a floor and " + std::to_string(named) +
+              " named of " + std::to_string(catalogue.size()));
+}
+
+// **Flaps out while the floor holds the speed, and the floor lets go.** Near
+// its ceiling and asked for 3,000 ft more, a light aeroplane is held at its
+// best-climb speed by the floor with the throttle at its stop. Then the flaps
+// go out, and once they are out it is asked to come down 1,000 ft at that
+// speed: with no floor for a flapped aeroplane, the throttle is the speed's
+// again and comes off its stop - within two minutes, as the throttle's
+// integral unwinds from its stop: 40 to 67 s. A hold left over from before the flaps went out once kept the
+// throttle at its stop for good. The Cub has no flaps and fixed gear, so it
+// is never anything but clean; it is left out for that.
+GLIDESLOPE_TEST(a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_flies_on_its_throttle) {
+    const std::vector<std::string> flapped{"c172p", "c182", "pa28"};
+    const std::vector<std::string> left_out{"j3cub"};
+    std::string failures;
+    std::size_t flown = 0;
+    for (const std::string& id : light_aeroplanes) {
+        if (std::find(left_out.begin(), left_out.end(), id) != left_out.end()) {
+            std::printf("%s: left out - no flaps, and fixed gear\n", id.c_str());
+            continue;
+        }
+        const CatalogueEntry e = glideslope::sim::find_aircraft(data(), id);
+        const double climb_kts =
+            glideslope::sim::departure_speeds(data(), e.model).climb_kts;
+        const double ceiling_ft = near_the_ceiling_ft(e, climb_kts);
+        Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = ceiling_ft;
+        ic.heading_deg = 0.0;
+        ic.airspeed_kts = climb_kts;
+        ic.engine_running = true;
+        aircraft.initialize(ic);
+        glideslope::sim::Controls controls;
+        controls.throttle = 1.0;
+        Autopilot autopilot(aircraft, controls);
+        AutopilotModes modes = autopilot.modes();
+        modes.heading_deg = 0.0;
+        modes.altitude_ft = ceiling_ft + 3000.0;
+        modes.airspeed_kts = climb_kts;
+        autopilot.set(modes);
+        // Two minutes on the floor: the throttle at its stop throughout the
+        // last of them, and the speed on the best-climb speed - built, not
+        // hoped for.
+        bool at_stop = true;
+        for (int i = 0; i < 120 * steps_per_second; ++i) {
+            const glideslope::sim::Controls c = autopilot.fly();
+            aircraft.set_controls(c);
+            aircraft.step();
+            if (i >= 60 * steps_per_second) {
+                at_stop = at_stop && c.throttle >= 0.999;
+            }
+        }
+        const double held_kts = airspeed(aircraft);
+        // The flaps out while the floor still holds it - asked for the same
+        // height, which it still cannot reach - for twenty seconds, time for
+        // them to run all the way out.
+        for (int i = 0; i < 20 * steps_per_second; ++i) {
+            glideslope::sim::Controls c = autopilot.fly();
+            c.flaps = 1.0;
+            aircraft.set_controls(c);
+            aircraft.step();
+        }
+        modes.altitude_ft = altitude(aircraft) - 1000.0;
+        autopilot.set(modes);
+        double off_stop_s = -1.0;
+        for (int i = 0; i < 180 * steps_per_second && off_stop_s < 0.0; ++i) {
+            glideslope::sim::Controls c = autopilot.fly();
+            c.flaps = 1.0;
+            aircraft.set_controls(c);
+            aircraft.step();
+            if (c.throttle < 0.999) {
+                off_stop_s = static_cast<double>(i + 1) / steps_per_second;
+            }
+        }
+        ++flown;
+        char line[300];
+        std::snprintf(line, sizeof line,
+                      "%s: on the floor at %.1f kt (best climb %.1f)%s; flaps out, the "
+                      "throttle off its stop after %.1f s",
+                      id.c_str(), held_kts, climb_kts,
+                      at_stop ? ", the throttle at its stop" : "", off_stop_s);
+        std::printf("%s\n", line);
+        if (!at_stop || std::abs(held_kts - climb_kts) > 2.0) {
+            failures += std::string("\n  ") + line + " - not held on the floor first";
+        } else if (off_stop_s < 0.0 || off_stop_s > 120.0) {
+            failures += std::string("\n  ") + line;
+        }
+    }
+    check(flown == flapped.size() && flown + left_out.size() == light_aeroplanes.size(),
+          "every light aeroplane was flown or is named as left out: " +
+              std::to_string(flown) + " flown");
+    check(failures.empty(),
+          "with the flaps out the throttle comes off its stop within two minutes:" +
+              failures);
 }
