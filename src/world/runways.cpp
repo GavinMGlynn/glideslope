@@ -1,9 +1,11 @@
 #include "world/runways.hpp"
 
+#include "world/byte_source.hpp"
+
+#include <cstdint>
 #include <cstdlib>
-#include <fstream>
-#include <iterator>
 #include <map>
+#include <span>
 
 namespace glideslope::world {
 
@@ -123,11 +125,18 @@ std::vector<RunwayEnd> world_runways(const std::filesystem::path& cache, const F
         "https://raw.githubusercontent.com/davidmegginson/ourairports-data/"
         "a46b8eb13173dc6351a7b6abaf34bd0ec9db48d0/runways.csv",
         "ae9a7661f230731cb4fef3a291991cd440f8a68593f41d773092798fc6ec9a8c", fetch);
-    std::ifstream in(path, std::ios::binary);
-    if (!in) {
-        throw RunwayError("cannot read " + path.string());
+    // Read as a DEM tile is (world/byte_source.hpp): on Windows a file
+    // fetched into place by another process's rename is still readable while
+    // the rename holds it, which a plain stream is not.
+    std::string text;
+    try {
+        const FileSource file(path);
+        text.resize(static_cast<std::size_t>(file.size()));
+        file.read(0, std::span<std::uint8_t>(reinterpret_cast<std::uint8_t*>(text.data()),
+                                             text.size()));
+    } catch (const ByteSourceError& e) {
+        throw RunwayError(std::string("cannot read the runways: ") + e.what());
     }
-    const std::string text(std::istreambuf_iterator<char>(in), {});
     return read_runways(text);
 }
 
