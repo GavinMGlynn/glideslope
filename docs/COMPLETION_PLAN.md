@@ -336,6 +336,18 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [ ] **A HUD test fails, rather than skipping, when the weather service
+      does not answer** (Windows CI, 2026-09-25: WinHTTP 12002 from
+      Open-Meteo). *Verification: with no weather to be had, the HUD tests
+      that fly in live weather report themselves skipped.*
+- [ ] **The four-player test once counted five players' aircraft** on a slow
+      Windows debug runner: likely a client let go and joining again.
+      *Verification: the cause found, and the test run a hundred times on
+      Windows debug without it.*
+- [ ] **The 100 ms network check on macOS once drew four frames of 1,946 more
+      than 2 m off, the worst 8.6 m.** *Verification: the cause found, and
+      the check run a hundred times on macOS within its bound.*
+
 - [x] **The HUD check read the horizon, crossing the rows below the HUD, as a
       line of the HUD.** *Verification: a line that does not begin at the
       HUD's margin is not judged, and an extra HUD line still is.* Done
