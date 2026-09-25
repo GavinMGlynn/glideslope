@@ -46,7 +46,6 @@
 #include <cstdio>
 #include <cmath>
 #include <cstdlib>
-#include <deque>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -501,8 +500,9 @@ struct Connection {
 };
 
 // **Every initiation that has made a session, remembered after the session
-// has gone**, by the initiator's ephemeral key - its first 32 bytes, which an
-// honest client never uses twice.
+// has gone, with the address it came from**: the initiator's ephemeral key -
+// its first 32 bytes, which an honest client never uses twice - and the
+// address, as text.
 //
 // **Why.** A client resends its initiation every quarter of a second until it
 // is answered, so a server slow to answer has several copies of it on the way.
@@ -514,40 +514,57 @@ struct Connection {
 // `--timeout`, and counted a player's aircraft that nobody had flown. The
 // four-player test on CI counted six (run 36140964489).
 //
-// **A copy of an initiation already taken is now dropped in silence**, live
-// session or not. A client that means to start again makes a new initiation,
-// with a new ephemeral key, and that is taken as ever. At most
-// `most_remembered` are kept, oldest forgotten first - about 2 MiB - and a
-// replay of an initiation older than that many handshakes is answered as it
-// always was, with a session its replayer cannot read (THREATS.md, "Replay").
+// **A copy from the address that already took it is now dropped in silence**,
+// live session or not. **From any other address it is answered as it always
+// was**, with a session its sender cannot read: dropped from every address, a
+// copy injected from a spoofed address to arrive first would have kept the
+// real client out, its own initiation and every resend dropped (review of
+// PR #25). A client that means to start again makes a new initiation, with a
+// new ephemeral key, and that is taken as ever.
+//
+// **What it costs**: a flat ring of `most_remembered` entries, 80 bytes each,
+// and a `std::set` of the same keys, a tree node of about 112 bytes each - some
+// 3 MiB when full, the oldest forgotten first. Forgetting one only brings back
+// what a copy did before: a session nobody can read, from one more address.
 class Taken {
 public:
-    static constexpr std::size_t most_remembered = 65536;
-    using Ephemeral = std::array<std::uint8_t, glideslope::net::key_bytes>;
+    static constexpr std::size_t most_remembered = 16384;
+    static constexpr std::size_t address_bytes = 48; // "[v6 address]:port", padded
+    using Key = std::array<std::uint8_t, glideslope::net::key_bytes + address_bytes>;
 
-    static std::optional<Ephemeral> ephemeral_of(std::span<const std::uint8_t> initiation) {
+    // The key for `initiation` from `from`, or nothing if it is too short to
+    // hold an ephemeral key.
+    static std::optional<Key> key_of(std::span<const std::uint8_t> initiation,
+                                     const std::string& from) {
         if (initiation.size() < glideslope::net::key_bytes) {
             return std::nullopt;
         }
-        Ephemeral e{};
-        std::copy_n(initiation.begin(), e.size(), e.begin());
-        return e;
+        Key k{};
+        std::copy_n(initiation.begin(), glideslope::net::key_bytes, k.begin());
+        const std::size_t n = std::min(from.size(), address_bytes);
+        for (std::size_t i = 0; i < n; ++i) {
+            k[glideslope::net::key_bytes + i] = static_cast<std::uint8_t>(from[i]);
+        }
+        return k;
     }
-    bool has(const Ephemeral& e) const { return set_.count(e) > 0; }
-    void remember(const Ephemeral& e) {
-        if (!set_.insert(e).second) {
+    bool has(const Key& k) const { return set_.count(k) > 0; }
+    void remember(const Key& k) {
+        if (!set_.insert(k).second) {
             return;
         }
-        order_.push_back(e);
-        if (order_.size() > most_remembered) {
-            set_.erase(order_.front());
-            order_.pop_front();
+        if (ring_.size() < most_remembered) {
+            ring_.push_back(k);
+            return;
         }
+        set_.erase(ring_[next_]);
+        ring_[next_] = k;
+        next_ = (next_ + 1) % most_remembered;
     }
 
 private:
-    std::set<Ephemeral> set_;
-    std::deque<Ephemeral> order_;
+    std::set<Key> set_;
+    std::vector<Key> ring_;
+    std::size_t next_ = 0;
 };
 
 // **How often the server says where everybody is: 25 times for every second
@@ -1360,10 +1377,18 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             }
             return;
         }
-        // **An initiation already taken is not taken again** (see `Taken`):
-        // a copy that arrives after its session has gone makes nothing.
-        const auto ephemeral = Taken::ephemeral_of(body);
-        if (ephemeral && taken.has(*ephemeral)) {
+        // **An initiation already taken from this address is not taken
+        // again** (see `Taken`): a copy that arrives after its session has
+        // gone makes nothing. Said, so that a test can tell a copy dropped
+        // from one that never arrived.
+        const auto remembered = Taken::key_of(body, who);
+        if (remembered && taken.has(*remembered)) {
+            happened.add(now_s, "dropped a copy of an initiation already taken from " + who);
+            if (o.headless) {
+                std::printf("dropped a copy of an initiation already taken from %s\n",
+                            who.c_str());
+                std::fflush(stdout);
+            }
             return;
         }
         if (slots.full()) {
@@ -1385,8 +1410,8 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             refuse(socket, from, glideslope::net::Refusal::server_full);
             return;
         }
-        if (ephemeral) {
-            taken.remember(*ephemeral);
+        if (remembered) {
+            taken.remember(*remembered);
         }
         Connection c;
         c.who = answer->session.theirs;

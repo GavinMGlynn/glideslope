@@ -351,8 +351,9 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The four-player test once counted five players' aircraft** (six on
       Linux debug): a copy of a client's handshake, read after the session it
       made had been let go, made a second session and aircraft that nobody
-      flew. Fixed: the server now drops a handshake it has already taken, and
-      a test builds that case and was seen to fail without the fix. Still
+      flew. Fixed: the server now drops a handshake it has already taken
+      from that address, and tests build that case and a copy from another
+      address, each seen to fail. Still
       open: why the first session went quiet for three seconds is not known,
       and the hundred Windows debug runs have not been done. *Verification:
       the cause found, and the test run a hundred times on Windows debug

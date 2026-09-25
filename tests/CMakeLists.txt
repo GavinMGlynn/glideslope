@@ -1380,6 +1380,18 @@ set_tests_properties(a_copy_of_an_initiation_arriving_after_its_session_was_let_
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_initiation_again)
 
+# **A copy of an initiation from another address, answered first, does not
+# keep its client out.** See cmake/server_initiation_elsewhere.cmake.
+add_test(NAME a_copy_of_an_initiation_from_another_address_arriving_first_does_not_keep_its_client_out
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_elsewhere -DPORT=47889
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_initiation_elsewhere.cmake)
+set_tests_properties(a_copy_of_an_initiation_from_another_address_arriving_first_does_not_keep_its_client_out
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_initiation_elsewhere)
+
 # **The server's window**: it shows the dashboard the terminal would, its drop
 # button drops a player, and it writes a frame. See cmake/server_window.cmake.
 add_test(NAME the_servers_window_shows_the_terminals_dashboard_and_its_drop_button_drops_a_player

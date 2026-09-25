@@ -123,6 +123,11 @@ void print_usage(std::FILE* out) {
         "                            handshake until the server has let it go,\n"
         "                            then sends the initiation once more and\n"
         "                            says whether and how it was answered.\n"
+        "                            --first-from-elsewhere sends a copy of the\n"
+        "                            initiation from another port first, and\n"
+        "                            waits for it to be answered.\n"
+        "                            --until-exists FILE leaves once FILE exists,\n"
+        "                            SECONDS the most it will wait.\n"
         "                            --fly sends\n"
         "                            inputs - full aileron - so the server has\n"
         "                            something to fly this client's aircraft by.\n"
@@ -1251,6 +1256,7 @@ private:
 int stay(glideslope::platform::UdpSocket& socket,
          const glideslope::platform::Address& server, glideslope::net::Sealer& sealer,
          glideslope::net::Unsealer& unsealer, double seconds,
+         const std::string& until_exists,
          std::span<const std::uint8_t> initiation_again, bool fly, const std::string& me,
          const std::string& heard_file, int until_flying_again,
          bool predict, const std::string& track_file, double hand_over_at_s,
@@ -1337,6 +1343,7 @@ int stay(glideslope::platform::UdpSocket& socket,
     std::uint32_t applied = 0;
     double roll_seen_deg = 0.0;
     double last_heard_s = 0.0;
+    double looked_for_file_at_s = -1.0;
     bool drained = true;
     for (;;) {
         const double up_s =
@@ -1344,6 +1351,15 @@ int stay(glideslope::platform::UdpSocket& socket,
                 .count();
         if (until_flying_again > 0 && flown_again >= until_flying_again) {
             break;
+        }
+        // **Stay until a file appears** (`--until-exists FILE`): a test that
+        // needs the server kept running while something else happens waits
+        // for that thing to say it is done, with SECONDS only the most.
+        if (!until_exists.empty() && up_s - looked_for_file_at_s >= 0.1) {
+            looked_for_file_at_s = up_s;
+            if (std::filesystem::exists(until_exists)) {
+                break;
+            }
         }
         // **When the time is up, a client that flew waits for the server to
         // have applied the last input it sent** - resending it, in case it
@@ -1692,7 +1708,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                const std::string& ready_file = "", bool predict = false,
                const std::string& track_file = "", double hand_over_at_s = -1.0,
                double take_back_at_s = -1.0, double dive_after_s = -1.0,
-               bool watch_ai = false, bool again_when_let_go = false) {
+               bool watch_ai = false, bool again_when_let_go = false,
+               bool first_from_elsewhere = false, const std::string& until_exists = "") {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived. With `--after-ready`
@@ -1748,6 +1765,47 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
         glideslope::net::begin(glideslope::net::Type::handshake_initiation);
     w.bytes(initiator.begin());
     const std::vector<std::uint8_t> first = w.take();
+
+    // **A test flag's work (`--first-from-elsewhere`)**: a copy of this
+    // initiation from another address, answered, before this address sends
+    // it at all - what somebody who saw it on the wire could inject from a
+    // spoofed address to arrive first. This client must still get a session
+    // of its own from its own address. The copy's answer is waited for, not
+    // timed, so that it has been taken before the real one goes.
+    if (first_from_elsewhere) {
+        auto elsewhere = glideslope::platform::UdpSocket::bound(0);
+        if (!elsewhere) {
+            std::fprintf(stderr, "glideslope_cli: cannot open a second socket\n");
+            return 1;
+        }
+        std::vector<std::uint8_t> back(glideslope::platform::largest_datagram);
+        const auto asked = std::chrono::steady_clock::now();
+        double resent_at_s = -1.0;
+        for (;;) {
+            const double waited_s = std::chrono::duration<double>(
+                                        std::chrono::steady_clock::now() - asked)
+                                        .count();
+            if (waited_s > 60.0) {
+                std::fprintf(stderr, "glideslope_cli: the copy from elsewhere was "
+                                     "never answered\n");
+                return 1;
+            }
+            if (waited_s - resent_at_s >= 0.25) {
+                (void)elsewhere->send(*address, std::span<const std::uint8_t>(
+                                                    first.data(), first.size()));
+                resent_at_s = waited_s;
+            }
+            glideslope::platform::Address from;
+            const std::size_t got = elsewhere->receive(back, from);
+            if (got > glideslope::net::envelope_size &&
+                back[glideslope::net::envelope_size - 1] ==
+                    static_cast<std::uint8_t>(glideslope::net::Type::handshake_response)) {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        std::printf("the copy from elsewhere was answered\n");
+    }
     if (!socket->send(*address,
                       std::span<const std::uint8_t>(first.data(), first.size()))) {
         std::fprintf(stderr, "glideslope_cli: cannot send to %s\n", where.c_str());
@@ -1829,6 +1887,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                         return 0;
                     }
                     return stay(*socket, *address, sealer, unsealer, stay_s,
+                                until_exists,
                                 again ? std::span<const std::uint8_t>(first.data(),
                                                                      first.size())
                                       : std::span<const std::uint8_t>(),
@@ -1947,6 +2006,8 @@ static int run_program(int argc, char** argv) {
             double stay_s = 0.0;
             bool again = false;
             bool again_when_let_go = false;
+            bool first_from_elsewhere = false;
+            std::string until_exists;
             bool fly = false;
             double after_s = 0.0;
             std::string secret_hex;
@@ -2021,6 +2082,15 @@ static int run_program(int argc, char** argv) {
                     again_when_let_go = true;
                     continue;
                 }
+                if (args[i] == "--first-from-elsewhere") {
+                    first_from_elsewhere = true;
+                    continue;
+                }
+                if (args[i] == "--until-exists" && i + 1 < args.size()) {
+                    until_exists = std::string(args[i + 1]);
+                    ++i;
+                    continue;
+                }
                 if (args[i] == "--fly") {
                     fly = true;
                     continue;
@@ -2053,7 +2123,7 @@ static int run_program(int argc, char** argv) {
                               again, fly, after_s, secret_hex, heard_file,
                               until_flying_again, ready_file, predict, track_file,
                               hand_over_at_s, take_back_at_s, dive_after_s, watch_ai,
-                              again_when_let_go);
+                              again_when_let_go, first_from_elsewhere, until_exists);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();
