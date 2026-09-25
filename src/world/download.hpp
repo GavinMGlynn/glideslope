@@ -5,6 +5,7 @@
 
 #include "platform/http.hpp"
 #include "world/dem.hpp"
+#include "world/runways.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -70,6 +71,11 @@ private:
     Fetch fetch_;
     int downloads_ = 0;
 };
+
+// Every runway in the world: OurAirports' `runways.csv` at its pinned commit,
+// from the cache or fetched into it, read (world/runways.hpp). See
+// docs/ASSETS.md.
+std::vector<RunwayEnd> world_runways(const std::filesystem::path& cache, const Fetch& fetch);
 
 // The EGM2008 5-minute geoid, from the cache or fetched into it. See
 // docs/ASSETS.md.

@@ -10,10 +10,8 @@
 // is open, and it is not a helipad; its elevation may be missing, and the
 // ground's height there is the DEM's in any case.
 
-#include "sim/lander.hpp"
-#include "world/download.hpp"
+#include "sim/plan.hpp"
 
-#include <filesystem>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -40,9 +38,6 @@ struct RunwayEnd {
 // The runway ends in `csv`, a `runways.csv`. Throws RunwayError for a file
 // that is not one: no header, or a header without the columns read.
 std::vector<RunwayEnd> read_runways(std::string_view csv);
-
-// The pinned `runways.csv`, from the cache or fetched into it, read.
-std::vector<RunwayEnd> world_runways(const std::filesystem::path& cache, const Fetch& fetch);
 
 // The ends at `airport`, in the file's order; none if it has none.
 std::vector<RunwayEnd> runways_at(const std::vector<RunwayEnd>& all, std::string_view airport);

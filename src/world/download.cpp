@@ -3,9 +3,12 @@
 #include "world/digest.hpp"
 
 #include <atomic>
+#include <cstdint>
 #include <cctype>
 #include <fstream>
+#include <iterator>
 #include <random>
+#include <span>
 #include <system_error>
 #include <thread>
 
@@ -172,6 +175,27 @@ std::shared_ptr<const ByteSource> DownloadedTiles::fetched(DemDataset dataset,
     } catch (const ByteSourceError& e) {
         throw DemError(e.what());
     }
+}
+
+std::vector<RunwayEnd> world_runways(const std::filesystem::path& cache, const Fetch& fetch) {
+    const std::filesystem::path path = fetch_pinned(
+        cache, "ourairports-runways.csv",
+        "https://raw.githubusercontent.com/davidmegginson/ourairports-data/"
+        "a46b8eb13173dc6351a7b6abaf34bd0ec9db48d0/runways.csv",
+        "ae9a7661f230731cb4fef3a291991cd440f8a68593f41d773092798fc6ec9a8c", fetch);
+    // Read as a DEM tile is (world/byte_source.hpp): on Windows a file
+    // fetched into place by another process's rename is still readable while
+    // the rename holds it, which a plain stream is not.
+    std::string text;
+    try {
+        const FileSource file(path);
+        text.resize(static_cast<std::size_t>(file.size()));
+        file.read(0, std::span<std::uint8_t>(reinterpret_cast<std::uint8_t*>(text.data()),
+                                             text.size()));
+    } catch (const ByteSourceError& e) {
+        throw RunwayError(std::string("cannot read the runways: ") + e.what());
+    }
+    return read_runways(text);
 }
 
 Geoid egm2008_geoid(const std::filesystem::path& cache, const Fetch& fetch) {

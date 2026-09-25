@@ -1000,18 +1000,22 @@ add_test(NAME every_forbidden_include_in_the_simulation_fails_the_configure
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/layering-forbidden -DCASES=forbidden
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/layering_includes.cmake)
 
-# **A language model never drives a control surface**: every way the
-# copilot could name a control, the aircraft or what flies it is refused at
-# configure time, and lines that only look like one are not. See
-# cmake/Copilot.cmake and cmake/copilot_names.cmake.
-add_test(NAME every_way_the_copilot_could_reach_a_control_fails_the_configure
+# **A language model never drives a control surface**: the copilot is
+# compiled seeing nothing that does, its includes cannot reach past that, and
+# its symbols name nothing that does. See cmake/Copilot.cmake and
+# cmake/copilot_walls.cmake.
+if(MSVC OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    set(_cxx_style msvc)
+else()
+    set(_cxx_style gnu)
+endif()
+add_test(NAME the_copilot_can_see_include_and_call_nothing_that_drives_the_aircraft
     COMMAND ${CMAKE_COMMAND} -DGLIDESLOPE_ROOT=${PROJECT_SOURCE_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/copilot-forbidden -DCASES=forbidden
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/copilot_names.cmake)
-add_test(NAME names_that_only_look_like_controls_are_allowed_in_the_copilot
-    COMMAND ${CMAKE_COMMAND} -DGLIDESLOPE_ROOT=${PROJECT_SOURCE_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/copilot-allowed -DCASES=allowed
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/copilot_names.cmake)
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/copilot-walls
+        -DSTAGE=${PROJECT_BINARY_DIR}/copilot-stage
+        "-DINCLUDES=$<JOIN:$<TARGET_PROPERTY:glideslope_copilot,INCLUDE_DIRECTORIES>,|>"
+        -DCXX=${CMAKE_CXX_COMPILER} -DCXX_STYLE=${_cxx_style} -DNM=${CMAKE_NM}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/copilot_walls.cmake)
 
 add_test(NAME includes_that_only_look_like_presentation_are_allowed_in_the_simulation
     COMMAND ${CMAKE_COMMAND} -DGLIDESLOPE_ROOT=${PROJECT_SOURCE_DIR}
