@@ -276,17 +276,18 @@ ends in a debrief, never a score.
 
 ## Phase 7 — User/AI controller swap across the network
 
-- [ ] **Player to AI.** *Verification: the aircraft flies on with no step, and
-      the client interpolates it like any other.*
-- [ ] **AI to player.** *Verification: the client resumes prediction from the
-      next full state, with no step.*
+- [x] **Player to AI.** *Verification: the aircraft flies on with no step, and
+      the client interpolates it like any other.* Done 2026-09-25.
+- [x] **AI to player.** *Verification: the client resumes prediction from the
+      next full state, with no step.* Done 2026-09-25.
 - [x] **A player disconnecting** — the aircraft removed or handed to an AI, by
       setting. *Verification: both settings tested.* Done 2026-09-22.
 - [x] **AI traffic with nobody connected.** *Verification: AI keeps flying on an
       empty server, and a client joining later finds it mid-flight.* Done
       2026-09-22.
-- [ ] **Controller-swap continuity in the network checks.** *Verification: swaps
-      under injected latency, loss and jitter stay within bound.*
+- [x] **Controller-swap continuity in the network checks.** *Verification: swaps
+      under injected latency, loss and jitter stay within bound.* Done
+      2026-09-25: at 100 and 200 ms.
 
 ## Phase 8 — LLM copilot
 
@@ -311,6 +312,11 @@ ends in a debrief, never a score.
 ## Tails
 
 Found while implementing something else. Added when found, not when remembered.
+
+- [ ] **The client with the window does not hand over on a server**: pressing A
+      online does nothing. *Verification: the client with the window hands its
+      aircraft to the AI and takes it back on a server, and what it shows does
+      not step.*
 
 - [ ] **A headless client drawing thousands of frames runs the software
       Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a

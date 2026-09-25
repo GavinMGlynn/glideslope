@@ -152,8 +152,8 @@ missing from multiplayer:
 - choosing an aeroplane: a player flies what the server's plan flies;
 - the lobby, the session, the weather and the terrain dataset: they are
   defined and do not yet travel;
-- handing an aircraft between a person and the AI across the network, which
-  is Phase 7.
+- handing an aircraft between a person and the AI across the network in the
+  client with the window: `glideslope_cli` does it (Phase 7).
 
 ## Gaps
 
@@ -226,6 +226,49 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### Handing an aircraft to the AI and back across the network, 2026-09-25 — Phase 7's three open items done
+
+**What is missing first.** All of this works in `glideslope_cli`. The client
+with the window does not yet hand over on a server: pressing A there does
+nothing online. That is a tail.
+
+**What works.**
+- **`CONTROLLER_SWAP` travels both ways**, keyed by aircraft number. A client
+  asks, over the reliable layer, for its own aircraft to be handed to the AI
+  pilot or given back. The server honours the request only for that client's
+  own aircraft, and tells every client what it did and when
+  (`Fleet::hand`).
+- **The server side.** The aircraft keeps its number and slot. The AI holds
+  what it is doing (`sim::Controller::to_ai`). While the AI flies, inputs are
+  not applied, and state updates give the controller as `AI`. Given back, the
+  controller brings the controls to the pilot's at a hand's pace, the same
+  continuity the Phase 4 swap is held to in every phase of flight.
+- **The client side** (`glideslope_cli connect --predict --hand-over-at S
+  --take-back-at S`).
+  - Handed over, the client stops predicting and draws its own aircraft from
+    the updates like any other.
+  - Taken back, it predicts again from the next update carrying its motion.
+  - Either way, what it shows of its own aircraft is blended across over half
+    a second.
+  - Until the server has applied an input sent after the take-back, and for
+    the second the controls take to meet the pilot's, prediction error is not
+    compared, as when joining; those inputs are counted.
+
+**Verified** by both network checks, at 100 and 200 ms with jitter, loss and
+the relay's gaps. The predicting client hands its aircraft over 8 s in and
+takes it back at 14 s. Each check requires:
+- both swaps said by the server;
+- the largest step in what the client showed at a switch under 5 m, where
+  the second difference of its shown position is the step. Three runs in a
+  row gave 0.97 to 1.88 m, against 3 to 7 m of ordinary correction;
+- prediction error within its bound after the take-back, and inputs not
+  compared, joining and taking back together, under 90 (48 to 61).
+
+**Seen to fail.** With the blend removed, the step at a switch was 16.5 m and
+the 200 ms check went red. Before a take-back was treated like joining, the
+prediction error just after it reached 11 to 13 m and failed the 10 m bound:
+the server's controls were still on their way to the pilot's.
 
 ### Four machines in one sky, 2026-09-25 — item done, and Phase 6 with it
 

@@ -89,6 +89,7 @@ execute_process(
             --heard "${_extra}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 20 --after 2
             --predict --heard "${_predicting}" --track "${_shown}"
+            --hand-over-at 8 --take-back-at 14
     # Hears everything, and outlasts the one that predicts.
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1
             --track "${_truth}"
@@ -170,14 +171,36 @@ set(_joining "${CMAKE_MATCH_3}")
 if(_compared LESS 150)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()
-# Joining takes a round trip and a little: a second of inputs is more than it
-# should ever be.
-if(_joining GREATER 30)
+# Joining takes a round trip and a little, and taking back from the AI a
+# round trip and the second the controls take to meet the pilot's: three
+# seconds of inputs for both is more than they should ever be.
+if(_joining GREATER 90)
     message(FATAL_ERROR "${_joining} inputs were flown before the server applied one:\n${_said}")
 endif()
 if(_error GREATER_EQUAL PREDICT_M)
     message(FATAL_ERROR "the worst prediction error was ${_error} m, the bound ${PREDICT_M} m:\n${_said}")
 endif()
+
+# **Handed to the AI and taken back** (Phase 7): 8 s in it asks for its
+# aircraft to be handed to the AI pilot, 14 s in for it back, and the server
+# must have said both - and what it showed of its own aircraft must not have
+# stepped at either: at most 5 m in a frame, where the difference between
+# where it was predicted and where it is drawn from the updates is some 20 m
+# at 200 ms, and shown without blending that difference is the step.
+foreach(_to IN ITEMS "handed to the AI" "handed to its pilot")
+    if(NOT _said MATCHES "aircraft [0-9]+ ${_to}")
+        message(FATAL_ERROR "the predicting client never heard its aircraft ${_to}:\n${_said}")
+    endif()
+endforeach()
+if(NOT _said MATCHES "own aircraft: handed to the AI 1 times and taken back 1; the largest step at a switch ([0-9.]+) m")
+    message(FATAL_ERROR "the predicting client did not say how its own aircraft was shown "
+                        "across the switches:\n${_said}")
+endif()
+if(CMAKE_MATCH_1 GREATER_EQUAL 5)
+    message(FATAL_ERROR "what it showed of its own aircraft stepped ${CMAKE_MATCH_1} m at a "
+                        "switch:\n${_said}")
+endif()
+set(_switch_step "${CMAKE_MATCH_1}")
 
 # **Interpolation**: every other aircraft drawn within 2 m of the truth, and
 # some of them carried on past the newest update - across the relay's gaps,
@@ -227,5 +250,6 @@ if(NOT _refused MATCHES "refused, reason 5\n")
     message(FATAL_ERROR "the client one too many was not refused as full:\n${_refused}")
 endif()
 message(STATUS "through ${DELAY} ms, ${JITTER} ms of jitter and ${LOSS}% loss: "
-               "prediction error at worst ${_error} m over ${_compared} updates; ${_corrections} "
+               "prediction error at worst ${_error} m over ${_compared} updates; at a switch "
+               "${_switch_step} m; ${_corrections} "
                "corrections, the worst ${_worst} m; the third refused as full")

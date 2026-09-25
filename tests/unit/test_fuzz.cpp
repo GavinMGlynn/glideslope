@@ -158,7 +158,7 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
     add("terrain_dataset", glideslope::net::write(dataset));
 
     glideslope::net::ControllerSwap swap;
-    swap.slot = 2;
+    swap.aircraft = 2;
     swap.to = glideslope::net::Controller::ai;
     swap.at_simulation_time_s = 99.5;
     add("controller_swap", glideslope::net::write(swap));
