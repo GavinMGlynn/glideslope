@@ -7,7 +7,8 @@
 // run printed as "checklist: ...", one a line, with the prefix taken off.
 // The block is read back glyph by glyph (gfx::read_text) from where
 // gfx::checklist_layout puts it, and every line must be what was expected, in
-// order, with nothing below them.
+// order, with nothing below them - judged by checklist_judge.hpp, which
+// glideslope_checklist_horizon_check judges its frames by too.
 //
 // **The marks are what this is for.** The first line is the phase and how
 // much of it is done; each line after begins "X " for a ticked item or "- "
@@ -18,6 +19,7 @@
 
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
+#include "checklist_judge.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -87,43 +89,13 @@ int main(int argc, char** argv) {
     }
 
     const glideslope::gfx::Frame frame = load(argv[1]);
-    const auto layout =
-        glideslope::gfx::checklist_layout(frame.width, frame.height, expected.size());
-    // One line more than expected, which must be empty: a checklist with
-    // something under it is a checklist that has drawn more than it said.
-    const auto shown = glideslope::gfx::read_text(
-        frame, layout, expected.size() + 1,
-        glideslope::gfx::checklist_columns(frame.width));
-
     std::size_t ticked = 0;
-    for (std::size_t i = 0; i < shown.size(); ++i) {
-        const std::string want = i < expected.size() ? expected[i] : "";
-        std::printf("checklist line %zu: \"%s\"\n", i + 1, shown[i].c_str());
-        if (shown[i] != want) {
-            fail("line " + std::to_string(i + 1) + " reads \"" + shown[i] +
-                 "\", not \"" + want + "\"");
-        }
-        if (i > 0 && !want.empty()) {
-            if (want.rfind("X ", 0) != 0 && want.rfind("- ", 0) != 0) {
-                fail("line " + std::to_string(i + 1) + " reads \"" + want +
-                     "\", which begins with neither a tick nor a dash");
-            }
-            ticked += want.rfind("X ", 0) == 0 ? std::size_t{1} : std::size_t{0};
-        }
+    try {
+        ticked = glideslope::test::judge_checklist(frame, expected, stdout);
+    } catch (const glideslope::test::ChecklistWrong& e) {
+        fail(e.what());
     }
-    // The count on the first line must be the marks below it, or the screen
-    // is telling the pilot two different things at once.
     const std::string& head = expected[0];
-    const std::size_t slash = head.rfind('/');
-    const std::size_t space = head.rfind(' ', slash);
-    if (slash == std::string::npos || space == std::string::npos) {
-        fail("the first line \"" + head + "\" does not say how much is done");
-    }
-    const std::string said = head.substr(space + 1, slash - space - 1);
-    if (said != std::to_string(ticked)) {
-        fail("the checklist says " + said + " done but " + std::to_string(ticked) +
-             " items are ticked");
-    }
     std::printf("the checklist on the frame is the %s, %zu of its items ticked\n",
                 head.c_str(), ticked);
     return 0;

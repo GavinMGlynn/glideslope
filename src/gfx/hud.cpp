@@ -336,6 +336,17 @@ TextLayout checklist_layout(int width, int height, std::size_t lines) {
     return layout;
 }
 
+PixelBox checklist_panel(int width, int height, std::size_t lines) {
+    const TextLayout layout = checklist_layout(width, height, lines);
+    PixelBox box;
+    box.left = layout.left - layout.cell_width();
+    box.top = layout.top - layout.cell_height();
+    box.right = layout.left + static_cast<double>(checklist_columns(width) + 1) *
+                                  layout.cell_width();
+    box.bottom = layout.top + static_cast<double>(lines + 1) * layout.cell_height();
+    return box;
+}
+
 TextLayout credit_layout(int width, int height, std::size_t lines) {
     (void)width;
     TextLayout layout;
@@ -440,6 +451,11 @@ Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     const std::vector<std::string> checklist =
         checklist_lines(readings.checklist, width);
     if (!checklist.empty()) {
+        // Over its panel, which the horizon shows through dimmed rather than
+        // crossing the rows.
+        const PixelBox panel = checklist_panel(width, height, checklist.size());
+        add_rect(mesh, panel.left, panel.top, panel.right, panel.bottom, width, height,
+                 {0.0f, 0.0f, 0.0f, 0.5f});
         add_text(mesh, checklist, checklist_layout(width, height, checklist.size()),
                  width, height);
     }
