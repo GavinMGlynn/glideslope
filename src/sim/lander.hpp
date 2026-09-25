@@ -33,7 +33,6 @@
 
 namespace glideslope::sim {
 
-
 // How this aeroplane is flown down an approach. `vref_kts` is the speed over
 // the threshold - by convention 1.3 times the stall speed in the landing
 // configuration, which `approach_speeds` works out from the aircraft's own

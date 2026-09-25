@@ -319,9 +319,9 @@ ends in a debrief, never a score.
       *Verification: it follows a coast as told, handles an engine failure,
       never slows the step, and replays in CI without a key.*
 - [x] **The model never drives a control surface.** *Verification: the copilot
-      can produce only a flight plan and autopilot modes, checked at configure
-      time.* Done 2026-09-25: the compiler and linker check it. The copilot is
-      compiled seeing only the plan's headers, and its symbols are checked.
+      can produce only a flight plan and autopilot modes, checked by the
+      build: what it sees, opens and links.* Done 2026-09-25. It was first
+      "at configure time", which review showed could be got round.
 - [ ] **A different model on each AI aircraft** - Claude, ChatGPT, or none -
       chosen per aircraft by the server or when an aircraft is handed to the
       AI, each with its owner's key. *Verification: one scenario is planned
