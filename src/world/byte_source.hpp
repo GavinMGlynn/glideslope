@@ -4,8 +4,6 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
-#include <mutex>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -26,16 +24,28 @@ public:
     virtual void read(std::uint64_t offset, std::span<std::uint8_t> out) const = 0;
 };
 
+// A file on disk, read at any offset from any thread.
+//
+// **Opened sharing deletion**, on Windows. The cache is shared by processes
+// that fetch a file and rename it into place while others read it, and a
+// rename holds the file open for deletion while it moves it: a reader that
+// does not share deletion - std::ifstream, fopen - cannot open the file
+// then, and CI saw `cannot open ...DEM.tif`. Opened the way POSIX opens every
+// file, it can be read the moment it has its name.
 class FileSource : public ByteSource {
 public:
     explicit FileSource(const std::filesystem::path& path);
+    ~FileSource() override;
+    FileSource(const FileSource&) = delete;
+    FileSource& operator=(const FileSource&) = delete;
+
     std::uint64_t size() const override;
     void read(std::uint64_t offset, std::span<std::uint8_t> out) const override;
 
 private:
     std::filesystem::path path_;
-    mutable std::ifstream file_;
-    mutable std::mutex mutex_;
+    // A HANDLE on Windows, a file descriptor elsewhere.
+    std::intptr_t file_ = -1;
     std::uint64_t size_ = 0;
 };
 
