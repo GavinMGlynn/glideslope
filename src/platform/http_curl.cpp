@@ -26,6 +26,8 @@ enum : int {
     curlopt_writedata = 10001,
     curlopt_url = 10002,
     curlopt_errorbuffer = 10010,
+    curlopt_postfields = 10015,
+    curlopt_postfieldsize = 60,
     curlopt_useragent = 10018,
     curlopt_headerdata = 10029,
     curlopt_httpheader = 10023,
@@ -166,7 +168,11 @@ std::string http_client() {
     return std::string("libcurl ") + curl().version();
 }
 
-HttpResponse http_get(const HttpRequest& request) {
+namespace {
+
+// A GET, or a POST of `body` where there is one.
+HttpResponse perform(const HttpRequest& request, const std::string* body) {
+    refuse_unsafe_headers(request);
     const Curl& c = curl();
     const Handle handle = c.easy_init();
     if (handle == nullptr) {
@@ -210,6 +216,12 @@ HttpResponse http_get(const HttpRequest& request) {
     if (sent != nullptr) {
         c.easy_setopt(handle, curlopt_httpheader, sent);
     }
+    // A body to POST, which libcurl reads from here - not copied - during the
+    // transfer; its size given, so that it may hold a zero byte.
+    if (body != nullptr) {
+        c.easy_setopt(handle, curlopt_postfieldsize, static_cast<long>(body->size()));
+        c.easy_setopt(handle, curlopt_postfields, body->data());
+    }
     const int result = c.easy_perform(handle);
     long status = 0;
     c.easy_getinfo(handle, curlinfo_response_code, &status);
@@ -230,6 +242,16 @@ HttpResponse http_get(const HttpRequest& request) {
     transfer.response.headers["content-length"] =
         std::to_string(transfer.response.body.size());
     return std::move(transfer.response);
+}
+
+} // namespace
+
+HttpResponse http_get(const HttpRequest& request) {
+    return perform(request, nullptr);
+}
+
+HttpResponse http_post(const HttpRequest& request, const std::string& body) {
+    return perform(request, &body);
 }
 
 } // namespace glideslope::platform
