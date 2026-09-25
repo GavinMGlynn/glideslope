@@ -493,7 +493,7 @@ gfx::ControlsShown Flight::controls_shown() const {
     c.rudder = aircraft_->property("fcs/rudder-cmd-norm");
     c.throttle = aircraft_->property("fcs/throttle-cmd-norm[0]");
     c.flaps = aircraft_->property("fcs/flap-cmd-norm");
-    if (aircraft_->has_property("gear/gear-cmd-norm")) {
+    if (aircraft_->gear_retracts()) {
         c.gear = aircraft_->property("gear/gear-cmd-norm");
     }
     return c;

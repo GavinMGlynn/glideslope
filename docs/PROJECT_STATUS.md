@@ -295,6 +295,14 @@ now carries the case.
 
 Ticked in `COMPLETION_PLAN.md` once PR #12, which added the item, had merged.
 
+**Found while riding along**, fixed before the merge. The gear line asked
+whether the flight model had a gear command, and JSBSim has one for fixed
+gear too. So the Cessna's HUD said `GEAR DOWN`, and its shot passed, because
+the trace asked the same wrong question. Now `Aircraft::gear_retracts` asks the
+model's gear units. `an_aircraft_says_its_gear_retracts_only_where_its_model_has_it`
+holds all sixteen aircraft against their own files: ten retract and six do not.
+With the old question put back, it goes red at the Cessna.
+
 ### An aircraft named by a server is looked up, never opened as a path, 2026-09-25 — tail done
 
 **Found while bringing `THREATS.md` up to date.** A client loads the model an
