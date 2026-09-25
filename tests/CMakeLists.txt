@@ -59,6 +59,7 @@ add_executable(glideslope_tests
     unit/test_ground.cpp
     unit/test_geoid.cpp
     unit/test_runways.cpp
+    unit/test_copilot.cpp
     unit/test_geotiff.cpp
     unit/test_inflate.cpp
     unit/test_flight.cpp
@@ -68,6 +69,7 @@ add_executable(glideslope_tests
     unit/test_imagery.cpp
     unit/test_process_end.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform
+                                               glideslope_copilot
                                                glideslope_input glideslope_model CesiumImage)
 # The HTTP tests stand up a server on the loopback address, through Winsock there.
 if(WIN32)
@@ -430,6 +432,10 @@ set(GLIDESLOPE_UNIT_TESTS
     json_documents_rfc_8259_allows_are_read_into_their_values
     json_documents_rfc_8259_does_not_allow_are_refused
     a_json_value_is_written_as_rfc_8259_has_it_and_reads_back_the_same
+    each_provider_is_asked_as_its_api_has_it_and_its_answer_read
+    a_provider_with_no_key_is_refused_and_one_played_back_needs_none
+    a_recording_plays_back_only_the_requests_it_recorded_and_holds_no_key
+    a_plan_from_words_is_checked_and_refused_back_to_the_model_until_it_can_be_flown
     every_recorded_metar_is_read_as_aviationweather_decodes_it
     every_recorded_metars_visibility_weather_and_cloud_are_read_as_aviationweather_decodes_them
     metar_groups_are_read_in_every_form_and_trends_are_not_read_as_observations

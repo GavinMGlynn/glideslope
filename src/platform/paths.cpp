@@ -231,6 +231,14 @@ std::string google_maps_key() {
     return secret("GLIDESLOPE_GOOGLE_MAPS_KEY", "google-maps-key");
 }
 
+std::string openai_key() {
+    return secret("GLIDESLOPE_OPENAI_KEY", "openai-key");
+}
+
+std::string anthropic_key() {
+    return secret("GLIDESLOPE_ANTHROPIC_KEY", "anthropic-key");
+}
+
 namespace {
 
 // One line of a `server.txt`, or nothing if it is not one.
