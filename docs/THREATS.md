@@ -562,14 +562,50 @@ in `src/net/sealing.cpp` and in the `sealed` arm of the server's `take()`: a
 sealed body carrying a number already opened, or more than 64 behind the newest
 that opened, is refused before the cipher is run.
 
-**What it does not cover is the handshake.** A replayed `HANDSHAKE_INITIATION`
-from an address with no session is answered afresh every time - the replayer
-learns nothing from the answer, which is what
-`a_replayed_initiation_makes_a_session_the_replayer_cannot_read` holds, but the
-server has done the X25519 work and made a table entry. A replayed `SEALED`
-datagram is refused; the datagram that makes a session is not, and what bounds
-that is the rate limit that is not built. What it can no longer do is take a
-live session away - see `HANDSHAKE_INITIATION` above.
+**The handshake is covered by memory, not by the cipher.** The server
+remembers every initiation that has made a session, by its first 32 bytes,
+the initiator's ephemeral key. It drops a copy of one in silence, from any
+address, whether that session is live or gone (`Taken`, in the server's
+`main.cpp`). It was built for an honest client, not an attacker. CI's
+four-player test counted six players' aircraft because copies of the fourth
+client's initiation, read after its session had been let go, were each taken
+as a new handshake. Each made a session and an aircraft that nobody flew
+(`PROJECT_STATUS.md`, 2026-09-26). Held by
+`a_copy_of_an_initiation_arriving_after_its_session_was_let_go_makes_no_second_player`,
+seen to fail without the check.
+
+**What a replayed or forged initiation can do now:**
+
+- **A captured initiation replayed** is dropped before any X25519 work, from
+  any address: the one it was captured from, a spoofed one, or a new one after
+  the victim's session has gone. Before, it was answered afresh from every new
+  address: a session the replayer could not read, and an aircraft for the
+  victim's key. That aircraft sat in the sky until `--timeout`, and it held a
+  player's slot.
+- **It cannot be used to lock an honest player out.** The memory is keyed by
+  the ephemeral key, which an honest client makes afresh for every connection.
+  An attacker who replays a player's old initiation blocks only that
+  initiation, which the player will never send again.
+- **An attacker may forge an initiation carrying somebody else's ephemeral
+  key** before that person's own initiation arrives. Only someone who has seen
+  the ephemeral key in flight can do that, and the forgery must also seal a
+  static key under it. That needs the ephemeral's secret. Without it, the
+  forgery fails `Responder::answer`, and a forged initiation that does not
+  complete is not remembered. So only a completed handshake fills the memory.
+- **Anyone may fill the memory with handshakes of their own**, each with a new
+  ephemeral key. It holds the newest 65,536 (about 2 MiB) and forgets the
+  oldest. Somebody who completed 65,536 handshakes could push a captured
+  initiation out and replay it again, and it would be answered as before: a
+  session the replayer cannot read (which
+  `a_replayed_initiation_makes_a_session_the_replayer_cannot_read` holds). A
+  restarted server remembers nothing. Neither is defended: that would need a
+  timestamp in the initiation, as WireGuard has, and this protocol has none.
+  What still bounds a flood of fresh handshakes is the rate limit that is not
+  built.
+
+A replayed `SEALED` datagram is refused by the replay window. A replayed
+initiation can no longer take a live session away either; see
+`HANDSHAKE_INITIATION` above.
 
 The reliable layer throws away a message whose number is at or below the last
 one delivered - `number <= delivered_` in `Reliable::received` - and
@@ -686,10 +722,13 @@ sent a datagram. **The server's `Connection` follows half of that rule.** It is
 made in the `handshake_initiation` arm only after `Responder::answer` succeeds
 and `Slots::admit` returns a slot, so a datagram that is not a completed
 initiation makes no entry. **But it is made per address, not per key.**
-`Slots::admit` hands a key already in the session the slot it already has, so
-one captured initiation replayed from many spoofed source addresses makes one
-entry per address - each with its own pair of cipher states, each costing an
-X25519 operation - and they go only when `--timeout` sweeps them. The session
+`Slots::admit` hands a key already in the session the slot it already has, and
+the server gives each entry an aircraft of its own. So one key's handshakes
+from many addresses make one entry per address, each with its own pair of
+cipher states, each costing an X25519 operation. They go only when `--timeout`
+sweeps them. One *captured* initiation no longer does this: it is taken once,
+and its copies are dropped from every address (see "Replay"). But anyone who
+holds a key's secret can make a fresh initiation for each address. The session
 being full stops it, because a fresh address is then refused `SERVER_FULL`
 before the crypto; a session with a slot free does not. That is the unbounded
 number of peers this section's first line names, and it is a path now rather

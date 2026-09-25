@@ -336,10 +336,6 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
-- [ ] **The four-player test once counted five players' aircraft** on a slow
-      Windows debug runner: likely a client let go and joining again.
-      *Verification: the cause found, and the test run a hundred times on
-      Windows debug without it.*
 - [ ] **The 100 ms network check on macOS once drew four frames of 1,946 more
       than 2 m off, the worst 8.6 m.** *Verification: the cause found, and
       the check run a hundred times on macOS within its bound.*
@@ -351,6 +347,21 @@ Found while implementing something else. Added when found, not when remembered.
       skipped even where the network is required, since live weather is
       never kept. A service that refuses the request, or an answer that
       can't be read, still fails there, and so does a missing DEM.
+
+- [ ] **The four-player test once counted five players' aircraft** (six on
+      Linux debug): a copy of a client's handshake, read after the session it
+      made had been let go, made a second session and aircraft that nobody
+      flew. Fixed: the server now drops a handshake it has already taken, and
+      a test builds that case and was seen to fail without the fix. Still
+      open: why the first session went quiet for three seconds is not known,
+      and the hundred Windows debug runs have not been done. *Verification:
+      the cause found, and the test run a hundred times on Windows debug
+      without it.*
+- [ ] **One player on two addresses flies two aircraft**: a client that
+      starts again from a new port while its old session is still live is
+      given a second aircraft until the old one times out. *Verification: a
+      second session for a key takes over that player's slot and aircraft,
+      and a test with one key on two addresses counts one aircraft.*
 - [x] **The HUD check read the horizon, crossing the rows below the HUD, as a
       line of the HUD.** *Verification: a line that does not begin at the
       HUD's margin is not judged, and an extra HUD line still is.* Done

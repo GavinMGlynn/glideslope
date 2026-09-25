@@ -40,11 +40,13 @@
 #include "world/download.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cctype>
 #include <cstdio>
 #include <cmath>
 #include <cstdlib>
+#include <deque>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -52,6 +54,7 @@
 #include <memory>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -495,6 +498,56 @@ struct Connection {
     // **The aircraft this client is watching** (`WATCH`), whose controls go
     // in its own state updates, or `no_aircraft`.
     std::uint8_t watching = glideslope::net::no_aircraft;
+};
+
+// **Every initiation that has made a session, remembered after the session
+// has gone**, by the initiator's ephemeral key - its first 32 bytes, which an
+// honest client never uses twice.
+//
+// **Why.** A client resends its initiation every quarter of a second until it
+// is answered, so a server slow to answer has several copies of it on the way.
+// While the session they made is live, a copy gets that session's answer
+// again. But a copy read after that session was let go used to be taken for a
+// new handshake: a new session, a new aircraft, and an answer the client -
+// holding the keys of the first - ignored. Nothing it sealed opened under the
+// new keys, so the server heard nothing, let the new session go after
+// `--timeout`, and counted a player's aircraft that nobody had flown. The
+// four-player test on CI counted six (run 36140964489).
+//
+// **A copy of an initiation already taken is now dropped in silence**, live
+// session or not. A client that means to start again makes a new initiation,
+// with a new ephemeral key, and that is taken as ever. At most
+// `most_remembered` are kept, oldest forgotten first - about 2 MiB - and a
+// replay of an initiation older than that many handshakes is answered as it
+// always was, with a session its replayer cannot read (THREATS.md, "Replay").
+class Taken {
+public:
+    static constexpr std::size_t most_remembered = 65536;
+    using Ephemeral = std::array<std::uint8_t, glideslope::net::key_bytes>;
+
+    static std::optional<Ephemeral> ephemeral_of(std::span<const std::uint8_t> initiation) {
+        if (initiation.size() < glideslope::net::key_bytes) {
+            return std::nullopt;
+        }
+        Ephemeral e{};
+        std::copy_n(initiation.begin(), e.size(), e.begin());
+        return e;
+    }
+    bool has(const Ephemeral& e) const { return set_.count(e) > 0; }
+    void remember(const Ephemeral& e) {
+        if (!set_.insert(e).second) {
+            return;
+        }
+        order_.push_back(e);
+        if (order_.size() > most_remembered) {
+            set_.erase(order_.front());
+            order_.pop_front();
+        }
+    }
+
+private:
+    std::set<Ephemeral> set_;
+    std::deque<Ephemeral> order_;
 };
 
 // **How often the server says where everybody is: 25 times for every second
@@ -1260,7 +1313,7 @@ void refuse(glideslope::platform::UdpSocket& socket,
 // may be no session to seal a refusal with.
 void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPair& mine,
           glideslope::net::Slots& slots,
-          std::map<std::string, Connection>& connections, Fleet* fleet,
+          std::map<std::string, Connection>& connections, Taken& taken, Fleet* fleet,
           const glideslope::platform::Address& from,
           std::span<const std::uint8_t> datagram, double now_s, const Options& o,
           glideslope::server::Happenings& happened) {
@@ -1307,6 +1360,12 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             }
             return;
         }
+        // **An initiation already taken is not taken again** (see `Taken`):
+        // a copy that arrives after its session has gone makes nothing.
+        const auto ephemeral = Taken::ephemeral_of(body);
+        if (ephemeral && taken.has(*ephemeral)) {
+            return;
+        }
         if (slots.full()) {
             refuse(socket, from, glideslope::net::Refusal::server_full);
             return;
@@ -1325,6 +1384,9 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         if (!slot) {
             refuse(socket, from, glideslope::net::Refusal::server_full);
             return;
+        }
+        if (ephemeral) {
+            taken.remember(*ephemeral);
         }
         Connection c;
         c.who = answer->session.theirs;
@@ -1594,6 +1656,7 @@ int run(const Options& o) {
     // and what a `LOBBY` would carry.
     glideslope::net::Slots slots(static_cast<std::uint8_t>(o.players));
     std::map<std::string, Connection> connections;
+    Taken taken;
     glideslope::server::Happenings happened;
     bool anyone_joined = false;
     // What the window last drew, for --window-dump.
@@ -1638,7 +1701,7 @@ int run(const Options& o) {
         if (got > 0) {
             ++datagrams;
             bytes += got;
-            take(*socket, mine, slots, connections, fleet ? &*fleet : nullptr, from,
+            take(*socket, mine, slots, connections, taken, fleet ? &*fleet : nullptr, from,
                  std::span<const std::uint8_t>(into.data(), got), up_s, o, happened);
         }
 
