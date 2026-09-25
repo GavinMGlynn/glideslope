@@ -26,9 +26,11 @@ struct HttpRequest {
     std::string url;
     std::string user_agent = "glideslope";
     // Headers to send, name and value. A terrain provider's own asks for
-    // them: Cesium ion authorises a tile request with one. A name or value
-    // holding a control character is refused, so that nothing can be smuggled
-    // into the request by splitting a header across lines.
+    // them: Cesium ion authorises a tile request with one, and a language
+    // model's API another. A name or value holding a control character is
+    // refused - the request is not made, and HttpError says why - so that
+    // nothing can be smuggled into the request by splitting a header across
+    // lines (`refuse_unsafe_headers`).
     std::vector<std::pair<std::string, std::string>> headers;
     std::uint64_t max_body = std::uint64_t{64} << 20;
     int connect_timeout_seconds = 30;
@@ -52,8 +54,35 @@ struct HttpResponse {
     std::vector<std::uint8_t> body;
 };
 
+// Throws HttpError if a header's name or value holds a control character.
+// Every backend calls it before a request is made.
+inline void refuse_unsafe_headers(const HttpRequest& request) {
+    const auto unsafe = [](const std::string& s) {
+        for (const char c : s) {
+            const auto u = static_cast<unsigned char>(c);
+            if (u < 0x20 || u == 0x7F) {
+                return true;
+            }
+        }
+        return false;
+    };
+    for (const auto& [name, value] : request.headers) {
+        if (unsafe(name) || unsafe(value)) {
+            // The value is not repeated: it may be a key.
+            throw HttpError(request.url + ": the header " +
+                            (unsafe(name) ? std::string("named with a control character")
+                                          : name) +
+                            " holds a control character");
+        }
+    }
+}
+
 // A GET, following redirects. Throws HttpError.
 HttpResponse http_get(const HttpRequest& request);
+
+// A POST of `body`, as it is: its Content-Type is one of the request's
+// headers. What a language model's API is asked with. Throws HttpError.
+HttpResponse http_post(const HttpRequest& request, const std::string& body);
 
 // What carries the requests here, for diagnostics: "WinHTTP", "NSURLSession",
 // or "libcurl" and its version. Throws HttpError if there is nothing.

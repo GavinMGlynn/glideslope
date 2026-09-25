@@ -69,6 +69,10 @@ add_executable(glideslope_tests
     unit/test_process_end.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform
                                                glideslope_input glideslope_model CesiumImage)
+# The HTTP tests stand up a server on the loopback address, through Winsock there.
+if(WIN32)
+    target_link_libraries(glideslope_tests PRIVATE ws2_32)
+endif()
 # Where tests/cmake/fetch.cmake puts the files the tests download. A directory
 # named by GLIDESLOPE_DOWNLOADS when configuring outlives the build tree, which
 # is how CI keeps them between runs.
@@ -468,6 +472,8 @@ set(GLIDESLOPE_UNIT_TESTS
     an_orbit_and_a_take_off_are_read_from_a_plan_and_refused_where_they_are_wrong
     the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind
     a_runways_file_gives_each_open_runway_end_with_a_place_and_a_heading
+    a_post_sends_its_body_and_headers_byte_for_byte_and_reads_the_answer
+    a_header_holding_a_control_character_is_refused_before_anything_is_sent
     the_pinned_runways_file_holds_sydneys_six_runway_ends_where_they_are
     a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane
     handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase

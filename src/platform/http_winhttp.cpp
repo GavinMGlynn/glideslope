@@ -59,7 +59,11 @@ std::string http_client() {
     return "WinHTTP";
 }
 
-HttpResponse http_get(const HttpRequest& request) {
+namespace {
+
+// A GET, or a POST of `body` where there is one.
+HttpResponse perform(const HttpRequest& request, const std::string* body) {
+    refuse_unsafe_headers(request);
     std::wstring url = widen(request.url);
     URL_COMPONENTS parts{};
     parts.dwStructSize = sizeof parts;
@@ -114,7 +118,8 @@ HttpResponse http_get(const HttpRequest& request) {
         fail(request.url, "could not connect");
     }
     const Handle handle(WinHttpOpenRequest(
-        connection.get(), L"GET", path.c_str(), nullptr, WINHTTP_NO_REFERER,
+        connection.get(), body != nullptr ? L"POST" : L"GET", path.c_str(), nullptr,
+        WINHTTP_NO_REFERER,
         WINHTTP_DEFAULT_ACCEPT_TYPES, secure ? WINHTTP_FLAG_SECURE : 0));
     if (!handle) {
         fail(request.url, "could not open the request");
@@ -129,7 +134,10 @@ HttpResponse http_get(const HttpRequest& request) {
                             sent.empty() ? WINHTTP_NO_ADDITIONAL_HEADERS
                                          : sent.c_str(),
                             sent.empty() ? 0 : static_cast<DWORD>(-1),
-                            WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
+                            body != nullptr ? const_cast<char*>(body->data())
+                                            : WINHTTP_NO_REQUEST_DATA,
+                            body != nullptr ? static_cast<DWORD>(body->size()) : 0,
+                            body != nullptr ? static_cast<DWORD>(body->size()) : 0, 0)) {
         fail(request.url, "could not send the request");
     }
     if (!WinHttpReceiveResponse(handle.get(), nullptr)) {
@@ -211,6 +219,16 @@ HttpResponse http_get(const HttpRequest& request) {
     response.headers["content-length"] = std::to_string(response.body.size());
 
     return response;
+}
+
+} // namespace
+
+HttpResponse http_get(const HttpRequest& request) {
+    return perform(request, nullptr);
+}
+
+HttpResponse http_post(const HttpRequest& request, const std::string& body) {
+    return perform(request, &body);
 }
 
 } // namespace glideslope::platform

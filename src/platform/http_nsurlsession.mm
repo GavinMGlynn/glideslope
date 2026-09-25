@@ -15,7 +15,11 @@ std::string http_client() {
     return "NSURLSession";
 }
 
-HttpResponse http_get(const HttpRequest& request) {
+namespace {
+
+// A GET, or a POST of `body` where there is one.
+HttpResponse perform(const HttpRequest& request, const std::string* body) {
+    refuse_unsafe_headers(request);
     HttpResponse response;
     std::string failure;
     @autoreleasepool {
@@ -30,6 +34,10 @@ HttpResponse http_get(const HttpRequest& request) {
                 timeoutInterval:request.stall_timeout_seconds];
             [r setValue:[NSString stringWithUTF8String:request.user_agent.c_str()]
                 forHTTPHeaderField:@"User-Agent"];
+            if (body != nullptr) {
+                r.HTTPMethod = @"POST";
+                r.HTTPBody = [NSData dataWithBytes:body->data() length:body->size()];
+            }
             // The request's own headers, if it has any.
             for (const auto& header : request.headers) {
                 [r setValue:[NSString stringWithUTF8String:header.second.c_str()]
@@ -91,6 +99,16 @@ HttpResponse http_get(const HttpRequest& request) {
     response.headers["content-length"] = std::to_string(response.body.size());
 
     return response;
+}
+
+} // namespace
+
+HttpResponse http_get(const HttpRequest& request) {
+    return perform(request, nullptr);
+}
+
+HttpResponse http_post(const HttpRequest& request, const std::string& body) {
+    return perform(request, &body);
 }
 
 } // namespace glideslope::platform
