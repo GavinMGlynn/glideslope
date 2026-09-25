@@ -1,0 +1,19 @@
+# A flight plan that takes off: the Cessna from Sydney's runway 16R, south
+# over Botany Bay while it climbs, then back north to circle the city - what
+# "take off, climb to 3,000 ft and orbit the CBD" asks, written by hand. It is
+# what glideslope_cli fly-plan is tested with, apart from any language model.
+#
+#   runway NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M
+#   takeoff HEIGHT_FT
+#   orbit NAME LATITUDE LONGITUDE RADIUS_M ALTITUDE_FT AIRSPEED_KT TURNS left|right
+#
+# The runway line is OurAirports' 16R (src/world/runways.hpp); the ground's
+# height there is the DEM's when it is flown. Town Hall, the middle of the
+# CBD, is at -33.8732 151.2066.
+
+aircraft c172p
+runway 16R -33.929401 151.171997 8 168 3962
+takeoff 800
+
+waypoint CLIMB -33.99 151.19 3000 80
+orbit CBD -33.8732 151.2066 1500 3000 90 0 left

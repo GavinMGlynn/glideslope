@@ -1427,6 +1427,29 @@ set_tests_properties(the_client_with_the_window_flies_the_servers_aircraft_and_d
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server)
 
+# **A flight plan that takes off and orbits is flown over the DEM** by
+# glideslope_cli fly-plan, from a plan written by hand; and **a command in
+# words becomes such a plan**, asked of each language model with its owner's
+# key - skipped, saying so, with none. See cmake/cli_plan_flown.cmake.
+add_test(NAME a_plan_that_takes_off_and_orbits_the_cbd_is_flown_over_the_dem
+    COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/plans_flown
+        -DPLAN=${GLIDESLOPE_DATA_DIR}/plans/sydney-cbd-orbit.plan
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli_plan_flown.cmake)
+set_tests_properties(a_plan_that_takes_off_and_orbits_the_cbd_is_flown_over_the_dem
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+foreach(_provider openai anthropic)
+    add_test(NAME take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_${_provider}_now_and_flown
+        COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider}
+            "-DCOMMAND=take off, climb to 3,000 ft and orbit the CBD" -DPROVIDER=${_provider}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli_plan_flown.cmake)
+    set_tests_properties(take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_${_provider}_now_and_flown
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider})
+endforeach()
+
 # **A client started with --online reaches the server server.txt names.** See
 # cmake/client_online.cmake, which names the file by the environment rather
 # than writing into the person's own config directory.
