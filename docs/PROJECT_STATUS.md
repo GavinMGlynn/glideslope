@@ -407,34 +407,14 @@ the look and the count cannot fail it spuriously.
 
 ### Asked for a height it cannot hold, the autopilot gives up height, 2026-09-25 — tail in progress
 
-**What is missing first: six tests that passed on `main` fail with this
-change.**
-- **Three near-ceiling turns.** In
-  `a_cessna_172p_/a_cessna_182_/a_cherokee_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft`,
-  at the ceiling and asked for the best-climb speed, a turn now loses 21 to
-  32 ft against a 20 ft band. The speed stays within 2.1 knots.
-  - The cause: the new floor takes the energy the turn spends as height
-    rather than speed, and it acts before the turn's bank limit (the tail done
-    on 2026-09-24) has found the bank the aeroplane can sustain.
-  - The two rules need reconciling. One way: the turn's allowance of 3 knots
-    of energy is spent against the floor, not against the speed.
-- **The Learjet 35A in the stall lessons.** In
-  `the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief` and
-  `an_instructor_demonstrates_a_stall_and_hands_it_over` it loses 235 ft
-  entering the stall.
-  - The cause: with its gear and flaps down at 20,000 ft it cannot make the
-    250 knots it is holding at full throttle, and it gives up height for it
-    before the entry begins.
-  - It needs a better answer to "a speed asked for that the aeroplane cannot
-    make": neither the floor at the speed asked, nor 5 knots below it, avoids
-    it.
-- **The Cessna 182 in the circuit lesson.** In
-  `the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief` it touches
-  down 12.7 m from the centreline (the limit is 10). Not yet looked into.
+### Asked for a height it cannot hold, the autopilot gives up height, 2026-09-25 — tail done
 
-Separately, the AI still flies with the mixture full rich, so the ceiling it
-gives up height at is about 8,500 ft rather than the handbook's. That is the
-next tail, "The AI never leans the mixture".
+
+**What is still missing.** The AI still flies with the mixture full rich, so
+the ceiling it gives up height at is about 8,500 ft rather than the handbook's.
+That is the next tail, "The AI never leans the mixture". The floor is the
+aeroplane's published best-climb speed and acts only clean. The 747-400
+publishes no climb speed and has no floor.
 
 **Before**, asked for a height it could not reach, the altitude hold went on
 pitching up with the throttle at its stop and paid for the height with speed.
@@ -442,18 +422,28 @@ Asked for 3,000 ft above its ceiling, a Cessna 172P slowed to 44 knots, a
 Cessna 182 and a Cherokee to 50, and a Cub to 5, which then spun down to the
 ground.
 
-**Now** (`sim/autopilot.cpp`) the least the altitude hold may fly at is the
-aeroplane's best-climb speed (`departure_speeds`, read from its figures file
-beside the JSBSim root, for which `Aircraft` now keeps that root), or 5 knots
-below a slower speed asked for. When the throttle has no more to give - at its
-stop, or no speed held - and the airspeed five seconds ahead on its trend would
-be within a knot of the least, the climb the altitude hold may ask for is
-limited by an integral on the airspeed (30 ft/min a second per knot above the
-least, 500 ft/min per knot it moves), and while that limit binds the throttle
-opens to its stop. The aeroplane climbs what it can at that speed, or comes
-down; the limit lets go when it no longer binds. It is the underspeed
-protection of total energy control (Lambregts, AIAA 83-2239), as a floor only.
-The code's comment records each version that was tried and failed.
+**Now** (`sim/autopilot.cpp`) the altitude hold has a floor on the airspeed.
+- **The least speed** is the aeroplane's best-climb speed, or 5 knots below a
+  slower speed asked for. The best-climb speed comes from `departure_speeds`,
+  read from its figures file beside the JSBSim root; `Aircraft` now keeps
+  that root.
+- **When it acts:** only clean (flaps up, and gear up where it retracts), and
+  when the throttle has no more to give - at its stop, or no speed held. It
+  acts when the airspeed, five seconds ahead on its trend, would come within a
+  knot of the least.
+- **What it does:** the climb the altitude hold may ask for is limited by an
+  integral on the airspeed (30 ft/min a second per knot above the least, 500
+  ft/min per knot it moves). While that binds, the throttle opens to its stop.
+  The aeroplane climbs what it can at that speed, or comes down. The limit
+  lets go when it no longer binds.
+- **In a turn** the least is 3 knots lower: the bank limit's own allowance
+  (2026-09-24). It stays lower until the speed is back, so the bank limit
+  keeps a turn within its allowance and the floor catches only what gets past
+  it.
+
+It is the underspeed protection of total energy control (Lambregts, AIAA
+83-2239), as a floor only. The code's comment records each version that was
+tried and why it failed.
 
 **What the new tests verify.**
 `every_light_aeroplane_the_data_holds_is_asked_for_a_height_it_cannot_hold`
@@ -495,13 +485,33 @@ piston engine meters fuel as the mixture times sea-level pressure over
 ambient pressure, and above an equivalence ratio of about 1.8 it will not
 fire. The test says so.
 
+**Three regressions found and fixed on the way.** Each was seen red and
+then green.
+- **The near-ceiling turns** (C172P, C182, Cherokee) lost 21-32 ft against
+  their 20 ft band, because the floor took the turn's spend as height. The
+  fix is the turn allowance above.
+- **The Learjet 35A in both stall-lesson tests** lost 235 ft before the entry,
+  because it dived for its clean best-climb speed with the gear and flaps
+  down. The fix is the rule that the floor acts only clean.
+- **The Cessna 182 in the circuit lesson** touched down 12.7 m off the
+  centreline. The floor was acting on base with the flaps out. With the clean
+  rule it passes, so the change caused it, and the clean rule fixed it.
+
+**The near-ceiling turn test now also waits for the height to settle.**
+`settle` in test_autopilot.cpp used to call level flight settled when the
+speed was steady. It now also needs the height to move less than 5 ft in the
+half minute, and the bands are unchanged. The reason: handed over near its
+ceiling at its best-climb speed, the C182 sinks 23 ft before the throttle
+reaches its stop. The altitude hold can no longer buy that back with speed,
+so it climbs back at the 30 ft/min the aeroplane has there. Its speed is
+steady long before its height, so without this the first turn was charged
+with the handover.
+
 **Elsewhere.** The stall lesson's own flight now asks for a speed 10 knots
 below the stall as it closes the throttle, as the instructor's demonstration
-already did. Without that the altitude hold keeps the best-climb speed and
-never stalls. Of the autopilot, lander, departure, lesson, navigator,
-circuit, stall and controller tests, 57 of 63 pass; the six above fail. The
-selftest replays a pilot's inputs and does not use the autopilot; its hash is
-unchanged.
+already did. The autopilot, lander, departure, lesson, navigator, circuit,
+stall and controller tests pass: 63 of 63. The selftest replays a pilot's
+inputs and does not use the autopilot; its hash is unchanged.
 
 
 

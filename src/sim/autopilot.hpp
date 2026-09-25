@@ -88,6 +88,7 @@ private:
     double climb_limit_fpm_ = 0.0;
     double last_kts_ = 0.0;
     double kts_per_s_ = 0.0; // the airspeed's trend, smoothed over a second
+    double turn_allowance_kts_ = 0.0; // what a turn may spend, until it is back
     double bank_command_deg_ = 0.0;
     double bank_integral_deg_ = 0.0;
     // The most bank the aeroplane sustains, as its energy says: the energy,

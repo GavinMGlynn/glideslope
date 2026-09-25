@@ -125,13 +125,33 @@ constexpr double throttle_rate = 0.25;
 // **The least is the best-climb speed, or 5 knots below a slower speed asked
 // for.** A speed asked for below the best-climb speed is flown as asked - slow
 // flight, an approach, a stall lesson's entry - and is a speed to hold, not a
-// floor: a Learjet with its gear and flaps down, asked for 250 knots at 20,000
-// ft and able to make 248 at full throttle, gave up 237 ft for the last two
-// knots when the speed asked for was the least. So the least is 5 knots below
-// it, or as far below it as the best-climb speed is above it where that is
-// less, so that the least moves smoothly as the speed asked for passes the
-// best-climb speed. The altitude hold still flies an aeroplane into the stall
-// when it is asked for a speed below the stall, as a stall lesson enters one.
+// floor. So the least is 5 knots below it, or as far below it as the
+// best-climb speed is above it where that is less, so that the least moves
+// smoothly as the speed asked for passes the best-climb speed. The altitude
+// hold still flies an aeroplane into the stall when it is asked for a speed
+// below the stall, as a stall lesson enters one.
+//
+// **Only clean: flaps up, and the gear up where it retracts.** The best-climb
+// speed is published clean, and it is the aeroplane's best climb only so; with
+// the flaps and gear down it is neither the best climb nor a floor worth
+// diving for. A Learjet in the stall lesson, gear and flaps down at 20,000 ft
+// and unable to make the 250 knots it held at full thrust, dived 235 ft to
+// hold its clean best-climb speed of 240 before the lesson had begun. Asked
+// for a speed it cannot make, a clean aeroplane settles at the speed it can,
+// which is above its best-climb speed by construction - the floor binds only
+// below it - so a speed out of reach is never a reason to dive.
+//
+// **A turn may spend 3 knots.** The bank limit below lets a turn at full
+// throttle spend 3 knots of the aeroplane's energy and then banks no more than
+// it can sustain; the altitude hold keeps the height, so what is spent is
+// speed. With the floor at the best-climb speed that spend became height
+// instead - a Cessna 182 near its ceiling lost 32 ft in a turn, against the
+// 20 ft band the turn is held to - and the floor acted before the bank limit
+// had found the bank to sustain. So while the wings are banked the least is 3
+// knots lower, the bank limit's own allowance, and it stays lower until the
+// speed is back at the least without it, so that rolling out does not dive
+// to buy back what the turn spent. The two rules then agree: the bank limit
+// keeps a turn within 3 knots, and the floor catches only what gets past it.
 //
 // This is the underspeed protection of Lambregts' total energy control
 // (AIAA 83-2239), which short of speed gives the elevator to the speed and
@@ -139,6 +159,8 @@ constexpr double throttle_rate = 0.25;
 // because everywhere else this autopilot holds height on the elevator and
 // speed on the throttle, and nothing here changes that.
 constexpr double hold_speed_within_kts = 1.0;
+constexpr double turn_may_spend_kts = 3.0;
+constexpr double clean_flaps_deg = 0.5;
 constexpr double below_asked_kts = 5.0;
 constexpr double speed_trend_s = 5.0;
 constexpr double speed_trend_filter_s = 1.0;
@@ -154,6 +176,16 @@ std::optional<double> best_climb_of(const Aircraft& a) {
     } catch (const std::runtime_error&) {
         return std::nullopt;
     }
+}
+
+// Flaps up, and gear up where it retracts: the configuration the best-climb
+// speed is published in, and the only one it is a floor for.
+bool clean(const Aircraft& a) {
+    if (a.has_property("fcs/flap-pos-deg") &&
+        a.property("fcs/flap-pos-deg") > clean_flaps_deg) {
+        return false;
+    }
+    return !a.gear_retracts() || a.property("gear/gear-pos-norm") <= 0.0;
 }
 
 double degrees(double radians) {
@@ -222,13 +254,21 @@ Controls Autopilot::fly() {
     // Held back, when the speed is short, to what keeps the airspeed at the
     // least it may fly at.
     const double climb_asked = climb_wanted;
-    if (best_climb_kts_) {
+    if (best_climb_kts_ && clean(a_)) {
         double least_kts = *best_climb_kts_;
         if (modes_.airspeed_kts && *modes_.airspeed_kts < least_kts) {
             least_kts = *modes_.airspeed_kts -
                         std::min(least_kts - *modes_.airspeed_kts, below_asked_kts);
         }
         const double kts = a_.property("velocities/vc-kts");
+        // A turn may spend its allowance of speed (see the bank limit below),
+        // and has it until the speed is back.
+        if (std::abs(bank_command_deg_) >= banked_deg) {
+            turn_allowance_kts_ = turn_may_spend_kts;
+        } else if (kts >= least_kts) {
+            turn_allowance_kts_ = 0.0;
+        }
+        least_kts -= turn_allowance_kts_;
         const double over_kts = kts - least_kts;
         const double moved_kts = kts - last_kts_;
         last_kts_ = kts;
