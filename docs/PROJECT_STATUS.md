@@ -298,6 +298,48 @@ POSIX has no sharing modes. A reader gives up only if every fetcher had
 finished before it last looked for the file, so a fetcher finishing between
 the look and the count cannot fail it spuriously.
 
+### The model never drives a control surface, 2026-09-25 — item done
+
+**What is missing first.** Nothing of the item. The check is on the copilot's
+own code: what the programs do with a plan once it is made is theirs, and
+they hand it to the navigator.
+
+**What works.** `cmake/Copilot.cmake` refuses the configure for any line of
+code in `src/copilot/` that:
+- names from `sim::` anything but a plan, its parts, a runway and the
+  autopilot's modes (`FlightPlan`, `Waypoint`, `Runway`, `AutopilotModes` and
+  the plan's functions);
+- names a control, or anything that holds, sets or applies one, however it
+  is qualified: `Controls`, `Aircraft`, `Controller`, `Autopilot`, and the
+  rest of its list;
+- opens the simulation's namespace, brings any namespace in, or renames one,
+  any of which would hide what is named;
+- includes a header of `sim/` other than the plan's, the runway's and the
+  modes'.
+Comments and string literals are not code, and are passed over. The check
+reports the file, the line and why.
+
+**Verified.**
+- `every_way_the_copilot_could_reach_a_control_fails_the_configure` walks 118
+  cases, and asserts the count:
+  - every forbidden name, qualified and bare;
+  - every class, struct and enum the simulation's headers declare that is not
+    allowed, found from the headers themselves;
+  - every other header of `sim/`, included;
+  - seven ways of hiding a namespace;
+  - every source extension;
+  - a violation after block comments, after a string holding `//`, and in a
+    subdirectory.
+- `names_that_only_look_like_controls_are_allowed_in_the_copilot` holds the
+  lines that must pass: names in comments and strings, the allowed names, and
+  longer words holding a forbidden one.
+- The real `src/copilot/` passes at every configure.
+
+**Seen to fail**, each put back: with the allow-list switched off, the
+simulation's other names were accepted; with comments kept, the near misses
+were refused; with `using namespace` allowed, it was accepted.
+
+
 ### Words to a flight plan, 2026-09-25 — item in progress
 
 **What is missing first.**
