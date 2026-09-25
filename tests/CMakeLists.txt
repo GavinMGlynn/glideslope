@@ -183,6 +183,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_single_byte_change_to_a_state_packet_is_read_or_refused
     a_state_packet_refuses_a_nan_and_an_infinity_in_every_field
     a_state_packet_carries_the_clients_own_motion
+    a_state_packet_carries_the_controls_of_the_aircraft_its_client_watches
     a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_not_know
     a_state_packet_with_a_controller_that_is_not_one_is_refused
     the_transport_document_and_the_code_agree_about_the_state_packet

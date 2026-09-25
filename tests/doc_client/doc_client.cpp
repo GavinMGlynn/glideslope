@@ -564,6 +564,14 @@ std::optional<StateUpdate> read_state(std::span<const std::uint8_t> pt) {
         for (int j = 0; j < 3; ++j) static_cast<void>(r.f64());   // position
         for (int j = 0; j < 10; ++j) static_cast<void>(r.f32());  // attitude, velocity, rates
     }
+    // Added when TRANSPORT.md added it (2026-09-25): the controls of the
+    // aircraft this client watches, after a flag. It watches none.
+    const std::uint8_t has_watched = r.u8();
+    if (has_watched > 0x01) r.fail();
+    if (has_watched == 0x01) {
+        static_cast<void>(r.u8());                                // which aircraft
+        for (int j = 0; j < 6; ++j) static_cast<void>(r.u16());   // six controls
+    }
     if (!r.complete()) return std::nullopt;
     return u;
 }

@@ -205,10 +205,10 @@ must not trust a length it has not checked.
 
 ## Reliable messages
 
-Six things must each arrive, exactly once, in the order they were sent: the
+Seven things must each arrive, exactly once, in the order they were sent: the
 lobby, the session, the weather, an aircraft's definition, the terrain
-dataset and a controller swap. They go as **seven kinds of message**, because
-the weather is two of them. They ride the reliable layer below,
+dataset, a controller swap and which aircraft a client is watching. They go
+as **eight kinds of message**, because the weather is two of them. They ride the reliable layer below,
 which numbers them and repeats them until they are acknowledged.
 
 **An acknowledgement of a message that was never sent is not believed.** That
@@ -244,6 +244,7 @@ is that kind's fields in the order given here.
 | `05` | `TERRAIN_DATASET` |
 | `06` | `CONTROLLER_SWAP` |
 | `07` | `WEATHER_ALOFT` |
+| `08` | `WATCH` |
 
 A kind this version does not know is not a message, and is refused rather
 than skipped.
@@ -395,13 +396,26 @@ not yet all it flies.
 | `u8` | the `CONTROLLER` it is going to |
 | `f64` | when it takes effect, on the simulation's clock |
 
+### `WATCH`
+
+**Which aircraft a client is riding along in**, sent by a client: the
+server's number for it, or `FF` for none. It changes only what that client is
+told - its own state updates carry the watched aircraft's controls (below).
+Any number reads; one that is not flying is told nothing. A client may watch
+any aircraft, its own and other players' among them.
+
+| written as | field |
+| --- | --- |
+| `u8` | `08`, the kind |
+| `u8` | the aircraft's number, as a state update gives it, or `FF` for none |
+
 ### What a reader must refuse
 
 A count larger than the limit above is refused rather than trimmed: a sender
 asking for more than this protocol allows is not one to guess at. A message
 with anything left over after its last field is refused, so that nothing can
 be hidden behind one. A message that has been cut short is refused. A slot
-index of 4 or more is refused, because a session has at most four. The
+index of 4 or more in a `LOBBY` is refused, because a session has at most four. The
 turbulence severity byte must be `00` when the flag before it says there is
 none, because a byte nobody reads is a byte that can carry anything. **An
 `f64` holding a NaN or an infinity is refused**, in any field of any message,
@@ -578,6 +592,25 @@ prediction can be put right (see "Predicting your own aircraft" below):
 A flag other than `00` or `01`, or a NaN or infinity in any of the thirteen
 numbers, makes the packet unreadable.
 
+**Last, the controls of the aircraft this client is watching** (`WATCH`),
+after a flag of their own. Each is a 16-bit fraction, as inputs are, of -1 to
+1 or 0 to 1; there is no room in a full packet for every aircraft's, so a
+client is told of the one it watches.
+
+| written as | field |
+| --- | --- |
+| `u8` | `01` if the controls follow, `00` if this client watches nothing |
+| `u8` | the watched aircraft's number |
+| `i16` | the aileron, right positive, -1 to 1 |
+| `i16` | the elevator, back positive, -1 to 1 |
+| `i16` | the rudder, right positive, -1 to 1 |
+| `i16` | the first engine's throttle, 0 to 1 |
+| `i16` | the flaps, 0 to 1 |
+| `i16` | the gear, down at 1 - or `-32768` where it does not retract |
+
+A flag other than `00` or `01`, or `-32768` in any control but the gear,
+makes the packet unreadable.
+
 **Two of the fields are meant for one client and not for the others**, which
 is why a state update is sealed to each connection separately rather than
 built once and sent to all: the input sequence and the index of this client's
@@ -592,7 +625,8 @@ the server's to hand out.
 
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
-full, with the client's own motion, is 1,100 bytes, and 1,130 with the
+full, with the client's own motion and a watched aircraft's controls, is
+1,114 bytes, and 1,144 with the
 envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 
@@ -699,8 +733,8 @@ startup.
 
 ## What is not here yet
 
-- **Five of the seven reliable messages.** `AIRCRAFT` and `CONTROLLER_SWAP`
-  travel, inside `RELIABLE`. The lobby, the session, the weather and the
+- **Five of the eight reliable messages.** `AIRCRAFT`, `CONTROLLER_SWAP` and
+  `WATCH` travel, inside `RELIABLE`. The lobby, the session, the weather and the
   terrain dataset are defined and encoded, and nothing sends them yet.
 - **Any check on what a client sends.** A client's inputs reach its aircraft
   with no range check and no rate limit: a value outside -1 to 1 cannot be

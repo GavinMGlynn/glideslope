@@ -492,6 +492,9 @@ struct Connection {
     // another aircraft.
     glideslope::net::Reliable reliable;
     std::map<std::uint8_t, std::pair<std::string, std::string>> introduced;
+    // **The aircraft this client is watching** (`WATCH`), whose controls go
+    // in its own state updates, or `no_aircraft`.
+    std::uint8_t watching = glideslope::net::no_aircraft;
 };
 
 // **How often the server says where everybody is: 25 times for every second
@@ -941,6 +944,30 @@ public:
             out.push_back({a.index, a.catalogue_id, a.model});
         }
         return out;
+    }
+
+    // **Where the controls of the aircraft numbered `index` are**, as its
+    // flight model has them, for a client riding along in it; nothing if
+    // there is no such aircraft.
+    std::optional<glideslope::net::Watched> controls_of(std::uint8_t index) const {
+        for (const Aircraft& a : flown_) {
+            if (a.index != index) {
+                continue;
+            }
+            const glideslope::sim::Aircraft& m = *a.aircraft;
+            glideslope::net::Watched w;
+            w.aircraft = index;
+            w.aileron = m.property("fcs/aileron-cmd-norm");
+            w.elevator = -m.property("fcs/elevator-cmd-norm");
+            w.rudder = m.property("fcs/rudder-cmd-norm");
+            w.throttle = m.property("fcs/throttle-cmd-norm[0]");
+            w.flaps = m.property("fcs/flap-cmd-norm");
+            if (m.has_property("gear/gear-cmd-norm")) {
+                w.gear = m.property("gear/gear-cmd-norm");
+            }
+            return w;
+        }
+        return std::nullopt;
     }
 
     // **The motion of the aircraft numbered `index`**, for its client's
@@ -1409,6 +1436,14 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             // swap for an aircraft not its own, is acknowledged and let go:
             // a client flies its own aircraft and no other.
             for (const std::vector<std::uint8_t>& message : c.reliable.received(inside.subspan(1))) {
+                // Which aircraft it rides along in: any, or none. It changes
+                // only what this client is told.
+                glideslope::net::Watch watch;
+                if (glideslope::net::read(
+                        std::span<const std::uint8_t>(message.data(), message.size()), watch)) {
+                    c.watching = watch.aircraft;
+                    continue;
+                }
                 glideslope::net::ControllerSwap swap;
                 if (fleet != nullptr && c.aircraft != glideslope::net::no_aircraft &&
                     glideslope::net::read(
@@ -1708,6 +1743,10 @@ int run(const Options& o) {
                 packet.yours = c.aircraft != glideslope::net::no_aircraft
                                    ? fleet->motion_of(c.aircraft)
                                    : std::nullopt;
+                // And the watched aircraft's controls, if it watches one.
+                packet.watched = c.watching != glideslope::net::no_aircraft
+                                     ? fleet->controls_of(c.watching)
+                                     : std::nullopt;
                 const auto said = glideslope::net::write_state(packet);
                 const auto to = glideslope::platform::address_of(address);
                 // What must arrive goes first, so that an aircraft is

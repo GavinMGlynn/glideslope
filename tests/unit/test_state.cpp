@@ -317,7 +317,8 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_clients_own_motion) {
     std::size_t refused = 0;
     for (int flag = 2; flag < 256; ++flag) {
         auto bytes = *without;
-        bytes[glideslope::net::state_bytes(3) - 1] = static_cast<std::uint8_t>(flag);
+        // The own motion's flag, before the watched controls' (which is last).
+        bytes[glideslope::net::state_bytes(3) - 2] = static_cast<std::uint8_t>(flag);
         if (!read_state(all_of(bytes))) {
             ++refused;
         }
@@ -327,6 +328,71 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_clients_own_motion) {
     check(glideslope::net::state_bytes(20, true) <= 1218,
           "a full packet with the client's motion fits a datagram: " +
               std::to_string(glideslope::net::state_bytes(20, true)) + " bytes");
+}
+
+// **A state packet carries the controls of the aircraft its client watches**,
+// and reads them back as they went, to the wire's 16-bit fraction: gear that
+// retracts and gear that does not, the flag walked, and the value that means
+// "fixed" refused in every control but the gear.
+GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_watches) {
+    StatePacket s = a_packet(3);
+    glideslope::net::Watched w;
+    w.aircraft = 5;
+    w.aileron = 0.25;
+    w.elevator = -0.5;
+    w.rudder = 1.0;
+    w.throttle = 0.75;
+    w.flaps = 0.33;
+    w.gear = 1.0;
+    s.watched = w;
+    const auto with = write_state(s);
+    check(with.has_value() && with->size() == glideslope::net::state_bytes(3, false, true),
+          "a packet with the watched controls is " +
+              std::to_string(glideslope::net::state_bytes(3, false, true)) + " bytes");
+    const auto back = read_state(all_of(*with));
+    check(back.has_value() && back->watched && back->watched->aircraft == 5,
+          "and is read back, the aircraft with it");
+    const auto near = [](double a, double b) { return std::abs(a - b) <= 1.0 / 32767.0; };
+    const glideslope::net::Watched& got = *back->watched;
+    check(near(got.aileron, 0.25) && near(got.elevator, -0.5) && near(got.rudder, 1.0) &&
+              near(got.throttle, 0.75) && near(got.flaps, 0.33) && got.gear &&
+              near(*got.gear, 1.0),
+          "every control to the wire's fraction");
+
+    // Gear that does not retract is said to, and read back as none.
+    s.watched->gear.reset();
+    const auto fixed = read_state(all_of(*write_state(s)));
+    check(fixed && fixed->watched && !fixed->watched->gear, "fixed gear is read back as none");
+
+    // The flag: nought and one, and nothing else.
+    const auto without = write_state(a_packet(3));
+    std::size_t refused = 0;
+    for (int flag = 2; flag < 256; ++flag) {
+        auto bytes = *without;
+        bytes[glideslope::net::state_bytes(3) - 1] = static_cast<std::uint8_t>(flag);
+        if (!read_state(all_of(bytes))) {
+            ++refused;
+        }
+    }
+    check(refused == 254, "every watched flag but nought and one is refused: " +
+                              std::to_string(refused) + " of 254");
+
+    // "Fixed" in any of the five controls that are not the gear.
+    const std::size_t first = glideslope::net::state_bytes(3, false, true) - 12;
+    std::size_t controls = 0;
+    for (std::size_t i = 0; i < 5; ++i) {
+        auto bytes = *with;
+        bytes[first + 2 * i] = 0x00;
+        bytes[first + 2 * i + 1] = 0x80; // -32768, little-endian
+        check(!read_state(all_of(bytes)), "\"fixed\" as control " + std::to_string(i) +
+                                              " is refused");
+        ++controls;
+    }
+    check(controls == 5, "all five controls were tried");
+    check(glideslope::net::state_bytes(20, true, true) + glideslope::net::envelope_size +
+                  glideslope::net::sealing_overhead <=
+              glideslope::platform::largest_datagram,
+          "a full packet with both fits a datagram");
 }
 
 // **A controller this version does not know is not a packet.** All 256 bytes
@@ -430,10 +496,10 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_state_packet
         return digits;
     };
     const std::size_t full =
-        glideslope::net::state_bytes(glideslope::net::most_aircraft_in_a_state, true);
+        glideslope::net::state_bytes(glideslope::net::most_aircraft_in_a_state, true, true);
     const std::size_t sealed =
         glideslope::net::envelope_size + glideslope::net::sealing_overhead + full;
-    check(says("is " + with_commas(full) + " bytes, and " + with_commas(sealed) + " with the"),
+    check(says(with_commas(full) + " bytes, and " + with_commas(sealed) + " with the"),
           "the document says a full packet is " + with_commas(full) + " bytes, and " +
               with_commas(sealed) + " sealed");
     const std::vector<std::string> own = {

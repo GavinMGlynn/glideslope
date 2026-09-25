@@ -385,8 +385,8 @@ GLIDESLOPE_TEST(every_single_byte_change_to_every_message_is_read_or_refused) {
 }
 
 // **The kinds and the controllers this version knows are exactly these.** A
-// seventh kind or a fourth controller would be one `docs/TRANSPORT.md` does
-// not describe.
+// ninth kind or a fourth controller would be one `docs/TRANSPORT.md` does not
+// describe.
 GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_names) {
     std::size_t kinds = 0;
     for (int v = 0; v < 256; ++v) {
@@ -394,7 +394,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++kinds;
         }
     }
-    check(kinds == 7, "seven kinds are known, not " + std::to_string(kinds));
+    check(kinds == 8, "eight kinds are known, not " + std::to_string(kinds));
 
     std::size_t controllers = 0;
     for (int v = 0; v < 256; ++v) {
@@ -413,7 +413,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++not_a_kind;
         }
     }
-    check(not_a_kind == 249, "two hundred and forty-nine first bytes are no kind, not " +
+    check(not_a_kind == 248, "two hundred and forty-eight first bytes are no kind, not " +
                                  std::to_string(not_a_kind));
     check(!glideslope::net::kind_of({}).has_value(), "and an empty body is none");
 }
@@ -545,7 +545,8 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
         {Message::aircraft, "AIRCRAFT"},
         {Message::terrain_dataset, "TERRAIN_DATASET"},
         {Message::controller_swap, "CONTROLLER_SWAP"},
-        {Message::weather_aloft, "WEATHER_ALOFT"}};
+        {Message::weather_aloft, "WEATHER_ALOFT"},
+        {Message::watch, "WATCH"}};
     std::size_t walked = 0;
     for (const auto& [kind, name] : kinds) {
         char buf[8];
@@ -556,7 +557,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
               name + " is a kind the code knows");
         ++walked;
     }
-    check(walked == 7, "every kind was walked");
+    check(walked == 8, "every kind was walked");
 
     // Every controller, by value and by name.
     const std::vector<std::pair<Controller, std::string>> controllers{
@@ -721,7 +722,8 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
         {Message::aircraft, "AIRCRAFT"},
         {Message::terrain_dataset, "TERRAIN_DATASET"},
         {Message::controller_swap, "CONTROLLER_SWAP"},
-        {Message::weather_aloft, "WEATHER_ALOFT"}};
+        {Message::weather_aloft, "WEATHER_ALOFT"},
+        {Message::watch, "WATCH"}};
     std::size_t named = 0;
     for (const auto& [kind, name] : kinds) {
         check(glideslope::net::known_message(static_cast<std::uint8_t>(kind)),
@@ -739,7 +741,7 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
     }
     check(named == known, "every kind the code knows was looked for: " +
                               std::to_string(named) + " of " + std::to_string(known));
-    check(named == 7, "seven kinds, not " + std::to_string(named));
+    check(named == 8, "eight kinds, not " + std::to_string(named));
 
     // **It says what it does not defend.** A threats document that only
     // listed defences would be the more dangerous for it.
