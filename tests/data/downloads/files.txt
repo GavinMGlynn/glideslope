@@ -5,3 +5,4 @@ Copernicus_DSM_COG_10_S34_00_E151_00_WBM.tif 158882 bc3da27a02dfd81e8572bf6bf997
 egm2008-5.zip 16773259 408f05e0c04a9f2e17b9ea2d27123f936e9dea60128bb3411a272f8ddbe318dd https://sourceforge.net/projects/geographiclib/files/geoids-distrib/egm2008-5.zip/download
 copernicus-dem-30m-tileList.txt 1110900 10604e3052c98a09e9216f1a8f0a555a04148419757575f783d4937fd44316dc https://copernicus-dem-30m.s3.amazonaws.com/tileList.txt
 copernicus-dem-90m-tileList.txt 1111950 e5a5efe088e70506bc1007d22006bdcb09b0ec03177b62f9652363c13f49ed97 https://copernicus-dem-90m.s3.amazonaws.com/tileList.txt
+ourairports-runways.csv 3965993 ae9a7661f230731cb4fef3a291991cd440f8a68593f41d773092798fc6ec9a8c https://raw.githubusercontent.com/davidmegginson/ourairports-data/a46b8eb13173dc6351a7b6abaf34bd0ec9db48d0/runways.csv

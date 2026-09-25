@@ -58,6 +58,7 @@ add_executable(glideslope_tests
     unit/test_geodesy.cpp
     unit/test_ground.cpp
     unit/test_geoid.cpp
+    unit/test_runways.cpp
     unit/test_geotiff.cpp
     unit/test_inflate.cpp
     unit/test_flight.cpp
@@ -466,6 +467,8 @@ set(GLIDESLOPE_UNIT_TESTS
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
     an_orbit_and_a_take_off_are_read_from_a_plan_and_refused_where_they_are_wrong
     the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind
+    a_runways_file_gives_each_open_runway_end_with_a_place_and_a_heading
+    the_pinned_runways_file_holds_sydneys_six_runway_ends_where_they_are
     a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane
     handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase
     an_aircraft_says_its_gear_retracts_only_where_its_model_has_it

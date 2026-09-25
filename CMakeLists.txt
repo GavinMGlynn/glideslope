@@ -251,6 +251,7 @@ add_library(glideslope_world STATIC
     src/world/inflate.cpp
     src/world/json.cpp
     src/world/metar.cpp
+    src/world/runways.cpp
     src/world/terrain_mesh.cpp
     src/world/weather.cpp
     src/world/winds_aloft.cpp
