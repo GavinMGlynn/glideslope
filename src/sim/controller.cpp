@@ -42,6 +42,16 @@ void Controller::to_ai_take_off(const Runway& runway, const DepartureSpeeds& spe
     departure_.emplace(a_, runway, speeds, to_ft);
 }
 
+void Controller::to_ai_flying(FlightPlan plan, const DepartureSpeeds& speeds) {
+    if (!plan.takeoff) {
+        to_ai(std::move(plan));
+        return;
+    }
+    const FlightPlan::TakeOff takeoff = *plan.takeoff;
+    to_ai_take_off(takeoff.runway, speeds, takeoff.to_ft);
+    navigator_.emplace(a_, std::move(plan));
+}
+
 void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
                                 double glidepath_deg) {
     to_ai();
@@ -71,6 +81,9 @@ Controls Controller::fly() {
             }
             departure_.reset();
             autopilot_.emplace(a_, applied_);
+            if (navigator_) {
+                navigator_->begin_here();
+            }
         }
         if (lander_) {
             if (lander_->stage() != Lander::Stage::stopped) {

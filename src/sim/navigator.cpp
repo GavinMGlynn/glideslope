@@ -21,6 +21,12 @@ constexpr double most_intercept_deg = 30.0;
 // The drift is averaged over five seconds, and measured only moving.
 constexpr double drift_average_s = 5.0;
 constexpr double least_speed_fps = 10.0;
+// Towards an orbit's circle: 90 degrees for each kilometre off it, 45 at most;
+// and along the tangent where the aircraft will be this long ahead, which the
+// heading it is asked for takes about that long to become.
+constexpr double orbit_intercept_per_metre = 90.0 / 1000.0;
+constexpr double most_orbit_intercept_deg = 45.0;
+constexpr double orbit_lead_s = 5.0;
 
 double number(const std::string& word, int line, const char* what, double low,
               double high) {
@@ -43,6 +49,8 @@ double normalised(double degrees) {
 
 FlightPlan parse_flight_plan(std::string_view text) {
     FlightPlan plan;
+    std::optional<Runway> runway;
+    std::optional<double> takeoff_to_ft;
     std::istringstream in{std::string(text)};
     int line_number = 0;
     for (std::string line; std::getline(in, line);) {
@@ -91,6 +99,45 @@ FlightPlan parse_flight_plan(std::string_view text) {
                 number(w[4], line_number, "the altitude", -1500.0, 100000.0);
             p.airspeed_kts = number(w[5], line_number, "the airspeed", 1.0, 1000.0);
             plan.waypoints.push_back(p);
+        } else if (w[0] == "orbit") {
+            if (w.size() != 9 || (w[8] != "left" && w[8] != "right")) {
+                throw wrong("orbit NAME LATITUDE LONGITUDE RADIUS_M ALTITUDE_FT AIRSPEED_KT "
+                            "TURNS left|right");
+            }
+            Waypoint p;
+            p.name = w[1];
+            p.latitude_deg = number(w[2], line_number, "the latitude", -90.0, 90.0);
+            p.longitude_deg = number(w[3], line_number, "the longitude", -180.0, 180.0);
+            Waypoint::Orbit o;
+            o.radius_m = number(w[4], line_number, "the radius", 200.0, 50000.0);
+            p.altitude_ft =
+                number(w[5], line_number, "the altitude", -1500.0, 100000.0);
+            p.airspeed_kts = number(w[6], line_number, "the airspeed", 1.0, 1000.0);
+            const double turns = number(w[7], line_number, "the turns", 0.0, 1000.0);
+            if (turns != std::floor(turns)) {
+                throw wrong("the turns must be whole, not \"" + w[7] + "\"");
+            }
+            o.turns = static_cast<int>(turns);
+            o.right = w[8] == "right";
+            p.orbit = o;
+            plan.waypoints.push_back(p);
+        } else if (w[0] == "runway") {
+            if (w.size() != 7) {
+                throw wrong("runway NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M");
+            }
+            Runway r;
+            r.name = w[1];
+            r.threshold_lat_deg = number(w[2], line_number, "the latitude", -90.0, 90.0);
+            r.threshold_lon_deg = number(w[3], line_number, "the longitude", -180.0, 180.0);
+            r.elevation_ft = number(w[4], line_number, "the elevation", -1500.0, 20000.0);
+            r.heading_deg = number(w[5], line_number, "the heading", 0.0, 360.0);
+            r.length_m = number(w[6], line_number, "the length", 100.0, 10000.0);
+            runway = r;
+        } else if (w[0] == "takeoff") {
+            if (w.size() != 2) {
+                throw wrong("takeoff HEIGHT_FT");
+            }
+            takeoff_to_ft = number(w[1], line_number, "the height", 100.0, 10000.0);
         } else {
             throw wrong("no command \"" + w[0] + "\"");
         }
@@ -100,6 +147,16 @@ FlightPlan parse_flight_plan(std::string_view text) {
     }
     if (plan.waypoints.empty()) {
         throw FlightPlanError("the plan has no waypoints");
+    }
+    if (runway.has_value() != takeoff_to_ft.has_value()) {
+        throw FlightPlanError(runway ? "the plan has a runway and no take-off from it"
+                                     : "the plan takes off with no runway to take off from");
+    }
+    if (runway) {
+        if (plan.start) {
+            throw FlightPlanError("the plan both starts in the air and takes off");
+        }
+        plan.takeoff = FlightPlan::TakeOff{*runway, *takeoff_to_ft};
     }
     return plan;
 }
@@ -133,6 +190,12 @@ Navigator::Navigator(const Aircraft& aircraft, FlightPlan plan)
     last_track_deg_ = a_.property("attitude/psi-deg");
 }
 
+void Navigator::begin_here() {
+    from_latitude_deg_ = a_.property("position/lat-geod-deg");
+    from_longitude_deg_ = a_.property("position/long-gc-deg");
+    last_track_deg_ = a_.property("attitude/psi-deg");
+}
+
 AutopilotModes Navigator::steer() {
     const double lat = a_.property("position/lat-geod-deg");
     const double lon = a_.property("position/long-gc-deg");
@@ -152,6 +215,48 @@ AutopilotModes Navigator::steer() {
     double off_m = 0.0;
     while (!finished()) {
         const Waypoint& to = plan_.waypoints[next_];
+        if (to.orbit) {
+            const double from_centre_m =
+                distance_m(to.latitude_deg, to.longitude_deg, lat, lon);
+            const double around =
+                bearing_deg(to.latitude_deg, to.longitude_deg, lat, lon);
+            if (!circling_ && from_centre_m <= to.orbit->radius_m) {
+                circling_ = true;
+                around_deg_ = around;
+                turned_deg_ = 0.0;
+            }
+            if (circling_) {
+                // How far round, the way it is flown.
+                const double moved = std::remainder(around - around_deg_, 360.0);
+                turned_deg_ += to.orbit->right ? moved : -moved;
+                around_deg_ = around;
+                if (to.orbit->turns > 0 &&
+                    turned_deg_ >= 360.0 * static_cast<double>(to.orbit->turns)) {
+                    // Round as often as asked: on from here.
+                    circling_ = false;
+                    turned_deg_ = 0.0;
+                    from_latitude_deg_ = lat;
+                    from_longitude_deg_ = lon;
+                    ++next_;
+                    continue;
+                }
+                // Along the tangent a few seconds on, turned in towards the
+                // circle - to the right of the tangent, flying round to the
+                // right - or out.
+                const double speed_mps = std::hypot(north, east) * 0.3048;
+                const double lead_deg =
+                    speed_mps * orbit_lead_s / to.orbit->radius_m / radians;
+                const double in = std::clamp(
+                    orbit_intercept_per_metre * (from_centre_m - to.orbit->radius_m),
+                    -most_orbit_intercept_deg, most_orbit_intercept_deg);
+                track = to.orbit->right ? around + lead_deg + 90.0 + in
+                                        : around - lead_deg - 90.0 - in;
+                off_m = 0.0;
+                modes.altitude_ft = to.altitude_ft;
+                modes.airspeed_kts = to.airspeed_kts;
+                break;
+            }
+        }
         // The leg, and where the aircraft is along and across it.
         const double leg = distance_m(from_latitude_deg_, from_longitude_deg_,
                                       to.latitude_deg, to.longitude_deg) /

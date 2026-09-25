@@ -61,6 +61,10 @@ public:
     // that runs past its end does not fall out of the sky.
     void to_ai_take_off(const Runway& runway, const DepartureSpeeds& speeds,
                         double to_ft = 500.0);
+    // **A plan that takes off** (`takeoff` in it): the take-off, from the
+    // plan's runway to its height, and then the plan, flown from where the
+    // take-off left the aeroplane. A plan without one is `to_ai(plan)`.
+    void to_ai_flying(FlightPlan plan, const DepartureSpeeds& speeds);
     void to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
                         double glidepath_deg = 3.0);
 
