@@ -323,6 +323,10 @@ the look and the count cannot fail it spuriously.
   `runways.csv`, pinned by commit and SHA-256 (`docs/ASSETS.md`): 27,116
   open ends with a place and a heading. A plan's runway comes from here,
   never from a model's memory.
+  It is read as a DEM tile is, through `FileSource`, so that on Windows a
+  copy another process is renaming into place is still readable. That is the
+  race `a_tile_held_open_for_deletion_as_a_rename_holds_it_is_still_read_whole`
+  builds; found by the review of the Windows fix.
 - **An HTTP POST** on all three backends, and JSON written (`write_json`).
   **A POST follows no redirect**, so a key in its headers goes nowhere but
   where it was sent. libcurl drops only the Authorization it made itself on
