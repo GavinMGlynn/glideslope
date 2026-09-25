@@ -894,3 +894,67 @@ GLIDESLOPE_TEST(reported_wind_shear_is_read_and_gives_the_approach_the_models_sh
                   std::to_string(p.extra_kt));
     }
 }
+
+// **An answer that is not JSON is fetched again, and then taken for a failed
+// download.** Both services have now and then answered a 200 whose body was
+// not their JSON, and a client gave up on it. Here a stand-in for the network
+// answers with a page of HTML twice and then with a recorded report - which
+// must be read - and, again, with nothing but HTML - which must be said to be
+// a download that failed, after the three tries, and not a report that could
+// not be read. Both services, both cases, each counted.
+GLIDESLOPE_TEST(an_answer_that_is_not_json_is_fetched_again_and_then_taken_for_a_failed_download) {
+    const auto recorded = [](const char* name) {
+        std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) / "data/weather" / name,
+                         std::ios::binary);
+        const std::string text(std::istreambuf_iterator<char>(in), {});
+        return std::vector<std::uint8_t>(text.begin(), text.end());
+    };
+    const std::string html = "<html><body>Service unavailable</body></html>";
+    const auto flaky = [&](std::vector<std::uint8_t> good, int bad_first, int& calls) {
+        return glideslope::world::Fetch([&calls, bad_first, good, html](const std::string&) {
+            glideslope::platform::HttpResponse r;
+            r.status = 200;
+            ++calls;
+            r.body = calls <= bad_first ? std::vector<std::uint8_t>(html.begin(), html.end())
+                                        : good;
+            return r;
+        });
+    };
+    std::size_t cases = 0;
+
+    int calls = 0;
+    const auto metar = glideslope::world::fetch_metar(
+        "CYYZ", flaky(recorded("aviationweather-metars-2026-09-17T1600Z.json"), 2, calls));
+    check(metar.metar.station == "CYYZ" && calls == 3,
+          "the METAR read on the third try, " + std::to_string(calls) + " fetches");
+    ++cases;
+
+    calls = 0;
+    const auto aloft = glideslope::world::fetch_winds_aloft(
+        -33.95, 151.18, "2026-09-18T08:00",
+        flaky(recorded("open-meteo-sydney-2026-09-18.json"), 2, calls));
+    check(!aloft.levels.empty() && calls == 3,
+          "the forecast read on the third try, " + std::to_string(calls) + " fetches");
+    ++cases;
+
+    for (const bool is_metar : {true, false}) {
+        calls = 0;
+        const auto never = flaky({}, 100, calls);
+        try {
+            if (is_metar) {
+                (void)glideslope::world::fetch_metar("CYYZ", never);
+            } else {
+                (void)glideslope::world::fetch_winds_aloft(-33.95, 151.18, "2026-09-18T08:00", never);
+            }
+            fail("an answer that is never JSON was read");
+        } catch (const glideslope::world::DemError& e) {
+            check(std::string(e.what()).find("could not download") != std::string::npos &&
+                      std::string(e.what()).find("not JSON") != std::string::npos,
+                  std::string("it is a download that failed: ") + e.what());
+            check(calls == glideslope::world::parse_attempts,
+                  std::to_string(calls) + " fetches, one for each try");
+        }
+        ++cases;
+    }
+    check(cases == 4, "both services, read on a retry and given up on: four cases");
+}

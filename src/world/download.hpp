@@ -32,6 +32,12 @@ platform::HttpResponse
 fetch_with_retries(const Fetch& fetch, const std::string& url, int attempts = 5,
                    std::chrono::milliseconds wait = std::chrono::milliseconds(2000));
 
+// **How many times an answer that does not parse is fetched again** - each
+// through fetch_with_retries - before it is taken for a download that failed.
+inline constexpr int parse_attempts = 3;
+// And how long before the first retry, twice that before the next.
+inline constexpr std::chrono::milliseconds parse_wait{1000};
+
 // A file pinned by SHA-256, from the cache or else fetched into it. Throws
 // DemError if it cannot be had, or arrives as anything but what was pinned.
 std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
