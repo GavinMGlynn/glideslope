@@ -1374,7 +1374,7 @@ add_test(NAME a_copy_of_an_initiation_arriving_after_its_session_was_let_go_make
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_again -DPORT=47888
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_again -DPORT=47895
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_initiation_again.cmake)
 set_tests_properties(a_copy_of_an_initiation_arriving_after_its_session_was_let_go_makes_no_second_player
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1386,7 +1386,7 @@ add_test(NAME a_copy_of_an_initiation_from_another_address_arriving_first_does_n
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_elsewhere -DPORT=47889
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_elsewhere -DPORT=47897
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_initiation_elsewhere.cmake)
 set_tests_properties(a_copy_of_an_initiation_from_another_address_arriving_first_does_not_keep_its_client_out
     PROPERTIES SKIP_RETURN_CODE 77)

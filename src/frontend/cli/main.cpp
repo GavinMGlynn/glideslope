@@ -1672,7 +1672,15 @@ int again_once_let_go(glideslope::platform::UdpSocket& socket,
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
     }
-    (void)socket.send(server, initiation);
+    // **Five copies, a tenth of a second apart**, as a client whose session
+    // has gone goes on sending: the server must drop every one and say so
+    // once, where saying each filled its dashboard's log.
+    for (int copy = 0; copy < 5; ++copy) {
+        if (copy > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        (void)socket.send(server, initiation);
+    }
     std::string verdict = "the initiation again was not answered";
     const auto sent = std::chrono::steady_clock::now();
     while (since(sent) < seconds) {

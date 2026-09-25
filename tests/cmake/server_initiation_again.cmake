@@ -22,6 +22,9 @@
 # which keeps the server - stopping when everybody who joined has gone,
 # --until-empty - running past all of that however slow the machine.
 #
+# The copy is sent five times, a tenth of a second apart, as a client whose
+# session has gone goes on sending.
+#
 # **What must hold**: the server saying it dropped the copy, exactly once - not
 # only the copy unanswered, which a copy lost or a server gone would also
 # give; the silent client admitted once and let go once; one
