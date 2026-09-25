@@ -89,10 +89,10 @@ execute_process(
             --heard "${_extra}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 20 --after 2
             --predict --heard "${_predicting}" --track "${_shown}"
-            --hand-over-at 8 --take-back-at 14
+            --hand-over-at 8 --take-back-at 14 --watch-ai
     # Hears everything, and outlasts the one that predicts.
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1
-            --track "${_truth}"
+            --track "${_truth}" --watch-ai
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --players 2 --data "${DATA}" --timeout 3 --store "${_store}"
     # Last, so that what it says about what it did is what is read; and it
@@ -227,7 +227,12 @@ if(CMAKE_MATCH_2 EQUAL 0)
     message(FATAL_ERROR "none of the ${CMAKE_MATCH_1} frames drawn was carried on past the "
                         "newest update: the guessing was never tested\n${_said}")
 endif()
-execute_process(COMMAND "${CHECK}" "${_truth}" "${_shown}" 2
+# And the AI's controls, which both clients ride along to watch (`--watch-ai`):
+# each frame's within half a hundredth of the truth at that moment - the HUD
+# shows them to the hundredth, so what it would show is what was true. Shown
+# as they were when the update came instead of 100 ms behind, they were out
+# by 0.023.
+execute_process(COMMAND "${CHECK}" "${_truth}" "${_shown}" 2 0.005
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _judged)
 message(STATUS "${_judged}")
 if(NOT _rc EQUAL 0)

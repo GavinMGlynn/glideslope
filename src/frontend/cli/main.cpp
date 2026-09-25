@@ -140,6 +140,8 @@ void print_usage(std::FILE* out) {
         "                            aircraft to be handed to the AI pilot, and\n"
         "                            --take-back-at S for it back; predicting, it says\n"
         "                            how far what it showed of its own stepped then\n"
+        "                            --watch-ai rides along in an AI's aircraft: told\n"
+        "                            its controls, and with --track, writes them\n"
         "                            --dive-after S flies its own into the ground, S\n"
         "                            seconds in: full forward stick and full power\n"
         "                            --track FILE writes where every aircraft was\n"
@@ -895,6 +897,13 @@ public:
     void heard(const glideslope::net::StatePacket& state, double local_s) {
         // The session clock, at the rate it runs (net::SessionClock).
         clock_.heard(state.simulation_time_s, local_s);
+        // The watched aircraft's controls, kept by the time they were true.
+        if (state.watched) {
+            watched_[state.simulation_time_s] = *state.watched;
+            while (watched_.size() > 64) {
+                watched_.erase(watched_.begin());
+            }
+        }
         // **An update older than one already used is not used again** for
         // this client's own aircraft: the network reorders them, the newer
         // one has put it right already, and the inputs the older would have
@@ -1012,6 +1021,26 @@ public:
         rendered_s_ = local_s;
         const double now = clock_.now(local_s);
         own_frame(now, local_s);
+        // **The watched aircraft's controls, shown as it is**: 100 ms behind
+        // the clock, between the two updates either side, as its position is.
+        if (track_ && !watched_.empty()) {
+            const double at = now - glideslope::net::shown_behind_s;
+            auto after = watched_.lower_bound(at);
+            if (after != watched_.end() && after != watched_.begin()) {
+                const auto before = std::prev(after);
+                const double span = after->first - before->first;
+                const double k = span > 0.0 ? (at - before->first) / span : 0.0;
+                const auto mix = [k](double a, double b) { return a + k * (b - a); };
+                const glideslope::net::Watched& a = before->second;
+                const glideslope::net::Watched& b = after->second;
+                *track_ << "showncontrols " << at << ' ' << static_cast<unsigned>(a.aircraft)
+                        << ' ' << mix(a.aileron, b.aileron) << ' '
+                        << mix(a.elevator, b.elevator) << ' ' << mix(a.rudder, b.rudder)
+                        << ' ' << mix(a.throttle, b.throttle) << ' '
+                        << mix(a.flaps, b.flaps) << '\n';
+                ++controls_shown_;
+            }
+        }
         for (auto& [index, shown] : others_) {
             if (!shown.known()) continue;
             const glideslope::net::RemoteState got = shown.at(now);
@@ -1182,6 +1211,8 @@ private:
     std::ostream* track_ = nullptr;
     std::size_t shown_ = 0;
     std::size_t extrapolated_ = 0;
+    std::map<double, glideslope::net::Watched> watched_;
+    std::size_t controls_shown_ = 0;
     // Handing over and taking back (`handed`), and what is shown of its own.
     static constexpr double blend_s = 0.5;
     bool ai_flying_ = false;
@@ -1218,7 +1249,7 @@ int stay(glideslope::platform::UdpSocket& socket,
          std::span<const std::uint8_t> initiation_again, bool fly, const std::string& me,
          const std::string& heard_file, int until_flying_again,
          bool predict, const std::string& track_file, double hand_over_at_s,
-         double take_back_at_s, double dive_after_s) {
+         double take_back_at_s, double dive_after_s, bool watch_ai) {
     // A client that predicts flies a pilot of its own (Predicting::pilot).
     std::optional<Predicting> predicting;
     if (predict) {
@@ -1230,6 +1261,7 @@ int stay(glideslope::platform::UdpSocket& socket,
     glideslope::net::Reliable reliable;
     std::uint8_t mine = glideslope::net::no_aircraft;
     bool asked_to_hand_over = false;
+    bool asked_to_watch = false;
     bool asked_to_take_back = false;
     // **Stay until what is waited for is heard** (`--until-flying-again N`):
     // a test waiting for a collision and the flying again after it waits for
@@ -1436,6 +1468,30 @@ int stay(glideslope::platform::UdpSocket& socket,
                               << static_cast<unsigned>(a.index) << ' ' << a.x_m << ' '
                               << a.y_m << ' ' << a.z_m << '\n';
                 }
+                // The watched aircraft's controls, as this update gave them.
+                if (state->watched) {
+                    const glideslope::net::Watched& w = *state->watched;
+                    track_out << "watched " << state->simulation_time_s << ' '
+                              << static_cast<unsigned>(w.aircraft) << ' ' << w.aileron << ' '
+                              << w.elevator << ' ' << w.rudder << ' ' << w.throttle << ' '
+                              << w.flaps << '\n';
+                }
+            }
+            // **Riding along** (`--watch-ai`): once it knows the aircraft,
+            // it asks to watch the lowest-numbered one an AI flies.
+            if (watch_ai && !asked_to_watch && state->your_aircraft != glideslope::net::no_aircraft) {
+                for (const glideslope::net::AircraftState& a : state->aircraft) {
+                    if (a.index != state->your_aircraft &&
+                        a.controller == glideslope::net::Controller::ai) {
+                        glideslope::net::Watch watch;
+                        watch.aircraft = a.index;
+                        const std::vector<std::uint8_t> body = glideslope::net::write(watch);
+                        (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                        asked_to_watch = true;
+                        say_heard("watching aircraft " + std::to_string(a.index));
+                        break;
+                    }
+                }
             }
             applied = state->last_input_applied;
             mine = state->your_aircraft;
@@ -1560,7 +1616,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                const std::string& heard_file = "", int until_flying_again = 0,
                const std::string& ready_file = "", bool predict = false,
                const std::string& track_file = "", double hand_over_at_s = -1.0,
-               double take_back_at_s = -1.0, double dive_after_s = -1.0) {
+               double take_back_at_s = -1.0, double dive_after_s = -1.0,
+               bool watch_ai = false) {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived. With `--after-ready`
@@ -1695,7 +1752,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                       : std::span<const std::uint8_t>(),
                                 fly, mine.publik.text().substr(0, 8), heard_file,
                                 until_flying_again, predict, track_file, hand_over_at_s,
-                                take_back_at_s, dive_after_s);
+                                take_back_at_s, dive_after_s, watch_ai);
                 }
             }
         }
@@ -1804,7 +1861,7 @@ static int run_program(int argc, char** argv) {
                 server->host + ":" + std::to_string(server->port);
             return connect_to(where, server->key_hex, stay_s, false, fly, 0.0);
         }
-        if (args.size() >= 3 && args.size() <= 26 && args[0] == "connect") {
+        if (args.size() >= 3 && args.size() <= 27 && args[0] == "connect") {
             double stay_s = 0.0;
             bool again = false;
             bool fly = false;
@@ -1817,6 +1874,7 @@ static int run_program(int argc, char** argv) {
             double hand_over_at_s = -1.0;
             double take_back_at_s = -1.0;
             double dive_after_s = -1.0;
+            bool watch_ai = false;
             std::string track_file;
             for (std::size_t i = 3; i < args.size(); ++i) {
                 if (args[i] == "--track" && i + 1 < args.size()) {
@@ -1831,6 +1889,10 @@ static int run_program(int argc, char** argv) {
                 if (args[i] == "--hand-over-at" && i + 1 < args.size()) {
                     hand_over_at_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
                     ++i;
+                    continue;
+                }
+                if (args[i] == "--watch-ai") {
+                    watch_ai = true;
                     continue;
                 }
                 if (args[i] == "--dive-after" && i + 1 < args.size()) {
@@ -1897,7 +1959,7 @@ static int run_program(int argc, char** argv) {
             return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
                               again, fly, after_s, secret_hex, heard_file,
                               until_flying_again, ready_file, predict, track_file,
-                              hand_over_at_s, take_back_at_s, dive_after_s);
+                              hand_over_at_s, take_back_at_s, dive_after_s, watch_ai);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();
