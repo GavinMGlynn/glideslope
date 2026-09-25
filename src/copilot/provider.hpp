@@ -64,8 +64,12 @@ public:
                                const std::vector<Turn>& conversation) = 0;
 };
 
-// The providers, each with the model it asks by default: a dated one, so that
-// the same request is answered by the same model from one year to the next.
+// The providers, each with the model it asks by default. OpenAI's is a dated
+// snapshot, so that the same request is answered by the same model from one
+// year to the next. Anthropic's is the model's name as Anthropic gives it,
+// with no snapshot yet chosen: none can be until there is a key to list them
+// with. Either way a recording holds the model asked, in the request it must
+// match.
 inline constexpr const char* default_openai_model = "gpt-5.5-2026-04-23";
 inline constexpr const char* default_anthropic_model = "claude-sonnet-5";
 

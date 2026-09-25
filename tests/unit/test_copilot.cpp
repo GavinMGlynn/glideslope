@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -175,16 +176,18 @@ GLIDESLOPE_TEST(each_provider_is_asked_as_its_api_has_it_and_its_answer_read) {
         auto refusing = glideslope::copilot::make_provider(
             name, "the-key", "a-model",
             stand_in(refused_sent,
-                     {answered(401, "{\"error\":{\"message\":\"Incorrect API key provided\"}}")}));
+                     {answered(401, "{\"error\":{\"message\":\"Incorrect API key provided: "
+                                    "the-key\"}}")}));
         try {
             (void)refusing->answer("i", {{"user", "u"}});
             fail(name + ": an error status was taken for an answer");
         } catch (const ProviderError& e) {
             const std::string why = e.what();
+            // The service echoed the key; the error says what it said, less that.
             check(why.find("401") != std::string::npos &&
-                      why.find("Incorrect API key provided") != std::string::npos &&
+                      why.find("Incorrect API key provided: [the key]") != std::string::npos &&
                       why.find("the-key") == std::string::npos,
-                  name + ": the error said as the service said it: " + why);
+                  name + ": the error said as the service said it, less the key: " + why);
         }
         check(glideslope::world::parse_json(refused_sent[0].body).at("model").string() == "a-model",
               name + ": the model asked for is the one asked");
@@ -289,7 +292,7 @@ GLIDESLOPE_TEST(a_plan_from_words_is_checked_and_refused_back_to_the_model_until
          "waypoint A -33.92 151.19 3000 50\n",
          "outside 62 to 126 kt"},
         {"aircraft c172p\nrunway 34L -33.964298 151.181000 14 348 3962\ntakeoff 800\n"
-         "orbit A -33.92 151.19 1500 3000 140 1 left\n",
+         "orbit A -33.92 151.19 3000 3000 140 1 left\n",
          "outside 62 to 126 kt"},
         {"aircraft c172p\nrunway 34L -33.964298 151.181000 14 348 3962\ntakeoff 800\n"
          "waypoint MELBOURNE -37.8136 144.9631 3000 100\n",
@@ -324,11 +327,43 @@ GLIDESLOPE_TEST(a_plan_from_words_is_checked_and_refused_back_to_the_model_until
     check(first.attempts == 1 && first.text == good_plan, "a fenced plan taken, less its fence");
     const std::string& asked = fenced.conversations[0][0].text;
     for (const char* part : {"The pilot says: orbit the CBD", "c172p", "62 kt on the approach",
-                             "from 62 to 126 kt", "It stands at YSSY",
+                             "from 62 to 126 kt", "An orbit's radius must be at least",
+                             "It stands at YSSY",
                              "runway 16R -33.929401 151.171997 8 168 3962",
                              "runway 34L -33.964298 151.181000 14 348 3962"}) {
         check(asked.find(part) != std::string::npos,
               std::string("the request says \"") + part + "\":\n" + asked);
+    }
+
+    // **A runway end with no elevation** is not offered, and a plan taking off
+    // from it is refused: its heights could not be checked against it.
+    glideslope::copilot::PlanRequest with_unknown = sydney("take off");
+    glideslope::world::RunwayEnd unknown = with_unknown.runways[0];
+    unknown.ident = "07";
+    unknown.latitude_deg = -33.943699;
+    unknown.longitude_deg = 151.164001;
+    unknown.heading_deg = 74;
+    unknown.elevation_ft = std::numeric_limits<double>::quiet_NaN();
+    with_unknown.runways.push_back(unknown);
+    check(glideslope::copilot::planning_request(with_unknown).find("runway 07") == std::string::npos,
+          "an end with no elevation is not offered");
+    Scripted from_unknown({"aircraft c172p\nrunway 07 -33.943699 151.164001 0 74 3962\n"
+                           "takeoff 800\nwaypoint A -33.92 151.19 3000 80\n",
+                           good_plan});
+    const auto planned_unknown = glideslope::copilot::plan_from_words(from_unknown, with_unknown);
+    check(planned_unknown.refused.size() == 1 &&
+              planned_unknown.refused[0].find("not one of the runway lines given") != std::string::npos,
+          "a plan taking off from it is refused");
+    glideslope::copilot::PlanRequest none_known = with_unknown;
+    none_known.runways = {unknown};
+    Scripted never_asked({good_plan});
+    try {
+        (void)glideslope::copilot::plan_from_words(never_asked, none_known);
+        fail("a plan was asked for where no runway says its elevation");
+    } catch (const ProviderError& e) {
+        check(std::string(e.what()).find("says its elevation") != std::string::npos &&
+                  never_asked.conversations.empty(),
+              std::string("refused before the model is asked: ") + e.what());
     }
 
     // Refused every time, it is an error saying why each was.

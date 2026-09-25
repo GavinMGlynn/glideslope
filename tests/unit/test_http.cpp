@@ -171,8 +171,16 @@ public:
         thread_ = std::thread([this] { serve(); });
     }
     ~OneRequestServer() {
+        // A server never asked is still waiting to accept: shut down, the
+        // wait ends, where closing alone would not end it on Linux.
+#ifndef _WIN32
+        ::shutdown(listening_, SHUT_RDWR);
+#endif
         close_socket(listening_);
         thread_.join();
+    }
+    bool asked() const {
+        return !head_.empty();
     }
     OneRequestServer(const OneRequestServer&) = delete;
     OneRequestServer& operator=(const OneRequestServer&) = delete;
@@ -278,6 +286,23 @@ GLIDESLOPE_TEST(a_post_sends_its_body_and_headers_byte_for_byte_and_reads_the_an
     check(r.status == 200 &&
               std::string(r.body.begin(), r.body.end()) == answer_body,
           "the answer read back");
+}
+
+GLIDESLOPE_TEST(a_post_follows_no_redirect_so_its_key_goes_nowhere_else) {
+    // Asked with a key, the server answers "try over there", pointing at a
+    // second server. The key must not go there: the redirect is the answer.
+    OneRequestServer elsewhere("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
+    for (const int status : {301, 302, 303, 307, 308}) {
+        OneRequestServer asked("HTTP/1.1 " + std::to_string(status) + " Moved\r\nLocation: " +
+                               elsewhere.url("/stolen") +
+                               "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        HttpRequest request = get(asked.url("/v1/messages"));
+        request.headers = {{"x-api-key", "not-a-real-key"}};
+        const HttpResponse r = http_post(request, "{}");
+        check(r.status == status, "a " + std::to_string(status) + " is the answer, not followed: " +
+                                      std::to_string(r.status));
+    }
+    check(!elsewhere.asked(), "nothing reached the server redirected to: five redirects, none followed");
 }
 
 GLIDESLOPE_TEST(a_header_holding_a_control_character_is_refused_before_anything_is_sent) {

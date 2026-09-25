@@ -9,6 +9,21 @@
 
 #include <cctype>
 
+// **A POST follows no redirect** (http.hpp says why): asked whether to follow
+// one, this says no, and the redirect is the response.
+@interface GlideslopeNoRedirect : NSObject <NSURLSessionTaskDelegate>
+@end
+
+@implementation GlideslopeNoRedirect
+- (void)URLSession:(NSURLSession*)session
+                          task:(NSURLSessionTask*)task
+    willPerformHTTPRedirection:(NSHTTPURLResponse*)response
+                    newRequest:(NSURLRequest*)request
+             completionHandler:(void (^)(NSURLRequest*))completionHandler {
+    completionHandler(nil);
+}
+@end
+
 namespace glideslope::platform {
 
 std::string http_client() {
@@ -48,7 +63,11 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
                 [NSURLSessionConfiguration ephemeralSessionConfiguration];
             configuration.timeoutIntervalForRequest = request.stall_timeout_seconds;
             NSURLSession* session =
-                [NSURLSession sessionWithConfiguration:configuration];
+                body != nullptr
+                    ? [NSURLSession sessionWithConfiguration:configuration
+                                                    delegate:[[GlideslopeNoRedirect alloc] init]
+                                               delegateQueue:nil]
+                    : [NSURLSession sessionWithConfiguration:configuration];
 
             dispatch_semaphore_t done = dispatch_semaphore_create(0);
             __block NSData* data = nil;

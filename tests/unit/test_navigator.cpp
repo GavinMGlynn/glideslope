@@ -17,6 +17,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -203,24 +204,33 @@ GLIDESLOPE_TEST(an_orbit_and_a_take_off_are_read_from_a_plan_and_refused_where_t
         {head + "takeoff 1000\n", "no runway to take off from"},
         {head + runway + "takeoff 1000\nstart -33 151 3000 0 100\n",
          "both starts in the air and takes off"},
+        {head + "orbit A -33 151 1100 3000 90 2 left\n", "too tight to fly at 90 kt: at least 1172 m"},
+        {head + runway + runway + "takeoff 1000\n", "a second runway line"},
+        {head + runway + "takeoff 1000\ntakeoff 800\n", "a second takeoff line"},
+        {head + "start -33 151 3000 0 100\nstart -33 151 3000 0 100\n", "a second start line"},
+        {head + "aircraft pa28\n", "a second aircraft line"},
     };
     std::size_t refusals = 0;
     for (const auto& [text, says] : wrong) {
         check(refused(text, says), "refused, saying \"" + says + "\":\n" + text);
         ++refusals;
     }
-    check(refusals == 12, "twelve ways wrong, and every one refused");
+    check(refusals == 17, "seventeen ways wrong, and every one refused");
 }
 
-GLIDESLOPE_TEST(the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind) {
-    // A Cessna 3 km south of the centre of a 1,500 m circle, heading for it,
-    // twice round and then on to a waypoint north of it.
+GLIDESLOPE_TEST(the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind_down_to_the_tightest_allowed) {
+    // A Cessna 3 km south of the centre of a circle, heading for it, twice
+    // round and then on to a waypoint north of it: a circle of 1,500 m, and
+    // the tightest a plan may ask at its 90 kt.
+    const double tightest_m = std::ceil(glideslope::sim::least_orbit_radius_m(90.0));
     std::size_t flown = 0;
+    for (const double radius_m : {1500.0, tightest_m}) {
     for (const bool right : {false, true}) {
         for (const bool windy : {false, true}) {
             const FlightPlan plan = parse_flight_plan(
                 std::string("aircraft c172p\nstart -33.90 151.20 3000 0 90\n"
-                            "orbit CBD -33.8688 151.2093 1500 3000 90 2 ") +
+                            "orbit CBD -33.8688 151.2093 ") +
+                std::to_string(static_cast<int>(radius_m)) + " 3000 90 2 " +
                 (right ? "right" : "left") + "\nwaypoint NORTH -33.80 151.2093 3000 90\n");
             glideslope::sim::Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, plan.aircraft);
             glideslope::sim::InitialConditions ic;
@@ -287,7 +297,8 @@ GLIDESLOPE_TEST(the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_
                         std::abs(aircraft.property("position/h-sl-ft") - centre.altitude_ft));
                 }
             }
-            const std::string which = std::string(right ? "right" : "left") +
+            const std::string which = std::to_string(static_cast<int>(radius_m)) + " m, " +
+                                      (right ? "right" : "left") +
                                       (windy ? ", in a 20 kt wind" : ", in calm air");
             std::fprintf(stderr,
                          "orbit %s: %.2f turns in %d s, %.0f to %.0f m from the centre, "
@@ -300,9 +311,10 @@ GLIDESLOPE_TEST(the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_
             check(right ? clockwise_deg > 700.0 : clockwise_deg < -700.0,
                   "round the way asked, " + which + ": " + std::to_string(clockwise_deg) +
                       " degrees clockwise");
-            // Stated from what was measured (PROJECT_STATUS.md).
-            check(nearest_m >= 1500.0 - 100.0 && farthest_m <= 1500.0 + 100.0,
-                  "on the circle within 100 m, " + which + ": " + std::to_string(nearest_m) +
+            // Stated from what was measured (PROJECT_STATUS.md): at worst
+            // 150 m outside the tightest circle, in the wind.
+            check(nearest_m >= radius_m - 160.0 && farthest_m <= radius_m + 160.0,
+                  "on the circle within 160 m, " + which + ": " + std::to_string(nearest_m) +
                       " to " + std::to_string(farthest_m) + " m");
             check(worst_altitude_ft <= 50.0,
                   "at its altitude within 50 ft, " + which + ": " +
@@ -310,7 +322,8 @@ GLIDESLOPE_TEST(the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_
             ++flown;
         }
     }
-    check(flown == 4, "both ways round, in calm air and in wind: four orbits flown");
+    }
+    check(flown == 8, "two circles, both ways round, in calm air and in wind: eight orbits flown");
 }
 
 GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane) {
@@ -319,10 +332,16 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
     // far enough for the slowest of them, the Cub, to have climbed to it.
     const std::filesystem::path data =
         std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
-    const std::vector<std::string> light{"c172p", "c182", "pa28", "j3cub"};
+    // Every light aeroplane the catalogue holds, so that one added is flown.
+    std::vector<glideslope::sim::CatalogueEntry> light;
+    for (const auto& e : glideslope::sim::read_catalogue(data)) {
+        if (e.aircraft_class == glideslope::sim::AircraftClass::light_aircraft && !e.seaplane) {
+            light.push_back(e);
+        }
+    }
     std::size_t flown = 0;
-    for (const std::string& id : light) {
-        const auto entry = glideslope::sim::find_aircraft(data, id);
+    for (const auto& entry : light) {
+        const std::string& id = entry.id;
         const FlightPlan plan = parse_flight_plan(
             "aircraft " + id +
             "\nrunway 07 -33.9461 151.1772 0 70 3000\ntakeoff 500\n"
@@ -348,6 +367,12 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
         const bool departing = controller.departure() != nullptr;
         bool took_off = false;
         double handed_over_at_ft = 0.0;
+        // **The first leg is flown from where the take-off handed over**, not
+        // from the threshold: the most the aircraft strays from the great
+        // circle between there and the waypoint.
+        double handed_over_lat = 0.0;
+        double handed_over_lon = 0.0;
+        double worst_off_leg_m = 0.0;
         double closest_m = std::numeric_limits<double>::infinity();
         double altitude_there_ft = 0.0;
         int steps = 0;
@@ -359,6 +384,8 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
             if (!took_off && controller.departure() == nullptr) {
                 took_off = true;
                 handed_over_at_ft = aircraft.property("position/h-sl-ft");
+                handed_over_lat = aircraft.property("position/lat-geod-deg");
+                handed_over_lon = aircraft.property("position/long-gc-deg");
             }
             const glideslope::sim::Navigator* navigator = controller.navigator();
             if (navigator == nullptr || navigator->finished()) {
@@ -375,21 +402,45 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
                 closest_m = d;
                 altitude_there_ft = aircraft.property("position/h-sl-ft");
             }
+            // Off the leg: the cross-track distance, on the sphere.
+            const double r = 6371000.0;
+            const double from = glideslope::sim::distance_m(
+                                    handed_over_lat, handed_over_lon,
+                                    aircraft.property("position/lat-geod-deg"),
+                                    aircraft.property("position/long-gc-deg")) /
+                                r;
+            const double angle =
+                (glideslope::sim::bearing_deg(handed_over_lat, handed_over_lon,
+                                              aircraft.property("position/lat-geod-deg"),
+                                              aircraft.property("position/long-gc-deg")) -
+                 glideslope::sim::bearing_deg(handed_over_lat, handed_over_lon,
+                                              plan.waypoints[0].latitude_deg,
+                                              plan.waypoints[0].longitude_deg)) *
+                std::numbers::pi / 180.0;
+            worst_off_leg_m =
+                std::max(worst_off_leg_m, std::abs(std::asin(std::sin(from) * std::sin(angle))) * r);
         }
         std::fprintf(stderr,
-                     "%s: taken off to %.0f ft, and passed OUT %.0f m off at %.0f ft, in %d s\n",
+                     "%s: taken off to %.0f ft, and passed OUT %.0f m off at %.0f ft, in %d s, "
+                     "straying at most %.0f m from the leg from where it was handed over\n",
                      id.c_str(), handed_over_at_ft, closest_m, altitude_there_ft,
-                     steps / steps_per_second);
+                     steps / steps_per_second, worst_off_leg_m);
         check(departing && took_off && handed_over_at_ft >= 500.0,
               id + " was taken off by the take-off autopilot, which handed it to the "
                    "plan at " + std::to_string(handed_over_at_ft) + " ft (500 asked)");
         check(controller.navigator() != nullptr && controller.navigator()->finished(),
               id + " flew the plan to its end after taking off");
+        // Stated from what was measured: at most 81 m, where flying the leg
+        // from the threshold instead strays 219 to 383 m.
+        check(worst_off_leg_m <= 150.0,
+              id + " flew its first leg from where the take-off handed over, straying " +
+                  std::to_string(worst_off_leg_m) + " m from it (at most 150)");
         check(closest_m <= 100.0 && std::abs(altitude_there_ft - 2000.0) <= 50.0,
               id + " passed its waypoint " + std::to_string(closest_m) +
                   " m off (at most 100), at " + std::to_string(altitude_there_ft) +
                   " ft (within 50 of 2,000)");
         ++flown;
     }
-    check(flown == light.size() && flown == 4, "all four light aeroplanes flown");
+    check(!light.empty() && flown == light.size(),
+          "every light aeroplane in the catalogue flown: " + std::to_string(flown));
 }

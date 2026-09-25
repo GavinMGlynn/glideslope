@@ -1,5 +1,6 @@
 #include "sim/lander.hpp"
 
+#include "sim/autopilot.hpp"
 #include "sim/figures.hpp"
 
 #include <algorithm>
@@ -326,7 +327,6 @@ Controls Lander::fly() {
     // already the longer - a Cessna's radius is about 210 metres against 222
     // - so it is flown as before; half as much again again broke their
     // landings, too slow to settle on the line in two miles.
-    constexpr double most_bank_deg = 25.0;
     const double turn_radius_m =
         ground_mps * ground_mps / (9.80665 * std::tan(most_bank_deg / degrees));
     const double l1_m =

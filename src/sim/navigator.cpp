@@ -69,6 +69,11 @@ FlightPlan parse_flight_plan(std::string_view text) {
         const auto wrong = [&](const std::string& why) {
             return FlightPlanError("line " + std::to_string(line_number) + ": " + why);
         };
+        // **Each of these once**: a second would quietly replace the first.
+        if ((w[0] == "aircraft" && !plan.aircraft.empty()) || (w[0] == "start" && plan.start) ||
+            (w[0] == "runway" && runway) || (w[0] == "takeoff" && takeoff_to_ft)) {
+            throw wrong("a second " + w[0] + " line");
+        }
         if (w[0] == "aircraft") {
             if (w.size() != 2) {
                 throw wrong("aircraft NAME");
@@ -119,6 +124,13 @@ FlightPlan parse_flight_plan(std::string_view text) {
             }
             o.turns = static_cast<int>(turns);
             o.right = w[8] == "right";
+            if (o.radius_m < least_orbit_radius_m(p.airspeed_kts)) {
+                throw wrong("the orbit's radius, " + w[4] + " m, is too tight to fly at " + w[6] +
+                            " kt: at least " +
+                            std::to_string(static_cast<int>(
+                                std::ceil(least_orbit_radius_m(p.airspeed_kts)))) +
+                            " m");
+            }
             p.orbit = o;
             plan.waypoints.push_back(p);
         } else if (w[0] == "runway") {
@@ -159,6 +171,11 @@ FlightPlan parse_flight_plan(std::string_view text) {
         plan.takeoff = FlightPlan::TakeOff{*runway, *takeoff_to_ft};
     }
     return plan;
+}
+
+double least_orbit_radius_m(double airspeed_kts) {
+    const double v = airspeed_kts * 1852.0 / 3600.0;
+    return 2.5 * v * v / (9.80665 * std::tan(most_bank_deg * radians));
 }
 
 double distance_m(double latitude_1, double longitude_1, double latitude_2,
