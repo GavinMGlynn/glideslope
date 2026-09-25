@@ -557,12 +557,19 @@ public:
             return;
         }
         set_.erase(ring_[next_]);
+        said_.erase(ring_[next_]);
         ring_[next_] = k;
         next_ = (next_ + 1) % most_remembered;
     }
+    // **Whether a copy of `k` dropped is yet to be said**: true the first
+    // time only. A client dropped by the operator goes on sending its
+    // initiation, and saying every copy filled the dashboard's log with them
+    // until the drop itself was pushed out of it.
+    bool first_said(const Key& k) { return set_.count(k) > 0 && said_.insert(k).second; }
 
 private:
     std::set<Key> set_;
+    std::set<Key> said_;
     std::vector<Key> ring_;
     std::size_t next_ = 0;
 };
@@ -1379,10 +1386,13 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         }
         // **An initiation already taken from this address is not taken
         // again** (see `Taken`): a copy that arrives after its session has
-        // gone makes nothing. Said, so that a test can tell a copy dropped
-        // from one that never arrived.
+        // gone makes nothing. Said once for each initiation, so that a test
+        // can tell a copy dropped from one that never arrived.
         const auto remembered = Taken::key_of(body, who);
         if (remembered && taken.has(*remembered)) {
+            if (!taken.first_said(*remembered)) {
+                return;
+            }
             happened.add(now_s, "dropped a copy of an initiation already taken from " + who);
             if (o.headless) {
                 std::printf("dropped a copy of an initiation already taken from %s\n",

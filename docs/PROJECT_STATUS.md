@@ -716,6 +716,15 @@ new keys. So the server heard nothing, let the session go after `--timeout`,
 and printed a player's aircraft nobody had flown. Every copy still to be read
 did the same.
 
+**Found by CI before the merge.** A client dropped by the operator goes on
+sending its initiation, and the server said every copy it dropped. On a slow
+runner that filled the dashboard's log with them until the drop itself was
+pushed out, and the server window's test failed. Each dropped initiation is
+now said once. The test's client sends its copy five times, as such a client
+does; with every copy said, it fails: "dropped a copy 5 times, not once". Its
+two tests were also on ports another test uses (47888 and 47889); they are on
+47895 and 47897.
+
 **The fix.** The server remembers every initiation that has made a session,
 by its first 32 bytes (the initiator's ephemeral key) and the address it came
 from (`Taken` in `src/frontend/server/main.cpp`). A copy from that same
