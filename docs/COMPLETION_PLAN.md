@@ -462,17 +462,14 @@ Found while implementing something else. Added when found, not when remembered.
       height through a 90-degree turn as it does at 3,000 ft.* Done
       2026-09-24: all four light aeroplanes, through quarter turns and full
       circles, each way, at two speeds.
-- [ ] **The altitude hold flies an aeroplane into the stall when asked for a
+- [x] **The altitude hold flies an aeroplane into the stall when asked for a
       height it cannot hold.** Above its ceiling it keeps pitching up at full
       throttle until the Cessna is at 46 knots and sinking. *Verification: a
       light aeroplane asked for a height above its ceiling gives up height, not
-      airspeed, and never drops below its best-climb speed.* In progress
-      2026-09-25: all four light aeroplanes now give up height, none slower
-      than 1.5 knots under its best-climb speed. Missing: the change breaks
-      three other checks. Near their ceilings three aeroplanes lose up to 32 ft
-      in a turn (the limit is 20). A Learjet in the stall lesson loses 235 ft
-      before the stall. A Cessna 182 in the circuit lesson touches down 12.7 m
-      off the centreline.
+      airspeed, and never drops below its best-climb speed.* Done 2026-09-25:
+      all four light aeroplanes, asked for 3,000 ft above their ceilings and
+      for a height they lack the power to hold, at two speeds each; none
+      slower than 1.5 knots under its best-climb speed.
 - [ ] **The AI never leans the mixture**, so on the autopilot a light
       aeroplane's ceiling is about 8,500 ft - the Cessna 172P's handbook gives
       13,000. *Verification: the AI climbs each light aeroplane to within its

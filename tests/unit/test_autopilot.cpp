@@ -456,13 +456,19 @@ struct Level {
 // a speed it cannot reach near its ceiling slows to the one it can for
 // minutes, and a turn begun while it is still slowing would be charged with
 // that. Settled is half a minute in which the airspeed moves less than half a
-// knot - after a first half minute, when the autopilot has just been handed
-// the aeroplane.
+// knot and the height less than 5 ft - after a first half minute, when the
+// autopilot has just been handed the aeroplane. **The height too**: handed
+// over near its ceiling at its best-climb speed, a Cessna 182 sinks 23 ft
+// before the throttle reaches its stop, and the altitude hold, which may no
+// longer buy that back with speed, climbs back at the 30 ft/min the aeroplane
+// has there. Its speed is steady long before its height, and a turn begun
+// then was charged with the handover.
 Level settle(Aircraft& aircraft, Autopilot& autopilot, double altitude_ft, bool handed) {
     constexpr int window = 30 * steps_per_second;
     Level l;
     for (int w = 0; !l.settled && w < 20; ++w) {
         const double from_kts = airspeed(aircraft);
+        const double from_ft = altitude(aircraft);
         l.worst_ft = 0.0;
         l.throttle_at_stop = true;
         for (int i = 0; i < window; ++i) {
@@ -472,7 +478,8 @@ Level settle(Aircraft& aircraft, Autopilot& autopilot, double altitude_ft, bool 
             l.worst_ft = std::max(l.worst_ft, std::abs(altitude(aircraft) - altitude_ft));
             l.throttle_at_stop = l.throttle_at_stop && c.throttle >= 0.999;
         }
-        l.settled = (w >= 1 || !handed) && std::abs(airspeed(aircraft) - from_kts) < 0.5;
+        l.settled = (w >= 1 || !handed) && std::abs(airspeed(aircraft) - from_kts) < 0.5 &&
+                    std::abs(altitude(aircraft) - from_ft) < 5.0;
     }
     l.kts = airspeed(aircraft);
     return l;
