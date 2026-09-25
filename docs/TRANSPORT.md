@@ -125,29 +125,49 @@ would say so is one of the reliable messages, which do not travel yet.
 **A lost handshake is sent again, unchanged.** If no answer comes, the client
 sends the same initiation, byte for byte - this project's client every quarter
 of a second, until it gives up after however long it was told to wait; the
-interval is the client's to choose. A `HANDSHAKE_RESPONSE` that does not
-complete the handshake is dropped, and the client goes on waiting: it may be
-forged, and the real one may still come. The server answers a repeat of the
+interval is the client's to choose. **A `HANDSHAKE_RESPONSE` that does not
+complete the handshake ends this project's clients' attempt**: both
+`glideslope_cli connect` and the client with the window give up on it, and
+connect no further. That is a weakness, not a rule of the protocol: a
+response is sent in the clear, so anybody who can put a datagram at the
+client's address can end its attempt with a forged one. A client may instead
+drop such a response and go on waiting for the real one, and the server
+neither knows nor cares which it does. The server answers a repeat of the
 initiation it has already taken from that address with the same answer and
 changes nothing. A *different* initiation from an address that already has a
 session is dropped without a word, so that nobody can take a live player's
 session with one datagram; the address can start again once the server has
 let the old session go.
 
-**An initiation is taken once.** The server remembers every initiation that
-has made a session by its first 32 bytes, the client's ephemeral key, and
-keeps remembering it after that session has gone. A copy of it arriving then,
-from any address, is dropped without a word: no session, no answer, no
-refusal. A client sending the same initiation again must have it answered
-while the session it made is live, which is what resending until answered
-does. A client whose session has gone and that wants another makes a new
-initiation, with a new ephemeral key. This project's clients mint a new one
-for every connection. **What it does not claim**: the server remembers the
-newest 65,536 initiations it has taken and no more, and forgets them all when
-it restarts. An initiation older than that, or from before a restart, is
-answered as a new one would be. The initiation carries no timestamp, as
-WireGuard's does, that would let a server refuse an old one it has
-forgotten.
+**An initiation is taken once from each address.** The server remembers
+every initiation that has made a session by its first 32 bytes, the client's
+ephemeral key, together with the address it came from, and keeps remembering
+it after that session has gone. A copy of it arriving then **from the same
+address** is dropped without a word: no session, no answer, no refusal. **From
+any other address** it is answered as any initiation is, with a new session
+and an answer, and that is deliberate: a copy dropped from every address would
+let anybody who saw an initiation inject a copy from a spoofed address to
+arrive first, and keep its real sender out.
+
+A client sending the same initiation again must have it answered while the
+session it made is live, which is what resending until answered does. A
+client whose session has gone and that wants another makes a new initiation,
+with a new ephemeral key. This project's clients mint a new one for every
+connection.
+
+**What it does not claim.**
+
+- **A client whose address changes between resends**, a NAT rebinding its
+  port, is two addresses to the server. Each gets a session, and each session
+  an aircraft for the same key. The one the client does not use goes quiet
+  and is let go after `--timeout`. This is how things were before any of
+  this, and it is not defended.
+- **The memory is finite.** The server remembers the newest 16,384
+  initiations it has taken, about 3 MiB, and forgets them all when it
+  restarts. A copy of one older than that, or from before a restart, is
+  answered as a new one would be.
+- **Nothing can refuse an old one the server has forgotten.** The initiation
+  carries no timestamp, as WireGuard's does, that would let it.
 
 **A session ends when the server stops hearing from it.** There is no
 goodbye. The server lets a session go when no datagram that opens under it

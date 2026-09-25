@@ -18,10 +18,13 @@
 # completes its handshake and then says nothing, answering none of the
 # server's knocks, until the knocks stop - which is the server letting it go -
 # and then sends the same initiation once more, from the same address. A second
-# client flies for long enough to keep the server running past all of that
-# (it stops when everybody who joined has gone, --until-empty).
+# client flies until the first has written its verdict (`--until-exists`),
+# which keeps the server - stopping when everybody who joined has gone,
+# --until-empty - running past all of that however slow the machine.
 #
-# **What must hold**: the silent client admitted once and let go once; one
+# **What must hold**: the server saying it dropped the copy, exactly once - not
+# only the copy unanswered, which a copy lost or a server gone would also
+# give; the silent client admitted once and let go once; one
 # aircraft of its own, not two; the other client's aircraft flown by it, past
 # 90 degrees; and the copy not answered at all. An answer the same as the first
 # would mean the copy reached a session still live - the situation not built -
@@ -62,8 +65,8 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 5 --again-when-let-go
             --after-ready "${_ready}" --heard "${_heard}"
             --key 9a47cf83f2e50ebb1bb176f4072fa4ad962b89d8cf09527d1ce6abd308f89ba2
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 20 --fly
-            --after-ready "${_ready}"
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 300 --fly
+            --after-ready "${_ready}" --until-exists "${_heard}"
             --key e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --players 4 --data "${DATA}" --timeout 3 --store "${_store}"
@@ -84,6 +87,14 @@ if(_verdict MATCHES "answered afresh")
 endif()
 if(NOT _verdict MATCHES "was not answered")
     message(FATAL_ERROR "the silent client's verdict is not one it gives: ${_verdict}")
+endif()
+
+string(REGEX MATCHALL "dropped a copy of an initiation already taken from 127\\.0\\.0\\.1:[0-9]+"
+       _dropped "${_out}")
+list(LENGTH _dropped _drops)
+if(NOT _drops EQUAL 1)
+    message(FATAL_ERROR "the server said it dropped a copy ${_drops} times, not once:\n"
+                        "${_out}")
 endif()
 
 string(REGEX MATCHALL "admitted 11fc7622" _admitted "${_out}")

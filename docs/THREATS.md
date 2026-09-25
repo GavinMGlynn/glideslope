@@ -562,46 +562,59 @@ in `src/net/sealing.cpp` and in the `sealed` arm of the server's `take()`: a
 sealed body carrying a number already opened, or more than 64 behind the newest
 that opened, is refused before the cipher is run.
 
-**The handshake is covered by memory, not by the cipher.** The server
-remembers every initiation that has made a session, by its first 32 bytes,
-the initiator's ephemeral key. It drops a copy of one in silence, from any
-address, whether that session is live or gone (`Taken`, in the server's
-`main.cpp`). It was built for an honest client, not an attacker. CI's
-four-player test counted six players' aircraft because copies of the fourth
-client's initiation, read after its session had been let go, were each taken
-as a new handshake. Each made a session and an aircraft that nobody flew
-(`PROJECT_STATUS.md`, 2026-09-26). Held by
+**The handshake is covered by memory, not by the cipher, and only from the
+address that sent it.** The server remembers every initiation that has made a
+session by its first 32 bytes, the initiator's ephemeral key, together with
+the address it came from. It drops a copy from **that same address** in
+silence, whether that session is live or gone, and says so on its log
+(`Taken`, in the server's `main.cpp`). It was built for an honest client, not
+an attacker. CI's four-player test counted six players' aircraft because
+copies of the fourth client's initiation, read after its session had been let
+go, were each taken as a new handshake. Each made a session and an aircraft
+that nobody flew (`PROJECT_STATUS.md`, 2026-09-26). Held by
 `a_copy_of_an_initiation_arriving_after_its_session_was_let_go_makes_no_second_player`,
 seen to fail without the check.
 
 **What a replayed or forged initiation can do now:**
 
-- **A captured initiation replayed** is dropped before any X25519 work, from
-  any address: the one it was captured from, a spoofed one, or a new one after
-  the victim's session has gone. Before, it was answered afresh from every new
-  address: a session the replayer could not read, and an aircraft for the
-  victim's key. That aircraft sat in the sky until `--timeout`, and it held a
-  player's slot.
-- **It cannot be used to lock an honest player out.** The memory is keyed by
-  the ephemeral key, which an honest client makes afresh for every connection.
-  An attacker who replays a player's old initiation blocks only that
-  initiation, which the player will never send again.
-- **An attacker may forge an initiation carrying somebody else's ephemeral
-  key** before that person's own initiation arrives. Only someone who has seen
-  the ephemeral key in flight can do that, and the forgery must also seal a
-  static key under it. That needs the ephemeral's secret. Without it, the
-  forgery fails `Responder::answer`, and a forged initiation that does not
-  complete is not remembered. So only a completed handshake fills the memory.
-- **Anyone may fill the memory with handshakes of their own**, each with a new
-  ephemeral key. It holds the newest 65,536 (about 2 MiB) and forgets the
-  oldest. Somebody who completed 65,536 handshakes could push a captured
-  initiation out and replay it again, and it would be answered as before: a
-  session the replayer cannot read (which
-  `a_replayed_initiation_makes_a_session_the_replayer_cannot_read` holds). A
-  restarted server remembers nothing. Neither is defended: that would need a
-  timestamp in the initiation, as WireGuard has, and this protocol has none.
-  What still bounds a flood of fresh handshakes is the rate limit that is not
-  built.
+- **A captured initiation replayed from the address it came from** is
+  dropped, before any X25519 work.
+- **Replayed from any other address**, spoofed or not, it is answered as it
+  always was. The replayer gets a session it cannot read (which
+  `a_replayed_initiation_makes_a_session_the_replayer_cannot_read` holds), and
+  the victim's key gets an aircraft that nobody flies. That aircraft sits in
+  the sky until `--timeout` and holds the victim's slot, which the victim
+  already has.
+- **It cannot be used to keep a player out, and it nearly could.** The first
+  version of this dropped a copy from any address. Anybody who saw a player's
+  initiation on the wire could then inject a byte-for-byte copy from a
+  spoofed address to arrive first. It would be taken and remembered, and the
+  player's own initiation and every resend dropped. The player would get no
+  session at all, where before they had one of their own. Found in review of
+  PR #25. Keyed by address as well, the copy takes only its own address.
+  `a_copy_of_an_initiation_from_another_address_arriving_first_does_not_keep_its_client_out`
+  builds that race and was watched failing against the first version: the
+  client was admitted once, from the copy's address, and never from its own.
+- **A NAT that rebinds the client's port between resends** makes two
+  addresses of one client, and each gets a session and an aircraft. That is
+  what happened before this change, and it is not defended. The session the
+  client does not use goes quiet and is let go after `--timeout`.
+- **A forged initiation carrying somebody else's ephemeral key** but sealed
+  by the forger fails `Responder::answer` without the ephemeral's secret, so
+  it is never remembered.
+- **The memory fills without the attacker's own handshakes.** Anybody with
+  one captured initiation can replay it from as many spoofed addresses as
+  they care to write. Each address is a new entry, answered and remembered,
+  and nothing about it needs the victim's secret or a reply that reaches the
+  attacker. The same flood also makes one session and one aircraft per
+  address while a slot is free; see "Resource exhaustion through the reliable layer". The memory holds the
+  newest 16,384 entries, about 3 MiB, and forgets the oldest first.
+  **Forgetting one only brings back the old, harmless behaviour.** A copy
+  from that address is answered again, with a session nobody can read. It
+  never locks anybody out. A restarted server remembers nothing, with the
+  same result. Refusing an old initiation outright would need a timestamp in
+  it, as WireGuard has, and this protocol has none. What would bound the
+  flood is the per-address rate limit that is not built.
 
 A replayed `SEALED` datagram is refused by the replay window. A replayed
 initiation can no longer take a live session away either; see
@@ -726,9 +739,9 @@ initiation makes no entry. **But it is made per address, not per key.**
 the server gives each entry an aircraft of its own. So one key's handshakes
 from many addresses make one entry per address, each with its own pair of
 cipher states, each costing an X25519 operation. They go only when `--timeout`
-sweeps them. One *captured* initiation no longer does this: it is taken once,
-and its copies are dropped from every address (see "Replay"). But anyone who
-holds a key's secret can make a fresh initiation for each address. The session
+sweeps them. One *captured* initiation still does this: a copy is dropped
+only from the address that first sent it, and from every other address it is
+answered (see "Replay" for why it must be). The session
 being full stops it, because a fresh address is then refused `SERVER_FULL`
 before the crypto; a session with a slot free does not. That is the unbounded
 number of peers this section's first line names, and it is a path now rather
