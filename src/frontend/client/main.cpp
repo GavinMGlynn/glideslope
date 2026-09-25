@@ -100,6 +100,8 @@ struct Options {
     // aeroplane and without it differ in exactly its pixels, which is how a
     // test finds the outline it draws.
     bool draw_aircraft = true;
+    // On a server, ride along in the first AI aircraft from the start.
+    bool ride_along = false;
     bool on_ground = false;
 };
 
@@ -158,6 +160,9 @@ void usage(std::FILE* out) {
         "  --view        where it is seen from: the cockpit, by default, or outside\n"
         "                it from ahead, behind, left, right or above, or an orbit\n"
         "                around it; V steps through them\n"
+        "  --ride-along  on a server, ride along in the first AI aircraft: its\n"
+        "                cockpit, its instruments and its controls; W steps through\n"
+        "                every aircraft in the sky and back to your own\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
         "                or leave it out: a test shoots both to find the outline it\n"
         "                draws\n"
@@ -310,6 +315,8 @@ static int run_program(int argc, char** argv) {
             const std::string_view value = args[++i];
             ok = value == "on" || value == "off";
             o.draw_aircraft = value == "on";
+        } else if (a == "--ride-along") {
+            o.ride_along = true;
         } else if (a == "--on-ground") {
             o.on_ground = true;
         } else if (a == "--autopilot") {
@@ -797,7 +804,30 @@ static int run_program(int argc, char** argv) {
         };
         // On a server: the other aircraft's models, by what they are, and a
         // mesh for each, lit for how it is pointing.
-        std::map<std::string, std::optional<glideslope::client::Visual>> models;
+        // Each with where its reference point and its pilot's eye are, and
+        // only for an aeroplane the catalogue knows.
+        struct OtherModel {
+            bool known = false;
+            std::optional<glideslope::client::Visual> visual;
+            glideslope::client::ModelGeometry geometry;
+        };
+        std::map<std::string, OtherModel> models;
+        const auto model_of = [&](const std::string& id) -> const OtherModel& {
+            auto found = models.find(id);
+            if (found == models.end()) {
+                OtherModel m;
+                if (const auto entry = glideslope::sim::known_aircraft(
+                        glideslope::platform::data_directory(), id)) {
+                    m.known = true;
+                    m.visual = glideslope::client::visual_of(glideslope::platform::data_directory(), id);
+                    m.geometry = glideslope::client::geometry_of(glideslope::platform::data_directory(),
+                                                                 *entry);
+                }
+                found = models.emplace(id, std::move(m)).first;
+            }
+            return found->second;
+        };
+        bool rode_along = false;
         struct OtherMesh {
             glideslope::gfx::MeshId id = 0;
             bool made = false;
@@ -845,6 +875,25 @@ static int run_program(int argc, char** argv) {
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_A && flight) {
                     flight->swap_pilot();
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == SDL_SCANCODE_W && online && joined) {
+                    // **Ride along**: the next aircraft in the sky, by number,
+                    // and after the last, back in your own.
+                    std::uint8_t next = glideslope::net::no_aircraft;
+                    for (const glideslope::client::Other& other : others_now) {
+                        if ((online->watching() == glideslope::net::no_aircraft ||
+                             other.number > online->watching()) &&
+                            (next == glideslope::net::no_aircraft || other.number < next)) {
+                            next = other.number;
+                        }
+                    }
+                    online->watch(next);
+                    if (next == glideslope::net::no_aircraft) {
+                        std::printf("glideslope: back in your own aircraft\n");
+                    } else {
+                        std::printf("glideslope: riding along in aircraft %u\n",
+                                    static_cast<unsigned>(next));
+                    }
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_V && flight) {
                     // Round the views, and round again. Nothing about the
@@ -894,6 +943,22 @@ static int run_program(int argc, char** argv) {
             // The frame shot waits for every terrain tile its view needs, so
             // the same command draws the same terrain everywhere.
             const bool shot_now = shooting && ticks >= o.shot_at;
+            // **On a server, everybody else as they are now**, and the one
+            // being ridden along in, if any.
+            if (online && joined) {
+                others_now = online->others(seconds_since_start());
+                if (o.ride_along && !rode_along) {
+                    for (const glideslope::client::Other& other : others_now) {
+                        if (other.ai_flying) {
+                            online->watch(other.number);
+                            rode_along = true;
+                            std::printf("glideslope: riding along in aircraft %u\n",
+                                        static_cast<unsigned>(other.number));
+                            break;
+                        }
+                    }
+                }
+            }
             // **On a server, a shot draws only its own frame.** The flight
             // keeps real time there, so the frames before it are as many as
             // the machine can draw - thousands - where a shot flown by ticks
@@ -907,9 +972,36 @@ static int run_program(int argc, char** argv) {
             // The orbit goes round once a minute of the flight's own time, so
             // the same command puts it in the same place every run.
             constexpr double orbit_rad_per_s = 6.283185307179586 / 60.0;
-            const glideslope::gfx::Camera camera =
+            const glideslope::client::Other* ridden = nullptr;
+            if (online && joined && online->watching() != glideslope::net::no_aircraft) {
+                for (const glideslope::client::Other& other : others_now) {
+                    if (other.number == online->watching() && !other.aircraft_id.empty() &&
+                        model_of(other.aircraft_id).known) {
+                        ridden = &other;
+                    }
+                }
+            }
+            glideslope::gfx::Placement ridden_placement;
+            glideslope::gfx::Camera camera =
                 flight ? flight->camera(view, flight->time_s() * orbit_rad_per_s)
                        : scene.camera;
+            if (ridden) {
+                // **Its seat**: the view from its pilot's eye, or around it,
+                // exactly as its own client would have it.
+                const OtherModel& m = model_of(ridden->aircraft_id);
+                const glideslope::gfx::ModelAlignment alignment =
+                    m.visual ? m.visual->alignment : glideslope::gfx::ModelAlignment{};
+                ridden_placement = glideslope::client::placement_of(
+                    ridden->centre, ridden->heading_deg, ridden->pitch_deg, ridden->roll_deg,
+                    alignment, m.geometry);
+                const std::array<double, 3> eye{m.geometry.eye_from_reference[0] - alignment.offset[0],
+                                                m.geometry.eye_from_reference[1] - alignment.offset[1],
+                                                m.geometry.eye_from_reference[2] - alignment.offset[2]};
+                camera = glideslope::gfx::camera_for(
+                    view, ridden_placement,
+                    m.visual ? glideslope::gfx::model_radius(m.visual->model) : 10.0, eye,
+                    flight->time_s() * orbit_rad_per_s);
+            }
             if (terrain) {
                 draws = terrain->update(camera, o.width, o.height, shot_now);
             }
@@ -938,7 +1030,7 @@ static int run_program(int argc, char** argv) {
             }
             // The aeroplane itself, in every view but the cockpit.
             if (flight && flight->model() != nullptr && o.draw_aircraft &&
-                view != glideslope::gfx::View::cockpit) {
+                (view != glideslope::gfx::View::cockpit || ridden != nullptr)) {
                 const glideslope::world::Ecef sun = flight->sun_in_body();
                 if (!has_aircraft_mesh || light_moved(sun)) {
                     if (has_aircraft_mesh) {
@@ -958,7 +1050,6 @@ static int run_program(int argc, char** argv) {
             // for how it is pointing, and drawn where the updates put it
             // 100 ms ago (client/online.hpp).
             if (online && joined && o.draw_aircraft) {
-                others_now = online->others(seconds_since_start());
                 // An aircraft no longer in the sky takes its mesh with it.
                 for (auto it = other_meshes.begin(); it != other_meshes.end();) {
                     const bool still = std::any_of(
@@ -973,20 +1064,18 @@ static int run_program(int argc, char** argv) {
                     if (other.aircraft_id.empty()) {
                         continue; // not yet introduced
                     }
-                    auto model = models.find(other.aircraft_id);
-                    if (model == models.end()) {
-                        model = models.emplace(other.aircraft_id,
-                                               glideslope::client::visual_of(
-                                                   glideslope::platform::data_directory(),
-                                                   other.aircraft_id))
-                                    .first;
+                    const OtherModel& model = model_of(other.aircraft_id);
+                    if (!model.visual) {
+                        continue; // not in the catalogue, or it ships no visual model
                     }
-                    if (!model->second) {
-                        continue; // this aeroplane ships no visual model
+                    // Its own seat is not drawn over its rider's view.
+                    if (ridden != nullptr && other.number == ridden->number &&
+                        view == glideslope::gfx::View::cockpit) {
+                        continue;
                     }
                     const glideslope::gfx::Placement placement = glideslope::client::placement_of(
                         other.centre, other.heading_deg, other.pitch_deg, other.roll_deg,
-                        model->second->alignment);
+                        model.visual->alignment, model.geometry);
                     const glideslope::world::Ecef sun =
                         glideslope::client::sun_in_body_of(placement);
                     OtherMesh& mesh = other_meshes[other.number];
@@ -998,7 +1087,7 @@ static int run_program(int argc, char** argv) {
                             renderer.remove_mesh(mesh.id);
                         }
                         mesh.id = renderer.add_mesh(
-                            glideslope::gfx::mesh_from_model(model->second->model, sun));
+                            glideslope::gfx::mesh_from_model(model.visual->model, sun));
                         mesh.made = true;
                         mesh.lit_by = sun;
                         mesh.aircraft_id = other.aircraft_id;
@@ -1030,6 +1119,46 @@ static int run_program(int argc, char** argv) {
             }
             if (flight) {
                 glideslope::gfx::HudReadings readings = flight->hud();
+                if (ridden) {
+                    // **What the aircraft ridden in is doing**, as the updates
+                    // say: its ground speed - airspeed is not sent - its
+                    // height above the sea, where it points, who is flying it
+                    // and where its controls are.
+                    const glideslope::world::Geodetic g = glideslope::world::to_geodetic(ridden->centre);
+                    glideslope::gfx::HudReadings r;
+                    r.ground_speed = true;
+                    r.airspeed_kts = std::hypot(ridden->north_mps, ridden->east_mps) / 0.514444;
+                    r.altitude_ft = (g.height_m - flight->geoid_m(g.latitude_deg, g.longitude_deg)) *
+                                    3.280839895013123;
+                    r.heading_deg = ridden->heading_deg;
+                    r.vertical_speed_fpm = -ridden->down_mps * 196.85039370078738;
+                    r.pitch_deg = ridden->pitch_deg;
+                    r.roll_deg = ridden->roll_deg;
+                    r.ai_flying = ridden->ai_flying;
+                    if (const auto c = online->watched_controls(seconds_since_start())) {
+                        glideslope::gfx::ControlsShown shown;
+                        shown.aileron = c->aileron;
+                        shown.elevator = c->elevator;
+                        shown.rudder = c->rudder;
+                        shown.throttle = c->throttle;
+                        shown.flaps = c->flaps;
+                        shown.gear = c->gear;
+                        r.controls = shown;
+                    }
+                    readings = r;
+                    if (shot_now) {
+                        std::printf("glideslope: riding along in aircraft %u, the %s; the camera "
+                                    "%.1f m from its centre\n",
+                                    static_cast<unsigned>(ridden->number),
+                                    ridden->aircraft_id.c_str(),
+                                    std::hypot(camera.position.x - ridden->centre.x,
+                                               camera.position.y - ridden->centre.y,
+                                               camera.position.z - ridden->centre.z));
+                        for (const std::string& line : glideslope::gfx::hud_lines(readings)) {
+                            std::printf("glideslope: the HUD reads %s\n", line.c_str());
+                        }
+                    }
+                }
                 readings.credits.insert(readings.credits.begin(), credits.begin(),
                                         credits.end());
                 const glideslope::gfx::Mesh hud =

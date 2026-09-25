@@ -42,7 +42,10 @@ struct ControlsShown {
 };
 
 struct HudReadings {
-    double airspeed_kts = 0.0; // calibrated
+    double airspeed_kts = 0.0; // calibrated - or the ground speed, where that is all there is
+    // Shown as `GS`, not `SPD`: another aircraft's, ridden along in, whose
+    // airspeed is not sent.
+    bool ground_speed = false;
     double altitude_ft = 0.0;  // above sea level
     double heading_deg = 0.0;  // true
     double vertical_speed_fpm = 0.0;

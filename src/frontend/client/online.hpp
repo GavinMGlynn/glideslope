@@ -46,6 +46,11 @@ struct Other {
     double heading_deg = 0.0;
     double pitch_deg = 0.0;
     double roll_deg = 0.0;
+    // Its velocity over the Earth, north, east and down, metres a second.
+    double north_mps = 0.0;
+    double east_mps = 0.0;
+    double down_mps = 0.0;
+    bool ai_flying = false;
     bool wrecked = false;
 };
 
@@ -74,6 +79,14 @@ public:
     // Every other aircraft, where it is to be drawn at `local_s`.
     std::vector<Other> others(double local_s);
 
+    // **Riding along** in the aircraft numbered `number` (`WATCH`), or in
+    // none with `net::no_aircraft`: told its controls from then on.
+    void watch(std::uint8_t number);
+    std::uint8_t watching() const { return watching_; }
+    // Its controls at `local_s`, 100 ms behind the clock as its position is,
+    // or nothing before two updates of them either side have come.
+    std::optional<net::Watched> watched_controls(double local_s) const;
+
     std::size_t corrections() const { return corrections_; }
     std::size_t snapped() const { return snapped_; }
     double worst_correction_m() const { return worst_correction_m_; }
@@ -95,6 +108,9 @@ private:
     std::optional<world::Ecef> origin_;
     std::map<std::uint8_t, net::Interpolated> shown_;
     std::map<std::uint8_t, bool> wrecked_;
+    std::map<std::uint8_t, bool> ai_;
+    std::uint8_t watching_ = net::no_aircraft;
+    std::map<double, net::Watched> watched_;
     std::size_t corrections_ = 0;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;

@@ -94,6 +94,13 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
 
 void Online::heard(const net::StatePacket& state, double local_s, Flight& flight) {
     clock_.heard(state.simulation_time_s, local_s);
+    // The watched aircraft's controls, by the time they were true.
+    if (state.watched && state.watched->aircraft == watching_) {
+        watched_[state.simulation_time_s] = *state.watched;
+        while (watched_.size() > 64) {
+            watched_.erase(watched_.begin());
+        }
+    }
     // **Its own, from the newest word only**: an update older than one
     // already used would put it back to where the newer one had moved it
     // from, with the inputs since already let go.
@@ -125,6 +132,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
         r.roll_deg = static_cast<double>(a.roll_deg);
         shown_[a.index].received(r);
         wrecked_[a.index] = a.condition == net::Condition::wrecked;
+        ai_[a.index] = a.controller == net::Controller::ai;
     }
     // One no longer in the updates is no longer in the sky.
     for (auto it = shown_.begin(); it != shown_.end();) {
@@ -157,9 +165,48 @@ std::vector<Other> Online::others(double local_s) {
         o.heading_deg = at.heading_deg;
         o.pitch_deg = at.pitch_deg;
         o.roll_deg = at.roll_deg;
+        o.north_mps = at.north_mps;
+        o.east_mps = at.east_mps;
+        o.down_mps = at.down_mps;
+        o.ai_flying = ai_[number];
         o.wrecked = wrecked_[number];
         out.push_back(o);
     }
+    return out;
+}
+
+void Online::watch(std::uint8_t number) {
+    watching_ = number;
+    watched_.clear();
+    net::Watch w;
+    w.aircraft = number;
+    const std::vector<std::uint8_t> body = net::write(w);
+    session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
+}
+
+std::optional<net::Watched> Online::watched_controls(double local_s) const {
+    if (!clock_.known() || watched_.empty()) {
+        return std::nullopt;
+    }
+    const double at = clock_.now(local_s) - net::shown_behind_s;
+    const auto after = watched_.lower_bound(at);
+    if (after == watched_.end()) {
+        // Past the newest: held where it was, as a gauge would be.
+        return watched_.rbegin()->second;
+    }
+    if (after == watched_.begin()) {
+        return std::nullopt;
+    }
+    const auto before = std::prev(after);
+    const double span = after->first - before->first;
+    const double k = span > 0.0 ? (at - before->first) / span : 0.0;
+    const auto mix = [k](double a, double b) { return a + k * (b - a); };
+    net::Watched out = before->second;
+    out.aileron = mix(before->second.aileron, after->second.aileron);
+    out.elevator = mix(before->second.elevator, after->second.elevator);
+    out.rudder = mix(before->second.rudder, after->second.rudder);
+    out.throttle = mix(before->second.throttle, after->second.throttle);
+    out.flaps = mix(before->second.flaps, after->second.flaps);
     return out;
 }
 

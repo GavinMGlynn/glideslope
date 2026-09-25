@@ -74,6 +74,9 @@ public:
 
     // Send this client's inputs, already packed by `InputSender::packet()`.
     void send_inputs(std::span<const std::uint8_t> packet);
+    // Send a message that must arrive (`net::write` of one), repeated until it
+    // has.
+    void send_message(std::span<const std::uint8_t> body) { (void)reliable_.send(body); }
 
     // Send the initiation once more, as a network that duplicates a datagram
     // would. A test flag's work; a server answers it with what it already
