@@ -734,6 +734,13 @@ glideslope_configure(glideslope_checklist_check)
 
 add_executable(glideslope_hud_check tools/hud_check.cpp)
 target_link_libraries(glideslope_hud_check PRIVATE glideslope_gfx)
+add_executable(glideslope_hud_lines_check tools/hud_lines_check.cpp)
+target_link_libraries(glideslope_hud_lines_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_hud_lines_check)
+# **The HUD says who is flying and where every control is, in every case** -
+# the flaps and gear at settings a shot does not reach among them.
+add_test(NAME the_hud_says_who_is_flying_and_where_every_control_is_in_every_case
+    COMMAND glideslope_hud_lines_check)
 glideslope_configure(glideslope_hud_check)
 add_executable(glideslope_sky_check tools/sky_check.cpp)
 target_link_libraries(glideslope_sky_check PRIVATE glideslope_gfx)
