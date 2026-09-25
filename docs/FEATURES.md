@@ -152,6 +152,14 @@ the controls to an AI pilot whenever you like, then take them back.
   runway. With your own key. Later, after the autopilot and flight plans are
   solid.
 
+- **A different AI on each aircraft.** `WANTED`
+  Choose which language model plans for each AI aircraft - Claude on one,
+  ChatGPT on another, or none, flying its plan as it was given - and watch
+  them decide differently: which way they go, how they handle a failure, what
+  they do when told something new. The flying itself is always the
+  simulator's own AI pilot; the model only decides where to go. Each with
+  your own key.
+
 - **Pilots that learned to fly.** `CANDIDATE`
   AI trained to land or fly aerobatics rather than programmed to. A stretch
   goal.
