@@ -316,6 +316,8 @@ public:
     // propeller. Throws std::out_of_range for a property the model does not
     // have.
     double property(const std::string& name) const;
+    // Whether this model has the property at all.
+    bool has_property(const std::string& name) const;
 
 private:
     void apply_weather();

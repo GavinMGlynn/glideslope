@@ -174,6 +174,8 @@ public:
     world::Ecef sun_in_body() const;
 
     gfx::HudReadings hud() const;
+    // Where the controls are, as the flight model has them.
+    gfx::ControlsShown controls_shown() const;
 
     // **The checklist on screen.** The aircraft's own lists are loaded with
     // it; `show_checklist` says which phase's is on screen, and from then on

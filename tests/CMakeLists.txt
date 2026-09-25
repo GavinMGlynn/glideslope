@@ -756,6 +756,28 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
     set_tests_properties(the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    # **Who is flying, and the controls**, whoever has them: the AI holding
+    # what the aircraft is doing, and the AI flying a plan to its first
+    # waypoint - each read back out of the frame and held to the trace.
+    add_test(NAME the_hud_says_the_ai_holds_the_aircraft_and_shows_its_controls_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_hud_check>
+            -DCLI=$<TARGET_FILE:glideslope_cli>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DFLY=--autopilot "-DFLYING=FLYING AI HOLD"
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
+    set_tests_properties(the_hud_says_the_ai_holds_the_aircraft_and_shows_its_controls_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    add_test(NAME the_hud_says_the_ai_flies_its_plan_and_shows_its_controls_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_hud_check>
+            -DCLI=$<TARGET_FILE:glideslope_cli>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} "-DFLY=--plan;sydney-harbour"
+            "-DFLYING=FLYING AI NAV THE HEADS"
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
+    set_tests_properties(the_hud_says_the_ai_flies_its_plan_and_shows_its_controls_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME the_checklist_on_screen_is_the_one_the_flight_is_working_through_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_checklist_check>

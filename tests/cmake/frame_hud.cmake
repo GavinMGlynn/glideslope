@@ -15,8 +15,15 @@ cmake_minimum_required(VERSION 3.28)
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
 file(MAKE_DIRECTORY "${WORK}")
-set(_shot "${WORK}/hud-${DRIVER}.bmp")
-set(_trace "${WORK}/hud-${DRIVER}.trace.txt")
+# FLY, if given, is what else the client is told - `--autopilot`, or a
+# `--plan` - and FLYING the HUD's line that must then say who is flying: the
+# pilot, unless told otherwise.
+if(NOT DEFINED FLYING)
+    set(FLYING "FLYING PILOT")
+endif()
+string(MAKE_C_IDENTIFIER "${FLYING}" _case)
+set(_shot "${WORK}/hud-${DRIVER}-${_case}.bmp")
+set(_trace "${WORK}/hud-${DRIVER}-${_case}.trace.txt")
 file(REMOVE "${_shot}" "${_trace}")
 set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
 
@@ -25,6 +32,7 @@ set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size 640x480
                         --screen flight --weather YSSY --shot-at 600 --shot "${_shot}" --trace
+                        ${FLY}
                 RESULT_VARIABLE _rc OUTPUT_FILE "${_trace}" ERROR_VARIABLE _err)
 if(NOT _rc EQUAL 0 AND _err MATCHES "could not download")
     if("$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
@@ -81,4 +89,10 @@ execute_process(COMMAND "${CHECK}" "${_shot}" "${_trace}" 600 dem imagery weathe
 message(STATUS "${_out}")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "${_out}${_err}")
+endif()
+# **Who is flying**, in the words expected: the check holds the line to the
+# trace's pilot or AI, and this to what the AI is doing.
+string(FIND "${_out}" "${FLYING}\n" _said)
+if(_said LESS 0)
+    message(FATAL_ERROR "the HUD did not say \"${FLYING}\":\n${_out}")
 endif()

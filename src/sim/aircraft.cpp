@@ -811,6 +811,10 @@ void Aircraft::set_motion(const Motion& m) {
     propagate->InitializeDerivatives();
 }
 
+bool Aircraft::has_property(const std::string& name) const {
+    return exec_->GetPropertyManager()->HasNode(name);
+}
+
 double Aircraft::property(const std::string& name) const {
     if (!exec_->GetPropertyManager()->HasNode(name)) {
         throw std::out_of_range(model_ + " has no property " + name);

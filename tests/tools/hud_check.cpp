@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
 
     const glideslope::gfx::Frame frame = load(argv[1]);
     const auto layout = glideslope::gfx::hud_layout(frame.width, frame.height);
-    const auto lines = glideslope::gfx::read_text(frame, layout, 9, 16);
+    const auto lines = glideslope::gfx::read_text(frame, layout, 16, 24);
     for (const auto& l : lines) {
         std::printf("read: %s\n", l.c_str());
     }
@@ -210,7 +210,49 @@ int main(int argc, char** argv) {
                   1.0, 0.005);
     optional_line(state.at("pa_ft") >= glideslope::gfx::hud_flight_level_from_ft, "FL",
                   state.at("pa_ft"), 100.0, 50.0);
-    if (!lines[next].empty() && lines[next].rfind("AP ", 0) != 0) {
+    // **Who is flying**, always: the pilot, or the AI and what it is doing.
+    const bool ai = state.at("ai") >= 0.5;
+    if (ai ? lines[next].rfind("FLYING AI", 0) != 0 : lines[next] != "FLYING PILOT") {
+        fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\", when " +
+             (ai ? "the AI" : "the pilot") + " is flying at tick " + std::to_string(tick));
+    }
+    std::printf("%s\n", lines[next].c_str());
+    ++next;
+
+    // **And the controls**, each where the flight model has it, to the
+    // hundredth the HUD shows.
+    const auto control = [&](const std::string& label, std::size_t word, const char* key) {
+        const auto words = words_of(lines[next]);
+        if (words.empty() || words[0] != label || words.size() <= word) {
+            fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\", not " +
+                 label);
+        }
+        const double shown = number(words[word], lines[next]);
+        const double actual = state.at(key);
+        std::printf("%-8s %s shown %+.2f, state %+.4f\n", label.c_str(), key, shown, actual);
+        if (std::abs(shown - actual) > 0.005 + 1e-6) {
+            fail(label + " shows " + words[word] + " for " + key + " at tick " +
+                 std::to_string(tick) + " when the state is " + std::to_string(actual));
+        }
+    };
+    control("STICK", 1, "aileron");
+    control("STICK", 2, "elevator");
+    ++next;
+    control("RUDDER", 1, "rudder");
+    ++next;
+    control("THROTTLE", 1, "throttle");
+    ++next;
+    control("FLAPS", 1, "flaps");
+    ++next;
+    if (state.at("gear") >= 0.0) {
+        const std::string want = state.at("gear") >= 0.5 ? "GEAR DOWN" : "GEAR UP";
+        if (lines[next] != want) {
+            fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\", not " +
+                 want);
+        }
+        ++next;
+    }
+    if (!lines[next].empty()) {
         fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] +
              "\", which the HUD should not show");
     }

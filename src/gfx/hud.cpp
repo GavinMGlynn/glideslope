@@ -163,11 +163,28 @@ std::vector<std::string> hud_lines(const HudReadings& r) {
         std::snprintf(buffer, sizeof buffer, "FL %03ld", nearest(r.pressure_altitude_ft / 100.0));
         lines.emplace_back(buffer);
     }
-    if (!r.autopilot.empty()) {
-        // The font has no underscore: names written with them read as words.
-        std::string shown = "AP  " + r.autopilot;
-        std::replace(shown.begin(), shown.end(), '_', ' ');
-        lines.push_back(shown);
+    // **Who has the aircraft, always**, and what the AI is doing with it.
+    // The font has no underscore: names written with them read as words.
+    std::string flying = r.ai_flying ? "FLYING AI " + r.autopilot : "FLYING PILOT";
+    std::replace(flying.begin(), flying.end(), '_', ' ');
+    while (!flying.empty() && flying.back() == ' ') {
+        flying.pop_back();
+    }
+    lines.push_back(flying);
+    // **And where the controls are**, whoever is moving them.
+    if (r.controls) {
+        const ControlsShown& c = *r.controls;
+        std::snprintf(buffer, sizeof buffer, "STICK %+.2f %+.2f", c.aileron, c.elevator);
+        lines.emplace_back(buffer);
+        std::snprintf(buffer, sizeof buffer, "RUDDER %+.2f", c.rudder);
+        lines.emplace_back(buffer);
+        std::snprintf(buffer, sizeof buffer, "THROTTLE %.2f", c.throttle);
+        lines.emplace_back(buffer);
+        std::snprintf(buffer, sizeof buffer, "FLAPS %.2f", c.flaps);
+        lines.emplace_back(buffer);
+        if (c.gear) {
+            lines.emplace_back(*c.gear >= 0.5 ? "GEAR DOWN" : "GEAR UP");
+        }
     }
     return lines;
 }

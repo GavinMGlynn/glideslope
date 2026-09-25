@@ -44,8 +44,13 @@ if(DEFINED CACHE)
     if(IMAGERY)
         set(_imagery "imagery")
     endif()
+    # A script run for several cases - who is flying, say - has one per case.
+    set(_case "")
+    if(DEFINED FLYING)
+        string(MAKE_C_IDENTIFIER "${FLYING}" _case)
+    endif()
     set(ENV{GLIDESLOPE_CESIUM_CACHE}
-        "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}${_imagery}${VIEW}.sqlite")
+        "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}${_imagery}${VIEW}${_case}.sqlite")
 endif()
 
 # Judges the leak reports in a run's standard error, as described above: fails

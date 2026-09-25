@@ -421,6 +421,8 @@ gfx::HudReadings Flight::hud() const {
     r.roll_deg = s.roll_deg;
     r.mach = aircraft_->property("velocities/mach");
     r.pressure_altitude_ft = aircraft_->property("atmosphere/pressure-altitude");
+    r.ai_flying = ai_flying();
+    r.controls = controls_shown();
     if (ai_flying()) {
         const sim::Navigator* nav = controller_->navigator();
         if (nav != nullptr && plan_ && passed_ < plan_->waypoints.size()) {
@@ -484,14 +486,29 @@ double Flight::sea_level_ft() const {
            geoid_->undulation(s.latitude_deg, s.longitude_deg) * feet_per_metre;
 }
 
+gfx::ControlsShown Flight::controls_shown() const {
+    gfx::ControlsShown c;
+    c.aileron = aircraft_->property("fcs/aileron-cmd-norm");
+    c.elevator = -aircraft_->property("fcs/elevator-cmd-norm");
+    c.rudder = aircraft_->property("fcs/rudder-cmd-norm");
+    c.throttle = aircraft_->property("fcs/throttle-cmd-norm[0]");
+    c.flaps = aircraft_->property("fcs/flap-cmd-norm");
+    if (aircraft_->has_property("gear/gear-cmd-norm")) {
+        c.gear = aircraft_->property("gear/gear-cmd-norm");
+    }
+    return c;
+}
+
 std::string Flight::trace() const {
     const sim::AircraftState s = aircraft_->state();
-    char line[512];
+    const gfx::ControlsShown c = controls_shown();
+    char line[768];
     std::snprintf(line, sizeof line,
                   "trace tick %lld time %.4f lat %.7f lon %.7f alt_ft %.3f ell_ft %.3f "
                   "agl_ft %.3f kcas %.3f heading %.3f vs_fpm %.3f pitch %.3f roll %.3f "
                   "wind_north_fps %.3f wind_east_fps %.3f wind_down_fps %.3f "
-                  "mach %.4f pa_ft %.3f",
+                  "mach %.4f pa_ft %.3f ai %d aileron %.4f elevator %.4f rudder %.4f "
+                  "throttle %.4f flaps %.4f gear %.4f",
                   static_cast<long long>(tick_), s.sim_time_s, s.latitude_deg,
                   s.longitude_deg, sea_level_ft(), s.altitude_ft,
                   s.height_above_ground_ft, s.airspeed_kts, s.heading_deg,
@@ -500,7 +517,9 @@ std::string Flight::trace() const {
                   aircraft_->property("atmosphere/wind-east-fps"),
                   aircraft_->property("atmosphere/wind-down-fps"),
                   aircraft_->property("velocities/mach"),
-                  aircraft_->property("atmosphere/pressure-altitude"));
+                  aircraft_->property("atmosphere/pressure-altitude"), ai_flying() ? 1 : 0,
+                  c.aileron, c.elevator, c.rudder, c.throttle, c.flaps,
+                  c.gear ? *c.gear : -1.0);
     return line;
 }
 
