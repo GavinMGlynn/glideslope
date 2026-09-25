@@ -962,10 +962,21 @@ static int run_program(int argc, char** argv) {
                 // aircraft ridden in, and its controls, which come some
                 // updates after the server is told - later than the shot's
                 // tick on a slow machine, which then drew a HUD without them.
-                if (shot_now && o.ride_along &&
+                // A minute of the flight past the shot's tick is as long as any
+                // machine needs; past it the shot is drawn as things are, and
+                // says what it heard, so a test fails saying why.
+                const bool waited_long = ticks >= o.shot_at + 60 * glideslope::sim::steps_per_second;
+                if (shot_now && o.ride_along && !waited_long &&
                     (!rode_along || (online->watching() != glideslope::net::no_aircraft &&
                                      !online->watched_controls(seconds_since_start())))) {
                     shot_now = false;
+                }
+                if (shot_now && o.ride_along) {
+                    std::printf("glideslope: the shot drawn %.1f s past its tick; %zu updates "
+                                "carried the watched aircraft's controls\n",
+                                static_cast<double>(ticks - o.shot_at) /
+                                    static_cast<double>(glideslope::sim::steps_per_second),
+                                online->watched_heard());
                 }
             }
             // **On a server, a shot draws only its own frame.** The flight

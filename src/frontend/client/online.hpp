@@ -86,6 +86,8 @@ public:
     // Its controls at `local_s`, 100 ms behind the clock as its position is,
     // or nothing before two updates of them either side have come.
     std::optional<net::Watched> watched_controls(double local_s) const;
+    // How many updates have carried the watched aircraft's controls.
+    std::size_t watched_heard() const { return watched_heard_; }
 
     std::size_t corrections() const { return corrections_; }
     std::size_t snapped() const { return snapped_; }
@@ -111,6 +113,7 @@ private:
     std::map<std::uint8_t, bool> ai_;
     std::uint8_t watching_ = net::no_aircraft;
     std::map<double, net::Watched> watched_;
+    std::size_t watched_heard_ = 0;
     std::size_t corrections_ = 0;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;
