@@ -1465,6 +1465,18 @@ foreach(_provider openai anthropic)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider})
 endforeach()
 
+# **The client with the window rides along in an AI aircraft**: its seat, its
+# instruments and its controls. See cmake/client_rides_along.cmake.
+add_test(NAME the_client_with_the_window_rides_along_in_an_ai_aircraft_and_shows_its_controls
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/rides_along -DPORT=47888 -DDRIVER=vulkan
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_rides_along.cmake)
+set_tests_properties(the_client_with_the_window_rides_along_in_an_ai_aircraft_and_shows_its_controls
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rides_along)
+
 # **A client started with --online reaches the server server.txt names.** See
 # cmake/client_online.cmake, which names the file by the environment rather
 # than writing into the person's own config directory.
