@@ -822,6 +822,29 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
     set_tests_properties(the_hud_says_the_ai_flies_its_plan_and_shows_its_controls_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    # **With no weather to be had, each of the three reports itself skipped**,
+    # even where the network is required: the weather is asked of a port
+    # nothing listens on.
+    foreach(_case IN ITEMS pilot_flying ai_holding ai_flying_its_plan)
+        set(_fly "")
+        set(_flying "FLYING PILOT")
+        if(_case STREQUAL "ai_holding")
+            set(_fly "--autopilot")
+            set(_flying "FLYING AI HOLD")
+        elseif(_case STREQUAL "ai_flying_its_plan")
+            set(_fly "--plan;sydney-harbour")
+            set(_flying "FLYING AI NAV THE HEADS")
+        endif()
+        add_test(NAME a_hud_test_with_the_${_case}_is_skipped_when_there_is_no_weather_to_be_had_on_${_driver}
+            COMMAND ${CMAKE_COMMAND}
+                -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_hud_check>
+                -DCLI=$<TARGET_FILE:glideslope_cli>
+                -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+                -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} "-DFLY=${_fly}" "-DFLYING=${_flying}"
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud_no_weather.cmake)
+        set_tests_properties(a_hud_test_with_the_${_case}_is_skipped_when_there_is_no_weather_to_be_had_on_${_driver}
+            PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    endforeach()
     add_test(NAME the_checklist_on_screen_is_the_one_the_flight_is_working_through_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_checklist_check>

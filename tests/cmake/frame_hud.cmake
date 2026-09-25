@@ -10,6 +10,15 @@
 # imagery's and Open-Meteo's. The flight stands on the DEM, and draws it, so it needs the
 # tiles and the geoid, fetched into CACHE, and the weather: without the network
 # the test is skipped (exit 77) unless GLIDESLOPE_REQUIRE_NETWORK is set.
+#
+# **Without the weather it is skipped whatever is required.** The DEM and the
+# geoid are pinned and kept, so CI requires them; the weather is live,
+# somebody else's, and never kept, and when aviationweather.gov or Open-Meteo
+# does not answer - WinHTTP's 12002 from Open-Meteo on Windows CI - there is
+# nothing to fly in, which is not a fault of the HUD's. The client says which
+# it was: "the weather could not be had". WEATHER_SERVICE, if given, is asked
+# instead of both services (GLIDESLOPE_WEATHER_SERVICE), so a test can build
+# that on purpose (frame_hud_no_weather.cmake).
 
 cmake_minimum_required(VERSION 3.28)
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
@@ -26,6 +35,9 @@ set(_shot "${WORK}/hud-${DRIVER}-${_case}.bmp")
 set(_trace "${WORK}/hud-${DRIVER}-${_case}.trace.txt")
 file(REMOVE "${_shot}" "${_trace}")
 set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
+if(DEFINED WEATHER_SERVICE)
+    set(ENV{GLIDESLOPE_WEATHER_SERVICE} "${WEATHER_SERVICE}")
+endif()
 
 # glideslope_client fails a test outright; a missing network is a skip, so the
 # run is made here and its failure looked at.
@@ -34,6 +46,10 @@ execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size 
                         --screen flight --weather YSSY --shot-at 600 --shot "${_shot}" --trace
                         ${FLY}
                 RESULT_VARIABLE _rc OUTPUT_FILE "${_trace}" ERROR_VARIABLE _err)
+if(NOT _rc EQUAL 0 AND _err MATCHES "the weather could not be had")
+    message(STATUS "there is no weather to fly in: ${_err}")
+    cmake_language(EXIT 77)
+endif()
 if(NOT _rc EQUAL 0 AND _err MATCHES "could not download")
     if("$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
         message(STATUS "the DEM or the weather could not be had: ${_err}")

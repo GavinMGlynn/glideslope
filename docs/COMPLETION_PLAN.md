@@ -348,6 +348,13 @@ Found while implementing something else. Added when found, not when remembered.
       than 2 m off, the worst 8.6 m.** *Verification: the cause found, and
       the check run a hundred times on macOS within its bound.*
 
+- [x] **A HUD test fails, rather than skipping, when the weather service
+      does not answer** (Windows CI, 2026-09-25: WinHTTP 12002 from
+      Open-Meteo). *Verification: with no weather to be had, the HUD tests
+      that fly in live weather report themselves skipped.* Done 2026-09-25:
+      skipped even where the network is required, since live weather is
+      never kept; a missing DEM still fails there.
+
 - [x] **The HUD check read the horizon, crossing the rows below the HUD, as a
       line of the HUD.** *Verification: a line that does not begin at the
       HUD's margin is not judged, and an extra HUD line still is.* Done

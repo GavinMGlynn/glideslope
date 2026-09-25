@@ -1,5 +1,6 @@
 #include "world/download.hpp"
 
+#include "platform/paths.hpp"
 #include "world/digest.hpp"
 
 #include <atomic>
@@ -94,6 +95,11 @@ platform::HttpResponse fetch_with_retries(const Fetch& fetch, const std::string&
         std::this_thread::sleep_for(wait);
         wait *= 2;
     }
+}
+
+std::string weather_host(const std::string& own) {
+    std::string instead = platform::weather_service();
+    return instead.empty() ? own : instead;
 }
 
 Fetch http_fetch() {

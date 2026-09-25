@@ -124,7 +124,8 @@ sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
 
 // A station's weather now: its latest METAR, and Open-Meteo's winds aloft over
 // it for the hour `time` ("YYYY-MM-DDTHH:00", UTC). Throws as fetch_metar and
-// fetch_winds_aloft do. Open-Meteo's data must be credited wherever it is shown:
+// fetch_winds_aloft do, a download that failed as DemError beginning "the
+// weather could not be had: ". Open-Meteo's data must be credited wherever it is shown:
 // open_meteo_credit.
 WeatherReport fetch_weather(const std::string& station, const std::string& time,
                             const Fetch& fetch);

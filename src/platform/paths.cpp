@@ -239,6 +239,10 @@ std::string anthropic_key() {
     return secret("GLIDESLOPE_ANTHROPIC_KEY", "anthropic-key");
 }
 
+std::string weather_service() {
+    return environment_path("GLIDESLOPE_WEATHER_SERVICE").string();
+}
+
 namespace {
 
 // One line of a `server.txt`, or nothing if it is not one.

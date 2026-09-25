@@ -17,6 +17,11 @@ namespace glideslope::world {
 
 using Fetch = std::function<platform::HttpResponse(const std::string& url)>;
 
+// **A weather service's scheme and host**: `own`, such as
+// "https://aviationweather.gov", unless platform::weather_service() names
+// another for a test.
+std::string weather_host(const std::string& own);
+
 // A GET through the platform's HTTP client, with a body limit to suit a DEM tile.
 Fetch http_fetch();
 

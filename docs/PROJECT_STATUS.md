@@ -227,6 +227,42 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A HUD test with no weather to be had is skipped, 2026-09-25 — tail done
+
+**What is not covered first.** Only the three HUD tests fly in live weather
+(`--weather YSSY`); nothing else a test runs asks for it but the weather's own
+unit test, which fetches Sydney's weather to hold it to what it must be and
+still fails, where the network is required, when a service does not answer.
+A weather refresh that fails mid-flight was already only reported, and the
+flight flown on in the weather it had.
+
+**Found by CI**: `glideslope: could not download: https://api.open-meteo.com/...
+no response (WinHTTP error 12002)`, failing
+`the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_*` from
+`frame_hud.cmake`. **Cause.** The test did skip on "could not download" - but
+not where `GLIDESLOPE_REQUIRE_NETWORK` is set, as CI sets it, because there
+the DEM and the geoid must arrive: they are pinned and kept in `.downloads`.
+Live weather is neither; it is somebody else's service, asked afresh each run.
+
+**Now** `fetch_weather` says a download that failed was the weather's - "the
+weather could not be had: could not download ..." - and `frame_hud.cmake`
+reports itself skipped (exit 77) on that, whatever is required; a DEM that
+could not be had still fails where the network is required. To build the
+situation on purpose, `GLIDESLOPE_WEATHER_SERVICE` (read by
+`platform::weather_service`, used through `world::weather_host`) names a
+scheme and host asked instead of both `https://aviationweather.gov` and
+`https://api.open-meteo.com`; unset, the services' own are asked.
+
+**Verified.** `a_hud_test_with_the_{pilot_flying,ai_holding,ai_flying_its_plan}_is_skipped_when_there_is_no_weather_to_be_had_on_*`
+(`frame_hud_no_weather.cmake`) runs `frame_hud.cmake` for each of the three
+HUD tests' cases with the weather asked of `http://127.0.0.1:1`, where nothing
+listens, and `GLIDESLOPE_REQUIRE_NETWORK` set, and requires exit 77 with the
+weather named. The three HUD tests still pass in Sydney's weather.
+**Seen to fail:** with `frame_hud.cmake`'s weather skip taken out, all three
+fail with "exited 1, not 77", CI's failure exactly; a first version of the
+wrapper, which skipped itself on any "could not download" where the network is
+not required, passed that bug skipped, and now skips only on the DEM's.
+
 ### The HUD check read the horizon as a line of the HUD, 2026-09-25 — tail done
 
 **Found by CI, on every platform and every branch at once.** The HUD test
