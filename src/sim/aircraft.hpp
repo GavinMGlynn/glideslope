@@ -318,6 +318,9 @@ public:
     double property(const std::string& name) const;
     // Whether this model has the property at all.
     bool has_property(const std::string& name) const;
+    // Whether any of its gear retracts. JSBSim has a gear command for every
+    // model, fixed gear or not, so the property alone does not say.
+    bool gear_retracts() const;
 
 private:
     void apply_weather();

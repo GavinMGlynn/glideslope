@@ -811,6 +811,10 @@ void Aircraft::set_motion(const Motion& m) {
     propagate->InitializeDerivatives();
 }
 
+bool Aircraft::gear_retracts() const {
+    return retractable_gear(*exec_);
+}
+
 bool Aircraft::has_property(const std::string& name) const {
     return exec_->GetPropertyManager()->HasNode(name);
 }

@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <regex>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -538,6 +539,34 @@ GLIDESLOPE_TEST(every_aircraft_says_which_class_it_is_and_the_requirements_agree
     check(checked == 16, "all sixteen were held to the table");
 }
 
+// **An aircraft says its gear retracts where its model has retracting gear,
+// and nowhere else** - every one in the catalogue, against its model's own
+// file. JSBSim has a gear command for fixed gear too, and a HUD that asked
+// for that showed a Cessna's gear as down and able to come up.
+GLIDESLOPE_TEST(an_aircraft_says_its_gear_retracts_only_where_its_model_has_it) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    std::size_t retracting = 0;
+    std::size_t fixed = 0;
+    for (const auto& e : roster) {
+        std::ifstream in(data() / "jsbsim" / "aircraft" / e.model / (e.model + ".xml"),
+                         std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(in)),
+                               std::istreambuf_iterator<char>());
+        // Written `<retractable>1</retractable>`, or with spaces inside.
+        static const std::regex retractable(R"(<retractable>\s*1\s*</retractable>)");
+        const bool in_its_file = std::regex_search(text, retractable);
+        const glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        check(aircraft.gear_retracts() == in_its_file,
+              e.id + (in_its_file ? " has retracting gear" : " has fixed gear"));
+        if (in_its_file) {
+            ++retracting;
+        } else {
+            ++fixed;
+        }
+    }
+    check(retracting + fixed == roster.size() && roster.size() == 16,
+          "all sixteen were asked: " + std::to_string(retracting) + " retracting and " +
+              std::to_string(fixed) + " fixed");
 // **An id from the wire names an aircraft in the catalogue, or none.** A
 // server's `AIRCRAFT` message gives the id a client loads a model by, and an
 // id joined to a path as it stood would open whatever it was told to. Every
