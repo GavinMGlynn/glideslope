@@ -61,10 +61,12 @@ std::string utc_hour(std::chrono::system_clock::time_point t);
 // no such hour or lacks a level.
 WindsAloft parse_open_meteo(std::string_view json, const std::string& time);
 
-// The profile now - the hour `time` - for a place. Throws DemError if the
-// forecast cannot be had.
+// The profile now - the hour `time` - for a place. Throws ServiceUnavailable
+// if nothing answered or a server error was all it answered, DemError for any
+// other answer that cannot be read, or parse_open_meteo's errors.
 WindsAloft fetch_winds_aloft(double latitude_deg, double longitude_deg,
-                             const std::string& time, const Fetch& fetch);
+                             const std::string& time, const Fetch& fetch,
+                             std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
 
 struct AloftSample {
     double wind_north_mps = 0.0;

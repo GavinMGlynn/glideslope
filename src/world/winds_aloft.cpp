@@ -118,15 +118,20 @@ WindsAloft parse_open_meteo(std::string_view text, const std::string& time) {
 }
 
 WindsAloft fetch_winds_aloft(double latitude_deg, double longitude_deg,
-                             const std::string& time, const Fetch& fetch) {
+                             const std::string& time, const Fetch& fetch,
+                             std::chrono::milliseconds retry_wait) {
     const std::string url = open_meteo_url(latitude_deg, longitude_deg);
     // An answer that is not JSON is fetched again (weather.cpp says why).
     for (int attempt = 1;; ++attempt) {
         platform::HttpResponse r;
         try {
-            r = fetch_with_retries(fetch, url);
+            r = fetch_with_retries(fetch, url, 5, retry_wait);
         } catch (const platform::HttpError& e) {
-            throw DemError(std::string("could not download: ") + e.what());
+            throw ServiceUnavailable(std::string("could not download: ") + e.what());
+        }
+        if (r.status >= 500) {
+            throw ServiceUnavailable("could not download " + url + ": status " +
+                                     std::to_string(r.status));
         }
         if (r.status != 200) {
             throw DemError("could not download " + url + ": status " +

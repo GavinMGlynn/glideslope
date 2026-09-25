@@ -455,6 +455,8 @@ set(GLIDESLOPE_UNIT_TESTS
     turbulence_has_drydens_intensity_at_each_height_and_severity
     a_recorded_response_sets_the_wind_near_the_ground_through_its_boundary_layer
     an_answer_that_is_not_json_is_fetched_again_and_then_taken_for_a_failed_download
+    only_a_weather_service_that_does_not_answer_is_weather_not_to_be_had
+    the_weather_may_be_asked_elsewhere_only_over_https_or_of_the_loopback
     reported_wind_shear_is_read_and_gives_the_approach_the_models_shear
     a_microburst_gives_the_headwind_downdraught_and_tailwind_its_model_does
     allens_updrafts_have_the_size_and_speed_his_paper_gives
@@ -769,6 +771,11 @@ add_executable(glideslope_checklist_check tools/checklist_check.cpp)
 target_link_libraries(glideslope_checklist_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_checklist_check)
 
+add_executable(glideslope_http_stub tools/http_stub.cpp)
+if(WIN32)
+    target_link_libraries(glideslope_http_stub PRIVATE ws2_32)
+endif()
+glideslope_configure(glideslope_http_stub)
 add_executable(glideslope_hud_check tools/hud_check.cpp)
 target_link_libraries(glideslope_hud_check PRIVATE glideslope_gfx)
 add_executable(glideslope_hud_lines_check tools/hud_lines_check.cpp)
@@ -845,6 +852,21 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
         set_tests_properties(a_hud_test_with_the_${_case}_is_skipped_when_there_is_no_weather_to_be_had_on_${_driver}
             PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     endforeach()
+    # **And a weather service that refuses the request fails the test**, as a
+    # misspelt Open-Meteo variable would be refused with a 400: a fault of
+    # ours, never taken for weather not to be had. One case: the three differ
+    # only after the weather has been fetched, and the ways a fetch can fail
+    # are walked in only_a_weather_service_that_does_not_answer_is_weather_not_to_be_had.
+    add_test(NAME a_hud_test_whose_weather_service_answers_400_fails_rather_than_skipping_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_hud_check>
+            -DCLI=$<TARGET_FILE:glideslope_cli> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+            -DANSWER=400
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} "-DFLYING=FLYING PILOT"
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud_no_weather.cmake)
+    set_tests_properties(a_hud_test_whose_weather_service_answers_400_fails_rather_than_skipping_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME the_checklist_on_screen_is_the_one_the_flight_is_working_through_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_checklist_check>

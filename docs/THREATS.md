@@ -779,6 +779,24 @@ a path separator or a parent reference reads cleanly. Whatever turns either
 into a file path, a cache key or a URL must treat it as hostile: look it up in
 a list of datasets this build knows, rather than joining it to a directory.
 
+## Where the weather is asked
+
+**`GLIDESLOPE_WEATHER_SERVICE` redirects every weather request, in every
+build, and is held to HTTPS or the loopback.** It exists so a test can point
+the weather at a port nothing listens on, or at a stub on the loopback. It is
+read by the shipped programs too, so whoever can set a player's environment
+can choose where their weather comes from - but only an `https://` host, whose
+certificate is checked as the real services' are, or `http://127.0.0.1` /
+`http://localhost`, with a port or without and nothing after
+(`world::weather_service_allowed`, and
+`the_weather_may_be_asked_elsewhere_only_over_https_or_of_the_loopback`).
+Anything else stops the flight with the variable named, rather than sending
+the request over plain HTTP to another machine, where it could be read and
+its answer changed. What it cannot defend: someone who sets the environment
+can name an HTTPS host of their own, whose weather is theirs to make up. That
+is no more than they could do by running the program some other way, and the
+weather is not scored.
+
 ## What writing this document found
 
 Writing it found six disagreements between the code and the documents, which is
