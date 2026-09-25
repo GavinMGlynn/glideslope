@@ -298,6 +298,84 @@ POSIX has no sharing modes. A reader gives up only if every fetcher had
 finished before it last looked for the file, so a fetcher finishing between
 the look and the count cannot fail it spuriously.
 
+### Words to a flight plan, 2026-09-25 — item in progress
+
+**What is missing first.**
+- **No model has yet answered.** The item's verification is a plan a model
+  makes of "take off, climb to 3,000 ft and orbit the CBD", flown. The
+  OpenAI key works, but its account has no credit ("429: You have no credits
+  remaining"), and there is no Anthropic key. Until one can be asked, there is
+  no recorded answer for CI to play back, and none is faked.
+- **The copilot plans once, on the ground.** Flying with you is the next item.
+
+**What works.**
+- **Plans that take off and orbit.** A plan may start on a runway (`runway`,
+  `takeoff`): the take-off autopilot flies it off, and the navigator takes
+  over where it hands over. An `orbit` is a waypoint flown round, either way,
+  as often as asked or for ever. It is steered along the circle's tangent five
+  seconds ahead, and turned in by 90 degrees a kilometre off it.
+- **Every runway in the world**, from OurAirports' public-domain
+  `runways.csv`, pinned by commit and SHA-256 (`docs/ASSETS.md`): 27,116
+  open ends with a place and a heading. A plan's runway comes from here,
+  never from a model's memory.
+- **An HTTP POST** on all three backends, and JSON written (`write_json`).
+  A header with a control character is now refused by the platform itself,
+  on every request. Before, only the terrain code checked, though
+  `HttpRequest` said otherwise.
+- **The copilot** (`src/copilot`), linked by nothing presentational.
+  - OpenAI's Chat Completions or Anthropic's Messages, each asked with the
+    user's own key, read at run time from `openai-key` or `anthropic-key` in
+    the config directory. A provider with no key is refused, saying where
+    the key goes. OpenAI is asked `gpt-5.5-2026-04-23`, a dated model.
+  - What it answers is read as a plan and checked. A plan is refused if it:
+    - does not parse, or is for another aircraft;
+    - does not take off from one of the airport's runway lines, exactly;
+    - flies below the approach speed, or more than a fifth over the cruise;
+    - flies lower than 500 ft above the runway;
+    - goes more than 200 km from the runway.
+    A refused plan is told back to the model, up to three answers in all.
+  - Exchanges can be recorded and played back. Played back, a request must
+    be byte for byte the one recorded. No header is recorded, so no key is.
+- **`glideslope_cli plan AIRCRAFT AIRPORT COMMAND`** asks, and
+  **`glideslope_cli fly-plan FILE`** flies a plan over the DEM, saying how
+  the take-off, each waypoint and each orbit went.
+
+**Verified.**
+- `the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind`:
+  both ways round, in calm air and a 20 kt crosswind, twice round and on.
+  The worst was 69 m inside and 76 m outside a 1,500 m circle, held to 100 m,
+  and within 6 ft of height.
+- `a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane`:
+  all four light aeroplanes are taken off by the take-off autopilot, to
+  500 ft, and then pass a waypoint 15 km off within 5 m, at its height.
+- `a_plan_that_takes_off_and_orbits_the_cbd_is_flown_over_the_dem`:
+  `sydney-cbd-orbit.plan`, written by hand, flies off Sydney's 16R over the
+  real ground and circles Town Hall twice. It stays 1,433 to 1,499 m from the
+  centre and 3,000 to 3,002 ft high, held to 150 m and 50 ft.
+- The copilot, offline, against a stand-in for each service:
+  - each provider's request as its API has it;
+  - a service's error said in its own words, never with the key;
+  - nine ways a plan is wrong, each refused and told back;
+  - a recording that replays only what it recorded, and holds no key.
+- The runways reader, the POST (byte for byte, through a server on the
+  loopback address) and `write_json` each have their own tests.
+- `take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_{openai,anthropic}_now_and_flown`
+  are there, and report themselves skipped, saying why, until each can be
+  asked.
+
+**Seen to fail**, each put back:
+- the orbit's way round reversed;
+- a take-off ignored: the plain autopilot flew the aeroplanes off the ground
+  by itself, which the test first missed, and now catches;
+- a closed runway kept;
+- a POST one byte short, and an unsafe header sent;
+- control characters written unescaped;
+- a plan too low taken;
+- a played-back request not compared;
+- the geoid left out of a plan's heights: 72 ft at Sydney, so the orbit's
+  height bound is 50 ft.
+
+
 ### A weather service's bad answer is fetched again, 2026-09-25 — tail done
 
 **Found by CI.** Three tests failed at once on a pull request that had not
