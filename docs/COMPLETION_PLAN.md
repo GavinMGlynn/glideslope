@@ -307,7 +307,9 @@ ends in a debrief, never a score.
 
 - [ ] **Natural-language commands become flight plans.** *Verification: "take
       off, climb to 3,000 ft and orbit the CBD" produces a plan the autopilot
-      flies.*
+      flies.* Missing: a model's answer, recorded for CI. The OpenAI account
+      has no credit, and there is no Anthropic key. Plans that take off and
+      orbit are flown, and the planner is built.
 - [x] **An autopilot that flies an approach and lands.** *Verification: each
       light aircraft lands within 5 m of the centreline under 300 ft/min, in
       calm air and a 10-knot crosswind.* Done 2026-09-21.
