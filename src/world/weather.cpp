@@ -4,6 +4,7 @@
 #include "world/json.hpp"
 
 #include <algorithm>
+#include <thread>
 #include <cmath>
 
 namespace glideslope::world {
@@ -40,22 +41,38 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch) {
     }
     const std::string url =
         "https://aviationweather.gov/api/data/metar?ids=" + id + "&format=json";
-    platform::HttpResponse r;
-    try {
-        r = fetch_with_retries(fetch, url);
-    } catch (const platform::HttpError& e) {
-        throw DemError(std::string("could not download: ") + e.what());
+    // **An answer that is not JSON is fetched again**, as a failed download
+    // is: aviationweather.gov and Open-Meteo have each, now and then, answered
+    // a 200 whose body was not what they serve, and CI's clients gave up on
+    // it. A well-formed answer that says something unwelcome is not retried.
+    std::vector<SurfaceReport> reports;
+    for (int attempt = 1;; ++attempt) {
+        platform::HttpResponse r;
+        try {
+            r = fetch_with_retries(fetch, url);
+        } catch (const platform::HttpError& e) {
+            throw DemError(std::string("could not download: ") + e.what());
+        }
+        // No content is how it says it has no report for a station.
+        if (r.status == 204) {
+            throw MetarError("aviationweather.gov has no METAR for " + id);
+        }
+        if (r.status != 200) {
+            throw DemError("could not download " + url + ": status " +
+                           std::to_string(r.status));
+        }
+        try {
+            reports = parse_aviationweather(std::string_view(
+                reinterpret_cast<const char*>(r.body.data()), r.body.size()));
+            break;
+        } catch (const JsonError& e) {
+            if (attempt >= parse_attempts) {
+                throw DemError("could not download " + url + ": its answer was not JSON (" +
+                               e.what() + ")");
+            }
+            std::this_thread::sleep_for(parse_wait * attempt);
+        }
     }
-    // No content is how it says it has no report for a station.
-    if (r.status == 204) {
-        throw MetarError("aviationweather.gov has no METAR for " + id);
-    }
-    if (r.status != 200) {
-        throw DemError("could not download " + url + ": status " +
-                       std::to_string(r.status));
-    }
-    const auto reports = parse_aviationweather(
-        std::string_view(reinterpret_cast<const char*>(r.body.data()), r.body.size()));
     if (reports.empty()) {
         throw MetarError("aviationweather.gov has no METAR for " + id);
     }
