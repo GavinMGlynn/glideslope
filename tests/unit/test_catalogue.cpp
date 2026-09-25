@@ -365,6 +365,11 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
                           std::filesystem::copy_options::recursive);
     std::filesystem::copy(data() / "jsbsim", copy / "jsbsim",
                           std::filesystem::copy_options::recursive);
+    // The models' published figures too: a light aeroplane's climb speed,
+    // which its autopilot's floor is, is read from them as it loads. They are
+    // the model's, so the new aircraft on the Cessna's model shares them.
+    std::filesystem::copy(data() / "figures", copy / "figures",
+                          std::filesystem::copy_options::recursive);
     {
         std::ofstream out(copy / "aircraft" / "trainer.aircraft", std::ios::binary);
         out << "# A trainer, for the test.\nname Slow Trainer\nmodel c172p\nclass "
