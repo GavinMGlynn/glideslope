@@ -304,6 +304,17 @@ takes it back at 14 s. Each check requires:
 - prediction error within its bound after the take-back, and inputs not
   compared, joining and taking back together, under 90 (48 to 61).
 
+**What the review found**, fixed before the merge. A player's aircraft handed
+to the AI and taken back keeps its controller, flying the player's inputs.
+Crashed afterwards, it flew again with that controller taken for an AI's: it
+was given to the AI, with no `CONTROLLER_SWAP` and its client never told, so
+none of its inputs were applied again. Now a player's aircraft flies again as
+whoever had it, and a controller left from a swap is dropped. This is held by
+`an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players`:
+it hands over, takes back, dives into the sea (`--dive-after`) and flies
+again, with every input applied. With the old test put back, 718 of 1,330
+were applied, and it went red.
+
 **Seen to fail.** With the blend removed, the step at a switch was 16.5 m and
 the 200 ms check went red. Before a take-back was treated like joining, the
 prediction error just after it reached 11 to 13 m and failed the 10 m bound:

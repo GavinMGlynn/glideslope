@@ -120,6 +120,8 @@ void print_usage(std::FILE* out) {
         "                            aircraft to be handed to the AI pilot, and\n"
         "                            --take-back-at S for it back; predicting, it says\n"
         "                            how far what it showed of its own stepped then\n"
+        "                            --dive-after S flies its own into the ground, S\n"
+        "                            seconds in: full forward stick and full power\n"
         "                            --track FILE writes where every aircraft was\n"
         "                            heard to be, and, predicting, where each other\n"
         "                            one was drawn, to FILE\n"
@@ -693,8 +695,7 @@ public:
     // jumping from where it was shown to where it now is.
     // `sequence` is the newest input sent: the next one is the first the
     // server can apply after a take-back.
-    void handed(bool to_ai, double local_s, std::uint32_t sequence) {
-        (void)local_s;
+    void handed(bool to_ai, std::uint32_t sequence) {
         if (to_ai == ai_flying_) {
             return;
         }
@@ -930,7 +931,7 @@ int stay(glideslope::platform::UdpSocket& socket,
          std::span<const std::uint8_t> initiation_again, bool fly, const std::string& me,
          const std::string& heard_file, int until_flying_again,
          bool predict, const std::string& track_file, double hand_over_at_s,
-         double take_back_at_s) {
+         double take_back_at_s, double dive_after_s) {
     // A client that predicts flies a pilot of its own (Predicting::pilot).
     std::optional<Predicting> predicting;
     if (predict) {
@@ -1039,6 +1040,13 @@ int stay(glideslope::platform::UdpSocket& socket,
             sent_inputs_at_s = up_s;
             if (!finishing) {
                 ++sequence;
+                // **Into the sea** (`--dive-after`): full forward stick and
+                // full power, for a test that needs its own aircraft wrecked.
+                if (dive_after_s >= 0.0 && up_s >= dive_after_s) {
+                    stick.elevator = -1.0;
+                    stick.aileron = 0.0;
+                    stick.throttle = 1.0;
+                }
                 if (predicting) {
                     // What it sends is what it flies: rounded as the wire
                     // rounds it, as TRANSPORT.md asks, so that the two agree.
@@ -1213,7 +1221,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                     say_heard("aircraft " + std::to_string(swap.aircraft) +
                               (to_ai ? " handed to the AI" : " handed to its pilot"));
                     if (predicting && swap.aircraft == mine) {
-                        predicting->handed(to_ai, up_s, sequence);
+                        predicting->handed(to_ai, sequence);
                     }
                 }
             }
@@ -1258,7 +1266,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                const std::string& heard_file = "", int until_flying_again = 0,
                const std::string& ready_file = "", bool predict = false,
                const std::string& track_file = "", double hand_over_at_s = -1.0,
-               double take_back_at_s = -1.0) {
+               double take_back_at_s = -1.0, double dive_after_s = -1.0) {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived. With `--after-ready`
@@ -1393,7 +1401,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                       : std::span<const std::uint8_t>(),
                                 fly, mine.publik.text().substr(0, 8), heard_file,
                                 until_flying_again, predict, track_file, hand_over_at_s,
-                                take_back_at_s);
+                                take_back_at_s, dive_after_s);
                 }
             }
         }
@@ -1502,7 +1510,7 @@ static int run_program(int argc, char** argv) {
                 server->host + ":" + std::to_string(server->port);
             return connect_to(where, server->key_hex, stay_s, false, fly, 0.0);
         }
-        if (args.size() >= 3 && args.size() <= 24 && args[0] == "connect") {
+        if (args.size() >= 3 && args.size() <= 26 && args[0] == "connect") {
             double stay_s = 0.0;
             bool again = false;
             bool fly = false;
@@ -1514,6 +1522,7 @@ static int run_program(int argc, char** argv) {
             bool predict = false;
             double hand_over_at_s = -1.0;
             double take_back_at_s = -1.0;
+            double dive_after_s = -1.0;
             std::string track_file;
             for (std::size_t i = 3; i < args.size(); ++i) {
                 if (args[i] == "--track" && i + 1 < args.size()) {
@@ -1527,6 +1536,11 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--hand-over-at" && i + 1 < args.size()) {
                     hand_over_at_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
+                    ++i;
+                    continue;
+                }
+                if (args[i] == "--dive-after" && i + 1 < args.size()) {
+                    dive_after_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
                     ++i;
                     continue;
                 }
@@ -1589,7 +1603,7 @@ static int run_program(int argc, char** argv) {
             return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
                               again, fly, after_s, secret_hex, heard_file,
                               until_flying_again, ready_file, predict, track_file,
-                              hand_over_at_s, take_back_at_s);
+                              hand_over_at_s, take_back_at_s, dive_after_s);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();
