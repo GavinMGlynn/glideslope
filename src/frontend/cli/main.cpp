@@ -1210,8 +1210,15 @@ int stay(glideslope::platform::UdpSocket& socket,
                 if (glideslope::net::read(
                         std::span<const std::uint8_t>(message.data(), message.size()), d)) {
                     say_heard("aircraft " + std::to_string(d.aircraft) + " is " + d.id);
+                    // **The model is the catalogue's for that id**, never the
+                    // wire's: a directory a server named would be joined to a
+                    // path as it stood. An id not in the catalogue flies
+                    // nothing here.
                     if (predicting) {
-                        predicting->introduced(d.aircraft, d.model);
+                        if (const auto entry = glideslope::sim::known_aircraft(
+                                glideslope::platform::data_directory(), d.id)) {
+                            predicting->introduced(d.aircraft, entry->model);
+                        }
                     }
                 }
                 glideslope::net::ControllerSwap swap;

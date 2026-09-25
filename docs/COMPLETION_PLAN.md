@@ -332,6 +332,10 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [x] **A client opened the model a server named as a path.** *Verification:
+      every aircraft's id is known by the catalogue and eight hostile ones are
+      not.* Done 2026-09-25.
+
 - [ ] **Windows debug test programs crash on their way out on the development
       machine**, in a thread Windows starts after exit - about one run in five
       of the message tests, on `main` as well (2026-09-25). CI's Windows

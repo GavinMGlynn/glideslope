@@ -72,4 +72,10 @@ std::vector<CatalogueEntry> read_catalogue(const std::filesystem::path& data);
 // One aircraft, by id. Throws CatalogueError if there is none.
 CatalogueEntry find_aircraft(const std::filesystem::path& data, const std::string& id);
 
+// **One aircraft, by an id that may have come from anywhere** - a server's
+// `AIRCRAFT` message - or nothing. The id is looked up among the catalogue's,
+// never joined to a path: an id of `../../somewhere` names no aircraft.
+std::optional<CatalogueEntry> known_aircraft(const std::filesystem::path& data,
+                                             const std::string& id);
+
 } // namespace glideslope::sim

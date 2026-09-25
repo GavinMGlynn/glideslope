@@ -277,6 +277,12 @@ Axes Flight::axes() const {
 }
 
 std::optional<Visual> visual_of(const std::filesystem::path& data, const std::string& id) {
+    // **Only an aeroplane in the catalogue.** The id may have come off the
+    // wire, from a server (`AIRCRAFT`), and joined to a path as it stood
+    // would open whatever `../` it was told to.
+    if (!sim::known_aircraft(data, id)) {
+        return std::nullopt;
+    }
     const std::filesystem::path mesh = data / "models" / (id + ".mesh");
     if (!std::filesystem::exists(mesh)) {
         return std::nullopt;
