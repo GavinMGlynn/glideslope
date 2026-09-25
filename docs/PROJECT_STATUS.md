@@ -299,6 +299,58 @@ test can walk the failures without the 30 s each retrying takes.
 - With any `http://` host allowed, the allowed-hosts test fails at
   `http://example.org`.
 
+### The horizon is never drawn through the HUD's text, 2026-09-25 — tail done
+
+**What is not covered first.** Only the HUD's own text block is kept clear.
+The checklist, drawn small down the top right from half the width, can still
+be crossed by the horizon, which reaches two thirds of the width; that is a
+tail. Rows the reader reads below the HUD's last line are not kept clear
+either, and need not be: the check judges only what begins at the margin
+there, which the horizon never reaches. The painted frames are the HUD's mesh
+rasterised on the CPU, not a GPU's shot; the three live HUD tests still judge
+real shots with the same judgement.
+
+**Cause.** The horizon runs across the middle third of the frame, and at
+640x480 the HUD's 24 read columns reach from 24 to 312 pixels, past the third
+at 213; pitched and banked, the line crosses the right-hand end of any row,
+and a stroke through a cell reads as `?`. Rows 1-6 need an exact word count,
+FLYING and GEAR lines are compared whole, and `frame_hud.cmake` looks for
+`FLYING AI NAV THE HEADS` - each broken by a `?` a few columns after its text.
+
+**Now** `hud_mesh` stops the horizon short of `gfx::hud_text_block` - the
+HUD's lines, each `gfx::hud_columns` (24) cells wide or as long as its longest
+line - by half its thickness and a pixel, clipping its centre line
+(Liang-Barsky) and drawing what is left either side. `gfx::hud_horizon` gives
+the whole line, which is what the test builds its crossings from. Why this of
+the three ways: a reader that tolerates a cell that is a straight line would
+have to guess at a glyph with a stroke through it, and would pass a real
+fault of that shape; reading only the columns the expected text occupies does
+not cure it, since the text itself is crossed - `FLYING AI NAV THE HEADS`
+reaches pixel 300 - and would stop "nothing extra" being judged; keeping the
+horizon out of the text is what a HUD does anyway, so the pilot reads it
+whole too, and the reader stays exact. A darkening backing, as the credits
+have, would change the scene's pixels behind the text for every other frame
+test; stopping the line short changes nothing but the line.
+
+`glideslope_hud_check`'s judgement moved, unchanged but for reading
+`gfx::hud_columns` columns, into `tests/tools/hud_judge.hpp`, so frames built
+in a test are judged exactly as shots are.
+
+**Verified.** `the_horizon_drawn_across_every_hud_row_leaves_the_hud_read_and_judged_whole`
+(`glideslope_hud_horizon_check`): for the pilot flying, the AI holding and the
+AI flying to THE_HEADS; slow and low, and with Mach and flight level; gear
+fixed, up and down; at 640x480 and 1280x720; level and banked 20 degrees
+either way - for every row of each, the pitch that puts the horizon through
+the middle of the row's glyphs half a cell inside the block's right-hand
+end. That the line crosses is worked out from `hud_horizon`; the mesh is
+painted over a sky and judged, and the FLYING line held to the words
+`frame_hud.cmake` looks for. 1,368 rows crossed of 1,368 expected, the count
+asserted. The four live HUD tests pass with the judgement moved.
+**Seen to fail:** with the horizon drawn whole, "line 1 reads \"SPD  102 KT
+??\", not SPD and a number in KT"; with the block only as wide as the
+longest line, the same with the `?` further in.
+
+
 ### The HUD check read the horizon as a line of the HUD, 2026-09-25 — tail done
 
 **Found by CI, on every platform and every branch at once.** The HUD test
