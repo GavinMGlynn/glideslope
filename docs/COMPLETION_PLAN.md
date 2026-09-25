@@ -313,6 +313,13 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [ ] **Windows debug test programs crash on their way out on the development
+      machine**, in a thread Windows starts after exit - about one run in five
+      of the message tests, on `main` as well (2026-09-25). CI's Windows
+      runners have not shown it since it was fixed there. *Verification: the
+      message tests run a hundred times on the development machine without a
+      crash.*
+
 - [ ] **The client with the window does not hand over on a server**: pressing A
       online does nothing. *Verification: the client with the window hands its
       aircraft to the AI and takes it back on a server, and what it shows does
