@@ -107,6 +107,10 @@ include(Layering)
 
 # src/sim/ includes no presentation - see cmake/Layering.cmake.
 glideslope_check_layering("${CMAKE_CURRENT_SOURCE_DIR}")
+# A language model's copilot names nothing that drives the aircraft - see
+# cmake/Copilot.cmake.
+include(Copilot)
+glideslope_check_copilot("${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Everything a first-party target gets. Vendored code in ext/ never passes
 # through here.

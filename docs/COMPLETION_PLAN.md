@@ -318,9 +318,9 @@ ends in a debrief, never a score.
       modes and plan as the flight goes, opt-in with the player's key.
       *Verification: it follows a coast as told, handles an engine failure,
       never slows the step, and replays in CI without a key.*
-- [ ] **The model never drives a control surface.** *Verification: the copilot
+- [x] **The model never drives a control surface.** *Verification: the copilot
       can produce only a flight plan and autopilot modes, checked at configure
-      time.*
+      time.* Done 2026-09-25: it may name nothing else of the simulation.
 - [ ] **A different model on each AI aircraft** - Claude, ChatGPT, or none -
       chosen per aircraft by the server or when an aircraft is handed to the
       AI, each with its owner's key. *Verification: one scenario is planned
