@@ -61,6 +61,15 @@ std::string google_maps_key();
 std::string openai_key();
 std::string anthropic_key();
 
+// **Where the weather services are asked instead of their own hosts, for a
+// test.** GLIDESLOPE_WEATHER_SERVICE, a scheme and host such as
+// `http://127.0.0.1:1`, put in place of `https://aviationweather.gov` and
+// `https://api.open-meteo.com` in every weather request; empty when it is not
+// set, and then the services' own hosts are asked. It exists so a test can
+// build "no weather to be had" on purpose, rather than wait for a service to
+// have a bad minute.
+std::string weather_service();
+
 // **The default server, as a line anybody can send you.** `--online` reads
 // it: one line naming a host, a port and the server's public key, which is
 // what a client needs and all it needs (`REQUIREMENTS.md` 6.6).

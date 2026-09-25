@@ -49,8 +49,14 @@ if(DEFINED CACHE)
     if(DEFINED FLYING)
         string(MAKE_C_IDENTIFIER "${FLYING}" _case)
     endif()
+    # And a run told to ask the weather of somewhere else - one with no
+    # weather to be had - runs beside the same case with weather.
+    set(_weather "")
+    if(DEFINED WEATHER_SERVICE)
+        set(_weather "noweather")
+    endif()
     set(ENV{GLIDESLOPE_CESIUM_CACHE}
-        "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}${_imagery}${VIEW}${_case}.sqlite")
+        "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}${_imagery}${VIEW}${_case}${_weather}.sqlite")
 endif()
 
 # Judges the leak reports in a run's standard error, as described above: fails

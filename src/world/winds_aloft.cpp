@@ -46,7 +46,7 @@ std::string open_meteo_url(double latitude_deg, double longitude_deg) {
     char place[64];
     std::snprintf(place, sizeof place, "latitude=%.4f&longitude=%.4f", latitude_deg,
                   longitude_deg);
-    return std::string("https://api.open-meteo.com/v1/forecast?") + place +
+    return weather_host("https://api.open-meteo.com") + "/v1/forecast?" + place +
            "&hourly=" + variables + "&wind_speed_unit=ms&timezone=GMT&forecast_days=1";
 }
 

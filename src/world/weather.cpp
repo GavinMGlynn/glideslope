@@ -40,7 +40,8 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch) {
         }
     }
     const std::string url =
-        "https://aviationweather.gov/api/data/metar?ids=" + id + "&format=json";
+        weather_host("https://aviationweather.gov") + "/api/data/metar?ids=" + id +
+        "&format=json";
     // **An answer that is not JSON is fetched again**, as a failed download
     // is: aviationweather.gov and Open-Meteo have each, now and then, answered
     // a 200 whose body was not what they serve, and CI's clients gave up on
@@ -82,10 +83,17 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch) {
 WeatherReport fetch_weather(const std::string& station, const std::string& time,
                             const Fetch& fetch) {
     WeatherReport report;
-    report.surface = fetch_metar(station, fetch);
-    report.air_seed = air_seed_of(report.surface.metar);
-    report.aloft = fetch_winds_aloft(report.surface.latitude_deg,
-                                     report.surface.longitude_deg, time, fetch);
+    // **A download that failed says it was the weather's**, so that what
+    // runs a flight can tell a weather service that did not answer - live,
+    // somebody else's, and never kept - from data it fetches once and keeps.
+    try {
+        report.surface = fetch_metar(station, fetch);
+        report.air_seed = air_seed_of(report.surface.metar);
+        report.aloft = fetch_winds_aloft(report.surface.latitude_deg,
+                                         report.surface.longitude_deg, time, fetch);
+    } catch (const DemError& e) {
+        throw DemError(std::string("the weather could not be had: ") + e.what());
+    }
     return report;
 }
 
