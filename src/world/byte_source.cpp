@@ -31,8 +31,10 @@ FileSource::FileSource(const std::filesystem::path& path) : path_(path) {
                                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (h == INVALID_HANDLE_VALUE) {
+        // Kept before anything else can call into Windows and change it.
+        const DWORD error = GetLastError();
         throw ByteSourceError("cannot open " + path.string() + ": Windows error " +
-                              std::to_string(GetLastError()));
+                              std::to_string(error));
     }
     LARGE_INTEGER size{};
     if (!GetFileSizeEx(h, &size)) {
@@ -52,8 +54,10 @@ FileSource::~FileSource() {
 FileSource::FileSource(const std::filesystem::path& path) : path_(path) {
     const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
     if (fd < 0) {
+        // Kept before anything else can call into the C library and change it.
+        const int error = errno;
         throw ByteSourceError("cannot open " + path.string() + ": " +
-                              std::strerror(errno));
+                              std::strerror(error));
     }
     struct stat st{};
     if (::fstat(fd, &st) != 0) {

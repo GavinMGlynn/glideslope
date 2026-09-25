@@ -229,11 +229,15 @@ are the risks the phase order is built around:
 
 ### A DEM tile opens on Windows while another process renames it into place, 2026-09-25 — tail done
 
-**What is not covered first.** Only the files the terrain and geoid read
-through `FileSource` open sharing deletion; the other readers in the program
-(`std::ifstream` of plans, coverage lists, key files) still do not, which is
-right while nothing renames those into place under them. The test races
-threads in one process, not processes: Windows checks sharing per open
+**What is not covered first.** Only files read through `FileSource` open
+sharing deletion. On `main` those are the only files fetched and then read -
+DEM tiles, water masks and the geoid - and every other reader
+(`std::ifstream` of plans, coverage lists, key files, the aircraft catalogue)
+reads a file nothing renames into place, so none of them can meet this. Any
+file fetched into the cache and read while another process may be renaming it
+must be read through `FileSource` or share deletion itself: the runways file
+on the unmerged #18 has this shape and is being fixed there. The stress test
+races threads in one process, not processes: Windows checks sharing per open
 handle, not per process, and the threads reproduced CI's failure exactly.
 
 **Found by CI**: `cannot open ...S34_00_E151_00_DEM.tif` on Windows.
@@ -252,17 +256,26 @@ is unchanged: it still leaves a file already in place alone, and a rename that
 cannot replace a file a reader holds still counts as done when the file is
 there.
 
-**Verified** by `many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole`:
+**Verified** first by `a_tile_held_open_for_deletion_as_a_rename_holds_it_is_still_read_whole`,
+which builds the moment rather than waiting for it: it holds a tile open with
+DELETE access, sharing everything, as a rename does, and requires
+`FileSource` to open it and read it whole. On POSIX it reports itself
+skipped, since POSIX has no sharing modes. **Seen to fail on Windows** with
+the old `std::ifstream` opening (`cannot open ...tile.tif`), and pass with the
+fix. Then, as a second layer,
+`many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole`:
 200 rounds, each from an empty cache, of sixteen threads started together on a
 barrier - four fetching the tile as the terrain does, four fetching it as a
 pinned file as the geoid is, to the same path, and eight waiting for it to
 appear and opening it that instant. Every one reads the whole 256 KiB and
 compares it; the test counts 800 + 800 + 1600 reads and fails if any kind
 falls short. **Seen to fail on Windows** (windows-debug, the development
-machine) before the fix, with CI's own message: `1396 of 3200 reads failed;
-the first: cannot open ...Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif`. Passes
-with it on Windows and Linux. On Linux it never failed, as expected: POSIX has
-no sharing modes.
+machine) before the fix: 1396 of the 3200 threads failed, the first with CI's
+own message, `cannot open ...Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif`.
+Passes with it on Windows and Linux. On Linux it never failed, as expected:
+POSIX has no sharing modes. A reader gives up only if every fetcher had
+finished before it last looked for the file, so a fetcher finishing between
+the look and the count cannot fail it spuriously.
 
 ### A weather service's bad answer is fetched again, 2026-09-25 — tail done
 

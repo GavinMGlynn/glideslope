@@ -16,6 +16,12 @@
 #include <string>
 #include <vector>
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 using glideslope::platform::HttpError;
 using glideslope::platform::HttpResponse;
 using glideslope::test::check;
@@ -271,6 +277,46 @@ GLIDESLOPE_TEST(
     }
 }
 
+// **A file held open for deletion, as a rename holds it, still opens.** This
+// is the moment CI's `cannot open ...DEM.tif` came from, built rather than
+// waited for: while a rename moves a fetched file into place it has the file
+// open with DELETE access, sharing everything, and a reader that does not
+// share deletion is refused. The handle here asks exactly that.
+GLIDESLOPE_TEST(a_tile_held_open_for_deletion_as_a_rename_holds_it_is_still_read_whole) {
+#if defined(_WIN32)
+    const auto dir = scratch("held-for-deletion");
+    std::filesystem::create_directories(dir);
+    const std::filesystem::path path = dir / "tile.tif";
+    const std::vector<std::uint8_t> body = small_tile();
+    {
+        std::ofstream out(path, std::ios::binary);
+        out.write(reinterpret_cast<const char*>(body.data()),
+                  static_cast<std::streamsize>(body.size()));
+    }
+    const HANDLE renaming =
+        CreateFileW(path.c_str(), DELETE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    check(renaming != INVALID_HANDLE_VALUE, "the file is held open for deletion");
+    std::string refused;
+    bool read_whole = false;
+    try {
+        const glideslope::world::FileSource source(path);
+        std::vector<std::uint8_t> got(static_cast<std::size_t>(source.size()));
+        source.read(0, got);
+        read_whole = got == body;
+    } catch (const std::exception& e) {
+        refused = e.what();
+    }
+    CloseHandle(renaming);
+    check(refused.empty(), "while it is held for deletion, it opens; not: " + refused);
+    check(read_whole, "and it reads whole");
+#else
+    glideslope::test::skip("POSIX has no sharing modes: a file held open by one "
+                           "process cannot keep another from opening it");
+#endif
+}
+
 // **Many at once, fetching and reading one tile.** Tests run in parallel and
 // a flight and its terrain fetch the same tiles, so one process renames a
 // fresh copy into place while another opens it. On Windows a file being
@@ -360,9 +406,15 @@ GLIDESLOPE_TEST(many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole) {
                                                 : failed("a pinned file was not whole");
                     } else {
                         // Opened the moment it appears. Once every fetcher
-                        // has finished it is there, or something failed.
-                        while (!std::filesystem::exists(path)) {
-                            if (fetched.load() == fetchers) {
+                        // has finished it is there, or something failed:
+                        // the count is read before the look, so a fetcher
+                        // that finishes between the two is not missed.
+                        for (;;) {
+                            const bool all_finished = fetched.load() == fetchers;
+                            if (std::filesystem::exists(path)) {
+                                break;
+                            }
+                            if (all_finished) {
                                 failed("no fetcher left the file in place");
                                 return;
                             }
@@ -385,7 +437,9 @@ GLIDESLOPE_TEST(many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole) {
     }
     check(failures == 0, std::to_string(failures.load()) + " of " +
                              std::to_string(rounds * threads) +
-                             " reads failed; the first: " + first_failure);
+                             " threads failed to fetch or read the file whole; the "
+                             "first: " +
+                             first_failure);
     check(tile_reads == rounds * tile_fetchers,
           std::to_string(tile_reads.load()) + " tile fetches read the tile whole, of " +
               std::to_string(rounds * tile_fetchers));
