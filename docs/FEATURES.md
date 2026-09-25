@@ -123,6 +123,18 @@ the controls to an AI pilot whenever you like, then take them back.
 - **Hand over the controls, and take them back.** `CORE`
   Any aircraft, at any moment, in either direction, without a jolt.
 
+- **See who is flying, and what they are doing with the controls.** `WANTED`
+  The screen always says whether you or the AI pilot has the aircraft, and
+  what the AI is doing. A small panel shows where the stick, rudder, throttle,
+  flaps and gear are - yours, or the AI's while it flies.
+
+- **Ride along in any AI aircraft, then take it over.** `WANTED`
+  Step into the cockpit of any aircraft an AI pilot is flying and watch it
+  fly: the view from its seat, its instruments, and its controls moving as
+  the AI flies. Take the controls when you like, without a jolt; the aircraft
+  you were flying is handed to the AI pilot, so the sky stays as full. Never
+  another player's aircraft, and a server may forbid it.
+
 - **An autopilot.** `CORE`
   Hold a heading, an altitude, an airspeed or a climb rate.
 
