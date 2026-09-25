@@ -43,8 +43,6 @@
 
 namespace glideslope::sim {
 
-
-
 class Autopilot {
 public:
     // Engaged on `aircraft` as it is now, flying with `controls`.

@@ -1009,12 +1009,15 @@ if(MSVC OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 else()
     set(_cxx_style gnu)
 endif()
+glideslope_symbol_lister(_symbol_tool _symbol_style)
 add_test(NAME the_copilot_can_see_include_and_call_nothing_that_drives_the_aircraft
     COMMAND ${CMAKE_COMMAND} -DGLIDESLOPE_ROOT=${PROJECT_SOURCE_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/copilot-walls
         -DSTAGE=${PROJECT_BINARY_DIR}/copilot-stage
         "-DINCLUDES=$<JOIN:$<TARGET_PROPERTY:glideslope_copilot,INCLUDE_DIRECTORIES>,|>"
-        -DCXX=${CMAKE_CXX_COMPILER} -DCXX_STYLE=${_cxx_style} -DNM=${CMAKE_NM}
+        -DCXX=${CMAKE_CXX_COMPILER} -DCXX_STYLE=${_cxx_style}
+        -DNM=${_symbol_tool} -DNM_STYLE=${_symbol_style}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -DBINARY_DIR=${PROJECT_BINARY_DIR}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/copilot_walls.cmake)
 
 add_test(NAME includes_that_only_look_like_presentation_are_allowed_in_the_simulation

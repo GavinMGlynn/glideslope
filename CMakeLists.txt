@@ -292,7 +292,7 @@ target_include_directories(glideslope_copilot
 target_link_libraries(glideslope_copilot PRIVATE $<LINK_ONLY:glideslope_plan>
                                                  $<LINK_ONLY:glideslope_platform>)
 glideslope_configure(glideslope_copilot)
-glideslope_check_copilot_symbols(glideslope_copilot)
+glideslope_check_copilot_symbols(glideslope_copilot "${CMAKE_CURRENT_BINARY_DIR}/copilot-stage")
 
 # ---------------------------------------------------------------------------
 # The platform layer - where things are on this machine. Paths only, today;

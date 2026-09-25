@@ -26,9 +26,6 @@
 
 namespace glideslope::sim {
 
-
-
-
 class Navigator {
 public:
     // Flying `plan` from where `aircraft` is now.

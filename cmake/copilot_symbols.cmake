@@ -1,19 +1,29 @@
 # copilot_symbols.cmake - every name of glideslope's in an archive or object's
 # symbols, defined or called, must be the copilot's own or on NAMES.
 #
-#   cmake -DNM=<nm> -DARCHIVE=<file> -DNAMES=<part::name|part::name...>
-#         -P copilot_symbols.cmake
+#   cmake -DNM=<nm or dumpbin> [-DNM_STYLE=<nm|dumpbin>] -DARCHIVE=<file>
+#         -DNAMES=<part::name|part::name...> -P copilot_symbols.cmake
 #
-# The symbols are read demangled (`nm -C`), and every `glideslope::PART::NAME`
-# in each - a function's own name, its arguments' types, a template's - is
-# looked up. A symbol mangled by hand is demangled here like any other, so an
+# The symbols are read demangled - `nm -C`, or `dumpbin /SYMBOLS`, which puts
+# each one's undecorated name beside it - and every `glideslope::PART::NAME`
+# in each (a function's own name, its arguments' types, a template's) is
+# looked up. Anything of JSBSim's is refused outright. A symbol mangled by hand is demangled here like any other, so an
 # `extern "C"` declaration of a simulation function under its mangled name is
 # caught too. See cmake/Copilot.cmake.
 
 cmake_minimum_required(VERSION 3.28)
+# The build's own settings, where it passes them in a file (Copilot.cmake).
+if(DEFINED SETTINGS)
+    include("${SETTINGS}")
+endif()
 
-execute_process(COMMAND "${NM}" -C "${ARCHIVE}"
-    RESULT_VARIABLE _rc OUTPUT_VARIABLE _symbols ERROR_VARIABLE _err)
+if(NM_STYLE STREQUAL "dumpbin")
+    execute_process(COMMAND "${NM}" /NOLOGO /SYMBOLS "${ARCHIVE}"
+        RESULT_VARIABLE _rc OUTPUT_VARIABLE _symbols ERROR_VARIABLE _err)
+else()
+    execute_process(COMMAND "${NM}" -C "${ARCHIVE}"
+        RESULT_VARIABLE _rc OUTPUT_VARIABLE _symbols ERROR_VARIABLE _err)
+endif()
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "${NM} could not read ${ARCHIVE}: ${_err}")
 endif()
@@ -26,6 +36,10 @@ string(REPLACE "\n" ";" _lines "${_symbols}")
 set(_refused "")
 set(_seen 0)
 foreach(_line IN LISTS _lines)
+    if(_line MATCHES "JSBSim::")
+        string(APPEND _refused "  ${_line}\n    <- names JSBSim's own\n")
+        continue()
+    endif()
     string(REGEX MATCHALL "glideslope::[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*" _named "${_line}")
     foreach(_name IN LISTS _named)
         math(EXPR _seen "${_seen} + 1")
