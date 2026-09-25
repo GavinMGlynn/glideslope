@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -228,10 +229,15 @@ public:
 
     AircraftFigures figures() const;
 
-    // Where the model was loaded from: the JSBSim root given above. The
-    // aeroplane's published figures are beside it, in figures/.
-    const std::filesystem::path& jsbsim_root() const {
-        return jsbsim_root_;
+    // **The least speed the autopilot's altitude hold flies at, clean**: a
+    // light aeroplane's published best-climb speed, in knots calibrated, read
+    // once when the model loads from the catalogue and figures beside the
+    // JSBSim root (sim/autopilot.cpp says why). None for every other class,
+    // and none for a model loaded where there is no catalogue. Loading a light
+    // aeroplane that publishes no climb speed throws, rather than leave it
+    // without the floor unnoticed.
+    std::optional<double> climb_floor_kts() const {
+        return climb_floor_kts_;
     }
 
     // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
@@ -333,7 +339,7 @@ private:
     void apply_ground(double latitude_deg, double longitude_deg);
     bool meets_the_surface() const;
 
-    std::filesystem::path jsbsim_root_;
+    std::optional<double> climb_floor_kts_;
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;

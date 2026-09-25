@@ -23,10 +23,9 @@
 // best-climb speed - or the speed asked for, where that is slower - the climb
 // is held back so the airspeed stays there, the throttle opens to its stop,
 // and the aeroplane climbs as far as it can at that speed, or comes down,
-// rather than pitching up into the stall. The best-climb speed is the
-// aeroplane's own, from its published figures (sim/departure.hpp's
-// `departure_speeds`), in the figures directory beside the JSBSim root it was
-// loaded from; an aeroplane that publishes none has no such floor.
+// rather than pitching up into the stall. Only for a light aeroplane, flaps
+// and gear up: the best-climb speed is its own published one, read when the
+// model loads (sim::Aircraft's `climb_floor_kts`).
 //
 // **Engaging it steps nothing.** It starts from the controls the aircraft has
 // and the attitude it is in: each integral is set so the first controls it
@@ -79,9 +78,6 @@ private:
     const Aircraft& a_;
     AutopilotModes modes_;
     Controls last_;
-    // The best-climb speed, knots calibrated; none where the aeroplane
-    // publishes no climb speed.
-    std::optional<double> best_climb_kts_;
     // Holding the speed rather than the height: the most climb the altitude
     // hold may ask for, found by an integral on the airspeed, while it binds.
     bool holding_speed_ = false;

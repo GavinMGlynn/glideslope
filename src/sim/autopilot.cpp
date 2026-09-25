@@ -1,6 +1,5 @@
 #include "sim/autopilot.hpp"
 
-#include "sim/departure.hpp"
 #include "sim/fixed_step.hpp"
 
 #include <algorithm>
@@ -131,6 +130,18 @@ constexpr double throttle_rate = 0.25;
 // hold still flies an aeroplane into the stall when it is asked for a speed
 // below the stall, as a stall lesson enters one.
 //
+// **Only a light aeroplane's** (sim::Aircraft's `climb_floor_kts`). A light
+// aeroplane's climb speed is its handbook's best rate of climb, Vy, the
+// speed the whole rule stands on. The other classes' climb speeds are not
+// that. The jets' - airliners, the business jet, fighters and the bomber - are
+// the speeds their climb rates were measured at on the model, chosen, not
+// found to be the best. The Mosquito's is the speed of one climb test at
+// 10,400 ft in one supercharger gear, and the S.23's the speed of its sea-level
+// climb at one boost. None is the speed below which no height can be held,
+// and a jet is kept from slowing by its angle of attack and a minimum speed,
+// which this autopilot does not model. So they have no floor, as before, and
+// a test names each.
+//
 // **Only clean: flaps up, and the gear up where it retracts.** The best-climb
 // speed is published clean, and it is the aeroplane's best climb only so; with
 // the flaps and gear down it is neither the best climb nor a floor worth
@@ -167,17 +178,6 @@ constexpr double speed_trend_filter_s = 1.0;
 constexpr double climb_limit_per_knot = 30.0;        // ft/min a second
 constexpr double climb_limit_per_knot_moved = 500.0; // ft/min
 
-// The aeroplane's best-climb speed from its published figures, beside the
-// JSBSim root it was loaded from, or none where it publishes none.
-std::optional<double> best_climb_of(const Aircraft& a) {
-    try {
-        return departure_speeds(a.jsbsim_root().parent_path(), a.figures().model)
-            .climb_kts;
-    } catch (const std::runtime_error&) {
-        return std::nullopt;
-    }
-}
-
 // Flaps up, and gear up where it retracts: the configuration the best-climb
 // speed is published in, and the only one it is a floor for.
 bool clean(const Aircraft& a) {
@@ -199,8 +199,7 @@ double toward(double from, double to, double most) {
 } // namespace
 
 Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
-    : a_(aircraft), last_(controls), best_climb_kts_(best_climb_of(aircraft)),
-      last_kts_(aircraft.property("velocities/vc-kts")) {
+    : a_(aircraft), last_(controls), last_kts_(aircraft.property("velocities/vc-kts")) {
     // Holding what the aircraft is doing now.
     modes_.heading_deg = a_.property("attitude/psi-deg");
     modes_.altitude_ft = a_.property("position/h-sl-ft");
@@ -254,39 +253,61 @@ Controls Autopilot::fly() {
     // Held back, when the speed is short, to what keeps the airspeed at the
     // least it may fly at.
     const double climb_asked = climb_wanted;
-    if (best_climb_kts_ && clean(a_)) {
-        double least_kts = *best_climb_kts_;
-        if (modes_.airspeed_kts && *modes_.airspeed_kts < least_kts) {
-            least_kts = *modes_.airspeed_kts -
-                        std::min(least_kts - *modes_.airspeed_kts, below_asked_kts);
-        }
+    if (const std::optional<double> floor_kts = a_.climb_floor_kts()) {
+        // The airspeed and its trend, kept current whatever the configuration,
+        // so that nothing jumps when the aeroplane is clean again.
         const double kts = a_.property("velocities/vc-kts");
-        // A turn may spend its allowance of speed (see the bank limit below),
-        // and has it until the speed is back.
-        if (std::abs(bank_command_deg_) >= banked_deg) {
-            turn_allowance_kts_ = turn_may_spend_kts;
-        } else if (kts >= least_kts) {
-            turn_allowance_kts_ = 0.0;
-        }
-        least_kts -= turn_allowance_kts_;
-        const double over_kts = kts - least_kts;
+        const double speed_now_fps = a_.property("velocities/vt-fps");
         const double moved_kts = kts - last_kts_;
         last_kts_ = kts;
         kts_per_s_ += (moved_kts / dt - kts_per_s_) * dt / speed_trend_filter_s;
-        const bool at_stop = !modes_.airspeed_kts || last_.throttle >= throttle_stop;
-        if (!holding_speed_ && at_stop &&
-            over_kts + speed_trend_s * std::min(kts_per_s_, 0.0) < hold_speed_within_kts) {
-            holding_speed_ = true;
-            climb_limit_fpm_ = std::min(climb_fpm, climb_wanted);
-        } else if (holding_speed_) {
-            climb_limit_fpm_ += climb_limit_per_knot * over_kts * dt +
-                                climb_limit_per_knot_moved * moved_kts;
-        }
-        if (holding_speed_) {
-            if (climb_limit_fpm_ >= climb_wanted) {
-                holding_speed_ = false;
-            } else {
-                climb_wanted = climb_limit_fpm_;
+        if (!clean(a_)) {
+            // **No floor with the flaps or the gear out, and none held over.**
+            // A hold left standing would pin the throttle at its stop.
+            holding_speed_ = false;
+            turn_allowance_kts_ = 0.0;
+        } else {
+            double least_kts = *floor_kts;
+            if (modes_.airspeed_kts && *modes_.airspeed_kts < least_kts) {
+                least_kts = *modes_.airspeed_kts -
+                            std::min(least_kts - *modes_.airspeed_kts, below_asked_kts);
+            }
+            // A turn may spend its allowance of speed (see the bank limit
+            // below), and has it until the speed is back.
+            if (std::abs(bank_command_deg_) >= banked_deg) {
+                turn_allowance_kts_ = turn_may_spend_kts;
+            } else if (kts >= least_kts) {
+                turn_allowance_kts_ = 0.0;
+            }
+            least_kts -= turn_allowance_kts_;
+            const double over_kts = kts - least_kts;
+            const bool at_stop = !modes_.airspeed_kts || last_.throttle >= throttle_stop;
+            if (!holding_speed_ && at_stop &&
+                over_kts + speed_trend_s * std::min(kts_per_s_, 0.0) <
+                    hold_speed_within_kts) {
+                holding_speed_ = true;
+                climb_limit_fpm_ = std::min(climb_fpm, climb_wanted);
+            } else if (holding_speed_) {
+                climb_limit_fpm_ += climb_limit_per_knot * over_kts * dt +
+                                    climb_limit_per_knot_moved * moved_kts;
+            }
+            if (holding_speed_) {
+                // **Bounded, so it cannot wind up**: no more than the climb
+                // asked for, and no steeper than the descent the pitch
+                // envelope's least pitch gives at this speed - past that the
+                // pitch cannot follow it. Not the vertical speed the altitude
+                // hold captures heights at: short of power the descent that
+                // keeps the speed is steeper than that, and bounded there a
+                // Cherokee on a fifth of its throttle slowed to 63 knots.
+                const double steepest_fpm =
+                    -speed_now_fps * 60.0 * std::sin(-least_pitch_deg * std::numbers::pi / 180.0);
+                climb_limit_fpm_ = std::clamp(climb_limit_fpm_, steepest_fpm,
+                                              std::max(climb_wanted, steepest_fpm));
+                if (climb_limit_fpm_ >= climb_wanted) {
+                    holding_speed_ = false;
+                } else {
+                    climb_wanted = climb_limit_fpm_;
+                }
             }
         }
     }

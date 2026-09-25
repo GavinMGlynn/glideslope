@@ -1,5 +1,7 @@
 #include "sim/aircraft.hpp"
 
+#include "sim/catalogue.hpp"
+#include "sim/departure.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
@@ -134,8 +136,28 @@ private:
 
 } // namespace
 
+namespace {
+
+// A light aeroplane's published best-climb speed, from the catalogue and the
+// figures in `data`; none for any other class, or where there is no catalogue.
+std::optional<double> climb_floor_of(const std::filesystem::path& data,
+                                     const std::string& model) {
+    if (!std::filesystem::is_directory(data / "aircraft")) {
+        return std::nullopt;
+    }
+    for (const CatalogueEntry& e : read_catalogue(data)) {
+        if (e.model == model && e.aircraft_class == AircraftClass::light_aircraft) {
+            return departure_speeds(data, model).climb_kts;
+        }
+    }
+    return std::nullopt;
+}
+
+} // namespace
+
 Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model)
-    : jsbsim_root_(jsbsim_root), model_(model), exec_(quiet_exec()) {
+    : climb_floor_kts_(climb_floor_of(jsbsim_root.parent_path(), model)), model_(model),
+      exec_(quiet_exec()) {
     const std::u8string utf8 = jsbsim_root.u8string();
     const SGPath root = SGPath::fromUtf8(std::string(utf8.begin(), utf8.end()));
     exec_->SetRootDir(root);

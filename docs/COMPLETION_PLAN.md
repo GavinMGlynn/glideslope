@@ -468,8 +468,9 @@ Found while implementing something else. Added when found, not when remembered.
       light aeroplane asked for a height above its ceiling gives up height, not
       airspeed, and never drops below its best-climb speed.* Done 2026-09-25:
       all four light aeroplanes, asked for 3,000 ft above their ceilings and
-      for a height they lack the power to hold, at two speeds each; none
-      slower than 1.5 knots under its best-climb speed.
+      for a height they lack the power to hold, at two speeds each. The test
+      allows 2 knots under the best-climb speed; the worst was 1.5. Other
+      classes have no such floor.
 - [ ] **The AI never leans the mixture**, so on the autopilot a light
       aeroplane's ceiling is about 8,500 ft - the Cessna 172P's handbook gives
       13,000. *Verification: the AI climbs each light aeroplane to within its
