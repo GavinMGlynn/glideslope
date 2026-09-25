@@ -293,6 +293,8 @@ every-case test went red.
 Cesium cache file, which they locked against each other. The cache's name
 now carries the case.
 
+Ticked in `COMPLETION_PLAN.md` once PR #12, which added the item, had merged.
+
 ### An aircraft named by a server is looked up, never opened as a path, 2026-09-25 — tail done
 
 **Found while bringing `THREATS.md` up to date.** A client loads the model an
