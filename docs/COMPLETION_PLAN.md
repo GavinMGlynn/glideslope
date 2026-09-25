@@ -366,10 +366,14 @@ Found while implementing something else. Added when found, not when remembered.
       agents work: Windows git cannot follow a worktree's `.git` file.
       *Verification: an agent's worktree builds on Windows with the script
       as it stands.*
-- [ ] **The horizon can cross the HUD's own rows**, and three HUD checks
+- [x] **The horizon can cross the HUD's own rows**, and three HUD checks
       compare those lines exactly, so a live-weather test can fail on how the
       flight happened to be banked. *Verification: a frame with the horizon
       drawn across every HUD row, built on purpose, is read and judged
+      correctly.* Done 2026-09-25: the horizon stops short of the HUD's text.
+- [ ] **The horizon can cross the checklist's rows** too, down the top right,
+      and the checklist test compares them whole. *Verification: a frame with
+      the horizon drawn across every checklist row, built on purpose, is read
       correctly.*
 - [x] **A weather service's answer that is not JSON ended the flight.**
       *Verification: an answer that is not JSON is fetched again, and three

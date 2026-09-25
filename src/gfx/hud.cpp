@@ -366,23 +366,96 @@ void add_credits(Mesh& mesh, const std::vector<std::string>& credits, int width,
     add_text(mesh, credits, layout, width, height);
 }
 
-Mesh hud_mesh(const HudReadings& readings, int width, int height) {
-    Mesh mesh;
+PixelBox hud_text_block(const HudReadings& readings, int width, int height) {
     const TextLayout layout = hud_layout(width, height);
-    add_text(mesh, hud_lines(readings), layout, width, height);
+    const std::vector<std::string> lines = hud_lines(readings);
+    std::size_t columns = hud_columns;
+    for (const std::string& line : lines) {
+        columns = std::max(columns, line.size());
+    }
+    PixelBox box;
+    box.left = layout.left;
+    box.top = layout.top;
+    box.right = layout.left + static_cast<double>(columns) * layout.cell_width();
+    box.bottom = layout.top + static_cast<double>(lines.size()) * layout.cell_height();
+    return box;
+}
 
-    // The horizon: across the middle third, moved down the screen as the nose
-    // rises - a degree of pitch a hundredth of the height - and turned against
-    // the bank.
+HorizonLine hud_horizon(const HudReadings& readings, int width, int height) {
     constexpr double degrees = 180.0 / 3.14159265358979323846;
     const double cx = width / 2.0;
     const double cy = height / 2.0 + readings.pitch_deg * height / 100.0;
     const double half = width / 6.0;
     const double angle = readings.roll_deg / degrees;
-    add_line(mesh, cx - half * std::cos(angle), cy + half * std::sin(angle),
-             cx + half * std::cos(angle), cy - half * std::sin(angle),
-             std::max(2.0, layout.scale * 1.0), width, height, hud_colour);
+    return {cx - half * std::cos(angle), cy + half * std::sin(angle),
+            cx + half * std::cos(angle), cy - half * std::sin(angle),
+            std::max(2.0, hud_layout(width, height).scale * 1.0)};
+}
+
+namespace {
+
+// The part of the line from (x0, y0) to (x1, y1) inside `box`, as the
+// fractions of the way along it where it goes in and comes out - Liang and
+// Barsky's clipping - or nothing if it misses.
+std::optional<std::pair<double, double>> inside(const HorizonLine& l, const PixelBox& box) {
+    double in = 0.0;
+    double out = 1.0;
+    const double dx = l.x1 - l.x0;
+    const double dy = l.y1 - l.y0;
+    for (const auto& [p, q] : {std::pair{-dx, l.x0 - box.left}, std::pair{dx, box.right - l.x0},
+                               std::pair{-dy, l.y0 - box.top}, std::pair{dy, box.bottom - l.y0}}) {
+        if (p == 0.0) {
+            if (q < 0.0) {
+                return std::nullopt;
+            }
+            continue;
+        }
+        const double t = q / p;
+        if (p < 0.0) {
+            in = std::max(in, t);
+        } else {
+            out = std::min(out, t);
+        }
+    }
+    if (in >= out) {
+        return std::nullopt;
+    }
+    return std::pair{in, out};
+}
+
+} // namespace
+
+Mesh hud_mesh(const HudReadings& readings, int width, int height) {
+    Mesh mesh;
+    const TextLayout layout = hud_layout(width, height);
+    add_text(mesh, hud_lines(readings), layout, width, height);
+
+    // **The horizon, but never through the text.** Where it would cross the
+    // text block it stops short, by half its thickness and a pixel more, so
+    // no pixel of it lands in a glyph's cell: a stroke through a row read as
+    // "?" and broke every line whose words are compared whole.
+    const HorizonLine h = hud_horizon(readings, width, height);
+    PixelBox keep_out = hud_text_block(readings, width, height);
+    const double margin = h.thickness / 2.0 + 1.0;
+    keep_out.left -= margin;
+    keep_out.top -= margin;
+    keep_out.right += margin;
+    keep_out.bottom += margin;
+    const auto piece = [&](double from, double to) {
+        if (to > from) {
+            add_line(mesh, h.x0 + (h.x1 - h.x0) * from, h.y0 + (h.y1 - h.y0) * from,
+                     h.x0 + (h.x1 - h.x0) * to, h.y0 + (h.y1 - h.y0) * to, h.thickness,
+                     width, height, hud_colour);
+        }
+    };
+    if (const auto hidden = inside(h, keep_out)) {
+        piece(0.0, hidden->first);
+        piece(hidden->second, 1.0);
+    } else {
+        piece(0.0, 1.0);
+    }
     // The aircraft's own reference, fixed at the centre.
+    const double cx = width / 2.0;
     add_rect(mesh, cx - 3 * layout.scale, height / 2.0 - layout.scale,
              cx + 3 * layout.scale, height / 2.0 + layout.scale, width, height,
              hud_colour);

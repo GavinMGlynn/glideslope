@@ -163,10 +163,38 @@ const std::string& font_characters();
 
 inline constexpr std::array<float, 4> hud_colour{0.2f, 1.0f, 0.4f, 1.0f};
 
-// The HUD for `readings` on a frame of `width` by `height`: its text, a
-// horizon line across the middle, pitched and banked with the aircraft, and the
-// credits over their strip, last, over the line wherever it runs. In clip
-// space, drawn over everything else.
+// **The HUD's text block**: its lines, top to bottom, each hud_columns cells
+// wide - or as wide as its longest line, if that is longer - in screen
+// pixels. The horizon is never drawn inside it, so a frame's HUD reads back
+// whole whatever the attitude: the horizon runs across the middle third of
+// the frame and, pitched and banked, crosses the right-hand end of every row.
+inline constexpr std::size_t hud_columns = 24;
+struct PixelBox {
+    double left = 0.0;
+    double top = 0.0;
+    double right = 0.0; // exclusive
+    double bottom = 0.0;
+};
+PixelBox hud_text_block(const HudReadings& readings, int width, int height);
+
+// **The horizon line**, whole, before the text block is taken out of it: its
+// centre from (x0, y0) to (x1, y1), in screen pixels, `thickness` across.
+// Across the middle third of the frame, moved down the screen as the nose
+// rises - a degree of pitch a hundredth of the height - and turned against the
+// bank.
+struct HorizonLine {
+    double x0 = 0.0;
+    double y0 = 0.0;
+    double x1 = 0.0;
+    double y1 = 0.0;
+    double thickness = 0.0;
+};
+HorizonLine hud_horizon(const HudReadings& readings, int width, int height);
+
+// The HUD for `readings` on a frame of `width` by `height`: its text, the
+// horizon line, stopped short of the text block wherever it would cross it,
+// and the credits over their strip, last, over the line wherever it runs. In
+// clip space, drawn over everything else.
 Mesh hud_mesh(const HudReadings& readings, int width, int height);
 
 // Text read back from a frame drawn with `layout`: `lines` lines of `columns`

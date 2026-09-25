@@ -14,6 +14,7 @@
 // with the reason if not, 2 on bad arguments.
 
 #include "gfx/hud.hpp"
+#include "hud_judge.hpp"
 #include "gfx/renderer.hpp"
 #include "gfx/terrain_tiles.hpp"
 #include "world/dem.hpp"
@@ -86,26 +87,6 @@ std::map<long long, std::map<std::string, double>> read_trace(const char* path) 
     return ticks;
 }
 
-// The words of a HUD line.
-std::vector<std::string> words_of(const std::string& line) {
-    std::istringstream in(line);
-    std::vector<std::string> out;
-    for (std::string w; in >> w;) {
-        out.push_back(w);
-    }
-    return out;
-}
-
-double number(const std::string& text, const std::string& line) {
-    char* end = nullptr;
-    const double v = std::strtod(text.c_str(), &end);
-    if (text.empty() || *end != '\0') {
-        fail("the HUD line \"" + line + "\" holds \"" + text +
-             "\" where a number should be");
-    }
-    return v;
-}
-
 } // namespace
 
 int main(int argc, char** argv) {
@@ -139,142 +120,10 @@ int main(int argc, char** argv) {
     const auto& state = trace.at(tick);
 
     const glideslope::gfx::Frame frame = load(argv[1]);
-    const auto layout = glideslope::gfx::hud_layout(frame.width, frame.height);
-    const auto lines = glideslope::gfx::read_text(frame, layout, 16, 24);
-    for (const auto& l : lines) {
-        std::printf("read: %s\n", l.c_str());
-    }
-
-    struct Field {
-        std::string label;
-        std::string unit; // empty for none
-        std::string key;
-        double half_step;
-        bool angle;
-    };
-    const std::vector<Field> fields{
-        {"SPD", "KT", "kcas", 0.5, false},   {"ALT", "FT", "alt_ft", 0.5, false},
-        {"HDG", "", "heading", 0.5, true},   {"VS", "FPM", "vs_fpm", 0.5, false},
-        {"PITCH", "", "pitch", 0.05, false}, {"BANK", "", "roll", 0.05, false}};
-    for (std::size_t i = 0; i < fields.size(); ++i) {
-        const Field& f = fields[i];
-        const auto words = words_of(lines[i]);
-        const std::size_t expected_words = f.unit.empty() ? 2 : 3;
-        if (words.size() != expected_words || words[0] != f.label ||
-            (!f.unit.empty() && words[2] != f.unit)) {
-            fail("line " + std::to_string(i + 1) + " reads \"" + lines[i] + "\", not " +
-                 f.label + " and a number" + (f.unit.empty() ? "" : " in " + f.unit));
-        }
-        const double shown = number(words[1], lines[i]);
-        double actual = state.at(f.key);
-        double difference = std::abs(shown - actual);
-        if (f.angle) {
-            difference = std::abs(std::remainder(shown - actual, 360.0));
-        }
-        std::printf("%-6s shown %10.2f, state %10.4f\n", f.label.c_str(), shown,
-                    actual);
-        if (difference > f.half_step + 1e-6) {
-            fail(f.label + " shows " + words[1] + " at tick " + std::to_string(tick) +
-                 " when the state is " + std::to_string(actual));
-        }
-    }
-
-    // The Mach number and the flight level, each where it applies and only
-    // there; then nothing, or the autopilot's line.
-    std::size_t next = fields.size();
-    const auto optional_line = [&](bool applies, const std::string& label, double actual,
-                                   double scale, double half_step) {
-        const auto words = words_of(lines[next]);
-        const bool shown = !words.empty() && words[0] == label;
-        if (applies != shown) {
-            fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\": " +
-                 label + (applies ? " should be shown" : " should not be shown") +
-                 " at tick " + std::to_string(tick));
-        }
-        if (!shown) {
-            return;
-        }
-        if (words.size() != 2) {
-            fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\", not " +
-                 label + " and a number");
-        }
-        const double value = number(words[1], lines[next]) * scale;
-        std::printf("%-6s shown %10.2f, state %10.4f\n", label.c_str(), value, actual);
-        if (std::abs(value - actual) > half_step + 1e-6) {
-            fail(label + " shows " + words[1] + " at tick " + std::to_string(tick) +
-                 " when the state is " + std::to_string(actual));
-        }
-        ++next;
-    };
-    optional_line(state.at("mach") >= glideslope::gfx::hud_mach_from, "MACH", state.at("mach"),
-                  1.0, 0.005);
-    optional_line(state.at("pa_ft") >= glideslope::gfx::hud_flight_level_from_ft, "FL",
-                  state.at("pa_ft"), 100.0, 50.0);
-    // **Who is flying**, always: the pilot, or the AI and what it is doing.
-    const bool ai = state.at("ai") >= 0.5;
-    if (ai ? lines[next].rfind("FLYING AI", 0) != 0 : lines[next] != "FLYING PILOT") {
-        fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\", when " +
-             (ai ? "the AI" : "the pilot") + " is flying at tick " + std::to_string(tick));
-    }
-    std::printf("%s\n", lines[next].c_str());
-    ++next;
-
-    // **And the controls**, each where the flight model has it, to the
-    // hundredth the HUD shows.
-    const auto control = [&](const std::string& label, std::size_t word, const char* key) {
-        const auto words = words_of(lines[next]);
-        if (words.empty() || words[0] != label || words.size() <= word) {
-            fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\", not " +
-                 label);
-        }
-        const double shown = number(words[word], lines[next]);
-        const double actual = state.at(key);
-        std::printf("%-8s %s shown %+.2f, state %+.4f\n", label.c_str(), key, shown, actual);
-        if (std::abs(shown - actual) > 0.005 + 1e-6) {
-            fail(label + " shows " + words[word] + " for " + key + " at tick " +
-                 std::to_string(tick) + " when the state is " + std::to_string(actual));
-        }
-    };
-    control("STICK", 1, "aileron");
-    control("STICK", 2, "elevator");
-    ++next;
-    control("RUDDER", 1, "rudder");
-    ++next;
-    control("THROTTLE", 1, "throttle");
-    ++next;
-    control("FLAPS", 1, "flaps");
-    ++next;
-    if (state.at("gear") >= 0.0) {
-        const std::string want = state.at("gear") >= 0.5 ? "GEAR DOWN" : "GEAR UP";
-        if (lines[next] != want) {
-            fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\", not " +
-                 want);
-        }
-        ++next;
-    }
-    // **Nothing more of the HUD's**: every HUD line begins at its margin, in
-    // the first column. What begins further in is the scene behind the text -
-    // the horizon line, which crosses these rows when the flight, flown in
-    // the live weather, is banked as it was on 2026-09-25 and read as " ?" -
-    // and is not the HUD's to be judged here.
-    if (!lines[next].empty() && lines[next][0] != ' ') {
-        fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] +
-             "\", which the HUD should not show");
-    }
-
-    // The credits, and one line more below them, which must be empty.
-    const auto expected = glideslope::gfx::credit_lines(credits, frame.width);
-    auto shown = glideslope::gfx::read_text(
-        frame,
-        glideslope::gfx::credit_layout(frame.width, frame.height, expected.size()),
-        expected.size() + 1, glideslope::gfx::credit_columns(frame.width));
-    for (std::size_t i = 0; i < shown.size(); ++i) {
-        const std::string want = i < expected.size() ? expected[i] : "";
-        std::printf("credit: %s\n", shown[i].c_str());
-        if (shown[i] != want) {
-            fail("credit line " + std::to_string(i + 1) + " reads \"" + shown[i] +
-                 "\", not \"" + want + "\"");
-        }
+    try {
+        (void)glideslope::test::judge_hud(frame, state, tick, credits, stdout);
+    } catch (const glideslope::test::HudWrong& e) {
+        fail(e.what());
     }
     std::printf("the HUD at tick %lld matches the state\n", tick);
     return 0;
