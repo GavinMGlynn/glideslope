@@ -168,6 +168,11 @@ std::vector<std::string> hud_lines(const HudReadings& r) {
     // The font has no underscore: names written with them read as words.
     std::string flying = r.ai_flying ? "FLYING AI " + r.autopilot : "FLYING PILOT";
     std::replace(flying.begin(), flying.end(), '_', ' ');
+    // A waypoint's name long enough to take the line past the text block is
+    // cut, as a checklist item is: past it, the text would reach the horizon.
+    if (flying.size() > hud_columns) {
+        flying.resize(hud_columns);
+    }
     while (!flying.empty() && flying.back() == ' ') {
         flying.pop_back();
     }
@@ -190,12 +195,43 @@ std::vector<std::string> hud_lines(const HudReadings& r) {
     return lines;
 }
 
+namespace {
+
+// Where the horizon's pixels can reach furthest left, on a frame `width`
+// wide with text of `scale`: a third of the way across, less half the line's
+// thickness, which the corner of a banked line's end reaches.
+double horizon_leftmost(int width, int scale) {
+    return width / 3.0 - std::max(2.0, scale * 1.0) / 2.0;
+}
+
+// The text block's right-hand edge, at `scale`.
+double text_right(int scale) {
+    return (2.0 + static_cast<double>(hud_columns)) * 6.0 * scale;
+}
+
+bool clear_at(int width, int scale) {
+    return text_right(scale) + 1.0 <= horizon_leftmost(width, scale);
+}
+
+} // namespace
+
 TextLayout hud_layout(int width, int height) {
     TextLayout layout;
     layout.scale = std::max(1, std::min(width, height) / 240);
+    // **No larger than keeps the text left of the horizon.** The horizon runs
+    // across the middle third; text that reaches it reads as "?" wherever the
+    // line crosses a row, and the instrument is not to be cut to suit the
+    // words.
+    while (layout.scale > 1 && !clear_at(width, layout.scale)) {
+        --layout.scale;
+    }
     layout.left = 2 * layout.cell_width();
     layout.top = 2 * layout.cell_height();
     return layout;
+}
+
+bool hud_text_clear_of_horizon(int width, int height) {
+    return clear_at(width, hud_layout(width, height).scale);
 }
 
 std::size_t credit_columns(int width) {
@@ -368,16 +404,12 @@ void add_credits(Mesh& mesh, const std::vector<std::string>& credits, int width,
 
 PixelBox hud_text_block(const HudReadings& readings, int width, int height) {
     const TextLayout layout = hud_layout(width, height);
-    const std::vector<std::string> lines = hud_lines(readings);
-    std::size_t columns = hud_columns;
-    for (const std::string& line : lines) {
-        columns = std::max(columns, line.size());
-    }
     PixelBox box;
     box.left = layout.left;
     box.top = layout.top;
-    box.right = layout.left + static_cast<double>(columns) * layout.cell_width();
-    box.bottom = layout.top + static_cast<double>(lines.size()) * layout.cell_height();
+    box.right = layout.left + static_cast<double>(hud_columns) * layout.cell_width();
+    box.bottom = layout.top + static_cast<double>(hud_lines(readings).size()) *
+                                  layout.cell_height();
     return box;
 }
 
@@ -392,68 +424,14 @@ HorizonLine hud_horizon(const HudReadings& readings, int width, int height) {
             std::max(2.0, hud_layout(width, height).scale * 1.0)};
 }
 
-namespace {
-
-// The part of the line from (x0, y0) to (x1, y1) inside `box`, as the
-// fractions of the way along it where it goes in and comes out - Liang and
-// Barsky's clipping - or nothing if it misses.
-std::optional<std::pair<double, double>> inside(const HorizonLine& l, const PixelBox& box) {
-    double in = 0.0;
-    double out = 1.0;
-    const double dx = l.x1 - l.x0;
-    const double dy = l.y1 - l.y0;
-    for (const auto& [p, q] : {std::pair{-dx, l.x0 - box.left}, std::pair{dx, box.right - l.x0},
-                               std::pair{-dy, l.y0 - box.top}, std::pair{dy, box.bottom - l.y0}}) {
-        if (p == 0.0) {
-            if (q < 0.0) {
-                return std::nullopt;
-            }
-            continue;
-        }
-        const double t = q / p;
-        if (p < 0.0) {
-            in = std::max(in, t);
-        } else {
-            out = std::min(out, t);
-        }
-    }
-    if (in >= out) {
-        return std::nullopt;
-    }
-    return std::pair{in, out};
-}
-
-} // namespace
-
 Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     Mesh mesh;
     const TextLayout layout = hud_layout(width, height);
     add_text(mesh, hud_lines(readings), layout, width, height);
 
-    // **The horizon, but never through the text.** Where it would cross the
-    // text block it stops short, by half its thickness and a pixel more, so
-    // no pixel of it lands in a glyph's cell: a stroke through a row read as
-    // "?" and broke every line whose words are compared whole.
+    // The horizon, whole: hud_layout keeps the text clear of it.
     const HorizonLine h = hud_horizon(readings, width, height);
-    PixelBox keep_out = hud_text_block(readings, width, height);
-    const double margin = h.thickness / 2.0 + 1.0;
-    keep_out.left -= margin;
-    keep_out.top -= margin;
-    keep_out.right += margin;
-    keep_out.bottom += margin;
-    const auto piece = [&](double from, double to) {
-        if (to > from) {
-            add_line(mesh, h.x0 + (h.x1 - h.x0) * from, h.y0 + (h.y1 - h.y0) * from,
-                     h.x0 + (h.x1 - h.x0) * to, h.y0 + (h.y1 - h.y0) * to, h.thickness,
-                     width, height, hud_colour);
-        }
-    };
-    if (const auto hidden = inside(h, keep_out)) {
-        piece(0.0, hidden->first);
-        piece(hidden->second, 1.0);
-    } else {
-        piece(0.0, 1.0);
-    }
+    add_line(mesh, h.x0, h.y0, h.x1, h.y1, h.thickness, width, height, hud_colour);
     // The aircraft's own reference, fixed at the centre.
     const double cx = width / 2.0;
     add_rect(mesh, cx - 3 * layout.scale, height / 2.0 - layout.scale,

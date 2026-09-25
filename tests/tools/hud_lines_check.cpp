@@ -59,6 +59,15 @@ int main() {
         {"the AI to a waypoint, fixed gear, flaps part down", true, "NAV THE_HEADS", fixed,
          {"FLYING AI NAV THE HEADS", "STICK +0.30 -0.05", "RUDDER +0.00", "THROTTLE 0.70",
           "FLAPS 0.33"}},
+        // A name too long for the text block is cut at its end, where the
+        // text would otherwise reach the horizon; a space left at the cut
+        // goes too.
+        {"the AI to a waypoint with a long name", true, "NAV NORTH_HEAD_LOOKOUT_POINT", fixed,
+         {"FLYING AI NAV NORTH HEAD", "STICK +0.30 -0.05", "RUDDER +0.00", "THROTTLE 0.70",
+          "FLAPS 0.33"}},
+        {"the AI to a waypoint whose name is cut at a space", true, "NAV NORTH_HEA_POINT", fixed,
+         {"FLYING AI NAV NORTH HEA", "STICK +0.30 -0.05", "RUDDER +0.00", "THROTTLE 0.70",
+          "FLAPS 0.33"}},
     };
     std::size_t walked = 0;
     for (const Case& c : cases) {

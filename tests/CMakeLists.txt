@@ -788,10 +788,13 @@ add_test(NAME the_hud_says_who_is_flying_and_where_every_control_is_in_every_cas
 add_executable(glideslope_hud_horizon_check tools/hud_horizon_check.cpp)
 target_link_libraries(glideslope_hud_horizon_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_hud_horizon_check)
-# **The horizon across every HUD row, on purpose**: the frame tests fly in the
-# live weather, which decides whether it crosses a row at all.
-add_test(NAME the_horizon_drawn_across_every_hud_row_leaves_the_hud_read_and_judged_whole
+# **The horizon level with every HUD row, on purpose**: the frame tests fly in
+# the live weather, which decides where it lies. It walks each frame size on a
+# thread of its own, so it asks ctest for four processors.
+add_test(NAME the_horizon_level_with_every_hud_row_is_drawn_whole_and_the_hud_read_and_judged_whole
     COMMAND glideslope_hud_horizon_check)
+set_tests_properties(the_horizon_level_with_every_hud_row_is_drawn_whole_and_the_hud_read_and_judged_whole
+    PROPERTIES PROCESSORS 4)
 glideslope_configure(glideslope_hud_check)
 add_executable(glideslope_sky_check tools/sky_check.cpp)
 target_link_libraries(glideslope_sky_check PRIVATE glideslope_gfx)
