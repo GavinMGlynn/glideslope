@@ -118,7 +118,12 @@ void print_usage(std::FILE* out) {
         "                            pings so that it can measure the round trip.\n"
         "                            --again sends the initiation a second time\n"
         "                            once the session is up, as a network that\n"
-        "                            duplicates a datagram would. --fly sends\n"
+        "                            duplicates a datagram would.\n"
+        "                            --again-when-let-go says nothing after the\n"
+        "                            handshake until the server has let it go,\n"
+        "                            then sends the initiation once more and\n"
+        "                            says whether and how it was answered.\n"
+        "                            --fly sends\n"
         "                            inputs - full aileron - so the server has\n"
         "                            something to fly this client's aircraft by.\n"
         "                            --after N waits N seconds before connecting,\n"
@@ -1611,13 +1616,83 @@ int stay(glideslope::platform::UdpSocket& socket,
     return answered > 0 ? 0 : 1;
 }
 
+// **A test flag's work (`--again-when-let-go`)**: a client whose session the
+// server has let go, and a copy of its initiation arriving after that - which
+// is what a server slow to read its socket saw on CI, a copy sent before the
+// answer came and read after the session it made had gone.
+//
+// It says nothing after the handshake, answering none of the server's knocks,
+// so that the server lets it go after its `--timeout`. **That is waited for,
+// not timed**: the server knocks once a second on every session it has, so
+// three seconds without a datagram from it mean the session is gone. Then the
+// same initiation goes once more, and for `seconds` it listens: an answer
+// the same as the first says the session was still there and the situation
+// was not built; a different one is a fresh session made from a copy; nothing
+// is what a server that remembers what it has taken says. The verdict goes to
+// `--heard FILE`.
+int again_once_let_go(glideslope::platform::UdpSocket& socket,
+                      const glideslope::platform::Address& server,
+                      std::span<const std::uint8_t> initiation,
+                      std::span<const std::uint8_t> first_answer, double seconds,
+                      const std::string& heard_file) {
+    const std::vector<std::uint8_t> answered(first_answer.begin(), first_answer.end());
+    std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
+    const auto since = [](std::chrono::steady_clock::time_point t) {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - t).count();
+    };
+    constexpr double gone_after_s = 3.0;
+    constexpr double most_waited_s = 300.0;
+    const auto began = std::chrono::steady_clock::now();
+    auto last_heard = began;
+    while (since(last_heard) < gone_after_s) {
+        if (since(began) > most_waited_s) {
+            std::fprintf(stderr, "glideslope_cli: the server never let this client go\n");
+            return 1;
+        }
+        glideslope::platform::Address from;
+        if (socket.receive(into, from) > 0) {
+            last_heard = std::chrono::steady_clock::now();
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+    }
+    (void)socket.send(server, initiation);
+    std::string verdict = "the initiation again was not answered";
+    const auto sent = std::chrono::steady_clock::now();
+    while (since(sent) < seconds) {
+        glideslope::platform::Address from;
+        const std::size_t got = socket.receive(into, from);
+        if (got <= glideslope::net::envelope_size) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            continue;
+        }
+        glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
+        glideslope::net::Envelope envelope;
+        glideslope::net::Refusal why{};
+        if (!glideslope::net::read_envelope(r, envelope, why) ||
+            envelope.type != glideslope::net::Type::handshake_response) {
+            continue;
+        }
+        const bool same = got == answered.size() &&
+                          std::equal(answered.begin(), answered.end(), into.begin());
+        verdict = same ? "the initiation again was answered as before"
+                       : "the initiation again was answered afresh";
+        break;
+    }
+    std::printf("%s\n", verdict.c_str());
+    if (!heard_file.empty()) {
+        std::ofstream(heard_file, std::ios::app) << verdict << '\n';
+    }
+    return 0;
+}
+
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
                bool again, bool fly, double after_s, const std::string& secret_hex = "",
                const std::string& heard_file = "", int until_flying_again = 0,
                const std::string& ready_file = "", bool predict = false,
                const std::string& track_file = "", double hand_over_at_s = -1.0,
                double take_back_at_s = -1.0, double dive_after_s = -1.0,
-               bool watch_ai = false) {
+               bool watch_ai = false, bool again_when_let_go = false) {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived. With `--after-ready`
@@ -1743,6 +1818,13 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                         std::span<const std::uint8_t>(out.data(), out.size()));
                     std::printf("session with %s\n", session->theirs.text().c_str());
                     std::printf("sealed %zu bytes to it\n", out.size());
+                    if (again_when_let_go) {
+                        return again_once_let_go(
+                            *socket, *address,
+                            std::span<const std::uint8_t>(first.data(), first.size()),
+                            std::span<const std::uint8_t>(into.data(), got), stay_s,
+                            heard_file);
+                    }
                     if (stay_s <= 0.0) {
                         return 0;
                     }
@@ -1864,6 +1946,7 @@ static int run_program(int argc, char** argv) {
         if (args.size() >= 3 && args.size() <= 27 && args[0] == "connect") {
             double stay_s = 0.0;
             bool again = false;
+            bool again_when_let_go = false;
             bool fly = false;
             double after_s = 0.0;
             std::string secret_hex;
@@ -1934,6 +2017,10 @@ static int run_program(int argc, char** argv) {
                     again = true;
                     continue;
                 }
+                if (args[i] == "--again-when-let-go") {
+                    again_when_let_go = true;
+                    continue;
+                }
                 if (args[i] == "--fly") {
                     fly = true;
                     continue;
@@ -1945,6 +2032,12 @@ static int run_program(int argc, char** argv) {
                                  "than nothing\n");
                     return 2;
                 }
+            }
+            if (again_when_let_go && (stay_s <= 0.0 || again || fly)) {
+                std::fprintf(stderr, "glideslope_cli: --again-when-let-go needs "
+                                     "seconds to listen for, and neither --again "
+                                     "nor --fly\n");
+                return 2;
             }
             if (again && stay_s <= 0.0) {
                 std::fprintf(stderr, "glideslope_cli: --again needs seconds to "
@@ -1959,7 +2052,8 @@ static int run_program(int argc, char** argv) {
             return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
                               again, fly, after_s, secret_hex, heard_file,
                               until_flying_again, ready_file, predict, track_file,
-                              hand_over_at_s, take_back_at_s, dive_after_s, watch_ai);
+                              hand_over_at_s, take_back_at_s, dive_after_s, watch_ai,
+                              again_when_let_go);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();

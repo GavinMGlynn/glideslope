@@ -1367,6 +1367,19 @@ set_tests_properties(four_players_joining_in_the_reverse_of_their_keys_order_eac
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_slots)
 
+# **A copy of an initiation read after its session has gone makes no second
+# player** - which is how the four-player test once counted six players'
+# aircraft. See cmake/server_initiation_again.cmake.
+add_test(NAME a_copy_of_an_initiation_arriving_after_its_session_was_let_go_makes_no_second_player
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_again -DPORT=47888
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_initiation_again.cmake)
+set_tests_properties(a_copy_of_an_initiation_arriving_after_its_session_was_let_go_makes_no_second_player
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_initiation_again)
+
 # **The server's window**: it shows the dashboard the terminal would, its drop
 # button drops a player, and it writes a frame. See cmake/server_window.cmake.
 add_test(NAME the_servers_window_shows_the_terminals_dashboard_and_its_drop_button_drops_a_player

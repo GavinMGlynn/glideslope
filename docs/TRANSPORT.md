@@ -134,6 +134,21 @@ session is dropped without a word, so that nobody can take a live player's
 session with one datagram; the address can start again once the server has
 let the old session go.
 
+**An initiation is taken once.** The server remembers every initiation that
+has made a session by its first 32 bytes, the client's ephemeral key, and
+keeps remembering it after that session has gone. A copy of it arriving then,
+from any address, is dropped without a word: no session, no answer, no
+refusal. A client sending the same initiation again must have it answered
+while the session it made is live, which is what resending until answered
+does. A client whose session has gone and that wants another makes a new
+initiation, with a new ephemeral key. This project's clients mint a new one
+for every connection. **What it does not claim**: the server remembers the
+newest 65,536 initiations it has taken and no more, and forgets them all when
+it restarts. An initiation older than that, or from before a restart, is
+answered as a new one would be. The initiation carries no timestamp, as
+WireGuard's does, that would let a server refuse an old one it has
+forgotten.
+
 **A session ends when the server stops hearing from it.** There is no
 goodbye. The server lets a session go when no datagram that opens under it
 has arrived for its `--timeout` (10 seconds unless it was told otherwise),
