@@ -288,6 +288,20 @@ ends in a debrief, never a score.
 - [x] **Controller-swap continuity in the network checks.** *Verification: swaps
       under injected latency, loss and jitter stay within bound.* Done
       2026-09-25: at 100 and 200 ms.
+- [ ] **Who is flying, and the controls, on screen.** The HUD always says
+      whether the pilot or the AI has the aircraft, and a panel shows the
+      stick, rudder, throttle, flaps and gear. *Verification: a shot of each
+      case shows the right words and each control where the flight model has
+      it.*
+- [ ] **Ride along in any AI aircraft.** Step into its cockpit, on a server,
+      and watch it fly, its controls shown as the AI moves them. *Verification:
+      the view and the controls panel match the server's aircraft within
+      stated bounds, under injected latency, loss and jitter.*
+- [ ] **Take over an AI aircraft.** The one you ride in becomes yours, and the
+      one you had goes to the AI pilot; never another player's, and a server
+      setting may forbid it. *Verification: a take-over under injected
+      latency, loss and jitter shows no step; a request for a player's
+      aircraft, or on a server that forbids it, is refused.*
 
 ## Phase 8 — LLM copilot
 
