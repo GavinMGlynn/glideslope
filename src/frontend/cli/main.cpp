@@ -4,6 +4,8 @@
 // the proof that the simulation can run where there is no window: in CI, in a
 // test, and inside the server.
 
+#include "copilot/planner.hpp"
+#include "copilot/provider.hpp"
 #include "net/handshake.hpp"
 #include "platform/end_process.hpp"
 #include "platform/no_crash_dialogs.hpp"
@@ -23,6 +25,9 @@
 #include "platform/paths.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/controller.hpp"
+#include "sim/crash.hpp"
+#include "sim/departure.hpp"
 #include "sim/figures.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/selftest.hpp"
@@ -31,6 +36,7 @@
 #include "world/geodesy.hpp"
 #include "world/download.hpp"
 #include "world/metar.hpp"
+#include "world/runways.hpp"
 #include "world/sky.hpp"
 #include "world/weather.hpp"
 #include "world/winds_aloft.hpp"
@@ -85,6 +91,20 @@ void print_usage(std::FILE* out) {
         "  air                       the air - gusts, turbulence, thermals and a\n"
         "                            ridge's lift - at a thousand places and times,\n"
         "                            for comparing platforms\n"
+        "  plan AIRCRAFT AIRPORT COMMAND [--provider openai|anthropic] [--model M]\n"
+        "       [--record FILE | --playback FILE] [--out FILE]\n"
+        "                            ask a language model to turn COMMAND - \"take\n"
+        "                            off and orbit the CBD\" - into a flight plan for\n"
+        "                            AIRCRAFT standing at AIRPORT, with your own key\n"
+        "                            (openai-key or anthropic-key in the config\n"
+        "                            directory), and print it; --record keeps what\n"
+        "                            was asked and said, --playback asks nothing and\n"
+        "                            plays a recording back instead\n"
+        "  fly-plan FILE [--minutes M] [--orbits N]\n"
+        "                            fly a flight plan over the DEM with the AI, and\n"
+        "                            say how each part of it was flown; an orbit with\n"
+        "                            no end is left after N turns (default 2), and\n"
+        "                            the flight after M minutes (default 30)\n"
         "\n"
         "  connect --server HOST PORT --server-key HEX [SECONDS] [--fly]\n"
         "                            connect to a server named on the command line\n"
@@ -253,6 +273,273 @@ int height(const std::filesystem::path& data, std::string_view latitude_text,
                 tiles.downloads() == 1 ? "" : "s");
     std::printf("%s\n", glideslope::world::copernicus_dem_notice);
     return 0;
+}
+
+// **Words to a flight plan**, by a language model (copilot/planner.hpp).
+int plan_command(const std::filesystem::path& data, const std::vector<std::string_view>& args) {
+    const std::string aircraft(args[1]);
+    const std::string airport(args[2]);
+    const std::string command(args[3]);
+    std::string provider_name = "openai";
+    std::string model;
+    std::string record;
+    std::string played;
+    std::string out;
+    for (std::size_t i = 4; i < args.size(); ++i) {
+        const bool value = i + 1 < args.size();
+        if (args[i] == "--provider" && value) {
+            provider_name = std::string(args[++i]);
+        } else if (args[i] == "--model" && value) {
+            model = std::string(args[++i]);
+        } else if (args[i] == "--record" && value) {
+            record = std::string(args[++i]);
+        } else if (args[i] == "--playback" && value) {
+            played = std::string(args[++i]);
+        } else if (args[i] == "--out" && value) {
+            out = std::string(args[++i]);
+        } else {
+            std::fprintf(stderr, "glideslope_cli: plan: what is \"%s\"?\n",
+                         std::string(args[i]).c_str());
+            return 2;
+        }
+    }
+    if (!record.empty() && !played.empty()) {
+        std::fprintf(stderr, "glideslope_cli: plan: --record or --playback, not both\n");
+        return 2;
+    }
+    const glideslope::sim::CatalogueEntry entry = glideslope::sim::find_aircraft(data, aircraft);
+    glideslope::copilot::PlanRequest request;
+    request.command = command;
+    request.aircraft = entry.id;
+    request.aircraft_name = entry.name;
+    request.climb_kts = glideslope::sim::departure_speeds(data, entry.model).climb_kts;
+    request.approach_kts = glideslope::sim::approach_speeds(data, entry.model).vref_kts;
+    request.cruise_kts = entry.start_airspeed_kts;
+    request.airport = airport;
+    request.runways = glideslope::world::runways_at(
+        glideslope::world::world_runways(glideslope::platform::cache_directory(),
+                                         glideslope::world::http_fetch()),
+        airport);
+    if (request.runways.empty()) {
+        std::fprintf(stderr, "glideslope_cli: plan: OurAirports has no runways at %s\n",
+                     airport.c_str());
+        return 2;
+    }
+
+    glideslope::copilot::Post post = glideslope::copilot::http_post();
+    if (!played.empty()) {
+        post = glideslope::copilot::playback(played);
+    } else if (!record.empty()) {
+        std::filesystem::remove(record);
+        post = glideslope::copilot::recording(post, record);
+    }
+    const std::string key = !played.empty()             ? std::string()
+                            : provider_name == "openai" ? glideslope::platform::openai_key()
+                                                        : glideslope::platform::anthropic_key();
+    const auto provider = glideslope::copilot::make_provider(provider_name, key, model,
+                                                             std::move(post), !played.empty());
+    const glideslope::copilot::Planned planned =
+        glideslope::copilot::plan_from_words(*provider, request);
+    std::printf("# planned by %s, %s, in %d answer%s%s\n", provider->name().c_str(),
+                provider->model().c_str(), planned.attempts, planned.attempts == 1 ? "" : "s",
+                !played.empty() ? ", played back" : "");
+    for (const std::string& why : planned.refused) {
+        std::printf("# refused: %s\n", why.c_str());
+    }
+    std::printf("%s", planned.text.c_str());
+    if (!out.empty()) {
+        std::ofstream file(out, std::ios::binary);
+        file << planned.text;
+        if (!file) {
+            throw std::runtime_error("cannot write " + out);
+        }
+    }
+    return 0;
+}
+
+// **A flight plan flown by the AI over the DEM**, headless, saying how each
+// part of it went: the take-off, each waypoint passed, each orbit flown.
+// Heights said are above sea level, as the plan's are; the aircraft flies
+// above the ellipsoid, as everything here does.
+int fly_plan(const std::filesystem::path& data, const std::vector<std::string_view>& args) {
+    double minutes = 30.0;
+    int orbits = 2;
+    for (std::size_t i = 2; i < args.size(); ++i) {
+        if (args[i] == "--minutes" && i + 1 < args.size()) {
+            minutes = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (args[i] == "--orbits" && i + 1 < args.size()) {
+            orbits = std::atoi(std::string(args[++i]).c_str());
+        } else {
+            std::fprintf(stderr, "glideslope_cli: fly-plan: what is \"%s\"?\n",
+                         std::string(args[i]).c_str());
+            return 2;
+        }
+    }
+    std::ifstream in{std::filesystem::path(std::string(args[1])), std::ios::binary};
+    if (!in) {
+        throw std::runtime_error("cannot read " + std::string(args[1]));
+    }
+    glideslope::sim::FlightPlan plan =
+        glideslope::sim::parse_flight_plan(std::string(std::istreambuf_iterator<char>(in), {}));
+    const glideslope::sim::CatalogueEntry entry = glideslope::sim::find_aircraft(data, plan.aircraft);
+
+    std::ifstream coverage_file(data / "dem" / "coverage.txt", std::ios::binary);
+    if (!coverage_file) {
+        throw std::runtime_error("cannot read " + (data / "dem" / "coverage.txt").string());
+    }
+    const glideslope::world::DemCoverage coverage(
+        std::string(std::istreambuf_iterator<char>(coverage_file), {}));
+    const std::filesystem::path cache = glideslope::platform::cache_directory();
+    const glideslope::world::Fetch fetch = glideslope::world::http_fetch();
+    glideslope::world::DownloadedTiles tiles(cache, fetch);
+    const glideslope::world::Geoid geoid = glideslope::world::egm2008_geoid(cache, fetch);
+    auto dem = std::make_shared<glideslope::world::Dem>(coverage, tiles, &geoid);
+    constexpr double feet_per_metre = 3.280839895013123;
+    const auto sea_level_ft = [&](double lat, double lon, double ellipsoid_ft) {
+        return ellipsoid_ft - geoid.undulation(lat, lon) * feet_per_metre;
+    };
+    // The plan's heights, above sea level, as the aircraft's are: above the
+    // ellipsoid.
+    const std::vector<glideslope::sim::Waypoint> as_written = plan.waypoints;
+    for (glideslope::sim::Waypoint& w : plan.waypoints) {
+        w.altitude_ft += geoid.undulation(w.latitude_deg, w.longitude_deg) * feet_per_metre;
+    }
+
+    glideslope::sim::Aircraft aircraft(data / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [dem](double lat, double lon) { return dem->height_above_ellipsoid(lat, lon); },
+        [dem](double lat, double lon) {
+            return dem->water(lat, lon) != glideslope::world::Water::none;
+        }));
+    glideslope::sim::InitialConditions ic;
+    glideslope::sim::Controller controller(aircraft, glideslope::sim::Controls{});
+    double runway_ft = 0.0;
+    if (plan.takeoff) {
+        // **The runway is where the ground is**: its height is the DEM's at
+        // the threshold, which is what the aircraft stands on and collides
+        // with, whatever the runway file says.
+        glideslope::sim::Runway& runway = plan.takeoff->runway;
+        runway_ft = dem->height_above_ellipsoid(runway.threshold_lat_deg, runway.threshold_lon_deg) *
+                    feet_per_metre;
+        runway.elevation_ft = runway_ft;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway_ft;
+        ic.terrain_elevation_ft = runway_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.airspeed_kts = 0.0;
+        ic.gear = 1.0;
+    } else if (plan.start) {
+        ic.latitude_deg = plan.start->latitude_deg;
+        ic.longitude_deg = plan.start->longitude_deg;
+        ic.altitude_ft = plan.start->altitude_ft +
+                         geoid.undulation(ic.latitude_deg, ic.longitude_deg) * feet_per_metre;
+        ic.terrain_elevation_ft =
+            dem->height_above_ellipsoid(ic.latitude_deg, ic.longitude_deg) * feet_per_metre;
+        ic.heading_deg = plan.start->heading_deg;
+        ic.airspeed_kts = plan.start->airspeed_kts;
+        ic.gear = 0.0;
+    } else {
+        std::fprintf(stderr, "glideslope_cli: fly-plan: the plan neither starts nor takes off\n");
+        return 2;
+    }
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    if (plan.takeoff) {
+        controller.to_ai_flying(plan, glideslope::sim::departure_speeds(data, entry.model));
+        std::printf("taking off from %s, the ground there %.0f ft above sea level\n",
+                    plan.takeoff->runway.name.c_str(),
+                    sea_level_ft(ic.latitude_deg, ic.longitude_deg, runway_ft));
+    } else {
+        controller.to_ai(plan);
+    }
+
+    glideslope::sim::GroundJudge judge(entry.seaplane);
+    const auto seconds = [](std::int64_t steps) {
+        return static_cast<double>(steps) / glideslope::sim::steps_per_second;
+    };
+    const std::int64_t most_steps =
+        static_cast<std::int64_t>(minutes * 60.0) * glideslope::sim::steps_per_second;
+    bool departing = controller.departure() != nullptr;
+    std::size_t leg = 0;
+    double closest_m = std::numeric_limits<double>::infinity();
+    double closest_ft = 0.0;
+    double nearest_m = std::numeric_limits<double>::infinity();
+    double farthest_m = 0.0;
+    double lowest_ft = std::numeric_limits<double>::infinity();
+    double highest_ft = -std::numeric_limits<double>::infinity();
+    double turns = 0.0;
+    const auto said_orbit = [&](const glideslope::sim::Waypoint& w, std::int64_t step,
+                                const char* how) {
+        std::printf("round %s: %.2f turns, %.0f to %.0f m from its centre, at %.0f to %.0f ft, "
+                    "%.0f s in%s\n",
+                    w.name.c_str(), turns, nearest_m, farthest_m, lowest_ft, highest_ft,
+                    seconds(step), how);
+    };
+    std::int64_t step = 0;
+    for (; step < most_steps; ++step) {
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        if (const auto wrecked = judge.judge(aircraft)) {
+            std::printf("wrecked, %.0f s in: %s\n", seconds(step), wrecked->c_str());
+            return 1;
+        }
+        const double lat = aircraft.property("position/lat-geod-deg");
+        const double lon = aircraft.property("position/long-gc-deg");
+        const double ft = sea_level_ft(lat, lon, aircraft.property("position/h-sl-ft"));
+        if (departing && controller.departure() == nullptr) {
+            departing = false;
+            std::printf("took off: the take-off autopilot handed over at %.0f ft, %.0f ft above "
+                        "the runway, %.0f s in\n",
+                        ft, aircraft.property("position/h-sl-ft") - runway_ft, seconds(step));
+        }
+        const glideslope::sim::Navigator* navigator = controller.navigator();
+        if (departing || navigator == nullptr) {
+            continue;
+        }
+        if (navigator->next() != leg) {
+            const glideslope::sim::Waypoint& passed = as_written[leg];
+            if (passed.orbit) {
+                said_orbit(passed, step, "");
+            } else {
+                std::printf("passed %s %.0f m off at %.0f ft, %.0f s in\n", passed.name.c_str(),
+                            closest_m, closest_ft, seconds(step));
+            }
+            leg = navigator->next();
+            closest_m = nearest_m = std::numeric_limits<double>::infinity();
+            farthest_m = turns = 0.0;
+            lowest_ft = std::numeric_limits<double>::infinity();
+            highest_ft = -std::numeric_limits<double>::infinity();
+        }
+        if (navigator->finished()) {
+            std::printf("the plan is flown, %.0f s in\n", seconds(step));
+            return 0;
+        }
+        const glideslope::sim::Waypoint& to = as_written[leg];
+        const double d = glideslope::sim::distance_m(lat, lon, to.latitude_deg, to.longitude_deg);
+        if (!to.orbit) {
+            if (d < closest_m) {
+                closest_m = d;
+                closest_ft = ft;
+            }
+            continue;
+        }
+        // Round an orbit, once on its circle: after the quarter turn joining it.
+        if (navigator->circling() && navigator->turns_flown() >= 0.25) {
+            turns = navigator->turns_flown();
+            nearest_m = std::min(nearest_m, d);
+            farthest_m = std::max(farthest_m, d);
+            lowest_ft = std::min(lowest_ft, ft);
+            highest_ft = std::max(highest_ft, ft);
+            if (to.orbit->turns == 0 && turns >= orbits) {
+                said_orbit(to, step, ", and round for ever: left there");
+                return 0;
+            }
+        }
+    }
+    std::printf("not flown in %.0f minutes: at %s\n", minutes,
+                leg < as_written.size() ? as_written[leg].name.c_str() : "the end");
+    return 1;
 }
 
 int weather(const std::string& station) {
@@ -1617,6 +1904,12 @@ static int run_program(int argc, char** argv) {
         }
         if (args.size() == 4 && args[0] == "sky") {
             return sky(data, args[1], args[2], args[3]);
+        }
+        if (args.size() >= 4 && args[0] == "plan") {
+            return plan_command(data, args);
+        }
+        if (args.size() >= 2 && args[0] == "fly-plan") {
+            return fly_plan(data, args);
         }
         if (args.size() == 2 && args[0] == "weather") {
             return weather(std::string(args[1]));
