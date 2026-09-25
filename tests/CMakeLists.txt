@@ -522,6 +522,14 @@ set_tests_properties(
     a_piper_cub_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
     a_cherokee_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
     PROPERTIES TIMEOUT 1800)
+# The circuit lessons fly every aeroplane that is taught one round a whole
+# pattern and on to the stop: 256 s and 182 s in a debug build on the
+# development machine, and a debug runner on CI, sharing four ways, passed
+# the 900 s default with the first.
+set_tests_properties(
+    an_instructor_demonstrates_a_circuit_and_hands_it_over
+    the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief
+    PROPERTIES TIMEOUT 1800)
 # Twelve tiles, fetched by the first to want them; two tests fetching the same
 # tile at once is safe (src/world/download.cpp), so none of these waits on
 # another.
