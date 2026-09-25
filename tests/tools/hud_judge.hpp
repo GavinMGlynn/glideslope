@@ -10,7 +10,8 @@
 // where they do not; who is flying, and the controls; nothing more of the
 // HUD's; and the credits along the bottom, `credits`, drawn as
 // gfx::credit_lines draws them, with nothing below them. What it read is
-// printed to `out`. It returns the line saying who is flying, and throws
+// printed to `out`, unless it is null - a test judging thousands of frames
+// prints nothing of each. It returns the line saying who is flying, and throws
 // HudWrong with the reason if anything is not so.
 
 #include "gfx/hud.hpp"
@@ -68,7 +69,7 @@ inline std::string judge_hud(const gfx::Frame& frame, const std::map<std::string
     const auto layout = gfx::hud_layout(frame.width, frame.height);
     const auto lines = gfx::read_text(frame, layout, 16, gfx::hud_columns);
     for (const auto& l : lines) {
-        std::fprintf(out, "read: %s\n", l.c_str());
+        if (out != nullptr) std::fprintf(out, "read: %s\n", l.c_str());
     }
 
     struct Field {
@@ -97,7 +98,7 @@ inline std::string judge_hud(const gfx::Frame& frame, const std::map<std::string
         if (f.angle) {
             difference = std::abs(std::remainder(shown - actual, 360.0));
         }
-        std::fprintf(out, "%-6s shown %10.2f, state %10.4f\n", f.label.c_str(), shown,
+        if (out != nullptr) std::fprintf(out, "%-6s shown %10.2f, state %10.4f\n", f.label.c_str(), shown,
                     actual);
         if (difference > f.half_step + 1e-6) {
             fail(f.label + " shows " + words[1] + " at tick " + std::to_string(tick) +
@@ -125,7 +126,7 @@ inline std::string judge_hud(const gfx::Frame& frame, const std::map<std::string
                  label + " and a number");
         }
         const double value = number(words[1], lines[next]) * scale;
-        std::fprintf(out, "%-6s shown %10.2f, state %10.4f\n", label.c_str(), value, actual);
+        if (out != nullptr) std::fprintf(out, "%-6s shown %10.2f, state %10.4f\n", label.c_str(), value, actual);
         if (std::abs(value - actual) > half_step + 1e-6) {
             fail(label + " shows " + words[1] + " at tick " + std::to_string(tick) +
                  " when the state is " + std::to_string(actual));
@@ -142,7 +143,7 @@ inline std::string judge_hud(const gfx::Frame& frame, const std::map<std::string
         fail("line " + std::to_string(next + 1) + " reads \"" + lines[next] + "\", when " +
              (ai ? "the AI" : "the pilot") + " is flying at tick " + std::to_string(tick));
     }
-    std::fprintf(out, "%s\n", lines[next].c_str());
+    if (out != nullptr) std::fprintf(out, "%s\n", lines[next].c_str());
     const std::string flying = lines[next];
     ++next;
 
@@ -156,7 +157,7 @@ inline std::string judge_hud(const gfx::Frame& frame, const std::map<std::string
         }
         const double shown = number(words[word], lines[next]);
         const double actual = state.at(key);
-        std::fprintf(out, "%-8s %s shown %+.2f, state %+.4f\n", label.c_str(), key, shown, actual);
+        if (out != nullptr) std::fprintf(out, "%-8s %s shown %+.2f, state %+.4f\n", label.c_str(), key, shown, actual);
         if (std::abs(shown - actual) > 0.005 + 1e-6) {
             fail(label + " shows " + words[word] + " for " + key + " at tick " +
                  std::to_string(tick) + " when the state is " + std::to_string(actual));
@@ -198,7 +199,7 @@ inline std::string judge_hud(const gfx::Frame& frame, const std::map<std::string
         expected.size() + 1, gfx::credit_columns(frame.width));
     for (std::size_t i = 0; i < shown.size(); ++i) {
         const std::string want = i < expected.size() ? expected[i] : "";
-        std::fprintf(out, "credit: %s\n", shown[i].c_str());
+        if (out != nullptr) std::fprintf(out, "credit: %s\n", shown[i].c_str());
         if (shown[i] != want) {
             fail("credit line " + std::to_string(i + 1) + " reads \"" + shown[i] +
                  "\", not \"" + want + "\"");
