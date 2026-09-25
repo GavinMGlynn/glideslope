@@ -1286,6 +1286,18 @@ foreach(_net IN ITEMS "100;30;5;11;47880;8" "200;60;10;12;47882;10")
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_impaired_${_delay})
 endforeach()
 
+# **A player's aircraft handed to the AI and back, then wrecked, flies again
+# as the player's.** See cmake/server_swap_wreck.cmake.
+add_test(NAME an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/swap_wreck -DPORT=47886
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_swap_wreck.cmake)
+set_tests_properties(an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/swap_wreck)
+
 # **The pre-commit hook refuses what it says it refuses**, and nothing else.
 # See cmake/githooks.cmake.
 add_test(NAME the_pre_commit_hook_refuses_an_unfinished_commit_and_nothing_else

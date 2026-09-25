@@ -839,7 +839,9 @@ public:
                 // fly" means at this end. A player's aircraft given back to
                 // them has one too, flying their inputs, and carrying the
                 // controls across from the AI's without a step.
-                a.controller->set_pilot(a.held);
+                if (a.slot >= 0) {
+                    a.controller->set_pilot(a.held);
+                }
                 a.aircraft->set_controls(a.controller->fly());
             } else {
                 a.aircraft->set_controls(a.held);
@@ -1004,8 +1006,14 @@ private:
             a.controller = std::make_unique<glideslope::sim::Controller>(
                 *a.aircraft, glideslope::sim::Controls{});
             a.controller->to_ai(plan_);
-        } else if (a.controller) {
+        } else if (ai_flying(a)) {
             hold_course(a);
+        } else {
+            // **Flown by its player, it flies again as theirs**: their inputs,
+            // and no controller left over from having been handed to the AI
+            // and taken back - which, kept, was taken for an AI's, and the
+            // aircraft given to the AI with nobody told.
+            a.controller.reset();
         }
     }
 
