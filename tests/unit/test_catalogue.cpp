@@ -567,6 +567,8 @@ GLIDESLOPE_TEST(an_aircraft_says_its_gear_retracts_only_where_its_model_has_it) 
     check(retracting + fixed == roster.size() && roster.size() == 16,
           "all sixteen were asked: " + std::to_string(retracting) + " retracting and " +
               std::to_string(fixed) + " fixed");
+}
+
 // **An id from the wire names an aircraft in the catalogue, or none.** A
 // server's `AIRCRAFT` message gives the id a client loads a model by, and an
 // id joined to a path as it stood would open whatever it was told to. Every
