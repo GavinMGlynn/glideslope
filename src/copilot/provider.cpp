@@ -24,6 +24,18 @@ platform::HttpResponse response_of(int status, const std::string& body) {
     return r;
 }
 
+// `text` with `key` taken out wherever it appears: what a service or anything
+// between says back is repeated, and a proxy's page may echo the request.
+std::string without(std::string text, const std::string& key) {
+    if (key.empty()) {
+        return text;
+    }
+    for (std::size_t at = text.find(key); at != std::string::npos; at = text.find(key, at)) {
+        text.replace(at, key.size(), "[the key]");
+    }
+    return text;
+}
+
 // The service's own words for what went wrong, where it says: both put an
 // object `error` with a `message` in an error's body.
 std::string error_in(const std::string& body) {
@@ -82,7 +94,7 @@ public:
         const std::string text = text_of(r);
         if (r.status != 200) {
             throw ProviderError("OpenAI answered " + std::to_string(r.status) + ": " +
-                                error_in(text));
+                                without(error_in(text), key_));
         }
         try {
             const Json j = world::parse_json(text);
@@ -133,7 +145,7 @@ public:
         const std::string text = text_of(r);
         if (r.status != 200) {
             throw ProviderError("Anthropic answered " + std::to_string(r.status) + ": " +
-                                error_in(text));
+                                without(error_in(text), key_));
         }
         try {
             const Json j = world::parse_json(text);

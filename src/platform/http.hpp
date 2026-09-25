@@ -82,6 +82,11 @@ HttpResponse http_get(const HttpRequest& request);
 
 // A POST of `body`, as it is: its Content-Type is one of the request's
 // headers. What a language model's API is asked with. Throws HttpError.
+//
+// **A POST follows no redirect**: a redirect is the response. A request that
+// carries a key in a header would carry it to wherever it was sent on, and
+// not every client drops a header of the caller's own when the host changes -
+// libcurl drops only the Authorization it made itself.
 HttpResponse http_post(const HttpRequest& request, const std::string& body);
 
 // What carries the requests here, for diagnostics: "WinHTTP", "NSURLSession",

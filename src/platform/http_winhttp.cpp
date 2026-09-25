@@ -124,6 +124,14 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
     if (!handle) {
         fail(request.url, "could not open the request");
     }
+    // A GET follows redirects; a POST does not (http.hpp says why).
+    if (body != nullptr) {
+        DWORD disable = WINHTTP_DISABLE_REDIRECTS;
+        if (!WinHttpSetOption(handle.get(), WINHTTP_OPTION_DISABLE_FEATURE, &disable,
+                              sizeof disable)) {
+            fail(request.url, "could not turn redirects off");
+        }
+    }
     // The request's own headers, as CRLF-separated "name: value" lines, which
     // is the form WinHttpSendRequest takes.
     std::wstring sent;

@@ -186,7 +186,8 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
     // Every encoding libcurl can undo, undone by it: a body arrives plain
     // whatever the server chose to compress it with.
     c.easy_setopt(handle, curlopt_accept_encoding, "");
-    c.easy_setopt(handle, curlopt_followlocation, 1L);
+    // A GET follows redirects; a POST does not (http.hpp says why).
+    c.easy_setopt(handle, curlopt_followlocation, body == nullptr ? 1L : 0L);
     c.easy_setopt(handle, curlopt_maxredirs, 10L);
     c.easy_setopt(handle, curlopt_nosignal, 1L);
     c.easy_setopt(handle, curlopt_connecttimeout,

@@ -311,14 +311,22 @@ the look and the count cannot fail it spuriously.
 **What works.**
 - **Plans that take off and orbit.** A plan may start on a runway (`runway`,
   `takeoff`): the take-off autopilot flies it off, and the navigator takes
-  over where it hands over. An `orbit` is a waypoint flown round, either way,
-  as often as asked or for ever. It is steered along the circle's tangent five
-  seconds ahead, and turned in by 90 degrees a kilometre off it.
+  over where it hands over, from where it is then. An `orbit` is a waypoint
+  flown round, either way, as often as asked or for ever. It is steered
+  along the circle's tangent five seconds ahead, and turned in by 90 degrees
+  a kilometre off it. No orbit may be tighter than two and a half times the
+  circle the aircraft turns at the autopilot's 25 degrees of bank: 1,172 m at
+  90 kt. At one and a half times, a Cessna wandered from 374 to 1,041 m round
+  704 m. A plan with any line of `aircraft`, `start`, `runway` or `takeoff`
+  twice is refused.
 - **Every runway in the world**, from OurAirports' public-domain
   `runways.csv`, pinned by commit and SHA-256 (`docs/ASSETS.md`): 27,116
   open ends with a place and a heading. A plan's runway comes from here,
   never from a model's memory.
 - **An HTTP POST** on all three backends, and JSON written (`write_json`).
+  **A POST follows no redirect**, so a key in its headers goes nowhere but
+  where it was sent. libcurl drops only the Authorization it made itself on
+  a change of host, and Anthropic's key is `x-api-key`: found by review.
   A header with a control character is now refused by the platform itself,
   on every request. Before, only the terrain code checked, though
   `HttpRequest` said otherwise.
@@ -327,8 +335,13 @@ the look and the count cannot fail it spuriously.
     user's own key, read at run time from `openai-key` or `anthropic-key` in
     the config directory. A provider with no key is refused, saying where
     the key goes. OpenAI is asked `gpt-5.5-2026-04-23`, a dated model.
+  - A service's error is said in its own words, with the key taken out
+    wherever it appears.
+  - Only runway ends that give their elevation are offered to the model,
+    since a plan's heights are checked against it.
   - What it answers is read as a plan and checked. A plan is refused if it:
     - does not parse, or is for another aircraft;
+    - has an orbit too tight for its airspeed;
     - does not take off from one of the airport's runway lines, exactly;
     - flies below the approach speed, or more than a fifth over the cruise;
     - flies lower than 500 ft above the runway;
@@ -341,13 +354,19 @@ the look and the count cannot fail it spuriously.
   the take-off, each waypoint and each orbit went.
 
 **Verified.**
-- `the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind`:
-  both ways round, in calm air and a 20 kt crosswind, twice round and on.
-  The worst was 69 m inside and 76 m outside a 1,500 m circle, held to 100 m,
-  and within 6 ft of height.
+- `the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind_down_to_the_tightest_allowed`:
+  8 orbits, flown twice round and then on:
+  - 1,500 m and the tightest allowed at 90 kt, 1,172 m;
+  - both ways round;
+  - in calm air and in a 20 kt crosswind.
+  The worst was 150 m outside the tightest circle, in the wind, held to
+  160 m; in calm air, 80 m. Height held within 8 ft.
 - `a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane`:
-  all four light aeroplanes are taken off by the take-off autopilot, to
-  500 ft, and then pass a waypoint 15 km off within 5 m, at its height.
+  every light aeroplane in the catalogue, taken off by the take-off
+  autopilot to 500 ft. Each then passes a waypoint 15 km off within 5 m, at
+  its height. On the way, each strays at most 81 m from the leg starting
+  where it was handed over, held to 150 m. Flown from the threshold instead,
+  they strayed 219 to 383 m.
 - `a_plan_that_takes_off_and_orbits_the_cbd_is_flown_over_the_dem`:
   `sydney-cbd-orbit.plan`, written by hand, flies off Sydney's 16R over the
   real ground and circles Town Hall twice. It stays 1,433 to 1,499 m from the
@@ -359,6 +378,9 @@ the look and the count cannot fail it spuriously.
   - a recording that replays only what it recorded, and holds no key.
 - The runways reader, the POST (byte for byte, through a server on the
   loopback address) and `write_json` each have their own tests.
+  `a_post_follows_no_redirect_so_its_key_goes_nowhere_else` answers a POST
+  with each of 301, 302, 303, 307 and 308 pointing at a second server, which
+  must hear nothing.
 - `take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_{openai,anthropic}_now_and_flown`
   are there, and report themselves skipped, saying why, until each can be
   asked.
@@ -371,6 +393,10 @@ the look and the count cannot fail it spuriously.
 - a POST one byte short, and an unsafe header sent;
 - control characters written unescaped;
 - a plan too low taken;
+- a POST following redirects;
+- the key left in a service's error;
+- every runway end offered, elevation or none;
+- the first leg flown from the threshold, not the hand-over;
 - a played-back request not compared;
 - the geoid left out of a plan's heights: 72 ft at Sydney, so the orbit's
   height bound is 50 ft.

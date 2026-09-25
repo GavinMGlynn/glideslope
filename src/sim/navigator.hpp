@@ -93,6 +93,15 @@ struct FlightPlan {
 // with a runway and no take-off from it or the other way round.
 FlightPlan parse_flight_plan(std::string_view text);
 
+// **The tightest orbit an aircraft flies at `airspeed_kts`**, in metres: two
+// and a half times the circle it turns at the autopilot's most bank,
+// v^2 / (g tan 25 degrees) - 1,172 m at 90 kt. Tighter than that, the
+// autopilot, which banks a degree for each degree off its heading, has no
+// bank left to catch up with the circle: at one and a half times, a Cessna
+// wandered from 374 to 1,041 m round a 704 m orbit. A plan with an orbit
+// tighter than this for its speed is refused.
+double least_orbit_radius_m(double airspeed_kts);
+
 // Great-circle distance and initial bearing between two places, metres and
 // degrees true.
 double distance_m(double latitude_1, double longitude_1, double latitude_2,

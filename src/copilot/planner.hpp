@@ -14,7 +14,9 @@
 //     (world/runways.hpp), never from a model's memory;
 //   - every airspeed between the aircraft's approach speed and a fifth over
 //     its cruise, every height at least 500 ft above the runway, and every
-//     waypoint within 200 km of it.
+//     waypoint within 200 km of it;
+//   - no orbit tighter than the aircraft turns at its airspeed, which the
+//     plan's own reading refuses (sim::least_orbit_radius_m).
 // Where places are - "the CBD" - is the model's to know. That is what it is
 // for.
 
@@ -54,6 +56,11 @@ std::string planning_instructions();
 std::string planning_request(const PlanRequest& request);
 // A runway end as a plan's `runway` line.
 std::string runway_line(const world::RunwayEnd& end);
+
+// **Whether a plan may take off from `end`**: only where the file gives its
+// elevation, which every height in the plan is checked against. An end with
+// none is not offered to the model, and a plan naming it is refused.
+bool plannable(const world::RunwayEnd& end);
 
 // Why `plan` is not one this request may fly, or empty if it may.
 std::string refusal(const PlanRequest& request, const sim::FlightPlan& plan);

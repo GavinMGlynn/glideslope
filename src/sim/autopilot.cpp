@@ -15,7 +15,6 @@ constexpr double dt = 1.0 / static_cast<double>(steps_per_second);
 // Heading to bank: a degree of bank for each degree off, 25 at most, moving
 // at 5 degrees a second.
 constexpr double bank_per_degree = 1.0;
-constexpr double most_bank_deg = 25.0;
 constexpr double bank_rate_degps = 5.0;
 // **But no more bank than the aeroplane can sustain.** A level turn needs
 // its weight over the cosine of the bank in lift, and the induced drag that

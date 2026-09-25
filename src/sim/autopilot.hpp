@@ -33,6 +33,9 @@
 
 namespace glideslope::sim {
 
+// The most the autopilot banks to turn, whatever it is asked.
+inline constexpr double most_bank_deg = 25.0;
+
 // What the autopilot holds.
 struct AutopilotModes {
     // Degrees true; none holds the wings level.
