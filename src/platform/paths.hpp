@@ -55,6 +55,12 @@ std::string cesium_ion_token();
 // GLIDESLOPE_GOOGLE_MAPS_KEY, or the file `google-maps-key`.
 std::string google_maps_key();
 
+// The user's own keys for the language models that plan: OpenAI's, from
+// GLIDESLOPE_OPENAI_KEY or the file `openai-key`, and Anthropic's, from
+// GLIDESLOPE_ANTHROPIC_KEY or the file `anthropic-key`.
+std::string openai_key();
+std::string anthropic_key();
+
 // **The default server, as a line anybody can send you.** `--online` reads
 // it: one line naming a host, a port and the server's public key, which is
 // what a client needs and all it needs (`REQUIREMENTS.md` 6.6).

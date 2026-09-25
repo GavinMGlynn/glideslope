@@ -263,6 +263,18 @@ target_link_libraries(glideslope_world PUBLIC glideslope_platform glideslope_sim
 glideslope_configure(glideslope_world)
 
 # ---------------------------------------------------------------------------
+# The copilot - a language model that plans, and nothing more: what it says is
+# read as a flight plan and checked, and the simulation's own AI flies it
+# (REQUIREMENTS.md section 5). Links no presentation.
+# ---------------------------------------------------------------------------
+add_library(glideslope_copilot STATIC
+    src/copilot/planner.cpp
+    src/copilot/provider.cpp)
+target_include_directories(glideslope_copilot PUBLIC src)
+target_link_libraries(glideslope_copilot PUBLIC glideslope_world glideslope_platform glideslope_sim)
+glideslope_configure(glideslope_copilot)
+
+# ---------------------------------------------------------------------------
 # The platform layer - where things are on this machine. Paths only, today;
 # input and sockets arrive with the phases that need them.
 # ---------------------------------------------------------------------------
@@ -373,7 +385,8 @@ endif()
 # ---------------------------------------------------------------------------
 add_executable(glideslope_cli
     src/frontend/cli/main.cpp)
-target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform)
+target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_net glideslope_world
+                                             glideslope_platform glideslope_copilot)
 glideslope_configure(glideslope_cli)
 
 # ---------------------------------------------------------------------------
