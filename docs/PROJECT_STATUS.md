@@ -614,6 +614,24 @@ compare, and a slow server sends fewer updates a second.
 - **`glideslope_cli connect --watch-ai`** rides along too, for the network
   checks.
 
+**Found by CI, fixed before the merge: a slow machine was let go.** The
+client with the window joins a server and then builds its flight, window and
+renderer, saying nothing meanwhile. On a Windows debug runner that took longer
+than the test's server waits for a silent client, 3 s. It was let go, heard one
+update, and drew its HUD with no controls: the shot's tick had come first.
+- A thread now keeps the session, answering the server's pings, from the join
+  until the frame loop takes over.
+- `--slow-start S` stands the client still S seconds after joining, so that
+  the ride-along test builds that situation on every machine: 5 s against
+  the server's 3.
+- Without the keep-alive, the test failed on Linux as the runner had: no
+  controls heard in the minute after the shot's tick. With it, it passes on
+  Linux and on Windows.
+- The shot now waits for the controls, at most a minute of the flight past its
+  tick, and then says what it heard.
+- Controls are held at the oldest update kept when the clock is behind them
+  all, as they are held past the newest.
+
 **Verified.**
 - **The network checks**, at 100 and 200 ms with jitter, loss and gaps. A
   client riding along in the AI through the relay has its controls judged,

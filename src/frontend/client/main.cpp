@@ -44,6 +44,9 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <atomic>
+#include <functional>
+#include <thread>
 #include <cmath>
 #include <map>
 #include <array>
@@ -65,6 +68,30 @@
 #include <vector>
 
 namespace {
+
+// **A session kept while nothing else keeps it**: its pings answered from a
+// thread every fiftieth of a second until this is let go, and the caller
+// takes the session back. Nothing else may touch it meanwhile.
+class KeptAlive {
+public:
+    KeptAlive(glideslope::client::Online& online, std::function<double()> clock)
+        : thread_([this, &online, clock = std::move(clock)] {
+              while (!stop_.load()) {
+                  online.idle(clock());
+                  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+              }
+          }) {}
+    ~KeptAlive() {
+        stop_ = true;
+        thread_.join();
+    }
+    KeptAlive(const KeptAlive&) = delete;
+    KeptAlive& operator=(const KeptAlive&) = delete;
+
+private:
+    std::atomic<bool> stop_{false};
+    std::thread thread_;
+};
 
 struct Options {
     bool headless = false;
@@ -102,6 +129,9 @@ struct Options {
     bool draw_aircraft = true;
     // On a server, ride along in the first AI aircraft from the start.
     bool ride_along = false;
+    // For tests: stand still this long after joining a server, as a slow
+    // machine building its flight does, before building it.
+    double slow_start_s = 0.0;
     bool on_ground = false;
 };
 
@@ -163,6 +193,8 @@ void usage(std::FILE* out) {
         "  --ride-along  on a server, ride along in the first AI aircraft: its\n"
         "                cockpit, its instruments and its controls; W steps through\n"
         "                every aircraft in the sky and back to your own\n"
+        "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
+        "                slow machine building its flight does (for tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
         "                or leave it out: a test shoots both to find the outline it\n"
         "                draws\n"
@@ -315,6 +347,8 @@ static int run_program(int argc, char** argv) {
             const std::string_view value = args[++i];
             ok = value == "on" || value == "off";
             o.draw_aircraft = value == "on";
+        } else if (a == "--slow-start" && has_value) {
+            o.slow_start_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--ride-along") {
             o.ride_along = true;
         } else if (a == "--on-ground") {
@@ -484,6 +518,7 @@ static int run_program(int argc, char** argv) {
         // predicted here (client/online.hpp), and every other one is drawn.
         std::optional<glideslope::net::ClientSession> session;
         std::optional<glideslope::client::Online> online;
+        std::optional<KeptAlive> kept_alive;
         std::optional<glideslope::client::Joined> joined;
         if (o.online || !o.server.empty()) {
             std::string where = o.server;
@@ -524,6 +559,15 @@ static int run_program(int argc, char** argv) {
                 std::printf("glideslope: the server gave this client aircraft %u, the %s\n",
                             static_cast<unsigned>(joined->number),
                             joined->aircraft_id.c_str());
+                // **Kept in the session while it builds its flight**, which
+                // on a slow machine takes longer than a server waits for a
+                // client that says nothing: a Windows debug build was let go
+                // in its three seconds, and heard one update in all.
+                kept_alive.emplace(*online, [&] { return seconds_since_start(); });
+                if (o.slow_start_s > 0.0) {
+                    std::this_thread::sleep_for(
+                        std::chrono::duration<double>(o.slow_start_s));
+                }
             } else {
                 std::printf("glideslope: the server gave this client no aircraft; "
                             "flying alone\n");
@@ -863,6 +907,8 @@ static int run_program(int argc, char** argv) {
         std::int64_t ticks = 0;
         long frames = 0;
         bool running = true;
+        // The frame loop keeps the session from here.
+        kept_alive.reset();
         while (running) {
             if (online && !(joined && flight)) {
                 // In a session without an aircraft: kept, and nothing more.

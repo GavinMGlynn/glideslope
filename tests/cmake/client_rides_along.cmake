@@ -13,6 +13,12 @@
 # two from it - and that the HUD said the AI was flying it and where each of
 # its controls was: what riding along is.
 #
+# **A slow machine is not let go.** The client stands still five seconds
+# after joining (`--slow-start 5`), as a slow machine building its flight
+# does, against a server that lets a silent client go after three: it must
+# stay in the session, and so be told the controls at all. A Windows debug
+# build was let go, heard one update, and drew its HUD without them.
+#
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
 
@@ -48,7 +54,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
-            --shot "${_shot}" --shot-at 1200 --view cockpit --ride-along
+            --shot "${_shot}" --shot-at 1200 --view cockpit --ride-along --slow-start 5
             --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
