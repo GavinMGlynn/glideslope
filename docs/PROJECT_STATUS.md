@@ -300,44 +300,63 @@ the look and the count cannot fail it spuriously.
 
 ### The model never drives a control surface, 2026-09-25 — item done
 
-**What is missing first.** Nothing of the item. The check is on the copilot's
-own code: what the programs do with a plan once it is made is theirs, and
-they hand it to the navigator.
+**What is missing first.**
+- **The check is in the build, not only the configure.** The plan's
+  verification said "checked at configure time". The first attempt was a
+  configure-time reading of the source, and review got past it 14 ways: raw
+  strings, macros, line splices, other namespaces, and files it never read.
+  What holds it now is the compiler and the linker.
+- **The symbol check needs an `nm`**, so it runs on the Linux and macOS
+  builds. Windows compiles the same sources behind the same staged headers.
+- **`FlightPlan::start` places an aircraft**, in the air, where the plan
+  says. That is state, not a control, and it is by design: `fly-plan`
+  starts there.
 
-**What works.** `cmake/Copilot.cmake` refuses the configure for any line of
-code in `src/copilot/` that:
-- names from `sim::` anything but a plan, its parts, a runway and the
-  autopilot's modes (`FlightPlan`, `Waypoint`, `Runway`, `AutopilotModes` and
-  the plan's functions);
-- names a control, or anything that holds, sets or applies one, however it
-  is qualified: `Controls`, `Aircraft`, `Controller`, `Autopilot`, and the
-  rest of its list;
-- opens the simulation's namespace, brings any namespace in, or renames one,
-  any of which would hide what is named;
-- includes a header of `sim/` other than the plan's, the runway's and the
-  modes'.
-Comments and string literals are not code, and are passed over. The check
-reports the file, the line and why.
+**What works.** Three walls (`cmake/Copilot.cmake`):
+1. **The copilot is compiled from a staged copy.** Its own sources sit beside
+   only the headers it may see: the plan (`sim/plan.hpp`), JSON, the runways
+   file and an HTTP request. There is no other include directory.
+   - The plan's types now live in `sim/plan.hpp`, built as `glideslope_plan`.
+     That header includes nothing of the aircraft. `navigator.hpp`,
+     `autopilot.hpp` and `lander.hpp` take them from it.
+   - The copilot links `glideslope_plan` and `glideslope_platform`, and takes
+     neither's include directory.
+   - A control is declared nowhere it can see, so naming one does not
+     compile, however it is spelled: the compiler is what reads it.
+2. **Its includes are plain**, checked at configure time. An include must
+   be a literal path, not absolute and with no `..` or backslash. A line
+   splice, a digraph or a trigraph is refused, and so is any file that is not
+   a `.cpp` or `.hpp`. Those were the only ways out of the staged copy.
+3. **Its symbols are checked as it is built.** Every name of glideslope's in
+   what it defines or calls must be the copilot's own or on the list. A
+   simulation function declared by hand, even called by its mangled name, is
+   refused. So is anything the copilot defines in another part's namespace.
+   The real library names 264 such names, all allowed.
 
-**Verified.**
-- `every_way_the_copilot_could_reach_a_control_fails_the_configure` walks 118
-  cases, and asserts the count:
-  - every forbidden name, qualified and bare;
-  - every class, struct and enum the simulation's headers declare that is not
-    allowed, found from the headers themselves;
-  - every other header of `sim/`, included;
-  - seven ways of hiding a namespace;
-  - every source extension;
-  - a violation after block comments, after a string holding `//`, and in a
-    subdirectory.
-- `names_that_only_look_like_controls_are_allowed_in_the_copilot` holds the
-  lines that must pass: names in comments and strings, the allowed names, and
-  longer words holding a forbidden one.
-- The real `src/copilot/` passes at every configure.
+**Verified.** `the_copilot_can_see_include_and_call_nothing_that_drives_the_aircraft`
+walks 155 cases, each walk counted against what it walks:
+- **Include rules**: 18 ways an include could escape, refused naming the
+  file, and a tree of near misses accepted.
+- **Visibility**: it compiles with the copilot target's own include path,
+  and requires that path to be the stage alone.
+  - A file naming everything allowed compiles.
+  - Every other header under `src/` fails to include.
+  - Every class, struct and enum of the simulation's other than the plan's
+    fails to be named.
+  - The review's spellings fail: token pasting, raw strings, digit
+    separators, names split over lines, `using namespace`, `platform::Control`
+    and `net::InputFrame`.
+- **Symbols**: four forbidden objects refused, and an allowed one accepted.
 
-**Seen to fail**, each put back: with the allow-list switched off, the
-simulation's other names were accepted; with comments kept, the near misses
-were refused; with `using namespace` allowed, it was accepted.
+**Seen to fail**, each put back:
+- the copilot linking the simulation, which gave it all of `src/`;
+- the symbol check accepting everything;
+- `..` allowed in an include.
+
+A line splice was at first never tested at all. The test's list swallowed the
+splice's backslash, and the check read lines with CMake's list splitting,
+where a backslash escapes the separator. Both are fixed, and the case now
+holds a real splice.
 
 
 ### Words to a flight plan, 2026-09-25 — item in progress

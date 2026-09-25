@@ -21,7 +21,7 @@
 // for.
 
 #include "copilot/provider.hpp"
-#include "sim/navigator.hpp"
+#include "sim/plan.hpp"
 #include "world/runways.hpp"
 
 #include <string>

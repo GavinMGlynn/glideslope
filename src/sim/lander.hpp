@@ -26,21 +26,13 @@
 // agree with.
 
 #include "sim/aircraft.hpp"
+#include "sim/plan.hpp"
 
 #include <filesystem>
 #include <string>
 
 namespace glideslope::sim {
 
-// Where to land: the landing threshold, and the runway from it.
-struct Runway {
-    std::string name;
-    double threshold_lat_deg = 0.0;
-    double threshold_lon_deg = 0.0;
-    double elevation_ft = 0.0; // the threshold's, above sea level
-    double heading_deg = 0.0;  // true, the direction of landing
-    double length_m = 1500.0;  // from the threshold onwards
-};
 
 // How this aeroplane is flown down an approach. `vref_kts` is the speed over
 // the threshold - by convention 1.3 times the stall speed in the landing

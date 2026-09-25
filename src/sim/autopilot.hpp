@@ -37,26 +37,13 @@
 // steadily so a check can read one number off. This flies.
 
 #include "sim/aircraft.hpp"
+#include "sim/plan.hpp"
 
 #include <optional>
 
 namespace glideslope::sim {
 
-// The most the autopilot banks to turn, whatever it is asked.
-inline constexpr double most_bank_deg = 25.0;
 
-// What the autopilot holds.
-struct AutopilotModes {
-    // Degrees true; none holds the wings level.
-    std::optional<double> heading_deg;
-    // Feet above sea level; none holds the vertical speed instead.
-    std::optional<double> altitude_ft;
-    // Feet a minute: held when there is no altitude, and the rate an altitude
-    // is climbed or descended to, whichever way it lies, when there is.
-    double vertical_speed_fpm = 700.0;
-    // Knots calibrated; none leaves the throttle where it is.
-    std::optional<double> airspeed_kts;
-};
 
 class Autopilot {
 public:

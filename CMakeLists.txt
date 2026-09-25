@@ -107,10 +107,9 @@ include(Layering)
 
 # src/sim/ includes no presentation - see cmake/Layering.cmake.
 glideslope_check_layering("${CMAKE_CURRENT_SOURCE_DIR}")
-# A language model's copilot names nothing that drives the aircraft - see
-# cmake/Copilot.cmake.
+# A language model's copilot is built able to see nothing that drives the
+# aircraft - see cmake/Copilot.cmake and the copilot's target below.
 include(Copilot)
-glideslope_check_copilot("${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Everything a first-party target gets. Vendored code in ext/ never passes
 # through here.
@@ -164,6 +163,18 @@ file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/assets/" DESTINATION "${GLIDESLOPE_DATA_D
 # headless CLI and the server can both link it. It links JSBSim, which is a
 # flight model and nothing else.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# A flight plan, and the plain data around it - the plan and its parts, the
+# autopilot's modes, JSON and the runways file - with nothing that flies it.
+# What the copilot may see (cmake/Copilot.cmake). Links nothing.
+# ---------------------------------------------------------------------------
+add_library(glideslope_plan STATIC
+    src/sim/plan.cpp
+    src/world/json.cpp
+    src/world/runways.cpp)
+target_include_directories(glideslope_plan PUBLIC src)
+glideslope_configure(glideslope_plan)
+
 add_library(glideslope_sim STATIC
     src/sim/aircraft.cpp
     src/sim/figures.cpp
@@ -189,7 +200,7 @@ add_library(glideslope_sim STATIC
 target_include_directories(glideslope_sim PUBLIC src)
 target_compile_definitions(glideslope_sim PRIVATE
     GLIDESLOPE_VERSION="${PROJECT_VERSION}")
-target_link_libraries(glideslope_sim PUBLIC libJSBSim)
+target_link_libraries(glideslope_sim PUBLIC libJSBSim glideslope_plan)
 glideslope_configure(glideslope_sim)
 
 # The network: the wire format, and the encoding and decoding of it. It links
@@ -253,9 +264,7 @@ add_library(glideslope_world STATIC
     src/world/geoid.cpp
     src/world/geotiff.cpp
     src/world/inflate.cpp
-    src/world/json.cpp
     src/world/metar.cpp
-    src/world/runways.cpp
     src/world/terrain_mesh.cpp
     src/world/weather.cpp
     src/world/winds_aloft.cpp
@@ -271,12 +280,19 @@ glideslope_configure(glideslope_world)
 # read as a flight plan and checked, and the simulation's own AI flies it
 # (REQUIREMENTS.md section 5). Links no presentation.
 # ---------------------------------------------------------------------------
-add_library(glideslope_copilot STATIC
-    src/copilot/planner.cpp
-    src/copilot/provider.cpp)
-target_include_directories(glideslope_copilot PUBLIC src)
-target_link_libraries(glideslope_copilot PUBLIC glideslope_world glideslope_platform glideslope_sim)
+# **Compiled from a staged copy that holds only what it may see**, with no
+# other include directory, and linked to nothing whose headers it would take
+# with it: see cmake/Copilot.cmake. Its users include its headers from src/.
+glideslope_stage_copilot("${CMAKE_CURRENT_SOURCE_DIR}"
+                         "${CMAKE_CURRENT_BINARY_DIR}/copilot-stage" _copilot_sources)
+add_library(glideslope_copilot STATIC ${_copilot_sources})
+target_include_directories(glideslope_copilot
+    PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/copilot-stage"
+    INTERFACE src)
+target_link_libraries(glideslope_copilot PRIVATE $<LINK_ONLY:glideslope_plan>
+                                                 $<LINK_ONLY:glideslope_platform>)
 glideslope_configure(glideslope_copilot)
+glideslope_check_copilot_symbols(glideslope_copilot)
 
 # ---------------------------------------------------------------------------
 # The platform layer - where things are on this machine. Paths only, today;
