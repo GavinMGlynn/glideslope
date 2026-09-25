@@ -1,6 +1,6 @@
 // interpolation_check - how far from where they were other aircraft were drawn.
 //
-//   glideslope_interpolation_check TRUTH SHOWN WORST_M
+//   glideslope_interpolation_check TRUTH SHOWN WORST_M [CONTROLS_WORST]
 //
 // TRUTH is the `--track` file of a client that heard every update, straight
 // from the server; SHOWN is that of a client that predicted, through whatever
@@ -20,7 +20,15 @@
 //   hundred milliseconds of flight - four metres for a Cessna.
 // - **where TRUTH has no update either side** no more than two updates apart:
 //   before it started hearing, after it stopped, or where it lost one itself.
+//
+// With CONTROLS_WORST, **the watched aircraft's controls** are judged the same
+// way: each frame SHOWN drew of them against TRUTH's, both watching the same
+// aircraft, at that session time. It fails when any control is CONTROLS_WORST
+// or more out, or fewer than 95% of the frames could be judged, or none were
+// drawn.
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -36,6 +44,31 @@ struct At {
     double t = 0.0;
     double x = 0.0, y = 0.0, z = 0.0;
 };
+
+// The watched controls at a moment: aileron, elevator, rudder, throttle, flaps.
+struct Controls {
+    double t = 0.0;
+    std::array<double, 5> v{};
+};
+
+std::vector<Controls> read_controls(const std::string& file, const std::string& kind) {
+    std::vector<Controls> out;
+    std::ifstream in(file);
+    std::string line;
+    while (std::getline(in, line)) {
+        std::istringstream words(line);
+        std::string what;
+        unsigned index = 0;
+        Controls c;
+        if (words >> what >> c.t >> index >> c.v[0] >> c.v[1] >> c.v[2] >> c.v[3] >> c.v[4] &&
+            what == kind) {
+            out.push_back(c);
+        }
+    }
+    std::sort(out.begin(), out.end(),
+              [](const Controls& a, const Controls& b) { return a.t < b.t; });
+    return out;
+}
 
 std::map<unsigned, std::vector<At>> read(const std::string& file, const std::string& kind) {
     std::map<unsigned, std::vector<At>> out;
@@ -56,8 +89,9 @@ std::map<unsigned, std::vector<At>> read(const std::string& file, const std::str
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
-        std::fprintf(stderr, "usage: glideslope_interpolation_check TRUTH SHOWN WORST_M\n");
+    if (argc != 4 && argc != 5) {
+        std::fprintf(stderr, "usage: glideslope_interpolation_check TRUTH SHOWN WORST_M "
+                             "[CONTROLS_WORST]\n");
         return 2;
     }
     const auto truth = read(argv[1], "heard");
@@ -113,6 +147,43 @@ int main(int argc, char** argv) {
     if (drawn == 0 || static_cast<double>(judged) < 0.95 * static_cast<double>(drawn)) {
         std::printf("interpolation: too few frames judged to say anything\n");
         return 1;
+    }
+    if (argc == 5) {
+        const double controls_bound = std::strtod(argv[4], nullptr);
+        const std::vector<Controls> heard = read_controls(argv[1], "watched");
+        const std::vector<Controls> shown_controls = read_controls(argv[2], "showncontrols");
+        std::size_t c_judged = 0, c_over = 0;
+        double c_worst = 0.0;
+        for (const Controls& f : shown_controls) {
+            for (std::size_t i = 1; i < heard.size(); ++i) {
+                if (heard[i - 1].t <= f.t && f.t <= heard[i].t) {
+                    const double span = heard[i].t - heard[i - 1].t;
+                    if (span > widest_s) break;
+                    const double k = span > 0.0 ? (f.t - heard[i - 1].t) / span : 0.0;
+                    double worst_here = 0.0;
+                    for (std::size_t j = 0; j < 5; ++j) {
+                        const double then =
+                            heard[i - 1].v[j] + k * (heard[i].v[j] - heard[i - 1].v[j]);
+                        worst_here = std::max(worst_here, std::abs(f.v[j] - then));
+                    }
+                    c_worst = std::max(c_worst, worst_here);
+                    if (worst_here >= controls_bound) ++c_over;
+                    ++c_judged;
+                    break;
+                }
+            }
+        }
+        std::printf("controls: %zu of %zu frames drawn were judged, the worst %.4f, %zu at "
+                    "%.3f or more\n",
+                    c_judged, shown_controls.size(), c_worst, c_over, controls_bound);
+        if (shown_controls.empty() ||
+            static_cast<double>(c_judged) < 0.95 * static_cast<double>(shown_controls.size())) {
+            std::printf("controls: too few frames judged to say anything\n");
+            return 1;
+        }
+        if (c_over > 0) {
+            return 1;
+        }
     }
     return over == 0 ? 0 : 1;
 }
