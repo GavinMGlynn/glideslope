@@ -305,14 +305,44 @@ world::Ecef sun_in_body_of(const gfx::Placement& placement) {
     return gfx::transpose(placement.world_from_local) * sun;
 }
 
+ModelGeometry geometry_of(const std::filesystem::path& data, const sim::CatalogueEntry& entry) {
+    // JSBSim's structural frame is +x aft, +y starboard, +z up, in inches;
+    // the body frame +x forward, +y starboard, +z down, in metres.
+    const sim::Aircraft aircraft(data / "jsbsim", entry.model);
+    constexpr double metres_per_inch = 0.0254;
+    const auto inches = [&](const std::string& prefix, const std::string& suffix) {
+        return std::array<double, 3>{aircraft.property(prefix + "x" + suffix),
+                                     aircraft.property(prefix + "y" + suffix),
+                                     aircraft.property(prefix + "z" + suffix)};
+    };
+    const std::array<double, 3> cg = inches("inertia/cg-", "-in");
+    const std::array<double, 3> vrp = inches("metrics/visualrefpoint-", "-in");
+    const std::array<double, 3> eye = inches("metrics/eyepoint-", "-in");
+    const auto body = [&](const std::array<double, 3>& to, const std::array<double, 3>& from) {
+        return std::array<double, 3>{-(to[0] - from[0]) * metres_per_inch,
+                                     (to[1] - from[1]) * metres_per_inch,
+                                     -(to[2] - from[2]) * metres_per_inch};
+    };
+    return {body(vrp, cg), body(eye, vrp)};
+}
+
+double Flight::geoid_m(double latitude_deg, double longitude_deg) const {
+    return geoid_->undulation(latitude_deg, longitude_deg);
+}
+
 gfx::Placement placement_of(const world::Ecef& centre, double heading_deg,
                             double pitch_deg, double roll_deg,
-                            const gfx::ModelAlignment& alignment) {
+                            const gfx::ModelAlignment& alignment,
+                            const ModelGeometry& geometry) {
     const Axes a = axes_at(centre, heading_deg, pitch_deg, roll_deg);
+    std::array<double, 3> from_centre{};
+    for (std::size_t i = 0; i < 3; ++i) {
+        from_centre[i] = geometry.reference_from_centre[i] + alignment.offset[i];
+    }
     gfx::Placement placement;
-    placement.origin = add(a.position, add(add(scale(a.forward, alignment.offset[0]),
-                                               scale(a.right, alignment.offset[1])),
-                                           scale(a.down, alignment.offset[2])));
+    placement.origin = add(a.position, add(add(scale(a.forward, from_centre[0]),
+                                               scale(a.right, from_centre[1])),
+                                           scale(a.down, from_centre[2])));
     placement.world_from_local = gfx::Mat3::columns(a.forward, a.right, a.down);
     return placement;
 }

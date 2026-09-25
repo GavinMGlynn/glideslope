@@ -77,13 +77,25 @@ std::optional<Visual> visual_of(const std::filesystem::path& data, const std::st
 // The sun, in the body frame of an aircraft placed so: what its mesh is lit by.
 world::Ecef sun_in_body_of(const gfx::Placement& placement);
 
-// **Where another aircraft's model goes**: about its centre of gravity, which
-// is all a state update says, moved by its model's alignment. Its own client
-// draws it about its visual reference point instead, which it can read from
-// the flight model it flies; the two are a few metres apart.
+// **Where an aeroplane's model and its pilot's eye are**, read from its flight
+// model: the visual reference point from the centre of gravity, and the eye
+// from the reference point, each along the body's axes - forward, right and
+// down - in metres. What a state update gives of another aircraft is its
+// centre of gravity; this is what puts its model, and a rider's eye, where its
+// own client has them.
+struct ModelGeometry {
+    std::array<double, 3> reference_from_centre{};
+    std::array<double, 3> eye_from_reference{};
+};
+ModelGeometry geometry_of(const std::filesystem::path& data, const sim::CatalogueEntry& entry);
+
+// **Where another aircraft's model goes**: its centre of gravity moved to its
+// visual reference point, and by its model's alignment - as its own client
+// places it.
 gfx::Placement placement_of(const world::Ecef& centre, double heading_deg,
                             double pitch_deg, double roll_deg,
-                            const gfx::ModelAlignment& alignment);
+                            const gfx::ModelAlignment& alignment,
+                            const ModelGeometry& geometry);
 
 inline constexpr double weather_refresh_seconds = 15 * 60.0;
 inline constexpr double weather_blend_seconds = 5 * 60.0;
@@ -176,6 +188,9 @@ public:
     gfx::HudReadings hud() const;
     // Where the controls are, as the flight model has them.
     gfx::ControlsShown controls_shown() const;
+    // The geoid's height above the ellipsoid where it is, in metres: what
+    // turns another aircraft's height into one above the sea.
+    double geoid_m(double latitude_deg, double longitude_deg) const;
 
     // **The checklist on screen.** The aircraft's own lists are loaded with
     // it; `show_checklist` says which phase's is on screen, and from then on

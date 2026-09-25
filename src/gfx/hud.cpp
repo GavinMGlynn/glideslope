@@ -138,7 +138,8 @@ long nearest(double v) {
 std::vector<std::string> hud_lines(const HudReadings& r) {
     char buffer[64];
     std::vector<std::string> lines;
-    std::snprintf(buffer, sizeof buffer, "SPD %4ld KT", nearest(r.airspeed_kts));
+    std::snprintf(buffer, sizeof buffer, "%s %4ld KT", r.ground_speed ? "GS " : "SPD",
+                  nearest(r.airspeed_kts));
     lines.emplace_back(buffer);
     std::snprintf(buffer, sizeof buffer, "ALT %6ld FT", nearest(r.altitude_ft));
     lines.emplace_back(buffer);
