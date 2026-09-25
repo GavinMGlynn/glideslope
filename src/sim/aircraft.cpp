@@ -135,7 +135,7 @@ private:
 } // namespace
 
 Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model)
-    : model_(model), exec_(quiet_exec()) {
+    : jsbsim_root_(jsbsim_root), model_(model), exec_(quiet_exec()) {
     const std::u8string utf8 = jsbsim_root.u8string();
     const SGPath root = SGPath::fromUtf8(std::string(utf8.begin(), utf8.end()));
     exec_->SetRootDir(root);

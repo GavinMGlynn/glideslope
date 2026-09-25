@@ -1360,6 +1360,15 @@ Result fly_a_stall(const std::string& id, bool sloppy) {
     std::int64_t stalled_at = -1;
     double entry_began = -1.0;
     for (int tick = 0; tick < 600 * steps_per_second && !run.finished(); ++tick) {
+        if (tick == settling) {
+            // **Asked for a speed below the stall**, as the instructor's
+            // demonstration asks: the altitude hold gives up height rather
+            // than fly slower than the speed asked for or the best-climb
+            // speed, whichever is slower, so without it she is held at her
+            // best-climb speed and never stalls.
+            modes.airspeed_kts = f.speeds.stall_kts - 10.0;
+            autopilot.set(modes);
+        }
         glideslope::sim::Controls c = autopilot.fly();
         if (tick >= settling && !recovering) {
             // Throttle closed: the autopilot holds the height by raising the

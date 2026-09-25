@@ -474,6 +474,11 @@ set(GLIDESLOPE_UNIT_TESTS
     a_cessna_182_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
     a_piper_cub_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
     a_cherokee_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
+    every_light_aeroplane_the_data_holds_is_asked_for_a_height_it_cannot_hold
+    a_cessna_172p_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
+    a_cessna_182_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
+    a_piper_cub_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
+    a_cherokee_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
     a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wrong
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
     an_orbit_and_a_take_off_are_read_from_a_plan_and_refused_where_they_are_wrong
@@ -538,14 +543,19 @@ set_tests_properties(
     the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
     an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
     PROPERTIES FIXTURES_REQUIRED downloads)
-# Each flies an aeroplane to its ceiling and through sixteen turns, settled
-# level before each: about four minutes on a Linux debug build, and more on a
-# slower machine or compiler.
+# Each flies an aeroplane to its ceiling and then through sixteen turns,
+# settled level before each, or for forty minutes asked for heights it cannot
+# hold: about four minutes on a Linux debug build, and more on a slower
+# machine or compiler.
 set_tests_properties(
     a_cessna_172p_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
     a_cessna_182_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
     a_piper_cub_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
     a_cherokee_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft
+    a_cessna_172p_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
+    a_cessna_182_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
+    a_piper_cub_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
+    a_cherokee_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
     PROPERTIES TIMEOUT 1800)
 # The circuit lessons fly every aeroplane that is taught one round a whole
 # pattern and on to the stop: 256 s and 182 s in a debug build on the

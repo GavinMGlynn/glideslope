@@ -1,10 +1,12 @@
 #include "sim/autopilot.hpp"
 
+#include "sim/departure.hpp"
 #include "sim/fixed_step.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <stdexcept>
 
 namespace glideslope::sim {
 
@@ -91,6 +93,69 @@ constexpr double throttle_per_knot = 0.08;
 constexpr double throttle_integral_per_knot = 0.02;
 constexpr double throttle_rate = 0.25;
 
+// **Asked for a height it cannot hold, the height goes and the airspeed
+// stays.** With the throttle at its stop the altitude hold can only buy
+// height with airspeed, and it used to go on buying: a Cessna 172P asked for
+// a height above its ceiling was flown to 46 knots and sinking. So when the
+// throttle has no more to give - it is at its stop, or no speed is held and
+// the throttle is not the autopilot's to move - and the airspeed, five
+// seconds ahead on its trend, would be within a knot of the least it may fly
+// at, the climb the altitude hold may ask for is limited, and the limit
+// is found by an integral on the airspeed: 30 ft/min a second for each knot
+// above the least, and 500 ft/min for each knot it moves. From the climb the
+// aeroplane has when it starts, the limit comes down as the speed falls
+// towards the least and holds it there, climbing what the aeroplane can at
+// that speed or descending, and while it binds the throttle opens to its
+// stop; it lets go when it no longer binds. The best-climb speed is the floor
+// because it is where an aeroplane climbs fastest: a height it cannot hold
+// there it can hold at no speed, and slower is only nearer the stall.
+//
+// **What was tried first, and why not.** Holding the speed as soon as it fell
+// near the least, with throttle still to give, held it in ordinary flight at
+// the best-climb speed too: the throttle opened, a Cessna at 3,000 ft sped up
+// to 82 knots and was 110 ft off its height. Holding it from 5 knots above
+// the least chased the gusts in moderate turbulence, 80 knots in a 500 ft/min
+// climb taken for a speed about to fail, and the climb held to nothing.
+// Holding it from a knot above the least without the trend let an aeroplane
+// slowing fast on little power through by 2.3 knots. And holding the speed
+// without opening the throttle left the throttle and the elevator sharing it,
+// the throttle at 0.8 and a Cherokee coming down 1,250 ft when it could have
+// climbed.
+//
+// **The least is the best-climb speed, or 5 knots below a slower speed asked
+// for.** A speed asked for below the best-climb speed is flown as asked - slow
+// flight, an approach, a stall lesson's entry - and is a speed to hold, not a
+// floor: a Learjet with its gear and flaps down, asked for 250 knots at 20,000
+// ft and able to make 248 at full throttle, gave up 237 ft for the last two
+// knots when the speed asked for was the least. So the least is 5 knots below
+// it, or as far below it as the best-climb speed is above it where that is
+// less, so that the least moves smoothly as the speed asked for passes the
+// best-climb speed. The altitude hold still flies an aeroplane into the stall
+// when it is asked for a speed below the stall, as a stall lesson enters one.
+//
+// This is the underspeed protection of Lambregts' total energy control
+// (AIAA 83-2239), which short of speed gives the elevator to the speed and
+// the throttle all it has - as a floor alone rather than the whole scheme,
+// because everywhere else this autopilot holds height on the elevator and
+// speed on the throttle, and nothing here changes that.
+constexpr double hold_speed_within_kts = 1.0;
+constexpr double below_asked_kts = 5.0;
+constexpr double speed_trend_s = 5.0;
+constexpr double speed_trend_filter_s = 1.0;
+constexpr double climb_limit_per_knot = 30.0;        // ft/min a second
+constexpr double climb_limit_per_knot_moved = 500.0; // ft/min
+
+// The aeroplane's best-climb speed from its published figures, beside the
+// JSBSim root it was loaded from, or none where it publishes none.
+std::optional<double> best_climb_of(const Aircraft& a) {
+    try {
+        return departure_speeds(a.jsbsim_root().parent_path(), a.figures().model)
+            .climb_kts;
+    } catch (const std::runtime_error&) {
+        return std::nullopt;
+    }
+}
+
 double degrees(double radians) {
     return radians * 180.0 / std::numbers::pi;
 }
@@ -102,7 +167,8 @@ double toward(double from, double to, double most) {
 } // namespace
 
 Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
-    : a_(aircraft), last_(controls) {
+    : a_(aircraft), last_(controls), best_climb_kts_(best_climb_of(aircraft)),
+      last_kts_(aircraft.property("velocities/vc-kts")) {
     // Holding what the aircraft is doing now.
     modes_.heading_deg = a_.property("attitude/psi-deg");
     modes_.altitude_ft = a_.property("position/h-sl-ft");
@@ -153,6 +219,38 @@ Controls Autopilot::fly() {
             -rate, rate);
     }
 
+    // Held back, when the speed is short, to what keeps the airspeed at the
+    // least it may fly at.
+    const double climb_asked = climb_wanted;
+    if (best_climb_kts_) {
+        double least_kts = *best_climb_kts_;
+        if (modes_.airspeed_kts && *modes_.airspeed_kts < least_kts) {
+            least_kts = *modes_.airspeed_kts -
+                        std::min(least_kts - *modes_.airspeed_kts, below_asked_kts);
+        }
+        const double kts = a_.property("velocities/vc-kts");
+        const double over_kts = kts - least_kts;
+        const double moved_kts = kts - last_kts_;
+        last_kts_ = kts;
+        kts_per_s_ += (moved_kts / dt - kts_per_s_) * dt / speed_trend_filter_s;
+        const bool at_stop = !modes_.airspeed_kts || last_.throttle >= throttle_stop;
+        if (!holding_speed_ && at_stop &&
+            over_kts + speed_trend_s * std::min(kts_per_s_, 0.0) < hold_speed_within_kts) {
+            holding_speed_ = true;
+            climb_limit_fpm_ = std::min(climb_fpm, climb_wanted);
+        } else if (holding_speed_) {
+            climb_limit_fpm_ += climb_limit_per_knot * over_kts * dt +
+                                climb_limit_per_knot_moved * moved_kts;
+        }
+        if (holding_speed_) {
+            if (climb_limit_fpm_ >= climb_wanted) {
+                holding_speed_ = false;
+            } else {
+                climb_wanted = climb_limit_fpm_;
+            }
+        }
+    }
+
     // The aeroplane's energy, as the height it would have with its true
     // airspeed climbed away, and its rate, smoothed over a second.
     const double speed_fps = a_.property("velocities/vt-fps");
@@ -170,7 +268,7 @@ Controls Autopilot::fly() {
         spent_ = false;
     } else {
         // A descent asked for is energy the turn is not spending.
-        turn_energy_ft_ += std::min(climb_wanted, 0.0) / 60.0 * dt;
+        turn_energy_ft_ += std::min(climb_asked, 0.0) / 60.0 * dt;
     }
     const double above_ft =
         energy_ft - (turn_energy_ft_ - speed_fps * turn_may_spend_fps / g_fps2);
@@ -255,10 +353,19 @@ Controls Autopilot::fly() {
     if (modes_.airspeed_kts) {
         const double speed_off =
             *modes_.airspeed_kts - a_.property("velocities/vc-kts");
-        const double wanted = throttle_integral_ + throttle_per_knot * speed_off;
+        // **Short of speed for the height asked, the throttle opens.** While
+        // the climb is held back for the speed, the aeroplane wants all the
+        // power it has, whatever the airspeed loop makes of a speed that is
+        // where it was asked to be; the integral follows, so letting go of
+        // the speed takes the throttle on from where it is.
+        const double wanted = holding_speed_
+                                  ? 1.0
+                                  : throttle_integral_ + throttle_per_knot * speed_off;
         const double next =
             std::clamp(toward(last_.throttle, wanted, throttle_rate * dt), 0.0, 1.0);
-        if (next == wanted) {
+        if (holding_speed_) {
+            throttle_integral_ = next;
+        } else if (next == wanted) {
             throttle_integral_ += throttle_integral_per_knot * speed_off * dt;
         }
         c.throttle = next;
