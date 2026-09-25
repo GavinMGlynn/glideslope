@@ -293,10 +293,11 @@ ends in a debrief, never a score.
       stick, rudder, throttle, flaps and gear. *Verification: a shot of each
       case shows the right words and each control where the flight model has
       it.* Done 2026-09-25: the panel is lines in the HUD's font.
-- [ ] **Ride along in any AI aircraft.** Step into its cockpit, on a server,
+- [x] **Ride along in any AI aircraft.** Step into its cockpit, on a server,
       and watch it fly, its controls shown as the AI moves them. *Verification:
       the view and the controls panel match the server's aircraft within
-      stated bounds, under injected latency, loss and jitter.*
+      stated bounds, under injected latency, loss and jitter.* Done 2026-09-25:
+      its ground speed shown, not its airspeed, which is not sent.
 - [ ] **Take over an AI aircraft.** The one you ride in becomes yours, and the
       one you had goes to the AI pilot; never another player's, and a server
       setting may forbid it. *Verification: a take-over under injected
