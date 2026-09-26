@@ -271,8 +271,17 @@ moved onto 24781, the 100 ms impaired test's relay (named with its
 `${PORT} + 1`); server_collision's `-DPORT` removed ("25 tests are given a
 port and 26 tests' scripts use one"); and one moved to 24690, below the block.
 
-**Verified** on linux-debug with the network tests run on their new ports
-(below), and on Windows debug with `tools/windows_build.sh` (below).
+**Verified** on linux-debug: the 26 tests that listen on a fixed port, and
+the check, run on their new ports with `ctest -j4`; 26 of 27 passed. The one
+that did not, `a_player_takes_over_an_ai_aircraft_with_no_step_at_200_ms_and_a_players_is_refused`,
+missed its prediction bound (10.559 m and 11.303 m against 10 m, in two of
+four runs; it passed the other two), which a port number does not reach: it
+listened, its clients joined, and it took over. It is a tail in the plan.
+On Windows, `tools/windows_build.sh` built windows-debug with MSVC and ran the
+check and six network tests on their new ports - a client hears where every
+aircraft is, a repeated initiation, a gearstick client refused, the client
+written from TRANSPORT.md, the dashboard's round trip, and the timeout: 7 of 7
+passed.
 
 ### A DEM tile whose name is delete-pending is still found and read on Windows, 2026-09-26 — tail done
 
