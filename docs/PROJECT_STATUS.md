@@ -246,6 +246,62 @@ are the risks the phase order is built around:
   lift-off speed five feet above where she stood**; the others still judge
   it fifteen feet above the runway (below).
 
+**From the review, fixed** (`sim::Departure`, still naming no aircraft):
+- **Her speeds are for her weight.** The rotation and initial climb speeds
+  are the figures' at the weight of the loading they were taken at, scaled
+  by the square root of what she weighs (`DepartureSpeeds::reference_lbs`).
+  At the models' own loadings - what an AI aircraft and a plan fly - the
+  B-2A (325,000 lb, against the 176,000 its rotation speed was taken at) was
+  pulled on to its tail at 110 knots and wrecked, and the 737-300 lifted
+  itself off in the roll and was flown back into the runway sinking at
+  1,525 ft/min. On the water a published water take-off is flown as it is.
+- **She stands on what her model places**, worked out from the contacts'
+  positions and her centre of gravity, not from which touch: the main
+  wheels are the lowest off the centreline, and she falls from them towards
+  her centre of gravity on to the nearest centreline contact that way. That
+  says whether she has a tail wheel, the attitude she stands at, and the
+  attitude her tail strikes at - the lowest angle to anything behind the main
+  wheels. Counting every wheel took the A320, whose model makes its tail
+  skid and wing tips wheels, for a tail-wheel aeroplane.
+- **On her wheels the nose is held two degrees short of the strike
+  attitude**, and the stick is not pulled further there.
+- **A self-rotation is a rotation**: her nose two degrees above the attitude
+  she stands at as she leaves counts as rotated, and she is held off the
+  runway. The Learjet 35A at its model's own loading sits aft of the last row
+  of its flight manual's take-off trim, lifted its own nose on the roll, was
+  taken for a hop, and was flown back into the runway (`fly-plan` from 16R,
+  24 s in, 1,784 ft/min).
+- **Below 35 ft the nose is never pushed below the attitude she stands at**
+  (level, for a tail-wheel aeroplane), whatever asks - letting a hop down or
+  the incidence limit.
+- **The take-off trim is taken off once she is flying**, a tenth of its
+  travel a second, into the elevator's trim: it had been handed to the
+  autopilot and kept, and at 350 knots the Learjet's elevator sat at 0.94
+  of its travel nose down against it.
+
+**Every loading.** `every_landplane_takes_off_at_every_loading_within_ten_knots_of_its_speed_for_its_weight_and_unhurt`
+flies all thirteen landplanes at their model's own loading and at every
+loading their figures name - 48 take-offs, the lightest and heaviest of each
+among them - on level ground to 1,000 ft, judged by `sim::GroundJudge`, and
+asserts the count. Each leaves within ten knots of its rotation speed for its
+weight, nothing is wrecked, and no pitch trim is handed on. **Seen to fail**
+with the weight scaling, the self-rotation, the strike limit, the push bound
+and the trim wash-out taken out: 15 wrong - the 737-300 at its own loading
+wrecked, the B-2A at its own and at its maximum struck its airframe, six off
+by more than ten knots, and every Learjet loading handing on its take-off
+trim. (The Learjet's own loading did not wreck on level ground in that run;
+its wreck was on the DEM, from 16R.)
+
+**Not this item's, and a tail**: from 16R on the DEM, the 737-300, the A320
+and the F-15C are still wrecked on the roll with the stick neutral - the
+collision ground under the runway pitches them up. It is on main as well.
+The Learjet, the Mosquito and the B-2A now fly `fly-plan` from 16R through.
+
+**Unchecked, and said so**: the F-35B's main wheels are placed by the
+tipback rule the F-15C's manual checks, with nothing of the F-35's to check
+it against; the Learjet's stabilizer's 0.4 degrees nose-down stop is the
+tunnel aircraft's, not a published figure of the 35A's.
+
 **What works.** `every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early`
 walks the whole catalogue - sixteen aircraft, thirteen flown, three named -
 and asserts that count. Each is flown twice at the loading its take-off

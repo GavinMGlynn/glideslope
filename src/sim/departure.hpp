@@ -48,6 +48,10 @@ struct DepartureSpeeds {
     // was worked from its stall or measured from its model. The caller may
     // want to say so.
     bool rotate_is_published = false;
+    // **The weight these speeds are for**, lb: the loading of the figure
+    // they were taken from. A take-off at another weight flies them scaled
+    // by the square root of the ratio. 0 where no figure names one.
+    double reference_lbs = 0.0;
 };
 
 // The speeds for an aircraft, from `data`/figures/MODEL.xml.
@@ -111,6 +115,11 @@ private:
     // her main wheels.
     bool tail_wheel_ = false;
     double tail_pitch_deg_ = 0.0; // the attitude the tail is being raised to
+    double standing_pitch_deg_ = 0.0; // her attitude standing on the runway
+    // The attitude her tail strikes the runway at, pivoting on her main
+    // wheels; very large where nothing behind them can.
+    double strike_pitch_deg_ = 90.0;
+    double takeoff_trim_ = 0.0; // the take-off trim still on
 
     double throttle_ = 0.0;
     double pitch_trim_ = 0.0;
@@ -129,6 +138,16 @@ private:
     bool unstuck_ = false;
 
     void measure();
+    void read_the_gear();
+
+public:
+    // The speeds she is flown at, for what she weighs.
+    const DepartureSpeeds& speeds() const { return speeds_; }
+    // The attitude her tail strikes at on the wheels, degrees.
+    double strike_pitch_deg() const { return strike_pitch_deg_; }
+    bool tail_wheel() const { return tail_wheel_; }
+    // The attitude she stands at on the runway, degrees.
+    double standing_pitch_deg() const { return standing_pitch_deg_; }
 };
 
 } // namespace glideslope::sim
