@@ -33,8 +33,11 @@ set(_key "${CMAKE_MATCH_1}")
 
 # The client stays three seconds, the server runs four, and the timeout is
 # long enough that nobody is let go: this is about the columns, not the sweep.
+# The client leaves without saying so (`--no-goodbye`): said, the server lets
+# it go at once, and the last pass - drawn after - showed slot 0 empty (Windows
+# debug on CI, 2026-09-27, once a client said goodbye at all).
 execute_process(
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 3
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 3 --no-goodbye
     COMMAND "${SERVER}" --port ${PORT} --seconds 4 --ai 0 --plain
             --timeout 30 --store "${_store}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
