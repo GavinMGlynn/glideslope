@@ -16,7 +16,9 @@
 #     status - 400, as a misspelt Open-Meteo variable is answered. That is a
 #     fault of ours, not a service's bad minute, and the HUD test must fail:
 #     not pass, and not skip. Except 200, whose body the stub leaves empty,
-#     as Open-Meteo once did in CI: never JSON, so no weather, and a skip.
+#     as Open-Meteo's was in CI: never JSON, so no weather, and a skip. With
+#     METAR_FILE, aviationweather.gov is answered with that file, so it is
+#     Open-Meteo's request alone that is answered empty, as it was in CI.
 #
 # Without the DEM (which is fetched before the weather is asked for) the test
 # is itself skipped, unless the network is required here.
@@ -63,8 +65,14 @@ if(DEFINED ANSWER)
     set(_result_file "${WORK}/no-weather/stub-${DRIVER}-${_tag}.result")
     file(MAKE_DIRECTORY "${WORK}/no-weather")
     file(REMOVE "${_port_file}" "${_result_file}")
+    # With METAR_FILE, aviationweather.gov's requests are answered with it and
+    # only Open-Meteo's with ANSWER.
+    set(_metar "")
+    if(DEFINED METAR_FILE)
+        set(_metar /api/data/metar "${METAR_FILE}")
+    endif()
     # Both at once: the stub, and this script's inner half beside it.
-    execute_process(COMMAND "${STUB}" "${ANSWER}" "${_port_file}"
+    execute_process(COMMAND "${STUB}" "${ANSWER}" "${_port_file}" ${_metar}
                     COMMAND "${CMAKE_COMMAND}"
                             "-DPROGRAM=${PROGRAM}" "-DCHECK=${CHECK}" "-DCLI=${CLI}"
                             "-DDRIVER=${DRIVER}" "-DWORK=${WORK}" "-DCACHE=${CACHE}"
@@ -88,10 +96,14 @@ if(DEFINED ANSWER)
         message(FATAL_ERROR "the stub was never asked for the weather:\n${_stub_said}\n${_said}")
     endif()
     # **An empty 200** - what Open-Meteo answered Windows CI on 2026-09-26 -
-    # is not JSON on any try: the service not answering, so a skip.
+    # is not JSON on any try: the service not answering, so a skip. With the
+    # METAR answered, it must be Open-Meteo's forecast that was not had.
     if(ANSWER EQUAL 200)
+        if(DEFINED METAR_FILE AND NOT _stub_said MATCHES "and [1-9][0-9]* with FILE")
+            message(FATAL_ERROR "the METAR was never asked for:\n${_stub_said}\n${_said}")
+        endif()
         if(_rc EQUAL 77 AND _said MATCHES "there is no weather to fly in" AND
-           _said MATCHES "not JSON")
+           _said MATCHES "/v1/forecast[^\n]*not JSON")
             message(STATUS "skipped, as it should be, when the weather was an empty 200")
             return()
         endif()

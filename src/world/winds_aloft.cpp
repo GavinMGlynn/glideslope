@@ -3,7 +3,6 @@
 #include "world/json.hpp"
 
 #include <algorithm>
-#include <thread>
 #include <cmath>
 #include <cstdio>
 #include <stdexcept>
@@ -140,8 +139,14 @@ WindsAloft fetch_winds_aloft(double latitude_deg, double longitude_deg,
         const std::string_view text(reinterpret_cast<const char*>(r.body.data()),
                                     r.body.size());
         if (answered_json(text, url, attempt)) {
-            // JSON that is not a forecast is ours to mend: the error it is.
-            return parse_open_meteo(text, time);
+            // JSON that is not a forecast is ours to mend: a failure, named
+            // for where it came from.
+            try {
+                return parse_open_meteo(text, time);
+            } catch (const std::runtime_error& e) {
+                throw DemError(url + ": its answer is JSON and not Open-Meteo's forecast (" +
+                               e.what() + ")");
+            }
         }
     }
 }

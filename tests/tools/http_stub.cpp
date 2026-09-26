@@ -1,19 +1,23 @@
 // glideslope_http_stub - a web server on the loopback that answers every
 // request with one status, for a test to point a service at.
 //
-//   glideslope_http_stub STATUS PORTFILE
+//   glideslope_http_stub STATUS PORTFILE [PREFIX FILE]
 //
 // Listens on 127.0.0.1, on a port the system picks, and writes that port to
 // PORTFILE - whole, by renaming it into place - once it is listening. Every
 // request is answered with STATUS and an empty body, and the connection
 // closed, until a request for the path /stop, which is answered 200 and ends
-// it. Says on standard error how many requests it answered with STATUS.
+// it. With PREFIX and FILE, a GET whose path begins with PREFIX is answered
+// 200 with FILE's bytes instead: one service answered, and another not. Says
+// on standard error how many requests it answered with STATUS, and how many
+// with FILE.
 // Exits 0, or 2 on bad arguments or a socket it could not open.
 
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 
 #ifdef _WIN32
@@ -78,8 +82,21 @@ void send_all(Socket client, const std::string& text) {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 3) {
-        return refuse("usage: glideslope_http_stub STATUS PORTFILE");
+    if (argc != 3 && argc != 5) {
+        return refuse("usage: glideslope_http_stub STATUS PORTFILE [PREFIX FILE]");
+    }
+    std::string prefix;
+    std::string file_answer;
+    if (argc == 5) {
+        prefix = std::string("GET ") + argv[3];
+        std::ifstream in(argv[4], std::ios::binary);
+        if (!in) {
+            return refuse("cannot read FILE");
+        }
+        const std::string body((std::istreambuf_iterator<char>(in)),
+                               std::istreambuf_iterator<char>());
+        file_answer = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
+                      std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" + body;
     }
     const int status = std::atoi(argv[1]);
     if (status < 100 || status > 599) {
@@ -116,6 +133,7 @@ int main(int argc, char** argv) {
     const std::string answer = "HTTP/1.1 " + std::to_string(status) +
                                " Stubbed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
     int answered = 0;
+    int answered_file = 0;
     for (;;) {
         const Socket client = ::accept(listening, nullptr, nullptr);
         if (client == no_socket) {
@@ -125,6 +143,9 @@ int main(int argc, char** argv) {
         const bool stop = head.rfind("GET /stop ", 0) == 0;
         if (stop) {
             send_all(client, "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        } else if (!prefix.empty() && head.rfind(prefix, 0) == 0) {
+            send_all(client, file_answer);
+            ++answered_file;
         } else {
             send_all(client, answer);
             ++answered;
@@ -135,6 +156,7 @@ int main(int argc, char** argv) {
         }
     }
     close_socket(listening);
-    std::fprintf(stderr, "glideslope_http_stub: answered %d requests %d\n", answered, status);
+    std::fprintf(stderr, "glideslope_http_stub: answered %d requests %d, and %d with FILE\n",
+                 answered, status, answered_file);
     return 0;
 }

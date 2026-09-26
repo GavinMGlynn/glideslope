@@ -957,14 +957,15 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud_no_weather.cmake)
     set_tests_properties(a_hud_test_whose_weather_service_answers_400_fails_rather_than_skipping_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
-    # **And one whose service answers an empty 200 is skipped**: never JSON,
-    # as Open-Meteo answered Windows CI on 2026-09-26, is weather not to be
-    # had: the HUD test run inside skipping is this test passing.
+    # **And one whose Open-Meteo answers an empty 200 is skipped**, with
+    # the METAR answered: never JSON, as Open-Meteo answered Windows CI on
+    # 2026-09-26, is weather not to be had: the HUD test run inside skipping is this test passing.
     add_test(NAME a_hud_test_whose_weather_service_answers_an_empty_200_is_skipped_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_hud_check>
             -DCLI=$<TARGET_FILE:glideslope_cli> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
             -DANSWER=200
+            -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-metars-2026-09-17T1600Z.json
             -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} "-DFLYING=FLYING AI NAV THE HEADS"
             "-DFLY=--plan;sydney-harbour"

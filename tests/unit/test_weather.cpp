@@ -899,10 +899,11 @@ GLIDESLOPE_TEST(reported_wind_shear_is_read_and_gives_the_approach_the_models_sh
 // download.** Both services have now and then answered a 200 whose body was
 // not their JSON, and a client gave up on it. Here a stand-in for the network
 // answers with a page of HTML twice and then with a recorded report - which
-// must be read - and, again, with nothing but HTML - which must be said to be
-// a download that failed - the service not answering, ServiceUnavailable -
-// after the three tries, and not a report that could
-// not be read. Both services, both cases, each counted.
+// must be read - and then, on every try, with a body plainly not JSON (HTML,
+// nothing, only white space) - which after the three tries must be the
+// service not answering, ServiceUnavailable - or with one that begins as
+// JSON and does not parse - which must stay a failure, never a skip, in
+// case the parser is what broke. Both services, every case, each counted.
 GLIDESLOPE_TEST(an_answer_that_is_not_json_is_fetched_again_and_then_taken_for_a_failed_download) {
     const auto recorded = [](const char* name) {
         std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) / "data/weather" / name,
@@ -938,26 +939,58 @@ GLIDESLOPE_TEST(an_answer_that_is_not_json_is_fetched_again_and_then_taken_for_a
           "the forecast read on the third try, " + std::to_string(calls) + " fetches");
     ++cases;
 
+    struct Body {
+        std::string text;
+        bool plainly_not_json;
+    };
+    const std::vector<Body> bodies{{html, true},
+                                   {"", true},
+                                   {" \r\n\t", true},
+                                   {"Service unavailable", true},
+                                   {R"({"truncated": [1, 2)", false},
+                                   {"  [1, 2,]", false}};
     for (const bool is_metar : {true, false}) {
-        calls = 0;
-        const auto never = flaky({}, 100, calls);
-        try {
-            if (is_metar) {
-                (void)glideslope::world::fetch_metar("CYYZ", never);
-            } else {
-                (void)glideslope::world::fetch_winds_aloft(-33.95, 151.18, "2026-09-18T08:00", never);
+        for (const Body& body : bodies) {
+            const std::string name = std::string(is_metar ? "the METAR" : "the forecast") +
+                                     ", answered \"" + body.text + "\"";
+            calls = 0;
+            const auto always = flaky(std::vector<std::uint8_t>(body.text.begin(),
+                                                                 body.text.end()),
+                                      0, calls);
+            bool unavailable = false;
+            std::string said;
+            try {
+                if (is_metar) {
+                    (void)glideslope::world::fetch_metar("CYYZ", always,
+                                                         std::chrono::milliseconds(0));
+                } else {
+                    (void)glideslope::world::fetch_winds_aloft(
+                        -33.95, 151.18, "2026-09-18T08:00", always, std::chrono::milliseconds(0));
+                }
+                fail(name + ": read");
+            } catch (const glideslope::world::ServiceUnavailable& e) {
+                unavailable = true;
+                said = e.what();
+            } catch (const glideslope::world::DemError& e) {
+                said = e.what();
             }
-            fail("an answer that is never JSON was read");
-        } catch (const glideslope::world::ServiceUnavailable& e) {
-            check(std::string(e.what()).find("could not download") != std::string::npos &&
-                      std::string(e.what()).find("not JSON") != std::string::npos,
-                  std::string("it is a download that failed: ") + e.what());
-            check(calls == glideslope::world::parse_attempts,
-                  std::to_string(calls) + " fetches, one for each try");
+            const bool download = said.find("could not download") != std::string::npos;
+            check(unavailable == body.plainly_not_json && download == body.plainly_not_json,
+                  name + (body.plainly_not_json
+                              ? ": should be the service not answering, and is: "
+                              : ": should be a failure that is not a download's, and is: ") +
+                      said);
+            // An empty 200 is also fetched again within each try, as a
+            // failed fetch is (fetch_with_retries, five times).
+            const int fetches = glideslope::world::parse_attempts * (body.text.empty() ? 5 : 1);
+            check(calls == fetches, name + ": " + std::to_string(calls) + " fetches, not " +
+                                        std::to_string(fetches));
+            ++cases;
         }
-        ++cases;
     }
-    check(cases == 4, "both services, read on a retry and given up on: four cases");
+    check(cases == 2 + 2 * bodies.size() && cases == 14,
+          std::to_string(cases) + " cases: both services read on a retry, and each "
+                                  "given up on for every body");
 }
 
 GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be_had) {
@@ -993,6 +1026,9 @@ GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be
         {"a 404", 404, "", false},
         {"a 429", 429, "", false},
         {"a 200 that is never JSON", 200, "<html>Service unavailable</html>", true},
+        {"an empty 200, as Open-Meteo answered CI on 2026-09-26", 200, "", true},
+        {"a 200 that begins as JSON and does not parse", 200, R"({"hourly": {"time": [)",
+         false},
         {"a 200 of JSON that is not an answer", 200, R"({"unexpected": [1, 2, 3]})", false},
     };
     std::size_t cases = 0;
@@ -1037,10 +1073,19 @@ GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be
                                         : ": should be a fault, not weather not to be had, ") +
                       "and is: " + said);
             check(asked >= 1, name + ": the failing service was asked");
+            // A 200 that is ours to mend names the service it came from, and
+            // is not a download's failure, which a test may skip on.
+            if (f.status == 200 && !f.unavailable) {
+                check(said.find(at_metar ? "https://aviationweather.gov/"
+                                         : "https://api.open-meteo.com/") != std::string::npos &&
+                          said.find("could not download") == std::string::npos,
+                      name + ": should name the service and not be a download's failure: " +
+                          said);
+            }
             ++cases;
         }
     }
-    check(cases == 2 * failures.size() && cases == 24,
+    check(cases == 2 * failures.size() && cases == 28,
           std::to_string(cases) + " cases, not every failure at both services");
 }
 

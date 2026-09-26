@@ -23,20 +23,6 @@ std::vector<SurfaceReport> parse_aviationweather(std::string_view text) {
     return reports;
 }
 
-bool answered_json(std::string_view text, const std::string& url, int attempt) {
-    try {
-        (void)parse_json(text);
-        return true;
-    } catch (const JsonError& e) {
-        if (attempt >= parse_attempts) {
-            throw ServiceUnavailable("could not download " + url +
-                                     ": its answer was not JSON (" + e.what() + ")");
-        }
-        std::this_thread::sleep_for(parse_wait * attempt);
-        return false;
-    }
-}
-
 SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch,
                           std::chrono::milliseconds retry_wait) {
     // Checked before it goes into a URL.
@@ -83,8 +69,14 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch,
         const std::string_view text(reinterpret_cast<const char*>(r.body.data()),
                                     r.body.size());
         if (answered_json(text, url, attempt)) {
-            // JSON that is not a report is ours to mend: the error it is.
-            reports = parse_aviationweather(text);
+            // JSON that is not a report is ours to mend: a failure, named
+            // for where it came from.
+            try {
+                reports = parse_aviationweather(text);
+            } catch (const JsonError& e) {
+                throw DemError(url + ": its answer is JSON and not aviationweather.gov's "
+                                     "METARs (" + e.what() + ")");
+            }
             break;
         }
     }
