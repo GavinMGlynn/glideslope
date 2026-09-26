@@ -20,9 +20,11 @@
 #
 # Asked of PROVIDER now, with no key, or a key its service will not answer
 # for want of credit, it reports itself skipped (exit 77), never passed; so
-# does anything without the DEM's tiles.
+# does a run without the DEM's tiles, unless GLIDESLOPE_REQUIRE_NETWORK is set
+# (glideslope_skip_when_not_downloaded, client.cmake).
 
 cmake_minimum_required(VERSION 3.28)
+include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
 set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
 if(NOT DEFINED CENTRE_LAT)
@@ -57,10 +59,7 @@ endif()
 execute_process(
     COMMAND "${CLI}" --data "${DATA}" fly-plan "${PLAN}" --orbits 2
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-if(_err MATCHES "cannot download|could not download|no network")
-    message(STATUS "the DEM could not be had: ${_err}")
-    cmake_language(EXIT 77)
-endif()
+glideslope_skip_when_not_downloaded("${_rc}" "${_err}" "cannot download|no network")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the plan was not flown (exit ${_rc}):\n${_out}\n${_err}")
 endif()

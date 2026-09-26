@@ -434,9 +434,9 @@ Found while implementing something else. Added when found, not when remembered.
 - [x] **Tests that need a download failed, rather than skipping, when
       Open-Meteo answered with something that was not JSON** (Windows CI,
       2026-09-26). *Verification: with the weather service unreachable, or
-      answering a page that is not JSON, the live-weather unit test and the
-      HUD tests report themselves skipped, and an answer that is JSON but not
-      a report still fails.* Done 2026-09-27: one shared rule for the client
+      answering nothing or a page that is not JSON, the live-weather unit test
+      and the HUD tests report themselves skipped; an answer that begins as
+      JSON and does not parse, or is JSON but not a report, still fails.* Done 2026-09-27: one shared rule for the client
       tests' skips.
 
 - [x] **A client opened the model a server named as a path.** *Verification:

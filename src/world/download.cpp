@@ -2,6 +2,7 @@
 
 #include "platform/paths.hpp"
 #include "world/digest.hpp"
+#include "world/json.hpp"
 
 #include <atomic>
 #include <cstdint>
@@ -133,6 +134,40 @@ bool weather_service_allowed(const std::string& service) {
     }
     const std::string https = "https://";
     return service.rfind(https, 0) == 0 && rest_is(https.size(), true);
+}
+
+bool answered_json(std::string_view text, const std::string& url, int attempt) {
+    // Plainly not JSON: nothing, or what JSON never begins with - "<" for a
+    // page of HTML. Only that is taken for the service not answering; what
+    // begins as JSON and does not parse may be our parser's fault, and is
+    // never let become a skip.
+    const std::size_t first = text.find_first_not_of(" \t\r\n");
+    const bool plainly_not = first == std::string_view::npos ||
+                             (text[first] != '{' && text[first] != '[');
+    std::string why;
+    if (plainly_not) {
+        why = first == std::string_view::npos
+                  ? "it was empty"
+                  : "it began with byte " +
+                        std::to_string(static_cast<unsigned char>(text[first])) +
+                        " at byte " + std::to_string(first);
+    } else {
+        try {
+            (void)parse_json(text);
+            return true;
+        } catch (const JsonError& e) {
+            why = e.what();
+        }
+    }
+    if (attempt >= parse_attempts) {
+        if (plainly_not) {
+            throw ServiceUnavailable("could not download " + url +
+                                     ": its answer was not JSON (" + why + ")");
+        }
+        throw DemError(url + ": its answer began as JSON and did not parse (" + why + ")");
+    }
+    std::this_thread::sleep_for(parse_wait * attempt);
+    return false;
 }
 
 std::string weather_host(const std::string& own) {
