@@ -370,6 +370,10 @@ Found while implementing something else. Added when found, not when remembered.
       platform's ephemeral range. *Verification: a test walks every test's
       port, relays included, and fails on one in 32768-65535, outside the
       block, or shared; seen to fail with 47853 put back.*
+- [ ] **The 200 ms take-over test's prediction bound is missed on a loaded
+      machine**: 10.6 m and 11.3 m against its 10 m, in two of four runs on
+      WSL linux-debug, 2026-09-26. *Verification: the cause found, and the
+      test passes twenty runs in a row there.*
 - [ ] **A client cannot say it is leaving**, so a server notices only by
       the silence. *Verification: a client that leaves is let go at once.*
 - [ ] **One player on two addresses flies two aircraft**: a client that
