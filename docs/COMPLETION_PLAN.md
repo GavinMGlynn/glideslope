@@ -552,7 +552,9 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification: an approach taken back on the roll is landed to a stop.*
 - [ ] **The B-2A cannot slow down on the approach.** With nothing to add drag
       it crosses the threshold fourteen knots fast with its throttles shut,
-      and floats nearly two feet off the runway after it touches.
+      and floats nearly two feet off the runway after it touches; its
+      circuit's final runs to fourteen over, and the bomber lessons' final
+      bands reach twenty over on its account.
       *Verification: the B-2A crosses the threshold within five knots of its
       reference speed.*
 - [x] **A `--terrain ion` run can hang for ever, past its own timeout.**

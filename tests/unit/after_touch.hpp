@@ -30,10 +30,17 @@ struct AfterTouch {
     // weight on a wheel - or a hull in the water - is the touch. The height
     // of her centre of gravity then is what "on the ground" is for this
     // aeroplane, and a bounce is measured from it.
+    //
+    // **Or anything else of hers on the runway, before the wheels.** A B-2A
+    // rocking in a Dutch roll down final put its left wingtip on the runway
+    // at 8.6 degrees of bank a tenth of a second before either main wheel,
+    // and lifted it again: watched from the wheels, that was seen or not by
+    // whether the tip was still down when they arrived, and the circuit test
+    // passed or failed on a hundredth of a second of timing.
     void watch(const glideslope::sim::Aircraft& a) {
         const double agl_ft = a.property("position/h-agl-ft");
         if (!touched) {
-            if (a.property("gear/wow") <= 0.5 && !a.in_water()) {
+            if (a.property("gear/wow") <= 0.5 && !a.in_water() && !a.contact().airframe) {
                 return;
             }
             touched = true;

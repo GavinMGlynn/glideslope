@@ -230,11 +230,10 @@ are the risks the phase order is built around:
 ### Every landplane leaves the runway at its rotation speed, and sooner rotated early, 2026-09-26 — item done
 
 **What is missing first.**
-- **The tree is red on this branch**: after the last change (the pull's
-  build in the rotation's lead, and flying rather than steering off the
-  wheels in the rotation), `the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief`
-  fails on Linux: the B-2A's circuit comes down on something other than its
-  wheels at the landing. It passed before that change. Not yet looked into.
+- **The B-2A still cannot slow on the approach** (a tail): with the Dutch
+  roll below gone, its circuit's final runs to vref+14, and the bomber
+  circuit's final band now reaches vref+20, as the bomber approach lesson's
+  does for the same reason.
 - **On Windows debug**, `a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`
   timed out at 900 s under ctest while the Linux suite ran on the same
   machine; alone it passes. Two client programs crash after their right
@@ -303,6 +302,32 @@ are the risks the phase order is built around:
   travel a second, into the elevator's trim: it had been handed to the
   autopilot and kept, and at 350 knots the Learjet's elevator sat at 0.94
   of its travel nose down against it.
+
+**The B-2A's circuit put a wingtip on the runway, and had since before this
+item.** After the rotation's lead and the flying in the rotation changed,
+`the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief` failed:
+the B-2A came down on something other than its wheels. Tried alone, neither
+change was the cause, nor together: with both taken back out, as at 0e7a569,
+the B-2A's left wingtip still met the runway at 8.6 degrees of bank, a tenth
+of a second before its main wheels. **The cause was the approach autopilot's
+rudder** (`sim::Lander`): its sideslip integral, lagging the B-2A's slow
+Dutch roll - weak drag rudders, a nine-second period - fed it, and the B-2A
+rocked 8.9 degrees either way and slipped 7.5 from the capture of the
+centreline all the way to the runway. Whether the tip was still down when
+the wheels arrived was a hundredth of a second of timing, which is all the
+take-off changes moved. **Fixed** with a yaw damper in the approach's rudder,
+against the yaw rate the bank does not account for (a coordinated turn's
+rate is left alone): the B-2A now comes down final level to 0.04 degrees and
+touches 0.6 m from the centreline, and every other aeroplane's circuit and
+approach is unchanged in what the tests ask. **And the watcher missed it**:
+`AfterTouch` (tests/unit/after_touch.hpp) began watching at the first wheel,
+so an airframe contact before the wheels was seen only if it lasted until
+them; it now begins at the first contact of any kind. **Seen to fail**: with
+the take-off as at 0e7a569 and the old lander, the tightened watcher fails
+the circuit on the B-2A's wingtip (rolled 8.6 degrees), where the old one
+passed it. The drag of the rudders working either way had held the B-2A's
+final to vref+10; damped, it flies vref-4 to vref+14, and the bomber circuit's
+final band is widened from vref+15 to vref+20 on its account.
 
 **Every loading.** `every_landplane_takes_off_at_every_loading_within_ten_knots_of_its_speed_for_its_weight_and_unhurt`
 flies all thirteen landplanes at their model's own loading and at every
