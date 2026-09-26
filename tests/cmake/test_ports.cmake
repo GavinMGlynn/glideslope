@@ -15,14 +15,20 @@
 # **What it walks** is every test this build has, as ctest itself lists them
 # (`--show-only=json-v1`), not a list kept by hand:
 #
-#   - a test given `-DPORT=N` claims N, and N + K for every `${PORT} + K` its
-#     script derives (a relay in front of the server, say);
+#   - a test given `-DPORT=N` claims N, and N + K for every `${PORT} + K` or
+#     `K + ${PORT}` its script derives in a math() (a relay in front of the
+#     server, say); any other set() or math() on the port, or on a variable
+#     derived from it, is one this cannot read, and fails;
+#   - a -D definition naming a port other than PORT fails, rather than being
+#     passed over;
 #   - a test whose script uses `${PORT}` must have been given one: the tests
 #     given a port and the tests whose script needs one are counted apart, and
 #     the two counts must agree, test for test;
-#   - a test that names `--port N` in its arguments listens on N, unless it
-#     is also `--dry-run`, which reads its arguments and listens on nothing:
-#     those are named below as left out, with that reason.
+#   - a test whose command, or the ARGS it hands a script to run, has the
+#     word `--port` followed by N listens on N, unless a word of it is also
+#     `--dry-run`, which reads its arguments and listens on nothing: those are
+#     named as left out, with that reason. A pattern to match (a
+#     -D..._MATCHES) is not a command line and is not read.
 #
 # A test that asks for port 0 is given one by the system and needs no block;
 # none of those is counted here.
@@ -66,45 +72,72 @@ foreach(_i RANGE ${_last_index})
     string(JSON _test GET "${_json}" tests ${_i})
     string(JSON _name GET "${_test}" name)
     string(JSON _argc ERROR_VARIABLE _no_command LENGTH "${_test}" command)
-    if(_no_command)
+    if(_no_command OR _argc EQUAL 0)
         continue()
     endif()
+    math(EXPR _last_arg "${_argc} - 1")
     set(_port "")
     set(_script "")
     set(_dry_run FALSE)
-    set(_named_port "")
-    set(_args "")
-    if(_argc GREATER 0)
-        math(EXPR _last_arg "${_argc} - 1")
-        set(_next_is_script FALSE)
-        foreach(_j RANGE ${_last_arg})
-            string(JSON _arg GET "${_test}" command ${_j})
-            list(APPEND _args "${_arg}")
-            if(_next_is_script)
-                set(_script "${_arg}")
-                set(_next_is_script FALSE)
-            elseif(_arg STREQUAL "-P")
-                set(_next_is_script TRUE)
-            elseif(_arg MATCHES "^-DPORT=(.*)$")
-                set(_port "${CMAKE_MATCH_1}")
+    set(_named_ports "")
+    # The words a program is run with: each argument of the command, and the
+    # words of an ARGS a script is handed to run a program with
+    # (expect_run.cmake). A -D<NAME>_MATCHES and the like are patterns, not
+    # command lines, and are not read as words.
+    set(_words "")
+    set(_next_is_script FALSE)
+    foreach(_j RANGE ${_last_arg})
+        string(JSON _arg GET "${_test}" command ${_j})
+        if(_next_is_script)
+            set(_script "${_arg}")
+            set(_next_is_script FALSE)
+        elseif(_arg STREQUAL "-P")
+            set(_next_is_script TRUE)
+        elseif(_arg MATCHES "^-D([A-Za-z0-9_]*)=(.*)$")
+            # string(CONCAT), not set(): a name such as CACHE would be read
+            # by set() as its keyword.
+            string(CONCAT _var "${CMAKE_MATCH_1}")
+            string(CONCAT _value "${CMAKE_MATCH_2}")
+            if(_var STREQUAL "PORT")
+                set(_port "${_value}")
+            elseif(_var MATCHES "PORT")
+                list(APPEND _problems
+                     "${_name}: -D${_var}= names a port this check does not read")
+            elseif(_var STREQUAL "ARGS")
+                separate_arguments(_split UNIX_COMMAND "${_value}")
+                list(APPEND _words ${_split})
             endif()
-            if(_arg MATCHES "--dry-run")
-                set(_dry_run TRUE)
-            endif()
-            if(_arg MATCHES "--port +([0-9]+)")
-                set(_named_port "${CMAKE_MATCH_1}")
-            endif()
-        endforeach()
+        else()
+            list(APPEND _words "${_arg}")
+        endif()
+    endforeach()
+    set(_next_is_port FALSE)
+    foreach(_w IN LISTS _words)
+        if(_next_is_port)
+            list(APPEND _named_ports "${_w}")
+            set(_next_is_port FALSE)
+        elseif(_w STREQUAL "--port")
+            set(_next_is_port TRUE)
+        elseif(_w MATCHES "^--port=(.*)$")
+            list(APPEND _named_ports "${CMAKE_MATCH_1}")
+        elseif(_w STREQUAL "--dry-run")
+            set(_dry_run TRUE)
+        endif()
+    endforeach()
+    if(_next_is_port)
+        list(APPEND _problems "${_name}: --port is its last word, with no port after it")
     endif()
 
     # A port named on a command line, as the program is run.
-    if(NOT _named_port STREQUAL "")
+    foreach(_named IN LISTS _named_ports)
         if(_dry_run)
-            list(APPEND _left_out "${_name} (--port ${_named_port} with --dry-run: listens on nothing)")
-        elseif(NOT _named_port EQUAL 0)
-            list(APPEND _claims "${_named_port}=${_name}")
+            list(APPEND _left_out "${_name} (--port ${_named} with --dry-run: listens on nothing)")
+        elseif(NOT _named MATCHES "^[0-9]+$")
+            list(APPEND _problems "${_name}: --port ${_named} is not a port this check can read")
+        elseif(NOT _named EQUAL 0)
+            list(APPEND _claims "${_named}=${_name}")
         endif()
-    endif()
+    endforeach()
 
     set(_script_text "")
     # This script names ${PORT} in its own text, and listens on nothing.
@@ -128,12 +161,52 @@ foreach(_i RANGE ${_last_index})
             list(APPEND _problems "${_name}: it is given -DPORT=${_port} and its script uses none")
         endif()
         list(APPEND _claims "${_port}=${_name}")
-        # Every port its script derives from it.
-        string(REGEX MATCHALL "\\\${PORT} *\\+ *[0-9]+" _derived "${_script_text}")
-        foreach(_d IN LISTS _derived)
-            string(REGEX REPLACE ".*\\+ *" "" _k "${_d}")
-            math(EXPR _p "${_port} + ${_k}")
-            list(APPEND _claims "${_p}=${_name} (\${PORT} + ${_k})")
+        # **Every port its script derives from it**, read from its set() and
+        # math() calls. Two forms are read: `set(V ${PORT})`, a second name
+        # for the port, and `math(EXPR V "${PORT} + K")` or "K + ${PORT}",
+        # which claims PORT + K. Any other set() or math() that uses ${PORT},
+        # or uses a variable so made, is a port this cannot read - a second
+        # step from a derived port, or one counted up in a loop - and fails.
+        string(REGEX MATCHALL "(set|math)\\([^)]*\\)" _calls "${_script_text}")
+        set(_derived_vars "")
+        set(_unread "")
+        foreach(_call IN LISTS _calls)
+            if(NOT _call MATCHES "\\\${PORT}")
+                continue()
+            endif()
+            unset(_k)
+            if(_call MATCHES "^set\\(([A-Za-z0-9_]+) +\"?\\\${PORT}\"?\\)$")
+                list(APPEND _derived_vars "${CMAKE_MATCH_1}")
+                set(_k 0)
+            elseif(_call MATCHES "^math\\(EXPR +([A-Za-z0-9_]+) +\"\\\${PORT} *\\+ *([0-9]+)\"\\)$")
+                # One regex to an if(), not two joined by OR: CMake evaluates
+                # both, and the second's failure empties the first's matches.
+                list(APPEND _derived_vars "${CMAKE_MATCH_1}")
+                string(CONCAT _k "${CMAKE_MATCH_2}")
+            elseif(_call MATCHES "^math\\(EXPR +([A-Za-z0-9_]+) +\"([0-9]+) *\\+ *\\\${PORT}\"\\)$")
+                list(APPEND _derived_vars "${CMAKE_MATCH_1}")
+                string(CONCAT _k "${CMAKE_MATCH_2}")
+            endif()
+            if(DEFINED _k)
+                if(NOT _k EQUAL 0)
+                    math(EXPR _p "${_port} + ${_k}")
+                    list(APPEND _claims "${_p}=${_name} (\${PORT} + ${_k})")
+                endif()
+            else()
+                list(APPEND _unread "${_call}")
+            endif()
+        endforeach()
+        list(REMOVE_DUPLICATES _derived_vars)
+        foreach(_call IN LISTS _calls)
+            foreach(_v IN LISTS _derived_vars)
+                if(_call MATCHES "\\\${${_v}}")
+                    list(APPEND _unread "${_call}")
+                endif()
+            endforeach()
+        endforeach()
+        foreach(_call IN LISTS _unread)
+            string(REPLACE "\n" " " _call "${_call}")
+            list(APPEND _problems "${_name}: its script derives a port this cannot read: ${_call}")
         endforeach()
     endif()
 endforeach()

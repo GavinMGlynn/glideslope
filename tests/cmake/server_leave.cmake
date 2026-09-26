@@ -48,8 +48,14 @@ endif()
 
 set(_settings remove ai)
 set(_walked 0)
-set(_port ${PORT})
 foreach(_what IN LISTS _settings)
+    # Each setting's server on a port of its own, written out so that
+    # test_ports.cmake can read which ports this takes: PORT and PORT + 1.
+    if(_what STREQUAL "remove")
+        set(_port ${PORT})
+    else()
+        math(EXPR _port "${PORT} + 1")
+    endif()
     execute_process(
         COMMAND "${CLIENT}" connect "127.0.0.1:${_port}" "${_key}" 2
         COMMAND "${SERVER}" --port ${_port} --seconds 7 --ai 1 --headless
@@ -124,7 +130,6 @@ foreach(_what IN LISTS _settings)
     message(STATUS "--on-leave ${_what}: the aircraft ${_said}, ${_left} flying "
                    "at the end")
     math(EXPR _walked "${_walked} + 1")
-    math(EXPR _port "${_port} + 1")
 endforeach()
 
 list(LENGTH _settings _how_many)

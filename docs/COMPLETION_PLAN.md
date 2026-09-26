@@ -370,10 +370,6 @@ Found while implementing something else. Added when found, not when remembered.
       platform's ephemeral range. *Verification: a test walks every test's
       port, relays included, and fails on one in 32768-65535, outside the
       block, or shared; seen to fail with 47853 put back.*
-- [ ] **The 200 ms take-over test's prediction bound is missed on a loaded
-      machine**: 10.6 m and 11.3 m against its 10 m, in two of four runs on
-      WSL linux-debug, 2026-09-26. *Verification: the cause found, and the
-      test passes twenty runs in a row there.*
 - [ ] **A client cannot say it is leaving**, so a server notices only by
       the silence. *Verification: a client that leaves is let go at once.*
 - [ ] **One player on two addresses flies two aircraft**: a client that
@@ -467,6 +463,8 @@ Found while implementing something else. Added when found, not when remembered.
       cached tile cut short, or damaged, is fetched again and read whole.*
 - [ ] **Over a network a client's own aircraft is corrected by metres**, because
       the server does not say how far into its latest input it had flown.
+      The 200 ms take-over test's 10 m bound is missed by it on WSL
+      linux-debug (10.6 m and 11.3 m, two of four runs, 2026-09-26).
       *Verification: through 200 ms with jitter and loss, the worst prediction
       error is under a metre.*
 - [x] **Two server tests counted wall-clock seconds on slow runners**: one
