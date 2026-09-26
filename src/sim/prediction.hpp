@@ -24,6 +24,8 @@
 
 #include <cstdint>
 #include <deque>
+#include <map>
+#include <optional>
 
 namespace glideslope::sim {
 
@@ -38,6 +40,19 @@ inline constexpr double correction_blend_s = 0.25;
 // seconds, which is far longer than any round trip this project expects; a
 // client further behind than that has a problem this cannot solve.
 inline constexpr std::size_t most_unacknowledged = 240;
+// How many of the server's words the clocks' difference is the least of: two
+// seconds of updates at 25 a second, long enough that one input in it came
+// through with next to no jitter, short enough to follow a server whose clock
+// runs slow.
+inline constexpr std::size_t offset_window = 50;
+// **How many words before the clocks' difference is taken as known**: a
+// second of updates. Before then the least is still coming down as inputs
+// that waited less arrive, and each time it does the client is put right by
+// the steps it moved - two metres, three times, a second after joining at
+// 200 ms (PROJECT_STATUS.md). Those corrections are hidden like any other;
+// a prediction error measured before this is the estimate settling, not the
+// prediction.
+inline constexpr std::size_t offset_settled = 25;
 
 class Prediction {
 public:
@@ -55,6 +70,11 @@ public:
         bool snapped = false;
         // How many of the client's inputs had to be flown again.
         std::size_t replayed = 0;
+        // **The step of this client's the server's word was taken to be
+        // about** - the moment it was put back to - when it could be placed.
+        // The position this client had predicted after the step before it is
+        // what the server's word is held against.
+        std::optional<std::uint64_t> at_step;
     };
 
     // **The server's word.** Puts the aircraft back to `server`, flies it
@@ -65,19 +85,47 @@ public:
     // a state update can carry: the client's own engines and actuators, flown
     // on the same inputs, are left as they are. This is what runs over the
     // network; the snapshot above is too large to send and too slow to apply.
-    Correction reconcile(const Motion& server, std::uint32_t last_applied);
+    //
+    // **And from the moment the server's word was about, on this client's
+    // clock**, not from the end of `last_applied`. The server flies an input
+    // from when it arrives until the next one does, which the network decides,
+    // and says how far into it it had flown (`steps_into`) and how many steps
+    // it had flown in all (`server_steps`). So `last_applied` arrived at
+    // server step `server_steps - steps_into`, and began here at a step this
+    // client knows: the difference is how far the server's clock is behind
+    // this one, plus how late the network made that input. **The least of
+    // those over the last `offset_window` words is taken as the offset**: the
+    // input that waited least says the clocks' difference, and the others
+    // add jitter to it. The server's word is then this client's step
+    // `server_steps - offset`, and the replay starts there, whichever inputs
+    // those steps were flown on. Replayed from the input's end instead - or
+    // from its arrival, with the jitter kept in - the client was off by the
+    // steps between, metres at an aeroplane's speed.
+    Correction reconcile(const Motion& server, std::uint32_t last_applied,
+                         std::size_t steps_into, std::uint64_t server_steps);
 
     std::size_t unacknowledged() const { return held_.size(); }
+    // Whether the clocks' difference has been heard enough times to be known.
+    bool settled() const { return offsets_.size() >= offset_settled; }
+    // How many steps this client has flown, which numbers them.
+    std::uint64_t steps() const { return steps_; }
     std::uint32_t newest() const { return held_.empty() ? 0 : held_.back().sequence; }
 
 private:
     struct Applied {
         std::uint32_t sequence = 0;
         Controls controls;
+        // Which step of this client's this was, counted from its first.
+        std::uint64_t step = 0;
     };
 
     Aircraft& aircraft_;
     std::deque<Applied> held_;
+    // The step each input still held, or still to be put right from, began on.
+    std::map<std::uint32_t, std::uint64_t> began_;
+    std::uint64_t steps_ = 0;
+    // The clocks' difference each recent word implied, newest last.
+    std::deque<std::int64_t> offsets_;
 };
 
 // How far apart two states are, in metres: over the ground and in height.

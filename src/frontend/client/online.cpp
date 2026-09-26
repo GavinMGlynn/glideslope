@@ -1,5 +1,6 @@
 #include "online.hpp"
 
+#include "sim/fixed_step.hpp"
 #include "world/geodesy.hpp"
 
 #include <algorithm>
@@ -140,7 +141,10 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             flight.adopt(motion_of(*state.yours));
         } else {
             reconciled_s_ = state.simulation_time_s;
-            const auto c = flight.reconcile(motion_of(*state.yours), state.last_input_applied);
+            const auto c = flight.reconcile(
+                motion_of(*state.yours), state.last_input_applied, state.yours->steps_into_input,
+                static_cast<std::uint64_t>(std::llround(
+                    state.simulation_time_s * static_cast<double>(sim::steps_per_second))));
             ++corrections_;
             worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
             if (c.snapped) {

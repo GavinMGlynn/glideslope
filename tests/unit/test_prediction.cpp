@@ -113,7 +113,10 @@ Flight fly(int frames, int one_way, int snapshot_every, bool by_motion = false) 
         // And the server's word arrives a further `one_way` frames later.
         while (!post.empty() && post.front().arrives_at_frame <= frame) {
             const Prediction::Correction c =
-                by_motion ? client.reconcile(post.front().motion, post.front().last_applied)
+                // One step into each input: the server flies each for one,
+                // and had flown as many steps as the input's number.
+                by_motion ? client.reconcile(post.front().motion, post.front().last_applied, 1,
+                                             post.front().last_applied)
                           : client.reconcile(post.front().state, post.front().last_applied);
             out.worst_correction_m = std::max(out.worst_correction_m, c.moved_m);
             out.worst_replayed = std::max(out.worst_replayed, c.replayed);
@@ -210,6 +213,114 @@ GLIDESLOPE_TEST(prediction_reconciled_from_motion_alone_stays_within_its_bound_a
     check(walked == 2, "both latencies were flown");
 }
 
+// **Inputs thirty times a second, arriving when the network lets them**, as
+// over a real one: the server flies each from when it arrives until the next
+// does - anything from no steps to eleven, not four - and says how far into
+// the newest it had got, and how many steps it had flown in all. Placed on the
+// client's clock by those, the server's word corrects the client by
+// millimetres at 100 and 200 ms with up to 58 ms of jitter; replayed from each
+// input's end, as before the server said, by 3.6 m (PROJECT_STATUS.md).
+//
+// **The jitter is built, not drawn**: input `i`, from one, is late by
+// `(5 (i - 1)) mod 8` steps - the first on time, as the first the server
+// hears of a client is in effect - so every lateness from none to seven steps comes up, and the test
+// counts that each did and that the server was caught at every step into an
+// input from one to seven.
+GLIDESLOPE_TEST(a_client_put_right_from_as_far_into_its_input_as_the_server_had_flown_is_off_by_centimetres) {
+    constexpr int steps_per_input = steps_per_second / 30;
+    constexpr std::uint32_t most_late = 8;
+    constexpr double bound_m = 0.1;
+    std::size_t walked = 0;
+    for (const int latency_ms : {100, 200}) {
+        const int one_way = latency_ms * steps_per_second / 2000;
+        Aircraft server_aircraft(data() / "jsbsim", "c172p");
+        Aircraft client_aircraft(data() / "jsbsim", "c172p");
+        set_up(server_aircraft);
+        set_up(client_aircraft);
+        Prediction client(client_aircraft);
+        const auto controls_of = [](std::uint32_t sequence) {
+            return flying(static_cast<int>(sequence) * steps_per_input);
+        };
+        const auto late = [](std::uint32_t sequence) {
+            return (5 * (sequence - 1)) % most_late;
+        };
+        const auto arrives = [one_way, late](std::uint32_t sequence) {
+            const int sent = static_cast<int>(sequence - 1) * steps_per_input;
+            return sent + one_way + static_cast<int>(late(sequence));
+        };
+
+        struct Posted {
+            int arrives_at = 0;
+            glideslope::sim::Motion motion;
+            std::uint32_t applied = 0;
+            std::size_t into = 0;
+            std::uint64_t server_steps = 0;
+        };
+        std::deque<Posted> post;
+        std::uint32_t applied = 0;
+        std::size_t into = 0;
+        std::uint32_t next = 1;
+        std::uint64_t server_steps = 0;
+        std::vector<bool> lateness(most_late, false);
+        std::vector<bool> caught_into(most_late, false);
+        double worst_m = 0.0;
+        std::size_t heard = 0;
+        const int frames = 8 * steps_per_second;
+        for (int frame = 0; frame < frames; ++frame) {
+            // The client sends an input every fourth step and flies it at once.
+            const auto sequence = static_cast<std::uint32_t>(frame / steps_per_input + 1);
+            client.step(sequence, controls_of(sequence));
+
+            // The server applies the newest input that has arrived, and flies
+            // it, from the first input's arrival - when the aircraft is the
+            // client's, as it was when the client flew it.
+            while (arrives(next) <= frame) {
+                lateness[late(next)] = true;
+                applied = next;
+                into = 0;
+                ++next;
+            }
+            if (applied > 0) {
+                server_aircraft.set_controls(controls_of(applied));
+                server_aircraft.step();
+                ++into;
+                ++server_steps;
+                if (frame % 5 == 0) {
+                    if (into < caught_into.size()) {
+                        caught_into[into] = true;
+                    }
+                    post.push_back(
+                        {frame + one_way, server_aircraft.motion(), applied, into, server_steps});
+                }
+            }
+            while (!post.empty() && post.front().arrives_at <= frame) {
+                const Prediction::Correction c =
+                    client.reconcile(post.front().motion, post.front().applied, post.front().into,
+                                     post.front().server_steps);
+                worst_m = std::max(worst_m, c.moved_m);
+                ++heard;
+                post.pop_front();
+            }
+        }
+        std::printf("  %3d ms with jitter: %zu reconciliations, worst correction %.4f m\n",
+                    latency_ms, heard, worst_m);
+        check(std::count(lateness.begin(), lateness.end(), true) ==
+                  static_cast<std::ptrdiff_t>(most_late),
+              "every lateness from none to seven steps came up");
+        // One step in to seven: a snapshot is taken after a step.
+        check(std::count(caught_into.begin() + 1, caught_into.end(), true) ==
+                  static_cast<std::ptrdiff_t>(most_late - 1),
+              "the server was caught at every step into an input from one to seven");
+        check(heard > 100, "the server was heard from " + std::to_string(heard) + " times");
+        check(worst_m <= bound_m, "at " + std::to_string(latency_ms) +
+                                      " ms with jitter the worst correction was " +
+                                      std::to_string(worst_m) + " m, over the " +
+                                      std::to_string(bound_m) + " m bound");
+        ++walked;
+    }
+    check(walked == 2, "both latencies were flown");
+}
+
 // **A client that ignores the server drifts, and reconciling puts it back.**
 // Without this, a reconciliation that did nothing at all would pass the test
 // above, because doing nothing moves the aeroplane no distance.
@@ -293,7 +404,8 @@ GLIDESLOPE_TEST(a_client_that_flew_different_inputs_is_put_back_by_the_servers_m
 
     // The server has applied everything; nothing is left to fly again.
     const Prediction::Correction c = client.reconcile(
-        server_aircraft.motion(), static_cast<std::uint32_t>(steps_per_second * 3));
+        server_aircraft.motion(), static_cast<std::uint32_t>(steps_per_second * 3), 1,
+        steps_per_second * 3);
     check(client.unacknowledged() == 0, "nothing was left unacknowledged");
     check(c.replayed == 0, "and nothing had to be flown again");
     check(c.snapped, "a correction that large is snapped, not hidden");

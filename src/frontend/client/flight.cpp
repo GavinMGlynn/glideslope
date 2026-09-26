@@ -146,11 +146,13 @@ void Flight::adopt(const sim::Motion& motion) {
 }
 
 sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
-                                              std::uint32_t last_applied) {
+                                              std::uint32_t last_applied,
+                                              std::size_t steps_into,
+                                              std::uint64_t server_steps) {
     if (!prediction_) {
         return {};
     }
-    return prediction_->reconcile(motion, last_applied);
+    return prediction_->reconcile(motion, last_applied, steps_into, server_steps);
 }
 
 void Flight::step(const sim::Controls& controls) {

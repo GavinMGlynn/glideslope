@@ -172,6 +172,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_client_follows_the_servers_clock_at_the_servers_own_rate
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
     prediction_reconciled_from_motion_alone_stays_within_its_bound_at_100_and_200_ms
+    a_client_put_right_from_as_far_into_its_input_as_the_server_had_flown_is_off_by_centimetres
     a_client_that_flew_different_inputs_is_put_back_where_the_server_says
     a_client_that_flew_different_inputs_is_put_back_by_the_servers_motion_alone
     a_lesson_written_down_and_read_back_is_the_one_that_was_written
@@ -1592,7 +1593,7 @@ glideslope_configure(glideslope_interpolation_check)
 # **Prediction, interpolation and the player limit hold through a network
 # made worse on purpose** - at 100 ms and at 200 ms each way, with jitter and
 # loss. See cmake/server_impaired.cmake.
-foreach(_net IN ITEMS "100;30;5;11;24780;8" "200;60;10;12;24782;10")
+foreach(_net IN ITEMS "100;30;5;11;24780;1" "200;60;10;12;24782;1")
     list(GET _net 0 _delay)
     list(GET _net 1 _jitter)
     list(GET _net 2 _loss)

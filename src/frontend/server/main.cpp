@@ -512,6 +512,18 @@ struct Connection {
     // goes back in every state update so the client knows what to reconcile.
     glideslope::net::InputReceiver inputs;
     std::uint32_t last_input_applied = 0;
+    // **How many steps the aircraft has been flown on that input**, which
+    // goes back with it: an input is flown from when it arrives until the next
+    // does, and the client places the server's word on its own clock by it
+    // (sim::Prediction).
+    std::int64_t steps_into_input = 0;
+    // **The newest input heard and not yet applied**, and its number. It is
+    // applied after the steps already owed when it was read (apply_input): a
+    // server that fell behind and catches up flew those steps, on the input
+    // before, as the time they stand for had passed before this one arrived.
+    // Applied as it was read, a server held up for 50 ms flew six steps of a
+    // new input early, and put its clients off by two metres (2026-09-27).
+    std::optional<std::pair<std::uint32_t, glideslope::sim::Controls>> input_heard;
     // **What must arrive**: the reliable messages to this client, and what
     // each aircraft has been introduced to it as - its model, by number - so
     // that one is introduced once, and again if its number comes to mean
@@ -1442,6 +1454,20 @@ std::map<std::string, Connection>::iterator let_go(
     return it;
 }
 
+// **The newest input a client sent, applied**, if one is waiting: what its
+// aircraft is flown by from the next step. Not if an AI pilot flies it: the
+// input is let go, and the client told nothing has been applied.
+void apply_input(Connection& c, Fleet& fleet) {
+    if (!c.input_heard) {
+        return;
+    }
+    if (fleet.fly(c.aircraft, c.input_heard->second)) {
+        c.last_input_applied = c.input_heard->first;
+        c.steps_into_input = 0;
+    }
+    c.input_heard.reset();
+}
+
 void refuse(glideslope::platform::UdpSocket& socket,
             const glideslope::platform::Address& to, glideslope::net::Refusal why) {
     glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::refusal);
@@ -1633,16 +1659,16 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             if (fleet == nullptr || c.aircraft == glideslope::net::no_aircraft) {
                 return;
             }
+            // Only the newest is kept, and applied once the steps owed are
+            // flown (apply_input).
             const auto frames = c.inputs.received(inside.subspan(1));
             for (const glideslope::net::InputFrame& frame : frames) {
-                if (frame.sequence <= c.last_input_applied) {
-                    continue;
+                const std::uint32_t newest =
+                    c.input_heard ? c.input_heard->first : c.last_input_applied;
+                if (frame.sequence > newest) {
+                    c.input_heard.emplace(frame.sequence,
+                                          glideslope::sim::Controls::from_list(frame.controls));
                 }
-                if (!fleet->fly(c.aircraft,
-                                glideslope::sim::Controls::from_list(frame.controls))) {
-                    return;
-                }
-                c.last_input_applied = frame.sequence;
             }
             return;
         }
@@ -1675,6 +1701,9 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                         std::fflush(stdout);
                         continue;
                     }
+                    // What this client had sent is flown by the aircraft it
+                    // sent it for.
+                    apply_input(c, *fleet);
                     const auto result = fleet->take_over(c.aircraft, swap.aircraft);
                     if (const auto* now = std::get_if<std::uint8_t>(&result)) {
                         c.aircraft = *now;
@@ -1692,6 +1721,7 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                     swap.aircraft == c.aircraft &&
                     (swap.to == glideslope::net::Controller::ai ||
                      swap.to == glideslope::net::Controller::person)) {
+                    apply_input(c, *fleet);
                     (void)fleet->hand(c.aircraft, swap.to == glideslope::net::Controller::ai);
                 }
             }
@@ -1948,6 +1978,11 @@ int run(const Options& o) {
             }
             owed -= n;
             stepped += n;
+            for (auto& connection : connections) {
+                connection.second.steps_into_input += n;
+                // Heard in this pass: flown from the next step.
+                apply_input(connection.second, *fleet);
+            }
         }
         last = now;
 
@@ -1995,6 +2030,11 @@ int run(const Options& o) {
                 packet.yours = c.aircraft != glideslope::net::no_aircraft
                                    ? fleet->motion_of(c.aircraft)
                                    : std::nullopt;
+                // And how far into its newest input the server had flown it.
+                if (packet.yours) {
+                    packet.yours->steps_into_input = static_cast<std::uint16_t>(
+                        std::min<std::int64_t>(c.steps_into_input, 65535));
+                }
                 // And the watched aircraft's controls, if it watches one.
                 packet.watched = c.watching != glideslope::net::no_aircraft
                                      ? fleet->controls_of(c.watching)

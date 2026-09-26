@@ -681,6 +681,7 @@ prediction can be put right (see "Predicting your own aircraft" below):
 | `f32` x4 | its attitude, a unit quaternion from north-east-down to the body, scalar first |
 | `f32` x3 | its velocity relative to the Earth along its own axes - forward, right, down - metres a second |
 | `f32` x3 | its rotation rates about those axes - roll, pitch, yaw - radians a second |
+| `u16` | how many steps of 1/120 s the server had flown it on the newest input it had applied, when it took this motion - from `0000`, the input applied and not yet flown, to `FFFF`, which is that many or more |
 
 A flag other than `00` or `01`, or a NaN or infinity in any of the thirteen
 numbers, makes the packet unreadable.
@@ -719,7 +720,7 @@ the server's to hand out.
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
 full, with the client's own motion and a watched aircraft's controls, is
-1,114 bytes, and 1,144 with the
+1,116 bytes, and 1,146 with the
 envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 
@@ -758,9 +759,11 @@ answer at once, and puts it right when the server's word arrives - a round
 trip late. The server's word is the motion at the end of the state update,
 and the newest input sequence it had applied. The client sets its own flight
 model's position, attitude, velocity and rates to that motion, and flies it
-forward again through every input it has sent since that sequence. How far
-that moves the aircraft is the correction; a small one is hidden by blending
-it in, and one larger than about a wingspan is not.
+forward again from the step of its own that the motion was about - see "Where
+the server's word falls on the client's clock" below - through every step it
+has flown since, on the inputs it flew them on. How far that moves the
+aircraft is the correction; a small one is hidden by blending it in, and one
+larger than about a wingspan is not.
 
 **The first update is already a trip old**, so a client should keep the
 inputs it sends before it has heard one, and fly those the server has not
@@ -769,12 +772,27 @@ client's, though, the client is joining rather than predicting: the server
 flew the aircraft for that trip on no input of the client's, and the client
 cannot know how.
 
-**What the server does not say** is how far into its newest input it had
-flown when it took the motion. It flies an input from when that input arrives,
-so an input that jitter makes late is flown late, and a client that assumes
-every input lasted as long as it did on its own screen is wrong by up to the
-aeroplane's speed times the jitter and an input's length: at 50 m/s, 60 ms of
-jitter and inputs thirty a second, 5 m.
+**Where the server's word falls on the client's clock.** The server flies
+an input from the first step after it is read until the next input is, so an
+input that jitter makes late is flown late, and for longer or shorter than the
+client flew it. The update says how many steps the server had flown on the
+input it names, and its clock says how many steps it had flown in all (the
+clock times 120): so the input began at the server's step `clock x 120 -
+steps into it`. Less the step at which the client began flying that input, that
+is how far the server's clock is behind the client's, plus however late the
+network made that input. The least of it over the last two seconds of updates
+is the clocks' difference - the input that waited least - and the motion is
+about the client's step `clock x 120 - difference`. The client puts its
+aircraft back to the motion there and flies every step after it again.
+
+A client that replayed from the end of the applied input instead - as though
+the server had flown every input exactly as long as it had - was wrong by up
+to the aeroplane's speed times the jitter and an input's length: at 50 m/s, 60
+ms of jitter and inputs thirty a second, 5 m. One that took each input's own
+lateness as the difference, rather than the least, was wrong by the jitter
+alone. For its first second the difference is still coming down as inputs that
+waited less arrive, and each time it does the client is moved by the steps it
+changed by.
 
 **An update can arrive after a newer one** - the network reorders them - and
 a client must not put its aircraft back to it: it has already been put right
