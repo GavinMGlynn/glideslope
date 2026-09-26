@@ -1410,6 +1410,18 @@ set_tests_properties(four_players_joining_in_the_reverse_of_their_keys_order_eac
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_slots)
 
+# **A server behind real time hears all of its clients**: every step made to
+# take 30 ms, four players join and fly. See cmake/server_behind.cmake.
+add_test(NAME a_server_behind_real_time_hears_every_client_and_lets_none_go_that_is_joining
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_behind -DPORT=47899
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_behind.cmake)
+set_tests_properties(a_server_behind_real_time_hears_every_client_and_lets_none_go_that_is_joining
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_behind)
+
 # **A copy of an initiation read after its session has gone makes no second
 # player** - which is how the four-player test once counted six players'
 # aircraft. See cmake/server_initiation_again.cmake.

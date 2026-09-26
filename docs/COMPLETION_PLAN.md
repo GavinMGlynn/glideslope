@@ -354,17 +354,16 @@ Found while implementing something else. Added when found, not when remembered.
       flew. Fixed: the server now drops a handshake it has already taken
       from that address, and tests build that case and a copy from another
       address, each seen to fail. Still
-      open: the hundred Windows debug runs have not been done. The first
-      session went quiet because the runner starved its client of the
-      processor for longer than the test's three-second timeout; the tests
-      that are not about the timeout now use the server's own ten. *Verification:
+      open: the hundred Windows debug runs have not been done. Why the first
+      session went quiet is found: a server behind real time read one
+      datagram a pass, and now reads all that wait. *Verification:
       the cause found, and the test run a hundred times on Windows debug
       without it.*
-- [ ] **A client the server has let go cannot come back**: a client starved
-      of the processor past the timeout is let go, and its handshake sent
-      again is dropped. Nor can a client say it is leaving, so a server
-      notices only by the silence. *Verification: a client stalled past the
-      timeout rejoins by itself, and a client that leaves is let go at once.*
+- [ ] **A client the server has let go cannot come back**: its handshake
+      sent again is dropped as a copy. *Verification: a client stalled past
+      the timeout joins again by itself.*
+- [ ] **A client cannot say it is leaving**, so a server notices only by
+      the silence. *Verification: a client that leaves is let go at once.*
 - [ ] **One player on two addresses flies two aircraft**: a client that
       starts again from a new port while its old session is still live is
       given a second aircraft until the old one times out. *Verification: a

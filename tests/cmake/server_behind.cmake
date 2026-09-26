@@ -1,36 +1,29 @@
-# server_slots.cmake - four players, joining in the reverse of their keys'
-# order, each fly their own aircraft under a number of its own.
+# server_behind.cmake - a server behind real time hears all of its clients.
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli> -DDATA=<data dir>
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
-#         -P server_slots.cmake
+#         -P server_behind.cmake
 #
-# **The situation is built, not hoped for.** A slot is a key's rank among the
-# players present (net/slots.hpp), so a player whose key sorts first moves
-# everybody after them. The server numbered a player's aircraft by the slot it
-# had on arrival, so the next to arrive could be handed a number already
-# flying - two clients then each read one line of the state update as their
-# own, and one aeroplane flew by both. Four fixed keys, joined a second apart
-# from the one that sorts last to the one that sorts first, make every arrival
-# move everybody already in: the worst order, every time. (Their public halves
-# begin f661..., a189..., 6d9d... and 11fc...; the secrets are sha256 of
-# "glideslope slot test player N".)
+# **Built, not waited for.** A server that falls behind real time takes four
+# steps between looks at its socket. Reading one datagram a look, it read some
+# twenty-seven a second on a loaded CI runner while four clients sent a hundred
+# and twenty: the rest waited in its socket or were dropped, and a client still
+# joining went unheard for three seconds and was let go (2026-09-26). Here every
+# step is made to take 30 ms (`--test-step-ms`), which puts the server at about
+# a quarter of real time on any machine, and four clients join and fly
+# as in server_slots.cmake, against a server that lets a client go after three
+# seconds of silence. Every one must be heard: four aircraft, each banked past
+# 90 degrees, nobody let go before they had flown, and the server says it was
+# behind - or the situation was not built.
 #
-# Each client holds full aileron, which rolls its own aeroplane past 90
-# degrees (see server_fly.cmake). **Four different numbers, and four
-# aeroplanes over past 90**, say that each client's inputs flew its own; an
-# aeroplane flown by two clients, or by none, would say otherwise.
-#
-# The server is last in the pipeline so that what it prints is what is read:
-# every aircraft's number and how far it banked. It needs the DEM's tiles, so
-# without the network it reports itself skipped (exit 77), never passed.
+# It needs the DEM's tiles; without the network it reports itself skipped.
 
 cmake_minimum_required(VERSION 3.28)
 
 if(DEFINED CACHE)
     set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
 endif()
-set(_store "${WORK}/slots.sqlite")
+set(_store "${WORK}/behind.sqlite")
 file(REMOVE "${_store}")
 
 execute_process(
@@ -62,11 +55,9 @@ execute_process(
     # Until the last of them has gone, however long a slow machine takes to
     # let them all in: a fixed thirteen seconds stopped a server on CI before
     # the fourth client had flown its aeroplane over.
-    # And with the server's own timeout, not three seconds, which is not
-    # what this tests: a client unheard for three on a loaded runner was let
-    # go and never flew (2026-09-26; see server_behind.cmake).
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --players 4 --data "${DATA}" --store "${_store}"
+            --players 4 --data "${DATA}" --timeout 3 --test-step-ms 30
+            --store "${_store}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
 string(REGEX MATCHALL "number [0-9]+, a player's, banked as far as [0-9]+ degrees"
@@ -92,5 +83,17 @@ foreach(_player IN LISTS _players)
                             "${_out}")
     endif()
 endforeach()
-message(STATUS "four players joined in the worst order and flew aircraft ${_numbers}, "
-               "each past 90 degrees")
+if(NOT _out MATCHES "was ([0-9]+) steps behind at the end")
+    message(FATAL_ERROR "the server did not say how far behind it was:\n${_out}")
+endif()
+set(_behind "${CMAKE_MATCH_1}")
+if(_behind LESS 240)
+    message(FATAL_ERROR "the server was only ${_behind} steps behind: the "
+                        "situation was not built\n${_out}")
+endif()
+if(_out MATCHES "dropped a copy of an initiation")
+    message(FATAL_ERROR "a client's handshake went unheard long enough to be sent "
+                        "again after its session was let go:\n${_out}")
+endif()
+message(STATUS "a server ${_behind} steps behind heard all four players, who flew "
+               "aircraft ${_numbers}, each past 90 degrees")
