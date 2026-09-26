@@ -2,6 +2,23 @@
 
 set(GLIDESLOPE_EXPECT_RUN "${CMAKE_CURRENT_SOURCE_DIR}/cmake/expect_run.cmake")
 
+# **The block every fixed test port comes from: 24700 to 24799.** A fixed
+# port inside the range a system hands out to sockets that ask for none can be
+# taken by a client before its test's server listens on it ("cannot listen on
+# port 47853" on CI, 2026-09-26). Linux hands out 32768 to 60999, macOS and
+# Windows 49152 to 65535; this block is below all three and above the
+# well-known ports. Each test that listens takes its own port from it, and
+# a relay in front of a server takes the next one (server_impaired and
+# server_take_over, at PORT + 1). cmake/test_ports.cmake checks every test's
+# port against this block and against every other test's.
+set(GLIDESLOPE_TEST_PORTS_FIRST 24700)
+set(GLIDESLOPE_TEST_PORTS_LAST 24799)
+add_test(NAME every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two_tests_share_one
+    COMMAND ${CMAKE_COMMAND} -DCTEST=${CMAKE_CTEST_COMMAND} -DBUILD=${CMAKE_BINARY_DIR}
+        -DCONFIG=$<CONFIG> -DFIRST=${GLIDESLOPE_TEST_PORTS_FIRST}
+        -DLAST=${GLIDESLOPE_TEST_PORTS_LAST}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_ports.cmake)
+
 # For the tests that check a committed asset is what its tool makes.
 find_package(Python3 COMPONENTS Interpreter QUIET)
 
@@ -1324,7 +1341,7 @@ add_test(NAME ai_aircraft_keep_flying_with_nobody_connected_and_a_late_client_fi
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_late -DPORT=47863
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_late -DPORT=24763
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_late.cmake)
 set_tests_properties(ai_aircraft_keep_flying_with_nobody_connected_and_a_late_client_finds_them_mid_flight
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1336,7 +1353,7 @@ add_test(NAME a_player_leaving_has_their_aircraft_removed_or_flown_on_by_an_ai_a
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_leave -DPORT=47864
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_leave -DPORT=24764
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_leave.cmake)
 set_tests_properties(a_player_leaving_has_their_aircraft_removed_or_flown_on_by_an_ai_as_the_session_says
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1349,7 +1366,7 @@ add_test(NAME a_clients_inputs_fly_its_aircraft_on_the_server
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_fly -DPORT=47862
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_fly -DPORT=24762
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_fly.cmake)
 set_tests_properties(a_clients_inputs_fly_its_aircraft_on_the_server PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_fly)
@@ -1361,7 +1378,7 @@ add_test(NAME a_client_hears_where_every_aircraft_is
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_state -DPORT=47860
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_state -DPORT=24760
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_state.cmake)
 set_tests_properties(a_client_hears_where_every_aircraft_is PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_state)
@@ -1371,7 +1388,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_state)
 add_test(NAME a_repeated_handshake_initiation_does_not_take_a_live_session_away
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli>
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_duplicate -DPORT=47859
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_duplicate -DPORT=24759
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_duplicate.cmake)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_duplicate)
 
@@ -1384,7 +1401,7 @@ glideslope_configure(glideslope_datagram_check)
 add_test(NAME a_gearstick_client_is_refused_as_not_this_protocol
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCHECK=$<TARGET_FILE:glideslope_datagram_check>
-        -DHELLO=${CMAKE_CURRENT_SOURCE_DIR}/data/gearstick_hello.hex -DPORT=47856
+        -DHELLO=${CMAKE_CURRENT_SOURCE_DIR}/data/gearstick_hello.hex -DPORT=24756
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_gearstick.cmake)
 
 # **A client written from docs/TRANSPORT.md alone completes a session.** It
@@ -1401,7 +1418,7 @@ add_test(NAME a_client_written_from_the_transport_document_alone_completes_a_ses
         -DDOC_CLIENT=$<TARGET_FILE:glideslope_doc_client>
         -DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/doc_client/doc_client.cpp
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_doc_client -DPORT=47855
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_doc_client -DPORT=24755
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_doc_client.cmake)
 set_tests_properties(a_client_written_from_the_transport_document_alone_completes_a_session
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1413,7 +1430,7 @@ add_test(NAME four_players_joining_in_the_reverse_of_their_keys_order_each_fly_t
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_slots -DPORT=47854
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_slots -DPORT=24754
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_slots.cmake)
 set_tests_properties(four_players_joining_in_the_reverse_of_their_keys_order_each_fly_their_own_aircraft
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1425,7 +1442,7 @@ add_test(NAME a_server_behind_real_time_hears_every_client_and_lets_none_go_that
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_behind -DPORT=47899
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_behind -DPORT=24799
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_behind.cmake)
 set_tests_properties(a_server_behind_real_time_hears_every_client_and_lets_none_go_that_is_joining
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1438,7 +1455,7 @@ add_test(NAME a_copy_of_an_initiation_arriving_after_its_session_was_let_go_make
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_again -DPORT=47895
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_again -DPORT=24795
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_initiation_again.cmake)
 set_tests_properties(a_copy_of_an_initiation_arriving_after_its_session_was_let_go_makes_no_second_player
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1450,7 +1467,7 @@ add_test(NAME a_copy_of_an_initiation_from_another_address_arriving_first_does_n
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_elsewhere -DPORT=47897
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_elsewhere -DPORT=24797
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_initiation_elsewhere.cmake)
 set_tests_properties(a_copy_of_an_initiation_from_another_address_arriving_first_does_not_keep_its_client_out
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1462,7 +1479,7 @@ add_test(NAME the_servers_window_shows_the_terminals_dashboard_and_its_drop_butt
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_window -DPORT=47853
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_window -DPORT=24753
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_window.cmake)
 set_tests_properties(the_servers_window_shows_the_terminals_dashboard_and_its_drop_button_drops_a_player
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1488,7 +1505,7 @@ add_test(NAME two_aircraft_on_a_collision_course_collide_on_the_server_and_every
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_collision -DPORT=47852
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_collision -DPORT=24752
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_collision.cmake)
 set_tests_properties(two_aircraft_on_a_collision_course_collide_on_the_server_and_every_client_is_told
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1497,7 +1514,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_collision)
 # **A player takes over an AI aircraft through a worse network with no step,
 # and a player's, or on a server that forbids it, is refused** - at 100 ms and
 # at 200 ms. See cmake/server_take_over.cmake.
-foreach(_net IN ITEMS "100;30;5;21;47890;8" "200;60;10;22;47892;10")
+foreach(_net IN ITEMS "100;30;5;21;24790;8" "200;60;10;22;24792;10")
     list(GET _net 0 _delay)
     list(GET _net 1 _jitter)
     list(GET _net 2 _loss)
@@ -1527,7 +1544,7 @@ glideslope_configure(glideslope_interpolation_check)
 # **Prediction, interpolation and the player limit hold through a network
 # made worse on purpose** - at 100 ms and at 200 ms each way, with jitter and
 # loss. See cmake/server_impaired.cmake.
-foreach(_net IN ITEMS "100;30;5;11;47880;8" "200;60;10;12;47882;10")
+foreach(_net IN ITEMS "100;30;5;11;24780;8" "200;60;10;12;24782;10")
     list(GET _net 0 _delay)
     list(GET _net 1 _jitter)
     list(GET _net 2 _loss)
@@ -1560,7 +1577,7 @@ add_test(NAME an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/swap_wreck -DPORT=47886
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/swap_wreck -DPORT=24786
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_swap_wreck.cmake)
 set_tests_properties(an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1594,7 +1611,7 @@ add_test(NAME every_flag_the_server_prints_in_its_usage_is_one_it_takes
 add_test(NAME the_dashboard_shows_the_round_trip_and_the_traffic_of_a_client_that_stays
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli>
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_ping -DPORT=47858
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_ping -DPORT=24758
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ping.cmake)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_ping)
 
@@ -1604,7 +1621,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_ping)
 add_test(NAME a_server_lets_go_a_client_it_has_not_heard_from_for_its_timeout
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli>
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_timeout -DPORT=47857
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_timeout -DPORT=24757
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_timeout.cmake)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_timeout)
 
@@ -1615,7 +1632,7 @@ add_test(NAME a_server_started_by_systemd_accepts_a_client
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DUNIT=${PROJECT_SOURCE_DIR}/deploy/glideslope-server.service
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/deploy -DPORT=47870
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/deploy -DPORT=24770
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_systemd.cmake)
 set_tests_properties(a_server_started_by_systemd_accepts_a_client PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/deploy)
@@ -1625,7 +1642,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/deploy)
 add_test(NAME the_client_with_the_window_joins_the_server_server_txt_names
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/online -DPORT=47874 -DDRIVER=vulkan
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/online -DPORT=24774 -DDRIVER=vulkan
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_online_window.cmake)
 set_tests_properties(the_client_with_the_window_joins_the_server_server_txt_names
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1636,7 +1653,7 @@ add_test(NAME the_client_with_the_window_flies_the_servers_aircraft_and_draws_th
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_server -DPORT=47884 -DDRIVER=vulkan
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_server -DPORT=24784 -DDRIVER=vulkan
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
 set_tests_properties(the_client_with_the_window_flies_the_servers_aircraft_and_draws_the_others
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1671,7 +1688,7 @@ add_test(NAME the_client_with_the_window_rides_along_in_an_ai_aircraft_and_shows
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/rides_along -DPORT=47888 -DDRIVER=vulkan
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/rides_along -DPORT=24788 -DDRIVER=vulkan
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_rides_along.cmake)
 set_tests_properties(the_client_with_the_window_rides_along_in_an_ai_aircraft_and_shows_its_controls
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1684,7 +1701,7 @@ add_test(NAME the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_alo
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/takes_over -DPORT=47889 -DDRIVER=vulkan
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/takes_over -DPORT=24789 -DDRIVER=vulkan
         -DTAKE_OVER=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_rides_along.cmake)
 set_tests_properties(the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
     PROPERTIES SKIP_RETURN_CODE 77)
@@ -1696,7 +1713,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/takes_over)
 add_test(NAME a_client_started_with_online_reaches_the_server_server_txt_names
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli>
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/online -DPORT=47871
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/online -DPORT=24771
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_online.cmake)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/online)
 
