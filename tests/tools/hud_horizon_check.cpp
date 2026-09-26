@@ -36,7 +36,7 @@
 //     frame_hud.cmake looks for.
 //
 // On a frame too narrow for the text to be clear, the horizon is still whole,
-// drawn over the text where it crosses it. The HUD is judged there only when
+// and crosses the text where it runs through it. The HUD is judged there only when
 // the horizon misses the text block; the frames where it does not are
 // counted, and there must be some, since that is what "too narrow" says.
 //

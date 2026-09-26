@@ -219,10 +219,11 @@ HorizonLine hud_horizon(const HudReadings& readings, int width, int height);
 bool hud_text_clear_of_horizon(int width, int height);
 inline constexpr int hud_narrowest_clear_width = 474;
 
-// The HUD for `readings` on a frame of `width` by `height`: its text, the
-// horizon line, whole, the checklist over its panel, and the credits over
-// their strip, last - both panel and strip over the line wherever it runs. In
-// clip space, drawn over everything else.
+// The HUD for `readings` on a frame of `width` by `height`: the horizon line,
+// whole; the checklist's panel over it; the aircraft's mark, the HUD's text
+// and the checklist over the panel, which dims none of them; and the credits
+// over their strip, last - both panel and strip over the line wherever it
+// runs. In clip space, drawn over everything else.
 Mesh hud_mesh(const HudReadings& readings, int width, int height);
 
 // Text read back from a frame drawn with `layout`: `lines` lines of `columns`

@@ -438,24 +438,28 @@ HorizonLine hud_horizon(const HudReadings& readings, int width, int height) {
 Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     Mesh mesh;
     const TextLayout layout = hud_layout(width, height);
-    add_text(mesh, hud_lines(readings), layout, width, height);
 
-    // The horizon, whole: hud_layout keeps the text clear of it.
+    // The horizon, whole: hud_layout keeps the HUD's text clear of it.
     const HorizonLine h = hud_horizon(readings, width, height);
     add_line(mesh, h.x0, h.y0, h.x1, h.y1, h.thickness, width, height, hud_colour);
+    const std::vector<std::string> checklist =
+        checklist_lines(readings.checklist, width);
+    if (!checklist.empty()) {
+        // The checklist's panel, over the horizon, which shows through it
+        // dimmed rather than crossing the rows; and under everything else,
+        // which it never dims - on a short or narrow frame it reaches the
+        // aircraft's mark and the end of the HUD's longest line.
+        const PixelBox panel = checklist_panel(width, height, checklist.size());
+        add_rect(mesh, panel.left, panel.top, panel.right, panel.bottom, width, height,
+                 {0.0f, 0.0f, 0.0f, 0.5f});
+    }
     // The aircraft's own reference, fixed at the centre.
     const double cx = width / 2.0;
     add_rect(mesh, cx - 3 * layout.scale, height / 2.0 - layout.scale,
              cx + 3 * layout.scale, height / 2.0 + layout.scale, width, height,
              hud_colour);
-    const std::vector<std::string> checklist =
-        checklist_lines(readings.checklist, width);
+    add_text(mesh, hud_lines(readings), layout, width, height);
     if (!checklist.empty()) {
-        // Over its panel, which the horizon shows through dimmed rather than
-        // crossing the rows.
-        const PixelBox panel = checklist_panel(width, height, checklist.size());
-        add_rect(mesh, panel.left, panel.top, panel.right, panel.bottom, width, height,
-                 {0.0f, 0.0f, 0.0f, 0.5f});
         add_text(mesh, checklist, checklist_layout(width, height, checklist.size()),
                  width, height);
     }
