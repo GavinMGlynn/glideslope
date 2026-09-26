@@ -67,19 +67,30 @@ public:
 
     Stage stage() const { return stage_; }
 
-    // **Whether she is still landing**, for an AI given her back after a
-    // pilot had her (sim/controller.hpp): not yet stopped, and either on the
-    // ground still rolling - whoever put her there - or in the air in the
-    // flare, as `fly` decides it, or no higher over where she touched than
-    // the flare begins: a bounce, not a go-around.
-    bool still_landing() const;
+    // **Whether she is still landing on this runway**, for an AI given her
+    // back after a pilot had her (sim/controller.hpp), with the throttle at
+    // `throttle` as she is flown now. Not yet stopped; on the runway -
+    // within `runway_half_width_m` of its centreline, from the flare's
+    // 400 m short of the threshold to its far end, and within 30 degrees of
+    // its heading; and either on the ground, whoever put her there, or in
+    // the air no higher over the ground beneath her than fifty feet - over
+    // where she touched, once she has - and not a go-around, climbing with
+    // the throttle open.
+    bool still_landing(double throttle) const;
     // While the pilot has her, once a step: where she is, and whether and
     // where she touched - so that, given her back, it knows she has landed.
     // Nothing it flies with is moved.
     void watch();
-    // Flown again after the pilot had her: the rates it measures step to step
-    // are measured afresh, not across the gap.
-    void resume();
+    // Flown again after the pilot had her, the throttle at `throttle`: what
+    // its loops carry from step to step - rates, trims, the throttle and the
+    // attitude it last asked for, the brake - starts again from how she is,
+    // not from before the gap.
+    // Where and how she touched, and the autobrake set for the runway left,
+    // are kept: they are the landing's, not the loops'.
+    void resume(double throttle);
+
+    // Runways are not given a width; this is half the widest, 60 m.
+    static constexpr double runway_half_width_m = 30.0;
 
     // Where the aeroplane is with respect to the runway, as the last `fly`
     // saw it.
@@ -125,7 +136,7 @@ private:
     double autobrake_fps2_ = 0.0; // set at the touch, for the runway left
     double brake_ = 0.0;         // held to the autobrake's deceleration
     double last_vg_fps_ = -1.0;  // the last step's groundspeed
-    double decel_fps2_ = 0.0;    // how fast she is slowing, smoothed // what holds a steady bank against the aileron
+    double decel_fps2_ = 0.0;    // how fast she is slowing, smoothed
     double flare_pitch_ = 0.0;
     // The attitude that holds the glidepath, learnt as she flies it; taken
     // from the attitude she has on the first step of the approach.
@@ -134,6 +145,7 @@ private:
     bool touched_ = false;
     double touchdown_pitch_deg_ = 0.0; // held through the rollout while she can fly
     double touchdown_above_m_ = 0.0;   // above the runway as the wheels met it
+    double touchdown_agl_ft_ = 0.0;    // above the ground beneath, as they met it
     // A jet is landed as a jet (the constructor reads it from the model): its
     // nose lowered as soon as it touches, towards `lowering_pitch_deg_`,
     // which falls from the attitude it touched at, and its spoilers out.

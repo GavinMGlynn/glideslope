@@ -96,30 +96,41 @@ void Lander::measure() {
     above_m_ = (s.altitude_ft - runway_.elevation_ft) / feet_per_metre;
 }
 
-bool Lander::still_landing() const {
+bool Lander::still_landing(double throttle) const {
+    const AircraftState s = a_.state();
     // Stopped is over the ground, as `fly` has it.
     if (std::abs(a_.property("velocities/vg-fps")) < 1.0) {
         return false;
     }
-    // Down and rolling, whoever put her down: the rollout finds her there.
-    if (a_.property("gear/wow") > 0.5 || a_.in_water()) {
-        return true;
-    }
-    // In the air: in the flare as `fly` decides it - no higher over the
-    // threshold than the flare begins, and not short of it - or, once she has
-    // touched, no higher over where she touched: a bounce, not a go-around.
-    const AircraftState s = a_.state();
-    const double above_ft = s.altitude_ft - runway_.elevation_ft;
-    if (touched_) {
-        return above_ft - touchdown_above_m_ * feet_per_metre <= speeds_.flare_ft;
-    }
+    // On this runway: along it, across it and pointing down it.
     const double north_m = (s.latitude_deg - runway_.threshold_lat_deg) *
                            metres_per_degree_latitude(runway_.threshold_lat_deg);
     const double east_m = (s.longitude_deg - runway_.threshold_lon_deg) *
                           metres_per_degree_longitude(runway_.threshold_lat_deg);
     const double heading = runway_.heading_deg / degrees;
-    const double along_m = -(east_m * std::sin(heading) + north_m * std::cos(heading));
-    return above_ft <= speeds_.flare_ft && along_m < 400.0;
+    const double past_m = east_m * std::sin(heading) + north_m * std::cos(heading);
+    const double across_m = east_m * std::cos(heading) - north_m * std::sin(heading);
+    if (past_m < -400.0 || past_m > runway_.length_m ||
+        std::abs(across_m) > runway_half_width_m ||
+        std::abs(std::remainder(s.heading_deg - runway_.heading_deg, 360.0)) > 30.0) {
+        return false;
+    }
+    // Down, whoever put her down: the rollout finds her there.
+    if (a_.property("gear/wow") > 0.5 || a_.in_water()) {
+        return true;
+    }
+    // **Climbing with the power on is a go-around**, not a bounce.
+    if (s.climb_rate_fpm > 0.0 && throttle > 0.5) {
+        return false;
+    }
+    // In the flare, floating or bounced: no higher over the ground beneath
+    // her than the fifty feet an approach crosses the threshold at - over
+    // where she touched, once she has. The flare's own height is too low: a
+    // 737 and a Mosquito whose pilot let the stick go in the flare floated
+    // above it with the power off, and were landing all the same.
+    constexpr double screen_ft = 50.0;
+    const double agl_ft = a_.property("position/h-agl-ft");
+    return agl_ft - (touched_ ? touchdown_agl_ft_ : 0.0) <= screen_ft;
 }
 
 bool Lander::notice_the_touch(const AircraftState& s) {
@@ -129,6 +140,7 @@ bool Lander::notice_the_touch(const AircraftState& s) {
         touchdown_pitch_deg_ = s.pitch_deg;
         lowering_pitch_deg_ = s.pitch_deg;
         touchdown_above_m_ = above_m_;
+        touchdown_agl_ft_ = a_.property("position/h-agl-ft");
         touchdown_sink_fpm_ = -s.climb_rate_fpm;
         touchdown_across_m_ = across_m_;
         touchdown_along_m_ = -along_m_;
@@ -141,9 +153,25 @@ void Lander::watch() {
     notice_the_touch(a_.state());
 }
 
-void Lander::resume() {
+void Lander::resume(double throttle) {
+    const AircraftState s = a_.state();
     last_kcas_ = -1.0;
+    kcas_rate_ = 0.0;
     last_vg_fps_ = -1.0;
+    decel_fps2_ = 0.0;
+    // The pilot's throttle and attitude are where the loops begin: the
+    // flare closes the throttle from where it is, and raises the nose from
+    // where it is.
+    last_throttle_ = std::clamp(throttle, 0.0, 1.0);
+    throttle_ = last_throttle_;
+    flare_pitch_ = s.pitch_deg;
+    // Trims learnt against the AI's own controls say nothing about the
+    // pilot's; the brake starts from none and the autobrake finds it, the
+    // hand's pace taking any the pilot had there.
+    pitch_trim_ = 0.0;
+    rudder_trim_ = 0.0;
+    aileron_trim_ = 0.0;
+    brake_ = 0.0;
 }
 
 Controls Lander::fly() {

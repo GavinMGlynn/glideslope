@@ -560,9 +560,17 @@ Found while implementing something else. Added when found, not when remembered.
 - [x] **Taking an aeroplane back on its landing roll does not finish the
       landing**: it is handed the plain autopilot, which never stops it.
       *Verification: an approach taken back on the roll is landed to a stop.*
-      Done 2026-09-27: every landplane, taken back at the touch and at half
-      speed, stops on the runway upright; the flying boat, never still
-      afloat, is left out.
+      Done 2026-09-27: every landplane, taken back at the touch, at half
+      speed or after the pilot's own touch, stops on the runway upright; the
+      flying boat, never still afloat, is left out.
+- [ ] **A landing the pilot flies with no approach given to the AI is
+      still handed the plain autopilot** when the AI takes it back on the
+      roll, and is never stopped. *Verification: an aeroplane landed by
+      hand and taken back on the roll is landed to a stop.*
+- [ ] **An A320 taken at the touch by a pilot who lets the stick go rises
+      4.1 ft after the AI takes her back**, against three for everything
+      else. *Verification: every landplane taken back at the touch rises
+      less than three feet after it.*
 - [ ] **The AI's own touchdown in the 787-8, F-15C and F-35B is a crash by
       the server's rule**: they meet the runway sinking at 700 to 1,100
       ft/min, past the 600 the gear is judged to take. *Verification: every
