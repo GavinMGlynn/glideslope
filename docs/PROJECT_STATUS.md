@@ -235,8 +235,10 @@ are the risks the phase order is built around:
   credits' strip. It is not cut.
 - **Frames under 318 pixels wide.** The panel reaches over the right-hand
   end of the HUD's text block there, but dims nothing of it: the HUD's text
-  is drawn over the panel. Under 312 the checklist's own letters reach into
-  the block, as they did before this, and the two can overlap.
+  is drawn over the panel. The checklist's own letters start at
+  (w + w % 12) / 2 on a frame w wide, inside the block's 156 pixels only
+  where w + w % 12 < 312: every width below 306 (306 to
+  311 are clear). There the two can overlap, as they did before this.
 - **Banked 90 degrees** the horizon stands upright at the middle of the
   frame, left of or on the checklist's first column, crossing no row inside
   it, so the frames stop at 75 degrees of bank.
@@ -256,8 +258,9 @@ under the last. `hud_mesh` draws the horizon, then the panel, then the
 aircraft's mark, the HUD's text and the checklist, then the credits - so the
 panel dims the horizon and nothing else. (The first version drew the HUD's
 text and the mark before the panel; the review found that the panel dimmed
-the end of a 24-character HUD line on frames 312 to 317 wide, and the mark
-on short frames.) The
+the last glyph of a 24-character HUD line wherever w + w % 12 <= 320 - 312
+to 316 wide, and every width below 312 but 311 - and the mark on short
+frames.) The
 horizon under it is no longer the HUD's colour, so it reads as nothing. The
 HUD's approach - keeping the text left of the horizon - does not fit here:
 the checklist is already at one screen pixel a font pixel, and starting it
@@ -276,14 +279,18 @@ exactly as shots are.
   HUD's text block exactly where the frame is at least 318 wide, asserted
   layout by layout: the 41,549,824 layouts narrower (317 widths) reach over
   the block's end, and are held to that count.
-- **Nothing over the panel is dimmed**: at 312x240, 317x200, 360x200 and
-  640x240, with the AI flying to LOOKOUT_POINT so the FLYING line fills its
-  24 columns and the horizon pitched off the frame, the HUD is painted with
-  the checklist and without it. All 4,082 pixels lit without it are lit with
-  it: 16 of them the HUD's text and 50 the mark, under the panel. The test
-  fails if the sizes stop putting either under the panel. Where the panel
-  reaches is geometry, walked at every size above; that it dims neither is
-  draw order, the same at every size.
+- **Nothing over the panel is dimmed**: with the AI flying to
+  LOOKOUT_POINT, so the FLYING line fills its 24 columns, and the horizon
+  pitched off the frame, the HUD is painted with the checklist and without
+  it, and every pixel lit without it must be lit with it. Four sizes, each
+  for what it puts under the panel, each held to its own counts: 312x240,
+  the whole last glyph (16 pixels) and the mark (12); 316x200, the glyph's
+  right-hand column alone (5), the least any width puts under it, and the
+  mark (12); 360x200 and 640x240, the mark alone (12 each). 1,020 pixels
+  lit in each frame, none dimmed. (317x200, in the first version of this,
+  put no glyph pixel under the panel: it starts at 155, the gap after the
+  glyph.) Where the panel reaches is geometry, walked at every size above;
+  that it dims neither is draw order, the same at every size.
 - **1,672 frames**: a nine-item checklist (the most any phase of any
   aircraft has), four ticked, the first too long for its line, on 640x480,
   1280x720, 1920x1080, 800x800, 600x1000, 1080x1920, 474x800 and 360x640.
@@ -308,6 +315,8 @@ pass unchanged.
   [-17, -12) by [20, 37)`.
 - With the HUD's text drawn before the panel: `312x240: the pixel at 151,
   80, lit by the HUD, is dimmed by the checklist's panel`.
+- With 317x200 in place of 316x200: `317x200: 1022 pixels lit, 0 of the
+  text's and 14 of the mark's under the panel, not 1020, 5 and 12`.
 - With the aircraft's mark drawn before the panel: `312x240: the pixel at
   153, 119, lit by the HUD, is dimmed by the checklist's panel`.
 - With the panel starting a cell further left: `318x1: the checklist's panel
