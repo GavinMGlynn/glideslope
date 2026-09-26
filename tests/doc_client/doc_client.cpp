@@ -63,6 +63,7 @@ constexpr std::uint8_t kKindInputs = 0x02;
 constexpr std::uint8_t kKindState = 0x03;
 constexpr std::uint8_t kKindPing = 0x04;
 constexpr std::uint8_t kKindPong = 0x05;
+constexpr std::uint8_t kKindLeaving = 0x06;
 
 const char* refusal_name(std::uint8_t reason) {
     switch (reason) {
@@ -710,7 +711,7 @@ int main(int argc, char** argv) {
         const auto [type, body] = *env;
         if (type == kTypeRefusal) {
             if (d.size() != 7) continue;  // a refusal is always 7 bytes
-            std::printf("refused: %s\n", refusal_name(body[0]));
+            std::fprintf(stderr, "refused: %s\n", refusal_name(body[0]));
             std::fprintf(stderr, "the server refused the handshake: %s\n", refusal_name(body[0]));
             return 1;
         }
@@ -721,7 +722,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "no answer to the handshake\n");
         return 1;
     }
-    std::printf("handshake complete\n");
+    std::fprintf(stderr, "handshake complete\n");
     std::fflush(stdout);
 
     // 3. the first key is ours to send with, the second the server's
@@ -808,16 +809,24 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::printf("state updates received: %llu\n", static_cast<unsigned long long>(updates));
-    if (found) {
-        std::printf("my aircraft is number %u\n", static_cast<unsigned>(mine));
-    } else {
-        std::printf("my aircraft is number none\n");
+    // 8. goodbye: LEAVING, three times, each sealed afresh
+    for (int copy = 0; copy < 3; ++copy) {
+        Writer w;
+        w.u8(kKindLeaving);
+        udp.send(server, sealer.seal(w.data()));
     }
-    std::printf("pings answered: %llu\n", static_cast<unsigned long long>(pings));
-    std::printf("sent %lu input frames, the server applied %lu\n", static_cast<unsigned long>(sequence),
+    std::fprintf(stderr, "said goodbye\n");
+
+    std::fprintf(stderr, "state updates received: %llu\n", static_cast<unsigned long long>(updates));
+    if (found) {
+        std::fprintf(stderr, "my aircraft is number %u\n", static_cast<unsigned>(mine));
+    } else {
+        std::fprintf(stderr, "my aircraft is number none\n");
+    }
+    std::fprintf(stderr, "pings answered: %llu\n", static_cast<unsigned long long>(pings));
+    std::fprintf(stderr, "sent %lu input frames, the server applied %lu\n", static_cast<unsigned long>(sequence),
                 static_cast<unsigned long>(applied));
-    std::printf("my aircraft rolled to %ld degrees\n", std::lround(static_cast<double>(my_roll)));
+    std::fprintf(stderr, "my aircraft rolled to %ld degrees\n", std::lround(static_cast<double>(my_roll)));
 
     if (updates == 0) {
         std::fprintf(stderr, "no state update arrived\n");

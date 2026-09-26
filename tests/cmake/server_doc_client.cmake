@@ -63,17 +63,28 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
+# The server last, so that what it says is what is read; the client says
+# what it did on standard error. The server stops when the client has gone,
+# with a timeout of two minutes it cannot have been let go by: a client that
+# says goodbye as the document says is let go for it.
 execute_process(
-    COMMAND "${SERVER}" --port ${PORT} --seconds 10 --ai 1 --headless
-            --data "${DATA}" --timeout 30 --store "${_store}"
     COMMAND "${DOC_CLIENT}" "127.0.0.1:${PORT}" "${_key}" 8
-    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-if(NOT _rc EQUAL 0)
-    message(FATAL_ERROR "the document's client did not complete a session:\n${_err}\n${_out}")
+    COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
+            --data "${DATA}" --timeout 120 --store "${_store}"
+    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _served ERROR_VARIABLE _out)
+if(NOT _rcs STREQUAL "0;0")
+    message(FATAL_ERROR "the exit codes were ${_rcs}, the document's client's first:\n"
+                        "${_out}\n${_served}")
+endif()
+set(_err "${_out}")
+if(NOT _served MATCHES "let go [0-9.:]+ after it said it was leaving")
+    message(FATAL_ERROR "the server did not let the document's client go for its "
+                        "goodbye:\n${_served}")
 endif()
 
 foreach(_said IN ITEMS "handshake complete" "state updates received: [1-9][0-9]*"
-                       "my aircraft is number [0-9]+" "pings answered: [1-9][0-9]*")
+                       "my aircraft is number [0-9]+" "pings answered: [1-9][0-9]*"
+                       "said goodbye")
     if(NOT _out MATCHES "${_said}")
         message(FATAL_ERROR "the document's client never said '${_said}':\n${_out}\n${_err}")
     endif()

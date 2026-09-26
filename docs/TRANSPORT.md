@@ -5,8 +5,8 @@ byte, so that a third party could write a working client from this document
 alone.
 
 **This describes what exists.** The envelope, the handshake, the sealing,
-inputs, state updates, the keepalive and the goodbye are built and tested, and a client
-written from this document alone - `tests/doc_client/doc_client.cpp`, by
+inputs, state updates, the keepalive and the goodbye are built and tested,
+and a client written from this document alone - `tests/doc_client/doc_client.cpp`, by
 somebody who read it and the Noise specification and nothing else of this
 project - completes a session with the server in `ctest`. The
 section "What is not here yet" at the end says exactly what is missing - the
@@ -618,7 +618,8 @@ would be refused twice by the replay window. The first to arrive lets the
 session go; the copies after it arrive at an address with no session, and are
 answered with `REFUSAL` `BAD_HANDSHAKE`, which a client that has left does not
 read. **If all three are lost**, the server's timeout lets the session go as
-it always did.
+it always did. So a client may leave the goodbye out altogether: it is let go
+all the same, only later, and its slot is held until then.
 
 **A goodbye does not make an initiation new.** A client that comes back from
 the same address after its goodbye must handshake again with a new initiation,
@@ -845,5 +846,6 @@ seal and open datagrams under the keys that handshake agreed, answer the
 server's knocking so that it stays in its slot and the server can measure the
 round trip, **read where every aircraft is 25 times a second, learn what
 aeroplane each one is, and fly its own aircraft by sending inputs**, and say
-goodbye when it leaves, or be let go when it stops. What it cannot do is be told anything else: it never
-learns the lobby, the weather or the terrain dataset.
+goodbye when it leaves, or be let go when it stops. What it cannot do is be
+told anything else: it never learns the lobby, the weather or the terrain
+dataset.

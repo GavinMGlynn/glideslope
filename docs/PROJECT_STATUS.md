@@ -235,8 +235,8 @@ before. A crashed client sends none. **A client the server has let go still
 cannot come back** by sending its old handshake again - the sibling tail;
 this does not fix it, because a goodbye ends the session the same way the
 timeout does, and a client that returns must make a new initiation either
-way. The client written from `TRANSPORT.md` alone (`tests/doc_client`) does
-not say goodbye; the document makes it optional.
+way. The document says a client may leave its goodbye out, since the
+timeout covers it.
 
 **The wire.** A new kind inside the seal, `LEAVING` (`06`), whose whole
 plaintext is that one byte - a 31-byte datagram sealed. `docs/TRANSPORT.md`
@@ -270,8 +270,10 @@ of its frame loop.
 - `a_client_that_says_it_is_leaving_is_let_go_at_once`
   (`tests/cmake/server_goodbye.cmake`, `said`): a client stays 3 s and says
   goodbye to a server with a **two-minute** timeout, running `--until-empty`.
-  It must be let go by its goodbye no sooner than its stay and within 3 s
-  after it, and never "of silence". Here: 3.006 s after admission; the
+  It must be let go by its goodbye no sooner than its stay (no upper bound
+  on the clock but the timeout: a slow runner may take its time over the
+  forger's second session),
+  and never "of silence". Here: 3.006 s after admission; the
   server stopped 3.0 s in. **Seen to fail** with the server ignoring
   `LEAVING`: let go of silence after the two minutes.
 - `a_goodbye_from_another_address_or_session_lets_nobody_go` (`forged`): the
@@ -301,6 +303,13 @@ of its frame loop.
   (here 36.9 s after admission, which is the client's whole run on a
   software GPU). **Seen to fail**, in 167 s, with `ClientSession::leave` made
   to send nothing. The second run costs the test about 25 s.
+
+- `a_client_written_from_the_transport_document_alone_completes_a_session`:
+  the client written from `TRANSPORT.md` now says goodbye, three times, and
+  its server runs `--until-empty` with a two-minute timeout, last in the
+  pipeline so that its log is read (the client's report moved to standard
+  error for that). The server must say it let the client go for its goodbye.
+  **Seen to fail**, after 131 s, with the send left out.
 
 **What it saves.** The multi-client tests that run their server
 `--until-empty` no longer wait out its timeout after their last client has

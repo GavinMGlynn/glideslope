@@ -1593,11 +1593,10 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         c.last_heard_s = now_s;
         ++c.datagrams;
         c.bytes_in += datagram.size();
-        // **What is inside the seal.** Its first byte says which kind it is.
-        // Two kinds are built; the rest are named in `net/inside.hpp` and
-        // arrive from nothing, so they are ignored rather than refused - a
-        // client of a later version may send one and must not be dropped for
-        // it.
+        // **What is inside the seal.** Its first byte says which kind it is:
+        // one of the six in `net/inside.hpp`. A kind this version does not
+        // know is ignored rather than refused - a client of a later version
+        // may send one and must not be dropped for it.
         if (opened->empty() || !glideslope::net::known_inside((*opened)[0])) {
             return;
         }
