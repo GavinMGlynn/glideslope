@@ -26,6 +26,7 @@
 #include "flight.hpp"
 #include "online.hpp"
 #include "platform/end_process.hpp"
+#include "platform/stop.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
@@ -527,6 +528,11 @@ static int run_program(int argc, char** argv) {
         SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "offscreen");
     }
 #endif
+    // **Told to stop, it stops** - whatever it is waiting on
+    // (platform/stop.hpp). SDL's own handlers would turn the signal into a
+    // quit event, read only between frames, so SDL installs none.
+    glideslope::platform::catch_stop_signals();
+    SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK)) {
         std::fprintf(stderr, "glideslope: SDL did not start: %s\n", SDL_GetError());
         return 1;
@@ -942,6 +948,9 @@ static int run_program(int argc, char** argv) {
         // The frame loop keeps the session from here.
         kept_alive.reset();
         while (running) {
+            if (glideslope::platform::stop_requested()) {
+                break;
+            }
             if (online && !(joined && flight)) {
                 // In a session without an aircraft: kept, and nothing more.
                 online->idle(seconds_since_start());
@@ -1106,6 +1115,9 @@ static int run_program(int argc, char** argv) {
             }
             if (terrain) {
                 draws = terrain->update(camera, o.width, o.height, shot_now);
+                if (glideslope::platform::stop_requested()) {
+                    break; // told to stop while it waited: no frame, and no shot
+                }
             }
             if (flight && flight->weather_report() != nullptr &&
                 flight->weather_report()->air_seed != sky_of) {
@@ -1368,6 +1380,10 @@ static int run_program(int argc, char** argv) {
         SDL_DestroyWindow(window);
     }
     SDL_Quit();
+    if (glideslope::platform::stop_requested()) {
+        std::fputs("glideslope: stopped, as it was told to\n", stderr);
+        return glideslope::platform::stop_status();
+    }
     return status;
 }
 

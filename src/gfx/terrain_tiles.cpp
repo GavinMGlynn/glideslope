@@ -4,7 +4,8 @@
 #include "world/json.hpp"
 
 #include "gfx/terrain_colour.hpp"
-#include "platform/http.hpp"
+#include "platform/paths.hpp"
+#include "platform/stop.hpp"
 
 #include <Cesium3DTilesContent/registerAllTileContentTypes.h>
 #include <Cesium3DTilesSelection/BoundingVolume.h>
@@ -383,6 +384,10 @@ private:
 
 class PlatformAccessor final : public CesiumAsync::IAssetAccessor {
 public:
+    // Every transfer is given up once `closing` is raised: see ~TerrainTiles.
+    explicit PlatformAccessor(std::shared_ptr<const std::atomic<bool>> closing)
+        : closing_(std::move(closing)) {}
+
     CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
     get(const CesiumAsync::AsyncSystem& async, const std::string& url,
         const std::vector<THeader>& headers) override {
@@ -428,8 +433,8 @@ public:
             }
         }
         return async.runInWorkerThread(
-            [verb, url, only_get,
-             sent]() -> std::shared_ptr<CesiumAsync::IAssetRequest> {
+            [verb, url, only_get, sent,
+             closing = closing_]() -> std::shared_ptr<CesiumAsync::IAssetRequest> {
                 auto request = std::make_shared<Request>(verb, url);
                 if (!only_get) {
                     std::fprintf(stderr,
@@ -443,6 +448,7 @@ public:
                     q.user_agent =
                         "glideslope (+https://github.com/GavinMGlynn/glideslope)";
                     q.headers = sent;
+                    q.abandon = closing.get();
                     request->set(platform::http_get(q));
                 } catch (const platform::HttpError& e) {
                     std::fprintf(stderr, "glideslope: %s: %s\n", url.c_str(), e.what());
@@ -454,6 +460,8 @@ public:
     void tick() noexcept override {}
 
 private:
+    std::shared_ptr<const std::atomic<bool>> closing_;
+
     class Response final : public CesiumAsync::IAssetResponse {
     public:
         explicit Response(platform::HttpResponse r) : response_(std::move(r)) {
@@ -1180,6 +1188,8 @@ constexpr std::int64_t google_photorealistic_asset = 2275207; // through ion
 
 struct TerrainTiles::Impl {
     std::shared_ptr<std::atomic<int>> requests = std::make_shared<std::atomic<int>>(0);
+    // Raised as the terrain closes: every transfer still going is given up.
+    std::shared_ptr<std::atomic<bool>> closing = std::make_shared<std::atomic<bool>>(false);
     std::atomic<std::size_t> failures{0};
     std::atomic<std::size_t> skipped{0};
     bool imagery = false;
@@ -1302,9 +1312,12 @@ struct IonEndpoint {
 // an Authorization header, which goes nowhere near that code.
 IonEndpoint ion_endpoint(std::int64_t asset, const std::string& token) {
     platform::HttpRequest q;
-    q.url = "https://api.cesium.com/v1/assets/" + std::to_string(asset) +
+    q.url = platform::cesium_ion_api() + "/v1/assets/" + std::to_string(asset) +
             "/endpoint?access_token=" + token;
     q.user_agent = "glideslope (+https://github.com/GavinMGlynn/glideslope)";
+    // Asked on the main thread, before there is a terrain to close: a
+    // program told to stop gives it up.
+    q.abandon = &platform::stop_flag();
     const platform::HttpResponse response = platform::http_get(q);
     if (response.status != 200) {
         throw std::runtime_error(
@@ -1383,7 +1396,7 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
     // What is fetched, through the platform's HTTPS, kept in Cesium Native's
     // SQLite cache for as long as its caching headers allow.
     std::shared_ptr<CesiumAsync::IAssetAccessor> accessor =
-        std::make_shared<PlatformAccessor>();
+        std::make_shared<PlatformAccessor>(impl_->closing);
     if (!options.cache_file.empty()) {
         std::error_code error;
         std::filesystem::create_directories(options.cache_file.parent_path(), error);
@@ -1584,10 +1597,14 @@ std::vector<std::optional<double>> TerrainTiles::heights_at(
         // The answer needs tiles, which need the workers, whose results are
         // taken up here: waiting on the future alone would wait for ever.
         constexpr int rounds = 1200; // at 50 ms, a minute at most
-        for (int round = 0; round < rounds && !asked.isReady(); ++round) {
+        for (int round = 0;
+             round < rounds && !asked.isReady() && !platform::stop_requested(); ++round) {
             impl_->tileset->loadTiles();
             impl_->async.dispatchMainThreadTasks();
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        if (platform::stop_requested()) {
+            return out; // told to stop: what is known, and no more waiting
         }
         if (!asked.isReady()) {
             continue; // not this time; the loading above carries on regardless
@@ -1673,6 +1690,14 @@ Imagery open_imagery() {
 }
 
 TerrainTiles::~TerrainTiles() {
+    // **Every transfer still going is given up first.** What follows waits
+    // for the tileset's loads and for every request in flight, and a tile
+    // server that answers and then never finishes - a body a byte at a time
+    // defeats every stall timeout there is - kept that wait going for ever:
+    // the program never ended, and held its cache open while it did not
+    // (a tail, and tests/cmake/ion_stalled.cmake). Nothing is waiting for
+    // what they would bring, so each ends at once as a failed request.
+    impl_->closing->store(true);
     // Cesium Native finishes destroying a tileset on the main thread, freeing
     // each tile's meshes as it goes.
     auto destroyed = impl_->tileset->getAsyncDestructionCompleteEvent();
@@ -1740,7 +1765,8 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
         std::size_t was_deepest = 0;
         std::size_t was_held = 0;
         int steady = 0;
-        for (int round = 0; round < rounds; ++round) {
+        // A program told to stop does not wait for its terrain to settle.
+        for (int round = 0; round < rounds && !platform::stop_requested(); ++round) {
             const auto& loading = tileset.updateViewGroup(group, {view}, 0.0f);
             tileset.loadTiles();
             // What the workers finished has to be taken up here: the offline

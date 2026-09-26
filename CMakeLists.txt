@@ -302,7 +302,8 @@ add_library(glideslope_platform STATIC
     src/platform/store.cpp
     src/platform/paths.cpp
     src/platform/memory.cpp
-    src/platform/socket.cpp)
+    src/platform/socket.cpp
+    src/platform/stop.cpp)
 target_include_directories(glideslope_platform PUBLIC src)
 # HTTPS through what each system trusts - see src/platform/http.hpp.
 if(WIN32)

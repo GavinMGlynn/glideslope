@@ -35,6 +35,9 @@ namespace {
 // A GET, or a POST of `body` where there is one.
 HttpResponse perform(const HttpRequest& request, const std::string* body) {
     refuse_unsafe_headers(request);
+    if (abandoned(request)) {
+        throw HttpError(request.url + ": given up before it began");
+    }
     HttpResponse response;
     std::string failure;
     @autoreleasepool {
@@ -82,10 +85,22 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
                     dispatch_semaphore_signal(done);
                   }];
             [task resume];
-            dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+            // Waited on a tenth of a second at a time, so that an abandoned
+            // request is cancelled: its completion then comes, as an error.
+            bool given_up = false;
+            while (dispatch_semaphore_wait(
+                       done, dispatch_time(DISPATCH_TIME_NOW,
+                                           static_cast<std::int64_t>(100 * NSEC_PER_MSEC))) != 0) {
+                if (!given_up && abandoned(request)) {
+                    given_up = true;
+                    [task cancel];
+                }
+            }
             [session finishTasksAndInvalidate];
 
-            if (error != nil) {
+            if (given_up) {
+                failure = "given up, unfinished";
+            } else if (error != nil) {
                 failure = error.localizedDescription.UTF8String;
             } else if (![answer isKindOfClass:[NSHTTPURLResponse class]]) {
                 failure = "not an HTTP response";

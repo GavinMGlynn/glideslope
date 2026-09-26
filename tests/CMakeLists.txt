@@ -778,6 +778,14 @@ if(WIN32)
     target_link_libraries(glideslope_http_stub PRIVATE ws2_32)
 endif()
 glideslope_configure(glideslope_http_stub)
+# A Cesium ion that says where its terrain is and never sends it, and a check
+# that a cache file takes a write at once (tests/cmake/ion_stalled.cmake).
+add_executable(glideslope_ion_stall tools/ion_stall.cpp)
+target_link_libraries(glideslope_ion_stall PRIVATE unofficial::sqlite3::sqlite3)
+if(WIN32)
+    target_link_libraries(glideslope_ion_stall PRIVATE ws2_32)
+endif()
+glideslope_configure(glideslope_ion_stall)
 add_executable(glideslope_hud_check tools/hud_check.cpp)
 target_link_libraries(glideslope_hud_check PRIVATE glideslope_gfx)
 add_executable(glideslope_hud_lines_check tools/hud_lines_check.cpp)
@@ -953,6 +961,29 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/terrain_provider.cmake)
         set_tests_properties(the_${_provider}_terrain_draws_with_its_attribution_or_says_why_not_on_${_driver}
             PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
+    endforeach()
+    # **A `--terrain ion` run whose tiles never arrive still ends** - left to
+    # itself, and told to by SIGTERM, as `timeout` tells it - and leaves its
+    # cache free for the next. Against a stand-in on the loopback, so no
+    # network or token is needed. Windows has no SIGTERM; see the script.
+    set(_endings itself)
+    if(NOT WIN32)
+        list(APPEND _endings term)
+    endif()
+    foreach(_how IN LISTS _endings)
+        if(_how STREQUAL "itself")
+            set(_name a_terrain_ion_run_whose_tiles_never_arrive_ends_by_itself_and_leaves_its_cache_unlocked_on_${_driver})
+        else()
+            set(_name a_terrain_ion_run_whose_tiles_never_arrive_is_gone_soon_after_sigterm_and_leaves_its_cache_unlocked_on_${_driver})
+        endif()
+        add_test(NAME ${_name}
+            COMMAND ${CMAKE_COMMAND}
+                -DPROGRAM=$<TARGET_FILE:glideslope> -DSTALL=$<TARGET_FILE:glideslope_ion_stall>
+                -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+                -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DHOW=${_how}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ion_stalled.cmake)
+        set_tests_properties(${_name}
+            PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
     endforeach()
     # How far each provider's drawn terrain is from the ground the aircraft
     # meets, at the twelve surveyed runway ends. The bound each is held to is
