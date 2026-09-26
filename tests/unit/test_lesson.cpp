@@ -677,8 +677,8 @@ GLIDESLOPE_TEST(the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief) {
 // well. **Rotated early** is the stick fully back from 85 percent of the
 // speed the book begins her rotation at, held until her main wheels leave
 // the runway and then handed back to the take-off autopilot. Hauled off
-// early, the A380 comes off at 138 knots and settles back before leaving
-// for good at 155, which is what rotating early does to an aeroplane; the
+// early, the A380 comes off at 137 knots and settles back before leaving
+// for good at 153, which is what rotating early does to an aeroplane; the
 // first lift-off is printed beside the last. Each is flown at the loading
 // its take-off lesson flies her at.
 GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early) {

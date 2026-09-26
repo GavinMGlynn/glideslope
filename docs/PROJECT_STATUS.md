@@ -234,14 +234,19 @@ are the risks the phase order is built around:
   speed in its figures, so `sim::departure_speeds` refuses them, as before.
   The Short S.23 is a flying boat and is not rotated. All three are named in
   the test with their reasons.
-- **Hauled off early, the A380 settles back.** She leaves the runway at 138
-  knots, touches again and leaves for good at 155, three short of her
-  rotation speed. That is what rotating early does, and it is still sooner
-  than by the book; the test prints the first lift-off beside the last.
-- **The F-15C leaves 9.2 knots past its rotation speed**, inside the ten
-  allowed but not by much. Its rotation speed is 1.15 times its landing
-  stall at its take-off flap; the flight manual's lift-off is 157 knots at
-  the same weight, so the model's rotation speed is itself high.
+- **Hauled off early, the A380 and the A320 settle back.** The A380 leaves
+  the runway at 137 knots, touches again and leaves for good at 153, four
+  short of her rotation speed. That is what rotating early does, and it is
+  still sooner than by the book; the test prints the first lift-off beside
+  the last.
+- **The F-15C leaves at 178 knots, 21 past its flight manual's 157**: 4.5
+  past the model's rotation speed, which is itself high - 1.15 times its
+  landing stall at its take-off flap. It was 9.2 past, 0.8 inside the ten
+  allowed; the rotation's lead now counts the 0.45 s a pull takes to build
+  (from the review), and every aeroplane is within 6.5 knots of its speed.
+- **The bomber lesson's climbing band now reaches 35 knots below its
+  climbing speed**, not 20: rotated to be off at its speed, the B-2A is
+  accelerated in the climb and is at 201 knots at 200 ft against 230.
 - **Only the business-jet and wartime-twin take-off lessons judge the
   lift-off speed five feet above where she stood**; the others still judge
   it fifteen feet above the runway (below).
@@ -274,6 +279,16 @@ are the risks the phase order is built around:
 - **Below 35 ft the nose is never pushed below the attitude she stands at**
   (level, for a tail-wheel aeroplane), whatever asks - letting a hop down or
   the incidence limit.
+- **Off the wheels in the rotation she is flown**, banked back towards the
+  centreline, not steered by the rudder with her wings held level: at its
+  model's own weight the PA-28 floats in ground effect before it is clear,
+  and skidded 6.2 m off the centreline
+  (`every_light_aircraft_takes_itself_off_and_climbs_away`, 5 m allowed); now
+  3.3 m.
+- **The rotation's lead counts the 0.45 s a pull takes to build**: every
+  aeroplane left 0.4 to 0.5 s later than aimed, and the F-15C, gaining 13
+  knots a second, 9.2 knots past its rotation speed; now 4.5, and 4.9 at its
+  model's own loading.
 - **The take-off trim is taken off once she is flying**, a tenth of its
   travel a second, into the elevator's trim: it had been handed to the
   autopilot and kept, and at 350 knots the Learjet's elevator sat at 0.94
@@ -292,6 +307,13 @@ by more than ten knots, and every Learjet loading handing on its take-off
 trim. (The Learjet's own loading did not wreck on level ground in that run;
 its wreck was on the DEM, from 16R.)
 
+**The review's tail, in part the same cause and fixed here**: the 737-300's
+AI take-off at its model's own loading on level ground, wrecked at about 30 s,
+was flown at the rotation speed of a far heavier 737 and lifted itself off in
+the roll; with its speeds for its weight it climbs away, and the new test
+flies every aeroplane's take-off at its model's loading, as the AI does
+(`sim::Controller` flies `sim::Departure`). The Learjet, the Mosquito and
+the B-2A wrecks in `fly-plan` from 16R were this PR's and are fixed.
 **Not this item's, and a tail**: from 16R on the DEM, the 737-300, the A320
 and the F-15C are still wrecked on the roll with the stick neutral - the
 collision ground under the runway pitches them up. It is on main as well.
@@ -315,19 +337,19 @@ away.
 
 | Aircraft | Rotation speed, kt | Off by the book, kt | Off rotated early, kt |
 | --- | --- | --- | --- |
-| 737-300 | 150.9 | 155.3 (+4.3) | 133.0 |
-| 787-8 | 174.0 | 177.4 (+3.4) | 152.4 |
-| A320 | 144.2 | 145.7 (+1.5) | 122.8 |
-| A380 | 157.3 | 160.5 (+3.2) | 154.5 (first 137.5) |
-| B-2A | 109.7 | 116.2 (+6.4) | 95.7 |
-| C172P | 55.6 | 57.9 (+2.3) | 46.5 |
-| C182 | 57.5 | 59.4 (+1.9) | 54.6 |
-| F-15C | 173.7 | 182.9 (+9.2) | 153.2 |
-| F-35B | 189.0 | 197.3 (+8.3) | 167.3 |
-| J-3 Cub | 37.9 | 38.4 (+0.5) | 32.5 |
-| Learjet 35A | 125.3 | 128.2 (+2.9) | 114.3 |
-| Mosquito FB VI | 120.7 | 117.0 (-3.8) | 94.9 |
-| PA-28 | 47.8 | 54.8 (+7.0) | 48.6 |
+| 737-300 | 150.9 | 153.5 (+2.6) | 130.8 |
+| 787-8 | 174.0 | 176.2 (+2.2) | 151.6 |
+| A320 | 144.2 | 144.0 (-0.2) | 127.0 (first 121.2) |
+| A380 | 157.3 | 159.4 (+2.1) | 153.4 (first 136.7) |
+| B-2A | 109.7 | 113.7 (+4.0) | 94.0 |
+| C172P | 55.6 | 57.0 (+1.4) | 45.5 |
+| C182 | 57.5 | 58.1 (+0.6) | 54.5 |
+| F-15C | 173.7 | 178.2 (+4.5) | 150.0 |
+| F-35B | 189.0 | 193.2 (+4.2) | 168.4 |
+| J-3 Cub | 37.9 | 37.9 (-0.1) | 32.4 |
+| Learjet 35A | 125.3 | 125.9 (+0.6) | 114.3 |
+| Mosquito FB VI | 120.7 | 116.6 (-4.1) | 98.1 |
+| PA-28 | 47.8 | 54.3 (+6.5) | 48.6 |
 
 **The models** (made by their scripts, whose docstrings say why; a test
 fails if the committed files differ):
