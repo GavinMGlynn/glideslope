@@ -18,8 +18,11 @@
 // she is still landing - rolling, bouncing, or in the flare - is given that
 // approach's lander back, to land her to the stop with the brakes, the
 // spoilers and the centreline, not the plain autopilot, which holds what she
-// is doing and would never stop her. Its controls come from where the pilot left them at
-// the same hand's pace, so taking her back steps nothing either.
+// is doing and would never stop her. Its controls come from where the pilot
+// left them at the same hand's pace, so taking her back steps nothing either.
+// **One way, and this landing only**: the first step the pilot has her that
+// she is not still landing on that runway - a go-around, a turn off, a stop -
+// the lander is dropped, and a take-back after it is the plain autopilot.
 
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
@@ -111,8 +114,9 @@ private:
     std::optional<Departure> departure_;
     std::optional<Lander> lander_;
     // The approach's lander while the pilot has her, kept from the hand-over
-    // so a take-back on its landing roll can finish it; dropped when the AI
-    // is given her again, for this or for anything else.
+    // so a take-back on its landing roll can finish it; dropped the first
+    // step she is not still landing, and when the AI is given her again, for
+    // this or for anything else.
     std::optional<Lander> landing_;
     // The lander's controls, reached from the pilot's at a hand's pace after
     // a take-back on the roll.

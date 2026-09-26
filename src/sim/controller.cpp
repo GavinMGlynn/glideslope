@@ -66,8 +66,8 @@ void Controller::to_ai() {
     // bounce - after an approach the AI flew: the approach's own lander is
     // given her back and goes on from where it was, knowing where she touched
     // and the autobrake it set for the runway left, to the stop.
-    if (landing && landing->still_landing()) {
-        landing->resume();
+    if (landing && landing->still_landing(pilot_.throttle)) {
+        landing->resume(applied_.throttle);
         lander_.emplace(std::move(*landing));
         easing_in_ = true;
     }
@@ -155,6 +155,9 @@ Controls Controller::fly() {
     }
     if (landing_) {
         landing_->watch();
+        if (!landing_->still_landing(pilot_.throttle)) {
+            landing_.reset();
+        }
     }
     if (catching_up_) {
         // Every control on its way to where the pilot has it.
