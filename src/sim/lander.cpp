@@ -530,18 +530,28 @@ Controls Lander::fly() {
         // get it by sinking faster than the path: twelve degrees, which the
         // F-35B needs at its reference speed, took 2,000 ft/min of error. A
         // light aeroplane flies the path near level and never showed it. The
-        // attitude is learnt, slowly, while the correction is not at a limit,
-        // and the limit is fifteen degrees, not ten.
+        // attitude is learnt, slowly, while the correction is not at a limit.
+        //
+        // **The limit is twenty degrees, above what any aeroplane here needs
+        // on the path.** It was fifteen, and the F-35B at its landing weight
+        // trims to sixteen and a half on the path at its reference speed:
+        // held two degrees below it, she sank under the glidepath, and with
+        // her nose at the limit no correction could bring her back. Handed
+        // the approach from a circuit seven hundred feet under the path, she
+        // sank at 630 ft/min all the way down final and touched two
+        // kilometres short of the runway, at 165 knots; started on the path,
+        // 142 metres short. No other aeroplane comes near fifteen.
+        constexpr double most_path_pitch_deg = 20.0;
         if (!path_pitch_set_) {
             path_pitch_ = s.pitch_deg;
             path_pitch_set_ = true;
         }
         want_pitch = path_pitch_ + 0.006 * fpm_error;
-        if (want_pitch > -8.0 && want_pitch < 15.0) {
+        if (want_pitch > -8.0 && want_pitch < most_path_pitch_deg) {
             path_pitch_ = std::clamp(path_pitch_ + 0.0006 * fpm_error / steps_per_second,
-                                     -8.0, 15.0);
+                                     -8.0, most_path_pitch_deg);
         }
-        want_pitch = std::clamp(want_pitch, -8.0, 15.0);
+        want_pitch = std::clamp(want_pitch, -8.0, most_path_pitch_deg);
         flare_pitch_ = s.pitch_deg;
 
         // The speed, on the throttle - **and the path too, once the nose has
