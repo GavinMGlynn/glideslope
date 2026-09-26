@@ -24,12 +24,15 @@
 # into any of them - the test fails.
 
 # **Each test names its own Cesium cache.** Cesium Native keeps its cache in
-# one SQLite file, and `CesiumAsync::SqliteCache` turns on WAL but never sets
-# a busy timeout, so a second writer is refused at once - "database is locked"
-# - and the entry is simply not stored. Up to four client tests run at once
-# against one CACHE directory, so each is given a file of its own, named after
-# the script running it and the things that tell its runs apart. They stay in
-# CACHE, so each test still finds its own cache on the next run.
+# one SQLite file, and `CesiumAsync::SqliteCache` alone refused a second
+# writer at once - "database is locked" - and did not store the entry. The
+# client now opens it through gfx::open_cesium_cache, which waits for the
+# other writer instead, so sharing a file costs nothing but the wait
+# (two_programs_writing_one_cesium_cache_at_once_both_store_everything). The
+# names were the first fix and are kept, so that each test finds only its own
+# fetches: a file per test, named after the script running it and the things
+# that tell its runs apart, in CACHE, so each still finds it on the next run.
+# The names below are no longer what keeps a run from being refused.
 #
 # **So does VIEW**, since the view test became one test a view: the seven ran
 # at once against one file and three were refused on macOS the first time.

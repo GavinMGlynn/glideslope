@@ -227,6 +227,77 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Programs sharing one Cesium cache each store everything, 2026-09-27 — tail in progress
+
+**What is not yet shown first**: the verification asks for the whole suite
+at `-j4` ten times over with no locked cache, and those runs are still going;
+the figures are added here as they come. The fix and its test are in.
+
+**Why names were not enough.** Each rendering test was given a cache file
+of its own on 2026-09-22, and the lock came back as tests were added: the
+names are made from the things a script's cases differ by, and three times a
+new case differed by something the name did not carry (the view, the
+imagery, riding along against taking over) - a rule kept by hand, in one
+script, against every test anyone adds. Which pair collided on 2026-09-22 was
+not recorded and could not be recovered; on today's tree every program that
+opens a Cesium cache is the client run through `tests/cmake/client.cmake` or
+`ion_stalled.cmake`, and the watch below found no two sharing one. So the fix
+is not a better name but a cache that two programs can share, which makes a
+name that collides cost a wait instead of a lost entry.
+
+**Two faults in `CesiumAsync::SqliteCache`, not one**, read out of Cesium
+Native and then each shown by the test below:
+
+- *No busy timeout*, as found on 2026-09-22: a write that meets another
+  program's is refused at once. With nothing waiting, the two writers stored
+  0 and 63 of their 200 entries, and Cesium Native logged "database is
+  locked" 337 times.
+- *A busy timeout alone does not save a lookup.* `getEntry` steps its lookup
+  and, with the statement still open, updates the entry's last-used time
+  (`SqliteCache.cpp:422`) - a write from inside a read transaction, which
+  SQLite refuses at once, without calling any busy handler, when another
+  program holds the lock or has written since the read began. The hit is
+  returned as a miss and fetched again. And the lookup is never reset, so
+  the read stays open until the next one. With a busy handler set and each
+  statement reset after the call, both writers stored all 200 and one read
+  back only 191.
+
+**The fix is outside Cesium Native** (`src/gfx/cesium_cache.{hpp,cpp}`; the
+vendored code is untouched). `gfx::open_cesium_cache` registers an
+`sqlite3_auto_extension` - the documented way to reach a connection opened
+inside code that is not ours - which, only on a thread opening or calling
+into one of these caches, gives the connection a busy handler that waits up
+to `cesium_cache_wait` (10 s) for another writer. The cache it returns wraps
+`SqliteCache`: each call runs inside `BEGIN IMMEDIATE ... COMMIT`, which
+takes the write lock with no transaction open - the one place SQLite does
+wait - and afterwards resets any statement left open. If the extension never
+sees the connection open, opening the cache throws rather than quietly
+refusing a second writer again. `TerrainTiles` opens its cache through it.
+The per-test names in `client.cmake` are kept, so each test finds only its
+own fetches, but they are no longer what keeps a run from being refused.
+
+**The collision is built, not hoped for**:
+`two_programs_writing_one_cesium_cache_at_once_both_store_everything`
+(`tests/cmake/cesium_cache_collision.cmake`, `tests/tools/cache_collision.cpp`).
+Two writer processes each store a seed and read it back, so each holds the
+stale read that broke the lookups; a third process then takes the file's
+write lock and writes a row, so every read before it is stale, and does not
+let go until both writers are waiting on it - each writer's thread watching
+the cache's count of waits says so the moment its first store waits. The
+writers first check, with a connection that does not wait, that the file
+really is held. Then each stores 200 entries against the other, reading each
+back between stores, and a fresh open counts all 201 of each. It fails if
+either's first store did not wait (so a run that did not collide is red, not
+green), if anything is missing, or if "database is locked" appears at all.
+It takes 0.3 s. **Seen to fail** both ways above: with the busy handler
+removed (0 and 63 of 200 stored), and with the handler but no transaction
+round each call (191 of 200 read back).
+
+**No two processes shared a cache file in the suite runs below**, watched
+rather than assumed: a script beside each run read every process's open
+files ten times a second and logged any `.sqlite` under the build open by
+two processes, or twice by one.
+
 ### Every landplane leaves the runway at its rotation speed, and sooner rotated early, 2026-09-26 — item done
 
 **What is missing first.**
@@ -11849,11 +11920,13 @@ Found while implementing something else. Added when found, not when remembered.
       cache file of its own on 2026-09-22, which fixed the case then seen.
       Adding nine tests changed how `ctest -j4` interleaves them and two
       rendering tests failed on "database is locked" again, each with its own
-      named file - so a file per test is not enough. `CesiumAsync::SqliteCache`
-      turns on WAL and sets no busy timeout, so any concurrent access is
-      refused at once rather than waited for. The drawing itself was right in
-      both runs: the failing one still put 100% of its drawn pixels inside the
-      projected outline.
+      named file - so a file per test is not enough. **Fixed in code,
+      2026-09-27**: `gfx::open_cesium_cache` makes the cache wait for another
+      program's write and never leave a read open, so programs can share one
+      file; `two_programs_writing_one_cesium_cache_at_once_both_store_everything`
+      builds the collision and was seen to fail both without the wait and
+      without the transaction. **Still open: the ten suite runs** of the
+      verification - see the log entry of 2026-09-27 for how many are done.
       *Verification: the whole suite run at `-j4` reports no locked cache,
       ten times over.*
 

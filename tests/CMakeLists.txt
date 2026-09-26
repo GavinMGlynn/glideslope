@@ -863,6 +863,17 @@ add_executable(glideslope_terrain_check tools/terrain_check.cpp)
 # Cesium Native's image decoder reads the imagery's JPEG tiles.
 target_link_libraries(glideslope_terrain_check PRIVATE glideslope_gfx CesiumImage)
 glideslope_configure(glideslope_terrain_check)
+# **Programs sharing one Cesium cache each store everything** - the collision
+# built on purpose, with a third program holding the file until both writers
+# wait on it (tests/cmake/cesium_cache_collision.cmake).
+add_executable(glideslope_cache_collision tools/cache_collision.cpp)
+target_link_libraries(glideslope_cache_collision PRIVATE glideslope_gfx CesiumAsync
+                                                         unofficial::sqlite3::sqlite3)
+glideslope_configure(glideslope_cache_collision)
+add_test(NAME two_programs_writing_one_cesium_cache_at_once_both_store_everything
+    COMMAND ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:glideslope_cache_collision>
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR} -DCOUNT=200
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cesium_cache_collision.cmake)
 
 foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
     add_test(NAME the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
