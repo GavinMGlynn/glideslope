@@ -107,7 +107,7 @@ constexpr double most_pitch_deg = 15.0;
 // **The pull-out is held under 1.6 g**, below the 2 g the airworthiness rules
 // require with the flaps out (14 CFR 23.345, 25.345): past it the nose goes
 // down 10 degrees below where it is for each g over. The aeroplane's response
-// lags the command, so what is measured is a little more - up to 2.21 g in
+// lags the command, so what is measured is a little more - up to 2.23 g in
 // the Mosquito, which the stall test names.
 constexpr double pitch_per_knot_short = 0.5;
 constexpr double pitch_integral_per_knot_short = 0.05;
@@ -445,10 +445,11 @@ Controls Autopilot::fly() {
     const bool on_speed = modes_.speed_on_elevator && modes_.airspeed_kts.has_value();
     if (on_speed) {
         const double short_kts = *modes_.airspeed_kts - kts;
-        const double path_deg = degrees(std::asin(std::clamp(
-            a_.property("velocities/h-dot-fps") /
-                std::max(a_.property("velocities/vt-fps"), 1.0),
-            -1.0, 1.0)));
+        // The flight path as the wing sees it: the pitch less the angle of
+        // attack, which is the path itself with the wings level.
+        const double theta_deg = a_.property("attitude/theta-deg");
+        const double alpha_deg = a_.property("aero/alpha-deg");
+        const double path_deg = theta_deg - alpha_deg;
         if (!was_on_speed_) {
             // Engaged from the pitch commanded now, which is the pitch that
             // was holding the aeroplane: short of the speed, the law asks for
@@ -456,13 +457,13 @@ Controls Autopilot::fly() {
             speed_integral_deg_ = pitch_command_deg_;
         }
         // **The wing is kept below the angle it stalled at**: the pitch may
-        // be no more than the flight path plus that angle, which is the
-        // angle of attack with the wings level. A speed alone does not
+        // be no more than the pitch now less the angle of attack past that
+        // angle. A speed alone does not
         // unload a wing: an A320 diving out of a stall at 156 knots, past
         // the speed it was asked for, was held at 27 degrees of alpha with
         // the elevator full up, still stalled and sinking 10,000 ft/min.
-        const double wing_limit_deg = path_deg + stall_alpha_deg_;
-        const bool stalled = a_.property("aero/alpha-deg") >= stall_alpha_deg_;
+        const double wing_limit_deg = theta_deg - (alpha_deg - stall_alpha_deg_);
+        const bool stalled = alpha_deg >= stall_alpha_deg_;
         // The floor is lowered only while the aeroplane is short of its
         // speed or its wing is stalled - while it is recovering; otherwise
         // the envelope is the one every mode keeps.
@@ -480,7 +481,10 @@ Controls Autopilot::fly() {
         // allowed with its flaps down - it waits there for the speed.
         const double load_g = a_.property("accelerations/Nz");
         if (load_g >= pull_out_most_g) {
-            pitch_wanted = std::min({pitch_wanted, pitch_command_deg_, a_.property("attitude/theta-deg") - pitch_per_g_over * (load_g - pull_out_most_g)});
+            pitch_wanted =
+                std::max(std::min({pitch_wanted, pitch_command_deg_,
+                                   theta_deg - pitch_per_g_over * (load_g - pull_out_most_g)}),
+                         steepest_unload_deg);
         }
         const double pitch_next = std::clamp(pitch_wanted,
                                              pitch_command_deg_ - unload_rate_degps * dt,

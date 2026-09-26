@@ -67,6 +67,16 @@ struct AutopilotModes {
     // the speed it will put the nose as far down as the flight path, to 30
     // degrees, at any height. A recovery started too low for that ends in
     // the ground.
+    //
+    // **It keeps the wing below the angle of attack it stalls at, which the
+    // autopilot learns by watching** - the angle at the greatest lift it has
+    // seen since the flaps or gear last moved - because nothing tells it
+    // where a model's lift peaks. Before the aeroplane has flown past that
+    // peak the angle it knows is lower than the real one, and the recovery
+    // unloads the wing further than it need: safe, at the cost of height.
+    // An autopilot engaged on an aeroplane already stalled has seen only the
+    // stalled wing, less lift at more angle; as the nose comes down the lift
+    // rises back through its peak and the angle is learned on the way.
     bool speed_on_elevator = false;
 };
 
