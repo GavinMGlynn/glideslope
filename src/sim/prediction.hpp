@@ -124,6 +124,8 @@ private:
     // The step each input still held, or still to be put right from, began on.
     std::map<std::uint32_t, std::uint64_t> began_;
     std::uint64_t steps_ = 0;
+    // The input the last step was flown on.
+    std::uint32_t flying_ = 0;
     // The clocks' difference each recent word implied, newest last.
     std::deque<std::int64_t> offsets_;
 };

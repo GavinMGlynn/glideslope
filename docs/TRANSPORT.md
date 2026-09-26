@@ -34,6 +34,10 @@ Said first, because a transport's limits matter more than its features.
   secret.
 - **It does not negotiate.** One suite, one version. A datagram of another
   version is refused rather than downgraded to.
+- **It does not keep the version with the layout, yet.** Until a first
+  release, a message's layout changes without the version changing, so a build
+  of another day may not read today's updates - it refuses them as the wrong
+  length, and says nothing more useful.
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 

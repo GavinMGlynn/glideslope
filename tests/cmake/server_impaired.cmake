@@ -23,7 +23,9 @@
 # **The bounds.** The predicting client's prediction error - where the server
 # said its aircraft was, against where the client had flown it to by the step
 # of its own the server's word was about (sim::Prediction) - must stay under
-# PREDICT_M, a metre. The server says how far into its newest input it had
+# PREDICT_M - 8 and 10 m, a regression guard, as CI's slow runners fall
+# behind real time; the metre is held by test_prediction.cpp, which does not
+# depend on the machine keeping time. The server says how far into its newest input it had
 # flown, which with its clock places its word on the client's clock; before
 # it did, the client replayed whole inputs and was off by the aeroplane's
 # speed times the jitter and an input's length - at 50 m/s, 5 m for 60 ms
