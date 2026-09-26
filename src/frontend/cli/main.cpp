@@ -149,7 +149,18 @@ void print_usage(std::FILE* out) {
         "                            --hand-over-at S asks, S seconds in, for its own\n"
         "                            aircraft to be handed to the AI pilot, and\n"
         "                            --take-back-at S for it back; predicting, it says\n"
-        "                            how far what it showed of its own stepped then\n"
+        "                            how far what it showed of its own stepped then;\n"
+        "                            with --long-frame-after-switch it draws nothing\n"
+        "                            for 0.4 s after the third frame after each switch,\n"
+        "                            a test's long frame, and says how many it built;\n"
+        "                            --late-update-after-take-over hears the last\n"
+        "                            update from before each take-over again after it,\n"
+        "                            as a network that reorders them would\n"
+        "                            --take-over-at S asks, S seconds in, to take over\n"
+        "                            the AI aircraft it watches, or else the first -\n"
+        "                            or --take-over-aircraft N, whichever that is,\n"
+        "                            and with --once-the-ai-flies-it, not before an\n"
+        "                            update shows the AI flying it\n"
         "                            --watch-ai rides along in an AI's aircraft: told\n"
         "                            its controls, and with --track, writes them\n"
         "                            --dive-after S flies its own into the ground, S\n"
@@ -954,10 +965,21 @@ public:
                         worst_error_at_s_ = local_s;
                     }
                     ++compared_;
+                    // **After a take-over, apart**: updates the server can
+                    // only have sent if it is flying the aircraft taken over
+                    // by this client's inputs.
+                    if (taken_over_ > 0 && !resuming_) {
+                        worst_error_since_m_ = std::max(worst_error_since_m_, error);
+                        ++compared_since_;
+                    }
                 }
                 predicted_at_.erase(predicted_at_.begin(),
                                     predicted_at_.upper_bound(state.last_input_applied));
                 const auto c = prediction_->reconcile(m, state.last_input_applied);
+                // **A correction small enough to hide is hidden** - taken up
+                // over the next frames, as sim/prediction.hpp says - and one
+                // too large is shown as the jump it is.
+                corrected_ = !c.snapped;
                 answered_ = answered_ || state.last_input_applied > 0;
                 if (resuming_ && state.last_input_applied >= resumed_from_) {
                     resuming_ = false;
@@ -967,6 +989,9 @@ public:
                 worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
                 if (c.snapped) {
                     ++snapped_;
+                    if (taken_over_ > 0) {
+                        ++snapped_since_;
+                    }
                 }
             }
         }
@@ -991,6 +1016,33 @@ public:
                 others_[a.index].received(r);
             }
         }
+    }
+
+    // **Another aircraft taken over** (`CONTROLLER_SWAP` to this client, for
+    // an AI's): it is this client's own now, predicted from the next update
+    // with its motion, as after a take-back - and what is shown of it moves
+    // on from where it was being drawn as another, not from where the one
+    // left behind was.
+    void taken_over(std::uint8_t number, std::uint32_t sequence) {
+        const auto last = last_shown_.find(number);
+        if (last != last_shown_.end() && last->second.first && last->second.second) {
+            shown_before_before_ = last->second.first;
+            shown_before_ = last->second.second;
+        }
+        // What it had of that aircraft as another carries on as its own.
+        const auto was_other = others_.find(number);
+        own_shown_ = was_other != others_.end() ? was_other->second
+                                                 : glideslope::net::Interpolated{};
+        others_.erase(number);
+        ai_flying_ = false;
+        ++taken_over_;
+        resuming_ = true;
+        resumed_from_ = sequence + 1;
+        prediction_.reset();
+        aircraft_.reset();
+        before_.clear();
+        predicted_at_.clear();
+        switching_ = true;
     }
 
     // **Its own aircraft handed to the AI pilot, or taken back**, as the
@@ -1058,6 +1110,20 @@ public:
             if (shown.extrapolating()) {
                 ++extrapolated_;
             }
+            {
+                // Its last two frames, for taking it over without a step.
+                auto& last = last_shown_[index];
+                last.first = last.second;
+                // Moving as its path moves, per second of this machine's
+                // clock - not as the update reports, which a blend back from
+                // a guess differs from by up to 20 m/s - so that a take-over
+                // blends from where it was going (review, 2026-09-26).
+                const std::array<double, 3> here = ecef(got.north_m, got.east_m, got.down_m);
+                const std::array<double, 3> path = shown.path_velocity();
+                const double rate = clock_.known() ? clock_.rate() : 1.0;
+                last.second = Shown{here, local_s, here,
+                                    velocity(path[0] * rate, path[1] * rate, path[2] * rate)};
+            }
             if (track_) {
                 // Where it was drawn, back in the Earth-centred frame, and the
                 // session time it was drawn as being at.
@@ -1070,45 +1136,179 @@ public:
     }
 
     void track_to(std::ostream& out) { track_ = &out; }
+    void long_frame_after_switch() { long_frame_after_switch_ = true; }
 
     // **Where its own aircraft is shown this frame**: predicted while this
     // client flies it, drawn from the updates while the AI does, and blended
-    // across a switch. The step measured is the second difference of what is
-    // shown from frame to frame - nought for an aircraft moving smoothly, and
-    // the size of any jump - at a switch and everywhere else.
+    // across a switch. The step measured is how far what is shown is from
+    // where the frame before it, carried on part by part, puts it, and the
+    // blend's own pace - nought for an aircraft moving smoothly, whatever the
+    // frames' timing, and the size of any jump - at a switch and everywhere
+    // else.
     void own_frame(double now, double local_s) {
         std::optional<std::array<double, 3>> at;
-        if (!ai_flying_ && prediction_) {
+        // Predicted while this client flies it; drawn from the updates while
+        // the AI does, and until its prediction starts again after a
+        // take-back or a take-over - nothing drawn then would leave a gap the
+        // blend afterwards would start from.
+        const bool predicted = !ai_flying_ && prediction_ != nullptr;
+        // And how fast it moves, as its own flight model or the updates say.
+        std::array<double, 3> v_at{};
+        constexpr double m_per_ft = 0.3048;
+        if (predicted) {
             at = aircraft_->motion().location_ecef_m;
-        } else if (ai_flying_ && own_shown_.known() && origin_) {
+            // Its flight model's north, east and down are where it is, not
+            // at the session's origin: turned there, 100 km off they would
+            // be a degree out.
+            const glideslope::world::Geodetic here =
+                glideslope::world::to_geodetic({(*at)[0], (*at)[1], (*at)[2]});
+            v_at = turned_to_ecef(here.latitude_deg, here.longitude_deg,
+                                  aircraft_->property("velocities/v-north-fps") * m_per_ft,
+                                  aircraft_->property("velocities/v-east-fps") * m_per_ft,
+                                  aircraft_->property("velocities/v-down-fps") * m_per_ft);
+        } else if (own_shown_.known() && origin_) {
             const glideslope::net::RemoteState r = own_shown_.at(now);
             at = ecef(r.north_m, r.east_m, r.down_m);
+            // Drawn from the updates, it moves as the interpolation between
+            // them moves it - which in a turn, or with jitter, is not the
+            // velocity an update reports - so the path's own, as the
+            // interpolation says it, per second of this machine's clock.
+            // Guessed from where it was a frame ago instead, a jump between
+            // two frames was counted again, larger, at the next long one.
+            const std::array<double, 3> path = own_shown_.path_velocity();
+            const double rate = clock_.known() ? clock_.rate() : 1.0;
+            v_at = velocity(path[0] * rate, path[1] * rate, path[2] * rate);
         }
         if (!at) {
             return;
         }
-        if (switching_ && shown_before_) {
-            // What was shown, less where it now is: taken up over blend_s.
+        // **For a test: a long frame just after a switch**, as a runner that
+        // stalls draws one, where anything carried on wrongly shows. With
+        // `--long-frame-after-switch`, nothing is drawn for 0.4 s after the
+        // third frame after a switch - the client goes on flying, sending and
+        // hearing all the while; only the drawing waits. The third, not the
+        // first: the frames before it are what show a blend too quick, which
+        // a long frame at once would have covered - a blend of a millisecond
+        // passed. Each is counted, so a test can say every switch had one.
+        if (long_frame_after_switch_ && frames_since_switch_ == 3 && shown_before_) {
+            if (local_s - shown_before_->s < 0.4) {
+                if (!building_long_frame_) {
+                    building_long_frame_ = true;
+                    ++long_frames_;
+                }
+                return;
+            }
+            // One the machine made long enough by itself is one all the same.
+            if (!building_long_frame_) {
+                ++long_frames_;
+            }
+        }
+        building_long_frame_ = false;
+        // **A blend wherever what it is shown from changes** - predicted, or
+        // drawn from the updates - and at a take-over, where the aircraft
+        // itself does.
+        const bool switched = switching_ || predicted != shown_predicted_;
+        // **Where the last frame carries it now**: shown there, moving as it
+        // was moving then - its own velocity and the blend's, both known, not
+        // guessed from the frames' positions. Guessed, a jump between two
+        // frames and a long frame after carried the aircraft 399 m. What a
+        // blend starts from, and what the step is measured against.
+        std::optional<std::array<double, 3>> carried;
+        if (shown_before_) {
+            const Shown& b = *shown_before_;
+            const double dt = local_s - b.s;
+            const double left_now = left_at(local_s, b.blend_from_s, b.blend_over_s, b.eased);
+            carried = std::array<double, 3>{};
             for (std::size_t i = 0; i < 3; ++i) {
-                blend_[i] = (*shown_before_)[i] - (*at)[i];
+                (*carried)[i] = b.source[i] + b.v[i] * dt + b.blend[i] * left_now;
+            }
+        }
+        // A switch is measured as one whether or not anything is blended
+        // across it: were the blend what marked it, taking the blend away
+        // would take the measurement with it. The first frame of all, with
+        // nothing shown before it, is not a switch.
+        if (switched && shown_before_) {
+            // One overtaken by another before its long frame came - a
+            // take-back is two, a frame or two apart, when prediction starts
+            // again - has the next one's instead, and is counted as such.
+            if (switches_ > 0 && frames_since_switch_ < 3) {
+                ++overtaken_;
+            }
+            frames_since_switch_ = 0;
+            ++switches_;
+        }
+        if ((switched || corrected_) && carried) {
+            // **From where it was going, not where it was**: a blend started
+            // from the last frame shown holds the aircraft still for a frame,
+            // a step as big as its speed times the time between frames - 5.5 m
+            // at 55 m/s and a 100 ms frame - at every switch and correction.
+            for (std::size_t i = 0; i < 3; ++i) {
+                blend_[i] = (*carried)[i] - (*at)[i];
             }
             blend_from_s_ = local_s;
-            switching_ = false;
-            frames_since_switch_ = 0;
+            blend_over_s_ = switched ? blend_s : glideslope::sim::correction_blend_s;
+            blend_eased_ = switched;
         }
-        const double left = std::max(0.0, 1.0 - (local_s - blend_from_s_) / blend_s);
+        switching_ = false;
+        corrected_ = false;
+        shown_predicted_ = predicted;
+        // **A switch eased in and out**, so that its speed changes smoothly at
+        // both ends as well; a correction, restarted with every update, is
+        // taken up at a steady rate, since easing would hold each back longer.
+        const double left = left_at(local_s, blend_from_s_, blend_over_s_, blend_eased_);
         std::array<double, 3> shown{};
         for (std::size_t i = 0; i < 3; ++i) {
             shown[i] = (*at)[i] + blend_[i] * left;
         }
-        if (shown_before_ && shown_before_before_) {
+        // **The step is measured against time, not frames**: how far what is
+        // shown is from where the last frame, moving as it was, carries it. A
+        // second difference of positions frame by frame counted uneven frames
+        // as steps - 60 m/s drawn 10 ms and then 100 ms apart is 5.4 m of it,
+        // with nothing stepping at all - and a slow Windows debug build draws
+        // unevenly (2026-09-26). It is nought at a steady speed whatever the
+        // frames' timing.
+        //
+        // **And the blend's own motion is counted too**, at the pace it went
+        // this frame over a sixtieth of a second: carried on along its own
+        // curve, a blend cancels out of the difference above, and one that
+        // crossed the whole gap in a single frame read as nought. A long frame
+        // does not make a smooth blend a step - its pace is what counts - and
+        // the pace is over the part of the frame it was going in, so that a
+        // blend over within a frame counts whole however long the frame: paced
+        // over the whole frame, a blend of a millisecond in a 100 ms one would
+        // read 1.8 m.
+        if (carried && shown_before_before_) { // from the third frame of all
+            const Shown& b = *shown_before_;
+            const double left_then = left_at(b.s, b.blend_from_s, b.blend_over_s, b.eased);
+            const double left_now = left_at(local_s, b.blend_from_s, b.blend_over_s, b.eased);
+            const double going_s =
+                std::min(local_s, b.blend_from_s + b.blend_over_s) - std::max(b.s, b.blend_from_s);
+            const double over_a_frame = going_s > 0.0 ? std::min(1.0, (1.0 / 60.0) / going_s) : 1.0;
             double step = 0.0;
+            double strayed = 0.0; // the source from where it was carried
+            double blended = 0.0; // the blend's own motion, as counted
+            double speed = 0.0;   // the velocity it was carried at
             for (std::size_t i = 0; i < 3; ++i) {
-                const double d = shown[i] - 2.0 * (*shown_before_)[i] + (*shown_before_before_)[i];
+                const double moved = b.blend[i] * (left_now - left_then) * over_a_frame;
+                const double d = shown[i] - (*carried)[i] + moved;
                 step += d * d;
+                strayed += (shown[i] - (*carried)[i]) * (shown[i] - (*carried)[i]);
+                blended += moved * moved;
+                speed += b.v[i] * b.v[i];
             }
             step = std::sqrt(step);
-            if (frames_since_switch_ <= 2) {
+            if (frames_since_switch_ <= 4) { // to the frame after a long one
+                if (step > worst_step_at_switch_m_) {
+                    // What made it, so that a failure far away says so.
+                    char what[256];
+                    std::snprintf(what, sizeof what,
+                                  "frame %d after a switch, %.0f ms long, %s: %.3f m from "
+                                  "where it was carried at %.1f m/s, the blend moving %.3f m",
+                                  frames_since_switch_, (local_s - b.s) * 1000.0,
+                                  predicted ? "predicted" : "drawn from the updates",
+                                  std::sqrt(strayed), std::sqrt(speed), std::sqrt(blended));
+                    worst_step_what_ = what;
+                }
                 worst_step_at_switch_m_ = std::max(worst_step_at_switch_m_, step);
             } else {
                 worst_step_otherwise_m_ = std::max(worst_step_otherwise_m_, step);
@@ -1116,7 +1316,8 @@ public:
         }
         ++frames_since_switch_;
         shown_before_before_ = shown_before_;
-        shown_before_ = shown;
+        shown_before_ = Shown{shown,         local_s,       *at,          v_at, blend_,
+                              blend_from_s_, blend_over_s_, blend_eased_};
     }
 
     // What it found, as the lines it says: a test reads them from the file
@@ -1135,12 +1336,30 @@ public:
                       "%.1f s in",
                       compared_, worst_error_m_, joining_.size(), worst_error_at_s_);
         lines.emplace_back(line);
-        if (handed_over_ + taken_back_ > 0) {
+        if (handed_over_ + taken_back_ + taken_over_ > 0) {
             std::snprintf(line, sizeof line,
-                          "own aircraft: handed to the AI %zu times and taken back %zu; the "
-                          "largest step at a switch %.3f m, and otherwise %.3f m",
-                          handed_over_, taken_back_, worst_step_at_switch_m_,
+                          "own aircraft: handed to the AI %zu times, taken back %zu and another "
+                          "taken over %zu; the largest step at a switch %.3f m, and otherwise "
+                          "%.3f m",
+                          handed_over_, taken_back_, taken_over_, worst_step_at_switch_m_,
                           worst_step_otherwise_m_);
+            lines.emplace_back(line);
+            if (!worst_step_what_.empty()) {
+                lines.emplace_back("the largest step at a switch: " + worst_step_what_);
+            }
+        }
+        if (long_frame_after_switch_) {
+            std::snprintf(line, sizeof line,
+                          "long frames: one of 0.4 s built after %zu of %zu switches, and %zu "
+                          "overtaken by another before theirs",
+                          long_frames_, switches_, overtaken_);
+            lines.emplace_back(line);
+        }
+        if (taken_over_ > 0) {
+            std::snprintf(line, sizeof line,
+                          "after the take-over: %zu updates compared, the worst %.3f m, %zu "
+                          "corrections too large to hide",
+                          compared_since_, worst_error_since_m_, snapped_since_);
             lines.emplace_back(line);
         }
         std::snprintf(line, sizeof line, "interpolated: %zu aircraft drawn, %zu of them carried on "
@@ -1197,7 +1416,23 @@ private:
             std::sin(lat) * z;
     }
 
-    // The other way: north-east-down about the origin back to Earth-centred.
+    // A velocity in the session's local frame, north, east and down about
+    // its origin, turned into the Earth-centred one.
+    std::array<double, 3> velocity(double n, double e, double d) const {
+        return turned_to_ecef(origin_->latitude_deg, origin_->longitude_deg, n, e, d);
+    }
+    // North, east and down where the latitude and longitude are, turned into
+    // the Earth-centred frame.
+    static std::array<double, 3> turned_to_ecef(double latitude_deg, double longitude_deg,
+                                                double n, double e, double d) {
+        const double lat = latitude_deg * 3.14159265358979323846 / 180.0;
+        const double lon = longitude_deg * 3.14159265358979323846 / 180.0;
+        return {-std::sin(lat) * std::cos(lon) * n - std::sin(lon) * e -
+                    std::cos(lat) * std::cos(lon) * d,
+                -std::sin(lat) * std::sin(lon) * n + std::cos(lon) * e -
+                    std::cos(lat) * std::sin(lon) * d,
+                std::cos(lat) * n - std::sin(lat) * d};
+    }
     std::array<double, 3> ecef(double n, double e, double d) const {
         const double lat = origin_->latitude_deg * 3.14159265358979323846 / 180.0;
         const double lon = origin_->longitude_deg * 3.14159265358979323846 / 180.0;
@@ -1230,13 +1465,45 @@ private:
     std::uint32_t resumed_from_ = 0;
     double settled_at_s_ = 0.0;
     bool switching_ = false;
+    bool shown_predicted_ = false;
+    bool corrected_ = false;
+    double blend_over_s_ = 0.5;
     glideslope::net::Interpolated own_shown_;
-    std::optional<std::array<double, 3>> shown_before_;
-    std::optional<std::array<double, 3>> shown_before_before_;
+    // What was shown, and when, as its parts: the source it was shown from
+    // and how fast that moved, and the blend on it. Carried on, each part
+    // moves by its own rule - the source at its velocity, the blend as the
+    // blend goes - where one velocity for the whole missed an eased blend's
+    // curve over a long frame by metres.
+    struct Shown {
+        std::array<double, 3> at;
+        double s = 0.0;
+        std::array<double, 3> source{};
+        std::array<double, 3> v{}; // the source's velocity, m/s
+        std::array<double, 3> blend{};
+        double blend_from_s = 0.0;
+        double blend_over_s = 1.0;
+        bool eased = false;
+    };
+    // How much of a blend is left at `t`.
+    static double left_at(double t, double from_s, double over_s, bool eased) {
+        const double gone = std::clamp((t - from_s) / over_s, 0.0, 1.0);
+        return eased ? 1.0 - gone * gone * (3.0 - 2.0 * gone) : 1.0 - gone;
+    }
+    std::optional<Shown> shown_before_;
+    std::optional<Shown> shown_before_before_;
+    bool long_frame_after_switch_ = false;
+    bool building_long_frame_ = false;
+    std::size_t long_frames_ = 0;
+    std::size_t switches_ = 0;
+    std::size_t overtaken_ = 0;
+    std::string worst_step_what_;
+    bool blend_eased_ = false;
     std::array<double, 3> blend_{};
     double blend_from_s_ = -1.0e9;
     int frames_since_switch_ = 1000;
     std::size_t handed_over_ = 0;
+    std::size_t taken_over_ = 0;
+    std::map<std::uint8_t, std::pair<std::optional<Shown>, std::optional<Shown>>> last_shown_;
     std::size_t taken_back_ = 0;
     double worst_step_at_switch_m_ = 0.0;
     double worst_step_otherwise_m_ = 0.0;
@@ -1244,6 +1511,9 @@ private:
     std::optional<double> reconciled_s_;
     std::map<std::uint32_t, std::array<double, 3>> predicted_at_;
     std::size_t compared_ = 0;
+    std::size_t compared_since_ = 0;
+    std::size_t snapped_since_ = 0;
+    double worst_error_since_m_ = 0.0;
     std::vector<std::uint32_t> joining_;
     bool answered_ = false;
     double worst_error_m_ = 0.0;
@@ -1260,19 +1530,31 @@ int stay(glideslope::platform::UdpSocket& socket,
          std::span<const std::uint8_t> initiation_again, bool fly, const std::string& me,
          const std::string& heard_file, int until_flying_again,
          bool predict, const std::string& track_file, double hand_over_at_s,
-         double take_back_at_s, double dive_after_s, bool watch_ai) {
+         double take_back_at_s, double dive_after_s, bool watch_ai,
+         double take_over_at_s, int take_over_aircraft, bool take_over_once_ai,
+         bool long_frame_after_switch, bool late_update_after_take_over) {
     // A client that predicts flies a pilot of its own (Predicting::pilot).
     std::optional<Predicting> predicting;
     if (predict) {
         predicting.emplace();
+        if (long_frame_after_switch) {
+            predicting->long_frame_after_switch();
+        }
         fly = true;
     }
     // **What must arrive**: the server's reliable messages, acknowledged,
     // and what each aircraft is, said as it is heard.
     glideslope::net::Reliable reliable;
     std::uint8_t mine = glideslope::net::no_aircraft;
+    std::optional<double> newest_state_s;
+    std::vector<std::uint8_t> before_take_over;
+    std::optional<std::vector<std::uint8_t>> hear_again;
     bool asked_to_hand_over = false;
     bool asked_to_watch = false;
+    bool asked_to_take_over = false;
+    std::uint8_t ai_to_take = glideslope::net::no_aircraft;
+    // Whether an update has shown the AI flying it (`--once-the-ai-flies-it`).
+    bool ai_flies_it = false;
     bool asked_to_take_back = false;
     // **Stay until what is waited for is heard** (`--until-flying-again N`):
     // a test waiting for a collision and the flying again after it waits for
@@ -1427,6 +1709,17 @@ int stay(glideslope::platform::UdpSocket& socket,
                 asked_to_take_back = true;
                 ask(glideslope::net::Controller::person);
             }
+            if (take_over_at_s >= 0.0 && up_s >= take_over_at_s && !asked_to_take_over &&
+                ai_to_take != glideslope::net::no_aircraft &&
+                (!take_over_once_ai || ai_flies_it)) {
+                asked_to_take_over = true;
+                glideslope::net::ControllerSwap swap;
+                swap.aircraft = ai_to_take;
+                swap.to = glideslope::net::Controller::person;
+                const std::vector<std::uint8_t> body = glideslope::net::write(swap);
+                (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                say_heard("asked to take over aircraft " + std::to_string(ai_to_take));
+            }
         }
         // Acknowledgements of what must arrive, when any are owed.
         for (const std::vector<std::uint8_t>& datagram : reliable.to_send(up_s)) {
@@ -1451,28 +1744,35 @@ int stay(glideslope::platform::UdpSocket& socket,
             predicting->advance(up_s, sequence, stick);
             predicting->render(up_s);
         }
-        glideslope::platform::Address from;
-        const std::size_t got = socket.receive(into, from);
-        drained = got == 0;
-        if (got <= glideslope::net::envelope_size) {
-            if (drained) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::optional<std::vector<std::uint8_t>> opened;
+        if (hear_again) {
+            // A test's late update (`--late-update-after-take-over`), heard
+            // now as if the network had held it back.
+            opened = std::move(hear_again);
+            hear_again.reset();
+        } else {
+            glideslope::platform::Address from;
+            const std::size_t got = socket.receive(into, from);
+            drained = got == 0;
+            if (got <= glideslope::net::envelope_size) {
+                if (drained) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+                continue;
             }
-            continue;
-        }
-        last_heard_s = up_s;
-        glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
-        glideslope::net::Envelope envelope;
-        glideslope::net::Refusal why{};
-        if (!glideslope::net::read_envelope(r, envelope, why) ||
-            envelope.type != glideslope::net::Type::sealed) {
-            continue;
-        }
-        const auto opened = unsealer.open(
-            std::span<const std::uint8_t>(into.data(), got)
-                .subspan(glideslope::net::envelope_size));
-        if (!opened) {
-            continue;
+            last_heard_s = up_s;
+            glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
+            glideslope::net::Envelope envelope;
+            glideslope::net::Refusal why{};
+            if (!glideslope::net::read_envelope(r, envelope, why) ||
+                envelope.type != glideslope::net::Type::sealed) {
+                continue;
+            }
+            opened = unsealer.open(std::span<const std::uint8_t>(into.data(), got)
+                                       .subspan(glideslope::net::envelope_size));
+            if (!opened) {
+                continue;
+            }
         }
         const std::span<const std::uint8_t> inside(opened->data(), opened->size());
         // **Where everybody is.** Nothing is done with it here beyond
@@ -1480,6 +1780,44 @@ int stay(glideslope::platform::UdpSocket& socket,
         // no sky to draw them in.
         if (const auto state = glideslope::net::read_state(inside)) {
             ++heard;
+            // **An update the network held back past a newer one** says
+            // what was so then: an aircraft since given up is not taken over
+            // again by it, nor is its motion taken for this one's own. One
+            // from before its own aircraft's number changed is dropped; any
+            // other still tells where the others were (2026-09-26: through
+            // 200 ms of jitter, "took over aircraft 4, then 1, then 4").
+            const bool newest_state = !newest_state_s || state->simulation_time_s > *newest_state_s;
+            if (!newest_state && state->your_aircraft != mine) {
+                continue;
+            }
+            if (newest_state) {
+                newest_state_s = state->simulation_time_s;
+            }
+            // **For a test: an update from before each take-over, heard
+            // again just after it**, as the network reorders them - built,
+            // not waited for. The last update to name the aircraft given up
+            // is kept for it.
+            if (late_update_after_take_over && newest_state) {
+                if (state->your_aircraft == mine) {
+                    before_take_over.assign(inside.begin(), inside.end());
+                } else if (mine != glideslope::net::no_aircraft &&
+                           state->your_aircraft != glideslope::net::no_aircraft &&
+                           !before_take_over.empty()) {
+                    hear_again = before_take_over;
+                    say_heard("an update from before the take-over is heard again after it");
+                }
+            }
+            // **Its own aircraft's number changed**: another taken over -
+            // noticed before the update is used, which would otherwise put the
+            // aircraft left behind right by the one taken over's motion.
+            if (newest_state && mine != glideslope::net::no_aircraft &&
+                state->your_aircraft != mine &&
+                state->your_aircraft != glideslope::net::no_aircraft) {
+                say_heard("took over aircraft " + std::to_string(state->your_aircraft));
+                if (predicting) {
+                    predicting->taken_over(state->your_aircraft, sequence);
+                }
+            }
             if (predicting && !finishing) {
                 predicting->heard(*state, up_s);
             }
@@ -1514,8 +1852,27 @@ int stay(glideslope::platform::UdpSocket& socket,
                     }
                 }
             }
-            applied = state->last_input_applied;
-            mine = state->your_aircraft;
+            if (newest_state) {
+                applied = state->last_input_applied;
+                mine = state->your_aircraft;
+            }
+            // The AI aircraft it would take over: the one it watches, or else
+            // the first the AI flies - or the one it is told, whoever's.
+            if (take_over_aircraft >= 0) {
+                ai_to_take = static_cast<std::uint8_t>(take_over_aircraft);
+                for (const glideslope::net::AircraftState& a : state->aircraft) {
+                    if (a.index == ai_to_take) {
+                        ai_flies_it = a.controller == glideslope::net::Controller::ai;
+                    }
+                }
+            } else if (ai_to_take == glideslope::net::no_aircraft) {
+                for (const glideslope::net::AircraftState& a : state->aircraft) {
+                    if (a.index != mine && a.controller == glideslope::net::Controller::ai) {
+                        ai_to_take = a.index;
+                        break;
+                    }
+                }
+            }
             last_step = std::llround(state->simulation_time_s *
                                      static_cast<double>(glideslope::sim::steps_per_second));
             if (first_step < 0) {
@@ -1717,7 +2074,10 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                const std::string& track_file = "", double hand_over_at_s = -1.0,
                double take_back_at_s = -1.0, double dive_after_s = -1.0,
                bool watch_ai = false, bool again_when_let_go = false,
-               bool first_from_elsewhere = false, const std::string& until_exists = "") {
+               bool first_from_elsewhere = false, const std::string& until_exists = "",
+               double take_over_at_s = -1.0, int take_over_aircraft = -1,
+               bool take_over_once_ai = false, bool long_frame_after_switch = false,
+               bool late_update_after_take_over = false) {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived. With `--after-ready`
@@ -1901,7 +2261,9 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                       : std::span<const std::uint8_t>(),
                                 fly, mine.publik.text().substr(0, 8), heard_file,
                                 until_flying_again, predict, track_file, hand_over_at_s,
-                                take_back_at_s, dive_after_s, watch_ai);
+                                take_back_at_s, dive_after_s, watch_ai, take_over_at_s,
+                                take_over_aircraft, take_over_once_ai,
+                                long_frame_after_switch, late_update_after_take_over);
                 }
             }
         }
@@ -2010,7 +2372,7 @@ static int run_program(int argc, char** argv) {
                 server->host + ":" + std::to_string(server->port);
             return connect_to(where, server->key_hex, stay_s, false, fly, 0.0);
         }
-        if (args.size() >= 3 && args.size() <= 27 && args[0] == "connect") {
+        if (args.size() >= 3 && args.size() <= 37 && args[0] == "connect") {
             double stay_s = 0.0;
             bool again = false;
             bool again_when_let_go = false;
@@ -2027,8 +2389,21 @@ static int run_program(int argc, char** argv) {
             double take_back_at_s = -1.0;
             double dive_after_s = -1.0;
             bool watch_ai = false;
+            double take_over_at_s = -1.0;
+            int take_over_aircraft = -1;
+            bool take_over_once_ai = false;
             std::string track_file;
+            bool long_frame_after_switch = false;
+            bool late_update_after_take_over = false;
             for (std::size_t i = 3; i < args.size(); ++i) {
+                if (args[i] == "--late-update-after-take-over") {
+                    late_update_after_take_over = true;
+                    continue;
+                }
+                if (args[i] == "--long-frame-after-switch") {
+                    long_frame_after_switch = true;
+                    continue;
+                }
                 if (args[i] == "--track" && i + 1 < args.size()) {
                     track_file = std::string(args[i + 1]);
                     ++i;
@@ -2040,6 +2415,20 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--hand-over-at" && i + 1 < args.size()) {
                     hand_over_at_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
+                    ++i;
+                    continue;
+                }
+                if (args[i] == "--take-over-aircraft" && i + 1 < args.size()) {
+                    take_over_aircraft = std::atoi(std::string(args[i + 1]).c_str());
+                    ++i;
+                    continue;
+                }
+                if (args[i] == "--once-the-ai-flies-it") {
+                    take_over_once_ai = true;
+                    continue;
+                }
+                if (args[i] == "--take-over-at" && i + 1 < args.size()) {
+                    take_over_at_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
                     ++i;
                     continue;
                 }
@@ -2131,7 +2520,9 @@ static int run_program(int argc, char** argv) {
                               again, fly, after_s, secret_hex, heard_file,
                               until_flying_again, ready_file, predict, track_file,
                               hand_over_at_s, take_back_at_s, dive_after_s, watch_ai,
-                              again_when_let_go, first_from_elsewhere, until_exists);
+                              again_when_let_go, first_from_elsewhere, until_exists,
+                              take_over_at_s, take_over_aircraft, take_over_once_ai,
+                              long_frame_after_switch, late_update_after_take_over);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();

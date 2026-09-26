@@ -3,6 +3,7 @@
 #include "net/interpolation.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <functional>
@@ -315,4 +316,137 @@ GLIDESLOPE_TEST(the_client_follows_the_servers_clock_at_the_servers_own_rate) {
                              std::to_string(sessions));
     std::printf("  9 sessions: at worst %.1f ms ahead and %.1f ms behind\n",
                 worst_ahead_s * 1000.0, -worst_behind_s * 1000.0);
+}
+
+// **The velocity an aircraft is drawn moving at is its path's own**, in
+// every state the path can be in: before anything straddles the moment,
+// between two snapshots, carried on through a gap, held still past the
+// guess, and taking up an offset after a guess. Each frame's is compared
+// with how far the answer moves in the next hundred-thousandth of a second.
+// The snapshots report velocities a tenth slower than the aircraft flies, so
+// an answer that gave the reported velocity between two snapshots, as the
+// client once carried aircraft on at, is 20 m/s out.
+GLIDESLOPE_TEST(the_velocity_an_aircraft_is_drawn_moving_at_is_its_paths_own) {
+    enum Regime { before, between, carried, held, taking_up, regimes };
+    const char* const names[regimes] = {"before the first snapshot", "between two",
+                                        "carried on", "held past the guess",
+                                        "taking up an offset"};
+    std::size_t seen[regimes] = {};
+    // Snapshots at 20 Hz for four seconds, lost from 1 s to 1.3 s (a guess,
+    // then a take-up) and from 2 s to 3 s (a guess held past its limit).
+    Interpolated shown;
+    std::vector<RemoteState> post;
+    for (int i = 0; i < 80; ++i) {
+        const double t = i / 20.0;
+        if ((t >= 1.0 && t < 1.3) || (t >= 2.0 && t < 3.0)) continue;
+        RemoteState s = truth(t);
+        s.north_mps *= 0.9;
+        s.east_mps *= 0.9;
+        s.down_mps *= 0.9;
+        post.push_back(s);
+    }
+    std::size_t next = 0;
+    double newest_s = -1.0;
+    double guess_ended_s = -10.0;
+    bool was_guessing = false;
+    double worst = 0.0;
+    // Frames at 60 Hz, a little off the snapshots' times, so that no frame
+    // falls exactly where one straight line meets the next.
+    for (int k = 0; k < 250; ++k) {
+        const double now = k / 60.0 + 0.0003;
+        const double want = now - glideslope::net::shown_behind_s;
+        for (; next < post.size() && post[next].time_s <= now; ++next) {
+            shown.received(post[next]);
+            newest_s = post[next].time_s;
+        }
+        if (!shown.known()) continue;
+        const RemoteState here = shown.at(now);
+        const std::array<double, 3> v = shown.path_velocity();
+        Interpolated probe = shown;
+        constexpr double h = 1e-5;
+        const RemoteState then = probe.at(now + h);
+        const double moved[3] = {(then.north_m - here.north_m) / h,
+                                 (then.east_m - here.east_m) / h,
+                                 (then.down_m - here.down_m) / h};
+        double off = 0.0;
+        for (std::size_t i = 0; i < 3; ++i) {
+            off = std::max(off, std::abs(moved[i] - v[i]));
+        }
+        Regime r = between;
+        if (shown.extrapolating()) {
+            r = want - newest_s < glideslope::net::extrapolate_at_most_s ? carried : held;
+        } else if (was_guessing || now - guess_ended_s < glideslope::net::blend_s) {
+            if (was_guessing) guess_ended_s = now;
+            r = taking_up;
+        } else if (want <= post.front().time_s) {
+            r = before;
+        }
+        was_guessing = shown.extrapolating();
+        ++seen[r];
+        worst = std::max(worst, off);
+        check(off < 1e-3, std::string("at ") + std::to_string(now) + " s, " + names[r] +
+                              ", the velocity said is " + std::to_string(off) +
+                              " m/s from the path's own");
+    }
+    for (int r = 0; r < regimes; ++r) {
+        check(seen[r] > 0, std::string("no frame was ") + names[r]);
+    }
+    std::printf("  frames %zu before, %zu between, %zu carried, %zu held, %zu taking up; "
+                "worst %.2g m/s\n",
+                seen[before], seen[between], seen[carried], seen[held], seen[taking_up], worst);
+}
+
+// **An aircraft drawn again after a pause is drawn where it is**, not where a
+// guess from before the pause, taken up, would put it. Drawn while guessing
+// through a gap, left undrawn for three seconds while updates kept coming,
+// and then drawn again: it must be exactly where an aircraft never drawn
+// before would be, and moving as that one moves. Taking up the old guess
+// moved a client's own aircraft hundreds of metres in a quarter of a second
+// (2026-09-26).
+GLIDESLOPE_TEST(an_aircraft_drawn_again_after_a_pause_is_drawn_where_it_is) {
+    Interpolated drawn;
+    Interpolated fresh;
+    // Updates twenty a second, each heard as it is sent, with a gap from
+    // 1.0 s to 1.6 s that the frames guess through.
+    std::vector<RemoteState> sent;
+    for (int i = 0; i < 100; ++i) {
+        const double t = i / 20.0;
+        if (t >= 1.0 && t < 1.6) continue;
+        sent.push_back(truth(t));
+    }
+    std::size_t next = 0;
+    std::size_t guessed = 0;
+    // Drawn sixty times a second up to 1.5 s, the last frames a guess.
+    for (int k = 0; k <= 90; ++k) {
+        const double now = k / 60.0 + 0.0003;
+        for (; next < sent.size() && sent[next].time_s <= now; ++next) {
+            drawn.received(sent[next]);
+        }
+        (void)drawn.at(now);
+        if (drawn.extrapolating()) ++guessed;
+    }
+    check(drawn.extrapolating(), "the last frame before the pause was a guess");
+    check(guessed > 0, "and some frames were guessed");
+    // Three seconds on, with the updates since heard, drawn again.
+    const double again = 4.5003;
+    for (; next < sent.size() && sent[next].time_s <= again; ++next) {
+        drawn.received(sent[next]);
+    }
+    for (const RemoteState& s : sent) {
+        if (s.time_s <= again) fresh.received(s);
+    }
+    const RemoteState here = drawn.at(again);
+    const std::array<double, 3> v = drawn.path_velocity();
+    const RemoteState should = fresh.at(again);
+    const std::array<double, 3> should_v = fresh.path_velocity();
+    const double off = how_far(here, should);
+    double off_v = 0.0;
+    for (std::size_t i = 0; i < 3; ++i) {
+        off_v = std::max(off_v, std::abs(v[i] - should_v[i]));
+    }
+    check(off < 1e-9, "drawn again, it was " + std::to_string(off) +
+                          " m from where it is");
+    check(off_v < 1e-9, "and moving " + std::to_string(off_v) + " m/s off its path");
+    std::printf("  %zu frames guessed before the pause; after it, %.3g m and %.3g m/s off\n",
+                guessed, off, off_v);
 }

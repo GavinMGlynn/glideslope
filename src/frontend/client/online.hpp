@@ -92,6 +92,25 @@ public:
     // none with `net::no_aircraft`: told its controls from then on.
     void watch(std::uint8_t number);
     std::uint8_t watching() const { return watching_; }
+    // **Taking over** the aircraft numbered `number`, an AI's: asked of the
+    // server, which may refuse. When it is done, the next update gives this
+    // client that aircraft as its own, and `taken_over` says which.
+    void take_over(std::uint8_t number);
+    // The aircraft taken over since last asked, and what it is, or nothing:
+    // the caller's flight becomes it (Flight::adopt, or a new Flight where it
+    // is another aeroplane).
+    std::optional<Joined> taken_over();
+    // **What the server last said of this client's own aircraft**: whether
+    // the AI is flying it, and whether, since it was taken over, the server
+    // has applied an input this client sent - which it does only if it is
+    // flying it by them.
+    bool own_ai_flying() const { return own_ai_flying_; }
+    // The last input sent.
+    std::uint32_t sequence() const { return sequence_; }
+    bool flown_since_taken_over() const {
+        return taken_at_ && applied_ > *taken_at_;
+    }
+
     // Its controls at `local_s`, 100 ms behind the clock as its position is,
     // or nothing before two updates of them either side have come.
     std::optional<net::Watched> watched_controls(double local_s) const;
@@ -112,6 +131,12 @@ private:
     double sent_at_s_ = -1.0;
     sim::Controls flying_;
     std::uint8_t mine_ = net::no_aircraft;
+    std::optional<Joined> taken_;
+    // The input sent last when the take-over was heard, and the last the
+    // server has applied.
+    std::optional<std::uint32_t> taken_at_;
+    std::uint32_t applied_ = 0;
+    bool own_ai_flying_ = false;
     std::optional<double> reconciled_s_;
     net::SessionClock clock_;
     // A local frame to interpolate in: north-east-down about where this

@@ -143,6 +143,8 @@ struct Options {
     // For tests: stand still this long after joining a server, as a slow
     // machine building its flight does, before building it.
     double slow_start_s = 0.0;
+    // And take it over this many seconds of flight in; below nought, never.
+    double take_over_after_s = -1.0;
     bool on_ground = false;
 };
 
@@ -204,7 +206,10 @@ void usage(std::FILE* out) {
         "                around it; V steps through them\n"
         "  --ride-along  on a server, ride along in the first AI aircraft: its\n"
         "                cockpit, its instruments and its controls; W steps through\n"
-        "                every aircraft in the sky and back to your own\n"
+        "                every aircraft in the sky and back to your own; T takes\n"
+        "                over the one ridden in, if the AI flies it\n"
+        "  --take-over-after S  riding along, take it over S seconds after\n"
+        "                joining\n"
         "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
         "                slow machine building its flight does (for tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
@@ -387,6 +392,8 @@ static int run_program(int argc, char** argv) {
             o.slow_start_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--ride-along") {
             o.ride_along = true;
+        } else if (a == "--take-over-after" && has_value) {
+            o.take_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--on-ground") {
             o.on_ground = true;
         } else if (a == "--autopilot") {
@@ -923,6 +930,7 @@ static int run_program(int argc, char** argv) {
             return found->second;
         };
         bool rode_along = false;
+        bool asked_to_take_over = false;
         struct OtherMesh {
             glideslope::gfx::MeshId id = 0;
             bool made = false;
@@ -975,6 +983,25 @@ static int run_program(int argc, char** argv) {
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_A && flight) {
                     flight->swap_pilot();
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == SDL_SCANCODE_T && online && joined &&
+                           online->watching() != glideslope::net::no_aircraft) {
+                    // **Take the controls** of the aircraft ridden in, if the
+                    // AI is flying it: a player's is never taken, and the
+                    // server would refuse without a word.
+                    const auto ridden_now = std::find_if(
+                        others_now.begin(), others_now.end(),
+                        [&](const glideslope::client::Other& other) {
+                            return other.number == online->watching();
+                        });
+                    if (ridden_now != others_now.end() && ridden_now->ai_flying) {
+                        online->take_over(online->watching());
+                        std::printf("glideslope: asked to take over aircraft %u\n",
+                                    static_cast<unsigned>(online->watching()));
+                    } else {
+                        std::printf("glideslope: aircraft %u is not the AI's to take over\n",
+                                    static_cast<unsigned>(online->watching()));
+                    }
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_W && online && joined) {
                     // **Ride along**: the next aircraft in the sky, by number,
@@ -1045,6 +1072,50 @@ static int run_program(int argc, char** argv) {
             // The frame shot waits for every terrain tile its view needs, so
             // the same command draws the same terrain everywhere.
             bool shot_now = shooting && ticks >= o.shot_at;
+            // **Taken over**: the flight is the aircraft taken over now, from
+            // the motion the server gave it - the same aeroplane made to be
+            // where that one is, or another built as it.
+            if (online && joined && flight) {
+                if (o.take_over_after_s >= 0.0 && !asked_to_take_over &&
+                    static_cast<double>(ticks) >=
+                        o.take_over_after_s * glideslope::sim::steps_per_second &&
+                    online->watching() != glideslope::net::no_aircraft) {
+                    asked_to_take_over = true;
+                    online->take_over(online->watching());
+                    std::printf("glideslope: asked to take over aircraft %u\n",
+                                static_cast<unsigned>(online->watching()));
+                }
+                if (const auto taken = online->taken_over()) {
+                    if (taken->aircraft_id != flight->aircraft().id) {
+                        const glideslope::world::Geodetic g = glideslope::world::to_geodetic(
+                            {taken->motion.location_ecef_m[0], taken->motion.location_ecef_m[1],
+                             taken->motion.location_ecef_m[2]});
+                        start.aircraft = taken->aircraft_id;
+                        start.latitude_deg = g.latitude_deg;
+                        start.longitude_deg = g.longitude_deg;
+                        start.height_m = g.height_m;
+                        flight = std::make_unique<glideslope::client::Flight>(
+                            glideslope::platform::data_directory(),
+                            glideslope::platform::cache_directory(), start);
+                        has_aircraft_mesh = false;
+                        // What the flight it replaces had: the input it is on,
+                        // and the checklist on screen, where this one has it.
+                        flight->set_input_sequence(online->sequence());
+                        if (!o.checklist.empty()) {
+                            flight->show_checklist(checklist_phase);
+                            if (!flight->showing_checklist()) {
+                                std::printf("glideslope: the %s ships no checklists\n",
+                                            flight->aircraft().id.c_str());
+                            }
+                        }
+                    }
+                    flight->adopt(taken->motion);
+                    joined = *taken;
+                    std::printf("glideslope: took over aircraft %u, the %s\n",
+                                static_cast<unsigned>(taken->number),
+                                taken->aircraft_id.c_str());
+                }
+            }
             // **On a server, everybody else as they are now**, and the one
             // being ridden along in, if any.
             if (online && joined) {
@@ -1284,6 +1355,18 @@ static int run_program(int argc, char** argv) {
                         for (const std::string& line : glideslope::gfx::hud_lines(readings)) {
                             std::printf("glideslope: the HUD reads %s\n", line.c_str());
                         }
+                    }
+                } else if (shot_now && online && joined) {
+                    std::printf("glideslope: flying aircraft %u, the %s; the server says %s "
+                                "has it%s\n",
+                                static_cast<unsigned>(joined->number),
+                                flight->aircraft().id.c_str(),
+                                online->own_ai_flying() ? "the AI" : "the pilot",
+                                online->flown_since_taken_over()
+                                    ? ", and has flown it by inputs sent since it was taken over"
+                                    : "");
+                    for (const std::string& line : glideslope::gfx::hud_lines(readings)) {
+                        std::printf("glideslope: the HUD reads %s\n", line.c_str());
                     }
                 }
                 readings.credits.insert(readings.credits.begin(), credits.begin(),

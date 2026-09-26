@@ -88,7 +88,7 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 5 --after 6
             --heard "${_extra}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 20 --after 2
-            --predict --heard "${_predicting}" --track "${_shown}"
+            --predict --heard "${_predicting}" --track "${_shown}" --long-frame-after-switch
             --hand-over-at 8 --take-back-at 14 --watch-ai
     # Hears everything, and outlasts the one that predicts.
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1
@@ -197,7 +197,7 @@ foreach(_to IN ITEMS "handed to the AI" "handed to its pilot")
         message(FATAL_ERROR "the predicting client never heard its aircraft ${_to}:\n${_said}")
     endif()
 endforeach()
-if(NOT _said MATCHES "own aircraft: handed to the AI 1 times and taken back 1; the largest step at a switch ([0-9.]+) m")
+if(NOT _said MATCHES "own aircraft: handed to the AI 1 times, taken back 1 and another taken over 0; the largest step at a switch ([0-9.]+) m")
     message(FATAL_ERROR "the predicting client did not say how its own aircraft was shown "
                         "across the switches:\n${_said}")
 endif()
@@ -206,6 +206,22 @@ if(CMAKE_MATCH_1 GREATER_EQUAL 5)
                         "switch:\n${_said}")
 endif()
 set(_switch_step "${CMAKE_MATCH_1}")
+# **A long frame just after every switch**, as a runner that stalls draws one:
+# the predicting client draws nothing for 0.4 s after its third frame after
+# each, while it flies on, where anything carried on wrongly shows as a step
+# (macOS CI, 2026-09-26: 23 m). Every switch had one, or was overtaken by
+# another within three frames and had that one's - a take-back is two when
+# prediction starts again a frame or two after it, so one at most is - and
+# there were at least the two asked for. A frame the runner made long enough
+# by itself counts as one.
+if(NOT _said MATCHES "long frames: one of 0.4 s built after ([0-9]+) of ([0-9]+) switches, and ([0-9]+) overtaken")
+    message(FATAL_ERROR "the predicting client did not say its long frames:\n${_said}")
+endif()
+math(EXPR _had "${CMAKE_MATCH_1} + ${CMAKE_MATCH_3}")
+if(NOT _had EQUAL CMAKE_MATCH_2 OR CMAKE_MATCH_3 GREATER 1 OR CMAKE_MATCH_1 LESS 2)
+    message(FATAL_ERROR "a long frame was built after ${CMAKE_MATCH_1} of ${CMAKE_MATCH_2} "
+                        "switches, ${CMAKE_MATCH_3} overtaken by another:\n${_said}")
+endif()
 
 # **Interpolation**: every other aircraft drawn within 2 m of the truth, and
 # some of them carried on past the newest update - across the relay's gaps,

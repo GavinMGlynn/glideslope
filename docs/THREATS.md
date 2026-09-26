@@ -459,7 +459,14 @@ sender's `Connection` flies, and only to `PERSON` or `AI`. A client asking for
 another player's aircraft, an AI's, or one that does not exist is
 acknowledged and nothing more (`Fleet::hand`, 2026-09-25). A player's
 aircraft keeps its number and slot either way, so a swap cannot move anybody
-else. `at_simulation_time_s` is refused if it is a NaN or an infinity; from a
+else. **The one exception is taking over** an aircraft the AI is flying
+(`Fleet::take_over`): the sender's slot moves to it, and its own aircraft goes
+to the AI under a new number. It is refused for a player's aircraft, one the
+AI is not flying, or a wreck, so no client can take another player's aircraft
+or be moved by anybody else's request; and a server started with
+`--no-take-over` refuses it outright. What it costs a server is one aircraft
+renumbered and two announcements; like a swap, nothing limits how often it is
+asked for. `at_simulation_time_s` is refused if it is a NaN or an infinity; from a
 client it is ignored, and the time the server announces is its own clock's.
 Nothing limits how often a client may ask: each swap is a controller change
 and a reliable message to every client, so a client asking a hundred times a

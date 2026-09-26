@@ -298,11 +298,12 @@ ends in a debrief, never a score.
       the view and the controls panel match the server's aircraft within
       stated bounds, under injected latency, loss and jitter.* Done 2026-09-25:
       its ground speed shown, not its airspeed, which is not sent.
-- [ ] **Take over an AI aircraft.** The one you ride in becomes yours, and the
+- [x] **Take over an AI aircraft.** The one you ride in becomes yours, and the
       one you had goes to the AI pilot; never another player's, and a server
       setting may forbid it. *Verification: a take-over under injected
       latency, loss and jitter shows no step; a request for a player's
-      aircraft, or on a server that forbids it, is refused.*
+      aircraft, or on a server that forbids it, is refused.* Done 2026-09-25:
+      T in the cockpit, a step under 2 m at 200 ms.
 
 ## Phase 8 — LLM copilot
 
@@ -374,6 +375,14 @@ Found while implementing something else. Added when found, not when remembered.
       given a second aircraft until the old one times out. *Verification: a
       second session for a key takes over that player's slot and aircraft,
       and a test with one key on two addresses counts one aircraft.*
+- [ ] **The client with the window does not blend its own aircraft at a
+      switch** - handed over, taken back or taken over - as the network
+      checks' model of a display does. *Verification: a shot sequence across
+      each switch shows no step past the bound the network checks hold.*
+- [ ] **The client with the window is not tested with its updates
+      reordered across a take-over**; it has the guard the command-line client
+      needed. *Verification: an update from before the take-over, heard after
+      it, leaves the client flying the aircraft it took.*
 - [x] **The HUD check read the horizon, crossing the rows below the HUD, as a
       line of the HUD.** *Verification: a line that does not begin at the
       HUD's margin is not judged, and an extra HUD line still is.* Done

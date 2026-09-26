@@ -146,6 +146,8 @@ set(GLIDESLOPE_UNIT_TESTS
     the_interpolation_error_stays_within_its_bound_under_jitter
     an_aircraft_nobody_has_heard_from_is_not_carried_on_for_ever
     an_aircraft_turning_through_north_takes_the_short_way_round
+    the_velocity_an_aircraft_is_drawn_moving_at_is_its_paths_own
+    an_aircraft_drawn_again_after_a_pause_is_drawn_where_it_is
     the_client_follows_the_servers_clock_at_the_servers_own_rate
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
     prediction_reconciled_from_motion_alone_stays_within_its_bound_at_100_and_200_ms
@@ -1485,6 +1487,29 @@ set_tests_properties(two_aircraft_on_a_collision_course_collide_on_the_server_an
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_collision)
 
+# **A player takes over an AI aircraft through a worse network with no step,
+# and a player's, or on a server that forbids it, is refused** - at 100 ms and
+# at 200 ms. See cmake/server_take_over.cmake.
+foreach(_net IN ITEMS "100;30;5;21;47890;8" "200;60;10;22;47892;10")
+    list(GET _net 0 _delay)
+    list(GET _net 1 _jitter)
+    list(GET _net 2 _loss)
+    list(GET _net 3 _seed)
+    list(GET _net 4 _port)
+    list(GET _net 5 _predict_m)
+    set(_name a_player_takes_over_an_ai_aircraft_with_no_step_at_${_delay}_ms_and_a_players_is_refused)
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/take_over_${_delay}
+            -DPORT=${_port} -DDELAY=${_delay} -DJITTER=${_jitter} -DLOSS=${_loss}
+            -DSEED=${_seed} -DPREDICT_M=${_predict_m}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_take_over.cmake)
+    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/take_over_${_delay})
+endforeach()
+
 # The relay that makes the network worse, and the judge of what was drawn.
 add_executable(glideslope_impair tools/impair.cpp)
 target_link_libraries(glideslope_impair PRIVATE glideslope_platform)
@@ -1644,6 +1669,19 @@ add_test(NAME the_client_with_the_window_rides_along_in_an_ai_aircraft_and_shows
 set_tests_properties(the_client_with_the_window_rides_along_in_an_ai_aircraft_and_shows_its_controls
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rides_along)
+
+# **The client with the window takes an AI aircraft over** while riding along
+# in it: it flies it, and the HUD says the pilot has it. See
+# cmake/client_rides_along.cmake.
+add_test(NAME the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/takes_over -DPORT=47889 -DDRIVER=vulkan
+        -DTAKE_OVER=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_rides_along.cmake)
+set_tests_properties(the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/takes_over)
 
 # **A client started with --online reaches the server server.txt names.** See
 # cmake/client_online.cmake, which names the file by the environment rather

@@ -3,7 +3,7 @@
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope> -DDATA=<data>
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
-#         -DDRIVER=<gpu driver> -P client_rides_along.cmake
+#         -DDRIVER=<gpu driver> [-DTAKE_OVER=ON] -P client_rides_along.cmake
 #
 # **Built, not hoped for.** A server with one AI Cessna, and the client with
 # the window joining it with `--ride-along` - which watches the first AI
@@ -18,6 +18,13 @@
 # does, against a server that lets a silent client go after three: it must
 # stay in the session, and so be told the controls at all. A Windows debug
 # build was let go, heard one update, and drew its HUD without them.
+#
+# With TAKE_OVER, the client takes the AI's Cessna over four seconds in, with
+# `--take-over-after 4`, and by the shot must say it took it over and is
+# flying it, the server saying the pilot has it and having flown it by inputs
+# sent since, and the HUD saying the pilot has it: what taking over is. (What
+# the server says of it, which goes down the pipe here, server_take_over.cmake
+# checks.)
 #
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
@@ -49,12 +56,17 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
+set(_take_over)
+if(TAKE_OVER)
+    set(_take_over --take-over-after 4)
+endif()
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1200 --view cockpit --ride-along --slow-start 5
+            ${_take_over}
             --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
@@ -70,6 +82,23 @@ if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the client exited ${_rc}:\n${_out}\n${_err}")
 endif()
 
+if(TAKE_OVER)
+    if(NOT _out MATCHES "took over aircraft ([0-9]+), the c172p")
+        message(FATAL_ERROR "the client did not take the AI's Cessna over:\n${_out}")
+    endif()
+    set(_taken "${CMAKE_MATCH_1}")
+    # What the server decides, not what the client thinks: that the pilot
+    # has it, and that it has flown it by inputs sent since.
+    if(NOT _out MATCHES "flying aircraft ${_taken}, the c172p; the server says the pilot has it, and has flown it by inputs sent since it was taken over")
+        message(FATAL_ERROR "the server was not flying aircraft ${_taken} by this client's "
+                            "inputs at the shot:\n${_out}")
+    endif()
+    if(NOT _out MATCHES "the HUD reads FLYING PILOT" OR _out MATCHES "the HUD reads FLYING AI")
+        message(FATAL_ERROR "the HUD did not say the pilot has the aircraft taken over:\n${_out}")
+    endif()
+    message(STATUS "took the AI's Cessna, aircraft ${_taken}, over, and flew it")
+    return()
+endif()
 if(NOT _out MATCHES "riding along in aircraft ([0-9]+), the c172p; the camera ([0-9.]+) m from its centre")
     message(FATAL_ERROR "the client did not ride along in the AI's Cessna:\n${_out}")
 endif()
