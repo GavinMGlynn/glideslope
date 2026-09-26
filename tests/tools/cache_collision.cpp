@@ -10,6 +10,12 @@
 // for a time: each step waits for the files that say the step before it has
 // happened.
 //
+// **Nothing waits on a program that has failed.** hold and write, failing,
+// say NAME.failed (hold.failed for the holder) on the way out, and every
+// wait gives up the moment any .failed file is in DIR - so one program's
+// failure ends all three at once, rather than leaving the others waiting on
+// a signal that will never come.
+//
 // **write** opens the cache, stores NAME-seed and reads it back - a cache hit,
 // which is what left SqliteCache holding a stale read transaction - and says
 // NAME.ready. When DIR/go appears it first checks, with a connection of its
@@ -51,6 +57,7 @@
 #include <fstream>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -68,8 +75,18 @@ void say(const fs::path& dir, const std::string& what) {
     std::ofstream(dir / what).close();
 }
 
-void wait_for(const fs::path& file) {
-    while (!fs::exists(file)) {
+// Throws if another program has said it failed.
+void unless_failed(const fs::path& dir) {
+    for (const fs::directory_entry& entry : fs::directory_iterator(dir)) {
+        if (entry.path().extension() == ".failed") {
+            throw std::runtime_error("gave up waiting: " + entry.path().filename().string());
+        }
+    }
+}
+
+void wait_for(const fs::path& dir, const std::string& what) {
+    while (!fs::exists(dir / what)) {
+        unless_failed(dir);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
@@ -113,7 +130,7 @@ int hold(const fs::path& file, const fs::path& dir, const std::vector<std::strin
     }
     say(dir, "made");
     for (const std::string& name : names) {
-        wait_for(dir / (name + ".ready"));
+        wait_for(dir, name + ".ready");
     }
     sqlite3* db = open_raw(file);
     if (db == nullptr) {
@@ -134,6 +151,13 @@ int hold(const fs::path& file, const fs::path& dir, const std::vector<std::strin
     for (const std::string& name : names) {
         while (!fs::exists(dir / (name + ".waiting")) &&
                !fs::exists(dir / (name + ".first-done"))) {
+            try {
+                unless_failed(dir);
+            } catch (const std::exception&) {
+                sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+                sqlite3_close(db);
+                throw;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
@@ -145,7 +169,7 @@ int hold(const fs::path& file, const fs::path& dir, const std::vector<std::strin
 }
 
 int write(const fs::path& file, const fs::path& dir, const std::string& name, int count) {
-    wait_for(dir / "made");
+    wait_for(dir, "made");
     const auto cache = glideslope::gfx::open_cesium_cache(file);
     if (!store(*cache, name + "-seed") || !holds(*cache, name + "-seed")) {
         std::fprintf(stderr, "glideslope_cache_collision: %s could not store its seed\n",
@@ -153,7 +177,7 @@ int write(const fs::path& file, const fs::path& dir, const std::string& name, in
         return 1;
     }
     say(dir, name + ".ready");
-    wait_for(dir / "go");
+    wait_for(dir, "go");
 
     // The file is held: a write that does not wait is refused.
     sqlite3* raw = open_raw(file);
@@ -241,14 +265,35 @@ int main(int argc, char** argv) {
     const std::vector<std::string> args(argv + 1, argv + argc);
     // Cesium Native's log - a refused write among it - where the test reads.
     glideslope::gfx::log_to_standard_error();
+    // Says who failed, for the others to stop waiting on it.
+    const auto failing = [](const fs::path& dir, const std::string& who, int rc) {
+        if (rc != 0) {
+            say(dir, who + ".failed");
+        }
+        return rc;
+    };
     try {
         if (args.size() >= 4 && args[0] == "hold") {
-            return hold(args[1], args[2], std::vector<std::string>(args.begin() + 3, args.end()));
+            try {
+                return failing(args[2], "hold",
+                               hold(args[1], args[2],
+                                    std::vector<std::string>(args.begin() + 3, args.end())));
+            } catch (const std::exception&) {
+                failing(args[2], "hold", 1);
+                throw;
+            }
         }
         if (args.size() == 5 && args[0] == "write") {
             const int n = count_of(args[4].c_str());
-            return n < 0 ? refuse("COUNT must be a positive number")
-                         : write(args[1], args[2], args[3], n);
+            if (n < 0) {
+                return failing(args[2], args[3], refuse("COUNT must be a positive number"));
+            }
+            try {
+                return failing(args[2], args[3], write(args[1], args[2], args[3], n));
+            } catch (const std::exception&) {
+                failing(args[2], args[3], 1);
+                throw;
+            }
         }
         if (args.size() == 4 && args[0] == "count") {
             const int n = count_of(args[3].c_str());

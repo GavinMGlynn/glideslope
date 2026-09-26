@@ -8,6 +8,7 @@
 #include <sqlite3.h>
 
 #include <atomic>
+#include <chrono>
 #include <mutex>
 #include <optional>
 #include <stdexcept>
@@ -64,7 +65,12 @@ void watch_opens() {
     std::call_once(once, [] {
         // SQLite takes every entry point as a void function and calls it with
         // the arguments above: its documented form.
-        sqlite3_auto_extension(reinterpret_cast<void (*)()>(&on_open));
+        const int rc = sqlite3_auto_extension(reinterpret_cast<void (*)()>(&on_open));
+        if (rc != SQLITE_OK) {
+            throw std::runtime_error(std::string("SQLite would not watch the Cesium "
+                                                 "cache's connection open: ") +
+                                     sqlite3_errstr(rc));
+        }
     });
 }
 
@@ -116,13 +122,29 @@ private:
     // a transaction open until the next lookup. Resetting ends it. What the
     // call returned has been copied out of the statement by then, and
     // SqliteCache resets each statement before it uses it again.
-    template <typename Call>
-    auto call(Call&& what) const -> decltype(what()) {
+    //
+    // **A program that holds the file and never lets go costs one wait, not
+    // one per tile.** When the lock is not had within cesium_cache_wait, the
+    // call is not made - a lookup is a miss, a store is not stored - and for
+    // cesium_cache_rest after it every call is skipped the same way without
+    // waiting at all; then the cache is tried again.
+    template <typename Call, typename Skipped>
+    auto call(Call&& what, Skipped skipped) const -> decltype(what()) {
         const std::lock_guard<std::mutex> one_at_a_time(mutex_);
+        const auto now = std::chrono::steady_clock::now();
+        if (now < resting_until_) {
+            return skipped;
+        }
         const Ours marked;
-        // If the lock is not had within cesium_cache_wait, the call goes
-        // ahead without it, as SqliteCache alone would have.
-        sqlite3_exec(db_, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
+        const int began = sqlite3_exec(db_, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
+        if (began != SQLITE_OK) {
+            if (began == SQLITE_BUSY) {
+                resting_until_ = std::chrono::steady_clock::now() + cesium_cache_rest;
+            }
+            SPDLOG_WARN("the Cesium cache was not taken ({}); {}", sqlite3_errstr(began),
+                        began == SQLITE_BUSY ? "left alone for a while" : "this call skipped");
+            return skipped;
+        }
         auto result = what();
         if (sqlite3* reopened = marked.opened_meanwhile(); reopened != nullptr) {
             db_ = reopened;
@@ -136,14 +158,21 @@ private:
         // A file SqliteCache finds corrupt it deletes and opens again, inside
         // the call, and the transaction went with the old connection.
         if (sqlite3_get_autocommit(db_) == 0) {
-            sqlite3_exec(db_, "COMMIT", nullptr, nullptr, nullptr);
+            const int committed = sqlite3_exec(db_, "COMMIT", nullptr, nullptr, nullptr);
+            if (committed != SQLITE_OK) {
+                SPDLOG_WARN("the Cesium cache's write was not committed ({}), and is undone",
+                            sqlite3_errstr(committed));
+                sqlite3_exec(db_, "ROLLBACK", nullptr, nullptr, nullptr);
+                return skipped;
+            }
         }
         return result;
     }
 
 public:
     std::optional<CesiumAsync::CacheItem> getEntry(const std::string& key) const override {
-        return call([&] { return cache_->getEntry(key); });
+        return call([&] { return cache_->getEntry(key); },
+                    std::optional<CesiumAsync::CacheItem>());
     }
 
     bool storeEntry(const std::string& key, std::time_t expiryTime, const std::string& url,
@@ -154,21 +183,23 @@ public:
         return call([&] {
             return cache_->storeEntry(key, expiryTime, url, requestMethod, requestHeaders,
                                       statusCode, responseHeaders, responseData);
-        });
+        }, false);
     }
 
     bool prune() override {
-        return call([&] { return cache_->prune(); });
+        return call([&] { return cache_->prune(); }, false);
     }
 
     bool clearAll() override {
-        return call([&] { return cache_->clearAll(); });
+        return call([&] { return cache_->clearAll(); }, false);
     }
 
 private:
     std::unique_ptr<CesiumAsync::SqliteCache> cache_;
     mutable sqlite3* db_ = nullptr;
     mutable std::mutex mutex_;
+    // Until when every call is skipped, after one that could not get the lock.
+    mutable std::chrono::steady_clock::time_point resting_until_{};
 };
 
 } // namespace
