@@ -264,6 +264,10 @@ The command-line client had the same fault and was fixed the same way.
   clients let go and a player's aircraft banked only 11 and 17 degrees, as on
   CI. At 12 ms a step (900 behind) one a pass still passed: the socket must
   fill before anything is lost.
+  The clients fly twenty seconds, not the four-player test's eight: at a
+  quarter of real time eight gave a macOS runner two seconds of flight, and
+  an aileron held full rolled its aeroplane only 72 and 75 degrees. With
+  twenty, one datagram a pass still fails (16 degrees).
 - Seven multi-client tests whose subject is not the timeout
   (`server_slots`, `server_fly`, `server_collision`, `server_impaired`,
   `server_late`, `server_swap_wreck`, `server_window`) no longer give the
