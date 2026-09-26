@@ -206,3 +206,22 @@ A few seconds is generous for a cache write and turns a failure into a short
 wait. A caller who wants a different figure could be given one, but a default
 of zero is the one value that cannot be right.
 
+
+**A busy timeout is not the whole fix** (found 2026-09-27, building the
+collision on purpose). `getEntry` steps `GET_ENTRY_SQL` to its row and, with
+that statement still open, runs `UPDATE_LAST_ACCESSED_TIME_SQL`
+(`SqliteCache.cpp:422`): a write begun inside a read transaction. SQLite
+does not call the busy handler for that - waiting there could deadlock - so
+when another process holds the write lock, or has committed since the read
+began, the update fails at once with `SQLITE_BUSY` whatever the timeout, and
+`getEntry` reports the hit as a miss. And the lookup is never reset, so the
+connection's read transaction stays open until the next `getEntry`. With a
+five-second timeout, two processes storing 200 entries each and reading each
+back between stores stored all 400 and found only 391 of them. The fix
+wants both: the timeout, and `getEntry` resetting its lookup before the
+update (or running the two in one `BEGIN IMMEDIATE` transaction).
+
+glideslope works round both from outside, in `src/gfx/cesium_cache.cpp`: an
+`sqlite3_auto_extension` sets a busy handler on the connection as
+`SqliteCache` opens it, and a wrapping `ICacheDatabase` runs each call in a
+`BEGIN IMMEDIATE` transaction and resets any statement left open after it.
