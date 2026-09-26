@@ -49,10 +49,12 @@ inline constexpr std::chrono::milliseconds cesium_cache_wait{2000};
 // the cache is tried again.
 inline constexpr std::chrono::seconds cesium_cache_rest{30};
 
-// The cache in `file`, created if there is none. Throws std::runtime_error if
-// it cannot be opened.
+// The cache in `file`, created if there is none, left alone for `rest` after
+// a call that could not get it - cesium_cache_rest but for a test, which
+// cannot wait half a minute. Throws std::runtime_error if it cannot be opened.
 std::shared_ptr<CesiumAsync::ICacheDatabase>
-open_cesium_cache(const std::filesystem::path& file);
+open_cesium_cache(const std::filesystem::path& file,
+                  std::chrono::milliseconds rest = cesium_cache_rest);
 
 // How many times, in this process, a cache opened here found another
 // program writing its file and waited. A test that means two programs to

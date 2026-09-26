@@ -286,9 +286,20 @@ the 2 s is not followed by the call: a lookup is a miss and a store is not
 stored, as if there were no cache. For `cesium_cache_rest` (30 s) after it
 every call is skipped the same way without waiting, and then the cache is
 tried again. Without this, a peer hung holding the file would have stalled
-each tile's lookup for the whole wait in turn. **Not yet tested**: nothing
-holds the file past the wait to show the rest - the collision test holds it
-only until both writers are waiting. `TerrainTiles` opens its cache through it.
+each tile's lookup for the whole wait in turn. The pause is a parameter of
+`open_cesium_cache`, 30 s by default, so a test can shorten it.
+
+**Tested by
+`a_cesium_cache_held_by_a_hung_program_costs_one_wait_and_is_used_again_after_its_pause`**
+(`glideslope_cache_collision pause`, with a 3 s pause). A connection of the
+test's own holds the file. The first store waits once, 2,004 ms, and is not
+stored; three more are skipped in 0 ms each, with no wait counted; the
+holder lets go, and a store made at once - the file free, but inside the
+pause - is skipped too, so it is the pause doing it, not the lock; once the
+pause has passed, a store is stored and read back. Each call is timed on the
+steady clock and the cache's count of waits read around it. 5 s. **Seen to
+fail** with the pause removed: each store in the pause waited 2 s again
+(2,004, 2,001, 2,004 ms), and the store with the file free was stored. `TerrainTiles` opens its cache through it.
 The per-test names in `client.cmake` are kept, so each test finds only its
 own fetches, but they are no longer what keeps a run from being refused.
 
