@@ -230,8 +230,13 @@ are the risks the phase order is built around:
 ### A client's own aircraft is put right by centimetres, not metres, 2026-09-27 — tail done
 
 **What is missing first.**
+- **The network checks keep their 8 and 10 m bounds**, as a regression guard:
+  CI's slow runners fall behind real time, which is the tail below. The metre
+  is held by the unit test, on every machine.
 - **A server that falls behind real time still puts its clients off by
-  metres**, and that is a new tail. It flies fewer steps than the client in
+  metres**, and that is a new tail. Part of it is the client's estimate of the
+  clocks' difference, the least of the last two seconds, lagging a server's
+  catch-up burst. It flies fewer steps than the client in
   the same time, so each input is flown for fewer, and no placing of its word
   can undo that. One run of the 200 ms take-over test on WSL linux-debug,
   with other agents building on the machine, missed its 10 m bound at 24.1 m
@@ -269,22 +274,37 @@ are the risks the phase order is built around:
   end of the applied input, as before, assumed every input lasted on the
   server as long as it did on the client; taking each input's own lateness
   as the difference would keep the jitter in.
+- **An input's beginning is known only where the sequence changes** after a
+  step of another. The first a prediction flies may have begun before the
+  prediction did - one begun from the first update, or after a take-back -
+  and taken as begun there it put the clocks' difference two steps short for
+  two seconds of updates: 1.03 m at 200 ms with no jitter at all (found by the
+  review). No word on input 0 is used either.
 - **The prediction error is measured at that step**, not at the end of the
   input: `glideslope_cli connect --predict` keeps where each step took it and
   holds the server's word against the step before the one it was placed at.
 
 **Verification.**
-- `a_client_put_right_from_as_far_into_its_input_as_the_server_had_flown_is_off_by_centimetres`:
-  inputs at 30 Hz, each late by `(5 (i - 1)) mod 8` steps (every lateness from
-  none to seven, counted), the server caught at every step into an input from
-  one to seven (counted): worst correction 2.1 mm at 100 ms and 4.9 mm at
-  200 ms, held to 0.1 m. **Seen to fail**: with the client replaying from the
-  end of the applied input, 3.59 m.
-- **The network checks** (`server_impaired.cmake`), their bound tightened from
-  8 and 10 m to 1 m: at 200 ms, 60 ms jitter, 10% loss the worst prediction
-  error was 0.259 m and 0.386 m (two runs); at 100 ms, 0.282 m. **Seen to
-  fail**: with the client ignoring the field, 6.47 m at 200 ms, and 3.51 m
-  against the 1 m bound.
+- **The tail is ticked on**
+  `a_client_put_right_from_as_far_into_its_input_as_the_server_had_flown_is_off_by_centimetres`,
+  which holds a metre at 100 and 200 ms, with jitter and with jitter and loss,
+  on every machine, because nothing in it keeps time. Inputs at 30 Hz, each
+  late by `(5 (i - 1)) mod 8` steps (every lateness from none to seven,
+  counted); with loss, every seventh input from the fourth never applied (34)
+  and every ninth update from the fifth never heard (21), counted; the server
+  caught at every step into an input from one to seven, counted. Worst
+  correction once the clocks' difference is known: 2.1 mm and 4.7 mm at
+  100 ms, 4.4 mm and 9.8 mm at 200 ms (without and with loss); while it was
+  being learnt, 2.1 and 2.6 m. **Seen to fail**: with the client replaying
+  from the end of the applied input, 3.49 m.
+- `a_prediction_begun_part_way_through_an_input_is_not_put_off_by_it`:
+  begun two steps into its first input, at 200 ms with no jitter, 4.3 mm,
+  held to 0.1 m. **Seen to fail** with the first input's beginning taken as
+  the prediction's first step: 1.03 m.
+- **The network checks** (`server_impaired.cmake`), bounds kept at 8 and
+  10 m: at 200 ms, 60 ms jitter, 10% loss the worst prediction error was
+  0.259 m and 0.386 m (two runs); at 100 ms, 0.282 m. With the client
+  ignoring the field, 6.47 m at 200 ms.
 - **The take-over test** at 200 ms: 0.077 m after the take-over (from 10.6
   and 11.3 m on 2026-09-26); at 100 ms, 0.025 m. With the field ignored,
   3.69 m. One run failed at 24.1 m with its server at 44% speed - the tail

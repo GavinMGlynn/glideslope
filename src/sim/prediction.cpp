@@ -20,7 +20,16 @@ double how_far_apart_m(const AircraftState& a, const AircraftState& b) {
 void Prediction::step(std::uint32_t sequence, const Controls& controls) {
     aircraft_.set_controls(controls);
     aircraft_.step();
-    began_.try_emplace(sequence, steps_);
+    // **Where an input began here**, known only where the sequence changes
+    // after a step of another: the first input a prediction flies may have
+    // begun before it did - one begun from the first update, or after a
+    // take-back, begins part-way through - and taken as begun on this step
+    // it put the clocks' difference short by as much, for two seconds of
+    // updates (a metre at 200 ms).
+    if (steps_ > 0 && sequence != flying_) {
+        began_.try_emplace(sequence, steps_);
+    }
+    flying_ = sequence;
     held_.push_back({sequence, controls, steps_});
     ++steps_;
     // A client this far behind has a problem this layer cannot solve; the
@@ -67,7 +76,7 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     // here - sent before this prediction began - has no beginning, and says
     // nothing.
     const auto began = began_.find(last_applied);
-    if (began != began_.end() && steps_into <= server_steps) {
+    if (last_applied != 0 && began != began_.end() && steps_into <= server_steps) {
         offsets_.push_back(static_cast<std::int64_t>(server_steps - steps_into) -
                            static_cast<std::int64_t>(began->second));
         while (offsets_.size() > offset_window) {

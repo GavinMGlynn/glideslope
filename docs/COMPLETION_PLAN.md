@@ -492,13 +492,15 @@ Found while implementing something else. Added when found, not when remembered.
       the server does not say how far into its latest input it had flown.
       *Verification: through 200 ms with jitter and loss, the worst prediction
       error is under a metre.* Done 2026-09-27: the server says it, and the
-      client places the server's word on its own clock by it; 0.26 and 0.39 m
-      at 200 ms (6.5 m with it ignored), and the network checks now hold a metre.
+      client places the server's word on its own clock by it. A unit test
+      with built jitter and loss holds a metre on every machine (1 cm at
+      200 ms); the network checks measured 0.26 and 0.39 m at 200 ms.
 - [ ] **A server that falls behind real time puts its clients' prediction off
       by metres**: flying fewer steps than the client does, it flies each input
       for fewer. One 200 ms take-over run on WSL missed its 10 m bound at 24 m
       while its server ran at under half speed (2026-09-27). *Verification: a
       server slowed on purpose keeps a predicting client's error under a metre.*
+      Part of it is the client's clock estimate lagging the server's catch-up.
 - [x] **Two server tests counted wall-clock seconds on slow runners**: one
       counted inputs still in flight, and a late client arrived before a slow
       server was flying. *Verification: the client waits for its last input to

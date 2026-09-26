@@ -518,11 +518,12 @@ struct Connection {
     // (sim::Prediction).
     std::int64_t steps_into_input = 0;
     // **The newest input heard and not yet applied**, and its number. It is
-    // applied after the steps already owed when it was read (apply_input): a
-    // server that fell behind and catches up flew those steps, on the input
-    // before, as the time they stand for had passed before this one arrived.
-    // Applied as it was read, a server held up for 50 ms flew six steps of a
-    // new input early, and put its clients off by two metres (2026-09-27).
+    // applied after the steps taken in the pass it was read in (apply_input):
+    // the time those stand for had passed before it arrived. Applied as it
+    // was read, a server held up for 50 ms flew six steps of a new input
+    // early, and put its clients off by two metres (2026-09-27). A pass takes
+    // at most `most_steps_between_looks`, so a server further behind than
+    // that still flies the rest of what it owes on the new input.
     std::optional<std::pair<std::uint32_t, glideslope::sim::Controls>> input_heard;
     // **What must arrive**: the reliable messages to this client, and what
     // each aircraft has been introduced to it as - its model, by number - so
@@ -1659,8 +1660,8 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             if (fleet == nullptr || c.aircraft == glideslope::net::no_aircraft) {
                 return;
             }
-            // Only the newest is kept, and applied once the steps owed are
-            // flown (apply_input).
+            // Only the newest is kept, and applied once this pass's steps -
+            // at most `most_steps_between_looks` - are flown (apply_input).
             const auto frames = c.inputs.received(inside.subspan(1));
             for (const glideslope::net::InputFrame& frame : frames) {
                 const std::uint32_t newest =
