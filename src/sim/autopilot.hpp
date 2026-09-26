@@ -16,7 +16,10 @@
 //   altitude -> vertical speed, at most the climb rate asked for -> pitch,
 //     with an integral -> elevator, damped by the pitch rate, with an
 //     integral that finds the trim;
-//   airspeed -> throttle, with an integral.
+//   airspeed -> throttle, with an integral;
+//
+// or, when asked to recover from a stall, airspeed -> pitch, with an
+// integral, and the throttle to its stop, until the caller lets it go.
 //
 // **Asked for a height it cannot hold, it gives up height, not airspeed.**
 // When the climb asked for would take the airspeed below the aeroplane's
@@ -82,6 +85,16 @@ private:
     bool spent_ = false;
     double pitch_command_deg_ = 0.0;
     double pitch_integral_deg_ = 0.0;
+    // The airspeed on the elevator (AutopilotModes::speed_on_elevator): the
+    // pitch it holds the speed at, found by an integral.
+    bool was_on_speed_ = false;
+    double speed_integral_deg_ = 0.0;
+    // Where the wing's lift has been seen to peak in this configuration: the
+    // greatest lift coefficient, the angle of attack it came at, and the
+    // flaps and gear it was seen with.
+    double most_lift_ = -1e9;
+    double stall_alpha_deg_ = 90.0;
+    double lift_config_ = -1e9;
     double elevator_trim_ = 0.0;
     double rudder_integral_ = 0.0;
     double throttle_integral_ = 0.0;

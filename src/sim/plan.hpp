@@ -53,6 +53,21 @@ struct AutopilotModes {
     double vertical_speed_fpm = 700.0;
     // Knots calibrated; none leaves the throttle where it is.
     std::optional<double> airspeed_kts;
+    // **The stall recovery: the airspeed on the elevator, at full power**,
+    // rather than the height or the vertical speed. The nose goes down until
+    // the wing is unloaded and the speed comes, whatever the height is doing,
+    // and then holds the speed, climbing on what power is left. It needs
+    // `airspeed_kts`, and does nothing without one.
+    //
+    // **It captures nothing and ends nothing by itself.** The height and the
+    // vertical speed above are not flown while it is set, and it climbs for
+    // as long as it is left set: the caller clears it once the aeroplane is
+    // recovered, and the height or vertical speed it has set is flown from
+    // where the pitch is. **Nor does it know where the ground is**: short of
+    // the speed it will put the nose as far down as the flight path, to 30
+    // degrees, at any height. A recovery started too low for that ends in
+    // the ground.
+    bool speed_on_elevator = false;
 };
 
 // Where to land: the landing threshold, and the runway from it.

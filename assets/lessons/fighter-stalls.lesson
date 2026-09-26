@@ -26,7 +26,7 @@
 # **The stall is entered in the landing configuration**, flaps and gear down,
 # because `stall` is the stall with everything down: flown clean, a swept wing
 # asked for twenty-five knots above its landing stall has to stall to get
-# there, and departs. **The bands are measured**, with room: the F-35B sinks 468 feet entering it and loses 260 in the recovery, the F-15C 17 and 65.
+# there, and departs. **The bands are measured**, with room: the F-35B sinks 468 feet entering it and loses 252 in the recovery, the F-15C 17 and 132 (as measured 2026-09-26).
 
 name Stalls in a fighter
 teaches fighter
