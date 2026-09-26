@@ -26,7 +26,7 @@
 # **The stall is entered in the landing configuration**, flaps and gear down,
 # because `stall` is the stall with everything down: flown clean, a swept wing
 # asked for twenty-five knots above its landing stall has to stall to get
-# there, and departs. **The bands are measured**, with room: the 737-300 loses 128 feet at worst entering it and 323 in the recovery, the A380 344, the 787-8 395 and the A320 330 (as measured 2026-09-26).
+# there, and departs. **The bands are measured**, with room: the 737-300 loses 128 feet at worst entering it and 319 in the recovery, the A380 354, the 787-8 418 and the A320 320 (as measured 2026-09-26).
 
 name Stalls in an airliner
 teaches airliner
