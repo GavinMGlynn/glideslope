@@ -26,13 +26,18 @@ std::optional<std::uint64_t> memory_held_bytes() {
     }
     return static_cast<std::uint64_t>(counters.PrivateUsage);
 #elif defined(__APPLE__)
-    mach_task_basic_info_data_t info{};
-    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
-    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO,
-                  reinterpret_cast<task_info_t>(&info), &count) != KERN_SUCCESS) {
+    // The physical footprint, Apple's own figure for what a process costs
+    // (and what Xcode's memory gauge shows): memory it holds dirty,
+    // compressed or not, as Windows' private bytes are. A kernel that
+    // answers with fewer fields than REV0's - which is without it - has none.
+    task_vm_info_data_t info{};
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&info),
+                  &count) != KERN_SUCCESS ||
+        count <= TASK_VM_INFO_REV0_COUNT) {
         return std::nullopt;
     }
-    return static_cast<std::uint64_t>(info.resident_size);
+    return static_cast<std::uint64_t>(info.phys_footprint);
 #else
     // Its second field is the resident set, in pages.
     std::ifstream statm("/proc/self/statm");
