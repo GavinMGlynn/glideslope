@@ -49,8 +49,10 @@ Where each number comes from:
   and, from its figure 7 - the same elevator settings at tail incidences of
     0.4 and -7 degrees, flaps up - the stabilizer's pitching moment, 0.0368 a
     degree, 2.11 a radian: the pitching moment at no incidence goes from 0.051
-    to 0.323 as the stabilizer goes from 0.4 to -7. The stabilizer's travel
-    nose down is the tunnel aircraft's, 0.4 degrees.
+    to 0.323 as the stabilizer goes from 0.4 to -7. **The stabilizer's
+    travel nose down, 0.4 degrees, is not sourced for the 35A**: it is the
+    tunnel aircraft's (a Learjet 23's) setting in that test, not a stop
+    anything published gives for this aeroplane.
   NASA TN D-7647, Wingrove's identification of a Lear Jet's longitudinal
   coefficients from flight (1974), table II
     The lift slope, 5.12; the lift and pitching moment at no incidence, 0.111
@@ -148,7 +150,7 @@ FLAP_PITCH = -0.03           # at 40 degrees
 # (the AFM's figure 2-2). Its pitching moment a radian (TN D-6573 figure 7),
 # its lift by the elevator's ratio of lift to moment - the same tail at the
 # same arm - and its travel: nose up to the AFM's greatest take-off setting,
-# nose down to the tunnel aircraft's. Its rate is estimated: its whole travel
+# nose down to the tunnel aircraft's, unsourced for the 35A. Its rate is estimated: its whole travel
 # in sixteen seconds, half a degree a second.
 #
 # **Why it is here.** With the pitch trim on the elevator, and no take-off

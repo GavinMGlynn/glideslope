@@ -6,6 +6,7 @@
 #include "sim/departure.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/controller.hpp"
+#include "sim/crash.hpp"
 #include "sim/lander.hpp"
 #include "sim/figures.hpp"
 #include "sim/lesson.hpp"
@@ -805,6 +806,140 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
     check(catalogue == 16, "sixteen aircraft in the catalogue, not " + std::to_string(catalogue));
     check(walked + left_out.size() == catalogue, "every aircraft flown or named");
     check(walked == 13, "thirteen landplanes flown, not " + std::to_string(walked));
+}
+
+// **Every landplane takes off at every loading it has**: its model's own,
+// which is what an AI aircraft or a plan flies, and every loading its
+// figures name - the lightest and the heaviest among them. At each it leaves
+// the runway within ten knots of its rotation speed for what it weighs (the
+// figures' speed scaled by the square root of the weight, `sim::Departure`),
+// strikes nothing and hits nothing on the way (`sim::GroundJudge`), climbs
+// to a thousand feet, and hands on no take-off trim. Until 2026-09-26 the
+// Learjet 35A at its own loading rotated itself on the roll and was flown
+// back into the runway, and the B-2A at its own 327,000 lb was pulled on to
+// its tail.
+//
+// **Off the ground is the last time the wheels leave it** before she is 35
+// ft above where she stood, as in the test above. The flying boat is left
+// out, as there; the 747-400 and the F-22A have no take-off to fly.
+GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_its_speed_for_its_weight_and_unhurt) {
+    std::size_t catalogue = 0;
+    std::size_t walked = 0;
+    std::size_t loadings_flown = 0;
+    std::size_t loadings_named = 0;
+    std::vector<std::string> left_out;
+    std::vector<std::string> wrong;
+    std::printf("  %-13s %-13s %8s %8s %8s %7s %6s %6s\n", "aircraft", "loading", "lb",
+                "rotate", "off", "past", "stands", "strike");
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        ++catalogue;
+        if (entry.seaplane) {
+            left_out.push_back(entry.id + ": a flying boat, which is not rotated");
+            continue;
+        }
+        glideslope::sim::DepartureSpeeds speeds;
+        try {
+            speeds = glideslope::sim::departure_speeds(data(), entry.model);
+        } catch (const std::runtime_error& e) {
+            left_out.push_back(entry.id + ": " + e.what());
+            continue;
+        }
+        ++walked;
+        const auto figures =
+            glideslope::sim::read_published_figures(data() / "figures" / (entry.model + ".xml"));
+        // Its model's own, and then every loading its figures name - or the
+        // one they all fly at, where they name none.
+        std::vector<std::pair<std::string, const glideslope::sim::Loading*>> loadings{
+            {"(model's)", nullptr}};
+        if (figures.loadings.empty()) {
+            loadings.emplace_back("(figures')", &figures.loading);
+        }
+        for (const auto& [name, loading] : figures.loadings) {
+            loadings.emplace_back(name, &loading.loading);
+        }
+        loadings_named += loadings.size();
+        for (const auto& [name, loading] : loadings) {
+            const glideslope::sim::Runway runway = a_runway();
+            glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+            aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                [](double, double) { return 0.0; }, [](double, double) { return false; }));
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = runway.threshold_lat_deg;
+            ic.longitude_deg = runway.threshold_lon_deg;
+            ic.altitude_ft = runway.elevation_ft;
+            ic.terrain_elevation_ft = runway.elevation_ft;
+            ic.heading_deg = runway.heading_deg;
+            ic.airspeed_kts = 0.0;
+            ic.engine_running = true;
+            ic.gear = 1.0;
+            if (loading != nullptr) {
+                aircraft.load(*loading);
+            }
+            aircraft.initialize(ic);
+            glideslope::sim::Departure departure(aircraft, runway, speeds, 1000.0);
+            glideslope::sim::GroundJudge judge(false);
+            const double standing_ft = aircraft.property("position/h-agl-ft");
+            double off_kts = 0.0;
+            bool was_down = true;
+            bool clear = false;
+            std::optional<std::string> wreck;
+            glideslope::sim::Controls last;
+            for (int tick = 0; tick < 240 * steps_per_second &&
+                               departure.stage() != glideslope::sim::Departure::Stage::done;
+                 ++tick) {
+                last = departure.fly();
+                aircraft.set_controls(last);
+                aircraft.step();
+                if (auto w = judge.judge(aircraft)) {
+                    wreck = w;
+                    break;
+                }
+                const bool down = aircraft.property("gear/wow") > 0.5;
+                if (was_down && !down && !clear) {
+                    off_kts = aircraft.property("velocities/vc-kts");
+                }
+                was_down = down;
+                clear = clear || aircraft.property("position/h-agl-ft") > standing_ft + 35.0;
+            }
+            ++loadings_flown;
+            const double rotate = departure.speeds().rotate_kts;
+            std::printf("  %-13s %-13s %8.0f %8.1f %8.1f %+7.1f %6.1f %6.1f%s\n",
+                        entry.id.c_str(), name.c_str(), aircraft.property("inertia/weight-lbs"),
+                        rotate, off_kts, off_kts - rotate, departure.standing_pitch_deg(),
+                        departure.strike_pitch_deg(),
+                        wreck ? (" wrecked: " + *wreck).c_str() : "");
+            std::fflush(stdout);
+            const std::string who = entry.id + " at " + name;
+            if (wreck) {
+                wrong.push_back(who + " was wrecked: " + *wreck);
+            } else if (departure.stage() != glideslope::sim::Departure::Stage::done) {
+                wrong.push_back(who + " did not climb to a thousand feet");
+            }
+            if (std::abs(off_kts - rotate) > 10.0) {
+                wrong.push_back(who + " left the runway at " + std::to_string(off_kts) +
+                                " knots, not within ten of " + std::to_string(rotate));
+            }
+            if (std::abs(last.pitch_trim) > 0.01) {
+                wrong.push_back(who + " handed on a pitch trim of " +
+                                std::to_string(last.pitch_trim));
+            }
+        }
+    }
+    for (const std::string& why : left_out) {
+        std::printf("  left out - %s\n", why.c_str());
+    }
+    std::string all;
+    for (const std::string& what : wrong) {
+        all += "\n    " + what;
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong:" + all);
+    check(catalogue == 16, "sixteen aircraft in the catalogue, not " + std::to_string(catalogue));
+    check(walked + left_out.size() == catalogue, "every aircraft flown or named");
+    check(walked == 13, "thirteen landplanes flown, not " + std::to_string(walked));
+    check(loadings_flown == loadings_named, "every loading flown: " +
+                                                std::to_string(loadings_flown) + " of " +
+                                                std::to_string(loadings_named));
+    std::printf("  %zu loadings of %zu landplanes flown\n", loadings_flown, walked);
 }
 
 // **Flown with one stated fault, the debrief names that fault.** The

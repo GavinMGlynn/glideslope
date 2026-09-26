@@ -185,7 +185,9 @@ def mass_balance():
 # stabilator could not lift it until 183 knots with the stick fully back,
 # against a rotation speed of 141. The F-15C's flight manual is the check on
 # the rule: the same 15 degrees brings its nose wheel off within 7 knots of
-# the manual's (tools/make_f15c.py).
+# the manual's (tools/make_f15c.py). **Nothing checks it on the F-35B
+# itself**: no F-35 figure gives where its wheels are or when its nose wheel
+# comes off, so this is the rule, borrowed, and not a measurement.
 TIP_BACK_DEG = 15.0
 WHEEL_Z = -70.0                    # the wheels' contact, below the centre of gravity
 

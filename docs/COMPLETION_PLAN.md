@@ -337,6 +337,15 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [ ] **On the DEM at Sydney's 16R the runway is not flat enough to take off
+      from.** `glideslope_cli fly-plan` from 16R wrecks the 737-300 and the
+      A320 (airframe strike at 14 s) and the F-15C (9 s) on the roll, with
+      the stick still neutral: the collision ground under the runway rises
+      and falls several feet over a few cells and pitches them up by 13
+      degrees. It is on main as well. *Verification: every aeroplane takes off
+      from 16R on the DEM, and what the collision ground under a runway may
+      do is measured.*
+
 - [x] **The F-15C landed wheels-up rocks from wing tip to wing tip, and on
       Windows it now breaks up.** It rested on two points on its centreline
       and rolled ten degrees either way as it slid; with its centre of
@@ -522,9 +531,13 @@ Found while implementing something else. Added when found, not when remembered.
       speed.** The F-15C lifts off at 230 knots where its flight manual gives
       157. *Verification: each lifts off within ten knots of its rotation
       speed, and can be rotated early.* Done 2026-09-26, for every landplane
-      in the catalogue: all thirteen with a take-off leave within ten knots of
-      their rotation speed, and pulled back early leave sooner and climb
-      away. The Mosquito and the PA-28 were fixed on the way.
+      in the catalogue and at every loading it has: all thirteen with a
+      take-off leave within ten knots of their rotation speed for their
+      weight, unhurt, and pulled back early leave sooner and climb away. The
+      Mosquito and the PA-28 were fixed on the way. **The F-15C still leaves
+      at 183 knots, 26 past its flight manual's 157**: that is within ten of
+      the model's rotation speed, which is itself high - 1.15 times its
+      landing stall at its take-off flap.
 - [x] **The Learjet ends its landing roll nose down through the runway.**
       *Verification: every aeroplane the AI lands ends its rollout upright on
       its wheels.* Done 2026-09-24: the Learjet already stopped level; three

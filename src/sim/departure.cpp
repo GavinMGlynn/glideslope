@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 #include <stdexcept>
 
 namespace glideslope::sim {
@@ -21,6 +22,15 @@ constexpr double lift_off_after_kts = 3.0;
 constexpr double climb_floor_deg = 3.0;
 // A model's pitch trim for take-off, where its flight manual gives one.
 constexpr const char* takeoff_trim_property = "fcs/pitch-trim-takeoff-norm";
+// How fast the take-off trim is taken off once she is flying, of its travel a
+// second.
+constexpr double takeoff_trim_washout_per_s = 0.1;
+// Her nose this far above the attitude she stands at, as she leaves the
+// ground, is a rotation, degrees.
+constexpr double self_rotated_deg = 2.0;
+// How far short of the attitude her tail strikes at the nose is held on the
+// wheels, degrees.
+constexpr double strike_margin_deg = 2.0;
 
 double metres_per_degree_latitude(double latitude_deg) {
     const double lat = latitude_deg / degrees;
@@ -48,6 +58,13 @@ const FigureSpec* by_flight(const PublishedFigures& figures, const std::string& 
 // take-off attitude at a pilot's four degrees a second.
 double rotation_lead_s(double pitch_deg) {
     return std::max(0.0, (10.0 - pitch_deg) / 4.0);
+}
+
+// What the aeroplane weighed for a figure: its loading's total, or the
+// file's first loading's where it names none.
+double weighed_lbs(const PublishedFigures& figures, const FigureSpec& spec) {
+    const auto at = figures.loadings.find(spec.loading);
+    return at != figures.loadings.end() ? at->second.total_lbs : figures.total_lbs;
 }
 
 double condition(const FigureSpec& spec, const std::string& name, double missing) {
@@ -107,6 +124,7 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
                 speeds.rotate_kts = 1.15 * spec.published;
                 speeds.rotate_is_published = false;
                 speeds.initial_climb_kts = 1.2 * spec.published + 10.0;
+                speeds.reference_lbs = weighed_lbs(figures, spec);
                 speeds.flap = figures.flaps_full_deg > 0.0
                                   ? std::clamp(field_flap_deg / figures.flaps_full_deg,
                                                0.0, 1.0)
@@ -122,6 +140,7 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
         roll != nullptr && condition(*roll, "lift_off_kcas", 0.0) > 0.0) {
         speeds.rotate_kts = condition(*roll, "lift_off_kcas", 0.0);
         speeds.rotate_is_published = !roll->measured;
+        speeds.reference_lbs = weighed_lbs(figures, *roll);
         const double flap_deg = condition(*roll, "flaps_deg", 0.0);
         speeds.flap = figures.flaps_full_deg > 0.0
                           ? std::clamp(flap_deg / figures.flaps_full_deg, 0.0, 1.0)
@@ -152,6 +171,7 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
     }
     speeds.rotate_kts = 1.15 * cleanest->published;
     speeds.rotate_is_published = false;
+    speeds.reference_lbs = weighed_lbs(figures, *cleanest);
     speeds.flap = 0.0;
     return speeds;
 }
@@ -161,23 +181,91 @@ Departure::Departure(const Aircraft& aircraft, const Runway& runway,
     : a_(aircraft), runway_(runway), speeds_(speeds), to_ft_(to_ft) {
     measure();
     standing_m_ = above_m_;
-    tail_pitch_deg_ = a_.state().pitch_deg;
-    // **A tail wheel is a wheel on the centreline behind the main wheels**,
-    // which are the ones off it - read from the model's own gear, so that
-    // nothing here names an aeroplane. JSBSim's structural x runs aft.
-    double aftmost_main_in = -1e9;
-    double aftmost_centre_in = -1e9;
-    for (int unit = 0;; ++unit) {
-        const std::string at = "gear/unit[" + std::to_string(unit) + "]/";
-        if (!a_.has_property(at + "WOW")) {
-            break;
-        }
-        const double x = a_.property(at + "x-position");
-        double& aftmost =
-            std::abs(a_.property(at + "y-position")) > 1.0 ? aftmost_main_in : aftmost_centre_in;
-        aftmost = std::max(aftmost, x);
+    standing_pitch_deg_ = a_.state().pitch_deg;
+    read_the_gear();
+    tail_pitch_deg_ = standing_pitch_deg_;
+    // **Her speeds for what she weighs.** The figures give them at the
+    // weight their loading names; a speed that holds her up goes as the
+    // square root of her weight. At its model's own loading the B-2A
+    // weighs 327,000 lb against the 177,160 its rotation speed was taken
+    // at, and asked to fly at the lighter aeroplane's speed it was hauled
+    // on to its tail at 110 knots and left the runway at 148. On the water
+    // a published water take-off is flown as published.
+    if (speeds_.reference_lbs > 0.0 && speeds_.running_pitch_deg <= 0.0) {
+        const double scale = std::sqrt(a_.property("inertia/weight-lbs") / speeds_.reference_lbs);
+        speeds_.rotate_kts *= scale;
+        speeds_.initial_climb_kts *= scale;
     }
-    tail_wheel_ = aftmost_main_in > -1e9 && aftmost_centre_in > aftmost_main_in;
+}
+
+// **What she stands on, worked from her model's own contacts**, as they are
+// placed - not from which of them touch, since she is started level and
+// settles on to her tail or her nose after. Her main wheels are the lowest
+// contacts off the centreline. Pivoting on them, she falls the way her
+// centre of gravity lies until the first centreline contact that way meets
+// the ground: that is her nose wheel, or her tail wheel, and the angle it
+// takes is the attitude she stands at. The A320's model makes its tail skid
+// and wing tips wheels as well, and counting every wheel took it for a
+// tail-wheel aeroplane. JSBSim's structural x runs aft and z up, in inches.
+void Departure::read_the_gear() {
+    struct Point {
+        double x, y, z;
+    };
+    std::vector<Point> points;
+    for (int unit = 0; unit < 64; ++unit) {
+        for (const char* kind : {"gear/unit[", "contact/unit["}) {
+            const std::string at = kind + std::to_string(unit) + "]/";
+            if (a_.has_property(at + "WOW")) {
+                points.push_back({a_.property(at + "x-position"), a_.property(at + "y-position"),
+                                  a_.property(at + "z-position")});
+            }
+        }
+    }
+    double main_z = 1e9;
+    for (const Point& p : points) {
+        if (std::abs(p.y) > 1.0) {
+            main_z = std::min(main_z, p.z);
+        }
+    }
+    double main_x = -1e9;
+    for (const Point& p : points) {
+        if (std::abs(p.y) > 1.0 && p.z < main_z + 1.0) {
+            main_x = std::max(main_x, p.x);
+        }
+    }
+    if (main_x < -1e8) {
+        return;
+    }
+    // The pitch, nose up positive, at which a point meets the ground
+    // pivoting on the main wheels.
+    const auto meets = [&](const Point& p) {
+        return std::atan((p.z - main_z) / (p.x - main_x)) * degrees;
+    };
+    const bool tail_down = a_.property("inertia/cg-x-in") > main_x;
+    const Point* stands_on = nullptr;
+    for (const Point& p : points) {
+        if (std::abs(p.y) <= 1.0 && std::abs(p.x - main_x) > 1.0 &&
+            (p.x > main_x) == tail_down &&
+            (stands_on == nullptr || std::abs(meets(p)) < std::abs(meets(*stands_on)))) {
+            stands_on = &p;
+        }
+    }
+    if (stands_on == nullptr) {
+        return;
+    }
+    tail_wheel_ = tail_down;
+    standing_pitch_deg_ = meets(*stands_on);
+    // **The attitude her tail strikes at**: the lowest, pivoting on her
+    // main wheels, at which anything behind them meets the ground - a tail
+    // skid, a tail cone, a nacelle. None, for a tail-wheel aeroplane, whose
+    // tail is on the ground already.
+    if (!tail_wheel_) {
+        for (const Point& p : points) {
+            if (p.x > main_x + 1.0) {
+                strike_pitch_deg_ = std::min(strike_pitch_deg_, meets(p));
+            }
+        }
+    }
 }
 
 void Departure::measure() {
@@ -207,8 +295,23 @@ Controls Departure::fly() {
     // the centre of gravity (figure 2-2), and without it the elevator alone
     // could not lift her nose wheel until twenty knots past her rotation
     // speed. An aeroplane with no such setting is left at none.
+    //
+    // **And the setting is taken off again once she is off the ground**, a
+    // tenth of its travel a second, and carried by the elevator instead,
+    // whose authority the Learjet's is near: left on, it was handed to the
+    // autopilot with the rest of the controls and kept for the whole
+    // flight, and at 350 knots the elevator held her at 0.94 of its travel
+    // nose down against it.
     if (a_.has_property(takeoff_trim_property)) {
-        c.pitch_trim = a_.property(takeoff_trim_property);
+        if (!unstuck_) {
+            takeoff_trim_ = a_.property(takeoff_trim_property);
+        } else {
+            const double step = std::clamp(takeoff_trim_, -takeoff_trim_washout_per_s / steps_per_second,
+                                           takeoff_trim_washout_per_s / steps_per_second);
+            takeoff_trim_ -= step;
+            pitch_trim_ += step;
+        }
+        c.pitch_trim = takeoff_trim_;
     }
 
     // A hull in the water is on the ground, as far as a take-off goes: it has
@@ -224,8 +327,16 @@ Controls Departure::fly() {
     // the stick as it was - whoever held it, this autopilot or a pilot
     // rotating her early; JSBSim's command is nose down positive - says
     // which. The climb below is held off the runway only if she was rotated.
+    //
+    // **Or by herself**: her nose up off the attitude she stands at as she
+    // leaves is a rotation, whoever or whatever made it. The Learjet 35A at
+    // its model's own loading sits aft of the last row of its flight
+    // manual's take-off trim, and on that trim lifted her own nose on the
+    // roll; taken for a hop, she was not held off the runway, and was flown
+    // back on to it sinking at 1,784 ft/min.
     if (was_on_ground_ && !on_ground && !rotated_off_) {
-        rotated_off_ = rotation_begun_ || -a_.property("fcs/elevator-cmd-norm") > 0.2;
+        rotated_off_ = rotation_begun_ || -a_.property("fcs/elevator-cmd-norm") > 0.2 ||
+                       s.pitch_deg > standing_pitch_deg_ + self_rotated_deg;
     }
     if (was_on_ground_ && !on_ground) {
         left_at_pitch_deg_ = s.pitch_deg;
@@ -414,7 +525,8 @@ Controls Departure::fly() {
             pull_ = std::min(pull_ + held - last_elevator_, 1.0);
         }
         const double lagging_deg = want_pitch - s.pitch_deg;
-        if (lagging_deg > 1.0 && s.q_radps * degrees < 4.0) {
+        if (lagging_deg > 1.0 && s.q_radps * degrees < 4.0 &&
+            s.pitch_deg < strike_pitch_deg_ - strike_margin_deg - 1.0) {
             pull_ = std::min(pull_ + 0.5 / steps_per_second, 1.0);
         } else if (lagging_deg <= 1.0) {
             pull_ = std::max(pull_ - 0.25 / steps_per_second, 0.0);
@@ -500,6 +612,25 @@ Controls Departure::fly() {
     // degrees - took her on up to thirty.
     if (a_.property("aero/alpha-deg") > 12.0) {
         want_pitch = std::min(want_pitch, s.pitch_deg - (a_.property("aero/alpha-deg") - 12.0));
+    }
+    if (!on_water) {
+        // **On her wheels, the nose is held short of the attitude her tail
+        // strikes at**, and the stick is not pulled further there. The B-2A
+        // at its model's own weight was pulled to 14.1 degrees on its
+        // wheels and struck its airframe.
+        if (on_ground) {
+            want_pitch = std::min(want_pitch, strike_pitch_deg_ - strike_margin_deg);
+            if (s.pitch_deg > strike_pitch_deg_ - strike_margin_deg) {
+                pull_ = std::max(pull_ - 1.0 / steps_per_second, 0.0);
+            }
+        } else if ((above_m_ - standing_m_) * feet_per_metre < 35.0) {
+            // **Off the ground but not yet clear of it, the nose is never
+            // pushed below the attitude she stands at** - level, for a
+            // tail-wheel aeroplane, which stands on her tail - whatever
+            // asks: letting a hop back down, or the incidence above. Unbound,
+            // they flew the Learjet 35A back on to the runway nose first.
+            want_pitch = std::max(want_pitch, tail_wheel_ ? 0.0 : standing_pitch_deg_);
+        }
     }
 
     const double pitch_error = want_pitch - s.pitch_deg;
