@@ -392,6 +392,31 @@ void Aircraft::initialize(const InitialConditions& ic) {
     initialized_ = true;
 }
 
+namespace {
+
+// **A wheel is a leg of the undercarriage**: one that retracts, steers or
+// brakes. JSBSim's BOGEY is any rolling contact, and some models give the
+// airframe rolling contacts too - the A320's nose, tail, engines and
+// wingtips are BOGEYs - so the contact type alone called a belly landing on
+// its engines a landing on wheels.
+bool is_wheel(const JSBSim::FGLGear& unit) {
+    return unit.IsBogey() && (unit.GetRetractable() || unit.GetSteerable() ||
+                              unit.GetBrakeGroup() != JSBSim::FGLGear::bgNone);
+}
+
+} // namespace
+
+std::vector<Aircraft::ContactPoint> Aircraft::contact_points() const {
+    std::vector<ContactPoint> out;
+    const auto ground = exec_->GetGroundReactions();
+    for (int i = 0; i < ground->GetNumGearUnits(); ++i) {
+        const auto unit = ground->GetGearUnit(i);
+        out.push_back({unit->GetLocationX(), unit->GetLocationY(), unit->GetLocationZ(),
+                       is_wheel(*unit)});
+    }
+    return out;
+}
+
 Aircraft::Contact Aircraft::contact() const {
     Contact out;
     const auto ground = exec_->GetGroundReactions();
@@ -400,15 +425,7 @@ Aircraft::Contact Aircraft::contact() const {
         if (!unit->GetWOW()) {
             continue;
         }
-        // **A wheel is a leg of the undercarriage**: one that retracts, steers
-        // or brakes. JSBSim's BOGEY is any rolling contact, and some models
-        // give the airframe rolling contacts too - the A320's nose, tail,
-        // engines and wingtips are BOGEYs - so the contact type alone called
-        // a belly landing on its engines a landing on wheels.
-        const bool wheel = unit->IsBogey() &&
-                           (unit->GetRetractable() || unit->GetSteerable() ||
-                            unit->GetBrakeGroup() != JSBSim::FGLGear::bgNone);
-        if (wheel) {
+        if (is_wheel(*unit)) {
             out.wheels = true;
         } else {
             out.airframe = true;

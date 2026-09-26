@@ -119,8 +119,10 @@ struct FlightPlan {
         double airspeed_kts = 0.0;
     };
     std::optional<Start> start;
-    // Or a take-off from `runway`'s threshold, to `to_ft` above it.
+    // Or a take-off from `runway`'s threshold, to `to_ft` above it - no
+    // lower than `lowest_ft`, where the take-off autopilot hands over.
     struct TakeOff {
+        static constexpr double lowest_ft = 100.0;
         Runway runway;
         double to_ft = 0.0;
     };

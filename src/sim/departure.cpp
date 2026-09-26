@@ -186,6 +186,11 @@ Departure::Departure(const Aircraft& aircraft, const Runway& runway,
     measure();
     standing_m_ = above_m_;
     standing_pitch_deg_ = a_.state().pitch_deg;
+    // **The stick as she is handed over is where this autopilot last put
+    // it**, so that a stick already held back when the take-off begins is
+    // not taken for a pilot's early rotation. JSBSim's command is nose
+    // down positive.
+    last_elevator_ = -a_.property("fcs/elevator-cmd-norm");
     read_the_gear();
     tail_pitch_deg_ = standing_pitch_deg_;
     // **Her speeds for what she weighs.** The figures give them at the
@@ -214,16 +219,11 @@ Departure::Departure(const Aircraft& aircraft, const Runway& runway,
 void Departure::read_the_gear() {
     struct Point {
         double x, y, z;
+        bool wheel;
     };
     std::vector<Point> points;
-    for (int unit = 0; unit < 64; ++unit) {
-        for (const char* kind : {"gear/unit[", "contact/unit["}) {
-            const std::string at = kind + std::to_string(unit) + "]/";
-            if (a_.has_property(at + "WOW")) {
-                points.push_back({a_.property(at + "x-position"), a_.property(at + "y-position"),
-                                  a_.property(at + "z-position")});
-            }
-        }
+    for (const Aircraft::ContactPoint& p : a_.contact_points()) {
+        points.push_back({p.x_in, p.y_in, p.z_in, p.wheel});
     }
     double main_z = 1e9;
     for (const Point& p : points) {
@@ -262,10 +262,12 @@ void Departure::read_the_gear() {
     // **The attitude her tail strikes at**: the lowest, pivoting on her
     // main wheels, at which anything behind them meets the ground - a tail
     // skid, a tail cone, a nacelle. None, for a tail-wheel aeroplane, whose
-    // tail is on the ground already.
+    // tail is on the ground already. **Not a wheel**: a wheel behind the
+    // main wheels - a second row of a bogie, a body gear - is another main
+    // wheel, which she rolls on as her nose comes up, not strikes.
     if (!tail_wheel_) {
         for (const Point& p : points) {
-            if (p.x > main_x + 1.0) {
+            if (p.x > main_x + 1.0 && !p.wheel) {
                 strike_pitch_deg_ = std::min(strike_pitch_deg_, meets(p));
             }
         }
@@ -357,7 +359,13 @@ Controls Departure::fly() {
     const bool pilot_rotated = stage_ == Stage::roll && on_ground &&
                                -a_.property("fcs/elevator-cmd-norm") > last_elevator_ + 0.2;
 
-    if (stage_ != Stage::done && above_m_ * feet_per_metre >= to_ft_) {
+    // **Nor is the take-off over while her take-off trim is still on.** A
+    // take-off to a plan's lowest height, a hundred feet, ended before any
+    // of it had come off, and the Learjet 35A was handed to the autopilot
+    // with 0.33 of nose-up stabilizer, which it kept for the whole flight:
+    // the autopilot holds the trim it is handed. She climbs on until it is
+    // off - a few seconds more.
+    if (stage_ != Stage::done && above_m_ * feet_per_metre >= to_ft_ && takeoff_trim_ == 0.0) {
         stage_ = Stage::done;
     } else if (unstuck_) {
         stage_ = Stage::climb;

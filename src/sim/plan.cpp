@@ -134,7 +134,8 @@ FlightPlan parse_flight_plan(std::string_view text) {
             if (w.size() != 2) {
                 throw wrong("takeoff HEIGHT_FT");
             }
-            takeoff_to_ft = number(w[1], line_number, "the height", 100.0, 10000.0);
+            takeoff_to_ft = number(w[1], line_number, "the height",
+                                   FlightPlan::TakeOff::lowest_ft, 10000.0);
         } else {
             throw wrong("no command \"" + w[0] + "\"");
         }

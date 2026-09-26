@@ -22,9 +22,10 @@
 # the initial climb and climbs away 21 to 22 knots above its climbing speed.
 # **Since 2026-09-26 it is accelerated to it in the climb**, from the speed it
 # leaves the runway at, as the take-off autopilot now flies every aeroplane:
-# rotated so as to be off at its rotation speed, 118 knots, it is at 201 to
-# 244 knots between 200 and 500 ft, so the band reaches 35 knots below its
-# climbing speed.
+# rotated so as to be off at its rotation speed for its weight, 110 knots,
+# it leaves at 114, is at 118 fifteen feet up, and at 201 to 244 knots
+# between 200 and 500 ft, so the band reaches 35 knots below its climbing
+# speed.
 
 name Take-off in a bomber
 teaches bomber

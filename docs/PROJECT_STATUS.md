@@ -230,10 +230,32 @@ are the risks the phase order is built around:
 ### Every landplane leaves the runway at its rotation speed, and sooner rotated early, 2026-09-26 — item done
 
 **What is missing first.**
-- **The B-2A still cannot slow on the approach** (a tail): with the Dutch
-  roll below gone, its circuit's final runs to vref+14, and the bomber
-  circuit's final band now reaches vref+20, as the bomber approach lesson's
-  does for the same reason.
+- **The B-2A still cannot slow on the approach** (a tail), and with the
+  Dutch roll below gone it lands its circuit faster and longer than on main:
+  it touches down at 139 knots (main 124), stops 2,079 m beyond the
+  threshold (main 1,591) and rises 1.7 ft after touching (main 0.0). Its
+  final runs to vref+15; the bomber circuit's final band reaches vref+20,
+  the five knots over that being margin, as in the bomber approach lesson.
+- **The Learjet 35A's stabilizer cannot trim her in cruise** (a tail): at
+  250 to 350 knots she needs -0.23 to -0.26 of elevator, nose down, and the
+  stabilizer's whole nose-down travel in the model, 0.4 degrees (unsourced),
+  gives about a fifth of that. The autopilot carries it on the elevator; **a
+  player flying her by hand must hold the stick forward in cruise.** The
+  maintenance manual (Learjet 35/35A/36/36A MM, 27-40-00, rigging) does give
+  the stabilizer's travel - full nose down 1 deg 30' to 1 deg 55' leading
+  edge down from its rigging neutral, full nose up 8 deg 30' to 9 deg 00'
+  on the 35-067 and after - but that neutral is not the zero of the tunnel
+  data the model's pitching moment comes from (NASA TN D-7647), so the stop
+  cannot simply be moved: the model's zero has to be tied to the rigging's
+  first.
+- **The attitude she stands at is worked out with her struts extended**, not
+  settled under her weight: the C182's comes out 1.85 degrees nose up where
+  it settles at -0.27. The self-rotation threshold, two degrees above it,
+  varies with that difference from one aeroplane to another.
+- **The Learjet 35A has nothing behind its main wheels but its wheels** (a
+  tail): the strike limit and `sim::GroundJudge` cannot see its tail strike
+  the runway. The Cub's only contact aft is its tail wheel, and a tail-wheel
+  aeroplane is given no strike limit.
 - **Two client programs crash on Windows debug after their right answer**,
   on the way out: the open Windows debug tail, not this item's.
 - **The 747-400 and the F-22A fly no take-off**: neither has a climbing
@@ -323,12 +345,13 @@ them; it now begins at the first contact of any kind. **Seen to fail**: with
 the take-off as at 0e7a569 and the old lander, the tightened watcher fails
 the circuit on the B-2A's wingtip (rolled 8.6 degrees), where the old one
 passed it. The drag of the rudders working either way had held the B-2A's
-final to vref+10; damped, it flies vref-4 to vref+14, and the bomber circuit's
-final band is widened from vref+15 to vref+20 on its account.
+final to vref+10; damped, it flies vref-4 to vref+15, on the old band's
+edge, and the bomber circuit's final band is widened to vref+20, the five
+knots over being margin.
 
-**Verified after the fix, rebased on main.** linux-debug, the whole suite
-bar the fixed-port network tests: 518 tests, none failed, the same four
-skipped; the selftest hash is still `30ac70b84cab7d7c`. The loadings test
+**Verified after the fix.** linux-debug, the whole suite
+bar the fixed-port network tests: 522 tests with the second review's
+fixes and main's take-over, none failed, the same four skipped; the selftest hash is still `30ac70b84cab7d7c`. The loadings test
 flies its 48 take-offs, the F-15C leaves 4.5 knots past its rotation speed,
 and the PA-28 keeps within 3.26 m of the centreline on the ground. On
 Windows, from `tools/windows_build.sh` on a quiet machine, the fourteen
@@ -337,6 +360,27 @@ tests pass in windows-debug and in windows-release.
 `a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief` takes 162 s
 in windows-debug alone (42 s in release): its 900 s timeout was the Linux
 suite running beside it, not the test, so it is left as it is.
+
+**From the second review, fixed.**
+- **The take-off trim is off before the take-off ends.** A take-off to a
+  plan's lowest height, 100 ft (`FlightPlan::TakeOff::lowest_ft`), ended
+  with none of it washed out, and the Learjet 35A was handed to the
+  autopilot with 0.330 of nose-up stabilizer, kept for the whole flight; the
+  take-off now climbs on until the trim is off, and hands over at 169 ft.
+  `a_take_off_to_a_plans_lowest_height_hands_on_no_take_off_trim` flies
+  every landplane there and was seen to fail on the Learjet (0.330) first.
+- **A wheel behind the main wheels is not a strike point**: the strike
+  attitude is worked out from the airframe's contacts only
+  (`Aircraft::contact_points`, a wheel in `Aircraft::contact`'s sense).
+  No aeroplane's strike attitude moved.
+- **The yaw damper's allowance for a turn is the body's yaw rate in a
+  coordinated turn**, g sin(bank) over the true airspeed, not the heading's
+  rate over the ground speed.
+- **The stick she is handed with is where the take-off autopilot last put
+  it**, so a stick already back when it begins is not an early rotation.
+- **The loadings test asserts its 48 loadings** apart from the loop that
+  counts them, and the rotation test judges each aeroplane against the
+  rotation speed for her weight that the take-off flies to.
 
 **Every loading.** `every_landplane_takes_off_at_every_loading_within_ten_knots_of_its_speed_for_its_weight_and_unhurt`
 flies all thirteen landplanes at their model's own loading and at every
