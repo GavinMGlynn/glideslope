@@ -83,6 +83,18 @@ The changes, and what each is for:
                         rocked it wheels-up between belly and wing tips
                         until it was thrown into the air and came down
                         inverted through the runway.
+    Airframe contacts either side of the keel
+                        Still it rested on a line - its radome and its belly,
+                        both on the centreline, with its wing tips 47 in above
+                        the belly - and slid rolling ten degrees from tip to
+                        tip. Once its centre of gravity moved aft (above),
+                        that rocking grew on every Windows build until it
+                        rolled over and went 35 ft through the runway. Four
+                        contacts on the underside, fore and aft on each side
+                        of the keel, 70 in out - under the intakes and the
+                        engines - are measured from the visual model by
+                        tools/ground.py (ground.flanks), 49 in above the
+                        wheels' contact, and it rests on them.
 
   Engines (engine/F100-PW-220.xml, from JSBSim's F100-PW-229.xml)
     The F-15C's engine  The Standard Aircraft Characteristics' F100-PW-220,
@@ -270,7 +282,16 @@ def airframe():
     if n != 2:
         raise SystemExit(f"{SCRIPT}: found {n} engines, not 2 - has the pinned model changed?")
     text = with_mach_lift(over_its_wheels(text))
-    return scraping_airframe(with_mach_drag(text))
+    return with_flanks(scraping_airframe(with_mach_drag(text)))
+
+
+def with_flanks(text):
+    """Four airframe contacts either side of the keel, measured from the
+    visual model by tools/ground.py (ground.flanks)."""
+    return replace_once(text, r"(\n)(    </ground_reactions>)",
+                        lambda m: m.group(1) + ground.contact_elements(
+                            ground.flanks(MODEL), MAXIMUM_WEIGHT_LBS) + m.group(2),
+                        "the end of the ground reactions")
 
 
 def over_its_wheels(text):

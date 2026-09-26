@@ -337,14 +337,14 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
-- [ ] **The F-15C landed wheels-up rocks from wing tip to wing tip, and on
-      Windows it now breaks up.** It rests on two points on its centreline,
-      radome and belly, and rolls ten degrees either way as it slides. With
-      its centre of gravity moved aft for take-off, every Windows build
-      diverges at 74 ft/s and ends 35 ft through the runway, which fails
-      the wheels-up test there; Linux and main's model come to rest.
-      *Verification: the F-15C rests on its airframe without rocking, and
-      the wheels-up test passes on every platform.*
+- [x] **The F-15C landed wheels-up rocks from wing tip to wing tip, and on
+      Windows it now breaks up.** It rested on two points on its centreline
+      and rolled ten degrees either way as it slid; with its centre of
+      gravity moved aft for take-off, every Windows build rolled it over and
+      through the runway. *Verification: the F-15C rests on its airframe
+      without rocking, and the wheels-up test passes on every platform.*
+      Done 2026-09-26: four contacts either side of its keel, measured from
+      its visual model.
 
 - [ ] **The 100 ms network check on macOS once drew four frames of 1,946 more
       than 2 m off, the worst 8.6 m.** *Verification: the cause found, and
