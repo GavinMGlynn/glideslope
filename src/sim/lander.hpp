@@ -67,6 +67,20 @@ public:
 
     Stage stage() const { return stage_; }
 
+    // **Whether she is still landing**, for an AI given her back after a
+    // pilot had her (sim/controller.hpp): not yet stopped, and either on the
+    // ground still rolling - whoever put her there - or in the air in the
+    // flare, as `fly` decides it, or no higher over where she touched than
+    // the flare begins: a bounce, not a go-around.
+    bool still_landing() const;
+    // While the pilot has her, once a step: where she is, and whether and
+    // where she touched - so that, given her back, it knows she has landed.
+    // Nothing it flies with is moved.
+    void watch();
+    // Flown again after the pilot had her: the rates it measures step to step
+    // are measured afresh, not across the gap.
+    void resume();
+
     // Where the aeroplane is with respect to the runway, as the last `fly`
     // saw it.
     //
@@ -127,6 +141,9 @@ private:
     double lowering_pitch_deg_ = 0.0;
 
     void measure();
+    // Whether she is on the ground or the water now; the first time she is,
+    // where and how she touched is kept.
+    bool notice_the_touch(const AircraftState& s);
     // A jet's elevator from the touch on: the nose lowered to the runway.
     double lower_the_nose(const AircraftState& s);
 };

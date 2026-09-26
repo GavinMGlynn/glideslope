@@ -12,6 +12,14 @@
 // so the aircraft's controls move from the AI's towards the pilot's at the pace
 // of a pilot's hand - full travel in a second - until they meet, and follow the
 // pilot's directly from then.
+//
+// **Taken back on a landing roll, the AI finishes the landing.** An aeroplane
+// the AI was flying an approach in, taken by the pilot and handed back while
+// she is still landing - rolling, bouncing, or in the flare - is given that
+// approach's lander back, to land her to the stop with the brakes, the
+// spoilers and the centreline, not the plain autopilot, which holds what she
+// is doing and would never stop her. Its controls come from where the pilot left them at
+// the same hand's pace, so taking her back steps nothing either.
 
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
@@ -45,7 +53,9 @@ public:
         pilot_ = controls;
     }
 
-    // Hands the aircraft to the AI, holding what it is doing, or flying `plan`.
+    // Hands the aircraft to the AI, holding what it is doing, or flying `plan`
+    // - or, on the landing roll of an approach it was given, landing her to
+    // the stop.
     void to_ai();
     void to_ai(FlightPlan plan);
 
@@ -88,6 +98,9 @@ public:
     Controls fly();
 
 private:
+    // The AI engaged with the plain autopilot, and nothing else.
+    void engage();
+
     const Aircraft& a_;
     Flying flying_ = Flying::pilot;
     Controls pilot_;
@@ -97,6 +110,13 @@ private:
     std::optional<Navigator> navigator_;
     std::optional<Departure> departure_;
     std::optional<Lander> lander_;
+    // The approach's lander while the pilot has her, kept from the hand-over
+    // so a take-back on its landing roll can finish it; dropped when the AI
+    // is given her again, for this or for anything else.
+    std::optional<Lander> landing_;
+    // The lander's controls, reached from the pilot's at a hand's pace after
+    // a take-back on the roll.
+    bool easing_in_ = false;
 };
 
 } // namespace glideslope::sim

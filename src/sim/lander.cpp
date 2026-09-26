@@ -96,6 +96,56 @@ void Lander::measure() {
     above_m_ = (s.altitude_ft - runway_.elevation_ft) / feet_per_metre;
 }
 
+bool Lander::still_landing() const {
+    // Stopped is over the ground, as `fly` has it.
+    if (std::abs(a_.property("velocities/vg-fps")) < 1.0) {
+        return false;
+    }
+    // Down and rolling, whoever put her down: the rollout finds her there.
+    if (a_.property("gear/wow") > 0.5 || a_.in_water()) {
+        return true;
+    }
+    // In the air: in the flare as `fly` decides it - no higher over the
+    // threshold than the flare begins, and not short of it - or, once she has
+    // touched, no higher over where she touched: a bounce, not a go-around.
+    const AircraftState s = a_.state();
+    const double above_ft = s.altitude_ft - runway_.elevation_ft;
+    if (touched_) {
+        return above_ft - touchdown_above_m_ * feet_per_metre <= speeds_.flare_ft;
+    }
+    const double north_m = (s.latitude_deg - runway_.threshold_lat_deg) *
+                           metres_per_degree_latitude(runway_.threshold_lat_deg);
+    const double east_m = (s.longitude_deg - runway_.threshold_lon_deg) *
+                          metres_per_degree_longitude(runway_.threshold_lat_deg);
+    const double heading = runway_.heading_deg / degrees;
+    const double along_m = -(east_m * std::sin(heading) + north_m * std::cos(heading));
+    return above_ft <= speeds_.flare_ft && along_m < 400.0;
+}
+
+bool Lander::notice_the_touch(const AircraftState& s) {
+    const bool on_ground = a_.property("gear/wow") > 0.5 || a_.in_water();
+    if (on_ground && !touched_) {
+        touched_ = true;
+        touchdown_pitch_deg_ = s.pitch_deg;
+        lowering_pitch_deg_ = s.pitch_deg;
+        touchdown_above_m_ = above_m_;
+        touchdown_sink_fpm_ = -s.climb_rate_fpm;
+        touchdown_across_m_ = across_m_;
+        touchdown_along_m_ = -along_m_;
+    }
+    return on_ground;
+}
+
+void Lander::watch() {
+    measure();
+    notice_the_touch(a_.state());
+}
+
+void Lander::resume() {
+    last_kcas_ = -1.0;
+    last_vg_fps_ = -1.0;
+}
+
 Controls Lander::fly() {
     measure();
     const AircraftState s = a_.state();
@@ -111,16 +161,7 @@ Controls Lander::fly() {
     // are what decides it, not the height.
     // A hull in the water has touched, as surely as wheels on a runway: a
     // flying boat alighting has no weight on any wheel.
-    const bool on_ground = a_.property("gear/wow") > 0.5 || a_.in_water();
-    if (on_ground && !touched_) {
-        touched_ = true;
-        touchdown_pitch_deg_ = s.pitch_deg;
-        lowering_pitch_deg_ = s.pitch_deg;
-        touchdown_above_m_ = above_m_;
-        touchdown_sink_fpm_ = -s.climb_rate_fpm;
-        touchdown_across_m_ = across_m_;
-        touchdown_along_m_ = -along_m_;
-    }
+    const bool on_ground = notice_the_touch(s);
     // **But a bounce is flown, not rolled out.** Back in the air after
     // touching - more than a foot above where the wheels met the runway, and
     // no weight on them - she is flown with the flare's law again until she

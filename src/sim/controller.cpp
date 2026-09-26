@@ -17,28 +17,70 @@ bool towards(double& from, double to) {
     return from == to;
 }
 
+// Every control of `from` a hand's step towards `to`; whether all got there.
+bool towards(Controls& from, const Controls& to) {
+    bool met = true;
+    for (auto [control, wanted] :
+         {std::pair{&from.aileron, to.aileron},
+          std::pair{&from.elevator, to.elevator},
+          std::pair{&from.rudder, to.rudder},
+          std::pair{&from.throttle, to.throttle},
+          std::pair{&from.mixture, to.mixture},
+          std::pair{&from.flaps, to.flaps},
+          std::pair{&from.left_brake, to.left_brake},
+          std::pair{&from.right_brake, to.right_brake},
+          std::pair{&from.pitch_trim, to.pitch_trim},
+          std::pair{&from.propeller, to.propeller},
+          std::pair{&from.gear, to.gear},
+          std::pair{&from.supercharger, to.supercharger},
+          std::pair{&from.throttle_offset[0], to.throttle_offset[0]},
+          std::pair{&from.throttle_offset[1], to.throttle_offset[1]},
+          std::pair{&from.cooling_flaps[0], to.cooling_flaps[0]},
+          std::pair{&from.cooling_flaps[1], to.cooling_flaps[1]},
+          std::pair{&from.speedbrake, to.speedbrake}}) {
+        met = towards(*control, wanted) && met;
+    }
+    return met;
+}
+
 } // namespace
 
 Controller::Controller(const Aircraft& aircraft, const Controls& controls)
     : a_(aircraft), pilot_(controls), applied_(controls) {}
 
-void Controller::to_ai() {
+void Controller::engage() {
     flying_ = Flying::ai;
     catching_up_ = false;
+    easing_in_ = false;
     autopilot_.emplace(a_, applied_);
     navigator_.reset();
     departure_.reset();
     lander_.reset();
+    landing_.reset();
+}
+
+void Controller::to_ai() {
+    std::optional<Lander> landing = std::move(landing_);
+    engage();
+    // **On the landing roll, the landing.** Still landing - rolling, or in a
+    // bounce - after an approach the AI flew: the approach's own lander is
+    // given her back and goes on from where it was, knowing where she touched
+    // and the autobrake it set for the runway left, to the stop.
+    if (landing && landing->still_landing()) {
+        landing->resume();
+        lander_.emplace(std::move(*landing));
+        easing_in_ = true;
+    }
 }
 
 void Controller::to_ai(FlightPlan plan) {
-    to_ai();
+    engage();
     navigator_.emplace(a_, std::move(plan));
 }
 
 void Controller::to_ai_take_off(const Runway& runway, const DepartureSpeeds& speeds,
                                 double to_ft) {
-    to_ai();
+    engage();
     departure_.emplace(a_, runway, speeds, to_ft);
 }
 
@@ -54,16 +96,23 @@ void Controller::to_ai_flying(FlightPlan plan, const DepartureSpeeds& speeds) {
 
 void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
                                 double glidepath_deg) {
-    to_ai();
+    engage();
     lander_.emplace(a_, runway, speeds, glidepath_deg);
 }
 
 void Controller::to_pilot() {
     flying_ = Flying::pilot;
     catching_up_ = true;
+    easing_in_ = false;
     autopilot_.reset();
     navigator_.reset();
     departure_.reset();
+    // An approach not yet landed to the stop is kept, for a take-back on its
+    // roll to finish.
+    landing_.reset();
+    if (lander_ && lander_->stage() != Lander::Stage::stopped) {
+        landing_.emplace(std::move(*lander_));
+    }
     lander_.reset();
 }
 
@@ -87,7 +136,12 @@ Controls Controller::fly() {
         }
         if (lander_) {
             if (lander_->stage() != Lander::Stage::stopped) {
-                applied_ = lander_->fly();
+                const Controls landing = lander_->fly();
+                if (easing_in_) {
+                    easing_in_ = !towards(applied_, landing);
+                } else {
+                    applied_ = landing;
+                }
                 return applied_;
             }
             lander_.reset();
@@ -99,30 +153,12 @@ Controls Controller::fly() {
         applied_ = autopilot_->fly();
         return applied_;
     }
+    if (landing_) {
+        landing_->watch();
+    }
     if (catching_up_) {
         // Every control on its way to where the pilot has it.
-        bool met = true;
-        for (auto [control, wanted] :
-             {std::pair{&applied_.aileron, pilot_.aileron},
-              std::pair{&applied_.elevator, pilot_.elevator},
-              std::pair{&applied_.rudder, pilot_.rudder},
-              std::pair{&applied_.throttle, pilot_.throttle},
-              std::pair{&applied_.mixture, pilot_.mixture},
-              std::pair{&applied_.flaps, pilot_.flaps},
-              std::pair{&applied_.left_brake, pilot_.left_brake},
-              std::pair{&applied_.right_brake, pilot_.right_brake},
-              std::pair{&applied_.pitch_trim, pilot_.pitch_trim},
-              std::pair{&applied_.propeller, pilot_.propeller},
-              std::pair{&applied_.gear, pilot_.gear},
-              std::pair{&applied_.supercharger, pilot_.supercharger},
-              std::pair{&applied_.throttle_offset[0], pilot_.throttle_offset[0]},
-              std::pair{&applied_.throttle_offset[1], pilot_.throttle_offset[1]},
-              std::pair{&applied_.cooling_flaps[0], pilot_.cooling_flaps[0]},
-              std::pair{&applied_.cooling_flaps[1], pilot_.cooling_flaps[1]},
-              std::pair{&applied_.speedbrake, pilot_.speedbrake}}) {
-            met = towards(*control, wanted) && met;
-        }
-        catching_up_ = !met;
+        catching_up_ = !towards(applied_, pilot_);
         return applied_;
     }
     applied_ = pilot_;

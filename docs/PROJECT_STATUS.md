@@ -227,6 +227,76 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### An approach taken back on its landing roll is landed to a stop, 2026-09-27 — tail done
+
+**What is missing first.** The AI finishes a landing only after an approach
+it was given (`to_ai_approach`): an aeroplane the pilot landed with no
+approach handed to the AI, taken back on its roll, is still given the plain
+autopilot, which never stops it - and today only the lessons hand the AI an
+approach. The flying boat is not tested: afloat she is never still.
+
+**The direction.** The tail is the AI taking the aeroplane back from the
+pilot (`Controller::to_ai()`) on the landing roll, as the instructor does
+in the approach demonstration: `to_ai()` always gave the plain autopilot,
+and `to_pilot()` threw the approach's lander away, so an aeroplane taken
+back at 130 knots on the runway held what it was doing and rolled on for
+ten to twenty kilometres.
+
+**What changed** (`sim/controller.*`, `sim/lander.*`):
+- **The approach's lander is kept through the hand-over to the pilot**,
+  and watches while the pilot flies (`Lander::watch`: where she is, and
+  where and how she touched - nothing it flies with moves).
+- **Taken back while still landing, the AI is given that lander back** and
+  goes on to the stop, with the autobrake it set for the runway left, the
+  spoilers and the centreline. Still landing (`Lander::still_landing`) is:
+  moving, and on the ground or the water, whoever put her there; or in the
+  air in the flare, as the lander's own stages decide it; or, having
+  touched, no higher over where she touched than the flare begins - a
+  bounce, not a go-around. Anything else is given the plain autopilot, as
+  before, and the kept lander is dropped whenever the AI is given her.
+- **Its controls come from where the pilot left them at a hand's pace**,
+  as the pilot's come from the AI's on a hand-over: taking her back steps
+  nothing either. The same one-step-towards is now one function for both.
+
+**Verification**:
+`an_approach_taken_back_on_the_landing_roll_is_landed_to_a_stop` - every
+landplane taught the approach (13; the Short S.23 left out and named, the
+747-400 and F-22A having no reference speed), landed by the AI, taken by
+the pilot at the touch and, in a second flight, once half its groundspeed
+had gone, and taken back half a second later. Each of the 26 stops on the
+runway, within a metre of the centreline, upright, with nothing but wheels
+on it, unwrecked by the server's crash rule from the take-back, and no
+control stepping more than a hand's 1/120. Coverage is asserted: 26 of 26.
+Seen red on main - every one rolled on, 51 things wrong - and again with
+`still_landing` made false (56 wrong) and with the hand's pace taken out
+(26 steps of a whole control's travel).
+
+Where each stopped, metres past the threshold of a 3,000 m runway, taken
+back at the touch / at half speed: 737-300 1,918 / 1,914; 787-8 2,135 /
+2,133; A320 2,249 / 2,125; A380 1,917 / 1,909; B-2A 2,125 / 2,091; C172P
+676 / 680; C182 653 / 655; F-15C 2,754 / 2,721; F-35B 2,178 / 2,173; J-3
+Cub 486 / 489; Learjet 35A 1,632 / 1,629; Mosquito FB.VI 1,466 / 1,472;
+PA-28 629 / 632.
+
+**What the AI is judged on is its own**: the bank, the nose and any bounce
+from the take-back, or from the touch it brings her down to when she is
+taken back in the air. The A320 taken at the touch rises 5.7 ft: in the
+pilot's half second her rotation carries on and her spoilers stay in, she
+is already climbing when the AI has her back, and its spoilers take a
+second to come out at a hand's pace; it lands her back with nothing above
+0.0 ft after. The B-2A, taken at the touch, 1.7 ft, the same way.
+
+**Found on the way** (a tail): **the AI's own touchdown in the 787-8, the
+F-15C and the F-35B is a crash by the server's rule** - they meet the runway
+sinking at 708, 978 and 1,090 ft/min, past the 600 (10 ft/s) the gear is
+judged to take. No landing test judged the AI's touchdown with the server's
+rule; this one does so only from the take-back.
+
+**Verified**: the new test, the approach and circuit lessons, every
+instructor hand-over, the light aircraft's glidepath and crosswind
+landings, and `handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase`
+pass on Linux debug.
+
 ### A client's own aircraft is put right by centimetres, not metres, 2026-09-27 — tail done
 
 **What is missing first.**
