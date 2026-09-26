@@ -38,6 +38,9 @@ enum : int {
     curlopt_maxredirs = 68,
     curlopt_connecttimeout = 78,
     curlopt_nosignal = 99,
+    curlopt_noprogress = 43,
+    curlopt_xferinfodata = 10057,
+    curlopt_xferinfofunction = 20219,
     curlopt_writefunction = 20011,
     curlopt_headerfunction = 20079,
     curlinfo_response_code = 0x200002,
@@ -120,7 +123,22 @@ struct Transfer {
     HttpResponse response;
     std::uint64_t max_body = 0;
     bool too_big = false;
+    const HttpRequest* request = nullptr;
+    bool given_up = false;
 };
+
+// **Asked about often, even when nothing arrives**: libcurl calls this many
+// times a second while bytes flow and about once a second while none do, so
+// an abandoned transfer ends within a second whatever it is waiting on.
+// Returning non-zero is what ends it.
+int on_progress(void* user, std::int64_t, std::int64_t, std::int64_t, std::int64_t) {
+    auto* t = static_cast<Transfer*>(user);
+    if (abandoned(*t->request)) {
+        t->given_up = true;
+        return 1;
+    }
+    return 0;
+}
 
 std::size_t on_body(const char* data, std::size_t size, std::size_t count, void* user) {
     auto* t = static_cast<Transfer*>(user);
@@ -178,8 +196,12 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
     if (handle == nullptr) {
         throw HttpError("libcurl would not make a handle");
     }
+    if (abandoned(request)) {
+        throw HttpError(request.url + ": given up before it began");
+    }
     Transfer transfer;
     transfer.max_body = request.max_body;
+    transfer.request = &request;
     char error[256] = {};
     c.easy_setopt(handle, curlopt_url, request.url.c_str());
     c.easy_setopt(handle, curlopt_useragent, request.user_agent.c_str());
@@ -196,6 +218,9 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
     c.easy_setopt(handle, curlopt_low_speed_time,
                   static_cast<long>(request.stall_timeout_seconds));
     c.easy_setopt(handle, curlopt_errorbuffer, error);
+    c.easy_setopt(handle, curlopt_noprogress, 0L);
+    c.easy_setopt(handle, curlopt_xferinfofunction, &on_progress);
+    c.easy_setopt(handle, curlopt_xferinfodata, &transfer);
     c.easy_setopt(handle, curlopt_writefunction, &on_body);
     c.easy_setopt(handle, curlopt_writedata, &transfer);
     c.easy_setopt(handle, curlopt_headerfunction, &on_header);
@@ -228,6 +253,9 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
     c.easy_getinfo(handle, curlinfo_response_code, &status);
     c.easy_cleanup(handle);
     c.slist_free_all(sent);
+    if (transfer.given_up) {
+        throw HttpError(request.url + ": given up, unfinished");
+    }
     if (transfer.too_big) {
         throw HttpError(request.url + ": the body is more than " +
                         std::to_string(request.max_body) + " bytes");

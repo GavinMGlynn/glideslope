@@ -227,6 +227,17 @@ std::string cesium_ion_token() {
     return secret("GLIDESLOPE_CESIUM_ION_TOKEN", "cesium-ion-token");
 }
 
+std::string cesium_ion_api() {
+    std::string api = environment_path("GLIDESLOPE_CESIUM_ION_API").string();
+    if (api.empty()) {
+        api = "https://api.cesium.com";
+    }
+    while (!api.empty() && api.back() == '/') {
+        api.pop_back();
+    }
+    return api;
+}
+
 std::string google_maps_key() {
     return secret("GLIDESLOPE_GOOGLE_MAPS_KEY", "google-maps-key");
 }

@@ -7,8 +7,12 @@
 #include <windows.h>
 #include <winhttp.h>
 
+#include <chrono>
+#include <condition_variable>
 #include <cwctype>
 #include <memory>
+#include <mutex>
+#include <thread>
 
 namespace glideslope::platform {
 
@@ -53,6 +57,64 @@ std::string narrow(const std::wstring& s) {
                     ")");
 }
 
+// **Gives a request up when it is abandoned**, from a thread of its own.
+//
+// WinHTTP's synchronous calls block, and a body fed a byte at a time never
+// trips a timeout. Microsoft documents closing the request's handle as the way
+// to end a synchronous request in progress from elsewhere: the call blocked on
+// it then fails. So this watches the request's flag, and closes the handle if
+// it is raised; the handle then belongs to it, and is not closed again.
+class Abandoner {
+public:
+    Abandoner(const HttpRequest& request, Handle& handle)
+        : request_(request), handle_(handle) {
+        if (request_.abandon != nullptr) {
+            watcher_ = std::thread([this] { watch(); });
+        }
+    }
+    ~Abandoner() {
+        {
+            const std::lock_guard lock(mutex_);
+            finished_ = true;
+        }
+        wake_.notify_all();
+        if (watcher_.joinable()) {
+            watcher_.join();
+        }
+        if (closed_) {
+            (void)handle_.release(); // closed already, by the watcher
+        }
+    }
+    Abandoner(const Abandoner&) = delete;
+    Abandoner& operator=(const Abandoner&) = delete;
+
+    bool given_up() {
+        const std::lock_guard lock(mutex_);
+        return closed_;
+    }
+
+private:
+    void watch() {
+        std::unique_lock lock(mutex_);
+        while (!finished_) {
+            if (abandoned(request_)) {
+                WinHttpCloseHandle(handle_.get());
+                closed_ = true;
+                return;
+            }
+            wake_.wait_for(lock, std::chrono::milliseconds(50));
+        }
+    }
+
+    const HttpRequest& request_;
+    Handle& handle_;
+    std::mutex mutex_;
+    std::condition_variable wake_;
+    std::thread watcher_;
+    bool finished_ = false;
+    bool closed_ = false;
+};
+
 } // namespace
 
 std::string http_client() {
@@ -64,6 +126,9 @@ namespace {
 // A GET, or a POST of `body` where there is one.
 HttpResponse perform(const HttpRequest& request, const std::string* body) {
     refuse_unsafe_headers(request);
+    if (abandoned(request)) {
+        throw HttpError(request.url + ": given up before it began");
+    }
     std::wstring url = widen(request.url);
     URL_COMPONENTS parts{};
     parts.dwStructSize = sizeof parts;
@@ -117,19 +182,27 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
     if (!connection) {
         fail(request.url, "could not connect");
     }
-    const Handle handle(WinHttpOpenRequest(
+    Handle handle(WinHttpOpenRequest(
         connection.get(), body != nullptr ? L"POST" : L"GET", path.c_str(), nullptr,
         WINHTTP_NO_REFERER,
         WINHTTP_DEFAULT_ACCEPT_TYPES, secure ? WINHTTP_FLAG_SECURE : 0));
     if (!handle) {
         fail(request.url, "could not open the request");
     }
+    // From here the request can be given up; each failure below then says so.
+    Abandoner abandoner(request, handle);
+    const auto fail_or_given_up = [&](const char* what) {
+        if (abandoner.given_up()) {
+            throw HttpError(request.url + ": given up, unfinished");
+        }
+        fail(request.url, what);
+    };
     // A GET follows redirects; a POST does not (http.hpp says why).
     if (body != nullptr) {
         DWORD disable = WINHTTP_DISABLE_REDIRECTS;
         if (!WinHttpSetOption(handle.get(), WINHTTP_OPTION_DISABLE_FEATURE, &disable,
                               sizeof disable)) {
-            fail(request.url, "could not turn redirects off");
+            fail_or_given_up("could not turn redirects off");
         }
     }
     // The request's own headers, as CRLF-separated "name: value" lines, which
@@ -146,10 +219,10 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
                                             : WINHTTP_NO_REQUEST_DATA,
                             body != nullptr ? static_cast<DWORD>(body->size()) : 0,
                             body != nullptr ? static_cast<DWORD>(body->size()) : 0, 0)) {
-        fail(request.url, "could not send the request");
+        fail_or_given_up("could not send the request");
     }
     if (!WinHttpReceiveResponse(handle.get(), nullptr)) {
-        fail(request.url, "no response");
+        fail_or_given_up("no response");
     }
 
     HttpResponse response;
@@ -158,7 +231,7 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
     if (!WinHttpQueryHeaders(
             handle.get(), WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
             WINHTTP_HEADER_NAME_BY_INDEX, &status, &size, WINHTTP_NO_HEADER_INDEX)) {
-        fail(request.url, "no status code");
+        fail_or_given_up("no status code");
     }
     response.status = static_cast<int>(status);
 
@@ -210,7 +283,7 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
         response.body.resize(at + chunk);
         DWORD read = 0;
         if (!WinHttpReadData(handle.get(), response.body.data() + at, chunk, &read)) {
-            fail(request.url, "the transfer failed");
+            fail_or_given_up("the transfer failed");
         }
         response.body.resize(at + read);
         if (read == 0) {

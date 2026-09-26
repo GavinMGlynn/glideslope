@@ -51,6 +51,13 @@ std::filesystem::path config_directory();
 // that needs one says so rather than failing.
 std::string cesium_ion_token();
 
+// **Where Cesium ion's API is**: https://api.cesium.com, unless
+// `GLIDESLOPE_CESIUM_ION_API` names somewhere else - a test's stand-in on the
+// loopback, which answers where the terrain is and then never sends it. The
+// user's token goes wherever this names, so nothing but a person or a test
+// setting that variable ever changes it. No trailing slash.
+std::string cesium_ion_api();
+
 // The user's own Google Maps Platform key, the same way: from
 // GLIDESLOPE_GOOGLE_MAPS_KEY, or the file `google-maps-key`.
 std::string google_maps_key();

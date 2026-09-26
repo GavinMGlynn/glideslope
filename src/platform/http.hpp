@@ -6,6 +6,7 @@
 // Each uses the system's certificate store and proxy settings, and is updated
 // with the system.
 
+#include <atomic>
 #include <cstdint>
 #include <map>
 #include <stdexcept>
@@ -36,7 +37,21 @@ struct HttpRequest {
     int connect_timeout_seconds = 30;
     // A transfer stalled this long, with no bytes arriving, is abandoned.
     int stall_timeout_seconds = 60;
+    // When this becomes true the transfer is given up, at once, with an
+    // HttpError - whether it is connecting, waiting for an answer, or being
+    // fed a body a byte at a time, which no stall timeout ends. Nothing is
+    // given up for want of one. The flag must outlive the call.
+    //
+    // A program told to stop gives up its transfers this way
+    // (platform/stop.hpp), and so does a terrain being closed: a transfer
+    // nothing will wait for must not hold up the end of what asked for it.
+    const std::atomic<bool>* abandon = nullptr;
 };
+
+// Whether a request's transfer is to be given up now.
+inline bool abandoned(const HttpRequest& request) {
+    return request.abandon != nullptr && request.abandon->load();
+}
 
 struct HttpResponse {
     int status = 0;
