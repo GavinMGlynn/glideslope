@@ -91,7 +91,8 @@ public:
 // SqliteCache, with nothing left holding a transaction between calls.
 class SharedCache final : public CesiumAsync::ICacheDatabase {
 public:
-    explicit SharedCache(const std::filesystem::path& file) {
+    SharedCache(const std::filesystem::path& file, std::chrono::milliseconds rest)
+        : rest_(rest) {
         const Ours marked;
         cache_ = std::make_unique<CesiumAsync::SqliteCache>(spdlog::default_logger(),
                                                             file.string());
@@ -139,7 +140,7 @@ private:
         const int began = sqlite3_exec(db_, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
         if (began != SQLITE_OK) {
             if (began == SQLITE_BUSY) {
-                resting_until_ = std::chrono::steady_clock::now() + cesium_cache_rest;
+                resting_until_ = std::chrono::steady_clock::now() + rest_;
             }
             SPDLOG_WARN("the Cesium cache was not taken ({}); {}", sqlite3_errstr(began),
                         began == SQLITE_BUSY ? "left alone for a while" : "this call skipped");
@@ -200,14 +201,15 @@ private:
     mutable std::mutex mutex_;
     // Until when every call is skipped, after one that could not get the lock.
     mutable std::chrono::steady_clock::time_point resting_until_{};
+    std::chrono::milliseconds rest_;
 };
 
 } // namespace
 
 std::shared_ptr<CesiumAsync::ICacheDatabase>
-open_cesium_cache(const std::filesystem::path& file) {
+open_cesium_cache(const std::filesystem::path& file, std::chrono::milliseconds rest) {
     watch_opens();
-    return std::make_shared<SharedCache>(file);
+    return std::make_shared<SharedCache>(file, rest);
 }
 
 std::uint64_t cesium_cache_waits() {

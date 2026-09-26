@@ -878,6 +878,14 @@ add_test(NAME two_programs_writing_one_cesium_cache_at_once_both_store_everythin
 # dies without saying so, which the others would otherwise wait on for ever.
 set_tests_properties(two_programs_writing_one_cesium_cache_at_once_both_store_everything
     PROPERTIES TIMEOUT 300)
+# **A program that holds the cache and never lets go costs one wait**, then
+# the cache is left alone for its pause - 3 s here, for the 30 s the client
+# uses - and used again after it.
+add_test(NAME a_cesium_cache_held_by_a_hung_program_costs_one_wait_and_is_used_again_after_its_pause
+    COMMAND $<TARGET_FILE:glideslope_cache_collision> pause
+        ${CMAKE_CURRENT_BINARY_DIR}/cesium-cache-pause.sqlite 3000)
+set_tests_properties(a_cesium_cache_held_by_a_hung_program_costs_one_wait_and_is_used_again_after_its_pause
+    PROPERTIES TIMEOUT 300)
 
 foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
     add_test(NAME the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
