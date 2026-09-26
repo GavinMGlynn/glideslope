@@ -1639,7 +1639,7 @@ double recovery_allowance_ft(const Lesson& lesson) {
 // per cent must be within the limit. One that has not got it is named below
 // and held to its own figure plus 10 per cent, so none gets worse unseen, and
 // the item stays open in docs/COMPLETION_PLAN.md. The figures are printed for
-// every aeroplane, so each platform's run shows its own.
+// every aeroplane, though CI shows a test's output only when it fails.
 //
 // **Ten are outside their lesson's height**, which was set for a recovery
 // from the approach to the stall, not from thirty seconds deep in it: handed
