@@ -360,16 +360,16 @@ Controls Lander::fly() {
     const double beta_deg = a_.property("aero/beta-deg");
     rudder_trim_ = std::clamp(rudder_trim_ - 0.02 * beta_deg / steps_per_second, -0.5, 0.5);
     // **And a yaw damper**: the rudder against any yaw rate the bank does not
-    // account for - the rate a coordinated turn at this bank and speed
-    // would have, so a turn is not resisted. Without it the sideslip's own
+    // account for - the body's yaw rate in a coordinated turn at this bank
+    // and true airspeed, g sin(bank) / V, so a turn is not resisted. Without it the sideslip's own
     // integral, lagging a slow Dutch roll by a third of its period, fed it:
     // a B-2A, whose drag rudders have little authority, rocked eight and a
     // half degrees either way and slipped seven, with a nine-second period,
     // from the capture of the centreline to the runway, and put its left
     // wingtip on it before its wheels. Damped, it comes down final level to
     // a tenth of a degree.
-    const double turning_degps =
-        9.80665 * std::tan(s.roll_deg / degrees) / ground_mps * degrees;
+    const double turning_degps = 32.174 * std::sin(s.roll_deg / degrees) /
+                                 std::max(1.0, a_.property("velocities/vt-fps")) * degrees;
     const double r_degps = s.r_radps * degrees;
     c.rudder = std::clamp(-0.05 * beta_deg + rudder_trim_ + 0.05 * (r_degps - turning_degps),
                           -1.0, 1.0);

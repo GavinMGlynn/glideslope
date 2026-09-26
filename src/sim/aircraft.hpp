@@ -288,6 +288,16 @@ public:
         bool airframe = false;
     };
     Contact contact() const;
+    // **Every point her model can touch the ground with**, touching or not:
+    // where it is on the airframe - JSBSim's structural frame, inches, x aft,
+    // y right, z up - and whether it is a wheel, in `contact`'s sense.
+    struct ContactPoint {
+        double x_in = 0.0;
+        double y_in = 0.0;
+        double z_in = 0.0;
+        bool wheel = false;
+    };
+    std::vector<ContactPoint> contact_points() const;
     // Whether the last `initialize` asked to trim and JSBSim could.
     bool trimmed() const {
         return trimmed_;

@@ -530,14 +530,10 @@ Found while implementing something else. Added when found, not when remembered.
 - [x] **The F-15C, F-35B and Learjet leave the ground far past their rotation
       speed.** The F-15C lifts off at 230 knots where its flight manual gives
       157. *Verification: each lifts off within ten knots of its rotation
-      speed, and can be rotated early.* Done 2026-09-26, for every landplane
-      in the catalogue and at every loading it has: all thirteen with a
-      take-off leave within ten knots of their rotation speed for their
-      weight, unhurt, and pulled back early leave sooner and climb away. The
-      Mosquito and the PA-28 were fixed on the way. **The F-15C still leaves
-      at 178 knots, 21 past its flight manual's 157**: that is within ten of
-      the model's rotation speed, which is itself high - 1.15 times its
-      landing stall at its take-off flap.
+      speed, and can be rotated early.* Done 2026-09-26: all thirteen
+      landplanes, at every loading, leave within ten knots of their rotation
+      speed for their weight and sooner when rotated early; the F-15C's model
+      speed is itself 21 knots above its manual's.
 - [x] **The Learjet ends its landing roll nose down through the runway.**
       *Verification: every aeroplane the AI lands ends its rollout upright on
       its wheels.* Done 2026-09-24: the Learjet already stopped level; three
@@ -553,10 +549,20 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The B-2A cannot slow down on the approach.** With nothing to add drag
       it crosses the threshold fourteen knots fast with its throttles shut,
       and floats nearly two feet off the runway after it touches; its
-      circuit's final runs to fourteen over, and the bomber lessons' final
+      circuit's final runs to fifteen over, and the bomber lessons' final
       bands reach twenty over on its account.
       *Verification: the B-2A crosses the threshold within five knots of its
       reference speed.*
+- [ ] **The Learjet's stabilizer cannot trim her in cruise.** Its nose-down
+      stop is not tied to the flight model's zero, so at 250 to 350 knots she
+      is held by a quarter of the elevator's nose-down travel, and a pilot
+      flying by hand holds the stick forward. *Verification: the Learjet
+      cruises from 250 to 350 knots with its elevator near neutral.*
+- [ ] **The Learjet has nothing behind its main wheels to strike with**, so
+      the take-off cannot keep its tail off the runway and a strike goes
+      unjudged; the Cub's only tail contact is its tail wheel.
+      *Verification: every nose-wheel aeroplane's tail strikes the runway
+      where its airframe would, and is judged a strike.*
 - [x] **A `--terrain ion` run can hang for ever, past its own timeout.**
       *Verification: a timed-out run is gone and leaves no cache lock.* Done
       2026-09-26: against a stand-in ion that never finishes sending, a run

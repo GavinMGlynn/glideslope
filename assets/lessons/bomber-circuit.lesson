@@ -29,7 +29,8 @@
 # (a tail in docs/COMPLETION_PLAN.md). Until then it flew final in a Dutch
 # roll, and the drag of its rudders working either way held it to vref+10;
 # with the approach autopilot's yaw damper it comes down final level, at
-# vref-4 to vref+14.
+# vref-4 to vref+15. The five knots past that are margin, as the approach
+# lesson's band has.
 
 name The circuit in a bomber
 teaches bomber
