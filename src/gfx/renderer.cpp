@@ -519,6 +519,16 @@ void Renderer::upload(GpuMesh& gpu, const Mesh& mesh, bool reuse) {
 
 void Renderer::render(const Camera& camera, std::span<const Draw> draws,
                       const Mesh* overlay, const Haze& haze, const Colour& background) {
+    // First, before anything of this frame is asked for: the frame two
+    // before it is drawn (in_flight_).
+    if (SDL_GPUFence*& oldest = in_flight_[next_in_flight_]; oldest != nullptr) {
+        const bool waited = SDL_WaitForGPUFences(device_, true, &oldest, 1);
+        SDL_ReleaseGPUFence(device_, oldest);
+        oldest = nullptr;
+        if (!waited) {
+            throw sdl_error("the frame two before this one was not drawn");
+        }
+    }
     if (overlay != nullptr && !overlay->indices.empty()) {
         upload(overlay_, *overlay, true);
     }
@@ -645,29 +655,14 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
             ++presented_;
         }
     }
-    if (window_ != nullptr) {
-        if (!SDL_SubmitGPUCommandBuffer(commands)) {
-            throw sdl_error("the frame was not submitted");
-        }
-        return;
-    }
-    // Headless: this frame's fence is kept, in place of the one two frames
-    // back, which is waited on first - see in_flight_.
-    SDL_GPUFence*& oldest = in_flight_[next_in_flight_];
-    next_in_flight_ = (next_in_flight_ + 1) % in_flight_.size();
-    if (oldest != nullptr) {
-        const bool waited = SDL_WaitForGPUFences(device_, true, &oldest, 1);
-        SDL_ReleaseGPUFence(device_, oldest);
-        oldest = nullptr;
-        if (!waited) {
-            SDL_CancelGPUCommandBuffer(commands);
-            throw sdl_error("the frame two before this one was not drawn");
-        }
-    }
-    oldest = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
-    if (oldest == nullptr) {
+    // This frame's fence takes the slot the one two frames back held, which
+    // was waited on at the top - see in_flight_.
+    SDL_GPUFence* fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+    if (fence == nullptr) {
         throw sdl_error("the frame was not submitted");
     }
+    in_flight_[next_in_flight_] = fence;
+    next_in_flight_ = (next_in_flight_ + 1) % in_flight_.size();
 }
 
 Frame Renderer::capture() {
