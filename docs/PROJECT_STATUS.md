@@ -230,6 +230,15 @@ are the risks the phase order is built around:
 ### Every landplane leaves the runway at its rotation speed, and sooner rotated early, 2026-09-26 — item done
 
 **What is missing first.**
+- **CI is red on Windows**: `every_aircraft_put_down_with_its_wheels_up_rests_on_its_airframe`
+  fails there for the F-15C. Landed wheels-up it rests on two centreline
+  points, its radome and its belly, and rocks wing tip to wing tip, ten
+  degrees each way - on main's model too, and on Linux. With its centre of
+  gravity 25 in further aft, on Windows (debug, release and clang alike) the
+  rocking diverges at 74 ft/s: roll 98 degrees, 4,124 ft/s, 35.6 ft through
+  the runway. On Linux it comes to rest 2.9 ft up from every start across two
+  knots. A tail in COMPLETION_PLAN.md; the pull request cannot merge until
+  it is done.
 - **The 747-400 and the F-22A fly no take-off**: neither has a climbing
   speed in its figures, so `sim::departure_speeds` refuses them, as before.
   The Short S.23 is a flying boat and is not rotated. All three are named in
