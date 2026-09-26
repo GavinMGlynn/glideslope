@@ -10,7 +10,10 @@
 # and twenty: the rest waited in its socket or were dropped, and a client still
 # joining went unheard for three seconds and was let go (2026-09-26). Here every
 # step is made to take 30 ms (`--test-step-ms`), which puts the server at about
-# a quarter of real time on any machine, and four clients join and fly
+# a quarter of real time on any machine, and four clients join and fly -
+# for twenty seconds, not server_slots.cmake's eight: at a quarter of real
+# time eight gave a macOS runner two seconds of flight, and an aileron held
+# full rolled its aeroplane only 72 degrees -
 # as in server_slots.cmake, against a server that lets a client go after three
 # seconds of silence. Every one must be heard: four aircraft, each banked past
 # 90 degrees, nobody let go before they had flown, and the server says it was
@@ -44,13 +47,13 @@ endif()
 
 # From the key that sorts last to the one that sorts first.
 execute_process(
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 8 --fly --after 1
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 20 --fly --after 1
             --key e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 8 --fly --after 2
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 20 --fly --after 2
             --key d1b109e3db55e52705b4664f92a64ab2c0a03c0e6d62fb9af829e908a06d48fc
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 8 --fly --after 3
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 20 --fly --after 3
             --key 103fdaa7d7170fce52c4ee825179422582fc096901f46a78d763058a9aa74d1e
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 8 --fly --after 4
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 20 --fly --after 4
             --key 9a47cf83f2e50ebb1bb176f4072fa4ad962b89d8cf09527d1ce6abd308f89ba2
     # Until the last of them has gone, however long a slow machine takes to
     # let them all in: a fixed thirteen seconds stopped a server on CI before

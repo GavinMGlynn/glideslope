@@ -362,6 +362,11 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **A client the server has let go cannot come back**: its handshake
       sent again is dropped as a copy. *Verification: a client stalled past
       the timeout joins again by itself.*
+- [ ] **The tests' fixed ports lie in Linux's ephemeral range** (478xx, where
+      it hands out 32768 to 60999), so a client's socket can take one before
+      its test's server listens: "cannot listen on port 47853" on CI,
+      2026-09-26. *Verification: every fixed test port is outside the
+      ephemeral ranges of Linux, macOS and Windows.*
 - [ ] **A client cannot say it is leaving**, so a server notices only by
       the silence. *Verification: a client that leaves is let go at once.*
 - [ ] **One player on two addresses flies two aircraft**: a client that
