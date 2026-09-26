@@ -52,7 +52,7 @@ execute_process(
     # last input: a fixed eight seconds stopped a debug server on CI with a
     # third of them still unread.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}"
+            --data "${DATA}" --store "${_store}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 6 --fly
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rc EQUAL 0)

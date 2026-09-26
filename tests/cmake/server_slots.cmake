@@ -62,8 +62,12 @@ execute_process(
     # Until the last of them has gone, however long a slow machine takes to
     # let them all in: a fixed thirteen seconds stopped a server on CI before
     # the fourth client had flown its aeroplane over.
+    # And with the server's own timeout, not three seconds: a CI runner
+    # starved a client of the processor for more than three, the server let
+    # it go, and it never flew - taken again by a copy of its handshake
+    # (five aircraft), or, once copies were dropped, not at all (2026-09-26).
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --players 4 --data "${DATA}" --timeout 3 --store "${_store}"
+            --players 4 --data "${DATA}" --store "${_store}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
 string(REGEX MATCHALL "number [0-9]+, a player's, banked as far as [0-9]+ degrees"

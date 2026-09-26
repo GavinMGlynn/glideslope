@@ -227,6 +227,34 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The multi-client tests give a slow machine the server's own timeout, 2026-09-26 — main made green
+
+**What is missing first: a client the server has let go still cannot come
+back**, and a client still cannot say it is leaving: both a tail.
+
+**Main went red** on the four-player test, on Ubuntu linux-debug: "the
+player's aircraft number 3 banked only 2 degrees", on `main` itself and on
+three pull requests in a row. The server's log said what happened: the fourth
+client was admitted, then let go after 3.0 s of silence, and its handshake,
+sent again, was dropped as a copy already taken (the handshake fix, #25). A
+client still waiting for its answer sends its initiation every quarter of a
+second, and each copy counts as hearing from it while its session lives - so
+three seconds of silence means the client itself was starved of the processor,
+on a runner doing four tests at once under the sanitizers. Before #25 the copy
+made a second session, and the test counted five aircraft instead: the same
+starvation, the tail's own "five players' aircraft".
+
+Seven multi-client tests (`server_slots`, `server_fly`, `server_collision`,
+`server_impaired`, `server_late`, `server_swap_wreck`, `server_window`) gave
+the server `--timeout 3` though the timeout is not what they test. They now
+use its own default, ten seconds. Kept at three, on purpose: the two windowed
+clients that stand still five seconds to prove the keep-alive holds
+(`client_on_server`, `client_rides_along`), the two handshake-copy tests,
+whose subject is a session let go, and the timeout's own tests.
+
+**Verified**: the seven, run on Linux debug with eight processes spinning
+beside them.
+
 ### A `--terrain ion` run that times out is gone, and leaves its cache free, 2026-09-26 — tail done
 
 **Cause: two waits with no end, one behind the other.**

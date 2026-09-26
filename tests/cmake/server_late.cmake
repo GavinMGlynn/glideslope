@@ -54,7 +54,7 @@ set(_ready "${WORK}/flying")
 file(REMOVE "${_ready}")
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 2 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
+            --data "${DATA}" --store "${_store}" --ready-file "${_ready}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 2 --after-ready "${_ready}"
             --after ${_wait}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)

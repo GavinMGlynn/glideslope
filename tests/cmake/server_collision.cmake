@@ -65,7 +65,7 @@ execute_process(
     # Until both clients have gone, which is long enough on any machine for the
     # collision and the flying again they are waiting to hear.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 0 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}"
+            --data "${DATA}" --store "${_store}"
             --fly 737-300@-33.90,151.40,0 --fly 737-300@-33.87,151.40,180
     RESULT_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 

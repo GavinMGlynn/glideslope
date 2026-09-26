@@ -44,7 +44,7 @@ endif()
 
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}"
+            --data "${DATA}" --store "${_store}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 45 --after 1 --fly
             --hand-over-at 2 --take-back-at 4 --dive-after 6 --heard "${_heard}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
