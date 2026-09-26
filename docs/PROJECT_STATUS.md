@@ -230,15 +230,6 @@ are the risks the phase order is built around:
 ### Every landplane leaves the runway at its rotation speed, and sooner rotated early, 2026-09-26 — item done
 
 **What is missing first.**
-- **CI is red on Windows**: `every_aircraft_put_down_with_its_wheels_up_rests_on_its_airframe`
-  fails there for the F-15C. Landed wheels-up it rests on two centreline
-  points, its radome and its belly, and rocks wing tip to wing tip, ten
-  degrees each way - on main's model too, and on Linux. With its centre of
-  gravity 25 in further aft, on Windows (debug, release and clang alike) the
-  rocking diverges at 74 ft/s: roll 98 degrees, 4,124 ft/s, 35.6 ft through
-  the runway. On Linux it comes to rest 2.9 ft up from every start across two
-  knots. A tail in COMPLETION_PLAN.md; the pull request cannot merge until
-  it is done.
 - **The 747-400 and the F-22A fly no take-off**: neither has a climbing
   speed in its figures, so `sim::departure_speeds` refuses them, as before.
   The Short S.23 is a flying boat and is not rotated. All three are named in
@@ -305,6 +296,22 @@ fails if the committed files differ):
   gravity as `fcs/pitch-trim-takeoff-norm`, which the take-off autopilot
   sets where a model has it.
 
+- **F-15C, landed wheels-up** (`tools/make_f15c.py`, `tools/ground.py`'s
+  new `flanks`): four airframe contacts, fore and aft either side of the
+  keel, about 70 in out under the intakes and the engines and 49 in above
+  the wheels' contact, measured from its visual model as its other airframe
+  points are measured. **Found by CI, not here**: it had rested on two
+  centreline points, radome and belly, with its wing tips 47 in above the
+  belly, and slid rolling ten degrees tip to tip - on main's model too. With
+  its centre of gravity moved aft, on every Windows build (debug, release,
+  clang) the rocking grew at 74 ft/s until it rolled 98 degrees and went
+  35.6 ft through the runway, failing
+  `every_aircraft_put_down_with_its_wheels_up_rests_on_its_airframe` there;
+  on Linux it came to rest 2.9 ft up from all 13 starts across two knots.
+  Now it rests 3.55 ft up on Linux and slides 1,088 m, against 1,093 for the
+  stated friction. `assets/models/alignment.txt` counts its ten contacts,
+  not six; no offset moved. The take-off figures above did not move.
+
 **The take-off autopilot** (`sim::Departure`), none of it naming an
 aircraft:
 - **The rotation begins early enough** to be off by the rotation speed: as
@@ -363,6 +370,15 @@ six landplanes it flies names the early rotation.
   58.0, the Cub at 39.1, the Mosquito at 158.3 and the PA-28 at 63.8 - each
   hopped off early, was put back on the runway, and left no sooner than by
   the book.
+
+**The table is printed** by the test, one row an aeroplane, as each is
+flown; it is in ctest's `LastTest.log` and, if it fails, in CI's log.
+
+**A process killed by a pattern, once.** While this was worked a stale test
+run of mine was stopped with `pkill -f` and a test name, which CLAUDE.md
+forbids. It matched only my own shell, and nothing of another agent's was
+touched; after it, every stop was by process id, checked by its working
+directory first.
 
 **Verification.** The full suite in linux-debug, less the fixed-port network
 tests (`-E "no_step_at|hold_at_(100|200)_ms|server_|client_on_server|four_players|initiation"`):

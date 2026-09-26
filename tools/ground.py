@@ -242,13 +242,57 @@ def derive(model_id, belly_stations=3, wheel_z=None):
             wheel_z, typical, len(kept), len(every))
 
 
-def contacts(model_id, weight_lbs, indent="        ", wheel_z=None):
-    """The airframe's contacts for `model_id`, as JSBSim <contact> elements.
+# **How far either side of the keel a flank contact is looked for**, as a share
+# of the half span: beyond the keel's own strip (CENTRE_SHARE), out to where a
+# fighter's underside still runs flat under its engines.
+FLANK_SHARE = 0.3
 
-    `weight_lbs` is the aeroplane's maximum weight, which sets how stiff the
-    airframe has to be to hold it off the runway; see stiffness().
+
+def flanks(model_id, wheel_z=None):
+    """Four contacts on the underside either side of the keel, in structural
+    inches: on each side, the lowest point of the fore half and of the aft
+    half of the underside, between the keel's strip and FLANK_SHARE of the
+    half span. It is measured station by station, as _profile() measures the
+    keel, and a station is dropped where it is over the undercarriage or no
+    longer underside, by the same rules.
+
+    **Why an aeroplane may need them.** The contacts derive() measures lie on
+    the centreline and at the wing tips, and an aeroplane whose wing tips sit
+    well above its belly rests on a line: it rolls from tip to tip as it
+    slides. The F-15C did, ten degrees each way, and on Windows it rolled
+    over and through the runway (tools/make_f15c.py). A fighter's belly is
+    wide - two engines side by side, with the intakes outside them - and
+    these are where it rests.
     """
-    points, _wheels, _typical, _kept, _every = derive(model_id, wheel_z=wheel_z)
+    points, wheel_z = in_structural_frame(model_id, wheel_z)
+    _kept, _every, typical = _profile(points, wheel_z)
+    half = max(abs(p[1]) for p in points)
+    xs = [p[0] for p in points]
+    x0, x1 = min(xs), max(xs)
+    step = (x1 - x0) / STATIONS
+    out = []
+    for side, name in ((-1.0, "LEFT"), (1.0, "RIGHT")):
+        flank = [p for p in points if CENTRE_SHARE * half < p[1] * side < FLANK_SHARE * half]
+        lows = []
+        for i in range(STATIONS):
+            a = x0 + i * step
+            band = [p for p in flank if a <= p[0] < a + step]
+            if len(band) >= STATION_LEAST:
+                low = min(band, key=lambda p: p[2])
+                if GEAR_SHARE * typical < low[2] - wheel_z < UNDERSIDE * typical:
+                    lows.append(low)
+        if len(lows) < 2:
+            raise SystemExit(f"ground.py: {model_id} has no underside beside its keel")
+        middle = (lows[0][0] + lows[-1][0]) / 2.0
+        for part, which in (("FORE", [p for p in lows if p[0] < middle]),
+                            ("AFT", [p for p in lows if p[0] >= middle])):
+            p = min(which, key=lambda q: q[2])
+            out.append((f"{name}_{part}_FLANK", round(p[0], 1), round(p[1], 1), round(p[2], 1)))
+    return out
+
+
+def contact_elements(points, weight_lbs, indent="        "):
+    """`points`, (name, x, y, z) in inches, as scraping JSBSim <contact>s."""
     spring, damping = stiffness(weight_lbs)
     out = ""
     for name, x, y, z in points:
@@ -264,6 +308,16 @@ def contacts(model_id, weight_lbs, indent="        ", wheel_z=None):
                 f'{indent}    <damping_coeff unit="LBS/FT/SEC"> {damping:.0f} </damping_coeff>\n'
                 f'{indent}</contact>\n')
     return out
+
+
+def contacts(model_id, weight_lbs, indent="        ", wheel_z=None):
+    """The airframe's contacts for `model_id`, as JSBSim <contact> elements.
+
+    `weight_lbs` is the aeroplane's maximum weight, which sets how stiff the
+    airframe has to be to hold it off the runway; see stiffness().
+    """
+    points, _wheels, _typical, _kept, _every = derive(model_id, wheel_z=wheel_z)
+    return contact_elements(points, weight_lbs, indent)
 
 
 # **What the meshes are checked against.** Each aeroplane's published overall

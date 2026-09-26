@@ -742,6 +742,11 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
     std::size_t walked = 0;
     std::vector<std::string> left_out;
     std::vector<std::string> wrong;
+    // **The table, one row an aeroplane**, printed as each is flown: knots
+    // calibrated, and "first" the first time the wheels left the runway
+    // where she settled back before leaving it for good.
+    std::printf("  %-13s %8s %8s %7s %8s %8s %8s\n", "aircraft", "rotate", "book", "past",
+                "(first)", "early", "(first)");
     for (const auto& entry : glideslope::sim::read_catalogue(data())) {
         ++catalogue;
         // **Left out, each for its reason.** A flying boat's run is flown on
@@ -766,10 +771,9 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
         const Off early = fly(entry, speeds,
                               0.85 * (book.rotation_began_kts > 0.0 ? book.rotation_began_kts
                                                                     : book.first));
-        std::printf("  %-13s rotation speed %5.1f kt: off at %5.1f (%+5.1f) by the book "
-                    "(first %5.1f), %5.1f rotated early (first %5.1f)\n",
-                    entry.id.c_str(), speeds.rotate_kts, book.kts, book.kts - speeds.rotate_kts,
-                    book.first, early.kts, early.first);
+        std::printf("  %-13s %8.1f %8.1f %+7.1f %8.1f %8.1f %8.1f\n", entry.id.c_str(),
+                    speeds.rotate_kts, book.kts, book.kts - speeds.rotate_kts, book.first,
+                    early.kts, early.first);
         std::fflush(stdout);
         ++walked;
         // Every aeroplane is flown before any is judged, so that a failure
