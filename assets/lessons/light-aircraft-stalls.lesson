@@ -27,9 +27,11 @@
 #
 # **The height allowed in the recovery is measured.** Stalled from five
 # thousand feet and recovered as the wing gives up - control column forward,
-# full power - the four light aircraft lose between sixty and two hundred
+# full power - the four light aircraft lost between sixty and two hundred
 # feet: the Cub 59, the 172 189, the 182 196, the PA-28 170. Three hundred
-# feet is therefore that with a hundred feet of margin.
+# feet is therefore that with a hundred feet of margin. Since the recovery
+# became the autopilot's stall recovery (2026-09-26) they lose less: the Cub
+# 40, the 172 132, the 182 164, the PA-28 152.
 #
 # **What it takes to break it, said so the band can be judged.** The 172 left
 # twenty-five seconds past the stall loses about three hundred and thirty feet

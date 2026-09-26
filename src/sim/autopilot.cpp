@@ -75,6 +75,48 @@ constexpr double pitch_integral_per_fpm = 0.002;
 constexpr double pitch_rate_degps = 3.0;
 constexpr double least_pitch_deg = -10.0;
 constexpr double most_pitch_deg = 15.0;
+// **The airspeed on the elevator** (AutopilotModes::speed_on_elevator): half a
+// degree of nose down for each knot short, an integral, and the speed's trend
+// to damp it, at full power.
+//
+// **It is how a stall is recovered.** Asked for a vertical speed, an aeroplane
+// mushing in a stall sinks faster than it is asked to, and the vertical speed
+// loop answers by raising the nose - which holds it in the stall. A B-2A left
+// thirty seconds at 96 knots, 12 degrees nose up and 30 degrees of alpha,
+// sinking 4,100 ft/min, was flown that way from 19,700 ft into the ground.
+// Flying the speed instead puts the nose down until the wing is unloaded and
+// the speed comes, whatever the height is doing, which is the recovery the
+// FAA teaches (Airplane Flying Handbook, FAA-H-8083-3C, chapter 5: reduce the
+// angle of attack first, then level the wings, add power as needed, and
+// return to the flight path wanted).
+//
+// **Short of the speed the nose may go below the pitch envelope's floor, as
+// far as the flight path and no further than thirty degrees down**, and moves
+// at 8 degrees a second rather than 3. Held at ten degrees down, a B-2A sinking
+// at thirty degrees of flight path was still at twenty of alpha and came back
+// up into it; the pitch that unloads the wing is below the flight path it is
+// already on, so it is that path that bounds the nose, not a fixed attitude.
+// The nose goes down at 8 degrees a second and comes up at the 3 every mode
+// uses; the elevator still moves no faster than a hand.
+//
+// **The wing is kept below the angle it stalled at**, which the autopilot
+// learns by watching where the lift stopped rising (`stall_alpha_deg_`),
+// because a speed alone does not unload a wing that is diving fast enough:
+// an A320 past its speed at 27 degrees of alpha was held there.
+//
+// **The pull-out is held under 1.6 g**, below the 2 g the airworthiness rules
+// require with the flaps out (14 CFR 23.345, 25.345): past it the nose goes
+// down 10 degrees below where it is for each g over. The aeroplane's response
+// lags the command, so what is measured is a little more - up to 2.21 g in
+// the Mosquito, which the stall test names.
+constexpr double pitch_per_knot_short = 0.5;
+constexpr double pitch_integral_per_knot_short = 0.05;
+constexpr double pitch_per_kts_per_s = 0.5;
+constexpr double steepest_unload_deg = -30.0;
+constexpr double unload_rate_degps = 8.0;
+constexpr double pull_out_most_g = 1.6;
+constexpr double pitch_per_g_over = 10.0;
+constexpr double configuration_moved = 0.5; // degrees of flap, or a twentieth of the gear
 // Pitch to elevator, the pitch rate's damping, and the trim the integral finds.
 constexpr double elevator_per_degree = 0.05;
 constexpr double elevator_per_degps = 0.03;
@@ -250,17 +292,44 @@ Controls Autopilot::fly() {
             -rate, rate);
     }
 
+    // The airspeed and its trend, kept current whatever the modes and the
+    // configuration, so that nothing jumps when either changes.
+    const double kts = a_.property("velocities/vc-kts");
+    const double moved_kts = kts - last_kts_;
+    last_kts_ = kts;
+    kts_per_s_ += (moved_kts / dt - kts_per_s_) * dt / speed_trend_filter_s;
+
+    // **The angle of attack the wing stalls at, as this aeroplane has flown
+    // it**: the angle at the greatest lift coefficient seen since the flaps
+    // or the gear last moved. Nothing tells the autopilot where a model's
+    // lift peaks, so it watches: an aeroplane that has flown past its peak
+    // has shown it, and one that has not has shown only angles it flew
+    // without stalling. The stall recovery keeps the wing below it.
+    {
+        const double config = (a_.has_property("fcs/flap-pos-deg")
+                                   ? a_.property("fcs/flap-pos-deg")
+                                   : 0.0) +
+                              10.0 * a_.property("gear/gear-pos-norm");
+        const double alpha = a_.property("aero/alpha-deg");
+        const double lift = a_.property("forces/fwz-aero-lbs") /
+                            std::max(a_.property("aero/qbar-psf") *
+                                         a_.property("metrics/Sw-sqft"),
+                                     1.0);
+        if (std::abs(config - lift_config_) > configuration_moved) {
+            lift_config_ = config;
+            most_lift_ = lift;
+            stall_alpha_deg_ = alpha;
+        } else if (lift > most_lift_) {
+            most_lift_ = lift;
+            stall_alpha_deg_ = alpha;
+        }
+    }
+
     // Held back, when the speed is short, to what keeps the airspeed at the
     // least it may fly at.
     const double climb_asked = climb_wanted;
     if (const std::optional<double> floor_kts = a_.climb_floor_kts()) {
-        // The airspeed and its trend, kept current whatever the configuration,
-        // so that nothing jumps when the aeroplane is clean again.
-        const double kts = a_.property("velocities/vc-kts");
         const double speed_now_fps = a_.property("velocities/vt-fps");
-        const double moved_kts = kts - last_kts_;
-        last_kts_ = kts;
-        kts_per_s_ += (moved_kts / dt - kts_per_s_) * dt / speed_trend_filter_s;
         if (!clean(a_)) {
             // **No floor with the flaps or the gear out, and none held over.**
             // A hold left standing would pin the throttle at its stop.
@@ -373,16 +442,73 @@ Controls Autopilot::fly() {
     // outside the envelope straight to its edge in one frame, which is a
     // jolt; clamping the target lets the command walk there at the pitch
     // rate, which is the autopilot taking over rather than grabbing.
-    const double pitch_wanted = std::clamp(
-        pitch_integral_deg_ + pitch_per_fpm * climb_off, least_pitch_deg,
-        most_pitch_deg);
-    const double pitch_next =
-        toward(pitch_command_deg_, pitch_wanted, pitch_rate_degps * dt);
-    // The integral winds only while the pitch asked for is the pitch given.
-    if (pitch_next == pitch_wanted) {
-        pitch_integral_deg_ += pitch_integral_per_fpm * climb_off * dt;
+    const bool on_speed = modes_.speed_on_elevator && modes_.airspeed_kts.has_value();
+    if (on_speed) {
+        const double short_kts = *modes_.airspeed_kts - kts;
+        const double path_deg = degrees(std::asin(std::clamp(
+            a_.property("velocities/h-dot-fps") /
+                std::max(a_.property("velocities/vt-fps"), 1.0),
+            -1.0, 1.0)));
+        if (!was_on_speed_) {
+            // Engaged from the pitch commanded now, which is the pitch that
+            // was holding the aeroplane: short of the speed, the law asks for
+            // less at once, and the command walks there at the pitch rate.
+            speed_integral_deg_ = pitch_command_deg_;
+        }
+        // **The wing is kept below the angle it stalled at**: the pitch may
+        // be no more than the flight path plus that angle, which is the
+        // angle of attack with the wings level. A speed alone does not
+        // unload a wing: an A320 diving out of a stall at 156 knots, past
+        // the speed it was asked for, was held at 27 degrees of alpha with
+        // the elevator full up, still stalled and sinking 10,000 ft/min.
+        const double wing_limit_deg = path_deg + stall_alpha_deg_;
+        const bool stalled = a_.property("aero/alpha-deg") >= stall_alpha_deg_;
+        // The floor is lowered only while the aeroplane is short of its
+        // speed or its wing is stalled - while it is recovering; otherwise
+        // the envelope is the one every mode keeps.
+        const double floor_deg =
+            short_kts > 0.0 || stalled
+                ? std::max(std::min({least_pitch_deg, path_deg, wing_limit_deg}),
+                           steepest_unload_deg)
+                : least_pitch_deg;
+        const double pitch_law = speed_integral_deg_ - pitch_per_knot_short * short_kts +
+                                 pitch_per_kts_per_s * kts_per_s_;
+        double pitch_wanted = std::clamp(std::min(pitch_law, wing_limit_deg), floor_deg,
+                                         most_pitch_deg);
+        // **The pull-out is gentle**: the nose comes up no faster than any
+        // mode raises it, and not at all past the load the aeroplane is
+        // allowed with its flaps down - it waits there for the speed.
+        const double load_g = a_.property("accelerations/Nz");
+        if (load_g >= pull_out_most_g) {
+            pitch_wanted = std::min({pitch_wanted, pitch_command_deg_, a_.property("attitude/theta-deg") - pitch_per_g_over * (load_g - pull_out_most_g)});
+        }
+        const double pitch_next = std::clamp(pitch_wanted,
+                                             pitch_command_deg_ - unload_rate_degps * dt,
+                                             pitch_command_deg_ + pitch_rate_degps * dt);
+        // **The integral winds only while the law's pitch is the pitch
+        // given**: not while the command is still walking there, and not
+        // while the law asks for more than the envelope allows at either end,
+        // where winding would leave it to unwind before the nose could move.
+        if (pitch_next == pitch_wanted && pitch_law == pitch_wanted) {
+            speed_integral_deg_ -= pitch_integral_per_knot_short * short_kts * dt;
+        }
+        pitch_command_deg_ = pitch_next;
+        // The vertical speed loop follows, so that letting go of the speed
+        // takes the pitch on from where it is.
+        pitch_integral_deg_ = pitch_command_deg_ - pitch_per_fpm * climb_off;
+    } else {
+        const double pitch_wanted = std::clamp(
+            pitch_integral_deg_ + pitch_per_fpm * climb_off, least_pitch_deg,
+            most_pitch_deg);
+        const double pitch_next =
+            toward(pitch_command_deg_, pitch_wanted, pitch_rate_degps * dt);
+        // The integral winds only while the pitch asked for is the pitch given.
+        if (pitch_next == pitch_wanted) {
+            pitch_integral_deg_ += pitch_integral_per_fpm * climb_off * dt;
+        }
+        pitch_command_deg_ = pitch_next;
     }
-    pitch_command_deg_ = pitch_next;
+    was_on_speed_ = on_speed;
     const double theta_off = pitch_command_deg_ - a_.property("attitude/theta-deg");
     const double q = degrees(a_.property("velocities/q-rad_sec"));
     elevator_trim_ = std::clamp(elevator_trim_ + trim_rate * theta_off * dt, -1.0, 1.0);
@@ -419,12 +545,12 @@ Controls Autopilot::fly() {
         // power it has, whatever the airspeed loop makes of a speed that is
         // where it was asked to be; the integral follows, so letting go of
         // the speed takes the throttle on from where it is.
-        const double wanted = holding_speed_
+        const double wanted = holding_speed_ || on_speed
                                   ? 1.0
                                   : throttle_integral_ + throttle_per_knot * speed_off;
         const double next =
             std::clamp(toward(last_.throttle, wanted, throttle_rate * dt), 0.0, 1.0);
-        if (holding_speed_) {
+        if (holding_speed_ || on_speed) {
             throttle_integral_ = next;
         } else if (next == wanted) {
             throttle_integral_ += throttle_integral_per_knot * speed_off * dt;

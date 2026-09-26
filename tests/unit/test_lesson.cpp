@@ -1100,6 +1100,20 @@ struct Result {
     std::size_t stages = 0;
     double lowest_agl_ft = 1e9;
     double steepest_bank_deg = 0.0;
+    // A stall's recovery: where it was handed over, and how the aeroplane was
+    // flying then - the height, the airspeed, the angle of attack, the pitch
+    // and the vertical speed - and the lowest height after it.
+    double handed_over_ft = -1.0;
+    double handed_over_kts = 0.0;
+    double handed_over_alpha_deg = 0.0;
+    double handed_over_pitch_deg = 0.0;
+    double handed_over_fpm = 0.0;
+    double recovery_lowest_ft = 1e9;
+    // Below the angle it stalled at, level or climbing, and at the speed the
+    // lesson's recovery ends at, all at once.
+    bool recovered = false;
+    double stall_alpha_deg = 0.0; // where its lift stopped rising
+    double peak_load_g = -1e9;    // the most, from the hand-over to recovered
 };
 
 // **A turn, flown by the autopilot.** `sink_fpm` other than zero makes her
@@ -1313,9 +1327,10 @@ namespace {
 
 // **A stall, entered the way one is entered**: throttle closed, the height
 // held, the nose rising as the speed decays until the wing gives up. The
-// recovery is the control column forward and full power. `sloppy` recovers
-// late and lazily, which is what loses the height this lesson is about.
-Result fly_a_stall(const std::string& id, bool sloppy) {
+// recovery is the control column forward and full power. `left_s` is how
+// long the aeroplane is left mushing in the stall before the recovery is
+// handed it: none by the book, and the longer the later.
+Result fly_a_stall(const std::string& id, double left_s) {
     const auto stall_entry = glideslope::sim::find_aircraft(data(), id);
     // **A stall is practised where its aeroplane practises it.** A light
     // aeroplane decelerates to the stall in a few hundred feet; a clean jet
@@ -1356,10 +1371,34 @@ Result fly_a_stall(const std::string& id, bool sloppy) {
     // for a speed six knots below the stall and it never comes, the nose
     // stays up, and she descends all the way to the ground. That is not a
     // late recovery, it is no recovery, and it taught the test nothing.
-    const int dawdle = sloppy ? 35 * steps_per_second : 0;
+    const auto dawdle = static_cast<std::int64_t>(std::lround(left_s * steps_per_second));
     std::int64_t stalled_at = -1;
     double entry_began = -1.0;
-    for (int tick = 0; tick < 600 * steps_per_second && !run.finished(); ++tick) {
+    // **Recovered is flying again, not only fast again**: the wing below the
+    // angle of attack it stalled at, the aeroplane level or climbing, and at
+    // or above the speed the lesson's recovery ends at, all at once. A speed
+    // alone called an A320 recovered at 27 degrees of alpha and sinking
+    // 10,000 ft/min, with no pull-out flown at all. So a recovery handed over
+    // late is flown on past the lesson's end until it holds.
+    //
+    // **The angle it stalled at is where its lift stopped rising**: the angle
+    // of attack at the greatest lift coefficient measured from the entry to
+    // the hand-over. A model's lift table is the model's own; this reads what
+    // it gives, in the configuration and at the rate it is flown here.
+    //
+    // **Level is within 100 ft/min**, as a pilot holds a height. A PA-28 at
+    // full power with its landing flap out at 4,000 ft cannot climb: at its
+    // recovery speed it settles sinking 45 ft/min, flying and in hand, and a
+    // rule of "not descending at all" would never call it recovered.
+    constexpr double level_within_fpm = 100.0;
+    const glideslope::sim::LessonStage& recovery_stage = lesson.stages.back();
+    const double recovered_kts =
+        glideslope::sim::figure_of(recovery_stage.until_value, f.speeds);
+    double most_lift = -1e9;
+    const auto flying = [&] {
+        return !run.finished() || (left_s > 0.0 && !out.recovered);
+    };
+    for (int tick = 0; tick < 600 * steps_per_second && flying(); ++tick) {
         if (tick == settling) {
             // **Asked for a speed below the stall**, which is how a stall is
             // entered on the autopilot: a light aeroplane's altitude hold
@@ -1374,36 +1413,44 @@ Result fly_a_stall(const std::string& id, bool sloppy) {
             // Throttle closed: the autopilot holds the height by raising the
             // nose, and she slows towards the stall of her own accord.
             c.throttle = 0.0;
+            const auto& a = *f.aircraft;
+            const double lift = a.property("forces/fwz-aero-lbs") /
+                                std::max(a.property("aero/qbar-psf") *
+                                             a.property("metrics/Sw-sqft"),
+                                         1.0);
+            if (lift > most_lift) {
+                most_lift = lift;
+                out.stall_alpha_deg = a.property("aero/alpha-deg");
+            }
             if (run.stage() >= 1) {
                 if (stalled_at < 0) {
                     stalled_at = tick;
                 }
                 if (tick - stalled_at >= dawdle) {
                     recovering = true;
+                    out.handed_over_ft = a.property("position/h-agl-ft");
+                    out.handed_over_kts = a.property("velocities/vc-kts");
+                    out.handed_over_alpha_deg = a.property("aero/alpha-deg");
+                    out.handed_over_pitch_deg = a.property("attitude/theta-deg");
+                    out.handed_over_fpm = a.property("velocities/h-dot-fps") * 60.0;
                 }
             }
         }
         if (recovering) {
-            // **The recovery is flown by the autopilot, not by a fixed
-            // control position.** A control column held forward by the same
-            // amount recovers a Cessna and flies a Learjet into the ground:
-            // the aeroplanes differ by a factor of three in speed and far
-            // more in inertia. Asking for a speed well above the stall and a
-            // gentle descent is the same instruction to every aeroplane, and
-            // each one flies it with its own controls.
+            // **The recovery is the autopilot's stall recovery**
+            // (AutopilotModes::speed_on_elevator), not a fixed control
+            // position: a column held forward by the same amount recovers a
+            // Cessna and flies a Learjet into the ground. Asked for a speed
+            // clear of the one the lesson's recovery ends at, every aeroplane
+            // puts its nose down until the wing unloads and the speed comes,
+            // with its own controls. The vertical speed it used to be asked
+            // for held a mushing B-2A in the stall to the ground, raising the
+            // nose against a sink it could not stop.
             if (!recovery_set) {
                 recovery_set = true;
                 modes.altitude_ft.reset();
-                // **Nose down enough to gain the speed back**, which is
-                // more descent for a faster wing: 600 ft/min unloads a
-                // Cessna, and asked of an A380 flaps and gear down at 120
-                // knots it made her pitch up to hold so little sink, and
-                // porpoise between four degrees nose down and twenty-one up,
-                // stalling again each time, for four minutes. Twelve feet a
-                // minute for each knot of stall speed, and never less than
-                // six hundred.
-                modes.vertical_speed_fpm = -std::max(600.0, 12.0 * f.speeds.stall_kts);
-                modes.airspeed_kts = f.speeds.stall_kts * 1.5;
+                modes.airspeed_kts = std::max(f.speeds.stall_kts * 1.5, recovered_kts + 5.0);
+                modes.speed_on_elevator = true;
                 autopilot.set(modes);
             }
             c = autopilot.fly();
@@ -1418,16 +1465,24 @@ Result fly_a_stall(const std::string& id, bool sloppy) {
             run.update(*f.aircraft, tick);
             const double agl = f.aircraft->property("position/h-agl-ft");
             // **Into the ground is the end of the flight**, and the lesson is
-            // judged there: a B-2 left mushing for half a minute cannot be
-            // recovered by the autopilot's recovery (a tail), and flew into
-            // the ground on macOS with the recovery stage never over and
-            // nothing said.
+            // judged there: a recovery that ends in the ground did not
+            // recover with the least height. Before the recovery flew the
+            // speed, a B-2A left mushing half a minute did exactly that, on
+            // macOS, with the recovery stage never over and nothing said.
             if (agl <= 0.0) {
                 out.lowest_agl_ft = std::min(out.lowest_agl_ft, agl);
                 run.ended(*f.aircraft, tick);
                 break;
             }
             out.lowest_agl_ft = std::min(out.lowest_agl_ft, agl);
+            if (recovering && !out.recovered) {
+                const auto& a = *f.aircraft;
+                out.recovery_lowest_ft = std::min(out.recovery_lowest_ft, agl);
+                out.peak_load_g = std::max(out.peak_load_g, a.property("accelerations/Nz"));
+                out.recovered = a.property("aero/alpha-deg") < out.stall_alpha_deg &&
+                                a.property("velocities/h-dot-fps") * 60.0 >= -level_within_fpm &&
+                                a.property(recovery_stage.until_property) >= recovered_kts;
+            }
             if (!was_entering && out.recovery_began_ft < 0.0) {
                 out.recovery_began_ft = agl;
             }
@@ -1453,7 +1508,7 @@ GLIDESLOPE_TEST(the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     const auto taught = everyone_taught("stalls");
     std::size_t walked = 0;
     for (const std::string& id : taught) {
-        const Result flown = fly_a_stall(id, false);
+        const Result flown = fly_a_stall(id, 0.0);
         std::printf("  %-13s lowest %6.0f ft, entry %+.0f to %+.0f ft, recovery lost %.0f ft, "
                     "%zu of %zu stages\n",
                     id.c_str(), flown.lowest_agl_ft, flown.entry_low_ft,
@@ -1502,12 +1557,172 @@ GLIDESLOPE_TEST(a_lesson_whose_flight_ends_part_way_names_what_its_stage_still_n
 // **A stall recovered late and lazily loses height, and is named for it.**
 GLIDESLOPE_TEST(a_stall_recovered_badly_is_named_in_the_debrief) {
     for (const std::string& id : one_of_each_class("stalls")) {
-        const Result sloppy = fly_a_stall(id, true);
+        const Result sloppy = fly_a_stall(id, 35.0);
         std::printf("  %s recovered badly: lowest %.0f ft\n", id.c_str(),
                     sloppy.lowest_agl_ft);
         names_that_fault_and_no_other(id, "stalls", sloppy.debrief, {"position/h-agl-ft"},
                                       "recovering late and lazily");
     }
+}
+
+namespace {
+
+// **The height a stall lesson's recovery may cost**: its recovery stage's
+// need that the height be no lower than `start` less so much, where `start`
+// is the height the stage began at.
+double recovery_allowance_ft(const Lesson& lesson) {
+    for (const auto& stage : lesson.stages) {
+        for (const auto& need : stage.needs) {
+            if (need.property == "position/h-agl-ft" && need.at_least &&
+                need.low.reference == "start" && need.low.offset < 0.0) {
+                return -need.low.offset;
+            }
+        }
+    }
+    check(false, lesson.id + " says how much height its recovery may cost");
+    return 0.0;
+}
+
+} // namespace
+
+// **Every aeroplane stalled and left mushing for thirty seconds is recovered,
+// within its lesson's height or a bound this test names, and pulled out
+// within 2 g or a bound this test names.** Left that long the aeroplane is no
+// longer approaching the stall but deep in it, and the autopilot's old
+// recovery - a vertical speed asked for - answered the sink by raising the
+// nose: the B-2A, handed over at 96 knots, 12 degrees nose up and 30 degrees
+// of alpha, stayed there to the ground. The recovery is now the autopilot's
+// stall recovery (AutopilotModes::speed_on_elevator).
+//
+// **Recovered** is flying again (fly_a_stall): below the angle of attack the
+// wing stalled at, level or climbing, and at the lesson's recovery speed, all
+// at once. The height lost is counted from the moment the recovery is handed
+// the aeroplane to the lowest point of the pull-out: what it lost while it
+// was left is not the recovery's.
+//
+// **Nine cannot yet be held to their lesson's height**, which was set for a
+// recovery from the approach to the stall, not from thirty seconds deep in
+// it: handed over sinking thousands of feet a minute, most of the height goes
+// in stopping the sink. Each is held to what it measured with about fifteen
+// per cent in hand, so none gets worse unseen, and the item stays open in
+// docs/COMPLETION_PLAN.md.
+//
+// **2 g is the load the airworthiness rules require with the flaps out**
+// (14 CFR 23.345 and 25.345), and the recovery is flown with them out. Two
+// pull out harder than that and are named likewise.
+struct NotYetWithinItsLesson {
+    const char* id;
+    double measured_ft;
+    double bound_ft;
+};
+
+const std::vector<NotYetWithinItsLesson>& not_yet_within_its_lesson() {
+    static const std::vector<NotYetWithinItsLesson> named{
+        {"787-8", 1822.0, 2100.0},       {"a320", 1302.0, 1500.0},
+        {"a380", 1503.0, 1730.0},        {"b2", 934.0, 1075.0},
+        {"f15c", 1466.0, 1690.0},        {"f35b", 3183.0, 3660.0},
+        {"learjet35a", 986.0, 1135.0},   {"mosquito-fb6", 1182.0, 1360.0},
+        {"short_s23", 242.0, 280.0},
+    };
+    return named;
+}
+
+constexpr double flaps_down_most_g = 2.0;
+
+struct PullsOutHarder {
+    const char* id;
+    double measured_g;
+    double bound_g;
+};
+
+const std::vector<PullsOutHarder>& pulls_out_harder() {
+    static const std::vector<PullsOutHarder> named{
+        {"a320", 2.12, 2.3},
+        {"mosquito-fb6", 2.21, 2.4},
+    };
+    return named;
+}
+
+GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_within_its_lessons_height_or_a_named_bound) {
+    const Taught taught = taught_for("stalls");
+    const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
+    std::size_t walked = 0;
+    std::size_t held_to_lesson = 0;
+    std::size_t held_to_bound = 0;
+    std::vector<std::string> faults;
+    for (const std::string& id : taught.able) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        const double allowed_ft = recovery_allowance_ft(*lesson_for(entry, "stalls"));
+        const auto& named = not_yet_within_its_lesson();
+        const auto it = std::find_if(named.begin(), named.end(),
+                                     [&](const NotYetWithinItsLesson& n) { return id == n.id; });
+        const bool is_named = it != named.end();
+        const double bound_ft = is_named ? it->bound_ft : allowed_ft;
+        const Result left = fly_a_stall(id, 30.0);
+        const double lost_ft = left.handed_over_ft - left.recovery_lowest_ft;
+        std::printf("  %-13s handed over at %6.0f ft, %5.1f kt, alpha %5.1f, pitch %5.1f, "
+                    "%6.0f ft/min; stalled at alpha %4.1f; recovery lost %5.0f ft, lesson "
+                    "allows %4.0f; peak %.2f g%s\n",
+                    id.c_str(), left.handed_over_ft, left.handed_over_kts,
+                    left.handed_over_alpha_deg, left.handed_over_pitch_deg,
+                    left.handed_over_fpm, left.stall_alpha_deg, lost_ft, allowed_ft,
+                    left.peak_load_g, left.recovered ? "" : ", NOT RECOVERED");
+        if (is_named) {
+            std::printf("      not yet within its lesson: held to %.0f ft (measured %.0f)\n",
+                        it->bound_ft, it->measured_ft);
+        }
+        const auto& harder = pulls_out_harder();
+        const auto g_it = std::find_if(harder.begin(), harder.end(),
+                                       [&](const PullsOutHarder& n) { return id == n.id; });
+        const double most_g = g_it == harder.end() ? flaps_down_most_g : g_it->bound_g;
+        if (g_it != harder.end()) {
+            std::printf("      pulls out harder than %.1f g: held to %.2f g (measured %.2f)\n",
+                        flaps_down_most_g, g_it->bound_g, g_it->measured_g);
+        }
+        // Every aeroplane is flown and its figures printed before any is
+        // judged, so one failure does not hide the rest.
+        if (left.handed_over_ft <= 0.0) {
+            faults.push_back(id + " was not handed to its recovery in the air");
+        } else if (!left.recovered) {
+            faults.push_back(id + " left thirty seconds in the stall was not recovered");
+        } else if (lost_ft > bound_ft) {
+            faults.push_back(id + " left thirty seconds in the stall was recovered in " +
+                             std::to_string(std::lround(lost_ft)) + " ft, and " +
+                             (is_named ? "its named bound is " : "its lesson allows ") +
+                             std::to_string(std::lround(bound_ft)));
+        } else if (left.peak_load_g > most_g) {
+            faults.push_back(id + " pulled out at " + std::to_string(left.peak_load_g) +
+                             " g, and may pull " + std::to_string(most_g));
+        } else if (is_named && lost_ft <= 0.9 * allowed_ft) {
+            faults.push_back(id + " is named as not yet within its lesson, and now is: " +
+                             std::to_string(std::lround(lost_ft)) + " ft against " +
+                             std::to_string(std::lround(allowed_ft)) +
+                             " - hold it to its lesson");
+        }
+        if (is_named) {
+            ++held_to_bound;
+        } else {
+            ++held_to_lesson;
+        }
+        ++walked;
+    }
+    std::printf("  of the %zu aeroplanes: %zu flown, %zu held to their lesson's height, %zu to a "
+                "named bound, %zu left out\n",
+                roster, walked, held_to_lesson, held_to_bound, taught.left_out.size());
+    for (const std::string& said : taught.left_out) {
+        std::printf("      left out - %s\n", said.c_str());
+    }
+    for (const std::string& fault : faults) {
+        std::printf("  %s\n", fault.c_str());
+    }
+    check(faults.empty(), std::to_string(faults.size()) + " of " + std::to_string(walked) +
+                              " left thirty seconds in the stall were not recovered within "
+                              "their bound");
+    check(walked == taught.able.size(), "every aeroplane taught a stall was left in one");
+    check(walked + taught.left_out.size() == roster,
+          "every aeroplane in the roster was flown or left out with its reason");
+    check(held_to_bound == not_yet_within_its_lesson().size(),
+          "every aeroplane named as not yet within its lesson was flown");
 }
 
 namespace {
@@ -2302,8 +2517,11 @@ Demonstrated demonstrate_a_stall(const std::string& id, double start_ft) {
             } else if (!recovering && run.stage() >= 1) {
                 recovering = true;
                 m.altitude_ft.reset();
-                // Nose down in proportion to the wing's speed, as the
-                // lesson's own recovery is flown.
+                // **Not the autopilot's stall recovery** (speed_on_elevator),
+                // which the lesson's own flight now uses: the instructor
+                // still asks for a descent, nose down in proportion to the
+                // wing's speed. From the approach to the stall that serves;
+                // from deep in one it held a B-2A in the stall to the ground.
                 m.vertical_speed_fpm = -std::max(600.0, 12.0 * f.speeds.stall_kts);
                 // **The speed asked for has to clear the one the lesson is
                 // waiting for.** The recovery stage ends at the climbing
