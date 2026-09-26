@@ -229,6 +229,12 @@ are the risks the phase order is built around:
 
 ### Every circuit touches down on the runway, past its threshold, 2026-09-27 — tail done
 
+**Found by review, now tails:** the flare starts at the path pitch but no more
+than 10 degrees, so the F-35B's nose goes down some 6.5 degrees at 30 ft,
+which is why she touches down flat at 157 kt; and nothing checks touchdown
+pitch against a tail-strike attitude. Separately, a Linux debug CI shard ran
+27 min 43 s of its 30 (the circuit lessons take about 980 s each there).
+
 **What is missing first.** Nothing of the tail: every circuit and every
 approach lesson touches down on the runway. Still open beside it: the B-2A
 crosses the threshold fast (its own tail), and taking an aeroplane back on its
