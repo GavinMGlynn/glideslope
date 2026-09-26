@@ -14,21 +14,86 @@
 #include <system_error>
 #include <thread>
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#else
+#include <cerrno>
+#include <cstring>
+#include <unistd.h>
+#endif
+
 namespace glideslope::world {
 
 namespace {
 
-// Written beside its final name and renamed into place, so a download cut
-// short never leaves a file that looks whole.
-//
-// **Two at once fetch the same file.** Tests run in parallel, and a flight
-// and the terrain fetch the same tiles, so the name written to is this
-// writer's alone - no two share a half-written file - and a file already in
-// place is left as it is: what is there is what was asked for, pinned by its
-// hash or checked against its ETag, and on Windows renaming over a file
-// another process is reading fails.
-void write_whole(const std::filesystem::path& path,
-                 const std::vector<std::uint8_t>& bytes) {
+// Moves `from` to `to` unless something is at `to` already, in one step that
+// cannot replace it: false, with `from` left, if something is.
+bool move_unless_there(const std::filesystem::path& from, const std::filesystem::path& to) {
+#if defined(_WIN32)
+    // No MOVEFILE_REPLACE_EXISTING: a name free is taken, one in use
+    // refuses. A name delete-pending refuses too, until it is free: asked
+    // again, as file_is_there asks.
+    for (int attempt = 1;; ++attempt) {
+        if (MoveFileExW(from.c_str(), to.c_str(), 0)) {
+            return true;
+        }
+        const DWORD error = GetLastError();
+        if (error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) {
+            return false;
+        }
+        const bool passes = error == ERROR_ACCESS_DENIED ||
+                            error == ERROR_SHARING_VIOLATION ||
+                            error == ERROR_DELETE_PENDING;
+        if (!passes || attempt >= transient_refusal_tries) {
+            throw DemError("cannot move " + from.string() +
+                           " into place: Windows error " + std::to_string(error) +
+                           " after " + std::to_string(attempt) + " tries");
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+#else
+    // rename() replaces; a second name made with link() cannot.
+    if (::link(from.c_str(), to.c_str()) != 0) {
+        const int error = errno;
+        if (error == EEXIST) {
+            return false;
+        }
+        throw DemError("cannot move " + from.string() + " into place: " +
+                       std::strerror(error));
+    }
+    std::error_code ignored;
+    std::filesystem::remove(from, ignored);
+    return true;
+#endif
+}
+
+bool there(const std::filesystem::path& path) {
+    try {
+        return file_is_there(path);
+    } catch (const ByteSourceError& e) {
+        throw DemError(e.what());
+    }
+}
+
+platform::HttpResponse get(const Fetch& fetch, const std::string& url) {
+    platform::HttpResponse r;
+    try {
+        r = fetch_with_retries(fetch, url);
+    } catch (const platform::HttpError& e) {
+        throw DemError(std::string("could not download: ") + e.what());
+    }
+    if (r.status != 200) {
+        throw DemError("could not download " + url + ": status " +
+                       std::to_string(r.status));
+    }
+    return r;
+}
+
+} // namespace
+
+bool put_in_place(const std::filesystem::path& path, const std::vector<std::uint8_t>& bytes) {
     std::error_code error;
     std::filesystem::create_directories(path.parent_path(), error);
     if (error) {
@@ -48,35 +113,18 @@ void write_whole(const std::filesystem::path& path,
             throw DemError("cannot write " + part.string());
         }
     }
-    if (std::filesystem::exists(path)) {
-        std::filesystem::remove(part, error);
-        return;
-    }
-    std::filesystem::rename(part, path, error);
-    if (error) {
-        std::filesystem::remove(part, error);
-        // Another writer put it there between the two calls above.
-        if (!std::filesystem::exists(path)) {
-            throw DemError("cannot move " + part.string() + " into place");
-        }
-    }
-}
-
-platform::HttpResponse get(const Fetch& fetch, const std::string& url) {
-    platform::HttpResponse r;
+    bool put = false;
     try {
-        r = fetch_with_retries(fetch, url);
-    } catch (const platform::HttpError& e) {
-        throw DemError(std::string("could not download: ") + e.what());
+        put = move_unless_there(part, path);
+    } catch (...) {
+        std::filesystem::remove(part, error);
+        throw;
     }
-    if (r.status != 200) {
-        throw DemError("could not download " + url + ": status " +
-                       std::to_string(r.status));
+    if (!put) {
+        std::filesystem::remove(part, error);
     }
-    return r;
+    return put;
 }
-
-} // namespace
 
 platform::HttpResponse fetch_with_retries(const Fetch& fetch, const std::string& url,
                                           int attempts,
@@ -160,7 +208,7 @@ std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
                                    const std::string& name, const std::string& url,
                                    const std::string& sha256, const Fetch& fetch) {
     const std::filesystem::path path = cache / name;
-    if (std::filesystem::exists(path)) {
+    if (there(path)) {
         return path;
     }
     const platform::HttpResponse r = get(fetch, url);
@@ -169,7 +217,7 @@ std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
         throw DemError(url + " arrived with SHA-256 " + got + ", not the pinned " +
                        sha256);
     }
-    write_whole(path, r.body);
+    put_in_place(path, r.body);
     return path;
 }
 
@@ -194,7 +242,7 @@ std::shared_ptr<const ByteSource> DownloadedTiles::fetched(DemDataset dataset,
         cache_ /
         (dataset == DemDataset::glo30 ? "copernicus-dem-30m" : "copernicus-dem-90m") /
         (name + ".tif");
-    if (!std::filesystem::exists(path)) {
+    if (!there(path)) {
         const platform::HttpResponse r = get(fetch_, url);
         // S3 gives a file uploaded whole its MD5 as its ETag. One uploaded in
         // parts has an ETag with a dash, which is not a digest of the file, and
@@ -217,7 +265,7 @@ std::shared_ptr<const ByteSource> DownloadedTiles::fetched(DemDataset dataset,
                                " and its ETag says " + tag);
             }
         }
-        write_whole(path, r.body);
+        put_in_place(path, r.body);
         ++downloads_;
     }
     try {

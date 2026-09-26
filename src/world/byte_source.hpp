@@ -32,6 +32,8 @@ public:
 // does not share deletion - std::ifstream, fopen - cannot open the file
 // then, and CI saw `cannot open ...DEM.tif`. Opened the way POSIX opens every
 // file, it can be read the moment it has its name.
+//
+// **A refusal that passes is waited out**, on Windows: see file_is_there.
 class FileSource : public ByteSource {
 public:
     explicit FileSource(const std::filesystem::path& path);
@@ -48,6 +50,31 @@ private:
     std::intptr_t file_ = -1;
     std::uint64_t size_ = 0;
 };
+
+// **How many times a refusal that passes is asked again**, a millisecond
+// apart, before it is taken for a refusal that stays.
+//
+// On Windows a name whose file is delete-pending - deleted, or replaced by a
+// rename, while a handle to it is still open - answers every open and every
+// look at it with ERROR_ACCESS_DENIED (NTSTATUS STATUS_DELETE_PENDING) until
+// the last handle closes and the name is free; and a file open without
+// sharing what is asked answers ERROR_SHARING_VIOLATION until it is closed.
+// Another process sharing the cache - an older build that replaced files, a
+// virus scanner, an indexer - can make either for a moment, and CI saw
+// `exists: Access is denied` of a DEM tile under 3200 threads at once. POSIX
+// has neither state, so nothing there is asked again.
+inline constexpr int transient_refusal_tries = 5000;
+
+// **Whether a file or directory is at `path`**, as std::filesystem::exists,
+// except that on Windows a refusal that passes (above) is asked again, up to
+// transient_refusal_tries times, and a delete-pending name that frees itself
+// is not there. Throws ByteSourceError if it cannot be told.
+bool file_is_there(const std::filesystem::path& path);
+
+// How many refusals that pass file_is_there and FileSource have waited out in
+// this process, all threads together: always 0 but on Windows. A test waits
+// on it to know a reader is waiting.
+std::uint64_t transient_refusals_waited();
 
 class MemorySource : public ByteSource {
 public:

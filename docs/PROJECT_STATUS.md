@@ -227,6 +227,72 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A DEM tile whose name is delete-pending is still found and read on Windows, 2026-09-26 — tail done
+
+**What is not covered first.** Only the cached downloads - DEM tiles, water
+masks, the geoid, the runways - wait out a refusal that passes; the other
+files the programs read (plans, coverage lists, key files, the catalogue) are
+not fetched into place while they are read, and still use
+`std::filesystem::exists` and `std::ifstream`. A name that stays refused for
+all 5000 tries - a file somebody keeps open after deleting it, the old way,
+for more than five seconds or so - still fails, with the Windows error and the
+count of tries in the message.
+
+**Found by CI** on windows-clang, 2026-09-26: 1 of 3200 threads in
+`many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole` failed with
+`exists: Access is denied.: "...\copernicus-dem-30m\Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif"`,
+after the fix of 2026-09-25 below.
+
+**Cause.** Two fetchers that both found no file both renamed their copy into
+place, and `std::filesystem::rename` on Windows is `MoveFileExW` with
+`MOVEFILE_REPLACE_EXISTING`: the second replaced the first's file. A file
+replaced, or deleted, while a handle to it is open is *delete-pending*, and
+until the last handle closes its name answers every look and every open with
+`STATUS_DELETE_PENDING`, which Win32 reports as `ERROR_ACCESS_DENIED` -
+and `std::filesystem::exists`, which only takes "not found" for an answer,
+throws it. The window is short, which is why one thread in 3200 met it.
+(Windows 10's POSIX rename and delete semantics free the name at once, but
+nothing obliges `MoveFileExW`, another process, or a virus scanner to use
+them.)
+
+**Now**, two things. **The writer never replaces**: `put_in_place` (was
+`write_whole`, now in `world/download.hpp`) moves its own temporary file into
+place with `MoveFileExW` without `MOVEFILE_REPLACE_EXISTING` on Windows, and
+with `link` then `unlink` on POSIX, so a second writer finds the name taken,
+in the same step, and leaves the first's file alone; the look before the move
+is gone. **The readers wait out a refusal that passes**:
+`world::file_is_there` replaces `std::filesystem::exists` for every cached
+download (`DownloadedTiles`, `fetch_pinned`, `DirectoryTiles`), and it and
+`FileSource`'s open ask again on `ERROR_ACCESS_DENIED`,
+`ERROR_SHARING_VIOLATION` and `ERROR_DELETE_PENDING`, a millisecond apart, up
+to `transient_refusal_tries` (5000) times, so another process - an older
+build that did replace, a scanner, an indexer - cannot fail them either. The
+move into place asks again the same way. `transient_refusals_waited()` counts
+the refusals waited out, for the test below to wait on.
+
+**Verified** by
+`a_cached_file_whose_name_is_delete_pending_is_waited_for_then_fetched_and_read_whole`,
+which builds the state rather than waiting for it: for each of the three
+fetches of a cached download - a DEM tile, its water mask, a pinned file - it
+marks an old file at the name for deletion through a handle it holds (the old
+`FileDispositionInfo`, not POSIX), asserts the name now refuses a look with
+`ERROR_ACCESS_DENIED`, starts the fetch, waits until the fetch is waiting a
+refusal out, closes the handle, and requires the fetch to download once and
+read the file whole; it counts 3 of 3 fetches covered. On POSIX it reports
+itself skipped: POSIX has no delete-pending state. **Seen to fail on Windows**
+(windows-debug) with the fetchers looking with `std::filesystem::exists`
+again: the DEM tile's fetch failed at once with CI's own message,
+`exists: Access is denied.: "...\copernicus-dem-30m\Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif"`;
+with the fix it passes, all three. And by `a_file_put_in_place_never_replaces_one_already_there`,
+on every platform: a second file put at a name leaves the first, whole, and no
+temporary name beside it. **Seen to fail on Linux** with `rename` in place of
+`link` ("the second finds it there and says so").
+`many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole` then ran 20
+times over on windows-debug, 64,000 threads in all: 20 of 20 passed, every thread reading the tile whole.
+On the development machine two of the other download tests passed and then
+crashed on their way out, once each - the open tail of Windows debug test
+programs crashing after exit, not this.
+
 ### A server behind real time hears every client, 2026-09-26 — main made green
 
 **What is missing first: a client the server has let go still cannot come

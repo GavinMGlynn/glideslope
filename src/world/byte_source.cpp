@@ -1,8 +1,12 @@
 #include "world/byte_source.hpp"
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstring>
 #include <string>
+#include <system_error>
+#include <thread>
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -17,24 +21,74 @@
 
 namespace glideslope::world {
 
+namespace {
+std::atomic<std::uint64_t> waited{0};
+} // namespace
+
+std::uint64_t transient_refusals_waited() {
+    return waited.load();
+}
+
 #if defined(_WIN32)
 
 namespace {
 HANDLE handle(std::intptr_t file) {
     return reinterpret_cast<HANDLE>(file);
 }
+
+// A refusal that passes: see transient_refusal_tries.
+bool passes(DWORD error) {
+    return error == ERROR_ACCESS_DENIED || error == ERROR_SHARING_VIOLATION ||
+           error == ERROR_DELETE_PENDING;
+}
+
+bool not_there(DWORD error) {
+    return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ||
+           error == ERROR_INVALID_NAME || error == ERROR_BAD_NETPATH;
+}
+
+void wait_out() {
+    ++waited;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+}
 } // namespace
 
+bool file_is_there(const std::filesystem::path& path) {
+    for (int attempt = 1;; ++attempt) {
+        if (GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            return true;
+        }
+        const DWORD error = GetLastError();
+        if (not_there(error)) {
+            return false;
+        }
+        if (!passes(error) || attempt >= transient_refusal_tries) {
+            throw ByteSourceError("cannot tell whether " + path.string() +
+                                  " is there: Windows error " + std::to_string(error) +
+                                  " after " + std::to_string(attempt) + " tries");
+        }
+        wait_out();
+    }
+}
+
 FileSource::FileSource(const std::filesystem::path& path) : path_(path) {
-    // FILE_SHARE_DELETE is the point of opening it here: see the header.
-    const HANDLE h = CreateFileW(path.c_str(), GENERIC_READ,
-                                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                 nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (h == INVALID_HANDLE_VALUE) {
+    HANDLE h = INVALID_HANDLE_VALUE;
+    for (int attempt = 1;; ++attempt) {
+        // FILE_SHARE_DELETE is the point of opening it here: see the header.
+        h = CreateFileW(path.c_str(), GENERIC_READ,
+                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (h != INVALID_HANDLE_VALUE) {
+            break;
+        }
         // Kept before anything else can call into Windows and change it.
         const DWORD error = GetLastError();
-        throw ByteSourceError("cannot open " + path.string() + ": Windows error " +
-                              std::to_string(error));
+        if (!passes(error) || attempt >= transient_refusal_tries) {
+            throw ByteSourceError("cannot open " + path.string() + ": Windows error " +
+                                  std::to_string(error) + " after " +
+                                  std::to_string(attempt) + " tries");
+        }
+        wait_out();
     }
     LARGE_INTEGER size{};
     if (!GetFileSizeEx(h, &size)) {
@@ -50,6 +104,16 @@ FileSource::~FileSource() {
 }
 
 #else
+
+bool file_is_there(const std::filesystem::path& path) {
+    std::error_code error;
+    const bool there = std::filesystem::exists(path, error);
+    if (error) {
+        throw ByteSourceError("cannot tell whether " + path.string() +
+                              " is there: " + error.message());
+    }
+    return there;
+}
 
 FileSource::FileSource(const std::filesystem::path& path) : path_(path) {
     const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);

@@ -448,6 +448,13 @@ Found while implementing something else. Added when found, not when remembered.
       deletion; sixteen fetchers and readers at once, 200 times over, all read
       the whole tile on Windows, where before the fix 1396 of 3200 could not
       open it.
+- [x] **On Windows a DEM tile can be refused as `Access is denied` while a
+      second fetch replaces it** (CI, windows-clang, 1 of 3200 threads).
+      *Verification: a tile, a water mask and a pinned file whose name is
+      held delete-pending are each waited for and read whole on Windows, and
+      the many-at-once test passes 20 times over there.* Done 2026-09-26: a
+      fetched file never replaces one already in place, and a refusal that
+      passes is asked again, a bounded number of times.
 - [ ] **Over a network a client's own aircraft is corrected by metres**, because
       the server does not say how far into its latest input it had flown.
       *Verification: through 200 ms with jitter and loss, the worst prediction
