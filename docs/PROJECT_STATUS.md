@@ -230,8 +230,12 @@ are the risks the phase order is built around:
 ### Programs sharing one Cesium cache each store everything, 2026-09-27 — tail in progress
 
 **What is not yet shown first**: the verification asks for the whole suite
-at `-j4` ten times over with no locked cache, and those runs are still going;
-the figures are added here as they come. The fix and its test are in.
+at `-j4` ten times over with no locked cache, and **one whole run and part of
+a second were done here**, not ten. The machine was shared with other
+agents' suites, and one run took 64 minutes; ten were stopped as
+unreasonable, at the coordinator's asking. Neither run reported a locked
+cache. The other nine are to come from CI's shards on every push and the
+nightly. The fix and its test are in, and pass on Linux and Windows.
 
 **Why names were not enough.** Each rendering test was given a cache file
 of its own on 2026-09-22, and the lock came back as tests were added: the
@@ -293,10 +297,29 @@ It takes 0.3 s. **Seen to fail** both ways above: with the busy handler
 removed (0 and 63 of 200 stored), and with the handler but no transaction
 round each call (191 of 200 read back).
 
-**No two processes shared a cache file in the suite runs below**, watched
-rather than assumed: a script beside each run read every process's open
-files ten times a second and logged any `.sqlite` under the build open by
-two processes, or twice by one.
+**The suite runs, with the sharing watched rather than assumed**: a script
+beside each run read every process's open files ten times a second and
+logged any `.sqlite` under the build open by two processes, or twice by one.
+
+- *Run 1*: all 585 tests in 3,855 s, 581 passed. The four that failed were
+  the fixed-port take-over and impaired-network tests, "cannot listen on
+  port 24790" - the pre-push hook's quick tests were running the same tests
+  in the same build at the same moment (a first push, whose timings came
+  from a run that had found no binaries, so "quick" was nearly everything).
+  **That also showed a way the lock happens with every name unique**: the
+  watch caught four cache files - `terrain_mismatch` open, `client_autopilot`,
+  `client_memory`, `frame_weather` - each open in two clients at once, 62
+  times, the same test's client from each of the two ctest runs. None logged
+  "database is locked", and every rendering test passed the leak judge that
+  fails on it. Two runs of ctest in one build - a push during a suite, two
+  agents sharing a build - is enough, and no naming rule can prevent it.
+- *Run 2*: stopped at 208 of 585 after 2,447 s. No cache file open twice, no
+  locked cache; one failure,
+  `an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players`,
+  a network test, not looked into here.
+
+`grep` of both logs for "database is locked": none. "locked" appears only in
+the names of the two `..._leaves_its_cache_unlocked_...` tests, which passed.
 
 ### Every landplane leaves the runway at its rotation speed, and sooner rotated early, 2026-09-26 — item done
 
@@ -11925,8 +11948,10 @@ Found while implementing something else. Added when found, not when remembered.
       program's write and never leave a read open, so programs can share one
       file; `two_programs_writing_one_cesium_cache_at_once_both_store_everything`
       builds the collision and was seen to fail both without the wait and
-      without the transaction. **Still open: the ten suite runs** of the
-      verification - see the log entry of 2026-09-27 for how many are done.
+      without the transaction. **Still open: nine of the ten suite runs** of
+      the verification - one whole run and part of a second were done on
+      2026-09-27, neither with a locked cache; the rest are to come from CI
+      and the nightly.
       *Verification: the whole suite run at `-j4` reports no locked cache,
       ten times over.*
 
