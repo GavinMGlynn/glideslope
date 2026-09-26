@@ -454,7 +454,11 @@ Found while implementing something else. Added when found, not when remembered.
       held delete-pending are each waited for and read whole on Windows, and
       the many-at-once test passes 20 times over there.* Done 2026-09-26: a
       fetched file never replaces one already in place, and a refusal that
-      passes is asked again, a bounded number of times.
+      passes is asked again for up to 3 seconds.
+- [ ] **A cached tile cut short by a power cut is never fetched again.**
+      Nothing flushes a download to disk before it is moved into place, and
+      nothing deletes a cached file that cannot be read. *Verification: a
+      cached tile cut short, or damaged, is fetched again and read whole.*
 - [ ] **Over a network a client's own aircraft is corrected by metres**, because
       the server does not say how far into its latest input it had flown.
       *Verification: through 200 ms with jitter and loss, the worst prediction

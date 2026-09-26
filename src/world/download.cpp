@@ -14,60 +14,9 @@
 #include <system_error>
 #include <thread>
 
-#if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#else
-#include <cerrno>
-#include <cstring>
-#include <unistd.h>
-#endif
-
 namespace glideslope::world {
 
 namespace {
-
-// Moves `from` to `to` unless something is at `to` already, in one step that
-// cannot replace it: false, with `from` left, if something is.
-bool move_unless_there(const std::filesystem::path& from, const std::filesystem::path& to) {
-#if defined(_WIN32)
-    // No MOVEFILE_REPLACE_EXISTING: a name free is taken, one in use
-    // refuses. A name delete-pending refuses too, until it is free: asked
-    // again, as file_is_there asks.
-    for (int attempt = 1;; ++attempt) {
-        if (MoveFileExW(from.c_str(), to.c_str(), 0)) {
-            return true;
-        }
-        const DWORD error = GetLastError();
-        if (error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) {
-            return false;
-        }
-        const bool passes = error == ERROR_ACCESS_DENIED ||
-                            error == ERROR_SHARING_VIOLATION ||
-                            error == ERROR_DELETE_PENDING;
-        if (!passes || attempt >= transient_refusal_tries) {
-            throw DemError("cannot move " + from.string() +
-                           " into place: Windows error " + std::to_string(error) +
-                           " after " + std::to_string(attempt) + " tries");
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-#else
-    // rename() replaces; a second name made with link() cannot.
-    if (::link(from.c_str(), to.c_str()) != 0) {
-        const int error = errno;
-        if (error == EEXIST) {
-            return false;
-        }
-        throw DemError("cannot move " + from.string() + " into place: " +
-                       std::strerror(error));
-    }
-    std::error_code ignored;
-    std::filesystem::remove(from, ignored);
-    return true;
-#endif
-}
 
 bool there(const std::filesystem::path& path) {
     try {
@@ -115,13 +64,18 @@ bool put_in_place(const std::filesystem::path& path, const std::vector<std::uint
     }
     bool put = false;
     try {
-        put = move_unless_there(part, path);
-    } catch (...) {
+        put = move_into_place_unless_there(part, path);
+    } catch (const ByteSourceError& e) {
+        // Taken away if it is still there; the move's failure is what is said.
         std::filesystem::remove(part, error);
-        throw;
+        throw DemError(e.what());
     }
     if (!put) {
         std::filesystem::remove(part, error);
+        if (error) {
+            throw DemError(path.string() + " was there already, but this writer's " +
+                           part.string() + " cannot be removed: " + error.message());
+        }
     }
     return put;
 }

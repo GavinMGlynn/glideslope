@@ -70,10 +70,14 @@ inline constexpr std::chrono::milliseconds parse_wait{1000};
 // **Two at once fetch the same file.** Tests run in parallel, and a flight
 // and the terrain fetch the same tiles, so the name written to first is this
 // writer's alone - no two share a half-written file - and the move into place
-// never replaces: what is there is what was asked for, pinned by its hash or
-// checked against its ETag. And on Windows a replaced file that anybody still
-// has open is delete-pending, and its name refuses every reader until the
-// last handle closes: CI saw `exists: Access is denied` of a DEM tile.
+// does not replace (move_into_place_unless_there): what is there is what was
+// asked for, pinned by its hash or checked against its ETag. And on Windows a
+// replaced file that anybody still has open is delete-pending, and its name
+// refuses every reader until the last handle closes: CI saw `exists: Access
+// is denied` of a DEM tile. Only a POSIX filesystem with neither hard links
+// nor an exclusive rename is replaced on, where replacing is harmless.
+// Throws DemError if the file cannot be written or moved, or this writer's
+// own temporary file cannot be removed.
 bool put_in_place(const std::filesystem::path& path, const std::vector<std::uint8_t>& bytes);
 
 // A file pinned by SHA-256, from the cache or else fetched into it. Throws
