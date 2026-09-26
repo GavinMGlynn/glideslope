@@ -9,9 +9,14 @@ bool known_inside(std::uint8_t kind) {
     case Inside::state:
     case Inside::ping:
     case Inside::pong:
+    case Inside::leaving:
         return true;
     }
     return false;
+}
+
+bool is_leaving(std::span<const std::uint8_t> body) {
+    return body.size() == 1 && body[0] == static_cast<std::uint8_t>(Inside::leaving);
 }
 
 std::vector<std::uint8_t> knock(Inside kind, std::uint64_t token) {

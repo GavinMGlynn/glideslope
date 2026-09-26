@@ -370,8 +370,10 @@ Found while implementing something else. Added when found, not when remembered.
       platform's ephemeral range. *Verification: a test walks every test's
       port, relays included, and fails on one in 32768-65535, outside the
       block, or shared; seen to fail with 47853 put back.*
-- [ ] **A client cannot say it is leaving**, so a server notices only by
+- [x] **A client cannot say it is leaving**, so a server notices only by
       the silence. *Verification: a client that leaves is let go at once.*
+      Done 2026-09-26: both clients say goodbye, sealed, as they go, and the
+      server lets them go at once; a goodbye from anyone else lets nobody go.
 - [ ] **One player on two addresses flies two aircraft**: a client that
       starts again from a new port while its old session is still live is
       given a second aircraft until the old one times out. *Verification: a

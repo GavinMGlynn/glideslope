@@ -85,6 +85,11 @@ public:
         session_.poll(local_s);
     }
 
+    // **Leaving the session**: goodbye said to the server, which lets this
+    // client go at once. Nothing is sent or read after it. The session says
+    // it by itself as it goes, if this was never called.
+    void leave() { session_.leave(); }
+
     // Every other aircraft, where it is to be drawn at `local_s`.
     std::vector<Other> others(double local_s);
 

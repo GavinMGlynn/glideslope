@@ -481,6 +481,9 @@ struct Connection {
     std::unique_ptr<glideslope::net::Sealer> sealing;
     std::unique_ptr<glideslope::net::Unsealer> opening;
     double last_heard_s = 0.0;
+    // When it was admitted, on the server's clock: what a goodbye is measured
+    // from.
+    double admitted_s = 0.0;
     std::uint64_t datagrams = 0;
     // What the dashboard shows. Bytes are whole datagrams, envelope and all,
     // because that is what the link carries.
@@ -1411,6 +1414,34 @@ void print_dashboard(const Options& o, const glideslope::server::Dashboard& d, d
     std::fflush(stdout);
 }
 
+// **A connection let go**, for going quiet, for saying it was leaving, or by
+// the operator's drop button:
+// its aircraft taken out of the sky or handed to an AI pilot as `--on-leave`
+// says, and its slot given back. Returns the connection after it.
+std::map<std::string, Connection>::iterator let_go(
+    std::map<std::string, Connection>& connections,
+    std::map<std::string, Connection>::iterator it, glideslope::net::Slots& slots,
+    Fleet* fleet, const Options& o) {
+    // **The slot goes back only when nobody else is on that key.** A slot
+    // belongs to a key, not to an address, and one key may be connected from
+    // two addresses - a client restarting gets a fresh port. Releasing on the
+    // first to go would take the slot from the one still flying.
+    const glideslope::net::PublicKey going = it->second.who;
+    if (fleet != nullptr && it->second.aircraft != glideslope::net::no_aircraft) {
+        const bool to_ai = fleet->take(it->second.aircraft, o.hand_to_ai_on_leave);
+        std::printf("their aircraft %s\n",
+                    to_ai ? "is now flown by an AI pilot" : "is out of the sky");
+    }
+    it = connections.erase(it);
+    const bool elsewhere =
+        std::any_of(connections.begin(), connections.end(),
+                    [&](const auto& other) { return other.second.who == going; });
+    if (!elsewhere) {
+        slots.release(key_of(going));
+    }
+    return it;
+}
+
 void refuse(glideslope::platform::UdpSocket& socket,
             const glideslope::platform::Address& to, glideslope::net::Refusal why) {
     glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::refusal);
@@ -1517,6 +1548,7 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         c.opening =
             std::make_unique<glideslope::net::Unsealer>(answer->session.receiving);
         c.last_heard_s = now_s;
+        c.admitted_s = now_s;
         c.initiation.assign(body.begin(), body.end());
         // **A slot is not an aeroplane.** A server with nothing to fly has no
         // terrain loaded and nowhere to put one, so the client gets a slot
@@ -1666,9 +1698,28 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             }
             return;
         case glideslope::net::Inside::state:
-            // Named, not built: nothing sends these yet and nothing here
-            // reads them. See docs/TRANSPORT.md, "What is not here yet".
+            // A server's to send, and never a client's: ignored.
             return;
+        case glideslope::net::Inside::leaving: {
+            // **A client saying it is leaving is let go at once**, exactly as
+            // the timeout would have: its aircraft as `--on-leave` says, its
+            // slot back. It opened under this address's session, so it is
+            // this session's own client that said it - a goodbye forged from
+            // another address, or sealed under another session, opens under
+            // nothing here and was dropped above. A copy of it arriving after
+            // this finds no session and is refused like any stranger's.
+            if (!glideslope::net::is_leaving(inside)) {
+                return;
+            }
+            const double stayed_s = now_s - c.admitted_s;
+            std::printf("let go %s after it said it was leaving, %.3f s after it was "
+                        "admitted\n",
+                        who.c_str(), stayed_s);
+            std::fflush(stdout);
+            happened.add(now_s, "let go " + who + " after it said it was leaving");
+            (void)let_go(connections, it, slots, fleet, o);
+            return;
+        }
         }
         return;
     }
@@ -1677,33 +1728,6 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         // A server is not answered to and does not refuse a refusal.
         return;
     }
-}
-
-// **A connection let go**, for going quiet or by the operator's drop button:
-// its aircraft taken out of the sky or handed to an AI pilot as `--on-leave`
-// says, and its slot given back. Returns the connection after it.
-std::map<std::string, Connection>::iterator let_go(
-    std::map<std::string, Connection>& connections,
-    std::map<std::string, Connection>::iterator it, glideslope::net::Slots& slots,
-    Fleet* fleet, const Options& o) {
-    // **The slot goes back only when nobody else is on that key.** A slot
-    // belongs to a key, not to an address, and one key may be connected from
-    // two addresses - a client restarting gets a fresh port. Releasing on the
-    // first to go would take the slot from the one still flying.
-    const glideslope::net::PublicKey going = it->second.who;
-    if (fleet != nullptr && it->second.aircraft != glideslope::net::no_aircraft) {
-        const bool to_ai = fleet->take(it->second.aircraft, o.hand_to_ai_on_leave);
-        std::printf("their aircraft %s\n",
-                    to_ai ? "is now flown by an AI pilot" : "is out of the sky");
-    }
-    it = connections.erase(it);
-    const bool elsewhere =
-        std::any_of(connections.begin(), connections.end(),
-                    [&](const auto& other) { return other.second.who == going; });
-    if (!elsewhere) {
-        slots.release(key_of(going));
-    }
-    return it;
 }
 
 int run(const Options& o) {
@@ -2042,7 +2066,7 @@ int run(const Options& o) {
             anyone_joined = true;
         }
         if (o.until_empty && anyone_joined && connections.empty()) {
-            std::printf("everybody who joined has gone\n");
+            std::printf("everybody who joined has gone, %.1f s in\n", up_s);
             break;
         }
         if (got == 0) {

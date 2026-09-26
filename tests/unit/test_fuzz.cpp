@@ -94,6 +94,9 @@ std::vector<Parser> every_parser() {
                        (void)glideslope::net::knock_token(glideslope::net::Inside::pong,
                                                           b);
                    }});
+    out.push_back({"leaving", [](std::span<const std::uint8_t> b) {
+                       (void)glideslope::net::is_leaving(b);
+                   }});
     return out;
 }
 
@@ -241,7 +244,7 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
 GLIDESLOPE_TEST(the_seed_corpus_goes_through_every_network_parser_under_sanitizers) {
     const std::vector<Parser> parsers = every_parser();
     const auto corpus = seeds();
-    check(parsers.size() == 14, "fourteen parsers are fuzzed, not " +
+    check(parsers.size() == 15, "fifteen parsers are fuzzed, not " +
                                     std::to_string(parsers.size()));
     check(corpus.size() == 20, "twenty seeds - four envelopes, eight messages, a reliable datagram, an input packet, a state packet and five things this project never writes - not " + std::to_string(corpus.size()));
 

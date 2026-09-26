@@ -66,5 +66,37 @@ if(NOT _out MATCHES "the server gave this client no aircraft; flying alone")
     message(FATAL_ERROR "the client did not say it was given no aircraft:\n${_out}")
 endif()
 
-message(STATUS "the client with the window joined ${_key} from server.txt, and "
-               "still drew its frame")
+if(NOT _out MATCHES "glideslope: said goodbye to the server")
+    message(FATAL_ERROR "the client with the window left without saying goodbye:\n${_out}")
+endif()
+
+# **And the server let it go for its goodbye, at once.** The same again with
+# the server last, so that what it said is what is read, and with a timeout
+# of two minutes it cannot have been let go by: the server stops when
+# everybody who joined has gone, and says when that was on its own clock.
+file(REMOVE "${_shot}")
+execute_process(
+    COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 320x240
+            --shot "${_shot}" --shot-at 2 --online
+    COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 0 --headless
+            --timeout 120 --store "${_store}"
+    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+if(NOT EXISTS "${_shot}")
+    message(FATAL_ERROR "the client drew nothing the second time:\n${_err}\n${_out}")
+endif()
+if(_out MATCHES "of silence")
+    message(FATAL_ERROR "the client with the window was let go for its silence, so "
+                        "its goodbye was not heard:\n${_out}")
+endif()
+if(NOT _out MATCHES "let go [0-9.:]+ after it said it was leaving, ([0-9.]+) s after it was admitted")
+    message(FATAL_ERROR "the server did not let the client with the window go for "
+                        "its goodbye:\n${_out}")
+endif()
+set(_stayed "${CMAKE_MATCH_1}")
+if(NOT _out MATCHES "everybody who joined has gone, ([0-9.]+) s in")
+    message(FATAL_ERROR "the server did not stop when the client had gone:\n${_out}")
+endif()
+
+message(STATUS "the client with the window joined ${_key} from server.txt, "
+               "still drew its frame, and said goodbye: let go ${_stayed} s after "
+               "it was admitted, with a timeout of 120")

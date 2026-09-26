@@ -100,6 +100,37 @@ void ClientSession::send_inputs(std::span<const std::uint8_t> packet) {
     (void)socket_->send(server_, all_of(out));
 }
 
+void ClientSession::leave() {
+    if (!socket_ || !sealing_) {
+        return;
+    }
+    const std::vector<std::uint8_t> goodbye{static_cast<std::uint8_t>(Inside::leaving)};
+    for (int copy = 0; copy < leaving_copies; ++copy) {
+        Writer w = begin(Type::sealed);
+        w.bytes(sealing_->seal(all_of(goodbye)));
+        const std::vector<std::uint8_t> out = w.take();
+        (void)socket_->send(server_, all_of(out));
+    }
+    // Ended here: nothing more is sealed, sent or read.
+    sealing_.reset();
+    opening_.reset();
+}
+
+std::vector<std::uint8_t> ClientSession::sealed(std::span<const std::uint8_t> plaintext) {
+    if (!sealing_) {
+        return {};
+    }
+    Writer w = begin(Type::sealed);
+    w.bytes(sealing_->seal(plaintext));
+    return w.take();
+}
+
+void ClientSession::send_from_here(std::span<const std::uint8_t> datagram) {
+    if (socket_) {
+        (void)socket_->send(server_, datagram);
+    }
+}
+
 void ClientSession::send_the_initiation_again() {
     if (socket_ && !initiation_.empty()) {
         (void)socket_->send(server_, all_of(initiation_));

@@ -5,7 +5,7 @@ byte, so that a third party could write a working client from this document
 alone.
 
 **This describes what exists.** The envelope, the handshake, the sealing,
-inputs, state updates and the keepalive are built and tested, and a client
+inputs, state updates, the keepalive and the goodbye are built and tested, and a client
 written from this document alone - `tests/doc_client/doc_client.cpp`, by
 somebody who read it and the Noise specification and nothing else of this
 project - completes a session with the server in `ctest`. The
@@ -169,11 +169,15 @@ connection.
 - **Nothing can refuse an old one the server has forgotten.** The initiation
   carries no timestamp, as WireGuard's does, that would let it.
 
-**A session ends when the server stops hearing from it.** There is no
-goodbye. The server lets a session go when no datagram that opens under it
-has arrived for its `--timeout` (10 seconds unless it was told otherwise),
-and its slot is free for somebody else; any sealed datagram that opens counts,
-so a client sending inputs, or only answering the server's `PING`s, is kept.
+**A session ends when its client says goodbye, or when the server stops
+hearing from it.** A client that is leaving sends `LEAVING` (see "Leaving"
+below), and the server lets the session go at once. Otherwise the server lets
+a session go when no datagram that opens under it has arrived for its
+`--timeout` (10 seconds unless it was told otherwise) - a client that crashed,
+or whose goodbye was lost. Either way its slot is free for somebody else, and
+its aircraft goes as the server's `--on-leave` says; any sealed datagram that
+opens counts as hearing from it, so a client sending inputs, or only answering
+the server's `PING`s, is kept.
 
 ## How large a datagram is
 
@@ -562,6 +566,7 @@ it, and there is no second one.
 | `03` | `STATE` | a state update from the server |
 | `04` | `PING` | `u64`, a token |
 | `05` | `PONG` | `u64`, the token from the `PING` it answers |
+| `06` | `LEAVING` | nothing: a client's goodbye |
 
 **A client refuses nothing.** Refusals are the server's, sent to strangers;
 a client drops what it cannot read, in silence.
@@ -579,10 +584,49 @@ invented one tells it nothing. **A client that answers is also a client the
 server does not let go** when `--timeout` comes round, which is why the
 knocking is the server's job: the server is the one deciding who has gone.
 
-**`RELIABLE` is numbered here and nothing sends it yet.** The numbering is
-fixed before anything uses it so that it cannot move later. A client sends
-`INPUTS`, `PING` and `PONG`; the server sends `STATE`, `PING` and `PONG`, and
-ignores a `STATE` or a `RELIABLE` from a client.
+A client sends `INPUTS`, `RELIABLE`, `PING`, `PONG` and `LEAVING`; the server
+sends `STATE`, `RELIABLE`, `PING` and `PONG`, and ignores a `STATE` from a
+client. What the server does with a client's `RELIABLE` is under "Reliable
+messages" above.
+
+### Leaving: `LEAVING`
+
+**A client that is leaving says so**, and the server lets its session go at
+once - its aircraft as `--on-leave` says, its slot back - rather than after
+its `--timeout` of silence.
+
+| written as | field |
+| --- | --- |
+| `u8` | `06`, the kind |
+
+That is the whole plaintext: one byte. Sealed, it is a 31-byte datagram - the
+envelope (6), the sequence number (8), the byte, and the tag (16). **A `06`
+with anything after it is not a goodbye**, and is ignored like any kind that
+cannot be read; the session stays.
+
+**It is sealed, so only the session's own client can end it.** The server
+lets a session go for a goodbye only once it has opened under that address's
+session keys. One sealed under another session, or sent from another address,
+opens under nothing there and lets nobody go (`docs/THREATS.md`, "Ending
+somebody else's session").
+
+**It is not reliable: it is sent three times.** The client is going away and
+will not wait a round trip to hear it acknowledged, and nothing acknowledges
+it. This project's clients send it three times back to back, each sealed
+afresh under its own sequence number - one sealed once and sent three times
+would be refused twice by the replay window. The first to arrive lets the
+session go; the copies after it arrive at an address with no session, and are
+answered with `REFUSAL` `BAD_HANDSHAKE`, which a client that has left does not
+read. **If all three are lost**, the server's timeout lets the session go as
+it always did.
+
+**A goodbye does not make an initiation new.** A client that comes back from
+the same address after its goodbye must handshake again with a new initiation,
+as after a timeout ("An initiation is taken once from each address").
+
+`glideslope_cli connect` says goodbye at the end of its stay (not with no
+`SECONDS`, which is a test's silent client, nor with `--no-goodbye`), and the
+client with the window says it when it quits or its session otherwise goes.
 
 ### State updates
 
@@ -800,6 +844,6 @@ handshake with a server whose public key it was given, be admitted to a slot,
 seal and open datagrams under the keys that handshake agreed, answer the
 server's knocking so that it stays in its slot and the server can measure the
 round trip, **read where every aircraft is 25 times a second, learn what
-aeroplane each one is, and fly its own aircraft by sending inputs**, and be
-let go when it stops. What it cannot do is be told anything else: it never
+aeroplane each one is, and fly its own aircraft by sending inputs**, and say
+goodbye when it leaves, or be let go when it stops. What it cannot do is be told anything else: it never
 learns the lobby, the weather or the terrain dataset.

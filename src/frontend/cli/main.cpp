@@ -19,6 +19,7 @@
 #include "net/protocol.hpp"
 #include "net/reliable.hpp"
 #include "net/sealing.hpp"
+#include "net/session.hpp"
 #include "net/state.hpp"
 #include "platform/http.hpp"
 #include "platform/socket.hpp"
@@ -168,6 +169,14 @@ void print_usage(std::FILE* out) {
         "                            --track FILE writes where every aircraft was\n"
         "                            heard to be, and, predicting, where each other\n"
         "                            one was drawn, to FILE\n"
+        "                            At the end of SECONDS it says goodbye, so that\n"
+        "                            the server lets it go at once; --no-goodbye\n"
+        "                            leaves in silence instead, for the timeout.\n"
+        "                            --forge-leaving tries, as a forger would, to\n"
+        "                            end sessions with goodbyes from the wrong\n"
+        "                            address or keys: its own from a second session's\n"
+        "                            address and from one with none, and the second\n"
+        "                            session's from its own address\n"
         "  --data DIR                read data from DIR instead of data/ beside the\n"
         "                            program\n",
         out);
@@ -1532,7 +1541,7 @@ int stay(glideslope::platform::UdpSocket& socket,
          bool predict, const std::string& track_file, double hand_over_at_s,
          double take_back_at_s, double dive_after_s, bool watch_ai,
          double take_over_at_s, int take_over_aircraft, bool take_over_once_ai,
-         bool long_frame_after_switch, bool late_update_after_take_over) {
+         bool long_frame_after_switch, bool late_update_after_take_over, bool goodbye) {
     // A client that predicts flies a pilot of its own (Predicting::pilot).
     std::optional<Predicting> predicting;
     if (predict) {
@@ -1969,6 +1978,22 @@ int stay(glideslope::platform::UdpSocket& socket,
         (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
         ++answered;
     }
+    // **A client that is leaving says so** (`LEAVING`), so that the server
+    // lets it go now rather than after its `--timeout` of silence. Not
+    // reliable - this client will not wait to hear it acknowledged - so it
+    // goes `leaving_copies` times, each sealed afresh: the first to arrive
+    // lets the session go, and the server's timeout is there if none does.
+    if (goodbye) {
+        const std::vector<std::uint8_t> leaving{
+            static_cast<std::uint8_t>(glideslope::net::Inside::leaving)};
+        for (int copy = 0; copy < glideslope::net::leaving_copies; ++copy) {
+            glideslope::net::Writer lw = glideslope::net::begin(glideslope::net::Type::sealed);
+            lw.bytes(sealer.seal(std::span<const std::uint8_t>(leaving.data(), leaving.size())));
+            const std::vector<std::uint8_t> out = lw.take();
+            (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
+        }
+        std::printf("said goodbye\n");
+    }
     std::printf("stayed %.1f s, answered %d ping%s and heard %d state update%s\n",
                 seconds, answered, answered == 1 ? "" : "s", heard,
                 heard == 1 ? "" : "s");
@@ -2067,6 +2092,87 @@ int again_once_let_go(glideslope::platform::UdpSocket& socket,
     return 0;
 }
 
+// **Goodbyes a forger could send (`--forge-leaving`), none of which is the
+// session's own client saying it, from its own address, under its own keys.**
+// Three of them:
+//
+// - this session's goodbye, sealed under its keys, sent from `other`'s
+//   address - a session that is live, whose keys it does not open under;
+// - `other`'s goodbye, sealed under its keys, sent from this client's address;
+// - this session's goodbye again, from a third address that has no session
+//   at all, which the server refuses (`BAD_HANDSHAKE`). That refusal is
+//   waited for, and it is the last sent, so all three are known to have
+//   reached the server before this client stays.
+//
+// A replay of a goodbye into a later session from the same address is the
+// second of these: a later session has keys of its own. A copy within the
+// same session is the sealing's replay window's to refuse, and is tested
+// there.
+//
+// None may let anybody go. The server says, as it lets each go, how long after
+// its admission that was, and a test holds that to the whole stay.
+bool forge_goodbyes(glideslope::platform::UdpSocket& socket,
+                    const glideslope::platform::Address& server,
+                    glideslope::net::Sealer& sealer, glideslope::net::ClientSession& other,
+                    const std::string& heard_file) {
+    // Said to standard output, and to `--heard FILE` for a test in a pipeline.
+    const auto say = [&](const std::string& line) {
+        std::printf("%s\n", line.c_str());
+        if (!heard_file.empty()) {
+            std::ofstream(heard_file, std::ios::app) << line << '\n';
+        }
+    };
+    const std::vector<std::uint8_t> leaving{
+        static_cast<std::uint8_t>(glideslope::net::Inside::leaving)};
+    const std::span<const std::uint8_t> plain(leaving.data(), leaving.size());
+    glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::sealed);
+    w.bytes(sealer.seal(plain));
+    const std::vector<std::uint8_t> mine = w.take();
+    const std::span<const std::uint8_t> mine_bytes(mine.data(), mine.size());
+
+    other.send_from_here(mine_bytes);
+    say("sent this session's goodbye from another session's address");
+
+    const std::vector<std::uint8_t> theirs = other.sealed(plain);
+    (void)socket.send(server, std::span<const std::uint8_t>(theirs.data(), theirs.size()));
+    say("sent another session's goodbye from this session's address");
+
+    auto nowhere = glideslope::platform::UdpSocket::bound(0);
+    if (!nowhere) {
+        std::fprintf(stderr, "glideslope_cli: cannot open a third socket\n");
+        return false;
+    }
+    std::vector<std::uint8_t> back(glideslope::platform::largest_datagram);
+    const auto asked = std::chrono::steady_clock::now();
+    double sent_at_s = -1.0;
+    for (;;) {
+        const double waited_s =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - asked).count();
+        if (waited_s > 60.0) {
+            std::fprintf(stderr, "glideslope_cli: the goodbye from an address with no "
+                                 "session was never refused\n");
+            return false;
+        }
+        // Sent again while no refusal comes, as UDP needs; every copy is the
+        // same datagram, so it is a replay as well as a forgery.
+        if (waited_s - sent_at_s >= 0.25) {
+            (void)nowhere->send(server, mine_bytes);
+            sent_at_s = waited_s;
+        }
+        glideslope::platform::Address from;
+        const std::size_t got = nowhere->receive(back, from);
+        if (got == glideslope::net::envelope_size + 1 &&
+            back[glideslope::net::envelope_size - 1] ==
+                static_cast<std::uint8_t>(glideslope::net::Type::refusal)) {
+            say("sent this session's goodbye from an address with no session, and it "
+                "was refused, reason " +
+                std::to_string(static_cast<unsigned>(back[glideslope::net::envelope_size])));
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+}
+
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
                bool again, bool fly, double after_s, const std::string& secret_hex = "",
                const std::string& heard_file = "", int until_flying_again = 0,
@@ -2077,7 +2183,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                bool first_from_elsewhere = false, const std::string& until_exists = "",
                double take_over_at_s = -1.0, int take_over_aircraft = -1,
                bool take_over_once_ai = false, bool long_frame_after_switch = false,
-               bool late_update_after_take_over = false) {
+               bool late_update_after_take_over = false, bool goodbye = true,
+               bool forge_leaving = false) {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived. With `--after-ready`
@@ -2254,6 +2361,21 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                     if (stay_s <= 0.0) {
                         return 0;
                     }
+                    // **A test flag's work (`--forge-leaving`)**: goodbyes
+                    // that are not this session's own, each from where a
+                    // forger could send one. A second session is made, and
+                    // lives until this one has stayed - it says goodbye
+                    // itself when it goes, as its own client should.
+                    std::optional<glideslope::net::ClientSession> other =
+                        forge_leaving
+                            ? glideslope::net::ClientSession::connect(where, key_hex, 60.0)
+                            : std::nullopt;
+                    if (forge_leaving) {
+                        if (!other ||
+                            !forge_goodbyes(*socket, *address, sealer, *other, heard_file)) {
+                            return 1;
+                        }
+                    }
                     return stay(*socket, *address, sealer, unsealer, stay_s,
                                 until_exists,
                                 again ? std::span<const std::uint8_t>(first.data(),
@@ -2263,7 +2385,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                 until_flying_again, predict, track_file, hand_over_at_s,
                                 take_back_at_s, dive_after_s, watch_ai, take_over_at_s,
                                 take_over_aircraft, take_over_once_ai,
-                                long_frame_after_switch, late_update_after_take_over);
+                                long_frame_after_switch, late_update_after_take_over,
+                                goodbye);
                 }
             }
         }
@@ -2395,7 +2518,17 @@ static int run_program(int argc, char** argv) {
             std::string track_file;
             bool long_frame_after_switch = false;
             bool late_update_after_take_over = false;
+            bool goodbye = true;
+            bool forge_leaving = false;
             for (std::size_t i = 3; i < args.size(); ++i) {
+                if (args[i] == "--no-goodbye") {
+                    goodbye = false;
+                    continue;
+                }
+                if (args[i] == "--forge-leaving") {
+                    forge_leaving = true;
+                    continue;
+                }
                 if (args[i] == "--late-update-after-take-over") {
                     late_update_after_take_over = true;
                     continue;
@@ -2516,13 +2649,19 @@ static int run_program(int argc, char** argv) {
                                      "for\n");
                 return 2;
             }
+            if ((forge_leaving || !goodbye) && stay_s <= 0.0) {
+                std::fprintf(stderr, "glideslope_cli: --forge-leaving and --no-goodbye "
+                                     "need seconds to stay for\n");
+                return 2;
+            }
             return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
                               again, fly, after_s, secret_hex, heard_file,
                               until_flying_again, ready_file, predict, track_file,
                               hand_over_at_s, take_back_at_s, dive_after_s, watch_ai,
                               again_when_let_go, first_from_elsewhere, until_exists,
                               take_over_at_s, take_over_aircraft, take_over_once_ai,
-                              long_frame_after_switch, late_update_after_take_over);
+                              long_frame_after_switch, late_update_after_take_over,
+                              goodbye, forge_leaving);
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();
