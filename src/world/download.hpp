@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace glideslope::world {
 
@@ -60,6 +61,20 @@ fetch_with_retries(const Fetch& fetch, const std::string& url, int attempts = 5,
 inline constexpr int parse_attempts = 3;
 // And how long before the first retry, twice that before the next.
 inline constexpr std::chrono::milliseconds parse_wait{1000};
+
+// **`bytes` written to `path` whole, unless a file is there already**: true if
+// they were put there, false if one was there and is left as it is. Written
+// beside its final name and moved into place, so a download cut short never
+// leaves a file that looks whole.
+//
+// **Two at once fetch the same file.** Tests run in parallel, and a flight
+// and the terrain fetch the same tiles, so the name written to first is this
+// writer's alone - no two share a half-written file - and the move into place
+// never replaces: what is there is what was asked for, pinned by its hash or
+// checked against its ETag. And on Windows a replaced file that anybody still
+// has open is delete-pending, and its name refuses every reader until the
+// last handle closes: CI saw `exists: Access is denied` of a DEM tile.
+bool put_in_place(const std::filesystem::path& path, const std::vector<std::uint8_t>& bytes);
 
 // A file pinned by SHA-256, from the cache or else fetched into it. Throws
 // DemError if it cannot be had, or arrives as anything but what was pinned.

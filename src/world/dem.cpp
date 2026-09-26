@@ -161,10 +161,10 @@ DirectoryTiles::DirectoryTiles(std::filesystem::path directory)
 namespace {
 
 std::shared_ptr<const ByteSource> open_file(const std::filesystem::path& path) {
-    if (!std::filesystem::exists(path)) {
-        throw DemError(path.string() + " is not there");
-    }
     try {
+        if (!file_is_there(path)) {
+            throw DemError(path.string() + " is not there");
+        }
         return std::make_shared<FileSource>(path);
     } catch (const ByteSourceError& e) {
         throw DemError(e.what());

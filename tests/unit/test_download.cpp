@@ -10,6 +10,8 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <memory>
 #include <iterator>
 #include <mutex>
 #include <thread>
@@ -317,6 +319,157 @@ GLIDESLOPE_TEST(a_tile_held_open_for_deletion_as_a_rename_holds_it_is_still_read
 #endif
 }
 
+// **A file put in place never replaces one already there**, on every
+// platform: the second of two fetches of one file leaves the first's as it
+// is, and its own bytes go nowhere - no temporary name is left beside it. A
+// replaced file is what makes a name delete-pending on Windows (below).
+GLIDESLOPE_TEST(a_file_put_in_place_never_replaces_one_already_there) {
+    const auto dir = scratch("put-in-place");
+    const std::filesystem::path path = dir / "tile.tif";
+    const std::vector<std::uint8_t> first(1000, std::uint8_t{0x11});
+    const std::vector<std::uint8_t> second(2000, std::uint8_t{0x22});
+    const auto read = [&path] {
+        const glideslope::world::FileSource source(path);
+        std::vector<std::uint8_t> got(static_cast<std::size_t>(source.size()));
+        source.read(0, got);
+        return got;
+    };
+    check(glideslope::world::put_in_place(path, first), "the first is put in place");
+    check(read() == first, "and is there whole");
+    check(!glideslope::world::put_in_place(path, second),
+          "the second finds it there and says so");
+    check(read() == first, "and the first is left as it is");
+    int files = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+        (void)entry;
+        ++files;
+    }
+    check(files == 1, std::to_string(files) + " files beside it, not 1: a temporary "
+                                              "name was left behind");
+}
+
+// **A cached file whose name is delete-pending is waited for, then fetched
+// and read whole**, by every fetch of a cached download: a DEM tile, its
+// water mask, and a file pinned by its hash. On Windows a file deleted, or
+// replaced by a rename, while a handle to it is still open is delete-pending,
+// and until that handle closes its name answers every look and every open
+// with ERROR_ACCESS_DENIED - which std::filesystem::exists throws as `exists:
+// Access is denied`, as CI saw of a DEM tile under 3200 threads at once.
+//
+// Built rather than waited for: the file is marked for deletion through a
+// handle this test holds, the old way (FileDispositionInformation, not
+// POSIX), so its name is certainly delete-pending; the fetch is started; the
+// handle is closed only once the fetch has been refused and is waiting it
+// out - transient_refusals_waited says so - and then the name is free, and
+// the fetch must fetch the file and read it whole.
+GLIDESLOPE_TEST(a_cached_file_whose_name_is_delete_pending_is_waited_for_then_fetched_and_read_whole) {
+#if defined(_WIN32)
+    constexpr DemCell cell{-34, 151};
+    const std::vector<std::uint8_t> body = small_tile();
+    const std::string md5 = glideslope::world::md5_hex(body);
+    const std::string sha = glideslope::world::sha256_hex(body);
+    struct Fetcher {
+        std::string what;
+        std::filesystem::path path;
+        std::function<std::shared_ptr<const glideslope::world::ByteSource>(
+            const glideslope::world::Fetch&)>
+            fetch;
+    };
+    const auto cache = scratch("delete-pending");
+    const std::filesystem::path tiles = cache / "copernicus-dem-30m";
+    const std::string pinned = "egm2008-5.zip";
+    const std::vector<Fetcher> fetchers = {
+        {"a dem tile",
+         tiles / (glideslope::world::dem_tile_name(DemDataset::glo30, cell) + ".tif"),
+         [&](const glideslope::world::Fetch& fetch) {
+             DownloadedTiles t(cache, fetch);
+             return t.open(DemDataset::glo30, cell);
+         }},
+        {"a water mask",
+         tiles / (glideslope::world::dem_water_mask_name(DemDataset::glo30, cell) + ".tif"),
+         [&](const glideslope::world::Fetch& fetch) {
+             DownloadedTiles t(cache, fetch);
+             return t.open_water_mask(DemDataset::glo30, cell);
+         }},
+        {"a pinned file", cache / pinned,
+         [&](const glideslope::world::Fetch& fetch)
+             -> std::shared_ptr<const glideslope::world::ByteSource> {
+             return std::make_shared<glideslope::world::FileSource>(
+                 glideslope::world::fetch_pinned(cache, pinned,
+                                                 "https://example.invalid/pinned", sha,
+                                                 fetch));
+         }},
+    };
+    int covered = 0;
+    for (const Fetcher& f : fetchers) {
+        std::filesystem::create_directories(f.path.parent_path());
+        {
+            std::ofstream out(f.path, std::ios::binary);
+            out << "the old file, being deleted";
+        }
+        const HANDLE deleting =
+            CreateFileW(f.path.c_str(), DELETE,
+                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        check(deleting != INVALID_HANDLE_VALUE, f.what + ": the old file is held");
+        FILE_DISPOSITION_INFO disposition{};
+        disposition.DeleteFile = TRUE;
+        check(SetFileInformationByHandle(deleting, FileDispositionInfo, &disposition,
+                                         sizeof disposition) != 0,
+              f.what + ": the old file is marked for deletion");
+        check(GetFileAttributesW(f.path.c_str()) == INVALID_FILE_ATTRIBUTES &&
+                  GetLastError() == ERROR_ACCESS_DENIED,
+              f.what + ": its name is delete-pending, refusing a look with "
+                       "ERROR_ACCESS_DENIED");
+
+        std::atomic<int> asked{0};
+        const glideslope::world::Fetch fetch = [&](const std::string&) {
+            ++asked;
+            HttpResponse r;
+            r.status = 200;
+            r.body = body;
+            r.headers["etag"] = "\"" + md5 + "\"";
+            return r;
+        };
+        const std::uint64_t waited_before = glideslope::world::transient_refusals_waited();
+        std::atomic<bool> finished{false};
+        std::string refused;
+        bool read_whole = false;
+        std::thread fetching([&] {
+            try {
+                const auto source = f.fetch(fetch);
+                std::vector<std::uint8_t> got(static_cast<std::size_t>(source->size()));
+                source->read(0, got);
+                read_whole = got == body;
+            } catch (const std::exception& e) {
+                refused = e.what();
+            }
+            finished = true;
+        });
+        // Until the fetch is waiting the refusal out, or has given up.
+        while (glideslope::world::transient_refusals_waited() == waited_before &&
+               !finished.load()) {
+            std::this_thread::yield();
+        }
+        const bool was_waiting = !finished.load();
+        CloseHandle(deleting);
+        fetching.join();
+        check(refused.empty(), f.what + ": fetched while its name was delete-pending; "
+                                        "not: " + refused);
+        check(was_waiting, f.what + ": the fetch waited while the name was refused");
+        check(read_whole, f.what + ": and it reads whole");
+        check(asked == 1, f.what + ": fetched once, when the name was free, not " +
+                              std::to_string(asked.load()) + " times");
+        ++covered;
+    }
+    check(covered == 3 && fetchers.size() == 3,
+          std::to_string(covered) + " of the 3 fetches of a cached download covered");
+#else
+    glideslope::test::skip("POSIX has no delete-pending state: a deleted file's name "
+                           "is free at once, whoever has the file open");
+#endif
+}
+
 // **Many at once, fetching and reading one tile.** Tests run in parallel and
 // a flight and its terrain fetch the same tiles, so one process renames a
 // fresh copy into place while another opens it. On Windows a file being
@@ -411,7 +564,7 @@ GLIDESLOPE_TEST(many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole) {
                         // that finishes between the two is not missed.
                         for (;;) {
                             const bool all_finished = fetched.load() == fetchers;
-                            if (std::filesystem::exists(path)) {
+                            if (glideslope::world::file_is_there(path)) {
                                 break;
                             }
                             if (all_finished) {
