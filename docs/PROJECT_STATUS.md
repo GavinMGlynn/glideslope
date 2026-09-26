@@ -311,6 +311,16 @@ fails if the committed files differ):
   Now it rests 3.55 ft up on Linux and slides 1,088 m, against 1,093 for the
   stated friction. `assets/models/alignment.txt` counts its ten contacts,
   not six; no offset moved. The take-off figures above did not move.
+  **On Windows**, built by `tools/windows_build.sh` with
+  `WINDOWS_TEST="wheels_up|rotation|take_off"`: windows-release, 15 of 15
+  (2 skipped, the language-model plans); windows-debug, 14 of 15, the wheels-up
+  and take-off tests all passing and `the_client_will_not_have_the_ai_take_off`
+  failing after its right answer, in a thread Windows started after exit -
+  the open tail "Windows debug test programs crash on their way out on the
+  development machine", and it passed in windows-release. windows-clang
+  cannot be built on the development machine, which has no clang-cl; CI
+  builds it. On Linux, the full suite less the fixed-port network tests
+  after this change: 513, none failed.
 
 **The take-off autopilot** (`sim::Departure`), none of it naming an
 aircraft:
