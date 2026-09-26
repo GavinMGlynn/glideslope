@@ -13,10 +13,21 @@
 // **The panel, at every size from 1x1 to 4096x4096, for 1 to 32 lines** -
 // past the nine items and heading of the longest phase any aircraft has: it
 // covers every pixel gfx::read_text looks at for the checklist's lines and
-// the empty one below them that the check reads; and on a frame at least
-// gfx::hud_narrowest_clear_width wide it starts right of the HUD's text, so
-// never dims it. Narrower, where the HUD's own text can reach the middle of
-// the frame, the sizes where it would are counted.
+// the empty one below them that the check reads; and it starts right of the
+// HUD's text block exactly where the frame is at least
+// narrowest_panel_clear_of_hud (318) pixels wide - the layouts narrower,
+// where it reaches over the block's right-hand end, are counted and held to
+// how many there are.
+//
+// **Nothing over the panel is dimmed by it.** Where the panel reaches over
+// the end of the HUD's longest line (a frame 312 to 317 wide) or over the
+// aircraft's mark (a short frame), the HUD's mesh is painted with the
+// checklist and without it, the horizon pitched off the frame, and every
+// pixel in the HUD's colour without the checklist must be in it with the
+// checklist. Which sizes the panel reaches either at is geometry, and the
+// walk above covers every size; that it dims neither is the order the mesh is
+// drawn in, which does not change with the size, so a few sizes where it
+// reaches them are painted: 312x240, 317x200, 360x200 and 640x240.
 //
 // **Frames**: a checklist of nine items - some ticked, one too long for its
 // line - on landscape, square and portrait frames, the narrowest the HUD's
@@ -90,14 +101,18 @@ bool coloured(const Frame& frame, int x, int y, float dim) {
 
 constexpr int most_size = 4096;
 constexpr std::size_t most_lines = 32;
+// The narrowest frame whose checklist panel starts right of the HUD's text
+// block. The panel starts a cell left of width - 6 * (width / 12), so at half
+// the width or up to five pixels past it, less six; the block ends at 156
+// pixels on every frame under 474 wide. At 317 the panel starts at 155.
+constexpr int narrowest_panel_clear_of_hud = 318;
 
 // The panel at every size and line count, walked a range of widths at a time.
 struct PanelCounts {
     std::size_t layouts = 0;
     std::size_t covered = 0;
     std::size_t clear_of_hud = 0;
-    std::size_t wide = 0;
-    std::size_t over_hud_where_narrow = 0;
+    std::size_t over_hud = 0;
 };
 
 PanelCounts check_panel_widths(int width_from, int width_to) {
@@ -135,18 +150,14 @@ PanelCounts check_panel_widths(int width_from, int width_to) {
                 }
                 ++n.covered;
                 const bool clear = panel.left >= hud_right;
-                if (w >= glideslope::gfx::hud_narrowest_clear_width) {
-                    ++n.wide;
-                    if (!clear) {
-                        fail(std::to_string(w) + "x" + std::to_string(h) +
-                             ": the checklist's panel starts at " + std::to_string(panel.left) +
-                             ", over the HUD's text, which ends at " +
-                             std::to_string(hud_right));
-                    }
-                    ++n.clear_of_hud;
-                } else if (!clear) {
-                    ++n.over_hud_where_narrow;
+                if (clear != (w >= narrowest_panel_clear_of_hud)) {
+                    fail(std::to_string(w) + "x" + std::to_string(h) +
+                         ": the checklist's panel starts at " + std::to_string(panel.left) +
+                         " and the HUD's text ends at " + std::to_string(hud_right) +
+                         ", and the narrowest the panel is clear of it is " +
+                         std::to_string(narrowest_panel_clear_of_hud));
                 }
+                ++(clear ? n.clear_of_hud : n.over_hud);
             }
         }
     }
@@ -166,26 +177,83 @@ void check_panels() {
         all.layouts += n.layouts;
         all.covered += n.covered;
         all.clear_of_hud += n.clear_of_hud;
-        all.wide += n.wide;
-        all.over_hud_where_narrow += n.over_hud_where_narrow;
+        all.over_hud += n.over_hud;
     }
     const auto sizes = static_cast<std::size_t>(most_size) * static_cast<std::size_t>(most_size);
-    const std::size_t wide = static_cast<std::size_t>(most_size) *
-                             static_cast<std::size_t>(
-                                 most_size - glideslope::gfx::hud_narrowest_clear_width + 1) *
+    const std::size_t over = static_cast<std::size_t>(most_size) *
+                             static_cast<std::size_t>(narrowest_panel_clear_of_hud - 1) *
                              most_lines;
     std::printf("the checklist's panel at %zu sizes, 1x1 to %dx%d, for 1 to %zu lines: %zu "
-                "layouts, what is read covered in %zu; clear of the HUD's text in %zu of the %zu at "
-                "least %d wide, and over it in %zu of the narrower\n",
+                "layouts, what is read covered in %zu; clear of the HUD's text in the %zu at "
+                "least %d wide, over its right-hand end in the %zu narrower\n",
                 sizes, most_size, most_size, most_lines, all.layouts, all.covered,
-                all.clear_of_hud, all.wide, glideslope::gfx::hud_narrowest_clear_width,
-                all.over_hud_where_narrow);
-    if (all.layouts != sizes * most_lines || all.covered != all.layouts || all.wide != wide ||
-        all.clear_of_hud != wide) {
+                all.clear_of_hud, narrowest_panel_clear_of_hud, all.over_hud);
+    if (all.layouts != sizes * most_lines || all.covered != all.layouts ||
+        all.over_hud != over || all.clear_of_hud + all.over_hud != all.layouts) {
         fail("the layouts walked were " + std::to_string(all.layouts) + ", " +
-             std::to_string(all.covered) + " covered, " + std::to_string(all.clear_of_hud) +
-             " clear of the HUD of " + std::to_string(all.wide) + " wide, not " +
-             std::to_string(sizes * most_lines) + " and " + std::to_string(wide));
+             std::to_string(all.covered) + " covered, " + std::to_string(all.over_hud) +
+             " over the HUD's text, not " + std::to_string(sizes * most_lines) + " and " +
+             std::to_string(over));
+    }
+}
+
+// Every pixel the HUD's text and the aircraft's mark light without the
+// checklist is lit with it: the panel dims neither.
+void check_nothing_dimmed(const std::vector<std::pair<int, int>>& sizes,
+                          const glideslope::gfx::ChecklistOnScreen& showing) {
+    std::size_t lit_without = 0;
+    std::size_t over_hud_text = 0;
+    std::size_t over_mark = 0;
+    for (const auto& [width, height] : sizes) {
+        glideslope::gfx::HudReadings r;
+        r.airspeed_kts = 102.4;
+        r.altitude_ft = 3012.2;
+        r.heading_deg = 164.2;
+        r.vertical_speed_fpm = -120.3;
+        // The horizon off the bottom of the frame.
+        r.pitch_deg = 200.0;
+        // A FLYING line cut at the HUD's 24 columns, its last letter at the
+        // block's right-hand end.
+        r.ai_flying = true;
+        r.autopilot = "NAV LOOKOUT_POINT";
+        glideslope::test::Canvas without(width, height);
+        glideslope::test::Canvas with(width, height);
+        const Frame& plain = without.paint(glideslope::gfx::hud_mesh(r, width, height));
+        r.checklist = showing;
+        const Frame& over = with.paint(glideslope::gfx::hud_mesh(r, width, height));
+        const auto lines = glideslope::gfx::checklist_lines(showing, width).size();
+        const auto panel = glideslope::gfx::checklist_panel(width, height, lines);
+        const auto block = glideslope::gfx::hud_text_block(r, width, height);
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                if (!coloured(plain, x, y, 1.0f)) {
+                    continue;
+                }
+                ++lit_without;
+                const bool under = x >= panel.left && x < panel.right && y >= panel.top &&
+                                   y < panel.bottom;
+                if (under) {
+                    const bool in_block = x >= block.left && x < block.right &&
+                                          y >= block.top && y < block.bottom;
+                    ++(in_block ? over_hud_text : over_mark);
+                }
+                if (!coloured(over, x, y, 1.0f)) {
+                    fail(std::to_string(width) + "x" + std::to_string(height) + ": the pixel at " +
+                         std::to_string(x) + ", " + std::to_string(y) +
+                         ", lit by the HUD, is dimmed by the checklist's panel");
+                }
+            }
+        }
+    }
+    std::printf("the HUD's text and the aircraft's mark over the checklist's panel: %zu of "
+                "their pixels lit in %zu frames, %zu of them under the panel's reach on the "
+                "HUD's text and %zu on the mark, and every one lit with the checklist drawn\n",
+                lit_without, sizes.size(), over_hud_text, over_mark);
+    // The sizes are chosen for the panel to reach both: this is a test of
+    // something only if it does.
+    if (over_hud_text == 0 || over_mark == 0) {
+        fail("the panel reached " + std::to_string(over_hud_text) + " of the HUD text's pixels and " +
+             std::to_string(over_mark) + " of the mark's: the sizes test nothing");
     }
 }
 
@@ -231,6 +299,8 @@ int run() {
         {true, "Lift the nose wheel at 55 knots"},
         {false, "Climb at 70 to 80 knots"},
         {false, "Flaps up"}};
+    check_nothing_dimmed({{312, 240}, {317, 200}, {360, 200}, {640, 240}}, showing);
+
     const std::vector<std::string> credits{glideslope::world::copernicus_dem_notice,
                                            glideslope::world::open_meteo_credit};
     // Landscape, square and portrait; the narrowest the HUD's text is clear
@@ -263,14 +333,18 @@ int run() {
                 line.pop_back();
             }
         }
-        if (expected.size() != 1 + showing.items.size() ||
-            glideslope::gfx::checklist_lines(showing, width)[1].size() !=
-                glideslope::gfx::checklist_columns(width)) {
+        if (expected.size() != 1 + showing.items.size()) {
             fail(std::to_string(width) + " wide: the checklist is " +
-                 std::to_string(expected.size()) + " lines, its first item " +
-                 std::to_string(expected[1].size()) + " long, not 10 lines and " +
+                 std::to_string(expected.size()) + " lines, not " +
+                 std::to_string(1 + showing.items.size()));
+        }
+        const std::size_t first_item =
+            glideslope::gfx::checklist_lines(showing, width)[1].size();
+        if (first_item != glideslope::gfx::checklist_columns(width)) {
+            fail(std::to_string(width) + " wide: the first item is " +
+                 std::to_string(first_item) + " long, not " +
                  std::to_string(glideslope::gfx::checklist_columns(width)) +
-                 ", the first cut to fit");
+                 ", cut to fit");
         }
         const auto layout = glideslope::gfx::checklist_layout(width, height, expected.size());
         const auto panel = glideslope::gfx::checklist_panel(width, height, expected.size());
