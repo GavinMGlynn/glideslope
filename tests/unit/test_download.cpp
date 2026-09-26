@@ -7,7 +7,10 @@
 #include "world/download.hpp"
 
 #include <atomic>
+#include <cerrno>
 #include <chrono>
+#include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -467,6 +470,305 @@ GLIDESLOPE_TEST(a_cached_file_whose_name_is_delete_pending_is_waited_for_then_fe
 #else
     glideslope::test::skip("POSIX has no delete-pending state: a deleted file's name "
                            "is free at once, whoever has the file open");
+#endif
+}
+
+namespace {
+
+std::vector<std::uint8_t> file_bytes(const std::filesystem::path& path) {
+    const glideslope::world::FileSource source(path);
+    std::vector<std::uint8_t> got(static_cast<std::size_t>(source.size()));
+    source.read(0, got);
+    return got;
+}
+
+void write_file(const std::filesystem::path& path, const std::vector<std::uint8_t>& bytes) {
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out.write(reinterpret_cast<const char*>(bytes.data()),
+              static_cast<std::streamsize>(bytes.size()));
+}
+
+#if defined(_WIN32)
+// A file at `path`, marked for deletion the old way (FileDispositionInfo, not
+// POSIX) through the handle returned: until that closes, the name is
+// delete-pending, and the test checks it is.
+HANDLE hold_delete_pending(const std::filesystem::path& path) {
+    write_file(path, {'o', 'l', 'd'});
+    const HANDLE h = CreateFileW(path.c_str(), DELETE,
+                                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                 nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    check(h != INVALID_HANDLE_VALUE, "the old file is held");
+    FILE_DISPOSITION_INFO disposition{};
+    disposition.DeleteFile = TRUE;
+    check(SetFileInformationByHandle(h, FileDispositionInfo, &disposition,
+                                     sizeof disposition) != 0,
+          "the old file is marked for deletion");
+    check(GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES &&
+              GetLastError() == ERROR_ACCESS_DENIED,
+          "its name is delete-pending, refusing a look with ERROR_ACCESS_DENIED");
+    return h;
+}
+
+// Runs `call` on a thread of its own; once it is waiting out a refusal -
+// transient_refusals_waited says so - or has finished, runs `let_go`. Says
+// whether it was waiting when let go, and what it threw, if anything.
+struct WaitedFor {
+    bool was_waiting = false;
+    std::string refused;
+};
+WaitedFor let_go_while_waiting(const std::function<void()>& call,
+                               const std::function<void()>& let_go) {
+    const std::uint64_t before = glideslope::world::transient_refusals_waited();
+    std::atomic<bool> finished{false};
+    WaitedFor result;
+    std::thread calling([&] {
+        try {
+            call();
+        } catch (const std::exception& e) {
+            result.refused = e.what();
+        }
+        finished = true;
+    });
+    while (glideslope::world::transient_refusals_waited() == before && !finished.load()) {
+        std::this_thread::yield();
+    }
+    result.was_waiting = !finished.load();
+    let_go();
+    calling.join();
+    return result;
+}
+#else
+// Refusals a test makes in place of the C library's calls.
+int link_refusal = 0;
+int exclusive_refusal = 0;
+int refuse_link(const char*, const char*) {
+    errno = link_refusal;
+    return -1;
+}
+int refuse_exclusive(const char*, const char*) {
+    errno = exclusive_refusal;
+    return -1;
+}
+#endif
+
+} // namespace
+
+// **Where the filesystem has no hard links, a file is still moved into place,
+// and not over one already there if the filesystem can refuse to.** link()
+// is refused as vfat, exFAT, SMB and FUSE filesystems refuse it, with each
+// of EPERM, EOPNOTSUPP, ENOTSUP and ENOSYS: the exclusive rename then moves
+// the file, and refuses to move it over one already there. With the
+// exclusive rename refused too - EINVAL, EOPNOTSUPP, ENOTSUP, ENOSYS, EPERM -
+// plain rename() moves it, and replaces, which is harmless on POSIX. Any
+// other refusal of link() is a failure, said.
+GLIDESLOPE_TEST(where_the_filesystem_has_no_hard_links_a_file_is_still_moved_into_place) {
+#if defined(_WIN32)
+    glideslope::test::skip("Windows moves with MoveFileExW, which needs no hard links; "
+                           "the move there is tested by the delete-pending tests");
+#else
+    using glideslope::world::move_into_place_unless_there;
+    using glideslope::world::PosixMoves;
+    const auto dir = scratch("no-hard-links");
+    const std::filesystem::path path = dir / "tile.tif";
+    const std::filesystem::path part = dir / "tile.tif.part";
+    const std::vector<std::uint8_t> first(100, std::uint8_t{1});
+    const std::vector<std::uint8_t> second(200, std::uint8_t{2});
+    const std::vector<int> link_refusals = {EPERM, EOPNOTSUPP, ENOTSUP, ENOSYS};
+    const std::vector<int> exclusive_refusals = {EINVAL, EPERM, EOPNOTSUPP, ENOTSUP,
+                                                 ENOSYS};
+    const PosixMoves& real = glideslope::world::posix_moves();
+    int covered = 0;
+    for (const int refused : link_refusals) {
+        link_refusal = refused;
+        const std::string why = std::string("link refused with ") + std::strerror(refused);
+        const PosixMoves exclusive{refuse_link, real.rename_exclusive, real.rename};
+        std::filesystem::remove_all(dir);
+        write_file(part, first);
+        check(move_into_place_unless_there(part, path, exclusive),
+              why + ": the exclusive rename moves it");
+        check(file_bytes(path) == first && !std::filesystem::exists(part),
+              why + ": and it is there, whole, under its name alone");
+        write_file(part, second);
+        check(!move_into_place_unless_there(part, path, exclusive),
+              why + ": a second is not moved over it");
+        check(file_bytes(path) == first && std::filesystem::exists(part),
+              why + ": the first is left, and the second where it was");
+        ++covered;
+        for (const int also : exclusive_refusals) {
+            exclusive_refusal = also;
+            const std::string both =
+                why + ", the exclusive rename with " + std::strerror(also);
+            const PosixMoves plain{refuse_link, refuse_exclusive, real.rename};
+            std::filesystem::remove_all(dir);
+            write_file(part, first);
+            check(move_into_place_unless_there(part, path, plain),
+                  both + ": rename moves it");
+            check(file_bytes(path) == first && !std::filesystem::exists(part),
+                  both + ": and it is there, whole");
+            ++covered;
+        }
+    }
+    link_refusal = EACCES;
+    std::filesystem::remove_all(dir);
+    write_file(part, first);
+    std::string said;
+    try {
+        move_into_place_unless_there(part, path, {refuse_link, real.rename_exclusive,
+                                                  real.rename});
+    } catch (const glideslope::world::ByteSourceError& e) {
+        said = e.what();
+    }
+    check(said.find("link") != std::string::npos && !std::filesystem::exists(path),
+          "link refused with EACCES is a failure, said; not: \"" + said + "\"");
+    ++covered;
+    const std::size_t space = link_refusals.size() * (1 + exclusive_refusals.size()) + 1;
+    check(static_cast<std::size_t>(covered) == space,
+          std::to_string(covered) + " of " + std::to_string(space) + " refusals covered");
+#endif
+}
+
+// **A file another program holds open without sharing is opened once it
+// lets go.** On Windows an open that asks for what the holder does not share
+// is refused with ERROR_SHARING_VIOLATION until the holder closes it: a
+// scanner or an indexer can hold a tile so. Built: the file is held with no
+// sharing at all, FileSource is started, and the file is let go only once
+// FileSource is waiting the refusal out; it must then read the file whole.
+GLIDESLOPE_TEST(a_file_another_holds_open_without_sharing_is_opened_once_it_lets_go) {
+#if defined(_WIN32)
+    const auto dir = scratch("held-unshared");
+    const std::filesystem::path path = dir / "tile.tif";
+    const std::vector<std::uint8_t> body = small_tile();
+    write_file(path, body);
+    const HANDLE holding = CreateFileW(path.c_str(), GENERIC_READ, 0, nullptr,
+                                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    check(holding != INVALID_HANDLE_VALUE, "the file is held, sharing nothing");
+    check(CreateFileW(path.c_str(), GENERIC_READ,
+                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                      nullptr) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_SHARING_VIOLATION,
+          "while it is held, an open is refused with ERROR_SHARING_VIOLATION");
+    std::vector<std::uint8_t> got;
+    const WaitedFor w =
+        let_go_while_waiting([&] { got = file_bytes(path); }, [&] { CloseHandle(holding); });
+    check(w.refused.empty(), "opened once let go; not: " + w.refused);
+    check(w.was_waiting, "the open waited while the file was held");
+    check(got == body, "and it reads whole");
+#else
+    glideslope::test::skip("POSIX has no sharing modes: a file held open by one "
+                           "process cannot keep another from opening it");
+#endif
+}
+
+// **A file put where a name is delete-pending waits for the name, then takes
+// it.** On Windows a move onto a name whose file is delete-pending is
+// refused until the last handle to that file closes. Built: the name is held
+// delete-pending, put_in_place is started, and the name is let go only once
+// the move is waiting; the new file must then be in place, whole.
+GLIDESLOPE_TEST(a_file_put_where_a_name_is_delete_pending_waits_for_the_name_then_takes_it) {
+#if defined(_WIN32)
+    const auto dir = scratch("put-on-delete-pending");
+    const std::filesystem::path path = dir / "tile.tif";
+    const std::vector<std::uint8_t> body = small_tile();
+    const HANDLE deleting = hold_delete_pending(path);
+    bool put = false;
+    const WaitedFor w =
+        let_go_while_waiting([&] { put = glideslope::world::put_in_place(path, body); },
+                             [&] { CloseHandle(deleting); });
+    check(w.refused.empty(), "put once the name was free; not: " + w.refused);
+    check(w.was_waiting, "the move waited while the name was delete-pending");
+    check(put, "and says it put the file there");
+    check(file_bytes(path) == body, "which is whole");
+    int files = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+        (void)entry;
+        ++files;
+    }
+    check(files == 1, std::to_string(files) + " files, not 1: a temporary name was left");
+#else
+    glideslope::test::skip("POSIX has no delete-pending state: a deleted file's name "
+                           "is free at once, whoever has the file open");
+#endif
+}
+
+// **A file held without sharing deletion while it is moved into place is
+// moved once it is let go.** The move itself refuses too: a delete-pending
+// name answers it that the name is taken, which the test above builds, but a
+// file to be moved that another holds without sharing deletion - a scanner
+// reading a fresh download - is refused with ERROR_SHARING_VIOLATION. Built:
+// the file is held so, the move is started, and the file is let go only once
+// the move is waiting; it must then be in place, whole.
+GLIDESLOPE_TEST(a_file_held_unshared_while_it_is_moved_into_place_is_moved_once_let_go) {
+#if defined(_WIN32)
+    const auto dir = scratch("moved-while-held");
+    const std::filesystem::path path = dir / "tile.tif";
+    const std::filesystem::path part = dir / "tile.tif.part";
+    const std::vector<std::uint8_t> body = small_tile();
+    write_file(part, body);
+    const HANDLE holding = CreateFileW(part.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    check(holding != INVALID_HANDLE_VALUE, "the file is held, not sharing deletion");
+    check(!MoveFileExW(part.c_str(), path.c_str(), 0) &&
+              GetLastError() == ERROR_SHARING_VIOLATION,
+          "while it is held, a move is refused with ERROR_SHARING_VIOLATION");
+    bool moved = false;
+    const WaitedFor w = let_go_while_waiting(
+        [&] { moved = glideslope::world::move_into_place_unless_there(part, path); },
+        [&] { CloseHandle(holding); });
+    check(w.refused.empty(), "moved once let go; not: " + w.refused);
+    check(w.was_waiting, "the move waited while the file was held");
+    check(moved && !std::filesystem::exists(part), "and says it moved it, which it did");
+    check(file_bytes(path) == body, "and it is in place, whole");
+#else
+    glideslope::test::skip("POSIX has no sharing modes: a file held open by one "
+                           "process cannot keep another from moving it");
+#endif
+}
+
+// **A refusal that stays is given up on after transient_refusal_wait**, by
+// each of the look, the open and the move, and said with the tries and the
+// time it took: ERROR_ACCESS_DENIED is also what a file its ACL denies
+// answers, and no wait changes that. Built with a name held delete-pending
+// throughout. Each must take at least the stated wait, and the time each took
+// is printed.
+GLIDESLOPE_TEST(a_refusal_that_stays_is_given_up_on_after_its_stated_wait) {
+#if defined(_WIN32)
+    const auto dir = scratch("refused-throughout");
+    const std::filesystem::path path = dir / "tile.tif";
+    const HANDLE deleting = hold_delete_pending(path);
+    const std::filesystem::path part = dir / "new.part";
+    write_file(part, small_tile());
+    const std::vector<std::pair<std::string, std::function<void()>>> calls = {
+        {"the look", [&] { (void)glideslope::world::file_is_there(path); }},
+        {"the open", [&] { (void)glideslope::world::FileSource(path); }},
+        {"the move", [&] { (void)glideslope::world::move_into_place_unless_there(part, path); }},
+    };
+    int covered = 0;
+    for (const auto& [what, call] : calls) {
+        const auto start = std::chrono::steady_clock::now();
+        std::string said;
+        try {
+            call();
+        } catch (const glideslope::world::ByteSourceError& e) {
+            said = e.what();
+        }
+        const auto took = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - start);
+        std::printf("%s gave up after %lld ms: %s\n", what.c_str(),
+                    static_cast<long long>(took.count()), said.c_str());
+        check(!said.empty(), what + " gives up");
+        check(took >= glideslope::world::transient_refusal_wait,
+              what + " gave up after " + std::to_string(took.count()) +
+                  " ms, before the stated wait");
+        check(said.find(" ms") != std::string::npos && said.find("tries") != std::string::npos,
+              what + " says how long and how often it asked: " + said);
+        ++covered;
+    }
+    CloseHandle(deleting);
+    check(covered == 3, std::to_string(covered) + " of the 3 calls that wait covered");
+#else
+    glideslope::test::skip("POSIX has no refusal that passes, so nothing waits");
 #endif
 }
 
