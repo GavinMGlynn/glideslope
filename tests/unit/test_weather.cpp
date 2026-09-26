@@ -604,7 +604,6 @@ GLIDESLOPE_TEST(
 
 GLIDESLOPE_TEST(
     the_weather_now_at_an_airfield_is_fetched_from_aviationweather_and_open_meteo) {
-    using glideslope::world::DemError;
     // What is not a station never reaches a URL.
     const glideslope::world::Fetch never =
         [](const std::string& url) -> glideslope::platform::HttpResponse {
@@ -622,13 +621,14 @@ GLIDESLOPE_TEST(
     const std::string hour = glideslope::world::utc_hour(now);
     const glideslope::world::Fetch fetch = glideslope::world::http_fetch();
     glideslope::world::WeatherReport report;
+    // **A service that does not answer is a skip, wherever the network is
+    // required**: the weather is live and somebody else's, and never kept, as
+    // the HUD tests have it (client.cmake). An answer that is not the report
+    // asked for - a refusal, JSON that is not a METAR - is a failure.
     try {
         report = glideslope::world::fetch_weather("yssy", hour, fetch);
-    } catch (const DemError& e) {
-        if (!glideslope::test::network_required()) {
-            glideslope::test::skip(std::string("no network here: ") + e.what());
-        }
-        throw;
+    } catch (const glideslope::world::ServiceUnavailable& e) {
+        glideslope::test::skip(e.what());
     }
 
     // Sydney's latest METAR: its station, where it is, and weather that could be
@@ -900,7 +900,8 @@ GLIDESLOPE_TEST(reported_wind_shear_is_read_and_gives_the_approach_the_models_sh
 // not their JSON, and a client gave up on it. Here a stand-in for the network
 // answers with a page of HTML twice and then with a recorded report - which
 // must be read - and, again, with nothing but HTML - which must be said to be
-// a download that failed, after the three tries, and not a report that could
+// a download that failed - the service not answering, ServiceUnavailable -
+// after the three tries, and not a report that could
 // not be read. Both services, both cases, each counted.
 GLIDESLOPE_TEST(an_answer_that_is_not_json_is_fetched_again_and_then_taken_for_a_failed_download) {
     const auto recorded = [](const char* name) {
@@ -947,7 +948,7 @@ GLIDESLOPE_TEST(an_answer_that_is_not_json_is_fetched_again_and_then_taken_for_a
                 (void)glideslope::world::fetch_winds_aloft(-33.95, 151.18, "2026-09-18T08:00", never);
             }
             fail("an answer that is never JSON was read");
-        } catch (const glideslope::world::DemError& e) {
+        } catch (const glideslope::world::ServiceUnavailable& e) {
             check(std::string(e.what()).find("could not download") != std::string::npos &&
                       std::string(e.what()).find("not JSON") != std::string::npos,
                   std::string("it is a download that failed: ") + e.what());
@@ -991,7 +992,7 @@ GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be
         {"a 403", 403, "", false},
         {"a 404", 404, "", false},
         {"a 429", 429, "", false},
-        {"a 200 that is not JSON", 200, "<html>Service unavailable</html>", false},
+        {"a 200 that is never JSON", 200, "<html>Service unavailable</html>", true},
         {"a 200 of JSON that is not an answer", 200, R"({"unexpected": [1, 2, 3]})", false},
     };
     std::size_t cases = 0;

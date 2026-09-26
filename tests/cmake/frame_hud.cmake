@@ -46,16 +46,7 @@ execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size 
                         --screen flight --weather YSSY --shot-at 600 --shot "${_shot}" --trace
                         ${FLY}
                 RESULT_VARIABLE _rc OUTPUT_FILE "${_trace}" ERROR_VARIABLE _err)
-if(NOT _rc EQUAL 0 AND _err MATCHES "the weather could not be had")
-    message(STATUS "there is no weather to fly in: ${_err}")
-    cmake_language(EXIT 77)
-endif()
-if(NOT _rc EQUAL 0 AND _err MATCHES "could not download")
-    if("$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
-        message(STATUS "the DEM or the weather could not be had: ${_err}")
-        cmake_language(EXIT 77)
-    endif()
-endif()
+glideslope_skip_when_not_downloaded("${_rc}" "${_err}")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "glideslope exited ${_rc}\n${_err}")
 endif()

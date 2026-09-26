@@ -15,7 +15,8 @@
 #   - With ANSWER, to glideslope_http_stub answering every request with that
 #     status - 400, as a misspelt Open-Meteo variable is answered. That is a
 #     fault of ours, not a service's bad minute, and the HUD test must fail:
-#     not pass, and not skip.
+#     not pass, and not skip. Except 200, whose body the stub leaves empty,
+#     as Open-Meteo once did in CI: never JSON, so no weather, and a skip.
 #
 # Without the DEM (which is fetched before the weather is asked for) the test
 # is itself skipped, unless the network is required here.
@@ -85,6 +86,17 @@ if(DEFINED ANSWER)
     string(SUBSTRING "${_result}" ${_eol} -1 _said)
     if(NOT _stub_said MATCHES "answered ([1-9][0-9]*) requests ${ANSWER}")
         message(FATAL_ERROR "the stub was never asked for the weather:\n${_stub_said}\n${_said}")
+    endif()
+    # **An empty 200** - what Open-Meteo answered Windows CI on 2026-09-26 -
+    # is not JSON on any try: the service not answering, so a skip.
+    if(ANSWER EQUAL 200)
+        if(_rc EQUAL 77 AND _said MATCHES "there is no weather to fly in" AND
+           _said MATCHES "not JSON")
+            message(STATUS "skipped, as it should be, when the weather was an empty 200")
+            return()
+        endif()
+        message(FATAL_ERROR "with the weather answered an empty 200 the HUD test exited "
+                            "${_rc}, not 77 for skipped:\n${_said}")
     endif()
     if(NOT _rc EQUAL 0 AND NOT _rc EQUAL 77 AND _said MATCHES "status ${ANSWER}" AND
        NOT _said MATCHES "no weather to fly in")

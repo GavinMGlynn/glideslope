@@ -227,6 +227,59 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Tests that need a download skip when it cannot be had, 2026-09-27 — tail done
+
+**What was wrong.** Windows CI, 2026-09-26 (run 36252249115): Open-Meteo
+answered a 200 whose body was not JSON ("JSON at byte 0: not a value") to
+every try. `fetch_winds_aloft` threw that as `DemError`, not
+`ServiceUnavailable`, so `fetch_weather` never said "the weather could not be
+had", and the HUD test flying a plan
+(`the_hud_says_the_ai_flies_its_plan_and_shows_its_controls_on_direct3d12`)
+matched only "could not download" - which, with GLIDESLOPE_REQUIRE_NETWORK
+set, fails. The regexes of PR #23 were right; the classification under them
+was not. The live unit test
+`the_weather_now_at_an_airfield_is_fetched_from_aviationweather_and_open_meteo`
+skipped on any `DemError`, but only where the network was not required.
+
+**What changed.**
+- `world::answered_json` (download.hpp, weather.cpp): a weather service's 200
+  is first read as JSON at all. Not JSON on every one of `parse_attempts`
+  tries is `ServiceUnavailable` - an error page or nothing, the service not
+  answering. JSON that is not a METAR or a forecast is no longer retried and
+  stays the parse's error: ours to mend, and a failure.
+- `glideslope_skip_when_not_downloaded(rc err [also])` in
+  `tests/cmake/client.cmake` is the one rule the client tests skip by: "the
+  weather could not be had" is a skip always; "could not download" (or the
+  script's `also`, "without their imagery" for the imagery tests) is a skip
+  unless GLIDESLOPE_REQUIRE_NETWORK is set. It replaces the copies in
+  client_aircraft, client_autopilot, client_memory, client_views,
+  frame_checklist, frame_hud, frame_hud_jet, frame_terrain and frame_weather.
+  Left as they were, because each reads its own failure differently:
+  terrain_provider, terrain_mismatch and ion_stalled (keys and providers
+  besides the DEM), cli_plan_flown (the CLI's words), and
+  frame_hud_no_weather (which builds the weather's failure on purpose).
+- The live unit test skips (exit 77) with the service's reason on
+  `ServiceUnavailable`, required network or not, and fails on anything else.
+- `only_a_weather_service_that_does_not_answer_is_weather_not_to_be_had`: "a
+  200 that is never JSON" is now weather not to be had, at both services;
+  "a 200 of JSON that is not an answer" is still a fault. The not-JSON test
+  expects `ServiceUnavailable`.
+
+**Verification.** Linux debug, GLIDESLOPE_REQUIRE_NETWORK=1 throughout:
+- Offline (`unshare -rn`): the live weather unit test is *skipped* ("Could
+  not resolve host: aviationweather.gov"); with its skip replaced by a
+  rethrow it fails. `only_a_weather_service_...` and
+  `an_answer_that_is_not_json_...` pass; with the not-JSON answer thrown as
+  `DemError` again both fail.
+- New `a_hud_test_whose_weather_service_answers_an_empty_200_is_skipped_on_<driver>`
+  flies the plan HUD test against glideslope_http_stub answering an empty
+  200 - CI's failure exactly ("JSON at byte 0") - and passes because the run
+  inside skipped; with `DemError` back it fails ("the HUD test exited 1, not
+  77"). The 400 case still fails the inner run, and the no-weather plan case
+  still skips.
+- Online: the live unit test, the plan HUD test, the jet HUD test and the
+  weather frame test (a caller of the shared rule) pass.
+
 ### Programs sharing one Cesium cache each store everything, 2026-09-27 — tail in progress
 
 **What is not yet shown first**: the verification asks for the whole suite

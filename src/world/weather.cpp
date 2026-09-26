@@ -23,6 +23,20 @@ std::vector<SurfaceReport> parse_aviationweather(std::string_view text) {
     return reports;
 }
 
+bool answered_json(std::string_view text, const std::string& url, int attempt) {
+    try {
+        (void)parse_json(text);
+        return true;
+    } catch (const JsonError& e) {
+        if (attempt >= parse_attempts) {
+            throw ServiceUnavailable("could not download " + url +
+                                     ": its answer was not JSON (" + e.what() + ")");
+        }
+        std::this_thread::sleep_for(parse_wait * attempt);
+        return false;
+    }
+}
+
 SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch,
                           std::chrono::milliseconds retry_wait) {
     // Checked before it goes into a URL.
@@ -44,9 +58,8 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch,
         weather_host("https://aviationweather.gov") + "/api/data/metar?ids=" + id +
         "&format=json";
     // **An answer that is not JSON is fetched again**, as a failed download
-    // is: aviationweather.gov and Open-Meteo have each, now and then, answered
-    // a 200 whose body was not what they serve, and CI's clients gave up on
-    // it. A well-formed answer that says something unwelcome is not retried.
+    // is (answered_json says why). A well-formed answer that says something
+    // unwelcome is not retried.
     std::vector<SurfaceReport> reports;
     for (int attempt = 1;; ++attempt) {
         platform::HttpResponse r;
@@ -67,16 +80,12 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch,
             throw DemError("could not download " + url + ": status " +
                            std::to_string(r.status));
         }
-        try {
-            reports = parse_aviationweather(std::string_view(
-                reinterpret_cast<const char*>(r.body.data()), r.body.size()));
+        const std::string_view text(reinterpret_cast<const char*>(r.body.data()),
+                                    r.body.size());
+        if (answered_json(text, url, attempt)) {
+            // JSON that is not a report is ours to mend: the error it is.
+            reports = parse_aviationweather(text);
             break;
-        } catch (const JsonError& e) {
-            if (attempt >= parse_attempts) {
-                throw DemError("could not download " + url + ": its answer was not JSON (" +
-                               e.what() + ")");
-            }
-            std::this_thread::sleep_for(parse_wait * attempt);
         }
     }
     if (reports.empty()) {
