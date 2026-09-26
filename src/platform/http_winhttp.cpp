@@ -64,6 +64,19 @@ std::string narrow(const std::wstring& s) {
 // to end a synchronous request in progress from elsewhere: the call blocked on
 // it then fails. So this watches the request's flag, and closes the handle if
 // it is raised; the handle then belongs to it, and is not closed again.
+//
+// **Once closed, the handle is not used again**: `perform` asks `given_up()`
+// before every WinHTTP call that follows the response, and throws instead.
+//
+// **A race is left, and it is named rather than hidden.** The watcher can close
+// the handle between that question and the call that follows it. The call
+// then gets a handle value that is no longer this request's - and WinHTTP may
+// already have handed the same value to another thread's new request, which
+// the call would then act on. Holding the lock across the call would close
+// the gap only for calls that never block, and ReadData is the one that
+// blocks, which is the whole reason the handle is closed from elsewhere. The
+// window is one call wide and opens only while a program is ending or a
+// terrain is closing, when nothing else is being fetched that it would harm.
 class Abandoner {
 public:
     Abandoner(const HttpRequest& request, Handle& handle)
@@ -224,10 +237,18 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
     if (!WinHttpReceiveResponse(handle.get(), nullptr)) {
         fail_or_given_up("no response");
     }
+    // Each call from here is on a handle the watcher may have closed: asked
+    // first, so that a closed one is not used (see Abandoner).
+    const auto unless_given_up = [&] {
+        if (abandoner.given_up()) {
+            throw HttpError(request.url + ": given up, unfinished");
+        }
+    };
 
     HttpResponse response;
     DWORD status = 0;
     DWORD size = sizeof status;
+    unless_given_up();
     if (!WinHttpQueryHeaders(
             handle.get(), WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
             WINHTTP_HEADER_NAME_BY_INDEX, &status, &size, WINHTTP_NO_HEADER_INDEX)) {
@@ -236,11 +257,13 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
     response.status = static_cast<int>(status);
 
     size = 0;
+    unless_given_up();
     WinHttpQueryHeaders(handle.get(), WINHTTP_QUERY_RAW_HEADERS_CRLF,
                         WINHTTP_HEADER_NAME_BY_INDEX, WINHTTP_NO_OUTPUT_BUFFER, &size,
                         WINHTTP_NO_HEADER_INDEX);
     if (size > 0) {
         std::wstring raw(size / sizeof(wchar_t), L'\0');
+        unless_given_up();
         if (WinHttpQueryHeaders(handle.get(), WINHTTP_QUERY_RAW_HEADERS_CRLF,
                                 WINHTTP_HEADER_NAME_BY_INDEX, raw.data(), &size,
                                 WINHTTP_NO_HEADER_INDEX)) {
@@ -282,6 +305,7 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
         const std::size_t at = response.body.size();
         response.body.resize(at + chunk);
         DWORD read = 0;
+        unless_given_up();
         if (!WinHttpReadData(handle.get(), response.body.data() + at, chunk, &read)) {
             fail_or_given_up("the transfer failed");
         }

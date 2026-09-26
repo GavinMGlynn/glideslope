@@ -232,6 +232,21 @@ std::string cesium_ion_api() {
     if (api.empty()) {
         api = "https://api.cesium.com";
     }
+    // The user's token goes in the query of every request to it, so it goes
+    // in the clear only as far as this machine.
+    const bool secure = api.rfind("https://", 0) == 0;
+    bool loopback = false;
+    for (const char* here : {"http://127.0.0.1", "http://localhost", "http://[::1]"}) {
+        const std::string h = here;
+        if (api.rfind(h, 0) == 0 &&
+            (api.size() == h.size() || api[h.size()] == ':' || api[h.size()] == '/')) {
+            loopback = true;
+        }
+    }
+    if (!secure && !loopback) {
+        throw std::runtime_error("GLIDESLOPE_CESIUM_ION_API must be https, or http on "
+                                 "the loopback: your token would be sent in the clear");
+    }
     while (!api.empty() && api.back() == '/') {
         api.pop_back();
     }

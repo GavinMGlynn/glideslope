@@ -195,6 +195,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_transport_document_and_the_code_agree_about_a_sealed_body
     a_server_txt_names_a_host_a_port_and_a_key
     anything_that_is_not_a_server_line_is_refused
+    a_cesium_ion_api_that_would_send_the_token_in_the_clear_is_refused
     a_store_gives_back_what_was_put_in_it
     what_a_store_keeps_outlives_the_store_that_kept_it
     a_store_keeps_awkward_values_unchanged

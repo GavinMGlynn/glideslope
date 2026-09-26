@@ -267,6 +267,13 @@ std::optional<std::array<double, 3>> parse_triple(std::string_view text) {
 
 } // namespace
 
+// What a run told to stop says, and the status it ends with: 128 and the
+// signal's number (platform/stop.hpp).
+static int stopped() {
+    std::fputs("glideslope: stopped, as it was told to\n", stderr);
+    return glideslope::platform::stop_status();
+}
+
 static int run_program(int argc, char** argv) {
     // First: a failed assert prints and ends the program rather than
     // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
@@ -758,6 +765,9 @@ static int run_program(int argc, char** argv) {
                     .push_back(i);
             }
             for (const auto& [cell, which] : by_cell) {
+                if (glideslope::platform::stop_requested()) {
+                    break;
+                }
                 const glideslope::world::GeoRectangle region{
                     static_cast<double>(cell.first),
                     static_cast<double>(cell.second),
@@ -776,6 +786,9 @@ static int run_program(int argc, char** argv) {
                 for (std::size_t j = 0; j < which.size() && j < got.size(); ++j) {
                     drawn[which[j]] = got[j];
                 }
+            }
+            if (glideslope::platform::stop_requested()) {
+                return stopped();
             }
             double worst = 0.0;
             std::size_t answered = 0;
@@ -1381,8 +1394,7 @@ static int run_program(int argc, char** argv) {
     }
     SDL_Quit();
     if (glideslope::platform::stop_requested()) {
-        std::fputs("glideslope: stopped, as it was told to\n", stderr);
-        return glideslope::platform::stop_status();
+        return stopped();
     }
     return status;
 }
