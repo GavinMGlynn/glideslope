@@ -227,6 +227,53 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Every fixed test port lies outside the ephemeral ranges, 2026-09-26 — tail done
+
+**What is left out first.** The check walks the tests of the build it runs in,
+so a test defined on one platform only is checked on that platform's CI job,
+not on the others. Two tests name a port and listen on nothing, and are named
+by the check as left out: `the_server_takes_every_flag_the_item_names_at_once`
+(`--port 47999 --dry-run`) and `the_server_refuses_a_port_that_is_not_one`
+(`--port 70000 --dry-run`). The server's own default port, 47801, is in
+Linux's ephemeral range too; a server is started once, before its clients,
+so it is not this race, and it is not changed here.
+
+**Cause.** Every test that runs a server listened on a fixed port in 47852 to
+47899. Linux hands out 32768 to 60999 to a socket that asks for no port, and
+every client in these tests is such a socket, so on a busy runner a client of
+one test could hold the port another test's server was about to listen on:
+"cannot listen on port 47853" on CI, 2026-09-26. macOS and Windows hand out
+49152 to 65535, which 478xx is below, so only Linux could lose this race.
+
+**Now** every fixed test port comes from one block, **24700 to 24799**,
+stated once in `tests/CMakeLists.txt` (`GLIDESLOPE_TEST_PORTS_FIRST` and
+`_LAST`, with the reason): below 32768, the lowest ephemeral port of the three
+platforms, and above the well-known ports. Each test kept its last two digits
+(47853 is now 24753). The two relays, server_impaired's and
+server_take_over's, still listen at `PORT + 1`.
+
+**The check**, `every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two_tests_share_one`
+(`tests/cmake/test_ports.cmake`), asks ctest itself for every test and its
+command (`ctest --show-only=json-v1`), so there is no list kept by hand. A
+test given `-DPORT=N` claims N, and N + K for every `${PORT} + K` its script
+derives; a `--port N` on a command line is claimed unless it is `--dry-run`.
+It counts the tests given a port and, apart, the tests whose script uses
+`${PORT}`, and fails when the two differ; then fails on any claim in
+32768-65535, outside the block, or claimed twice, naming both tests. On
+linux-debug: *walked 577 tests: 26 run a script that needs a port and 26 are
+given one; 30 ports claimed, all in 24700-24799 and no two the same; 2 left
+out as listening on nothing.*
+
+**Seen to fail**, each put in and reverted: server_window's port put back to
+47853 ("port 47853 is in an ephemeral range"); a take-over test's port moved
+onto 24789, the rides-along test's ("is also taken by ..."); swap_wreck's
+moved onto 24781, the 100 ms impaired test's relay (named with its
+`${PORT} + 1`); server_collision's `-DPORT` removed ("25 tests are given a
+port and 26 tests' scripts use one"); and one moved to 24690, below the block.
+
+**Verified** on linux-debug with the network tests run on their new ports
+(below), and on Windows debug with `tools/windows_build.sh` (below).
+
 ### A DEM tile whose name is delete-pending is still found and read on Windows, 2026-09-26 — tail done
 
 **What is not covered first.** Only the cached downloads - DEM tiles, water
