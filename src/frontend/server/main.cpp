@@ -126,6 +126,9 @@ struct Options {
     std::string window_press;
     // What becomes of an aircraft when the person flying it goes.
     bool hand_to_ai_on_leave = false;
+    // For a test: the least wall time each step takes, so that a server can
+    // be put behind real time on any machine, as a loaded runner puts one.
+    double test_step_ms = 0.0;
 };
 
 void print_usage(std::FILE* out) {
@@ -173,6 +176,8 @@ void print_usage(std::FILE* out) {
         "                     BMP\n"
         "  --window-press LABEL  with --window: press this button - 'drop 0' - the\n"
         "                     first time it is drawn, for tests\n"
+        "  --test-step-ms MS  make every step take at least MS milliseconds, so\n"
+        "                     that a test can put the server behind real time\n"
         "  --dry-run          print the settings and exit without binding\n"
         "  --version          print the version\n"
         "  --help             print this\n"
@@ -288,6 +293,15 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         } else if (a == "--ready-file") {
             if (!next(value)) return std::nullopt;
             o.ready_file = std::string(value);
+        } else if (a == "--test-step-ms") {
+            if (!next(value)) return std::nullopt;
+            const auto n = number(value);
+            if (!n || *n < 0.0) {
+                why = "--test-step-ms wants a number of milliseconds, not '" +
+                      std::string(value) + "'";
+                return std::nullopt;
+            }
+            o.test_step_ms = *n;
         } else if (a == "--window-dump") {
             o.window_dump = true;
         } else if (a == "--window-shot") {
@@ -1729,15 +1743,29 @@ int run(const Options& o) {
     // A datagram is at most this; anything larger is not one of ours.
     std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
     for (;;) {
-        glideslope::platform::Address from;
-        const std::size_t got = socket->receive(into, from);
-        const auto now = std::chrono::steady_clock::now();
-        const double up_s = std::chrono::duration<double>(now - began).count();
-        if (got > 0) {
+        // **Everything waiting is read on every pass**, up to a stated most.
+        // One datagram a pass was 27 a second from a server behind real time
+        // - four steps a pass - against four clients sending 120: the rest
+        // waited in the socket or were dropped by the kernel, and a client
+        // still joining went unheard long enough to be let go (CI,
+        // 2026-09-26). The most keeps a flood from holding the steps up.
+        constexpr std::size_t most_datagrams_a_pass = 512;
+        std::size_t got = 0;
+        auto now = std::chrono::steady_clock::now();
+        double up_s = std::chrono::duration<double>(now - began).count();
+        for (std::size_t read = 0; read < most_datagrams_a_pass; ++read) {
+            glideslope::platform::Address from;
+            const std::size_t one = socket->receive(into, from);
+            if (one == 0) {
+                break;
+            }
+            got += one;
             ++datagrams;
-            bytes += got;
+            bytes += one;
+            now = std::chrono::steady_clock::now();
+            up_s = std::chrono::duration<double>(now - began).count();
             take(*socket, mine, slots, connections, taken, fleet ? &*fleet : nullptr, from,
-                 std::span<const std::uint8_t>(into.data(), got), up_s, o, happened);
+                 std::span<const std::uint8_t>(into.data(), one), up_s, o, happened);
         }
 
         // **The server knocks on every connection once a second**, and the
@@ -1790,6 +1818,10 @@ int run(const Options& o) {
                     std::printf("%s\n", line.c_str());
                     std::fflush(stdout);
                     happened.add(up_s, line);
+                }
+                if (o.test_step_ms > 0.0) {
+                    std::this_thread::sleep_for(
+                        std::chrono::duration<double, std::milli>(o.test_step_ms));
                 }
             }
             owed -= n;

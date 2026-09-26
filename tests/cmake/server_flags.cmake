@@ -48,10 +48,12 @@ list(LENGTH _flags _count)
 # (cmake/server_window.cmake). --until-empty stops a server once its clients
 # have gone, for tests that wait on clients rather than on the clock, and
 # --ready-file says when it is flying, for a test that joins late.
+# --test-step-ms makes every step take at least that long, to put a server
+# behind real time on any machine (server_behind.cmake).
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
-              --until-empty --ready-file)
+              --until-empty --ready-file --test-step-ms)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)
