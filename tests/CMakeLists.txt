@@ -979,6 +979,15 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_autopilot.cmake)
     set_tests_properties(the_clients_ai_flies_a_flight_plan_past_every_waypoint_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    # Ten thousand frames drawn headless, and the memory held sampled every
+    # 500: see cmake/client_memory.cmake for the bound.
+    add_test(NAME a_headless_client_drawing_ten_thousand_frames_keeps_its_memory_level_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DDRIVER=${_driver}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_memory.cmake)
+    set_tests_properties(a_headless_client_drawing_ten_thousand_frames_keeps_its_memory_level_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
     add_test(NAME a_shot_of_mount_taranaki_matches_the_dem_ray_cast_from_the_same_eye_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_terrain_check>
