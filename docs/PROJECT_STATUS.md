@@ -305,8 +305,11 @@ The first version counted the speed alone, and called an A320 recovered after
 aeroplane is held to its lesson's height, or to 2 g (the flaps-down limit load,
 14 CFR 23.345 and 25.345), only with that much in hand: its figure plus 10%
 must be within the limit. One without it is named in the test and held to its
-own figure plus 10%. The test prints every aeroplane's figures, so each CI
-platform's log shows its own.
+own figure plus 10%. The test prints every aeroplane's figures, but CI's
+ctest shows a test's output only when it fails (`outputOnFailure`), so a
+green run on macOS, Windows or Rocky does not show them. The 10% is a
+judgement, not yet checked against those platforms' own figures; a platform
+that differs by more turns the test red and prints them.
 
 **Verified** by `every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_within_its_lessons_height_or_a_named_bound`.
 - **Coverage, asserted by the test:** 16 aeroplanes; 14 flown; 2 left out (the
