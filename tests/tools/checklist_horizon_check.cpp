@@ -19,15 +19,25 @@
 // where it reaches over the block's right-hand end, are counted and held to
 // how many there are.
 //
-// **Nothing over the panel is dimmed by it.** Where the panel reaches over
-// the end of the HUD's longest line (a frame 312 to 317 wide) or over the
-// aircraft's mark (a short frame), the HUD's mesh is painted with the
-// checklist and without it, the horizon pitched off the frame, and every
-// pixel in the HUD's colour without the checklist must be in it with the
-// checklist. Which sizes the panel reaches either at is geometry, and the
-// walk above covers every size; that it dims neither is the order the mesh is
-// drawn in, which does not change with the size, so a few sizes where it
-// reaches them are painted: 312x240, 317x200, 360x200 and 640x240.
+// **Nothing over the panel is dimmed by it.** The panel starts at
+// (w + w % 12) / 2 - 6 on a frame w wide, and the last glyph of a HUD line
+// filling its 24 columns lies from 150 to 154; so the panel reaches that
+// glyph wherever w + w % 12 <= 320 - 312 to 316, and every width below 312
+// but 311. On a short frame it reaches the aircraft's mark at the middle.
+// The HUD's mesh is painted with the checklist and without it, the horizon
+// pitched off the frame, and every pixel in the HUD's colour without the
+// checklist must be in it with the checklist. Where the panel reaches either
+// is geometry, and the walk above covers every size; that it dims neither is
+// the order the mesh is drawn in, which does not change with the size, so
+// four sizes are painted, each for what it puts under the panel:
+//
+//   - 312x240: the whole of the last glyph, and the mark;
+//   - 316x200: the last glyph's right-hand column, the least of it any width
+//     puts under the panel, and the mark;
+//   - 360x200 and 640x240: the mark only, the panel clear of the HUD's text.
+//
+// Each size's pixels lit, and those of them under the panel on the HUD's
+// text and on the mark, are held to the number there are.
 //
 // **Frames**: a checklist of nine items - some ticked, one too long for its
 // line - on landscape, square and portrait frames, the narrowest the HUD's
@@ -199,12 +209,25 @@ void check_panels() {
 
 // Every pixel the HUD's text and the aircraft's mark light without the
 // checklist is lit with it: the panel dims neither.
-void check_nothing_dimmed(const std::vector<std::pair<int, int>>& sizes,
+struct DimCase {
+    int width;
+    int height;
+    std::size_t lit;          // pixels in the HUD's colour without the checklist
+    std::size_t under_text;   // of them, under the panel on the HUD's text
+    std::size_t under_mark;   // and under it on the aircraft's mark
+};
+
+void check_nothing_dimmed(const std::vector<DimCase>& cases,
                           const glideslope::gfx::ChecklistOnScreen& showing) {
-    std::size_t lit_without = 0;
-    std::size_t over_hud_text = 0;
-    std::size_t over_mark = 0;
-    for (const auto& [width, height] : sizes) {
+    std::size_t lit_all = 0;
+    std::size_t text_all = 0;
+    std::size_t mark_all = 0;
+    for (const DimCase& c : cases) {
+        const int width = c.width;
+        const int height = c.height;
+        std::size_t lit_without = 0;
+        std::size_t over_hud_text = 0;
+        std::size_t over_mark = 0;
         glideslope::gfx::HudReadings r;
         r.airspeed_kts = 102.4;
         r.altitude_ft = 3012.2;
@@ -224,6 +247,7 @@ void check_nothing_dimmed(const std::vector<std::pair<int, int>>& sizes,
         const auto lines = glideslope::gfx::checklist_lines(showing, width).size();
         const auto panel = glideslope::gfx::checklist_panel(width, height, lines);
         const auto block = glideslope::gfx::hud_text_block(r, width, height);
+        const auto where = std::to_string(width) + "x" + std::to_string(height);
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 if (!coloured(plain, x, y, 1.0f)) {
@@ -238,23 +262,33 @@ void check_nothing_dimmed(const std::vector<std::pair<int, int>>& sizes,
                     ++(in_block ? over_hud_text : over_mark);
                 }
                 if (!coloured(over, x, y, 1.0f)) {
-                    fail(std::to_string(width) + "x" + std::to_string(height) + ": the pixel at " +
-                         std::to_string(x) + ", " + std::to_string(y) +
+                    fail(where + ": the pixel at " + std::to_string(x) + ", " +
+                         std::to_string(y) +
                          ", lit by the HUD, is dimmed by the checklist's panel");
                 }
             }
         }
+        std::printf("%s: %zu pixels lit by the HUD, %zu of its text's and %zu of the mark's "
+                    "under the checklist's panel, every one lit with the checklist drawn\n",
+                    where.c_str(), lit_without, over_hud_text, over_mark);
+        // Each size is here for what it puts under the panel: this is a test
+        // of something only while it still does.
+        if (lit_without != c.lit || over_hud_text != c.under_text ||
+            over_mark != c.under_mark) {
+            fail(where + ": " + std::to_string(lit_without) + " pixels lit, " +
+                 std::to_string(over_hud_text) + " of the text's and " +
+                 std::to_string(over_mark) + " of the mark's under the panel, not " +
+                 std::to_string(c.lit) + ", " + std::to_string(c.under_text) + " and " +
+                 std::to_string(c.under_mark));
+        }
+        lit_all += lit_without;
+        text_all += over_hud_text;
+        mark_all += over_mark;
     }
-    std::printf("the HUD's text and the aircraft's mark over the checklist's panel: %zu of "
-                "their pixels lit in %zu frames, %zu of them under the panel's reach on the "
-                "HUD's text and %zu on the mark, and every one lit with the checklist drawn\n",
-                lit_without, sizes.size(), over_hud_text, over_mark);
-    // The sizes are chosen for the panel to reach both: this is a test of
-    // something only if it does.
-    if (over_hud_text == 0 || over_mark == 0) {
-        fail("the panel reached " + std::to_string(over_hud_text) + " of the HUD text's pixels and " +
-             std::to_string(over_mark) + " of the mark's: the sizes test nothing");
-    }
+    std::printf("the HUD's text and the aircraft's mark over the checklist's panel: %zu "
+                "pixels lit in %zu frames, %zu of the text's and %zu of the mark's under "
+                "the panel, none dimmed\n",
+                lit_all, cases.size(), text_all, mark_all);
 }
 
 struct Counts {
@@ -299,7 +333,11 @@ int run() {
         {true, "Lift the nose wheel at 55 knots"},
         {false, "Climb at 70 to 80 knots"},
         {false, "Flaps up"}};
-    check_nothing_dimmed({{312, 240}, {317, 200}, {360, 200}, {640, 240}}, showing);
+    check_nothing_dimmed({{312, 240, 1020, 16, 12},
+                          {316, 200, 1020, 5, 12},
+                          {360, 200, 1020, 0, 12},
+                          {640, 240, 1020, 0, 12}},
+                         showing);
 
     const std::vector<std::string> credits{glideslope::world::copernicus_dem_notice,
                                            glideslope::world::open_meteo_credit};
