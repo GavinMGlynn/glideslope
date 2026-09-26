@@ -75,6 +75,20 @@ void Interpolated::received(const RemoteState& snapshot) {
 }
 
 RemoteState Interpolated::at(double now_s) {
+    path_mps_ = {};
+    // **Not asked for a while, it was not being drawn**, so there is no
+    // guess to come back from and no jump to hide: taking up the difference
+    // between a guess seconds old and where it is now moved an aircraft
+    // hundreds of metres in a quarter of a second (a client's own, drawn
+    // again at a hand-over after a guess before its prediction started,
+    // 2026-09-26: 1,194 m/s).
+    if (asked_ && now_s - asked_s_ > extrapolate_at_most_s) {
+        was_extrapolating_ = false;
+        has_guessed_from_ = false;
+        has_offset_ = false;
+    }
+    asked_ = true;
+    asked_s_ = now_s;
     if (held_.empty()) {
         extrapolating_ = false;
         return {};
@@ -92,6 +106,9 @@ RemoteState Interpolated::at(double now_s) {
                                      extrapolate_at_most_s);
         answer = carried_on(held_.back(), over);
         guessing = want > held_.back().time_s;
+        if (want - held_.back().time_s < extrapolate_at_most_s) {
+            path_mps_ = {held_.back().north_mps, held_.back().east_mps, held_.back().down_mps};
+        }
         if (guessing && !was_extrapolating_) {
             guessed_from_ = held_.back();
             has_guessed_from_ = true;
@@ -104,6 +121,10 @@ RemoteState Interpolated::at(double now_s) {
             if (want >= a.time_s && want <= b.time_s) {
                 const double span = b.time_s - a.time_s;
                 answer = between(a, b, span > 0.0 ? (want - a.time_s) / span : 0.0);
+                if (span > 0.0) {
+                    path_mps_ = {(b.north_m - a.north_m) / span, (b.east_m - a.east_m) / span,
+                                 (b.down_m - a.down_m) / span};
+                }
                 break;
             }
         }
@@ -138,6 +159,9 @@ RemoteState Interpolated::at(double now_s) {
             answer.north_m += offset_.north_m * left;
             answer.east_m += offset_.east_m * left;
             answer.down_m += offset_.down_m * left;
+            path_mps_[0] -= offset_.north_m / blend_s;
+            path_mps_[1] -= offset_.east_m / blend_s;
+            path_mps_[2] -= offset_.down_m / blend_s;
         }
     }
     return answer;

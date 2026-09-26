@@ -55,6 +55,10 @@ if(DEFINED CACHE)
     if(DEFINED WEATHER_SERVICE)
         set(_weather "noweather${WEATHER_ANSWER}")
     endif()
+    # Riding along, and riding along to take over, are two cases of one script.
+    if(TAKE_OVER)
+        string(APPEND _case "take_over")
+    endif()
     set(ENV{GLIDESLOPE_CESIUM_CACHE}
         "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}${_imagery}${VIEW}${_case}${_weather}.sqlite")
 endif()

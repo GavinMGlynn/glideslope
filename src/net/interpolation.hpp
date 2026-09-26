@@ -24,6 +24,7 @@
 // gives a state out, which is what lets it be walked against loss and jitter
 // rather than against a network that happens to be working.
 
+#include <array>
 #include <cstddef>
 #include <deque>
 
@@ -66,6 +67,14 @@ public:
     // looks like; `known()` says whether it is.
     RemoteState at(double now_s);
 
+    // **How fast the last answer moves along the session's clock**, north,
+    // east and down, m/s: the path's own - between two snapshots the
+    // straight line joining them, carried on the velocity carried on at, held
+    // still, and less the part of an offset being taken up each second. Not
+    // the velocity a snapshot reports: in a turn, or with jitter, that is not
+    // where the answer goes next.
+    std::array<double, 3> path_velocity() const { return path_mps_; }
+
     // Whether the last answer was a guess rather than two snapshots.
     bool extrapolating() const { return extrapolating_; }
     bool known() const { return !held_.empty(); }
@@ -75,6 +84,7 @@ private:
     // The snapshots, oldest first. Only a moment's worth is kept.
     std::deque<RemoteState> held_;
     bool extrapolating_ = false;
+    std::array<double, 3> path_mps_{};
     // What was added to the answer to keep it from jumping, and when it
     // started being taken up.
     RemoteState offset_{};
@@ -88,6 +98,11 @@ private:
     // would measure the aircraft's own motion between them instead.
     RemoteState guessed_from_{};
     bool has_guessed_from_ = false;
+    // When it was last asked. A guess, and what taking it up adds, are kept
+    // only for an aircraft that is being drawn: asked again after longer
+    // than a guess is held, nothing was shown to keep on from.
+    double asked_s_ = 0.0;
+    bool asked_ = false;
 };
 
 // **The server's clock, as seen from here.** A client draws other aircraft

@@ -102,6 +102,30 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             watched_.erase(watched_.begin());
         }
     }
+    // **Another aircraft is this client's own now**: one it took over. The
+    // flight is not put right by it - it is another aircraft - but made it,
+    // by the caller, from this update's motion. Only by the newest word: one
+    // the network held back from before the take-over names the aircraft
+    // given up, and would take that over again (the command-line client did,
+    // through 200 ms of jitter, 2026-09-26).
+    if (state.yours && mine_ != net::no_aircraft && state.your_aircraft != mine_ &&
+        state.your_aircraft != net::no_aircraft &&
+        (!reconciled_s_ || state.simulation_time_s > *reconciled_s_)) {
+        if (auto joined = joined_by(state)) {
+            mine_ = state.your_aircraft;
+            taken_ = std::move(joined);
+            taken_at_ = sequence_;
+            reconciled_s_ = state.simulation_time_s;
+            shown_.erase(mine_);
+            watch(net::no_aircraft);
+            for (const net::AircraftState& a : state.aircraft) {
+                if (a.index == mine_) {
+                    own_ai_flying_ = a.controller == net::Controller::ai;
+                }
+            }
+            return;
+        }
+    }
     // **Its own, from the newest word only**: an update older than one
     // already used would put it back to where the newer one had moved it
     // from, with the inputs since already let go.
@@ -124,9 +148,18 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             }
         }
     }
-    // **Everybody else, to be drawn behind the clock.**
+    // **Everybody else, to be drawn behind the clock**, and what the server
+    // says of this client's own.
+    if (state.yours && state.your_aircraft == mine_) {
+        applied_ = std::max(applied_, state.last_input_applied);
+    }
     for (const net::AircraftState& a : state.aircraft) {
         if (a.index == mine_) {
+            // Who flies it now, by the newest word only: an older one may be
+            // from before it was taken over, when the AI did.
+            if (!reconciled_s_ || state.simulation_time_s >= *reconciled_s_) {
+                own_ai_flying_ = a.controller == net::Controller::ai;
+            }
             continue;
         }
         if (!origin_) {
@@ -221,6 +254,20 @@ std::optional<net::Watched> Online::watched_controls(double local_s) const {
     out.rudder = mix(before->second.rudder, after->second.rudder);
     out.throttle = mix(before->second.throttle, after->second.throttle);
     out.flaps = mix(before->second.flaps, after->second.flaps);
+    return out;
+}
+
+void Online::take_over(std::uint8_t number) {
+    net::ControllerSwap swap;
+    swap.aircraft = number;
+    swap.to = net::Controller::person;
+    const std::vector<std::uint8_t> body = net::write(swap);
+    session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
+}
+
+std::optional<Joined> Online::taken_over() {
+    std::optional<Joined> out;
+    out.swap(taken_);
     return out;
 }
 

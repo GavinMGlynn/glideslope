@@ -57,6 +57,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -129,6 +130,8 @@ struct Options {
     // For a test: the least wall time each step takes, so that a server can
     // be put behind real time on any machine, as a loaded runner puts one.
     double test_step_ms = 0.0;
+    // Whether a player may take over an aircraft the AI is flying.
+    bool take_over = true;
 };
 
 void print_usage(std::FILE* out) {
@@ -159,6 +162,8 @@ void print_usage(std::FILE* out) {
         "                     rather than on the machine's speed\n"
         "  --ready-file FILE  write FILE once the aircraft are built and flying -\n"
         "                     for a test that must join a session under way\n"
+        "  --no-take-over     players may not take over an AI's aircraft (they\n"
+        "                     may, unless told this)\n"
         "  --on-leave WHAT    what becomes of an aircraft when the person flying\n"
         "                     it goes: 'remove' takes it out of the sky (the\n"
         "                     default), 'ai' hands it to an AI pilot flying the\n"
@@ -312,6 +317,8 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.window_press = std::string(value);
         } else if (a == "--dry-run") {
             o.dry_run = true;
+        } else if (a == "--no-take-over") {
+            o.take_over = false;
         } else if (a == "--on-leave") {
             if (!next(value)) return std::nullopt;
             if (value == "remove") {
@@ -688,12 +695,11 @@ public:
             glideslope::sim::Controls idling;
             idling.throttle = 0.6;
             flown_.push_back(
-                {f.id, std::move(aircraft), nullptr, next_index_, -1, idling});
+                {f.id, std::move(aircraft), nullptr, *free_number(), -1, idling});
             remember_start(flown_.back(), ic, entry.seaplane);
             flown_.back().catalogue_id = f.id;
             flown_.back().model = entry.model;
             hold_course(flown_.back());
-            ++next_index_;
         }
 
         // **The AI aircraft the server runs.** They fly one plan, stacked
@@ -752,12 +758,11 @@ public:
                 controller->to_ai(plan);
                 flown_.push_back({plan.aircraft + " (AI " + std::to_string(i + 1) + ")",
                                   std::move(aircraft), std::move(controller),
-                                  next_index_, -1, {}});
+                                  *free_number(), -1, {}});
                 remember_start(flown_.back(), ic, entry.seaplane);
                 flown_.back().catalogue_id = plan.aircraft;
                 flown_.back().model = entry.model;
                 flown_.back().on_plan = true;
-                ++next_index_;
                 ++ai_;
             }
             // Kept so that a player joining later starts where the AI did,
@@ -805,7 +810,7 @@ public:
         aircraft->initialize(ic);
         std::uint8_t index = 0;
         while (std::any_of(flown_.begin(), flown_.end(), [&](const Aircraft& a) {
-            return a.slot >= 0 && a.index == index;
+            return a.index == index;
         })) {
             ++index;
         }
@@ -836,7 +841,8 @@ public:
             if (it->slot < 0 || it->index != index) {
                 continue;
             }
-            if (!hand_to_ai || plan_.waypoints.empty()) {
+            const std::optional<std::uint8_t> number = free_number();
+            if (!hand_to_ai || plan_.waypoints.empty() || !number) {
                 // Said as it goes, as the end of the run says it of the rest:
                 // a test that waits for its clients to leave finds their
                 // aircraft gone by the end.
@@ -846,7 +852,7 @@ public:
                 return false;
             }
             it->slot = -1;
-            it->index = next_index_++;
+            it->index = *number;
             it->id = plan_.aircraft + " (AI, was slot " + std::to_string(index) + ")";
             it->controller = std::make_unique<glideslope::sim::Controller>(
                 *it->aircraft, glideslope::sim::Controls{});
@@ -974,10 +980,13 @@ public:
         std::string id; // as the dashboard names it: "c172p (AI 1)"
         std::unique_ptr<glideslope::sim::Aircraft> aircraft;
         std::unique_ptr<glideslope::sim::Controller> controller; // null: flown by hand
-        // **The server's number for it, steady for as long as it flies**, and
-        // what a state update carries. A player's aircraft has the lowest
-        // number below `most_slots` that no other player's has; the AI are
-        // numbered from `most_slots` upwards, and never move.
+        // **The server's number for it**, and what a state update carries. A
+        // player given an aircraft is given the lowest number no aircraft has,
+        // which is below `most_slots`; an aircraft nobody is flying gets the
+        // lowest free from `most_slots` up (`free_number`). A number changes
+        // only when a player's aircraft goes to the AI - left, or left behind
+        // by a take-over - because the player's number would be mistaken for
+        // the next player's; an aircraft taken over keeps its number.
         std::uint8_t index = 0;
         int slot = -1; // -1: not a person's
         // **What it is being flown by, between one input and the next.** A
@@ -1019,6 +1028,61 @@ public:
     static constexpr double wreck_s = 5.0;
 
     const std::vector<Aircraft>& flown() const { return flown_; }
+
+    // **A player takes over an aircraft the AI is flying** - Phase 7's ride
+    // along, then take the controls. The aircraft taken becomes theirs: their
+    // slot, their inputs, the controls brought from the AI's to theirs at a
+    // hand's pace, as a take-back is. The aircraft they had goes to the AI
+    // pilot, holding what it is doing, and - as one left behind by a player
+    // who goes - takes a number of the AI's, so that a number below the
+    // players' is never an AI's. Returns the player's aircraft's number now,
+    // or why not: the aircraft is not an AI's, or is a wreck, or there is no
+    // such player.
+    std::variant<std::uint8_t, std::string> take_over(std::uint8_t player_index,
+                                                      std::uint8_t ai_index) {
+        Aircraft* player = nullptr;
+        Aircraft* taken = nullptr;
+        for (Aircraft& a : flown_) {
+            if (a.index == player_index && a.slot >= 0) player = &a;
+            if (a.index == ai_index) taken = &a;
+        }
+        if (player == nullptr) return std::string("no such player's aircraft");
+        if (taken == nullptr) return std::string("no aircraft " + std::to_string(ai_index));
+        if (taken->slot >= 0) return std::string("aircraft " + std::to_string(ai_index) + " is a player's");
+        if (!ai_flying(*taken)) return std::string("aircraft " + std::to_string(ai_index) + " is not the AI's");
+        if (taken->wrecked_at_s >= 0.0 || player->wrecked_at_s >= 0.0) {
+            return std::string("a wreck cannot be taken over, or leave");
+        }
+        const std::optional<std::uint8_t> number = free_number();
+        if (!number) {
+            return std::string("no number is free for the aircraft left");
+        }
+        const double now_s =
+            static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
+        // The one taken: the player's now, flown by their inputs.
+        taken->slot = player->slot;
+        taken->id = taken->catalogue_id + " (slot " + std::to_string(player->slot) + ", taken over)";
+        taken->on_plan = false;
+        taken->held = player->held;
+        taken->controller->set_pilot(taken->held);
+        taken->controller->to_pilot();
+        // The one left: the AI's now, holding what it is doing, and numbered as
+        // the AI's are.
+        player->slot = -1;
+        player->id = player->catalogue_id + " (AI, left by a take-over)";
+        if (!player->controller) {
+            player->controller =
+                std::make_unique<glideslope::sim::Controller>(*player->aircraft, player->held);
+        }
+        player->controller->to_ai();
+        player->index = *number;
+        announced_.push_back({taken->index, glideslope::net::Controller::person, now_s});
+        announced_.push_back({player->index, glideslope::net::Controller::ai, now_s});
+        std::printf("aircraft %u taken over; aircraft %u, left, now the AI's\n",
+                    static_cast<unsigned>(taken->index), static_cast<unsigned>(player->index));
+        std::fflush(stdout);
+        return taken->index;
+    }
 
     // **The swaps made since last asked**, for every client to be told.
     std::vector<glideslope::net::ControllerSwap> announced() {
@@ -1175,11 +1239,21 @@ private:
     double player_airspeed_kts_ = 0.0;
     bool player_seaplane_ = false;
     std::int64_t steps_ = 0;
-    // **The next number to hand out to an aircraft nobody is flying.** It
-    // starts above the players' numbers, which are below `most_slots`, so an
-    // AI never shares a number with a player.
-    std::uint8_t next_index_ =
-        static_cast<std::uint8_t>(glideslope::net::most_slots);
+    // **The number to give an aircraft nobody is flying**: the lowest from
+    // `most_slots` up that no aircraft has, so that numbers are used again
+    // rather than counted up to where they would wrap round into the
+    // players' and `no_aircraft`. Nothing if every one is taken, which the
+    // server's limits on aircraft keep far off.
+    std::optional<std::uint8_t> free_number() const {
+        for (unsigned n = glideslope::net::most_slots; n < glideslope::net::no_aircraft; ++n) {
+            if (std::none_of(flown_.begin(), flown_.end(), [&](const Aircraft& a) {
+                    return a.index == n;
+                })) {
+                return static_cast<std::uint8_t>(n);
+            }
+        }
+        return std::nullopt;
+    }
     int ai_ = 0;
     // Swaps made and not yet told to every client.
     std::vector<glideslope::net::ControllerSwap> announced_;
@@ -1543,9 +1617,10 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         }
         case glideslope::net::Inside::reliable:
             // **What a client may ask**: its own aircraft handed to the AI
-            // pilot or taken back (`CONTROLLER_SWAP`). Anything else, or a
-            // swap for an aircraft not its own, is acknowledged and let go:
-            // a client flies its own aircraft and no other.
+            // pilot or taken back (`CONTROLLER_SWAP`), an AI's aircraft taken
+            // over, or which aircraft it rides along in (`WATCH`). Anything
+            // else is acknowledged and let go: a client flies its own
+            // aircraft, or one the AI was flying, and no player's.
             for (const std::vector<std::uint8_t>& message : c.reliable.received(inside.subspan(1))) {
                 // Which aircraft it rides along in: any, or none. It changes
                 // only what this client is told.
@@ -1556,6 +1631,30 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                     continue;
                 }
                 glideslope::net::ControllerSwap swap;
+                // **Another aircraft asked for**: taking over an AI's, if the
+                // server allows it, and never a player's.
+                if (fleet != nullptr && c.aircraft != glideslope::net::no_aircraft &&
+                    glideslope::net::read(
+                        std::span<const std::uint8_t>(message.data(), message.size()), swap) &&
+                    swap.aircraft != c.aircraft &&
+                    swap.to == glideslope::net::Controller::person) {
+                    if (!o.take_over) {
+                        std::printf("aircraft %u not taken over: this server does not allow it\n",
+                                    static_cast<unsigned>(swap.aircraft));
+                        std::fflush(stdout);
+                        continue;
+                    }
+                    const auto result = fleet->take_over(c.aircraft, swap.aircraft);
+                    if (const auto* now = std::get_if<std::uint8_t>(&result)) {
+                        c.aircraft = *now;
+                    } else {
+                        std::printf("aircraft %u not taken over: %s\n",
+                                    static_cast<unsigned>(swap.aircraft),
+                                    std::get<std::string>(result).c_str());
+                        std::fflush(stdout);
+                    }
+                    continue;
+                }
                 if (fleet != nullptr && c.aircraft != glideslope::net::no_aircraft &&
                     glideslope::net::read(
                         std::span<const std::uint8_t>(message.data(), message.size()), swap) &&

@@ -412,7 +412,20 @@ for it. **It travels both ways.** A client asks for its own aircraft to be
 handed to the AI pilot (`02`) or back to it (`01`), with the time written as
 nought; the server honours it only for that client's own aircraft, and says
 so to every client, with the time it took effect. A request for another's
-aircraft, or to `NOBODY`, is acknowledged and nothing more.
+aircraft, or to `NOBODY`, is acknowledged and nothing more - with one
+exception, taking over.
+
+**Taking over.** A client asks for an aircraft the AI is flying, not its own,
+to go to `PERSON` (`01`). Unless the server was started with `--no-take-over`,
+it is that client's aircraft from then on: the next state update to it names
+it as the client's own, carrying its motion, and the client predicts it from
+there. The aircraft the client had goes to the AI and is given a new number,
+as an aircraft appearing, with its `AIRCRAFT` message. Its old number is free
+again, and may be given to a player who joins later. Numbers are used again,
+lowest first: an aircraft's number is unique while it flies, and no longer. The server announces both to every client, the one taken over to
+`PERSON` and the one left, under its new number, to `AI`. A request for a
+player's aircraft, one the AI is not flying, a wreck, or on a server that
+forbids it is acknowledged and nothing more.
 
 While the AI flies an aircraft, the server applies none of its client's
 inputs, and a state update gives its controller as `AI`. A client whose
