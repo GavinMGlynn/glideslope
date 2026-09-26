@@ -19,6 +19,7 @@
 
 struct SDL_GPUBuffer;
 struct SDL_GPUDevice;
+struct SDL_GPUFence;
 struct SDL_GPUGraphicsPipeline;
 struct SDL_GPUSampler;
 struct SDL_GPUTexture;
@@ -162,6 +163,16 @@ private:
     int width_ = 0;
     int height_ = 0;
     long presented_ = 0;
+    // **Headless, a frame waits for the one two before it.** With a window,
+    // acquiring the swapchain's image waits for the GPU to catch up; with
+    // none, nothing does, and SDL keeps every frame submitted - its command
+    // buffer, its uniforms, its uploads - until the GPU has drawn it. Mesa's
+    // lavapipe draws on the CPU, slower than the frames come, so they queued
+    // without end: 0.8 MiB a frame, and the process past 1.6 GB and dead by
+    // frame 2,000. Each headless frame's fence is kept here, and the frame
+    // after next waits on it, as a swapchain of two would.
+    std::array<SDL_GPUFence*, 2> in_flight_{};
+    std::size_t next_in_flight_ = 0;
 };
 
 // Writes `frame` as a 32-bit BMP. Throws std::runtime_error on failure.

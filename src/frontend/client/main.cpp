@@ -11,13 +11,17 @@
 //              [--weather STATION [--microburst LAT,LON]...]
 //              [--metar REPORT [--station LAT,LON]] [--autopilot] [--plan PLAN]
 //              [--view NAME]
-//              [--shot FILE] [--shot-at TICK] [--trace]
+//              [--shot FILE] [--shot-at TICK | --shot-frame N] [--trace]
+//              [--memory-every N]
 //
 // Test flags. --shot writes the frame drawn at simulation tick --shot-at
 // (default 2) as a BMP and exits; while shooting, every frame advances exactly
 // two ticks - a sixtieth of a second - whatever the clock says, so the same
-// command draws the same frame on every machine. --trace prints the flight's
-// state after every tick.
+// command draws the same frame on every machine. --shot-frame shoots frame N,
+// and keeps every frame two ticks however many that is: --shot-at would make
+// its frames longer to keep a long flight to 300. --memory-every prints the
+// memory the process holds every N frames. --trace prints the flight's state
+// after every tick.
 
 #include "flight.hpp"
 #include "online.hpp"
@@ -28,6 +32,7 @@
 #include "gfx/sky.hpp"
 #include "gfx/terrain_tiles.hpp"
 #include "platform/input.hpp"
+#include "platform/memory.hpp"
 #include "net/session.hpp"
 #include "platform/paths.hpp"
 #include "scenes.hpp"
@@ -98,6 +103,11 @@ struct Options {
     std::string driver;
     std::string shot;
     std::int64_t shot_at = 2;
+    // Test flags: the shot of a frame counted rather than a tick - every
+    // frame two ticks, however many there are - and the memory the process
+    // holds, printed every so many frames. Zero is neither.
+    std::int64_t shot_frame = 0;
+    std::int64_t memory_every = 0;
     bool trace = false;
     int width = 1280;
     int height = 720;
@@ -148,7 +158,8 @@ void usage(std::FILE* out) {
         "                  [--aircraft ID] [--on-ground] [--autopilot] [--plan PLAN]\n"
         "                  [--view cockpit|ahead|behind|left|right|above|orbit]\n"
         "                  [--draw-aircraft on|off]\n"
-        "                  [--shot FILE] [--shot-at TICK] [--trace]\n"
+        "                  [--shot FILE] [--shot-at TICK | --shot-frame N] [--trace]\n"
+        "                  [--memory-every N]\n"
         "                  [--online | --server HOST PORT --server-key HEX]\n"
         "       glideslope --version | --help\n"
         "\n"
@@ -205,6 +216,11 @@ void usage(std::FILE* out) {
         "  --shot        write the frame at tick --shot-at (default 2) and exit;\n"
         "                each frame is then two ticks, whatever the clock says, or\n"
         "                as many as keep the flight to 300 frames\n"
+        "  --shot-frame  write frame N instead, each frame two ticks however many\n"
+        "                frames that is (for tests; not with --shot-at, nor on a\n"
+        "                server)\n"
+        "  --memory-every  print the memory the process holds every N frames (for\n"
+        "                tests)\n"
         "  --trace       print the flight's state after every tick\n",
         out);
 }
@@ -259,6 +275,7 @@ static int run_program(int argc, char** argv) {
     glideslope::gfx::log_to_standard_error();
     const std::vector<std::string_view> args(argv + 1, argv + argc);
     Options o;
+    bool shot_at_given = false;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string_view a = args[i];
         const bool has_value = i + 1 < args.size();
@@ -287,8 +304,19 @@ static int run_program(int argc, char** argv) {
             o.shot = std::string(args[++i]);
         } else if (a == "--shot-at" && has_value) {
             const auto tick = parse_integer(args[++i]);
-            ok = tick && *tick >= 0;
+            ok = tick && *tick >= 0 && o.shot_frame == 0;
             o.shot_at = tick.value_or(0);
+            shot_at_given = true;
+        } else if (a == "--shot-frame" && has_value) {
+            const auto frame = parse_integer(args[++i]);
+            ok = frame && *frame >= 1 && !shot_at_given;
+            o.shot_frame = frame.value_or(0);
+            // Two ticks a frame, so the frame counted is shot at this tick.
+            o.shot_at = 2 * o.shot_frame;
+        } else if (a == "--memory-every" && has_value) {
+            const auto every = parse_integer(args[++i]);
+            ok = every && *every >= 1;
+            o.memory_every = every.value_or(0);
         } else if (a == "--size" && has_value) {
             const auto size = parse_size(args[++i]);
             ok = size.has_value();
@@ -399,6 +427,10 @@ static int run_program(int argc, char** argv) {
     if (o.headless && o.shot.empty()) {
         std::fputs("glideslope: --headless needs --shot, or it has nothing to show\n",
                    stderr);
+        return 2;
+    }
+    if (o.shot_frame > 0 && (o.shot.empty() || o.online || !o.server.empty())) {
+        std::fputs("glideslope: --shot-frame is a frame of a --shot flown alone\n", stderr);
         return 2;
     }
     if (!o.microbursts.empty() && o.weather_station.empty()) {
@@ -958,8 +990,10 @@ static int run_program(int argc, char** argv) {
                 // Two ticks a frame, or as many as keep the flight to 300.
                 // (On a server a flight keeps real time, shot or not: the
                 // server's aircraft does.)
-                due = std::min<std::int64_t>(std::max<std::int64_t>(2, o.shot_at / 300),
-                                             o.shot_at - ticks);
+                // A frame counted is two ticks, however many frames.
+                due = std::min<std::int64_t>(
+                    o.shot_frame > 0 ? 2 : std::max<std::int64_t>(2, o.shot_at / 300),
+                    o.shot_at - ticks);
             } else {
                 const auto now = std::chrono::steady_clock::now();
                 due = std::min<std::int64_t>(clock.advance(now - last), 24);
@@ -1028,9 +1062,11 @@ static int run_program(int argc, char** argv) {
             // **On a server, a shot draws only its own frame.** The flight
             // keeps real time there, so the frames before it are as many as
             // the machine can draw - thousands - where a shot flown by ticks
-            // has three hundred at most, and drawing them all headless ran
-            // the software Vulkan driver out of memory (a tail). Nobody sees
-            // them; the flight and the session go on all the same.
+            // has three hundred at most. Drawing them all headless once ran
+            // the software Vulkan driver out of memory, before the renderer
+            // waited on its frames in flight (gfx/renderer.hpp); now they
+            // would only take the machine's time from the session. Nobody
+            // sees them; the flight and the session go on all the same.
             if (shooting && joined && !shot_now) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
@@ -1238,6 +1274,14 @@ static int run_program(int argc, char** argv) {
                 renderer.render(camera, drawn, nullptr, haze, background);
             }
             ++frames;
+            if (o.memory_every > 0 && (frames == 1 || frames % o.memory_every == 0)) {
+                const auto held = glideslope::platform::memory_held_bytes();
+                std::printf("glideslope: frame %ld, memory held %lld\n", frames,
+                            held ? static_cast<long long>(*held) : -1LL);
+                // Out now: a client that runs out of memory takes what is
+                // buffered with it, and these say how it got there.
+                std::fflush(stdout);
+            }
 
             if (shot_now && online && joined && flight) {
                 // **What it drew of the server's sky, and how its own was

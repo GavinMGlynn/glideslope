@@ -264,6 +264,13 @@ Renderer::~Renderer() {
 }
 
 void Renderer::release() {
+    for (SDL_GPUFence*& fence : in_flight_) {
+        if (fence != nullptr) {
+            SDL_WaitForGPUFences(device_, true, &fence, 1);
+            SDL_ReleaseGPUFence(device_, fence);
+            fence = nullptr;
+        }
+    }
     for (const GpuMesh& mesh : meshes_) {
         if (mesh.vertices != nullptr) {
             SDL_ReleaseGPUBuffer(device_, mesh.vertices);
@@ -638,7 +645,27 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
             ++presented_;
         }
     }
-    if (!SDL_SubmitGPUCommandBuffer(commands)) {
+    if (window_ != nullptr) {
+        if (!SDL_SubmitGPUCommandBuffer(commands)) {
+            throw sdl_error("the frame was not submitted");
+        }
+        return;
+    }
+    // Headless: this frame's fence is kept, in place of the one two frames
+    // back, which is waited on first - see in_flight_.
+    SDL_GPUFence*& oldest = in_flight_[next_in_flight_];
+    next_in_flight_ = (next_in_flight_ + 1) % in_flight_.size();
+    if (oldest != nullptr) {
+        const bool waited = SDL_WaitForGPUFences(device_, true, &oldest, 1);
+        SDL_ReleaseGPUFence(device_, oldest);
+        oldest = nullptr;
+        if (!waited) {
+            SDL_CancelGPUCommandBuffer(commands);
+            throw sdl_error("the frame two before this one was not drawn");
+        }
+    }
+    oldest = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+    if (oldest == nullptr) {
         throw sdl_error("the frame was not submitted");
     }
 }
