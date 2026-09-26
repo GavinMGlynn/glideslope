@@ -236,9 +236,11 @@ Controls Departure::fly() {
     // rotating her early - begins the rotation stage, so that the stick she
     // is handed back with is held and the nose not put back down on to the
     // runway: in the roll stage the stick goes to neutral, and a J-3 Cub
-    // pulled off at 30 knots and let go ran on to 39 before she left.
+    // pulled off at 30 knots and let go ran on to 39 before she left. Not
+    // put there is a fifth of its travel further back than it last asked
+    // for, since it holds a tail-wheel aeroplane's tail up with the stick.
     const bool pilot_rotated = stage_ == Stage::roll && on_ground &&
-                               -a_.property("fcs/elevator-cmd-norm") > 0.2;
+                               -a_.property("fcs/elevator-cmd-norm") > last_elevator_ + 0.2;
 
     if (stage_ != Stage::done && above_m_ * feet_per_metre >= to_ft_) {
         stage_ = Stage::done;

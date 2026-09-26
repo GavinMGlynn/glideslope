@@ -306,7 +306,8 @@ aircraft:
   the F-15's manual has it), eased off a quarter a second as it comes, and
   held while she is off the ground but short of her attitude.
 - **Rotated by a pilot, it carries on from there**: back stick on the roll it
-  did not put there begins the rotation, it takes the stick over where the
+  did not put there - a fifth of the travel beyond what it last asked for,
+  since it holds a tail up with the stick itself - begins the rotation, it takes the stick over where the
   pilot held it, and holds the attitude she left the ground at.
 - **Out of the rotation the pull is eased off only as the nose reaches where
   it is wanted.** Taken out at its own rate, it put the PA-28 back on the
