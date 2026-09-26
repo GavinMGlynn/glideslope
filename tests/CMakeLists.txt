@@ -11,6 +11,10 @@ set(GLIDESLOPE_EXPECT_RUN "${CMAKE_CURRENT_SOURCE_DIR}/cmake/expect_run.cmake")
 # a relay in front of a server takes the next one (server_impaired and
 # server_take_over, at PORT + 1). cmake/test_ports.cmake checks every test's
 # port against this block and against every other test's.
+# The block assumes each platform's default dynamic range: on a Windows host
+# whose range was widened to start at 1024, WinNAT's reservations (see
+# `netsh int ipv4 show excludedportrange protocol=udp`) can land anywhere,
+# this block included.
 set(GLIDESLOPE_TEST_PORTS_FIRST 24700)
 set(GLIDESLOPE_TEST_PORTS_LAST 24799)
 add_test(NAME every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two_tests_share_one
