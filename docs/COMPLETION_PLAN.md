@@ -535,7 +535,7 @@ Found while implementing something else. Added when found, not when remembered.
       take-off leave within ten knots of their rotation speed for their
       weight, unhurt, and pulled back early leave sooner and climb away. The
       Mosquito and the PA-28 were fixed on the way. **The F-15C still leaves
-      at 183 knots, 26 past its flight manual's 157**: that is within ten of
+      at 178 knots, 21 past its flight manual's 157**: that is within ten of
       the model's rotation speed, which is itself high - 1.15 times its
       landing stall at its take-off flap.
 - [x] **The Learjet ends its landing roll nose down through the runway.**

@@ -55,9 +55,13 @@ const FigureSpec* by_flight(const PublishedFigures& figures, const std::string& 
 }
 
 // How long the rotation takes: the nose raised from where she sits to the
-// take-off attitude at a pilot's four degrees a second.
+// take-off attitude at a pilot's four degrees a second, **and the 0.45 s the
+// pull takes to build before the nose moves at all**. Without it every
+// aeroplane left later than aimed by 0.4 to 0.5 s - a knot or two for most,
+// but the F-15C gains thirteen knots a second and left 9.2 past its rotation
+// speed, 0.8 inside the ten allowed; with it, 4.5.
 double rotation_lead_s(double pitch_deg) {
-    return std::max(0.0, (10.0 - pitch_deg) / 4.0);
+    return std::max(0.0, (10.0 - pitch_deg) / 4.0) + 0.45;
 }
 
 // What the aeroplane weighed for a figure: its loading's total, or the
@@ -418,7 +422,13 @@ Controls Departure::fly() {
     // `unstuck_` itself is left alone: where she first came off is where the
     // ground roll ends, and the published take-off distances are measured
     // from it.
-    if (stage_ == Stage::roll || stage_ == Stage::rotate || on_ground) {
+    //
+    // **Off the wheels in the rotation, she is flown**, not steered: a
+    // PA-28 at its model's own weight floats in ground effect for seconds
+    // before she is clear, and steered there by the rudder alone with her
+    // wings held level she skidded 6.2 m off the centreline. Flown, she is
+    // banked back towards it.
+    if (stage_ == Stage::roll || on_ground) {
         // On the ground the rudder and the nosewheel are one control, and
         // below the speed at which the rudder bites the brakes help it.
         //
@@ -444,8 +454,11 @@ Controls Departure::fly() {
         }
         c.aileron = std::clamp(-0.02 * s.roll_deg, -1.0, 1.0);
     } else {
-        // Flying: wings level on the runway heading.
-        const double error = std::remainder(runway_.heading_deg - s.heading_deg, 360.0);
+        // Flying: wings level on the runway heading - and towards the
+        // centreline, as on the roll, until she is off for good.
+        const double back_deg = unstuck_ ? 0.0 : std::clamp(-across_m_ * 2.0, -15.0, 15.0);
+        const double error =
+            std::remainder(runway_.heading_deg + back_deg - s.heading_deg, 360.0);
         const double want_bank = std::clamp(error * 1.2, -20.0, 20.0);
         const double p_degps = s.p_radps * degrees;
         c.aileron =

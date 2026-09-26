@@ -20,6 +20,11 @@
 #
 # **The bands are measured**, with room: the B-2A holds 1.0 to 18.9 degrees in
 # the initial climb and climbs away 21 to 22 knots above its climbing speed.
+# **Since 2026-09-26 it is accelerated to it in the climb**, from the speed it
+# leaves the runway at, as the take-off autopilot now flies every aeroplane:
+# rotated so as to be off at its rotation speed, 118 knots, it is at 201 to
+# 244 knots between 200 and 500 ft, so the band reaches 35 knots below its
+# climbing speed.
 
 name Take-off in a bomber
 teaches bomber
@@ -41,5 +46,5 @@ until position/h-agl-ft >= 200
 
 stage Climbing away
 do Climb straight ahead, accelerating to the climbing speed
-hold velocities/vc-kts climb-20 climb+50 Hold the climbing speed
+hold velocities/vc-kts climb-35 climb+50 Hold the climbing speed
 until position/h-agl-ft >= 500
