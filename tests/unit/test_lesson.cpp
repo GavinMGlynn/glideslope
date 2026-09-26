@@ -2689,15 +2689,13 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_take_off_and_hands_it_over) {
 
 namespace {
 
-// **An approach demonstrated, then handed over.** Two miles out on the
-// glidepath, flown down by the AI pilot through a `Controller` - which is
-// what makes it a demonstration rather than a frontend flying a Lander.
-Demonstrated demonstrate_an_approach(const std::string& id) {
-    const auto entry = glideslope::sim::find_aircraft(data(), id);
-    const glideslope::sim::Runway runway = a_runway();
-    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
-
-    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+// **Two miles out on the glidepath, established**: at the weight its
+// reference speed was measured at, the landing flap down and coming down the
+// path, over a runway at sea level - or water, for a flying boat.
+void put_on_final(glideslope::sim::Aircraft& aircraft,
+                  const glideslope::sim::CatalogueEntry& entry,
+                  const glideslope::sim::Runway& runway,
+                  const glideslope::sim::ApproachSpeeds& published) {
     // At the weight its reference speed was measured at: the B-2A's is taken
     // at its light loading, and flown at the model's own weight 124 knots is
     // below its stall - it fell at 110 ft/s and was passed, because every
@@ -2729,6 +2727,18 @@ Demonstrated demonstrate_an_approach(const std::string& id) {
     ic.flight_path_deg = -3.0;
     ic.trim = true;
     aircraft.initialize(ic);
+}
+
+// **An approach demonstrated, then handed over.** Two miles out on the
+// glidepath, flown down by the AI pilot through a `Controller` - which is
+// what makes it a demonstration rather than a frontend flying a Lander.
+Demonstrated demonstrate_an_approach(const std::string& id) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const glideslope::sim::Runway runway = a_runway();
+    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    put_on_final(aircraft, entry, runway, published);
 
     const auto found = lesson_for(entry, "approach-and-landing");
     check(found.has_value(), id + " has an approach lesson");
@@ -2850,8 +2860,8 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_an_approach_and_hands_it_over) {
     // **And every one stayed the right way up on its wheels from the touch
     // to the hand-over** - which is where the demonstration's landing ends:
     // the AI's landing roll goes to the stop in the approach lesson's test
-    // above. Taken back on the roll, she is given the plain autopilot, not
-    // the landing (a tail in docs/COMPLETION_PLAN.md).
+    // above, and taken back on the roll she is landed to the stop in the
+    // test below.
     for (const std::string& wrong : came_down_badly) {
         std::printf("  CAME DOWN BADLY: %s\n", wrong.c_str());
     }
@@ -2864,6 +2874,217 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_an_approach_and_hands_it_over) {
               std::to_string(walked) + " of " + std::to_string(flown.size()));
     check(walked == 14, "fourteen aeroplanes demonstrated an approach, not " +
                             std::to_string(walked));
+}
+
+namespace {
+
+// **Where on her landing roll the pilot takes her and the AI takes her
+// back**: the moment her wheels meet the runway, and when she has lost half
+// the groundspeed she touched with.
+enum class OnTheRoll { at_the_touch, half_her_speed_gone };
+
+const char* name_of(OnTheRoll when) {
+    return when == OnTheRoll::at_the_touch ? "at the touch" : "at half speed";
+}
+
+struct TakenBackOnTheRoll {
+    bool taken_back = false;
+    bool stopped = false;
+    double touched_kts = 0.0;    // groundspeed as the wheels met the runway
+    double taken_back_kts = 0.0; // and as the AI took her back
+    double stopped_past_m = 0.0; // past the threshold, where she stopped
+    double stopped_across_m = 0.0;
+    double worst_to_ai = 0.0;
+    double up_by_take_back_ft = 0.0; // the highest she went before the AI had her back
+    std::string wreck; // what wrecked her, or nothing
+    // From the first touch, whoever had her; and the AI's own, from the
+    // take-back - or, taken back in a bounce, from the touch it came down to.
+    glideslope::test::AfterTouch after;
+    glideslope::test::AfterTouch ai;
+};
+
+// **An approach landed by the AI, taken by the pilot on the roll and taken
+// back half a second later.** The pilot's hands are what a pilot's are on a
+// landing roll with nothing done yet: throttle closed, the landing flap, the
+// stick central and no brakes. From the take-back the AI has her, to the stop
+// or for five minutes, whichever is first, and the server's crash rule judges
+// her from then.
+TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const glideslope::sim::Runway runway = a_runway();
+    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    put_on_final(aircraft, entry, runway, published);
+
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.4;
+    flying.gear = 1.0;
+    glideslope::sim::Controller controller(aircraft, flying);
+    controller.to_ai_approach(runway, published);
+    glideslope::sim::Controls pilot;
+    pilot.gear = 1.0;
+    pilot.flaps = published.flap;
+    controller.set_pilot(pilot);
+
+    const auto groundspeed_kts = [&] {
+        return aircraft.property("velocities/vg-fps") / 1.68781;
+    };
+    glideslope::sim::GroundJudge judge(entry.seaplane);
+    TakenBackOnTheRoll out;
+    int take_back = -1;
+    glideslope::sim::Controls last = flying;
+    for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
+        const bool was_touched = out.after.touched;
+        if (take_back >= 0 && tick > take_back &&
+            std::abs(aircraft.property("velocities/vg-fps")) < 1.0) {
+            out.stopped = true;
+            break;
+        }
+        if (take_back >= 0 && tick > take_back + 300 * steps_per_second) {
+            break;
+        }
+        if (take_back < 0 && was_touched &&
+            (when == OnTheRoll::at_the_touch || groundspeed_kts() <= 0.5 * out.touched_kts)) {
+            take_back = tick + steps_per_second / 2;
+            controller.to_pilot();
+        }
+        if (tick == take_back) {
+            controller.to_ai();
+            out.taken_back = true;
+            out.taken_back_kts = groundspeed_kts();
+            out.up_by_take_back_ft = out.after.highest_ft;
+        }
+        const glideslope::sim::Controls now = controller.fly();
+        if (tick == take_back) {
+            out.worst_to_ai = worst_step(last, now);
+        }
+        last = now;
+        aircraft.set_controls(now);
+        aircraft.step();
+        out.after.watch(aircraft);
+        if (take_back >= 0 && tick >= take_back) {
+            out.ai.watch(aircraft);
+        }
+        if (!was_touched && out.after.touched) {
+            out.touched_kts = groundspeed_kts();
+        }
+        // Judged from the take-back, which is what is being tested: the
+        // judge's first call learns what is touching already.
+        if (take_back >= 0 && tick >= take_back) {
+            if (const auto what = judge.judge(aircraft)) {
+                out.wreck = *what;
+                break;
+            }
+        }
+    }
+    // Where she stopped, measured as the runway is: along its heading from
+    // the threshold, and across it.
+    const glideslope::sim::AircraftState s = aircraft.state();
+    const double north_m = (s.latitude_deg - runway.threshold_lat_deg) *
+                           metres_per_degree_latitude(runway.threshold_lat_deg);
+    const double east_m = (s.longitude_deg - runway.threshold_lon_deg) *
+                          metres_per_degree_longitude(runway.threshold_lat_deg);
+    const double h = runway.heading_deg / degrees;
+    out.stopped_past_m = east_m * std::sin(h) + north_m * std::cos(h);
+    out.stopped_across_m = east_m * std::cos(h) - north_m * std::sin(h);
+    return out;
+}
+
+} // namespace
+
+// **An approach taken back on the landing roll is landed to a stop.** The
+// AI lands every landplane taught the approach; the pilot takes her on the
+// roll - at the touch, and again, in a second flight, once half her speed has
+// gone - and the AI takes her back half a second later. She must stop on the
+// runway, the right way up on her wheels and unwrecked, and the take-back
+// must step no control faster than a pilot's hand. Taken back, she was given
+// the plain autopilot, which holds what she is doing and never stops her.
+//
+// **What the AI is judged on is its own**: the crash rule from the take-back,
+// and the bank, the nose and any bounce from there - or, taken back in a
+// bounce the pilot's half second began, from the touch it brings her down to.
+// An A320 taken at the touch rises 5.7 ft that way: her pilot has let her
+// rotation carry on and her spoilers stay in, and she is already climbing
+// when the AI has her back, its spoilers coming out at a hand's pace.
+//
+// **The flying boat is left out, and named**: afloat with her engines idling
+// she is never still, so a stop is not hers to make (her approach lesson ends
+// below twenty knots on the water), and there is no runway to stop on.
+GLIDESLOPE_TEST(an_approach_taken_back_on_the_landing_roll_is_landed_to_a_stop) {
+    const double a_hands_pace = 2.0 / steps_per_second + 0.004;
+    const double half_width_m = 30.0; // a 60 m runway
+    const auto taught = everyone_taught("approach-and-landing");
+    std::vector<std::string> landplanes;
+    std::vector<std::string> left_out;
+    for (const std::string& id : taught) {
+        if (glideslope::sim::find_aircraft(data(), id).seaplane) {
+            left_out.push_back(id);
+        } else {
+            landplanes.push_back(id);
+        }
+    }
+    for (const std::string& id : left_out) {
+        std::printf("  left out - %s: a flying boat, afloat, is never still\n", id.c_str());
+    }
+    const std::vector<OnTheRoll> points = {OnTheRoll::at_the_touch,
+                                           OnTheRoll::half_her_speed_gone};
+    std::vector<std::string> wrong;
+    std::size_t flown = 0;
+    for (const std::string& id : landplanes) {
+        for (const OnTheRoll when : points) {
+            const TakenBackOnTheRoll r = take_back_on_the_roll(id, when);
+            std::printf("  %-13s %-13s touched %5.1f kt, taken back %5.1f kt: %s %6.0f m "
+                        "past the threshold, %5.1f m across; bank %.1f, nose %.1f, "
+                        "up %.1f ft (%.1f by the take-back, %.1f from the AI's touch), "
+                        "step %.4f%s%s\n",
+                        id.c_str(), name_of(when), r.touched_kts, r.taken_back_kts,
+                        r.stopped ? "stopped" : "NOT STOPPED", r.stopped_past_m,
+                        r.stopped_across_m, r.after.worst_roll_deg, r.after.least_pitch_deg,
+                        r.after.highest_ft, r.up_by_take_back_ft, r.ai.highest_ft,
+                        r.worst_to_ai,
+                        r.wreck.empty() ? "" : ", wrecked: ", r.wreck.c_str());
+            const std::string where = id + " taken back " + name_of(when);
+            if (!r.taken_back) {
+                wrong.push_back(where + " was never taken back: " +
+                                (r.wreck.empty() ? "it never touched down"
+                                                 : "wrecked first, " + r.wreck));
+                continue;
+            }
+            if (!r.wreck.empty()) {
+                wrong.push_back(where + " was wrecked: " + r.wreck);
+            }
+            if (!r.stopped) {
+                wrong.push_back(where + " did not stop");
+            }
+            if (r.stopped_past_m < 0.0 || r.stopped_past_m > a_runway().length_m ||
+                std::abs(r.stopped_across_m) > half_width_m) {
+                wrong.push_back(where + " stopped off the runway, " +
+                                std::to_string(r.stopped_past_m) + " m past the threshold and " +
+                                std::to_string(r.stopped_across_m) + " m across");
+            }
+            if (r.worst_to_ai > a_hands_pace) {
+                wrong.push_back(where + " stepped " + std::to_string(r.worst_to_ai) +
+                                " taking back");
+            }
+            for (const std::string& said : r.ai.what_went_wrong(id)) {
+                wrong.push_back(where + ": " + said);
+            }
+            ++flown;
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) +
+                             " things went wrong taking back on the roll, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(landplanes.size() + left_out.size() == taught.size() && left_out.size() == 1,
+          "every aeroplane taught the approach is a landplane flown here or the one flying "
+          "boat named: " + std::to_string(landplanes.size()) + " and " +
+              std::to_string(left_out.size()) + " of " + std::to_string(taught.size()));
+    check(flown == landplanes.size() * points.size(),
+          "every landplane was taken back at every point: " + std::to_string(flown) +
+              " of " + std::to_string(landplanes.size() * points.size()));
 }
 
 namespace {

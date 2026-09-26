@@ -200,6 +200,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_instructor_hands_over_and_takes_back_with_no_step_in_any_control
     an_instructor_demonstrates_a_take_off_and_hands_it_over
     an_instructor_demonstrates_an_approach_and_hands_it_over
+    an_approach_taken_back_on_the_landing_roll_is_landed_to_a_stop
     an_instructor_demonstrates_a_climb_and_descent_and_hands_it_over
     an_instructor_demonstrates_a_stall_and_hands_it_over
     an_instructor_demonstrates_a_circuit_and_hands_it_over

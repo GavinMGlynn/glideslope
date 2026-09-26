@@ -557,9 +557,16 @@ Found while implementing something else. Added when found, not when remembered.
       runway**, at 165 knots, and rolls on to it. Nothing checks where along
       the runway a circuit touches. *Verification: every circuit touches down
       on the runway, past its threshold.*
-- [ ] **Taking an aeroplane back on its landing roll does not finish the
+- [x] **Taking an aeroplane back on its landing roll does not finish the
       landing**: it is handed the plain autopilot, which never stops it.
       *Verification: an approach taken back on the roll is landed to a stop.*
+      Done 2026-09-27: every landplane, taken back at the touch and at half
+      speed, stops on the runway upright; the flying boat, never still
+      afloat, is left out.
+- [ ] **The AI's own touchdown in the 787-8, F-15C and F-35B is a crash by
+      the server's rule**: they meet the runway sinking at 700 to 1,100
+      ft/min, past the 600 the gear is judged to take. *Verification: every
+      aeroplane the AI lands touches down within what its gear takes.*
 - [ ] **The B-2A cannot slow down on the approach.** With nothing to add drag
       it crosses the threshold fourteen knots fast with its throttles shut,
       and floats nearly two feet off the runway after it touches; its
