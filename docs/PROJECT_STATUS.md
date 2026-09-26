@@ -253,9 +253,12 @@ client queued frames exactly as a headless one did.
 without, and each frame begins by waiting for the one two before it - before
 the overlay's upload and before its command buffer is acquired, so a failed
 wait leaves nothing half made (`Renderer::in_flight_`, `gfx/renderer.hpp`).
-It is what a swapchain of two does, and with a visible window the swapchain's
-own wait comes first, so nothing there changes. The fences are waited on and
-released with the renderer.
+It is what a swapchain of two does - two is SDL's default frames in flight,
+and the ring must follow it if that is ever raised. With a visible window the
+renderer's own wait now comes first, at the top of the frame; the swapchain's
+wait comes later and finds the same frame already drawn, so what a visible
+window does is unchanged. The fences are waited on and released with the
+renderer.
 
 **New test flags**, for this test: `--shot-frame N` shoots frame N with every
 frame two ticks however many frames that is (`--shot-at` lengthens frames to
@@ -306,6 +309,13 @@ machine's time, not its memory.
   - The flight screen at 320x240, before, for comparison: 124 / 157 / 160 MiB
     in the release build, 453 / 609 / 601 MiB sanitized; on Windows Direct3D
     12 133 / 137 / 142 MiB and lavapipe 229 / 231 / 234 MiB.
+- **Offline, it is skipped, not failed.** The terrain screen drapes EOX's
+  imagery, and with no imagery the shot refuses its tiles ("11 terrain tiles
+  were drawn without their imagery"), so the test skips on that as on a DEM it
+  could not download, as `frame_terrain.cmake` does. Built on purpose: the
+  test run under `unshare -rn` (no network) against a copy of the DEM and
+  geoid with an empty Cesium cache exited 77; with
+  `GLIDESLOPE_REQUIRE_NETWORK` set it failed instead.
 - **The windowed tests still pass** with the fences on the window's path:
   the client rendering the sky in a window, the client with the window
   joining a server, flying its aircraft and riding along, and the server's
