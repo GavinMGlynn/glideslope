@@ -230,6 +230,16 @@ are the risks the phase order is built around:
 ### Every landplane leaves the runway at its rotation speed, and sooner rotated early, 2026-09-26 — item done
 
 **What is missing first.**
+- **The tree is red on this branch**: after the last change (the pull's
+  build in the rotation's lead, and flying rather than steering off the
+  wheels in the rotation), `the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief`
+  fails on Linux: the B-2A's circuit comes down on something other than its
+  wheels at the landing. It passed before that change. Not yet looked into.
+- **On Windows debug**, `a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`
+  timed out at 900 s under ctest while the Linux suite ran on the same
+  machine; alone it passes. Two client programs crash after their right
+  answer on the way out, the open Windows debug tail. Windows release: the
+  17 take-off, rotation, loading and wheels-up tests pass.
 - **The 747-400 and the F-22A fly no take-off**: neither has a climbing
   speed in its figures, so `sim::departure_speeds` refuses them, as before.
   The Short S.23 is a flying boat and is not rotated. All three are named in
