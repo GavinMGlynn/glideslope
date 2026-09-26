@@ -28,13 +28,14 @@ std::optional<std::uint64_t> memory_held_bytes() {
 #elif defined(__APPLE__)
     // The physical footprint, Apple's own figure for what a process costs
     // (and what Xcode's memory gauge shows): memory it holds dirty,
-    // compressed or not, as Windows' private bytes are. A kernel that
-    // answers with fewer fields than REV0's - which is without it - has none.
+    // compressed or not, as Windows' private bytes are. It is 64 bits, whole
+    // only in an answer of at least REV1's length; a kernel that answers with
+    // less has none.
     task_vm_info_data_t info{};
     mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
     if (task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&info),
                   &count) != KERN_SUCCESS ||
-        count <= TASK_VM_INFO_REV0_COUNT) {
+        count < TASK_VM_INFO_REV1_COUNT) {
         return std::nullopt;
     }
     return static_cast<std::uint64_t>(info.phys_footprint);

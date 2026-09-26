@@ -16,7 +16,7 @@
 # goes through it: a command buffer, its uniforms, and the overlay's upload.
 # The flight screen put it through the same, but flying the aeroplane and
 # building the HUD were most of each frame's time in the sanitized build -
-# 283 s for the test there, against 59 s for this - and none of it is the
+# 283 s for the test there, against 69 s for this - and none of it is the
 # GPU's. The frame's size is not what costs: 64x48 was no quicker than
 # 320x240 by more than a tenth.
 #
@@ -35,8 +35,10 @@
 # platform that will not say fails the test rather than passing it.
 #
 # The terrain is the DEM's, so it needs the tiles and the geoid, fetched into
-# CACHE: without the network the test is skipped (exit 77) unless
-# GLIDESLOPE_REQUIRE_NETWORK is set.
+# CACHE, and the imagery draped on it is EOX's, streamed: without the network,
+# or with the imagery's host down - the shot then refuses its tiles drawn
+# without imagery - the test is skipped (exit 77) unless
+# GLIDESLOPE_REQUIRE_NETWORK is set, as frame_terrain.cmake is.
 
 cmake_minimum_required(VERSION 3.28)
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
@@ -60,9 +62,9 @@ execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size 
                         --shot-frame ${_shot_frame} --memory-every ${_every}
                         --shot "${_shot}"
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-if(NOT _rc EQUAL 0 AND _err MATCHES "could not download")
+if(NOT _rc EQUAL 0 AND _err MATCHES "could not download|without their imagery")
     if("$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
-        message(STATUS "the DEM could not be had: ${_err}")
+        message(STATUS "the DEM or the imagery could not be had: ${_err}")
         cmake_language(EXIT 77)
     endif()
 endif()

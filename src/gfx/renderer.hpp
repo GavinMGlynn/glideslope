@@ -173,6 +173,8 @@ private:
     // frame, and the process past 1.6 GB and dead by frame 2,000. Each
     // frame's fence is kept here, and the frame after next waits on it before
     // it begins, as a swapchain of two would - with a window or without.
+    // Two is SDL's default frames in flight; were that ever raised
+    // (SDL_SetGPUAllowedFramesInFlight), this must follow it.
     std::array<SDL_GPUFence*, 2> in_flight_{};
     std::size_t next_in_flight_ = 0;
 };
