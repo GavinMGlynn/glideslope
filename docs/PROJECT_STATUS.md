@@ -233,9 +233,10 @@ are the risks the phase order is built around:
 at `-j4` ten times over with no locked cache, and **one whole run and part of
 a second were done here**, not ten. The machine was shared with other
 agents' suites, and one run took 64 minutes; ten were stopped as
-unreasonable, at the coordinator's asking. Neither run reported a locked
-cache. The other nine are to come from CI's shards on every push and the
-nightly. The fix and its test are in, and pass on Linux and Windows.
+unreasonable, at the coordinator's asking. That is one run with no locked
+cache, and nine of the ten whole-suite runs at `-j4` still to do - CI's
+shards do not count toward them. The fix and its test are in, and pass on
+Linux and Windows.
 
 **Why names were not enough.** Each rendering test was given a cache file
 of its own on 2026-09-22, and the lock came back as tests were added: the
@@ -271,12 +272,23 @@ vendored code is untouched). `gfx::open_cesium_cache` registers an
 `sqlite3_auto_extension` - the documented way to reach a connection opened
 inside code that is not ours - which, only on a thread opening or calling
 into one of these caches, gives the connection a busy handler that waits up
-to `cesium_cache_wait` (10 s) for another writer. The cache it returns wraps
+to `cesium_cache_wait` (2 s) for another writer. The cache it returns wraps
 `SqliteCache`: each call runs inside `BEGIN IMMEDIATE ... COMMIT`, which
 takes the write lock with no transaction open - the one place SQLite does
-wait - and afterwards resets any statement left open. If the extension never
-sees the connection open, opening the cache throws rather than quietly
-refusing a second writer again. `TerrainTiles` opens its cache through it.
+wait - and afterwards resets any statement left open; a `COMMIT` that fails
+is rolled back and the call reported as not made. If the extension cannot be
+registered, or never sees the connection open, opening the cache throws
+rather than quietly refusing a second writer again.
+
+**A program that stops mid-write costs one wait, not one per tile** (from
+the review of PR #36). A `BEGIN IMMEDIATE` that does not get the lock within
+the 2 s is not followed by the call: a lookup is a miss and a store is not
+stored, as if there were no cache. For `cesium_cache_rest` (30 s) after it
+every call is skipped the same way without waiting, and then the cache is
+tried again. Without this, a peer hung holding the file would have stalled
+each tile's lookup for the whole wait in turn. **Not yet tested**: nothing
+holds the file past the wait to show the rest - the collision test holds it
+only until both writers are waiting. `TerrainTiles` opens its cache through it.
 The per-test names in `client.cmake` are kept, so each test finds only its
 own fetches, but they are no longer what keeps a run from being refused.
 
@@ -293,7 +305,13 @@ really is held. Then each stores 200 entries against the other, reading each
 back between stores, and a fresh open counts all 201 of each. It fails if
 either's first store did not wait (so a run that did not collide is red, not
 green), if anything is missing, or if "database is locked" appears at all.
-It takes 0.3 s. **Seen to fail** both ways above: with the busy handler
+It takes 0.3 s, with a 300 s `TIMEOUT` for a program that dies without
+saying so. **No failure hangs it**: `hold` and `write`, failing or throwing,
+leave `NAME.failed` in the directory, and every wait gives up the moment one
+is there. Seen: with writer b made to fail its seed, all three exited in
+0.09 s ("b could not store its seed", then the holder and writer a "gave up
+waiting"), where before the holder and writer a would have waited for ever.
+**Seen to fail** both ways above: with the busy handler
 removed (0 and 63 of 200 stored), and with the handler but no transaction
 round each call (191 of 200 read back).
 
@@ -11948,10 +11966,9 @@ Found while implementing something else. Added when found, not when remembered.
       program's write and never leave a read open, so programs can share one
       file; `two_programs_writing_one_cesium_cache_at_once_both_store_everything`
       builds the collision and was seen to fail both without the wait and
-      without the transaction. **Still open: nine of the ten suite runs** of
-      the verification - one whole run and part of a second were done on
-      2026-09-27, neither with a locked cache; the rest are to come from CI
-      and the nightly.
+      without the transaction. **Still open: nine of the ten whole-suite
+      runs at `-j4`** of the verification - one run with no locked cache was
+      done on 2026-09-27 (and part of a second, also with none).
       *Verification: the whole suite run at `-j4` reports no locked cache,
       ten times over.*
 

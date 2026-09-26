@@ -874,6 +874,10 @@ add_test(NAME two_programs_writing_one_cesium_cache_at_once_both_store_everythin
     COMMAND ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:glideslope_cache_collision>
         -DWORK=${CMAKE_CURRENT_BINARY_DIR} -DCOUNT=200
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cesium_cache_collision.cmake)
+# Under a second here and nine on Windows; the limit is for a program that
+# dies without saying so, which the others would otherwise wait on for ever.
+set_tests_properties(two_programs_writing_one_cesium_cache_at_once_both_store_everything
+    PROPERTIES TIMEOUT 300)
 
 foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
     add_test(NAME the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}

@@ -18,7 +18,8 @@
 //
 // The cache opened here fixes both, from outside Cesium Native and without
 // changing it. Its connection waits for another writer, up to
-// cesium_cache_wait, from the moment it is opened - which covers the table
+// cesium_cache_wait (and then leaves the file alone for cesium_cache_rest),
+// from the moment it is opened - which covers the table
 // and WAL that opening a new file writes. Each call into it is one
 // transaction that takes the write lock before the call, which is where
 // SQLite does wait, and after it no statement is left open. So any number
@@ -35,11 +36,18 @@ class ICacheDatabase;
 
 namespace glideslope::gfx {
 
-// How long a write to the cache waits for another program's to finish before
-// it is refused. A write holds the file for as long as one statement takes,
-// which is well under a millisecond; this is for a machine far slower than
-// that, not for a program that holds the file and never lets go.
-inline constexpr std::chrono::milliseconds cesium_cache_wait{10000};
+// How long a call into the cache waits for another program's write to finish.
+// A write holds the file for as long as one statement takes, well under a
+// millisecond; this is for a machine far slower than that, not for a program
+// that holds the file and never lets go.
+inline constexpr std::chrono::milliseconds cesium_cache_wait{2000};
+
+// **A program that stops mid-write costs one wait, not one per tile.** When a
+// call does not get the file within cesium_cache_wait it is skipped - a lookup
+// is a miss, a store is not stored, and the tile is fetched as if there were
+// no cache - and so is every call for this long after, without waiting; then
+// the cache is tried again.
+inline constexpr std::chrono::seconds cesium_cache_rest{30};
 
 // The cache in `file`, created if there is none. Throws std::runtime_error if
 // it cannot be opened.
