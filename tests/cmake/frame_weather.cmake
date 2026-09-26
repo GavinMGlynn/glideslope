@@ -40,15 +40,6 @@ file(MAKE_DIRECTORY "${WORK}")
 set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 
-function(skip_without_network rc err)
-    if(NOT rc EQUAL 0 AND err MATCHES "could not download")
-        if("$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
-            message(STATUS "the DEM could not be had: ${err}")
-            cmake_language(EXIT 77)
-        endif()
-    endif()
-endfunction()
-
 # "581.518", with three decimals, as whole millimetres; and back.
 function(millimetres text out)
     if(NOT text MATCHES "^(-?)([0-9]+)\\.([0-9][0-9][0-9])$")
@@ -82,7 +73,7 @@ endfunction()
 # ground, which the DEM gives.
 execute_process(COMMAND "${CLI}" height ${_station_lat} ${_station_lon}
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _height ERROR_VARIABLE _err)
-skip_without_network(${_rc} "${_err}")
+glideslope_skip_when_not_downloaded(${_rc} "${_err}")
 if(NOT _rc EQUAL 0 OR NOT _height MATCHES "above the WGS84 ellipsoid +([0-9]+\\.[0-9][0-9][0-9]) m")
     message(FATAL_ERROR "glideslope_cli height exited ${_rc}\n${_height}${_err}")
 endif()
@@ -93,7 +84,7 @@ metres(${_base} _base_text)
 # Where it is thick and where it has gaps.
 execute_process(COMMAND "${CLI}" sky "${_broken}" ${_station_lat} ${_station_lon}
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _sky ERROR_VARIABLE _err)
-skip_without_network(${_rc} "${_err}")
+glideslope_skip_when_not_downloaded(${_rc} "${_err}")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "glideslope_cli sky exited ${_rc}\n${_err}")
 endif()
@@ -131,7 +122,7 @@ function(shoot name at toward report)
                             --imagery off --metar "${report}" ${ARGN}
                             --shot "${_shot}"
                     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-    skip_without_network(${_rc} "${_err}")
+    glideslope_skip_when_not_downloaded(${_rc} "${_err}")
     if(NOT _rc EQUAL 0)
         message(FATAL_ERROR "glideslope exited ${_rc}\n${_err}")
     endif()

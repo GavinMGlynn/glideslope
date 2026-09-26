@@ -33,12 +33,7 @@ execute_process(
             --shot-at 300 --shot "${_shot}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
-if(NOT _rc EQUAL 0 AND _err MATCHES "could not download")
-    if("$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
-        message(STATUS "the DEM could not be had: ${_err}")
-        cmake_language(EXIT 77)
-    endif()
-endif()
+glideslope_skip_when_not_downloaded("${_rc}" "${_err}")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "glideslope exited ${_rc}\n${_err}")
 endif()

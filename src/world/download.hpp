@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace glideslope::world {
@@ -19,11 +20,13 @@ namespace glideslope::world {
 using Fetch = std::function<platform::HttpResponse(const std::string& url)>;
 
 // **A weather service that did not answer**: nothing answered at all, or
-// the service answered a server error (5xx) to every one of its retries. The
+// the service answered a server error (5xx) to every one of its retries, or
+// a 200 that is not JSON to every one of its tries (answered_json). The
 // weather is live and somebody else's, so this is the one failure a flight's
 // caller may take for "there is no weather to be had". An answer that refuses
-// the request (4xx) or does not parse is not this: it is a fault of the
-// request or of the reading, and is thrown as DemError or the parse's error.
+// the request (4xx), or JSON that is not the answer, is not this: it is a
+// fault of the request or of the reading, and is thrown as DemError or the
+// parse's error.
 struct ServiceUnavailable : DemError {
     using DemError::DemError;
 };
@@ -61,6 +64,17 @@ fetch_with_retries(const Fetch& fetch, const std::string& url, int attempts = 5,
 inline constexpr int parse_attempts = 3;
 // And how long before the first retry, twice that before the next.
 inline constexpr std::chrono::milliseconds parse_wait{1000};
+
+// **Whether a weather service's 200 is JSON at all**, for the `attempt`-th
+// fetch of `url`: true if it is; false, after waiting parse_wait times the
+// attempt, if it is not and another fetch is due; and ServiceUnavailable if
+// the last of parse_attempts is still not JSON. aviationweather.gov and
+// Open-Meteo serve nothing but JSON, and each has, now and then, answered a
+// 200 whose body was not - an error page, or nothing - on every try: in CI
+// on 2026-09-26, Open-Meteo. That is the service not answering, live and
+// somebody else's, and not ours to mend. JSON that is not the answer asked
+// for is ours, and is the caller's to throw.
+bool answered_json(std::string_view text, const std::string& url, int attempt);
 
 // **`bytes` written to `path` whole, unless a file is there already**: true if
 // they were put there, false if one was there and is left as it is. Written

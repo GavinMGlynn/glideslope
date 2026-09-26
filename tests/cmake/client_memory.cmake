@@ -62,12 +62,7 @@ execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size 
                         --shot-frame ${_shot_frame} --memory-every ${_every}
                         --shot "${_shot}"
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-if(NOT _rc EQUAL 0 AND _err MATCHES "could not download|without their imagery")
-    if("$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
-        message(STATUS "the DEM or the imagery could not be had: ${_err}")
-        cmake_language(EXIT 77)
-    endif()
-endif()
+glideslope_skip_when_not_downloaded("${_rc}" "${_err}" "without their imagery")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "glideslope exited ${_rc}\n${_out}${_err}")
 endif()

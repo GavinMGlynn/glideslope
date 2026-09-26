@@ -137,16 +137,11 @@ WindsAloft fetch_winds_aloft(double latitude_deg, double longitude_deg,
             throw DemError("could not download " + url + ": status " +
                            std::to_string(r.status));
         }
-        try {
-            return parse_open_meteo(
-                std::string_view(reinterpret_cast<const char*>(r.body.data()), r.body.size()),
-                time);
-        } catch (const JsonError& e) {
-            if (attempt >= parse_attempts) {
-                throw DemError("could not download " + url + ": its answer was not JSON (" +
-                               e.what() + ")");
-            }
-            std::this_thread::sleep_for(parse_wait * attempt);
+        const std::string_view text(reinterpret_cast<const char*>(r.body.data()),
+                                    r.body.size());
+        if (answered_json(text, url, attempt)) {
+            // JSON that is not a forecast is ours to mend: the error it is.
+            return parse_open_meteo(text, time);
         }
     }
 }
