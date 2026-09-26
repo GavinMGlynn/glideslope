@@ -9,10 +9,13 @@
 # item's verification is "both settings, tested". Both are run here and
 # counted, so dropping one fails rather than passing quietly.
 #
-# **The client leaves by going quiet**, which is the only way a client leaves
-# at all: there is no goodbye message. It stays two seconds and stops; the
-# server's `--timeout 1` lets it go; the server outlives it and says what it
-# did, and its closing lines say what is still in the sky.
+# **A client leaves in one of two ways, and both are walked with both
+# settings**: by saying goodbye, and by going quiet. Either way it stays two
+# seconds and stops. Saying goodbye, it is let go at once, with a timeout of a
+# minute that it cannot have been let go by; going quiet (`--no-goodbye`), the
+# server's `--timeout 1` lets it go. The server outlives it and says what it
+# did, and its closing lines say what is still in the sky - the same, whichever
+# way the client went.
 #
 # **Under `ai` the aircraft must have moved.** Handing it to an AI pilot that
 # then flew nothing would leave it hanging where its owner left it, and a
@@ -47,30 +50,42 @@ if(NOT _rc EQUAL 0)
 endif()
 
 set(_settings remove ai)
+set(_ways goodbye silence)
 set(_walked 0)
 foreach(_what IN LISTS _settings)
     # Each setting's server on a port of its own, written out so that
     # test_ports.cmake can read which ports this takes: PORT and PORT + 1.
+    # Both ways of leaving use it in turn, one server after the other.
     if(_what STREQUAL "remove")
         set(_port ${PORT})
     else()
         math(EXPR _port "${PORT} + 1")
     endif()
+foreach(_way IN LISTS _ways)
+    if(_way STREQUAL "goodbye")
+        set(_quiet "")
+        set(_timeout 60)
+        set(_let_go "let go [^\n]+ after it said it was leaving")
+    else()
+        set(_quiet --no-goodbye)
+        set(_timeout 1)
+        set(_let_go "let go [^\n]+ of silence\n")
+    endif()
     execute_process(
-        COMMAND "${CLIENT}" connect "127.0.0.1:${_port}" "${_key}" 2
+        COMMAND "${CLIENT}" connect "127.0.0.1:${_port}" "${_key}" 2 ${_quiet}
         COMMAND "${SERVER}" --port ${_port} --seconds 7 --ai 1 --headless
-                --data "${DATA}" --timeout 1 --on-leave ${_what}
+                --data "${DATA}" --timeout ${_timeout} --on-leave ${_what}
                 --store "${_store}"
         RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
     if(NOT _rc EQUAL 0)
         message(FATAL_ERROR "--on-leave ${_what}: the server stopped badly:\n${_err}")
     endif()
 
-    # It really did let the client go, or this says nothing.
-    if(NOT _out MATCHES "let go [^\n]+ of silence\n")
-        message(FATAL_ERROR "--on-leave ${_what}: the server never let the "
-                            "client go, so nothing happened to its "
-                            "aircraft:\n${_out}")
+    # It really did let the client go, the way it went, or this says nothing.
+    if(NOT _out MATCHES "${_let_go}")
+        message(FATAL_ERROR "--on-leave ${_what}, leaving by ${_way}: the server "
+                            "never let the client go that way, so nothing "
+                            "happened to its aircraft:\n${_out}")
     endif()
     if(NOT _out MATCHES "their aircraft ([^\n]+)\n")
         message(FATAL_ERROR "--on-leave ${_what}: the server did not say what "
@@ -127,14 +142,18 @@ foreach(_what IN LISTS _settings)
                                 "the AI pilot is flying nothing")
         endif()
     endif()
-    message(STATUS "--on-leave ${_what}: the aircraft ${_said}, ${_left} flying "
-                   "at the end")
+    message(STATUS "--on-leave ${_what}, leaving by ${_way}: the aircraft ${_said}, "
+                   "${_left} flying at the end")
     math(EXPR _walked "${_walked} + 1")
+endforeach()
 endforeach()
 
 list(LENGTH _settings _how_many)
-if(NOT _walked EQUAL _how_many)
-    message(FATAL_ERROR "only ${_walked} of the ${_how_many} settings were walked")
+list(LENGTH _ways _how_many_ways)
+math(EXPR _how_many "${_how_many} * ${_how_many_ways}")
+if(NOT _walked EQUAL _how_many OR NOT _how_many EQUAL 4)
+    message(FATAL_ERROR "only ${_walked} of the ${_how_many} settings and ways of "
+                        "leaving were walked, and there are four")
 endif()
-message(STATUS "both settings walked: an aircraft is removed, or handed to an "
-               "AI pilot that flies it on")
+message(STATUS "both settings walked, each for both ways of leaving: an aircraft "
+               "is removed, or handed to an AI pilot that flies it on")

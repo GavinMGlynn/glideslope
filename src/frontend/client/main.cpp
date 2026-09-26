@@ -592,7 +592,9 @@ static int run_program(int argc, char** argv) {
                 std::fprintf(stderr, "glideslope: --server needs --server-key\n");
                 return 2;
             }
-            session = glideslope::net::ClientSession::connect(where, key);
+            if (auto made = glideslope::net::ClientSession::connect(where, key)) {
+                session.emplace(std::move(*made));
+            }
             if (!session) {
                 std::fprintf(stderr, "glideslope: cannot reach %s\n", where.c_str());
                 return 1;
@@ -1467,6 +1469,15 @@ static int run_program(int argc, char** argv) {
                 }
                 running = false;
             }
+        }
+        // **Leaving a session says goodbye**, so that the server lets this
+        // client go now, not after its timeout of silence. Every other way
+        // out of here says it too, as the session goes (net::ClientSession);
+        // this one says so, for a test to read.
+        if (online) {
+            online->leave();
+            std::printf("glideslope: said goodbye to the server\n");
+            std::fflush(stdout);
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "glideslope: %s\n", e.what());

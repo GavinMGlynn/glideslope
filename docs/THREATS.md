@@ -11,8 +11,9 @@ named below with its defence, or with why it needs none.
 envelope; it answers a `HANDSHAKE_INITIATION` with a `HANDSHAKE_RESPONSE` and
 admits the key to a slot; it opens `SEALED` bodies under the keys that
 handshake agreed and refuses one that fails its tag or falls outside the
-replay window; and it lets go a peer it has not heard from for `--timeout`
-seconds, giving the slot back. Anything else - anything malformed, any kind it
+replay window; and it lets go a peer that says it is leaving, in a sealed
+`LEAVING`, or that it has not heard from for `--timeout` seconds, giving the
+slot back. Anything else - anything malformed, any kind it
 does not expect, a sealed body it cannot open - is dropped or refused, and
 never reaches the simulation, because **nothing a client sends drives an
 aircraft yet**.
@@ -209,15 +210,16 @@ refuse than to open. A body that does not open never moves the window.
 rather than implied: a datagram delayed by more than 64 is indistinguishable
 from a replay and is refused.
 
-**Inside the seal, the first byte says which of five kinds the body is**
-(`src/net/inside.hpp`): `reliable`, `inputs`, `state`, `ping` and `pong`. **Two
-of the five are built.** A `ping` is answered with a `pong` carrying the same
+**Inside the seal, the first byte says which of six kinds the body is**
+(`src/net/inside.hpp`): `reliable`, `inputs`, `state`, `ping`, `pong` and
+`leaving`. All six are built. A `ping` is answered with a `pong` carrying the same
 token, which is how the dashboard's round trip is measured and how a client
 stays alive against `--timeout`; a `pong` is believed only when its token is
 the one outstanding. `inputs` go from each client and are applied to its own
 aircraft only; `state` goes from the server; `reliable` carries the messages
 both ways, and the server acts on a client's `CONTROLLER_SWAP` and `WATCH`
-alone (above). A first byte the server does not know
+alone (above); `leaving` goes from a client, and lets its own session go (see
+"Ending somebody else's session" below). A first byte the server does not know
 is ignored rather than refused, deliberately, so that a later version's client
 is not dropped for speaking one.
 
@@ -682,6 +684,43 @@ before the Big Bang - belongs in the code that knows what each field is for.
 the range half is owed before the server accepts anything, not after. The input
 packet cannot carry either kind of nonsense: its controls are 16-bit fractions
 of -1 to 1, not doubles.
+
+## Ending somebody else's session
+
+**A goodbye is sealed, so only the session's own client can say it.** A client
+that is leaving sends `LEAVING` (`06`) inside a `SEALED` datagram, and the
+server lets that session go at once, exactly as `--timeout` would - its
+aircraft as `--on-leave` says, its slot back. Were the goodbye in the clear, or
+matched by address alone, anybody who could write a player's address on a
+datagram could take them off the server with one; the silence it replaces
+cannot be forged at all, only caused. So the server acts on a goodbye only
+once it has opened under the keys of the session its address has. **Built**,
+in the `leaving` arm of `take()`. What each forgery gets:
+
+- **Its own session's goodbye from another address** that has a session: it
+  does not open under that session's keys, and is dropped without a word.
+- **From an address with no session**: refused, `BAD_HANDSHAKE`, like any
+  sealed datagram from a stranger. Nobody is let go.
+- **Another session's goodbye from a player's address**: it does not open
+  under that player's keys. A goodbye replayed into a *later* session from
+  the same address is this case - a later session has keys of its own.
+- **A copy of a goodbye within its own session** is refused by the replay
+  window; and the first one to open has already ended the session, so every
+  later copy is from an address with no session.
+
+`a_goodbye_from_another_address_or_session_lets_nobody_go` builds the first
+three, waits for the refusal of the second, and holds the server to letting
+each session go only by its own goodbye, after its whole stay; it fails when
+a datagram that does not open lets its address's session go.
+`a_client_that_says_it_is_leaving_is_let_go_at_once` holds the honest case.
+The replay window's own tests hold the fourth.
+
+**What a goodbye does not change.** An on-path attacker who can drop a
+client's datagrams could always have its session let go by silence, and still
+can: a goodbye is not reliable - three copies, each sealed afresh, and the
+timeout if all three are lost - so dropping them delays a leaving and does no
+more. A goodbye costs the server what any sealed datagram does, one opening,
+and a session it ends frees a slot the same way the timeout sweep does.
 
 ## An unauthenticated datagram from anywhere
 

@@ -212,9 +212,10 @@ set(GLIDESLOPE_UNIT_TESTS
     a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_not_know
     a_state_packet_with_a_controller_that_is_not_one_is_refused
     the_transport_document_and_the_code_agree_about_the_state_packet
-    the_kinds_inside_a_sealed_body_are_the_five_the_document_names
+    the_kinds_inside_a_sealed_body_are_the_six_the_document_names
     a_knock_written_and_read_back_carries_the_same_token
     a_knock_that_is_not_one_is_not_read
+    a_goodbye_is_the_one_byte_06_and_nothing_else_is
     the_transport_document_and_the_code_agree_about_a_sealed_body
     a_server_txt_names_a_host_a_port_and_a_key
     anything_that_is_not_a_server_line_is_refused
@@ -1351,7 +1352,8 @@ set_tests_properties(ai_aircraft_keep_flying_with_nobody_connected_and_a_late_cl
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_late)
 
-# **What becomes of an aircraft when its player goes**, both settings walked and
+# **What becomes of an aircraft when its player goes**, both settings walked, for
+# a player saying goodbye and one going quiet, and
 # counted. See cmake/server_leave.cmake.
 add_test(NAME a_player_leaving_has_their_aircraft_removed_or_flown_on_by_an_ai_as_the_session_says
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
@@ -1628,6 +1630,23 @@ add_test(NAME a_server_lets_go_a_client_it_has_not_heard_from_for_its_timeout
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_timeout -DPORT=24757
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_timeout.cmake)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_timeout)
+
+# **A client that says it is leaving is let go at once**, measured on the
+# server's clock with a timeout of two minutes that nothing may pass by; and a
+# goodbye from another address, or sealed under another session, lets nobody
+# go. See cmake/server_goodbye.cmake.
+add_test(NAME a_client_that_says_it_is_leaving_is_let_go_at_once
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DCASE=said
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_goodbye -DPORT=24776
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_goodbye.cmake)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_goodbye)
+add_test(NAME a_goodbye_from_another_address_or_session_lets_nobody_go
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DCASE=forged
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_goodbye_forged -DPORT=24778
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_goodbye.cmake)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_goodbye_forged)
 
 # **A server started by systemd accepts a client**, which is half the
 # deployment item: the unit that ships, with its paths pointed at the build.

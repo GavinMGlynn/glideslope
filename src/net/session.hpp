@@ -79,10 +79,35 @@ public:
     // has.
     void send_message(std::span<const std::uint8_t> body) { (void)reliable_.send(body); }
 
+    // **Says goodbye** (`LEAVING`, `leaving_copies` times, each sealed
+    // afresh), so that the server lets the session go at once rather than
+    // after its `--timeout` of silence, and ends the session here: nothing
+    // is sent or read after it. A session that has already left, or never
+    // began, sends nothing.
+    void leave();
+    // **A session going away says goodbye**, whatever way its owner goes -
+    // the window closed, a flight finished, an error returned - so that no
+    // clean exit leaves a server waiting on the silence. A crash does not
+    // run this, and the server's timeout is for that.
+    ~ClientSession() { leave(); }
+    ClientSession(ClientSession&&) noexcept = default;
+    // Not assigned over: the session assigned over would have to say
+    // goodbye first, and nothing needs it.
+    ClientSession& operator=(ClientSession&&) = delete;
+    ClientSession(const ClientSession&) = delete;
+    ClientSession& operator=(const ClientSession&) = delete;
+
     // Send the initiation once more, as a network that duplicates a datagram
     // would. A test flag's work; a server answers it with what it already
     // said.
     void send_the_initiation_again();
+
+    // **A test's forger's tools** (`glideslope_cli connect --forge-leaving`):
+    // a whole `SEALED` datagram of `plaintext` under this session's keys,
+    // not sent; and any datagram sent from this session's address. Together
+    // they make one session's goodbye arrive from another's address.
+    std::vector<std::uint8_t> sealed(std::span<const std::uint8_t> plaintext);
+    void send_from_here(std::span<const std::uint8_t> datagram);
 
 private:
     ClientSession() = default;

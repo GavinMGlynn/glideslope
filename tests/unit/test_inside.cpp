@@ -24,21 +24,21 @@ namespace {
 const std::vector<std::pair<Inside, const char*>> every_kind = {
     {Inside::reliable, "reliable"}, {Inside::inputs, "inputs"},
     {Inside::state, "state"},       {Inside::ping, "ping"},
-    {Inside::pong, "pong"},
+    {Inside::pong, "pong"},         {Inside::leaving, "leaving"},
 };
 
 } // namespace
 
-// **The kinds a sealed body can hold are exactly five**, numbered 1 to 5, and
-// every other byte is not one. All 256 are walked, so a sixth kind added
+// **The kinds a sealed body can hold are exactly six**, numbered 1 to 6, and
+// every other byte is not one. All 256 are walked, so a seventh kind added
 // without a test fails here.
-GLIDESLOPE_TEST(the_kinds_inside_a_sealed_body_are_the_five_the_document_names) {
-    check(every_kind.size() == 5, "five kinds, not " + std::to_string(every_kind.size()));
+GLIDESLOPE_TEST(the_kinds_inside_a_sealed_body_are_the_six_the_document_names) {
+    check(every_kind.size() == 6, "six kinds, not " + std::to_string(every_kind.size()));
     std::set<std::uint8_t> theirs;
     for (const auto& [kind, name] : every_kind) {
         theirs.insert(static_cast<std::uint8_t>(kind));
     }
-    check(theirs.size() == 5, "and no two share a number");
+    check(theirs.size() == 6, "and no two share a number");
 
     int known = 0;
     int unknown = 0;
@@ -50,7 +50,7 @@ GLIDESLOPE_TEST(the_kinds_inside_a_sealed_body_are_the_five_the_document_names) 
                   "a kind, and known_inside disagrees");
         (ours ? known : unknown) += 1;
     }
-    check(known == 5 && unknown == 251,
+    check(known == 6 && unknown == 250,
           "all 256 bytes walked: " + std::to_string(known) + " known, " +
               std::to_string(unknown) + " not");
 
@@ -61,6 +61,40 @@ GLIDESLOPE_TEST(the_kinds_inside_a_sealed_body_are_the_five_the_document_names) 
     check(static_cast<std::uint8_t>(Inside::state) == 3, "state is 03");
     check(static_cast<std::uint8_t>(Inside::ping) == 4, "ping is 04");
     check(static_cast<std::uint8_t>(Inside::pong) == 5, "pong is 05");
+    check(static_cast<std::uint8_t>(Inside::leaving) == 6, "leaving is 06");
+}
+
+// **A goodbye is exactly one byte, `06`.** Every length from nothing to ten
+// is walked with the right first byte, and every first byte at the right
+// length: one of the 11 + 256 is a goodbye, and it is the same one twice.
+GLIDESLOPE_TEST(a_goodbye_is_the_one_byte_06_and_nothing_else_is) {
+    using glideslope::net::is_leaving;
+    std::size_t walked = 0;
+    std::size_t taken = 0;
+    for (std::size_t length = 0; length <= 10; ++length) {
+        std::vector<std::uint8_t> body(length, 0);
+        if (length > 0) {
+            body[0] = static_cast<std::uint8_t>(Inside::leaving);
+        }
+        const bool is = is_leaving(std::span<const std::uint8_t>(body.data(), length));
+        check(is == (length == 1),
+              std::to_string(length) + " bytes beginning 06 " + (is ? "is" : "is not") +
+                  " taken for a goodbye");
+        taken += is ? 1 : 0;
+        ++walked;
+    }
+    for (int byte = 0; byte <= 255; ++byte) {
+        const std::uint8_t body[1] = {static_cast<std::uint8_t>(byte)};
+        const bool is = is_leaving(std::span<const std::uint8_t>(body, 1));
+        check(is == (byte == 6), "the one byte " + std::to_string(byte) +
+                                     (is ? " is" : " is not") + " taken for a goodbye");
+        taken += is ? 1 : 0;
+        ++walked;
+    }
+    check(walked == 11 + 256, "every length and every byte walked: " + std::to_string(walked));
+    check(taken == 2, "the one byte 06 is a goodbye, found twice, and nothing else");
+    check(glideslope::net::leaving_copies >= 2,
+          "a goodbye is sent more than once, since it is not repeated until heard");
 }
 
 // **A knock written down and read back carries the same token**, for both
@@ -173,7 +207,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_a_sealed_body) {
     const std::vector<std::pair<Inside, std::string>> named = {
         {Inside::reliable, "RELIABLE"}, {Inside::inputs, "INPUTS"},
         {Inside::state, "STATE"},       {Inside::ping, "PING"},
-        {Inside::pong, "PONG"},
+        {Inside::pong, "PONG"},         {Inside::leaving, "LEAVING"},
     };
     check(named.size() == every_kind.size(), "one name per kind");
     std::size_t walked = 0;
@@ -184,7 +218,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_a_sealed_body) {
               "the document gives " + name + " as " + buf);
         ++walked;
     }
-    check(walked == 5, "every kind was walked");
+    check(walked == 6, "every kind was walked");
 
     // And it says the two things about them that are not in the table.
     check(says("A kind this version does not know is **ignored, not refused**"),
