@@ -63,7 +63,7 @@ execute_process(
     # Until the client has gone - dropped, here - rather than for a fixed
     # time, which on a slow runner ended before the client had joined.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --data "${DATA}"
-            --timeout 3 --store "${_store}" --window --window-dump
+            --store "${_store}" --window --window-dump
             --window-press "drop 0" --window-shot "${_shot}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rc EQUAL 0)

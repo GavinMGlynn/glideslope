@@ -94,7 +94,7 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1
             --track "${_truth}" --watch-ai
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --players 2 --data "${DATA}" --timeout 3 --store "${_store}"
+            --players 2 --data "${DATA}" --store "${_store}"
     # Last, so that what it says about what it did is what is read; and it
     # stops when the server does.
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay ${DELAY} --jitter ${JITTER}
