@@ -1385,7 +1385,7 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                   std::abs(flown.touch_across_m) <= 10.0,
               id + " touched down " + std::to_string(flown.touch_along_m) +
                   " m beyond the threshold and " + std::to_string(flown.touch_across_m) +
-                  " m right of the centreline, which is not on the runway");
+                  " m right of the centreline, which is not within 10 m of it");
         for (const std::string& wrong : flown.after.what_went_wrong(id)) {
             came_down_badly.push_back(wrong);
         }
