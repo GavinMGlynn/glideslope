@@ -61,91 +61,91 @@ foreach(_what IN LISTS _settings)
     else()
         math(EXPR _port "${PORT} + 1")
     endif()
-foreach(_way IN LISTS _ways)
-    if(_way STREQUAL "goodbye")
-        set(_quiet "")
-        set(_timeout 60)
-        set(_let_go "let go [^\n]+ after it said it was leaving")
-    else()
-        set(_quiet --no-goodbye)
-        set(_timeout 1)
-        set(_let_go "let go [^\n]+ of silence\n")
-    endif()
-    execute_process(
-        COMMAND "${CLIENT}" connect "127.0.0.1:${_port}" "${_key}" 2 ${_quiet}
-        COMMAND "${SERVER}" --port ${_port} --seconds 7 --ai 1 --headless
-                --data "${DATA}" --timeout ${_timeout} --on-leave ${_what}
-                --store "${_store}"
-        RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-    if(NOT _rc EQUAL 0)
-        message(FATAL_ERROR "--on-leave ${_what}: the server stopped badly:\n${_err}")
-    endif()
-
-    # It really did let the client go, the way it went, or this says nothing.
-    if(NOT _out MATCHES "${_let_go}")
-        message(FATAL_ERROR "--on-leave ${_what}, leaving by ${_way}: the server "
-                            "never let the client go that way, so nothing "
-                            "happened to its aircraft:\n${_out}")
-    endif()
-    if(NOT _out MATCHES "their aircraft ([^\n]+)\n")
-        message(FATAL_ERROR "--on-leave ${_what}: the server did not say what "
-                            "became of the aircraft:\n${_out}")
-    endif()
-    set(_said "${CMAKE_MATCH_1}")
-
-    string(REGEX MATCHALL "flew [^\n]+" _flew "${_out}")
-    list(LENGTH _flew _left)
-    if(NOT _out MATCHES "ran ([0-9]+) AI aircraft")
-        message(FATAL_ERROR "--on-leave ${_what}: the server did not count its "
-                            "AI aircraft:\n${_out}")
-    endif()
-    set(_ai_at_end ${CMAKE_MATCH_1})
-
-    if(_what STREQUAL "remove")
-        if(NOT _said STREQUAL "is out of the sky")
-            message(FATAL_ERROR "--on-leave remove said '${_said}'")
-        endif()
-        if(NOT _left EQUAL 1)
-            message(FATAL_ERROR "--on-leave remove left ${_left} aircraft "
-                                "flying, and only the server's one should "
-                                "be:\n${_out}")
-        endif()
-        if(NOT _ai_at_end EQUAL 1)
-            message(FATAL_ERROR "--on-leave remove ended with ${_ai_at_end} AI "
-                                "aircraft, not one")
-        endif()
-    else()
-        if(NOT _said STREQUAL "is now flown by an AI pilot")
-            message(FATAL_ERROR "--on-leave ai said '${_said}'")
-        endif()
-        if(NOT _left EQUAL 2)
-            message(FATAL_ERROR "--on-leave ai left ${_left} aircraft flying, "
-                                "and the server's one plus the one handed over "
-                                "is two:\n${_out}")
-        endif()
-        if(NOT _ai_at_end EQUAL 2)
-            message(FATAL_ERROR "--on-leave ai ended with ${_ai_at_end} AI "
-                                "aircraft, not two")
-        endif()
-        # **The one handed over is named, and it has gone somewhere.** An AI
-        # pilot that flew nothing would leave it where its owner left it.
-        if(NOT _out MATCHES "flew [^\n]*was slot ([0-9]+)[^\n]*at ([-0-9.]+), ([-0-9.]+)")
-            message(FATAL_ERROR "--on-leave ai: no aircraft is named as one "
-                                "that was somebody's:\n${_out}")
-        endif()
-        set(_lat ${CMAKE_MATCH_2})
-        if(_lat GREATER -33.9049 OR _lat LESS -33.9051)
-            # It moved, which is what is wanted.
+    foreach(_way IN LISTS _ways)
+        if(_way STREQUAL "goodbye")
+            set(_quiet "")
+            set(_timeout 60)
+            set(_let_go "let go [^\n]+ after it said it was leaving")
         else()
-            message(FATAL_ERROR "--on-leave ai: the handed-over aircraft is "
-                                "still at ${_lat}, where the plan starts, so "
-                                "the AI pilot is flying nothing")
+            set(_quiet --no-goodbye)
+            set(_timeout 1)
+            set(_let_go "let go [^\n]+ of silence\n")
         endif()
-    endif()
-    message(STATUS "--on-leave ${_what}, leaving by ${_way}: the aircraft ${_said}, "
-                   "${_left} flying at the end")
-    math(EXPR _walked "${_walked} + 1")
-endforeach()
+        execute_process(
+            COMMAND "${CLIENT}" connect "127.0.0.1:${_port}" "${_key}" 2 ${_quiet}
+            COMMAND "${SERVER}" --port ${_port} --seconds 7 --ai 1 --headless
+                    --data "${DATA}" --timeout ${_timeout} --on-leave ${_what}
+                    --store "${_store}"
+            RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+        if(NOT _rc EQUAL 0)
+            message(FATAL_ERROR "--on-leave ${_what}: the server stopped badly:\n${_err}")
+        endif()
+
+        # It really did let the client go, the way it went, or this says nothing.
+        if(NOT _out MATCHES "${_let_go}")
+            message(FATAL_ERROR "--on-leave ${_what}, leaving by ${_way}: the server "
+                                "never let the client go that way, so nothing "
+                                "happened to its aircraft:\n${_out}")
+        endif()
+        if(NOT _out MATCHES "their aircraft ([^\n]+)\n")
+            message(FATAL_ERROR "--on-leave ${_what}: the server did not say what "
+                                "became of the aircraft:\n${_out}")
+        endif()
+        set(_said "${CMAKE_MATCH_1}")
+
+        string(REGEX MATCHALL "flew [^\n]+" _flew "${_out}")
+        list(LENGTH _flew _left)
+        if(NOT _out MATCHES "ran ([0-9]+) AI aircraft")
+            message(FATAL_ERROR "--on-leave ${_what}: the server did not count its "
+                                "AI aircraft:\n${_out}")
+        endif()
+        set(_ai_at_end ${CMAKE_MATCH_1})
+
+        if(_what STREQUAL "remove")
+            if(NOT _said STREQUAL "is out of the sky")
+                message(FATAL_ERROR "--on-leave remove said '${_said}'")
+            endif()
+            if(NOT _left EQUAL 1)
+                message(FATAL_ERROR "--on-leave remove left ${_left} aircraft "
+                                    "flying, and only the server's one should "
+                                    "be:\n${_out}")
+            endif()
+            if(NOT _ai_at_end EQUAL 1)
+                message(FATAL_ERROR "--on-leave remove ended with ${_ai_at_end} AI "
+                                    "aircraft, not one")
+            endif()
+        else()
+            if(NOT _said STREQUAL "is now flown by an AI pilot")
+                message(FATAL_ERROR "--on-leave ai said '${_said}'")
+            endif()
+            if(NOT _left EQUAL 2)
+                message(FATAL_ERROR "--on-leave ai left ${_left} aircraft flying, "
+                                    "and the server's one plus the one handed over "
+                                    "is two:\n${_out}")
+            endif()
+            if(NOT _ai_at_end EQUAL 2)
+                message(FATAL_ERROR "--on-leave ai ended with ${_ai_at_end} AI "
+                                    "aircraft, not two")
+            endif()
+            # **The one handed over is named, and it has gone somewhere.** An AI
+            # pilot that flew nothing would leave it where its owner left it.
+            if(NOT _out MATCHES "flew [^\n]*was slot ([0-9]+)[^\n]*at ([-0-9.]+), ([-0-9.]+)")
+                message(FATAL_ERROR "--on-leave ai: no aircraft is named as one "
+                                    "that was somebody's:\n${_out}")
+            endif()
+            set(_lat ${CMAKE_MATCH_2})
+            if(_lat GREATER -33.9049 OR _lat LESS -33.9051)
+                # It moved, which is what is wanted.
+            else()
+                message(FATAL_ERROR "--on-leave ai: the handed-over aircraft is "
+                                    "still at ${_lat}, where the plan starts, so "
+                                    "the AI pilot is flying nothing")
+            endif()
+        endif()
+        message(STATUS "--on-leave ${_what}, leaving by ${_way}: the aircraft ${_said}, "
+                       "${_left} flying at the end")
+        math(EXPR _walked "${_walked} + 1")
+    endforeach()
 endforeach()
 
 list(LENGTH _settings _how_many)

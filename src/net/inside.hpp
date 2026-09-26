@@ -6,8 +6,9 @@
 // datagram** (`REQUIREMENTS.md` 6.7), and there are several kinds of thing to
 // send: the reliable layer's datagrams carrying the seven messages, a
 // client's input packets, a server's state updates, the keepalive that
-// measures a round trip, and a client's goodbye. They share one envelope type, so the plaintext
-// inside begins with a byte saying which of them it is.
+// measures a round trip, and a client's goodbye. They share one envelope
+// type, so the plaintext inside begins with a byte saying which of them it
+// is.
 //
 // **This byte is inside the seal, not in front of it.** It is not in the
 // envelope, because the envelope is in the clear and nothing outside a

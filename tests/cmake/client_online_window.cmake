@@ -80,7 +80,22 @@ execute_process(
             --shot "${_shot}" --shot-at 2 --online
     COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 0 --headless
             --timeout 120 --store "${_store}"
-    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+# The server must finish well. The client must too, but for the leak
+# sanitizer's exit, which a sanitized build gives for leaks in libraries
+# loaded at run time; those are judged as the first run's are, and any of
+# glideslope's fails.
+list(GET _rcs 0 _client_rc)
+list(GET _rcs 1 _server_rc)
+if(NOT _server_rc EQUAL 0)
+    message(FATAL_ERROR "the server of the second run exited ${_server_rc}:\n${_out}")
+endif()
+if(NOT _client_rc EQUAL 0)
+    if(NOT _err MATCHES "LeakSanitizer: detected memory leaks")
+        message(FATAL_ERROR "the client of the second run exited ${_client_rc}:\n${_err}")
+    endif()
+    glideslope_judge_leaks("${_err}")
+endif()
 if(NOT EXISTS "${_shot}")
     message(FATAL_ERROR "the client drew nothing the second time:\n${_err}\n${_out}")
 endif()
