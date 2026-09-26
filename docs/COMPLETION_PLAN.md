@@ -553,10 +553,13 @@ Found while implementing something else. Added when found, not when remembered.
       its wheels.* Done 2026-09-24: the Learjet already stopped level; three
       jets bounced off the runway and one rocked a wingtip on to it. Jets now
       land as jets are landed - nose down, spoilers out, brakes on.
-- [ ] **The F-35B's circuit touches down two kilometres short of the
+- [x] **The F-35B's circuit touches down two kilometres short of the
       runway**, at 165 knots, and rolls on to it. Nothing checks where along
       the runway a circuit touches. *Verification: every circuit touches down
-      on the runway, past its threshold.*
+      on the runway, past its threshold.* Done 2026-09-27: every circuit and
+      every approach lesson now touches down on the runway, past its
+      threshold; the approach autopilot held the F-35B's nose below what her
+      glidepath needs.
 - [x] **Taking an aeroplane back on its landing roll does not finish the
       landing**: it is handed the plain autopilot, which never stops it.
       *Verification: an approach taken back on the roll is landed to a stop.*

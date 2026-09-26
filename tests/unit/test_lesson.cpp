@@ -1203,6 +1203,10 @@ struct Approached {
     // runway after that.
     glideslope::test::AfterTouch after;
     bool stopped = false;
+    // Where the wheels (or the hull) first met the runway: beyond the
+    // threshold, and right of the centreline.
+    double touch_along_m = 0.0;
+    double touch_across_m = 0.0;
 };
 
 // **Two miles out on the glidepath, down to a stop.** `fast_by_kts` is flown
@@ -1328,6 +1332,8 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
         out.after.watch(aircraft);
     }
     out.stopped = done();
+    out.touch_along_m = lander.touchdown_along_m();
+    out.touch_across_m = lander.touchdown_across_m();
     out.debrief = run.debrief_lines();
     out.completed = run.completed();
     out.stages = it->stages.size();
@@ -1361,6 +1367,9 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                     "%s\n",
                     flown.after.worst_roll_deg, flown.after.least_pitch_deg,
                     flown.after.highest_ft, flown.stopped ? "stopped" : "NOT STOPPED");
+        std::printf("         touched %.0f m beyond the threshold, %.1f m right of the "
+                    "centreline\n",
+                    flown.touch_along_m, flown.touch_across_m);
         for (const std::string& said : flown.debrief) {
             std::printf("    %s\n", said.c_str());
         }
@@ -1371,6 +1380,12 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
               id + " flown by the book says nothing, and it said " +
                   std::to_string(flown.debrief.size()) + " things");
         check(flown.stopped, id + " came to a stop after the approach");
+        // **On the runway, past its threshold**, as the circuit's are.
+        check(flown.touch_along_m >= 0.0 && flown.touch_along_m <= a_runway().length_m &&
+                  std::abs(flown.touch_across_m) <= 10.0,
+              id + " touched down " + std::to_string(flown.touch_along_m) +
+                  " m beyond the threshold and " + std::to_string(flown.touch_across_m) +
+                  " m right of the centreline, which is not on the runway");
         for (const std::string& wrong : flown.after.what_went_wrong(id)) {
             came_down_badly.push_back(wrong);
         }
@@ -3801,6 +3816,13 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
         check(std::abs(flown.touch_across_m) <= 10.0,
               id + " touched down " + std::to_string(flown.touch_across_m) +
                   " m from the centreline, which is not within 10");
+        // **And past the threshold, on the runway's length**: the F-35B once
+        // touched two kilometres short at 165 knots, rolled on to the runway
+        // and stopped on it, which neither check above could see.
+        check(flown.touch_along_m >= 0.0 && flown.touch_along_m <= a_runway().length_m,
+              id + " touched down " + std::to_string(flown.touch_along_m) +
+                  " m beyond the threshold, which is not on the runway's " +
+                  std::to_string(a_runway().length_m) + " m");
         check(flown.debrief.empty(),
               id + " flew the circuit inside the lesson's limits, and said " +
                   std::to_string(flown.debrief.size()) + " things");
