@@ -4,6 +4,7 @@
 //   glideslope_cache_collision hold CACHEFILE DIR NAME...
 //   glideslope_cache_collision write CACHEFILE DIR NAME COUNT
 //   glideslope_cache_collision count CACHEFILE NAME COUNT
+//   glideslope_cache_collision pause CACHEFILE REST_MS
 //
 // Every cache is opened as the client opens it, by gfx::open_cesium_cache.
 // The programs signal each other with empty files in DIR, and nothing waits
@@ -33,6 +34,21 @@
 // when every NAME is waiting for it, or is past its first store without
 // having waited - so a cache that refuses rather than waits is not waited for
 // - and exits 0.
+//
+// **pause** shows a program that holds the file and never lets go costs one
+// wait, not one a call. It opens the cache, left alone for REST_MS after a
+// call that could not get the file, and holds the file with a connection of
+// its own. Then, each call timed on the steady clock and the cache's count
+// of waits read around it:
+//   1. a store waits, once, for no more than cesium_cache_wait and a half,
+//      and is not stored;
+//   2. three more stores are skipped without waiting - no wait counted, each
+//      well under the wait;
+//   3. the file is let go, and a store made at once, still in the pause, is
+//      skipped too - so it is the pause that skipped them, not the lock;
+//   4. once REST_MS has passed since the first store gave up, a store is
+//      stored, and read back.
+// Exits 0 only if every step held; says which did not.
 //
 // **count** reads NAME-seed and NAME-0 to NAME-(COUNT-1) back and says how
 // many of the COUNT + 1 it found; exits 0 only if it found them all.
@@ -250,6 +266,80 @@ int tally(const fs::path& file, const std::string& name, int count) {
     return found == count + 1 ? 0 : 1;
 }
 
+int pause(const fs::path& file, std::chrono::milliseconds rest) {
+    using clock = std::chrono::steady_clock;
+    // A fresh file, so nothing found was stored by an earlier run.
+    for (const char* end : {"", "-wal", "-shm"}) {
+        fs::remove(file.string() + end);
+    }
+    const auto cache = glideslope::gfx::open_cesium_cache(file, rest);
+    sqlite3* holder = open_raw(file);
+    if (holder == nullptr) {
+        return 1;
+    }
+    if (sqlite3_exec(holder, "BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS held(at INTEGER); "
+                             "INSERT INTO held VALUES (1);",
+                     nullptr, nullptr, nullptr) != SQLITE_OK) {
+        sqlite3_close(holder);
+        std::fprintf(stderr, "glideslope_cache_collision: could not hold %s\n",
+                     file.string().c_str());
+        return 1;
+    }
+    int wrong = 0;
+    const auto check = [&wrong](bool ok, const char* what) {
+        std::fprintf(stderr, "glideslope_cache_collision: %s %s\n", ok ? "yes:" : "NO: ", what);
+        if (!ok) {
+            ++wrong;
+        }
+    };
+    const auto ms = [](clock::duration d) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
+    };
+    const auto wait = glideslope::gfx::cesium_cache_wait;
+    const auto well_under = wait / 4;
+
+    // 1. One wait, bounded, and nothing stored.
+    std::uint64_t waits = glideslope::gfx::cesium_cache_waits();
+    auto t0 = clock::now();
+    bool stored = store(*cache, "held-0");
+    const auto gave_up = clock::now();
+    std::fprintf(stderr, "glideslope_cache_collision: the first store took %lld ms\n",
+                 static_cast<long long>(ms(gave_up - t0)));
+    check(!stored, "the first store, meeting the held file, was not stored");
+    check(glideslope::gfx::cesium_cache_waits() == waits + 1, "it waited, once");
+    check(gave_up - t0 >= wait && gave_up - t0 <= wait + wait / 2,
+          "for the wait and no more than half as long again");
+
+    // 2. Within the pause: skipped, and no waiting.
+    for (int i = 1; i <= 3; ++i) {
+        waits = glideslope::gfx::cesium_cache_waits();
+        t0 = clock::now();
+        stored = store(*cache, "held-" + std::to_string(i));
+        const auto took = clock::now() - t0;
+        std::fprintf(stderr, "glideslope_cache_collision: store %d in the pause took %lld ms\n",
+                     i, static_cast<long long>(ms(took)));
+        check(!stored && glideslope::gfx::cesium_cache_waits() == waits && took < well_under,
+              "a store in the pause was skipped without waiting");
+    }
+
+    // 3. Let go: still the pause, so still skipped.
+    const int released = sqlite3_exec(holder, "COMMIT;", nullptr, nullptr, nullptr);
+    sqlite3_close(holder);
+    check(released == SQLITE_OK, "the holder let go");
+    waits = glideslope::gfx::cesium_cache_waits();
+    stored = store(*cache, "free-in-pause");
+    check(clock::now() - gave_up < rest, "(this store was made inside the pause)");
+    check(!stored && glideslope::gfx::cesium_cache_waits() == waits,
+          "a store in the pause, the file free, was skipped too");
+
+    // 4. After the pause: stored again.
+    std::this_thread::sleep_until(gave_up + rest);
+    stored = store(*cache, "after-pause");
+    check(stored && holds(*cache, "after-pause"), "after the pause a store is stored again");
+    check(!holds(*cache, "free-in-pause"), "and what was skipped is not there");
+    return wrong == 0 ? 0 : 1;
+}
+
 int count_of(const char* text) {
     try {
         const int n = std::stoi(text);
@@ -295,6 +385,11 @@ int main(int argc, char** argv) {
                 throw;
             }
         }
+        if (args.size() == 3 && args[0] == "pause") {
+            const int n = count_of(args[2].c_str());
+            return n < 0 ? refuse("REST_MS must be a positive number")
+                         : pause(args[1], std::chrono::milliseconds(n));
+        }
         if (args.size() == 4 && args[0] == "count") {
             const int n = count_of(args[3].c_str());
             return n < 0 ? refuse("COUNT must be a positive number") : tally(args[1], args[2], n);
@@ -304,5 +399,6 @@ int main(int argc, char** argv) {
         return 1;
     }
     return refuse("usage: glideslope_cache_collision hold CACHEFILE DIR NAME... | "
-                  "write CACHEFILE DIR NAME COUNT | count CACHEFILE NAME COUNT");
+                  "write CACHEFILE DIR NAME COUNT | count CACHEFILE NAME COUNT | "
+                  "pause CACHEFILE REST_MS");
 }
