@@ -3,6 +3,7 @@
 #include "platform/http.hpp"
 #include "world/json.hpp"
 
+#include "gfx/cesium_cache.hpp"
 #include "gfx/terrain_colour.hpp"
 #include "platform/paths.hpp"
 #include "platform/stop.hpp"
@@ -23,7 +24,6 @@
 #include <Cesium3DTilesSelection/ViewUpdateResult.h>
 #include <CesiumAsync/AsyncSystem.h>
 #include <CesiumAsync/CachingAssetAccessor.h>
-#include <CesiumAsync/SqliteCache.h>
 #include <CesiumRasterOverlays/BingMapsRasterOverlay.h>
 #include <CesiumAsync/HttpHeaders.h>
 #include <CesiumAsync/IAssetAccessor.h>
@@ -1401,9 +1401,7 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
         std::error_code error;
         std::filesystem::create_directories(options.cache_file.parent_path(), error);
         accessor = std::make_shared<CesiumAsync::CachingAssetAccessor>(
-            spdlog::default_logger(), accessor,
-            std::make_shared<CesiumAsync::SqliteCache>(spdlog::default_logger(),
-                                                       options.cache_file.string()));
+            spdlog::default_logger(), accessor, open_cesium_cache(options.cache_file));
     }
     accessor = std::make_shared<CountingAccessor>(accessor, impl_->requests);
     // Cesium ion authorises every tile, not just the tileset that names them,

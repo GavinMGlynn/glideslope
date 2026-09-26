@@ -650,8 +650,9 @@ Found while implementing something else. Added when found, not when remembered.
       fan is not modelled. *Verification: it hovers at its published thrust,
       lands vertically, and takes off in its published short distance.*
 - [ ] **The Cesium cache still locks when the rendering tests run together.**
-      *Verification: the whole suite at `-j4` reports no locked cache, ten times
-      over.*
+      Programs can now share one cache and each stores everything; the ten
+      suite runs are still to do. *Verification: the whole suite at `-j4`
+      reports no locked cache, ten times over.*
 - [x] **The reliable layer believes an acknowledgement it is told.**
       *Verification: a forged acknowledgement lets go of nothing not yet
       acknowledged.* Done 2026-09-22.

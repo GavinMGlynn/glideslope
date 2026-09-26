@@ -371,6 +371,7 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
     # The renderer - SDL_GPU over Vulkan, Direct3D 12 and Metal.
     # ---------------------------------------------------------------------------
     add_library(glideslope_gfx STATIC
+        src/gfx/cesium_cache.cpp
         src/gfx/hud.cpp
         src/gfx/renderer.cpp
         src/gfx/sky.cpp
@@ -381,7 +382,8 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
     # Cesium Native is behind gfx/terrain_tiles.hpp, and none of it is in a header
     # here.
     target_link_libraries(glideslope_gfx PRIVATE Cesium3DTilesSelection
-                                              Cesium3DTilesContent CesiumGltfContent)
+                                              Cesium3DTilesContent CesiumGltfContent
+                                              unofficial::sqlite3::sqlite3)
     glideslope_shaders(glideslope_gfx
         src/gfx/shaders/mesh.vert
         src/gfx/shaders/mesh.frag)
