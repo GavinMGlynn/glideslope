@@ -493,8 +493,11 @@ Found while implementing something else. Added when found, not when remembered.
       and floats nearly two feet off the runway after it touches.
       *Verification: the B-2A crosses the threshold within five knots of its
       reference speed.*
-- [ ] **A `--terrain ion` run can hang for ever, past its own timeout.**
-      *Verification: a timed-out run is gone and leaves no cache lock.*
+- [x] **A `--terrain ion` run can hang for ever, past its own timeout.**
+      *Verification: a timed-out run is gone and leaves no cache lock.* Done
+      2026-09-26: against a stand-in ion that never finishes sending, a run
+      told to stop is gone within a second or two, one left alone ends when
+      its frame is written, and either way the cache takes a write at once.
 - [ ] **A published stall speed for the F-15C**, from its flight manual. The
       fighters' approach and stall lessons fly a stall measured on the model,
       which gives a 196-knot reference speed. *Verification: the F-15C stalls

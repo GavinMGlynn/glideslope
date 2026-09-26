@@ -227,6 +227,89 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A `--terrain ion` run that times out is gone, and leaves its cache free, 2026-09-26 — tail done
+
+**Cause: two waits with no end, one behind the other.**
+
+- **At exit, the terrain waited for every transfer in flight**
+  (`~TerrainTiles`: the tileset's asynchronous destruction, then every
+  counted request). A tile server that answers and then sends its body a byte
+  at a time never trips a stall timeout - libcurl's is "under 1 byte/s for
+  60 s", WinHTTP's and NSURLSession's are per read - so the transfer never
+  ended and neither did the program. It had already written its frame.
+- **A SIGTERM could not reach it.** SDL installs its own SIGTERM and SIGINT
+  handlers, which only queue a quit event; the client read events between
+  frames, and a shot's frame spends up to 45 s inside the terrain's settling
+  wait, then the exit above. So `timeout -s TERM` fired, the signal was
+  swallowed, and the five runs found alive on 2026-09-22 were still holding
+  the GPU and their Cesium caches a day and a half later.
+
+**The lock was the live process.** Cesium's cache is WAL, and the OS drops a
+process's SQLite locks when it goes, so "leaves no cache lock" is "is gone"
+plus the file being writable afterwards.
+
+**What changed.**
+
+- `HttpRequest::abandon` (`platform/http.hpp`): a flag that gives a transfer
+  up at once, with an `HttpError`, whatever it is waiting on. libcurl through
+  its progress callback, which it calls about once a second even when no
+  bytes are arriving; WinHTTP by closing the request handle from a small
+  watcher thread, which Microsoft documents as the way to end a synchronous
+  request from elsewhere; NSURLSession by cancelling the task, waited on a
+  tenth of a second at a time.
+- `TerrainTiles` raises its own flag as the first thing its destructor does,
+  so every tile transfer still going ends as a failed request and the waits
+  after it end.
+- `platform/stop.hpp`: the client catches SIGTERM and SIGINT itself (Ctrl+C,
+  Ctrl+Break and the console closing on Windows), with
+  `SDL_HINT_NO_SIGNAL_HANDLERS` so SDL installs none. The handler only raises
+  a flag, installed with `SA_RESETHAND`, so the same signal sent a second
+  time ends the program the system's way whatever it is stuck in. The frame
+  loop, the terrain's settling wait and `heights_at`'s wait all give way to
+  it, and Cesium ion's endpoint request abandons on it. A stopped run says
+  "stopped, as it was told to" and exits 128 + the signal: 143 for SIGTERM.
+- `GLIDESLOPE_CESIUM_ION_API` (`platform::cesium_ion_api`) names where
+  Cesium ion's API is, https://api.cesium.com unless set - the way a test
+  points the ion provider at a stand-in. The token goes wherever it names.
+
+**Verified** against `glideslope_ion_stall`, a stand-in for Cesium ion on the
+loopback (`tests/tools/ion_stall.cpp`): it answers assets 1 and 2's endpoints
+naming itself, then answers every tile, layer.json and Bing metadata request
+with a 200, a length of 100 MB and a byte every 250 ms for ever, and writes a
+file when the first such transfer starts so the test can wait for that event.
+`tests/cmake/ion_stalled.cmake`, run with a token that is not one and no
+network:
+
+- `a_terrain_ion_run_whose_tiles_never_arrive_ends_by_itself_and_leaves_its_cache_unlocked_on_<driver>`
+  (every platform): must be gone within 180 s - the settling wait's 45 s, and
+  135 s for starting and ending a debug, sanitized build on a slow runner.
+  Measured in linux-debug: **46 s**, exit 0.
+- `a_terrain_ion_run_whose_tiles_never_arrive_is_gone_soon_after_sigterm_and_leaves_its_cache_unlocked_on_<driver>`
+  (Linux and macOS): SIGTERM once a transfer is held, from a shell; must be
+  gone within 30 s of it, with exit 143. Measured in linux-debug: **1 s**
+  (whole seconds, from `date +%s`).
+- Each then has `glideslope_ion_stall write` open the cache with no busy
+  timeout and take and commit a write transaction, which must succeed at
+  once; and the stand-in must say it answered both endpoints and held at
+  least one transfer (2 each time here), so the run really was stuck in one.
+
+**Seen failing**: with `catch_stop_signals`, the SDL hint and the destructor's
+`closing->store(true)` taken out, and everything else - the stand-in and the
+API override - left in, both went red: the SIGTERM run was "still alive 30 s
+after SIGTERM, and killed"; the other wrote its frame 45 s in and was then
+still alive at 180 s, when the test killed it.
+
+**On Windows** (`tools/windows_build.sh`, windows-debug, MSVC) the first
+test passed on direct3d12 in 50 s and on vulkan in 51 s - WinHTTP's
+abandonment ending the held transfers - and the HTTP tests passed.
+
+**Not covered by a test**: on Windows there is no SIGTERM - a timed-out run
+there is ended by TerminateProcess, which nothing outlives - so only the
+first test runs there. The Windows console handler is written but not
+exercised. The real ion provider still draws with the change
+(`the_ion_terrain_draws_with_its_attribution_or_says_why_not_on_vulkan`,
+17 s), as do the HTTP tests.
+
 ### A headless client drawing ten thousand frames keeps its memory level, 2026-09-26 — tail done
 
 **Cause: nothing waited for the GPU when there was no window.** With a window,
