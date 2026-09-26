@@ -227,6 +227,61 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A headless client drawing ten thousand frames keeps its memory level, 2026-09-26 — tail done
+
+**Cause: nothing waited for the GPU when there was no window.** With a window,
+`SDL_WaitAndAcquireGPUSwapchainTexture` waits until the GPU has caught up to
+within the swapchain's frames in flight. Headless there is no swapchain, and
+nothing else waited: SDL_GPU keeps every command buffer submitted - its
+uniform buffers, its fence, the overlay's transfer buffer - until its fence
+has signalled, and cleans up only those already done at each submit (SDL's
+Vulkan backend, `VULKAN_Submit`). Mesa's lavapipe draws on the CPU, slower
+than the client submits, so the queue of frames not yet drawn grew without
+end. It was not a leak: every resource was released, just never reached.
+Measured in WSL on lavapipe, release build, 320x240, the flight screen: 125
+MiB at frame 1, 558 at 500, 991 at 1,000, 1,601 at 1,750, and a segmentation
+fault inside the driver before frame 2,000 - 0.8 MiB a frame, with 18 GB of
+the machine still free.
+
+**Now** the renderer keeps the fence of each headless frame, and a frame
+waits for the one two before it before it is submitted
+(`Renderer::in_flight_`, `gfx/renderer.hpp`) - what a swapchain of two would
+do. The window's path is unchanged. Released with the renderer.
+
+**New test flags**, for this test: `--shot-frame N` shoots frame N with every
+frame two ticks however many frames that is (`--shot-at` lengthens frames to
+keep a long flight to 300), and `--memory-every N` prints the memory the
+process holds every N frames - `platform::memory_held_bytes()`, the resident
+set on Linux, private bytes on Windows (the working set is trimmed at the
+system's whim), the resident size on macOS. The client's comment on why an
+online shot draws only its own frame now gives the reason that remains: the
+machine's time, not its memory.
+
+**Verified** by `a_headless_client_drawing_ten_thousand_frames_keeps_its_memory_level_on_<driver>`
+(`tests/cmake/client_memory.cmake`).
+- **The run.** The flight screen, headless, 320x240: ten thousand frames of
+  two ticks each - 166 s of flight, counted in frames - sampled at frame 1 and
+  every 500th, 21 samples, each of which must be read; then frame 10,001 shot.
+- **Why the shot is the frame after.** The frame shot waits for every terrain
+  tile its view needs, which by itself takes the client from 160 to 970 MiB,
+  whether it is the second frame or the ten-thousand-and-first. That is the
+  shot, not the frames.
+- **The bound.** From frame 1,000, when the terrain, Cesium Native's caches
+  and the driver's pools have settled, to frame 10,000, the memory held may
+  grow at most 64 MiB - eighty frames of the old growth.
+- **The figures**, frame 1 / 1,000 / 10,000, and the growth held to the bound:
+  - WSL, lavapipe, linux-release: 124 / 157 / 160 MiB, grew 3 MiB (30 s).
+  - WSL, lavapipe, linux-debug (sanitized): 453 / 609 / 601 MiB, grew 3 MiB,
+    wandering 596 to 612 with the sanitizer's quarantine (283 s).
+  - Windows, windows-debug, Direct3D 12: 133 / 137 / 142 MiB, grew 7 MiB
+    (174 s); Vulkan (lavapipe): 229 / 231 / 234 MiB, grew 4 MiB (240 s).
+- **Seen to fail.** With the headless path made to submit as the window's
+  does, the test failed: `glideslope exited Segmentation fault`, its samples
+  printed as they were taken - 125, 558, 955 and 1,321 MiB at frames 1,
+  500, 1,000 and 1,500. The bound's own branch was seen to fail too, with
+  the settled frame moved to frame 1 and the bound to 10 MiB: "grew 38 MiB
+  between frame 1 and frame 10000, more than 10". Both reverted.
+
 ### The autopilot has a stall recovery; four of fourteen are within their lesson, 2026-09-26 — tail still open
 
 **Only part of the tail is done.**
@@ -1565,7 +1620,8 @@ the network checks, and the client with the window on a server.
     flying.
 - **Online, a shot keeps real time and draws only its own frame.** Thousands
   of headless frames ran the software Vulkan driver out of memory. That is a
-  tail.
+  tail. (Fixed 2026-09-26, see the log; the shot still draws only its own
+  frame, which spares the session the machine's time.)
 
 **Verified** by `the_client_with_the_window_flies_the_servers_aircraft_and_draws_the_others`.
 - **The run.** A server with one AI Cessna, and the client with the window

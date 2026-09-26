@@ -407,9 +407,10 @@ Found while implementing something else. Added when found, not when remembered.
       aircraft to the AI and takes it back on a server, and what it shows does
       not step.*
 
-- [ ] **A headless client drawing thousands of frames runs the software
+- [x] **A headless client drawing thousands of frames runs the software
       Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a
       headless client draws ten thousand frames, and its memory stays level.*
+      Done 2026-09-26.
 - [ ] **An aeroplane left half a minute in a stall is recovered by the
       autopilot, but most lose more height than their lesson allows**: the
       B-2 is recovered now, in 921 ft against its 300, and nothing in the game
