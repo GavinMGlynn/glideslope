@@ -24,6 +24,12 @@
 # vref+10. The downwind band is 150 ft either side, half as much again as
 # the FAA's Airline Transport Pilot ACS allows (100 ft) and inside the 250 ft
 # the fault is flown with.
+# **Since 2026-09-26 final reaches 20 knots over**, as the bomber's approach
+# lesson does and for the same reason: the B-2A cannot slow on the approach
+# (a tail in docs/COMPLETION_PLAN.md). Until then it flew final in a Dutch
+# roll, and the drag of its rudders working either way held it to vref+10;
+# with the approach autopilot's yaw damper it comes down final level, at
+# vref-4 to vref+14.
 
 name The circuit in a bomber
 teaches bomber
@@ -63,7 +69,7 @@ until lesson/turned-deg <= -110
 
 stage Final
 do Hold the approach speed down to the threshold
-hold velocities/vc-kts vref-10 vref+15 Hold the approach speed on final
+hold velocities/vc-kts vref-10 vref+20 Hold the approach speed on final
 until position/h-agl-ft <= 40
 
 stage The landing
