@@ -35,8 +35,11 @@ if(NOT _out MATCHES "server key ([0-9a-f][0-9a-f]+)\n")
 endif()
 set(_key "${CMAKE_MATCH_1}")
 
+# The client leaves without saying so (`--no-goodbye`), as in
+# server_ping.cmake: said, it is let go at once, and the dashboard's last pass
+# may come after and show no slot taken at all.
 execute_process(
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 3 --again
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 3 --again --no-goodbye
     COMMAND "${SERVER}" --port ${PORT} --seconds 4 --ai 0 --plain
             --timeout 30 --store "${_store}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
