@@ -234,11 +234,8 @@ are the risks the phase order is built around:
   roll below gone, its circuit's final runs to vref+14, and the bomber
   circuit's final band now reaches vref+20, as the bomber approach lesson's
   does for the same reason.
-- **On Windows debug**, `a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`
-  timed out at 900 s under ctest while the Linux suite ran on the same
-  machine; alone it passes. Two client programs crash after their right
-  answer on the way out, the open Windows debug tail. Windows release: the
-  17 take-off, rotation, loading and wheels-up tests pass.
+- **Two client programs crash on Windows debug after their right answer**,
+  on the way out: the open Windows debug tail, not this item's.
 - **The 747-400 and the F-22A fly no take-off**: neither has a climbing
   speed in its figures, so `sim::departure_speeds` refuses them, as before.
   The Short S.23 is a flying boat and is not rotated. All three are named in
@@ -328,6 +325,18 @@ the circuit on the B-2A's wingtip (rolled 8.6 degrees), where the old one
 passed it. The drag of the rudders working either way had held the B-2A's
 final to vref+10; damped, it flies vref-4 to vref+14, and the bomber circuit's
 final band is widened from vref+15 to vref+20 on its account.
+
+**Verified after the fix, rebased on main.** linux-debug, the whole suite
+bar the fixed-port network tests: 518 tests, none failed, the same four
+skipped; the selftest hash is still `30ac70b84cab7d7c`. The loadings test
+flies its 48 take-offs, the F-15C leaves 4.5 knots past its rotation speed,
+and the PA-28 keeps within 3.26 m of the centreline on the ground. On
+Windows, from `tools/windows_build.sh` on a quiet machine, the fourteen
+take-off, rotation, loading, wheels-up, circuit, approach and lesson-fault
+tests pass in windows-debug and in windows-release.
+`a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief` takes 162 s
+in windows-debug alone (42 s in release): its 900 s timeout was the Linux
+suite running beside it, not the test, so it is left as it is.
 
 **Every loading.** `every_landplane_takes_off_at_every_loading_within_ten_knots_of_its_speed_for_its_weight_and_unhurt`
 flies all thirteen landplanes at their model's own loading and at every
