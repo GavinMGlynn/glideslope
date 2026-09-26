@@ -142,7 +142,9 @@ public:
     bool predicting() const { return prediction_ != nullptr; }
     void set_input_sequence(std::uint32_t sequence) { sequence_ = sequence; }
     sim::Prediction::Correction reconcile(const sim::Motion& motion,
-                                          std::uint32_t last_applied);
+                                          std::uint32_t last_applied,
+                                          std::size_t steps_into,
+                                          std::uint64_t server_steps);
 
     // Hands the aircraft to the AI - flying what is left of the plan, if any
     // is - or back to the pilot (sim/controller.hpp).

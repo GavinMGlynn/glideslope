@@ -86,6 +86,15 @@ struct AircraftState {
 // it; this is what the client's prediction is put right by (sim::Motion,
 // sim::Prediction). Metres, the quaternion from north-east-down to the body,
 // metres a second and radians a second along the body's axes.
+//
+// **And how far into its newest input the server had flown it**: the server
+// flies an input from when it arrives, so an input the network made late is
+// flown late and for however long it is until the next one - not for as long
+// as it was flown on the client's screen. With the clock, it says at which
+// step of the server's the input began, and so how far the server's clock is
+// from the client's: what the client places this motion on its own clock by,
+// to fly forward again from there (sim::Prediction). Saturates at 65,535,
+// which is nine minutes of one input.
 struct OwnMotion {
     double x_m = 0.0; // Earth-centred, Earth-fixed
     double y_m = 0.0;
@@ -93,12 +102,14 @@ struct OwnMotion {
     std::array<float, 4> attitude{};
     std::array<float, 3> uvw_mps{};
     std::array<float, 3> pqr_radps{};
+    // Steps of 1/120 s flown on `last_input_applied` when this was taken.
+    std::uint16_t steps_into_input = 0;
 
     bool operator==(const OwnMotion&) const = default;
 };
 
-// The flag and the motion after it: three doubles and ten floats.
-inline constexpr std::size_t own_motion_bytes = 1 + 3 * 8 + 10 * 4;
+// The flag and the motion after it: three doubles, ten floats and the steps.
+inline constexpr std::size_t own_motion_bytes = 1 + 3 * 8 + 10 * 4 + 2;
 
 // **The controls of the aircraft this client is watching** (`WATCH`), which
 // only its own state update carries: riding along in another aircraft shows

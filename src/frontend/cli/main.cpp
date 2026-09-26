@@ -902,25 +902,31 @@ public:
             }
             return;
         }
+        // Where it was flown to on this input, step by step, for the
+        // server's word on the same input, as far into it, to be held
+        // against - once it has had the server's word on any input of its.
+        // Before that it flew on from an update a trip old, which it could
+        // not carry forward over the time the server flew before any input
+        // of its arrived: it is joining, not predicting.
+        // Taken back from the AI, likewise, until the server has applied an
+        // input sent since and the controls have met the pilot's
+        // (sim::Controller: at a hand's pace, full travel in a second).
+        // And once the clocks' difference is known (sim::offset_settled):
+        // before that the error is the estimate settling.
+        const bool answering = answered_ && !resuming_ && local_s >= settled_at_s_;
+        const bool counted = answering && prediction_->settled();
         for (; stepped_ < due; ++stepped_) {
+            const std::uint64_t step = prediction_->steps();
             prediction_->step(sequence, c);
-        }
-        if (stepped_ == due && sequence > 0) {
-            // Where it was flown to on this input, for the server's word on
-            // the same input to be held against - once it has had the
-            // server's word on any input of its. Before that it flew on from
-            // an update a trip old, which it could not carry forward over
-            // the time the server flew before any input of its arrived: it
-            // is joining, not predicting.
-            // Taken back from the AI, likewise, until the server has
-            // applied an input sent since and the controls have met the
-            // pilot's (sim::Controller: at a hand's pace, full travel in a
-            // second).
-            if (answered_ && !resuming_ && local_s >= settled_at_s_) {
-                predicted_at_[sequence] = aircraft_->motion().location_ecef_m;
-            } else if (joining_.empty() || joining_.back() != sequence) {
-                joining_.push_back(sequence);
+            predicted_at_.push_back(
+                {step, aircraft_->motion().location_ecef_m, counted && sequence > 0});
+            if (predicted_at_.size() > glideslope::sim::most_unacknowledged) {
+                predicted_at_.pop_front();
             }
+        }
+        if (stepped_ == due && sequence > 0 && !answering &&
+            (joining_.empty() || joining_.back() != sequence)) {
+            joining_.push_back(sequence);
         }
     }
 
@@ -955,7 +961,8 @@ public:
             if (!prediction_) {
                 const auto model = models_.find(state.your_aircraft);
                 if (model != models_.end()) {
-                    start(m, model->second, state.last_input_applied);
+                    start(m, model->second, state.last_input_applied,
+                          state.yours->steps_into_input);
                 }
             } else {
                 // **The prediction error**: where the server says the
@@ -964,11 +971,26 @@ public:
                 // lagged the server - put back to each update and never
                 // flown forward again - would be corrected by little at a
                 // time, and it is this, not the corrections, that shows it.
-                const auto at = predicted_at_.find(state.last_input_applied);
-                if (at != predicted_at_.end()) {
-                    const double error = std::hypot(at->second[0] - m.location_ecef_m[0],
-                                                    at->second[1] - m.location_ecef_m[1],
-                                                    at->second[2] - m.location_ecef_m[2]);
+                // Put right first, which places the server's word on this
+                // client's clock (sim::Prediction), and then held against
+                // where this client had flown it to by that step.
+                const std::uint32_t applied = state.last_input_applied;
+                const auto c = prediction_->reconcile(
+                    m, applied, state.yours->steps_into_input,
+                    static_cast<std::uint64_t>(std::llround(
+                        state.simulation_time_s *
+                        static_cast<double>(glideslope::sim::steps_per_second))));
+                const Predicted* at = nullptr;
+                if (c.at_step && *c.at_step > 0) {
+                    const auto found = std::find_if(
+                        predicted_at_.begin(), predicted_at_.end(),
+                        [&](const Predicted& p) { return p.step + 1 == *c.at_step; });
+                    at = found != predicted_at_.end() ? &*found : nullptr;
+                }
+                if (at != nullptr && at->counted) {
+                    const double error = std::hypot(at->where[0] - m.location_ecef_m[0],
+                                                    at->where[1] - m.location_ecef_m[1],
+                                                    at->where[2] - m.location_ecef_m[2]);
                     if (error > worst_error_m_) {
                         worst_error_m_ = error;
                         worst_error_at_s_ = local_s;
@@ -982,9 +1004,11 @@ public:
                         ++compared_since_;
                     }
                 }
-                predicted_at_.erase(predicted_at_.begin(),
-                                    predicted_at_.upper_bound(state.last_input_applied));
-                const auto c = prediction_->reconcile(m, state.last_input_applied);
+                // Kept from that step on: a later word is about a later one.
+                while (c.at_step && !predicted_at_.empty() &&
+                       predicted_at_.front().step + 1 < *c.at_step) {
+                    predicted_at_.pop_front();
+                }
                 // **A correction small enough to hide is hidden** - taken up
                 // over the next frames, as sim/prediction.hpp says - and one
                 // too large is shown as the jump it is.
@@ -1380,7 +1404,7 @@ public:
 
 private:
     void start(const glideslope::sim::Motion& m, const std::string& model,
-               std::uint32_t last_applied) {
+               std::uint32_t last_applied, std::size_t steps_into) {
         aircraft_ = std::make_unique<glideslope::sim::Aircraft>(
             glideslope::platform::data_directory() / "jsbsim", model);
         aircraft_->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
@@ -1398,9 +1422,17 @@ private:
         aircraft_->set_motion(m);
         prediction_ = std::make_unique<glideslope::sim::Prediction>(*aircraft_);
         // From where the server said it was to where it is now: every step
-        // flown since on inputs the server had not yet applied.
-        for (const auto& [sequence, controls] : before_) {
-            if (sequence > last_applied) {
+        // flown since - from as far into the input it had applied as it had
+        // flown it, or, if that input was not kept, from the next.
+        const auto began = std::find_if(before_.begin(), before_.end(), [&](const auto& b) {
+            return b.first == last_applied;
+        });
+        const auto from = began != before_.end()
+                              ? static_cast<std::size_t>(began - before_.begin()) + steps_into
+                              : before_.size();
+        for (std::size_t i = 0; i < before_.size(); ++i) {
+            const auto& [sequence, controls] = before_[i];
+            if (began != before_.end() ? i >= from : sequence > last_applied) {
                 prediction_->step(sequence, controls);
             }
         }
@@ -1518,7 +1550,14 @@ private:
     double worst_step_otherwise_m_ = 0.0;
     double longest_between_frames_s_ = 0.0;
     std::optional<double> reconciled_s_;
-    std::map<std::uint32_t, std::array<double, 3>> predicted_at_;
+    // Where each step of its own flying took it, and whether that counts
+    // towards the prediction error (not while joining or resuming).
+    struct Predicted {
+        std::uint64_t step = 0; // sim::Prediction::steps() before it
+        std::array<double, 3> where{};
+        bool counted = false;
+    };
+    std::deque<Predicted> predicted_at_;
     std::size_t compared_ = 0;
     std::size_t compared_since_ = 0;
     std::size_t snapped_since_ = 0;

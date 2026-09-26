@@ -488,12 +488,17 @@ Found while implementing something else. Added when found, not when remembered.
       Nothing flushes a download to disk before it is moved into place, and
       nothing deletes a cached file that cannot be read. *Verification: a
       cached tile cut short, or damaged, is fetched again and read whole.*
-- [ ] **Over a network a client's own aircraft is corrected by metres**, because
+- [x] **Over a network a client's own aircraft is corrected by metres**, because
       the server does not say how far into its latest input it had flown.
-      The 200 ms take-over test's 10 m bound is missed by it on WSL
-      linux-debug (10.6 m and 11.3 m, two of four runs, 2026-09-26).
       *Verification: through 200 ms with jitter and loss, the worst prediction
-      error is under a metre.*
+      error is under a metre.* Done 2026-09-27: the server says it, and the
+      client places the server's word on its own clock by it; 0.26 and 0.39 m
+      at 200 ms (6.5 m with it ignored), and the network checks now hold a metre.
+- [ ] **A server that falls behind real time puts its clients' prediction off
+      by metres**: flying fewer steps than the client does, it flies each input
+      for fewer. One 200 ms take-over run on WSL missed its 10 m bound at 24 m
+      while its server ran at under half speed (2026-09-27). *Verification: a
+      server slowed on purpose keeps a predicting client's error under a metre.*
 - [x] **Two server tests counted wall-clock seconds on slow runners**: one
       counted inputs still in flight, and a late client arrived before a slow
       server was flying. *Verification: the client waits for its last input to

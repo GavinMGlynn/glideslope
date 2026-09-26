@@ -21,20 +21,24 @@
 #   latency, not only on a clean line.
 #
 # **The bounds.** The predicting client's prediction error - where the server
-# said its aircraft was on an input, against where the client had flown it to
-# on that input - must stay under PREDICT_M. The server applies an input when
-# it arrives, so an input made late by jitter is flown late: the error is about
-# the aeroplane's speed times the jitter and an input's length (1/30 s) - at
-# 50 m/s, 5 m for 60 ms. The bounds given are that with room for a slow
-# runner. The inputs flown while it joins, before the server has applied any
-# of them, are not compared, and are counted.
+# said its aircraft was, against where the client had flown it to by the step
+# of its own the server's word was about (sim::Prediction) - must stay under
+# PREDICT_M, a metre. The server says how far into its newest input it had
+# flown, which with its clock places its word on the client's clock; before
+# it did, the client replayed whole inputs and was off by the aeroplane's
+# speed times the jitter and an input's length - at 50 m/s, 5 m for 60 ms
+# (6.5 m at 200 ms, with that ignored; 0.26 to 0.39 m with it, 2026-09-27).
+# The inputs flown while it joins, before the server has applied any of them,
+# are not compared, and are counted; nor is the first second after, while the
+# clocks' difference is still being learnt.
 #
 # Its corrections - how far its own
 # aircraft moved each time the server's word put it right - must none of them
 # be too large to hide - 20 m, the bound the design states (sim/prediction.hpp).
-# They are metres, not the millimetres the in-process test finds, because the
-# server does not say how far into its latest input it had flown: the client
-# replays whole inputs, and a step at 55 m/s is half a metre.
+# They are metres, not the millimetres the in-process test finds, in the first
+# second, while the clocks' difference is being learnt: each time the least
+# comes down the client is moved by the steps it changed by, and a step at
+# 55 m/s is half a metre.
 # Every other aircraft it drew must be within 2 m of where the server said it
 # was at that moment: the bound test_interpolation.cpp holds the interpolator
 # to in-process, now over a network. And the relay must have lost datagrams

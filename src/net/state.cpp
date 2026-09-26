@@ -94,6 +94,7 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         for (const float v : m.pqr_radps) {
             w.f32(v);
         }
+        w.u16(m.steps_into_input);
     }
     w.u8(state.watched ? 1 : 0);
     if (state.watched) {
@@ -181,6 +182,7 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
         for (float& v : m.pqr_radps) {
             v = r.f32();
         }
+        m.steps_into_input = r.u16();
         if (!r.ok() || !a_number(m.x_m) || !a_number(m.y_m) || !a_number(m.z_m)) {
             return std::nullopt;
         }

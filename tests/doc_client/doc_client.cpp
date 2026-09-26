@@ -564,6 +564,9 @@ std::optional<StateUpdate> read_state(std::span<const std::uint8_t> pt) {
     if (has_own == 0x01) {
         for (int j = 0; j < 3; ++j) static_cast<void>(r.f64());   // position
         for (int j = 0; j < 10; ++j) static_cast<void>(r.f32());  // attitude, velocity, rates
+        // Added when TRANSPORT.md added it (2026-09-27): how many steps into
+        // its newest input the server had flown it.
+        static_cast<void>(r.u16());
     }
     // Added when TRANSPORT.md added it (2026-09-25): the controls of the
     // aircraft this client watches, after a flag. It watches none.

@@ -302,12 +302,17 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_clients_own_motion) {
     m.attitude = {0.9F, 0.1F, -0.2F, 0.3F};
     m.uvw_mps = {55.0F, 1.5F, -2.0F};
     m.pqr_radps = {0.01F, -0.02F, 0.03F};
+    m.steps_into_input = 0x1234;
     s.yours = m;
     const auto with = write_state(s);
     check(with.has_value(), "a packet with the client's motion is written");
     check(with->size() == glideslope::net::state_bytes(3, true),
           "and is " + std::to_string(glideslope::net::state_bytes(3, true)) + " bytes, not " +
               std::to_string(with->size()));
+    // How far into its newest input the server had flown it is the motion's
+    // last field, little-endian, just before the watched controls' flag.
+    check((*with)[with->size() - 3] == 0x34 && (*with)[with->size() - 2] == 0x12,
+          "the steps into the input are the motion's last two bytes, least first");
     const auto back = read_state(all_of(*with));
     check(back.has_value() && *back == s, "and is read back the same");
 
