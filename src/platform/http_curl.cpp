@@ -191,13 +191,14 @@ namespace {
 // A GET, or a POST of `body` where there is one.
 HttpResponse perform(const HttpRequest& request, const std::string* body) {
     refuse_unsafe_headers(request);
+    // Before the handle is made, so that nothing is left to clean up.
+    if (abandoned(request)) {
+        throw HttpError(request.url + ": given up before it began");
+    }
     const Curl& c = curl();
     const Handle handle = c.easy_init();
     if (handle == nullptr) {
         throw HttpError("libcurl would not make a handle");
-    }
-    if (abandoned(request)) {
-        throw HttpError(request.url + ": given up before it began");
     }
     Transfer transfer;
     transfer.max_body = request.max_body;

@@ -1,8 +1,10 @@
 #pragma once
 
 // **A program told to stop, stops.** SIGTERM - what `timeout`, systemd and a
-// shell's `kill` send - and SIGINT, Ctrl+C; on Windows, Ctrl+C, Ctrl+Break and
-// the console closing.
+// shell's `kill` send - and SIGINT, Ctrl+C; on Windows, Ctrl+C and
+// Ctrl+Break. Not the console closing on Windows: the process is ended as soon
+// as the handler returns, so there is no stopping in order to be had there,
+// and it is left to the system.
 //
 // Once caught, the signal only raises a flag: a program asks `stop_requested()`
 // wherever it waits, and ends in order from there, which is what lets it close

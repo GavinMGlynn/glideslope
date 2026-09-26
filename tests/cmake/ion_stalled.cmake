@@ -20,7 +20,9 @@
 #     It must be gone within RUN_LIMIT_S of starting. Before the fix it wrote
 #     its frame and then waited for ever, at exit, on the transfers.
 #   - **term** - what `timeout` sends: once a transfer is being held, the run
-#     is sent SIGTERM, and must be gone within TERM_LIMIT_S of it. Before the
+#     is sent SIGTERM, and must be gone within TERM_LIMIT_S of it, having
+#     stopped in order: exit 143 and saying so, since a process the signal
+#     simply killed also reports 143 and leaves its cache as it was. Before the
 #     fix SDL turned the signal into a quit event nothing read until the
 #     terrain had settled, and the run then waited for ever as above. Not on
 #     Windows, which has no SIGTERM: a timed-out run is ended there by
@@ -69,9 +71,13 @@ if(DEFINED STALL_PORT_FILE)
                         ERROR_VARIABLE _err TIMEOUT ${RUN_LIMIT_S})
         string(TIMESTAMP _t1 "%s")
         math(EXPR _took "${_t1} - ${_t0}")
-        if(NOT _rc MATCHES "^[0-9]+$")
+        if(_rc MATCHES "timeout")
             string(CONCAT _verdict "FAIL: the run was still alive ${RUN_LIMIT_S} s after it "
                          "started (${_rc}), having written its frame: ${_out}")
+        elseif(NOT _rc MATCHES "^[0-9]+$")
+            # Not a number and not the timeout: it ended, but by a crash.
+            string(CONCAT _verdict "FAIL: the run did not end by itself but crashed "
+                         "(${_rc}) after ${_took} s:\n${_err}")
         elseif(_err MATCHES "could not download")
             string(CONCAT _verdict "SKIP: the DEM could not be had: ${_err}")
         elseif(NOT _rc EQUAL 0)
@@ -112,10 +118,16 @@ echo "gone $((now - from)) $(cat "$ended")"
         if(_said MATCHES "^gone ([0-9]+) ([0-9]+)")
             set(_took "${CMAKE_MATCH_1}")
             set(_rc "${CMAKE_MATCH_2}")
-            # 143 is 128 and SIGTERM's 15: it ended because it was told to.
+            # 143 is 128 and SIGTERM's 15 - but a process the signal simply
+            # killed is reported by the shell as 143 too. What tells an
+            # orderly stop from that is the run saying so on its way out.
             if(NOT _rc EQUAL 143)
                 string(CONCAT _verdict "FAIL: gone ${_took} s after SIGTERM, but it exited "
                              "${_rc}, not 143:\n${_err}")
+            elseif(NOT _err MATCHES "glideslope: stopped, as it was told to")
+                string(CONCAT _verdict "FAIL: gone ${_took} s after SIGTERM with 143, but "
+                             "killed by it rather than stopping in order - it never "
+                             "said it stopped:\n${_err}")
             else()
                 string(CONCAT _verdict "ENDED: ${_took} s after SIGTERM, exit ${_rc}")
             endif()

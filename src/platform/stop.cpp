@@ -34,10 +34,13 @@ BOOL WINAPI on_console_event(DWORD event) {
         which.store(SIGINT);
         break;
     case CTRL_BREAK_EVENT:
-    case CTRL_CLOSE_EVENT:
         which.store(SIGTERM);
         break;
     default:
+        // The console closing, a log-off, a shutdown: Windows ends the
+        // process as soon as this returns, whatever it answers, so raising
+        // the flag would buy nothing but a race with the main thread. They
+        // are left to the system.
         return FALSE;
     }
     stopping.store(true);
@@ -63,8 +66,9 @@ void catch_stop_signals() {
     action.sa_handler = on_stop_signal;
     sigemptyset(&action.sa_mask);
     // Once: the handler is reset to the default as it runs, so the same
-    // signal again ends the program whatever it is doing.
-    action.sa_flags = static_cast<int>(SA_RESETHAND);
+    // signal again ends the program whatever it is doing. And a call the
+    // signal interrupts is carried on with, not failed with EINTR.
+    action.sa_flags = static_cast<int>(SA_RESETHAND | SA_RESTART);
     sigaction(SIGTERM, &action, nullptr);
     sigaction(SIGINT, &action, nullptr);
 #endif

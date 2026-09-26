@@ -3,7 +3,10 @@
 #include "platform/paths.hpp"
 
 #include <cstdio>
+#include <cstdlib>
+#include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 using glideslope::platform::read_default_server;
@@ -86,4 +89,68 @@ GLIDESLOPE_TEST(anything_that_is_not_a_server_line_is_refused) {
     check(read_default_server("host 0 " + key + "\nhost 47801 " + key + "\n")
               .has_value(),
           "a line that is not one does not spoil the file");
+}
+
+namespace {
+
+// Sets or clears an environment variable, on every platform.
+void set_environment(const char* name, const std::string& value) {
+#ifdef _WIN32
+    _putenv_s(name, value.c_str()); // an empty value removes it
+#else
+    if (value.empty()) {
+        unsetenv(name);
+    } else {
+        setenv(name, value.c_str(), 1);
+    }
+#endif
+}
+
+} // namespace
+
+// **The user's token goes wherever GLIDESLOPE_CESIUM_ION_API names**, in the
+// query of each request, so only https - or http no further than this machine -
+// may be named. A host that merely begins like the loopback is not it.
+GLIDESLOPE_TEST(a_cesium_ion_api_that_would_send_the_token_in_the_clear_is_refused) {
+    using glideslope::platform::cesium_ion_api;
+    // Each test is a process of its own, so what this sets goes with it.
+    const char* variable = "GLIDESLOPE_CESIUM_ION_API";
+
+    set_environment(variable, "");
+    check(cesium_ion_api() == "https://api.cesium.com", "unset, it is Cesium's own");
+
+    const std::vector<std::pair<std::string, std::string>> taken{
+        {"https://ion.example.org/", "https://ion.example.org"},
+        {"http://127.0.0.1:4711", "http://127.0.0.1:4711"},
+        {"http://127.0.0.1/", "http://127.0.0.1"},
+        {"http://localhost:8080/", "http://localhost:8080"},
+        {"http://[::1]:9", "http://[::1]:9"},
+    };
+    const std::vector<std::string> refused{
+        "http://api.cesium.com",
+        "http://127.0.0.1.example.org",
+        "http://localhost.example.org:80",
+        "ftp://127.0.0.1",
+        "api.cesium.com",
+    };
+    std::size_t walked = 0;
+    for (const auto& [named, is] : taken) {
+        set_environment(variable, named);
+        check(cesium_ion_api() == is, named + " is taken, as " + is);
+        ++walked;
+    }
+    for (const std::string& named : refused) {
+        set_environment(variable, named);
+        bool threw = false;
+        try {
+            (void)cesium_ion_api();
+        } catch (const std::runtime_error&) {
+            threw = true;
+        }
+        check(threw, named + " is refused");
+        ++walked;
+    }
+    set_environment(variable, "");
+    check(walked == taken.size() + refused.size() && walked == 10,
+          "ten names walked, five taken and five refused");
 }

@@ -55,7 +55,9 @@ std::string cesium_ion_token();
 // `GLIDESLOPE_CESIUM_ION_API` names somewhere else - a test's stand-in on the
 // loopback, which answers where the terrain is and then never sends it. The
 // user's token goes wherever this names, so nothing but a person or a test
-// setting that variable ever changes it. No trailing slash.
+// setting that variable ever changes it. No trailing slash. Throws
+// std::runtime_error for anything but https, or http on the loopback: the
+// token is in each request's query, and is not sent in the clear.
 std::string cesium_ion_api();
 
 // The user's own Google Maps Platform key, the same way: from
