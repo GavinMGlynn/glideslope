@@ -1024,7 +1024,7 @@ GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be
         {"a 401", 401, "", false},
         {"a 403", 403, "", false},
         {"a 404", 404, "", false},
-        {"a 429", 429, "", false},
+        {"a 429 to every retry, as Open-Meteo answered CI on 2026-09-27", 429, "", true},
         {"a 200 that is never JSON", 200, "<html>Service unavailable</html>", true},
         {"an empty 200, as Open-Meteo answered CI on 2026-09-26", 200, "", true},
         {"a 200 that begins as JSON and does not parse", 200, R"({"hourly": {"time": [)",

@@ -490,6 +490,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_instant_is_named_by_the_utc_hour_it_falls_in_as_open_meteo_names_hours
     the_weather_now_at_an_airfield_is_fetched_from_aviationweather_and_open_meteo
     a_fetch_is_tried_again_after_a_server_error_or_no_answer_and_not_after_a_refusal
+    a_429_is_waited_out_as_its_retry_after_asks_within_a_limit_then_returned
     a_terrain_mesh_puts_its_vertices_on_the_ground_and_meets_its_neighbour_exactly
     a_terrain_mesh_needs_a_rectangle_on_the_earth_and_a_cell
     the_air_is_the_same_wherever_and_whenever_it_is_asked_for
@@ -976,6 +977,21 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             "-DFLY=--plan;sydney-harbour"
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud_no_weather.cmake)
     set_tests_properties(a_hud_test_whose_weather_service_answers_an_empty_200_is_skipped_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    # **And one whose Open-Meteo answers 429 to every retry is skipped**, as
+    # Open-Meteo turned CI's parallel weather tests away on 2026-09-27: a
+    # service turning us away for now is waited out, then is weather not to
+    # be had.
+    add_test(NAME a_hud_test_whose_weather_service_answers_429_throughout_is_skipped_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_hud_check>
+            -DCLI=$<TARGET_FILE:glideslope_cli> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+            -DANSWER=429
+            -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-metars-2026-09-17T1600Z.json
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} "-DFLYING=FLYING AI HOLD" "-DFLY=--autopilot"
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud_no_weather.cmake)
+    set_tests_properties(a_hud_test_whose_weather_service_answers_429_throughout_is_skipped_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME the_checklist_on_screen_is_the_one_the_flight_is_working_through_on_${_driver}
         COMMAND ${CMAKE_COMMAND}

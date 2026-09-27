@@ -6,7 +6,7 @@
 // Listens on 127.0.0.1, on a port the system picks, and writes that port to
 // PORTFILE - whole, by renaming it into place - once it is listening. Every
 // request is answered with STATUS and an empty body, and the connection
-// closed, until a request for the path /stop, which is answered 200 and ends
+// closed - a 429 with "Retry-After: 1" - until a request for the path /stop, which is answered 200 and ends
 // it. With PREFIX and FILE, a GET whose path begins with PREFIX is answered
 // 200 with FILE's bytes instead: one service answered, and another not. Says
 // on standard error how many requests it answered with STATUS, and how many
@@ -130,8 +130,10 @@ int main(int argc, char** argv) {
     }
     std::filesystem::rename(part, port_file);
 
-    const std::string answer = "HTTP/1.1 " + std::to_string(status) +
-                               " Stubbed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    // A 429 asks for a second's wait, as a rate limit says how long.
+    const std::string answer = "HTTP/1.1 " + std::to_string(status) + " Stubbed\r\n" +
+                               (status == 429 ? "Retry-After: 1\r\n" : "") +
+                               "Content-Length: 0\r\nConnection: close\r\n\r\n";
     int answered = 0;
     int answered_file = 0;
     for (;;) {

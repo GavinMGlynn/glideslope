@@ -4,11 +4,13 @@
 #include "world/digest.hpp"
 #include "world/json.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <cctype>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <random>
 #include <span>
 #include <stdexcept>
@@ -39,6 +41,34 @@ platform::HttpResponse get(const Fetch& fetch, const std::string& url) {
                        std::to_string(r.status));
     }
     return r;
+}
+
+// A response's Retry-After, if it is in seconds, as the wait it asks for -
+// never more than retry_after_limit. Nothing if there is none, or it is a
+// date or not a number.
+std::optional<std::chrono::milliseconds> retry_after_seconds(const platform::HttpResponse& r) {
+    const auto header = r.headers.find("retry-after");
+    if (header == r.headers.end()) {
+        return std::nullopt;
+    }
+    const std::string& value = header->second;
+    const std::size_t first = value.find_first_not_of(" \t");
+    const std::size_t last = value.find_last_not_of(" \t");
+    if (first == std::string::npos) {
+        return std::nullopt;
+    }
+    const long long limit_s =
+        std::chrono::duration_cast<std::chrono::seconds>(retry_after_limit).count();
+    long long seconds = 0;
+    for (std::size_t i = first; i <= last; ++i) {
+        const char c = value[i];
+        if (c < '0' || c > '9') {
+            return std::nullopt;
+        }
+        // Past the limit is the limit, however many digits follow.
+        seconds = std::min(seconds * 10 + (c - '0'), limit_s);
+    }
+    return std::chrono::milliseconds(seconds * 1000);
 }
 
 } // namespace
@@ -83,20 +113,33 @@ bool put_in_place(const std::filesystem::path& path, const std::vector<std::uint
 
 platform::HttpResponse fetch_with_retries(const Fetch& fetch, const std::string& url,
                                           int attempts,
-                                          std::chrono::milliseconds wait) {
+                                          std::chrono::milliseconds wait,
+                                          const Sleep& sleep) {
     for (int attempt = 1;; ++attempt) {
+        std::chrono::milliseconds this_wait = wait;
         try {
             platform::HttpResponse r = fetch(url);
-            const bool failed = r.status >= 500 || (r.status == 200 && r.body.empty());
+            const bool turned_away = r.status == 429;
+            const bool failed =
+                r.status >= 500 || turned_away || (r.status == 200 && r.body.empty());
             if (!failed || attempt >= attempts) {
                 return r;
+            }
+            if (turned_away) {
+                if (const auto asked = retry_after_seconds(r)) {
+                    this_wait = *asked;
+                }
             }
         } catch (const platform::HttpError&) {
             if (attempt >= attempts) {
                 throw;
             }
         }
-        std::this_thread::sleep_for(wait);
+        if (sleep) {
+            sleep(this_wait);
+        } else {
+            std::this_thread::sleep_for(this_wait);
+        }
         wait *= 2;
     }
 }
