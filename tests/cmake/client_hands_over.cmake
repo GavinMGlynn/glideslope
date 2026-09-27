@@ -17,6 +17,18 @@
 # back is. "The server said" is the controller the server's own state updates
 # give the aircraft, not what the client asked for.
 #
+# **The shot waits on the events, not the clock**: it is held, up to a minute
+# of the flight past its tick, until the server has said the pilot has it
+# again and has flown it by an input sent since, and says how long it waited.
+#
+# **Handed over, riding along in nothing is riding along in its own
+# aircraft**: six seconds in it rides along in the next aircraft, the AI's,
+# and seven seconds in in the next again (`--next-aircraft-after`, what W
+# does), which wraps past the last back to its own. The view must then be its
+# own aircraft's seat as the updates put it - within 5 m of its centre - not
+# the flight here, which is not flown while the AI has it and would sit where
+# it was handed over while the aircraft flew on.
+#
 # **What it shows across the switch is not judged here**: the client with the
 # window does not yet blend its own aircraft at a switch, which is its own
 # tail in docs/COMPLETION_PLAN.md.
@@ -58,6 +70,7 @@ execute_process(
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1920 --view cockpit
             --hand-over-after 4 --take-back-after 10
+            --next-aircraft-after 6 --next-aircraft-after 7
             --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
@@ -82,6 +95,8 @@ foreach(_who IN ITEMS "the AI" "the pilot")
                             "gave its aircraft to ${_who}:\n${_out}")
     endif()
 endforeach()
+string(REGEX MATCH "the server says the AI has aircraft ([0-9]+)\n" _ignored "${_out}")
+set(_own "${CMAKE_MATCH_1}")
 string(FIND "${_out}" "the server says the AI has aircraft" _to_ai)
 string(FIND "${_out}" "the server says the pilot has aircraft" _to_pilot)
 if(_to_pilot LESS _to_ai)
@@ -96,6 +111,18 @@ if(NOT _handed MATCHES "the HUD reads FLYING AI" OR _handed MATCHES "the HUD rea
 endif()
 if(NOT _back MATCHES "^the server says the pilot has aircraft [0-9]+\n(glideslope: the HUD reads [^\n]*\n)*glideslope: the HUD reads FLYING PILOT")
     message(FATAL_ERROR "taken back, the HUD did not say the pilot has it:\n${_out}")
+endif()
+# Wrapped back past the last aircraft while the AI had it: its own, in its seat.
+if(NOT _handed MATCHES "back in your own aircraft\nglideslope: riding along in aircraft ${_own}, the c172p; the camera ([0-9.]+) m from its centre")
+    message(FATAL_ERROR "handed over, W past the last aircraft did not ride along in its "
+                        "own aircraft ${_own} as the updates put it:\n${_out}")
+endif()
+if(CMAKE_MATCH_1 GREATER_EQUAL 5)
+    message(FATAL_ERROR "the camera was ${CMAKE_MATCH_1} m from its own aircraft, not in "
+                        "its seat:\n${_out}")
+endif()
+if(NOT _out MATCHES "the shot drawn [0-9.]+ s past its tick; the server says the pilot has it, flown by an input sent since")
+    message(FATAL_ERROR "the shot was drawn before the take-back was heard:\n${_out}")
 endif()
 # And at the shot, six seconds later, flown by this client's inputs again.
 if(NOT _out MATCHES "flying aircraft ([0-9]+), the c172p; the server says the pilot has it, and has flown it by inputs sent since it was taken back")
