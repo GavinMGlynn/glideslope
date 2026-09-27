@@ -1177,6 +1177,95 @@ double metres_per_degree_longitude(double latitude_deg) {
            0.118 * std::cos(5.0 * lat);
 }
 
+// **The flare, watched**: the attitude she flew the glidepath at on the last
+// step before the flare began, the lowest her nose went from there to the
+// touch, and the attitude she touched at. A flare that begins by pushing the
+// nose down to some fixed attitude shows as a lowest well under the path's.
+struct FlareWatch {
+    bool began = false;
+    bool touched = false;
+    double path_pitch_deg = 0.0;
+    double least_pitch_deg = 1e9;
+    double touch_pitch_deg = 0.0;
+    double last_pitch_deg = 0.0;
+    bool was_flaring = false;
+
+    void watch(const glideslope::sim::Lander* lander, const glideslope::sim::Aircraft& a) {
+        if (lander == nullptr || touched) {
+            return;
+        }
+        const double pitch = a.property("attitude/theta-deg");
+        const bool flaring = lander->stage() == glideslope::sim::Lander::Stage::flare;
+        if (flaring && !was_flaring && !began) {
+            began = true;
+            path_pitch_deg = last_pitch_deg;
+        }
+        was_flaring = flaring;
+        last_pitch_deg = pitch;
+        if (began) {
+            least_pitch_deg = std::min(least_pitch_deg, pitch);
+        }
+        if (a.property("gear/wow") > 0.5 || a.in_water()) {
+            touched = true;
+            touch_pitch_deg = pitch;
+        }
+    }
+};
+
+// How far below the path's attitude the nose may go in the flare: the sink
+// the flare's own law leaves a little room for, and no fixed attitude's six.
+constexpr double flare_dip_margin_deg = 1.5;
+// How far short of the attitude her tail strikes at she must touch: the
+// margin the take-off autopilot rotates to (sim/departure.cpp).
+constexpr double strike_margin_deg = 2.0;
+
+// **Aeroplanes with nothing behind their main wheels to strike**, named, and
+// why: a tail-wheel aeroplane's tail is down already, and a model with no
+// contact aft of its main wheels says nothing a tail could strike.
+const std::map<std::string, std::string>& no_tail_to_strike() {
+    static const std::map<std::string, std::string> named = {
+        {"f15c", "her model has no contact behind her main wheels"},
+        {"j3cub", "she stands on a tail wheel, her tail down already"},
+        {"learjet35a", "her model has no contact behind her main wheels"},
+        {"short_s23", "a flying boat, alighting on her hull and not on wheels"},
+    };
+    return named;
+}
+
+// **Every flare begins at the attitude the glidepath was flown at, and
+// touches below the tail-strike attitude**; what went wrong, if anything.
+std::vector<std::string> flared_from_the_path(const std::string& id, const std::string& where,
+                                              const FlareWatch& f) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    const glideslope::sim::Aircraft::Stance stance = aircraft.stance();
+    const bool strikes = !entry.seaplane && stance.found && !stance.tail_wheel &&
+                         stance.strike_pitch_deg < 90.0;
+    std::printf("      flare (%s): path %.1f, lowest %.1f, touched at %.1f, strikes at %s\n",
+                where.c_str(), f.path_pitch_deg, f.least_pitch_deg, f.touch_pitch_deg,
+                strikes ? std::to_string(stance.strike_pitch_deg).c_str() : "nothing");
+    std::vector<std::string> wrong;
+    if (!f.began || !f.touched) {
+        wrong.push_back(id + " (" + where + ") never flared and touched");
+        return wrong;
+    }
+    if (f.least_pitch_deg < f.path_pitch_deg - flare_dip_margin_deg) {
+        wrong.push_back(id + " (" + where + ") flew the path at " +
+                        std::to_string(f.path_pitch_deg) + " degrees and its flare put the nose "
+                        "down to " + std::to_string(f.least_pitch_deg));
+    }
+    if (strikes != (no_tail_to_strike().count(id) == 0)) {
+        wrong.push_back(id + (strikes ? " has a tail to strike and is named as having none"
+                                      : " has no tail to strike and is not named"));
+    }
+    if (strikes && f.touch_pitch_deg > stance.strike_pitch_deg - strike_margin_deg) {
+        wrong.push_back(id + " (" + where + ") touched at " + std::to_string(f.touch_pitch_deg) +
+                        " degrees, within " + std::to_string(strike_margin_deg) +
+                        " of its tail strike at " + std::to_string(stance.strike_pitch_deg));
+    }
+    return wrong;
+}
+
 struct Approached {
     std::vector<std::string> debrief;
     std::size_t completed = 0;
@@ -1207,6 +1296,7 @@ struct Approached {
     // threshold, and right of the centreline.
     double touch_along_m = 0.0;
     double touch_across_m = 0.0;
+    FlareWatch flare;
 };
 
 // **Two miles out on the glidepath, down to a stop.** `fast_by_kts` is flown
@@ -1313,6 +1403,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
             out.sink_most_fps = std::max(out.sink_most_fps, fps);
         }
         out.after.watch(aircraft);
+        out.flare.watch(&lander, aircraft);
         if (aircraft.property("position/h-agl-ft") > 5.0) {
             out.least_kts = std::min(out.least_kts, kts);
             out.most_kts = std::max(out.most_kts, kts);
@@ -1330,6 +1421,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
         aircraft.set_controls(lander.fly());
         aircraft.step();
         out.after.watch(aircraft);
+        out.flare.watch(&lander, aircraft);
     }
     out.stopped = done();
     out.touch_along_m = lander.touchdown_along_m();
@@ -1389,10 +1481,15 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
         for (const std::string& wrong : flown.after.what_went_wrong(id)) {
             came_down_badly.push_back(wrong);
         }
+        for (const std::string& wrong : flared_from_the_path(id, "approach", flown.flare)) {
+            came_down_badly.push_back(wrong);
+        }
         ++walked;
     }
     // **Every one of them stayed on its wheels, the right way up**, from the
-    // touch to the stop - named all together, so one run shows them all.
+    // touch to the stop, and flared from the attitude it flew the glidepath
+    // at to one short of its tail strike - named all together, so one run
+    // shows them all.
     for (const std::string& wrong : came_down_badly) {
         std::printf("  CAME DOWN BADLY: %s\n", wrong.c_str());
     }
@@ -3482,6 +3579,7 @@ struct Circuit {
     double touch_kts = 0.0;      // and how fast
     // From the touch back on to the runway to the stop.
     glideslope::test::AfterTouch after;
+    FlareWatch flare;
     std::vector<std::string> debrief;
     std::size_t completed = 0;
     std::size_t stages = 0;
@@ -3722,6 +3820,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
         out.highest_agl_ft = std::max(out.highest_agl_ft, agl);
         if (leg == Leg::approach) {
             out.after.watch(aircraft);
+            out.flare.watch(controller.lander(), aircraft);
         }
         if (out.touch_across_m > 1e8 && leg == Leg::approach &&
             (aircraft.property("gear/wow") > 0.5 || aircraft.in_water())) {
@@ -3829,10 +3928,14 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
         for (const std::string& wrong : flown.after.what_went_wrong(id)) {
             came_down_badly.push_back(wrong);
         }
+        for (const std::string& wrong : flared_from_the_path(id, "circuit", flown.flare)) {
+            came_down_badly.push_back(wrong);
+        }
         ++walked;
     }
     // **Every one of them stayed on its wheels, the right way up**, from the
-    // touch back on the runway to the stop.
+    // touch back on the runway to the stop, and flared from the attitude it
+    // flew the glidepath at to one short of its tail strike.
     for (const std::string& wrong : came_down_badly) {
         std::printf("  CAME DOWN BADLY: %s\n", wrong.c_str());
     }

@@ -207,71 +207,15 @@ Departure::Departure(const Aircraft& aircraft, const Runway& runway,
     }
 }
 
-// **What she stands on, worked from her model's own contacts**, as they are
-// placed - not from which of them touch, since she is started level and
-// settles on to her tail or her nose after. Her main wheels are the lowest
-// contacts off the centreline. Pivoting on them, she falls the way her
-// centre of gravity lies until the first centreline contact that way meets
-// the ground: that is her nose wheel, or her tail wheel, and the angle it
-// takes is the attitude she stands at. The A320's model makes its tail skid
-// and wing tips wheels as well, and counting every wheel took it for a
-// tail-wheel aeroplane. JSBSim's structural x runs aft and z up, in inches.
+// What she stands on, from her model's own contacts (Aircraft::stance).
 void Departure::read_the_gear() {
-    struct Point {
-        double x, y, z;
-        bool wheel;
-    };
-    std::vector<Point> points;
-    for (const Aircraft::ContactPoint& p : a_.contact_points()) {
-        points.push_back({p.x_in, p.y_in, p.z_in, p.wheel});
-    }
-    double main_z = 1e9;
-    for (const Point& p : points) {
-        if (std::abs(p.y) > 1.0) {
-            main_z = std::min(main_z, p.z);
-        }
-    }
-    double main_x = -1e9;
-    for (const Point& p : points) {
-        if (std::abs(p.y) > 1.0 && p.z < main_z + 1.0) {
-            main_x = std::max(main_x, p.x);
-        }
-    }
-    if (main_x < -1e8) {
+    const Aircraft::Stance stance = a_.stance();
+    if (!stance.found) {
         return;
     }
-    // The pitch, nose up positive, at which a point meets the ground
-    // pivoting on the main wheels.
-    const auto meets = [&](const Point& p) {
-        return std::atan((p.z - main_z) / (p.x - main_x)) * degrees;
-    };
-    const bool tail_down = a_.property("inertia/cg-x-in") > main_x;
-    const Point* stands_on = nullptr;
-    for (const Point& p : points) {
-        if (std::abs(p.y) <= 1.0 && std::abs(p.x - main_x) > 1.0 &&
-            (p.x > main_x) == tail_down &&
-            (stands_on == nullptr || std::abs(meets(p)) < std::abs(meets(*stands_on)))) {
-            stands_on = &p;
-        }
-    }
-    if (stands_on == nullptr) {
-        return;
-    }
-    tail_wheel_ = tail_down;
-    standing_pitch_deg_ = meets(*stands_on);
-    // **The attitude her tail strikes at**: the lowest, pivoting on her
-    // main wheels, at which anything behind them meets the ground - a tail
-    // skid, a tail cone, a nacelle. None, for a tail-wheel aeroplane, whose
-    // tail is on the ground already. **Not a wheel**: a wheel behind the
-    // main wheels - a second row of a bogie, a body gear - is another main
-    // wheel, which she rolls on as her nose comes up, not strikes.
-    if (!tail_wheel_) {
-        for (const Point& p : points) {
-            if (p.x > main_x + 1.0 && !p.wheel) {
-                strike_pitch_deg_ = std::min(strike_pitch_deg_, meets(p));
-            }
-        }
-    }
+    tail_wheel_ = stance.tail_wheel;
+    standing_pitch_deg_ = stance.standing_pitch_deg;
+    strike_pitch_deg_ = stance.strike_pitch_deg;
 }
 
 void Departure::measure() {

@@ -298,6 +298,19 @@ public:
         bool wheel = false;
     };
     std::vector<ContactPoint> contact_points() const;
+    // **What she stands on, worked from those points**: whether on a tail
+    // wheel, the attitude she stands at, and the attitude her tail strikes
+    // the ground at, pivoting on her main wheels - 90 where nothing behind
+    // them can, as for a tail-wheel aeroplane, whose tail is down already.
+    // `found` is false where the points name no main wheels, or nothing she
+    // falls on to from them; the rest is then as initialised.
+    struct Stance {
+        bool found = false;
+        bool tail_wheel = false;
+        double standing_pitch_deg = 0.0;
+        double strike_pitch_deg = 90.0;
+    };
+    Stance stance() const;
     // Whether the last `initialize` asked to trim and JSBSim could.
     bool trimmed() const {
         return trimmed_;

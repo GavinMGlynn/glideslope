@@ -417,6 +417,88 @@ std::vector<Aircraft::ContactPoint> Aircraft::contact_points() const {
     return out;
 }
 
+// **What she stands on, worked from her model's own contacts**, as they are
+// placed - not from which of them touch, since she is started level and
+// settles on to her tail or her nose after. Her main wheels are the lowest
+// contacts off the centreline. Pivoting on them, she falls the way her
+// centre of gravity lies until the first centreline contact that way meets
+// the ground: that is her nose wheel, or her tail wheel, and the angle it
+// takes is the attitude she stands at. The A320's model makes its tail skid
+// and wing tips wheels as well, and counting every wheel took it for a
+// tail-wheel aeroplane. JSBSim's structural x runs aft and z up, in inches.
+// **What she stands on, worked from her model's own contacts**, as they are
+// placed - not from which of them touch, since she is started level and
+// settles on to her tail or her nose after. Her main wheels are the lowest
+// contacts off the centreline. Pivoting on them, she falls the way her
+// centre of gravity lies until the first centreline contact that way meets
+// the ground: that is her nose wheel, or her tail wheel, and the angle it
+// takes is the attitude she stands at. The A320's model makes its tail skid
+// and wing tips wheels as well, and counting every wheel took it for a
+// tail-wheel aeroplane. JSBSim's structural x runs aft and z up, in inches.
+// (The take-off autopilot's, first; the approach autopilot flares short of
+// the same strike attitude.)
+Aircraft::Stance Aircraft::stance() const {
+    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    Stance out;
+    struct Point {
+        double x, y, z;
+        bool wheel;
+    };
+    std::vector<Point> points;
+    for (const Aircraft::ContactPoint& p : contact_points()) {
+        points.push_back({p.x_in, p.y_in, p.z_in, p.wheel});
+    }
+    double main_z = 1e9;
+    for (const Point& p : points) {
+        if (std::abs(p.y) > 1.0) {
+            main_z = std::min(main_z, p.z);
+        }
+    }
+    double main_x = -1e9;
+    for (const Point& p : points) {
+        if (std::abs(p.y) > 1.0 && p.z < main_z + 1.0) {
+            main_x = std::max(main_x, p.x);
+        }
+    }
+    if (main_x < -1e8) {
+        return out;
+    }
+    // The pitch, nose up positive, at which a point meets the ground
+    // pivoting on the main wheels.
+    const auto meets = [&](const Point& p) {
+        return std::atan((p.z - main_z) / (p.x - main_x)) * degrees;
+    };
+    const bool tail_down = property("inertia/cg-x-in") > main_x;
+    const Point* stands_on = nullptr;
+    for (const Point& p : points) {
+        if (std::abs(p.y) <= 1.0 && std::abs(p.x - main_x) > 1.0 &&
+            (p.x > main_x) == tail_down &&
+            (stands_on == nullptr || std::abs(meets(p)) < std::abs(meets(*stands_on)))) {
+            stands_on = &p;
+        }
+    }
+    if (stands_on == nullptr) {
+        return out;
+    }
+    out.found = true;
+    out.tail_wheel = tail_down;
+    out.standing_pitch_deg = meets(*stands_on);
+    // **The attitude her tail strikes at**: the lowest, pivoting on her
+    // main wheels, at which anything behind them meets the ground - a tail
+    // skid, a tail cone, a nacelle. None, for a tail-wheel aeroplane, whose
+    // tail is on the ground already. **Not a wheel**: a wheel behind the
+    // main wheels - a second row of a bogie, a body gear - is another main
+    // wheel, which she rolls on as her nose comes up, not strikes.
+    if (!out.tail_wheel) {
+        for (const Point& p : points) {
+            if (p.x > main_x + 1.0 && !p.wheel) {
+                out.strike_pitch_deg = std::min(out.strike_pitch_deg, meets(p));
+            }
+        }
+    }
+    return out;
+}
+
 Aircraft::Contact Aircraft::contact() const {
     Contact out;
     const auto ground = exec_->GetGroundReactions();

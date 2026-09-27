@@ -79,6 +79,20 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
     : a_(aircraft), runway_(runway), speeds_(speeds),
       glidepath_rad_(glidepath_deg / degrees), jet_(aircraft.figures().jet) {
     measure();
+    // **The flare is bounded by her tail, not by a fixed attitude.** It was
+    // ten degrees for every aeroplane, and the F-35B, which flies her
+    // glidepath at sixteen and a half, had her nose pushed down six and a
+    // half degrees at thirty feet and touched flat and fast. Two degrees
+    // short of where her tail strikes, as the take-off rotates to; a
+    // strike attitude below level is not one - a flying boat's keel and
+    // floats read as one - and is not used.
+    const Aircraft::Stance stance = aircraft.stance();
+    if (stance.found && stance.tail_wheel) {
+        most_flare_pitch_deg_ = stance.standing_pitch_deg;
+    } else if (stance.found && stance.strike_pitch_deg > 0.0 &&
+               stance.strike_pitch_deg < 90.0) {
+        most_flare_pitch_deg_ = stance.strike_pitch_deg - 2.0;
+    }
     throttle_ = 0.5;
 }
 
@@ -485,9 +499,13 @@ Controls Lander::fly() {
         const double path_fpm = std::max(1.0, kcas) * 101.269;
         const double want_flare =
             s.pitch_deg + 1.5 * std::atan(fpm_error / path_fpm) * degrees;
-        flare_pitch_ = std::clamp(
-            std::max(flare_pitch_, std::min(want_flare, flare_pitch_ + 6.0 / steps_per_second)),
-            -4.0, 10.0);
+        // **From the attitude she flew the glidepath at**, never pushed
+        // down from it: the bound stops the nose rising past it, and does
+        // not lower one already there.
+        flare_pitch_ = std::max(
+            -4.0, std::max(flare_pitch_,
+                           std::min({want_flare, flare_pitch_ + 6.0 / steps_per_second,
+                                     most_flare_pitch_deg_})));
         // **And no further than the wing will carry.** A flare held on past
         // the stall is not a landing, and an aeroplane flown past the
         // incidence its aerodynamic tables cover ends the flight: JSBSim

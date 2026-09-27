@@ -138,6 +138,12 @@ private:
     double last_vg_fps_ = -1.0;  // the last step's groundspeed
     double decel_fps2_ = 0.0;    // how fast she is slowing, smoothed
     double flare_pitch_ = 0.0;
+    // The most the flare raises the nose to: two degrees short of the
+    // attitude her tail strikes the runway at, or her three-point attitude
+    // on a tail wheel; with nothing behind her main wheels to strike, only
+    // the wing's own incidence limits it. Read from her contacts
+    // (Aircraft::stance) as she is built.
+    double most_flare_pitch_deg_ = 90.0;
     // The attitude that holds the glidepath, learnt as she flies it; taken
     // from the attitude she has on the first step of the approach.
     double path_pitch_ = 0.0;
