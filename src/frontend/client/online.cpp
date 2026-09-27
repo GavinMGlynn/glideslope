@@ -116,6 +116,8 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             mine_ = state.your_aircraft;
             taken_ = std::move(joined);
             taken_at_ = sequence_;
+            taken_back_ = false;
+            resuming_ = false;
             reconciled_s_ = state.simulation_time_s;
             shown_.erase(mine_);
             watch(net::no_aircraft);
@@ -132,12 +134,36 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
     // from, with the inputs since already let go.
     if (state.yours && state.your_aircraft == mine_ &&
         (!reconciled_s_ || state.simulation_time_s > *reconciled_s_)) {
+        // **Who flies it**, by the same newest word: handed to the AI, it is
+        // no longer predicted; taken back, it is put where this update says
+        // and predicted from there, as at a take-over.
+        for (const net::AircraftState& a : state.aircraft) {
+            if (a.index != mine_) {
+                continue;
+            }
+            const bool ai = a.controller == net::Controller::ai;
+            if (ai != own_ai_flying_) {
+                own_ai_flying_ = ai;
+                switched_ = true;
+                // Drawn from the updates afresh from here, or not at all.
+                shown_.erase(mine_);
+                if (!ai) {
+                    resuming_ = true;
+                    taken_back_ = true;
+                    taken_at_ = sequence_;
+                }
+            }
+        }
         // **The first word since joining is where it is**, not a correction:
         // a machine slow to build its flight after joining heard nothing of
         // it for seconds while the server flew it on, and was then put right
         // by the whole way flown - 46 m, too far to hide.
-        if (!reconciled_s_) {
+        if (own_ai_flying_) {
+            // The AI's: drawn from the updates, below, and not predicted.
             reconciled_s_ = state.simulation_time_s;
+        } else if (!reconciled_s_ || resuming_) {
+            reconciled_s_ = state.simulation_time_s;
+            resuming_ = false;
             flight.adopt(motion_of(*state.yours));
         } else {
             reconciled_s_ = state.simulation_time_s;
@@ -158,12 +184,8 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
         applied_ = std::max(applied_, state.last_input_applied);
     }
     for (const net::AircraftState& a : state.aircraft) {
-        if (a.index == mine_) {
-            // Who flies it now, by the newest word only: an older one may be
-            // from before it was taken over, when the AI did.
-            if (!reconciled_s_ || state.simulation_time_s >= *reconciled_s_) {
-                own_ai_flying_ = a.controller == net::Controller::ai;
-            }
+        // Its own is drawn as any other only while the AI flies it.
+        if (a.index == mine_ && !own_ai_flying_) {
             continue;
         }
         if (!origin_) {
@@ -265,6 +287,14 @@ void Online::take_over(std::uint8_t number) {
     net::ControllerSwap swap;
     swap.aircraft = number;
     swap.to = net::Controller::person;
+    const std::vector<std::uint8_t> body = net::write(swap);
+    session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
+}
+
+void Online::hand_over(bool to_ai) {
+    net::ControllerSwap swap;
+    swap.aircraft = mine_;
+    swap.to = to_ai ? net::Controller::ai : net::Controller::person;
     const std::vector<std::uint8_t> body = net::write(swap);
     session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
 }

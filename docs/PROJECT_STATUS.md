@@ -227,6 +227,53 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The client with the window hands its aircraft to the AI on a server, 2026-09-27 — tail done
+
+**What is missing first.** What it shows of its own aircraft is not blended
+at a hand-over or a take-back: handed over, the frames before the updates
+have given it two positions show it where it was last predicted, and then
+where the updates put it 100 ms behind; taken back, it is put where the
+next update says. That is the open tail "the client with the window does
+not blend its own aircraft at a switch", and nothing here measures the step.
+
+**The tail.** Pressing A on a server swapped the pilot in the client's own
+flight and nowhere else: the server never heard, and the prediction went
+on as before - A online did nothing.
+
+**What changed** (`frontend/client/online.*`, `frontend/client/main.cpp`):
+- **A on a server asks the server** (`CONTROLLER_SWAP` for its own number,
+  to the AI or back to the person, as the command-line client's
+  `--hand-over-at` and `--take-back-at` do); offline it swaps the pilot
+  locally as before. `--hand-over-after S` and `--take-back-after S` do it
+  S seconds of flight in, for tests.
+- **Who flies it is what the server's updates say**, by the newest word
+  only. Handed to the AI, its own aircraft is no longer predicted - the
+  flight is not stepped, nothing sent flies it - and is drawn from the
+  updates, 100 ms behind, as any other aircraft is; the client rides along
+  in it (`WATCH` of its own number, unless riding along in another), so
+  its seat and its controls as the AI moves them are shown. Taken back, the
+  flight is put where the next update says (`Flight::adopt`) and predicted
+  from there, as after a take-over.
+- **The HUD says who flies it as the server says**, not as the local
+  flight's controller would. At each switch a frame is drawn, shot or not,
+  and the client prints that the server says the AI (or the pilot) has its
+  aircraft, and what the HUD read.
+
+**Verification**:
+`the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back`
+(`tests/cmake/client_hands_over.cmake`): the headless client flies its own
+Cessna against a server with one AI, hands it over 4 s in and takes it back
+10 s in, and shoots 16 s in. It must say once each, the AI first, that the
+server said the AI had its aircraft - the HUD then reading FLYING AI and not
+FLYING PILOT - and that the server said the pilot had it - the HUD then
+reading FLYING PILOT; and at the shot that the server says the pilot has it
+and has flown it by inputs sent since it was taken back. Seen to fail: with
+A on a server put back to what it did on `main` - swapping only the local
+flight's pilot, the flags calling that instead of asking the server - it
+failed with "the client said 0 times, not once, that the server gave its
+aircraft to the AI"; reverted, it passes (about 55 s on Linux debug), as do
+the ride-along and take-over tests beside it.
+
 ### Every circuit touches down on the runway, past its threshold, 2026-09-27 — tail done
 
 **Found by review, now tails:** the flare starts at the path pitch but no more
