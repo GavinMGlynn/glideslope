@@ -11,9 +11,11 @@
 #include "world/metar.hpp"
 #include "world/winds_aloft.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -134,6 +136,29 @@ sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
 WeatherReport fetch_weather(const std::string& station, const std::string& time,
                             const Fetch& fetch,
                             std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
+
+// **fetch_weather on a thread of its own, given up when let go.** Letting it
+// go before it is done gives the fetch up - its transfer abandoned, its wait
+// between tries cut short (FetchesGivenUp) - and waits only for that, so that
+// a flight quit during a refresh ends at once rather than when the weather
+// service's retries run out.
+class WeatherFetch {
+public:
+    WeatherFetch(std::string station, std::string time, Fetch fetch,
+                 std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
+    ~WeatherFetch();
+    WeatherFetch(const WeatherFetch&) = delete;
+    WeatherFetch& operator=(const WeatherFetch&) = delete;
+
+    // Whether get() would return without waiting.
+    bool done() const;
+    // What fetch_weather returned, or throws what it threw. Once.
+    WeatherReport get();
+
+private:
+    std::atomic<bool> give_up_{false};
+    std::future<WeatherReport> report_;
+};
 
 // What CC BY 4.0 and Open-Meteo's terms ask to be shown beside its data.
 inline constexpr const char* open_meteo_credit = "Weather data by Open-Meteo.com";

@@ -21,6 +21,13 @@ namespace glideslope::world {
 
 namespace {
 
+// The flag of the FetchesGivenUp living on this thread, if one is.
+thread_local const std::atomic<bool>* given_up_when = nullptr;
+
+bool given_up() {
+    return given_up_when != nullptr && given_up_when->load();
+}
+
 bool there(const std::filesystem::path& path) {
     try {
         return file_is_there(path);
@@ -111,6 +118,31 @@ bool put_in_place(const std::filesystem::path& path, const std::vector<std::uint
     return put;
 }
 
+FetchesGivenUp::FetchesGivenUp(const std::atomic<bool>& flag) {
+    given_up_when = &flag;
+}
+
+FetchesGivenUp::~FetchesGivenUp() {
+    given_up_when = nullptr;
+}
+
+void wait_before_trying_again(std::chrono::milliseconds wait) {
+    // In slices, each short enough that a flag raised is seen at once.
+    const auto until = std::chrono::steady_clock::now() + wait;
+    for (;;) {
+        if (given_up()) {
+            throw FetchGivenUp("the fetch was given up");
+        }
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= until) {
+            return;
+        }
+        std::this_thread::sleep_for(
+            std::min<std::chrono::steady_clock::duration>(until - now,
+                                                          std::chrono::milliseconds(10)));
+    }
+}
+
 platform::HttpResponse fetch_with_retries(const Fetch& fetch, const std::string& url,
                                           int attempts,
                                           std::chrono::milliseconds wait,
@@ -141,7 +173,7 @@ platform::HttpResponse fetch_with_retries(const Fetch& fetch, const std::string&
         if (sleep) {
             sleep(this_wait);
         } else {
-            std::this_thread::sleep_for(this_wait);
+            wait_before_trying_again(this_wait);
         }
         wait *= 2;
     }
@@ -212,7 +244,7 @@ bool answered_json(std::string_view text, const std::string& url, int attempt) {
         }
         throw DemError(url + ": its answer began as JSON and did not parse (" + why + ")");
     }
-    std::this_thread::sleep_for(parse_wait * attempt);
+    wait_before_trying_again(parse_wait * attempt);
     return false;
 }
 
@@ -235,6 +267,7 @@ Fetch http_fetch() {
         request.url = url;
         request.user_agent = "glideslope (+https://github.com/GavinMGlynn/glideslope)";
         request.max_body = std::uint64_t{256} << 20;
+        request.abandon = given_up_when;
         return platform::http_get(request);
     };
 }

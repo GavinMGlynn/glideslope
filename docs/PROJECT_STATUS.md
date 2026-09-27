@@ -227,6 +227,46 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Quitting during a weather refresh ends at once, 2026-09-27 — tail done
+
+**What is missing first.** No test quits the program itself mid-refresh: a
+flight refreshes its weather only every 15 minutes of flying, so the test is
+of `world::WeatherFetch`, the object the flight holds and lets go when it
+ends. And a transfer under way is given up by `HttpRequest::abandon`, which
+`http_fetch` is now handed; no test here holds a connection open to show it.
+
+**What was wrong.** `Flight` refreshed the weather on a bare `std::async`,
+whose future waits for its thread when destroyed. A flight quit while the
+weather service answered 503, or nothing, or not JSON, sat through every
+retry - 2 + 4 + 8 + 16 s, and then the waits between answers that are not
+JSON - before the program could end. Found by the review of PR #42, where a
+429 is waited out too.
+
+**What changed.**
+- `world::FetchesGivenUp` (download.hpp): while one lives on a thread, every
+  request `http_fetch` makes there carries its flag as `HttpRequest::abandon`,
+  and `wait_before_trying_again` - now every wait between tries, in
+  `fetch_with_retries` and `answered_json` - wakes within 10 ms of the flag
+  rising and throws `FetchGivenUp`, which is no `HttpError`, so nothing retries
+  it.
+- `world::WeatherFetch` (weather.hpp): `fetch_weather` on a thread of its own,
+  under a `FetchesGivenUp`; its destructor raises the flag before its future
+  is destroyed. `Flight` holds one, last, in place of the future.
+- For PR #42, whose `fetch_with_retries` takes a `Sleep`: its default must be
+  `wait_before_trying_again`, or the waits after a 429 are not given up.
+
+**Verification.** Linux debug:
+- New unit test
+  `a_weather_fetch_let_go_while_it_waits_to_try_again_ends_at_once` walks every
+  wait a weather fetch makes between tries, counted, three of three: after a
+  503, after no answer, and after an answer that is not JSON. Each fetch is
+  let go just after its first ask, with a flight's waits, and must be over
+  within 2 s; and a fetch kept to the end gives the weather. Seen to fail
+  with `wait_before_trying_again` made a plain sleep: "between retries of a
+  503: let go, it took 30.001206 s to end"; passes in 0.08 s with it.
+- The flight's own `flight.cpp` compiles with the warning set; the
+  weather's other unit tests still pass.
+
 ### A command-line client the server has let go joins again by itself, and a dropped one does not, 2026-09-27 — tail still open
 
 **What is missing first.** **The client with the window still cannot come
