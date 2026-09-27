@@ -398,8 +398,8 @@ Found while implementing something else. Added when found, not when remembered.
       second session for a key takes over that player's slot and aircraft,
       and a test with one key on two addresses counts one aircraft.*
 - [ ] **The client with the window does not blend its own aircraft at a
-      switch** - handed over, taken back or taken over - as the network
-      checks' model of a display does. *Verification: a shot sequence across
+      switch** - handed over (A on a server), taken back or taken over - as
+      the network checks' model of a display does. *Verification: a shot sequence across
       each switch shows no step past the bound the network checks hold.*
 - [ ] **The client with the window is not tested with its updates
       reordered across a take-over**; it has the guard the command-line client
@@ -460,10 +460,12 @@ Found while implementing something else. Added when found, not when remembered.
       message tests run a hundred times on the development machine without a
       crash.*
 
-- [ ] **The client with the window does not hand over on a server**: pressing A
-      online does nothing. *Verification: the client with the window hands its
-      aircraft to the AI and takes it back on a server, and what it shows does
-      not step.*
+- [x] **The client with the window hands over on a server**: A online asks
+      the server to hand the aircraft to the AI, and to give it back.
+      *Verification: the client with the window hands its aircraft to the AI
+      and takes it back on a server, the server and its HUD saying the AI and
+      then the pilot has it, and it ends flown by the pilot's inputs.* That
+      what it shows does not step is the blending tail above.
 
 - [x] **A headless client drawing thousands of frames runs the software
       Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a

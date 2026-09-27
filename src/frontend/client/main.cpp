@@ -145,6 +145,10 @@ struct Options {
     double slow_start_s = 0.0;
     // And take it over this many seconds of flight in; below nought, never.
     double take_over_after_s = -1.0;
+    // On a server, hand its own aircraft to the AI this many seconds of
+    // flight in, and take it back this many in, as A does; below nought, never.
+    double hand_over_after_s = -1.0;
+    double take_back_after_s = -1.0;
     bool on_ground = false;
 };
 
@@ -210,6 +214,9 @@ void usage(std::FILE* out) {
         "                over the one ridden in, if the AI flies it\n"
         "  --take-over-after S  riding along, take it over S seconds after\n"
         "                joining\n"
+        "  --hand-over-after S, --take-back-after S  on a server, hand your own\n"
+        "                aircraft to the AI S seconds after joining, and take it\n"
+        "                back, as A does (for tests)\n"
         "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
         "                slow machine building its flight does (for tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
@@ -394,6 +401,10 @@ static int run_program(int argc, char** argv) {
             o.ride_along = true;
         } else if (a == "--take-over-after" && has_value) {
             o.take_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--hand-over-after" && has_value) {
+            o.hand_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--take-back-after" && has_value) {
+            o.take_back_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--on-ground") {
             o.on_ground = true;
         } else if (a == "--autopilot") {
@@ -933,6 +944,15 @@ static int run_program(int argc, char** argv) {
         };
         bool rode_along = false;
         bool asked_to_take_over = false;
+        bool asked_to_hand_over = false;
+        bool asked_to_take_back = false;
+        // **Its own aircraft handed over, or taken back**: asked of the
+        // server, which decides; what it says comes back in the updates.
+        const auto hand_over = [&](bool to_ai) {
+            online->hand_over(to_ai);
+            std::printf("glideslope: asked for aircraft %u to be handed to %s\n",
+                        static_cast<unsigned>(online->mine()), to_ai ? "the AI" : "its pilot");
+        };
         struct OtherMesh {
             glideslope::gfx::MeshId id = 0;
             bool made = false;
@@ -984,7 +1004,12 @@ static int run_program(int argc, char** argv) {
                     running = false;
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_A && flight) {
-                    flight->swap_pilot();
+                    // On a server the server owns the aircraft: A asks it.
+                    if (online && joined) {
+                        hand_over(!online->own_ai_flying());
+                    } else {
+                        flight->swap_pilot();
+                    }
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_T && online && joined &&
                            online->watching() != glideslope::net::no_aircraft) {
@@ -1061,8 +1086,11 @@ static int run_program(int argc, char** argv) {
             const glideslope::sim::Controls flown =
                 joined && flight ? online->fly(seconds_since_start(), controls, *flight)
                                  : controls;
+            // **Handed to the AI on a server, it is not predicted**: the
+            // server flies it, and it is drawn from the updates.
+            const bool own_ai_online = online && joined && online->own_ai_flying();
             for (std::int64_t i = 0; i < due; ++i) {
-                if (flight) {
+                if (flight && !own_ai_online) {
                     flight->step(flown);
                     if (o.trace) {
                         std::printf("%s\n", flight->trace().c_str());
@@ -1086,6 +1114,19 @@ static int run_program(int argc, char** argv) {
                     online->take_over(online->watching());
                     std::printf("glideslope: asked to take over aircraft %u\n",
                                 static_cast<unsigned>(online->watching()));
+                }
+                const double joined_s =
+                    static_cast<double>(ticks) /
+                    static_cast<double>(glideslope::sim::steps_per_second);
+                if (o.hand_over_after_s >= 0.0 && !asked_to_hand_over &&
+                    joined_s >= o.hand_over_after_s) {
+                    asked_to_hand_over = true;
+                    hand_over(true);
+                }
+                if (o.take_back_after_s >= 0.0 && !asked_to_take_back &&
+                    joined_s >= o.take_back_after_s) {
+                    asked_to_take_back = true;
+                    hand_over(false);
                 }
                 if (const auto taken = online->taken_over()) {
                     if (taken->aircraft_id != flight->aircraft().id) {
@@ -1118,8 +1159,23 @@ static int run_program(int argc, char** argv) {
                                 taken->aircraft_id.c_str());
                 }
             }
+            // **Who flies its own, as the server said**: at a switch a frame
+            // is drawn, shot or not, and says what its HUD read. Handed over,
+            // it rides along in its own aircraft - its seat, and its controls
+            // as the AI moves them - unless riding along in another already.
+            bool switched_now = false;
+            if (online && joined && online->switched()) {
+                switched_now = true;
+                if (online->own_ai_flying() &&
+                    online->watching() == glideslope::net::no_aircraft) {
+                    online->watch(online->mine());
+                } else if (!online->own_ai_flying() && online->watching() == online->mine()) {
+                    online->watch(glideslope::net::no_aircraft);
+                }
+            }
             // **On a server, everybody else as they are now**, and the one
-            // being ridden along in, if any.
+            // being ridden along in, if any: its own among them while the AI
+            // flies it.
             if (online && joined) {
                 others_now = online->others(seconds_since_start());
                 if (o.ride_along && !rode_along) {
@@ -1162,7 +1218,7 @@ static int run_program(int argc, char** argv) {
             // waited on its frames in flight (gfx/renderer.hpp); now they
             // would only take the machine's time from the session. Nobody
             // sees them; the flight and the session go on all the same.
-            if (shooting && joined && !shot_now) {
+            if (shooting && joined && !shot_now && !switched_now) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
             }
@@ -1228,8 +1284,16 @@ static int run_program(int argc, char** argv) {
                 haze = sky->haze(camera);
                 background = sky->background(camera);
             }
-            // The aeroplane itself, in every view but the cockpit.
-            if (flight && flight->model() != nullptr && o.draw_aircraft &&
+            // The aeroplane itself, in every view but the cockpit - but not
+            // where the AI flies it on a server and it is drawn from the
+            // updates, as another.
+            const bool own_drawn_as_other =
+                online && joined &&
+                std::any_of(others_now.begin(), others_now.end(),
+                            [&](const glideslope::client::Other& other) {
+                                return other.number == online->mine();
+                            });
+            if (flight && flight->model() != nullptr && o.draw_aircraft && !own_drawn_as_other &&
                 (view != glideslope::gfx::View::cockpit || ridden != nullptr)) {
                 const glideslope::world::Ecef sun = flight->sun_in_body();
                 if (!has_aircraft_mesh || light_moved(sun)) {
@@ -1319,6 +1383,10 @@ static int run_program(int argc, char** argv) {
             }
             if (flight) {
                 glideslope::gfx::HudReadings readings = flight->hud();
+                if (online && joined) {
+                    // Who flies it is the server's to say.
+                    readings.ai_flying = online->own_ai_flying();
+                }
                 if (ridden) {
                     // **What the aircraft ridden in is doing**, as the updates
                     // say: its ground speed - airspeed is not sent - its
@@ -1358,15 +1426,25 @@ static int run_program(int argc, char** argv) {
                             std::printf("glideslope: the HUD reads %s\n", line.c_str());
                         }
                     }
-                } else if (shot_now && online && joined) {
+                }
+                if (switched_now) {
+                    std::printf("glideslope: the server says %s has aircraft %u\n",
+                                online->own_ai_flying() ? "the AI" : "the pilot",
+                                static_cast<unsigned>(online->mine()));
+                    for (const std::string& line : glideslope::gfx::hud_lines(readings)) {
+                        std::printf("glideslope: the HUD reads %s\n", line.c_str());
+                    }
+                }
+                if (!ridden && shot_now && online && joined) {
                     std::printf("glideslope: flying aircraft %u, the %s; the server says %s "
                                 "has it%s\n",
                                 static_cast<unsigned>(joined->number),
                                 flight->aircraft().id.c_str(),
                                 online->own_ai_flying() ? "the AI" : "the pilot",
-                                online->flown_since_taken_over()
-                                    ? ", and has flown it by inputs sent since it was taken over"
-                                    : "");
+                                !online->flown_since_taken_over() ? ""
+                                : online->taken_back()
+                                    ? ", and has flown it by inputs sent since it was taken back"
+                                    : ", and has flown it by inputs sent since it was taken over");
                     for (const std::string& line : glideslope::gfx::hud_lines(readings)) {
                         std::printf("glideslope: the HUD reads %s\n", line.c_str());
                     }

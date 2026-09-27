@@ -1793,6 +1793,19 @@ set_tests_properties(the_client_with_the_window_takes_over_the_ai_aircraft_it_ri
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/takes_over)
 
+# **The client with the window hands its own aircraft to the AI on a
+# server, and takes it back**: the server says the AI has it, then the pilot,
+# and the HUD says so each time. See cmake/client_hands_over.cmake.
+add_test(NAME the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/hands_over -DPORT=24787 -DDRIVER=vulkan
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_hands_over.cmake)
+set_tests_properties(the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hands_over)
+
 # **A client started with --online reaches the server server.txt names.** See
 # cmake/client_online.cmake, which names the file by the environment rather
 # than writing into the person's own config directory.

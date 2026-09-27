@@ -105,6 +105,21 @@ public:
     // the caller's flight becomes it (Flight::adopt, or a new Flight where it
     // is another aeroplane).
     std::optional<Joined> taken_over();
+    // **Handing its own aircraft to the AI pilot, or taking it back**
+    // (`CONTROLLER_SWAP` for its own number): asked of the server, which
+    // decides. Handed over, its own is no longer predicted - nothing sent
+    // flies it - and is among `others`, drawn from the updates as any other
+    // is; taken back, the flight is put where the next update says and
+    // predicted again from there.
+    void hand_over(bool to_ai);
+    // Who the server said flies it changed since last asked: the caller draws
+    // a frame of the switch, and says so.
+    bool switched() {
+        const bool out = switched_;
+        switched_ = false;
+        return out;
+    }
+    std::uint8_t mine() const { return mine_; }
     // **What the server last said of this client's own aircraft**: whether
     // the AI is flying it, and whether, since it was taken over, the server
     // has applied an input this client sent - which it does only if it is
@@ -112,6 +127,9 @@ public:
     bool own_ai_flying() const { return own_ai_flying_; }
     // The last input sent.
     std::uint32_t sequence() const { return sequence_; }
+    // Whether it was last had by taking it back from the AI (rather than
+    // taking another over): what `flown_since_taken_over` counts from.
+    bool taken_back() const { return taken_back_; }
     bool flown_since_taken_over() const {
         return taken_at_ && applied_ > *taken_at_;
     }
@@ -142,6 +160,10 @@ private:
     std::optional<std::uint32_t> taken_at_;
     std::uint32_t applied_ = 0;
     bool own_ai_flying_ = false;
+    bool switched_ = false;
+    bool taken_back_ = false;
+    // Taken back, and not yet put where the server says it is.
+    bool resuming_ = false;
     std::optional<double> reconciled_s_;
     net::SessionClock clock_;
     // A local frame to interpolate in: north-east-down about where this
