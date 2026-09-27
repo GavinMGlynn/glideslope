@@ -426,15 +426,6 @@ std::vector<Aircraft::ContactPoint> Aircraft::contact_points() const {
 // takes is the attitude she stands at. The A320's model makes its tail skid
 // and wing tips wheels as well, and counting every wheel took it for a
 // tail-wheel aeroplane. JSBSim's structural x runs aft and z up, in inches.
-// **What she stands on, worked from her model's own contacts**, as they are
-// placed - not from which of them touch, since she is started level and
-// settles on to her tail or her nose after. Her main wheels are the lowest
-// contacts off the centreline. Pivoting on them, she falls the way her
-// centre of gravity lies until the first centreline contact that way meets
-// the ground: that is her nose wheel, or her tail wheel, and the angle it
-// takes is the attitude she stands at. The A320's model makes its tail skid
-// and wing tips wheels as well, and counting every wheel took it for a
-// tail-wheel aeroplane. JSBSim's structural x runs aft and z up, in inches.
 // (The take-off autopilot's, first; the approach autopilot flares short of
 // the same strike attitude.)
 Aircraft::Stance Aircraft::stance() const {

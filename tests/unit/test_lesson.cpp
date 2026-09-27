@@ -1215,9 +1215,11 @@ struct FlareWatch {
 // How far below the path's attitude the nose may go in the flare: the sink
 // the flare's own law leaves a little room for, and no fixed attitude's six.
 constexpr double flare_dip_margin_deg = 1.5;
-// How far short of the attitude her tail strikes at she must touch: the
-// margin the take-off autopilot rotates to (sim/departure.cpp).
-constexpr double strike_margin_deg = 2.0;
+// How far short of the attitude her tail strikes at she must touch: more
+// than the two degrees short of it the lander bounds the flare at
+// (sim/lander.cpp), so a flare that has run up to that bound - the bound
+// doing the landing, not the flare's own law - is caught too.
+constexpr double strike_margin_deg = 2.5;
 
 // **Aeroplanes with nothing behind their main wheels to strike**, named, and
 // why: a tail-wheel aeroplane's tail is down already, and a model with no
@@ -1258,12 +1260,45 @@ std::vector<std::string> flared_from_the_path(const std::string& id, const std::
         wrong.push_back(id + (strikes ? " has a tail to strike and is named as having none"
                                       : " has no tail to strike and is not named"));
     }
-    if (strikes && f.touch_pitch_deg > stance.strike_pitch_deg - strike_margin_deg) {
+    if (strikes && f.touch_pitch_deg >= stance.strike_pitch_deg - strike_margin_deg) {
         wrong.push_back(id + " (" + where + ") touched at " + std::to_string(f.touch_pitch_deg) +
                         " degrees, within " + std::to_string(strike_margin_deg) +
                         " of its tail strike at " + std::to_string(stance.strike_pitch_deg));
     }
     return wrong;
+}
+
+// **The strike half of the check, seen red.** No aeroplane's flare comes
+// near its strike attitude - the incidence guard stops every nose first -
+// so the landings alone never exercise it: a lander bounded at the strike
+// plus a degree still passed them all. So it is fed, for every aeroplane with
+// a tail to strike, a flare that touched at the lander's own bound, which it
+// must name, and one three degrees short of the strike, which it must not.
+// Returns how many aeroplanes it was put to.
+std::size_t the_strike_check_is_seen_red(std::vector<std::string>& wrong) {
+    std::size_t put = 0;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        const auto stance = aircraft.stance();
+        if (entry.seaplane || !stance.found || stance.tail_wheel ||
+            stance.strike_pitch_deg >= 90.0) {
+            continue;
+        }
+        FlareWatch at_bound;
+        at_bound.began = at_bound.touched = true;
+        at_bound.path_pitch_deg = at_bound.least_pitch_deg = 0.0;
+        at_bound.touch_pitch_deg = stance.strike_pitch_deg - 2.0;
+        FlareWatch short_of_it = at_bound;
+        short_of_it.touch_pitch_deg = stance.strike_pitch_deg - 3.0;
+        if (flared_from_the_path(entry.id, "at the lander's bound", at_bound).empty()) {
+            wrong.push_back(entry.id + ": a touch at the lander's bound was not named");
+        }
+        if (!flared_from_the_path(entry.id, "three degrees short", short_of_it).empty()) {
+            wrong.push_back(entry.id + ": a touch three degrees short of the strike was named");
+        }
+        ++put;
+    }
+    return put;
 }
 
 struct Approached {
@@ -1486,6 +1521,11 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
         }
         ++walked;
     }
+    // The strike check, on a flare built to break it: every aeroplane with a
+    // tail to strike - the sixteen less the four named as having none.
+    const std::size_t put = the_strike_check_is_seen_red(came_down_badly);
+    check(put == 12, "the strike check was put to twelve aeroplanes, not " +
+                         std::to_string(put));
     // **Every one of them stayed on its wheels, the right way up**, from the
     // touch to the stop, and flared from the attitude it flew the glidepath
     // at to one short of its tail strike - named all together, so one run
