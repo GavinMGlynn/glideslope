@@ -328,6 +328,18 @@ holds the new row; `every_flag_the_server_prints_in_its_usage_is_one_it_takes`
 the new flag. The window's drop test (`server_window.cmake`) needs a display
 and is run on Windows below.
 
+**macOS CI failed it once** (run 36289235846): the first client was admitted
+and dropped before the staying client had joined, so the server found
+everybody gone 0.1 s in and stopped, and the restarted client waited a minute
+for no answer and wrote nothing. Not a socket difference - the order was never
+built. Now the first client joins only once the staying one has heard the
+server introduce an aircraft (`--after-ready` on its `--heard` file). Rebuilt
+on purpose here (the staying client held back a second): red, with "no answer"
+now in the restarted client's file; restored, green in 2.4 s. And
+`glideslope_cli connect` now writes its outcome to `--heard` on every way out
+(`say_outcome()`): no answer, an answer that does not open, refused when
+joining again, or could not join again.
+
 ### The client with the window hands its aircraft to the AI on a server, 2026-09-27 — tail still open
 
 **The tail stays open**: its verification asks that what is shown does not
