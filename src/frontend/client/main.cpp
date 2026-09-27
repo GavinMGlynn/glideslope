@@ -25,6 +25,7 @@
 
 #include "flight.hpp"
 #include "online.hpp"
+#include "shown.hpp"
 #include "platform/end_process.hpp"
 #include "platform/stop.hpp"
 #include "platform/no_crash_dialogs.hpp"
@@ -956,6 +957,10 @@ static int run_program(int argc, char** argv) {
         bool asked_to_take_back = false;
         std::size_t rode_next = 0;
         bool said_the_view = false;
+        // **What is shown of its own on a server**, blended across a switch
+        // (client/shown.hpp), and when it was last worked out.
+        glideslope::client::OwnShown own_shown;
+        double own_framed_s = -1.0;
         // **Its own aircraft handed over, or taken back**: asked of the
         // server, which decides; what it says comes back in the updates.
         const auto hand_over = [&](bool to_ai) {
@@ -1184,6 +1189,7 @@ static int run_program(int argc, char** argv) {
                         }
                     }
                     flight->adopt(taken->motion);
+                    own_shown.taken_over(taken->number);
                     joined = *taken;
                     std::printf("glideslope: took over aircraft %u, the %s\n",
                                 static_cast<unsigned>(taken->number),
@@ -1271,6 +1277,50 @@ static int run_program(int argc, char** argv) {
             // waited on its frames in flight (gfx/renderer.hpp); now they
             // would only take the machine's time from the session. Nobody
             // sees them; the flight and the session go on all the same.
+            // **Its own, shown blended across a switch**: from the flight here
+            // while predicted, from the updates while the AI flies it, and
+            // moved by what is left of the blend - the model where it is
+            // drawn and the camera in it alike. Worked out at every frame
+            // drawn, and sixty times a second when none is, as a shot on a
+            // server draws few: what is measured is what a screen would show.
+            std::optional<glideslope::world::Ecef> own_moved; // shown less its source
+            bool own_predicted = false;
+            if (online && joined && flight) {
+                const bool drawing =
+                    !(shooting && !shot_now && !switched_now && !said_the_view);
+                const double local_s = seconds_since_start();
+                if (drawing || local_s - own_framed_s >= 1.0 / 60.0) {
+                    own_framed_s = local_s;
+                    glideslope::client::Other* own_other = nullptr;
+                    for (glideslope::client::Other& other : others_now) {
+                        if (other.number == online->mine()) {
+                            own_other = &other;
+                        } else {
+                            own_shown.seen(other.number, local_s, other.centre, other.path_mps);
+                        }
+                    }
+                    std::optional<glideslope::client::OwnShown::Source> source;
+                    if (online->own_ai_flying()) {
+                        if (own_other != nullptr) {
+                            source = glideslope::client::OwnShown::Source{
+                                own_other->centre, own_other->path_mps, false};
+                        }
+                    } else if (flight->predicting()) {
+                        source = glideslope::client::OwnShown::Source{
+                            flight->centre(), flight->velocity_ecef_mps(), true};
+                    }
+                    if (source) {
+                        const glideslope::world::Ecef shown = own_shown.frame(local_s, *source);
+                        own_moved = glideslope::world::Ecef{shown.x - source->at.x,
+                                                            shown.y - source->at.y,
+                                                            shown.z - source->at.z};
+                        own_predicted = source->predicted;
+                        if (own_other != nullptr && !own_predicted) {
+                            own_other->centre = shown;
+                        }
+                    }
+                }
+            }
             if (shooting && joined && !shot_now && !switched_now && !said_the_view) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
@@ -1307,6 +1357,11 @@ static int run_program(int argc, char** argv) {
                     view, ridden_placement,
                     m.visual ? glideslope::gfx::model_radius(m.visual->model) : 10.0, eye,
                     flight->time_s() * orbit_rad_per_s);
+            }
+            if (own_moved && own_predicted && !ridden) {
+                camera.position.x += own_moved->x;
+                camera.position.y += own_moved->y;
+                camera.position.z += own_moved->z;
             }
             if (terrain) {
                 draws = terrain->update(camera, o.width, o.height, shot_now);
@@ -1361,6 +1416,11 @@ static int run_program(int argc, char** argv) {
                 glideslope::gfx::Draw draw;
                 draw.mesh = aircraft_mesh;
                 draw.placement = flight->model_placement();
+                if (own_moved && own_predicted) {
+                    draw.placement.origin.x += own_moved->x;
+                    draw.placement.origin.y += own_moved->y;
+                    draw.placement.origin.z += own_moved->z;
+                }
                 drawn.push_back(draw);
             }
             // **Everybody else, on a server**: each with its own model, lit
@@ -1546,6 +1606,16 @@ static int run_program(int argc, char** argv) {
                             "%zu too large to hide\n",
                             online->corrections(), online->worst_correction_m(),
                             online->snapped());
+                // **How far what it showed of its own stepped**, measured as
+                // glideslope_cli measures it (client/shown.hpp).
+                std::printf("glideslope: own aircraft: %zu switches; the largest step at a "
+                            "switch %.3f m, and otherwise %.3f m\n",
+                            own_shown.switches(), own_shown.worst_step_at_switch_m(),
+                            own_shown.worst_step_otherwise_m());
+                if (!own_shown.worst_step_what().empty()) {
+                    std::printf("glideslope: the largest step at a switch: %s\n",
+                                own_shown.worst_step_what().c_str());
+                }
             }
             if (shot_now) {
                 if (terrain) {

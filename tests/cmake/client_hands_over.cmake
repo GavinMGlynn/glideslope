@@ -3,7 +3,7 @@
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope> -DDATA=<data>
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
-#         -DDRIVER=<gpu driver> -P client_hands_over.cmake
+#         -DDRIVER=<gpu driver> -DIMPAIR=<glideslope_impair> -P client_hands_over.cmake
 #
 # **Built, not hoped for.** A server with one AI Cessna, and the client with
 # the window joining it and flying its own aircraft, which it asks the server
@@ -29,9 +29,13 @@
 # the flight here, which is not flown while the AI has it and would sit where
 # it was handed over while the aircraft flew on.
 #
-# **What it shows across the switch is not judged here**: the client with the
-# window does not yet blend its own aircraft at a switch, which is its own
-# tail in docs/COMPLETION_PLAN.md.
+# **What it shows does not step at either switch**: the client says, at the
+# shot, how many switches of its own aircraft it measured and the largest step
+# what it showed made at one (client/shown.hpp) - measured as glideslope_cli
+# measures it, worked out sixty times a second whether or not a frame is
+# drawn. It must have measured both, the hand-over and the take-back, and the
+# largest step must be under 5 m, the bound the network checks hold
+# (server_impaired.cmake, server_take_over.cmake).
 #
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
@@ -63,15 +67,27 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
+# The client reaches the server through a relay that holds every datagram
+# 100 ms each way (glideslope_impair, at PORT + 1): with the updates drawn
+# 100 ms behind the clock as well, what the prediction shows and what the
+# updates show are a third of a second of flight apart - a step of well over
+# the bound, were nothing blended. On the bare loopback they were a tenth
+# apart, and nothing blended stepped 4.2 m: under the bound, so the test
+# would not have seen the blend gone.
+math(EXPR _relay "${PORT} + 1")
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 execute_process(
+    # The server's standard output goes to the relay, which passes it to
+    # standard error and stops when it ends; the client's is what is read.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}"
+    COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0 --loss 0
+            --seed 1 --until-input-ends --seconds 290
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1920 --view cockpit
             --hand-over-after 4 --take-back-after 10
             --next-aircraft-after 6 --next-aircraft-after 7
-            --server 127.0.0.1 ${PORT} --server-key ${_key}
+            --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
 if(NOT EXISTS "${_shot}")
@@ -129,5 +145,18 @@ if(NOT _out MATCHES "flying aircraft ([0-9]+), the c172p; the server says the pi
     message(FATAL_ERROR "the server was not flying the client's aircraft by its inputs at "
                         "the shot:\n${_out}")
 endif()
-message(STATUS "handed aircraft ${CMAKE_MATCH_1} to the AI and took it back, "
-               "flying it by the pilot's inputs")
+set(_flown "${CMAKE_MATCH_1}")
+if(NOT _out MATCHES "own aircraft: ([0-9]+) switches; the largest step at a switch ([0-9.]+) m")
+    message(FATAL_ERROR "the client did not say how far what it showed stepped:\n${_out}")
+endif()
+set(_switches "${CMAKE_MATCH_1}")
+set(_step "${CMAKE_MATCH_2}")
+if(NOT _switches EQUAL 2)
+    message(FATAL_ERROR "the client measured ${_switches} switches of its own aircraft, not "
+                        "the 2 made - handed over and taken back:\n${_out}")
+endif()
+if(_step GREATER_EQUAL 5)
+    message(FATAL_ERROR "what the client showed stepped ${_step} m at a switch, the bound 5 m:\n${_out}")
+endif()
+message(STATUS "handed aircraft ${_flown} to the AI and took it back, "
+               "flying it by the pilot's inputs; the largest step at a switch ${_step} m")

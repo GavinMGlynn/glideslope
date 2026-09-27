@@ -1826,7 +1826,8 @@ add_test(NAME the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_serve
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/hands_over -DPORT=24787 -DDRIVER=vulkan
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/hands_over -DPORT=24744 -DDRIVER=vulkan
+        -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_hands_over.cmake)
 set_tests_properties(the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back
     PROPERTIES SKIP_RETURN_CODE 77)

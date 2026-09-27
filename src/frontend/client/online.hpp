@@ -20,6 +20,7 @@
 #include "net/session.hpp"
 #include "sim/aircraft.hpp"
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <map>
@@ -50,6 +51,11 @@ struct Other {
     double north_mps = 0.0;
     double east_mps = 0.0;
     double down_mps = 0.0;
+    // **How fast where it is drawn moves**, in the Earth-centred frame, per
+    // second of this machine's clock: the interpolation's own path, not the
+    // velocity an update reports, which in a turn or with jitter is not where
+    // it is drawn next (net::Interpolated::path_velocity).
+    std::array<double, 3> path_mps{};
     bool ai_flying = false;
     bool wrecked = false;
 };

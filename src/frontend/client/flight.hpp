@@ -159,6 +159,11 @@ public:
         return aircraft_->state();
     }
 
+    // **Where its centre of gravity is, and how fast it moves there**, over
+    // the Earth, in the Earth-centred frame: m and m/s.
+    world::Ecef centre() const { return axes().position; }
+    std::array<double, 3> velocity_ecef_mps() const;
+
     // The camera for a view of the aircraft: the cockpit looks out along the
     // nose from the pilot's eye, and the others stand off around it.
     // `orbit_rad` is where the orbit has got to, and only it uses that.
