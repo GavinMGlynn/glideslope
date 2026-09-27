@@ -50,11 +50,14 @@ list(LENGTH _flags _count)
 # --ready-file says when it is flying, for a test that joins late, and
 # --no-take-over forbids a player taking over an AI's aircraft.
 # --test-step-ms makes every step take at least that long, to put a server
-# behind real time on any machine (server_behind.cmake).
+# behind real time on any machine (server_behind.cmake). --drop-once-flown
+# drops the first player it has flown, as the drop button would, headless
+# (server_drop_keeps_out.cmake).
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
-              --until-empty --ready-file --no-take-over --test-step-ms)
+              --until-empty --ready-file --no-take-over --test-step-ms
+              --drop-once-flown)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)

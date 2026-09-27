@@ -125,6 +125,9 @@ struct Options {
     bool window_dump = false;
     std::string window_shot;
     std::string window_press;
+    // A test's operator (`--drop-once-flown`): drops the first player whose
+    // input it has flown, as the window's drop button would.
+    bool drop_once_flown = false;
     // What becomes of an aircraft when the person flying it goes.
     bool hand_to_ai_on_leave = false;
     // For a test: the least wall time each step takes, so that a server can
@@ -181,6 +184,8 @@ void print_usage(std::FILE* out) {
         "                     BMP\n"
         "  --window-press LABEL  with --window: press this button - 'drop 0' - the\n"
         "                     first time it is drawn, for tests\n"
+        "  --drop-once-flown  drop the first player whose input has been flown, as\n"
+        "                     the drop button would, for tests\n"
         "  --test-step-ms MS  make every step take at least MS milliseconds, so\n"
         "                     that a test can put the server behind real time\n"
         "  --dry-run          print the settings and exit without binding\n"
@@ -291,6 +296,8 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         std::string_view value;
         if (a == "--headless") {
             o.headless = true;
+        } else if (a == "--drop-once-flown") {
+            o.drop_once_flown = true;
         } else if (a == "--window") {
             o.window = true;
         } else if (a == "--until-empty") {
@@ -1455,6 +1462,37 @@ std::map<std::string, Connection>::iterator let_go(
     return it;
 }
 
+// **A player dropped by the operator**, by the window's button or a test's
+// `--drop-once-flown`: told so, let go, and kept out.
+//
+// - **Told**: `LEAVING`, sealed under its session, `leaving_copies` times,
+//   each sealed afresh - the server's goodbye, so that the client stops at
+//   once rather than knocking on a session that is gone.
+// - **Kept out for the rest of the run**: its static key is remembered, and
+//   an initiation from it is refused `DROPPED` - whatever its address, and
+//   whether or not the goodbye arrived. A client comes back by itself after
+//   being let go for silence; after a drop it must not, or the drop button
+//   would be a kick that lasts three seconds.
+std::map<std::string, Connection>::iterator drop(
+    glideslope::platform::UdpSocket& socket, std::map<std::string, Connection>& connections,
+    std::map<std::string, Connection>::iterator it, glideslope::net::Slots& slots,
+    Fleet* fleet, const Options& o, std::set<std::string>& dropped,
+    glideslope::server::Happenings& happened, double now_s) {
+    std::printf("dropped %s by the operator\n", it->first.c_str());
+    std::fflush(stdout);
+    happened.add(now_s, "dropped " + it->first + " by the operator");
+    dropped.insert(it->second.who.text());
+    if (const auto to = glideslope::platform::address_of(it->first)) {
+        const std::vector<std::uint8_t> leaving{
+            static_cast<std::uint8_t>(glideslope::net::Inside::leaving)};
+        for (int copy = 0; copy < glideslope::net::leaving_copies; ++copy) {
+            send_sealed(socket, *to, it->second,
+                        std::span<const std::uint8_t>(leaving.data(), leaving.size()));
+        }
+    }
+    return let_go(connections, it, slots, fleet, o);
+}
+
 // **The newest input a client sent, applied**, if one is waiting: what its
 // aircraft is flown by from the next step. Not if an AI pilot flies it: the
 // input is let go, and the client told nothing has been applied.
@@ -1483,7 +1521,8 @@ void refuse(glideslope::platform::UdpSocket& socket,
 // may be no session to seal a refusal with.
 void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPair& mine,
           glideslope::net::Slots& slots,
-          std::map<std::string, Connection>& connections, Taken& taken, Fleet* fleet,
+          std::map<std::string, Connection>& connections, Taken& taken,
+          const std::set<std::string>& dropped, Fleet* fleet,
           const glideslope::platform::Address& from,
           std::span<const std::uint8_t> datagram, double now_s, const Options& o,
           glideslope::server::Happenings& happened) {
@@ -1555,6 +1594,14 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         const auto answer = responder.answer(body);
         if (!answer) {
             refuse(socket, from, glideslope::net::Refusal::bad_handshake);
+            return;
+        }
+        // **A key the operator dropped is refused**, for the rest of the run.
+        if (dropped.count(answer->session.theirs.text()) > 0) {
+            refuse(socket, from, glideslope::net::Refusal::dropped);
+            std::printf("refused %s from %s: dropped by the operator\n",
+                        answer->session.theirs.text().substr(0, 8).c_str(), who.c_str());
+            std::fflush(stdout);
             return;
         }
         glideslope::net::Identity identity;
@@ -1859,6 +1906,8 @@ int run(const Options& o) {
     glideslope::net::Slots slots(static_cast<std::uint8_t>(o.players));
     std::map<std::string, Connection> connections;
     Taken taken;
+    std::set<std::string> dropped;
+    bool dropped_once = false;
     glideslope::server::Happenings happened;
     bool anyone_joined = false;
     // What the window last drew, for --window-dump.
@@ -1917,7 +1966,8 @@ int run(const Options& o) {
             bytes += one;
             now = std::chrono::steady_clock::now();
             up_s = std::chrono::duration<double>(now - began).count();
-            take(*socket, mine, slots, connections, taken, fleet ? &*fleet : nullptr, from,
+            take(*socket, mine, slots, connections, taken, dropped, fleet ? &*fleet : nullptr,
+                 from,
                  std::span<const std::uint8_t>(into.data(), one), up_s, o, happened);
         }
 
@@ -1939,6 +1989,20 @@ int run(const Options& o) {
             if (to) {
                 send_sealed(*socket, *to, c,
                             std::span<const std::uint8_t>(out.data(), out.size()));
+            }
+        }
+
+        // **A test's operator** (`--drop-once-flown`): the first player whose
+        // input has been flown is dropped, once.
+        if (o.drop_once_flown && !dropped_once) {
+            for (auto it = connections.begin(); it != connections.end(); ++it) {
+                if (it->second.last_input_applied > 0) {
+                    dropped_once = true;
+                    (void)drop(*socket, connections, it, slots,
+                                                 fleet ? &*fleet : nullptr, o, dropped,
+                                                 happened, up_s);
+                    break;
+                }
             }
         }
 
@@ -2074,15 +2138,14 @@ int run(const Options& o) {
                 last_drawn = gather_dashboard(socket->port(), slots, connections,
                                               fleet ? &*fleet : nullptr, happened, up_s,
                                               datagrams, bytes);
-                const auto drop = window->draw(last_drawn);
+                const auto to_drop = window->draw(last_drawn);
                 drawn_at_s = up_s;
-                if (drop) {
-                    const auto it = connections.find(*drop);
+                if (to_drop) {
+                    const auto it = connections.find(*to_drop);
                     if (it != connections.end()) {
-                        std::printf("dropped %s by the operator\n", drop->c_str());
-                        std::fflush(stdout);
-                        happened.add(up_s, "dropped " + *drop + " by the operator");
-                        (void)let_go(connections, it, slots, fleet ? &*fleet : nullptr, o);
+                        (void)drop(*socket, connections, it, slots,
+                                                     fleet ? &*fleet : nullptr, o, dropped,
+                                                     happened, up_s);
                     }
                 }
             }
