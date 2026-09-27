@@ -464,7 +464,9 @@ Found while implementing something else. Added when found, not when remembered.
       online does nothing. *Verification: the client with the window hands its
       aircraft to the AI and takes it back on a server, and what it shows does
       not step.* The hand-over and take-back work (2026-09-27); still missing:
-      what it shows steps at each switch, since nothing blends it.
+      what it shows steps at each switch, since nothing blends it; and A
+      pressed during a take-over's round trip can hand back the aircraft
+      just left rather than the one taken (a narrow race).
 
 - [x] **A headless client drawing thousands of frames runs the software
       Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a

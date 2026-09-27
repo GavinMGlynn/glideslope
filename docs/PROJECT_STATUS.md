@@ -263,6 +263,21 @@ on as before - A online did nothing.
   and the client prints that the server says the AI (or the pilot) has its
   aircraft, and what the HUD read.
 
+**From the review** (same day):
+- **Handed over, riding along in nothing is riding along in its own
+  aircraft.** W past the last aircraft, and the switch, watch its own
+  number while the AI has it, so the camera and HUD follow the aircraft as
+  the updates put it, not the local flight, which is not flown then and
+  would sit where it was handed over. W's order leaves its own out and
+  wraps to it. T on its own AI-flown aircraft is a take-back, and says so.
+- **The test waits on events**: the shot is held, up to the minute past its
+  tick the ride-along shot already allows, until the take-back asked for is
+  heard and the server has flown an input sent since; it prints how long it
+  waited and what it heard.
+- **A narrow race, left open**: A pressed while a take-over is in flight is
+  sent for the aircraft this client still holds, which the server may then
+  hand back after the take-over - named in the plan's tail.
+
 **Verification**:
 `the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back`
 (`tests/cmake/client_hands_over.cmake`): the headless client flies its own
@@ -276,7 +291,13 @@ A on a server put back to what it did on `main` - swapping only the local
 flight's pilot, the flags calling that instead of asking the server - it
 failed with "the client said 0 times, not once, that the server gave its
 aircraft to the AI"; reverted, it passes (about 55 s on Linux debug), as do
-the ride-along and take-over tests beside it.
+the ride-along and take-over tests beside it. It also rides along in the
+AI's aircraft 6 s in and on past the last 7 s in (`--next-aircraft-after`,
+what W does), and must then ride along in its own aircraft with the camera
+within 5 m of its centre as the updates put it. Seen to fail: with the wrap
+watching nothing, as before the review, it failed with "W past the last
+aircraft did not ride along in its own aircraft 0", the view being the
+local flight's; reverted, it passes.
 
 ### Every circuit touches down on the runway, past its threshold, 2026-09-27 — tail done
 

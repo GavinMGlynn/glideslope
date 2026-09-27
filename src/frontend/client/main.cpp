@@ -149,6 +149,9 @@ struct Options {
     // flight in, and take it back this many in, as A does; below nought, never.
     double hand_over_after_s = -1.0;
     double take_back_after_s = -1.0;
+    // On a server, ride along in the next aircraft at each of these many
+    // seconds of flight in, as W does.
+    std::vector<double> next_aircraft_after_s;
     bool on_ground = false;
 };
 
@@ -217,6 +220,8 @@ void usage(std::FILE* out) {
         "  --hand-over-after S, --take-back-after S  on a server, hand your own\n"
         "                aircraft to the AI S seconds after joining, and take it\n"
         "                back, as A does (for tests)\n"
+        "  --next-aircraft-after S  on a server, ride along in the next aircraft\n"
+        "                S seconds after joining, as W does; may be given again\n"
         "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
         "                slow machine building its flight does (for tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
@@ -405,6 +410,9 @@ static int run_program(int argc, char** argv) {
             o.hand_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--take-back-after" && has_value) {
             o.take_back_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--next-aircraft-after" && has_value) {
+            o.next_aircraft_after_s.push_back(
+                std::strtod(std::string(args[++i]).c_str(), nullptr));
         } else if (a == "--on-ground") {
             o.on_ground = true;
         } else if (a == "--autopilot") {
@@ -946,6 +954,8 @@ static int run_program(int argc, char** argv) {
         bool asked_to_take_over = false;
         bool asked_to_hand_over = false;
         bool asked_to_take_back = false;
+        std::size_t rode_next = 0;
+        bool said_the_view = false;
         // **Its own aircraft handed over, or taken back**: asked of the
         // server, which decides; what it says comes back in the updates.
         const auto hand_over = [&](bool to_ai) {
@@ -961,6 +971,33 @@ static int run_program(int argc, char** argv) {
         };
         std::map<std::uint8_t, OtherMesh> other_meshes;
         std::vector<glideslope::client::Other> others_now;
+        // **Ride along** (W): the next aircraft in the sky, by number, and
+        // after the last, back in your own - which, while the AI flies it, is
+        // ridden along in as it is drawn from the updates, since the flight
+        // here is not flown then and would sit where it was handed over.
+        const auto ride_next = [&] {
+            const std::uint8_t own = online->own_ai_flying() ? online->mine()
+                                                             : glideslope::net::no_aircraft;
+            const std::uint8_t from =
+                online->watching() == own ? glideslope::net::no_aircraft : online->watching();
+            std::uint8_t next = glideslope::net::no_aircraft;
+            for (const glideslope::client::Other& other : others_now) {
+                if (other.number != own &&
+                    (from == glideslope::net::no_aircraft || other.number > from) &&
+                    (next == glideslope::net::no_aircraft || other.number < next)) {
+                    next = other.number;
+                }
+            }
+            if (next == glideslope::net::no_aircraft) {
+                online->watch(own);
+                std::printf("glideslope: back in your own aircraft\n");
+                said_the_view = true;
+            } else {
+                online->watch(next);
+                std::printf("glideslope: riding along in aircraft %u\n",
+                            static_cast<unsigned>(next));
+            }
+        };
         glideslope::sim::Controls controls;
         if (o.on_ground) {
             // Standing: idling, its wheels down and braked.
@@ -1005,6 +1042,8 @@ static int run_program(int argc, char** argv) {
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_A && flight) {
                     // On a server the server owns the aircraft: A asks it.
+                    // Without one - no server, or one that has given this
+                    // client no aircraft yet - the flight's own pilot swaps.
                     if (online && joined) {
                         hand_over(!online->own_ai_flying());
                     } else {
@@ -1021,7 +1060,10 @@ static int run_program(int argc, char** argv) {
                         [&](const glideslope::client::Other& other) {
                             return other.number == online->watching();
                         });
-                    if (ridden_now != others_now.end() && ridden_now->ai_flying) {
+                    if (online->watching() == online->mine() && online->own_ai_flying()) {
+                        // Its own, which the AI flies: taking it back.
+                        hand_over(false);
+                    } else if (ridden_now != others_now.end() && ridden_now->ai_flying) {
                         online->take_over(online->watching());
                         std::printf("glideslope: asked to take over aircraft %u\n",
                                     static_cast<unsigned>(online->watching()));
@@ -1031,23 +1073,7 @@ static int run_program(int argc, char** argv) {
                     }
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_W && online && joined) {
-                    // **Ride along**: the next aircraft in the sky, by number,
-                    // and after the last, back in your own.
-                    std::uint8_t next = glideslope::net::no_aircraft;
-                    for (const glideslope::client::Other& other : others_now) {
-                        if ((online->watching() == glideslope::net::no_aircraft ||
-                             other.number > online->watching()) &&
-                            (next == glideslope::net::no_aircraft || other.number < next)) {
-                            next = other.number;
-                        }
-                    }
-                    online->watch(next);
-                    if (next == glideslope::net::no_aircraft) {
-                        std::printf("glideslope: back in your own aircraft\n");
-                    } else {
-                        std::printf("glideslope: riding along in aircraft %u\n",
-                                    static_cast<unsigned>(next));
-                    }
+                    ride_next();
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_V && flight) {
                     // Round the views, and round again. Nothing about the
@@ -1128,6 +1154,11 @@ static int run_program(int argc, char** argv) {
                     asked_to_take_back = true;
                     hand_over(false);
                 }
+                if (rode_next < o.next_aircraft_after_s.size() &&
+                    joined_s >= o.next_aircraft_after_s[rode_next]) {
+                    ++rode_next;
+                    ride_next();
+                }
                 if (const auto taken = online->taken_over()) {
                     if (taken->aircraft_id != flight->aircraft().id) {
                         const glideslope::world::Geodetic g = glideslope::world::to_geodetic(
@@ -1170,6 +1201,8 @@ static int run_program(int argc, char** argv) {
                     online->watching() == glideslope::net::no_aircraft) {
                     online->watch(online->mine());
                 } else if (!online->own_ai_flying() && online->watching() == online->mine()) {
+                    // Taken back: its own flight is flown here again, and
+                    // riding along in nothing is riding in it.
                     online->watch(glideslope::net::no_aircraft);
                 }
             }
@@ -1202,6 +1235,26 @@ static int run_program(int argc, char** argv) {
                                      !online->watched_controls(seconds_since_start())))) {
                     shot_now = false;
                 }
+                // **Taken back, the shot waits for the server to have said
+                // so** and to have flown it by an input sent since: events,
+                // not the clock, which a slow machine outruns. The same
+                // minute past the tick bounds it.
+                const bool back_unheard =
+                    asked_to_take_back &&
+                    (online->own_ai_flying() || !online->flown_since_taken_over());
+                if (shot_now && back_unheard && !waited_long) {
+                    shot_now = false;
+                }
+                if (shot_now && asked_to_take_back) {
+                    std::printf("glideslope: the shot drawn %.1f s past its tick; the server "
+                                "says %s has it%s\n",
+                                static_cast<double>(ticks - o.shot_at) /
+                                    static_cast<double>(glideslope::sim::steps_per_second),
+                                online->own_ai_flying() ? "the AI" : "the pilot",
+                                online->flown_since_taken_over()
+                                    ? ", flown by an input sent since"
+                                    : ", not yet flown by an input sent since");
+                }
                 if (shot_now && o.ride_along) {
                     std::printf("glideslope: the shot drawn %.1f s past its tick; %zu updates "
                                 "carried the watched aircraft's controls\n",
@@ -1218,7 +1271,7 @@ static int run_program(int argc, char** argv) {
             // waited on its frames in flight (gfx/renderer.hpp); now they
             // would only take the machine's time from the session. Nobody
             // sees them; the flight and the session go on all the same.
-            if (shooting && joined && !shot_now && !switched_now) {
+            if (shooting && joined && !shot_now && !switched_now && !said_the_view) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
             }
@@ -1414,7 +1467,7 @@ static int run_program(int argc, char** argv) {
                         r.controls = shown;
                     }
                     readings = r;
-                    if (shot_now) {
+                    if (shot_now || said_the_view) {
                         std::printf("glideslope: riding along in aircraft %u, the %s; the camera "
                                     "%.1f m from its centre\n",
                                     static_cast<unsigned>(ridden->number),
@@ -1426,6 +1479,10 @@ static int run_program(int argc, char** argv) {
                             std::printf("glideslope: the HUD reads %s\n", line.c_str());
                         }
                     }
+                }
+                if (said_the_view && !ridden) {
+                    std::printf("glideslope: the view is the flight's own, not drawn from "
+                                "the updates\n");
                 }
                 if (switched_now) {
                     std::printf("glideslope: the server says %s has aircraft %u\n",
@@ -1462,6 +1519,7 @@ static int run_program(int argc, char** argv) {
                 renderer.render(camera, drawn, nullptr, haze, background);
             }
             ++frames;
+            said_the_view = false;
             if (o.memory_every > 0 && (frames == 1 || frames % o.memory_every == 0)) {
                 const auto held = glideslope::platform::memory_held_bytes();
                 std::printf("glideslope: frame %ld, memory held %lld\n", frames,
