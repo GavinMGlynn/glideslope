@@ -67,9 +67,13 @@ inline constexpr std::chrono::milliseconds retry_after_limit{10000};
 //
 // **A 429 is waited out as it asks**: Open-Meteo turned CI's parallel weather
 // tests away with it on 2026-09-27. Its Retry-After, in seconds, is the wait
-// before the next try, but never more than retry_after_limit - so five tries
-// wait 40 s at most - and one without a Retry-After in seconds (none, or a
-// date) waits as a server error does. The doubling goes on either way.
+// before the next try; one without a Retry-After in seconds (none, a date, or
+// not a number) waits the backoff a server error does. Either way a wait after
+// a 429 is never more than retry_after_limit, so five tries all turned away
+// wait 40 s at most. (A wait after a server error or no answer is the backoff
+// alone, uncapped, as before.) The doubling goes on either way. **A real
+// Retry-After overrides a shortened `wait`**: a test that passes 0 still waits
+// what a service's 429 asks, up to the limit.
 platform::HttpResponse
 fetch_with_retries(const Fetch& fetch, const std::string& url, int attempts = 5,
                    std::chrono::milliseconds wait = std::chrono::milliseconds(2000),

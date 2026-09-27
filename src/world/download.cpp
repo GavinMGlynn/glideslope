@@ -125,10 +125,13 @@ platform::HttpResponse fetch_with_retries(const Fetch& fetch, const std::string&
             if (!failed || attempt >= attempts) {
                 return r;
             }
+            // A 429 waits what it asks, or the backoff, and never more
+            // than retry_after_limit either way.
             if (turned_away) {
                 if (const auto asked = retry_after_seconds(r)) {
                     this_wait = *asked;
                 }
+                this_wait = std::min(this_wait, retry_after_limit);
             }
         } catch (const platform::HttpError&) {
             if (attempt >= attempts) {

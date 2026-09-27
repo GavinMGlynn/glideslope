@@ -320,6 +320,19 @@ GLIDESLOPE_TEST(a_429_is_waited_out_as_its_retry_after_asks_within_a_limit_then_
         {"the doubling goes on under a 429's Retry-After",
          {{429, "1"}, {503, nullptr}, {429, nullptr}, {200, nullptr}}, 5, 200,
          {milliseconds(1000), 2 * backoff, 4 * backoff}},
+        {"a 429 with no Retry-After to every try: the backoff, capped at the limit",
+         {{429, nullptr}, {429, nullptr}, {429, nullptr}, {429, nullptr}, {429, nullptr}}, 5,
+         429, {backoff, 2 * backoff, 4 * backoff, retry_after_limit}},
+        {"429s asking a minute, then one with none: every wait capped",
+         {{429, "60"}, {429, "60"}, {429, "60"}, {429, nullptr}, {429, nullptr}}, 5, 429,
+         {retry_after_limit, retry_after_limit, retry_after_limit, retry_after_limit}},
+        {"429s with a date for their Retry-After to every try: capped too",
+         {{429, "Wed, 21 Oct 2026 07:28:00 GMT"},
+          {429, "Wed, 21 Oct 2026 07:28:00 GMT"},
+          {429, "Wed, 21 Oct 2026 07:28:00 GMT"},
+          {429, "Wed, 21 Oct 2026 07:28:00 GMT"},
+          {429, "Wed, 21 Oct 2026 07:28:00 GMT"}},
+         5, 429, {backoff, 2 * backoff, 4 * backoff, retry_after_limit}},
         {"a 429 to every try is returned after the last, the waits bounded",
          {{429, "60"}, {429, "60"}, {429, "60"}, {429, "60"}, {429, "60"}}, 5, 429,
          {retry_after_limit, retry_after_limit, retry_after_limit, retry_after_limit}},
@@ -355,7 +368,7 @@ GLIDESLOPE_TEST(a_429_is_waited_out_as_its_retry_after_asks_within_a_limit_then_
                   " ms in all, over the 40 s five tries may wait");
         ++walked;
     }
-    check(walked == cases.size() && walked == 9,
+    check(walked == cases.size() && walked == 12,
           std::to_string(walked) + " cases walked, not every one");
     // **Any other 4xx is not tried again**, with a Retry-After or without.
     for (const int refusal : {400, 401, 403, 404, 413, 418, 428, 431}) {

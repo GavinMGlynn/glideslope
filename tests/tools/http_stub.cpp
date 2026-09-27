@@ -6,8 +6,8 @@
 // Listens on 127.0.0.1, on a port the system picks, and writes that port to
 // PORTFILE - whole, by renaming it into place - once it is listening. Every
 // request is answered with STATUS and an empty body, and the connection
-// closed - a 429 with "Retry-After: 1" - until a request for the path /stop, which is answered 200 and ends
-// it. With PREFIX and FILE, a GET whose path begins with PREFIX is answered
+// closed, until a request for the path /stop, which is answered 200 and ends
+// it. A 429 is sent with "Retry-After: 1", as a rate limit says how long. With PREFIX and FILE, a GET whose path begins with PREFIX is answered
 // 200 with FILE's bytes instead: one service answered, and another not. Says
 // on standard error how many requests it answered with STATUS, and how many
 // with FILE.
