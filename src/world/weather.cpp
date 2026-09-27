@@ -4,6 +4,7 @@
 #include "world/json.hpp"
 
 #include <algorithm>
+#include <future>
 #include <thread>
 #include <cmath>
 
@@ -451,6 +452,28 @@ sim::Conditions ReportedWeather::at(double latitude_deg, double longitude_deg,
         mix(before.sea_level_pressure_hpa, now.sea_level_pressure_hpa);
     c.wind_at_20ft_mps = mix(before.wind_at_20ft_mps, now.wind_at_20ft_mps);
     return c;
+}
+
+WeatherFetch::WeatherFetch(std::string station, std::string time, Fetch fetch,
+                           std::chrono::milliseconds retry_wait)
+    : report_(std::async(std::launch::async,
+                         [this, station = std::move(station), time = std::move(time),
+                          fetch = std::move(fetch), retry_wait] {
+                             const FetchesGivenUp given_up(give_up_);
+                             return fetch_weather(station, time, fetch, retry_wait);
+                         })) {}
+
+WeatherFetch::~WeatherFetch() {
+    // Before report_ is destroyed, which waits for the thread.
+    give_up_ = true;
+}
+
+bool WeatherFetch::done() const {
+    return report_.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+}
+
+WeatherReport WeatherFetch::get() {
+    return report_.get();
 }
 
 } // namespace glideslope::world

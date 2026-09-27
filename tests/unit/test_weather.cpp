@@ -9,12 +9,15 @@
 #include "world/winds_aloft.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -1087,6 +1090,75 @@ GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be
     }
     check(cases == 2 * failures.size() && cases == 28,
           std::to_string(cases) + " cases, not every failure at both services");
+}
+
+GLIDESLOPE_TEST(a_weather_fetch_let_go_while_it_waits_to_try_again_ends_at_once) {
+    // **A flight quit during a weather refresh ends at once**, not when the
+    // service's retries run out: about 30 s of them after a 503, and more
+    // after an answer that is not JSON. Every wait a weather fetch makes
+    // between tries is walked: each fetch is let go just after its first ask,
+    // in its first wait, with the waits as long as a flight's, and must be over
+    // within `bound` of being let go. Without the waits given up, the shortest
+    // of them still has 3 s to run. A transfer under way is given up by the
+    // platform's own HttpRequest::abandon, which http_fetch is handed.
+    using glideslope::platform::HttpResponse;
+    const auto bound = std::chrono::seconds(2);
+    const std::string metars = recorded_metars();
+    const std::string aloft = recorded_winds_aloft();
+    struct Wait {
+        const char* what;
+        int status; // 0: nothing answers
+        std::string body;
+    };
+    const std::vector<Wait> waits{
+        {"between retries of a 503", 503, ""},
+        {"between retries when nothing answers", 0, ""},
+        {"between fetches of an answer that is not JSON", 200, "<html>Service unavailable</html>"},
+    };
+    std::size_t cases = 0;
+    for (const Wait& w : waits) {
+        std::promise<void> asked;
+        std::atomic<int> asks{0};
+        const glideslope::world::Fetch fetch = [&](const std::string& url) -> HttpResponse {
+            if (asks++ == 0) {
+                asked.set_value();
+            }
+            if (w.status == 0) {
+                throw glideslope::platform::HttpError(url + ": no response");
+            }
+            HttpResponse r;
+            r.status = w.status;
+            r.body.assign(w.body.begin(), w.body.end());
+            return r;
+        };
+        std::optional<glideslope::world::WeatherFetch> fetching;
+        fetching.emplace("CYYZ", "2026-09-17T00:00", fetch);
+        asked.get_future().wait();
+        const auto let_go = std::chrono::steady_clock::now();
+        fetching.reset();
+        const auto took = std::chrono::steady_clock::now() - let_go;
+        check(took < bound,
+              std::string(w.what) + ": let go, it took " +
+                  std::to_string(std::chrono::duration<double>(took).count()) +
+                  " s to end, not under 2 s");
+        ++cases;
+    }
+    check(cases == waits.size() && cases == 3,
+          std::to_string(cases) + " of the 3 waits walked");
+
+    // And one kept until it is done is the weather fetch_weather gives.
+    const glideslope::world::Fetch answering = [&](const std::string& url) {
+        const std::string& text =
+            url.find("aviationweather") != std::string::npos ? metars : aloft;
+        HttpResponse r;
+        r.status = 200;
+        r.body.assign(text.begin(), text.end());
+        return r;
+    };
+    glideslope::world::WeatherFetch kept("CYYZ", "2026-09-17T00:00", answering);
+    const glideslope::world::WeatherReport report = kept.get();
+    check(report.surface.metar.station == "CYYZ" && report.aloft && !report.aloft->levels.empty(),
+          "a fetch kept until it is done gives the weather");
 }
 
 GLIDESLOPE_TEST(the_weather_may_be_asked_elsewhere_only_over_https_or_of_the_loopback) {

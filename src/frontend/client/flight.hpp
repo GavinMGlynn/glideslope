@@ -21,7 +21,6 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
-#include <future>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -269,9 +268,9 @@ private:
     std::vector<world::Microburst> microbursts_;
     std::shared_ptr<world::ReportedWeather> weather_;
     double weather_fetched_at_s_ = 0.0;
-    // Last, so that a fetch still under way is waited for before anything it
-    // could reach is destroyed.
-    std::future<world::WeatherReport> next_weather_;
+    // Last, so that a fetch still under way is given up, and waited for,
+    // before anything it could reach is destroyed.
+    std::optional<world::WeatherFetch> next_weather_;
 };
 
 } // namespace glideslope::client

@@ -7,10 +7,12 @@
 #include "world/dem.hpp"
 #include "world/runways.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -44,15 +46,42 @@ std::string weather_host(const std::string& own);
 // over plain HTTP of another machine could be read and changed on the way.
 bool weather_service_allowed(const std::string& service);
 
-// A GET through the platform's HTTP client, with a body limit to suit a DEM tile.
+// A GET through the platform's HTTP client, with a body limit to suit a DEM
+// tile, given up as a FetchesGivenUp on its thread says.
 Fetch http_fetch();
 
-// How a wait between tries is waited: std::this_thread::sleep_for unless a
-// test counts the waits instead.
+// How a wait between tries is waited: wait_before_trying_again (which a
+// FetchesGivenUp on this thread ends at once) unless a test counts the waits
+// instead.
 using Sleep = std::function<void(std::chrono::milliseconds)>;
 
 // **The longest a Retry-After is waited**, however long it asks for.
 inline constexpr std::chrono::milliseconds retry_after_limit{10000};
+
+// **Fetches on this thread given up once `flag` rises**, for as long as this
+// lives: every request http_fetch makes carries the flag as its
+// HttpRequest::abandon, and every wait between tries (wait_before_trying_again)
+// ends at once, throwing FetchGivenUp. A fetch nothing will wait for must not
+// hold up the end of what asked for it - a program quit while the weather
+// service answered 503 sat through every retry, about 80 s, before it could
+// end. One at a time on a thread; the flag must outlive it.
+class FetchesGivenUp {
+public:
+    explicit FetchesGivenUp(const std::atomic<bool>& flag);
+    ~FetchesGivenUp();
+    FetchesGivenUp(const FetchesGivenUp&) = delete;
+    FetchesGivenUp& operator=(const FetchesGivenUp&) = delete;
+};
+
+// What a fetch given up throws. Not an HttpError, so no retry takes it for a
+// transfer that failed and tries again.
+struct FetchGivenUp : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
+// Waits `wait`, or throws FetchGivenUp as soon as a FetchesGivenUp on this
+// thread says to - before waiting, or in the middle of it.
+void wait_before_trying_again(std::chrono::milliseconds wait);
 
 // `fetch(url)`, tried again when the server fails - a 5xx status, or a 200
 // with nothing in it, which nothing fetched here ever is - or turns the

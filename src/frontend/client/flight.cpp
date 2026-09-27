@@ -246,28 +246,25 @@ void Flight::report_navigation() {
 
 void Flight::refresh_weather() {
     const double now = aircraft_->state().sim_time_s;
-    if (next_weather_.valid()) {
-        if (next_weather_.wait_for(std::chrono::seconds(0)) !=
-            std::future_status::ready) {
+    if (next_weather_) {
+        if (!next_weather_->done()) {
             return;
         }
         try {
-            world::WeatherReport report = next_weather_.get();
+            world::WeatherReport report = next_weather_->get();
             report.microbursts = microbursts_;
             weather_->update(std::move(report), now);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "glideslope: the weather is not updated: %s\n",
                          e.what());
         }
+        next_weather_.reset();
         weather_fetched_at_s_ = now;
         return;
     }
     if (now - weather_fetched_at_s_ >= weather_refresh_seconds) {
-        next_weather_ = std::async(
-            std::launch::async, [station = weather_station_, fetch = fetch_] {
-                return world::fetch_weather(
-                    station, world::utc_hour(std::chrono::system_clock::now()), fetch);
-            });
+        next_weather_.emplace(weather_station_,
+                              world::utc_hour(std::chrono::system_clock::now()), fetch_);
     }
 }
 
