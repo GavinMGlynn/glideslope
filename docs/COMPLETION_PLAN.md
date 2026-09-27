@@ -584,8 +584,9 @@ Found while implementing something else. Added when found, not when remembered.
       the glidepath at, and its touchdown pitch is below its tail-strike
       attitude.* Done 2026-09-27: every flare now starts from the path's
       attitude and stops two degrees short of the tail strike; the F-35B
-      touches at 16.4 degrees where she touched at 11.7, and the four with no
-      tail to strike are named.
+      touches at 16.4 degrees where she touched at 11.7 - her nose no longer
+      pushed down, though she still does not round out - and the four with
+      no tail to strike are named.
 - [ ] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of
@@ -605,8 +606,9 @@ Found while implementing something else. Added when found, not when remembered.
       else. *Verification: every landplane taken back at the touch rises
       less than three feet after it.*
 - [ ] **The AI's own touchdown in the 787-8, F-15C and F-35B is a crash by
-      the server's rule**: they meet the runway sinking at 700 to 1,100
-      ft/min, past the 600 the gear is judged to take. *Verification: every
+      the server's rule**: they meet the runway sinking at 707, 976 and 883
+      ft/min, past the 600 the gear is judged to take; the F-35B, over the
+      flare's incidence guard all the way down, does not flare at all. *Verification: every
       aeroplane the AI lands touches down within what its gear takes.*
 - [ ] **The B-2A cannot slow down on the approach.** With nothing to add drag
       it crosses the threshold fourteen knots fast with its throttles shut,
