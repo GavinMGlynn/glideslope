@@ -118,28 +118,31 @@ bool put_in_place(const std::filesystem::path& path, const std::vector<std::uint
     return put;
 }
 
-FetchesGivenUp::FetchesGivenUp(const std::atomic<bool>& flag) {
+FetchesGivenUp::FetchesGivenUp(const std::atomic<bool>& flag) : before_(given_up_when) {
     given_up_when = &flag;
 }
 
 FetchesGivenUp::~FetchesGivenUp() {
-    given_up_when = nullptr;
+    given_up_when = before_;
 }
 
-void wait_before_trying_again(std::chrono::milliseconds wait) {
+void wait_before_trying_again(std::chrono::milliseconds wait,
+                              const std::function<void()>& waiting) {
     // In slices, each short enough that a flag raised is seen at once.
     const auto until = std::chrono::steady_clock::now() + wait;
-    for (;;) {
+    for (bool first = true;; first = false) {
         if (given_up()) {
             throw FetchGivenUp("the fetch was given up");
+        }
+        if (first && waiting) {
+            waiting();
         }
         const auto now = std::chrono::steady_clock::now();
         if (now >= until) {
             return;
         }
         std::this_thread::sleep_for(
-            std::min<std::chrono::steady_clock::duration>(until - now,
-                                                          std::chrono::milliseconds(10)));
+            std::min<std::chrono::steady_clock::duration>(until - now, given_up_slice));
     }
 }
 
