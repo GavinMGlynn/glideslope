@@ -282,6 +282,99 @@ GLIDESLOPE_TEST(
     }
 }
 
+GLIDESLOPE_TEST(a_429_is_waited_out_as_its_retry_after_asks_within_a_limit_then_returned) {
+    // **Too Many Requests**, as Open-Meteo answered CI's parallel weather
+    // tests on 2026-09-27: tried again, waiting what Retry-After asks, never
+    // more than retry_after_limit, and as a server error waits without one.
+    // The waits are counted, not waited.
+    using glideslope::world::fetch_with_retries;
+    using glideslope::world::retry_after_limit;
+    using std::chrono::milliseconds;
+    constexpr milliseconds backoff{2000};
+    struct Answer {
+        int status;
+        const char* retry_after; // nullptr: no Retry-After
+    };
+    struct Case {
+        const char* what;
+        std::vector<Answer> answers;
+        int attempts;
+        int status;                 // what is returned
+        std::vector<milliseconds> waits; // what was waited, in turn
+    };
+    const std::vector<Case> cases{
+        {"a 429 asking 3 s, then the answer", {{429, "3"}, {200, nullptr}}, 5, 200,
+         {milliseconds(3000)}},
+        {"a 429 with no Retry-After, then the answer", {{429, nullptr}, {200, nullptr}}, 5,
+         200, {backoff}},
+        {"a 429 asking an hour waits the limit", {{429, "3600"}, {200, nullptr}}, 5, 200,
+         {retry_after_limit}},
+        {"a 429 asking a number too long to hold waits the limit",
+         {{429, "99999999999999999999999"}, {200, nullptr}}, 5, 200, {retry_after_limit}},
+        {"a 429 asking 0 s is tried again at once", {{429, "0"}, {200, nullptr}}, 5, 200,
+         {milliseconds(0)}},
+        {"a 429 with a date for its Retry-After waits as a server error does",
+         {{429, "Wed, 21 Oct 2026 07:28:00 GMT"}, {200, nullptr}}, 5, 200, {backoff}},
+        {"a 429 with a Retry-After that is not a number waits as a server error does",
+         {{429, "soon"}, {200, nullptr}}, 5, 200, {backoff}},
+        {"the doubling goes on under a 429's Retry-After",
+         {{429, "1"}, {503, nullptr}, {429, nullptr}, {200, nullptr}}, 5, 200,
+         {milliseconds(1000), 2 * backoff, 4 * backoff}},
+        {"a 429 to every try is returned after the last, the waits bounded",
+         {{429, "60"}, {429, "60"}, {429, "60"}, {429, "60"}, {429, "60"}}, 5, 429,
+         {retry_after_limit, retry_after_limit, retry_after_limit, retry_after_limit}},
+    };
+    std::size_t walked = 0;
+    for (const Case& c : cases) {
+        std::size_t calls = 0;
+        std::vector<milliseconds> waited;
+        const auto fetch = [&](const std::string&) {
+            const Answer& a = c.answers.at(calls++);
+            HttpResponse r;
+            r.status = a.status;
+            r.body = {std::uint8_t{'x'}};
+            if (a.retry_after != nullptr) {
+                r.headers["retry-after"] = a.retry_after;
+            }
+            return r;
+        };
+        const HttpResponse r = fetch_with_retries(
+            fetch, "u", c.attempts, backoff, [&](milliseconds w) { waited.push_back(w); });
+        check(r.status == c.status && calls == c.answers.size() && waited == c.waits,
+              std::string(c.what) + ": status " + std::to_string(r.status) + " after " +
+                  std::to_string(calls) + " fetches and " + std::to_string(waited.size()) +
+                  " waits");
+        std::chrono::milliseconds total{0};
+        for (const milliseconds w : waited) {
+            check(w <= retry_after_limit,
+                  std::string(c.what) + ": waited " + std::to_string(w.count()) + " ms");
+            total += w;
+        }
+        check(total <= 4 * retry_after_limit,
+              std::string(c.what) + ": waited " + std::to_string(total.count()) +
+                  " ms in all, over the 40 s five tries may wait");
+        ++walked;
+    }
+    check(walked == cases.size() && walked == 9,
+          std::to_string(walked) + " cases walked, not every one");
+    // **Any other 4xx is not tried again**, with a Retry-After or without.
+    for (const int refusal : {400, 401, 403, 404, 413, 418, 428, 431}) {
+        std::size_t calls = 0;
+        int waits = 0;
+        const auto fetch = [&](const std::string&) {
+            ++calls;
+            HttpResponse r;
+            r.status = refusal;
+            r.headers["retry-after"] = "1";
+            return r;
+        };
+        check(fetch_with_retries(fetch, "u", 5, backoff, [&](milliseconds) { ++waits; })
+                          .status == refusal &&
+                  calls == 1 && waits == 0,
+              "status " + std::to_string(refusal) + " is not tried again");
+    }
+}
+
 // **A file held open for deletion, as a rename holds it, still opens.** This
 // is the moment CI's `cannot open ...DEM.tif` came from, built rather than
 // waited for: while a rename moves a fetched file into place it has the file

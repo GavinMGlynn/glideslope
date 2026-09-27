@@ -128,7 +128,7 @@ WindsAloft fetch_winds_aloft(double latitude_deg, double longitude_deg,
         } catch (const platform::HttpError& e) {
             throw ServiceUnavailable(std::string("could not download: ") + e.what());
         }
-        if (r.status >= 500) {
+        if (r.status >= 500 || r.status == 429) {
             throw ServiceUnavailable("could not download " + url + ": status " +
                                      std::to_string(r.status));
         }

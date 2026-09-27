@@ -438,6 +438,11 @@ Found while implementing something else. Added when found, not when remembered.
       and the HUD tests report themselves skipped; an answer that begins as
       JSON and does not parse, or is JSON but not a report, still fails.* Done 2026-09-27: one shared rule for the client
       tests' skips.
+- [x] **The HUD tests failed when Open-Meteo answered 429, Too Many
+      Requests** (Windows CI, 2026-09-27). *Verification: a 429 is tried
+      again after the wait it asks for, never more than 10 s, and a 429 to
+      every try is weather not to be had, so the HUD test skips; any other
+      refusal still fails.* Done 2026-09-27.
 
 - [x] **A client opened the model a server named as a path.** *Verification:
       every aircraft's id is known by the catalogue and eight hostile ones are

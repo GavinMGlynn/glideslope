@@ -58,7 +58,8 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch,
         if (r.status == 204) {
             throw MetarError("aviationweather.gov has no METAR for " + id);
         }
-        if (r.status >= 500) {
+        // A server error, or turned away for now (429), to every retry.
+        if (r.status >= 500 || r.status == 429) {
             throw ServiceUnavailable("could not download " + url + ": status " +
                                      std::to_string(r.status));
         }

@@ -20,11 +20,12 @@ namespace glideslope::world {
 using Fetch = std::function<platform::HttpResponse(const std::string& url)>;
 
 // **A weather service that did not answer**: nothing answered at all, or
-// the service answered a server error (5xx) to every one of its retries, or
+// the service answered a server error (5xx), or turned the request away for
+// now (429), to every one of its retries, or
 // a 200 plainly not JSON to every one of its tries (answered_json). The
 // weather is live and somebody else's, so this is the one failure a flight's
 // caller may take for "there is no weather to be had". An answer that refuses
-// the request (4xx), or JSON that is not the answer, is not this: it is a
+// the request (any other 4xx), or JSON that is not the answer, is not this: it is a
 // fault of the request or of the reading, and is thrown as DemError or the
 // parse's error.
 struct ServiceUnavailable : DemError {
@@ -46,8 +47,16 @@ bool weather_service_allowed(const std::string& service);
 // A GET through the platform's HTTP client, with a body limit to suit a DEM tile.
 Fetch http_fetch();
 
+// How a wait between tries is waited: std::this_thread::sleep_for unless a
+// test counts the waits instead.
+using Sleep = std::function<void(std::chrono::milliseconds)>;
+
+// **The longest a Retry-After is waited**, however long it asks for.
+inline constexpr std::chrono::milliseconds retry_after_limit{10000};
+
 // `fetch(url)`, tried again when the server fails - a 5xx status, or a 200
-// with nothing in it, which nothing fetched here ever is - or nothing answers,
+// with nothing in it, which nothing fetched here ever is - or turns the
+// request away for now (429, Too Many Requests), or nothing answers,
 // `attempts` times in all, waiting `wait` before the second try and twice as
 // long before each after. Services have bad minutes: aviationweather.gov
 // answers 504 now and then, and one of the weather services once answered an
@@ -55,9 +64,16 @@ Fetch http_fetch();
 // resolve api.open-meteo.com for longer than the 6 s three tries spanned, so
 // five tries span 30 s. What comes back last is returned, or what it threw
 // thrown; any other status is returned at once.
+//
+// **A 429 is waited out as it asks**: Open-Meteo turned CI's parallel weather
+// tests away with it on 2026-09-27. Its Retry-After, in seconds, is the wait
+// before the next try, but never more than retry_after_limit - so five tries
+// wait 40 s at most - and one without a Retry-After in seconds (none, or a
+// date) waits as a server error does. The doubling goes on either way.
 platform::HttpResponse
 fetch_with_retries(const Fetch& fetch, const std::string& url, int attempts = 5,
-                   std::chrono::milliseconds wait = std::chrono::milliseconds(2000));
+                   std::chrono::milliseconds wait = std::chrono::milliseconds(2000),
+                   const Sleep& sleep = {});
 
 // **How many times an answer that does not parse is fetched again** - each
 // through fetch_with_retries - before it is taken for a download that failed.

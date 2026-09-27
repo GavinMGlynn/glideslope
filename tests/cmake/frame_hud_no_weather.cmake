@@ -16,7 +16,9 @@
 #     status - 400, as a misspelt Open-Meteo variable is answered. That is a
 #     fault of ours, not a service's bad minute, and the HUD test must fail:
 #     not pass, and not skip. Except 200, whose body the stub leaves empty,
-#     as Open-Meteo's was in CI: never JSON, so no weather, and a skip. With
+#     as Open-Meteo's was in CI: never JSON, so no weather, and a skip; and
+#     429, which Open-Meteo answered CI's parallel tests, and which is waited
+#     out and then taken as no weather: a skip too. With
 #     METAR_FILE, aviationweather.gov is answered with that file, so it is
 #     Open-Meteo's request alone that is answered empty, as it was in CI.
 #
@@ -109,6 +111,25 @@ if(DEFINED ANSWER)
         endif()
         message(FATAL_ERROR "with the weather answered an empty 200 the HUD test exited "
                             "${_rc}, not 77 for skipped:\n${_said}")
+    endif()
+    # **A 429 to every retry** - what Open-Meteo answered CI's parallel
+    # weather tests on 2026-09-27 - is the service turning us away for now,
+    # waited out and then taken as no weather: a skip. The stub asks for a
+    # second's wait each time, so every try of the forecast was made.
+    if(ANSWER EQUAL 429)
+        if(DEFINED METAR_FILE AND NOT _stub_said MATCHES "and [1-9][0-9]* with FILE")
+            message(FATAL_ERROR "the METAR was never asked for:\n${_stub_said}\n${_said}")
+        endif()
+        if(NOT _stub_said MATCHES "answered ([5-9]|[1-9][0-9]+) requests 429")
+            message(FATAL_ERROR "the forecast was not asked at least five times:\n${_stub_said}\n${_said}")
+        endif()
+        if(_rc EQUAL 77 AND _said MATCHES "there is no weather to fly in" AND
+           _said MATCHES "/v1/forecast[^\n]*status 429")
+            message(STATUS "skipped, as it should be, when the weather was answered 429")
+            return()
+        endif()
+        message(FATAL_ERROR "with the weather answered 429 the HUD test exited ${_rc}, "
+                            "not 77 for skipped:\n${_said}")
     endif()
     if(NOT _rc EQUAL 0 AND NOT _rc EQUAL 77 AND _said MATCHES "status ${ANSWER}" AND
        NOT _said MATCHES "no weather to fly in")
