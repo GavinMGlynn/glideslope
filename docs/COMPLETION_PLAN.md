@@ -577,12 +577,15 @@ Found while implementing something else. Added when found, not when remembered.
       every approach lesson now touches down on the runway, past its
       threshold; the approach autopilot held the F-35B's nose below what her
       glidepath needs.
-- [ ] **The flare starts at no more than 10 degrees of pitch**, so an
+- [x] **The flare starts at no more than 10 degrees of pitch**, so an
       aeroplane on the glidepath above that (the F-35B, at 16.5) has its nose
       pushed down some 6.5 degrees at 30 ft and touches down flat and fast.
       *Verification: every aeroplane's flare begins at the attitude it flew
       the glidepath at, and its touchdown pitch is below its tail-strike
-      attitude.*
+      attitude.* Done 2026-09-27: every flare now starts from the path's
+      attitude and stops two degrees short of the tail strike; the F-35B
+      touches at 16.4 degrees where she touched at 11.7, and the four with no
+      tail to strike are named.
 - [ ] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of
