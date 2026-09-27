@@ -41,10 +41,14 @@ env:
 #     compiled all of Cesium Native and everything of ours from nothing.
 #   - A build packs what its tests need - the programs, the test data, the
 #     CTest files, not the objects or static libraries - and uploads it once.
-#   - Its tests run in shards: shard k of n runs every nth test from the kth
-#     (`ctest -I k,,n`), each shard a job on its own runner, four tests at a
+#   - Its tests run in shards, each a job on its own runner, four tests at a
 #     time (three on macOS). A test's fixture - the downloads, the seven view
 #     tests before the one that compares them - comes with it wherever it runs.
+#     The tests are dealt to the shards by what each costs on CI
+#     (tools/ci_shard.cmake, from tests/ci_costs/, measured by
+#     tools/ci_test_costs.py), longest first, not by number: dealt by number
+#     (`-I k,,n`) one Linux debug shard took 25 minutes and another 18. Every
+#     shard's job is to stay under two thirds of its 30-minute limit.
 #   - Build and test are separate steps, so each one's time is in plain view.
 #
 # A shard cannot finish sooner than its longest test, which is why no test may
@@ -145,10 +149,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-debug, shard: 1, of: 4 }
-          - { preset: linux-debug, shard: 2, of: 4 }
-          - { preset: linux-debug, shard: 3, of: 4 }
-          - { preset: linux-debug, shard: 4, of: 4 }
+          - { preset: linux-debug, shard: 1, of: 7 }
+          - { preset: linux-debug, shard: 2, of: 7 }
+          - { preset: linux-debug, shard: 3, of: 7 }
+          - { preset: linux-debug, shard: 4, of: 7 }
+          - { preset: linux-debug, shard: 5, of: 7 }
+          - { preset: linux-debug, shard: 6, of: 7 }
+          - { preset: linux-debug, shard: 7, of: 7 }
           - { preset: linux-release, shard: 1, of: 2 }
           - { preset: linux-release, shard: 2, of: 2 }
     env:
@@ -168,8 +175,9 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
+          cmake -DBUILD=build/${{ matrix.preset }} -DCOSTS=tests/ci_costs/${{ matrix.preset }}.txt -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DJOBS=4 -DOUT=shard.txt -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I ${{ matrix.shard }},,${{ matrix.of }} || rc=$?
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" || rc=$?
           kill $xvfb
           exit $rc
       # Every frame the tests wrote, to look at.
@@ -413,7 +421,9 @@ jobs:
       - run: tar -xzf tree.tar.gz && rm tree.tar.gz
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
-        run: ctest --preset ${{ matrix.preset }} -I ${{ matrix.shard }},,${{ matrix.of }}
+        run: |
+          cmake -DBUILD=build/${{ matrix.preset }} -DCOSTS=tests/ci_costs/${{ matrix.preset }}.txt -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DJOBS=3 -DOUT=shard.txt -P tools/ci_shard.cmake
+          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
@@ -554,7 +564,9 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
-        run: ctest --preset ${{ matrix.preset }} -I ${{ matrix.shard }},,${{ matrix.of }}
+        run: |
+          cmake -DBUILD=build/${{ matrix.preset }} -DCOSTS=tests/ci_costs/${{ matrix.preset }}.txt -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DJOBS=4 -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
+          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt
 
       - name: The stack of every crash
         if: ${{ failure() }}
