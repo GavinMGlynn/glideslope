@@ -227,6 +227,74 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A command-line client the server has let go joins again by itself, 2026-09-27 — tail still open
+
+**What is missing first.** **The client with the window still cannot come
+back**: `net::ClientSession` does not notice that it has been let go, and
+`client::Online` has no way to be given a new aircraft at its old number, so a
+windowed client let go for going quiet goes on sealing under keys the server
+has thrown away until it is restarted. Only `glideslope_cli connect` joins
+again. So the tail stays open, with that named in it. **And a player the
+operator drops now comes back**: to the command-line client a drop looks like
+any other letting go, so it joins again three seconds later. The drop button
+is a kick, not a ban; keeping a key out would need the server to refuse it,
+which nothing does yet (a new tail).
+
+**What was wrong.** A client the server had let go for silence - a process
+stopped, a laptop shut, a network gone for longer than `--timeout` - went on
+sealing inputs under the old keys. The server refused each one
+(`BAD_HANDSHAKE`, as it refuses any sealed datagram from an address with no
+session), and `stay()` ignored every refusal. The plan's line blamed the
+`Taken` memory, but a client that resent its *old* initiation would have been
+dropped as a copy, and this one sent nothing of the kind: it never tried.
+
+**What it does now** (`src/frontend/cli/main.cpp`):
+- **A session gone quiet is knocked on from the client's end.** While nothing
+  has opened under it for a second, `stay()` sends a sealed `PING` of its own
+  once a second. A server that has the session answers `PONG`; one that has
+  let it go refuses it - so a client that sends nothing else still hears.
+- **A refusal is believed only of a session gone quiet**: nothing opened for
+  `quiet_before_believing_s`, three seconds - three of the server's knocks and
+  two of the client's own unanswered. A forged refusal while the session works
+  moves nothing (`docs/THREATS.md`, the client's half of the refusal rule), and
+  one heard while finishing is ignored.
+- **Then it joins again** (`join_again()`): a new `Initiator` with the same
+  static key, so a new ephemeral key and not a copy - `Taken` and #25's ghost
+  protection are untouched, and a copy of an old initiation is still dropped.
+  It resends every quarter of a second until answered, a minute the most, and
+  takes no refusal for an answer: sealed datagrams sent under the old session
+  may still be on their way to be refused. Then it stays for what is left of
+  its SECONDS, flying as before; what it was told to do once (hand over, take
+  over, stall) it does not do again.
+- **Two test flags**: `--stall-once-rolled` (with `--fly`) stops once its
+  aircraft has rolled past 90 degrees, sending and answering nothing and
+  reading and throwing away whatever arrives, until nothing has come from the
+  server for three seconds - its knocks stopped, which is the server letting it
+  go; joined again, it leaves once its new aircraft has rolled past 90 too.
+  `--done FILE` writes FILE when the client has gone, for another client's
+  `--until-exists`.
+- **No wire format changed.** `docs/TRANSPORT.md` now says when a client may
+  believe a refusal, that this project's command-line client knocks when it
+  hears nothing, and that it joins again by itself - and that the windowed one
+  does not yet.
+
+**Verification.** `a_client_stalled_past_the_timeout_joins_again_by_itself`
+(`tests/cmake/server_joins_again.cmake`, port 24801) builds the stall: a
+server with `--timeout 3` and `--until-empty`, the stalling client flying, and
+a second client that stays until the first has written `--done`. It holds the
+stalling client admitted twice and the other once; one session let go for
+silence; no initiation dropped as a copy; exactly three players' aircraft -
+the stalling client's first, taken out of the sky when it was let go, its
+second, and the other's - and exactly the stalling client's two banked past 90
+degrees, so no ghost aircraft and the new one flown. 10.7 s here (Linux
+debug). **Seen to fail**: with the refusal never believed, the client stayed
+its whole 300 s on the dead session and the test failed with "admitted 1
+times, not twice"; reverted. The two tests of #25's ghost protection,
+`a_copy_of_an_initiation_arriving_after_its_session_was_let_go_makes_no_second_player`
+and
+`a_copy_of_an_initiation_from_another_address_arriving_first_does_not_keep_its_client_out`,
+still pass.
+
 ### The client with the window hands its aircraft to the AI on a server, 2026-09-27 — tail still open
 
 **The tail stays open**: its verification asks that what is shown does not
