@@ -244,23 +244,30 @@ session for three seconds** - the server's knocks, and the client's own
 `PING`s, all unanswered - ends that session, and the client joins again with a
 new initiation (`TRANSPORT.md`, "Refusals"). A forged refusal therefore moves
 nothing while the session works; to make a client join again a forger must
-first silence the session for three seconds, and one who can do that has
-already taken it off the server, refusal or none. What it costs the client
-then is one new handshake and a new aircraft, and if the server still had the
-old session, the new initiation is dropped from that address until the
-server's `--timeout` lets the old one go. `connect_to`, before the session
+first silence the session for three seconds, and the refusal must come from
+the server's address with the reason `BAD_HANDSHAKE`. Even then it costs
+nothing: while the client tries to join again it keeps listening under the
+old session's keys, and the first thing that opens under them takes it back
+to that session - a server that still has the session has dropped the new
+initiation from that address without a word, so nothing else changed. A
+forged `SERVER_FULL` or `DROPPED` from the server's address during that
+attempt does end it, as either would end a first handshake (below). The
+drop itself is sealed: the server's goodbye opens only under the dropped
+player's session. `connect_to`, before the session
 exists, prints
 the reason and returns 1 on any `REFUSAL` that reaches its socket from any
 address. **A connection attempt is ended by one unauthenticated byte**, which
 is the thing the rule forbids.
 
-**Six of the seven reasons are actually sent, and two of those leak.** The
-seven - `UNKNOWN`, `NOT_THIS_PROTOCOL`, `WRONG_VERSION`, `UNKNOWN_TYPE`,
-`TOO_SHORT`, `SERVER_FULL`, `BAD_HANDSHAKE` - are defined and held against
-`docs/TRANSPORT.md` by
+**Seven of the eight reasons are actually sent, and two of those leak.** The
+eight - `UNKNOWN`, `NOT_THIS_PROTOCOL`, `WRONG_VERSION`, `UNKNOWN_TYPE`,
+`TOO_SHORT`, `SERVER_FULL`, `BAD_HANDSHAKE`, `DROPPED` - are defined and held
+against `docs/TRANSPORT.md` by
 `the_transport_document_and_the_code_agree_byte_for_byte`.
-The server sends the four the envelope reader gives it and both of the
-handshake's; `UNKNOWN` is sent by nothing. `SERVER_FULL` and `BAD_HANDSHAKE`
+The server sends the four the envelope reader gives it and the handshake's
+three; `UNKNOWN` is sent by nothing. `DROPPED` is sent only after the
+initiation has completed, so only to the holder of the dropped static key -
+or to an address somebody forged an initiation from with that key's secret. `SERVER_FULL` and `BAD_HANDSHAKE`
 each leak something to an unauthenticated sender: that the session is full, and
 that a handshake was attempted and failed. **This document says both should be
 sent only after the far end has authenticated, or not at all, and the server as

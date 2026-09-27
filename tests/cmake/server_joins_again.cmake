@@ -16,17 +16,19 @@
 # (`--stall-once-rolled`): it sends nothing and answers nothing until the
 # server's knocks stop, which is the server letting it go. Then it goes on as
 # it was, and must notice by itself that it has been let go, join again, and
-# fly its new aircraft past 90 degrees too. A second client, which does not
+# fly its new aircraft past 90 degrees too. The stall ends on the event: after
+# three seconds of nothing from the server it knocks, and stalls again if the
+# session still answers, until the server refuses the knock. A second client, which does not
 # fly, stays until the first has gone (`--done`, `--until-exists`), which
 # keeps the server - stopping when everybody who joined has gone,
 # --until-empty - running through the gap between the two sessions however
 # slow the machine.
 #
 # **What must hold**: the stalling client admitted twice, and let go twice -
-# once for its silence, once for its goodbye; the client saying it joined
-# again; three players' aircraft and no more - the stalling client's first,
-# taken out of the sky when it was let go, its second, and the other
-# client's - with exactly the first two banked past 90 degrees: no ghost
+# once for its silence, once for its goodbye - and the other client once, for
+# its goodbye: one session let go for silence, two for goodbyes. Three
+# players' aircraft and no more - the stalling client's first, taken out of
+# the sky when it was let go, its second, and the other client's - with exactly the first two banked past 90 degrees: no ghost
 # aircraft made by a copy of an old initiation, and the client flying the one
 # it was given. And the server dropping no copy of the first initiation as a
 # fresh one - joining again is a new initiation, not a copy.
@@ -99,6 +101,12 @@ list(LENGTH _silence _silences)
 if(NOT _silences EQUAL 1)
     message(FATAL_ERROR "the server let ${_silences} sessions go for silence, not one - "
                         "the stall:\n${_out}")
+endif()
+string(REGEX MATCHALL "let go [0-9.:]+ after it said it was leaving" _goodbyes "${_out}")
+list(LENGTH _goodbyes _goodbye_count)
+if(NOT _goodbye_count EQUAL 2)
+    message(FATAL_ERROR "the server let ${_goodbye_count} sessions go for a goodbye, not "
+                        "two - the stalling client's second and the other's:\n${_out}")
 endif()
 if(_out MATCHES "dropped a copy of an initiation")
     message(FATAL_ERROR "joining again was taken for a copy of the first initiation:\n"

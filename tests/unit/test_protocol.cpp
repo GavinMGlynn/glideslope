@@ -396,7 +396,8 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_byte_for_byte) {
         {Refusal::unknown_type, "UNKNOWN_TYPE"},
         {Refusal::too_short, "TOO_SHORT"},
         {Refusal::server_full, "SERVER_FULL"},
-        {Refusal::bad_handshake, "BAD_HANDSHAKE"}};
+        {Refusal::bad_handshake, "BAD_HANDSHAKE"},
+        {Refusal::dropped, "DROPPED"}};
     std::size_t reasons = 0;
     for (const auto& [why, name] : refusals) {
         char buf[8];
@@ -405,7 +406,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_byte_for_byte) {
               "the document gives " + name + " as " + buf);
         ++reasons;
     }
-    check(reasons == 7, "there are seven reasons to refuse, not " + std::to_string(reasons));
+    check(reasons == 8, "there are eight reasons to refuse, not " + std::to_string(reasons));
 
     // **What it does not claim is in it.** A transport document that lists
     // only what works is the kind this project does not want.

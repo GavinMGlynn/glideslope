@@ -74,6 +74,7 @@ const char* refusal_name(std::uint8_t reason) {
     case 0x04: return "TOO_SHORT";
     case 0x05: return "SERVER_FULL";
     case 0x06: return "BAD_HANDSHAKE";
+    case 0x07: return "DROPPED";
     default: return "UNKNOWN";  // a reason this version does not know
     }
 }

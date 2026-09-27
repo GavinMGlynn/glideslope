@@ -1536,11 +1536,23 @@ add_test(NAME a_client_stalled_past_the_timeout_joins_again_by_itself
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_joins_again -DPORT=24801
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_joins_again -DPORT=24701
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_joins_again.cmake)
 set_tests_properties(a_client_stalled_past_the_timeout_joins_again_by_itself
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_joins_again)
+
+# **A player the operator drops stays dropped**: told, not back by itself,
+# and refused DROPPED when started again. See cmake/server_drop_keeps_out.cmake.
+add_test(NAME a_player_the_operator_drops_is_told_and_kept_out_for_the_rest_of_the_run
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_drop_keeps_out -DPORT=24702
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_drop_keeps_out.cmake)
+set_tests_properties(a_player_the_operator_drops_is_told_and_kept_out_for_the_rest_of_the_run
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_drop_keeps_out)
 
 # **A copy of an initiation from another address, answered first, does not
 # keep its client out.** See cmake/server_initiation_elsewhere.cmake.

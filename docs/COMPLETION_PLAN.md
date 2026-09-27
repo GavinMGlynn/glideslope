@@ -716,7 +716,3 @@ Found while implementing something else. Added when found, not when remembered.
 - [x] **No message rejects a number that is not one.** *Verification: every
       floating-point field of every message refuses a NaN and an infinity.* Done
       2026-09-22.
-- [ ] **A player the operator drops joins again by itself**: the drop button
-      is a kick, not a ban, now that a client let go comes back. *Verification:
-      a dropped client is refused when it tries to join again, and a player
-      let go for silence is not.*

@@ -82,6 +82,7 @@ with. Its body is one byte:
 | `04` | `TOO_SHORT` | fewer bytes than the envelope needs |
 | `05` | `SERVER_FULL` | every slot is taken |
 | `06` | `BAD_HANDSHAKE` | the handshake did not complete |
+| `07` | `DROPPED` | the operator dropped this key; it is refused for the rest of the server's run |
 
 **The magic is checked before the version.** A datagram from another protocol
 is told that it is another protocol, rather than being told its version is
@@ -89,13 +90,18 @@ wrong - which would be true but useless. **The length is checked before
 either**: fewer than 6 bytes is `TOO_SHORT`, whatever they are, and an empty
 datagram is not answered at all.
 
+A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
+after the other six, is refused as an unknown reason by a client older than
+it: it still stops that client's attempt.
+
 A `REFUSAL` is always 7 bytes - the envelope, with this version, `01`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
 - to a datagram whose envelope it cannot read, with the reason above;
 - **instead of a handshake answer**: `SERVER_FULL` when every slot is taken,
-  and `BAD_HANDSHAKE` when the initiation does not complete;
+  `BAD_HANDSHAKE` when the initiation does not complete, and `DROPPED` when it
+  completes from a static key the operator has dropped (see "Leaving");
 - to a `SEALED` datagram from an address that has no session: `BAD_HANDSHAKE`.
 
 It sends nothing back to a `HANDSHAKE_RESPONSE` or a `REFUSAL`, which a server
@@ -103,13 +109,13 @@ is never sent, nor to a `SEALED` datagram that does not open under its
 address's session. **A refusal is not sealed, so anybody can forge one.** A
 client should believe one only while it is waiting for the answer to its
 handshake, or once its session has already gone quiet - which are the two
-times the server has a reason to send it one. **A session gone quiet** is one
-under which nothing has opened for three seconds: three of the server's
-`PING`s and two of the client's own (below) unanswered. A `BAD_HANDSHAKE`
-heard then says what the silence already did, that the server has let the
-session go; this project's command-line client then joins again by itself
-(see "Starting a session"). One heard while the session is working is
-ignored.
+times the server has a reason to send it one - and only from the server's
+own address. **A session gone quiet** is one under which nothing has opened
+for three seconds: three of the server's `PING`s and two of the client's own
+(below) unanswered. A `BAD_HANDSHAKE` heard then says what the silence already
+did, that the server has let the session go; this project's command-line
+client then joins again by itself (see "Starting a session"). One heard while
+the session is working is ignored, and so is any other reason then.
 
 ## Starting a session
 
@@ -173,9 +179,14 @@ initiation with the same static key and a new ephemeral one, from the same
 socket, and resends it every quarter of a second until it is answered, a
 minute the most. It is not a copy, so the server takes it: a new session, a
 slot, and a new aircraft, the old one having gone as `--on-leave` said. A
-refusal while it waits is not an answer - sealed datagrams sent under the old
-session may still be on their way to be refused - and does not end the
-attempt.
+`BAD_HANDSHAKE` while it waits is not an answer - sealed datagrams sent under
+the old session may still be on their way to be refused - and does not end
+the attempt; `SERVER_FULL` and `DROPPED` from the server's address end it,
+with the reason. **It goes on listening to the old session while it waits**:
+if anything opens under the old keys, the session was never gone, and the
+client goes back to it - a server that still has it drops the new initiation
+from that address without a word. A client told it was dropped does not join
+again at all.
 
 **What it does not claim.**
 
@@ -612,8 +623,8 @@ server does not let go** when `--timeout` comes round, which is why the
 knocking is the server's job: the server is the one deciding who has gone.
 
 A client sends `INPUTS`, `RELIABLE`, `PING`, `PONG` and `LEAVING`; the server
-sends `STATE`, `RELIABLE`, `PING` and `PONG`, and ignores a `STATE` from a
-client. What the server does with a client's `RELIABLE` is under "Reliable
+sends `STATE`, `RELIABLE`, `PING`, `PONG`, and `LEAVING` to a player it drops
+(see "Leaving"), and ignores a `STATE` from a client. What the server does with a client's `RELIABLE` is under "Reliable
 messages" above.
 
 ### Leaving: `LEAVING`
@@ -647,6 +658,15 @@ answered with `REFUSAL` `BAD_HANDSHAKE`, which a client that has left does not
 read. **If all three are lost**, the server's timeout lets the session go as
 it always did. So a client may leave the goodbye out altogether: it is let go
 all the same, only later, and its slot is held until then.
+
+**The server says goodbye too, when its operator drops a player.** It sends
+the same `LEAVING`, sealed under that player's session, three times, each
+sealed afresh, and lets the session go. A client that opens a `LEAVING` from
+the server has been dropped: it stops, and does not join again. The server
+also remembers the dropped player's static key for the rest of its run and
+refuses any initiation from it with `DROPPED` (`07`), whatever address it
+comes from - so if all three goodbyes are lost, the client that joins again
+is refused, and stops there. A server that restarts forgets whom it dropped.
 
 **A goodbye does not make an initiation new.** A client that comes back from
 the same address after its goodbye must handshake again with a new initiation,

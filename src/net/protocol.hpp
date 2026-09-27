@@ -68,6 +68,7 @@ enum class Refusal : std::uint8_t {
     too_short = 4,
     server_full = 5,
     bad_handshake = 6,
+    dropped = 7, // the operator dropped this key, for the rest of the server's run
 };
 
 struct Envelope {
