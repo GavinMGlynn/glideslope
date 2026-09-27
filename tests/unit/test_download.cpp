@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <future>
 #include <memory>
 #include <iterator>
 #include <mutex>
@@ -280,6 +281,55 @@ GLIDESLOPE_TEST(
                   calls == 1,
               "status " + std::to_string(refusal) + " is not tried again");
     }
+}
+
+GLIDESLOPE_TEST(a_wait_to_try_again_given_up_while_it_waits_ends_within_a_slice) {
+    // **The flag is heeded mid-wait**, not only before it: raised by another
+    // thread once a minute's wait has begun, the wait ends within a slice
+    // (given_up_slice, 10 ms). The bound allows the slice and whatever a
+    // loaded runner takes to run the thread again; a wait that looked only
+    // before sleeping would sleep out its minute.
+    using glideslope::world::FetchesGivenUp;
+    using glideslope::world::FetchGivenUp;
+    using glideslope::world::given_up_slice;
+    using glideslope::world::wait_before_trying_again;
+    using Clock = std::chrono::steady_clock;
+    const auto bound = given_up_slice + std::chrono::seconds(1);
+    std::atomic<bool> give_up{false};
+    std::promise<void> began;
+    auto waited = std::async(std::launch::async, [&] {
+        const FetchesGivenUp given_up(give_up);
+        try {
+            wait_before_trying_again(std::chrono::minutes(1), [&] { began.set_value(); });
+        } catch (const FetchGivenUp&) {
+            return true;
+        }
+        return false;
+    });
+    began.get_future().wait();
+    const Clock::time_point raised = Clock::now();
+    give_up = true;
+    const bool threw = waited.get();
+    const auto took = Clock::now() - raised;
+    check(threw, "a wait given up throws FetchGivenUp");
+    check(took < bound, "given up mid-wait, it took " +
+                            std::to_string(std::chrono::duration<double>(took).count()) +
+                            " s to end");
+
+    // And a FetchesGivenUp let go hands the thread back to the one it
+    // replaced: the outer flag, raised, still ends a wait.
+    std::atomic<bool> outer_flag{false};
+    std::atomic<bool> inner_flag{false};
+    const FetchesGivenUp outer(outer_flag);
+    { const FetchesGivenUp inner(inner_flag); }
+    outer_flag = true;
+    bool outer_heeded = false;
+    try {
+        wait_before_trying_again(std::chrono::minutes(1));
+    } catch (const FetchGivenUp&) {
+        outer_heeded = true;
+    }
+    check(outer_heeded, "the FetchesGivenUp before an inner one is heeded again once it goes");
 }
 
 GLIDESLOPE_TEST(a_429_is_waited_out_as_its_retry_after_asks_within_a_limit_then_returned) {

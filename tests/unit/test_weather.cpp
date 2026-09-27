@@ -1138,7 +1138,21 @@ GLIDESLOPE_TEST(a_weather_fetch_let_go_while_it_waits_to_try_again_ends_at_once)
         };
         std::optional<glideslope::world::WeatherFetch> fetching;
         fetching.emplace("CYYZ", "2026-09-17T00:00", fetch);
-        asked.get_future().wait();
+        // Asked, or over without asking - a fetch_weather that throws before
+        // its first fetch would leave nothing to let go, and must fail this
+        // rather than hang it.
+        std::future<void> first_ask = asked.get_future();
+        while (first_ask.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+            if (fetching->done()) {
+                std::string why = "nothing thrown";
+                try {
+                    (void)fetching->get();
+                } catch (const std::exception& e) {
+                    why = e.what();
+                }
+                fail(std::string(w.what) + ": the fetch ended before it asked: " + why);
+            }
+        }
         const auto let_go = std::chrono::steady_clock::now();
         fetching.reset();
         const auto took = std::chrono::steady_clock::now() - let_go;

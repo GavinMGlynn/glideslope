@@ -64,13 +64,20 @@ inline constexpr std::chrono::milliseconds retry_after_limit{10000};
 // ends at once, throwing FetchGivenUp. A fetch nothing will wait for must not
 // hold up the end of what asked for it - a program quit while the weather
 // service answered 503 sat through every retry, about 80 s, before it could
-// end. One at a time on a thread; the flag must outlive it.
+// end. The latest made on a thread is the one heeded; the flag must outlive
+// it.
 class FetchesGivenUp {
 public:
     explicit FetchesGivenUp(const std::atomic<bool>& flag);
+    // Hands the thread back to the FetchesGivenUp this one replaced, if any.
     ~FetchesGivenUp();
     FetchesGivenUp(const FetchesGivenUp&) = delete;
     FetchesGivenUp& operator=(const FetchesGivenUp&) = delete;
+
+private:
+    // The flag of the one this replaced on the thread, handed back when this
+    // is let go.
+    const std::atomic<bool>* before_;
 };
 
 // What a fetch given up throws. Not an HttpError, so no retry takes it for a
@@ -79,9 +86,15 @@ struct FetchGivenUp : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+// **How soon a wait sees its fetch given up**: it sleeps in slices this long.
+inline constexpr std::chrono::milliseconds given_up_slice{10};
+
 // Waits `wait`, or throws FetchGivenUp as soon as a FetchesGivenUp on this
-// thread says to - before waiting, or in the middle of it.
-void wait_before_trying_again(std::chrono::milliseconds wait);
+// thread says to - before waiting, or within given_up_slice of it saying so
+// in the middle. `waiting`, for a test, is called once the wait has seen
+// that it is not given up yet, and before it first sleeps.
+void wait_before_trying_again(std::chrono::milliseconds wait,
+                              const std::function<void()>& waiting = {});
 
 // `fetch(url)`, tried again when the server fails - a 5xx status, or a 200
 // with nothing in it, which nothing fetched here ever is - or turns the

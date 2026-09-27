@@ -4,7 +4,6 @@
 #include "world/json.hpp"
 
 #include <algorithm>
-#include <future>
 #include <thread>
 #include <cmath>
 
