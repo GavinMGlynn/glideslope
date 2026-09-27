@@ -2398,6 +2398,17 @@ bool forge_goodbyes(glideslope::platform::UdpSocket& socket,
     }
 }
 
+// **What became of a connection, said on standard error and to `--heard
+// FILE`** as well, on every way out: a test in a pipeline reads the file,
+// and a client that failed without writing it left the test saying only
+// that it had written nothing.
+void say_outcome(const std::string& heard_file, const std::string& line) {
+    std::fprintf(stderr, "glideslope_cli: %s\n", line.c_str());
+    if (!heard_file.empty()) {
+        std::ofstream(heard_file, std::ios::app) << line << '\n';
+    }
+}
+
 // **How joining again came out**: a new session; the old one after all -
 // something opened under it, so it was never gone; refused, and why; or no
 // answer in a minute.
@@ -2636,8 +2647,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                         std::span<const std::uint8_t>(into.data(), got)
                             .subspan(glideslope::net::envelope_size));
                     if (!session) {
-                        std::fprintf(stderr,
-                                     "glideslope_cli: the answer did not open\n");
+                        say_outcome(heard_file, "the answer did not open");
                         return 1;
                     }
                     // And seal something, so the session is used and not
@@ -2715,13 +2725,10 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                         const Rejoined rejoined =
                             join_again(*socket, *address, mine, *theirs, *opening);
                         if (rejoined.refused) {
-                            const unsigned reason = static_cast<unsigned>(*rejoined.refused);
-                            std::fprintf(stderr, "glideslope_cli: let go, and refused when "
-                                                 "joining again, reason %u\n", reason);
-                            if (!heard_file.empty()) {
-                                std::ofstream(heard_file, std::ios::app)
-                                    << "refused when joining again, reason " << reason << '\n';
-                            }
+                            say_outcome(heard_file,
+                                        "let go, and refused when joining again, reason " +
+                                            std::to_string(
+                                                static_cast<unsigned>(*rejoined.refused)));
                             return 1;
                         }
                         if (rejoined.old_session_answers) {
@@ -2736,8 +2743,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                             sealing = owned_sealer.get();
                             opening = owned_unsealer.get();
                         } else {
-                            std::fprintf(stderr, "glideslope_cli: let go, and could not "
-                                                 "join again\n");
+                            say_outcome(heard_file, "let go, and could not join again");
                             return 1;
                         }
                         std::fflush(stdout);
@@ -2754,7 +2760,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
             }
         }
         if (waited > give_up_after_s) {
-            std::fprintf(stderr, "glideslope_cli: no answer from %s\n", where.c_str());
+            say_outcome(heard_file, "no answer from " + where);
             return 1;
         }
         if (waited - sent_at_s >= resend_every_s) {

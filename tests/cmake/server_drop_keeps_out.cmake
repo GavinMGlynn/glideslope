@@ -16,7 +16,12 @@
 # so, and leave without joining again. Then the same key is started again,
 # once the first has gone (`--after-ready` on its `--done` file), and must be
 # refused DROPPED (07). A third client, which does not fly, stays until the
-# second has gone, which keeps the server (--until-empty) running.
+# second has gone, which keeps the server (--until-empty) running - so it
+# must be in before the first is dropped: the first joins only once the third
+# has heard the server introduce an aircraft (`--after-ready` on the third's
+# `--heard` file). Started together, the first was admitted and dropped
+# before the third arrived on macOS CI (run 36289235846), the server found
+# everybody gone and stopped, and the second waited a minute for no answer.
 #
 # **What must hold**: the dropped key admitted once and never again; the
 # server saying it dropped it and refused it; the dropped client saying it was
@@ -36,7 +41,9 @@ set(_first "${WORK}/first.txt")
 set(_first_done "${WORK}/first_done.txt")
 set(_again "${WORK}/again.txt")
 set(_again_done "${WORK}/again_done.txt")
-file(REMOVE "${_store}" "${_ready}" "${_first}" "${_first_done}" "${_again}" "${_again_done}")
+set(_staying "${WORK}/staying.txt")
+file(REMOVE "${_store}" "${_ready}" "${_first}" "${_first_done}" "${_again}" "${_again_done}"
+     "${_staying}")
 
 execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 0.05 --ai 0 --store "${_store}"
@@ -59,13 +66,13 @@ endif()
 set(_dropped_key 9a47cf83f2e50ebb1bb176f4072fa4ad962b89d8cf09527d1ce6abd308f89ba2)
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 300 --fly
-            --after-ready "${_ready}" --heard "${_first}" --done "${_first_done}"
+            --after-ready "${_staying}" --heard "${_first}" --done "${_first_done}"
             --key ${_dropped_key}
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 300
             --after-ready "${_first_done}" --heard "${_again}" --done "${_again_done}"
             --key ${_dropped_key}
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 300
-            --after-ready "${_ready}" --until-exists "${_again_done}"
+            --after-ready "${_ready}" --until-exists "${_again_done}" --heard "${_staying}"
             --key e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --players 4 --data "${DATA}" --timeout 3 --store "${_store}"
