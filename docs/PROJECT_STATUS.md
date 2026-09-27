@@ -227,6 +227,63 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### CI's test shards are dealt by what each test costs, 2026-09-27 — tail in progress
+
+**What is missing first.** The tail is ticked only on a CI run whose every
+shard's job finished under two thirds of its 30-minute limit, 20 minutes; the
+figures of the pull request's own run are below.
+
+**What was wrong.** Shard k of n ran every nth test from the kth
+(`ctest -I k,,n`), so the slow tests fell where their numbers put them. On
+main's green run 36291751627 (2026-09-27) the Linux debug shards' jobs took
+18.9, 20.8, 23.1 and 26.3 minutes against 30 - and 27 min 43 s on another run -
+because the circuit lessons (838 s and 584 s), the three near-the-ceiling
+turns (569, 463, 451 s) and the low-downwind circuit (433 s) shared shards.
+Every other preset was under 20: Windows debug's worst 18.2, macOS debug's 17.5,
+Windows clang 12.9, Windows release 13.6, macOS release 8.4, Linux release 8.4.
+Rocky 9 runs the whole linux-release suite in its 60-minute job, 27.4 minutes
+with the build, and is left as it is.
+
+**What changed.** `tools/ci_shard.cmake` deals every test of a build to one of
+n shards, longest first, each to the shard with least work so far. A test that
+holds the runner - `RUN_SERIAL`, or `PROCESSORS` above one, read from ctest's
+own listing - weighs its time multiplied by what it holds. The costs are
+`tests/ci_costs/<preset>.txt`, each test's wall time on CI rounded up,
+measured from run 36291751627 by `tools/ci_test_costs.py RUN_ID`; a test not
+in the table counts 60 s and is named in the shard's log, so a new test is
+dealt somewhere and the table can be measured again. The script writes the
+shard's test numbers as ctest's `-I` file and the costs as ctest's
+`CTestCostData.txt`, so inside a shard the longest tests start first. Linux
+debug goes from four shards to seven; the others keep their counts.
+
+**Coverage is asserted.** Every shard of a preset deals the same list the same
+way; the script counts that every test was dealt exactly once and that no
+shard is empty, and fails the job if not. Seen failing: with one test dropped
+from the dealing, it stopped with "512 tests, but 511 dealt and 511 distinct".
+A fixture's setup is still pulled in by ctest wherever a test needs it.
+
+**Estimated worst shard per preset**, a list-scheduling simulation over the
+measured times (it predicted the old Linux debug worst at 26.1 min against
+25.2 measured, Windows debug's at 17.4 against 17.2), test step only; a job
+adds about a minute of setup:
+
+| preset | shards | worst, before | worst, estimated | two thirds of the limit |
+|---|---|---|---|---|
+| linux-debug | 4 → 7 | 25.2 | 14.0 (the circuit lesson alone) | 20 |
+| linux-release | 2 | 7.5 | 7.7 | 20 |
+| macos-debug | 3 | 16.3 | 13.4 | 20 |
+| macos-release | 2 | 7.3 | 7.5 | 20 |
+| windows-debug | 6 | 17.2 | 12.8 | 20 |
+| windows-release | 2 | 12.0 | 10.6 | 20 |
+| windows-clang | 2 | 11.7 | 11.7 | 20 |
+
+The floor for Linux debug is its longest test, the circuit lesson flown by the
+book, 838 s here and about 980 s on a slower run: 16 min plus setup, still
+under 20. Splitting it would lower the floor, and is not needed for this.
+
+**Verification.** The pull request's own CI run: every test shard's job time
+against 20 minutes, below.
+
 ### What the client with the window shows does not step at a switch, 2026-09-27
 
 **What is still missing first.** The hand-over tail stays open for its other

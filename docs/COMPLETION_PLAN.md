@@ -607,7 +607,8 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of
-      its job's limit.*
+      its job's limit.* In progress: tests are now dealt to shards by their
+      measured cost, and Linux debug has seven shards; not yet seen on CI.
 - [x] **Taking an aeroplane back on its landing roll does not finish the
       landing**: it is handed the plain autopilot, which never stops it.
       *Verification: an approach taken back on the roll is landed to a stop.*
