@@ -227,7 +227,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Quitting during a weather refresh ends at once, 2026-09-27 — tail done
+### Quitting during a weather refresh ends at once, 2026-09-27 — tail still open
 
 **What is missing first.** No test quits the program itself mid-refresh: a
 flight refreshes its weather only every 15 minutes of flying, so the test is

@@ -445,10 +445,13 @@ Found while implementing something else. Added when found, not when remembered.
       again after the wait it asks for, never more than 10 s, and a 429 to
       every try is weather not to be had, so the HUD test skips; any other
       refusal still fails.* Done 2026-09-27.
-- [ ] **Quitting during a slow or rate-limited weather refresh can hang the
-      exit for up to about 80 s**: the flight's background weather refresh
-      cannot be cancelled. *Verification: quitting while the weather service
-      answers 429 ends the program within a couple of seconds.*
+- [ ] **Quitting during a slow or rate-limited weather refresh could hang
+      the exit for over a minute**: the flight's background weather refresh
+      could not be given up. *Verification: quitting while the weather
+      service answers 429 ends the program within a couple of seconds.* Done
+      so far: a weather fetch let go while it waits to try again ends within
+      2 s. Missing: a test that quits the program itself mid-refresh, and one
+      that abandons a transfer under way.
 
 - [x] **A client opened the model a server named as a path.** *Verification:
       every aircraft's id is known by the catalogue and eight hostile ones are
