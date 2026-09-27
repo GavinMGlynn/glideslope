@@ -1095,7 +1095,8 @@ GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be
 GLIDESLOPE_TEST(a_weather_fetch_let_go_while_it_waits_to_try_again_ends_at_once) {
     // **A flight quit during a weather refresh ends at once**, not when the
     // service's retries run out: about 30 s of them after a 503, and more
-    // after an answer that is not JSON. Every wait a weather fetch makes
+    // after an answer that is not JSON, and up to 10 s a wait after a 429
+    // asking for them. Every wait a weather fetch makes
     // between tries is walked: each fetch is let go just after its first ask,
     // in its first wait, with the waits as long as a flight's, and must be over
     // within `bound` of being let go. Without the waits given up, the shortest
@@ -1114,6 +1115,7 @@ GLIDESLOPE_TEST(a_weather_fetch_let_go_while_it_waits_to_try_again_ends_at_once)
         {"between retries of a 503", 503, ""},
         {"between retries when nothing answers", 0, ""},
         {"between fetches of an answer that is not JSON", 200, "<html>Service unavailable</html>"},
+        {"after a 429 asking for ten seconds", 429, ""},
     };
     std::size_t cases = 0;
     for (const Wait& w : waits) {
@@ -1129,6 +1131,9 @@ GLIDESLOPE_TEST(a_weather_fetch_let_go_while_it_waits_to_try_again_ends_at_once)
             HttpResponse r;
             r.status = w.status;
             r.body.assign(w.body.begin(), w.body.end());
+            if (w.status == 429) {
+                r.headers["retry-after"] = "10";
+            }
             return r;
         };
         std::optional<glideslope::world::WeatherFetch> fetching;
@@ -1143,8 +1148,8 @@ GLIDESLOPE_TEST(a_weather_fetch_let_go_while_it_waits_to_try_again_ends_at_once)
                   " s to end, not under 2 s");
         ++cases;
     }
-    check(cases == waits.size() && cases == 3,
-          std::to_string(cases) + " of the 3 waits walked");
+    check(cases == waits.size() && cases == 4,
+          std::to_string(cases) + " of the 4 waits walked");
 
     // And one kept until it is done is the weather fetch_weather gives.
     const glideslope::world::Fetch answering = [&](const std::string& url) {

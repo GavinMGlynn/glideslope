@@ -229,6 +229,12 @@ are the risks the phase order is built around:
 
 ### Quitting during a weather refresh ends at once, 2026-09-27 — tail still open
 
+**After the rate-limit fix (#42) landed**: its waits after a 429 go through the
+same `wait_before_trying_again` unless a test counts them, so a 429 asking for
+ten seconds is given up at once too; the let-go test walks it (4 of 4). With
+the waits a plain sleep again, the test goes red at once (the 503 case took
+30.00 s).
+
 **What is missing first.** No test quits the program itself mid-refresh: a
 flight refreshes its weather only every 15 minutes of flying, so the test is
 of `world::WeatherFetch`, the object the flight holds and lets go when it
