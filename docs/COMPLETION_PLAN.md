@@ -460,12 +460,11 @@ Found while implementing something else. Added when found, not when remembered.
       message tests run a hundred times on the development machine without a
       crash.*
 
-- [x] **The client with the window hands over on a server**: A online asks
-      the server to hand the aircraft to the AI, and to give it back.
-      *Verification: the client with the window hands its aircraft to the AI
-      and takes it back on a server, the server and its HUD saying the AI and
-      then the pilot has it, and it ends flown by the pilot's inputs.* That
-      what it shows does not step is the blending tail above.
+- [ ] **The client with the window does not hand over on a server**: pressing A
+      online does nothing. *Verification: the client with the window hands its
+      aircraft to the AI and takes it back on a server, and what it shows does
+      not step.* The hand-over and take-back work (2026-09-27); still missing:
+      what it shows steps at each switch, since nothing blends it.
 
 - [x] **A headless client drawing thousands of frames runs the software
       Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a

@@ -227,7 +227,11 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The client with the window hands its aircraft to the AI on a server, 2026-09-27 — tail done
+### The client with the window hands its aircraft to the AI on a server, 2026-09-27 — tail still open
+
+**The tail stays open**: its verification asks that what is shown does not
+step, and nothing blends the switch yet. Ticking the hand-over alone would
+split the item to tick the easy half, which the plan does not allow.
 
 **What is missing first.** What it shows of its own aircraft is not blended
 at a hand-over or a take-back: handed over, the frames before the updates
