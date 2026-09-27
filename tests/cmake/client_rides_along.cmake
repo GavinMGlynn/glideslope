@@ -112,6 +112,20 @@ if(TAKE_OVER)
         message(FATAL_ERROR "the client measured ${_switches} switches of its own aircraft, "
                             "not the 1 made - taken over:\n${_out}")
     endif()
+    # **The rule is tested only if taking the blend out would break it**: without
+    # a blend the step is the aircraft's speed over the time between the two
+    # sources - at least the 100 ms the aircraft taken over was drawn
+    # behind - so the speed it was carried at, which the client says of the
+    # largest step, must put that past the 2.5 m bound: faster than 25 m/s.
+    # Slower, the green tick would say nothing.
+    if(NOT _out MATCHES "the largest step at a switch: [^\n]* carried at ([0-9.]+) m/s")
+        message(FATAL_ERROR "the client did not say how fast its aircraft was at a switch:\n${_out}")
+    endif()
+    if(CMAKE_MATCH_1 LESS_EQUAL 25)
+        message(FATAL_ERROR "the aircraft was carried at ${CMAKE_MATCH_1} m/s at a switch: too slow "
+                            "for a step without the blend to pass 2.5 m, so the bound tests "
+                            "nothing:\n${_out}")
+    endif()
     if(_step GREATER_EQUAL 2.5)
         message(FATAL_ERROR "what the client showed stepped ${_step} m at the take-over, the "
                             "bound 2.5 m:\n${_out}")

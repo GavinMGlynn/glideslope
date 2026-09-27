@@ -12,11 +12,18 @@ double OwnShown::left_at(double t, double from_s, double over_s) {
 }
 
 void OwnShown::taken_over(std::uint8_t number) {
-    // What it had shown of that aircraft as another carries on as its own.
+    // What it had shown of that aircraft as another carries on as its own -
+    // never the aircraft left behind, which is somewhere else. Seen in one
+    // frame only, it blends from that one, and the step is measured from the
+    // next; seen in none, there is nothing to blend from.
     const auto found = others_.find(number);
-    if (found != others_.end() && found->second.first && found->second.second) {
-        before_before_ = found->second.first;
+    before_.reset();
+    before_before_.reset();
+    if (found != others_.end()) {
         before_ = found->second.second;
+        if (before_) {
+            before_before_ = found->second.first;
+        }
     }
     others_.erase(number);
     switching_ = true;

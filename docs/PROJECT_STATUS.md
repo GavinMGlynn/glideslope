@@ -234,7 +234,11 @@ part alone: A pressed while a take-over is in flight can hand back the
 aircraft just left rather than the one taken (a narrow race). And the
 client with the window still does not blend a *correction* of its
 prediction, as glideslope_cli's display model does; a correction within
-four frames of a switch counts in the step measured there.
+four frames of a switch counts in the step measured there, and the step
+away from a switch is printed but not asserted - a tail. And the display
+model is now written twice, `Predicting::own_frame` in glideslope_cli and
+`client/shown.*` - a tail: one presentation-free module for both, with a
+unit test that builds long frames.
 
 **The tail.** Handed over, the client with the window showed its own
 aircraft where it was last predicted until the updates had given two
@@ -290,6 +294,15 @@ it with it.
   two runs with the blend taken out, astride the 5 m bound, so a 5 m test
   would only sometimes test its rule. With the blend taken out it failed at
   4.89 m against 2.5 m; reverted, it passes.
+- **Each test is sure its rule is tested**: it reads the speed the client
+  says its aircraft was carried at in the largest step at a switch, and
+  fails unless that speed over the time between the two sources (0.2 s
+  through the relay, 0.1 s at a take-over) passes the bound - faster than
+  25 m/s for both. So a green run is one in which taking the blend out
+  would have gone red.
+- **From the review**: a take-over of an aircraft seen in fewer than two
+  frames no longer blends from the aircraft left behind: seen in one, it
+  blends from that; in none, from nothing.
 - The ride-along test beside them passes unchanged.
 ### Every flare begins at the attitude the glidepath was flown at, 2026-09-27 — tail done
 

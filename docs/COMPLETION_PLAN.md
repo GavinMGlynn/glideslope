@@ -403,8 +403,9 @@ Found while implementing something else. Added when found, not when remembered.
       switch** - handed over (A on a server), taken back or taken over - as
       the network checks' model of a display does. *Verification: what it
       shows of its own aircraft, measured sixty times a second across each
-      switch, steps no more than the bound the network checks hold - and
-      past it with the blend taken out.* Done 2026-09-27: 1.1 m at worst.
+      switch, steps less than 5 m at a hand-over and a take-back, and less
+      than 2.5 m at a take-over, where unblended it is about 5 m - each past
+      its bound with the blend taken out.* Done 2026-09-27: 1.1 m at worst.
 - [ ] **The client with the window is not tested with its updates
       reordered across a take-over**; it has the guard the command-line client
       needed. *Verification: an update from before the take-over, heard after
@@ -474,6 +475,17 @@ Found while implementing something else. Added when found, not when remembered.
       longer steps at either (2026-09-27); still missing: A pressed during a
       take-over's round trip can hand back the aircraft just left rather
       than the one taken (a narrow race).
+
+- [ ] **The client with the window does not blend corrections to its
+      prediction**, as the command-line client does: a correction near a
+      switch counts in that switch's step, and the step away from a switch
+      is reported but not bounded. *Verification: corrections are blended,
+      and the largest step away from a switch is held to a bound, failing
+      with the blend taken out.*
+- [ ] **The display model is written twice**, in the command-line client
+      and in the client with the window. *Verification: one presentation-free
+      module serves both, with a unit test that builds long frames across a
+      switch and bounds the step.*
 
 - [x] **A headless client drawing thousands of frames runs the software
       Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a
