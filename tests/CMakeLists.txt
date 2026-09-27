@@ -1530,6 +1530,18 @@ set_tests_properties(a_copy_of_an_initiation_arriving_after_its_session_was_let_
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_initiation_again)
 
+# **A client the server has let go joins again by itself**, and flies its new
+# aircraft. See cmake/server_joins_again.cmake.
+add_test(NAME a_client_stalled_past_the_timeout_joins_again_by_itself
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_joins_again -DPORT=24801
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_joins_again.cmake)
+set_tests_properties(a_client_stalled_past_the_timeout_joins_again_by_itself
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_joins_again)
+
 # **A copy of an initiation from another address, answered first, does not
 # keep its client out.** See cmake/server_initiation_elsewhere.cmake.
 add_test(NAME a_copy_of_an_initiation_from_another_address_arriving_first_does_not_keep_its_client_out

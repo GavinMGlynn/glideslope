@@ -102,7 +102,14 @@ It sends nothing back to a `HANDSHAKE_RESPONSE` or a `REFUSAL`, which a server
 is never sent, nor to a `SEALED` datagram that does not open under its
 address's session. **A refusal is not sealed, so anybody can forge one.** A
 client should believe one only while it is waiting for the answer to its
-handshake, which is the only time the server has a reason to send it one.
+handshake, or once its session has already gone quiet - which are the two
+times the server has a reason to send it one. **A session gone quiet** is one
+under which nothing has opened for three seconds: three of the server's
+`PING`s and two of the client's own (below) unanswered. A `BAD_HANDSHAKE`
+heard then says what the silence already did, that the server has let the
+session go; this project's command-line client then joins again by itself
+(see "Starting a session"). One heard while the session is working is
+ignored.
 
 ## Starting a session
 
@@ -158,6 +165,17 @@ session it made is live, which is what resending until answered does. A
 client whose session has gone and that wants another makes a new initiation,
 with a new ephemeral key. This project's clients mint a new one for every
 connection.
+
+**A client the server has let go joins again by itself** - this project's
+command-line client does; the client with the window does not yet. Having
+heard a refusal of a session gone quiet (see "Refusals"), it makes a new
+initiation with the same static key and a new ephemeral one, from the same
+socket, and resends it every quarter of a second until it is answered, a
+minute the most. It is not a copy, so the server takes it: a new session, a
+slot, and a new aircraft, the old one having gone as `--on-leave` said. A
+refusal while it waits is not an answer - sealed datagrams sent under the old
+session may still be on their way to be refused - and does not end the
+attempt.
 
 **What it does not claim.**
 
@@ -584,7 +602,12 @@ future addition a breaking change. A kind it does know but cannot read - a
 on each connection once a second; the other end sends the same token straight
 back; the server takes the time between as the round trip and draws it on its
 dashboard. Only the token the server has outstanding counts, so an old or
-invented one tells it nothing. **A client that answers is also a client the
+invented one tells it nothing. **A client knocks too, when it has heard
+nothing**: this project's command-line client sends a `PING` of its own once a
+second while nothing has opened under its session for a second, with a token
+it counts up from 1. A server that has the session answers with a `PONG`, and
+one that has let it go refuses it (`BAD_HANDSHAKE`), which is how a client
+that sends nothing else learns it has been let go. **A client that answers is also a client the
 server does not let go** when `--timeout` comes round, which is why the
 knocking is the server's job: the server is the one deciding who has gone.
 

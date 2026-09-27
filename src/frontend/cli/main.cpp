@@ -172,6 +172,14 @@ void print_usage(std::FILE* out) {
         "                            At the end of SECONDS it says goodbye, so that\n"
         "                            the server lets it go at once; --no-goodbye\n"
         "                            leaves in silence instead, for the timeout.\n"
+        "                            --done FILE writes FILE when it has gone.\n"
+        "                            A client the server has let go joins again by\n"
+        "                            itself, for what is left of SECONDS.\n"
+        "                            --stall-once-rolled (with --fly) stops, sending\n"
+        "                            and answering nothing, once its aircraft has\n"
+        "                            rolled past 90 degrees, until the server has let\n"
+        "                            it go; joined again, it leaves once its new\n"
+        "                            aircraft has rolled past 90 too.\n"
         "                            --forge-leaving tries, as a forger would, to\n"
         "                            end sessions with goodbyes from the wrong\n"
         "                            address or keys: its own from a second session's\n"
@@ -1571,6 +1579,47 @@ private:
     double worst_correction_m_ = 0.0;
 };
 
+// **How long a session may go without anything opening under it before a
+// refusal is believed.** The server knocks once a second, and a client that
+// has heard nothing for a second knocks too (`stay()`), so three seconds of
+// nothing is three of the server's knocks and two of this client's own gone
+// unanswered: a session that is not working, whatever the refusal says.
+constexpr double quiet_before_believing_s = 3.0;
+
+// **A test flag's work (`--stall-once-rolled`)**: the client stops, as a
+// process suspended or a laptop shut would - sending nothing and answering
+// nothing - until the server has let it go. That is waited for, not timed:
+// the server knocks on every session once a second, so three seconds with no
+// datagram from it mean the session is gone. What arrives meanwhile is read
+// and thrown away, as a stopped process would never have read it.
+bool stall_until_let_go(glideslope::platform::UdpSocket& socket) {
+    std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
+    const auto since = [](std::chrono::steady_clock::time_point t) {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - t).count();
+    };
+    constexpr double gone_after_s = 3.0;
+    constexpr double most_waited_s = 300.0;
+    const auto began = std::chrono::steady_clock::now();
+    auto last_heard = began;
+    while (since(last_heard) < gone_after_s) {
+        if (since(began) > most_waited_s) {
+            return false;
+        }
+        glideslope::platform::Address from;
+        if (socket.receive(into, from) > 0) {
+            last_heard = std::chrono::steady_clock::now();
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+    }
+    return true;
+}
+
+// Stays in a session: answers the server's knocks, flies if told to, and
+// hears what the server says. **Sets `let_go` and returns early** when the
+// server has let this session go - a `REFUSAL` heard after the session had
+// gone quiet (`quiet_before_believing_s`) - so that the caller can join
+// again.
 int stay(glideslope::platform::UdpSocket& socket,
          const glideslope::platform::Address& server, glideslope::net::Sealer& sealer,
          glideslope::net::Unsealer& unsealer, double seconds,
@@ -1580,7 +1629,9 @@ int stay(glideslope::platform::UdpSocket& socket,
          bool predict, const std::string& track_file, double hand_over_at_s,
          double take_back_at_s, double dive_after_s, bool watch_ai,
          double take_over_at_s, int take_over_aircraft, bool take_over_once_ai,
-         bool long_frame_after_switch, bool late_update_after_take_over, bool goodbye) {
+         bool long_frame_after_switch, bool late_update_after_take_over, bool goodbye,
+         bool stall_once_rolled, bool until_rolled, bool& let_go) {
+    let_go = false;
     // A client that predicts flies a pilot of its own (Predicting::pilot).
     std::optional<Predicting> predicting;
     if (predict) {
@@ -1673,14 +1724,51 @@ int stay(glideslope::platform::UdpSocket& socket,
     std::uint32_t applied = 0;
     double roll_seen_deg = 0.0;
     double last_heard_s = 0.0;
+    // When something last opened under this session, and when this client
+    // last knocked for want of it.
+    double last_opened_s = 0.0;
+    double knocked_at_s = -1.0;
+    std::uint64_t knocks = 0;
     double looked_for_file_at_s = -1.0;
     bool drained = true;
     for (;;) {
-        const double up_s =
+        double up_s =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
                 .count();
         if (until_flying_again > 0 && flown_again >= until_flying_again) {
             break;
+        }
+        // **Stay until its aircraft has rolled past 90 degrees**
+        // (`--stall-once-rolled`, in the session it joins again): what a test
+        // waits for to know it flew again, SECONDS only the most.
+        if (until_rolled && std::abs(roll_seen_deg) >= 90.0) {
+            break;
+        }
+        if (stall_once_rolled && std::abs(roll_seen_deg) >= 90.0) {
+            stall_once_rolled = false;
+            std::printf("stalled once rolled to %.0f degrees\n", roll_seen_deg);
+            std::fflush(stdout);
+            if (!stall_until_let_go(socket)) {
+                std::fprintf(stderr, "glideslope_cli: the server never let this client go\n");
+                return 1;
+            }
+            std::printf("the server has gone quiet; going on\n");
+            std::fflush(stdout);
+            up_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
+                       .count();
+        }
+        // **A session gone quiet is knocked on from this end** - a `PING` of
+        // its own, once a second - so that a server that has it answers,
+        // and one that has let it go refuses, even from a client that sends
+        // nothing else.
+        if (up_s - last_opened_s >= 1.0 && up_s - knocked_at_s >= 1.0) {
+            knocked_at_s = up_s;
+            const std::vector<std::uint8_t> ping =
+                glideslope::net::knock(glideslope::net::Inside::ping, ++knocks);
+            glideslope::net::Writer kw = glideslope::net::begin(glideslope::net::Type::sealed);
+            kw.bytes(sealer.seal(std::span<const std::uint8_t>(ping.data(), ping.size())));
+            const std::vector<std::uint8_t> out = kw.take();
+            (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
         }
         // **Stay until a file appears** (`--until-exists FILE`): a test that
         // needs the server kept running while something else happens waits
@@ -1812,8 +1900,27 @@ int stay(glideslope::platform::UdpSocket& socket,
             glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
             glideslope::net::Envelope envelope;
             glideslope::net::Refusal why{};
-            if (!glideslope::net::read_envelope(r, envelope, why) ||
-                envelope.type != glideslope::net::Type::sealed) {
+            if (!glideslope::net::read_envelope(r, envelope, why)) {
+                continue;
+            }
+            // **A refusal is believed only of a session gone quiet.** It is
+            // sent in the clear, so anybody can forge one; one heard while
+            // the session works is ignored. One heard after nothing has
+            // opened for `quiet_before_believing_s` - the server's knocks and
+            // this client's own unanswered - says what the silence already
+            // did: the server has let this session go. Not while finishing:
+            // a client leaving has no use for another session.
+            if (envelope.type == glideslope::net::Type::refusal && !finishing &&
+                up_s - last_opened_s >= quiet_before_believing_s) {
+                std::printf("let go by the server: refused, reason %u, after %.1f s "
+                            "of nothing\n",
+                            static_cast<unsigned>(into[glideslope::net::envelope_size]),
+                            up_s - last_opened_s);
+                std::fflush(stdout);
+                let_go = true;
+                return 0;
+            }
+            if (envelope.type != glideslope::net::Type::sealed) {
                 continue;
             }
             opened = unsealer.open(std::span<const std::uint8_t>(into.data(), got)
@@ -1821,6 +1928,7 @@ int stay(glideslope::platform::UdpSocket& socket,
             if (!opened) {
                 continue;
             }
+            last_opened_s = up_s;
         }
         const std::span<const std::uint8_t> inside(opened->data(), opened->size());
         // **Where everybody is.** Nothing is done with it here beyond
@@ -2212,6 +2320,54 @@ bool forge_goodbyes(glideslope::platform::UdpSocket& socket,
     }
 }
 
+// **Joins again, as a client the server has let go** (`stay()`'s `let_go`):
+// a new initiation - a new ephemeral key, so not a copy of the one the server
+// has taken from this address - with the same static key, resent every
+// quarter of a second until it is answered, a minute the most. A refusal is
+// not an answer: sealed datagrams sent under the old session may still be on
+// their way to be refused.
+std::optional<glideslope::net::SessionKeys> join_again(
+    glideslope::platform::UdpSocket& socket, const glideslope::platform::Address& server,
+    const glideslope::net::KeyPair& mine, const glideslope::net::PublicKey& theirs) {
+    glideslope::net::Initiator initiator(mine, theirs);
+    glideslope::net::Writer w =
+        glideslope::net::begin(glideslope::net::Type::handshake_initiation);
+    w.bytes(initiator.begin());
+    const std::vector<std::uint8_t> initiation = w.take();
+    std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
+    const auto began = std::chrono::steady_clock::now();
+    double sent_at_s = -1.0;
+    for (;;) {
+        const double waited =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+        if (waited > 60.0) {
+            return std::nullopt;
+        }
+        if (waited - sent_at_s >= 0.25) {
+            (void)socket.send(server, std::span<const std::uint8_t>(initiation.data(),
+                                                                    initiation.size()));
+            sent_at_s = waited;
+        }
+        glideslope::platform::Address from;
+        const std::size_t got = socket.receive(into, from);
+        if (got > glideslope::net::envelope_size &&
+            into[glideslope::net::envelope_size - 1] ==
+                static_cast<std::uint8_t>(glideslope::net::Type::handshake_response)) {
+            glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
+            glideslope::net::Envelope envelope;
+            glideslope::net::Refusal why{};
+            if (glideslope::net::read_envelope(r, envelope, why)) {
+                if (auto session = initiator.finish(std::span<const std::uint8_t>(
+                                                        into.data(), got)
+                                                        .subspan(glideslope::net::envelope_size))) {
+                    return session;
+                }
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+}
+
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
                bool again, bool fly, double after_s, const std::string& secret_hex = "",
                const std::string& heard_file = "", int until_flying_again = 0,
@@ -2223,7 +2379,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                double take_over_at_s = -1.0, int take_over_aircraft = -1,
                bool take_over_once_ai = false, bool long_frame_after_switch = false,
                bool late_update_after_take_over = false, bool goodbye = true,
-               bool forge_leaving = false) {
+               bool forge_leaving = false, bool stall_once_rolled = false) {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived. With `--after-ready`
@@ -2415,17 +2571,50 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                             return 1;
                         }
                     }
-                    return stay(*socket, *address, sealer, unsealer, stay_s,
-                                until_exists,
-                                again ? std::span<const std::uint8_t>(first.data(),
-                                                                     first.size())
-                                      : std::span<const std::uint8_t>(),
-                                fly, mine.publik.text().substr(0, 8), heard_file,
-                                until_flying_again, predict, track_file, hand_over_at_s,
-                                take_back_at_s, dive_after_s, watch_ai, take_over_at_s,
-                                take_over_aircraft, take_over_once_ai,
-                                long_frame_after_switch, late_update_after_take_over,
-                                goodbye);
+                    bool let_go = false;
+                    int rc = stay(*socket, *address, sealer, unsealer, stay_s,
+                                  until_exists,
+                                  again ? std::span<const std::uint8_t>(first.data(),
+                                                                       first.size())
+                                        : std::span<const std::uint8_t>(),
+                                  fly, mine.publik.text().substr(0, 8), heard_file,
+                                  until_flying_again, predict, track_file, hand_over_at_s,
+                                  take_back_at_s, dive_after_s, watch_ai, take_over_at_s,
+                                  take_over_aircraft, take_over_once_ai,
+                                  long_frame_after_switch, late_update_after_take_over,
+                                  goodbye, stall_once_rolled, false, let_go);
+                    // **A client the server has let go joins again by
+                    // itself**, for what is left of its stay, and flies as
+                    // it did. What it was told to do once - hand over, take
+                    // over, stall - it has done, and does not do again.
+                    while (let_go) {
+                        const double left_s =
+                            stay_s - std::chrono::duration<double>(
+                                         std::chrono::steady_clock::now() - began)
+                                         .count();
+                        if (left_s <= 0.0) {
+                            break;
+                        }
+                        const auto again_keys = join_again(*socket, *address, mine, *theirs);
+                        if (!again_keys) {
+                            std::fprintf(stderr, "glideslope_cli: let go, and could not "
+                                                 "join again\n");
+                            return 1;
+                        }
+                        std::printf("joined again: session with %s\n",
+                                    again_keys->theirs.text().c_str());
+                        std::fflush(stdout);
+                        glideslope::net::Sealer resealer(again_keys->sending);
+                        glideslope::net::Unsealer reopener(again_keys->receiving);
+                        rc = stay(*socket, *address, resealer, reopener, left_s, until_exists,
+                                  std::span<const std::uint8_t>(), fly,
+                                  mine.publik.text().substr(0, 8), heard_file,
+                                  until_flying_again, predict, track_file, -1.0, -1.0,
+                                  dive_after_s, watch_ai, -1.0, -1, false,
+                                  long_frame_after_switch, late_update_after_take_over,
+                                  goodbye, false, stall_once_rolled, let_go);
+                    }
+                    return rc;
                 }
             }
         }
@@ -2559,7 +2748,18 @@ static int run_program(int argc, char** argv) {
             bool late_update_after_take_over = false;
             bool goodbye = true;
             bool forge_leaving = false;
+            bool stall_once_rolled = false;
+            std::string done_file;
             for (std::size_t i = 3; i < args.size(); ++i) {
+                if (args[i] == "--done" && i + 1 < args.size()) {
+                    done_file = std::string(args[i + 1]);
+                    ++i;
+                    continue;
+                }
+                if (args[i] == "--stall-once-rolled") {
+                    stall_once_rolled = true;
+                    continue;
+                }
                 if (args[i] == "--no-goodbye") {
                     goodbye = false;
                     continue;
@@ -2688,19 +2888,30 @@ static int run_program(int argc, char** argv) {
                                      "for\n");
                 return 2;
             }
+            if (stall_once_rolled && (stay_s <= 0.0 || !fly)) {
+                std::fprintf(stderr, "glideslope_cli: --stall-once-rolled needs --fly "
+                                     "and seconds to fly for\n");
+                return 2;
+            }
             if ((forge_leaving || !goodbye) && stay_s <= 0.0) {
                 std::fprintf(stderr, "glideslope_cli: --forge-leaving and --no-goodbye "
                                      "need seconds to stay for\n");
                 return 2;
             }
-            return connect_to(std::string(args[1]), std::string(args[2]), stay_s,
-                              again, fly, after_s, secret_hex, heard_file,
-                              until_flying_again, ready_file, predict, track_file,
-                              hand_over_at_s, take_back_at_s, dive_after_s, watch_ai,
-                              again_when_let_go, first_from_elsewhere, until_exists,
-                              take_over_at_s, take_over_aircraft, take_over_once_ai,
-                              long_frame_after_switch, late_update_after_take_over,
-                              goodbye, forge_leaving);
+            const int connected = connect_to(std::string(args[1]), std::string(args[2]), stay_s,
+                                             again, fly, after_s, secret_hex, heard_file,
+                                             until_flying_again, ready_file, predict, track_file,
+                                             hand_over_at_s, take_back_at_s, dive_after_s, watch_ai,
+                                             again_when_let_go, first_from_elsewhere, until_exists,
+                                             take_over_at_s, take_over_aircraft, take_over_once_ai,
+                                             long_frame_after_switch, late_update_after_take_over,
+                                             goodbye, forge_leaving, stall_once_rolled);
+            // **Said when it has gone** (`--done FILE`), for another client
+            // in a test to wait on with `--until-exists`.
+            if (!done_file.empty()) {
+                std::ofstream(done_file, std::ios::app) << "done " << connected << '\n';
+            }
+            return connected;
         }
         if (args.size() == 1 && args[0] == "air") {
             return air();

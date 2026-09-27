@@ -237,9 +237,19 @@ made to shout at each other for ever.
 
 **The server's half of that rule is written in code; the client's half is half
 written.** `take()` returns without a word on a `REFUSAL`, so a server neither
-acts on one nor answers one - built and wired. In the client, `stay()` ignores
-every datagram that is not a `SEALED` one that opens, so once a session exists
-a refusal moves nothing; but `connect_to`, before the session exists, prints
+acts on one nor answers one - built and wired. In the client, once a session
+exists, `stay()` ignores every datagram that is not a `SEALED` one that opens,
+with one exception: **a refusal heard after nothing has opened under the
+session for three seconds** - the server's knocks, and the client's own
+`PING`s, all unanswered - ends that session, and the client joins again with a
+new initiation (`TRANSPORT.md`, "Refusals"). A forged refusal therefore moves
+nothing while the session works; to make a client join again a forger must
+first silence the session for three seconds, and one who can do that has
+already taken it off the server, refusal or none. What it costs the client
+then is one new handshake and a new aircraft, and if the server still had the
+old session, the new initiation is dropped from that address until the
+server's `--timeout` lets the old one go. `connect_to`, before the session
+exists, prints
 the reason and returns 1 on any `REFUSAL` that reaches its socket from any
 address. **A connection attempt is ended by one unauthenticated byte**, which
 is the thing the rule forbids.

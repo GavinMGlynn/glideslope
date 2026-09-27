@@ -378,9 +378,11 @@ Found while implementing something else. Added when found, not when remembered.
       datagram a pass, and now reads all that wait. *Verification:
       the cause found, and the test run a hundred times on Windows debug
       without it.*
-- [ ] **A client the server has let go cannot come back**: its handshake
-      sent again is dropped as a copy. *Verification: a client stalled past
-      the timeout joins again by itself.*
+- [ ] **A client the server has let go cannot come back.** The command-line
+      client now joins again by itself; **the client with the window still
+      does not**. *Verification: a client stalled past the timeout joins again
+      by itself - done for the command-line client, not yet for the windowed
+      one.*
 - [x] **The tests' fixed ports lay in Linux's ephemeral range** (478xx, where
       it hands out 32768 to 60999), so a client's socket could take one before
       its test's server listened: "cannot listen on port 47853" on CI,
@@ -714,3 +716,7 @@ Found while implementing something else. Added when found, not when remembered.
 - [x] **No message rejects a number that is not one.** *Verification: every
       floating-point field of every message refuses a NaN and an infinity.* Done
       2026-09-22.
+- [ ] **A player the operator drops joins again by itself**: the drop button
+      is a kick, not a ban, now that a client let go comes back. *Verification:
+      a dropped client is refused when it tries to join again, and a player
+      let go for silence is not.*
