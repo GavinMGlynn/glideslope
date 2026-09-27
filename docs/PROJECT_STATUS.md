@@ -227,6 +227,70 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### What the client with the window shows does not step at a switch, 2026-09-27
+
+**What is still missing first.** The hand-over tail stays open for its other
+part alone: A pressed while a take-over is in flight can hand back the
+aircraft just left rather than the one taken (a narrow race). And the
+client with the window still does not blend a *correction* of its
+prediction, as glideslope_cli's display model does; a correction within
+four frames of a switch counts in the step measured there.
+
+**The tail.** Handed over, the client with the window showed its own
+aircraft where it was last predicted until the updates had given two
+positions, and then where they put it 100 ms behind the clock; taken back,
+it was put where the next update said; taken over, the view went from the
+aircraft drawn as another to it predicted. Each was a jump of the
+aircraft's speed over the time between the two sources, and the camera in
+it with it.
+
+**What changed** (`frontend/client/shown.*`, `online.*`, `flight.*`,
+`main.cpp`):
+- **`OwnShown`, the network checks' display model** (glideslope_cli's
+  `Predicting::own_frame`) for the client with the window. Its own
+  aircraft is shown from the flight here while predicted, or from the
+  updates while the AI flies it, plus a blend: at every switch - what it is
+  shown from changing, or another aircraft taken over - the blend starts as
+  where the last frame, carried on, puts it less the new source, and is
+  eased out over 0.5 s. The carried frame is carried part by part: the
+  source at its own known velocity (the flight model's, turned where the
+  aircraft is; the interpolation's path velocity per second of this
+  machine's clock for the updates, never one guessed from two frames), and
+  the blend as the blend goes. The step is measured as there: what is
+  shown less where the last frame carries it, plus the blend's own pace
+  over a sixtieth of a second - against time, not frames.
+- **Where it acts**: the offset moves the model where it is drawn and the
+  camera, predicted; drawn from the updates, it moves the aircraft's centre
+  in what is drawn, so the view riding along in it follows. A take-over
+  blends from the taken aircraft as it was last shown as another.
+- **Worked out sixty times a second when no frame is drawn**, as a shot on
+  a server draws few, and at every frame drawn: what is measured is what a
+  screen would show.
+- **Its own aircraft is kept in the interpolation whoever flies it**
+  (`Online`), so that handed over it is drawn from the updates at once,
+  not after two more.
+- At the shot on a server the client prints "own aircraft: N switches; the
+  largest step at a switch X m, and otherwise Y m" and what made the
+  largest.
+
+**Verification** (Linux debug, 2026-09-27):
+- `the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back`
+  now reaches the server through `glideslope_impair` holding every datagram
+  100 ms each way (at PORT + 1; the test moved to port 24744), and must say
+  it measured 2 switches with the largest step under 5 m, the network
+  checks' bound: 1.07 m. On the bare loopback it was 0.32 m, but with the
+  blend taken out it was only 4.2 m - under the bound, so the test could not
+  see the blend gone; through the relay, with the blend taken out, it failed
+  at 12.2 m ("frame 0 after a switch"). Reverted, it passes.
+- `the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in`
+  must say it measured 1 switch with the largest step under 2.5 m: 0.09 m
+  (0.42 m on another run). **Half the network checks' bound, and why**: at a
+  take-over the step without a blend is the aircraft's speed over the
+  100 ms it is drawn behind, whatever the network - 5.06 m and 4.89 m on
+  two runs with the blend taken out, astride the 5 m bound, so a 5 m test
+  would only sometimes test its rule. With the blend taken out it failed at
+  4.89 m against 2.5 m; reverted, it passes.
+- The ride-along test beside them passes unchanged.
 ### Every flare begins at the attitude the glidepath was flown at, 2026-09-27 — tail done
 
 **What is missing first.** **The F-35B does not flare at all.** She flies

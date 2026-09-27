@@ -119,7 +119,6 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             taken_back_ = false;
             resuming_ = false;
             reconciled_s_ = state.simulation_time_s;
-            shown_.erase(mine_);
             watch(net::no_aircraft);
             for (const net::AircraftState& a : state.aircraft) {
                 if (a.index == mine_) {
@@ -145,8 +144,6 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             if (ai != own_ai_flying_) {
                 own_ai_flying_ = ai;
                 switched_ = true;
-                // Drawn from the updates afresh from here, or not at all.
-                shown_.erase(mine_);
                 if (!ai) {
                     resuming_ = true;
                     taken_back_ = true;
@@ -179,15 +176,12 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
         }
     }
     // **Everybody else, to be drawn behind the clock**, and what the server
-    // says of this client's own.
+    // says of this client's own - kept whoever flies it, so that handed to
+    // the AI it is drawn from the updates at once, not from two updates on.
     if (state.yours && state.your_aircraft == mine_) {
         applied_ = std::max(applied_, state.last_input_applied);
     }
     for (const net::AircraftState& a : state.aircraft) {
-        // Its own is drawn as any other only while the AI flies it.
-        if (a.index == mine_ && !own_ai_flying_) {
-            continue;
-        }
         if (!origin_) {
             origin_ = world::Ecef{a.x_m, a.y_m, a.z_m};
         }
@@ -220,7 +214,8 @@ std::vector<Other> Online::others(double local_s) {
     }
     const double now = clock_.now(local_s);
     for (auto& [number, shown] : shown_) {
-        if (!shown.known()) {
+        // Its own is drawn as any other only while the AI flies it.
+        if (!shown.known() || (number == mine_ && !own_ai_flying_)) {
             continue;
         }
         const net::RemoteState at = shown.at(now);
@@ -237,6 +232,11 @@ std::vector<Other> Online::others(double local_s) {
         o.north_mps = at.north_mps;
         o.east_mps = at.east_mps;
         o.down_mps = at.down_mps;
+        // How its path moves, per second of this machine's clock.
+        const std::array<double, 3> path = shown.path_velocity();
+        const world::Ecef v = world::ned_to_ecef(world::to_geodetic(*origin_), path[0], path[1],
+                                                 path[2]);
+        o.path_mps = {v.x * clock_.rate(), v.y * clock_.rate(), v.z * clock_.rate()};
         o.ai_flying = ai_[number];
         o.wrecked = wrecked_[number];
         out.push_back(o);

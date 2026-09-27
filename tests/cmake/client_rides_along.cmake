@@ -24,7 +24,14 @@
 # flying it, the server saying the pilot has it and having flown it by inputs
 # sent since, and the HUD saying the pilot has it: what taking over is. (What
 # the server says of it, which goes down the pipe here, server_take_over.cmake
-# checks.)
+# checks.) And what it shows must not step at the take-over: the client says,
+# at the shot, how many switches of its own aircraft it measured - the one -
+# and the largest step at one (client/shown.hpp), which must be under 2.5 m.
+# **Half the network checks' 5 m, so that the test sees the blend gone**:
+# taken over, the aircraft goes from being drawn 100 ms behind the clock to
+# being predicted from the update that gave it, and nothing blended that is a
+# step of its speed over those 100 ms whatever the network - 5.1 m for the
+# AI's Cessna, at the network checks' bound and not past it.
 #
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
@@ -96,7 +103,21 @@ if(TAKE_OVER)
     if(NOT _out MATCHES "the HUD reads FLYING PILOT" OR _out MATCHES "the HUD reads FLYING AI")
         message(FATAL_ERROR "the HUD did not say the pilot has the aircraft taken over:\n${_out}")
     endif()
-    message(STATUS "took the AI's Cessna, aircraft ${_taken}, over, and flew it")
+    if(NOT _out MATCHES "own aircraft: ([0-9]+) switches; the largest step at a switch ([0-9.]+) m")
+        message(FATAL_ERROR "the client did not say how far what it showed stepped:\n${_out}")
+    endif()
+    set(_switches "${CMAKE_MATCH_1}")
+    set(_step "${CMAKE_MATCH_2}")
+    if(NOT _switches EQUAL 1)
+        message(FATAL_ERROR "the client measured ${_switches} switches of its own aircraft, "
+                            "not the 1 made - taken over:\n${_out}")
+    endif()
+    if(_step GREATER_EQUAL 2.5)
+        message(FATAL_ERROR "what the client showed stepped ${_step} m at the take-over, the "
+                            "bound 2.5 m:\n${_out}")
+    endif()
+    message(STATUS "took the AI's Cessna, aircraft ${_taken}, over, and flew it; the largest "
+                   "step at the switch ${_step} m")
     return()
 endif()
 if(NOT _out MATCHES "riding along in aircraft ([0-9]+), the c172p; the camera ([0-9.]+) m from its centre")

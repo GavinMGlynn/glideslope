@@ -399,10 +399,12 @@ Found while implementing something else. Added when found, not when remembered.
       given a second aircraft until the old one times out. *Verification: a
       second session for a key takes over that player's slot and aircraft,
       and a test with one key on two addresses counts one aircraft.*
-- [ ] **The client with the window does not blend its own aircraft at a
+- [x] **The client with the window does not blend its own aircraft at a
       switch** - handed over (A on a server), taken back or taken over - as
-      the network checks' model of a display does. *Verification: a shot sequence across
-      each switch shows no step past the bound the network checks hold.*
+      the network checks' model of a display does. *Verification: what it
+      shows of its own aircraft, measured sixty times a second across each
+      switch, steps no more than the bound the network checks hold - and
+      past it with the blend taken out.* Done 2026-09-27: 1.1 m at worst.
 - [ ] **The client with the window is not tested with its updates
       reordered across a take-over**; it has the guard the command-line client
       needed. *Verification: an update from before the take-over, heard after
@@ -468,10 +470,10 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The client with the window does not hand over on a server**: pressing A
       online does nothing. *Verification: the client with the window hands its
       aircraft to the AI and takes it back on a server, and what it shows does
-      not step.* The hand-over and take-back work (2026-09-27); still missing:
-      what it shows steps at each switch, since nothing blends it; and A
-      pressed during a take-over's round trip can hand back the aircraft
-      just left rather than the one taken (a narrow race).
+      not step.* The hand-over and take-back work, and what it shows no
+      longer steps at either (2026-09-27); still missing: A pressed during a
+      take-over's round trip can hand back the aircraft just left rather
+      than the one taken (a narrow race).
 
 - [x] **A headless client drawing thousands of frames runs the software
       Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a

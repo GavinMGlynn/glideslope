@@ -393,6 +393,19 @@ std::array<double, 3> Flight::from_model_origin(const char* what) const {
             -(point[2] - vrp[2]) * metres_per_inch - alignment_.offset[2]};
 }
 
+std::array<double, 3> Flight::velocity_ecef_mps() const {
+    constexpr double m_per_ft = 0.3048;
+    const sim::AircraftState s = aircraft_->state();
+    // Turned where it is, not at some origin: 100 km off, that would be a
+    // degree out.
+    const world::Ecef v = world::ned_to_ecef(
+        {s.latitude_deg, s.longitude_deg, 0.0},
+        aircraft_->property("velocities/v-north-fps") * m_per_ft,
+        aircraft_->property("velocities/v-east-fps") * m_per_ft,
+        aircraft_->property("velocities/v-down-fps") * m_per_ft);
+    return {v.x, v.y, v.z};
+}
+
 gfx::Placement Flight::model_placement() const {
     const Axes a = axes();
     // JSBSim reports the aircraft's position at its centre of gravity; the
