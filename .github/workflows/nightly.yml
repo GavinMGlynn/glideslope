@@ -48,10 +48,13 @@ jobs:
       - uses: actions/cache/restore@v6
         with:
           path: |
-            .downloads
+            .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
           enableCrossOsArchive: true
       - name: Build
         run: |
@@ -69,8 +72,8 @@ jobs:
         if: ${{ !cancelled() && github.event_name != 'pull_request' }}
         with:
           path: |
-            .downloads
+            .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true

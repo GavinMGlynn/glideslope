@@ -234,7 +234,9 @@ pull request saves no cache, so its own run cannot show a warm one. The
 verification is main's next run saving its caches and the pull requests after
 it restoring them with ccache hits; until then the tail stays open. Windows
 builds have no compiler cache at all (MSVC; 17-19 minutes each), and a pull
-request still queues for macOS runners behind the others'.
+request still queues for macOS runners behind the others'. A pull request that
+changes vcpkg's inputs or the downloads' pins restores the nearest older cache
+and fetches the rest on every push until it lands.
 
 **What was wrong.** A CI run took 90-120 minutes from push to result though its
 longest chain of jobs - a build and a test shard - is about 40. Two causes:
@@ -252,11 +254,23 @@ longest chain of jobs - a build and a test shard - is about 40. Two causes:
 - Every cache save is skipped on a pull request; main (and the nightly and a
   run started by hand) saves, and pull requests restore main's.
 - The downloads are one cache for every platform (`enableCrossOsArchive`),
-  without the Cesium tile caches (`cesium-*.sqlite`) and scratch the tests
-  write there, restored at the start of a test job and saved at its end.
-- A new job on main, "Old caches pruned", deletes every ccache entry of an
-  earlier commit once main's builds have saved theirs, and lists what is left.
-- The stale entries were cleared by hand once this landed.
+  restored at the start of a test job and saved at its end. Its paths are the
+  directory's children, `.downloads/*`, so that the exclusions of the Cesium
+  tile caches the tests write there (`cesium-*.sqlite`) and of `test-scratch`
+  take effect: `!` patterns do nothing against a directory named whole
+  (actions/toolkit#713). Each run on main saves it under a new key ending in
+  the run's number, restoring the newest before it (`restore-keys`), so the
+  set grows by what each run fetched instead of being fixed by whichever
+  shard first saved it.
+- Rocky's job installs `zstd`. Without it, its caches were gzip, a different
+  version of the same key, so it never restored the others' and saved its own.
+- A new job on main, "Old caches pruned", deletes every older entry of a
+  kind - each preset's ccache, and the downloads - once this run's entry of
+  that kind is there, and lists what is left. A kind whose save failed (a
+  warning, not a red job) keeps what it had.
+- By hand on 2026-09-29, before this landed: the caches saved by pull
+  requests (1.95 GB) and three ccache entries on main superseded by newer
+  ones (0.75 GB) were deleted.
 
 ### Quitting the window client mid weather refresh is tested in the program, 2026-09-29 — tail done
 
