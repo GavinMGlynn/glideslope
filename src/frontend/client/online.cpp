@@ -172,6 +172,8 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
             if (c.snapped) {
                 ++snapped_;
+            } else {
+                corrected_ = true;
             }
         }
     }

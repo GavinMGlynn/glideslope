@@ -146,11 +146,12 @@ if(NOT _out MATCHES "flying aircraft ([0-9]+), the c172p; the server says the pi
                         "the shot:\n${_out}")
 endif()
 set(_flown "${CMAKE_MATCH_1}")
-if(NOT _out MATCHES "own aircraft: ([0-9]+) switches; the largest step at a switch ([0-9.]+) m")
+if(NOT _out MATCHES "own aircraft: ([0-9]+) switches; the largest step at a switch ([0-9.]+) m, and otherwise ([0-9.]+) m")
     message(FATAL_ERROR "the client did not say how far what it showed stepped:\n${_out}")
 endif()
 set(_switches "${CMAKE_MATCH_1}")
 set(_step "${CMAKE_MATCH_2}")
+set(_otherwise "${CMAKE_MATCH_3}")
 if(NOT _switches EQUAL 2)
     message(FATAL_ERROR "the client measured ${_switches} switches of its own aircraft, not "
                         "the 2 made - handed over and taken back:\n${_out}")
@@ -164,6 +165,7 @@ endif()
 if(NOT _out MATCHES "the largest step at a switch: [^\n]* carried at ([0-9.]+) m/s")
     message(FATAL_ERROR "the client did not say how fast its aircraft was at a switch:\n${_out}")
 endif()
+set(_speed "${CMAKE_MATCH_1}")
 if(CMAKE_MATCH_1 LESS_EQUAL 25)
     message(FATAL_ERROR "the aircraft was carried at ${CMAKE_MATCH_1} m/s at a switch: too slow "
                         "for a step without the blend to pass 5 m, so the bound tests "
@@ -172,5 +174,13 @@ endif()
 if(_step GREATER_EQUAL 5)
     message(FATAL_ERROR "what the client showed stepped ${_step} m at a switch, the bound 5 m:\n${_out}")
 endif()
+# **And away from a switch**, where corrections of the prediction are what
+# move it: each small enough to hide is taken up over a quarter of a
+# second, so nothing steps as far as the switches' own 2.5 m.
+if(_otherwise GREATER_EQUAL 2.5)
+    message(FATAL_ERROR "what the client showed stepped ${_otherwise} m away from a switch, "
+                        "the bound 2.5 m:\n${_out}")
+endif()
 message(STATUS "handed aircraft ${_flown} to the AI and took it back, "
-               "flying it by the pilot's inputs; the largest step at a switch ${_step} m")
+               "flying it by the pilot's inputs; the largest step at a switch ${_step} m, "
+               "carried at ${_speed} m/s, and otherwise ${_otherwise} m")

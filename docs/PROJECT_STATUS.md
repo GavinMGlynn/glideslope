@@ -231,11 +231,7 @@ are the risks the phase order is built around:
 
 **What is still missing first.** The hand-over tail stays open for its other
 part alone: A pressed while a take-over is in flight can hand back the
-aircraft just left rather than the one taken (a narrow race). And the
-client with the window still does not blend a *correction* of its
-prediction, as glideslope_cli's display model does; a correction within
-four frames of a switch counts in the step measured there, and the step
-away from a switch is printed but not asserted - a tail. And the display
+aircraft just left rather than the one taken (a narrow race). And the display
 model is now written twice, `Predicting::own_frame` in glideslope_cli and
 `client/shown.*` - a tail: one presentation-free module for both, with a
 unit test that builds long frames.
@@ -300,6 +296,23 @@ it with it.
   through the relay, 0.1 s at a take-over) passes the bound - faster than
   25 m/s for both. So a green run is one in which taking the blend out
   would have gone red.
+- **Corrections are blended too**, as glideslope_cli's display model
+  blends them. The first run of this on CI's Windows debug runner failed the
+  take-over test twice, at 5.695 m and 2.812 m against 2.5 m. The worst
+  step was "frame 1 after a switch, predicted: 5.729 m from where it was
+  carried at 53.7 m/s": a correction of the prediction landing next to the
+  switch, shown as the jump it was. Now `Online` flags a correction small
+  enough to hide (under sim::snap_beyond_m), and `OwnShown` takes it up at a
+  steady rate over sim::correction_blend_s (0.25 s), from where the aircraft
+  was going; its pace counts in the step, as a switch's does. One too large
+  to hide still snaps, and is shown as the jump it is. Both tests now also
+  hold the largest step *away* from a switch under 2.5 m. On Linux debug:
+  handed over, 0.59 m at a switch (carried at 40.9 m/s) and 1.24 m
+  otherwise; taken over, 0.72 m at the switch (53.6 m/s) and 0.68 m
+  otherwise. Seen to fail: with corrections flagged never, the take-over
+  test failed with "stepped 2.535 m away from a switch" - only just, since
+  loopback corrections are small; the hand-over test passed at 1.98 m.
+  Reverted, both pass.
 - **From the review**: a take-over of an aircraft seen in fewer than two
   frames no longer blends from the aircraft left behind: seen in one, it
   blends from that; in none, from nothing.

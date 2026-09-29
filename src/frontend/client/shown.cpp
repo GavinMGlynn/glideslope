@@ -1,14 +1,16 @@
 #include "shown.hpp"
 
+#include "sim/prediction.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 
 namespace glideslope::client {
 
-double OwnShown::left_at(double t, double from_s, double over_s) {
+double OwnShown::left_at(double t, double from_s, double over_s, bool eased) {
     const double gone = std::clamp((t - from_s) / over_s, 0.0, 1.0);
-    return 1.0 - gone * gone * (3.0 - 2.0 * gone);
+    return eased ? 1.0 - gone * gone * (3.0 - 2.0 * gone) : 1.0 - gone;
 }
 
 void OwnShown::taken_over(std::uint8_t number) {
@@ -33,7 +35,7 @@ void OwnShown::seen(std::uint8_t number, double local_s, const world::Ecef& at,
                     const std::array<double, 3>& v) {
     auto& last = others_[number];
     last.first = last.second;
-    last.second = Shown{local_s, {at.x, at.y, at.z}, v, {}, 0.0, 1.0};
+    last.second = Shown{local_s, {at.x, at.y, at.z}, v, {}, 0.0, 1.0, false};
 }
 
 world::Ecef OwnShown::frame(double local_s, const Source& source) {
@@ -50,7 +52,7 @@ world::Ecef OwnShown::frame(double local_s, const Source& source) {
     std::optional<std::array<double, 3>> carried;
     if (before_) {
         const Shown& b = *before_;
-        const double left_now = left_at(local_s, b.blend_from_s, b.blend_over_s);
+        const double left_now = left_at(local_s, b.blend_from_s, b.blend_over_s, b.eased);
         carried = std::array<double, 3>{};
         for (std::size_t i = 0; i < 3; ++i) {
             (*carried)[i] = b.source[i] + b.v[i] * (local_s - b.s) + b.blend[i] * left_now;
@@ -63,17 +65,19 @@ world::Ecef OwnShown::frame(double local_s, const Source& source) {
         frames_since_switch_ = 0;
         ++switches_;
     }
-    if (switched && carried) {
+    if ((switched || source.corrected) && carried) {
         // **From where it was going, not where it was**: a blend started
         // from the last frame shown holds the aircraft still for a frame.
         for (std::size_t i = 0; i < 3; ++i) {
             blend_[i] = (*carried)[i] - at[i];
         }
         blend_from_s_ = local_s;
+        blend_over_s_ = switched ? blend_s : sim::correction_blend_s;
+        blend_eased_ = switched;
     }
     switching_ = false;
     shown_predicted_ = source.predicted;
-    const double left = left_at(local_s, blend_from_s_, blend_s);
+    const double left = left_at(local_s, blend_from_s_, blend_over_s_, blend_eased_);
     std::array<double, 3> shown{};
     for (std::size_t i = 0; i < 3; ++i) {
         shown[i] = at[i] + blend_[i] * left;
@@ -87,8 +91,8 @@ world::Ecef OwnShown::frame(double local_s, const Source& source) {
     // single frame would read as nought without the second.
     if (carried && before_before_) {
         const Shown& b = *before_;
-        const double left_then = left_at(b.s, b.blend_from_s, b.blend_over_s);
-        const double left_now = left_at(local_s, b.blend_from_s, b.blend_over_s);
+        const double left_then = left_at(b.s, b.blend_from_s, b.blend_over_s, b.eased);
+        const double left_now = left_at(local_s, b.blend_from_s, b.blend_over_s, b.eased);
         const double going_s =
             std::min(local_s, b.blend_from_s + b.blend_over_s) - std::max(b.s, b.blend_from_s);
         const double over_a_frame = going_s > 0.0 ? std::min(1.0, (1.0 / 60.0) / going_s) : 1.0;
@@ -123,7 +127,7 @@ world::Ecef OwnShown::frame(double local_s, const Source& source) {
     }
     ++frames_since_switch_;
     before_before_ = before_;
-    before_ = Shown{local_s, at, source.v, blend_, blend_from_s_, blend_s};
+    before_ = Shown{local_s, at, source.v, blend_, blend_from_s_, blend_over_s_, blend_eased_};
     return {shown[0], shown[1], shown[2]};
 }
 

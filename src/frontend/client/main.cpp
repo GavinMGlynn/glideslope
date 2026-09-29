@@ -1300,14 +1300,17 @@ static int run_program(int argc, char** argv) {
                         }
                     }
                     std::optional<glideslope::client::OwnShown::Source> source;
+                    // Asked every frame, so that one heard while the AI flew
+                    // it is not taken up after a take-back.
+                    const bool corrected = online->corrected();
                     if (online->own_ai_flying()) {
                         if (own_other != nullptr) {
                             source = glideslope::client::OwnShown::Source{
-                                own_other->centre, own_other->path_mps, false};
+                                own_other->centre, own_other->path_mps, false, false};
                         }
                     } else if (flight->predicting()) {
                         source = glideslope::client::OwnShown::Source{
-                            flight->centre(), flight->velocity_ecef_mps(), true};
+                            flight->centre(), flight->velocity_ecef_mps(), true, corrected};
                     }
                     if (source) {
                         const glideslope::world::Ecef shown = own_shown.frame(local_s, *source);

@@ -146,6 +146,13 @@ public:
     // How many updates have carried the watched aircraft's controls.
     std::size_t watched_heard() const { return watched_heard_; }
 
+    // **Put right since last asked** by a correction small enough to hide
+    // (sim::snap_beyond_m): what is shown takes it up over the next frames.
+    bool corrected() {
+        const bool out = corrected_;
+        corrected_ = false;
+        return out;
+    }
     std::size_t corrections() const { return corrections_; }
     std::size_t snapped() const { return snapped_; }
     double worst_correction_m() const { return worst_correction_m_; }
@@ -182,6 +189,7 @@ private:
     std::map<double, net::Watched> watched_;
     std::size_t watched_heard_ = 0;
     std::size_t corrections_ = 0;
+    bool corrected_ = false;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;
 };
