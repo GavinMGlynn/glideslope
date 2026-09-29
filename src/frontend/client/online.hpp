@@ -37,6 +37,9 @@ struct Joined {
     std::uint8_t number = net::no_aircraft;
     std::string aircraft_id;
     sim::Motion motion;
+    // Given by joining again after the server let this client go, not by a
+    // take-over.
+    bool again = false;
 };
 
 // Another aircraft, where it is to be drawn now.
@@ -79,6 +82,7 @@ public:
     // no aircraft: its knocking answered, what arrives read and let go.
     void idle(double local_s) {
         session_.poll(local_s);
+        noticed();
         (void)session_.take_states();
     }
 
@@ -89,12 +93,19 @@ public:
     // them and not from the newest alone.
     void keep(double local_s) {
         session_.poll(local_s);
+        noticed();
     }
 
     // **Leaving the session**: goodbye said to the server, which lets this
     // client go at once. Nothing is sent or read after it. The session says
     // it by itself as it goes, if this was never called.
     void leave() { session_.leave(); }
+
+    // **The session, as it stands**: let go and joined again, or ended by
+    // the server's operator (net::ClientSession::standing).
+    const net::ClientSession& session() const { return session_; }
+    // A test's stall (`--stall-after`): net::ClientSession::stall_until_let_go.
+    void stall() { session_.stall_until_let_go(); }
 
     // Every other aircraft, where it is to be drawn at `local_s`.
     std::vector<Other> others(double local_s);
@@ -107,7 +118,8 @@ public:
     // server, which may refuse. When it is done, the next update gives this
     // client that aircraft as its own, and `taken_over` says which.
     void take_over(std::uint8_t number);
-    // The aircraft taken over since last asked, and what it is, or nothing:
+    // The aircraft taken over since last asked - or given by joining again,
+    // which may be under its old number - and what it is, or nothing:
     // the caller's flight becomes it (Flight::adopt, or a new Flight where it
     // is another aeroplane).
     std::optional<Joined> taken_over();
@@ -136,6 +148,8 @@ public:
     // Whether it was last had by taking it back from the AI (rather than
     // taking another over): what `flown_since_taken_over` counts from.
     bool taken_back() const { return taken_back_; }
+    // Whether it was last had by joining again.
+    bool had_by_joining_again() const { return rejoined_; }
     bool flown_since_taken_over() const {
         return taken_at_ && applied_ > *taken_at_;
     }
@@ -160,6 +174,10 @@ public:
 private:
     void heard(const net::StatePacket& state, double local_s, Flight& flight);
     std::optional<Joined> joined_by(const net::StatePacket& state) const;
+    // **A session joined again is a new start**: nothing it said of this
+    // client's own aircraft holds, and the next word of one is taken as a
+    // take-over is, even under the old number.
+    void noticed();
 
     net::ClientSession session_;
     net::InputSender sending_;
@@ -175,6 +193,10 @@ private:
     bool own_ai_flying_ = false;
     bool switched_ = false;
     bool taken_back_ = false;
+    bool rejoined_ = false;
+    // Joined again, and not yet told which aircraft is its own.
+    bool rejoining_ = false;
+    int joined_again_seen_ = 0;
     // Taken back, and not yet put where the server says it is.
     bool resuming_ = false;
     std::optional<double> reconciled_s_;
@@ -203,6 +225,7 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
     std::optional<net::StatePacket> newest;
     while (local_s() - began < give_up_after_s) {
         session_.poll(local_s());
+        noticed();
         for (net::StatePacket& state : session_.take_states()) {
             if (state.yours) {
                 newest = std::move(state);

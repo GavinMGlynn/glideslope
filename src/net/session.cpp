@@ -13,6 +13,23 @@ std::span<const std::uint8_t> all_of(const std::vector<std::uint8_t>& v) {
     return std::span<const std::uint8_t>(v.data(), v.size());
 }
 
+// **Whether a datagram is the server's refusal, and for what**: only from
+// the server's own address. Anything else is nothing.
+std::optional<Refusal> refusal_from(const platform::Address& server,
+                                    const platform::Address& from,
+                                    std::span<const std::uint8_t> datagram) {
+    if (!(from == server) || datagram.size() != envelope_size + 1) {
+        return std::nullopt;
+    }
+    Reader r(datagram);
+    Envelope envelope;
+    Refusal why{};
+    if (!read_envelope(r, envelope, why) || envelope.type != Type::refusal) {
+        return std::nullopt;
+    }
+    return static_cast<Refusal>(datagram[envelope_size]);
+}
+
 } // namespace
 
 std::optional<ClientSession> ClientSession::connect(const std::string& where,
@@ -73,15 +90,8 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
                     out.sealing_ = std::make_unique<Sealer>(session->sending);
                     out.opening_ = std::make_unique<Unsealer>(session->receiving);
                     out.initiation_ = first;
-                    // **Something sealed at once**: a server sends a session
-                    // nothing but its answer until something sealed under it
-                    // has opened (TRANSPORT.md). A pong nobody pinged for
-                    // costs the server nothing.
-                    const std::vector<std::uint8_t> pong = knock(Inside::pong, 0);
-                    Writer pw = begin(Type::sealed);
-                    pw.bytes(out.sealing_->seal(all_of(pong)));
-                    const std::vector<std::uint8_t> proof = pw.take();
-                    (void)out.socket_->send(out.server_, all_of(proof));
+                    out.mine_key_ = mine;
+                    out.prove_at_once();
                     return out;
                 }
             }
@@ -98,7 +108,7 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
 }
 
 void ClientSession::send_inputs(std::span<const std::uint8_t> packet) {
-    if (!sealing_ || packet.empty()) {
+    if (!sealing_ || packet.empty() || standing_ != Standing::joined || stalling_) {
         return;
     }
     std::vector<std::uint8_t> body{static_cast<std::uint8_t>(Inside::inputs)};
@@ -147,10 +157,36 @@ void ClientSession::send_the_initiation_again() {
 }
 
 void ClientSession::poll(double now_s) {
-    if (!socket_ || !opening_ || !sealing_) {
+    if (!socket_) {
         return;
     }
-    read_what_arrived();
+    if (!last_opened_s_) {
+        last_opened_s_ = now_s;
+    }
+    if (standing_ == Standing::joining_again) {
+        keep_joining_again(now_s);
+        return;
+    }
+    if (standing_ != Standing::joined || !opening_ || !sealing_) {
+        return;
+    }
+    read_what_arrived(now_s);
+    if (standing_ != Standing::joined) {
+        return;
+    }
+    if (stalling_) {
+        // Stalled: nothing is sent until the server's knocks have stopped,
+        // and then only a knock a second, whose refusal is the let-go.
+        if (!stall_heard_s_) {
+            stall_heard_s_ = now_s;
+        }
+        if (now_s - *stall_heard_s_ >= quiet_before_believing_s &&
+            now_s - knocked_s_ >= 1.0) {
+            knock_on(++knock_token_);
+            knocked_s_ = now_s;
+        }
+        return;
+    }
     // **Knocked until anything opens** (see `prove_every_s`): the `PONG`
     // sent at `connect()` may have been lost, and nothing else would be
     // sent until the caller has heard something.
@@ -172,6 +208,134 @@ void ClientSession::poll(double now_s) {
         const std::vector<std::uint8_t> out = w.take();
         (void)socket_->send(server_, all_of(out));
     }
+    // **A session gone quiet is knocked on from this end**, once a second:
+    // a server that has it answers `PONG`, one that has let it go refuses
+    // it - so a client that sends nothing else still hears which.
+    if (now_s - *last_opened_s_ >= knock_after_quiet_s && now_s - knocked_s_ >= 1.0) {
+        knock_on(++knock_token_);
+        knocked_s_ = now_s;
+    }
+}
+
+// **Something sealed at once**: a server sends a session nothing but its
+// answer until something sealed under it has opened (TRANSPORT.md). A pong
+// nobody pinged for costs the server nothing. A session joined again proves
+// itself the same way, and is knocked on every `prove_every_s` until
+// anything opens, as a first one is.
+void ClientSession::prove_at_once() {
+    opened_any_ = false;
+    proved_at_s_.reset();
+    const std::vector<std::uint8_t> pong = knock(Inside::pong, 0);
+    Writer pw = begin(Type::sealed);
+    pw.bytes(sealing_->seal(all_of(pong)));
+    const std::vector<std::uint8_t> proof = pw.take();
+    (void)socket_->send(server_, all_of(proof));
+}
+
+void ClientSession::knock_on(std::uint64_t token) {
+    const std::vector<std::uint8_t> ping = knock(Inside::ping, token);
+    Writer w = begin(Type::sealed);
+    w.bytes(sealing_->seal(all_of(ping)));
+    const std::vector<std::uint8_t> out = w.take();
+    (void)socket_->send(server_, all_of(out));
+}
+
+// **Let go**: a fresh initiation under the same static key - a new ephemeral
+// key, so not a copy of the old one, which a server drops - and the old
+// session's keys kept, in case it was not gone after all.
+void ClientSession::let_go_at(double now_s) {
+    ++let_go_;
+    quiet_when_let_go_s_ = now_s - *last_opened_s_;
+    stalling_ = false;
+    standing_ = Standing::joining_again;
+    old_sealing_ = std::move(sealing_);
+    old_opening_ = std::move(opening_);
+    initiator_ = std::make_unique<Initiator>(mine_key_, theirs_);
+    Writer w = begin(Type::handshake_initiation);
+    w.bytes(initiator_->begin());
+    again_ = w.take();
+    again_began_s_ = now_s;
+    again_sent_s_ = -1.0e9;
+}
+
+// **Joining again**: the initiation resent until it is answered, a minute the
+// most. `SERVER_FULL` or `DROPPED` from the server's address ends it;
+// `BAD_HANDSHAKE` does not, since sealed datagrams sent under the old session
+// may still be on their way to be refused. Anything that opens under the old
+// session says it was never gone - a forged refusal, or a blip - and it goes
+// back to it: a server that still has it drops the new initiation from this
+// address without a word.
+void ClientSession::keep_joining_again(double now_s) {
+    if (now_s - again_began_s_ > give_up_joining_again_s) {
+        standing_ = Standing::gave_up;
+        return;
+    }
+    if (now_s - again_sent_s_ >= join_again_every_s) {
+        (void)socket_->send(server_, all_of(again_));
+        again_sent_s_ = now_s;
+    }
+    std::vector<std::uint8_t> into(platform::largest_datagram);
+    for (;;) {
+        platform::Address from;
+        const std::size_t got = socket_->receive(into, from);
+        if (got <= envelope_size) {
+            return;
+        }
+        const std::span<const std::uint8_t> datagram(into.data(), got);
+        const std::span<const std::uint8_t> body = datagram.subspan(envelope_size);
+        const auto refused = refusal_from(server_, from, datagram);
+        if (refused == Refusal::dropped) {
+            standing_ = Standing::dropped;
+            return;
+        }
+        if (refused == Refusal::server_full) {
+            standing_ = Standing::refused;
+            return;
+        }
+        const std::uint8_t type = into[envelope_size - 1];
+        if (type == static_cast<std::uint8_t>(Type::sealed) && old_opening_ &&
+            old_opening_->open(body)) {
+            sealing_ = std::move(old_sealing_);
+            opening_ = std::move(old_opening_);
+            initiator_.reset();
+            standing_ = Standing::joined;
+            last_opened_s_ = now_s;
+            ++went_back_;
+            return;
+        }
+        if (type == static_cast<std::uint8_t>(Type::handshake_response)) {
+            Reader r(datagram);
+            Envelope envelope;
+            Refusal why{};
+            if (!read_envelope(r, envelope, why)) {
+                continue;
+            }
+            const auto keys = initiator_->finish(body);
+            if (!keys) {
+                continue;
+            }
+            // **A new session is a new start**: its own reliable stream,
+            // and every aircraft introduced again - which may include this
+            // client's own under its old number.
+            sealing_ = std::make_unique<Sealer>(keys->sending);
+            opening_ = std::make_unique<Unsealer>(keys->receiving);
+            old_sealing_.reset();
+            old_opening_.reset();
+            initiator_.reset();
+            initiation_ = again_;
+            reliable_ = Reliable{};
+            roster_.clear();
+            mine_ = no_aircraft;
+            applied_ = 0;
+            aircraft_.clear();
+            standing_ = Standing::joined;
+            last_opened_s_ = now_s;
+            knocked_s_ = now_s;
+            ++joined_again_;
+            prove_at_once();
+            return;
+        }
+    }
 }
 
 std::vector<StatePacket> ClientSession::take_states() {
@@ -180,7 +344,7 @@ std::vector<StatePacket> ClientSession::take_states() {
     return out;
 }
 
-void ClientSession::read_what_arrived() {
+void ClientSession::read_what_arrived(double now_s) {
     std::vector<std::uint8_t> into(platform::largest_datagram);
     // Everything waiting, not one: a frame may be a long time after the last.
     for (;;) {
@@ -189,19 +353,43 @@ void ClientSession::read_what_arrived() {
         if (got <= envelope_size) {
             return;
         }
-        Reader r(std::span<const std::uint8_t>(into.data(), got));
+        const std::span<const std::uint8_t> datagram(into.data(), got);
+        // **A refusal is believed only of a session gone quiet**, only from
+        // the server's address, and only for `BAD_HANDSHAKE` - "no session
+        // here". It is sent in the clear, so anybody can forge one; heard
+        // while the session works, it is nothing.
+        if (now_s - *last_opened_s_ >= quiet_before_believing_s &&
+            refusal_from(server_, from, datagram) == Refusal::bad_handshake) {
+            let_go_at(now_s);
+            return;
+        }
+        if (stalling_) {
+            // Read and thrown away, as a stopped process never read it.
+            stall_heard_s_ = now_s;
+            continue;
+        }
+        Reader r(datagram);
         Envelope envelope;
         Refusal why{};
         if (!read_envelope(r, envelope, why) || envelope.type != Type::sealed) {
             continue;
         }
-        const auto opened = opening_->open(
-            std::span<const std::uint8_t>(into.data(), got).subspan(envelope_size));
+        const auto opened = opening_->open(datagram.subspan(envelope_size));
         if (!opened) {
             continue;
         }
         opened_any_ = true;
+        last_opened_s_ = now_s;
         const std::span<const std::uint8_t> inside(opened->data(), opened->size());
+        // **The server's goodbye**, sealed under this session and so the
+        // server's own: the operator dropped this client. It does not come
+        // back, and says nothing more.
+        if (is_leaving(inside)) {
+            standing_ = Standing::dropped;
+            sealing_.reset();
+            opening_.reset();
+            return;
+        }
         if (const auto state = read_state(inside)) {
             ++heard_;
             clock_s_ = state->simulation_time_s;

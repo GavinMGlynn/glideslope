@@ -300,8 +300,9 @@ made to shout at each other for ever.
 
 **The server's half of that rule is written in code; the client's half is half
 written.** `take()` returns without a word on a `REFUSAL`, so a server neither
-acts on one nor answers one - built and wired. In the client, once a session
-exists, `stay()` ignores every datagram that is not a `SEALED` one that opens,
+acts on one nor answers one - built and wired. In each client, once a session
+exists - `stay()` in the command-line one, `net::ClientSession` in the one
+with the window - it ignores every datagram that is not a `SEALED` one that opens,
 with one exception: **a refusal heard after nothing has opened under the
 session for three seconds** - the server's knocks, and the client's own
 `PING`s, all unanswered - ends that session, and the client joins again with a

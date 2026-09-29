@@ -87,10 +87,28 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
         flight.set_input_sequence(sequence_);
     }
     session_.poll(local_s);
+    noticed();
     for (const net::StatePacket& state : session_.take_states()) {
         heard(state, local_s, flight);
     }
     return flying_;
+}
+
+void Online::noticed() {
+    if (session_.joined_again() == joined_again_seen_) {
+        return;
+    }
+    joined_again_seen_ = session_.joined_again();
+    rejoining_ = true;
+    mine_ = net::no_aircraft;
+    taken_.reset();
+    taken_at_.reset();
+    applied_ = 0;
+    own_ai_flying_ = false;
+    resuming_ = false;
+    // The server forgot what the old session rode along in.
+    watching_ = net::no_aircraft;
+    watched_.clear();
 }
 
 void Online::heard(const net::StatePacket& state, double local_s, Flight& flight) {
@@ -101,6 +119,28 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
         ++watched_heard_;
         while (watched_.size() > 64) {
             watched_.erase(watched_.begin());
+        }
+    }
+    // **Joined again, its own is whatever the server now says it is**, the
+    // old number or another: made by the caller from this update's motion,
+    // as a take-over is. Until the server has said, nothing is put right.
+    if (rejoining_ && state.yours && state.your_aircraft != net::no_aircraft &&
+        (!reconciled_s_ || state.simulation_time_s > *reconciled_s_)) {
+        if (auto joined = joined_by(state)) {
+            rejoining_ = false;
+            mine_ = state.your_aircraft;
+            joined->again = true;
+            taken_ = std::move(joined);
+            taken_at_ = sequence_;
+            taken_back_ = false;
+            rejoined_ = true;
+            reconciled_s_ = state.simulation_time_s;
+            for (const net::AircraftState& a : state.aircraft) {
+                if (a.index == mine_) {
+                    own_ai_flying_ = a.controller == net::Controller::ai;
+                }
+            }
+            return;
         }
     }
     // **Another aircraft is this client's own now**: one it took over. The
@@ -117,6 +157,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             taken_ = std::move(joined);
             taken_at_ = sequence_;
             taken_back_ = false;
+            rejoined_ = false;
             resuming_ = false;
             reconciled_s_ = state.simulation_time_s;
             watch(net::no_aircraft);
@@ -147,6 +188,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
                 if (!ai) {
                     resuming_ = true;
                     taken_back_ = true;
+                    rejoined_ = false;
                     taken_at_ = sequence_;
                 }
             }

@@ -378,11 +378,10 @@ Found while implementing something else. Added when found, not when remembered.
       datagram a pass, and now reads all that wait. *Verification:
       the cause found, and the test run a hundred times on Windows debug
       without it.*
-- [ ] **A client the server has let go cannot come back.** The command-line
-      client now joins again by itself; **the client with the window still
-      does not**. *Verification: a client stalled past the timeout joins again
-      by itself - done for the command-line client, not yet for the windowed
-      one.*
+- [x] **A client the server has let go cannot come back.** Both clients now
+      join again by themselves, and neither does when the operator dropped
+      it. *Verification: a client stalled past the timeout joins again by
+      itself - the command-line client and the one with the window.*
 - [x] **The tests' fixed ports lay in Linux's ephemeral range** (478xx, where
       it hands out 32768 to 60999), so a client's socket could take one before
       its test's server listened: "cannot listen on port 47853" on CI,
