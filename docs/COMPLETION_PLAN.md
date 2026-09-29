@@ -455,6 +455,11 @@ Found while implementing something else. Added when found, not when remembered.
       switch, steps less than 5 m at a hand-over and a take-back, and less
       than 2.5 m at a take-over, where unblended it is about 5 m - each past
       its bound with the blend taken out.* Done 2026-09-27: 1.1 m at worst.
+- [ ] **The client with the window steps more than 2.5 m at a take-over on
+      a slow machine**: CI's sanitized linux-debug, 3.5 m, from a take-over
+      blend of about 70 m. A dropped-ticks bug is fixed; this is not.
+      *Verification: the take-over test passes on CI's linux-debug, and a
+      slow-frame reproduction of it fails without the fix.*
 - [ ] **The client with the window is not tested with its updates
       reordered across a take-over**; it has the guard the command-line client
       needed. *Verification: an update from before the take-over, heard after
