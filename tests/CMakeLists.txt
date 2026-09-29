@@ -1581,8 +1581,8 @@ set_tests_properties(a_second_session_for_a_key_takes_over_its_players_slot_and_
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_one_key_two_addresses)
 
-# **A copy of a live player's initiation, replayed from another address, takes
-# nothing from them.** See cmake/server_initiation_replayed_while_live.cmake.
+# **A copy of a live player's initiation, replayed from another address and
+# resent, takes nothing from them and is sent nothing.** See cmake/server_initiation_replayed_while_live.cmake.
 add_test(NAME a_replayed_initiation_takes_neither_a_live_players_session_nor_its_aircraft
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
@@ -1592,6 +1592,18 @@ add_test(NAME a_replayed_initiation_takes_neither_a_live_players_session_nor_its
 set_tests_properties(a_replayed_initiation_takes_neither_a_live_players_session_nor_its_aircraft
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_initiation_replayed_while_live)
+
+# **A drop lets a key go from every address it has a session at.** See
+# cmake/server_drop_every_session.cmake.
+add_test(NAME a_player_the_operator_drops_is_let_go_from_every_address_their_key_is_at
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_drop_every_session -DPORT=24737
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_drop_every_session.cmake)
+set_tests_properties(a_player_the_operator_drops_is_let_go_from_every_address_their_key_is_at
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_drop_every_session)
 
 # **The server's window**: it shows the dashboard the terminal would, its drop
 # button drops a player, and it writes a frame. See cmake/server_window.cmake.

@@ -90,7 +90,7 @@ file(READ "${_again}" _again_heard)
 if(NOT _out MATCHES "dropped 127\\.0\\.0\\.1:[0-9]+ by the operator")
     message(FATAL_ERROR "the server dropped nobody:\n${_out}")
 endif()
-if(NOT _first_heard MATCHES "dropped by the server's operator; not joining again")
+if(NOT _first_heard MATCHES "the server ended this session \\(dropped, or taken over by a newer session for this key\\); not joining again")
     message(FATAL_ERROR "the dropped client did not hear it was dropped:\n"
                         "${_first_heard}\n${_out}\n${_err}")
 endif()

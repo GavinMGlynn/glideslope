@@ -73,6 +73,15 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
                     out.sealing_ = std::make_unique<Sealer>(session->sending);
                     out.opening_ = std::make_unique<Unsealer>(session->receiving);
                     out.initiation_ = first;
+                    // **Something sealed at once**: a server sends a session
+                    // nothing but its answer until something sealed under it
+                    // has opened (TRANSPORT.md). A pong nobody pinged for
+                    // costs the server nothing.
+                    const std::vector<std::uint8_t> pong = knock(Inside::pong, 0);
+                    Writer pw = begin(Type::sealed);
+                    pw.bytes(out.sealing_->seal(all_of(pong)));
+                    const std::vector<std::uint8_t> proof = pw.take();
+                    (void)out.socket_->send(out.server_, all_of(proof));
                     return out;
                 }
             }

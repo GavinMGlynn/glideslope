@@ -81,7 +81,7 @@ if(NOT _takes EQUAL 1)
 endif()
 
 file(READ "${_first}" _heard)
-if(NOT _heard MATCHES "dropped by the server's operator")
+if(NOT _heard MATCHES "the server ended this session")
     message(FATAL_ERROR "the first client was not told it was leaving:\n${_heard}\n"
                         "${_out}\n${_err}")
 endif()

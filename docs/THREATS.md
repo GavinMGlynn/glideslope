@@ -163,20 +163,44 @@ initiation could replay it from an address of their own and end that player's
 session - because the initiation carries no timestamp to show it fresh.
 Sealing needs the initiation's ephemeral secret, which a replayer has not got,
 so a replay's session never takes over: it shares the aircraft, flies nothing,
-and is let go after `--timeout` without taking the aircraft or the slot, which
-go only with the last session on the key. Held by
-`a_second_session_for_a_key_takes_over_its_players_slot_and_aircraft` and
-`a_replayed_initiation_takes_neither_a_live_players_session_nor_its_aircraft`,
-each watched failing: the first counting two aircraft with the sharing taken
-out, the second a live player told to leave with the take-over moved to the
-answer.
+and is let go without taking the aircraft or the slot, which go only with the
+key's last proven session.
+
+**An unproven session holds nothing for long and is sent nothing.** From the
+review of PR #53:
+- **A resent initiation keeps nothing alive.** A copy of the initiation used
+  to count as hearing from its session, so a replayer resending one every few
+  seconds could have kept a session - and the player's slot and aircraft - for
+  ever. Now only a sealed datagram that opens counts, so an unproven session
+  goes at `--timeout` after it was admitted, and when the key's last proven
+  session goes, any unproven one goes with it.
+- **No reflection.** An unproven session is sent its handshake answer and
+  nothing else - no state at 25 Hz, no reliable `AIRCRAFT` definitions, no
+  pings - so a replayed initiation makes the server send one answer per copy
+  to an address of the replayer's choosing, no more than it did for any
+  initiation. Clients seal something at once to be sent the rest.
+- **At most two unproven sessions per key**, the oldest let go for a newer,
+  so an honest restart is never the one refused.
+
+Held by `a_second_session_for_a_key_takes_over_its_players_slot_and_aircraft`
+(two aircraft with the sharing taken out),
+`a_replayed_initiation_takes_neither_a_live_players_session_nor_its_aircraft`
+(a live player told to leave with the take-over moved to the answer; the
+copy's session never let go while resent with the refresh put back; 200
+datagrams sent to it with state and pings sent to unproven sessions; the
+player's aircraft gone with the copy's session when any session going took
+it) and
+`a_player_the_operator_drops_is_let_go_from_every_address_their_key_is_at`,
+each watched failing as said.
 
 **What the take-over does not defend.** Two copies of one client running at
 once with one key take the aircraft from each other, the newer winning and
-the older told to leave; that is what a key is. A replayer's session costs,
-until `--timeout`, a session's state updates sent to an address of the
-replayer's choosing - as any replayed initiation already did, now without an
-aircraft of its own.
+the older told to leave; that is what a key is. The per-key cap of two
+unproven sessions lets a replayer with two addresses push out an honest
+restart's session in the one round trip before it seals; the restarted client
+is refused, and joins again. When a player's last proven session goes while
+their restart's session is still unproven, the restart's goes too, with the
+same result.
 
 **What is still not defended: how many keys one person may mint.** A slot
 belongs to a key, and one person with four keys is four players. That is named
@@ -637,8 +661,9 @@ seen to fail without the check.
   always was. The replayer gets a session it cannot read (which
   `a_replayed_initiation_makes_a_session_the_replayer_cannot_read` holds). It
   shares the victim's key's one aircraft and slot rather than getting its own,
-  and cannot take them over, since it cannot seal (`HANDSHAKE_INITIATION`
-  above); it is let go after `--timeout`.
+  cannot take them over, since it cannot seal (`HANDSHAKE_INITIATION`
+  above), is sent nothing but its answer, and is let go `--timeout` after it
+  was admitted however often it is resent.
 - **It cannot be used to keep a player out, and it nearly could.** The first
   version of this dropped a copy from any address. Anybody who saw a player's
   initiation on the wire could then inject a byte-for-byte copy from a
@@ -660,9 +685,8 @@ seen to fail without the check.
   one captured initiation can replay it from as many spoofed addresses as
   they care to write. Each address is a new entry, answered and remembered,
   and nothing about it needs the victim's secret or a reply that reaches the
-  attacker. The same flood also makes one session per address, all sharing
-  the victim's one aircraft, while the victim is connected - and one aircraft
-  in all while a slot is free and the victim is not; see "Resource exhaustion through the reliable layer". The memory holds the
+  attacker. The same flood makes at most two sessions for the key at a
+  time, sharing its one aircraft and sent nothing but their answers; see "Resource exhaustion through the reliable layer". The memory holds the
   newest 16,384 entries, about 3 MiB, and forgets the oldest first.
   **Forgetting one only brings back the old, harmless behaviour.** A copy
   from that address is answered again, with a session nobody can read. It

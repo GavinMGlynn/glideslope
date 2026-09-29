@@ -548,7 +548,10 @@ struct Connection {
     // it with keys the replayer cannot use. The first datagram that opens
     // shows the sender holds the initiation's ephemeral secret - that it is
     // the client itself, now - and that is when a second session for a key
-    // takes over from the first (`take`, the `sealed` arm).
+    // takes over from the first (`take`, the `sealed` arm). Until then it is
+    // sent nothing but its handshake answer - no state, no pings, no reliable
+    // messages - and nothing but a sealed datagram that opens counts as
+    // hearing from it, so it is let go `--timeout` after it was admitted.
     bool proven = false;
 };
 
@@ -651,6 +654,12 @@ constexpr std::int64_t most_steps_between_looks = 4;
 static_assert(most_steps_between_looks * states_per_second <
                   glideslope::sim::steps_per_second,
               "a pass must not cross two state updates");
+
+// **How many sessions a key may have that have sealed nothing yet**
+// (`Connection::proven`). Two: an honest restart needs one beside the old,
+// proven session, and a second lets a restart be made while one replayed copy
+// is waiting out its timeout.
+constexpr int most_unproven_per_key = 2;
 
 // How often the server knocks on a connection. Twice within one `--timeout`
 // at the default of ten seconds, and often enough that a number on the
@@ -1451,21 +1460,45 @@ std::map<std::string, Connection>::iterator let_go(
     std::map<std::string, Connection>& connections,
     std::map<std::string, Connection>::iterator it, glideslope::net::Slots& slots,
     Fleet* fleet, const Options& o) {
-    // **The slot and the aircraft go only when nobody else is on that key.**
+    // **The slot and the aircraft go with the key's last proven session.**
     // Both belong to a key, not to an address, and one key may be connected
     // from two addresses for a while - a client restarting from a fresh port
     // before the server has let its old session go, or a replayed initiation
     // answered with a session nobody can use. Every session on a key shares
-    // its one aircraft; taking it, or the slot, as the first of them went
-    // would take them from the one still flying.
+    // its one aircraft.
+    //
+    // - **A proven session remains**: nothing more goes.
+    // - **The last proven one has gone**: every unproven session left on the
+    //   key goes with it, and the aircraft and slot. An unproven session has
+    //   shown nothing of who holds it (`Connection::proven`), so it holds
+    //   nothing once the player has gone: a replay cannot keep a player's
+    //   aircraft flying after their goodbye. The price is an honest restart
+    //   whose first sealed datagram had not yet arrived when the old session
+    //   went; its client is refused, and joins again.
+    // - **An unproven session goes and others remain**: nothing more goes.
+    // - **It was the key's only session**: the aircraft and slot go.
     const glideslope::net::PublicKey going = it->second.who;
     const std::uint8_t aircraft = it->second.aircraft;
-    it = connections.erase(it);
-    const bool elsewhere =
-        std::any_of(connections.begin(), connections.end(),
-                    [&](const auto& other) { return other.second.who == going; });
-    if (elsewhere) {
-        return it;
+    const bool was_proven = it->second.proven;
+    const std::string address = it->first;
+    connections.erase(it);
+    const auto on_key = [&](const auto& other) { return other.second.who == going; };
+    const bool proven_left =
+        std::any_of(connections.begin(), connections.end(), [&](const auto& other) {
+            return on_key(other) && other.second.proven;
+        });
+    const bool any_left = std::any_of(connections.begin(), connections.end(), on_key);
+    if (proven_left || (!was_proven && any_left)) {
+        return connections.upper_bound(address);
+    }
+    for (auto rest = connections.begin(); rest != connections.end();) {
+        if (on_key(*rest)) {
+            std::printf("let go %s, unproven, with its key's last proven session\n",
+                        rest->first.c_str());
+            rest = connections.erase(rest);
+        } else {
+            ++rest;
+        }
     }
     if (fleet != nullptr && aircraft != glideslope::net::no_aircraft) {
         const bool to_ai = fleet->take(aircraft, o.hand_to_ai_on_leave);
@@ -1473,7 +1506,7 @@ std::map<std::string, Connection>::iterator let_go(
                     to_ai ? "is now flown by an AI pilot" : "is out of the sky");
     }
     slots.release(key_of(going));
-    return it;
+    return connections.upper_bound(address);
 }
 
 // **The server's goodbye** to one session: `LEAVING`, sealed under it,
@@ -1481,6 +1514,11 @@ std::map<std::string, Connection>::iterator let_go(
 // rather than knocking on a session that is gone.
 void tell_leaving(glideslope::platform::UdpSocket& socket, const std::string& address,
                   Connection& c) {
+    // An unproven session is sent nothing but its handshake answer (see
+    // `Connection::proven`), a goodbye included.
+    if (!c.proven) {
+        return;
+    }
     if (const auto to = glideslope::platform::address_of(address)) {
         const std::vector<std::uint8_t> leaving{
             static_cast<std::uint8_t>(glideslope::net::Inside::leaving)};
@@ -1517,6 +1555,7 @@ void drop(glideslope::platform::UdpSocket& socket,
     dropped.insert(key.text());
     for (auto each = connections.begin(); each != connections.end();) {
         if (each->second.who == key) {
+            std::printf("let go %s: its key was dropped\n", each->first.c_str());
             tell_leaving(socket, each->first, each->second);
             each = let_go(connections, each, slots, fleet, o);
         } else {
@@ -1591,7 +1630,11 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             if (body.size() == already->second.initiation.size() &&
                 std::equal(body.begin(), body.end(),
                            already->second.initiation.begin())) {
-                already->second.last_heard_s = now_s;
+                // **Not heard from, for this.** A copy of an initiation is
+                // anybody's to send, so it keeps no session alive: an
+                // unproven session goes at `--timeout` after it was admitted
+                // however often its initiation is resent, and a replayer
+                // resending one cannot hold a slot or an aircraft.
                 already->second.bytes_in += datagram.size();
                 const std::vector<std::uint8_t>& out = already->second.answer;
                 if (socket.send(from,
@@ -1687,6 +1730,30 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             c.bytes_out += out.size();
         }
         connections[who] = std::move(c);
+        // **At most `most_unproven_per_key` unproven sessions on a key**, the
+        // oldest let go to make room: a replayer with one captured initiation
+        // and many addresses holds no more than that, and the newest - an
+        // honest restart among them - is never the one refused.
+        for (;;) {
+            auto oldest = connections.end();
+            int unproven = 0;
+            for (auto each = connections.begin(); each != connections.end(); ++each) {
+                if (each->second.who == answer->session.theirs && !each->second.proven) {
+                    ++unproven;
+                    if (each->first != who &&
+                        (oldest == connections.end() ||
+                         each->second.admitted_s < oldest->second.admitted_s)) {
+                        oldest = each;
+                    }
+                }
+            }
+            if (unproven <= most_unproven_per_key || oldest == connections.end()) {
+                break;
+            }
+            std::printf("let go %s, unproven, for a newer session on its key\n",
+                        oldest->first.c_str());
+            (void)let_go(connections, oldest, slots, fleet, o);
+        }
         happened.add(now_s, "admitted " + identity.name + " to slot " +
                                 std::to_string(static_cast<int>(*slot)) + " from " + who);
         if (o.headless) {
@@ -2052,7 +2119,10 @@ int run(const Options& o) {
         // will not let go, which is why the knock is the server's job and
         // not the client's - the server is the one deciding who has gone.
         for (auto& [address, c] : connections) {
-            if (up_s - c.pinged_at_s < ping_every_s) {
+            // **Nothing to a session that has sealed nothing** but its
+            // handshake answer: an answer to a replayed initiation is all a
+            // replayer can make the server send to an address of its choice.
+            if (!c.proven || up_s - c.pinged_at_s < ping_every_s) {
                 continue;
             }
             c.pinged_at_s = up_s;
@@ -2139,6 +2209,10 @@ int run(const Options& o) {
             const std::vector<glideslope::net::AircraftDefinition> who = fleet->who();
             const std::vector<glideslope::net::ControllerSwap> swaps = fleet->announced();
             for (auto& [address, c] : connections) {
+                // Nothing to an unproven session (the pings above).
+                if (!c.proven) {
+                    continue;
+                }
                 // **Every aircraft introduced**, and again if its number has
                 // come to mean another. Numbers no longer flying are
                 // forgotten here, every update: a number taken out of the sky
