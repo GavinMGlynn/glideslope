@@ -341,6 +341,13 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [ ] **On tight, slow orbits the navigator flies inside the circle.**
+      Claude's CBD plan, 521 m at 60 kt, was flown 94 to 127 m inside it:
+      the steering's lead along the tangent is balanced against its
+      turn-in of 90 degrees a kilometre. *Verification: an orbit at the
+      tightest radius allowed, at the approach speed, is flown within a
+      stated distance of its circle, measured, not assumed.*
+
 - [ ] **On the DEM at Sydney's 16R the runway is not flat enough to take off
       from.** `glideslope_cli fly-plan` from 16R wrecks the 737-300 and the
       A320 (airframe strike at 14 s) and the F-15C (9 s) on the roll, with

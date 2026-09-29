@@ -14,11 +14,18 @@
 # over the DEM. Asked now with RECORD, what was asked and answered is kept
 # there, with no header and so no key, to be played back as PLAYBACK. It must:
 #   - take off: the take-off autopilot hands over above the runway;
-#   - reach its orbit and fly round it twice, within 150 m of its circle and
+#   - reach its orbit and fly round it as often as the plan asks - twice, for
+#     an orbit flown for ever (fly-plan --orbits 2) - within 150 m of its circle and
 #     50 ft of ALTITUDE_FT - less than the geoid lifts the sea above the
 #     ellipsoid at Sydney, 72 ft, so heights confused between the two show;
 #   - have that orbit's centre within 2 km of CENTRE_LAT, CENTRE_LON - for
 #     "the CBD", Town Hall - and nothing wrecked.
+#
+# **Asked of PROVIDER now costs money**, so it is asked only when
+# GLIDESLOPE_LIVE_MODEL=1 is set in the environment; otherwise it reports
+# itself skipped (exit 77), before anything else. Those tests are labelled
+# `live`, and the pre-push hook leaves them out. A key on the machine is not
+# consent to spend it.
 #
 # Asked of PROVIDER now, with no key, or a key its service will not answer
 # for want of credit, it reports itself skipped (exit 77), never passed; so
@@ -26,6 +33,13 @@
 # (glideslope_skip_when_not_downloaded, client.cmake).
 
 cmake_minimum_required(VERSION 3.28)
+
+if(DEFINED COMMAND AND NOT DEFINED PLAYBACK AND NOT "$ENV{GLIDESLOPE_LIVE_MODEL}" STREQUAL "1")
+    message(STATUS "${PROVIDER} is not asked: a live model call costs money, and is made only "
+                   "with GLIDESLOPE_LIVE_MODEL=1 set")
+    cmake_language(EXIT 77)
+endif()
+
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
 set(ENV{GLIDESLOPE_CACHE} "${CACHE}")

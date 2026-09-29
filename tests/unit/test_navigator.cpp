@@ -331,12 +331,14 @@ GLIDESLOPE_TEST(an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_ci
     // "orbit the CBD": a waypoint there, then the orbit round it. From the
     // centre the aircraft is steered out to the circle, and the turns it
     // spirals out through are not counted: it joins the circle within 100 m
-    // of it, and is held to it from its first quarter-turn. Counted from the
-    // centre, a Cessna flew "round" a 521 m circle 164 to 492 m out.
+    // of it, and is held to it from its first quarter-turn - in calm air and
+    // in a 20 kt crosswind, as the orbit flown from outside is. Counted from
+    // the centre, a Cessna flew "round" a 521 m circle 164 to 492 m out.
     const double tightest_m = std::ceil(glideslope::sim::least_orbit_radius_m(90.0));
     std::size_t flown = 0;
     for (const double radius_m : {1500.0, tightest_m}) {
         for (const bool right : {false, true}) {
+        for (const bool windy : {false, true}) {
             const FlightPlan plan = parse_flight_plan(
                 std::string("aircraft c172p\nstart -33.8688 151.2093 3000 0 90\n"
                             "orbit CBD -33.8688 151.2093 ") +
@@ -351,6 +353,12 @@ GLIDESLOPE_TEST(an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_ci
             ic.airspeed_kts = plan.start->airspeed_kts;
             ic.engine_running = true;
             aircraft.initialize(ic);
+            if (windy) {
+                glideslope::sim::Conditions wind;
+                wind.wind_east_mps = 20.0 * 1852.0 / 3600.0;
+                aircraft.set_weather(
+                    std::make_shared<glideslope::sim::SteadyWeather>(wind));
+            }
             glideslope::sim::Controls controls;
             controls.throttle = 0.7;
             glideslope::sim::Autopilot autopilot(aircraft, controls);
@@ -385,7 +393,8 @@ GLIDESLOPE_TEST(an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_ci
                 }
             }
             const std::string which = std::to_string(static_cast<int>(radius_m)) + " m, " +
-                                      (right ? "right" : "left");
+                                      (right ? "right" : "left") +
+                                      (windy ? ", in a 20 kt wind" : ", in calm air");
             std::fprintf(stderr,
                          "orbit %s from its centre: joined %.0f m out, %.2f turns, %.0f to "
                          "%.0f m from the centre\n",
@@ -401,8 +410,10 @@ GLIDESLOPE_TEST(an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_ci
                       " to " + std::to_string(farthest_m) + " m");
             ++flown;
         }
+        }
     }
-    check(flown == 4, "two circles, both ways round, each begun from its centre: four flown");
+    check(flown == 8, "two circles, both ways round, in calm air and in wind, each begun from "
+                      "its centre: eight flown");
 }
 
 GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane) {
