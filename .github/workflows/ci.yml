@@ -552,12 +552,16 @@ jobs:
 
       # The debug preset names /Zi in its flags itself, for the vendored
       # projects too old for CMAKE_MSVC_DEBUG_INFORMATION_FORMAT (CMP0141);
-      # here they are the same flags with /Z7.
+      # here they are the same flags with /Z7. ccache refuses any /clang:
+      # option: clang-cl reports its headers as cl.exe does here
+      # (cmake/ci_clang_cl_show_includes.cmake), and SDL is told clang-cl has
+      # no /clang:-fcomment-block-commands, which only names a documentation
+      # command for a warning.
       - name: ${{ matrix.preset }} - configure
         shell: cmd
         run: |
           if "${{ matrix.preset }}"=="windows-clang" (clang-cl --version || exit /b 1)
-          set cache=-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON -DCMAKE_CXX_SCAN_FOR_MODULES=OFF -DCMAKE_PROJECT_INCLUDE=%CD%/cmake/ci_clang_cl_show_includes.cmake
+          set cache=-DHAVE_CLANG_COMMENT_BLOCK_COMMANDS=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON -DCMAKE_CXX_SCAN_FOR_MODULES=OFF -DCMAKE_PROJECT_INCLUDE=%CD%/cmake/ci_clang_cl_show_includes.cmake
           if "${{ matrix.preset }}"=="windows-debug" (
             cmake --preset windows-debug %cache% "-DCMAKE_C_FLAGS_DEBUG=/Z7 /Ob1 /O1" "-DCMAKE_CXX_FLAGS_DEBUG=/Z7 /Ob1 /O1"
           ) else (
