@@ -506,13 +506,12 @@ Found while implementing something else. Added when found, not when remembered.
       prediction**, as the command-line client does. *Verification:
       corrections are blended, and the largest step away from a switch is
       held to a bound, failing clearly with the blend taken out.* The blend
-      is in, and the step is held under 2.5 m in the take-over test (2026-09-29); still missing: a
-      test that builds large corrections on purpose - through a relay with
-      jitter and loss, or a correction injected - since on loopback the
-      blend taken out failed by only 2.535 m against 2.5 m, and the
-      hand-over test not at all; and why the hand-over test, blend in, once
-      stepped 6.2 m away from a switch on CI (its bound is removed until
-      then).
+      is in, and the step is held under 2.5 m in the take-over test
+      (2026-09-29). A unit test now builds every correction up to the snap
+      size and fails at 20 m with the blend out (2026-09-29); still missing:
+      large corrections built through the client itself, a bound on the
+      hand-over test seen to fail, and the cause of a 6.2 m step CI once saw
+      there.
 - [ ] **The display model is written twice**, in the command-line client
       and in the client with the window. *Verification: one presentation-free
       module serves both, with a unit test that builds long frames across a

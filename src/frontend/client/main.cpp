@@ -1755,6 +1755,10 @@ static int run_program(int argc, char** argv) {
                     std::printf("glideslope: the largest step at a switch: %s\n",
                                 own_shown.worst_step_what().c_str());
                 }
+                if (!own_shown.worst_step_otherwise_what().empty()) {
+                    std::printf("glideslope: the largest step otherwise: %s\n",
+                                own_shown.worst_step_otherwise_what().c_str());
+                }
             }
             if (shot_now) {
                 if (terrain) {

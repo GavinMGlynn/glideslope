@@ -48,6 +48,8 @@ add_executable(glideslope_tests
     unit/test_sealing.cpp
     unit/test_session_over_a_socket.cpp
     unit/test_interpolation.cpp
+    unit/test_shown.cpp
+    ${PROJECT_SOURCE_DIR}/src/frontend/client/shown.cpp
     unit/test_prediction.cpp
     unit/test_messages.cpp
     unit/test_protocol.cpp
@@ -117,6 +119,7 @@ target_compile_definitions(glideslope_tests PRIVATE
 glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
+    every_correction_small_enough_to_hide_is_taken_up_without_a_step
     every_aircraft_put_down_with_its_wheels_up_rests_on_its_airframe
     every_landplane_dropped_harder_than_its_gear_takes_is_wrecked_and_set_down_gently_is_not
     an_aircraft_that_comes_down_on_its_airframe_is_wrecked

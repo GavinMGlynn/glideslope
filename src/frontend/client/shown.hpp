@@ -71,11 +71,12 @@ public:
 
     // **What it found**: how many switches it measured, the largest step at
     // one - within four frames of it, to the frame after a long one - and
-    // elsewhere, and what made the largest at a switch.
+    // elsewhere, and what made the largest at a switch and elsewhere.
     std::size_t switches() const { return switches_; }
     double worst_step_at_switch_m() const { return worst_at_switch_m_; }
     double worst_step_otherwise_m() const { return worst_otherwise_m_; }
     const std::string& worst_step_what() const { return worst_what_; }
+    const std::string& worst_step_otherwise_what() const { return worst_otherwise_what_; }
 
 private:
     // What was shown, and when, as its parts: the source it was shown from
@@ -110,6 +111,7 @@ private:
     double worst_at_switch_m_ = 0.0;
     double worst_otherwise_m_ = 0.0;
     std::string worst_what_;
+    std::string worst_otherwise_what_;
     std::map<std::uint8_t, std::pair<std::optional<Shown>, std::optional<Shown>>> others_;
 };
 

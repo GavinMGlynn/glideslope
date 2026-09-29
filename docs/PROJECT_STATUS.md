@@ -1068,6 +1068,45 @@ it with it.
   test keeps its 2.5 m bound. Why a step of 6 m happens away from a switch
   after a hand-over - a correction too large to hide, snapped, or something
   the blend misses - is now part of the open corrections tail.
+- **Large corrections built on purpose, 2026-09-29 - the tail stays open.**
+  *What is missing first*: nothing yet builds a large correction through the
+  client itself, the hand-over test's step away from a switch is still held
+  to no bound that has been seen to fail, and what made the 6.203 m step CI
+  measured there once (#52) is not known. What there is:
+  - `every_correction_small_enough_to_hide_is_taken_up_without_a_step`
+    (tests/unit/test_shown.cpp) flies `OwnShown` straight at 60 m/s and puts
+    the prediction right at one frame: every size from 1 m to 19.99 m (just
+    under sim::snap_beyond_m), in each of the six directions along an axis,
+    at 7, 17, 33, 100 and 250 ms frames, alone and put back by a second on the
+    next update - 1,200 cases, asserted all flown, 1,080 of them past the
+    2.5 m bound were the correction shown as it came. Blended, the largest
+    step is 1.333 m (a 19.99 m correction, 33 ms frames: a fifteenth of it a
+    sixtieth of a second). Seen to fail: with corrections not blended
+    (`if (switched && carried)` in shown.cpp) it failed at 19.990 m against
+    2.5 m; reverted, it passes.
+  - `OwnShown` now says what made its largest step away from a switch, as it
+    did at one - the frame's length, its source, whether it was corrected -
+    and the hand-over test prints that and the corrections on a pass, so a
+    step like CI's 6.2 m comes with its cause. On Linux debug: 1.21 m
+    otherwise, "18 ms long, predicted: 1.297 m from where it was carried at
+    41.3 m/s", not corrected, with 284 corrections, the worst 3.171 m.
+  - **What the 6.2 m was not, from the code and that run's own lines**: CI
+    said 349 corrections, the worst 6.093 m and none too large to hide, so
+    it was not a snap. A correction flagged is blended from where the
+    aircraft was carried, which leaves no step on its own frame, so a step
+    the size of the worst correction is a frame that moved without the flag.
+    One way found: the client flies at most 24 ticks a loop
+    (`min(clock.advance(...), 24)` in client/main.cpp) and the rest of a
+    loop longer than 0.2 s - a drawn frame on CI's debug lavapipe is 256 ms
+    and more - is dropped, so the prediction falls behind by the rest, shown
+    unflagged. Tried: a 600 ms frame held after the take-back (a test flag,
+    not kept) did not step - updates arrive during a frame that long, and
+    the correction in the same loop is flagged and hides it (0.96 m
+    otherwise with the cap, 1.03 m); with corrections not blended it failed
+    at only 2.854 m against 2.5 m. So a held frame builds no large
+    correction, and whether the cap made CI's 6.2 m is not shown. Also seen
+    and not explained: uncorrected predicted frames 18 ms long stray 1.3 m
+    from where they were carried at 41 m/s, three to four ticks' worth.
 - **From the review**: a take-over of an aircraft seen in fewer than two
   frames no longer blends from the aircraft left behind: seen in one, it
   blends from that; in none, from nothing.
