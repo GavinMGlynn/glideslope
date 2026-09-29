@@ -312,7 +312,12 @@ it with it.
   otherwise. Seen to fail: with corrections flagged never, the take-over
   test failed with "stepped 2.535 m away from a switch" - only just, since
   loopback corrections are small; the hand-over test passed at 1.98 m.
-  Reverted, both pass.
+  Reverted, both pass. On Windows debug (`tools/windows_build.sh`, the
+  machine CI failed on): taken over, 0.77 m at the switch (53.6 m/s) and
+  0.61 m otherwise; handed over, 0.56 m at a switch (37.6 m/s) and 1.67 m
+  otherwise. The corrections tail is ticked; its failing run with the blend
+  taken out was a close one (2.535 m against 2.5 m on loopback), and the
+  5.7 m Windows CI saw before the blend is the larger evidence.
 - **From the review**: a take-over of an aircraft seen in fewer than two
   frames no longer blends from the aircraft left behind: seen in one, it
   blends from that; in none, from nothing.
