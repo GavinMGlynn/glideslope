@@ -31,6 +31,15 @@
 name Stalls in a fighter
 teaches fighter
 
+# **The first sign of the stall is its warning**, where the autopilot's stall
+# recovery is held to recovering within this lesson's height (REQUIREMENTS.md
+# 4.3). The rules have the warning begin no less than 5 knots or 5% above the
+# stall, whichever is more (14 CFR 25.207(c)); this is that least margin, the
+# latest a warning may come: the F-15C stalls at about 151 knots and the F-35B
+# at about 122, and 5% of 151 is 7.6. It comes after this lesson's entry ends,
+# which is the approach to the stall.
+warning stall+8
+
 stage Entering the stall
 do Close the throttles and hold the height as the speed comes back
 do Keep the wings level: a wing drop is what you are avoiding

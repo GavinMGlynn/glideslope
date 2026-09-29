@@ -128,6 +128,15 @@ Lesson parse_lesson(const std::string& id, std::string_view text) {
                 throw wrong("no class \"" + w[1] + "\"");
             }
             lesson.teaches = *of;
+        } else if (w[0] == "warning") {
+            LessonNumber at;
+            if (w.size() != 2 || !read_number(w[1], at)) {
+                throw wrong("warning VALUE");
+            }
+            if (lesson.stall_warning) {
+                throw wrong("a lesson has one stall warning, and this one already has it");
+            }
+            lesson.stall_warning = at;
         } else if (w[0] == "stage") {
             if (w.size() < 2) {
                 throw wrong("stage TEXT");
@@ -251,6 +260,9 @@ void note_figure(const LessonNumber& number, std::vector<std::string>& out) {
 
 std::vector<std::string> figures_named(const Lesson& lesson) {
     std::vector<std::string> out;
+    if (lesson.stall_warning) {
+        note_figure(*lesson.stall_warning, out);
+    }
     for (const LessonStage& stage : lesson.stages) {
         note_figure(stage.until_value, out);
         for (const std::vector<LessonWatch>* watches : {&stage.holds, &stage.needs}) {
