@@ -1918,26 +1918,30 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hands_over)
 # **The client with the window, let go by the server for going quiet, joins
 # again by itself** and flies its new aircraft; **dropped by the operator, it
 # says so and does not.** See cmake/client_joins_again.cmake.
-add_test(NAME the_client_with_the_window_stalled_past_the_timeout_joins_again_by_itself
-    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
-        -DCLIENT=$<TARGET_FILE:glideslope> -DKEEPER=$<TARGET_FILE:glideslope_cli>
-        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_joins_again -DPORT=24703 -DDRIVER=vulkan
-        -DIMPAIR=$<TARGET_FILE:glideslope_impair>
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_joins_again.cmake)
-set_tests_properties(the_client_with_the_window_stalled_past_the_timeout_joins_again_by_itself
-    PROPERTIES SKIP_RETURN_CODE 77)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_joins_again)
-add_test(NAME the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again
-    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
-        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
-        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_dropped -DPORT=24705 -DDRIVER=vulkan
-        -DIMPAIR=$<TARGET_FILE:glideslope_impair> -DDROP=ON
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_joins_again.cmake)
-set_tests_properties(the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again
-    PROPERTIES SKIP_RETURN_CODE 77)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_dropped)
+# They fly on Vulkan, so they are registered only where the platform has it:
+# not on macOS, where they would only wait out their bounds to skip.
+if("vulkan" IN_LIST GLIDESLOPE_GPU_DRIVERS)
+    add_test(NAME the_client_with_the_window_stalled_past_the_timeout_joins_again_by_itself
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DKEEPER=$<TARGET_FILE:glideslope_cli>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_joins_again -DPORT=24703 -DDRIVER=vulkan
+            -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_joins_again.cmake)
+    set_tests_properties(the_client_with_the_window_stalled_past_the_timeout_joins_again_by_itself
+        PROPERTIES SKIP_RETURN_CODE 77)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_joins_again)
+    add_test(NAME the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_dropped -DPORT=24705 -DDRIVER=vulkan
+            -DIMPAIR=$<TARGET_FILE:glideslope_impair> -DDROP=ON
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_joins_again.cmake)
+    set_tests_properties(the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again
+        PROPERTIES SKIP_RETURN_CODE 77)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_dropped)
+endif()
 
 # **A client started with --online reaches the server server.txt names.** See
 # cmake/client_online.cmake, which names the file by the environment rather

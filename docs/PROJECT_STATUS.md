@@ -331,7 +331,11 @@ joining again; the server must admit it twice, let one session go for
 silence and two for goodbyes, and drop no copy of an initiation. It came back
 as aircraft 0, its old number. 69 s here from a cold Cesium cache (Linux
 debug). **Seen to fail**: with the refusal never believed, "the client did
-not notice it was let go"; reverted.
+not notice it was let go"; reverted. **Not on macOS**: both tests fly on
+Vulkan, which macOS does not have, and CI's macOS runs failed them because
+the client is given its aircraft before it opens the GPU, so the other checks
+ran before the skip. The skip now comes first, and the two tests are
+registered only where the platform has Vulkan (Linux and Windows).
 
 `the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again`
 (same script with `DROP`, port 24705 and 24706): the server's
