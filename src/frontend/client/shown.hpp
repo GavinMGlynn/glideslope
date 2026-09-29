@@ -78,6 +78,15 @@ public:
     const std::string& worst_step_what() const { return worst_what_; }
     const std::string& worst_step_otherwise_what() const { return worst_otherwise_what_; }
 
+    // **How long the frames it measured over were**, milliseconds: the
+    // longest of the four before each switch and the four after it - the
+    // frames a switch's steps are measured in - and the one the largest step
+    // away from a switch came in. The step bounds are claimed for a playable
+    // frame rate, and a test asserts these before it believes a bound
+    // (tests/cmake/client.cmake, glideslope_require_playable_frames).
+    double longest_frame_at_switch_ms() const { return longest_at_switch_ms_; }
+    double worst_step_otherwise_frame_ms() const { return worst_otherwise_frame_ms_; }
+
 private:
     // What was shown, and when, as its parts: the source it was shown from
     // and how fast that moved, and the blend on it. Carried on, each part
@@ -112,6 +121,10 @@ private:
     double worst_otherwise_m_ = 0.0;
     std::string worst_what_;
     std::string worst_otherwise_what_;
+    // The last four frames' lengths before this one, milliseconds, newest last.
+    std::array<double, 4> recent_ms_{};
+    double longest_at_switch_ms_ = 0.0;
+    double worst_otherwise_frame_ms_ = 0.0;
     std::map<std::uint8_t, std::pair<std::optional<Shown>, std::optional<Shown>>> others_;
 };
 

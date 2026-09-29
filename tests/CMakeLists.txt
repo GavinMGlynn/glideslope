@@ -1982,11 +1982,12 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rides_along)
 # frame by frame against the wall clock through real sockets. Under a sanitizer
 # on a software renderer (CI's debug presets, frames of 250 ms and more) such a
 # bound measures the machine, not the code: the two failed 14 and 5 times in 29
-# CI runs in September 2026. CI runs this label in its release presets, on pull
-# requests and every night; its debug presets and nightly.yml leave it out
-# until the window client's test mode runs on a simulated frame clock - a gap
-# COMPLETION_PLAN names (the take-over step on a slow machine). Then the label
-# goes.
+# CI runs in September 2026. The bound is claimed at 20 fps and above
+# (REQUIREMENTS.md, 2026-09-30), and each test asserts it, failing - not
+# passing - when frames around a switch are slower, as they are under a
+# sanitizer. So CI runs this label in its release presets, on pull requests
+# and every night, where that frame rate holds; its debug presets and
+# nightly.yml leave it out.
 add_test(NAME the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}

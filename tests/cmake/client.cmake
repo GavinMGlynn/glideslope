@@ -170,3 +170,39 @@ function(glideslope_client out)
     glideslope_judge_leaks("${_err}")
     set(${out} "${_out}" PARENT_SCOPE)
 endfunction()
+
+# **The frame rate a step bound is claimed for.** How far what the client
+# with the window shows steps at a switch is a claim about what a player
+# sees at a playable frame rate: 20 fps and above, a frame of 50 ms at most
+# (the owner's decision, 2026-09-30; docs/REQUIREMENTS.md). Slower, a frame
+# carries the aircraft metres and the step measures the machine, not the
+# client - a sanitized build on a software renderer draws one in 250 ms and
+# more. This is the one place the number is kept.
+set(GLIDESLOPE_PLAYABLE_FRAME_MS 50)
+
+# **A bound is believed only at that frame rate**, from what the client says
+# of its own frames (client/shown.hpp): the longest of those around each
+# switch, and with OTHERWISE, the one the largest step away from a switch
+# came in, when the test bounds that too. Slower, the test fails - it neither
+# passes nor skips, since a green tick then would say nothing, as the "too
+# slow" guard on the speed says.
+function(glideslope_require_playable_frames out)
+    cmake_parse_arguments(PARSE_ARGV 1 _arg "OTHERWISE" "" "")
+    if(NOT out MATCHES "own aircraft's frames: the longest within four of a switch ([0-9]+) ms, and the largest step otherwise in one ([0-9]+) ms long")
+        message(FATAL_ERROR "the client did not say how long its frames were:\n${out}")
+    endif()
+    set(_around "${CMAKE_MATCH_1}")
+    set(_otherwise "${CMAKE_MATCH_2}")
+    if(_around GREATER GLIDESLOPE_PLAYABLE_FRAME_MS)
+        message(FATAL_ERROR "frames of ${_around} ms around the switch: slower than the 20 fps "
+                            "this bound is claimed for, so the bound tests nothing:\n${out}")
+    endif()
+    if(_arg_OTHERWISE AND _otherwise GREATER GLIDESLOPE_PLAYABLE_FRAME_MS)
+        message(FATAL_ERROR "a frame of ${_otherwise} ms where the largest step away from a "
+                            "switch came: slower than the 20 fps this bound is claimed for, "
+                            "so the bound tests nothing:\n${out}")
+    endif()
+    message(STATUS "frames of ${_around} ms at most around the switches, and "
+                   "${_otherwise} ms where the largest step otherwise came: "
+                   "${GLIDESLOPE_PLAYABLE_FRAME_MS} ms at most, 20 fps")
+endfunction()

@@ -75,6 +75,12 @@ endif()
 # apart, and nothing blended stepped 4.2 m: under the bound, so the test
 # would not have seen the blend gone.
 math(EXPR _relay "${PORT} + 1")
+# SLOW_FRAMES holds every pass of the client's frame loop that many
+# milliseconds longer (--slow-frames): what shows the frame-rate guard firing.
+set(_slow)
+if(DEFINED SLOW_FRAMES)
+    set(_slow --slow-frames ${SLOW_FRAMES})
+endif()
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 execute_process(
     # The server's standard output goes to the relay, which passes it to
@@ -86,7 +92,7 @@ execute_process(
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1920 --view cockpit
             --hand-over-after 4 --take-back-after 10
-            --next-aircraft-after 6 --next-aircraft-after 7
+            --next-aircraft-after 6 --next-aircraft-after 7 ${_slow}
             --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
@@ -171,6 +177,9 @@ if(CMAKE_MATCH_1 LESS_EQUAL 25)
                         "for a step without the blend to pass 5 m, so the bound tests "
                         "nothing:\n${_out}")
 endif()
+# **And only at a playable frame rate**: the bound is claimed at 20 fps and
+# above, and a slower machine's frames would measure the machine.
+glideslope_require_playable_frames("${_out}")
 if(_step GREATER_EQUAL 5)
     message(FATAL_ERROR "what the client showed stepped ${_step} m at a switch, the bound 5 m:\n${_out}")
 endif()

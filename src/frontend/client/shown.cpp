@@ -64,7 +64,17 @@ world::Ecef OwnShown::frame(double local_s, const Source& source) {
     if (switched && before_) {
         frames_since_switch_ = 0;
         ++switches_;
+        // The frames just before it are around it too.
+        for (const double ms : recent_ms_) {
+            longest_at_switch_ms_ = std::max(longest_at_switch_ms_, ms);
+        }
     }
+    const double frame_ms = before_ ? (local_s - before_->s) * 1000.0 : 0.0;
+    if (frames_since_switch_ <= 4) {
+        longest_at_switch_ms_ = std::max(longest_at_switch_ms_, frame_ms);
+    }
+    std::rotate(recent_ms_.begin(), recent_ms_.begin() + 1, recent_ms_.end());
+    recent_ms_.back() = frame_ms;
     if ((switched || source.corrected) && carried) {
         // **From where it was going, not where it was**: a blend started
         // from the last frame shown holds the aircraft still for a frame.
@@ -121,6 +131,9 @@ world::Ecef OwnShown::frame(double local_s, const Source& source) {
                           std::sqrt(speed), std::sqrt(blended));
             (at_switch ? worst_what_ : worst_otherwise_what_) = what;
             (at_switch ? worst_at_switch_m_ : worst_otherwise_m_) = step;
+            if (!at_switch) {
+                worst_otherwise_frame_ms_ = frame_ms;
+            }
         }
     }
     ++frames_since_switch_;

@@ -1807,6 +1807,14 @@ static int run_program(int argc, char** argv) {
                     std::printf("glideslope: the largest step otherwise: %s\n",
                                 own_shown.worst_step_otherwise_what().c_str());
                 }
+                // **How long its frames were there**: the bounds on those
+                // steps are claimed at 20 fps and above, and a test asserts
+                // it before it believes one.
+                std::printf("glideslope: own aircraft's frames: the longest within four "
+                            "of a switch %.0f ms, and the largest step otherwise in one "
+                            "%.0f ms long\n",
+                            own_shown.longest_frame_at_switch_ms(),
+                            own_shown.worst_step_otherwise_frame_ms());
             }
             if (shot_now) {
                 if (terrain) {
