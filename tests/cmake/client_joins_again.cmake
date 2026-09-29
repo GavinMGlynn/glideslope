@@ -108,13 +108,16 @@ list(LENGTH _rcs _programs)
 math(EXPR _last "${_programs} - 1")
 list(GET _rcs ${_last} _rc)
 
+# **A machine that cannot draw skips, before anything is judged**: the
+# client is given its aircraft before it opens the GPU, so the other checks
+# would fail a run that never had a device (macOS has no Vulkan). The
+# client's own words only: the server's and the relay's are on standard
+# error too, and must not turn a failure into a skip.
+if(_err MATCHES "glideslope: no GPU device")
+    message(STATUS "the client cannot draw here: ${_err}")
+    cmake_language(EXIT 77)
+endif()
 if(NOT _out MATCHES "the server gave this client aircraft [0-9]+")
-    # The client's own words only: the server's and the relay's are on
-    # standard error too, and must not turn a failure into a skip.
-    if(_err MATCHES "glideslope: no GPU device")
-        message(STATUS "the client cannot draw here: ${_err}")
-        cmake_language(EXIT 77)
-    endif()
     message(FATAL_ERROR "the client was given no aircraft:\n${_out}\n${_err}")
 endif()
 glideslope_judge_leaks("${_err}")
