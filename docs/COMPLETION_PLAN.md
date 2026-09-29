@@ -469,7 +469,7 @@ Found while implementing something else. Added when found, not when remembered.
       2026-09-29: the window client quit mid-refresh ends within 2 s of one
       quit with no refresh under way, both while the refresh is turned away
       with a 429 and while it is part way through a download that never
-      finishes.
+      finishes, on Linux and Windows.
 
 - [x] **A client opened the model a server named as a path.** *Verification:
       every aircraft's id is known by the catalogue and eight hostile ones are
