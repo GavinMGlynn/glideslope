@@ -229,14 +229,14 @@ are the risks the phase order is built around:
 
 ### CI's Windows builds keep a compiler cache, 2026-09-29 — tail still open
 
-**What is still missing, first**: windows-clang's warm build is not measured.
-MSVC's two builds are (below); clang-cl's compiles were 0% cacheable, then
-66% after the first fix, and the fix for the last third (SDL's `/clang:`
-option) is pushed but not yet seen on CI. The pull request still carries its
-temporary commits (saving its own Windows cache, and a clang-cl diagnostic
-step), to be dropped once clang-cl is measured. A pull request's Windows
-build is only as warm as main's last one (main's rule, below); the release
-package job (`package.yml`) still builds Windows without a cache.
+**What is still missing, first**: windows-clang has not been measured with
+nothing to compile. Its compiles are all cacheable now (792 of 792), and the
+one warm run it had (after its own cache, with SDL's flags changed since) hit
+525 of 792, every one outside SDL. The run that would show it all warm,
+f235f7d's (36570065355), had spent 28 minutes in windows-clang's configure
+when this was written - not yet explained. A pull request's Windows build is
+only as warm as main's last one (main's rule, below); the release package job
+(`package.yml`) still builds Windows without a cache.
 
 **What was wrong.** Linux and macOS kept a ccache and Windows kept nothing:
 each of windows-debug, windows-release and windows-clang compiled all 792
@@ -271,8 +271,8 @@ build steps took 15.0, 11.5 and 10.8 minutes, the jobs 17.4, 14.2 and 13.7.
   the commit, 500M a preset (a full build is 0.27 GB), and "Old caches pruned"
   keeps one entry of each Windows preset as it does the others.
 
-**Measured on CI** (this pull request, with a temporary commit - to be
-dropped - that lets it save its own cache):
+**Measured on CI** (this pull request, with a temporary commit - since
+dropped - that let it save its own cache):
 - Cold, run 36561782265 (nothing to restore): build steps 16.8 min (debug) and
   13.6 (release), jobs 19.4 and 16.6 - about two minutes more than without
   ccache, for the misses and /Z7's larger objects.
@@ -284,7 +284,15 @@ dropped - that lets it save its own cache):
   `ci_clang_cl_show_includes.cmake`, 526 of 792 cacheable and 266 not - SDL's
   `/clang:-fcomment-block-commands=threadsafety`, now preset off in CI with
   `-DHAVE_CLANG_COMMENT_BLOCK_COMMANDS=OFF`. Build step 12.8 min, job 15.7.
-  Warm: not yet measured.
+  Run 36568741887 (1bd8ee8), restoring that cache: **792 of 792 cacheable,
+  525 hits** - everything but SDL, whose flags had just changed; build step
+  2.5 min, job 6.0. Without @threadsafety, SDL's
+  -Wdocumentation-unknown-command then warned 265 times, so CI turns that
+  check off too (`-DHAVE_GCC_WDOCUMENTATION_UNKNOWN_COMMAND=OFF`; SDL's own
+  code, never an error). Fully warm: not yet measured.
+- The temporary commits (the pull request saving its own Windows cache, and
+  a step printing ccache's reasons for clang-cl) are dropped; the branch
+  saves nothing, as #57 says.
 
 ### CI keeps its caches: only main saves them, 2026-09-29 — tail still open
 
