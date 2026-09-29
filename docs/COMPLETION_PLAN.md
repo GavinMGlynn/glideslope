@@ -522,11 +522,14 @@ Found while implementing something else. Added when found, not when remembered.
       Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a
       headless client draws ten thousand frames, and its memory stays level.*
       Done 2026-09-26.
-- [ ] **An aeroplane left half a minute in a stall is recovered by the
-      autopilot, but most lose more height than their lesson allows**: the
-      B-2 is recovered now, in 921 ft against its 300, and nothing in the game
-      uses the recovery yet. *Verification: every aeroplane stalled and left
-      for thirty seconds is recovered within its lesson's height.*
+- [ ] **The autopilot's stall recovery, held to what a stall lesson can
+      ask of it** (decided 2026-09-30, REQUIREMENTS 4.3). Still missing: the
+      instructor's demonstration and the AI pilot do not use it, the A320 and
+      Mosquito pull out harder than 2 g, and nothing checks that engaging it
+      steps no control. *Verification: every aeroplane taught a stall is
+      recovered within 2 g both handed over at the first sign of the stall,
+      within its lesson's height with no exceptions, and left thirty seconds
+      in it, within a height worked out for it from its speed and sink.*
 - [x] **A client assumed the server's clock keeps real time**, and drew other
       aircraft from guesses when a slow server's clock ran behind. *Verification:
       against servers at 80%, 100% and 125% of real time, with jitter and loss,

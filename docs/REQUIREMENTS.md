@@ -189,6 +189,22 @@ class of aircraft, as a sequence of stages each with what to do and what to
 watch; the AI pilot (section 5) demonstrates a lesson and hands over, and a
 debrief says what to do differently. There is no score (`FEATURES.md`).
 
+**Stall recovery, decided 2026-09-30.** A stall lesson's height allowance is
+for recovering at the approach to the stall, and does not hold for an
+aeroplane left deep in one. So the autopilot's stall recovery is held to two
+things, for every aeroplane taught a stall, both within 2 g (the flaps-down
+limit load):
+- **at the first sign of the stall** - where the lesson's entry ends, which
+  the lesson's data sets - it recovers within the lesson's height, with no
+  aeroplane named as an exception;
+- **left thirty seconds in the stall** it recovers within a height worked out
+  for that aeroplane from how it was flying when handed over - the height its
+  speed and sink need to reach its recovery speed and stop sinking at the
+  load limit, by energy and kinematics, plus a stated margin - not a height
+  picked for it.
+
+The instructor's stall demonstration and the AI pilot fly the same recovery.
+
 ### Suggested layout (gearstick-style)
 
 ```
