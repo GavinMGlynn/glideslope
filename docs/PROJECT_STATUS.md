@@ -344,6 +344,45 @@ and the player flew two until the old one timed out.
   goodbye, repeated-handshake, four-players and document-client tests, the
   window client's five server tests, `--online`, and the port check.
 
+**From the re-review: the window client's proof is resent.** One sealed `PONG`
+from `ClientSession::connect` was all the window client sent before waiting
+for a state update, and the server now sends an unproven session nothing: had
+that `PONG` been lost, `Online::join` would have given up after ten seconds
+and said "flying alone" while the server let the session go.
+`ClientSession::poll` now seals a `PING` every `prove_every_s`, a quarter of a
+second, from its first call until anything has opened under the session, and
+stops then. PR #50 (the window client joining again) knocks once a second
+after a second of quiet; the two meet in `poll()` on its rebase. Held by
+`a_client_whose_first_sealed_datagram_is_lost_still_proves_its_session`
+(`tests/unit/test_session_over_a_socket.cpp`): a stand-in server answers the
+handshake, throws away the client's first sealed datagram, and waits on the
+client's own clock, stepped a hundredth of a second at a time, for another
+that opens - within two seconds of it - and then, once it has sealed
+something back, requires the knocking to stop (at most one more). Watched
+failing both ways: with the resend taken out ("the client sealed another ...
+within two seconds of its own clock"), and with the knocking never stopping
+("8 sealed after"). TRANSPORT.md now says a client keeps sealing until
+anything opens, that `LEAVING` from the server means dropped or taken over and
+is not sent to an unproven session, that answering `PING`s keeps a session
+only once it is proven, and names a client that loses every answer for a
+whole `--timeout` as not defended. THREATS.md says a replay needs no live
+capture, and that a steady flood of two or more replays per round trip locks
+a restart out, holding the slot and aircraft, for as long as it lasts - and
+why the cap of two is still the trade to make.
+
+CI run 36529359658 (the head before this) failed one test on one Linux debug
+shard: `the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back`,
+its guard that the aircraft was fast enough at a switch for the test to mean
+anything - "carried at 24.1 m/s", the floor 25. That is the test declining to
+count, not the step bound failing; it passed here (Linux release) and in every
+other shard, and nothing in this branch changes how fast an aircraft flies.
+It is left for the switch tests' owner, and named here rather than hidden.
+
+`tests/ci_costs` has the four new tests, from run 36529359658's shards where
+they ran; the unit test at a second, as its neighbours are; and, for the
+Windows shards still running when this was written, the same preset's cost of
+the test of the same shape (from-another-address, drop-keeps-out).
+
 ### A multi-process test's programs never die of a closed pipe, 2026-09-29 — tail done
 
 **The flake.** macOS release CI failed twice with a program killed by SIGPIPE

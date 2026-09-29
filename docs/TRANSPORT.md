@@ -180,20 +180,30 @@ ephemeral secret, cannot seal, and so takes nothing.
 **Until something sealed under it has opened, a session is sent nothing but
 its handshake answer** (and that answer again, for a resent initiation): no
 state updates, no `PING`s, no reliable messages. **So a client seals
-something at once**, before it waits to hear anything - this project's
-clients send a `PONG` nobody pinged for, which the server ignores, and
-inputs will do as well. A resent initiation does not count as hearing from a
-session, so one that seals nothing is let go `--timeout` after it was
-admitted, however often its initiation is resent. A key may have at most two
-such unproven sessions; a third lets the oldest go. The slot and the aircraft
-go with the key's last *proven* session, and any unproven one left on the key
-goes with them; an operator's drop lets go every session on the key. **On a full server** a new session for a key already in is refused
-`SERVER_FULL` like any other until the old one is let go: the server does
-not know whose initiation it is until it has done the asymmetric work it
-spares strangers when full.
+something at once, and keeps sealing something until anything opens under
+the session** - one sealed datagram may be lost, and the server will say
+nothing until one arrives. This project's clients send a `PONG` nobody
+pinged for as the handshake completes, which the server ignores; the
+command-line client sends inputs or a `PING` of its own after that, and
+`net::ClientSession` a sealed `PING` every quarter of a second until anything
+has opened. A resent initiation does not count as hearing from a session,
+so one that seals nothing is let go `--timeout` after it was admitted,
+however often its initiation is resent. A key may have at most two such
+unproven sessions; a third lets the oldest go. The slot and the aircraft go
+with the key's last *proven* session, and any unproven one left on the key
+goes with them; an operator's drop lets go every session on the key. **On a
+full server** a new session for a key already in is refused `SERVER_FULL`
+like any other until the old one is let go: the server does not know whose
+initiation it is until it has done the asymmetric work it spares strangers
+when full.
 
 A client sending the same initiation again must have it answered while the
-session it made is live, which is what resending until answered does. A
+session it made is live, which is what resending until answered does. **Not
+defended: a client that loses every answer for a whole `--timeout`.** Its
+resends are answered but, being copies, keep nothing alive; its session is
+let go `--timeout` after it was admitted, and a resend after that, from the
+same address, is dropped as a copy already taken. That client gives up
+waiting for an answer and must start again with a new initiation. A
 client whose session has gone and that wants another makes a new initiation,
 with a new ephemeral key. This project's clients mint a new one for every
 connection.
@@ -235,7 +245,9 @@ a session go when no datagram that opens under it has arrived for its
 or whose goodbye was lost. Either way its slot is free for somebody else, and
 its aircraft goes as the server's `--on-leave` says; any sealed datagram that
 opens counts as hearing from it, so a client sending inputs, or only answering
-the server's `PING`s, is kept.
+the server's `PING`s, is kept - once its session is proven. Until something
+sealed under it has opened, the server sends it no `PING`s to answer, and
+nothing else, not even a resent initiation, counts.
 
 ## How large a datagram is
 
@@ -649,8 +661,9 @@ knocking is the server's job: the server is the one deciding who has gone.
 
 A client sends `INPUTS`, `RELIABLE`, `PING`, `PONG` and `LEAVING`; the server
 sends `STATE`, `RELIABLE`, `PING`, `PONG`, and `LEAVING` to a player it drops
-(see "Leaving"), and ignores a `STATE` from a client. What the server does with a client's `RELIABLE` is under "Reliable
-messages" above.
+or whose session a newer one took over (see "Leaving"), and ignores a
+`STATE` from a client. What the server does with a client's `RELIABLE` is
+under "Reliable messages" above.
 
 ### Leaving: `LEAVING`
 
@@ -684,10 +697,13 @@ read. **If all three are lost**, the server's timeout lets the session go as
 it always did. So a client may leave the goodbye out altogether: it is let go
 all the same, only later, and its slot is held until then.
 
-**The server says goodbye too, when its operator drops a player.** It sends
-the same `LEAVING`, sealed under that player's session, three times, each
-sealed afresh, and lets the session go. A client that opens a `LEAVING` from
-the server has been dropped: it stops, and does not join again. The server
+**The server says goodbye too, when its operator drops a player, or when a
+newer session for the same key takes over.** It sends the same `LEAVING`,
+sealed under that session, three times, each sealed afresh, and lets the
+session go. A client that opens a `LEAVING` from the server has been dropped
+or taken over - it cannot tell which, and needs not: it stops, and does not
+join again. **A session that has never had anything open under it is sent
+no goodbye**, as it is sent nothing else; it is let go in silence. The server
 also remembers the dropped player's static key for the rest of its run and
 refuses any initiation from it with `DROPPED` (`07`), whatever address it
 comes from - so if all three goodbyes are lost, the client that joins again

@@ -127,6 +127,15 @@ private:
     std::vector<StatePacket> fresh_;
     Reliable reliable_;
     std::map<std::uint8_t, AircraftDefinition> roster_;
+    // **Until anything has opened under this session, it knocks**: a sealed
+    // `PING` every `prove_every_s` from the first `poll()`. A server sends a
+    // session nothing but its handshake answer until something sealed under
+    // it has opened (TRANSPORT.md), so a lost first datagram would otherwise
+    // leave both ends waiting on the other.
+    static constexpr double prove_every_s = 0.25;
+    bool opened_any_ = false;
+    std::optional<double> proved_at_s_;
+    std::uint64_t proving_token_ = 0;
 
     void read_what_arrived();
 };
