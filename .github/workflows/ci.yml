@@ -175,7 +175,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DBUILD=build/${{ matrix.preset }} -DCOSTS=tests/ci_costs/${{ matrix.preset }}.txt -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DJOBS=4 -DOUT=shard.txt -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" || rc=$?
           kill $xvfb
@@ -403,9 +403,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: macos-debug, shard: 1, of: 3 }
-          - { preset: macos-debug, shard: 2, of: 3 }
-          - { preset: macos-debug, shard: 3, of: 3 }
+          - { preset: macos-debug, shard: 1, of: 4 }
+          - { preset: macos-debug, shard: 2, of: 4 }
+          - { preset: macos-debug, shard: 3, of: 4 }
+          - { preset: macos-debug, shard: 4, of: 4 }
           - { preset: macos-release, shard: 1, of: 2 }
           - { preset: macos-release, shard: 2, of: 2 }
     steps:
@@ -422,7 +423,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DBUILD=build/${{ matrix.preset }} -DCOSTS=tests/ci_costs/${{ matrix.preset }}.txt -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DJOBS=3 -DOUT=shard.txt -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
           ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
@@ -565,7 +566,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
         run: |
-          cmake -DBUILD=build/${{ matrix.preset }} -DCOSTS=tests/ci_costs/${{ matrix.preset }}.txt -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DJOBS=4 -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
           ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt
 
       - name: The stack of every crash

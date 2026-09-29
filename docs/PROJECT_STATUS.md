@@ -227,11 +227,12 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### CI's test shards are dealt by what each test costs, 2026-09-27 — tail in progress
+### CI's test shards are dealt by what each test costs, 2026-09-29 — tail in progress
 
-**What is missing first.** The tail is ticked only on a CI run whose every
-shard's job finished under two thirds of its 30-minute limit, 20 minutes; the
-figures of the pull request's own run are below.
+**What is missing first.** The tail is ticked only on a CI run of this branch
+whose every test shard's job finished under two thirds of its 30-minute limit,
+20 minutes, with macOS debug no worse than about 16. The first run met the 20
+but not the 16; the second is below.
 
 **What was wrong.** Shard k of n ran every nth test from the kth
 (`ctest -I k,,n`), so the slow tests fell where their numbers put them. On
@@ -239,50 +240,69 @@ main's green run 36291751627 (2026-09-27) the Linux debug shards' jobs took
 18.9, 20.8, 23.1 and 26.3 minutes against 30 - and 27 min 43 s on another run -
 because the circuit lessons (838 s and 584 s), the three near-the-ceiling
 turns (569, 463, 451 s) and the low-downwind circuit (433 s) shared shards.
-Every other preset was under 20: Windows debug's worst 18.2, macOS debug's 17.5,
-Windows clang 12.9, Windows release 13.6, macOS release 8.4, Linux release 8.4.
-Rocky 9 runs the whole linux-release suite in its 60-minute job, 27.4 minutes
-with the build, and is left as it is.
+Windows debug's worst was 18.2, macOS debug's 17.5, Windows release 13.6,
+Windows clang 12.9, macOS release 8.4, Linux release 8.4. Rocky 9 runs the
+whole linux-release suite in its 60-minute job, 27.4 minutes with the build,
+and is left as it is.
 
-**What changed.** `tools/ci_shard.cmake` deals every test of a build to one of
-n shards, longest first, each to the shard with least work so far. A test that
-holds the runner - `RUN_SERIAL`, or `PROCESSORS` above one, read from ctest's
-own listing - weighs its time multiplied by what it holds. The costs are
-`tests/ci_costs/<preset>.txt`, each test's wall time on CI rounded up,
-measured from run 36291751627 by `tools/ci_test_costs.py RUN_ID`; a test not
-in the table counts 60 s and is named in the shard's log, so a new test is
-dealt somewhere and the table can be measured again. The script writes the
-shard's test numbers as ctest's `-I` file and the costs as ctest's
-`CTestCostData.txt`, so inside a shard the longest tests start first. Linux
-debug goes from four shards to seven; the others keep their counts.
+**What changed.** `tools/ci_shard.cmake -DPRESET= -DSHARD= -DOF= -DOUT=` deals
+every test of `build/PRESET` to one of OF shards, longest first, each to the
+shard with the least work so far, and writes the shard's test numbers as
+ctest's `-I` file and the costs as ctest's `CTestCostData.txt`, so inside a
+shard the longest tests start first.
 
-**Coverage is asserted.** Every shard of a preset deals the same list the same
-way; the script counts that every test was dealt exactly once and that no
-shard is empty, and fails the job if not. Seen failing: with one test dropped
-from the dealing, it stopped with "512 tests, but 511 dealt and 511 distinct".
-A fixture's setup is still pulled in by ctest wherever a test needs it.
+- The costs are `tests/ci_costs/<preset>.txt`, each test's wall time on CI
+  rounded up, the longest of main's green runs 36306798156 and 36302324581,
+  measured by `tools/ci_test_costs.py RUN_ID...`. A test not in the table
+  counts 60 s; each such test, and each name in the table that is no longer a
+  test, is a `::warning::` on the run's page, so the table is measured again.
+- A test that holds the runner - `RUN_SERIAL`, or `PROCESSORS` above one, from
+  ctest's own listing - weighs its time times what it holds. What it holds is
+  counted out of the test preset's `jobs`, read from `CMakePresets.json`, so
+  the workflow does not say it a second time.
+- **A fixture is dealt whole**: its setup and every test that needs it are one
+  unit weighing their sum. The first run dealt them apart, and ctest runs a
+  setup in every shard with a test needing it: the cockpit view, which the
+  other six views hold to, ran six times on Linux debug (about 830 s nobody
+  had counted) and five times per driver on Windows debug. A fixture whose
+  tests weigh more than half a shard's fair share - the downloads and the
+  model sources, seconds to set up and needed by a third of the suite - is
+  left to be set up again wherever it is needed, since dealt whole it would
+  be a shard's work in one lump. Two fixtures dealt whole that share a test
+  are one unit.
+- Linux debug has seven shards (was four) and macOS debug four (was three);
+  the others keep theirs.
 
-**Estimated worst shard per preset**, a list-scheduling simulation over the
-measured times (it predicted the old Linux debug worst at 26.1 min against
-25.2 measured, Windows debug's at 17.4 against 17.2), test step only; a job
-adds about a minute of setup:
+**Coverage is asserted, twice.** The dealing counts that every test was dealt
+exactly once and that no shard is empty, and fails the job if not; seen
+failing with one unit dropped from the dealing. And
+`every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once`
+(`tests/cmake/ci_shards.cmake`, about 12 s) reads the workflow's matrix, checks
+that each preset's rows are shards 1 to n once each, all saying "of: n", and
+that each test job deals with its own row's figures and hands the file to
+ctest; then, for all 7 presets and all 25 shards, deals this build's tests from
+that preset's table and reads the -I files back: every test in exactly one.
+Seen failing on each: a row naming shard 3 twice and no 4 ("the matrix has
+shards 1;2;3;3, not 1 to 4 once each"), a job dealing a fixed shard, a dealing
+that drops a unit, and -I files that leave out each shard's first test
+("576 tests, 569 dealt ... missing: 1;2;3;4;5;8;14").
 
-| preset | shards | worst, before | worst, estimated | two thirds of the limit |
-|---|---|---|---|---|
-| linux-debug | 4 → 7 | 25.2 | 14.0 (the circuit lesson alone) | 20 |
-| linux-release | 2 | 7.5 | 7.7 | 20 |
-| macos-debug | 3 | 16.3 | 13.4 | 20 |
-| macos-release | 2 | 7.3 | 7.5 | 20 |
-| windows-debug | 6 | 17.2 | 12.8 | 20 |
-| windows-release | 2 | 12.0 | 10.6 | 20 |
-| windows-clang | 2 | 11.7 | 11.7 | 20 |
+**The first run, 36299512726** (seven Linux debug shards, three macOS debug,
+fixtures dealt apart, costs from one run): green, and every job under 20
+minutes, but uneven - Linux debug 8.7 to 15.6 against equal predictions, the
+unaccounted cockpit views - and macOS debug's worst 17.6, no better than
+before. Job minutes, worst shard per preset: Linux debug 15.6, Linux release
+12.6, macOS debug 17.6, macOS release 7.8, Windows debug 16.6, Windows release
+13.9, Windows clang 12.8.
 
-The floor for Linux debug is its longest test, the circuit lesson flown by the
-book, 838 s here and about 980 s on a slower run: 16 min plus setup, still
-under 20. Splitting it would lower the floor, and is not needed for this.
+**The floor** for Linux debug is its longest test, the circuit lesson flown by
+the book: 838 s on one run and 1053 s on another, so a shard holding it takes
+at least 18 to 19 minutes with setup on a slow run. That is under 20 but not by
+much; splitting the circuit lesson would lower it, and is not done here.
 
 **Verification.** The pull request's own CI run: every test shard's job time
 against 20 minutes, below.
+
 
 ### What the client with the window shows does not step at a switch, 2026-09-27
 
