@@ -17,9 +17,11 @@
 //
 // **--stall** answers STATUS with a transfer under way that never ends: its
 // head, a Content-Length of a megabyte, and the first few bytes of the body,
-// and then nothing, the connection held open until /stop. At /stop each
-// transfer held is said to have been let go by the other end - closed or
-// reset - or to be still going.
+// and then nothing, the connection held open until /stop. It says, as each is
+// begun, that it is holding a transfer under way. Whether the other end let
+// it go is not said: by the time /stop is asked, the program that was sent it
+// has usually ended, and the system has closed its end whether it gave the
+// transfer up or not - how soon it ended is the test's to measure.
 //
 // Says on standard error how many requests it answered with STATUS, and how
 // many with FILE. Exits 0, or 2 on bad arguments or a socket it could not
@@ -40,7 +42,6 @@
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -94,26 +95,6 @@ void send_all(Socket client, const std::string& text) {
         }
         sent += static_cast<std::size_t>(n);
     }
-}
-
-// Whether the other end of a held transfer has let it go: it has closed or
-// reset the connection, which reads at once, where one still open has
-// nothing to read.
-bool let_go(Socket s) {
-    fd_set readable;
-    FD_ZERO(&readable);
-    FD_SET(s, &readable);
-    timeval now{};
-#ifdef _WIN32
-    const int ready = ::select(0, &readable, nullptr, nullptr, &now);
-#else
-    const int ready = ::select(s + 1, &readable, nullptr, nullptr, &now);
-#endif
-    if (ready <= 0) {
-        return false;
-    }
-    char byte = 0;
-    return ::recv(s, &byte, 1, 0) <= 0;
 }
 
 } // namespace
@@ -247,8 +228,6 @@ int main(int argc, char** argv) {
         }
     }
     for (const Socket s : held) {
-        std::fprintf(stderr, "glideslope_http_stub: a transfer held was %s\n",
-                     let_go(s) ? "let go" : "still going");
         close_socket(s);
     }
     close_socket(listening);
