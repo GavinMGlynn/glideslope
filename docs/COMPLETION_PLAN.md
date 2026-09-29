@@ -631,7 +631,8 @@ Found while implementing something else. Added when found, not when remembered.
       CI, a Windows build after a saved cache hits most of its compiles, and
       its build job's time is measured cold and warm.* MSVC's debug and
       release builds now hit 791 of 792 compiles and take 4 minutes;
-      clang-cl's warm build is not yet measured.
+      clang-cl's compiles are all cacheable, but its fully warm build is not
+      yet measured.
 - [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of
