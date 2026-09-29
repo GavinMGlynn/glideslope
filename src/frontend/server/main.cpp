@@ -24,6 +24,8 @@
 #include "net/sealing.hpp"
 #include "net/slots.hpp"
 #include "net/state.hpp"
+#include "copilot/planner.hpp"
+#include "copilot/provider.hpp"
 #include "platform/http.hpp"
 #include "platform/paths.hpp"
 #include "platform/socket.hpp"
@@ -31,6 +33,8 @@
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/crash.hpp"
+#include "sim/departure.hpp"
+#include "sim/lander.hpp"
 #include "sim/controller.hpp"
 #include "sim/navigator.hpp"
 #include "sim/fixed_step.hpp"
@@ -39,6 +43,7 @@
 #include "world/dem.hpp"
 #include "world/geodesy.hpp"
 #include "world/download.hpp"
+#include "world/runways.hpp"
 
 #include <algorithm>
 #include <array>
@@ -55,6 +60,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -101,12 +107,28 @@ struct Flown {
     double heading_deg = 0.0; // true; north unless given
 };
 
+// **Who plans an AI aircraft's flight**: a language model, asked with the
+// server owner's own key, or nobody - and then it flies the plan file.
+struct Planner {
+    std::string provider; // "openai" or "anthropic"; empty: none
+    std::string model;    // empty: the provider's own default
+    // A recording to play the answers back from instead of asking, for tests.
+    std::filesystem::path playback;
+};
+
 struct Options {
     int players = default_players;
     std::filesystem::path data;
     std::vector<Flown> fly;
     int ai = default_ai;
     std::filesystem::path plan;
+    // Which AI aircraft, numbered from 1, are planned by a model, and by which;
+    // and the task each is given to plan.
+    std::map<int, Planner> planners;
+    std::filesystem::path task;
+    // For a test: take this many steps as fast as they go, with nobody
+    // joining, and stop - simulated time, not the machine's.
+    long long steps = 0;
     // How long to run before stopping, or nothing to run until killed.
     double seconds = 0.0;
     std::uint16_t port = default_port;
@@ -160,6 +182,15 @@ void print_usage(std::FILE* out) {
         "                     the collision terrain wherever on Earth they are\n"
         "  --ai N             how many AI aircraft the server runs (default 4)\n"
         "  --plan FILE        the flight plan they fly (default plans/ in the data)\n"
+        "  --ai-planner N=WHO[:MODEL]  AI aircraft N, from 1, is planned by WHO:\n"
+        "                     'anthropic' or 'openai', asked with the server's own\n"
+        "                     key, or 'none', the plan file. A model with no key is\n"
+        "                     refused, said, and the aircraft flies the plan file.\n"
+        "                     May be given once for each AI aircraft\n"
+        "  --ai-task FILE     what the models are asked to plan (default\n"
+        "                     tasks/sydney-cbd-orbit.task in the data)\n"
+        "  --ai-playback N=FILE  AI aircraft N's model is not asked: its answers\n"
+        "                     are played back from FILE, a recording, for tests\n"
         "  --seconds N        stop after N seconds instead of running until killed\n"
         "  --until-empty      stop once every client that joined has gone and been\n"
         "                     let go - for a test, which then waits on its clients\n"
@@ -187,6 +218,8 @@ void print_usage(std::FILE* out) {
         "                     first time it is drawn, for tests\n"
         "  --drop-once-flown  drop the first player whose input has been flown, as\n"
         "                     the drop button would, for tests\n"
+        "  --steps N          take N steps as fast as they go, with nobody joining,\n"
+        "                     then stop - simulated time, for a test\n"
         "  --test-step-ms MS  make every step take at least MS milliseconds, so\n"
         "                     that a test can put the server behind real time\n"
         "  --dry-run          print the settings and exit without binding\n"
@@ -212,6 +245,29 @@ std::string wrong_with(const Options& o) {
     if (o.ai < 0 || o.ai > most_ai) {
         return "--ai is " + std::to_string(o.ai) + ", and a server runs 0 to " +
                std::to_string(most_ai) + " AI aircraft";
+    }
+    for (const auto& [n, p] : o.planners) {
+        if (n < 1 || n > o.ai) {
+            return "--ai-planner names AI aircraft " + std::to_string(n) + ", and there are " +
+                   std::to_string(o.ai) + ", numbered from 1";
+        }
+        if (p.provider.empty() && !p.playback.empty()) {
+            return "--ai-playback " + std::to_string(n) +
+                   " plays back a model's answers, and --ai-planner gives that aircraft none";
+        }
+    }
+    if (!o.task.empty() && std::none_of(o.planners.begin(), o.planners.end(), [](const auto& p) {
+            return !p.second.provider.empty();
+        })) {
+        return "--ai-task is what a model is asked to plan, and --ai-planner gives no AI "
+               "aircraft a model";
+    }
+    if (o.steps < 0) {
+        return "--steps is " + std::to_string(o.steps) + ", and a number of steps is not negative";
+    }
+    if (o.steps > 0 && (o.seconds > 0.0 || o.until_empty || o.window)) {
+        return "--steps runs with nobody joining and stops, so --seconds, --until-empty "
+               "and --window say nothing with it";
     }
     if (o.window && o.headless) {
         return "--window draws the dashboard in a window and --headless has none, "
@@ -377,6 +433,42 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         } else if (a == "--plan") {
             if (!next(value)) return std::nullopt;
             o.plan = std::filesystem::path(std::string(value));
+        } else if (a == "--ai-planner" || a == "--ai-playback") {
+            if (!next(value)) return std::nullopt;
+            const std::string spec(value);
+            const std::size_t equals = spec.find('=');
+            const auto n = whole(spec.substr(0, equals == std::string::npos ? 0 : equals));
+            if (!n || equals + 1 >= spec.size()) {
+                why = std::string(a) + " wants N=" +
+                      (a == "--ai-planner" ? "WHO[:MODEL]" : "FILE") + ", not '" + spec + "'";
+                return std::nullopt;
+            }
+            const int number = static_cast<int>(std::clamp<long long>(*n, -1000, 1000));
+            const std::string what = spec.substr(equals + 1);
+            if (a == "--ai-playback") {
+                o.planners[number].playback = std::filesystem::path(what);
+            } else {
+                const std::size_t colon = what.find(':');
+                const std::string who = what.substr(0, colon);
+                if (who != "anthropic" && who != "openai" && who != "none") {
+                    why = "--ai-planner wants anthropic, openai or none, not '" + who + "'";
+                    return std::nullopt;
+                }
+                Planner& p = o.planners[number];
+                p.provider = who == "none" ? std::string() : who;
+                p.model = colon == std::string::npos ? std::string() : what.substr(colon + 1);
+            }
+        } else if (a == "--ai-task") {
+            if (!next(value)) return std::nullopt;
+            o.task = std::filesystem::path(std::string(value));
+        } else if (a == "--steps") {
+            if (!next(value)) return std::nullopt;
+            const auto n = whole(value);
+            if (!n) {
+                why = "--steps wants a whole number, not '" + std::string(value) + "'";
+                return std::nullopt;
+            }
+            o.steps = *n;
         } else if (a == "--seconds") {
             if (!next(value)) return std::nullopt;
             const auto n = number(value);
@@ -467,6 +559,26 @@ void print_settings(const Options& o, std::FILE* out) {
     std::fprintf(out, "plan      %s\n",
                  o.plan.empty() ? "(the data's plans/sydney-harbour.plan)"
                                 : o.plan.string().c_str());
+    for (int n = 1; n <= o.ai; ++n) {
+        const auto p = o.planners.find(n);
+        if (p == o.planners.end() || p->second.provider.empty()) {
+            continue;
+        }
+        const std::string how = p->second.playback.empty()
+                                    ? ", asked with the server's key"
+                                    : ", played back from " + p->second.playback.string();
+        std::fprintf(out, "planner   AI %d by %s%s%s%s\n", n, p->second.provider.c_str(),
+                     p->second.model.empty() ? "" : ", ", p->second.model.c_str(), how.c_str());
+    }
+    if (std::any_of(o.planners.begin(), o.planners.end(),
+                    [](const auto& p) { return !p.second.provider.empty(); })) {
+        std::fprintf(out, "task      %s\n",
+                     o.task.empty() ? "(the data's tasks/sydney-cbd-orbit.task)"
+                                    : o.task.string().c_str());
+    }
+    if (o.steps > 0) {
+        std::fprintf(out, "steps     %lld, as fast as they go\n", o.steps);
+    }
     if (o.fly.empty()) {
         std::fprintf(out, "flying    (nothing by hand)\n");
     }
@@ -683,6 +795,69 @@ void send_sealed(glideslope::platform::UdpSocket& socket,
 // Feet in a metre, for putting an aircraft above the ground the DEM gives.
 constexpr double feet_per_metre = 3.280839895013123;
 
+// **How far apart in time AI aircraft planned to take off go**, simulated
+// seconds. Two planned by different models may well choose the same runway -
+// the CBD orbit's recordings both do - and two standing on one threshold
+// collide before either has moved. The second is not in the sky until then.
+constexpr double departure_spacing_s = 90.0;
+
+// **How a model's plan went**, for the end of the run to say: the take-off
+// handed over, and the orbit it last flew, how often round and how close.
+struct PlanProgress {
+    bool departing = false;
+    double handed_over_ft = -1.0; // above the runway; below nought: not yet
+    std::size_t leg = 0;
+    std::string orbit;
+    double turns = 0.0;
+    double nearest_m = 1e18;
+    double farthest_m = 0.0;
+    double lowest_ft = 1e18;
+    double highest_ft = -1e18;
+};
+
+// **A model's plan for an AI aircraft**, asked when the server starts, before
+// its clock does: the server owner's key, the task file's words, and the
+// airport's runways as OurAirports gives them. What comes back is only a
+// flight plan, checked (copilot/planner.hpp), and the autopilot flies it.
+// Throws copilot::ProviderError for a provider with no key - refused, not
+// faked - or for one whose plans were each refused.
+glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
+                                           const Planner& planner,
+                                           const glideslope::copilot::Task& task,
+                                           std::string& said_by) {
+    const glideslope::sim::CatalogueEntry entry =
+        glideslope::sim::find_aircraft(data, task.aircraft);
+    glideslope::copilot::PlanRequest request;
+    request.command = task.command;
+    request.aircraft = entry.id;
+    request.aircraft_name = entry.name;
+    request.climb_kts = glideslope::sim::departure_speeds(data, entry.model).climb_kts;
+    request.approach_kts = glideslope::sim::approach_speeds(data, entry.model).vref_kts;
+    request.cruise_kts = entry.start_airspeed_kts;
+    request.airport = task.airport;
+    const bool played_back = !planner.playback.empty();
+    const std::string key = played_back                    ? std::string()
+                            : planner.provider == "openai" ? glideslope::platform::openai_key()
+                                                           : glideslope::platform::anthropic_key();
+    // The key first: a provider that cannot be asked is refused before
+    // anything is fetched for it.
+    glideslope::copilot::Post post = played_back
+                                         ? glideslope::copilot::playback(planner.playback)
+                                         : glideslope::copilot::http_post();
+    const auto provider = glideslope::copilot::make_provider(planner.provider, key, planner.model,
+                                                             std::move(post), played_back);
+    request.runways = glideslope::world::runways_at(
+        glideslope::world::world_runways(glideslope::platform::cache_directory(),
+                                         glideslope::world::http_fetch()),
+        task.airport);
+    if (request.runways.empty()) {
+        throw glideslope::copilot::ProviderError("OurAirports has no runways at " +
+                                                 task.airport);
+    }
+    said_by = provider->name() + ", " + provider->model() + (played_back ? ", played back" : "");
+    return glideslope::copilot::plan_from_words(*provider, request);
+}
+
 // **The aircraft the server flies, and the ground under them.** One `Dem`
 // serves them all: it caches tiles as it goes, so two aircraft on opposite
 // sides of the world each pull their own and neither waits for the other's.
@@ -691,7 +866,8 @@ constexpr double feet_per_metre = 3.280839895013123;
 class Fleet {
 public:
     Fleet(const std::filesystem::path& data, const std::vector<Flown>& fly, int ai,
-          const std::filesystem::path& plan_file)
+          const std::filesystem::path& plan_file, const std::map<int, Planner>& planners,
+          const std::filesystem::path& task_file)
         : coverage_(read_coverage(data)),
           fetch_(glideslope::world::http_fetch()),
           tiles_(glideslope::platform::cache_directory(), fetch_),
@@ -780,7 +956,60 @@ public:
                               plan.waypoints[1].longitude_deg)
                         : 0.0;
             }
+            // **Each AI aircraft's planner**, if the server gave it one: the
+            // task, asked of that model. Asked here, before the clock starts,
+            // so nothing waits on a model while aircraft are flying.
+            std::optional<glideslope::copilot::Task> task;
+            int departures = 0;
             for (int i = 0; i < ai; ++i) {
+                const auto planner = planners.find(i + 1);
+                if (planner == planners.end() || planner->second.provider.empty()) {
+                    continue;
+                }
+                const std::string name = "AI " + std::to_string(i + 1);
+                try {
+                    if (!task) {
+                        const std::filesystem::path task_at =
+                            task_file.empty() ? data / "tasks" / "sydney-cbd-orbit.task"
+                                              : task_file;
+                        std::ifstream task_in(task_at, std::ios::binary);
+                        if (!task_in) {
+                            throw std::runtime_error("cannot read the task " + task_at.string());
+                        }
+                        task = glideslope::copilot::parse_task(
+                            std::string(std::istreambuf_iterator<char>(task_in), {}));
+                        std::printf("the task: %s, a %s at %s\n", task->command.c_str(),
+                                    task->aircraft.c_str(), task->airport.c_str());
+                    }
+                    std::string by;
+                    const glideslope::copilot::Planned planned =
+                        plan_by_model(data, planner->second, *task, by);
+                    std::printf("%s planned by %s, in %d answer%s\n", name.c_str(), by.c_str(),
+                                planned.attempts, planned.attempts == 1 ? "" : "s");
+                    for (const std::string& why : planned.refused) {
+                        std::printf("%s refused an answer: %s\n", name.c_str(), why.c_str());
+                    }
+                    std::istringstream lines(planned.text);
+                    for (std::string line; std::getline(lines, line);) {
+                        std::printf("%s plan: %s\n", name.c_str(), line.c_str());
+                    }
+                    std::fflush(stdout);
+                    add_planned(i, planned.plan, planner->second.provider, departures);
+                } catch (const glideslope::copilot::ProviderError& e) {
+                    // **Refused, and said**: the aircraft flies the plan
+                    // file, as one given no planner does.
+                    std::printf("%s: %s is refused: %s; it flies the plan file instead\n",
+                                name.c_str(), planner->second.provider.c_str(), e.what());
+                    std::fflush(stdout);
+                }
+            }
+            for (int i = 0; i < ai; ++i) {
+                if (std::any_of(waiting_.begin(), waiting_.end(),
+                                [&](const Aircraft& w) { return w.ai_number == i + 1; }) ||
+                    std::any_of(flown_.begin(), flown_.end(),
+                                [&](const Aircraft& w) { return w.ai_number == i + 1; })) {
+                    continue;
+                }
                 auto aircraft = std::make_unique<glideslope::sim::Aircraft>(
                     data / "jsbsim", entry.model);
                 aircraft->set_terrain(ground);
@@ -804,6 +1033,7 @@ public:
                 flown_.back().catalogue_id = plan.aircraft;
                 flown_.back().model = entry.model;
                 flown_.back().on_plan = true;
+                flown_.back().ai_number = i + 1;
                 ++ai_;
             }
             // Kept so that a player joining later starts where the AI did,
@@ -965,6 +1195,20 @@ public:
         const double now_s =
             static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
         std::vector<std::string> happened;
+        // **A planned aircraft whose turn to depart has come** is put on its
+        // runway, under the lowest number free.
+        for (auto it = waiting_.begin(); it != waiting_.end();) {
+            const std::optional<std::uint8_t> number = free_number();
+            if (it->departs_at_s > now_s || !number) {
+                ++it;
+                continue;
+            }
+            it->index = *number;
+            happened.push_back("aircraft " + std::to_string(it->index) + ", " + it->id +
+                               ", takes off from " + it->own_plan->takeoff->runway.name);
+            flown_.push_back(std::move(*it));
+            it = waiting_.erase(it);
+        }
         for (Aircraft& a : flown_) {
             if (a.wrecked_at_s >= 0.0) {
                 if (now_s - a.wrecked_at_s >= wreck_s) {
@@ -992,6 +1236,9 @@ public:
                 std::max(a.most_roll_deg, std::abs(a.aircraft->state().roll_deg));
             if (const auto why = a.judge.judge(*a.aircraft)) {
                 wreck(a, now_s, *why, happened);
+            }
+            if (a.own_plan && a.on_plan) {
+                follow(a);
             }
         }
         // Every two still flying, closer than the mean of their wingspans.
@@ -1056,6 +1303,17 @@ public:
         // Flying the server's plan, as an AI aircraft does; otherwise an
         // aircraft with a controller holds the course it started on.
         bool on_plan = false;
+        // Which AI aircraft it was made as, from 1; 0 for any other.
+        int ai_number = 0;
+        // **Its own plan, a model's**, flown instead of the server's, and
+        // which model planned it; and, planned to take off, when it does, on
+        // the simulation's clock.
+        std::optional<glideslope::sim::FlightPlan> own_plan{};
+        std::string planned_by{};
+        double departs_at_s = 0.0;
+        glideslope::sim::DepartureSpeeds departure{};
+        // How its plan went, for the end of the run to say.
+        PlanProgress progress{};
     };
 
     // Whether an AI pilot has it, rather than a person - a controller of its
@@ -1190,9 +1448,153 @@ public:
         return std::nullopt;
     }
     int ai() const { return ai_; }
+    const std::vector<Aircraft>& waiting() const { return waiting_; }
+
+    // **How a model's plan went**, in a line, or empty for an aircraft not
+    // flying one. Heights are above sea level, as the plan's are.
+    static std::string progress_of(const Aircraft& a) {
+        if (!a.own_plan) {
+            return {};
+        }
+        const PlanProgress& p = a.progress;
+        char line[512];
+        std::string out = "planned by " + a.planned_by;
+        if (p.handed_over_ft >= 0.0) {
+            std::snprintf(line, sizeof line, "; took off from %s, handed over %.0f ft above it",
+                          a.own_plan->takeoff->runway.name.c_str(), p.handed_over_ft);
+            out += line;
+        }
+        if (!p.orbit.empty() && p.farthest_m > 0.0) {
+            std::snprintf(line, sizeof line,
+                          "; round %s %.2f turns, %.0f to %.0f m from its centre, at %.0f to "
+                          "%.0f ft",
+                          p.orbit.c_str(), p.turns, p.nearest_m, p.farthest_m, p.lowest_ft,
+                          p.highest_ft);
+            out += line;
+        }
+        return out;
+    }
     int tiles_fetched() const { return tiles_.downloads(); }
 
 private:
+    // **An AI aircraft flying a model's plan**, standing on the runway the
+    // plan takes off from - its height the DEM's at the threshold, which is
+    // what it stands on - and departing `departure_spacing_s` after the one
+    // planned before it. The plan's heights are above sea level; the
+    // aircraft's are above the ellipsoid, so the geoid is added. **Stacked**
+    // as the plan file's aircraft are: the n-th planned flies its plan
+    // `ai_stack_ft` higher than the one before, so that two models' orbits
+    // of one place are not flown in one piece of sky.
+    void add_planned(int i, glideslope::sim::FlightPlan plan, const std::string& provider,
+                     int& departures) {
+        const glideslope::sim::CatalogueEntry entry =
+            glideslope::sim::find_aircraft(data_, plan.aircraft);
+        const double stack_ft = static_cast<double>(departures) * ai_stack_ft;
+        for (glideslope::sim::Waypoint& w : plan.waypoints) {
+            w.altitude_ft += stack_ft +
+                             geoid_.undulation(w.latitude_deg, w.longitude_deg) * feet_per_metre;
+        }
+        auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data_ / "jsbsim", entry.model);
+        aircraft->set_terrain(ground_);
+        glideslope::sim::InitialConditions ic;
+        if (plan.takeoff) {
+            glideslope::sim::Runway& runway = plan.takeoff->runway;
+            runway.elevation_ft =
+                dem_->height_above_ellipsoid(runway.threshold_lat_deg, runway.threshold_lon_deg) *
+                feet_per_metre;
+            ic.latitude_deg = runway.threshold_lat_deg;
+            ic.longitude_deg = runway.threshold_lon_deg;
+            ic.altitude_ft = runway.elevation_ft;
+            ic.terrain_elevation_ft = runway.elevation_ft;
+            ic.heading_deg = runway.heading_deg;
+            ic.airspeed_kts = 0.0;
+            ic.gear = 1.0;
+        } else {
+            // A plan checked by the planner always takes off; one that did
+            // not would start at its first waypoint, as the plan file's do.
+            const glideslope::sim::Waypoint& first = plan.waypoints.front();
+            ic.latitude_deg = first.latitude_deg;
+            ic.longitude_deg = first.longitude_deg;
+            ic.altitude_ft = first.altitude_ft;
+            ic.airspeed_kts = first.airspeed_kts;
+            ic.gear = 0.0;
+        }
+        ic.engine_running = true;
+        aircraft->initialize(ic);
+        Aircraft a{plan.aircraft + " (AI " + std::to_string(i + 1) + ", " + provider + "'s plan)",
+                   std::move(aircraft), nullptr, 0, -1, {}};
+        remember_start(a, ic, entry.seaplane);
+        a.catalogue_id = plan.aircraft;
+        a.model = entry.model;
+        a.on_plan = true;
+        a.ai_number = i + 1;
+        a.planned_by = provider;
+        a.departure = glideslope::sim::departure_speeds(data_, entry.model);
+        a.departs_at_s = static_cast<double>(departures) * departure_spacing_s;
+        a.own_plan = std::move(plan);
+        a.controller =
+            std::make_unique<glideslope::sim::Controller>(*a.aircraft, glideslope::sim::Controls{});
+        fly_plan(a);
+        ++departures;
+        ++ai_;
+        waiting_.push_back(std::move(a));
+    }
+
+    // **Its plan given to its AI pilot** from the beginning: its own, taking
+    // off if it does, or the server's.
+    void fly_plan(Aircraft& a) {
+        a.progress = {};
+        if (!a.own_plan) {
+            a.controller->to_ai(plan_);
+        } else if (a.own_plan->takeoff) {
+            a.controller->to_ai_flying(*a.own_plan, a.departure);
+            a.progress.departing = true;
+        } else {
+            a.controller->to_ai(*a.own_plan);
+        }
+    }
+
+    // **How its plan is going**, a step at a time: when the take-off
+    // autopilot hands over, and how round an orbit is flown once on its
+    // circle - after the quarter turn joining it.
+    void follow(Aircraft& a) {
+        PlanProgress& p = a.progress;
+        const glideslope::sim::AircraftState s = a.aircraft->state();
+        if (p.departing && a.controller->departure() == nullptr) {
+            p.departing = false;
+            p.handed_over_ft = s.altitude_ft - a.own_plan->takeoff->runway.elevation_ft;
+        }
+        const glideslope::sim::Navigator* navigator = a.controller->navigator();
+        if (p.departing || navigator == nullptr || navigator->finished()) {
+            return;
+        }
+        const std::vector<glideslope::sim::Waypoint>& legs = a.own_plan->waypoints;
+        if (navigator->next() >= legs.size()) {
+            return;
+        }
+        const glideslope::sim::Waypoint& to = legs[navigator->next()];
+        if (!to.orbit || !navigator->circling() || navigator->turns_flown() < 0.25) {
+            return;
+        }
+        if (p.orbit != to.name || p.leg != navigator->next()) {
+            const double handed_over_ft = p.handed_over_ft;
+            p = {};
+            p.handed_over_ft = handed_over_ft;
+            p.leg = navigator->next();
+            p.orbit = to.name;
+        }
+        const double d =
+            glideslope::sim::distance_m(s.latitude_deg, s.longitude_deg, to.latitude_deg,
+                                        to.longitude_deg);
+        const double ft =
+            s.altitude_ft - geoid_.undulation(s.latitude_deg, s.longitude_deg) * feet_per_metre;
+        p.turns = navigator->turns_flown();
+        p.nearest_m = std::min(p.nearest_m, d);
+        p.farthest_m = std::max(p.farthest_m, d);
+        p.lowest_ft = std::min(p.lowest_ft, ft);
+        p.highest_ft = std::max(p.highest_ft, ft);
+    }
+
     void remember_start(Aircraft& a, const glideslope::sim::InitialConditions& ic,
                         bool alights_on_water) {
         a.start = ic;
@@ -1228,7 +1630,7 @@ private:
         if (a.on_plan) {
             a.controller = std::make_unique<glideslope::sim::Controller>(
                 *a.aircraft, glideslope::sim::Controls{});
-            a.controller->to_ai(plan_);
+            fly_plan(a);
         } else if (ai_flying(a)) {
             hold_course(a);
         } else {
@@ -1272,6 +1674,8 @@ private:
     std::shared_ptr<glideslope::sim::FunctionTerrain> ground_;
     std::filesystem::path data_;
     std::vector<Aircraft> flown_;
+    // AI aircraft planned to take off whose turn has not come: not in the sky.
+    std::vector<Aircraft> waiting_;
     // Where a player joining starts, and in what.
     glideslope::sim::FlightPlan::Start start_;
     glideslope::sim::FlightPlan plan_;
@@ -2059,7 +2463,7 @@ int run(const Options& o) {
     // so it is not built at all when there is nothing to fly.
     std::optional<Fleet> fleet;
     if (!o.fly.empty() || o.ai > 0) {
-        fleet.emplace(o.data, o.fly, o.ai, o.plan);
+        fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task);
     }
 
     std::printf("listening on port %u\n", static_cast<unsigned>(socket->port()));
@@ -2086,7 +2490,9 @@ int run(const Options& o) {
     double drawn_at_s = -1.0;
     // A datagram is at most this; anything larger is not one of ours.
     std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
-    for (;;) {
+    // **Simulated time, as fast as it goes** (`--steps`): nobody joins, and
+    // the steps are taken as the owed steps below are.
+    for (; o.steps == 0;) {
         // **Everything waiting is read on every pass**, up to a stated most.
         // One datagram a pass was 27 a second from a server behind real time
         // - four steps a pass - against four clients sending 120: the rest
@@ -2368,8 +2774,13 @@ int run(const Options& o) {
     // what it says it flew below is the time it was given, however far behind
     // a busy machine left it.
     if (fleet) {
-        std::printf("was %lld step%s behind at the end\n", static_cast<long long>(owed),
-                    owed == 1 ? "" : "s");
+        if (o.steps > 0) {
+            owed = o.steps;
+            std::printf("taking %lld steps as fast as they go\n", static_cast<long long>(owed));
+        } else {
+            std::printf("was %lld step%s behind at the end\n", static_cast<long long>(owed),
+                        owed == 1 ? "" : "s");
+        }
         for (; owed > 0; --owed) {
             for (const std::string& line : fleet->step()) {
                 std::printf("%s\n", line.c_str());
@@ -2401,6 +2812,13 @@ int run(const Options& o) {
                         a.slot >= 0 ? "a player's"
                                     : (a.on_plan ? "an AI's" : "held on its course"),
                         a.most_roll_deg);
+            if (const std::string went = Fleet::progress_of(a); !went.empty()) {
+                std::printf("  %s\n", went.c_str());
+            }
+        }
+        for (const Fleet::Aircraft& a : fleet->waiting()) {
+            std::printf("flew %s: not yet, still waiting its turn to take off at %.0f s\n",
+                        a.id.c_str(), a.departs_at_s);
         }
         std::printf("ran %d AI aircraft\n", fleet->ai());
         std::printf("fetched %d terrain tile%s\n", fleet->tiles_fetched(),

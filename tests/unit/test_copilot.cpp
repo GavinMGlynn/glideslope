@@ -377,3 +377,36 @@ GLIDESLOPE_TEST(a_plan_from_words_is_checked_and_refused_back_to_the_model_until
               std::string("three answers, each refused, and said so: ") + e.what());
     }
 }
+
+GLIDESLOPE_TEST(a_task_file_names_its_aircraft_airport_and_words_and_anything_else_is_refused) {
+    // The server's own, as committed.
+    std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_PROJECT_DIR) / "assets" / "tasks" /
+                         "sydney-cbd-orbit.task",
+                     std::ios::binary);
+    check(static_cast<bool>(in), "the committed task is there to read");
+    const glideslope::copilot::Task task =
+        glideslope::copilot::parse_task(std::string(std::istreambuf_iterator<char>(in), {}));
+    check(task.aircraft == "c172p" && task.airport == "YSSY" &&
+              task.command == "take off, climb to 3,000 ft and orbit the CBD",
+          "the committed task reads as the words the recordings were asked: " + task.command);
+    // Each way of being wrong, each refused: an unknown line, a key with no
+    // value, and each of the three missing.
+    const std::vector<std::string> wrong{
+        "aircraft c172p\nairport YSSY\ntask go\nfly left\n",
+        "aircraft c172p\nairport\ntask go\n",
+        "airport YSSY\ntask go\n",
+        "aircraft c172p\ntask go\n",
+        "aircraft c172p\nairport YSSY\n",
+    };
+    std::size_t refused = 0;
+    for (const std::string& text : wrong) {
+        try {
+            (void)glideslope::copilot::parse_task(text);
+            fail("a task was read from: " + text);
+        } catch (const ProviderError&) {
+            ++refused;
+        }
+    }
+    check(refused == wrong.size(), "every wrong task refused: " + std::to_string(refused) +
+                                       " of " + std::to_string(wrong.size()));
+}

@@ -327,11 +327,13 @@ ends in a debrief, never a score.
       chosen per aircraft by the server or when an aircraft is handed to the
       AI, each with its owner's key. *Verification: one scenario is planned
       and flown with each provider from its recorded answers, in CI without a
-      key; a provider without a key is refused, not faked.* Missing: the
-      choice itself - no server setting or hand-over picks a provider for an
-      aircraft yet; only `glideslope_cli plan` does. The CBD scenario already
-      replays from each provider in CI, and a provider with no key is
-      refused.
+      key; a provider without a key is refused, not faked.* **Missing: the
+      choice when an aircraft is handed to the AI** - one handed over in the
+      air still flies the server's plan or holds its course, because a plan
+      for an aircraft already flying needs a new request, and new recordings.
+      The server's choice is done: each AI aircraft may be planned by Claude,
+      ChatGPT or none, and CI flies one of each from its recording; a model
+      with no key is refused and the aircraft flies the plan file.
 - [ ] **Reinforcement-learning agents** (stretch goal). *Verification: an agent
       trained through JSBSim's gym-style wrappers lands within stated limits.*
 
