@@ -6,7 +6,8 @@
 #   2. The linux-debug build, incrementally, where there is one: warnings are
 #      errors, so a build is most of what a compiler can say.
 #   3. The quick tests: every test ctest last measured under five seconds,
-#      from its own cost data - a list nobody has to keep.
+#      from its own cost data - a list nobody has to keep - and never one
+#      labelled live, which asks a language model and costs money.
 #   4. A reminder, not a refusal: code for Windows or Apple is compiled by
 #      tools/windows_build.sh before it is pushed (CLAUDE.md).
 #
@@ -54,7 +55,10 @@ costs="build/linux-debug/Testing/Temporary/CTestCostData.txt"
 if [[ -f "$costs" ]]; then
     quick="$(awk '/^---/ { exit } NF >= 3 && $3 + 0 < 5 { printf "%s^%s$", sep, $1; sep = "|" }' "$costs")"
     if [[ -n "$quick" ]]; then
-        if ! ctest --preset linux-debug -j8 -R "$quick" > /tmp/glideslope-pre-push-tests.log 2>&1; then
+        # Never a live model call (label live): it costs money, and a skipped
+        # one measures as quick. GLIDESLOPE_LIVE_MODEL is dropped as well.
+        if ! env -u GLIDESLOPE_LIVE_MODEL ctest --preset linux-debug -j8 -R "$quick" -LE live \
+                > /tmp/glideslope-pre-push-tests.log 2>&1; then
             grep -E 'Failed|\*\*\*' /tmp/glideslope-pre-push-tests.log >&2
             echo "pre-push: a quick test fails (log in /tmp/glideslope-pre-push-tests.log)" >&2
             exit 1

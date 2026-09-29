@@ -1887,7 +1887,8 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server)
 # **A flight plan that takes off and orbits is flown over the DEM** by
 # glideslope_cli fly-plan, from a plan written by hand; and **a command in
 # words becomes such a plan**, asked of each language model. Asked now, with
-# its owner's key, it is recorded - skipped, saying so, with none; played back
+# its owner's key and only with GLIDESLOPE_LIVE_MODEL=1 set (labelled live,
+# for it costs money), it is recorded - skipped, saying so, otherwise; played back
 # from the recording committed in data/copilot, it needs no key and CI flies
 # it. Each is asked its provider's cheapest model that plans it well: a
 # recording holds the model, and plays back only to the same request. See
@@ -1912,7 +1913,7 @@ foreach(_pair openai:gpt-5.4-mini-2026-03-17 anthropic:claude-haiku-4-5-20251001
             -DRECORD=${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider}/cbd-orbit-${_provider}.jsonl
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli_plan_flown.cmake)
     set_tests_properties(take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_${_provider}_now_and_flown
-        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads LABELS live)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider})
     add_test(NAME take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_${_provider}_as_recorded_and_flown
         COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
