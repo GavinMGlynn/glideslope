@@ -73,11 +73,12 @@ env:
 # a step against the wall clock under a sanitizer):
 #   - A pull request: every preset builds and tests, except that the debug
 #     presets leave out LABELS timing (tests/CMakeLists.txt says why); the
-#     release presets run it.
+#     release presets run it. The debug presets leave it out every night too,
+#     until the window client's test mode runs on a simulated frame clock.
 #   - A push to main, after a merge: the builds only - the tree was tested
 #     before it merged, since main takes a branch only when it is up to date -
 #     which keeps main's caches warm for the pull requests that restore them.
-#   - Every night (schedule): everything, every label, every preset.
+#   - Every night (schedule): everything, every preset, timing in release.
 #
 # **Every preset runs somewhere.** The Linux presets on Ubuntu (both) and Rocky 9
 # (release), the macOS presets on macOS, the Windows presets on Windows. A
@@ -225,7 +226,7 @@ jobs:
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} ${{ endsWith(matrix.preset, '-debug') && github.event_name == 'pull_request' && '-LE timing' || '' }} -I "$PWD/shard.txt" || rc=$?
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }} || rc=$?
           kill $xvfb
           exit $rc
       # Every frame the tests wrote, to look at.
@@ -537,7 +538,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
-          ctest --preset ${{ matrix.preset }} ${{ endsWith(matrix.preset, '-debug') && github.event_name == 'pull_request' && '-LE timing' || '' }} -I "$PWD/shard.txt"
+          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
@@ -765,7 +766,7 @@ jobs:
         shell: cmd
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
-          ctest --preset ${{ matrix.preset }} ${{ endsWith(matrix.preset, '-debug') && github.event_name == 'pull_request' && '-LE timing' || '' }} -I %CD%\shard.txt
+          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
 
       - name: The stack of every crash
         if: ${{ failure() }}
@@ -962,4 +963,5 @@ jobs:
           # before it merged): a job skipped there is a pass too.
           echo "$NEEDS" | jq -e --arg event "${{ github.event_name }}" 'to_entries | all(.[];
               .value.result == "success"
-              or (.value.result == "skipped" and (.key == "package" or $event == "push")))' > /dev/null
+              or (.value.result == "skipped" and (.key == "package" or ($event == "push"
+                  and (.key | IN("ubuntu-test", "macos-test", "windows-test", "server-image"))))))' > /dev/null
