@@ -17,9 +17,9 @@ concurrency:
 #
 # Likewise the tests that read downloaded data - DEM tiles, the geoid - skip
 # without the network, and here must not. The downloads are kept between runs
-# in .downloads, keyed on the list that pins them: one copy for every platform
-# (enableCrossOsArchive), without the Cesium tile caches the tests write
-# there, which are theirs and not pinned.
+# in .downloads, keyed on the list that pins them and the run that saved them:
+# one copy for every platform (enableCrossOsArchive), without the Cesium tile
+# caches the tests write there, which are theirs and not pinned.
 #
 # Cesium Native's dependencies are built by vcpkg (cmake/Vcpkg.cmake), and
 # vcpkg's binary cache is kept between runs in .vcpkg-archives, keyed on
@@ -177,10 +177,13 @@ jobs:
       - uses: actions/cache/restore@v6
         with:
           path: |
-            .downloads
+            .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
           enableCrossOsArchive: true
       - uses: actions/download-artifact@v8
         with: { name: 'tree-ubuntu-${{ matrix.preset }}' }
@@ -201,10 +204,10 @@ jobs:
         if: ${{ !cancelled() && github.event_name != 'pull_request' }}
         with:
           path: |
-            .downloads
+            .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
 
   # ---------------------------------------------------------------------------
@@ -258,7 +261,7 @@ jobs:
             libusb1-devel mesa-vulkan-drivers vulkan-loader \
             xorg-x11-server-Xvfb \
             nasm make perl-IPC-Cmd perl-FindBin perl-File-Compare perl-File-Copy \
-            perl-Time-Piece zip unzip tar pkgconf-pkg-config kernel-headers
+            perl-Time-Piece zip unzip tar zstd pkgconf-pkg-config kernel-headers
 
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -266,10 +269,13 @@ jobs:
       - uses: actions/cache/restore@v6
         with:
           path: |
-            .downloads
+            .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
           enableCrossOsArchive: true
 
       # **The compiler gate against a real old compiler**, not a described one.
@@ -349,10 +355,10 @@ jobs:
         if: ${{ !cancelled() && github.event_name != 'pull_request' }}
         with:
           path: |
-            .downloads
+            .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
 
   # ---------------------------------------------------------------------------
@@ -451,10 +457,13 @@ jobs:
       - uses: actions/cache/restore@v6
         with:
           path: |
-            .downloads
+            .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
           enableCrossOsArchive: true
       - uses: actions/download-artifact@v8
         with: { name: 'tree-macos-${{ matrix.preset }}' }
@@ -471,10 +480,10 @@ jobs:
         if: ${{ !cancelled() && github.event_name != 'pull_request' }}
         with:
           path: |
-            .downloads
+            .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
 
   # ---------------------------------------------------------------------------
@@ -585,10 +594,13 @@ jobs:
       - uses: actions/cache/restore@v6
         with:
           path: |
-            .downloads
+            .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
           enableCrossOsArchive: true
       - uses: actions/download-artifact@v8
         with: { name: 'tree-windows-${{ matrix.preset }}' }
@@ -649,10 +661,10 @@ jobs:
         if: ${{ !cancelled() && github.event_name != 'pull_request' }}
         with:
           path: |
-            .downloads
+            .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
 
   # ---------------------------------------------------------------------------
@@ -752,22 +764,18 @@ jobs:
     uses: ./.github/workflows/package.yml
 
   # ---------------------------------------------------------------------------
-  # **CI passed**: every job above, green. It is the one check main's
-  # protection asks for, so that a job added, renamed or split into shards is
-  # covered without the protection being edited to name it.
-  # ---------------------------------------------------------------------------
-  # **Main keeps one compile cache per preset, not one per commit.** Each
-  # build on main saves its ccache under the commit it built, and the
-  # repository's caches share 10 GB: left to pile up, older entries crowded
-  # out the ones every pull request restores from, and builds compiled
-  # everything from nothing (0% hits). Pull requests save no caches at all -
-  # nothing else could read them. Once main's builds have saved theirs, every
-  # older ccache entry on main goes.
+  # **Main keeps one cache of each kind, not one per commit.** Each build on
+  # main saves its ccache under the commit it built, and each test job saves
+  # the downloads under the run; the repository's caches share 10 GB, and left
+  # to pile up, older entries crowded out the ones every pull request restores
+  # from, so builds compiled everything from nothing (0% hits). Once this
+  # run's entry of a kind is there, every older entry of that kind on main
+  # goes; a kind whose save failed (a warning, not a red job) keeps what it
+  # had.
   prune-caches:
     name: Old caches pruned
-    # Only when every build saved its cache: a failed one saved nothing to keep.
-    if: ${{ github.event_name == 'push' }}
-    needs: [ubuntu-build, rocky, macos-build]
+    if: ${{ !cancelled() && github.event_name == 'push' }}
+    needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, windows-test]
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -775,16 +783,31 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: Delete ccache entries of earlier commits
+      - name: Delete main's entries older than this run's, kind by kind
         run: |
-          gh cache list --ref refs/heads/main --limit 200 --json key --jq '.[].key' \
-            | grep '^ccache-' | grep -v -- '-${{ github.sha }}$' \
-            | while read -r key; do
-                echo "deleting $key"; gh cache delete "$key" --ref refs/heads/main || true
-              done
-          gh cache list --limit 200 --json key,sizeInBytes,ref \
+          keys=$(gh cache list --ref refs/heads/main --limit 500 --json key --jq '.[].key')
+          prune() {  # prune PREFIX NEWEST: delete PREFIX* but NEWEST, if NEWEST is there
+            if ! grep -qxF -- "$2" <<< "$keys"; then
+              echo "keeping every $1 entry: this run's $2 is not there"; return
+            fi
+            grep -- "^$1" <<< "$keys" | grep -vxF -- "$2" | while read -r key; do
+              echo "deleting $key"; gh cache delete "$key" --ref refs/heads/main || true
+            done
+          }
+          for p in ubuntu-linux-debug ubuntu-linux-release rocky9-linux-release \
+                   macos-macos-debug macos-macos-release; do
+            prune "ccache-$p-" "ccache-$p-${{ github.sha }}"
+          done
+          newest=$(grep '^downloads-.*-${{ github.run_id }}$' <<< "$keys" | head -1)
+          [[ -n "$newest" ]] && prune downloads- "$newest" \
+            || echo "keeping every downloads entry: this run saved none"
+          gh cache list --limit 100 --json key,sizeInBytes,ref \
             --jq '.[] | "\(.sizeInBytes / 1048576 | floor) MB \(.ref) \(.key)"'
 
+  # **CI passed**: every job above, green. It is the one check main's
+  # protection asks for, so that a job added, renamed or split into shards is
+  # covered without the protection being edited to name it.
+  # ---------------------------------------------------------------------------
   all-green:
     name: CI passed
     if: ${{ always() }}

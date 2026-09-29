@@ -69,7 +69,7 @@ jobs:
             pulseaudio-libs-devel alsa-lib-devel dbus-devel systemd-devel \
             libusb1-devel \
             nasm make perl-IPC-Cmd perl-FindBin perl-File-Compare perl-File-Copy \
-            perl-Time-Piece zip unzip tar pkgconf-pkg-config kernel-headers
+            perl-Time-Piece zip unzip tar zstd pkgconf-pkg-config kernel-headers
 
       - uses: actions/checkout@v5
         with: { submodules: true }
