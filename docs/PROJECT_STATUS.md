@@ -285,6 +285,65 @@ and the player flew two until the old one timed out.
 - Also passed: the initiation-again, joins-again, drop-keeps-out, goodbye,
   repeated-handshake and four-players tests, and the port check.
 
+**From the review of PR #53** (the security core was sound; these were not):
+- **A resent initiation kept an unproven session alive for ever** - the
+  `already` branch of `take()` refreshed `last_heard_s`. It no longer does, for
+  any session: only a sealed datagram that opens is hearing from a session. So
+  an unproven session goes `--timeout` after it was admitted.
+- **Reflection**: unproven sessions were sent state at 25 Hz, `AIRCRAFT`
+  definitions and pings. Now they are sent their handshake answer and nothing
+  else (the ping loop and the state loop skip them; `tell_leaving` too). Every
+  client seals something at once: `glideslope_cli` and the document client
+  already did (a `PONG` nobody pinged for, and inputs); `net::ClientSession::connect`
+  - the window client's - now sends that `PONG` as it returns, since `Online::join`
+  waits for a state update before it sends anything. The window-client tests
+  (joins, flies, takes over, hands over, rides along) and `--online` passed.
+- **At most two unproven sessions per key** (`most_unproven_per_key`): a
+  third lets the oldest go, so the newest, perhaps an honest restart, is never
+  the one refused.
+- **The aircraft and slot go with the key's last proven session** (`let_go`):
+  when it goes, every unproven session left on the key goes too ("let go X,
+  unproven, with its key's last proven session"), so a replayed session cannot
+  keep a player's aircraft flying after their goodbye. An unproven session
+  going while others remain takes nothing; the key's only session going takes
+  both. The cost: a restart whose first sealed datagram has not yet arrived
+  when the old session goes is let go with it, and its client, refused, joins
+  again.
+- **A taken-over client** used to print "dropped by the server's operator";
+  `glideslope_cli` now says "the server ended this session (dropped, or taken
+  over by a newer session for this key)". PR #50, the window client, has the
+  old phrase and was open when this was written.
+- `--again-from-elsewhere FILE` now keeps resending the copy every quarter of a
+  second from its own port, with a sealed datagram that opens under nothing;
+  the server refuses that only once the copy's session has gone, and then FILE
+  is written with how many datagrams the copy's session was sent besides its
+  answer.
+
+**Verification of the review's fixes** (Linux release, 2026-09-29):
+- `a_replayed_initiation_takes_neither_a_live_players_session_nor_its_aircraft`
+  now resends the copy faster than the server's six-second `--timeout` and
+  leaves only once the copy's session is gone (`--until-exists`), so the order
+  is built. It requires the copy let go for silence, sent 0 datagrams besides
+  its answer, and the player's aircraft out of the sky only after the player
+  said it was leaving. Watched failing three ways, each reverted: with
+  `let_go` taking the aircraft whenever any session went ("the player's
+  aircraft went before the player did"); with the refresh put back ("the
+  copy's session was never let go while its initiation was resent", after the
+  client's 120 s); with pings and state sent to unproven sessions ("sent 200
+  datagrams besides its answer").
+- `a_player_the_operator_drops_is_let_go_from_every_address_their_key_is_at`
+  (`server_drop_every_session.cmake`, port 24737): a player with a replayed
+  copy's session beside their own is dropped (`--drop-once-flown`); both
+  sessions are let go at once, none for silence under a one-minute timeout, and
+  the client is told. Watched failing with `drop()` and `let_go()` as they were
+  before this PR (only the dropped row let go, and the aircraft kept while any
+  session on the key remained): "the drop let 1 of the key's sessions go, not
+  both". Either change alone keeps it green - each lets the other session go.
+- Passed with the fixes: the two new tests above and the take-over test, the
+  from-another-address, initiation-again, joins-again, drop-keeps-out,
+  goodbye, repeated-handshake, four-players and document-client tests, the
+  window client's five server tests, `--online`, and the port check.
+
 ### A multi-process test's programs never die of a closed pipe, 2026-09-29 — tail done
 
 **The flake.** macOS release CI failed twice with a program killed by SIGPIPE

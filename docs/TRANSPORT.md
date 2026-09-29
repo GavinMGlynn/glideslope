@@ -175,11 +175,19 @@ takes over at the first datagram sealed under it that opens**, not at the
 answer: the server then sends each older session on the key `LEAVING`, so
 that a client still running there stops rather than joining again, and lets
 it go, leaving the slot and aircraft to the new one. A replayer holds no
-ephemeral secret, cannot seal, and so takes nothing; its session goes quiet
-and is let go after `--timeout`, the aircraft staying with the live one. A
-session let go while another on its key remains takes neither the slot nor
-the aircraft with it, and an operator's drop lets go every session on the
-key. **On a full server** a new session for a key already in is refused
+ephemeral secret, cannot seal, and so takes nothing.
+
+**Until something sealed under it has opened, a session is sent nothing but
+its handshake answer** (and that answer again, for a resent initiation): no
+state updates, no `PING`s, no reliable messages. **So a client seals
+something at once**, before it waits to hear anything - this project's
+clients send a `PONG` nobody pinged for, which the server ignores, and
+inputs will do as well. A resent initiation does not count as hearing from a
+session, so one that seals nothing is let go `--timeout` after it was
+admitted, however often its initiation is resent. A key may have at most two
+such unproven sessions; a third lets the oldest go. The slot and the aircraft
+go with the key's last *proven* session, and any unproven one left on the key
+goes with them; an operator's drop lets go every session on the key. **On a full server** a new session for a key already in is refused
 `SERVER_FULL` like any other until the old one is let go: the server does
 not know whose initiation it is until it has done the asymmetric work it
 spares strangers when full.

@@ -44,6 +44,7 @@
 #include "world/winds_aloft.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <optional>
 #include <memory>
 #include <array>
@@ -128,10 +129,12 @@ void print_usage(std::FILE* out) {
         "                            --first-from-elsewhere sends a copy of the\n"
         "                            initiation from another port first, and\n"
         "                            waits for it to be answered.\n"
-        "                            --again-from-elsewhere, once the session is\n"
-        "                            up, sends a copy of the initiation from another\n"
-        "                            port, as a replayer would, and waits for it to\n"
-        "                            be answered before flying on.\n"
+        "                            --again-from-elsewhere FILE, once the session\n"
+        "                            is up, sends a copy of the initiation from\n"
+        "                            another port, as a replayer would, waits for it\n"
+        "                            to be answered, flies on, and goes on sending\n"
+        "                            the copy; FILE is written when the copy's\n"
+        "                            session has been let go.\n"
         "                            --until-exists FILE leaves once FILE exists,\n"
         "                            SECONDS the most it will wait.\n"
         "                            --fly sends\n"
@@ -2188,8 +2191,10 @@ int stay(glideslope::platform::UdpSocket& socket,
         // so the server's own): the operator dropped this client. It does
         // not come back.
         if (glideslope::net::is_leaving(inside)) {
-            say_heard("dropped by the server's operator; not joining again");
-            std::printf("dropped by the server's operator\n");
+            say_heard("the server ended this session (dropped, or taken over by a newer "
+                      "session for this key); not joining again");
+            std::printf("the server ended this session (dropped, or taken over by a newer "
+                        "session for this key)\n");
             std::fflush(stdout);
             ended = Ended::dropped;
             return 1;
@@ -2496,42 +2501,111 @@ Rejoined join_again(glideslope::platform::UdpSocket& socket,
     }
 }
 
-// **A copy of `initiation` sent from a port of its own**, resent every quarter
-// of a second until it is answered: whether it was, within a minute.
-bool copy_from_elsewhere_answered(const glideslope::platform::Address& server,
-                                  std::span<const std::uint8_t> initiation) {
-    auto elsewhere = glideslope::platform::UdpSocket::bound(0);
-    if (!elsewhere) {
-        std::fprintf(stderr, "glideslope_cli: no second port for the copy\n");
-        return false;
+// **A test flag's work (`--again-from-elsewhere FILE`)**: a copy of this
+// client's initiation, replayed from a port of its own while the session is
+// live - what anybody who saw it on the wire could send - and kept up as a
+// replayer who wanted to hold the session open would.
+//
+// `answered()` sends the copy every quarter of a second until the server
+// answers it, a minute the most. From then on a thread goes on sending it
+// every quarter of a second, faster than any `--timeout` a test uses, with a
+// sealed datagram that opens under nothing beside it: while the copy's
+// session lives, that is dropped without a word; once it has gone, it is
+// refused, as a stranger's is. On the refusal the thread writes FILE: that the
+// copy's session was let go, and how many datagrams it was sent besides its
+// answer - a replayer's session should be sent none.
+class CopyFromElsewhere {
+public:
+    CopyFromElsewhere(const glideslope::platform::Address& server,
+                      std::span<const std::uint8_t> initiation, std::string file)
+        : server_(server), initiation_(initiation.begin(), initiation.end()),
+          file_(std::move(file)), socket_(glideslope::platform::UdpSocket::bound(0)) {}
+    CopyFromElsewhere(const CopyFromElsewhere&) = delete;
+    CopyFromElsewhere& operator=(const CopyFromElsewhere&) = delete;
+    ~CopyFromElsewhere() {
+        stop_ = true;
+        if (thread_.joinable()) {
+            thread_.join();
+        }
     }
-    std::vector<std::uint8_t> back(glideslope::platform::largest_datagram);
-    const auto asked = std::chrono::steady_clock::now();
-    double resent_at_s = -1.0;
-    for (;;) {
-        const double waited_s =
-            std::chrono::duration<double>(std::chrono::steady_clock::now() - asked).count();
-        if (waited_s > 60.0) {
-            std::fprintf(stderr, "glideslope_cli: the copy from elsewhere was never answered\n");
+
+    bool answered() {
+        if (!socket_) {
+            std::fprintf(stderr, "glideslope_cli: no second port for the copy\n");
             return false;
         }
-        if (waited_s - resent_at_s >= 0.25) {
-            (void)elsewhere->send(server, initiation);
-            resent_at_s = waited_s;
+        std::vector<std::uint8_t> back(glideslope::platform::largest_datagram);
+        const auto asked = std::chrono::steady_clock::now();
+        double resent_at_s = -1.0;
+        for (;;) {
+            const double waited_s =
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - asked).count();
+            if (waited_s > 60.0) {
+                std::fprintf(stderr,
+                             "glideslope_cli: the copy from elsewhere was never answered\n");
+                return false;
+            }
+            if (waited_s - resent_at_s >= 0.25) {
+                (void)socket_->send(server_, initiation_);
+                resent_at_s = waited_s;
+            }
+            glideslope::platform::Address from;
+            const std::size_t got = socket_->receive(back, from);
+            if (type_of(back, got) == glideslope::net::Type::handshake_response) {
+                std::printf("the copy from elsewhere, sent while the session was live, was "
+                            "answered\n");
+                std::fflush(stdout);
+                thread_ = std::thread([this] { keep_up(); });
+                return true;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
-        glideslope::platform::Address from;
-        const std::size_t got = elsewhere->receive(back, from);
-        if (got > glideslope::net::envelope_size &&
-            back[glideslope::net::envelope_size - 1] ==
-                static_cast<std::uint8_t>(glideslope::net::Type::handshake_response)) {
-            std::printf("the copy from elsewhere, sent while the session was live, was "
-                        "answered\n");
-            std::fflush(stdout);
-            return true;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
-}
+
+private:
+    static std::optional<glideslope::net::Type> type_of(const std::vector<std::uint8_t>& d,
+                                                        std::size_t got) {
+        if (got < glideslope::net::envelope_size) {
+            return std::nullopt;
+        }
+        return static_cast<glideslope::net::Type>(d[glideslope::net::envelope_size - 1]);
+    }
+
+    void keep_up() {
+        glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::sealed);
+        w.bytes(std::vector<std::uint8_t>(40, 0));
+        const std::vector<std::uint8_t> unopenable = w.take();
+        std::vector<std::uint8_t> back(glideslope::platform::largest_datagram);
+        std::uint64_t others = 0;
+        auto sent_at = std::chrono::steady_clock::now() - std::chrono::seconds(1);
+        while (!stop_) {
+            if (std::chrono::steady_clock::now() - sent_at >= std::chrono::milliseconds(250)) {
+                sent_at = std::chrono::steady_clock::now();
+                (void)socket_->send(server_, initiation_);
+                (void)socket_->send(server_, unopenable);
+            }
+            glideslope::platform::Address from;
+            const std::size_t got = socket_->receive(back, from);
+            const auto type = type_of(back, got);
+            if (type == glideslope::net::Type::sealed) {
+                ++others;
+            } else if (type == glideslope::net::Type::refusal) {
+                std::ofstream(file_, std::ios::app)
+                    << "the copy's session was let go; it was sent " << others
+                    << " datagrams besides its answer\n";
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+    }
+
+    glideslope::platform::Address server_;
+    std::vector<std::uint8_t> initiation_;
+    std::string file_;
+    std::optional<glideslope::platform::UdpSocket> socket_;
+    std::atomic<bool> stop_{false};
+    std::thread thread_;
+};
 
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
                bool again, bool fly, double after_s, const std::string& secret_hex = "",
@@ -2545,7 +2619,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                bool take_over_once_ai = false, bool long_frame_after_switch = false,
                bool late_update_after_take_over = false, bool goodbye = true,
                bool forge_leaving = false, bool stall_once_rolled = false,
-               bool again_from_elsewhere = false) {
+               const std::string& again_from_elsewhere = "") {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived. With `--after-ready`
@@ -2717,10 +2791,14 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                     // it on the wire could send. The server answers it with
                     // a session nobody can use; it must not take this one's
                     // aircraft or end this session for it.
-                    if (again_from_elsewhere &&
-                        !copy_from_elsewhere_answered(
-                            *address, std::span<const std::uint8_t>(first.data(), first.size()))) {
-                        return 1;
+                    std::optional<CopyFromElsewhere> copy;
+                    if (!again_from_elsewhere.empty()) {
+                        copy.emplace(*address,
+                                     std::span<const std::uint8_t>(first.data(), first.size()),
+                                     again_from_elsewhere);
+                        if (!copy->answered()) {
+                            return 1;
+                        }
                     }
                     if (again_when_let_go) {
                         return again_once_let_go(
@@ -2926,7 +3004,7 @@ static int run_program(int argc, char** argv) {
             bool again = false;
             bool again_when_let_go = false;
             bool first_from_elsewhere = false;
-            bool again_from_elsewhere = false;
+            std::string again_from_elsewhere;
             std::string until_exists;
             bool fly = false;
             double after_s = 0.0;
@@ -3050,8 +3128,9 @@ static int run_program(int argc, char** argv) {
                     again_when_let_go = true;
                     continue;
                 }
-                if (args[i] == "--again-from-elsewhere") {
-                    again_from_elsewhere = true;
+                if (args[i] == "--again-from-elsewhere" && i + 1 < args.size()) {
+                    again_from_elsewhere = std::string(args[i + 1]);
+                    ++i;
                     continue;
                 }
                 if (args[i] == "--first-from-elsewhere") {
