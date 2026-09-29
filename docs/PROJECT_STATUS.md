@@ -269,6 +269,11 @@ quit.
 - **The stub cannot see a held transfer let go**: it is stopped after the
   client has ended, when the system has closed the client's end either way.
   It says only that it held one; the time is what shows the abandon.
+- `glideslope_exit_timer` runs in a pipeline, so it ignores SIGPIPE as the
+  stub does, and is in the table of
+  `every_program_a_test_pipes_into_another_outlives_the_reader_going`, which
+  failed on it ("died of ... a pipe nobody read: glideslope_exit_timer") until
+  it did.
 
 **Verification.** Linux release, lavapipe: the control ended 348 ms after its
 shot and the quit 51 ms (429); the control 327 ms and the quit 390 ms
