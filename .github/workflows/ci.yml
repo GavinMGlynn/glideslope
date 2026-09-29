@@ -108,7 +108,7 @@ jobs:
       # No module scanning: glideslope has no C++ modules, and ccache will not
       # cache a compile GCC 14 has scanned - 80% of calls were uncacheable.
       - name: ${{ matrix.preset }} - configure
-        run: cmake --preset ${{ matrix.preset }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
+        run: cmake --preset ${{ matrix.preset }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_SCAN_FOR_MODULES=OFF -DCMAKE_PROJECT_INCLUDE=%CD%/cmake/ci_clang_cl_show_includes.cmake
       - uses: actions/cache/save@v6
         if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
@@ -557,7 +557,7 @@ jobs:
         shell: cmd
         run: |
           if "${{ matrix.preset }}"=="windows-clang" (clang-cl --version || exit /b 1)
-          set cache=-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
+          set cache=-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON -DCMAKE_CXX_SCAN_FOR_MODULES=OFF -DCMAKE_PROJECT_INCLUDE=%CD%/cmake/ci_clang_cl_show_includes.cmake
           if "${{ matrix.preset }}"=="windows-debug" (
             cmake --preset windows-debug %cache% "-DCMAKE_C_FLAGS_DEBUG=/Z7 /Ob1 /O1" "-DCMAKE_CXX_FLAGS_DEBUG=/Z7 /Ob1 /O1"
           ) else (
