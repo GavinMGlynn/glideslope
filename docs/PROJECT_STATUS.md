@@ -840,7 +840,8 @@ it with it.
   steady rate over sim::correction_blend_s (0.25 s), from where the aircraft
   was going; its pace counts in the step, as a switch's does. One too large
   to hide still snaps, and is shown as the jump it is. Both tests now also
-  hold the largest step *away* from a switch under 2.5 m. On Linux debug:
+  hold the largest step *away* from a switch under 2.5 m (the hand-over
+  test only until later on 2026-09-29, below). On Linux debug:
   handed over, 0.59 m at a switch (carried at 40.9 m/s) and 1.24 m
   otherwise; taken over, 0.72 m at the switch (53.6 m/s) and 0.68 m
   otherwise. Seen to fail: with corrections flagged never, the take-over
