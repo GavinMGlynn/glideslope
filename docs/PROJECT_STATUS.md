@@ -1212,6 +1212,50 @@ are not pruned.
   preset may save it now, not only windows-release, since a new image can come
   to any of them first.
 
+### The client with the window flies every tick a long frame is owed, 2026-09-30 — main still red
+
+**What is still missing, first**: main's red take-over test
+(`the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in`,
+3.472 m and 2.770 m at the take-over, 2.756 m away from a switch on CI's
+linux-debug) is **not reproduced locally and not fixed by this**. The take-over
+item's bound, "less than 2.5 m at a take-over", has not held on CI's slow
+machine; its tick was earned on fast ones only.
+
+- **Found and fixed**: the client flew at most 24 ticks a pass of its loop and
+  dropped the rest (`min(clock.advance(...), 24)` in client/main.cpp), so a pass
+  longer than 0.2 s lost time. It now carries what it owes to the next pass, as
+  the server does, flying at most a second's ticks a pass. Evidence, from a new
+  test flag, `--slow-frames MS` (every pass held MS longer after a tenth of a
+  second at full speed; `SLOW_FRAMES` in client_rides_along.cmake), with a
+  debug print of every correction (not kept): at 250 ms passes held back to
+  back, before, every word of the server's replayed **none** of the client's
+  inputs - the prediction was always behind where the server's word placed it
+  - and each pass's first correction was 5.0 to 5.4 m; after, each word
+  replays 2 to 35 inputs and moves the aircraft 0.000 m.
+- **What the test did with it**: passed before and after, locally. Held back
+  to back at 250 ms: at the take-over 1.27 m before, 1.89 m after; 250, 400
+  and 600 ms holds with fast frames between, before: 1.15, 0.50 and 0.56 m at
+  the take-over, 1.47, 1.48 and 0.56 m otherwise. So the fix is not shown to
+  cure CI's failure; it is not seen to fail without it.
+- **What CI's step was**, from run 36586959960's own lines: "frame 3 after a
+  switch, 26 ms long, predicted: 0.000 m from where it was carried at
+  53.8 m/s, the blend moving 3.472 m". The prediction did not stray; the
+  switch's blend moved that far in a sixtieth of a second, which eased over
+  0.5 s means a blend of about 70 m - the aircraft taken over was put 1.3 s
+  of flight away from where it had been shown. Locally the blend is 5.3 m on
+  fast frames and 8.7 to 13 m with 250 ms passes. **The lead for the next
+  attempt**: at a take-over the flight adopts the server's motion as of the
+  word that gave it (`flight->adopt(taken->motion)`), not flown on to now,
+  and a word heard at the end of a long pass is that pass old; its first
+  corrections then place it with no clocks' difference known (`at_step`
+  none, 15 m and 8.5 m locally). A pass of 1.3 s around the take-over on CI -
+  its first drawn frames under sanitized lavapipe - would make CI's 70 m.
+- **Also seen, not explained**: with 250 ms passes, the word just before the
+  take-over put the old aircraft right by 435 to 446 m (snapped, "1 too large
+  to hide"), and CI's failing run says the same, 456 m; it lands in the pass
+  that takes over, so nothing shows it, but a word naming the old aircraft
+  as this client's own seems to carry the taken one's motion.
+
 ### CI's Windows builds keep a compiler cache, 2026-09-29 — tail still open
 
 **What is still missing, first**: windows-clang has not been measured with

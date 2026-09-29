@@ -67,13 +67,17 @@ set(_take_over)
 if(TAKE_OVER)
     set(_take_over --take-over-after 4)
 endif()
+set(_slow)
+if(DEFINED SLOW_FRAMES)
+    set(_slow --slow-frames ${SLOW_FRAMES})
+endif()
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1200 --view cockpit --ride-along --slow-start 5
-            ${_take_over}
+            ${_take_over} ${_slow}
             --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
@@ -142,6 +146,12 @@ if(TAKE_OVER)
     message(STATUS "took the AI's Cessna, aircraft ${_taken}, over, and flew it; the largest "
                    "step at the switch ${_step} m, carried at ${_speed} m/s, and otherwise "
                    "${_otherwise} m")
+    # What made the step, and how the prediction was put right: a pass says
+    # as much as a failure, so a margin eaten away shows before it fails.
+    string(REGEX MATCH "glideslope: predicted: [^\n]*" _predicted "${_out}")
+    string(REGEX MATCH "glideslope: the largest step at a switch: [^\n]*" _what "${_out}")
+    message(STATUS "${_predicted}")
+    message(STATUS "${_what}")
     return()
 endif()
 if(NOT _out MATCHES "riding along in aircraft ([0-9]+), the c172p; the camera ([0-9.]+) m from its centre")

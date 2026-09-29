@@ -148,6 +148,10 @@ struct Options {
     // For tests: stand still this long after joining a server, as a slow
     // machine building its flight does, before building it.
     double slow_start_s = 0.0;
+    // For tests: every pass of the frame loop held this many milliseconds
+    // longer, as a slow machine's frames are - CI's sanitized software
+    // Vulkan draws one in 250 ms and more.
+    double slow_frames_ms = 0.0;
     // Test flag: how often --weather is fetched again, in seconds of flight.
     double weather_refresh_s = glideslope::client::weather_refresh_seconds;
     bool weather_refresh_given = false;
@@ -242,6 +246,8 @@ void usage(std::FILE* out) {
         "                (at least 1; 900 unless given) (for tests)\n"
         "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
         "                slow machine building its flight does (for tests)\n"
+        "  --slow-frames MS  hold every pass of the frame loop MS milliseconds\n"
+        "                longer, as a slow machine's frames are (for tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
         "                or leave it out: a test shoots both to find the outline it\n"
         "                draws\n"
@@ -433,6 +439,8 @@ static int run_program(int argc, char** argv) {
             ok = end != text.c_str() && *end == '\0' && o.weather_refresh_s >= 1.0;
         } else if (a == "--slow-start" && has_value) {
             o.slow_start_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--slow-frames" && has_value) {
+            o.slow_frames_ms = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--ride-along") {
             o.ride_along = true;
         } else if (a == "--take-over-after" && has_value) {
@@ -1071,9 +1079,13 @@ static int run_program(int argc, char** argv) {
         glideslope::platform::Joysticks joysticks;
         glideslope::platform::KeyboardControls keys;
         glideslope::sim::FixedStep clock;
+        // Ticks due and not yet flown, carried from one pass to the next.
+        std::int64_t owed = 0;
         auto last = std::chrono::steady_clock::now();
         std::int64_t ticks = 0;
         long frames = 0;
+        // When --slow-frames last held a pass of the loop.
+        auto held_at = std::chrono::steady_clock::now();
         bool running = true;
         // The frame loop keeps the session from here.
         kept_alive.reset();
@@ -1169,6 +1181,15 @@ static int run_program(int argc, char** argv) {
                                 std::string(glideslope::gfx::name_of(view)).c_str());
                 }
             }
+            // Each followed by a tenth of a second at full speed, so that
+            // the short frames between show what the long ones did, as a
+            // slow machine's mixed frames do.
+            if (o.slow_frames_ms > 0.0 &&
+                std::chrono::steady_clock::now() - held_at >= std::chrono::milliseconds(100)) {
+                std::this_thread::sleep_for(
+                    std::chrono::duration<double, std::milli>(o.slow_frames_ms));
+                held_at = std::chrono::steady_clock::now();
+            }
             std::int64_t due = 0;
             if (shooting && !joined) {
                 // Two ticks a frame, or as many as keep the flight to 300.
@@ -1180,7 +1201,18 @@ static int run_program(int argc, char** argv) {
                     o.shot_at - ticks);
             } else {
                 const auto now = std::chrono::steady_clock::now();
-                due = std::min<std::int64_t>(clock.advance(now - last), 24);
+                // **Every tick due is flown, if not in this pass then in the
+                // next**: a pass longer than a second flies a second's ticks
+                // and carries the rest over, where once whatever was past 24
+                // ticks - a fifth of a second - was dropped. On a server a
+                // dropped tick is the prediction falling behind the server's
+                // clock unflagged: CI's sanitized software Vulkan draws a
+                // frame in 250 ms and more, and what the client showed
+                // stepped by the ticks it lost (PROJECT_STATUS.md,
+                // 2026-09-30).
+                owed += clock.advance(now - last);
+                due = std::min<std::int64_t>(owed, glideslope::sim::steps_per_second);
+                owed -= due;
                 last = now;
                 int key_count = 0;
                 const bool* key_state = SDL_GetKeyboardState(&key_count);
