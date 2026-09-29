@@ -231,11 +231,20 @@ are the risks the phase order is built around:
 
 **What is still not covered.** Nothing tests either client going back to its
 old session when a forged refusal ends it during a blip; the code path is
-there in both and reviewed, not exercised. Nothing tests the window client
-refused `DROPPED` when joining again after every one of the server's
-goodbyes was lost (the command-line client's test does); the path is the
-same `standing()` end. A server that restarts still forgets whom its
-operator dropped.
+there in both and reviewed, not exercised - an open tail in the plan, whose
+test would forge a `BAD_HANDSHAKE` from the server's address while the
+session is quiet (a relay holding the server's updates for three seconds),
+and hold that the client goes back and the server admits it once. Nothing
+tests the window client refused `DROPPED` when joining again after every one
+of the server's goodbyes was lost (the command-line client's test does); the
+path is the same `standing()` end - an open tail too, needing the drop's
+three `LEAVING`s lost on the way, which the relay cannot yet pick out from
+the updates around them. **Nothing tests `client::Online` taking an aircraft
+from a server whose clock started again** (a server restarted with its key
+through `--store`): the fix below is reviewed, and the session's half of it
+is pinned by a unit test, but `Online` lives in the client with the window
+and needs a `Flight`, which no unit test builds. A server that restarts
+still forgets whom its operator dropped.
 
 **What was wrong.** `glideslope_cli connect` joined again by itself (#45);
 the client a person flies did not. `net::ClientSession` never noticed it had
@@ -278,6 +287,34 @@ server had thrown away until it was restarted.
   refusal is the let-go, believed by the same rule as any other. The shot
   then waits (a minute past its tick at most) until the client has joined
   again and the server has applied an input sent since.
+- **From the review of #50**:
+  - Joined again, `client::Online` also forgets its newest word
+    (`reconciled_s_`), the session's clock, where it drew everybody and the
+    frame it drew them in: a server restarted with its key counts simulated
+    time from nought, and every update of it would have been older than the
+    last one heard, so the new aircraft was never adopted.
+  - `net::ClientSession` hands up no update the old session left waiting
+    once it has joined again (`fresh_` cleared with the rest); one would
+    have been taken for the new aircraft.
+  - `send_message()` returns false and queues nothing unless in a session:
+    while joining again it went into a reliable stream the new session
+    threw away. Messages the old session had not had acknowledged are lost
+    with it.
+  - A client ending while joining again says no goodbye, and
+    `docs/TRANSPORT.md` now says so.
+  - The test's skip is decided by the client's own "glideslope: no GPU
+    device", not by any "device" or "could not" in the server's output on
+    the same stream.
+  - `a_session_joined_again_hands_up_nothing_of_the_one_let_go`
+    (`tests/unit/test_session_over_a_socket.cpp`): a stand-in server over
+    loopback lets a session go and answers it joining again; the client's
+    clock is handed to `poll()`, so the three seconds are simulated. It must
+    refuse a message while joining again, hand up no update of the old
+    session, and hand up the new one's, from a clock started again at 0.5 s.
+    **Seen to fail twice**: without `fresh_` cleared, "no update of the old
+    session is handed up as the new one's"; with `send_message()` queuing,
+    "a message asked for while joining again is refused, not queued"; both
+    reverted.
 - **Docs**: `docs/TRANSPORT.md` now says both clients knock and join again;
   `docs/THREATS.md` names where each client keeps the refusal rule. The wire
   did not change.

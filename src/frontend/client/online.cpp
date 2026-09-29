@@ -109,6 +109,17 @@ void Online::noticed() {
     // The server forgot what the old session rode along in.
     watching_ = net::no_aircraft;
     watched_.clear();
+    // **And its clock may have started again**: a server restarted with the
+    // same key (`--store`) lets every session go, and counts simulated time
+    // from nought. Nothing old is kept to compare with - no update of the
+    // old session can open under the new one's keys to be reordered past
+    // it - so the clock, the newest word and everything drawn start afresh.
+    reconciled_s_.reset();
+    clock_ = net::SessionClock{};
+    origin_.reset();
+    shown_.clear();
+    wrecked_.clear();
+    ai_.clear();
 }
 
 void Online::heard(const net::StatePacket& state, double local_s, Flight& flight) {

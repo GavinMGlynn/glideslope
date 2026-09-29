@@ -222,7 +222,12 @@ with the reason. **It goes on listening to the old session while it waits**:
 if anything opens under the old keys, the session was never gone, and the
 client goes back to it - a server that still has it drops the new initiation
 from that address without a word. A client told it was dropped does not join
-again at all.
+again at all. **A client that ends while joining again says no goodbye**: it
+has no session to seal one under, and the old one's is already gone at the
+server, so there is nothing for a `LEAVING` to end. A reliable message
+queued under the old session and not yet acknowledged is lost with it, and
+this project's clients queue none while joining again - a new session is a
+new reliable stream.
 
 **What it does not claim.**
 

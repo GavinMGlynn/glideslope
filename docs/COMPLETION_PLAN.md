@@ -382,6 +382,14 @@ Found while implementing something else. Added when found, not when remembered.
       join again by themselves, and neither does when the operator dropped
       it. *Verification: a client stalled past the timeout joins again by
       itself - the command-line client and the one with the window.*
+- [ ] **Nothing tests a client going back to its old session** when a forged
+      refusal made it try to join again. *Verification: a client refused by a
+      forger while its session is merely quiet goes back to that session, and
+      the server makes no second player.*
+- [ ] **Nothing tests the client with the window refused `DROPPED`** when every
+      one of the server's goodbyes was lost. *Verification: a window client
+      dropped with its goodbyes lost tries to join again, is refused, and stops
+      saying it was dropped.*
 - [x] **The tests' fixed ports lay in Linux's ephemeral range** (478xx, where
       it hands out 32768 to 60999), so a client's socket could take one before
       its test's server listened: "cannot listen on port 47853" on CI,
