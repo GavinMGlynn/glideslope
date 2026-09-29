@@ -476,12 +476,13 @@ Found while implementing something else. Added when found, not when remembered.
       take-over's round trip can hand back the aircraft just left rather
       than the one taken (a narrow race).
 
-- [ ] **The client with the window does not blend corrections to its
+- [x] **The client with the window does not blend corrections to its
       prediction**, as the command-line client does: a correction near a
       switch counts in that switch's step, and the step away from a switch
       is reported but not bounded. *Verification: corrections are blended,
       and the largest step away from a switch is held to a bound, failing
-      with the blend taken out.*
+      with the blend taken out.* Done 2026-09-29: under 2.5 m on Linux and
+      Windows; failed at 2.54 m with the blend taken out.
 - [ ] **The display model is written twice**, in the command-line client
       and in the client with the window. *Verification: one presentation-free
       module serves both, with a unit test that builds long frames across a
