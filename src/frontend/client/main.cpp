@@ -1758,11 +1758,20 @@ static int run_program(int argc, char** argv) {
                         std::printf("checklist: %s\n", line.c_str());
                     }
                 }
+                // Whether the weather is being fetched again as the program
+                // ends (tests/cmake/client_quits_mid_refresh.cmake).
+                if (flight && !o.weather_station.empty()) {
+                    std::printf("glideslope: a weather refresh is %s\n",
+                                flight->refreshing_weather() ? "under way"
+                                                             : "not under way");
+                }
                 glideslope::gfx::save_bmp(renderer.capture(), o.shot);
                 std::printf("glideslope: wrote tick %lld, frame %ld, to %s\n",
                             static_cast<long long>(ticks), frames, o.shot.c_str());
                 // Said as it happens, so a test reading through a pipe can
-                // time the way out from here (glideslope_exit_timer).
+                // time the way out from here: glideslope_exit_timer, in
+                // tests/cmake/client_quits_mid_refresh.cmake, which depends on
+                // this flush - without it the line arrives with the end.
                 std::fflush(stdout);
                 if (window != nullptr) {
                     std::printf("glideslope: presented %ld of %ld frames to the "

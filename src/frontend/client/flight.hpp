@@ -207,6 +207,13 @@ public:
     // Which phase is showing, or nothing.
     std::optional<sim::Phase> showing_checklist() const;
 
+    // Whether a refresh of the weather is under way now: asked for, and not
+    // yet answered or given up. A test quitting mid-refresh reads it at the
+    // moment it quits, so that it knows the refresh was there to be quit.
+    bool refreshing_weather() const {
+        return next_weather_.has_value() && !next_weather_->done();
+    }
+
     // The weather report flown in now, or null without one; and where its
     // station is, for drawing its sky.
     const world::WeatherReport* weather_report() const;

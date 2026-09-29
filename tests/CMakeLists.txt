@@ -1001,16 +1001,17 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud_no_weather.cmake)
     set_tests_properties(a_hud_test_whose_weather_service_answers_429_throughout_is_skipped_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
-    # **Quitting the flight mid-refresh ends it at once**, both ways a
-    # refresh can be held up: turned away with a 429 asking for the longest
-    # wait, and a transfer begun and never finished. Each would hold the exit
-    # 40 s or more if the refresh were not given up
+    # **Quitting the flight mid-refresh ends it as soon as quitting with none
+    # under way does**: within 2 s of a control flown just before the refresh
+    # is due. Both ways a refresh can be held up: turned away with a 429
+    # asking for the longest wait, and a transfer begun and never finished. A
+    # refresh not given up would hold the exit 30 s or more
     # (cmake/client_quits_mid_refresh.cmake).
     foreach(_case IN ITEMS 429 stalled)
         if(_case STREQUAL "429")
-            set(_name quitting_the_flight_while_its_weather_refresh_is_answered_429_ends_it_within_2_s_on_${_driver})
+            set(_name quitting_the_flight_while_its_weather_refresh_is_answered_429_ends_it_within_2_s_of_a_quit_without_one_on_${_driver})
         else()
-            set(_name quitting_the_flight_while_its_weather_refresh_is_part_way_through_a_transfer_ends_it_within_2_s_on_${_driver})
+            set(_name quitting_the_flight_while_its_weather_refresh_is_part_way_through_a_transfer_ends_it_within_2_s_of_a_quit_without_one_on_${_driver})
         endif()
         add_test(NAME ${_name}
             COMMAND ${CMAKE_COMMAND}
@@ -1018,7 +1019,7 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
                 -DTIMER=$<TARGET_FILE:glideslope_exit_timer>
                 -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-metars-2026-09-17T1600Z.json
                 -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
-                -DCASE=${_case} -DWITHIN=2
+                -DCASE=${_case}
                 -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
                 -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_quits_mid_refresh.cmake)
