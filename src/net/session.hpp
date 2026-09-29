@@ -123,8 +123,14 @@ public:
     // Send this client's inputs, already packed by `InputSender::packet()`.
     void send_inputs(std::span<const std::uint8_t> packet);
     // Send a message that must arrive (`net::write` of one), repeated until it
-    // has.
-    void send_message(std::span<const std::uint8_t> body) { (void)reliable_.send(body); }
+    // has. **Only in a session**: false, and nothing queued, while joining
+    // again or after an end - a session joined again is a new reliable
+    // stream, and a message queued for the old one would never arrive.
+    // Messages the old session had not yet had acknowledged when it was let
+    // go are lost with it; the caller asks again if it still wants them.
+    bool send_message(std::span<const std::uint8_t> body) {
+        return standing_ == Standing::joined && sealing_ && reliable_.send(body);
+    }
 
     // **Says goodbye** (`LEAVING`, `leaving_copies` times, each sealed
     // afresh), so that the server lets the session go at once rather than

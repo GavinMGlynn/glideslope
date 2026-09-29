@@ -324,6 +324,10 @@ void ClientSession::keep_joining_again(double now_s) {
             initiator_.reset();
             initiation_ = again_;
             reliable_ = Reliable{};
+            // Nothing of the old session is handed up as if of this one:
+            // an update it left waiting would be taken for the new
+            // aircraft.
+            fresh_.clear();
             roster_.clear();
             mine_ = no_aircraft;
             applied_ = 0;

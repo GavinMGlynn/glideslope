@@ -109,7 +109,9 @@ math(EXPR _last "${_programs} - 1")
 list(GET _rcs ${_last} _rc)
 
 if(NOT _out MATCHES "the server gave this client aircraft [0-9]+")
-    if(_err MATCHES "no GPU|could not|device")
+    # The client's own words only: the server's and the relay's are on
+    # standard error too, and must not turn a failure into a skip.
+    if(_err MATCHES "glideslope: no GPU device")
         message(STATUS "the client cannot draw here: ${_err}")
         cmake_language(EXIT 77)
     endif()
