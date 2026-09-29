@@ -109,20 +109,18 @@ world::Ecef OwnShown::frame(double local_s, const Source& source) {
             speed += b.v[i] * b.v[i];
         }
         step = std::sqrt(step);
-        if (frames_since_switch_ <= 4) {
-            if (step > worst_at_switch_m_) {
-                char what[256];
-                std::snprintf(what, sizeof what,
-                              "frame %d after a switch, %.0f ms long, %s: %.3f m from where "
-                              "it was carried at %.1f m/s, the blend moving %.3f m",
-                              frames_since_switch_, (local_s - b.s) * 1000.0,
-                              source.predicted ? "predicted" : "drawn from the updates",
-                              std::sqrt(strayed), std::sqrt(speed), std::sqrt(blended));
-                worst_what_ = what;
-            }
-            worst_at_switch_m_ = std::max(worst_at_switch_m_, step);
-        } else {
-            worst_otherwise_m_ = std::max(worst_otherwise_m_, step);
+        const bool at_switch = frames_since_switch_ <= 4;
+        if (step > (at_switch ? worst_at_switch_m_ : worst_otherwise_m_)) {
+            char what[256];
+            std::snprintf(what, sizeof what,
+                          "frame %d after a switch, %.0f ms long, %s%s: %.3f m from where "
+                          "it was carried at %.1f m/s, the blend moving %.3f m",
+                          frames_since_switch_, (local_s - b.s) * 1000.0,
+                          source.predicted ? "predicted" : "drawn from the updates",
+                          source.corrected ? ", corrected" : "", std::sqrt(strayed),
+                          std::sqrt(speed), std::sqrt(blended));
+            (at_switch ? worst_what_ : worst_otherwise_what_) = what;
+            (at_switch ? worst_at_switch_m_ : worst_otherwise_m_) = step;
         }
     }
     ++frames_since_switch_;

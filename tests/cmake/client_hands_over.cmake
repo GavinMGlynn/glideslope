@@ -180,6 +180,12 @@ endif()
 # Windows debug with the blend in. The step away from a switch is held only at a
 # take-over, by the take-over test; what builds a step this large here is the open corrections
 # tail in COMPLETION_PLAN.md.
+# What made the largest step away from a switch, and the corrections, said
+# whether the test passes: a step CI saw once (6.2 m) had nothing but its size.
+string(REGEX MATCH "glideslope: the largest step otherwise: [^\n]*" _otherwise_what "${_out}")
+message(STATUS "${_otherwise_what}")
+string(REGEX MATCH "glideslope: predicted: [^\n]*" _corrections "${_out}")
+message(STATUS "${_corrections}")
 message(STATUS "handed aircraft ${_flown} to the AI and took it back, "
                "flying it by the pilot's inputs; the largest step at a switch ${_step} m, "
                "carried at ${_speed} m/s, and otherwise ${_otherwise} m")
