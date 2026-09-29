@@ -166,6 +166,24 @@ and an answer, and that is deliberate: a copy dropped from every address would
 let anybody who saw an initiation inject a copy from a spoofed address to
 arrive first, and keep its real sender out.
 
+**A key has one slot and one aircraft, however many addresses it has
+sessions from.** An initiation for a key that already has a session at
+another address - a client started again from a new port while its old
+session is live, or anybody's replay of a captured initiation - makes a
+session that shares the key's aircraft rather than being given another. **It
+takes over at the first datagram sealed under it that opens**, not at the
+answer: the server then sends each older session on the key `LEAVING`, so
+that a client still running there stops rather than joining again, and lets
+it go, leaving the slot and aircraft to the new one. A replayer holds no
+ephemeral secret, cannot seal, and so takes nothing; its session goes quiet
+and is let go after `--timeout`, the aircraft staying with the live one. A
+session let go while another on its key remains takes neither the slot nor
+the aircraft with it, and an operator's drop lets go every session on the
+key. **On a full server** a new session for a key already in is refused
+`SERVER_FULL` like any other until the old one is let go: the server does
+not know whose initiation it is until it has done the asymmetric work it
+spares strangers when full.
+
 A client sending the same initiation again must have it answered while the
 session it made is live, which is what resending until answered does. A
 client whose session has gone and that wants another makes a new initiation,
@@ -191,10 +209,9 @@ again at all.
 **What it does not claim.**
 
 - **A client whose address changes between resends**, a NAT rebinding its
-  port, is two addresses to the server. Each gets a session, and each session
-  an aircraft for the same key. The one the client does not use goes quiet
-  and is let go after `--timeout`. This is how things were before any of
-  this, and it is not defended.
+  port, is two addresses to the server. Each gets a session, sharing the
+  key's one aircraft (below). The one the client does not use goes quiet and
+  is let go after `--timeout`. It is not defended.
 - **The memory is finite.** The server remembers the newest 16,384
   initiations it has taken, about 3 MiB, and forgets them all when it
   restarts. A copy of one older than that, or from before a restart, is

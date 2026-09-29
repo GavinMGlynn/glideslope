@@ -128,6 +128,10 @@ void print_usage(std::FILE* out) {
         "                            --first-from-elsewhere sends a copy of the\n"
         "                            initiation from another port first, and\n"
         "                            waits for it to be answered.\n"
+        "                            --again-from-elsewhere, once the session is\n"
+        "                            up, sends a copy of the initiation from another\n"
+        "                            port, as a replayer would, and waits for it to\n"
+        "                            be answered before flying on.\n"
         "                            --until-exists FILE leaves once FILE exists,\n"
         "                            SECONDS the most it will wait.\n"
         "                            --fly sends\n"
@@ -2492,6 +2496,43 @@ Rejoined join_again(glideslope::platform::UdpSocket& socket,
     }
 }
 
+// **A copy of `initiation` sent from a port of its own**, resent every quarter
+// of a second until it is answered: whether it was, within a minute.
+bool copy_from_elsewhere_answered(const glideslope::platform::Address& server,
+                                  std::span<const std::uint8_t> initiation) {
+    auto elsewhere = glideslope::platform::UdpSocket::bound(0);
+    if (!elsewhere) {
+        std::fprintf(stderr, "glideslope_cli: no second port for the copy\n");
+        return false;
+    }
+    std::vector<std::uint8_t> back(glideslope::platform::largest_datagram);
+    const auto asked = std::chrono::steady_clock::now();
+    double resent_at_s = -1.0;
+    for (;;) {
+        const double waited_s =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - asked).count();
+        if (waited_s > 60.0) {
+            std::fprintf(stderr, "glideslope_cli: the copy from elsewhere was never answered\n");
+            return false;
+        }
+        if (waited_s - resent_at_s >= 0.25) {
+            (void)elsewhere->send(server, initiation);
+            resent_at_s = waited_s;
+        }
+        glideslope::platform::Address from;
+        const std::size_t got = elsewhere->receive(back, from);
+        if (got > glideslope::net::envelope_size &&
+            back[glideslope::net::envelope_size - 1] ==
+                static_cast<std::uint8_t>(glideslope::net::Type::handshake_response)) {
+            std::printf("the copy from elsewhere, sent while the session was live, was "
+                        "answered\n");
+            std::fflush(stdout);
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+}
+
 int connect_to(const std::string& where, const std::string& key_hex, double stay_s,
                bool again, bool fly, double after_s, const std::string& secret_hex = "",
                const std::string& heard_file = "", int until_flying_again = 0,
@@ -2503,7 +2544,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                double take_over_at_s = -1.0, int take_over_aircraft = -1,
                bool take_over_once_ai = false, bool long_frame_after_switch = false,
                bool late_update_after_take_over = false, bool goodbye = true,
-               bool forge_leaving = false, bool stall_once_rolled = false) {
+               bool forge_leaving = false, bool stall_once_rolled = false,
+               bool again_from_elsewhere = false) {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived. With `--after-ready`
@@ -2669,6 +2711,17 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                         std::span<const std::uint8_t>(out.data(), out.size()));
                     std::printf("session with %s\n", session->theirs.text().c_str());
                     std::printf("sealed %zu bytes to it\n", out.size());
+                    // **A test flag's work (`--again-from-elsewhere`)**: a
+                    // copy of this client's initiation, replayed from another
+                    // port while its session is live - what anybody who saw
+                    // it on the wire could send. The server answers it with
+                    // a session nobody can use; it must not take this one's
+                    // aircraft or end this session for it.
+                    if (again_from_elsewhere &&
+                        !copy_from_elsewhere_answered(
+                            *address, std::span<const std::uint8_t>(first.data(), first.size()))) {
+                        return 1;
+                    }
                     if (again_when_let_go) {
                         return again_once_let_go(
                             *socket, *address,
@@ -2873,6 +2926,7 @@ static int run_program(int argc, char** argv) {
             bool again = false;
             bool again_when_let_go = false;
             bool first_from_elsewhere = false;
+            bool again_from_elsewhere = false;
             std::string until_exists;
             bool fly = false;
             double after_s = 0.0;
@@ -2996,6 +3050,10 @@ static int run_program(int argc, char** argv) {
                     again_when_let_go = true;
                     continue;
                 }
+                if (args[i] == "--again-from-elsewhere") {
+                    again_from_elsewhere = true;
+                    continue;
+                }
                 if (args[i] == "--first-from-elsewhere") {
                     first_from_elsewhere = true;
                     continue;
@@ -3050,7 +3108,8 @@ static int run_program(int argc, char** argv) {
                                              again_when_let_go, first_from_elsewhere, until_exists,
                                              take_over_at_s, take_over_aircraft, take_over_once_ai,
                                              long_frame_after_switch, late_update_after_take_over,
-                                             goodbye, forge_leaving, stall_once_rolled);
+                                             goodbye, forge_leaving, stall_once_rolled,
+                                             again_from_elsewhere);
             // **Said when it has gone** (`--done FILE`), for another client
             // in a test to wait on with `--until-exists`.
             if (!done_file.empty()) {

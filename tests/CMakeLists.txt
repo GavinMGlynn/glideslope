@@ -1568,6 +1568,31 @@ set_tests_properties(a_copy_of_an_initiation_from_another_address_arriving_first
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_initiation_elsewhere)
 
+# **One key on two addresses is one player, with one aircraft**: a second
+# session for a key takes over the first's slot and aircraft. See
+# cmake/server_one_key_two_addresses.cmake.
+add_test(NAME a_second_session_for_a_key_takes_over_its_players_slot_and_aircraft
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_one_key_two_addresses -DPORT=24731
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_one_key_two_addresses.cmake)
+set_tests_properties(a_second_session_for_a_key_takes_over_its_players_slot_and_aircraft
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_one_key_two_addresses)
+
+# **A copy of a live player's initiation, replayed from another address, takes
+# nothing from them.** See cmake/server_initiation_replayed_while_live.cmake.
+add_test(NAME a_replayed_initiation_takes_neither_a_live_players_session_nor_its_aircraft
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_initiation_replayed_while_live -DPORT=24735
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_initiation_replayed_while_live.cmake)
+set_tests_properties(a_replayed_initiation_takes_neither_a_live_players_session_nor_its_aircraft
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_initiation_replayed_while_live)
+
 # **The server's window**: it shows the dashboard the terminal would, its drop
 # button drops a player, and it writes a frame. See cmake/server_window.cmake.
 add_test(NAME the_servers_window_shows_the_terminals_dashboard_and_its_drop_button_drops_a_player
