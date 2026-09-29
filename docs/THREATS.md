@@ -150,6 +150,34 @@ displaced, and the sweep now releases a key only when no other connection is
 on it - two addresses may share a key, and the first to go quiet must not take
 the slot from the second.
 
+**And a key has one aircraft; a second session takes over only once it has
+sealed something. Built 2026-09-29.** A client started again from a new port
+while its old session was live used to get a second aircraft, and the player
+flew two until the old session timed out. Now an initiation for a key already
+connected elsewhere makes a session that shares the key's aircraft, and
+**the take-over waits for proof**: the first datagram sealed under the new
+session that opens. Only then are the older sessions on the key told
+`LEAVING` and let go. Taking over at the answer would have been the attack
+this section began with in a new form - anybody who captured a player's
+initiation could replay it from an address of their own and end that player's
+session - because the initiation carries no timestamp to show it fresh.
+Sealing needs the initiation's ephemeral secret, which a replayer has not got,
+so a replay's session never takes over: it shares the aircraft, flies nothing,
+and is let go after `--timeout` without taking the aircraft or the slot, which
+go only with the last session on the key. Held by
+`a_second_session_for_a_key_takes_over_its_players_slot_and_aircraft` and
+`a_replayed_initiation_takes_neither_a_live_players_session_nor_its_aircraft`,
+each watched failing: the first counting two aircraft with the sharing taken
+out, the second a live player told to leave with the take-over moved to the
+answer.
+
+**What the take-over does not defend.** Two copies of one client running at
+once with one key take the aircraft from each other, the newer winning and
+the older told to leave; that is what a key is. A replayer's session costs,
+until `--timeout`, a session's state updates sent to an address of the
+replayer's choosing - as any replayed initiation already did, now without an
+aircraft of its own.
+
 **What is still not defended: how many keys one person may mint.** A slot
 belongs to a key, and one person with four keys is four players. That is named
 under "What is deliberately not defended" and no allowlist is planned.
@@ -607,10 +635,10 @@ seen to fail without the check.
   dropped, before any X25519 work.
 - **Replayed from any other address**, spoofed or not, it is answered as it
   always was. The replayer gets a session it cannot read (which
-  `a_replayed_initiation_makes_a_session_the_replayer_cannot_read` holds), and
-  the victim's key gets an aircraft that nobody flies. That aircraft sits in
-  the sky until `--timeout` and holds the victim's slot, which the victim
-  already has.
+  `a_replayed_initiation_makes_a_session_the_replayer_cannot_read` holds). It
+  shares the victim's key's one aircraft and slot rather than getting its own,
+  and cannot take them over, since it cannot seal (`HANDSHAKE_INITIATION`
+  above); it is let go after `--timeout`.
 - **It cannot be used to keep a player out, and it nearly could.** The first
   version of this dropped a copy from any address. Anybody who saw a player's
   initiation on the wire could then inject a byte-for-byte copy from a
@@ -622,9 +650,9 @@ seen to fail without the check.
   builds that race and was watched failing against the first version: the
   client was admitted once, from the copy's address, and never from its own.
 - **A NAT that rebinds the client's port between resends** makes two
-  addresses of one client, and each gets a session and an aircraft. That is
-  what happened before this change, and it is not defended. The session the
-  client does not use goes quiet and is let go after `--timeout`.
+  addresses of one client, and each gets a session; they share the key's one
+  aircraft. It is not defended. The session the client does not use goes
+  quiet and is let go after `--timeout`.
 - **A forged initiation carrying somebody else's ephemeral key** but sealed
   by the forger fails `Responder::answer` without the ephemeral's secret, so
   it is never remembered.
@@ -632,8 +660,9 @@ seen to fail without the check.
   one captured initiation can replay it from as many spoofed addresses as
   they care to write. Each address is a new entry, answered and remembered,
   and nothing about it needs the victim's secret or a reply that reaches the
-  attacker. The same flood also makes one session and one aircraft per
-  address while a slot is free; see "Resource exhaustion through the reliable layer". The memory holds the
+  attacker. The same flood also makes one session per address, all sharing
+  the victim's one aircraft, while the victim is connected - and one aircraft
+  in all while a slot is free and the victim is not; see "Resource exhaustion through the reliable layer". The memory holds the
   newest 16,384 entries, about 3 MiB, and forgets the oldest first.
   **Forgetting one only brings back the old, harmless behaviour.** A copy
   from that address is answered again, with a session nobody can read. It

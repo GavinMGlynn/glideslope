@@ -542,6 +542,14 @@ struct Connection {
     // **The aircraft this client is watching** (`WATCH`), whose controls go
     // in its own state updates, or `no_aircraft`.
     std::uint8_t watching = glideslope::net::no_aircraft;
+    // **Whether anything sealed under this session has opened yet.** Until
+    // it has, the session proves nothing about who made it: anybody can
+    // replay a captured initiation from any address, and the server answers
+    // it with keys the replayer cannot use. The first datagram that opens
+    // shows the sender holds the initiation's ephemeral secret - that it is
+    // the client itself, now - and that is when a second session for a key
+    // takes over from the first (`take`, the `sealed` arm).
+    bool proven = false;
 };
 
 // **Every initiation that has made a session, remembered after the session
@@ -1443,24 +1451,44 @@ std::map<std::string, Connection>::iterator let_go(
     std::map<std::string, Connection>& connections,
     std::map<std::string, Connection>::iterator it, glideslope::net::Slots& slots,
     Fleet* fleet, const Options& o) {
-    // **The slot goes back only when nobody else is on that key.** A slot
-    // belongs to a key, not to an address, and one key may be connected from
-    // two addresses - a client restarting gets a fresh port. Releasing on the
-    // first to go would take the slot from the one still flying.
+    // **The slot and the aircraft go only when nobody else is on that key.**
+    // Both belong to a key, not to an address, and one key may be connected
+    // from two addresses for a while - a client restarting from a fresh port
+    // before the server has let its old session go, or a replayed initiation
+    // answered with a session nobody can use. Every session on a key shares
+    // its one aircraft; taking it, or the slot, as the first of them went
+    // would take them from the one still flying.
     const glideslope::net::PublicKey going = it->second.who;
-    if (fleet != nullptr && it->second.aircraft != glideslope::net::no_aircraft) {
-        const bool to_ai = fleet->take(it->second.aircraft, o.hand_to_ai_on_leave);
-        std::printf("their aircraft %s\n",
-                    to_ai ? "is now flown by an AI pilot" : "is out of the sky");
-    }
+    const std::uint8_t aircraft = it->second.aircraft;
     it = connections.erase(it);
     const bool elsewhere =
         std::any_of(connections.begin(), connections.end(),
                     [&](const auto& other) { return other.second.who == going; });
-    if (!elsewhere) {
-        slots.release(key_of(going));
+    if (elsewhere) {
+        return it;
     }
+    if (fleet != nullptr && aircraft != glideslope::net::no_aircraft) {
+        const bool to_ai = fleet->take(aircraft, o.hand_to_ai_on_leave);
+        std::printf("their aircraft %s\n",
+                    to_ai ? "is now flown by an AI pilot" : "is out of the sky");
+    }
+    slots.release(key_of(going));
     return it;
+}
+
+// **The server's goodbye** to one session: `LEAVING`, sealed under it,
+// `leaving_copies` times, each sealed afresh, so that its client stops at once
+// rather than knocking on a session that is gone.
+void tell_leaving(glideslope::platform::UdpSocket& socket, const std::string& address,
+                  Connection& c) {
+    if (const auto to = glideslope::platform::address_of(address)) {
+        const std::vector<std::uint8_t> leaving{
+            static_cast<std::uint8_t>(glideslope::net::Inside::leaving)};
+        for (int copy = 0; copy < glideslope::net::leaving_copies; ++copy) {
+            send_sealed(socket, *to, c,
+                        std::span<const std::uint8_t>(leaving.data(), leaving.size()));
+        }
+    }
 }
 
 // **A player dropped by the operator**, by the window's button or a test's
@@ -1474,24 +1502,27 @@ std::map<std::string, Connection>::iterator let_go(
 //   whether or not the goodbye arrived. A client comes back by itself after
 //   being let go for silence; after a drop it must not, or the drop button
 //   would be a kick that lasts three seconds.
-std::map<std::string, Connection>::iterator drop(
-    glideslope::platform::UdpSocket& socket, std::map<std::string, Connection>& connections,
-    std::map<std::string, Connection>::iterator it, glideslope::net::Slots& slots,
-    Fleet* fleet, const Options& o, std::set<std::string>& dropped,
-    glideslope::server::Happenings& happened, double now_s) {
+void drop(glideslope::platform::UdpSocket& socket,
+          std::map<std::string, Connection>& connections,
+          std::map<std::string, Connection>::iterator it, glideslope::net::Slots& slots,
+          Fleet* fleet, const Options& o, std::set<std::string>& dropped,
+          glideslope::server::Happenings& happened, double now_s) {
     std::printf("dropped %s by the operator\n", it->first.c_str());
     std::fflush(stdout);
     happened.add(now_s, "dropped " + it->first + " by the operator");
-    dropped.insert(it->second.who.text());
-    if (const auto to = glideslope::platform::address_of(it->first)) {
-        const std::vector<std::uint8_t> leaving{
-            static_cast<std::uint8_t>(glideslope::net::Inside::leaving)};
-        for (int copy = 0; copy < glideslope::net::leaving_copies; ++copy) {
-            send_sealed(socket, *to, it->second,
-                        std::span<const std::uint8_t>(leaving.data(), leaving.size()));
+    // **Every session on the key goes**, not only the one on the dashboard's
+    // row: a key briefly on two addresses is one player, and dropping one of
+    // them would leave the player flying from the other.
+    const glideslope::net::PublicKey key = it->second.who;
+    dropped.insert(key.text());
+    for (auto each = connections.begin(); each != connections.end();) {
+        if (each->second.who == key) {
+            tell_leaving(socket, each->first, each->second);
+            each = let_go(connections, each, slots, fleet, o);
+        } else {
+            ++each;
         }
     }
-    return let_go(connections, it, slots, fleet, o);
 }
 
 // **The newest input a client sent, applied**, if one is waiting: what its
@@ -1628,7 +1659,21 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         // **A slot is not an aeroplane.** A server with nothing to fly has no
         // terrain loaded and nowhere to put one, so the client gets a slot
         // and no aircraft, and its state updates say so with `no_aircraft`.
-        if (fleet != nullptr) {
+        //
+        // **And a key has one aircraft, however many sessions it has.** A
+        // second session for a key already connected - a client started again
+        // from a new port while its old session is live, or a replayed
+        // initiation - shares the aircraft the key has rather than being
+        // given another. It takes over from the old session only once
+        // something sealed under it opens (`proven`), which a replayer cannot
+        // do; until then both are the key's, and the old one flies on.
+        const auto same_key =
+            std::find_if(connections.begin(), connections.end(), [&](const auto& other) {
+                return other.second.who == answer->session.theirs;
+            });
+        if (same_key != connections.end()) {
+            c.aircraft = same_key->second.aircraft;
+        } else if (fleet != nullptr) {
             c.aircraft = fleet->give(*slot);
         }
 
@@ -1665,6 +1710,30 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             return;
         }
         Connection& c = it->second;
+        if (!c.proven) {
+            c.proven = true;
+            // **A second session for a key takes over from the first here**,
+            // at the first thing sealed under it that opens - proof that its
+            // sender holds the initiation's ephemeral secret, which a replay
+            // of a captured initiation, from any address, does not. The old
+            // sessions on the key are told they are leaving, so that a client
+            // still running on one stops rather than joining again and taking
+            // the aircraft back; and let go, leaving the key's slot and its
+            // aircraft to this one.
+            for (auto other = connections.begin(); other != connections.end();) {
+                if (other == it || !(other->second.who == c.who)) {
+                    ++other;
+                    continue;
+                }
+                std::printf("%s took over from %s: a new session for %s\n", who.c_str(),
+                            other->first.c_str(), c.who.text().substr(0, 8).c_str());
+                std::fflush(stdout);
+                happened.add(now_s, who + " took over from " + other->first);
+                c.aircraft = other->second.aircraft;
+                tell_leaving(socket, other->first, other->second);
+                other = let_go(connections, other, slots, fleet, o);
+            }
+        }
         c.last_heard_s = now_s;
         ++c.datagrams;
         c.bytes_in += datagram.size();
@@ -1755,7 +1824,12 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                     apply_input(c, *fleet);
                     const auto result = fleet->take_over(c.aircraft, swap.aircraft);
                     if (const auto* now = std::get_if<std::uint8_t>(&result)) {
-                        c.aircraft = *now;
+                        // Every session on the key: they share its aircraft.
+                        for (auto& [address, other] : connections) {
+                            if (other.who == c.who) {
+                                other.aircraft = *now;
+                            }
+                        }
                     } else {
                         std::printf("aircraft %u not taken over: %s\n",
                                     static_cast<unsigned>(swap.aircraft),
@@ -1999,9 +2073,8 @@ int run(const Options& o) {
             for (auto it = connections.begin(); it != connections.end(); ++it) {
                 if (it->second.last_input_applied > 0) {
                     dropped_once = true;
-                    (void)drop(*socket, connections, it, slots,
-                                                 fleet ? &*fleet : nullptr, o, dropped,
-                                                 happened, up_s);
+                    drop(*socket, connections, it, slots, fleet ? &*fleet : nullptr, o,
+                         dropped, happened, up_s);
                     break;
                 }
             }
@@ -2144,9 +2217,8 @@ int run(const Options& o) {
                 if (to_drop) {
                     const auto it = connections.find(*to_drop);
                     if (it != connections.end()) {
-                        (void)drop(*socket, connections, it, slots,
-                                                     fleet ? &*fleet : nullptr, o, dropped,
-                                                     happened, up_s);
+                        drop(*socket, connections, it, slots, fleet ? &*fleet : nullptr, o,
+                             dropped, happened, up_s);
                     }
                 }
             }

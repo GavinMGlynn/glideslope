@@ -18,10 +18,12 @@
 # answered; only then does it send it from its own, and fly from there - full
 # aileron, which rolls its aeroplane past 90 degrees (server_fly.cmake).
 #
-# **What must hold**: the key admitted twice, once for each address; an
-# aircraft banked past 90 degrees, which only the client flying from its own
-# address can have done; and the copy's session, which nobody speaks in, let
-# go and its aircraft unflown.
+# **What must hold**: the key admitted twice, once for each address; the
+# client's own session taking over from the copy's once it seals, and exactly
+# once; one aircraft for the key, not one for each address (a key has one
+# aircraft, however many sessions it has - server_one_key_two_addresses.cmake);
+# and that aircraft banked past 90 degrees, which only the client flying from
+# its own address can have done.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
@@ -72,11 +74,18 @@ if(_out MATCHES "dropped a copy")
                         "copy of one taken from another address:\n${_out}")
 endif()
 
+string(REGEX MATCHALL "took over from 127\\.0\\.0\\.1:[0-9]+" _took "${_out}")
+list(LENGTH _took _takes)
+if(NOT _takes EQUAL 1)
+    message(FATAL_ERROR "the client's own session took over ${_takes} times, not once:\n"
+                        "${_out}\n${_err}")
+endif()
+
 string(REGEX MATCHALL "number [0-9]+, a player's, banked as far as [0-9]+ degrees"
        _players "${_out}")
 list(LENGTH _players _count)
-if(NOT _count EQUAL 2)
-    message(FATAL_ERROR "the server flew ${_count} players' aircraft, not two:\n"
+if(NOT _count EQUAL 1)
+    message(FATAL_ERROR "the server flew ${_count} players' aircraft for one key, not one:\n"
                         "${_out}\n${_err}")
 endif()
 set(_flown 0)
@@ -88,7 +97,7 @@ foreach(_player IN LISTS _players)
 endforeach()
 if(NOT _flown EQUAL 1)
     message(FATAL_ERROR "${_flown} players' aircraft banked past 90 degrees, not one - "
-                        "the client's own, flown from its own address:\n${_out}\n${_err}")
+                        "flown from the client's own address:\n${_out}\n${_err}")
 endif()
 message(STATUS "a copy from another address answered first did not keep the client out: "
-               "admitted twice, its own aircraft flown")
+               "admitted twice, one aircraft, flown from its own address")

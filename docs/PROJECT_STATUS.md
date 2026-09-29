@@ -227,6 +227,64 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A key has one aircraft: a second session takes over once it has sealed something, 2026-09-29 — tail done
+
+**What is still missing first.** On a full server a player who starts again is
+refused `SERVER_FULL` until their old session is let go for silence: `take()`
+refuses a full session before building a `Responder`, so it never learns whose
+initiation it is (`docs/THREATS.md` keeps that bound). That is a new tail in
+the plan. The client with the window does not yet come back by itself either
+(the rejoin tail); this is the server side only.
+
+**What was wrong.** A client started again from a new port while its old
+session was live - before `--timeout` had let it go - was admitted to the same
+slot (`Slots::admit` is by key) but given a second aircraft by `Fleet::give`,
+and the player flew two until the old one timed out.
+
+**What it does now** (`src/frontend/server/main.cpp`):
+- **A key has one aircraft, however many sessions it has.** An initiation for
+  a key already connected at another address makes a session that shares that
+  key's aircraft number instead of calling `give()`. A take-over of an AI's
+  aircraft sets the new number on every session of the key.
+- **The take-over waits for proof** (`Connection::proven`): at the first
+  sealed datagram that opens under a session, every other session on its key
+  is sent `LEAVING` (`tell_leaving`, shared with the operator's drop) and let
+  go, printed as `<new> took over from <old>: a new session for <key>`.
+  `LEAVING` rather than silence, because a client still running on the old
+  session would otherwise be refused, join again, and take the aircraft back.
+- **Why not at the answer.** The initiation has no timestamp, so nothing in it
+  says it is fresh; anybody who captured one could replay it from an address
+  of their own and, if that took over, end a live player's session. Sealing
+  needs the initiation's ephemeral secret, which only the client has, so a
+  replay's session never proves itself: it shares the aircraft, flies nothing
+  (it cannot seal an input), and goes after `--timeout`.
+- **`let_go` takes the aircraft and the slot only with the last session on the
+  key**, and `drop()` lets go every session on the dropped key.
+- `glideslope_cli connect --again-from-elsewhere` sends a copy of its
+  initiation from a second port once its session is up, waits for it to be
+  answered, and flies on - the replay a test needs.
+
+**Verification** (Linux release, 2026-09-29):
+- `a_second_session_for_a_key_takes_over_its_players_slot_and_aircraft`
+  (`server_one_key_two_addresses.cmake`, port 24731): two clients with one key,
+  the second started once the first is in its session, the first staying until
+  the second has gone. The key is admitted twice, taken over once, the first
+  client hears `LEAVING`, and the server flew one player's aircraft. Watched
+  failing with the sharing taken out (every session given its own aircraft):
+  "the server flew 2 players' aircraft for one key, not one".
+- `a_replayed_initiation_takes_neither_a_live_players_session_nor_its_aircraft`
+  (`server_initiation_replayed_while_live.cmake`, port 24735): a live client's
+  initiation replayed from another port. Admitted twice, nothing taken over,
+  the client never told to leave, the copy's session let go for silence, one
+  aircraft, banked past 90 degrees by the client. Watched failing with the
+  take-over moved to the answer: "a replayed initiation took over a live
+  session".
+- `a_copy_of_an_initiation_from_another_address_arriving_first_does_not_keep_its_client_out`
+  now expects one aircraft, not two, and one take-over; it also failed with the
+  sharing taken out.
+- Also passed: the initiation-again, joins-again, drop-keeps-out, goodbye,
+  repeated-handshake and four-players tests, and the port check.
+
 ### A multi-process test's programs never die of a closed pipe, 2026-09-29 — tail done
 
 **The flake.** macOS release CI failed twice with a program killed by SIGPIPE
