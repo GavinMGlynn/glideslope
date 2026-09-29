@@ -12,16 +12,20 @@
 # weather services' requests sent to glideslope_http_stub
 # (GLIDESLOPE_WEATHER_SERVICE), twice:
 #
-#   - **The control**, shot at tick 600, long before the refresh a flight
-#     makes every 15 minutes of flying (weather_refresh_seconds, tick 108000)
-#     is due: what quitting costs on this machine, with nothing to give up.
-#     It is short, as a quit's teardown does not grow with the flight, and a
-#     flight of 108000 ticks is minutes of a debug build.
-#   - **The quit**, shot at tick 108120, a second of flight after the refresh
-#     is due. A shot flown by ticks is 300 frames of 360 ticks, so the
-#     refresh begins in the shot's frame or the one before it, and it is
-#     under way for 10 s (429) or 60 s (stalled) before it could end by
-#     itself: frames, even a debug build's, are far shorter.
+#   - **The control**, quit at tick 400, before the refresh is due: what
+#     quitting costs on this machine, with nothing to give up.
+#   - **The quit**, at tick 610, the refresh having begun at tick 600, five
+#     frames of two ticks before.
+#
+# Both are told `--weather-refresh 5`: the weather is fetched again after 5 s
+# of flight, not the 15 minutes a flight waits (weather_refresh_seconds),
+# which were 108000 ticks - minutes of a debug build. And both **quit with
+# `--quit-at`**, at the tick, straight after its steps, drawing nothing more:
+# a shot waits for every terrain tile its view needs, and on Windows debug that
+# wait was 55 s after the refresh began - longer than a refused refresh's 40 s
+# - so a quit by the shot came with the refresh over. A person quitting waits
+# for no tiles either. (Each has a --shot, at tick 700, which is never
+# reached: it paces the flight by ticks, two a frame, and not the clock.)
 #
 # The stub answers each flight's first fetch - the METAR, and Open-Meteo's
 # forecast - from files (`--files-for 4`: two for each flight), and the
@@ -30,20 +34,17 @@
 # through 40 s of waits; with CASE stalled its answer begins and never ends,
 # which only the 60 s stall timeout would end, and then again for each retry.
 #
-# **The situation is built, not hoped for.** At the shot the client says
+# **The situation is built, not hoped for.** As it quits the client says
 # whether a weather refresh is under way; the quit must say it is, and the
-# control that it is not. **Without imagery**: a shot waits for every
-# terrain tile its view needs, and imagery is fetched from the network, whose
-# timeouts on Windows CI's and the development machine's WinHTTP (12002) held
-# the shot past the refresh's 40 s; the DEM is kept in CACHE. A machine slow enough to let the refresh end by
-# itself before the shot - as a Windows debug build did, shot 21 frames after
-# the refresh began - fails the test, as not having tested its rule; it never
-# passes.
+# control that it is not. A machine slow enough to let the refresh end by
+# itself before the quit - as Windows debug did while quits came by the shot -
+# fails the test, as not having tested its rule; it never passes. Imagery is
+# off, as nothing here is drawn to be looked at.
 #
-# The client exits after writing the shot - quitting, with the refresh under
-# way - and glideslope_exit_timer, reading its standard output through a pipe,
-# says how long after the shot's line it ended. That depends on the client
-# flushing that line as it writes it (frontend/client/main.cpp). The quit must
+# glideslope_exit_timer, reading the client's standard output through a pipe,
+# says how long after "quitting at tick" it ended, and after the refresh
+# began. That depends on the client flushing those lines as it says them
+# (frontend/client/main.cpp and flight.cpp). The quit must
 # end within 2 s of the control's time, and within 10 s whatever the control
 # took; a refresh not given up costs 30 s or more.
 #
@@ -64,7 +65,7 @@
 cmake_minimum_required(VERSION 3.28)
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
-set(_said "glideslope: wrote tick")
+set(_said "glideslope: quitting at tick")
 set(_began "glideslope: fetching the weather again")
 
 # The inner half: the stub is listening, or about to be.
@@ -79,13 +80,14 @@ if(DEFINED STUB_PORT_FILE)
     file(WRITE "${RESULT_FILE}" "")
     foreach(_run IN ITEMS control quit)
         if(_run STREQUAL "control")
-            set(_shot_at 600)
+            set(_quit_at 400)
         else()
-            set(_shot_at 108120)
+            set(_quit_at 610)
         endif()
         execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}"
-                                --size 320x240 --screen flight --weather YSSY --autopilot --imagery off
-                                --shot-at ${_shot_at}
+                                --size 320x240 --screen flight --weather YSSY --weather-refresh 5
+                                --autopilot --imagery off
+                                --shot-at 700 --quit-at ${_quit_at}
                                 --shot "${WORK}/quit-${DRIVER}-${CASE}-${_run}.bmp"
                         COMMAND "${TIMER}" "${_said}" "${_began}"
                         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -204,7 +206,7 @@ endif()
 # Seconds to thousandths, as whole milliseconds.
 function(ended_ms text out)
     if(NOT text MATCHES "glideslope_exit_timer: ended ([0-9]+)\\.([0-9][0-9][0-9]) s after")
-        message(FATAL_ERROR "the shot was never said:\n${text}")
+        message(FATAL_ERROR "the quit was never said:\n${text}")
     endif()
     math(EXPR _ms "${CMAKE_MATCH_1} * 1000 + 1${CMAKE_MATCH_2} - 1000")
     set(${out} ${_ms} PARENT_SCOPE)
@@ -212,7 +214,7 @@ endfunction()
 ended_ms("${_control}" _control_ms)
 ended_ms("${_quit}" _quit_ms)
 math(EXPR _limit_ms "${_control_ms} + 2000")
-set(_said_times "the control ended ${_control_ms} ms after its shot, the quit ${_quit_ms} ms")
+set(_said_times "the control ended ${_control_ms} ms after it quit, the quit ${_quit_ms} ms")
 if(_quit_ms GREATER _limit_ms OR _quit_ms GREATER 10000)
     message(FATAL_ERROR "quit during a weather refresh (${CASE}): ${_said_times}; more "
                         "than 2 s past the control's, or past 10 s:\n${_stub_said}")

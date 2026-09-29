@@ -29,6 +29,8 @@
 
 namespace glideslope::client {
 
+inline constexpr double weather_refresh_seconds = 15 * 60.0;
+
 struct FlightStart {
     // The aircraft, by its id in the catalogue (sim/catalogue.hpp).
     std::string aircraft = "c172p";
@@ -46,6 +48,9 @@ struct FlightStart {
     std::string weather_station;
     // Microbursts put into that weather, for as long as each lasts.
     std::vector<world::Microburst> microbursts;
+    // How often that weather is fetched again, in seconds of the flight: a
+    // test's, to have a refresh under way without flying 15 minutes first.
+    double weather_refresh_s = weather_refresh_seconds;
     // Flown by the AI from the first step: holding what the aircraft is doing,
     // or flying `plan` - from the plan's start, if it has one, rather than the
     // position above. A plan's altitudes are above sea level.
@@ -96,7 +101,6 @@ gfx::Placement placement_of(const world::Ecef& centre, double heading_deg,
                             const gfx::ModelAlignment& alignment,
                             const ModelGeometry& geometry);
 
-inline constexpr double weather_refresh_seconds = 15 * 60.0;
 inline constexpr double weather_blend_seconds = 5 * 60.0;
 
 class Flight {
@@ -277,6 +281,7 @@ private:
     std::optional<sim::ChecklistRun> checklist_;
     bool checklist_showing_ = false;
     std::string weather_station_;
+    double weather_refresh_s_ = weather_refresh_seconds;
     std::vector<world::Microburst> microbursts_;
     std::shared_ptr<world::ReportedWeather> weather_;
     double weather_fetched_at_s_ = 0.0;
