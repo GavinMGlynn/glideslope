@@ -75,8 +75,9 @@ env:
 # a step against the wall clock under a sanitizer):
 #   - A pull request: every preset builds and tests, except that the debug
 #     presets leave out LABELS timing (tests/CMakeLists.txt says why); the
-#     release presets run it. The debug presets leave it out every night too,
-#     until the window client's test mode runs on a simulated frame clock.
+#     release presets run it. The debug presets leave it out every night too:
+#     those tests assert the 20 fps their bounds are claimed at, and fail
+#     as testing nothing where it is not met.
 #   - A push to main, after a merge: the builds only - the tree was tested
 #     before it merged, since main takes a branch only when it is up to date -
 #     which keeps main's caches warm for the pull requests that restore them.

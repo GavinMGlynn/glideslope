@@ -132,6 +132,9 @@ if(TAKE_OVER)
                             "for a step without the blend to pass 2.5 m, so the bound tests "
                             "nothing:\n${_out}")
     endif()
+    # **And only at a playable frame rate**: the bound is claimed at 20 fps
+    # and above, and a slower machine's frames would measure the machine.
+    glideslope_require_playable_frames("${_out}" OTHERWISE)
     if(_step GREATER_EQUAL 2.5)
         message(FATAL_ERROR "what the client showed stepped ${_step} m at the take-over, the "
                             "bound 2.5 m:\n${_out}")
