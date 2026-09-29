@@ -92,7 +92,7 @@ jobs:
           source /opt/rh/gcc-toolset-14/enable
           cmake --preset linux-release
       - uses: actions/cache/save@v6
-        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
           key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
@@ -224,7 +224,7 @@ jobs:
       - name: Configure
         run: cmake --preset macos-release
       - uses: actions/cache/save@v6
-        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
           key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
@@ -304,7 +304,7 @@ jobs:
         shell: cmd
         run: cmake --preset windows-release
       - uses: actions/cache/save@v6
-        if: ${{ !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
           key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
