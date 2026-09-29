@@ -26,9 +26,11 @@ concurrency:
 # one copy for every platform (enableCrossOsArchive), without the Cesium tile
 # caches the tests write there, which are theirs and not pinned.
 #
-# Cesium Native's dependencies are built by vcpkg (cmake/Vcpkg.cmake), and
-# vcpkg's binary cache is kept between runs in .vcpkg-archives, keyed on
-# everything that decides what is built.
+# Cesium Native's dependencies are built by vcpkg (cmake/Vcpkg.cmake). On Linux
+# and macOS vcpkg's binary cache is kept between runs in .vcpkg-archives, keyed
+# on the toolchain and everything that decides what is built; on Windows it is
+# a NuGet feed in GitHub Packages (.github/actions/vcpkg-github-packages), one
+# package per ABI, written by main only.
 #
 # **Only main saves a cache; a pull request only restores.** A pull request can
 # read main's caches and nobody else's, and all of them share the repository's
@@ -575,7 +577,9 @@ jobs:
         with: { submodules: true }
       - uses: ./.github/actions/windows-setup
       - uses: ./.github/actions/vcpkg-github-packages
-        with: { token: '${{ secrets.VCPKG_PAT }}' }
+        with:
+          token: ${{ secrets.VCPKG_PAT }}
+          write: ${{ github.event_name != 'pull_request' }}
 
       # **ccache, as on Linux and macOS**: without it each Windows build
       # compiled everything from nothing, 17-19 minutes on every push. ccache
@@ -856,7 +860,7 @@ jobs:
           fi
           changed=$(git diff --name-only "$BASE" "$HEAD")
           echo "$changed"
-          if echo "$changed" | grep -Eq '^(CMakeLists\.txt|CMakePresets\.json|cmake/|ext/|assets/|\.gitmodules|vcpkg\.json|vcpkg-configuration\.json|\.github/workflows/package\.yml|src/frontend/)'; then
+          if echo "$changed" | grep -Eq '^(CMakeLists\.txt|CMakePresets\.json|cmake/|ext/|assets/|\.gitmodules|vcpkg\.json|vcpkg-configuration\.json|\.github/workflows/package\.yml|\.github/actions/|src/frontend/)'; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           else
             echo "build=false" >> "$GITHUB_OUTPUT"

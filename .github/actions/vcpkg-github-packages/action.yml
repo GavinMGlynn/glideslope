@@ -6,9 +6,16 @@
 # rebuilt them all, 26-28 minutes (2026-09-30). GitHub Packages holds one NuGet
 # package per ABI, so a new compiler rebuilds and uploads once, the next job on
 # that image restores it, and a job on the old image still finds its own. It is
-# Microsoft's recommended cache for vcpkg on GitHub Actions, it is free for a
-# public repository's packages (vcpkg links each to the repository through
-# GITHUB_REPOSITORY), and it is outside the Actions cache's 10 GB.
+# Microsoft's recommended cache for vcpkg on GitHub Actions, and it is outside
+# the Actions cache's 10 GB.
+#
+# **The packages must be public.** vcpkg links each to this repository
+# (GITHUB_REPOSITORY), but a linked package inherits the repository's access,
+# not its visibility: a personal account's new package is private, and private
+# packages have 500 MB of storage and 1 GB of transfer a month on the free
+# plan, then are blocked - four Windows restores would use the month. Public
+# packages are free. Each package is made public once, after its first upload
+# (PROJECT_STATUS says how); later versions keep it.
 #
 # **Windows only**: elsewhere vcpkg runs nuget.exe under Mono, which
 # ubuntu-24.04 and macOS no longer carry; there the packages are small and the
@@ -23,6 +30,10 @@ inputs:
   token:
     description: A classic personal access token with read:packages and write:packages.
     required: false
+  write:
+    description: "'true' to upload what is built (main); otherwise only read (pull requests)."
+    required: false
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -31,6 +42,7 @@ runs:
         VCPKG_PAT: ${{ inputs.token }}
         FEED: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
         OWNER: ${{ github.repository_owner }}
+        RW: ${{ inputs.write == 'true' && 'readwrite' || 'read' }}
       run: |
         $ErrorActionPreference = 'Stop'
         $ProgressPreference = 'SilentlyContinue'
@@ -53,9 +65,9 @@ runs:
         </configuration>
         "@
         & $nuget sources add -Name GitHubPackages -Source $env:FEED -UserName $env:OWNER `
-            -Password $env:VCPKG_PAT -StorePasswordInClearText -ConfigFile $cfg -NonInteractive
+            -Password $env:VCPKG_PAT -StorePasswordInClearText -ConfigFile $cfg -NonInteractive | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "nuget sources add failed" }
-        & $nuget setapikey $env:VCPKG_PAT -Source $env:FEED -ConfigFile $cfg -NonInteractive
+        & $nuget setapikey $env:VCPKG_PAT -Source $env:FEED -ConfigFile $cfg -NonInteractive | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "nuget setapikey failed" }
-        "VCPKG_BINARY_SOURCES=clear;nugetconfig,$cfg,readwrite;nugettimeout,600" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-        Write-Output "vcpkg's binary cache: $env:FEED"
+        "VCPKG_BINARY_SOURCES=clear;nugetconfig,$cfg,$env:RW;nugettimeout,600" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+        Write-Output "vcpkg's binary cache: $env:FEED ($env:RW)"

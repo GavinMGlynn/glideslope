@@ -641,8 +641,8 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
       (26-28 minutes a Windows configure). *Verification: a new runner image
       costs one rebuild, saved, not one per run.* Windows uses GitHub
-      Packages now, Linux and macOS a cache keyed on the image; not yet seen
-      restoring on CI.
+      Packages now, Linux and macOS a cache keyed on the image; the packages
+      are not yet public, and not yet seen restoring on CI.
 - [ ] **A CI run takes 90-120 minutes where its jobs need about 40**: the
       Actions caches overflowed their 10 GB and builds compiled from nothing.
       *Verification: pull requests' builds restore main's ccache with most

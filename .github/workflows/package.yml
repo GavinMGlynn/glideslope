@@ -318,7 +318,9 @@ jobs:
         with: { submodules: true }
 
       - uses: ./.github/actions/vcpkg-github-packages
-        with: { token: '${{ secrets.VCPKG_PAT }}' }
+        with:
+          token: ${{ secrets.VCPKG_PAT }}
+          write: ${{ github.event_name != 'pull_request' }}
       - uses: ./.github/actions/msvc-dev-env
 
       - name: Configure
