@@ -1685,6 +1685,15 @@ add_test(NAME the_pre_commit_hook_refuses_an_unfinished_commit_and_nothing_else
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/githooks
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/githooks.cmake)
 
+# **CI's test shards between them run every test once**: for every preset
+# the workflow shards, its dealing (tools/ci_shard.cmake) is done for each of
+# the shards its matrix rows name, and every test is in exactly one. See
+# cmake/ci_shards.cmake.
+add_test(NAME every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} -DBUILD=${PROJECT_BINARY_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/ci_shards
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ci_shards.cmake)
+
 # **Run as a git hook runs it, the hooks' test leaves the repository being
 # pushed alone.** See cmake/githooks_in_a_hook.cmake.
 add_test(NAME the_hooks_test_run_from_a_hook_changes_its_scratch_repository_and_not_the_one_pushed
