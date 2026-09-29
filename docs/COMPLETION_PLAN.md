@@ -604,13 +604,17 @@ Found while implementing something else. Added when found, not when remembered.
       touches at 16.4 degrees where she touched at 11.7 - her nose no longer
       pushed down, though she still does not round out - and the four with
       no tail to strike are named.
-- [ ] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
+- [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of
-      its job's limit.* In progress: tests are dealt to shards by their
-      measured cost, a fixture with its tests. The first run was under 20
-      minutes everywhere but macOS debug's worst shard took 17.6; the run with
-      fixtures dealt whole and four macOS debug shards is not yet in.
+      its job's limit.* Done 2026-09-29: tests are dealt to shards by their
+      measured cost, a fixture with its tests, and a test checks every shard
+      between them runs every test once; the worst shard on CI took 17.7 of
+      30 minutes, macOS debug's 11.8.
+- [ ] **Taking over an AI aircraft at 100 ms was not refused once** for a
+      player's aircraft, on Windows clang in CI (2026-09-29), and passed when
+      run again. *Verification: the take-over tests pass on every platform on
+      repeated nightly runs.*
 - [x] **Taking an aeroplane back on its landing roll does not finish the
       landing**: it is handed the plain autopilot, which never stops it.
       *Verification: an approach taken back on the roll is landed to a stop.*

@@ -227,12 +227,13 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### CI's test shards are dealt by what each test costs, 2026-09-29 — tail in progress
+### CI's test shards are dealt by what each test costs, 2026-09-29 — tail done
 
-**What is missing first.** The tail is ticked only on a CI run of this branch
-whose every test shard's job finished under two thirds of its 30-minute limit,
-20 minutes, with macOS debug no worse than about 16. The first run met the 20
-but not the 16; the second is below.
+Every test shard's job on this branch's CI run 36512248457 finished under two
+thirds of its 30-minute limit, 20 minutes; the worst was Windows debug's 17.7.
+The Linux debug floor is still its longest test (below), and one test failed
+once on that run and passed when run again (below): neither is hidden by the
+tick.
 
 **What was wrong.** Shard k of n ran every nth test from the kth
 (`ctest -I k,,n`), so the slow tests fell where their numbers put them. On
@@ -300,8 +301,32 @@ the book: 838 s on one run and 1053 s on another, so a shard holding it takes
 at least 18 to 19 minutes with setup on a slow run. That is under 20 but not by
 much; splitting the circuit lesson would lower it, and is not done here.
 
-**Verification.** The pull request's own CI run: every test shard's job time
-against 20 minutes, below.
+**Verification: run 36512248457**, rebased on main, fixtures dealt whole,
+four macOS debug shards. Job minutes (test step in brackets), each against
+20:
+
+| preset | shards | every shard's job | worst | first run's worst | before (main) |
+|---|---|---|---|---|---|
+| linux-debug | 7 | 17.4, 16.2, 14.5, 14.4, 14.6, 15.5, 14.3 | 17.4 (15.6) | 15.6 | 26.3 |
+| linux-release | 2 | 13.5, 9.2 | 13.5 (12.1) | 12.6 | 8.4 |
+| macos-debug | 4 | 11.8, 10.6, 10.9, 11.8 | 11.8 (10.9) | 17.6 | 17.5 |
+| macos-release | 2 | 9.4, 9.3 | 9.4 (8.1) | 7.8 | 8.4 |
+| windows-debug | 6 | 14.1, 16.7, 15.7, 12.9, 17.7, 13.3 | 17.7 (16.0) | 16.6 | 18.2 |
+| windows-release | 2 | 11.7, 11.3 | 11.7 (10.2) | 13.9 | 13.6 |
+| windows-clang | 2 | 12.2, 12.5 | 12.5 (10.9) | 12.8 | 12.9 |
+
+The dealing's own estimates are work divided by the jobs at once, not a
+schedule, and were within a few minutes: the spread left is runner speed and
+the tests that hold the runner. Linux release's first shard is the heavier
+because the downloads fixture is set up in both and its serial tests landed
+together; at 13.5 it is well inside.
+
+**Found on the way.** On this run's first attempt Windows clang's shard 2 failed
+`a_player_takes_over_an_ai_aircraft_with_no_step_at_100_ms_and_a_players_is_refused`
+at 30.5 s: "the server did not refuse player's aircraft 2". Run again, the
+shard passed (12.5 minutes). It is a `RUN_SERIAL` test, alone on the runner
+whichever shard it is dealt to, so the dealing does not explain it; it is a
+tail in the plan.
 
 
 ### What the client with the window shows does not step at a switch, 2026-09-27
