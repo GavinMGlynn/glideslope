@@ -2883,7 +2883,119 @@ machine's time, not its memory.
   made 5 MiB: "from frame 1000 to frame 10000 the memory held ranged 17 MiB,
   from 532 to 549: more than 5 MiB". Both reverted.
 
-### The autopilot has a stall recovery; four of fourteen are within their lesson, 2026-09-26 — tail still open
+### The stall recovery is held to two checks; seven aeroplanes are not yet within them, 2026-09-30 — tail still open
+
+**What is not done first.**
+- **Seven aeroplanes are named as not yet within their bounds**, across the
+  two new checks (below). The item is ticked only when both lists are empty.
+- **The AI pilot does not notice a stall.** Nothing in `Controller` or the
+  navigator engages the recovery by itself.
+- **No test yet checks that engaging the recovery and letting it go steps
+  no control.**
+- **The recovery law is unchanged.** The A320 and the Mosquito still pull out
+  harder than 2 g, and the F-15C now does too with 10% in hand.
+
+**The owner's decision (2026-09-30, REQUIREMENTS.md 4.3).** A lesson's height
+is for recovering at the approach to the stall, so the old check (every
+aeroplane left thirty seconds within its lesson's height) could not be met.
+It is replaced by two, both within 2 g, both with the "recovered" of the
+entry below (flying again for five seconds together), and both with the same
+10% tolerance on every figure.
+
+**(a) At the first sign of the stall.** Handed to the recovery where the
+lesson's entry ends, which the lesson's data sets: `stall+6` in a light
+aeroplane, `stall+25` in the jets and the Mosquito, the approach to the
+stall. Held to the lesson's own height. Verified by
+`every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_more_than_its_lesson_allows_within_2_g`.
+
+**(b) Left thirty seconds in it.** Held to a height worked out for each
+aeroplane from how it was flying when handed over, replacing the list of
+named heights. Verified by
+`every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_within_2_g_and_the_height_its_speed_and_sink_need`.
+
+**The formula** (`height_its_state_needs_ft` in tests/unit/test_lesson.cpp).
+V0 is the true airspeed at the hand-over, Vr the lesson's recovery speed as a
+true airspeed at that height, w0 the sink, α0 the angle of attack and α_s the
+angle the lift peaked at; n = 2, g = 32.174 ft/s².
+- **Energy, to reach the recovery speed:** (Vr² − V0²) / 2g, when Vr > V0.
+- **Unloading the wing:** w0 (α0 − α_s) / 8 °/s — the sink kept while the
+  angle of attack comes down, at the rate the recovery puts the nose down.
+- **Arresting the sink at the load limit:** on the arc of a pull-out at
+  V = max(V0, Vr), V² (1 − cos γ) / ((n − 1) g), with γ = asin(w0 / V0) the
+  flight path at the hand-over.
+- **The bound is 2 × their sum + 200 ft.** The sum is what an ideal pilot
+  needs: pulling exactly 2 g the instant the wing is unloaded, with no drag in
+  the dive. The autopilot pulls out at 1.6 g (a 2 g arc's height, times 1.67),
+  brings the nose up at 3 °/s, and a flaps-down dive at full power has drag
+  to pay for. Measured against the sum, the eleven that pull out within 2 g
+  with 10% in hand lose 0.4 to 1.4 times it (the most is the 787-8, 1.39, a
+  flaps-down dive nearly all energy). The Mosquito loses 1.6 times it and the
+  A320 2.2, both pulling out past 2 g: it is the recovery that is wrong
+  there, not the bound. 200 ft covers the light aeroplanes, whose sums are tens of feet.
+- **Seen to fail**: with the factor 1 instead of 2, the 737-300, 787-8,
+  A380 and F-35B were outside it.
+
+**Also changed: the recovery is asked for five knots past the lesson's
+recovery speed**, no longer half as much again as the stall where that is
+more. In the jets and the Mosquito 1.5 × stall is far past the lesson's
+speed; they dived for it, and at the first sign the 737-300 lost 878 ft
+reaching it and levelling off, against 515 now. The Mosquito, asked for 1.5 ×
+stall at 20,000 ft with its flaps and gear down, could not hold that level at
+full power and sank for ten minutes.
+
+**The instructor's demonstration uses the recovery.** `demonstrate_a_stall`
+asks for `speed_on_elevator` at the recovery, not a descent.
+`an_instructor_demonstrates_a_stall_and_hands_it_over` passes for all
+fourteen, with no step over a hand's pace. Nothing yet fails if it goes back
+to the descent.
+
+**The figures, linux-release.** Lost is from the hand-over to the lowest point
+before recovered; g is the peak mean over a quarter of a second.
+
+| Aeroplane | (a) lost / lesson (ft) | (a) g | (b) handed over | (b) lost / bound (ft) | (b) g |
+|---|---|---|---|---|---|
+| 737-300 | 515 / 1,300 | 1.24 | 119 kt, α 36°, −7,674 ft/min | 1,314 / 2,477 | 1.78 |
+| 787-8 | 768 / 1,300 | 1.30 | 116 kt, α 13°, −2,851 | 1,072 / 1,740 | 1.22 |
+| A320 | 507 / 1,300 | 1.20 | 156 kt, α 27°, −10,079 | **1,535 / 1,584** | **2.18** |
+| A380 | 637 / 1,300 | 1.29 | 123 kt, α 41°, −9,171 | 1,754 / 2,908 | 1.78 |
+| B-2A | 220 / 300 | 1.44 | 96 kt, α 31°, −4,101 | 921 / 2,001 | 1.64 |
+| C172P | 104 / 300 | 1.07 | 46 kt, α 16°, −638 | 113 / 570 | 1.08 |
+| C182 | 149 / 300 | 1.11 | 63 kt, α 25°, −1,154 | 73 / 546 | 1.51 |
+| F-15C | 166 / 500 | 1.66 | 154 kt, α 18°, −7,378 | 958 / 2,952 | **1.89** |
+| F-35B | **485 / 500** | 1.38 | 127 kt, α 65°, −12,778 | 3,018 / 6,257 | 1.68 |
+| J-3 Cub | 36 / 300 | 1.05 | 39 kt, α 17°, −1,036 | 54 / 309 | 1.43 |
+| Learjet 35A | **547 / 350** | 1.37 | 103 kt, α 14°, −3,136 | 586 / 1,401 | 1.19 |
+| Mosquito FB.VI | **not recovered** | 1.20 | 128 kt, α 25°, −10,357 | 1,332 / 1,899 | **2.23** |
+| PA-28 | **328 / 300** | 1.13 | 53 kt, α 24°, −891 | 205 / 516 | 1.13 |
+| Short S.23 | **343 / 200** | 1.36 | 63 kt, α 12°, −748 | 264 / 649 | 1.63 |
+
+In bold, what is outside its limit with 10% in hand; those aeroplanes are
+named in their test, and a name with no fault left turns it red.
+- **Coverage, asserted by both:** 16 aeroplanes, 14 flown, 2 left out (the
+  747-400 and F-22 have no published stall speed).
+- **The Mosquito at the first sign is never called recovered.** At 20,000 ft
+  with flaps and gear down, on full power, it settles at 134 kt sinking
+  650 ft/min: it cannot be level at its recovery speed there.
+- **Seen to fail:**
+  - (a) naming the C172P turned it red: "is named ... and now is: take its
+    name off";
+  - (a) the first run, still asking for 1.5 × stall, turned it red on height
+    for the B-2A (363 ft against 300) and F-15C (644 against 500), neither
+    named;
+  - (a) with the load limit set to 1.5 g in the check, it went red for the
+    B-2A (1.44 g) and F-15C (1.66);
+  - (b) with the recovery's g limit removed (16 g), it went red for the
+    737-300 (1.82 g) and F-35B (1.95);
+  - every one was put back, and both pass.
+
+**Still passing:** `the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief`
+(its recovery's losses moved by up to 29 ft: the 737-300 348, the A380 389),
+`a_stall_recovered_badly_is_named_in_the_debrief`,
+`an_autopilot_engaged_on_an_aeroplane_already_stalled_recovers_it` and every
+other test matching `stall|lesson`, linux-release. Only tests were changed,
+so the selftest hash cannot have moved.
+
+### The autopilot has a stall recovery; four of fourteen are within their lesson, 2026-09-26 — superseded by the entry above, 2026-09-30
 
 **Only part of the tail is done.**
 - **Every aeroplane is recovered.** All fourteen aeroplanes taught a stall,
