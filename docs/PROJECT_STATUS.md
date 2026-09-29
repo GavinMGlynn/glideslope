@@ -227,6 +227,91 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Each AI aircraft is planned by the model its server chooses, 2026-09-30 — item not done
+
+**What is missing first.** **Nothing chooses a model when an aircraft is
+handed to the AI.** A player's aircraft handed over (`--on-leave ai`, the
+hand-over button, a take-over) still flies the server's plan file or holds
+its course. Planning one needs a request for an aircraft already in the
+air - the planner's instructions and checks are for one standing on a runway
+and taking off - and a new request needs new recordings, which are live model
+calls this change did not make. So the item stays open, with that named.
+
+**What works.** A server's owner chooses, per AI aircraft, who plans its
+flight: `--ai-planner N=anthropic[:MODEL]`, `N=openai[:MODEL]`, or `N=none`
+(the plan file, as before). The task is data: `--ai-task FILE`, by default
+`assets/tasks/sydney-cbd-orbit.task` - the aircraft, the airport, and the
+words, "take off, climb to 3,000 ft and orbit the CBD". When the server
+starts, before its clock does, each chosen model is asked with the server
+owner's own key (`GLIDESLOPE_OPENAI_KEY` / `GLIDESLOPE_ANTHROPIC_KEY` or the
+config directory's key files), through the same `copilot::plan_from_words`
+as `glideslope_cli plan`: the request is byte for byte the CLI's, so the
+recordings in `tests/data/copilot/` play back to it. The answer is only ever
+a flight plan, checked, which the autopilot flies; the server prints the plan
+and who planned it. `--ai-playback N=FILE` plays a recording back instead of
+asking, for tests.
+
+- **A model with no key is refused, not faked**: the server says
+  "AI N: anthropic is refused: no Anthropic key: put yours in ...; it flies
+  the plan file instead", and the aircraft flies the plan file. The refusal
+  comes before anything is fetched or sent. A model whose every plan is
+  refused falls back the same way, saying why.
+- **A planned aircraft takes off.** It stands on the plan's runway, at the
+  DEM's height at the threshold (what it collides with), and the take-off
+  autopilot flies it off; the navigator takes over where it hands over. The
+  plan's heights are above sea level and are flown above the ellipsoid, the
+  geoid added, as `fly-plan` does.
+- **Two planned aircraft do not share a runway or a piece of sky.** Both
+  recordings take off from 16R, and two aircraft on one threshold collide
+  before either moves. So the n-th planned departs 90 simulated seconds after
+  the one before, and is not in the sky until then; and, as the plan file's
+  AI aircraft are stacked, each flies its plan 500 ft above the one planned
+  before - ChatGPT's inner-and-outer circles round the CBD come within 14 m
+  of Claude's at one height. Both are said: the second's orbit is flown at
+  3,500 ft.
+- **`--steps N`** takes N steps as fast as they go with nobody joining, then
+  stops: simulated time for a test, not the machine's.
+- **The end of a run says how each plan went**: "planned by openai; took off
+  from 16R, handed over 1000 ft above it; round SYDNEY_CBD 1.00 turns, 1451
+  to 1454 m from its centre, at 3000 to 3001 ft".
+
+**Verification.**
+- `each_ai_aircraft_is_planned_by_the_model_its_server_gives_it_and_one_with_no_key_is_refused`
+  (`tests/cmake/server_planned.cmake`), in CI with no key. Three cases, and
+  it fails unless all three are walked:
+  - a server with two AI aircraft, the first planned by ChatGPT and the
+    second by Claude, each from its recording, flown for 84,000 steps (eleven minutes and forty seconds of simulated time):
+    each takes off (handed over at least 400 ft up), flies round its orbit as
+    often as its plan asks (twice for Claude's, for ever), within 150 m of
+    its circle and 50 ft of its height, centred within 2 km of Town Hall,
+    and nothing is wrecked. Flown here (linux-debug): ChatGPT's round
+    SYDNEY_CBD once, 1,451 to 1,454 m from its centre (1,447 m asked), at
+    3,000 to 3,001 ft; Claude's round CBD 3.52 times, 394 to 428 m (521 m
+    asked), at 3,490 to 3,500 ft (3,500 asked, stacked). Both handed over
+    1,000 ft above 16R. The test took 493 s under a loaded -j4 run; its
+    timeout is 1,800 s.
+  - a server told to plan with Anthropic, and one with OpenAI, with no key
+    anywhere it could look - both key variables unset, and `HOME`,
+    `XDG_CONFIG_HOME` and `APPDATA` an empty directory - refuses, saying so,
+    and the aircraft flies the plan file. No model is called.
+- `a_task_file_names_its_aircraft_airport_and_words_and_anything_else_is_refused`:
+  the committed task reads as the recordings' words, and five wrong tasks
+  are each refused.
+- `every_flag_the_server_prints_in_its_usage_is_one_it_takes` walks the four
+  new flags.
+
+**Seen to fail.** Two deliberate bugs, each run and reverted:
+- the planned aircraft flown without its take-off (the plan given to the
+  navigator from the runway, no take-off autopilot): both struck the ground,
+  and the test failed on "an aircraft was wrecked";
+- the refusal made silent (said to stderr, without "is refused"): the
+  planned half still passed and the keyless half failed on "anthropic with no
+  key was not refused, saying so".
+A first attempt at the first bug - the planned aircraft given the server's
+plan - crashed the server under UBSan instead, because the server's plan is
+not yet read when a planned aircraft is made; that ordering is only reached
+by the bug, and the crash is why the bug used was changed.
+
 ### The stall recovery is held to two checks; seven aeroplanes are not yet within them, 2026-09-30 — tail still open
 
 **What is not done first.**

@@ -487,6 +487,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_provider_with_no_key_is_refused_and_one_played_back_needs_none
     a_recording_plays_back_only_the_requests_it_recorded_and_holds_no_key
     a_plan_from_words_is_checked_and_refused_back_to_the_model_until_it_can_be_flown
+    a_task_file_names_its_aircraft_airport_and_words_and_anything_else_is_refused
     every_recorded_metar_is_read_as_aviationweather_decodes_it
     every_recorded_metars_visibility_weather_and_cloud_are_read_as_aviationweather_decodes_them
     metar_groups_are_read_in_every_form_and_trends_are_not_read_as_observations
@@ -2044,6 +2045,21 @@ add_test(NAME the_server_runs_the_number_of_ai_aircraft_it_is_given_and_four_whe
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ai.cmake)
 set_tests_properties(the_server_runs_the_number_of_ai_aircraft_it_is_given_and_four_when_given_none
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
+
+# **Each AI aircraft is planned by the model its server gives it**: two AI
+# aircraft, one planned by each provider from its recording, take off and
+# orbit the CBD, flown in simulated time as fast as it goes; and a model with
+# no key is refused, and the aircraft flies the plan file. No key is needed
+# and none is found: no model is called. See cmake/server_planned.cmake.
+add_test(NAME each_ai_aircraft_is_planned_by_the_model_its_server_gives_it_and_one_with_no_key_is_refused
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_planned
+        -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot -DSTEPS=84000
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_planned.cmake)
+set_tests_properties(each_ai_aircraft_is_planned_by_the_model_its_server_gives_it_and_one_with_no_key_is_refused
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planned)
 
 add_test(NAME the_server_refuses_more_ai_aircraft_than_it_will_run
     COMMAND ${CMAKE_COMMAND}

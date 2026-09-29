@@ -65,6 +65,23 @@ bool plannable(const world::RunwayEnd& end);
 // Why `plan` is not one this request may fly, or empty if it may.
 std::string refusal(const PlanRequest& request, const sim::FlightPlan& plan);
 
+// **A task to plan**, as a server gives it to the model planning an AI
+// aircraft: which aircraft, the airport it stands at, and the words. Read
+// from a file (content is data), one `KEY value` a line, `#` a comment:
+//
+//   aircraft c172p
+//   airport YSSY
+//   task take off, climb to 3,000 ft and orbit the CBD
+struct Task {
+    std::string aircraft;
+    std::string airport;
+    std::string command;
+};
+
+// Throws ProviderError for a line it does not know, or a task missing any of
+// the three.
+Task parse_task(const std::string& text);
+
 // Asks `provider` for a plan, and checks it. Throws ProviderError when the
 // provider fails, or when every answer is refused, saying why each was.
 Planned plan_from_words(Provider& provider, const PlanRequest& request);

@@ -423,8 +423,11 @@ glideslope_configure(glideslope_cli)
 add_executable(glideslope_server
     src/frontend/server/main.cpp
     src/frontend/server/dashboard.cpp)
+# The copilot plans the AI aircraft a server's owner gives a model to
+# (--ai-planner): what it answers is only ever a flight plan.
 target_link_libraries(glideslope_server PRIVATE glideslope_sim glideslope_net
-                                                glideslope_world glideslope_platform)
+                                                glideslope_world glideslope_platform
+                                                glideslope_copilot)
 # A server-only build has no SDL at all, and so no window: --window is refused
 # there, saying why (window_none.cpp).
 if(GLIDESLOPE_SERVER_ONLY)

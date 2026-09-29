@@ -1,0 +1,7 @@
+# What a server's AI aircraft is asked to plan, when its server gives it a
+# model to plan with (glideslope_server --ai-planner). The model is told the
+# aircraft, the airport's runways as OurAirports gives them, and the task, and
+# answers with a flight plan the autopilot flies - nothing else.
+aircraft c172p
+airport YSSY
+task take off, climb to 3,000 ft and orbit the CBD

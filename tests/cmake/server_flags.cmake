@@ -52,12 +52,15 @@ list(LENGTH _flags _count)
 # --test-step-ms makes every step take at least that long, to put a server
 # behind real time on any machine (server_behind.cmake). --drop-once-flown
 # drops the first player it has flown, as the drop button would, headless
-# (server_drop_keeps_out.cmake).
+# (server_drop_keeps_out.cmake). --ai-planner and --ai-task give an AI
+# aircraft a model to plan its flight and the task it is asked, --ai-playback
+# plays that model's answers back from a recording, and --steps flies a number
+# of steps as fast as they go (server_planned.cmake).
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
               --until-empty --ready-file --no-take-over --test-step-ms
-              --drop-once-flown)
+              --drop-once-flown --ai-planner --ai-task --ai-playback --steps)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)

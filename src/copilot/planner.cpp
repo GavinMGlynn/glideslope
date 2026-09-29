@@ -159,6 +159,41 @@ std::string refusal(const PlanRequest& r, const sim::FlightPlan& plan) {
     return {};
 }
 
+Task parse_task(const std::string& text) {
+    Task out;
+    std::istringstream in(text);
+    int number = 0;
+    for (std::string line; std::getline(in, line);) {
+        ++number;
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        const auto first = line.find_first_not_of(" \t");
+        if (first == std::string::npos || line[first] == '#') {
+            continue;
+        }
+        const auto space = line.find(' ', first);
+        const std::string key =
+            line.substr(first, space == std::string::npos ? std::string::npos : space - first);
+        const auto at = space == std::string::npos ? std::string::npos
+                                                   : line.find_first_not_of(' ', space);
+        const std::string value = at == std::string::npos ? std::string() : line.substr(at);
+        std::string* into = key == "aircraft" ? &out.aircraft
+                            : key == "airport" ? &out.airport
+                            : key == "task"    ? &out.command
+                                               : nullptr;
+        if (into == nullptr || value.empty()) {
+            throw ProviderError("line " + std::to_string(number) + " of the task, \"" + line +
+                                "\", is not aircraft, airport or task with its value");
+        }
+        *into = value;
+    }
+    if (out.aircraft.empty() || out.airport.empty() || out.command.empty()) {
+        throw ProviderError("a task names its aircraft, its airport and its task, each");
+    }
+    return out;
+}
+
 bool plannable(const world::RunwayEnd& end) {
     return !std::isnan(end.elevation_ft);
 }
