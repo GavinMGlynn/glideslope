@@ -556,12 +556,13 @@ jobs:
       # option: clang-cl reports its headers as cl.exe does here
       # (cmake/ci_clang_cl_show_includes.cmake), and SDL is told clang-cl has
       # no /clang:-fcomment-block-commands, which only names a documentation
-      # command for a warning.
+      # command (@threadsafety) for -Wdocumentation-unknown-command - so that
+      # warning, which would then fire 265 times in SDL, is off with it.
       - name: ${{ matrix.preset }} - configure
         shell: cmd
         run: |
           if "${{ matrix.preset }}"=="windows-clang" (clang-cl --version || exit /b 1)
-          set cache=-DHAVE_CLANG_COMMENT_BLOCK_COMMANDS=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON -DCMAKE_CXX_SCAN_FOR_MODULES=OFF -DCMAKE_PROJECT_INCLUDE=%CD%/cmake/ci_clang_cl_show_includes.cmake
+          set cache=-DHAVE_CLANG_COMMENT_BLOCK_COMMANDS=OFF -DHAVE_GCC_WDOCUMENTATION_UNKNOWN_COMMAND=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON -DCMAKE_CXX_SCAN_FOR_MODULES=OFF -DCMAKE_PROJECT_INCLUDE=%CD%/cmake/ci_clang_cl_show_includes.cmake
           if "${{ matrix.preset }}"=="windows-debug" (
             cmake --preset windows-debug %cache% "-DCMAKE_C_FLAGS_DEBUG=/Z7 /Ob1 /O1" "-DCMAKE_CXX_FLAGS_DEBUG=/Z7 /Ob1 /O1"
           ) else (
