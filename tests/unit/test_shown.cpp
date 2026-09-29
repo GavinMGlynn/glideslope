@@ -27,21 +27,26 @@ namespace {
 constexpr double bound_m = 2.5;
 constexpr double speed_mps = 60.0;
 
-// Every size from a metre to just under too large to hide, a metre apart.
+// Twenty sizes, a metre apart from a metre, the last just under too large to
+// hide.
 constexpr std::array<double, 20> sizes_m{1.0,  2.0,  3.0,  4.0,  5.0,  6.0,  7.0,
                                          8.0,  9.0,  10.0, 11.0, 12.0, 13.0, 14.0,
                                          15.0, 16.0, 17.0, 18.0, 19.0, 19.99};
 static_assert(sizes_m.back() < glideslope::sim::snap_beyond_m);
-// Every direction along an axis: ahead, behind, to each side, up and down.
+// Both ways along each of the Earth-centred axes. None lies along the
+// velocity, (0.6, 0.8, 0) of 60 m/s: they are not ahead, behind or across.
+// Nor need they be - the step a correction makes, blended or not, scales with
+// its size and the frame's length and not with its direction, so the
+// directions add no coverage; they are kept to show as much.
 constexpr std::array<std::array<double, 3>, 6> directions{{
     {1.0, 0.0, 0.0}, {-1.0, 0.0, 0.0}, {0.0, 1.0, 0.0},
     {0.0, -1.0, 0.0}, {0.0, 0.0, 1.0}, {0.0, 0.0, -1.0},
 }};
 // Frames from a fast screen's to a slow machine's quarter of a second.
 constexpr std::array<double, 5> frames_s{1.0 / 144.0, 1.0 / 60.0, 1.0 / 30.0, 0.1, 0.25};
-// One correction alone, or that and a second putting it back on the next
-// update (50 ms on, the server's rate), taken up mid-way through the first's
-// blend.
+// One correction alone, or that and a second putting it back 50 ms on (the
+// server's update rate) or, at frames longer than that, on the next frame -
+// taken up mid-way through the first's blend, or at 250 ms frames after it.
 constexpr std::array<int, 2> corrections_in_a_row{1, 2};
 
 struct Case {
@@ -83,8 +88,8 @@ Case fly(double size_m, const std::array<double, 3>& towards, double frame_s, in
 } // namespace
 
 // **Every correction small enough to hide is taken up without a step**: every
-// size to just under sim::snap_beyond_m, in every direction, at every frame
-// rate, alone and put back by the next. Shown as they come, each would step its whole
+// size to just under sim::snap_beyond_m, both ways along each axis, at every
+// frame rate, alone and put back by the next. Shown as they come, each would step its whole
 // size; blended, what is shown moves by a fifteenth of it a sixtieth of a
 // second - 1.3 m at the most.
 GLIDESLOPE_TEST(every_correction_small_enough_to_hide_is_taken_up_without_a_step) {
@@ -92,7 +97,10 @@ GLIDESLOPE_TEST(every_correction_small_enough_to_hide_is_taken_up_without_a_step
         sizes_m.size() * directions.size() * frames_s.size() * corrections_in_a_row.size();
     std::size_t covered = 0;
     // The rule is tested only by a case whose correction, shown as it came,
-    // would pass the bound: every size above it.
+    // would pass the bound. **Counted by arithmetic, not observed**: at a
+    // constant velocity the unblended step is the correction itself, so it is
+    // every case whose size is above the bound. (The blend was taken out once
+    // by hand and this test then failed at 19.99 m; PROJECT_STATUS.md.)
     std::size_t testing = 0;
     double worst = 0.0;
     std::string worst_what;
