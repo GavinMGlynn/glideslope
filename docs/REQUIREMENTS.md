@@ -528,6 +528,14 @@ The replacement:
   injected latency, loss and jitter, verify prediction error and correction
   size, interpolation error, controller-swap continuity and the `--players`
   limit against stated bounds.
+- **What the player sees at a switch is bounded at a playable frame rate.**
+  The client with the window's own aircraft must not visibly jump when it is
+  handed to the AI, taken back, or another is taken over: under 5 m at a
+  hand-over or take-back and under 2.5 m at a take-over, as each test states.
+  Those bounds are claimed at **20 fps and above** (a frame of 50 ms at
+  most), and each test asserts from the client's own report that its frames
+  around each switch were that fast; a slower run fails as testing nothing,
+  and never passes (the project owner, 2026-09-30; section 9).
 
 ### 8.4 CI and tooling (as gearstick)
 
@@ -633,6 +641,20 @@ The replacement:
   application; its credit is shown on screen (`docs/ASSETS.md`). NASA's GIBS
   Blue Marble, public domain, was the other candidate: at 500 m a pixel it
   cannot show a runway.
+
+**Closed 2026-09-30:**
+
+- **A switch's smoothness is claimed at 20 fps and above, and no lockstep
+  harness is built.** How far the client with the window's aircraft steps at
+  a hand-over, a take-back or a take-over is measured against the wall clock
+  through real sockets, and at a few frames a second - a sanitized build on a
+  software renderer - a frame carries the aircraft metres and the step
+  measures the machine. A test mode stepping the client and the server in
+  lockstep would take the machine out of it, at the price of a server change
+  close to the deterministic simulation this project does not have. Instead
+  the bounds (section 8.3) are a claim about what a player sees at a playable
+  frame rate, 20 fps and above; the tests assert that frame rate around each
+  switch and fail when it is not met.
 
 **Open:**
 
