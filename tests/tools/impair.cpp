@@ -16,7 +16,9 @@
 // server before it has gone - and says what it did: how many datagrams each
 // way, and how many it dropped. With `--until-input-ends`, stopping for the
 // time instead is a failure, and it exits 1. What it reads from standard input it passes
-// on to standard error, so that the program before it can still be heard.
+// on to standard error a whole line at a time, so that the program before it
+// can still be heard, and its lines are not torn by others written to the
+// same standard error.
 //
 // With `--gap MS --every S`, everything from the server is dropped for MS
 // milliseconds once every S seconds as well: a hole in the updates a client
@@ -125,9 +127,28 @@ int main(int argc, char** argv) {
     if (until_input_ends) {
         std::thread([] {
             // Passed on to standard error, so that a test that fails can
-            // show what the program before this one in its pipeline said.
+            // show what the program before this one in its pipeline said -
+            // and that a test can read, so **a whole line in one write**. The
+            // clients before it write their own lines to the same standard
+            // error, and a line passed on a character at a time (stderr is
+            // unbuffered) had one of theirs written into its middle: "aircraft
+            // 2 not taken over: aircraft 2 is a pclient ad014e2b: aircraft 2
+            // handed to the AI\nlayer's", on CI's windows-clang (2026-09-29),
+            // and the test that looked for the refusal did not find it. One
+            // write of a line is not split by another writer's: POSIX says so
+            // of a pipe up to PIPE_BUF, and Windows' pipes keep a write whole.
+            std::string line;
             for (int c; (c = std::fgetc(stdin)) != EOF;) {
-                std::fputc(c, stderr);
+                line += static_cast<char>(c);
+                if (c == '\n') {
+                    std::fwrite(line.data(), 1, line.size(), stderr);
+                    std::fflush(stderr);
+                    line.clear();
+                }
+            }
+            if (!line.empty()) {
+                std::fwrite(line.data(), 1, line.size(), stderr);
+                std::fflush(stderr);
             }
             input_ended = true;
         }).detach();

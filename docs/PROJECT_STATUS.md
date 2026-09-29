@@ -13638,3 +13638,34 @@ Found while implementing something else. Added when found, not when remembered.
       both infinities and four NaNs, and each with five extreme but real
       numbers that must still read. `docs/TRANSPORT.md` says so where it says
       what a reader must refuse.
+
+#### A server's refusal was lost from the take-over test now and then.
+
+- [x] **A server's refusal was lost from the take-over test now and then.**
+      *(Found on CI, 2026-09-29: windows-clang, run 36533419265, "the server
+      did not refuse player's aircraft 2".)* The server had refused it - the
+      log shows the line - but torn: `aircraft 2 not taken over: aircraft 2
+      is a pclient ad014e2b: aircraft 2 handed to the AI` and then `layer's`.
+      In a network test the server's standard output goes down the pipe to
+      `glideslope_impair`, which passed it on to standard error with one
+      `fputc` per character; standard error is unbuffered, so that was one
+      write per character, and the clients write their own lines to the same
+      standard error. A client told of the same hand-over at the same moment
+      wrote its line into the middle of the server's. Nothing was sent late,
+      lost through the relay, or unanswered: the order the test builds held
+      (the refusal came after "aircraft 2 handed to the AI", and after the
+      client asked), and the refusal reached the pipe whole.
+      *Verification*: with a deliberate 2 ms pause after each character the
+      relay passed on, `a_player_takes_over_an_ai_aircraft_with_no_step_at_100_ms_and_a_players_is_refused`
+      failed three runs of three on Linux, each with the refusal torn by a
+      client's line as on CI. The relay now gathers a line and writes it with
+      one `fwrite` and a flush - one write, which POSIX keeps whole in a pipe
+      up to `PIPE_BUF` and Windows' pipes keep whole too - and with the same
+      pause per character the test passed three runs of three. Without the
+      pause, both take-over tests (100 and 200 ms), the impaired-network
+      tests at 100 and 200 ms, the relay's giving up, the closed-pipe test,
+      the AI-wreck take-back test and the window client's hand-over through
+      the relay all pass on Linux release. **What this does not do**: the
+      clients' own lines are each one `fprintf`, which both C runtimes write
+      in one call to an unbuffered stream; nothing checks that a client never
+      writes one line in two calls.

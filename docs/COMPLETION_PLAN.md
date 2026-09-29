@@ -808,3 +808,9 @@ Found while implementing something else. Added when found, not when remembered.
       runs in a pipeline exits as it should when nobody reads what it writes,
       and the relay fails when it gives up with its server still running.*
       Done 2026-09-29.
+- [x] **A server's refusal was lost from the take-over test now and then.**
+      The relay passed on the server's words a character at a time, so a
+      client's line could land in the middle of one and hide it, on Windows
+      CI. *Verification: with the relay slowed on purpose the test failed
+      every time; passing on whole lines, it passes every time.* Done
+      2026-09-29.
