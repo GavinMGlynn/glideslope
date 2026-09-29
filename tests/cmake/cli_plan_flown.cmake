@@ -3,14 +3,16 @@
 #
 #   cmake -DCLI=<glideslope_cli> -DDATA=<data dir> -DCACHE=<downloads dir>
 #         -DWORK=<scratch> [-DPLAN=<plan file>]
-#         [-DCOMMAND=<words> -DPROVIDER=openai|anthropic [-DPLAYBACK=<recording>]]
+#         [-DCOMMAND=<words> -DPROVIDER=openai|anthropic [-DMODEL=<model>]
+#          [-DPLAYBACK=<recording> | -DRECORD=<recording>]]
 #         [-DCENTRE_LAT=<deg> -DCENTRE_LON=<deg> -DALTITUDE_FT=<ft>]
 #         -P cli_plan_flown.cmake
 #
 # **Built, not hoped for.** The plan - PLAN, or else what `glideslope_cli plan`
 # makes of COMMAND for the Cessna standing at Sydney, played back from
 # PLAYBACK or asked of PROVIDER now - is flown by `glideslope_cli fly-plan`
-# over the DEM. It must:
+# over the DEM. Asked now with RECORD, what was asked and answered is kept
+# there, with no header and so no key, to be played back as PLAYBACK. It must:
 #   - take off: the take-off autopilot hands over above the runway;
 #   - reach its orbit and fly round it twice, within 150 m of its circle and
 #     50 ft of ALTITUDE_FT - less than the geoid lifts the sea above the
@@ -41,6 +43,11 @@ if(DEFINED COMMAND)
     set(_how)
     if(DEFINED PLAYBACK)
         set(_how --playback "${PLAYBACK}")
+    elseif(DEFINED RECORD)
+        set(_how --record "${RECORD}")
+    endif()
+    if(DEFINED MODEL)
+        list(APPEND _how --model "${MODEL}")
     endif()
     execute_process(
         COMMAND "${CLI}" --data "${DATA}" plan c172p YSSY "${COMMAND}" --provider ${PROVIDER}
@@ -84,19 +91,28 @@ set(_near "${CMAKE_MATCH_3}")
 set(_far "${CMAKE_MATCH_4}")
 set(_low "${CMAKE_MATCH_5}")
 set(_high "${CMAKE_MATCH_6}")
-if(_turns LESS 1.99)
-    message(FATAL_ERROR "round ${_orbit} only ${_turns} times:\n${_out}")
-endif()
 
-# The orbit as planned: its centre and radius, from the plan's own line.
+# The orbit as planned: its centre, radius and turns, from the plan's own line.
 file(READ "${PLAN}" _plan)
-if(NOT _plan MATCHES "orbit ${_orbit} ([-0-9.]+) ([-0-9.]+) ([0-9.]+) ")
+if(NOT _plan MATCHES "orbit ${_orbit} ([-0-9.]+) ([-0-9.]+) ([0-9.]+) [-0-9.]+ [0-9.]+ ([0-9]+) ")
     message(FATAL_ERROR "the plan has no orbit ${_orbit}:\n${_plan}")
 endif()
 set(_lat "${CMAKE_MATCH_1}")
 set(_lon "${CMAKE_MATCH_2}")
+set(_radius "${CMAKE_MATCH_3}")
+# Round as often as planned: "orbit the CBD" may be planned once round or
+# more, or round for ever, which fly-plan --orbits 2 stops after two.
+set(_planned_turns "${CMAKE_MATCH_4}")
+if(_planned_turns EQUAL 0)
+    set(_planned_turns 2)
+endif()
+# A hundredth of a turn short at most, as the hand-written plan was held to.
+math(EXPR _short "${_planned_turns} - 1")
+if(_turns LESS ${_short}.99)
+    message(FATAL_ERROR "round ${_orbit} only ${_turns} times of ${_planned_turns} planned:\n${_out}")
+endif()
 # In whole metres: CMake's math is integers only, and a model may write 1500.0.
-string(REGEX REPLACE "\\..*$" "" _radius "${CMAKE_MATCH_3}")
+string(REGEX REPLACE "\\..*$" "" _radius "${_radius}")
 if(_near LESS _radius)
     math(EXPR _inside "${_radius} - ${_near}")
 else()

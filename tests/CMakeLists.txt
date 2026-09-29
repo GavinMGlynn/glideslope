@@ -536,6 +536,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
     an_orbit_and_a_take_off_are_read_from_a_plan_and_refused_where_they_are_wrong
     the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind_down_to_the_tightest_allowed
+    an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_circle
     a_runways_file_gives_each_open_runway_end_with_a_place_and_a_heading
     a_post_sends_its_body_and_headers_byte_for_byte_and_reads_the_answer
     a_header_holding_a_control_character_is_refused_before_anything_is_sent
@@ -1885,8 +1886,12 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server)
 
 # **A flight plan that takes off and orbits is flown over the DEM** by
 # glideslope_cli fly-plan, from a plan written by hand; and **a command in
-# words becomes such a plan**, asked of each language model with its owner's
-# key - skipped, saying so, with none. See cmake/cli_plan_flown.cmake.
+# words becomes such a plan**, asked of each language model. Asked now, with
+# its owner's key, it is recorded - skipped, saying so, with none; played back
+# from the recording committed in data/copilot, it needs no key and CI flies
+# it. Each is asked its provider's cheapest model that plans it well: a
+# recording holds the model, and plays back only to the same request. See
+# cmake/cli_plan_flown.cmake.
 add_test(NAME a_plan_that_takes_off_and_orbits_the_cbd_is_flown_over_the_dem
     COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/plans_flown
@@ -1894,16 +1899,32 @@ add_test(NAME a_plan_that_takes_off_and_orbits_the_cbd_is_flown_over_the_dem
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli_plan_flown.cmake)
 set_tests_properties(a_plan_that_takes_off_and_orbits_the_cbd_is_flown_over_the_dem
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
-foreach(_provider openai anthropic)
+foreach(_pair openai:gpt-5.4-mini-2026-03-17 anthropic:claude-haiku-4-5-20251001)
+    string(REPLACE ":" ";" _pair "${_pair}")
+    list(GET _pair 0 _provider)
+    list(GET _pair 1 _model)
     add_test(NAME take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_${_provider}_now_and_flown
         COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -DWORK=${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider}
             "-DCOMMAND=take off, climb to 3,000 ft and orbit the CBD" -DPROVIDER=${_provider}
+            -DMODEL=${_model}
+            -DRECORD=${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider}/cbd-orbit-${_provider}.jsonl
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli_plan_flown.cmake)
     set_tests_properties(take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_${_provider}_now_and_flown
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider})
+    add_test(NAME take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_${_provider}_as_recorded_and_flown
+        COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider}-recorded
+            "-DCOMMAND=take off, climb to 3,000 ft and orbit the CBD" -DPROVIDER=${_provider}
+            -DMODEL=${_model}
+            -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/cbd-orbit-${_provider}.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli_plan_flown.cmake)
+    set_tests_properties(take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_${_provider}_as_recorded_and_flown
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider}-recorded)
 endforeach()
 
 # **The client with the window rides along in an AI aircraft**: its seat, its

@@ -71,8 +71,9 @@ private:
     double from_longitude_deg_ = 0.0;
     double drift_deg_ = 0.0;
     double last_track_deg_ = 0.0;
-    // Round an orbit: whether on its circle, the bearing from its centre when
-    // last steered, and how far round it has come.
+    // Round an orbit: whether on its circle - come within orbit_joined_m of
+    // it, and counting - the bearing from its centre when last steered, and
+    // how far round it has come.
     bool circling_ = false;
     double around_deg_ = 0.0;
     double turned_deg_ = 0.0;

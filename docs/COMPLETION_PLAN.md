@@ -307,11 +307,11 @@ ends in a debrief, never a score.
 
 ## Phase 8 — LLM copilot
 
-- [ ] **Natural-language commands become flight plans.** *Verification: "take
+- [x] **Natural-language commands become flight plans.** *Verification: "take
       off, climb to 3,000 ft and orbit the CBD" produces a plan the autopilot
-      flies.* Missing: a model's answer, recorded for CI. The OpenAI account
-      has no credit, and there is no Anthropic key. Plans that take off and
-      orbit are flown, and the planner is built.
+      flies.* Done 2026-09-29: Claude and ChatGPT each planned it, and each
+      plan takes off and circles the CBD; CI flies both from their recorded
+      answers, with no key.
 - [x] **An autopilot that flies an approach and lands.** *Verification: each
       light aircraft lands within 5 m of the centreline under 300 ft/min, in
       calm air and a 10-knot crosswind.* Done 2026-09-21.
@@ -327,7 +327,11 @@ ends in a debrief, never a score.
       chosen per aircraft by the server or when an aircraft is handed to the
       AI, each with its owner's key. *Verification: one scenario is planned
       and flown with each provider from its recorded answers, in CI without a
-      key; a provider without a key is refused, not faked.*
+      key; a provider without a key is refused, not faked.* Missing: the
+      choice itself - no server setting or hand-over picks a provider for an
+      aircraft yet; only `glideslope_cli plan` does. The CBD scenario already
+      replays from each provider in CI, and a provider with no key is
+      refused.
 - [ ] **Reinforcement-learning agents** (stretch goal). *Verification: an agent
       trained through JSBSim's gym-style wrappers lands within stated limits.*
 

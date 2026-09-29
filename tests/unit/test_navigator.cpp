@@ -326,6 +326,85 @@ GLIDESLOPE_TEST(the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_
     check(flown == 8, "two circles, both ways round, in calm air and in wind: eight orbits flown");
 }
 
+GLIDESLOPE_TEST(an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_circle) {
+    // A plan that flies to an orbit's centre first - as both models planned
+    // "orbit the CBD": a waypoint there, then the orbit round it. From the
+    // centre the aircraft is steered out to the circle, and the turns it
+    // spirals out through are not counted: it joins the circle within 100 m
+    // of it, and is held to it from its first quarter-turn. Counted from the
+    // centre, a Cessna flew "round" a 521 m circle 164 to 492 m out.
+    const double tightest_m = std::ceil(glideslope::sim::least_orbit_radius_m(90.0));
+    std::size_t flown = 0;
+    for (const double radius_m : {1500.0, tightest_m}) {
+        for (const bool right : {false, true}) {
+            const FlightPlan plan = parse_flight_plan(
+                std::string("aircraft c172p\nstart -33.8688 151.2093 3000 0 90\n"
+                            "orbit CBD -33.8688 151.2093 ") +
+                std::to_string(static_cast<int>(radius_m)) + " 3000 90 1 " +
+                (right ? "right" : "left") + "\nwaypoint NORTH -33.80 151.2093 3000 90\n");
+            glideslope::sim::Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, plan.aircraft);
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = plan.start->latitude_deg;
+            ic.longitude_deg = plan.start->longitude_deg;
+            ic.altitude_ft = plan.start->altitude_ft;
+            ic.heading_deg = plan.start->heading_deg;
+            ic.airspeed_kts = plan.start->airspeed_kts;
+            ic.engine_running = true;
+            aircraft.initialize(ic);
+            glideslope::sim::Controls controls;
+            controls.throttle = 0.7;
+            glideslope::sim::Autopilot autopilot(aircraft, controls);
+            glideslope::sim::Navigator navigator(aircraft, plan);
+
+            const auto& centre = plan.waypoints[0];
+            double joined_at_m = -1.0;
+            double nearest_m = std::numeric_limits<double>::infinity();
+            double farthest_m = 0.0;
+            double most_turns = 0.0;
+            int steps = 0;
+            const int most_steps = 20 * 60 * steps_per_second;
+            while (navigator.next() == 0 && steps < most_steps) {
+                autopilot.set(navigator.steer());
+                aircraft.set_controls(autopilot.fly());
+                aircraft.step();
+                ++steps;
+                if (!navigator.circling()) {
+                    continue;
+                }
+                const double d = glideslope::sim::distance_m(
+                    centre.latitude_deg, centre.longitude_deg,
+                    aircraft.property("position/lat-geod-deg"),
+                    aircraft.property("position/long-gc-deg"));
+                if (joined_at_m < 0.0) {
+                    joined_at_m = d;
+                }
+                most_turns = std::max(most_turns, navigator.turns_flown());
+                if (navigator.turns_flown() >= 0.25) {
+                    nearest_m = std::min(nearest_m, d);
+                    farthest_m = std::max(farthest_m, d);
+                }
+            }
+            const std::string which = std::to_string(static_cast<int>(radius_m)) + " m, " +
+                                      (right ? "right" : "left");
+            std::fprintf(stderr,
+                         "orbit %s from its centre: joined %.0f m out, %.2f turns, %.0f to "
+                         "%.0f m from the centre\n",
+                         which.c_str(), joined_at_m, most_turns, nearest_m, farthest_m);
+            check(navigator.next() == 1, "the orbit is left for the next waypoint, " + which);
+            check(joined_at_m >= radius_m - 101.0 && joined_at_m <= radius_m + 1.0,
+                  "joined the circle within 100 m of it, " + which + ": " +
+                      std::to_string(joined_at_m) + " m out");
+            check(most_turns >= 0.99 && most_turns <= 1.01,
+                  "once round, " + which + ": " + std::to_string(most_turns));
+            check(nearest_m >= radius_m - 160.0 && farthest_m <= radius_m + 160.0,
+                  "on the circle within 160 m, " + which + ": " + std::to_string(nearest_m) +
+                      " to " + std::to_string(farthest_m) + " m");
+            ++flown;
+        }
+    }
+    check(flown == 4, "two circles, both ways round, each begun from its centre: four flown");
+}
+
 GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane) {
     // From a runway at sea level on flat ground, to 500 ft above it, and then
     // to a waypoint 15 km off to the left of the runway's heading at 2,000 ft:

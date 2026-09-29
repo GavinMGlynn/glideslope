@@ -27,6 +27,11 @@ constexpr double least_speed_fps = 10.0;
 constexpr double orbit_intercept_per_metre = 90.0 / 1000.0;
 constexpr double most_orbit_intercept_deg = 45.0;
 constexpr double orbit_lead_s = 5.0;
+// On an orbit's circle, and counting the turns round it: within this of it.
+// Reached from outside, that is where it is first crossed; from inside - a
+// plan that flies to the orbit's centre first - the aircraft is steered out
+// to it, and the turns spiralling out are not counted.
+constexpr double orbit_joined_m = 100.0;
 
 double normalised(double degrees) {
     const double d = std::fmod(degrees, 360.0);
@@ -72,25 +77,29 @@ AutopilotModes Navigator::steer() {
                 distance_m(to.latitude_deg, to.longitude_deg, lat, lon);
             const double around =
                 bearing_deg(to.latitude_deg, to.longitude_deg, lat, lon);
-            if (!circling_ && from_centre_m <= to.orbit->radius_m) {
+            const bool inside = from_centre_m <= to.orbit->radius_m;
+            if (!circling_ && inside &&
+                from_centre_m >= to.orbit->radius_m - orbit_joined_m) {
                 circling_ = true;
                 around_deg_ = around;
                 turned_deg_ = 0.0;
             }
-            if (circling_) {
-                // How far round, the way it is flown.
-                const double moved = std::remainder(around - around_deg_, 360.0);
-                turned_deg_ += to.orbit->right ? moved : -moved;
-                around_deg_ = around;
-                if (to.orbit->turns > 0 &&
-                    turned_deg_ >= 360.0 * static_cast<double>(to.orbit->turns)) {
-                    // Round as often as asked: on from here.
-                    circling_ = false;
-                    turned_deg_ = 0.0;
-                    from_latitude_deg_ = lat;
-                    from_longitude_deg_ = lon;
-                    ++next_;
-                    continue;
+            if (circling_ || inside) {
+                if (circling_) {
+                    // How far round, the way it is flown.
+                    const double moved = std::remainder(around - around_deg_, 360.0);
+                    turned_deg_ += to.orbit->right ? moved : -moved;
+                    around_deg_ = around;
+                    if (to.orbit->turns > 0 &&
+                        turned_deg_ >= 360.0 * static_cast<double>(to.orbit->turns)) {
+                        // Round as often as asked: on from here.
+                        circling_ = false;
+                        turned_deg_ = 0.0;
+                        from_latitude_deg_ = lat;
+                        from_longitude_deg_ = lon;
+                        ++next_;
+                        continue;
+                    }
                 }
                 // Along the tangent a few seconds on, turned in towards the
                 // circle - to the right of the tangent, flying round to the

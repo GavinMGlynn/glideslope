@@ -3497,15 +3497,52 @@ first never tested at all: the test's list swallowed its backslash. It now
 holds a real splice.
 
 
-### Words to a flight plan, 2026-09-25 — item in progress
+### Words to a flight plan, 2026-09-25 — item done 2026-09-29
 
-**What is missing first.**
-- **No model has yet answered.** The item's verification is a plan a model
-  makes of "take off, climb to 3,000 ft and orbit the CBD", flown. The
-  OpenAI key works, but its account has no credit ("429: You have no credits
-  remaining"), and there is no Anthropic key. Until one can be asked, there is
-  no recorded answer for CI to play back, and none is faked.
+**What is still missing.**
 - **The copilot plans once, on the ground.** Flying with you is the next item.
+- **Nothing but `glideslope_cli plan` asks a model yet.** No server setting
+  or hand-over chooses a provider for an aircraft; that is the "different
+  model on each AI aircraft" item, still open.
+
+**Both models have answered, 2026-09-29.** "Take off, climb to 3,000 ft and
+orbit the CBD", asked of each for the Cessna at Sydney:
+- **Claude, `claude-haiku-4-5-20251001`**, Anthropic's cheapest. Its first
+  plan was refused - an orbit of 518 m at 60 kt, 3 m tighter than allowed -
+  and told back; its second circles 521 m round a point 0.5 km from Town
+  Hall, for ever, at 60 kt.
+- **ChatGPT, `gpt-5.4-mini-2026-03-17`**, OpenAI's cheapest snapshot that
+  plans it. It circles 1,447 m once, at 100 kt, first answer.
+- Both fly to the CBD first and then round it, 16R, take-off to 1,000 ft.
+- The recordings are `tests/data/copilot/cbd-orbit-{anthropic,openai}.jsonl`:
+  URL, request body, status and answer body only, no header and so no key;
+  read by eye before committing. A recording holds the model asked, so the
+  tests name the model; the providers' defaults are unchanged.
+- **Live calls made, and their cost.** Anthropic 3, OpenAI 3 (each counted
+  as one Messages or Chat Completions request):
+  - Anthropic: the recorded two (the refused plan and the one flown), and one
+    more when a `ctest -R orbit` matched the live test by mistake.
+    2,427 tokens in and 235 out on Haiku 4.5 at $1 and $5 a million: about
+    $0.004.
+  - OpenAI: the recorded one, and two more from the same mistaken run (a
+    refused plan - no TURNS - and one flown). 2,276 tokens in and 252 out on
+    GPT-5.4 mini; at its list price as understood here, $0.75 and $4.50 a
+    million, about $0.003.
+  - One free model listing from each, to choose the models.
+  Together under a cent, of the $20 put on each account.
+
+**A model's plan found a bug in the navigator.** Both models planned a
+waypoint at the orbit's centre and then the orbit. The navigator began
+counting turns wherever the aircraft first came within the radius - here at
+the centre - so its "two turns" were the spiral out: Claude's plan was flown
+164 to 492 m round a 521 m circle. Now the turns are counted only from
+within 100 m inside the circle (`orbit_joined_m`), steered out to it until
+then. Reached from outside, that is where the circle is first crossed, so
+every orbit flown before is flown as it was.
+
+**The replay's check is as the plan asks.** The test held every orbit to two
+turns; ChatGPT planned one. It is now held to the turns the plan asks, or
+two for an orbit flown for ever (`fly-plan --orbits 2`).
 
 **What works.**
 - **Plans that take off and orbit.** A plan may start on a runway (`runway`,
@@ -3585,8 +3622,17 @@ holds a real splice.
   with each of 301, 302, 303, 307 and 308 pointing at a second server, which
   must hear nothing.
 - `take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_{openai,anthropic}_now_and_flown`
-  are there, and report themselves skipped, saying why, until each can be
-  asked.
+  ask the model now with the key on this machine, record the exchange, and
+  report themselves skipped, saying why, with no key.
+- `take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_{openai,anthropic}_as_recorded_and_flown`
+  play each recording back, with no key, and fly the plan over the DEM, in
+  CI. Claude's: round 2 times at 394 to 427 m from the centre (521 m asked),
+  2,991 to 3,000 ft. ChatGPT's: once round at 1,450 to 1,453 m (1,447 m
+  asked), 3,000 ft.
+- `an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_circle`:
+  a Cessna started at the centre of circles of 1,500 m and the tightest at
+  90 kt, 1,172 m, both ways round. Each joins 100 m inside its circle, goes
+  round once, and is held 6 to 69 m from it.
 
 **Seen to fail**, each put back:
 - the orbit's way round reversed;
@@ -3603,6 +3649,12 @@ holds a real splice.
 - a played-back request not compared;
 - the geoid left out of a plan's heights: 72 ft at Sydney, so the orbit's
   height bound is 50 ft.
+- a recorded answer altered to orbit at 2,500 ft: the replay failed, "not
+  within 50 ft of 3000";
+- the plan's turns taken as two when ChatGPT's asks one: "only 1.00 times of
+  2 planned";
+- the navigator's old join, counting from the centre: the new unit test
+  failed ("joined 0 m out"), and so did Claude's replay (164 to 492 m).
 
 ### Asked for a height it cannot hold, the autopilot gives up height, 2026-09-25 — tail in progress
 
@@ -12958,10 +13010,10 @@ checklists are part of. A lesson ends in a debrief, never a score
 
 #### Natural-language commands become flight plans
 
-- [ ] **Natural-language commands become flight plans**, planned off the
+- [x] **Natural-language commands become flight plans**, planned off the
       simulation thread and flown by the autopilot. *Verification: "take off,
       climb to 3,000 ft and orbit the CBD" produces a plan that the autopilot
-      flies.*
+      flies.* Done 2026-09-29; see "Words to a flight plan" above.
 
 #### An autopilot that flies an approach and lands
 
