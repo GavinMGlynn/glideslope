@@ -14,12 +14,18 @@
 // arguments.
 
 #include <chrono>
+#include <csignal>
 #include <cstdio>
 #include <iostream>
 #include <optional>
 #include <string>
 
 int main(int argc, char** argv) {
+#ifndef _WIN32
+    // It runs in a test's pipeline, whose reader may go first. A write must
+    // fail, not end it (src/platform/closed_pipes.hpp).
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
     if (argc != 2) {
         std::fprintf(stderr, "usage: glideslope_exit_timer TEXT\n");
         return 2;

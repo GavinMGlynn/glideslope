@@ -39,7 +39,7 @@ cmake_minimum_required(VERSION 3.28)
 # The programs: how each is run so that it writes, and the exit code that is.
 set(_table glideslope_server glideslope_cli glideslope glideslope_impair
            glideslope_cache_collision glideslope_doc_client glideslope_datagram_check
-           glideslope_ion_stall glideslope_http_stub)
+           glideslope_ion_stall glideslope_http_stub glideslope_exit_timer)
 set(_run_glideslope_server --version)
 set(_exit_glideslope_server 0)
 set(_run_glideslope_cli --version)
@@ -54,6 +54,7 @@ set(_exit_glideslope_doc_client 1)
 set(_exit_glideslope_datagram_check 2)
 set(_exit_glideslope_ion_stall 2)
 set(_exit_glideslope_http_stub 2)
+set(_exit_glideslope_exit_timer 2)
 # Left out: cmake itself, which is not this project's to change; and
 # glideslope_hold_open, which writes until nobody reads - so read, it never
 # stops - and whose whole work is to outlive a closed pipe: its exit of 0 after

@@ -1735,6 +1735,7 @@ if(NOT WIN32)
             -Dglideslope_datagram_check=$<TARGET_FILE:glideslope_datagram_check>
             -Dglideslope_ion_stall=$<TARGET_FILE:glideslope_ion_stall>
             -Dglideslope_http_stub=$<TARGET_FILE:glideslope_http_stub>
+            -Dglideslope_exit_timer=$<TARGET_FILE:glideslope_exit_timer>
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/closed_pipes.cmake)
 endif()
 
