@@ -227,6 +227,82 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The client with the window, let go, joins again by itself, and a dropped one does not, 2026-09-29 — tail done
+
+**What is still not covered.** Nothing tests either client going back to its
+old session when a forged refusal ends it during a blip; the code path is
+there in both and reviewed, not exercised. Nothing tests the window client
+refused `DROPPED` when joining again after every one of the server's
+goodbyes was lost (the command-line client's test does); the path is the
+same `standing()` end. A server that restarts still forgets whom its
+operator dropped.
+
+**What was wrong.** `glideslope_cli connect` joined again by itself (#45);
+the client a person flies did not. `net::ClientSession` never noticed it had
+been let go, and `client::Online` could not take a new aircraft at its old
+number, so a window client let go for silence went on sealing under keys the
+server had thrown away until it was restarted.
+
+**What it does now.**
+- **`net::ClientSession` keeps #45's rules itself**
+  (`src/net/session.cpp`): a sealed `PING` of its own once a second while
+  nothing has opened for a second; a `BAD_HANDSHAKE` believed only from the
+  server's address after `quiet_before_believing_s` (3 s) of nothing
+  opening; then a fresh `Initiator` with the same static key, resent every
+  quarter of a second for a minute at most, from `poll()` - the frame loop
+  never blocks on it. The old session's `Sealer` and `Unsealer` are kept, and
+  anything opening under them takes it back (`went_back()`). Joined again, the
+  reliable stream, the roster and its own aircraft start afresh.
+  **`standing()`** says how it stands: `joined`, `joining_again`, or one of
+  three ends after which nothing is sent - `dropped` (the server's sealed
+  `LEAVING`, or `DROPPED` when joining again), `refused` (`SERVER_FULL`),
+  `gave_up`.
+- **`client::Online` takes the new aircraft as it takes a take-over**
+  (`noticed()`): a session joined again forgets its own number, what it rode
+  along in and what the server applied, and the next update naming an
+  aircraft of its own - the old number or another - is handed to the caller
+  through `taken_over()`, marked `again`. `main.cpp` adopts it into the
+  flight (built afresh if another aeroplane), says "joined again: the server
+  gave this client aircraft N", and predicts from there; nothing is blended
+  from the old aircraft's place.
+- **The operator's drop is respected**: `dropped`, `refused` or `gave_up`
+  stops the window client with the reason ("dropped by the server's
+  operator; not joining again") and exit 1, and no goodbye is sealed after.
+- **The shot's wait for terrain keeps the session** (`KeptAlive`, as while
+  the flight is built): on a cold cache the wait was longer than the
+  server's three-second timeout, and the joined-again session was let go for
+  silence too - seen on the first run of the test below.
+- **Test flag** `--stall-after S`: S seconds of flight in, the session sends
+  and answers nothing, reading and throwing away what comes, until nothing
+  has come for three seconds; then it knocks once a second, and the server's
+  refusal is the let-go, believed by the same rule as any other. The shot
+  then waits (a minute past its tick at most) until the client has joined
+  again and the server has applied an input sent since.
+- **Docs**: `docs/TRANSPORT.md` now says both clients knock and join again;
+  `docs/THREATS.md` names where each client keeps the refusal rule. The wire
+  did not change.
+
+**Verification.**
+`the_client_with_the_window_stalled_past_the_timeout_joins_again_by_itself`
+(`tests/cmake/client_joins_again.cmake`, port 24703 and its relay 24704;
+headless): a server with `--timeout 3`, the window client stalling two
+seconds in, and a command-line client keeping the server up until the shot
+exists. The window client must say it was let go after at least 3 s of
+nothing, that it joined again and was given an aircraft, and at the shot that
+it flies that aircraft and the server has applied its inputs sent since
+joining again; the server must admit it twice, let one session go for
+silence and two for goodbyes, and drop no copy of an initiation. It came back
+as aircraft 0, its old number. 69 s here from a cold Cesium cache (Linux
+debug). **Seen to fail**: with the refusal never believed, "the client did
+not notice it was let go"; reverted.
+
+`the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again`
+(same script with `DROP`, port 24705 and 24706): the server's
+`--drop-once-flown` drops it; it must say it was dropped and not joining
+again, never say it is joining again, exit 1, and be admitted once. 3.6 s
+here. **Seen to fail**: with the server's `LEAVING` ignored, "the dropped
+client did not say it was dropped"; reverted.
+
 ### A key has one aircraft: a second session takes over once it has sealed something, 2026-09-29 — tail done
 
 **What is still missing first.** On a full server a player who starts again is
@@ -791,6 +867,9 @@ retry before the program could end: about 80 s. Found by the review of PR
   and `glideslope` with MSVC at c21509c, and both new tests passed there.
 
 ### A command-line client the server has let go joins again by itself, and a dropped one does not, 2026-09-27 — tail still open
+
+*Since done for the client with the window too: see "The client with the
+window, let go, joins again by itself", 2026-09-29.*
 
 **What is missing first.** **The client with the window still cannot come
 back**: `net::ClientSession` does not notice that it has been let go, and

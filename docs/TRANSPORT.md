@@ -208,8 +208,8 @@ client whose session has gone and that wants another makes a new initiation,
 with a new ephemeral key. This project's clients mint a new one for every
 connection.
 
-**A client the server has let go joins again by itself** - this project's
-command-line client does; the client with the window does not yet. Having
+**A client the server has let go joins again by itself** - both of this
+project's clients do, the command-line one and the one with the window. Having
 heard a refusal of a session gone quiet (see "Refusals"), it makes a new
 initiation with the same static key and a new ephemeral one, from the same
 socket, and resends it every quarter of a second until it is answered, a
@@ -651,9 +651,9 @@ on each connection once a second; the other end sends the same token straight
 back; the server takes the time between as the round trip and draws it on its
 dashboard. Only the token the server has outstanding counts, so an old or
 invented one tells it nothing. **A client knocks too, when it has heard
-nothing**: this project's command-line client sends a `PING` of its own once a
-second while nothing has opened under its session for a second, with a token
-it counts up from 1. A server that has the session answers with a `PONG`, and
+nothing**: both of this project's clients send a `PING` of their own once a
+second while nothing has opened under the session for a second, with a token
+each counts up from 1. A server that has the session answers with a `PONG`, and
 one that has let it go refuses it (`BAD_HANDSHAKE`), which is how a client
 that sends nothing else learns it has been let go. **A client that answers is also a client the
 server does not let go** when `--timeout` comes round, which is why the

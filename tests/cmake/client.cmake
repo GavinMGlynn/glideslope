@@ -62,6 +62,10 @@ if(DEFINED CACHE)
     if(TAKE_OVER)
         string(APPEND _case "take_over")
     endif()
+    # So are joining again, and being dropped (client_joins_again.cmake).
+    if(DROP)
+        string(APPEND _case "drop")
+    endif()
     set(ENV{GLIDESLOPE_CESIUM_CACHE}
         "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}${_imagery}${VIEW}${_case}${_weather}.sqlite")
 endif()

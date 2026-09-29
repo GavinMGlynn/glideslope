@@ -151,6 +151,9 @@ struct Options {
     // flight in, and take it back this many in, as A does; below nought, never.
     double hand_over_after_s = -1.0;
     double take_back_after_s = -1.0;
+    // On a server, stall this many seconds of flight in - send nothing and
+    // answer nothing, as a stopped process - until the server lets it go.
+    double stall_after_s = -1.0;
     // On a server, ride along in the next aircraft at each of these many
     // seconds of flight in, as W does.
     std::vector<double> next_aircraft_after_s;
@@ -222,6 +225,9 @@ void usage(std::FILE* out) {
         "  --hand-over-after S, --take-back-after S  on a server, hand your own\n"
         "                aircraft to the AI S seconds after joining, and take it\n"
         "                back, as A does (for tests)\n"
+        "  --stall-after S  on a server, S seconds after joining, send and answer\n"
+        "                nothing, as a stopped process, until the server has let\n"
+        "                this client go; it then joins again by itself (for tests)\n"
         "  --next-aircraft-after S  on a server, ride along in the next aircraft\n"
         "                S seconds after joining, as W does; may be given again\n"
         "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
@@ -413,6 +419,8 @@ static int run_program(int argc, char** argv) {
             o.take_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--hand-over-after" && has_value) {
             o.hand_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--stall-after" && has_value) {
+            o.stall_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--take-back-after" && has_value) {
             o.take_back_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--next-aircraft-after" && has_value) {
@@ -959,6 +967,9 @@ static int run_program(int argc, char** argv) {
         bool asked_to_take_over = false;
         bool asked_to_hand_over = false;
         bool asked_to_take_back = false;
+        bool asked_to_stall = false;
+        int let_go_said = 0;
+        int went_back_said = 0;
         std::size_t rode_next = 0;
         bool said_the_view = false;
         // **What is shown of its own on a server**, blended across a switch
@@ -1043,6 +1054,36 @@ static int run_program(int argc, char** argv) {
             if (online && !(joined && flight)) {
                 // In a session without an aircraft: kept, and nothing more.
                 online->idle(seconds_since_start());
+            }
+            // **Let go by the server, it joins again by itself**
+            // (net::ClientSession), and says so; **dropped by its operator,
+            // or refused, it stops**, and says why.
+            if (online) {
+                const glideslope::net::ClientSession& s = online->session();
+                if (s.let_go() > let_go_said) {
+                    let_go_said = s.let_go();
+                    std::printf("glideslope: let go by the server: refused BAD_HANDSHAKE after "
+                                "%.1f s of nothing; joining again\n",
+                                s.quiet_when_let_go_s());
+                }
+                if (s.went_back() > went_back_said) {
+                    went_back_said = s.went_back();
+                    std::printf("glideslope: the old session answered; staying in it\n");
+                }
+                using Standing = glideslope::net::ClientSession::Standing;
+                const char* why = s.standing() == Standing::dropped
+                                      ? "dropped by the server's operator; not joining again"
+                                  : s.standing() == Standing::refused
+                                      ? "refused by the server when joining again: it is full"
+                                  : s.standing() == Standing::gave_up
+                                      ? "let go, and could not join again in a minute"
+                                      : nullptr;
+                if (why != nullptr) {
+                    std::printf("glideslope: %s\n", why);
+                    std::fflush(stdout);
+                    status = 1;
+                    break;
+                }
             }
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
@@ -1158,6 +1199,13 @@ static int run_program(int argc, char** argv) {
                     asked_to_hand_over = true;
                     hand_over(true);
                 }
+                if (o.stall_after_s >= 0.0 && !asked_to_stall &&
+                    joined_s >= o.stall_after_s) {
+                    asked_to_stall = true;
+                    online->stall();
+                    std::printf("glideslope: stalling, sending and answering nothing, until "
+                                "the server lets this client go\n");
+                }
                 if (o.take_back_after_s >= 0.0 && !asked_to_take_back &&
                     joined_s >= o.take_back_after_s) {
                     asked_to_take_back = true;
@@ -1193,9 +1241,16 @@ static int run_program(int argc, char** argv) {
                         }
                     }
                     flight->adopt(taken->motion);
-                    own_shown.taken_over(taken->number);
+                    // Joined again, it is a new aircraft, which the old
+                    // one's place says nothing of: nothing is blended.
+                    if (!taken->again) {
+                        own_shown.taken_over(taken->number);
+                    }
                     joined = *taken;
-                    std::printf("glideslope: took over aircraft %u, the %s\n",
+                    std::printf(taken->again
+                                    ? "glideslope: joined again: the server gave this client "
+                                      "aircraft %u, the %s\n"
+                                    : "glideslope: took over aircraft %u, the %s\n",
                                 static_cast<unsigned>(taken->number),
                                 taken->aircraft_id.c_str());
                 }
@@ -1254,6 +1309,23 @@ static int run_program(int argc, char** argv) {
                     (online->own_ai_flying() || !online->flown_since_taken_over());
                 if (shot_now && back_unheard && !waited_long) {
                     shot_now = false;
+                }
+                // **Stalled, the shot waits for it to have joined again** and
+                // for the server to have flown its new aircraft by an input
+                // sent since: the same events, the same minute.
+                const bool again_unheard =
+                    asked_to_stall &&
+                    (!online->had_by_joining_again() || !online->flown_since_taken_over());
+                if (shot_now && again_unheard && !waited_long) {
+                    shot_now = false;
+                }
+                if (shot_now && asked_to_stall) {
+                    std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",
+                                static_cast<double>(ticks - o.shot_at) /
+                                    static_cast<double>(glideslope::sim::steps_per_second),
+                                again_unheard ? "not yet joined again and flown"
+                                              : "joined again, and flown by an input sent "
+                                                "since");
                 }
                 if (shot_now && asked_to_take_back) {
                     std::printf("glideslope: the shot drawn %.1f s past its tick; the server "
@@ -1371,7 +1443,17 @@ static int run_program(int argc, char** argv) {
                 camera.position.z += own_moved->z;
             }
             if (terrain) {
+                // **Kept in the session while the shot waits for its
+                // terrain**, which on a cold cache is longer than a server
+                // waits for a client that says nothing: let go for silence,
+                // it would join again, and a test counting sessions would
+                // count one too many.
+                std::optional<KeptAlive> waiting;
+                if (shot_now && online) {
+                    waiting.emplace(*online, [&] { return seconds_since_start(); });
+                }
                 draws = terrain->update(camera, o.width, o.height, shot_now);
+                waiting.reset();
                 if (glideslope::platform::stop_requested()) {
                     break; // told to stop while it waited: no frame, and no shot
                 }
@@ -1566,6 +1648,8 @@ static int run_program(int argc, char** argv) {
                                 flight->aircraft().id.c_str(),
                                 online->own_ai_flying() ? "the AI" : "the pilot",
                                 !online->flown_since_taken_over() ? ""
+                                : online->had_by_joining_again()
+                                    ? ", and has flown it by inputs sent since it joined again"
                                 : online->taken_back()
                                     ? ", and has flown it by inputs sent since it was taken back"
                                     : ", and has flown it by inputs sent since it was taken over");
@@ -1687,7 +1771,8 @@ static int run_program(int argc, char** argv) {
         // client go now, not after its timeout of silence. Every other way
         // out of here says it too, as the session goes (net::ClientSession);
         // this one says so, for a test to read.
-        if (online) {
+        if (online && online->session().standing() ==
+                          glideslope::net::ClientSession::Standing::joined) {
             online->leave();
             std::printf("glideslope: said goodbye to the server\n");
             std::fflush(stdout);

@@ -17,7 +17,18 @@
 // resends the same initiation until it is answered or it gives up. The same
 // initiation each time - `Noise_IK` makes one, and a second would be a second
 // handshake, which a server treats as a duplicate.
+//
+// **A session the server has let go is joined again**, by itself, on the
+// rules `glideslope_cli connect` keeps (docs/TRANSPORT.md): knocked on from
+// this end when nothing has opened for a second; a `BAD_HANDSHAKE` believed
+// only from the server's address after `quiet_before_believing_s` of
+// nothing; then a fresh initiation with the same static key, the old
+// session's keys kept to go back to if anything opens under them. The
+// operator's drop - the server's sealed `LEAVING`, or `DROPPED` - ends it,
+// and so does `SERVER_FULL`: `standing()` says which, and nothing more is
+// sent.
 
+#include "net/handshake.hpp"
 #include "net/keys.hpp"
 #include "net/messages.hpp"
 #include "net/reliable.hpp"
@@ -49,7 +60,43 @@ public:
 
     // Read whatever has arrived: answer the server's knocking, and take in
     // any state update. `now_s` is the client's own clock, in seconds.
+    // Knocks when the session has gone quiet, and, let go, joins again.
     void poll(double now_s);
+
+    // **How the session stands.** `joined` is in one (the first, or one
+    // joined again); `joining_again` has been let go and is asking for a new
+    // one; the rest are ends, and nothing is sent after them: `dropped` by
+    // the server's operator (its `LEAVING`, or `DROPPED` when joining
+    // again), `refused` (`SERVER_FULL`), `gave_up` (a minute unanswered).
+    enum class Standing { joined, joining_again, dropped, refused, gave_up };
+    Standing standing() const { return standing_; }
+    // How many times the server has let it go, and it has joined again; how
+    // long nothing had opened when the last refusal was believed; how many
+    // times it went back to the old session, which was not gone after all.
+    int let_go() const { return let_go_; }
+    int joined_again() const { return joined_again_; }
+    double quiet_when_let_go_s() const { return quiet_when_let_go_s_; }
+    int went_back() const { return went_back_; }
+
+    // **How long a session may go without anything opening under it before
+    // a refusal is believed**: the server knocks once a second and this end
+    // once a second after one of nothing, so three of the server's knocks
+    // and two of its own gone unanswered - a session that is not working,
+    // whatever the refusal says. A forged one while it works moves nothing.
+    static constexpr double quiet_before_believing_s = 3.0;
+    static constexpr double knock_after_quiet_s = 1.0;
+    // Initiations again every quarter of a second, for a minute at most.
+    static constexpr double join_again_every_s = 0.25;
+    static constexpr double give_up_joining_again_s = 60.0;
+
+    // **A test flag's work** (`glideslope --stall-after`): from now, as a
+    // process stopped or a laptop shut, it sends nothing and answers
+    // nothing, and what arrives is read and thrown away, until nothing has
+    // come for three seconds - the server's knocks have stopped. Then it
+    // knocks once a second; the server's refusal is the let-go, believed as
+    // any other, and anything else heard stalls it again.
+    void stall_until_let_go() { stalling_ = true; stall_heard_s_.reset(); }
+    bool stalling() const { return stalling_; }
 
     // The server's key, which is who this session is with.
     const PublicKey& theirs() const { return theirs_; }
@@ -115,6 +162,27 @@ private:
     std::unique_ptr<platform::UdpSocket> socket_;
     platform::Address server_;
     PublicKey theirs_;
+    // This end's static key, which a session joined again is under too.
+    KeyPair mine_key_;
+    Standing standing_ = Standing::joined;
+    // By this end's clock: when anything last opened, and it last knocked.
+    std::optional<double> last_opened_s_;
+    double knocked_s_ = -1.0e9;
+    std::uint64_t knock_token_ = 0; // counted up from 1
+    int let_go_ = 0;
+    int joined_again_ = 0;
+    int went_back_ = 0;
+    double quiet_when_let_go_s_ = 0.0;
+    // Joining again: the new handshake, when it began and last went out,
+    // and the old session's keys, to go back to.
+    std::unique_ptr<Initiator> initiator_;
+    std::vector<std::uint8_t> again_;
+    double again_began_s_ = 0.0;
+    double again_sent_s_ = -1.0e9;
+    std::unique_ptr<Sealer> old_sealing_;
+    std::unique_ptr<Unsealer> old_opening_;
+    bool stalling_ = false;
+    std::optional<double> stall_heard_s_;
     std::unique_ptr<Sealer> sealing_;
     std::unique_ptr<Unsealer> opening_;
     std::vector<std::uint8_t> initiation_;
@@ -137,7 +205,11 @@ private:
     std::optional<double> proved_at_s_;
     std::uint64_t proving_token_ = 0;
 
-    void read_what_arrived();
+    void read_what_arrived(double now_s);
+    void knock_on(std::uint64_t token);
+    void prove_at_once();
+    void let_go_at(double now_s);
+    void keep_joining_again(double now_s);
 };
 
 } // namespace glideslope::net
