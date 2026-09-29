@@ -523,10 +523,11 @@ Found while implementing something else. Added when found, not when remembered.
       headless client draws ten thousand frames, and its memory stays level.*
       Done 2026-09-26.
 - [ ] **The autopilot's stall recovery, held to what a stall lesson can
-      ask of it** (decided 2026-09-30, REQUIREMENTS 4.3). Still missing: the
-      instructor's demonstration and the AI pilot do not use it, the A320 and
-      Mosquito pull out harder than 2 g, and nothing checks that engaging it
-      steps no control. *Verification: every aeroplane taught a stall is
+      ask of it** (decided 2026-09-30, REQUIREMENTS 4.3). Both checks exist;
+      still missing: seven aeroplanes are named outside them (the A320,
+      Mosquito and F-15C over 2 g; the Learjet, PA-28, S.23 and F-35B over
+      their lesson; the Mosquito never level), the AI pilot does not notice
+      a stall, and nothing checks that engaging it steps no control. *Verification: every aeroplane taught a stall is
       recovered within 2 g both handed over at the first sign of the stall,
       within its lesson's height with no exceptions, and left thirty seconds
       in it, within a height worked out for it from its speed and sink.*
