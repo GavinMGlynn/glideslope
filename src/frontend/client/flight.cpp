@@ -146,6 +146,14 @@ void Flight::adopt(const sim::Motion& motion) {
     prediction_ = std::make_unique<sim::Prediction>(*aircraft_);
 }
 
+void Flight::adopt(const sim::Motion& motion, std::uint64_t server_steps) {
+    if (!prediction_) {
+        adopt(motion);
+        return;
+    }
+    (void)prediction_->adopt(motion, server_steps);
+}
+
 sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
                                               std::uint32_t last_applied,
                                               std::size_t steps_into,

@@ -37,6 +37,9 @@ struct Joined {
     std::uint8_t number = net::no_aircraft;
     std::string aircraft_id;
     sim::Motion motion;
+    // The server's step the motion was true at: what a take-over flies it on
+    // from (Flight::adopt).
+    std::uint64_t server_steps = 0;
     // Given by joining again after the server let this client go, not by a
     // take-over.
     bool again = false;

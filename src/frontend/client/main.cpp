@@ -1202,16 +1202,18 @@ static int run_program(int argc, char** argv) {
             } else {
                 const auto now = std::chrono::steady_clock::now();
                 // **Every tick due is flown, if not in this pass then in the
-                // next**: a pass longer than a second flies a second's ticks
-                // and carries the rest over, where once whatever was past 24
-                // ticks - a fifth of a second - was dropped. On a server a
+                // next**: a pass longer than four seconds flies four seconds'
+                // ticks and carries the rest over, where once whatever was
+                // past 24 ticks - a fifth of a second - was dropped. (At most
+                // a second's, a machine whose passes took 1.3 s fell further
+                // behind with each.) On a server a
                 // dropped tick is the prediction falling behind the server's
                 // clock unflagged: CI's sanitized software Vulkan draws a
                 // frame in 250 ms and more, and what the client showed
                 // stepped by the ticks it lost (PROJECT_STATUS.md,
                 // 2026-09-30).
                 owed += clock.advance(now - last);
-                due = std::min<std::int64_t>(owed, glideslope::sim::steps_per_second);
+                due = std::min<std::int64_t>(owed, 4 * glideslope::sim::steps_per_second);
                 owed -= due;
                 last = now;
                 int key_count = 0;
@@ -1222,6 +1224,11 @@ static int run_program(int argc, char** argv) {
                            key_state, key_count);
             }
             mapper.apply(joysticks.read(), controls);
+            // Whether its own was predicted up to this pass - flown here on
+            // every tick, so that the prediction's clocks' difference holds -
+            // before what this pass hears changes it.
+            const bool predicted_before =
+                online && joined && flight && flight->predicting() && !online->own_ai_flying();
             // On a server, what is flown is what was last sent.
             const glideslope::sim::Controls flown =
                 joined && flight ? online->fly(seconds_since_start(), controls, *flight)
@@ -1320,7 +1327,16 @@ static int run_program(int argc, char** argv) {
                             }
                         }
                     }
-                    flight->adopt(taken->motion);
+                    // **Flown on to now** from the word that gave it, where
+                    // the prediction knows how: taken over from a flight
+                    // predicted up to now (another aeroplane is a flight
+                    // built afresh, with nothing predicted, and only put
+                    // there).
+                    if (predicted_before && !taken->again) {
+                        flight->adopt(taken->motion, taken->server_steps);
+                    } else {
+                        flight->adopt(taken->motion);
+                    }
                     // Joined again, it is a new aircraft, which the old
                     // one's place says nothing of: nothing is blended.
                     if (!taken->again) {

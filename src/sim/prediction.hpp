@@ -104,6 +104,18 @@ public:
     Correction reconcile(const Motion& server, std::uint32_t last_applied,
                          std::size_t steps_into, std::uint64_t server_steps);
 
+    // **Another aircraft, as the server's word had it at `server_steps`**, flown
+    // on to now: put there, and flown through this client's inputs since the
+    // step the clocks' difference places that word at - as a correction is,
+    // with the clocks' difference kept, since it is this client's and the
+    // server's and not the aircraft's. Put there and not flown on, a
+    // take-over heard at the end of a long frame was that frame behind, and
+    // what was shown blended across the gap: about 70 m, stepping 3.5 m in a
+    // sixtieth of a second on CI (PROJECT_STATUS.md, 2026-09-30). With the
+    // difference not yet known it is only put there. Returns how many inputs
+    // it flew.
+    std::size_t adopt(const Motion& motion, std::uint64_t server_steps);
+
     std::size_t unacknowledged() const { return held_.size(); }
     // Whether the clocks' difference has been heard enough times to be known.
     bool settled() const { return offsets_.size() >= offset_settled; }

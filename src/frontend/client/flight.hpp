@@ -142,6 +142,11 @@ public:
     // server's word. The AI pilot is not flown on a server: taking it and
     // giving it back there is Phase 7's.
     void adopt(const sim::Motion& motion);
+    // **Another aircraft taken over while this one was predicted**, as the
+    // server had it at `server_steps`: flown on to now through the inputs
+    // since, by the prediction's clocks' difference, which is kept
+    // (sim::Prediction::adopt). Not predicting, it is `adopt` above.
+    void adopt(const sim::Motion& motion, std::uint64_t server_steps);
     bool predicting() const { return prediction_ != nullptr; }
     void set_input_sequence(std::uint32_t sequence) { sequence_ = sequence; }
     sim::Prediction::Correction reconcile(const sim::Motion& motion,
