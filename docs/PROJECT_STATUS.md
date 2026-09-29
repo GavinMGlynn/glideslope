@@ -227,6 +227,37 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### CI keeps its caches: only main saves them, 2026-09-29 — tail still open
+
+**What is still missing, first**: this is verified only after it lands - a
+pull request saves no cache, so its own run cannot show a warm one. The
+verification is main's next run saving its caches and the pull requests after
+it restoring them with ccache hits; until then the tail stays open. Windows
+builds have no compiler cache at all (MSVC; 17-19 minutes each), and a pull
+request still queues for macOS runners behind the others'.
+
+**What was wrong.** A CI run took 90-120 minutes from push to result though its
+longest chain of jobs - a build and a test shard - is about 40. Two causes:
+- **Builds compiled everything from nothing.** Of the Linux and macOS builds in
+  runs 36553559954, 36543443571 and 36552196259, all but one had 0% ccache hits
+  ("Cache not found" for ccache, and for vcpkg's binary cache as often as not),
+  20-35 minutes a build. The repository's Actions caches were at 10.7 GB of
+  GitHub's 10: every pull request saved its own ccache for each preset and its
+  own downloads (2.5 GB a platform, three platforms on main alone), and
+  eviction took main's - the only caches a pull request can read.
+- **Queueing**, worst on macOS (up to 50 minutes a job), which a slower build
+  lengthens for everybody.
+
+**What changed** (`.github/workflows/ci.yml`, `nightly.yml`, `package.yml`):
+- Every cache save is skipped on a pull request; main (and the nightly and a
+  run started by hand) saves, and pull requests restore main's.
+- The downloads are one cache for every platform (`enableCrossOsArchive`),
+  without the Cesium tile caches (`cesium-*.sqlite`) and scratch the tests
+  write there, restored at the start of a test job and saved at its end.
+- A new job on main, "Old caches pruned", deletes every ccache entry of an
+  earlier commit once main's builds have saved theirs, and lists what is left.
+- The stale entries were cleared by hand once this landed.
+
 ### Quitting the window client mid weather refresh is tested in the program, 2026-09-29 — tail done
 
 Finishes the 2026-09-27 entry below. **Only the window client refreshes the

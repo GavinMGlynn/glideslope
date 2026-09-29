@@ -621,6 +621,12 @@ Found while implementing something else. Added when found, not when remembered.
       touches at 16.4 degrees where she touched at 11.7 - her nose no longer
       pushed down, though she still does not round out - and the four with
       no tail to strike are named.
+- [ ] **A CI run takes 90-120 minutes where its jobs need about 40**: the
+      Actions caches overflowed their 10 GB and builds compiled from nothing.
+      *Verification: pull requests' builds restore main's ccache with most
+      compiles hits, and a run's time from push to result is measured and
+      stated.* Only main saves caches now; not yet measured after landing,
+      and Windows has no compiler cache.
 - [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of

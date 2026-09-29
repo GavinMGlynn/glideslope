@@ -45,10 +45,14 @@ jobs:
           path: .ccache
           key: ccache-ubuntu-linux-debug-${{ github.sha }}
           restore-keys: ccache-ubuntu-linux-debug-
-      - uses: actions/cache@v6
+      - uses: actions/cache/restore@v6
         with:
-          path: .downloads
+          path: |
+            .downloads
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
           key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          enableCrossOsArchive: true
       - name: Build
         run: |
           cmake --preset linux-debug -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
@@ -61,3 +65,12 @@ jobs:
               -R 'server|client|window|player|collision|systemd|online|package' || rc=$?
           kill $xvfb
           exit $rc
+      - uses: actions/cache/save@v6
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        with:
+          path: |
+            .downloads
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}
+          enableCrossOsArchive: true
