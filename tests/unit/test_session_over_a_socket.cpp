@@ -1,13 +1,16 @@
 #include "harness.hpp"
 
 #include "net/handshake.hpp"
+#include "net/inside.hpp"
 #include "net/keys.hpp"
 #include "net/protocol.hpp"
 #include "net/sealing.hpp"
+#include "net/session.hpp"
 #include "platform/socket.hpp"
 
 #include <chrono>
 #include <cstdio>
+#include <optional>
 #include <span>
 #include <string>
 #include <thread>
@@ -170,4 +173,99 @@ GLIDESLOPE_TEST(a_stranger_on_the_port_cannot_complete_a_session) {
                    glideslope::net::envelope_size))
                .has_value(),
           "and could make nothing of it");
+}
+
+// **A client whose first sealed datagram is lost still proves its session.**
+// A server sends a session nothing but its handshake answer until something
+// sealed under it has opened (docs/TRANSPORT.md), so a client that sealed one
+// thing and then waited to hear would wait for ever if that one thing were
+// lost - the window client's `Online::join` waits for a state update before it
+// sends anything. A stand-in server here answers the handshake, throws away
+// the first sealed datagram the client sends, and then waits, on the client's
+// own clock, for another: the client knocks until anything opens. And once
+// something has opened, it stops.
+//
+// Counted in the client's time, not the wall clock's: `poll()` is given a
+// clock stepped a hundredth of a second at a time, two seconds of it - eight
+// knocks' worth - with a millisecond's real wait for loopback between steps.
+GLIDESLOPE_TEST(a_client_whose_first_sealed_datagram_is_lost_still_proves_its_session) {
+    auto server_socket = UdpSocket::bound(0);
+    check(server_socket.has_value(), "the stand-in server has a socket");
+    const KeyPair server_key = glideslope::net::mint_key_pair();
+    const std::string where = "127.0.0.1:" + std::to_string(server_socket->port());
+
+    // The client connects on a thread of its own, since `connect` waits for
+    // its answer; the stand-in server answers it from here.
+    std::optional<glideslope::net::ClientSession> client;
+    std::thread connecting([&] {
+        if (auto made =
+                glideslope::net::ClientSession::connect(where, server_key.publik.text(), 5.0)) {
+            client.emplace(std::move(*made));
+        }
+    });
+    Address from;
+    const std::vector<std::uint8_t> arrived = wait_for(*server_socket, from);
+    check(!arrived.empty(), "the stand-in server heard the initiation");
+    Responder responder(server_key);
+    const auto answer = responder.answer(
+        std::span<const std::uint8_t>(arrived).subspan(glideslope::net::envelope_size));
+    check(answer.has_value(), "and answers it");
+    glideslope::net::Writer aw =
+        glideslope::net::begin(glideslope::net::Type::handshake_response);
+    aw.bytes(answer->message);
+    const std::vector<std::uint8_t> reply = aw.take();
+    check(server_socket->send(from, all_of(reply)), "the answer is sent");
+    connecting.join();
+    check(client.has_value(), "the client completed its session");
+
+    glideslope::net::Unsealer server_opens(answer->session.receiving);
+    glideslope::net::Sealer server_seals(answer->session.sending);
+    const auto opened_one = [&]() -> std::optional<std::vector<std::uint8_t>> {
+        std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
+        Address whence;
+        const std::size_t got = server_socket->receive(into, whence);
+        if (got <= glideslope::net::envelope_size) {
+            return std::nullopt;
+        }
+        return server_opens.open(std::span<const std::uint8_t>(into.data(), got)
+                                     .subspan(glideslope::net::envelope_size));
+    };
+
+    // **The first sealed datagram is lost**: read and thrown away.
+    const std::vector<std::uint8_t> first_sealed = wait_for(*server_socket, from);
+    check(!first_sealed.empty(), "the client sealed something at once");
+
+    double now_s = 0.0;
+    bool proved = false;
+    for (; now_s < 2.0 && !proved; now_s += 0.01) {
+        client->poll(now_s);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        while (opened_one()) {
+            proved = true;
+        }
+    }
+    check(proved, "with its first sealed datagram lost, the client sealed another, which "
+                  "opened, within two seconds of its own clock");
+    std::printf("  proved again %.2f s after its first sealed datagram was lost\n", now_s);
+
+    // **Something opens at the client: it stops knocking.** The stand-in
+    // server seals a pong nobody pinged for - it opens, and asks nothing.
+    glideslope::net::Writer sw = glideslope::net::begin(glideslope::net::Type::sealed);
+    const std::vector<std::uint8_t> pong =
+        glideslope::net::knock(glideslope::net::Inside::pong, 0);
+    sw.bytes(server_seals.seal(all_of(pong)));
+    const std::vector<std::uint8_t> sealed = sw.take();
+    check(server_socket->send(from, all_of(sealed)), "the stand-in server seals to it");
+    int after = 0;
+    const double until_s = now_s + 2.0;
+    for (; now_s < until_s; now_s += 0.01) {
+        client->poll(now_s);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        while (opened_one()) {
+            ++after;
+        }
+    }
+    // One knock may already have been on its way when the pong arrived.
+    check(after <= 1, "once something had opened, the client stopped knocking (" +
+                          std::to_string(after) + " sealed after)");
 }

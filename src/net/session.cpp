@@ -151,6 +151,17 @@ void ClientSession::poll(double now_s) {
         return;
     }
     read_what_arrived();
+    // **Knocked until anything opens** (see `prove_every_s`): the `PONG`
+    // sent at `connect()` may have been lost, and nothing else would be
+    // sent until the caller has heard something.
+    if (!opened_any_ && (!proved_at_s_ || now_s - *proved_at_s_ >= prove_every_s)) {
+        proved_at_s_ = now_s;
+        const std::vector<std::uint8_t> ping = knock(Inside::ping, ++proving_token_);
+        Writer w = begin(Type::sealed);
+        w.bytes(sealing_->seal(all_of(ping)));
+        const std::vector<std::uint8_t> out = w.take();
+        (void)socket_->send(server_, all_of(out));
+    }
     // **What must arrive is acknowledged**, and anything of its own that
     // must, repeated until it has.
     for (const std::vector<std::uint8_t>& datagram : reliable_.to_send(now_s)) {
@@ -189,6 +200,7 @@ void ClientSession::read_what_arrived() {
         if (!opened) {
             continue;
         }
+        opened_any_ = true;
         const std::span<const std::uint8_t> inside(opened->data(), opened->size());
         if (const auto state = read_state(inside)) {
             ++heard_;

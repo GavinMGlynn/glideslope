@@ -251,6 +251,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_change_to_a_sealed_body_is_refused
     a_client_and_a_server_complete_a_session_over_a_socket
     a_stranger_on_the_port_cannot_complete_a_session
+    a_client_whose_first_sealed_datagram_is_lost_still_proves_its_session
     slots_are_the_same_whatever_order_the_players_connect_in
     a_players_slot_is_their_keys_rank_among_those_in_the_session
     a_session_is_full_at_its_player_count_and_the_next_is_refused

@@ -195,12 +195,23 @@ each watched failing as said.
 
 **What the take-over does not defend.** Two copies of one client running at
 once with one key take the aircraft from each other, the newer winning and
-the older told to leave; that is what a key is. The per-key cap of two
-unproven sessions lets a replayer with two addresses push out an honest
-restart's session in the one round trip before it seals; the restarted client
-is refused, and joins again. When a player's last proven session goes while
-their restart's session is still unproven, the restart's goes too, with the
-same result.
+the older told to leave; that is what a key is.
+
+**The cap of two unproven sessions per key can be used against a restart.** A
+replayer needs no live capture: any initiation of the key ever seen on the
+wire, replayed from new addresses, makes a fresh unproven session each time.
+A steady flood of two or more such replays per round trip pushes out an
+honest restart's session before its first sealed datagram arrives, every
+time it tries - locking the restart out, and holding the key's slot and
+aircraft, for as long as the flood lasts, not only for one round trip. The
+cap is still the right trade: without it the same flood makes unbounded
+sessions for the key, each a table entry and, before this change, each sent
+state; with it the damage is bounded to the one key, is visible, and ends
+when the flood does. A rate limit per address, not built, is what would
+close it. When a player's last proven session goes while their restart's
+session is still unproven, the restart's goes too. A restarted client that
+is refused this way joins again by itself only if it is the command-line
+client; the client with the window does not, until PR #50 lands.
 
 **What is still not defended: how many keys one person may mint.** A slot
 belongs to a key, and one person with four keys is four players. That is named
