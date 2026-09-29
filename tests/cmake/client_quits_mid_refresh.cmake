@@ -12,11 +12,16 @@
 # weather services' requests sent to glideslope_http_stub
 # (GLIDESLOPE_WEATHER_SERVICE), twice:
 #
-#   - **The control**, shot at tick 107000, before the refresh a flight makes
-#     every 15 minutes of flying (weather_refresh_seconds, tick 108000) is
-#     due: what quitting costs on this machine, with nothing to give up.
-#   - **The quit**, shot at tick 116000, 966 s in. A shot flown by ticks is
-#     300 frames, so the refresh begins 21 frames before the shot.
+#   - **The control**, shot at tick 600, long before the refresh a flight
+#     makes every 15 minutes of flying (weather_refresh_seconds, tick 108000)
+#     is due: what quitting costs on this machine, with nothing to give up.
+#     It is short, as a quit's teardown does not grow with the flight, and a
+#     flight of 108000 ticks is minutes of a debug build.
+#   - **The quit**, shot at tick 108120, a second of flight after the refresh
+#     is due. A shot flown by ticks is 300 frames of 360 ticks, so the
+#     refresh begins in the shot's frame or the one before it, and it is
+#     under way for 10 s (429) or 60 s (stalled) before it could end by
+#     itself: frames, even a debug build's, are far shorter.
 #
 # The stub answers each flight's first fetch - the METAR, and Open-Meteo's
 # forecast - from files (`--files-for 4`: two for each flight), and the
@@ -27,9 +32,10 @@
 #
 # **The situation is built, not hoped for.** At the shot the client says
 # whether a weather refresh is under way; the quit must say it is, and the
-# control that it is not. Twenty-one frames are wall-clock time, and a slow
-# machine could let a refresh fail by itself before the shot: that run fails,
-# as not having tested its rule, and never passes.
+# control that it is not. A machine slow enough to let the refresh end by
+# itself before the shot - as a Windows debug build did, shot 21 frames after
+# the refresh began - fails the test, as not having tested its rule; it never
+# passes.
 #
 # The client exits after writing the shot - quitting, with the refresh under
 # way - and glideslope_exit_timer, reading its standard output through a pipe,
@@ -69,9 +75,9 @@ if(DEFINED STUB_PORT_FILE)
     file(WRITE "${RESULT_FILE}" "")
     foreach(_run IN ITEMS control quit)
         if(_run STREQUAL "control")
-            set(_shot_at 107000)
+            set(_shot_at 600)
         else()
-            set(_shot_at 116000)
+            set(_shot_at 108120)
         endif()
         execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}"
                                 --size 320x240 --screen flight --weather YSSY --autopilot
