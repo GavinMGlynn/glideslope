@@ -910,6 +910,8 @@ the flag to the request as `abandon`, the waits between tries still given up:
 the stalled test "took 59.373 s to end" - the stall timeout - while the 429
 test passed, so each test holds its own path. The three HUD tests that use the
 stub (400, an empty 200, 429 throughout) still pass with its new arguments.
+Windows: `tools/windows_build.sh windows-debug` built `glideslope_http_stub`,
+`glideslope_exit_timer` and `glideslope` with MSVC at 6a2fc5d.
 
 **What was wrong.** `Flight` refreshed the weather on a bare `std::async`,
 whose future waits for its thread when destroyed. A flight quit while the
