@@ -125,6 +125,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
 
     if (!start.weather_station.empty()) {
         weather_station_ = start.weather_station;
+        weather_refresh_s_ = start.weather_refresh_s;
         world::WeatherReport report = world::fetch_weather(
             weather_station_, world::utc_hour(std::chrono::system_clock::now()),
             fetch_);
@@ -262,7 +263,7 @@ void Flight::refresh_weather() {
         weather_fetched_at_s_ = now;
         return;
     }
-    if (now - weather_fetched_at_s_ >= weather_refresh_seconds) {
+    if (now - weather_fetched_at_s_ >= weather_refresh_s_) {
         next_weather_.emplace(weather_station_,
                               world::utc_hour(std::chrono::system_clock::now()), fetch_);
         // Said as it begins, so a test can time from it

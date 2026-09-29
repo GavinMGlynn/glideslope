@@ -106,6 +106,9 @@ struct Options {
     std::string driver;
     std::string shot;
     std::int64_t shot_at = 2;
+    // Test flag: quit at this tick of a --shot flight, before its shot, at
+    // once - no frame drawn, no tile waited for - as a person quitting does.
+    std::int64_t quit_at = -1;
     // Test flags: the shot of a frame counted rather than a tick - every
     // frame two ticks, however many there are - and the memory the process
     // holds, printed every so many frames. Zero is neither.
@@ -145,6 +148,8 @@ struct Options {
     // For tests: stand still this long after joining a server, as a slow
     // machine building its flight does, before building it.
     double slow_start_s = 0.0;
+    // Test flag: how often --weather is fetched again, in seconds of flight.
+    double weather_refresh_s = glideslope::client::weather_refresh_seconds;
     // And take it over this many seconds of flight in; below nought, never.
     double take_over_after_s = -1.0;
     // On a server, hand its own aircraft to the AI this many seconds of
@@ -230,6 +235,10 @@ void usage(std::FILE* out) {
         "                this client go; it then joins again by itself (for tests)\n"
         "  --next-aircraft-after S  on a server, ride along in the next aircraft\n"
         "                S seconds after joining, as W does; may be given again\n"
+        "  --quit-at T   end a --shot flight at tick T, before its shot, drawing\n"
+        "                nothing more and waiting for nothing\n"
+        "  --weather-refresh S  fetch --weather again every S seconds of the flight\n"
+        "                (at least 1; 900 unless given)\n"
         "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
         "                slow machine building its flight does (for tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
@@ -411,6 +420,15 @@ static int run_program(int argc, char** argv) {
             const std::string_view value = args[++i];
             ok = value == "on" || value == "off";
             o.draw_aircraft = value == "on";
+        } else if (a == "--quit-at" && has_value) {
+            const auto tick = parse_integer(args[++i]);
+            ok = tick && *tick >= 1;
+            o.quit_at = tick.value_or(-1);
+        } else if (a == "--weather-refresh" && has_value) {
+            const std::string text(args[++i]);
+            char* end = nullptr;
+            o.weather_refresh_s = std::strtod(text.c_str(), &end);
+            ok = end != text.c_str() && *end == '\0' && o.weather_refresh_s >= 1.0;
         } else if (a == "--slow-start" && has_value) {
             o.slow_start_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--ride-along") {
@@ -482,6 +500,16 @@ static int run_program(int argc, char** argv) {
     }
     if (!o.microbursts.empty() && o.weather_station.empty()) {
         std::fputs("glideslope: a --microburst is put into --weather\n", stderr);
+        return 2;
+    }
+    if (o.quit_at > 0 && (o.shot.empty() || o.quit_at >= o.shot_at)) {
+        std::fputs("glideslope: --quit-at is a tick before a --shot's\n", stderr);
+        return 2;
+    }
+    if (o.weather_refresh_s != glideslope::client::weather_refresh_seconds &&
+        o.weather_station.empty()) {
+        std::fputs("glideslope: --weather-refresh is how often --weather is fetched again\n",
+                   stderr);
         return 2;
     }
     if (o.screen != "flight" && !o.weather_station.empty()) {
@@ -671,6 +699,7 @@ static int run_program(int argc, char** argv) {
             start.on_ground = o.on_ground;
             start.weather_station = o.weather_station;
             start.microbursts = o.microbursts;
+            start.weather_refresh_s = o.weather_refresh_s;
             start.autopilot = o.autopilot;
             if (!o.plan.empty()) {
                 // A file, or a plan in the data by its name.
@@ -1177,6 +1206,22 @@ static int run_program(int argc, char** argv) {
                 ++ticks;
             }
 
+            // **Quitting**, at a tick, straight after the steps that reach it:
+            // no frame drawn and no tile waited for, so what is under way -
+            // a weather refresh - is under way still. Said, flushed, for a
+            // test reading through a pipe to time the way out from here
+            // (glideslope_exit_timer, tests/cmake/client_quits_mid_refresh.cmake).
+            if (o.quit_at > 0 && ticks >= o.quit_at) {
+                if (flight && !o.weather_station.empty()) {
+                    std::printf("glideslope: a weather refresh is %s\n",
+                                flight->refreshing_weather() ? "under way"
+                                                             : "not under way");
+                }
+                std::printf("glideslope: quitting at tick %lld\n",
+                            static_cast<long long>(ticks));
+                std::fflush(stdout);
+                break;
+            }
             // The frame shot waits for every terrain tile its view needs, so
             // the same command draws the same terrain everywhere.
             bool shot_now = shooting && ticks >= o.shot_at;
@@ -1758,21 +1803,9 @@ static int run_program(int argc, char** argv) {
                         std::printf("checklist: %s\n", line.c_str());
                     }
                 }
-                // Whether the weather is being fetched again as the program
-                // ends (tests/cmake/client_quits_mid_refresh.cmake).
-                if (flight && !o.weather_station.empty()) {
-                    std::printf("glideslope: a weather refresh is %s\n",
-                                flight->refreshing_weather() ? "under way"
-                                                             : "not under way");
-                }
                 glideslope::gfx::save_bmp(renderer.capture(), o.shot);
                 std::printf("glideslope: wrote tick %lld, frame %ld, to %s\n",
                             static_cast<long long>(ticks), frames, o.shot.c_str());
-                // Said as it happens, so a test reading through a pipe can
-                // time the way out from here: glideslope_exit_timer, in
-                // tests/cmake/client_quits_mid_refresh.cmake, which depends on
-                // this flush - without it the line arrives with the end.
-                std::fflush(stdout);
                 if (window != nullptr) {
                     std::printf("glideslope: presented %ld of %ld frames to the "
                                 "window\n",
