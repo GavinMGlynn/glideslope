@@ -317,45 +317,13 @@ jobs:
       - uses: actions/checkout@v5
         with: { submodules: true }
 
+      - uses: ./.github/actions/vcpkg-github-packages
+        with: { token: '${{ secrets.VCPKG_PAT }}' }
       - uses: ./.github/actions/msvc-dev-env
-
-      - name: Keep vcpkg's binary cache in the workspace
-        shell: bash
-        run: |
-          mkdir -p .vcpkg-archives
-          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
-      # The same cache CI keeps: the same platform builds the same packages.
-      # **vcpkg's cache is keyed on the toolchain as well as the ports.** vcpkg
-      # hashes the compiler into every package's ABI, and GitHub rolls new runner
-      # images out with new compilers (MSVC 19.51.36257 to .36260, 2026-09-01): on
-      # the new image every package missed and was rebuilt, 26-28 minutes, and the
-      # rebuild was never saved because the key still matched. With the image (or,
-      # on Rocky, the toolset) in the key, a new toolchain misses once and saves.
-      - name: The toolchain vcpkg's packages are built with
-        id: toolchain
-        shell: bash
-        run: |
-          if [ -n "${ImageVersion:-}" ]; then id="$ImageOS-$ImageVersion"
-          else id="$(rpm -q gcc-toolset-14-gcc-c++ 2>/dev/null || g++ --version | head -1)"; fi
-          echo "id=$(printf '%s' "$id" | tr -c 'A-Za-z0-9._-' '_')" >> "$GITHUB_OUTPUT"
-          echo "vcpkg's toolchain: $id"
-      - uses: actions/cache/restore@v6
-        id: vcpkg-cache
-        with:
-          path: .vcpkg-archives
-          key: vcpkg-windows-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
-          restore-keys: |
-            vcpkg-windows-${{ steps.toolchain.outputs.id }}-
-            vcpkg-windows-
 
       - name: Configure
         shell: cmd
         run: cmake --preset windows-release
-      - uses: actions/cache/save@v6
-        if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
-        with:
-          path: .vcpkg-archives
-          key: vcpkg-windows-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
 
       - name: Build and package
         shell: cmd

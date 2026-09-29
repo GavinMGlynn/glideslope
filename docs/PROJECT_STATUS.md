@@ -227,6 +227,35 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Windows builds take vcpkg's packages from GitHub Packages, 2026-09-30 — tail still open
+
+**What is still missing, first**: this is verified only by CI - the first run
+builds every package and uploads it (26-28 minutes a Windows configure, once),
+and the one after must restore them all; that second run's figures are not in
+yet. Linux and macOS keep the Actions cache keyed on the toolchain: vcpkg runs
+nuget.exe under Mono there, which ubuntu-24.04 and macOS no longer carry
+(microsoft/vcpkg#37540), and their packages are small (about 20 MB).
+
+**Why.** The owner chose (2026-09-30) Microsoft's recommended vcpkg cache for
+GitHub Actions, a NuGet feed in GitHub Packages, over the Actions cache: it
+holds one package per ABI hash, so a new runner image's compiler rebuilds and
+uploads once and every later job on that image restores, while jobs still on
+the old image find theirs; it is free for a public repository and outside the
+Actions cache's 10 GB. The owner made a classic token (read:packages,
+write:packages) and stored it as the repository secret `VCPKG_PAT`;
+`GITHUB_TOKEN` cannot read or write vcpkg's packages there.
+
+**What changed.** A composite action, `.github/actions/vcpkg-github-packages`,
+fetches nuget.exe 6.14.0 (pinned by SHA-256), writes a NuGet config of its own
+in the runner's temporary directory with the feed, the token and
+`defaultPushSource`, and sets `VCPKG_BINARY_SOURCES` to
+`clear;nugetconfig,<that file>,readwrite;nugettimeout,600`. Without the secret
+it warns and vcpkg builds from source. CI's three Windows builds and the
+Windows package use it; their vcpkg Actions-cache steps are gone. vcpkg names
+each package's repository from `GITHUB_REPOSITORY`, which links it to this
+public repository. ci.yml passes its secrets to package.yml (`secrets:
+inherit`).
+
 ### Words to a flight plan: both models asked, recorded and flown, 2026-09-29 — item done
 
 Claude and ChatGPT each planned "take off, climb to 3,000 ft and orbit the

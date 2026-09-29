@@ -1,0 +1,61 @@
+# vcpkg's packages from GitHub Packages, on Windows.
+#
+# **Why not the Actions cache.** vcpkg hashes the compiler into every package's
+# ABI, and GitHub rolls new Windows images out with new compilers: a job on a
+# new image missed every package in the one archive the Actions cache held and
+# rebuilt them all, 26-28 minutes (2026-09-30). GitHub Packages holds one NuGet
+# package per ABI, so a new compiler rebuilds and uploads once, the next job on
+# that image restores it, and a job on the old image still finds its own. It is
+# Microsoft's recommended cache for vcpkg on GitHub Actions, it is free for a
+# public repository's packages (vcpkg links each to the repository through
+# GITHUB_REPOSITORY), and it is outside the Actions cache's 10 GB.
+#
+# **Windows only**: elsewhere vcpkg runs nuget.exe under Mono, which
+# ubuntu-24.04 and macOS no longer carry; there the packages are small and the
+# Actions cache, keyed on the toolchain, serves.
+#
+# The token is the owner's classic PAT (read:packages, write:packages), the
+# repository secret VCPKG_PAT: GITHUB_TOKEN cannot read or write vcpkg's
+# packages there. Without it, vcpkg builds from source and says so.
+name: vcpkg from GitHub Packages
+description: Point vcpkg's binary cache at the owner's GitHub Packages NuGet feed.
+inputs:
+  token:
+    description: A classic personal access token with read:packages and write:packages.
+    required: false
+runs:
+  using: composite
+  steps:
+    - shell: pwsh
+      env:
+        VCPKG_PAT: ${{ inputs.token }}
+        FEED: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+        OWNER: ${{ github.repository_owner }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $ProgressPreference = 'SilentlyContinue'
+        if (-not $env:VCPKG_PAT) {
+          Write-Output "::warning::no VCPKG_PAT: vcpkg builds its packages from source"
+          exit 0
+        }
+        # nuget.exe 6.14.0, pinned by SHA-256.
+        $nuget = Join-Path $env:RUNNER_TEMP 'nuget.exe'
+        Invoke-WebRequest -Uri 'https://dist.nuget.org/win-x86-commandline/v6.14.0/nuget.exe' -OutFile $nuget
+        $actual = (Get-FileHash $nuget -Algorithm SHA256).Hash.ToLower()
+        if ($actual -ne '92dbed160ddee0f64b901e907439e021211b428e57c089ecc12fc38dcc4bd9a5') { throw "nuget.exe is $actual" }
+        # A config of its own, in the runner's temporary directory, which goes
+        # with the runner: a nugetconfig source must name defaultPushSource.
+        $cfg = Join-Path $env:RUNNER_TEMP 'vcpkg-nuget.config'
+        Set-Content -Path $cfg -Encoding utf8 -Value @"
+        <?xml version="1.0" encoding="utf-8"?>
+        <configuration>
+          <config><add key="defaultPushSource" value="$env:FEED" /></config>
+        </configuration>
+        "@
+        & $nuget sources add -Name GitHubPackages -Source $env:FEED -UserName $env:OWNER `
+            -Password $env:VCPKG_PAT -StorePasswordInClearText -ConfigFile $cfg -NonInteractive
+        if ($LASTEXITCODE -ne 0) { throw "nuget sources add failed" }
+        & $nuget setapikey $env:VCPKG_PAT -Source $env:FEED -ConfigFile $cfg -NonInteractive
+        if ($LASTEXITCODE -ne 0) { throw "nuget setapikey failed" }
+        "VCPKG_BINARY_SOURCES=clear;nugetconfig,$cfg,readwrite;nugettimeout,600" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+        Write-Output "vcpkg's binary cache: $env:FEED"
