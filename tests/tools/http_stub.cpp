@@ -1,17 +1,29 @@
 // glideslope_http_stub - a web server on the loopback that answers every
 // request with one status, for a test to point a service at.
 //
-//   glideslope_http_stub STATUS PORTFILE [PREFIX FILE]
+//   glideslope_http_stub [--retry-after SECONDS] [--files-for N] [--stall]
+//                        STATUS PORTFILE [PREFIX FILE]...
 //
 // Listens on 127.0.0.1, on a port the system picks, and writes that port to
 // PORTFILE - whole, by renaming it into place - once it is listening. Every
 // request is answered with STATUS and an empty body, and the connection
 // closed, until a request for the path /stop, which is answered 200 and ends
-// it. A 429 is sent with "Retry-After: 1", as a rate limit says how long. With PREFIX and FILE, a GET whose path begins with PREFIX is answered
-// 200 with FILE's bytes instead: one service answered, and another not. Says
-// on standard error how many requests it answered with STATUS, and how many
-// with FILE.
-// Exits 0, or 2 on bad arguments or a socket it could not open.
+// it. A 429 is sent with a Retry-After, as a rate limit says how long:
+// --retry-after's seconds, or 1. With PREFIX and FILE pairs, a GET whose path
+// begins with a PREFIX is answered 200 with that FILE's bytes instead: one
+// service answered, and another not. With --files-for N, only the first N
+// requests a FILE would answer are answered with it, in all; every one after
+// them is answered STATUS - a service that answered, and then did not.
+//
+// **--stall** answers STATUS with a transfer under way that never ends: its
+// head, a Content-Length of a megabyte, and the first few bytes of the body,
+// and then nothing, the connection held open until /stop. At /stop each
+// transfer held is said to have been let go by the other end - closed or
+// reset - or to be still going.
+//
+// Says on standard error how many requests it answered with STATUS, and how
+// many with FILE. Exits 0, or 2 on bad arguments or a socket it could not
+// open.
 
 #include <cstdio>
 #include <cstdlib>
@@ -19,6 +31,8 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <utility>
+#include <vector>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -26,6 +40,7 @@
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -81,6 +96,26 @@ void send_all(Socket client, const std::string& text) {
     }
 }
 
+// Whether the other end of a held transfer has let it go: it has closed or
+// reset the connection, which reads at once, where one still open has
+// nothing to read.
+bool let_go(Socket s) {
+    fd_set readable;
+    FD_ZERO(&readable);
+    FD_SET(s, &readable);
+    timeval now{};
+#ifdef _WIN32
+    const int ready = ::select(0, &readable, nullptr, nullptr, &now);
+#else
+    const int ready = ::select(s + 1, &readable, nullptr, nullptr, &now);
+#endif
+    if (ready <= 0) {
+        return false;
+    }
+    char byte = 0;
+    return ::recv(s, &byte, 1, 0) <= 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -90,25 +125,52 @@ int main(int argc, char** argv) {
     // end it (src/platform/closed_pipes.hpp).
     std::signal(SIGPIPE, SIG_IGN);
 #endif
-    if (argc != 3 && argc != 5) {
-        return refuse("usage: glideslope_http_stub STATUS PORTFILE [PREFIX FILE]");
+    const char* usage = "usage: glideslope_http_stub [--retry-after SECONDS] "
+                        "[--files-for N] [--stall] STATUS PORTFILE [PREFIX FILE]...";
+    int retry_after = 1;
+    long files_for = -1;
+    bool stall = false;
+    int arg = 1;
+    for (; arg < argc && std::string(argv[arg]).rfind("--", 0) == 0; ++arg) {
+        const std::string option = argv[arg];
+        if (option == "--stall") {
+            stall = true;
+        } else if (option == "--retry-after" && arg + 1 < argc) {
+            retry_after = std::atoi(argv[++arg]);
+            if (retry_after < 0) {
+                return refuse(usage);
+            }
+        } else if (option == "--files-for" && arg + 1 < argc) {
+            files_for = std::atol(argv[++arg]);
+            if (files_for < 0) {
+                return refuse(usage);
+            }
+        } else {
+            return refuse(usage);
+        }
     }
-    std::string prefix;
-    std::string file_answer;
-    if (argc == 5) {
-        prefix = std::string("GET ") + argv[3];
-        std::ifstream in(argv[4], std::ios::binary);
+    if (argc - arg < 2 || (argc - arg) % 2 != 0) {
+        return refuse(usage);
+    }
+    const int status = std::atoi(argv[arg]);
+    if (status < 100 || status > 599) {
+        return refuse("STATUS must be an HTTP status, 100 to 599");
+    }
+    const std::filesystem::path port_file = argv[arg + 1];
+    // Each PREFIX as the start of a request line, and the answer its FILE makes.
+    std::vector<std::pair<std::string, std::string>> files;
+    for (int i = arg + 2; i + 1 < argc; i += 2) {
+        std::ifstream in(argv[i + 1], std::ios::binary);
         if (!in) {
             return refuse("cannot read FILE");
         }
         const std::string body((std::istreambuf_iterator<char>(in)),
                                std::istreambuf_iterator<char>());
-        file_answer = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
-                      std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" + body;
-    }
-    const int status = std::atoi(argv[1]);
-    if (status < 100 || status > 599) {
-        return refuse("STATUS must be an HTTP status, 100 to 599");
+        files.emplace_back(std::string("GET ") + argv[i],
+                           "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                           "Content-Length: " +
+                               std::to_string(body.size()) +
+                               "\r\nConnection: close\r\n\r\n" + body);
     }
 #ifdef _WIN32
     WSADATA data;
@@ -130,7 +192,6 @@ int main(int argc, char** argv) {
     }
     socklen_t size = sizeof at;
     ::getsockname(listening, reinterpret_cast<sockaddr*>(&at), &size);
-    const std::filesystem::path port_file = argv[2];
     const std::filesystem::path part = port_file.string() + ".part";
     {
         std::ofstream out(part, std::ios::binary);
@@ -138,12 +199,17 @@ int main(int argc, char** argv) {
     }
     std::filesystem::rename(part, port_file);
 
-    // A 429 asks for a second's wait, as a rate limit says how long.
-    const std::string answer = "HTTP/1.1 " + std::to_string(status) + " Stubbed\r\n" +
-                               (status == 429 ? "Retry-After: 1\r\n" : "") +
-                               "Content-Length: 0\r\nConnection: close\r\n\r\n";
-    int answered = 0;
-    int answered_file = 0;
+    // A 429 asks for its wait, as a rate limit says how long.
+    const std::string retry =
+        status == 429 ? "Retry-After: " + std::to_string(retry_after) + "\r\n" : std::string();
+    const std::string head_of = "HTTP/1.1 " + std::to_string(status) + " Stubbed\r\n" + retry;
+    const std::string answer = head_of + "Content-Length: 0\r\nConnection: close\r\n\r\n";
+    // A megabyte promised, and a few bytes of it sent.
+    const std::string stalled_answer =
+        head_of + "Content-Length: 1048576\r\nConnection: close\r\n\r\n{\"stalled\": ";
+    std::vector<Socket> held;
+    long answered = 0;
+    long answered_file = 0;
     for (;;) {
         const Socket client = ::accept(listening, nullptr, nullptr);
         if (client == no_socket) {
@@ -151,11 +217,26 @@ int main(int argc, char** argv) {
         }
         const std::string head = read_head(client);
         const bool stop = head.rfind("GET /stop ", 0) == 0;
+        const std::string* file_answer = nullptr;
+        for (const auto& [prefix, file] : files) {
+            if (head.rfind(prefix, 0) == 0) {
+                file_answer = &file;
+            }
+        }
+        if (files_for >= 0 && answered_file >= files_for) {
+            file_answer = nullptr;
+        }
         if (stop) {
             send_all(client, "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-        } else if (!prefix.empty() && head.rfind(prefix, 0) == 0) {
-            send_all(client, file_answer);
+        } else if (file_answer != nullptr) {
+            send_all(client, *file_answer);
             ++answered_file;
+        } else if (stall) {
+            send_all(client, stalled_answer);
+            ++answered;
+            held.push_back(client);
+            std::fprintf(stderr, "glideslope_http_stub: holding a transfer under way\n");
+            continue;
         } else {
             send_all(client, answer);
             ++answered;
@@ -165,8 +246,13 @@ int main(int argc, char** argv) {
             break;
         }
     }
+    for (const Socket s : held) {
+        std::fprintf(stderr, "glideslope_http_stub: a transfer held was %s\n",
+                     let_go(s) ? "let go" : "still going");
+        close_socket(s);
+    }
     close_socket(listening);
-    std::fprintf(stderr, "glideslope_http_stub: answered %d requests %d, and %d with FILE\n",
+    std::fprintf(stderr, "glideslope_http_stub: answered %ld requests %d, and %ld with FILE\n",
                  answered, status, answered_file);
     return 0;
 }

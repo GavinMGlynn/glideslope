@@ -867,13 +867,49 @@ tests the moved gear reading serves - the take-off lesson, its demonstration,
 rotating early, and every landplane leaving the runway near its rotation
 speed and at every loading.
 
-### Quitting during a weather refresh ends at once, 2026-09-27 — tail still open
+### Quitting during a weather refresh ends at once, 2026-09-27, finished 2026-09-29
 
-**What is missing first.** No test quits the program itself mid-refresh: a
-flight refreshes its weather only every 15 minutes of flying, so the test is
-of `world::WeatherFetch`, the object the flight holds and lets go when it
-ends. And a transfer under way is given up by `HttpRequest::abandon`, which
-`http_fetch` is now handed; no test here holds a connection open to show it.
+**Finished 2026-09-29: the program itself quit mid-refresh.** Only the window
+client (`glideslope`, the flight screen with `--weather`) refreshes the
+weather; `glideslope_cli`'s `weather` asks once and has no flight, so it has
+no refresh to quit. Two tests per GPU driver, from
+`tests/cmake/client_quits_mid_refresh.cmake`, fly the flight screen headless
+at Sydney with `--autopilot`, the weather services sent to
+`glideslope_http_stub`, and shoot at tick 116000 (966 s): a shot flown by
+ticks is 300 frames, so the refresh, due at 900 s (tick 108000), begins 20
+frames before the shot, and writing the shot ends the program with the
+refresh under way.
+- The stub answers the flight's first fetch from files (`--files-for 2`: the
+  METAR, and the 2026-09-17 Open-Meteo forecast with its hours given today's
+  UTC date) and the refresh not at all: in
+  `quitting_the_flight_while_its_weather_refresh_is_answered_429_ends_it_within_2_s_on_<driver>`
+  with 429 and `Retry-After: 10` (`--retry-after`), the most that is waited;
+  in
+  `quitting_the_flight_while_its_weather_refresh_is_part_way_through_a_transfer_ends_it_within_2_s_on_<driver>`
+  (`--stall`) with a head promising a megabyte and a few bytes of it, the
+  connection then held open, and at `/stop` each held transfer said to have
+  been let go or to be still going.
+- New `glideslope_exit_timer` (tests/tools/exit_timer.cpp) reads the client's
+  standard output through a pipe and says how long after the line
+  "glideslope: wrote tick" the pipe ended - the process gone. The client now
+  flushes that line as it writes it. The bound is 2 s.
+- Each test fails, rather than passes, when its situation was not built: the
+  first fetch not answered from both files, no request of the refresh's
+  turned away (429), or no transfer held and let go (stalled).
+- An infrastructure note: the 2026-09-17 forecast is given today's date when
+  the test starts, so a run that crosses midnight UTC between that and the
+  flight's first fetch fails ("the forecast has no hour") - a false red, never
+  a false green.
+
+**Verification (the finish).** Linux release, lavapipe: both pass, ending
+0.41 s (429) and 0.71 s (stalled) after the shot; about 35 s each. Seen to
+fail with `WeatherFetch`'s destructor no longer raising its flag: "it took
+30.131 s to end" (429, five 429s answered) and "350.330 s" (stalled, five
+transfers held one after another). Seen to fail with `http_fetch` not handing
+the flag to the request as `abandon`, the waits between tries still given up:
+the stalled test "took 59.373 s to end" - the stall timeout - while the 429
+test passed, so each test holds its own path. The three HUD tests that use the
+stub (400, an empty 200, 429 throughout) still pass with its new arguments.
 
 **What was wrong.** `Flight` refreshed the weather on a bare `std::async`,
 whose future waits for its thread when destroyed. A flight quit while the
