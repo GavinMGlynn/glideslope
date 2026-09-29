@@ -495,7 +495,7 @@ Found while implementing something else. Added when found, not when remembered.
       prediction**, as the command-line client does. *Verification:
       corrections are blended, and the largest step away from a switch is
       held to a bound, failing clearly with the blend taken out.* The blend
-      is in, and the step is held under 2.5 m (2026-09-29); still missing: a
+      is in, and the step is held under 2.5 m in the take-over test (2026-09-29); still missing: a
       test that builds large corrections on purpose - through a relay with
       jitter and loss, or a correction injected - since on loopback the
       blend taken out failed by only 2.535 m against 2.5 m, and the
