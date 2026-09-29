@@ -1639,8 +1639,12 @@ glideslope_configure(glideslope_interpolation_check)
 # **The relay, told to stop when its input ends, fails when it stops for the
 # time instead**: a server still running then is a failure the relay says, now
 # that SIGPIPE no longer kills the server for it. See cmake/impair_gives_up.cmake.
+add_executable(glideslope_hold_open tools/hold_open.cpp)
+target_link_libraries(glideslope_hold_open PRIVATE glideslope_platform)
+glideslope_configure(glideslope_hold_open)
 add_test(NAME the_relay_fails_when_it_gives_up_with_its_input_still_open
     COMMAND ${CMAKE_COMMAND} -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DHOLD=$<TARGET_FILE:glideslope_hold_open>
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/impair_gives_up.cmake)
 
 # **Every program a test runs in a pipeline carries on when the one it writes
@@ -1653,13 +1657,16 @@ if(NOT WIN32)
     add_test(NAME every_program_a_test_pipes_into_another_outlives_the_reader_going
         COMMAND ${CMAKE_COMMAND} -DPIPE=$<TARGET_FILE:glideslope_closed_pipe>
             -DSCRIPTS=${CMAKE_CURRENT_SOURCE_DIR}/cmake
-            -DSERVER=$<TARGET_FILE:glideslope_server> -DCLI=$<TARGET_FILE:glideslope_cli>
-            -DWINDOW=$<TARGET_FILE:glideslope> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
-            -DCACHE_TOOL=$<TARGET_FILE:glideslope_cache_collision>
-            -DDOC_CLIENT=$<TARGET_FILE:glideslope_doc_client>
-            -DDATAGRAM_CHECK=$<TARGET_FILE:glideslope_datagram_check>
-            -DSTALL=$<TARGET_FILE:glideslope_ion_stall>
-            -DHTTP_STUB=$<TARGET_FILE:glideslope_http_stub>
+            -DTESTS=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
+            -Dglideslope_server=$<TARGET_FILE:glideslope_server>
+            -Dglideslope_cli=$<TARGET_FILE:glideslope_cli>
+            -Dglideslope=$<TARGET_FILE:glideslope>
+            -Dglideslope_impair=$<TARGET_FILE:glideslope_impair>
+            -Dglideslope_cache_collision=$<TARGET_FILE:glideslope_cache_collision>
+            -Dglideslope_doc_client=$<TARGET_FILE:glideslope_doc_client>
+            -Dglideslope_datagram_check=$<TARGET_FILE:glideslope_datagram_check>
+            -Dglideslope_ion_stall=$<TARGET_FILE:glideslope_ion_stall>
+            -Dglideslope_http_stub=$<TARGET_FILE:glideslope_http_stub>
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/closed_pipes.cmake)
 endif()
 

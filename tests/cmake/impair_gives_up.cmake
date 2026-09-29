@@ -1,7 +1,8 @@
 # impair_gives_up.cmake - the relay, told to stop when its input ends, says so
 # when it stops for the time instead.
 #
-#   cmake -DIMPAIR=<glideslope_impair> -P impair_gives_up.cmake
+#   cmake -DIMPAIR=<glideslope_impair> -DHOLD=<glideslope_hold_open>
+#         -P impair_gives_up.cmake
 #
 # It listens on a port the system chooses (0): nothing is sent to it.
 #
@@ -11,14 +12,17 @@
 # ignores SIGPIPE (platform/closed_pipes.hpp), so the relay must fail it
 # instead, with exit code 1.
 #
-# **Built, not hoped for**: its input is held open by `cmake -E sleep 5` for
-# five times the one second it is given - and, second, is ended at once by
-# `cmake -E true`, which must still be an exit of 0.
+# **Built, not hoped for**: its input is held open by glideslope_hold_open,
+# which lets go only once the relay has gone - an event, not a clock, so
+# however late a slow machine starts the relay its input is open past the one
+# second it is given. Second, its input is ended at once by `cmake -E true`,
+# which must still be an exit of 0; that end is there whenever the relay
+# starts, and the ten minutes it is given only bound a relay that never read.
 
 cmake_minimum_required(VERSION 3.28)
 
 execute_process(
-    COMMAND "${CMAKE_COMMAND}" -E sleep 5
+    COMMAND "${HOLD}"
     COMMAND "${IMPAIR}" 0 "127.0.0.1:9" --delay 0 --jitter 0 --loss 0 --seed 1
             --until-input-ends --seconds 1
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -30,7 +34,7 @@ endif()
 execute_process(
     COMMAND "${CMAKE_COMMAND}" -E true
     COMMAND "${IMPAIR}" 0 "127.0.0.1:9" --delay 0 --jitter 0 --loss 0 --seed 1
-            --until-input-ends --seconds 60
+            --until-input-ends --seconds 600
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rcs STREQUAL "0;0" OR _out MATCHES "gave up")
     message(FATAL_ERROR "with its input ended, the relay exited ${_rcs}, not 0;0:\n"
