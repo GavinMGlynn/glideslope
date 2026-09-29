@@ -621,6 +621,16 @@ Found while implementing something else. Added when found, not when remembered.
       touches at 16.4 degrees where she touched at 11.7 - her nose no longer
       pushed down, though she still does not round out - and the four with
       no tail to strike are named.
+- [ ] **CI fails more often than it passes, on tests that time the machine**:
+      17 of 29 runs, nearly all two window-client tests bounding steps
+      against the wall clock under sanitizers. *Verification: the pull-request
+      gate's tests pass or fail by the code alone, and a month of runs is
+      counted.* Tiers are in (timing tests out of the debug gate, main only
+      builds, a nightly full run); the simulated frame clock is not.
+- [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
+      (26-28 minutes a Windows configure). *Verification: a new runner image
+      costs one rebuild, saved, not one per run.* Keyed on the image now; the
+      move to GitHub Packages waits on the owner's token.
 - [ ] **A CI run takes 90-120 minutes where its jobs need about 40**: the
       Actions caches overflowed their 10 GB and builds compiled from nothing.
       *Verification: pull requests' builds restore main's ccache with most

@@ -35,11 +35,27 @@ jobs:
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      # **vcpkg's cache is keyed on the toolchain as well as the ports.** vcpkg
+      # hashes the compiler into every package's ABI, and GitHub rolls new runner
+      # images out with new compilers (MSVC 19.51.36257 to .36260, 2026-09-01): on
+      # the new image every package missed and was rebuilt, 26-28 minutes, and the
+      # rebuild was never saved because the key still matched. With the image (or,
+      # on Rocky, the toolset) in the key, a new toolchain misses once and saves.
+      - name: The toolchain vcpkg's packages are built with
+        id: toolchain
+        shell: bash
+        run: |
+          if [ -n "${ImageVersion:-}" ]; then id="$ImageOS-$ImageVersion"
+          else id="$(rpm -q gcc-toolset-14-gcc-c++ 2>/dev/null || g++ --version | head -1)"; fi
+          echo "id=$(printf '%s' "$id" | tr -c 'A-Za-z0-9._-' '_')" >> "$GITHUB_OUTPUT"
+          echo "vcpkg's toolchain: $id"
       - uses: actions/cache/restore@v6
         with:
           path: .vcpkg-archives
-          key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
-          restore-keys: vcpkg-ubuntu-
+          key: vcpkg-ubuntu-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          restore-keys: |
+            vcpkg-ubuntu-${{ steps.toolchain.outputs.id }}-
+            vcpkg-ubuntu-
       - uses: actions/cache/restore@v6
         with:
           path: .ccache
