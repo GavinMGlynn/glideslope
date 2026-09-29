@@ -241,10 +241,12 @@ quit.
   `quitting_the_flight_while_its_weather_refresh_is_part_way_through_a_transfer_ends_it_within_2_s_of_a_quit_without_one_on_<driver>`.
   Each flies the flight screen headless at Sydney with `--autopilot`, the
   weather services sent to `glideslope_http_stub`, twice: **a control** shot
-  at tick 107000, before the refresh is due at 900 s (tick 108000), and **the
-  quit** shot at tick 116000. A shot flown by ticks is 300 frames, so the
-  refresh begins 21 frames before the quit's shot; writing the shot ends the
-  program.
+  at tick 600, long before the refresh is due at 900 s (tick 108000) - a
+  quit's teardown does not grow with the flight - and **the quit** shot at
+  tick 108120. A shot flown by ticks is 300 frames, here of 360 ticks, so the
+  refresh begins in the shot's frame or the one before it, and it is under way
+  for 10 s (429) or 60 s (stalled) before it could end by itself. Writing the
+  shot ends the program.
 - The stub answers each flight's first fetch from files (`--files-for 4`: the
   METAR, and the 2026-09-17 Open-Meteo forecast given three days of hours -
   yesterday's, today's and tomorrow's UTC - so a run crossing midnight still
@@ -253,9 +255,12 @@ quit.
   promising a megabyte, a few bytes of it, and the connection held.
 - **The situation is built, not hoped for.** At the shot the client now says
   whether a weather refresh is under way (`Flight::refreshing_weather`); the
-  quit must say it is and the control that it is not. Twenty-one frames are
-  wall-clock time, and a slow machine could let the refresh fail by itself
-  first: that run fails as not testing its rule.
+  quit must say it is and the control that it is not; a run in which the
+  refresh ended by itself first fails as not testing its rule. That happened:
+  shot first at tick 116000, 21 frames after the refresh began, the 429 test
+  on Windows debug (both drivers, four such tests at once) quit with the
+  refresh over - five 429s answered, 40 s of waits - and failed "no weather
+  refresh was under way at the quit". Hence the shot a second after it is due.
 - **The bound is against the control**, so that it measures the refresh and
   not the machine: new `glideslope_exit_timer` reads the client's standard
   output through a pipe and says how long after "glideslope: wrote tick" the
@@ -265,13 +270,12 @@ quit.
   client has ended, when the system has closed the client's end either way.
   It says only that it held one; the time is what shows the abandon.
 
-**Verification.** Linux release, lavapipe: the control ended 151 ms after its
-shot and the quit 82 ms (429); the control 144 ms and the quit 531 ms
-(stalled); about 60-80 s a test. Seen to fail with `WeatherFetch`'s
-destructor not raising its flag: "the control ended 69 ms after its shot,
-the quit 34447 ms" (429). Seen to fail with `http_fetch` not handing the flag
-to the request as `abandon`: "the control ended 69 ms after its shot, the quit
-60388 ms" (stalled) - the stall timeout. The three HUD tests that use the stub
+**Verification.** Linux release, lavapipe: the control ended 348 ms after its
+shot and the quit 51 ms (429); the control 327 ms and the quit 390 ms
+(stalled); about 39 s a test. Seen to fail with `WeatherFetch`'s destructor
+not raising its flag: "the control ended 346 ms after its shot, the quit
+35171 ms" (429). Seen to fail with `http_fetch` not handing the flag to the
+request as `abandon`: "the quit 61312 ms" (stalled) - the stall timeout. The three HUD tests that use the stub
 (400, an empty 200, 429 throughout) still pass with its new arguments.
 WINDOWS_RESULT
 
