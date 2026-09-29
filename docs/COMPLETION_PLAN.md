@@ -633,6 +633,10 @@ Found while implementing something else. Added when found, not when remembered.
       release builds now hit 791 of 792 compiles and take 4 minutes;
       clang-cl's compiles are all cacheable, but its fully warm build is not
       yet measured.
+- [ ] **A Windows configure on CI sometimes takes 30 minutes in vcpkg**,
+      even after an exact hit on its binary cache (runs 36565671119,
+      36569605692). *Verification: every Windows configure whose vcpkg cache
+      hit takes under 3 minutes, over a week of runs on main.*
 - [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of

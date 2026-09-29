@@ -233,8 +233,8 @@ are the risks the phase order is built around:
 nothing to compile. Its compiles are all cacheable now (792 of 792), and the
 one warm run it had (after its own cache, with SDL's flags changed since) hit
 525 of 792, every one outside SDL. The run that would show it all warm,
-f235f7d's (36570065355), had spent 28 minutes in windows-clang's configure
-when this was written - not yet explained. A pull request's Windows build is
+f235f7d's (36570065355), spent 28 minutes in windows-clang's configure - the
+vcpkg stall below, not this change. A pull request's Windows build is
 only as warm as main's last one (main's rule, below); the release package job
 (`package.yml`) still builds Windows without a cache.
 
@@ -265,11 +265,19 @@ build steps took 15.0, 11.5 and 10.8 minutes, the jobs 17.4, 14.2 and 13.7.
     -clang:-MF`, and ccache refuses every `/clang:` option - the first run had
     792 of 792 clang-cl compiles "unsupported compiler option". The file has
     clang-cl report its headers with /showIncludes, as cl.exe does.
-  - Warnings are still errors; no warning flag changed.
+  - Warnings are still errors; no first-party warning flag changed (SDL's
+    documentation-command warning is off, below).
 - **The cache rules of 2026-09-29's entry below**: restored from main's newest
   entry for the preset (`ccache-windows-<preset>-`), saved only on main under
   the commit, 500M a preset (a full build is 0.27 GB), and "Old caches pruned"
   keeps one entry of each Windows preset as it does the others.
+
+**Found on the way: a Windows configure sometimes takes 30 minutes**, in
+vcpkg, with or without this change. Main's run 36565671119 spent 1751 s in a
+windows-release configure, and ci-caches-fit's run 36569605692 logged "vcpkg:
+All requested installations completed successfully in: 28 min" after an exact
+hit on vcpkg's binary cache - vcpkg on Windows sometimes rebuilds, or stalls,
+what the cache holds. Not fixed here; a tail in COMPLETION_PLAN.
 
 **Measured on CI** (this pull request, with a temporary commit - since
 dropped - that let it save its own cache):
