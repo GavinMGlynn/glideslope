@@ -55,6 +55,13 @@
 name Stalls in a light aeroplane
 teaches light-aircraft
 
+# **The first sign of the stall is its warning**, where the autopilot's stall
+# recovery is held to recovering within this lesson's height (REQUIREMENTS.md
+# 4.3). A light aeroplane's warning sounds 5 to 10 knots above the stall (14
+# CFR 23.207(c), before amendment 23-64), and this lesson's entry already ends
+# in that band, at 6 knots.
+warning stall+6
+
 stage Entering the stall
 do Close the throttle and hold the height as the speed comes back
 do Keep the wings level and the ball centred: a wing drop is what you are avoiding

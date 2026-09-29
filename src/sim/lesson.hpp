@@ -9,6 +9,9 @@
 //                                 `.aircraft` files spell it: light-aircraft,
 //                                 seaplane, second-world-war, business-jet,
 //                                 airliner, fighter, bomber
+//   warning VALUE                 a stall lesson's: the airspeed its class's
+//                                 stall warning sounds at, the first sign of
+//                                 the stall, as a figure (below): `stall+7`
 //   stage TEXT...                 a stage of the lesson, in the order flown
 //   do TEXT...                    what to do at this stage: what the pilot is
 //                                 told, and what the instructor demonstrates
@@ -44,6 +47,7 @@
 #include "sim/catalogue.hpp"
 
 #include <filesystem>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -127,6 +131,11 @@ struct Lesson {
     std::string id; // the file's name, less .lesson
     std::string name;
     AircraftClass teaches = AircraftClass::light_aircraft;
+    // **The first sign of the stall**, a stall lesson's alone: the calibrated
+    // airspeed the stall warning sounds at, in knots, as a figure. It is
+    // what the autopilot's stall recovery is held to recovering from within
+    // the lesson's height (REQUIREMENTS.md 4.3).
+    std::optional<LessonNumber> stall_warning;
     std::vector<LessonStage> stages;
 };
 
