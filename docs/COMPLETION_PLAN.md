@@ -458,11 +458,13 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The client with the window steps more than 2.5 m at a take-over on
       a slow machine** (CI's sanitized linux-debug: 3.5 m). Dropped ticks, a
       take-over not flown on from a late word, and the old aircraft put right
-      by the new one are fixed; still missing: with 1.3 s frames it steps
-      3.3 m, and the window client's tests still run on the wall clock, not
-      a simulated one. *Verification: the take-over, hand-over and rejoin
-      tests give the same steps with slow frames as without, and pass on
-      CI's linux-debug.*
+      by the new one are fixed; the bounds are claimed at 20 fps and above
+      (decided 2026-09-30), not on any machine. *Verification: the bound
+      holds at 20 fps and above, with the frame rate asserted - the take-over
+      and hand-over tests fail, not pass, when frames around a switch are
+      slower.* Passes locally on linux-release, and on linux-debug alone at
+      the floor (hand-over frames of 50 ms); not yet seen on CI's release
+      presets.
 - [ ] **The client with the window is not tested with its updates
       reordered across a take-over**; it has the guard the command-line client
       needed. *Verification: an update from before the take-over, heard after
@@ -679,7 +681,9 @@ Found while implementing something else. Added when found, not when remembered.
       against the wall clock under sanitizers. *Verification: the pull-request
       gate's tests pass or fail by the code alone, and a month of runs is
       counted.* Tiers are in (timing tests out of the debug gate, main only
-      builds, a nightly full run); the simulated frame clock is not.
+      builds, a nightly full run); no simulated frame clock will be built
+      (decided 2026-09-30) - the timing tests assert 20 fps and stay where
+      it is met.
 - [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
       (26-28 minutes a Windows configure). *Verification: a new runner image
       costs one rebuild, saved, not one per run.* Windows uses GitHub

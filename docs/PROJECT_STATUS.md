@@ -1212,18 +1212,57 @@ are not pruned.
   preset may save it now, not only windows-release, since a new image can come
   to any of them first.
 
-### A take-over on a slow machine: three bugs fixed, the tests still on the wall clock, 2026-09-30 — main still red
+### A take-over on a slow machine: three bugs fixed, the bounds claimed at 20 fps and asserted, 2026-09-30 — not yet seen on CI
 
-**What is still missing, first**: the window client's take-over, hand-over
-and rejoin tests still run on the wall clock, so what they measure still
-depends on how fast the machine is; **the deterministic frame clock the owner
-asked for (2026-09-30) is not built**, for the reason below. Main's red
-take-over test is not shown fixed on CI: these fixes make the step at a
-take-over independent of how late the word that gave it was heard, and that
-was CI's failure, but with passes of 1.3 s the test still fails locally
-(3.3 to 3.6 m against 2.5 m). The take-over item's bound, "less than 2.5 m
-at a take-over", did not hold on CI's slow machine; its tick was earned on
-fast ones only.
+**What is still missing, first**: this has not been seen passing on CI's
+release presets, and the take-over item stays open until it has. Locally in
+linux-debug the hand-over test's frames around a switch are 50 ms, at the
+floor, and 71 ms - a failure - with another test running beside it; what
+makes a switch's frame that long is not found. The step
+bounds are **not** claimed on a slow machine: with 1.3 s frames the
+take-over test steps 3.3 to 3.6 m, and it now fails there as testing
+nothing rather than as a step too large. No simulated frame clock or
+lockstep harness was built, and none will be (the owner, 2026-09-30).
+
+**The decision, and the floor asserted.** The window client's step bounds -
+under 2.5 m at a take-over, under 5 m at a hand-over or take-back - are a
+claim about what a player sees at a playable frame rate, 20 fps and above
+(REQUIREMENTS.md, section 8.3 and "Closed 2026-09-30"). The client now says,
+beside the steps, how long its frames were: "own aircraft's frames: the
+longest within four of a switch N ms, and the largest step otherwise in one
+M ms long" (client/shown.hpp - the four frames before each switch and the
+four after, the window a switch's steps are measured in). Both window tests
+call `glideslope_require_playable_frames` (tests/cmake/client.cmake, where
+`GLIDESLOPE_PLAYABLE_FRAME_MS`, 50, is kept with its reason) before they
+believe a bound; the take-over test checks the frame of its largest step
+away from a switch as well, since it bounds that too. A longer frame fails
+the test - it never passes or skips - as the "carried at ... m/s: too slow"
+guard does. The hand-over script takes `SLOW_FRAMES` now, as the take-over
+one does.
+- **Seen to fire**, linux-release, `-DSLOW_FRAMES=250`: the take-over test
+  failed with "frames of 263 ms around the switch: slower than the 20 fps
+  this bound is claimed for, so the bound tests nothing" (its step 0.350 m,
+  inside the bound, which is the point: a pass there would have said
+  nothing), and the hand-over test with "frames of 265 ms around the
+  switch: ..." (its step 0.848 m).
+- **Passing without holds**: linux-release, the take-over test's frames 18 ms
+  at most around the switch and 18 ms at its largest step otherwise, steps
+  0.328 m at the switch and 0.586 m otherwise, carried at 52.8 m/s; the
+  hand-over test's frames 18 ms and 17 ms, steps 0.289 m and 0.798 m, at
+  33.9 m/s. linux-debug (sanitized, locally), each test alone: the take-over
+  test's frames 19 and 18 ms, steps 0.373 m and 0.928 m at 53.6 m/s; the
+  hand-over test's frames **50 ms around a switch, at the floor** (twice),
+  steps 0.415 and 0.454 m at the switches. Run beside the take-over test
+  (the preset's four jobs), the hand-over test's frames around a switch
+  reached 71 ms and it **failed, as testing nothing** - the guard working,
+  and a sign that a switch costs the client a long frame of its own in a
+  debug build (18 ms in release): which frame, and why, is not found yet.
+- **Where they run.** With the floor asserted, a sanitized debug run on a
+  software renderer - frames of 250 ms and more - fails loudly as not
+  testing, so the `timing` label (#61) keeps these tests out of CI's debug
+  presets and nightly.yml's repeats, and in the release presets, where the
+  floor holds. The comments in tests/CMakeLists.txt and ci.yml no longer
+  wait on a simulated frame clock.
 
 - **What CI's step was**, from run 36586959960's own lines: "frame 3 after a
   switch, 26 ms long, predicted: 0.000 m from where it was carried at
@@ -1280,20 +1319,13 @@ fast ones only.
   was drawn as another, still about 70 m, not yet explained. The hand-over,
   rejoin and dropped-client window tests and the prediction network checks
   pass with the fixes.
-- **Why the deterministic frame clock is not built.** A client clock that
-  advances by a fixed step each pass cannot make these measurements
-  independent of the machine on its own: the server steps on its wall clock,
-  so a client whose passes are slower than its simulated frames falls behind
-  the server by the difference - the prediction's clocks' difference and
-  the session clock move, which is the very thing measured. Deterministic
-  timing needs the server to step by the client's clock in test mode: step
-  only as far as the inputs heard allow, take each datagram in order
-  between steps rather than the newest input of a pass, and send an update
-  for every twenty-fifth of a second stepped, not one a pass; and the client
-  to take up only the words its simulated time has reached. That is a
-  server change as well as the client's, larger than this time box, and
-  should be put to the owner against "no deterministic simulation" (it is
-  deterministic timing in tests, not simulation, but it reads close).
+- **Why no simulated frame clock.** A client clock stepping by a fixed
+  amount each pass does not take the machine out on its own: the server
+  steps on its wall clock, so a client slower than its simulated frames
+  falls behind it, and the clocks' difference - the thing measured - moves.
+  Lockstep needs the server stepped by the client's clock in test mode as
+  well, which reads close to the deterministic simulation this project does
+  not have; the owner chose the asserted floor instead (2026-09-30).
 
 ### CI's Windows builds keep a compiler cache, 2026-09-29 — tail still open
 
