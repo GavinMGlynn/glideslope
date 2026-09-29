@@ -32,7 +32,10 @@
 #
 # **The situation is built, not hoped for.** At the shot the client says
 # whether a weather refresh is under way; the quit must say it is, and the
-# control that it is not. A machine slow enough to let the refresh end by
+# control that it is not. **Without imagery**: a shot waits for every
+# terrain tile its view needs, and imagery is fetched from the network, whose
+# timeouts on Windows CI's and the development machine's WinHTTP (12002) held
+# the shot past the refresh's 40 s; the DEM is kept in CACHE. A machine slow enough to let the refresh end by
 # itself before the shot - as a Windows debug build did, shot 21 frames after
 # the refresh began - fails the test, as not having tested its rule; it never
 # passes.
@@ -80,7 +83,7 @@ if(DEFINED STUB_PORT_FILE)
             set(_shot_at 108120)
         endif()
         execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}"
-                                --size 320x240 --screen flight --weather YSSY --autopilot
+                                --size 320x240 --screen flight --weather YSSY --autopilot --imagery off
                                 --shot-at ${_shot_at}
                                 --shot "${WORK}/quit-${DRIVER}-${CASE}-${_run}.bmp"
                         COMMAND "${TIMER}" "${_said}"
