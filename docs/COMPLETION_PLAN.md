@@ -812,5 +812,6 @@ Found while implementing something else. Added when found, not when remembered.
       The relay passed on the server's words a character at a time, so a
       client's line could land in the middle of one and hide it, on Windows
       CI. *Verification: with the relay slowed on purpose the test failed
-      every time; passing on whole lines, it passes every time.* Done
+      three runs of three; passing on whole lines, it passed three of
+      three.* Done
       2026-09-29.
