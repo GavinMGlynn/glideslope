@@ -45,7 +45,7 @@ env:
 # 90-minute limit. Now:
 #
 #   - Each configuration builds in its own job, all of them at once.
-#   - ccache keeps compiled objects between runs on Linux and macOS, so a push
+#   - ccache keeps compiled objects between runs on every platform, so a push
 #     that changes one file recompiles one file. Without it every push
 #     compiled all of Cesium Native and everything of ours from nothing.
 #   - A build packs what its tests need - the programs, the test data, the
@@ -502,10 +502,41 @@ jobs:
     # quiet by default; a failed frame test then shows the reason.
     env:
       SDL_LOGGING: gpu=debug
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 500M
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
       - uses: ./.github/actions/windows-setup
+
+      # **ccache, as on Linux and macOS**: without it each Windows build
+      # compiled everything from nothing, 17-19 minutes on every push. ccache
+      # 4.x caches cl.exe and clang-cl through the same compiler launcher, but
+      # not a compile that writes a PDB (/Zi) or uses a precompiled header
+      # (SDL's): so here, and only here, the debug information goes in each
+      # object (/Z7) and precompiled headers are off. The linker still writes
+      # each program's PDB from its objects, which is what "The stack of every
+      # crash" reads. A developer's own build is untouched: all of it is on
+      # the configure's command line below. The download is pinned by SHA-256.
+      - name: Install ccache
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $dir = Join-Path $env:RUNNER_TEMP 'ccache'
+          $zip = "$dir.zip"
+          Invoke-WebRequest -Uri 'https://github.com/ccache/ccache/releases/download/v4.14.1/ccache-4.14.1-windows-x86_64.zip' -OutFile $zip
+          $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne '6219f3865ca59aec41ee4b678df171d5d35855ecb2b6dbbbd20690b3a68af7b4') { throw "ccache's zip is $actual" }
+          7z e $zip "-o$dir" 'ccache-4.14.1-windows-x86_64\ccache.exe' -y | Out-Null
+          $dir | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          & "$dir\ccache.exe" --version
+          if ($LASTEXITCODE -ne 0) { throw "ccache does not run" }
+      - uses: actions/cache/restore@v6
+        with:
+          path: .ccache
+          key: ccache-windows-${{ matrix.preset }}-${{ github.sha }}
+          restore-keys: ccache-windows-${{ matrix.preset }}-
 
       - name: Keep vcpkg's binary cache in the workspace
         shell: bash
@@ -519,11 +550,19 @@ jobs:
           key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
           restore-keys: vcpkg-windows-
 
+      # The debug preset names /Zi in its flags itself, for the vendored
+      # projects too old for CMAKE_MSVC_DEBUG_INFORMATION_FORMAT (CMP0141);
+      # here they are the same flags with /Z7.
       - name: ${{ matrix.preset }} - configure
         shell: cmd
         run: |
           if "${{ matrix.preset }}"=="windows-clang" (clang-cl --version || exit /b 1)
-          cmake --preset ${{ matrix.preset }}
+          set cache=-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
+          if "${{ matrix.preset }}"=="windows-debug" (
+            cmake --preset windows-debug %cache% "-DCMAKE_C_FLAGS_DEBUG=/Z7 /Ob1 /O1" "-DCMAKE_CXX_FLAGS_DEBUG=/Z7 /Ob1 /O1"
+          ) else (
+            cmake --preset ${{ matrix.preset }} %cache%
+          )
       - uses: actions/cache/save@v6
         if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' && matrix.preset == 'windows-release' }}
         with:
@@ -532,7 +571,15 @@ jobs:
 
       - name: ${{ matrix.preset }} - build
         shell: cmd
-        run: cmake --build --preset ${{ matrix.preset }}
+        run: |
+          ccache --zero-stats
+          cmake --build --preset ${{ matrix.preset }} || exit /b 1
+          ccache --show-stats
+      - uses: actions/cache/save@v6
+        if: ${{ github.event_name != 'pull_request' && !cancelled() }}
+        with:
+          path: .ccache
+          key: ccache-windows-${{ matrix.preset }}-${{ github.sha }}
 
       # Programs and test data, not objects or import libraries - and of the
       # symbols, only the programs' own PDBs, so that a crash in a test prints
@@ -775,7 +822,7 @@ jobs:
   prune-caches:
     name: Old caches pruned
     if: ${{ !cancelled() && github.event_name == 'push' }}
-    needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, windows-test]
+    needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, windows-build, windows-test]
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -795,7 +842,8 @@ jobs:
             done
           }
           for p in ubuntu-linux-debug ubuntu-linux-release rocky9-linux-release \
-                   macos-macos-debug macos-macos-release; do
+                   macos-macos-debug macos-macos-release \
+                   windows-windows-debug windows-windows-release windows-windows-clang; do
             prune "ccache-$p-" "ccache-$p-${{ github.sha }}"
           done
           newest=$(grep '^downloads-.*-${{ github.run_id }}$' <<< "$keys" | head -1)
