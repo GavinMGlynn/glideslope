@@ -1761,6 +1761,9 @@ static int run_program(int argc, char** argv) {
                 glideslope::gfx::save_bmp(renderer.capture(), o.shot);
                 std::printf("glideslope: wrote tick %lld, frame %ld, to %s\n",
                             static_cast<long long>(ticks), frames, o.shot.c_str());
+                // Said as it happens, so a test reading through a pipe can
+                // time the way out from here (glideslope_exit_timer).
+                std::fflush(stdout);
                 if (window != nullptr) {
                     std::printf("glideslope: presented %ld of %ld frames to the "
                                 "window\n",

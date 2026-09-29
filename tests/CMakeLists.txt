@@ -824,6 +824,10 @@ if(WIN32)
     target_link_libraries(glideslope_http_stub PRIVATE ws2_32)
 endif()
 glideslope_configure(glideslope_http_stub)
+# How long a program took to end after it said something, read through a
+# pipe (tests/cmake/client_quits_mid_refresh.cmake).
+add_executable(glideslope_exit_timer tools/exit_timer.cpp)
+glideslope_configure(glideslope_exit_timer)
 # A Cesium ion that says where its terrain is and never sends it, and a check
 # that a cache file takes a write at once (tests/cmake/ion_stalled.cmake).
 add_executable(glideslope_ion_stall tools/ion_stall.cpp)
@@ -997,6 +1001,30 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud_no_weather.cmake)
     set_tests_properties(a_hud_test_whose_weather_service_answers_429_throughout_is_skipped_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    # **Quitting the flight mid-refresh ends it at once**, both ways a
+    # refresh can be held up: turned away with a 429 asking for the longest
+    # wait, and a transfer begun and never finished. Each would hold the exit
+    # 40 s or more if the refresh were not given up
+    # (cmake/client_quits_mid_refresh.cmake).
+    foreach(_case IN ITEMS 429 stalled)
+        if(_case STREQUAL "429")
+            set(_name quitting_the_flight_while_its_weather_refresh_is_answered_429_ends_it_within_2_s_on_${_driver})
+        else()
+            set(_name quitting_the_flight_while_its_weather_refresh_is_part_way_through_a_transfer_ends_it_within_2_s_on_${_driver})
+        endif()
+        add_test(NAME ${_name}
+            COMMAND ${CMAKE_COMMAND}
+                -DPROGRAM=$<TARGET_FILE:glideslope> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+                -DTIMER=$<TARGET_FILE:glideslope_exit_timer>
+                -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-metars-2026-09-17T1600Z.json
+                -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
+                -DCASE=${_case} -DWITHIN=2
+                -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+                -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_quits_mid_refresh.cmake)
+        set_tests_properties(${_name}
+            PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    endforeach()
     add_test(NAME the_checklist_on_screen_is_the_one_the_flight_is_working_through_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
             -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_checklist_check>
