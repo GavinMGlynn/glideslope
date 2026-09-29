@@ -466,9 +466,10 @@ Found while implementing something else. Added when found, not when remembered.
       the exit for about 80 s**: the flight's background weather refresh
       could not be given up. *Verification: quitting while the weather
       service answers 429 ends the program within a couple of seconds.* Done
-      2026-09-29: the window client quit mid-refresh ends within 2 s, both
-      while the refresh is turned away with a 429 and while it is part way
-      through a download that never finishes.
+      2026-09-29: the window client quit mid-refresh ends within 2 s of one
+      quit with no refresh under way, both while the refresh is turned away
+      with a 429 and while it is part way through a download that never
+      finishes.
 
 - [x] **A client opened the model a server named as a path.** *Verification:
       every aircraft's id is known by the catalogue and eight hostile ones are
