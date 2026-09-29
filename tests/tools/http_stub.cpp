@@ -28,6 +28,8 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#include <csignal>
 #endif
 
 namespace {
@@ -82,6 +84,12 @@ void send_all(Socket client, const std::string& text) {
 } // namespace
 
 int main(int argc, char** argv) {
+#ifndef _WIN32
+    // It runs in a test's pipeline, whose reader may go first; and a client
+    // may hang up before its answer is written. Either write must fail, not
+    // end it (src/platform/closed_pipes.hpp).
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
     if (argc != 3 && argc != 5) {
         return refuse("usage: glideslope_http_stub STATUS PORTFILE [PREFIX FILE]");
     }

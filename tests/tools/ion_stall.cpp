@@ -152,9 +152,6 @@ int serve(const std::filesystem::path& port_file) {
     if (::WSAStartup(MAKEWORD(2, 2), &data) != 0) {
         return refuse("Winsock would not start");
     }
-#else
-    // A client that hangs up mid-body is expected; it must not end this.
-    std::signal(SIGPIPE, SIG_IGN);
 #endif
     const Socket listening = ::socket(AF_INET, SOCK_STREAM, 0);
     if (listening == no_socket) {
@@ -231,6 +228,12 @@ int write_to(const std::filesystem::path& cache) {
 } // namespace
 
 int main(int argc, char** argv) {
+#ifndef _WIN32
+    // A client that hangs up mid-body is expected, and so is the reader of its
+    // output in a test's pipeline going first; neither must end it
+    // (src/platform/closed_pipes.hpp).
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
     if (argc != 3) {
         return refuse("usage: glideslope_ion_stall serve PORTFILE | write CACHEFILE");
     }

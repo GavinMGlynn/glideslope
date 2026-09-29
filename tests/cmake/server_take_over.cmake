@@ -68,7 +68,7 @@ set(_other "${WORK}/other.txt")
 set(_third "${WORK}/third.txt")
 file(REMOVE "${_taker}" "${_other}" "${_third}")
 execute_process(
-    # Each before one that outlives it (server_impaired.cmake says why).
+    # Each writes down the pipe to the next (server_impaired.cmake says how).
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 22 --after 2
             --predict --watch-ai --take-over-at 14 --heard "${_taker}"
             --long-frame-after-switch --late-update-after-take-over

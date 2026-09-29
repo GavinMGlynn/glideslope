@@ -28,6 +28,7 @@
 #include "shown.hpp"
 #include "platform/end_process.hpp"
 #include "platform/stop.hpp"
+#include "platform/closed_pipes.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
@@ -296,6 +297,9 @@ static int run_program(int argc, char** argv) {
     // First: a failed assert prints and ends the program rather than
     // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
     glideslope::platform::no_crash_dialogs();
+    // And a write to a pipe whose reader has gone fails, rather than ending
+    // the program (platform/closed_pipes.hpp).
+    glideslope::platform::outlive_closed_pipes();
     // Before anything that can log: Cesium Native's log belongs on standard
     // error, not in the middle of a --trace line. See gfx/terrain_tiles.hpp.
     glideslope::gfx::log_to_standard_error();

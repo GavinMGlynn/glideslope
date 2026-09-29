@@ -1636,6 +1636,33 @@ glideslope_configure(glideslope_impair)
 add_executable(glideslope_interpolation_check tools/interpolation_check.cpp)
 glideslope_configure(glideslope_interpolation_check)
 
+# **The relay, told to stop when its input ends, fails when it stops for the
+# time instead**: a server still running then is a failure the relay says, now
+# that SIGPIPE no longer kills the server for it. See cmake/impair_gives_up.cmake.
+add_test(NAME the_relay_fails_when_it_gives_up_with_its_input_still_open
+    COMMAND ${CMAKE_COMMAND} -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/impair_gives_up.cmake)
+
+# **Every program a test runs in a pipeline carries on when the one it writes
+# to has gone**, rather than dying of SIGPIPE - which a client did on macOS CI
+# after the goodbye that ended its server. See cmake/closed_pipes.cmake. Not on
+# Windows, which has no SIGPIPE: a write nobody reads simply fails there.
+if(NOT WIN32)
+    add_executable(glideslope_closed_pipe tools/closed_pipe.cpp)
+    glideslope_configure(glideslope_closed_pipe)
+    add_test(NAME every_program_a_test_pipes_into_another_outlives_the_reader_going
+        COMMAND ${CMAKE_COMMAND} -DPIPE=$<TARGET_FILE:glideslope_closed_pipe>
+            -DSCRIPTS=${CMAKE_CURRENT_SOURCE_DIR}/cmake
+            -DSERVER=$<TARGET_FILE:glideslope_server> -DCLI=$<TARGET_FILE:glideslope_cli>
+            -DWINDOW=$<TARGET_FILE:glideslope> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+            -DCACHE_TOOL=$<TARGET_FILE:glideslope_cache_collision>
+            -DDOC_CLIENT=$<TARGET_FILE:glideslope_doc_client>
+            -DDATAGRAM_CHECK=$<TARGET_FILE:glideslope_datagram_check>
+            -DSTALL=$<TARGET_FILE:glideslope_ion_stall>
+            -DHTTP_STUB=$<TARGET_FILE:glideslope_http_stub>
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/closed_pipes.cmake)
+endif()
+
 # **Prediction, interpolation and the player limit hold through a network
 # made worse on purpose** - at 100 ms and at 200 ms each way, with jitter and
 # loss. See cmake/server_impaired.cmake.

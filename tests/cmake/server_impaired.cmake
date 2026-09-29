@@ -80,13 +80,14 @@ set(_predicting "${WORK}/predicting.txt")
 set(_extra "${WORK}/one-too-many.txt")
 file(REMOVE "${_truth}" "${_shown}" "${_predicting}" "${_extra}")
 execute_process(
-    # Each program's standard output goes down the pipe to the next, so each
-    # comes before one that outlives it: one that wrote to a pipe whose reader
-    # had gone was killed for it. (That protects the run that goes well: a
-    # server still running when the relay gives up at 290 s dies of it, and
-    # the exit codes below say so.) None of them reads its standard input
-    # but the relay, so each may write no more than a pipe holds - a few
-    # lines, not a trace.
+    # Each program's standard output goes down the pipe to the next, and a
+    # write after the next has gone fails without ending the writer
+    # (platform/closed_pipes.hpp): the client that leaves last prints what it
+    # did after the goodbye that ends the server, and on macOS CI that write
+    # killed it, twice, before every program ignored SIGPIPE. A server still
+    # running when the relay gives up at 290 s is the relay's exit code of 1.
+    # None of them reads its standard input but the relay, so each may write
+    # no more than a pipe holds - a few lines, not a trace.
     #
     # Asks after the other two are in: four seconds of resending at a quarter
     # of a second would have to be lost for it to overtake the one that

@@ -8,6 +8,7 @@
 // listening. It is how a test puts a stranger's bytes in front of the server -
 // a gearstick client's first datagram - without a client of its own.
 
+#include "platform/closed_pipes.hpp"
 #include "platform/socket.hpp"
 
 #include <chrono>
@@ -18,6 +19,8 @@
 #include <vector>
 
 int main(int argc, char** argv) {
+    // Its reader in a pipeline may be gone first (platform/closed_pipes.hpp).
+    glideslope::platform::outlive_closed_pipes();
     if (argc != 4) {
         std::fprintf(stderr, "usage: glideslope_datagram_check HOST:PORT FILE.hex SECONDS\n");
         return 2;

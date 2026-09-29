@@ -227,6 +227,60 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A multi-process test's programs never die of a closed pipe, 2026-09-29 — tail done
+
+**The flake.** macOS release CI failed twice with a program killed by SIGPIPE
+in runs that had otherwise gone well:
+`prediction_interpolation_and_the_player_limit_hold_at_100_ms_with_jitter_and_loss`
+(run 36513635725, exit codes `1;0;SIGPIPE;0;0`) and
+`a_player_takes_over_an_ai_aircraft_with_no_step_at_200_ms_and_a_players_is_refused`
+(run 36286521609, `0;0;SIGPIPE;0;0`).
+
+**The cause.** Both scripts run their programs as one `execute_process`
+pipeline, each one's standard output the next one's standard input. The third
+program in each is the client straight to the server that leaves last. Its
+goodbye is what empties the server, which `--until-empty` then ends; the
+client then prints what it did (`said goodbye`, `stayed ...`), flushed at exit
+into the pipe to the server that has just gone. With SIGPIPE at its default
+action that write killed it. Which gets there first is a race, lost now and
+then on macOS. Linux never lost it only by accident: libcurl's setup
+(`platform/http_curl.cpp`) ignores SIGPIPE, and it had run in every such
+client; the macOS backend (NSURLSession) leaves it be, and Windows has no
+SIGPIPE. The exit code 1 in the first run is the client one too many, refused
+as full, which is what the test asks of it - not a failure. The same race was
+in every script where a client comes before the server (some twenty of them).
+
+**The fix.** `platform/closed_pipes.hpp`: `outlive_closed_pipes()`, called
+first thing in the main of `glideslope`, `glideslope_server` and
+`glideslope_cli`, and in `glideslope_impair`, `glideslope_cache_collision` and
+`glideslope_datagram_check`, ignores SIGPIPE, so a write to a pipe nobody reads
+fails with EPIPE, as on Windows, and the program goes on. `glideslope_doc_client`,
+`glideslope_http_stub` and `glideslope_ion_stall`, which link nothing of the
+project, do the same themselves (ion_stall did it only when serving). What
+SIGPIPE had also done was fail `server_impaired`/`server_take_over` if the
+server was still running when the relay gave up at 290 s; the relay now says
+that itself: with `--until-input-ends`, stopping for the time instead exits 1
+(`impair: gave up after S s with its input still open`).
+
+**Verification.**
+- `every_program_a_test_pipes_into_another_outlives_the_reader_going`
+  (`tests/cmake/closed_pipes.cmake`, `tests/tools/closed_pipe.cpp`; not on
+  Windows, which has no SIGPIPE): each program is run once with its output read
+  - it must write something and exit as it should - and once into a pipe whose
+  reading end was closed before it started, with SIGPIPE put back to its
+  default in it, so every write is to no reader and nothing is left to a race;
+  it must exit the same. Coverage is asserted: the script reads every
+  `execute_process` with more than one COMMAND in `tests/cmake` (31 pipelines)
+  and fails on a program named in one that is not in its table (8 names, 9
+  programs; `CMAKE_COMMAND` left out, not the project's). Seen to fail before
+  the fix: all 9 killed by signal 13. It found `glideslope_http_stub`, which a
+  hand grep had missed.
+- `the_relay_fails_when_it_gives_up_with_its_input_still_open`
+  (`tests/cmake/impair_gives_up.cmake`): input held open by `cmake -E sleep 5`
+  past `--seconds 1`, exit 1; input ended at once, exit 0. Seen to fail with
+  the old exit of 0.
+- Both at 100 ms, `server_impaired` and `server_take_over`, pass on Linux.
+
 ### CI's test shards are dealt by what each test costs, 2026-09-29 — tail done
 
 Every test shard's job on this branch's CI run 36512248457 finished under two

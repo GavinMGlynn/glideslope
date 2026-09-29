@@ -748,3 +748,9 @@ Found while implementing something else. Added when found, not when remembered.
 - [x] **No message rejects a number that is not one.** *Verification: every
       floating-point field of every message refuses a NaN and an infinity.* Done
       2026-09-22.
+- [x] **A network test's program died of a closed pipe on macOS.** A client
+      that said goodbye and then printed was killed for writing to the server
+      its goodbye had ended, twice on CI. *Verification: every program a test
+      runs in a pipeline exits as it should when nobody reads what it writes,
+      and the relay fails when it gives up with its server still running.*
+      Done 2026-09-29.

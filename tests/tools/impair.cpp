@@ -14,7 +14,8 @@
 // It stops after S seconds (600 unless given) or, with `--until-input-ends`,
 // when its standard input ends - which, last in a test's pipeline, is when the
 // server before it has gone - and says what it did: how many datagrams each
-// way, and how many it dropped. What it reads from standard input it passes
+// way, and how many it dropped. With `--until-input-ends`, stopping for the
+// time instead is a failure, and it exits 1. What it reads from standard input it passes
 // on to standard error, so that the program before it can still be heard.
 //
 // With `--gap MS --every S`, everything from the server is dropped for MS
@@ -24,6 +25,7 @@
 // It is what `tc netem` does, without needing to be root or on Linux, so that
 // the same check runs on every CI platform.
 
+#include "platform/closed_pipes.hpp"
 #include "platform/socket.hpp"
 
 #include <chrono>
@@ -59,6 +61,9 @@ double number(const char* text) {
 } // namespace
 
 int main(int argc, char** argv) {
+    // Last in a pipeline or not, what it says to a reader that has gone must
+    // not end it (platform/closed_pipes.hpp).
+    glideslope::platform::outlive_closed_pipes();
     if (argc < 3) {
         std::fprintf(stderr, "usage: glideslope_impair LISTEN_PORT SERVER_HOST:PORT --delay MS "
                              "--jitter MS --loss PERCENT --seed N [--until-input-ends] "
@@ -215,8 +220,16 @@ int main(int argc, char** argv) {
                 static_cast<unsigned long long>(dropped_up),
                 static_cast<unsigned long long>(dropped_down));
     std::printf("impair: %llu dropped in gaps\n", static_cast<unsigned long long>(gapped));
+    // **Given up on, not ended**: asked to stop when its input ends, it
+    // stopped for the time instead - the program before it in the pipeline
+    // was still running, which that program's own exit code, once it goes,
+    // may not say. So this one says it.
+    const bool gave_up = until_input_ends && !input_ended;
+    if (gave_up) {
+        std::printf("impair: gave up after %.0f s with its input still open\n", seconds);
+    }
     std::fflush(stdout);
     // Out without the runtime's tidying up, which can wait on standard
     // input's lock - held by the reading thread, if the input has not ended.
-    std::_Exit(0);
+    std::_Exit(gave_up ? 1 : 0);
 }
