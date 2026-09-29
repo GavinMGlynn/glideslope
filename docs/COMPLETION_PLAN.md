@@ -499,7 +499,9 @@ Found while implementing something else. Added when found, not when remembered.
       test that builds large corrections on purpose - through a relay with
       jitter and loss, or a correction injected - since on loopback the
       blend taken out failed by only 2.535 m against 2.5 m, and the
-      hand-over test not at all.
+      hand-over test not at all; and why the hand-over test, blend in, once
+      stepped 6.2 m away from a switch on CI (its bound is removed until
+      then).
 - [ ] **The display model is written twice**, in the command-line client
       and in the client with the window. *Verification: one presentation-free
       module serves both, with a unit test that builds long frames across a

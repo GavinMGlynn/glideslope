@@ -854,7 +854,14 @@ it with it.
   fail at all - a test that only sometimes tests its rule. What is missing
   is a test that builds large corrections on purpose (the take-over test
   through glideslope_impair with jitter and loss, or a correction injected)
-  and fails clearly with the blend removed.
+  and fails clearly with the blend removed. **Then main went red on it
+  (2026-09-29)**: with the blend in, CI measured 6.203 m away from a switch
+  in the hand-over test on Linux debug, and 2.565 m on Windows debug (#49's
+  run). A bound never seen to fail is not evidence, so the hand-over test now
+  reports its step away from a switch and does not bound it; the take-over
+  test keeps its 2.5 m bound. Why a step of 6 m happens away from a switch
+  after a hand-over - a correction too large to hide, snapped, or something
+  the blend misses - is now part of the open corrections tail.
 - **From the review**: a take-over of an aircraft seen in fewer than two
   frames no longer blends from the aircraft left behind: seen in one, it
   blends from that; in none, from nothing.
