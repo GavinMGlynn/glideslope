@@ -315,6 +315,21 @@ server had thrown away until it was restarted.
     session is handed up as the new one's"; with `send_message()` queuing,
     "a message asked for while joining again is refused, not queued"; both
     reverted.
+- **Rebased onto #53 (one key, one aircraft)**: a session proves itself by
+  sealing at once and knocking every `prove_every_s` until anything opens;
+  a session joined again now does the same (`prove_at_once()`), since the
+  server sends an unproven session nothing. Past proving, the knock after a
+  second of quiet stands. So
+  `a_client_whose_first_sealed_datagram_is_lost_still_proves_its_session`
+  counts "stopped proving" over the 0.9 s before a quiet knock is due, and
+  `a_session_joined_again_hands_up_nothing_of_the_one_let_go` also holds
+  that a session joined again, its first sealed datagram lost, seals another
+  within 0.9 s of its clock - **seen to fail** with the session joined
+  again not proving itself: "the new session sealed something at once";
+  reverted. A server's `LEAVING` now means dropped *or*
+  taken over by a newer session for this key, so the window client says
+  what the command-line one says: "the server ended this session (dropped,
+  or taken over by a newer session for this key); not joining again".
 - **Docs**: `docs/TRANSPORT.md` now says both clients knock and join again;
   `docs/THREATS.md` names where each client keeps the refusal rule. The wire
   did not change.
@@ -350,8 +365,8 @@ client did not say it was dropped"; reverted.
 refused `SERVER_FULL` until their old session is let go for silence: `take()`
 refuses a full session before building a `Responder`, so it never learns whose
 initiation it is (`docs/THREATS.md` keeps that bound). That is a new tail in
-the plan. The client with the window does not yet come back by itself either
-(the rejoin tail); this is the server side only.
+the plan. The client with the window came back by itself only from #50 on (the rejoin
+tail); this is the server side only.
 
 **What was wrong.** A client started again from a new port while its old
 session was live - before `--timeout` had let it go - was admitted to the same

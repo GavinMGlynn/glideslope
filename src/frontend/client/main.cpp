@@ -1072,7 +1072,9 @@ static int run_program(int argc, char** argv) {
                 }
                 using Standing = glideslope::net::ClientSession::Standing;
                 const char* why = s.standing() == Standing::dropped
-                                      ? "dropped by the server's operator; not joining again"
+                                      ? "the server ended this session (dropped, or taken "
+                                        "over by a newer session for this key); not joining "
+                                        "again"
                                   : s.standing() == Standing::refused
                                       ? "refused by the server when joining again: it is full"
                                   : s.standing() == Standing::gave_up
