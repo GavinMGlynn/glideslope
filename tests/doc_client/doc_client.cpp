@@ -39,6 +39,9 @@ static const Socket kNoSocket = INVALID_SOCKET;
 #include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+// Added after the client was written, for the test that runs it in a
+// pipeline: see main(). It changes nothing about the protocol.
+#include <csignal>
 using Socket = int;
 static const Socket kNoSocket = -1;
 #endif
@@ -647,6 +650,12 @@ int milliseconds_until(Clock::time_point t) {
 }  // namespace
 
 int main(int argc, char** argv) {
+#ifndef _WIN32
+    // Added after the client was written: its output goes down a test's
+    // pipeline to a server that may have gone first, and a write to a pipe
+    // with no reader must fail, not end it (src/platform/closed_pipes.hpp).
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
     if (argc != 4) {
         std::fprintf(stderr, "usage: doc_client HOST:PORT SERVER_PUBLIC_KEY_HEX SECONDS\n");
         return 1;

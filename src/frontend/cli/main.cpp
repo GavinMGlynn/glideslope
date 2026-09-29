@@ -8,6 +8,7 @@
 #include "copilot/provider.hpp"
 #include "net/handshake.hpp"
 #include "platform/end_process.hpp"
+#include "platform/closed_pipes.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "net/inputs.hpp"
 #include "net/interpolation.hpp"
@@ -2776,6 +2777,9 @@ static int run_program(int argc, char** argv) {
     // First: a failed assert prints and ends the program rather than
     // waiting on a dialog nobody will answer (platform/no_crash_dialogs.hpp).
     glideslope::platform::no_crash_dialogs();
+    // And a write to a pipe whose reader has gone fails, rather than ending
+    // the program (platform/closed_pipes.hpp).
+    glideslope::platform::outlive_closed_pipes();
     std::vector<std::string_view> args(argv + 1, argv + argc);
     try {
         std::filesystem::path data;
