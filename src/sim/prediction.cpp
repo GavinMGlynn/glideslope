@@ -110,4 +110,23 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     return out;
 }
 
+std::size_t Prediction::adopt(const Motion& motion, std::uint64_t server_steps) {
+    if (offsets_.empty()) {
+        held_.clear();
+        aircraft_.set_motion(motion);
+        return 0;
+    }
+    const std::int64_t offset = *std::min_element(offsets_.begin(), offsets_.end());
+    const std::int64_t at = static_cast<std::int64_t>(server_steps) - offset;
+    while (!held_.empty() && static_cast<std::int64_t>(held_.front().step) < at) {
+        held_.pop_front();
+    }
+    aircraft_.set_motion(motion);
+    for (const Applied& a : held_) {
+        aircraft_.set_controls(a.controls);
+        aircraft_.step();
+    }
+    return held_.size();
+}
+
 } // namespace glideslope::sim

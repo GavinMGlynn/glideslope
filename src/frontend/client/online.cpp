@@ -70,6 +70,8 @@ std::optional<Joined> Online::joined_by(const net::StatePacket& state) const {
     joined.number = state.your_aircraft;
     joined.aircraft_id = found->second.id;
     joined.motion = motion_of(*state.yours);
+    joined.server_steps = static_cast<std::uint64_t>(std::llround(
+        state.simulation_time_s * static_cast<double>(sim::steps_per_second)));
     return joined;
 }
 
@@ -183,7 +185,19 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
     // **Its own, from the newest word only**: an update older than one
     // already used would put it back to where the newer one had moved it
     // from, with the inputs since already let go.
-    if (state.yours && state.your_aircraft == mine_ &&
+    // **A take-over or a join not yet taken up by the caller takes the newest
+    // word** - the flight is still the aircraft left behind, and put right by
+    // the one taken it snapped by the distance between them, 433 m in a
+    // pass of 250 ms (PROJECT_STATUS.md, 2026-09-30); and the caller builds
+    // it from the motion given here, which the newest word says best.
+    if (taken_ && state.yours && state.your_aircraft == mine_ &&
+        state.simulation_time_s > *reconciled_s_) {
+        if (auto newer = joined_by(state)) {
+            newer->again = taken_->again;
+            taken_ = std::move(newer);
+            reconciled_s_ = state.simulation_time_s;
+        }
+    } else if (state.yours && state.your_aircraft == mine_ &&
         (!reconciled_s_ || state.simulation_time_s > *reconciled_s_)) {
         // **Who flies it**, by the same newest word: handed to the AI, it is
         // no longer predicted; taken back, it is put where this update says

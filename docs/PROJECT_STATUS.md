@@ -1212,49 +1212,88 @@ are not pruned.
   preset may save it now, not only windows-release, since a new image can come
   to any of them first.
 
-### The client with the window flies every tick a long frame is owed, 2026-09-30 — main still red
+### A take-over on a slow machine: three bugs fixed, the tests still on the wall clock, 2026-09-30 — main still red
 
-**What is still missing, first**: main's red take-over test
-(`the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in`,
-3.472 m and 2.770 m at the take-over, 2.756 m away from a switch on CI's
-linux-debug) is **not reproduced locally and not fixed by this**. The take-over
-item's bound, "less than 2.5 m at a take-over", has not held on CI's slow
-machine; its tick was earned on fast ones only.
+**What is still missing, first**: the window client's take-over, hand-over
+and rejoin tests still run on the wall clock, so what they measure still
+depends on how fast the machine is; **the deterministic frame clock the owner
+asked for (2026-09-30) is not built**, for the reason below. Main's red
+take-over test is not shown fixed on CI: these fixes make the step at a
+take-over independent of how late the word that gave it was heard, and that
+was CI's failure, but with passes of 1.3 s the test still fails locally
+(3.3 to 3.6 m against 2.5 m). The take-over item's bound, "less than 2.5 m
+at a take-over", did not hold on CI's slow machine; its tick was earned on
+fast ones only.
 
-- **Found and fixed**: the client flew at most 24 ticks a pass of its loop and
-  dropped the rest (`min(clock.advance(...), 24)` in client/main.cpp), so a pass
-  longer than 0.2 s lost time. It now carries what it owes to the next pass, as
-  the server does, flying at most a second's ticks a pass. Evidence, from a new
-  test flag, `--slow-frames MS` (every pass held MS longer after a tenth of a
-  second at full speed; `SLOW_FRAMES` in client_rides_along.cmake), with a
-  debug print of every correction (not kept): at 250 ms passes held back to
-  back, before, every word of the server's replayed **none** of the client's
-  inputs - the prediction was always behind where the server's word placed it
-  - and each pass's first correction was 5.0 to 5.4 m; after, each word
-  replays 2 to 35 inputs and moves the aircraft 0.000 m.
-- **What the test did with it**: passed before and after, locally. Held back
-  to back at 250 ms: at the take-over 1.27 m before, 1.89 m after; 250, 400
-  and 600 ms holds with fast frames between, before: 1.15, 0.50 and 0.56 m at
-  the take-over, 1.47, 1.48 and 0.56 m otherwise. So the fix is not shown to
-  cure CI's failure; it is not seen to fail without it.
 - **What CI's step was**, from run 36586959960's own lines: "frame 3 after a
   switch, 26 ms long, predicted: 0.000 m from where it was carried at
   53.8 m/s, the blend moving 3.472 m". The prediction did not stray; the
-  switch's blend moved that far in a sixtieth of a second, which eased over
-  0.5 s means a blend of about 70 m - the aircraft taken over was put 1.3 s
-  of flight away from where it had been shown. Locally the blend is 5.3 m on
-  fast frames and 8.7 to 13 m with 250 ms passes. **The lead for the next
-  attempt**: at a take-over the flight adopts the server's motion as of the
-  word that gave it (`flight->adopt(taken->motion)`), not flown on to now,
-  and a word heard at the end of a long pass is that pass old; its first
-  corrections then place it with no clocks' difference known (`at_step`
-  none, 15 m and 8.5 m locally). A pass of 1.3 s around the take-over on CI -
-  its first drawn frames under sanitized lavapipe - would make CI's 70 m.
-- **Also seen, not explained**: with 250 ms passes, the word just before the
-  take-over put the old aircraft right by 435 to 446 m (snapped, "1 too large
-  to hide"), and CI's failing run says the same, 456 m; it lands in the pass
-  that takes over, so nothing shows it, but a word naming the old aircraft
-  as this client's own seems to carry the taken one's motion.
+  switch's blend moved that far in a sixtieth of a second, which, eased over
+  0.5 s, is a blend of about 70 m: the aircraft taken over was put 1.3 s of
+  flight from where it had been shown.
+- **A test flag to make passes slow**: `--slow-frames MS` holds a pass of the
+  frame loop MS milliseconds longer after each tenth of a second at full
+  speed, as a slow machine's mixed frames are (`SLOW_FRAMES` in
+  client_rides_along.cmake). At 1300 ms it reproduces CI's failure: 8.492 m
+  at the take-over, "frame 3 after a switch, 1952 ms long, predicted: 0.000 m
+  from where it was carried at 45.8 m/s, the blend moving 8.492 m" - the
+  same signature. A passing run of the take-over test now also prints the
+  corrections and what made its largest step at the switch.
+- **Fixed: ticks dropped.** The client flew at most 24 ticks a pass and
+  dropped the rest, so a pass over 0.2 s put its prediction behind the
+  server unflagged. It now carries what it owes to the next pass, as the
+  server does, flying at most four seconds' ticks a pass (a second's was
+  tried, and at 1.3 s passes fell further behind each pass). With a debug
+  print of every correction (not kept), at 250 ms passes: before, no server
+  word replayed any of the client's inputs, and each pass's first
+  correction was 5.0 to 5.4 m; after, each replays 2 to 35 and moves it
+  0.000 m.
+- **Fixed: a take-over put where a stale word said.** At a take-over the
+  flight took the server's motion as of the word that gave it and was not
+  flown on, so a word heard at the end of a long pass was that pass behind.
+  `sim::Prediction::adopt` now puts it there and flies it through the
+  client's inputs since the step the clocks' difference places the word
+  at, keeping the difference (it is the connection's, not the aircraft's);
+  the client uses it when its own was predicted up to the take-over and the
+  aircraft taken is the same aeroplane, and otherwise only puts it there as
+  before. Test:
+  `an_aircraft_taken_over_is_flown_on_to_now_from_the_word_that_gave_it`
+  (tests/unit/test_prediction.cpp) - client and server at 200 ms, another
+  Cessna taken over at 3 s and its word heard a second late: flown on
+  through 145 steps, 0.066 m from where the server has it. **Seen to fail**:
+  with the fly-on taken out of `adopt`, 64.157 m and 0 steps flown on;
+  reverted, it passes.
+- **Fixed: the old aircraft put right by the new one.** A debug print of the
+  snapped corrections (not kept) showed the 433 to 446 m correction "your 4
+  mine 4": the word that gave the take-over had set the client's own number
+  to the taken one, and a later word in the same pass put the flight - still
+  the aircraft left behind, until the caller adopts - right by the one taken,
+  half a kilometre off. Now, while a take-over or a join is waiting to be
+  taken up, later words replace the motion it will be built from and put
+  nothing right. Seen: at 250 ms passes, 1 correction too large to hide
+  (435.236 m) before; 0, the worst 12.895 m, after.
+- **The take-over test, before and after, locally (linux-debug)**, the
+  largest step at the switch / otherwise: no holds 0.363 / 0.492 m before,
+  0.682 / 0.492 m after; 250 ms holds 1.148 / 1.469 m before, 0.357 /
+  1.666 m after; 1300 ms holds 8.492 m (failed) before, 3.261 and 3.579 m
+  (failed) after - what is left there is the blend from where the aircraft
+  was drawn as another, still about 70 m, not yet explained. The hand-over,
+  rejoin and dropped-client window tests and the prediction network checks
+  pass with the fixes.
+- **Why the deterministic frame clock is not built.** A client clock that
+  advances by a fixed step each pass cannot make these measurements
+  independent of the machine on its own: the server steps on its wall clock,
+  so a client whose passes are slower than its simulated frames falls behind
+  the server by the difference - the prediction's clocks' difference and
+  the session clock move, which is the very thing measured. Deterministic
+  timing needs the server to step by the client's clock in test mode: step
+  only as far as the inputs heard allow, take each datagram in order
+  between steps rather than the newest input of a pass, and send an update
+  for every twenty-fifth of a second stepped, not one a pass; and the client
+  to take up only the words its simulated time has reached. That is a
+  server change as well as the client's, larger than this time box, and
+  should be put to the owner against "no deterministic simulation" (it is
+  deterministic timing in tests, not simulation, but it reads close).
 
 ### CI's Windows builds keep a compiler cache, 2026-09-29 — tail still open
 

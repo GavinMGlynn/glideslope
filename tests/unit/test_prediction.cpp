@@ -10,6 +10,7 @@
 #include <deque>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -494,4 +495,115 @@ GLIDESLOPE_TEST(a_client_that_flew_different_inputs_is_put_back_by_the_servers_m
                                   std::to_string(apart_after) + " m");
     std::printf("  by motion: drifted %.0f m, snapped back to within %.4f m\n", apart_before,
                 apart_after);
+}
+
+// **Another aircraft taken over is flown on to now from the word that gave
+// it**, however long the client took to hear it. Client and server fly the
+// client's Cessna at 200 ms until the clocks' difference is known; the
+// server's other Cessna, flying level half a kilometre away, is taken over
+// at three seconds and flown by the client's inputs from then on, and its
+// word is heard a whole second late - a pass of the frame loop that long, as
+// a slow machine's is. Put where that word says and not flown on, it is that
+// second and the round trip behind: tens of metres. Flown on through the
+// inputs since, it is where the server has it once those inputs arrive.
+GLIDESLOPE_TEST(an_aircraft_taken_over_is_flown_on_to_now_from_the_word_that_gave_it) {
+    constexpr int steps_per_input = steps_per_second / 30;
+    constexpr int one_way = 12; // 100 ms each way
+    constexpr int taken_at = 3 * steps_per_second;
+    constexpr int heard_late = steps_per_second;
+    Aircraft own_server(data() / "jsbsim", "c172p");
+    Aircraft own_client(data() / "jsbsim", "c172p");
+    Aircraft other(data() / "jsbsim", "c172p");
+    set_up(own_server);
+    set_up(own_client);
+    other.set_terrain(flat_ground());
+    {
+        InitialConditions ic;
+        ic.latitude_deg = -33.905;
+        ic.longitude_deg = 151.2;
+        ic.terrain_elevation_ft = 0.0;
+        ic.altitude_ft = 6000.0;
+        ic.heading_deg = 90.0;
+        ic.airspeed_kts = 110.0;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        other.initialize(ic);
+    }
+    Controls level;
+    level.throttle = 0.8;
+    level.mixture = 1.0;
+    const auto controls_of = [](std::uint32_t sequence) {
+        return flying(static_cast<int>(sequence) * steps_per_input);
+    };
+
+    struct Posted {
+        int arrives_at = 0;
+        glideslope::sim::Motion motion;
+        std::uint32_t applied = 0;
+        std::size_t into = 0;
+        std::uint64_t server_steps = 0;
+    };
+    std::deque<Posted> post;
+    Prediction client(own_client);
+    std::uint32_t applied = 0;
+    std::uint32_t next = 1;
+    std::size_t into = 0;
+    std::uint64_t server_steps = 0;
+    std::optional<Posted> taking;
+    std::optional<glideslope::sim::AircraftState> adopted;
+    std::size_t flown_on = 0;
+    int adopted_at = -1;
+    const int frames = taken_at + one_way + heard_late + one_way + 1;
+    for (int frame = 0; frame < frames; ++frame) {
+        const auto sequence = static_cast<std::uint32_t>(frame / steps_per_input + 1);
+        client.step(sequence, controls_of(sequence));
+        while (static_cast<int>(next - 1) * steps_per_input + one_way <= frame) {
+            applied = next;
+            into = 0;
+            ++next;
+        }
+        if (applied > 0) {
+            // Taken over: from here the other flies the client's inputs, and
+            // the word that says so is on its way.
+            const bool taken = frame >= taken_at;
+            if (frame == taken_at) {
+                taking = Posted{frame + one_way + heard_late, other.motion(), applied, into,
+                                server_steps};
+            }
+            own_server.set_controls(controls_of(applied));
+            own_server.step();
+            other.set_controls(taken ? controls_of(applied) : level);
+            other.step();
+            ++into;
+            ++server_steps;
+            if (!taken && frame % 5 == 0) {
+                post.push_back(
+                    {frame + one_way, own_server.motion(), applied, into, server_steps});
+            }
+        }
+        while (!post.empty() && post.front().arrives_at <= frame) {
+            (void)client.reconcile(post.front().motion, post.front().applied,
+                                   post.front().into, post.front().server_steps);
+            post.pop_front();
+        }
+        if (taking && taking->arrives_at == frame) {
+            check(client.settled(), "the clocks' difference was known at the take-over");
+            flown_on = client.adopt(taking->motion, taking->server_steps);
+            adopted = own_client.state();
+            adopted_at = frame;
+        }
+    }
+    // The server has the other where the client had it once the inputs the
+    // client had flown have arrived: a one-way trip on.
+    check(adopted.has_value(), "the take-over was heard");
+    check(frames - 1 == adopted_at + one_way, "the server was flown a one-way trip past it");
+    const double apart_m = glideslope::sim::how_far_apart_m(*adopted, other.state());
+    std::printf("  heard %d ms late: flown on through %zu steps, %.3f m from where the server "
+                "has it\n",
+                heard_late * 1000 / steps_per_second, flown_on, apart_m);
+    check(flown_on >= static_cast<std::size_t>(heard_late),
+          "it was flown on through the second it was heard late, not " +
+              std::to_string(flown_on) + " steps");
+    check(apart_m < 1.0, "the aircraft taken over was " + std::to_string(apart_m) +
+                             " m from where the server has it, over the 1 m bound");
 }

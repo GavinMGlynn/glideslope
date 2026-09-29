@@ -456,10 +456,13 @@ Found while implementing something else. Added when found, not when remembered.
       than 2.5 m at a take-over, where unblended it is about 5 m - each past
       its bound with the blend taken out.* Done 2026-09-27: 1.1 m at worst.
 - [ ] **The client with the window steps more than 2.5 m at a take-over on
-      a slow machine**: CI's sanitized linux-debug, 3.5 m, from a take-over
-      blend of about 70 m. A dropped-ticks bug is fixed; this is not.
-      *Verification: the take-over test passes on CI's linux-debug, and a
-      slow-frame reproduction of it fails without the fix.*
+      a slow machine** (CI's sanitized linux-debug: 3.5 m). Dropped ticks, a
+      take-over not flown on from a late word, and the old aircraft put right
+      by the new one are fixed; still missing: with 1.3 s frames it steps
+      3.3 m, and the window client's tests still run on the wall clock, not
+      a simulated one. *Verification: the take-over, hand-over and rejoin
+      tests give the same steps with slow frames as without, and pass on
+      CI's linux-debug.*
 - [ ] **The client with the window is not tested with its updates
       reordered across a take-over**; it has the guard the command-line client
       needed. *Verification: an update from before the take-over, heard after
