@@ -1921,6 +1921,15 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rides_along)
 # **The client with the window takes an AI aircraft over** while riding along
 # in it: it flies it, and the HUD says the pilot has it. See
 # cmake/client_rides_along.cmake.
+# **LABELS timing**: a test that bounds how far what is shown steps, measured
+# frame by frame against the wall clock through real sockets. Under a sanitizer
+# on a software renderer (CI's debug presets, frames of 250 ms and more) such a
+# bound measures the machine, not the code: the two failed 14 and 5 times in
+# 29 CI runs in September 2026. CI's pull-request gate leaves this label out of its debug
+# presets and runs it in every release preset; the nightly full run (ci.yml's
+# schedule) runs it in every preset, and nightly.yml five times on linux-debug.
+# The label goes when the window client's test mode runs on a simulated frame
+# clock (COMPLETION_PLAN, the take-over step on a slow machine).
 add_test(NAME the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
@@ -1928,7 +1937,7 @@ add_test(NAME the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_alo
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/takes_over -DPORT=24789 -DDRIVER=vulkan
         -DTAKE_OVER=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_rides_along.cmake)
 set_tests_properties(the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
-    PROPERTIES SKIP_RETURN_CODE 77)
+    PROPERTIES SKIP_RETURN_CODE 77 LABELS timing)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/takes_over)
 
 # **The client with the window hands its own aircraft to the AI on a
@@ -1942,7 +1951,7 @@ add_test(NAME the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_serve
         -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_hands_over.cmake)
 set_tests_properties(the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back
-    PROPERTIES SKIP_RETURN_CODE 77)
+    PROPERTIES SKIP_RETURN_CODE 77 LABELS timing)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hands_over)
 
 # **The client with the window, let go by the server for going quiet, joins

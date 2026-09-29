@@ -5,11 +5,16 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # The full run, every preset and every label, on main every night (16:00
+  # UTC, two in the morning in Sydney); a failure there is a red tree.
+  schedule:
+    - cron: '0 16 * * *'
 
 # One run per branch. A newer push says everything an older run would have, so
 # the older run is cancelled rather than left to hold a runner.
 concurrency:
-  group: ci-${{ github.ref }}
+  # The event too: a merge's build-only run must not cancel the nightly full run.
+  group: ci-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 # The windowed frame tests skip where there is no display to open a window on;
@@ -64,6 +69,16 @@ env:
 # be very long: the view test that shot all seven views in one took ten
 # minutes, and is seven tests and a comparison now.
 #
+# **Tiers** (decided 2026-09-30, after 17 of 29 runs failed on tests that bound
+# a step against the wall clock under a sanitizer):
+#   - A pull request: every preset builds and tests, except that the debug
+#     presets leave out LABELS timing (tests/CMakeLists.txt says why); the
+#     release presets run it.
+#   - A push to main, after a merge: the builds only - the tree was tested
+#     before it merged, since main takes a branch only when it is up to date -
+#     which keeps main's caches warm for the pull requests that restore them.
+#   - Every night (schedule): everything, every label, every preset.
+#
 # **Every preset runs somewhere.** The Linux presets on Ubuntu (both) and Rocky 9
 # (release), the macOS presets on macOS, the Windows presets on Windows. A
 # preset that no job runs is a preset nobody knows still works.
@@ -93,12 +108,28 @@ jobs:
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      # **vcpkg's cache is keyed on the toolchain as well as the ports.** vcpkg
+      # hashes the compiler into every package's ABI, and GitHub rolls new runner
+      # images out with new compilers (MSVC 19.51.36257 to .36260, 2026-09-01): on
+      # the new image every package missed and was rebuilt, 26-28 minutes, and the
+      # rebuild was never saved because the key still matched. With the image (or,
+      # on Rocky, the toolset) in the key, a new toolchain misses once and saves.
+      - name: The toolchain vcpkg's packages are built with
+        id: toolchain
+        shell: bash
+        run: |
+          if [ -n "${ImageVersion:-}" ]; then id="$ImageOS-$ImageVersion"
+          else id="$(rpm -q gcc-toolset-14-gcc-c++ 2>/dev/null || g++ --version | head -1)"; fi
+          echo "id=$(printf '%s' "$id" | tr -c 'A-Za-z0-9._-' '_')" >> "$GITHUB_OUTPUT"
+          echo "vcpkg's toolchain: $id"
       - uses: actions/cache/restore@v6
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
-          key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
-          restore-keys: vcpkg-ubuntu-
+          key: vcpkg-ubuntu-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          restore-keys: |
+            vcpkg-ubuntu-${{ steps.toolchain.outputs.id }}-
+            vcpkg-ubuntu-
       - uses: actions/cache/restore@v6
         with:
           path: .ccache
@@ -113,7 +144,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
-          key: vcpkg-ubuntu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          key: vcpkg-ubuntu-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
 
       - name: ${{ matrix.preset }} - build
         run: |
@@ -152,6 +183,7 @@ jobs:
   ubuntu-test:
     name: Ubuntu ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
     needs: ubuntu-build
+    if: ${{ github.event_name != 'push' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -193,7 +225,7 @@ jobs:
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" || rc=$?
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} ${{ endsWith(matrix.preset, '-debug') && github.event_name == 'pull_request' && '-LE timing' || '' }} -I "$PWD/shard.txt" || rc=$?
           kill $xvfb
           exit $rc
       # Every frame the tests wrote, to look at.
@@ -297,12 +329,28 @@ jobs:
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      # **vcpkg's cache is keyed on the toolchain as well as the ports.** vcpkg
+      # hashes the compiler into every package's ABI, and GitHub rolls new runner
+      # images out with new compilers (MSVC 19.51.36257 to .36260, 2026-09-01): on
+      # the new image every package missed and was rebuilt, 26-28 minutes, and the
+      # rebuild was never saved because the key still matched. With the image (or,
+      # on Rocky, the toolset) in the key, a new toolchain misses once and saves.
+      - name: The toolchain vcpkg's packages are built with
+        id: toolchain
+        shell: bash
+        run: |
+          if [ -n "${ImageVersion:-}" ]; then id="$ImageOS-$ImageVersion"
+          else id="$(rpm -q gcc-toolset-14-gcc-c++ 2>/dev/null || g++ --version | head -1)"; fi
+          echo "id=$(printf '%s' "$id" | tr -c 'A-Za-z0-9._-' '_')" >> "$GITHUB_OUTPUT"
+          echo "vcpkg's toolchain: $id"
       - uses: actions/cache/restore@v6
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
-          key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
-          restore-keys: vcpkg-rocky9-
+          key: vcpkg-rocky9-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          restore-keys: |
+            vcpkg-rocky9-${{ steps.toolchain.outputs.id }}-
+            vcpkg-rocky9-
       - uses: actions/cache/restore@v6
         with:
           path: .ccache
@@ -317,7 +365,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
-          key: vcpkg-rocky9-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          key: vcpkg-rocky9-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
 
       - name: linux-release - build
         run: |
@@ -383,12 +431,28 @@ jobs:
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      # **vcpkg's cache is keyed on the toolchain as well as the ports.** vcpkg
+      # hashes the compiler into every package's ABI, and GitHub rolls new runner
+      # images out with new compilers (MSVC 19.51.36257 to .36260, 2026-09-01): on
+      # the new image every package missed and was rebuilt, 26-28 minutes, and the
+      # rebuild was never saved because the key still matched. With the image (or,
+      # on Rocky, the toolset) in the key, a new toolchain misses once and saves.
+      - name: The toolchain vcpkg's packages are built with
+        id: toolchain
+        shell: bash
+        run: |
+          if [ -n "${ImageVersion:-}" ]; then id="$ImageOS-$ImageVersion"
+          else id="$(rpm -q gcc-toolset-14-gcc-c++ 2>/dev/null || g++ --version | head -1)"; fi
+          echo "id=$(printf '%s' "$id" | tr -c 'A-Za-z0-9._-' '_')" >> "$GITHUB_OUTPUT"
+          echo "vcpkg's toolchain: $id"
       - uses: actions/cache/restore@v6
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
-          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
-          restore-keys: vcpkg-macos-
+          key: vcpkg-macos-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          restore-keys: |
+            vcpkg-macos-${{ steps.toolchain.outputs.id }}-
+            vcpkg-macos-
       - uses: actions/cache/restore@v6
         with:
           path: .ccache
@@ -401,7 +465,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
-          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          key: vcpkg-macos-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
 
       - name: ${{ matrix.preset }} - build
         run: |
@@ -438,6 +502,7 @@ jobs:
   macos-test:
     name: macOS ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
     needs: macos-build
+    if: ${{ github.event_name != 'push' }}
     runs-on: macos-15
     timeout-minutes: 30
     strategy:
@@ -472,7 +537,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
-          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt"
+          ctest --preset ${{ matrix.preset }} ${{ endsWith(matrix.preset, '-debug') && github.event_name == 'pull_request' && '-LE timing' || '' }} -I "$PWD/shard.txt"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
@@ -543,12 +608,28 @@ jobs:
         run: |
           mkdir -p .vcpkg-archives
           echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      # **vcpkg's cache is keyed on the toolchain as well as the ports.** vcpkg
+      # hashes the compiler into every package's ABI, and GitHub rolls new runner
+      # images out with new compilers (MSVC 19.51.36257 to .36260, 2026-09-01): on
+      # the new image every package missed and was rebuilt, 26-28 minutes, and the
+      # rebuild was never saved because the key still matched. With the image (or,
+      # on Rocky, the toolset) in the key, a new toolchain misses once and saves.
+      - name: The toolchain vcpkg's packages are built with
+        id: toolchain
+        shell: bash
+        run: |
+          if [ -n "${ImageVersion:-}" ]; then id="$ImageOS-$ImageVersion"
+          else id="$(rpm -q gcc-toolset-14-gcc-c++ 2>/dev/null || g++ --version | head -1)"; fi
+          echo "id=$(printf '%s' "$id" | tr -c 'A-Za-z0-9._-' '_')" >> "$GITHUB_OUTPUT"
+          echo "vcpkg's toolchain: $id"
       - uses: actions/cache/restore@v6
         id: vcpkg-cache
         with:
           path: .vcpkg-archives
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
-          restore-keys: vcpkg-windows-
+          key: vcpkg-windows-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          restore-keys: |
+            vcpkg-windows-${{ steps.toolchain.outputs.id }}-
+            vcpkg-windows-
 
       # The debug preset names /Zi in its flags itself, for the vendored
       # projects too old for CMAKE_MSVC_DEBUG_INFORMATION_FORMAT (CMP0141);
@@ -569,10 +650,10 @@ jobs:
             cmake --preset ${{ matrix.preset }} %cache%
           )
       - uses: actions/cache/save@v6
-        if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' && matrix.preset == 'windows-release' }}
+        if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
           path: .vcpkg-archives
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          key: vcpkg-windows-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
 
       - name: ${{ matrix.preset }} - build
         shell: cmd
@@ -621,6 +702,7 @@ jobs:
   windows-test:
     name: Windows ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
     needs: windows-build
+    if: ${{ github.event_name != 'push' }}
     runs-on: windows-latest
     timeout-minutes: 30
     strategy:
@@ -683,7 +765,7 @@ jobs:
         shell: cmd
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
-          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt
+          ctest --preset ${{ matrix.preset }} ${{ endsWith(matrix.preset, '-debug') && github.event_name == 'pull_request' && '-LE timing' || '' }} -I %CD%\shard.txt
 
       - name: The stack of every crash
         if: ${{ failure() }}
@@ -749,6 +831,7 @@ jobs:
   # ---------------------------------------------------------------------------
   server-image:
     name: The server's container image
+    if: ${{ github.event_name != 'push' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -812,7 +895,7 @@ jobs:
   package:
     name: Package
     needs: changes
-    if: ${{ needs.changes.outputs.build == 'true' }}
+    if: ${{ needs.changes.outputs.build == 'true' && github.event_name != 'push' }}
     uses: ./.github/workflows/package.yml
 
   # ---------------------------------------------------------------------------
@@ -875,5 +958,8 @@ jobs:
           echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
           # Packaging is skipped when nothing it depends on changed, which is
           # a pass; anything else skipped, failed or cancelled is not.
-          echo "$NEEDS" | jq -e 'to_entries | all(.[];
-              .value.result == "success" or (.key == "package" and .value.result == "skipped"))' > /dev/null
+          # On main, after a merge, only the builds run (the tree was tested
+          # before it merged): a job skipped there is a pass too.
+          echo "$NEEDS" | jq -e --arg event "${{ github.event_name }}" 'to_entries | all(.[];
+              .value.result == "success"
+              or (.value.result == "skipped" and (.key == "package" or $event == "push")))' > /dev/null
