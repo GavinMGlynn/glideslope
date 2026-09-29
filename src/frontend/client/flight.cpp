@@ -265,6 +265,11 @@ void Flight::refresh_weather() {
     if (now - weather_fetched_at_s_ >= weather_refresh_seconds) {
         next_weather_.emplace(weather_station_,
                               world::utc_hour(std::chrono::system_clock::now()), fetch_);
+        // Said as it begins, so a test can time from it
+        // (tests/cmake/client_quits_mid_refresh.cmake).
+        std::printf("glideslope: fetching the weather again, at tick %lld\n",
+                    static_cast<long long>(tick_));
+        std::fflush(stdout);
     }
 }
 

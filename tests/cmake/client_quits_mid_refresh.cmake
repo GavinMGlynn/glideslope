@@ -65,6 +65,7 @@ cmake_minimum_required(VERSION 3.28)
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
 set(_said "glideslope: wrote tick")
+set(_began "glideslope: fetching the weather again")
 
 # The inner half: the stub is listening, or about to be.
 if(DEFINED STUB_PORT_FILE)
@@ -86,7 +87,7 @@ if(DEFINED STUB_PORT_FILE)
                                 --size 320x240 --screen flight --weather YSSY --autopilot --imagery off
                                 --shot-at ${_shot_at}
                                 --shot "${WORK}/quit-${DRIVER}-${CASE}-${_run}.bmp"
-                        COMMAND "${TIMER}" "${_said}"
+                        COMMAND "${TIMER}" "${_said}" "${_began}"
                         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
         list(GET _rcs 0 _rc)
         file(APPEND "${RESULT_FILE}" "=== ${_run} exited ${_rc}\n${_out}${_err}\n")
@@ -217,3 +218,6 @@ if(_quit_ms GREATER _limit_ms OR _quit_ms GREATER 10000)
                         "than 2 s past the control's, or past 10 s:\n${_stub_said}")
 endif()
 message(STATUS "quit during a weather refresh (${CASE}): ${_said_times}")
+if(_quit MATCHES "ended ([0-9]+\\.[0-9]+) s after \"glideslope: fetching the weather again\"")
+    message(STATUS "the quit's refresh had begun ${CMAKE_MATCH_1} s before it ended")
+endif()
