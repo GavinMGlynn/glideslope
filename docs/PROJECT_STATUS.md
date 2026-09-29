@@ -269,16 +269,28 @@ that itself: with `--until-input-ends`, stopping for the time instead exits 1
   - it must write something and exit as it should - and once into a pipe whose
   reading end was closed before it started, with SIGPIPE put back to its
   default in it, so every write is to no reader and nothing is left to a race;
-  it must exit the same. Coverage is asserted: the script reads every
-  `execute_process` with more than one COMMAND in `tests/cmake` (31 pipelines)
-  and fails on a program named in one that is not in its table (8 names, 9
-  programs; `CMAKE_COMMAND` left out, not the project's). Seen to fail before
-  the fix: all 9 killed by signal 13. It found `glideslope_http_stub`, which a
-  hand grep had missed.
+  it must exit the same. Each program's first write is the one tested, and
+  that suffices: ignoring SIGPIPE holds for the whole process from main() on,
+  and nothing sets it back. Coverage is asserted: the script reads every
+  `execute_process` with more than one COMMAND in `tests/cmake` (33 pipelines,
+  85 commands), every COMMAND wherever it is on its line; a literal program
+  fails it, and each `${VAR}` is resolved per script from the
+  `-DVAR=$<TARGET_FILE:...>` of the tests in `tests/CMakeLists.txt` that run
+  that script (101 of them), so CHECK and CLIENT are each whatever they are
+  there, and a variable no test resolves fails it. The targets found must be
+  its table of 9 exactly; `CMAKE_COMMAND` is left out, not the project's, and
+  so is `glideslope_hold_open`, whose outliving a closed pipe is what
+  `impair_gives_up.cmake` asserts. Seen to fail before the fix: all 9 killed
+  by signal 13; seen to fail on a literal program, a second COMMAND on a line,
+  an unresolved variable, and a program taken out of the table. It found
+  `glideslope_http_stub`, which a hand grep had missed.
 - `the_relay_fails_when_it_gives_up_with_its_input_still_open`
-  (`tests/cmake/impair_gives_up.cmake`): input held open by `cmake -E sleep 5`
-  past `--seconds 1`, exit 1; input ended at once, exit 0. Seen to fail with
-  the old exit of 0.
+  (`tests/cmake/impair_gives_up.cmake`): input held open by
+  `glideslope_hold_open`, which writes a newline every tenth of a second and
+  exits only when a write fails - when the relay has gone - so the relay's
+  `--seconds 1` runs out with its input open however late a slow machine
+  starts it: exit 1. Input ended at once by `cmake -E true`: exit 0. Seen to
+  fail with the old exit of 0.
 - Both at 100 ms, `server_impaired` and `server_take_over`, pass on Linux.
 
 ### CI's test shards are dealt by what each test costs, 2026-09-29 — tail done
