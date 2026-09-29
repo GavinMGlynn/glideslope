@@ -13658,14 +13658,22 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification*: with a deliberate 2 ms pause after each character the
       relay passed on, `a_player_takes_over_an_ai_aircraft_with_no_step_at_100_ms_and_a_players_is_refused`
       failed three runs of three on Linux, each with the refusal torn by a
-      client's line as on CI. The relay now gathers a line and writes it with
-      one `fwrite` and a flush - one write, which POSIX keeps whole in a pipe
-      up to `PIPE_BUF` and Windows' pipes keep whole too - and with the same
-      pause per character the test passed three runs of three. Without the
-      pause, both take-over tests (100 and 200 ms), the impaired-network
-      tests at 100 and 200 ms, the relay's giving up, the closed-pipe test,
-      the AI-wreck take-back test and the window client's hand-over through
-      the relay all pass on Linux release. **What this does not do**: the
-      clients' own lines are each one `fprintf`, which both C runtimes write
-      in one call to an unbuffered stream; nothing checks that a client never
-      writes one line in two calls.
+      client's line as on CI - the failure was seen on Windows, the
+      reproduction made on Linux. The relay now gathers a line and writes it
+      with one `fwrite` and a flush - one write, which POSIX keeps whole in a
+      pipe up to `PIPE_BUF` - and with the same pause per character the test
+      passed three runs of three. On Windows it holds because the UCRT gives
+      `fwrite` to an unbuffered stream a temporary buffer of 4096 bytes, so a
+      line under that goes out in one `_write`, where `fputc` made one
+      `_write` per character; a pipe keeping one write whole is so in
+      practice, not documented. Without the pause, both take-over tests (100
+      and 200 ms), the impaired-network tests at 100 and 200 ms, the relay's
+      giving up, the closed-pipe test, the AI-wreck take-back test and the
+      window client's hand-over through the relay all pass on Linux release,
+      and both take-over tests and the relay's giving up pass on Windows
+      debug. **What this does not do**: the clients' own lines are each one
+      `fprintf`, which both C runtimes write in one call to an unbuffered
+      stream; nothing checks that a client never writes one line in two
+      calls. And an unfinished line the relay holds when it gives up for the
+      time (`--seconds`, which ends it with `_Exit`) is lost, where before
+      its characters were already out.

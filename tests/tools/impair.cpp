@@ -136,7 +136,9 @@ int main(int argc, char** argv) {
             // handed to the AI\nlayer's", on CI's windows-clang (2026-09-29),
             // and the test that looked for the refusal did not find it. One
             // write of a line is not split by another writer's: POSIX says so
-            // of a pipe up to PIPE_BUF, and Windows' pipes keep a write whole.
+            // of a pipe up to PIPE_BUF; on Windows the C runtime's fwrite
+            // makes one _write of a line under 4096 bytes, and a pipe keeps
+            // one write whole in practice, though nothing documents it.
             std::string line;
             for (int c; (c = std::fgetc(stdin)) != EOF;) {
                 line += static_cast<char>(c);
