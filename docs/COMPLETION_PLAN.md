@@ -507,11 +507,12 @@ Found while implementing something else. Added when found, not when remembered.
       corrections are blended, and the largest step away from a switch is
       held to a bound, failing clearly with the blend taken out.* The blend
       is in, and the step is held under 2.5 m in the take-over test
-      (2026-09-29). A unit test now builds every correction up to the snap
-      size and fails at 20 m with the blend out (2026-09-29); still missing:
-      large corrections built through the client itself, a bound on the
-      hand-over test seen to fail, and the cause of a 6.2 m step CI once saw
-      there.
+      (2026-09-29). A unit test now builds 20 sizes of correction up to the
+      snap size and fails at 19.99 m with the blend out (2026-09-29); still
+      missing: large corrections built through the client itself, a bound on
+      the hand-over test seen to fail, and the cause of the steps CI has seen
+      with the blend in - 6.2 m and 24.5 m away from a switch in the
+      hand-over test, and 2.77 m at a take-over against 2.5 m.
 - [ ] **The display model is written twice**, in the command-line client
       and in the client with the window. *Verification: one presentation-free
       module serves both, with a unit test that builds long frames across a

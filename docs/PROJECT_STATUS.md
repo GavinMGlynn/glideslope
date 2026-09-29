@@ -1071,15 +1071,20 @@ it with it.
 - **Large corrections built on purpose, 2026-09-29 - the tail stays open.**
   *What is missing first*: nothing yet builds a large correction through the
   client itself, the hand-over test's step away from a switch is still held
-  to no bound that has been seen to fail, and what made the 6.203 m step CI
-  measured there once (#52) is not known. What there is:
+  to no bound that has been seen to fail, and what made the 6.203 m step
+  main's CI run measured there once on Linux debug (reported in #52) is not
+  known. What there is:
   - `every_correction_small_enough_to_hide_is_taken_up_without_a_step`
     (tests/unit/test_shown.cpp) flies `OwnShown` straight at 60 m/s and puts
-    the prediction right at one frame: every size from 1 m to 19.99 m (just
-    under sim::snap_beyond_m), in each of the six directions along an axis,
-    at 7, 17, 33, 100 and 250 ms frames, alone and put back by a second on the
-    next update - 1,200 cases, asserted all flown, 1,080 of them past the
-    2.5 m bound were the correction shown as it came. Blended, the largest
+    the prediction right at one frame: 20 sizes, 1 m apart from 1 m, the
+    last 19.99 m (just under sim::snap_beyond_m), both ways along each
+    Earth-centred axis (none along the velocity; direction adds no coverage,
+    since the step scales with size and frame length only),
+    at 7, 17, 33, 100 and 250 ms frames, alone and put back by a second 50 ms
+    on (the next frame, at 100 and 250 ms frames) - 1,200 cases, asserted
+    all flown. 1,080 of them would pass the 2.5 m bound were the correction
+    shown as it came: a count by arithmetic, not observed - at a constant
+    velocity the unblended step is the correction itself. Blended, the largest
     step is 1.333 m (a 19.99 m correction, 33 ms frames: a fifteenth of it a
     sixtieth of a second). Seen to fail: with corrections not blended
     (`if (switched && carried)` in shown.cpp) it failed at 19.990 m against
@@ -1107,6 +1112,13 @@ it with it.
     correction, and whether the cap made CI's 6.2 m is not shown. Also seen
     and not explained: uncorrected predicted frames 18 ms long stray 1.3 m
     from where they were carried at 41 m/s, three to four ticks' worth.
+  - **And again, 2026-09-29**: CI's linux-debug (run 36561349193, attempt
+    1) failed the take-over bound itself -
+    `the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in`
+    stepped 2.770 m at the take-over against 2.5 m - and the hand-over test
+    stepped 24.454 m away from a switch; the re-run passed. The bound is
+    kept, since the cause is not known; both are part of the open
+    corrections tail.
 - **From the review**: a take-over of an aircraft seen in fewer than two
   frames no longer blends from the aircraft left behind: seen in one, it
   blends from that; in none, from nothing.
