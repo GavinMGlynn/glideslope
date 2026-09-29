@@ -47,6 +47,12 @@ public:
         world::Ecef at;
         std::array<double, 3> v{};
         bool predicted = false;
+        // **Put right by the server since the last frame**, by a correction
+        // small enough to hide (sim::snap_beyond_m): taken up at a steady
+        // rate over sim::correction_blend_s from where the aircraft was
+        // going, as a switch is eased over `blend_s`. One too large to hide
+        // is not flagged, and is shown as the jump it is.
+        bool corrected = false;
     };
 
     // **Another aircraft taken over**: what is shown of it goes on from where
@@ -84,9 +90,12 @@ private:
         std::array<double, 3> blend{};
         double blend_from_s = 0.0;
         double blend_over_s = 1.0;
+        bool eased = false;
     };
-    // How much of a blend is left at `t`, eased in and out.
-    static double left_at(double t, double from_s, double over_s);
+    // How much of a blend is left at `t`: eased in and out, for a switch, or
+    // at a steady rate, for a correction - restarted with every update,
+    // easing would hold each back longer.
+    static double left_at(double t, double from_s, double over_s, bool eased);
 
     std::optional<Shown> before_;
     std::optional<Shown> before_before_;
@@ -94,6 +103,8 @@ private:
     bool switching_ = false;
     std::array<double, 3> blend_{};
     double blend_from_s_ = -1.0e9;
+    double blend_over_s_ = blend_s;
+    bool blend_eased_ = true;
     int frames_since_switch_ = 1000;
     std::size_t switches_ = 0;
     double worst_at_switch_m_ = 0.0;
