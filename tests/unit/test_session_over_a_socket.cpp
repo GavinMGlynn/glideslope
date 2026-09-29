@@ -274,6 +274,8 @@ GLIDESLOPE_TEST(a_client_whose_first_sealed_datagram_is_lost_still_proves_its_se
     // One knock may already have been on its way when the pong arrived.
     check(after <= 1, "once something had opened, the client stopped knocking (" +
                           std::to_string(after) + " sealed after)");
+}
+
 namespace {
 
 // **A stand-in server** for a `net::ClientSession`: answers initiations on its

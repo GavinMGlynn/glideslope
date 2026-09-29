@@ -210,8 +210,8 @@ state; with it the damage is bounded to the one key, is visible, and ends
 when the flood does. A rate limit per address, not built, is what would
 close it. When a player's last proven session goes while their restart's
 session is still unproven, the restart's goes too. A restarted client that
-is refused this way joins again by itself only if it is the command-line
-client; the client with the window does not, until PR #50 lands.
+is refused this way joins again by itself, whichever of this project's two
+clients it is.
 
 **What is still not defended: how many keys one person may mint.** A slot
 belongs to a key, and one person with four keys is four players. That is named

@@ -65,9 +65,9 @@ public:
 
     // **How the session stands.** `joined` is in one (the first, or one
     // joined again); `joining_again` has been let go and is asking for a new
-    // one; the rest are ends, and nothing is sent after them: `dropped` by
-    // the server's operator (its `LEAVING`, or `DROPPED` when joining
-    // again), `refused` (`SERVER_FULL`), `gave_up` (a minute unanswered).
+    // one; the rest are ends, and nothing is sent after them: `dropped` - the
+    // server's `LEAVING`, which is its operator's drop or a newer session for
+    // this key taking over, or `DROPPED` when joining again, `refused` (`SERVER_FULL`), `gave_up` (a minute unanswered).
     enum class Standing { joined, joining_again, dropped, refused, gave_up };
     Standing standing() const { return standing_; }
     // How many times the server has let it go, and it has joined again; how
