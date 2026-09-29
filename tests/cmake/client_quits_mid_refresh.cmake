@@ -123,7 +123,13 @@ file(REMOVE "${_port_file}" "${_result_file}")
 
 # **The forecast's hours, three days of them.** Each series is given three
 # times over, and the times yesterday's, today's and tomorrow's: string
-# (TIMESTAMP) reads SOURCE_DATE_EPOCH, if set, for the moment it formats.
+# (TIMESTAMP) reads SOURCE_DATE_EPOCH, if set, for the moment it formats - so
+# any the environment brought is put aside first, and put back after.
+set(_had_epoch "")
+if(DEFINED ENV{SOURCE_DATE_EPOCH})
+    set(_had_epoch "$ENV{SOURCE_DATE_EPOCH}")
+    unset(ENV{SOURCE_DATE_EPOCH})
+endif()
 string(TIMESTAMP _now "%s" UTC)
 set(_days "")
 foreach(_offset -86400 0 86400)
@@ -133,6 +139,9 @@ foreach(_offset -86400 0 86400)
     list(APPEND _days "${_day}")
 endforeach()
 unset(ENV{SOURCE_DATE_EPOCH})
+if(NOT _had_epoch STREQUAL "")
+    set(ENV{SOURCE_DATE_EPOCH} "${_had_epoch}")
+endif()
 file(READ "${FORECAST_FILE}" _text)
 if(NOT _text MATCHES "\"time\":\\[([^]]*)\\]")
     message(FATAL_ERROR "${FORECAST_FILE} has no hourly times")

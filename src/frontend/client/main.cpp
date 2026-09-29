@@ -150,6 +150,7 @@ struct Options {
     double slow_start_s = 0.0;
     // Test flag: how often --weather is fetched again, in seconds of flight.
     double weather_refresh_s = glideslope::client::weather_refresh_seconds;
+    bool weather_refresh_given = false;
     // And take it over this many seconds of flight in; below nought, never.
     double take_over_after_s = -1.0;
     // On a server, hand its own aircraft to the AI this many seconds of
@@ -236,9 +237,9 @@ void usage(std::FILE* out) {
         "  --next-aircraft-after S  on a server, ride along in the next aircraft\n"
         "                S seconds after joining, as W does; may be given again\n"
         "  --quit-at T   end a --shot flight at tick T, before its shot, drawing\n"
-        "                nothing more and waiting for nothing\n"
+        "                nothing more and waiting for nothing (for tests)\n"
         "  --weather-refresh S  fetch --weather again every S seconds of the flight\n"
-        "                (at least 1; 900 unless given)\n"
+        "                (at least 1; 900 unless given) (for tests)\n"
         "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
         "                slow machine building its flight does (for tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
@@ -428,6 +429,7 @@ static int run_program(int argc, char** argv) {
             const std::string text(args[++i]);
             char* end = nullptr;
             o.weather_refresh_s = std::strtod(text.c_str(), &end);
+            o.weather_refresh_given = true;
             ok = end != text.c_str() && *end == '\0' && o.weather_refresh_s >= 1.0;
         } else if (a == "--slow-start" && has_value) {
             o.slow_start_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
@@ -506,8 +508,7 @@ static int run_program(int argc, char** argv) {
         std::fputs("glideslope: --quit-at is a tick before a --shot's\n", stderr);
         return 2;
     }
-    if (o.weather_refresh_s != glideslope::client::weather_refresh_seconds &&
-        o.weather_station.empty()) {
+    if (o.weather_refresh_given && o.weather_station.empty()) {
         std::fputs("glideslope: --weather-refresh is how often --weather is fetched again\n",
                    stderr);
         return 2;

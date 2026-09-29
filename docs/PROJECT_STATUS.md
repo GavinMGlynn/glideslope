@@ -299,9 +299,11 @@ not raising its flag (both: 42 s and 362 s a test, against 2-3), and with
 `http_fetch` not handing the flag to the request as `abandon` (the stalled
 test alone, 68 s; the 429 test passed). The three HUD tests that use the stub
 (400, an empty 200, 429 throughout) still pass with its new arguments.
-`tests/ci_costs`: 3 s measured for linux-release and 27 s for windows-debug;
+`tests/ci_costs`: 3 s for linux-release and 27 s for windows-debug, measured
+on the development machine, not on CI (a cold run there took 20-26 s);
 estimates, not measured, for linux-debug (20), windows-release and
-windows-clang (15), macos-debug (20) and macos-release (10).
+windows-clang (15), macos-debug (20) and macos-release (10). All are to be
+measured again with `tools/ci_test_costs.py` from CI's runs once this lands.
 
 ### The client with the window, let go, joins again by itself, and a dropped one does not, 2026-09-29 — tail done
 
