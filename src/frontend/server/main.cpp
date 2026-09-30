@@ -957,6 +957,7 @@ public:
             remember_start(flown_.back(), ic, entry.seaplane);
             flown_.back().catalogue_id = f.id;
             flown_.back().model = entry.model;
+            learn_speeds(flown_.back());
             hold_course(flown_.back());
         }
 
@@ -1077,6 +1078,7 @@ public:
                 remember_start(flown_.back(), ic, entry.seaplane);
                 flown_.back().catalogue_id = plan.aircraft;
                 flown_.back().model = entry.model;
+                learn_speeds(flown_.back());
                 flown_.back().on_plan = true;
                 flown_.back().ai_number = i + 1;
                 ++ai_;
@@ -1141,6 +1143,7 @@ public:
         remember_start(flown_.back(), ic, player_seaplane_);
         flown_.back().catalogue_id = player_id_;
         flown_.back().model = player_model_;
+        learn_speeds(flown_.back());
         return index;
     }
 
@@ -1211,6 +1214,7 @@ public:
             if (!a.controller) {
                 a.controller = std::make_unique<glideslope::sim::Controller>(*a.aircraft, a.held);
             }
+            a.copilot_route.clear();
             if (to_ai) {
                 a.controller->to_ai();
             } else {
@@ -1243,7 +1247,18 @@ public:
     // flying it - announced as any hand-over is - and flies the route from
     // here: its heights above the sea, as the aircraft's are above the
     // ellipsoid. Empty when flown.
+    //
+    // **Nothing a route holds, and nothing an aircraft lacks, ends the
+    // server**: whatever a check throws is a refusal, saying what it was.
     std::string fly_route(std::uint8_t index, const glideslope::net::CopilotRoute& route) {
+        try {
+            return fly_route_checked(index, route);
+        } catch (const std::exception& e) {
+            return std::string("it could not be checked: ") + e.what();
+        }
+    }
+
+    std::string fly_route_checked(std::uint8_t index, const glideslope::net::CopilotRoute& route) {
         Aircraft* found = nullptr;
         for (Aircraft& a : flown_) {
             if (a.index == index && a.slot >= 0) {
@@ -1261,11 +1276,10 @@ public:
         const double lat = craft.property("position/lat-geod-deg");
         const double lon = craft.property("position/long-gc-deg");
         const double undulation_ft = geoid_.undulation(lat, lon) * feet_per_metre;
-        glideslope::copilot::Brief brief;
-        brief.aircraft = a.catalogue_id;
-        brief.approach_kts = glideslope::sim::approach_speeds(data_, a.model).vref_kts;
-        brief.climb_kts = glideslope::sim::departure_speeds(data_, a.model).climb_kts;
-        brief.cruise_kts = glideslope::sim::find_aircraft(data_, a.catalogue_id).start_airspeed_kts;
+        if (!a.brief) {
+            return "its speeds are not known, so no route can be checked for it: " + a.no_brief;
+        }
+        const glideslope::copilot::Brief& brief = *a.brief;
         glideslope::copilot::Situation now;
         now.latitude_deg = lat;
         now.longitude_deg = lon;
@@ -1316,6 +1330,13 @@ public:
         }
         a.controller->replan(std::move(plan));
         a.controller->set_glide(route.glide_kts);
+        // **The player's copilot's route replaces any plan it had**, on
+        // purpose: an AI's aircraft a player took over was still marked as
+        // flying the server's plan, and a wreck would have started it on
+        // that plan again. Now its player's route is what it flies, and
+        // wrecked it flies again holding the course it started on, as any
+        // player's aircraft the AI flies does (fly_again) - the route gone
+        // with the wreck.
         a.on_plan = false;
         a.copilot_route.clear();
         for (const glideslope::net::RouteWaypoint& w : route.waypoints) {
@@ -1499,6 +1520,12 @@ public:
         // waypoints' names, as the route gave them, for the log to say
         // where it has got to.
         std::vector<std::string> copilot_route{};
+        // **What a copilot's route is checked against**: its speeds, worked
+        // out once from its published figures when it is made (learn_speeds)
+        // - or why there are none, for an aircraft whose figures give no
+        // stall speed or climb rate, whose routes are all refused.
+        std::optional<glideslope::copilot::Brief> brief{};
+        std::string no_brief{};
     };
 
     // Whether an AI pilot has it, rather than a person - a controller of its
@@ -1715,6 +1742,7 @@ private:
         remember_start(a, ic, entry.seaplane);
         a.catalogue_id = plan.aircraft;
         a.model = entry.model;
+        learn_speeds(a);
         a.on_plan = true;
         a.ai_number = i + 1;
         a.planned_by = provider;
@@ -1782,6 +1810,31 @@ private:
         p.farthest_m = std::max(p.farthest_m, d);
         p.lowest_ft = std::min(p.lowest_ft, ft);
         p.highest_ft = std::max(p.highest_ft, ft);
+    }
+
+    // **An aircraft's speeds, worked out once** as it is made, and kept by
+    // model: reading them parses its figures, which is not for the stepping
+    // thread to do at every route. An aircraft whose figures give none -
+    // the 747-400 publishes no rate of climb - keeps why.
+    void learn_speeds(Aircraft& a) {
+        auto it = speeds_.find(a.model);
+        if (it == speeds_.end()) {
+            Speeds learnt;
+            try {
+                glideslope::copilot::Brief b;
+                b.aircraft = a.catalogue_id;
+                b.approach_kts = glideslope::sim::approach_speeds(data_, a.model).vref_kts;
+                b.climb_kts = glideslope::sim::departure_speeds(data_, a.model).climb_kts;
+                b.cruise_kts =
+                    glideslope::sim::find_aircraft(data_, a.catalogue_id).start_airspeed_kts;
+                learnt.brief = b;
+            } catch (const std::exception& e) {
+                learnt.why = e.what();
+            }
+            it = speeds_.emplace(a.model, learnt).first;
+        }
+        a.brief = it->second.brief;
+        a.no_brief = it->second.why;
     }
 
     void remember_start(Aircraft& a, const glideslope::sim::InitialConditions& ic,
@@ -1854,6 +1907,7 @@ private:
     // fly it as before.
     void fly_again(Aircraft& a) {
         a.aircraft->initialize(a.start);
+        a.copilot_route.clear();
         a.judge.reset();
         a.wrecked_at_s = -1.0;
         if (a.on_plan) {
@@ -1914,6 +1968,11 @@ private:
     double player_airspeed_kts_ = 0.0;
     bool player_seaplane_ = false;
     std::int64_t steps_ = 0;
+    struct Speeds {
+        std::optional<glideslope::copilot::Brief> brief;
+        std::string why;
+    };
+    std::map<std::string, Speeds> speeds_;
     // **The number to give an aircraft nobody is flying**: the lowest from
     // `most_slots` up that no aircraft has, so that numbers are used again
     // rather than counted up to where they would wrap round into the

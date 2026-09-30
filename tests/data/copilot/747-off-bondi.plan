@@ -1,0 +1,8 @@
+# A plan whose aircraft - and so every player's - is the Boeing 747-400,
+# whose figures publish no rate of climb: no speeds to check a copilot's
+# route against (tests/cmake/server_copilot.cmake).
+aircraft 747-400
+start -33.905 151.290 5000 0 250
+
+waypoint THE_HEADS   -33.832 151.292 5000 250
+waypoint AIRPORT     -33.946 151.177 5000 250

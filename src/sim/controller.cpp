@@ -58,6 +58,8 @@ void Controller::engage() {
     lander_.reset();
     learnt_.reset();
     landing_.reset();
+    // A glide is for the route it came with, and ends with it.
+    glide_kts_.reset();
 }
 
 void Controller::to_ai() {
@@ -170,6 +172,7 @@ void Controller::to_ai_learnt_approach(const Runway& runway, const ApproachSpeed
 
 void Controller::to_pilot() {
     flying_ = Flying::pilot;
+    glide_kts_.reset();
     catching_up_ = true;
     easing_in_ = false;
     autopilot_.reset();

@@ -516,6 +516,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_plan_from_words_is_checked_and_refused_back_to_the_model_until_it_can_be_flown
     a_task_file_names_its_aircraft_airport_and_words_and_anything_else_is_refused
     a_copilots_answer_is_read_as_keep_or_a_route_and_refused_wherever_it_cannot_be_flown
+    every_refusal_the_document_names_for_a_copilot_route_is_refused
     a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown
     the_copilot_asks_on_a_thread_of_its_own_and_the_step_never_waits_for_the_model
     a_recording_played_back_but_its_numbers_answers_a_request_whose_figures_moved_and_no_other
@@ -1930,9 +1931,37 @@ add_test(NAME a_route_the_server_cannot_fly_is_refused_by_it_though_a_client_sen
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_refused
         -DPORT=24712
         -DROUTE=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/route-200-ft-over-the-sea.txt
+        "-DEXPECT=below 500 ft"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
 set_tests_properties(a_route_the_server_cannot_fly_is_refused_by_it_though_a_client_sent_it
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+# **A route the server could fly is refused all the same** when it is for
+# another aircraft than the client's, for a wreck, or for an aircraft whose
+# figures give no speeds to check it against - and the server goes on.
+foreach(_case another:24716:it_is_not_this_client_s_aircraft wreck:24718:it_is_a_wreck
+              no_speeds:24720:its_speeds_are_not_known)
+    string(REPLACE ":" ";" _case "${_case}")
+    list(GET _case 0 _for)
+    list(GET _case 1 _port)
+    list(GET _case 2 _because)
+    string(REPLACE "_" " " _expect "${_because}")
+    string(REPLACE "client s" "client.s" _expect "${_expect}")
+    set(_extra -DFOR=${_for})
+    if(_for STREQUAL "no_speeds")
+        set(_extra -DPLAN=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/747-off-bondi.plan)
+    endif()
+    add_test(NAME a_flyable_route_is_refused_when_${_because}_and_the_server_goes_on
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_for} -DPORT=${_port}
+            -DROUTE=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/route-north-of-bondi.txt
+            "-DEXPECT=${_expect}" ${_extra}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
+    set_tests_properties(a_flyable_route_is_refused_when_${_because}_and_the_server_goes_on
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_for})
+endforeach()
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_copilot
      ${CMAKE_CURRENT_BINARY_DIR}/server_copilot_now ${CMAKE_CURRENT_BINARY_DIR}/server_copilot_refused)
 

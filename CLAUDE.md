@@ -179,7 +179,7 @@ src/copilot/    the language model that plans: providers, and plans from words, 
 src/gfx/        SDL_GPU renderer, shaders (GLSL, in shaders/), Cesium Native glue, HUD
 src/net/        protocol, packet encode/decode, interpolation
 src/platform/   paths, input, sockets
-src/frontend/   one main per executable: client/, server/, cli/
+src/frontend/   one main per executable: client/, server/, cli/; and code shared between them (players_copilot)
 cmake/          platform gate, warning set, sanitizers, layering check, dependencies
 tests/          ctest tests named as sentences, and the probe projects they build
 assets/         run-time data, copied to data/ beside the programs

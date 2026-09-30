@@ -315,14 +315,16 @@ ends in a debrief, never a score.
 - [x] **An autopilot that flies an approach and lands.** *Verification: each
       light aircraft lands within 5 m of the centreline under 300 ft/min, in
       calm air and a 10-knot crosswind.* Done 2026-09-21.
-- [x] **The copilot flies with you** — a model that changes the autopilot's
+- [ ] **The copilot flies with you** — a model that changes the autopilot's
       modes and plan as the flight goes, opt-in with the player's key.
       *Verification: it follows a coast as told, handles an engine failure,
-      never slows the step, and replays in CI without a key.* Done
-      2026-09-30: GPT-5.5 follows the coast to Cronulla, Claude Haiku glides
-      to Sydney's runway 25 when the engine stops, and on a server the
-      player's client asks the model with the player's key and sends only
-      the route, which the server checks and flies; all replayed in CI.
+      never slows the step, and replays in CI without a key.* Missing: on a
+      server a player's copilot cannot handle an engine failure - it is never
+      told the engine has stopped, and nothing stops one there. Done besides:
+      GPT-5.5 follows the coast to Cronulla and Claude Haiku glides to
+      Sydney's runway 25 in `glideslope_cli`, and on a server the player's
+      client asks the model with the player's key and sends only the route,
+      which the server checks and flies; all replayed in CI.
 - [x] **The model never drives a control surface.** *Verification: the copilot
       can produce only a flight plan and autopilot modes, checked by the
       build: what it sees, opens and links.* Done 2026-09-25. It was first

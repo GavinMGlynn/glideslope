@@ -579,7 +579,12 @@ which refuses names, numbers and orbits it cannot fly) and checked against
 the aircraft as the server has it, with the same checks a copilot's answer
 is held to (`copilot::change_refusal`); one that fails is refused, printed,
 and changes nothing. It can be for the sender's own aircraft only, and never
-a wreck. What it cannot stop is a route that is flyable and foolish - over
+a wreck. **The ground along the route is not checked**: every height must be 500 ft
+above the ground beneath the aircraft as the route is read, and nothing
+looks at the ground between there and each waypoint, so a route at 3,000 ft
+over rising ground is taken and flown into it - as the server's own plans
+and a player's hands can be. What it cannot stop is a route that is flyable
+and foolish - over
 the sea until the fuel runs out, say - which is no more than a player
 flying their own aircraft badly. Rate limiting is owed here as for
 `CONTROLLER_SWAP`: each route read costs the server a plan parsed.
