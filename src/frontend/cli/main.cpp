@@ -283,12 +283,27 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
     double crosswind_kts = 0.0;
     double across_m = 0.0;
     double high_m = 0.0;
-    double fuel_lbs = -1.0;
+    double fuel_lbs = 0.0;
+    bool fuel_set = false;
+    // A number, the whole word and finite: "10kt", "ten", "nan" and "inf" are
+    // refused, not read as far as they go.
     const auto number = [&](std::size_t i) {
         if (i >= args.size()) {
             throw std::runtime_error("land: " + std::string(args[i - 1]) + " needs a number");
         }
-        return std::stod(std::string(args[i]));
+        const std::string word(args[i]);
+        double value = 0.0;
+        std::size_t used = 0;
+        try {
+            value = std::stod(word, &used);
+        } catch (const std::exception&) {
+            used = 0;
+        }
+        if (word.empty() || used != word.size() || !std::isfinite(value)) {
+            throw std::runtime_error("land: " + std::string(args[i - 1]) + " needs a number, not '" +
+                                     word + "'");
+        }
+        return value;
     };
     for (std::size_t i = 2; i < args.size(); ++i) {
         if (args[i] == "--learnt") {
@@ -301,6 +316,7 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
             high_m = number(++i);
         } else if (args[i] == "--fuel") {
             fuel_lbs = number(++i);
+            fuel_set = true;
         } else {
             throw std::runtime_error("land: what is " + std::string(args[i]) + "?");
         }
@@ -336,9 +352,20 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
         conditions.wind_east_mps = crosswind_kts * 0.514444 * std::sin(towards);
         aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(conditions));
     }
-    if (fuel_lbs >= 0.0) {
+    // The same in every tank the model has, and no more than each holds.
+    if (fuel_set) {
+        const std::vector<double> capacities = aircraft.tank_capacities_lbs();
         glideslope::sim::Loading loading;
-        loading.tank_lbs = {{0, fuel_lbs}, {1, fuel_lbs}};
+        for (std::size_t t = 0; t < capacities.size(); ++t) {
+            if (fuel_lbs < 0.0 || fuel_lbs > capacities[t]) {
+                char text[160];
+                std::snprintf(text, sizeof text,
+                              "land: --fuel %g lb will not go in %s's tank %zu, which holds 0 to %g",
+                              fuel_lbs, entry.model.c_str(), t, capacities[t]);
+                throw std::runtime_error(text);
+            }
+            loading.tank_lbs[static_cast<int>(t)] = fuel_lbs;
+        }
         aircraft.load(loading);
     }
     const double out_m = 2.0 * 1852.0;
@@ -396,7 +423,7 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
             decisions = l->decisions();
             stopped = l->stage() == glideslope::sim::LearntLander::Stage::stopped;
         } else if (const auto* a = controller.lander()) {
-            if ((a->touchdown_sink_fpm() != 0.0 || a->touchdown_along_m() != 0.0) && !touched) {
+            if (a->touched() && !touched) {
                 touched = true;
                 sink_fpm = a->touchdown_sink_fpm();
                 touch_across_m = a->touchdown_across_m();

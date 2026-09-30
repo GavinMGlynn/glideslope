@@ -360,6 +360,11 @@ LearntLander::LearntLander(const Aircraft& aircraft, const Runway& runway,
     if (!policy_) {
         throw std::invalid_argument("a learnt lander needs a policy");
     }
+    // A policy flies the aircraft it was trained on, and no other.
+    if (policy_->aircraft != aircraft.figures().model) {
+        throw std::invalid_argument("the learnt landing is the " + policy_->aircraft +
+                                    "'s, and this is the " + aircraft.figures().model);
+    }
 }
 
 Controls LearntLander::fly() {

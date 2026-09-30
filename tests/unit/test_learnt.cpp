@@ -152,12 +152,32 @@ std::unique_ptr<glideslope::sim::Aircraft> at(const LearntPolicy& policy, const 
     ic.flaps = policy.flaps;
     ic.flight_path_deg = -policy.glidepath_deg;
     ic.trim = true;
+    const std::size_t tanks = aircraft->tank_capacities_lbs().size();
     if (fuel_lbs >= 0.0) {
         glideslope::sim::Loading loading;
-        loading.tank_lbs = {{0, fuel_lbs}, {1, fuel_lbs}};
+        for (std::size_t t = 0; t < tanks; ++t) {
+            loading.tank_lbs[static_cast<int>(t)] = fuel_lbs;
+        }
         aircraft->load(loading);
     }
     aircraft->initialize(ic);
+    if (fuel_lbs >= 0.0) {
+        // **She weighs what the load says**: the empty aeroplane, what is on
+        // board, and the fuel in every tank - so a load that stopped taking
+        // effect fails here, not quietly as a full-tank flight.
+        double want = aircraft->property("inertia/empty-weight-lbs") +
+                      static_cast<double>(tanks) * fuel_lbs;
+        for (int i = 0; aircraft->has_property("inertia/pointmass-weight-lbs[" +
+                                               std::to_string(i) + "]");
+             ++i) {
+            want += aircraft->property("inertia/pointmass-weight-lbs[" + std::to_string(i) + "]");
+        }
+        const double weight = aircraft->property("inertia/weight-lbs");
+        check(tanks == 2 && std::abs(weight - want) < 0.01,
+              "with " + std::to_string(fuel_lbs) + " lb in each of " + std::to_string(tanks) +
+                  " tanks she weighs " + std::to_string(weight) + " lb, not " +
+                  std::to_string(want));
+    }
     return aircraft;
 }
 
@@ -262,10 +282,10 @@ std::vector<double> numbers(const std::string& line) {
 }
 
 // Every way a landing falls short of the item's verification: touched on
-// the runway, within 5 m of the centreline - asked only when `centreline` -
+// the runway, within 5 m of the centreline,
 // sinking under 300 ft/min, down and upright for the five seconds after, as
 // sim::Lander's are held.
-std::vector<std::string> short_of_the_limits(const Landing& l, bool centreline) {
+std::vector<std::string> short_of_the_limits(const Landing& l) {
     std::vector<std::string> wrong;
     if (!l.touched) {
         wrong.push_back("never touched down");
@@ -274,7 +294,7 @@ std::vector<std::string> short_of_the_limits(const Landing& l, bool centreline) 
     if (!(l.sink_fpm < 300.0)) {
         wrong.push_back("sank " + std::to_string(l.sink_fpm) + " ft/min, not under 300");
     }
-    if (centreline && !(std::abs(l.across_m) <= 5.0)) {
+    if (!(std::abs(l.across_m) <= 5.0)) {
         wrong.push_back(std::to_string(l.across_m) + " m from the centreline, not within 5");
     }
     if (!(l.along_m >= 0.0 && l.along_m <= a_runway().length_m)) {
@@ -567,7 +587,7 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_5_m_of_the_centreline_u
         worst_sink = std::max(worst_sink, l.sink_fpm);
         worst_across = std::max(worst_across, std::abs(l.across_m));
         within_5_m += std::abs(l.across_m) <= 5.0 ? 1U : 0U;
-        std::vector<std::string> wrong = short_of_the_limits(l, true);
+        std::vector<std::string> wrong = short_of_the_limits(l);
         for (const std::string& w : not_stopped_on_the_runway(l)) {
             wrong.push_back(w);
         }
@@ -592,41 +612,56 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_5_m_of_the_centreline_u
 
 // **And with any fuel on board**: a session's aircraft arrive with whatever
 // they have left, and the policy was trained on 25 to 100 lb a tank. Every
-// one of the 27 starts again, at 25, 50 and 75 lb a tank - full is the test
-// above - within the same limits and stopped on the runway: 81 landings.
-GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_a_quarter_a_half_and_three_quarters_of_its_fuel) {
+// one of the 27 starts again at 25, 50 and 75 lb a tank - full is the test
+// above - within the same limits and stopped on the runway. One test a load,
+// so that each fits well inside ctest's time on the slowest build.
+namespace {
+
+void lands_every_start_with(double lbs) {
     const auto policy = the_policy();
     const std::vector<Start> all = starts();
-    const std::vector<double> loads{25.0, 50.0, 75.0};
     std::size_t flown = 0;
     double worst_sink = 0.0;
     double worst_across = 0.0;
     std::vector<std::string> failures;
-    for (const double lbs : loads) {
-        for (const Start& s : all) {
-            std::printf("  with %.0f lb a tank:\n", lbs);
-            const Landing l = land(policy, s, true, lbs);
-            ++flown;
-            worst_sink = std::max(worst_sink, l.sink_fpm);
-            worst_across = std::max(worst_across, std::abs(l.across_m));
-            std::vector<std::string> wrong = short_of_the_limits(l, true);
-            for (const std::string& w : not_stopped_on_the_runway(l)) {
-                wrong.push_back(w);
+    for (const Start& s : all) {
+        std::printf("  with %.0f lb a tank:\n", lbs);
+        const Landing l = land(policy, s, true, lbs);
+        ++flown;
+        worst_sink = std::max(worst_sink, l.sink_fpm);
+        worst_across = std::max(worst_across, std::abs(l.across_m));
+        std::vector<std::string> wrong = short_of_the_limits(l);
+        for (const std::string& w : not_stopped_on_the_runway(l)) {
+            wrong.push_back(w);
+        }
+        if (!wrong.empty()) {
+            std::string text = "from " + named(s) + ":";
+            for (const std::string& w : wrong) {
+                text += " " + w + ";";
             }
-            if (!wrong.empty()) {
-                std::string text = "from " + named(s) + " with " + std::to_string(lbs) + " lb a tank:";
-                for (const std::string& w : wrong) {
-                    text += " " + w + ";";
-                }
-                failures.push_back(text);
-            }
+            failures.push_back(text);
         }
     }
-    std::printf("%zu of %zu within the limits; worst sink %.0f ft/min, worst %.2f m across\n",
-                flown - failures.size(), flown, worst_sink, worst_across);
-    check(flown == loads.size() * all.size() && flown == 81,
-          "every start at every load was flown: " + std::to_string(flown) + " of 81");
+    std::printf("with %.0f lb a tank, %zu of %zu within the limits; worst sink %.0f ft/min, "
+                "worst %.2f m across\n",
+                lbs, flown - failures.size(), flown, worst_sink, worst_across);
+    check(flown == all.size() && flown == 27,
+          "every start was flown: " + std::to_string(flown) + " of 27");
     none_wrong(failures, flown, "landings fell short of the limits");
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_a_quarter_of_its_fuel) {
+    lands_every_start_with(25.0);
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_half_its_fuel) {
+    lands_every_start_with(50.0);
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_three_quarters_of_its_fuel) {
+    lands_every_start_with(75.0);
 }
 
 // **An aeroplane is handed to the learnt landing as it is to the AI pilot**:
@@ -705,7 +740,7 @@ GLIDESLOPE_TEST(an_aeroplane_handed_to_the_learnt_landing_at_the_gate_lands_with
     check(worst_step > hand / 2.0,
           "the controls did have a gap to close, so the switch was tested");
     check(stopped, "the learnt landing stopped her, and then gave her to the autopilot");
-    std::vector<std::string> wrong = short_of_the_limits(out, true);
+    std::vector<std::string> wrong = short_of_the_limits(out);
     for (const std::string& w : not_stopped_on_the_runway(out)) {
         wrong.push_back(w);
     }
@@ -718,6 +753,37 @@ GLIDESLOPE_TEST(an_aeroplane_handed_to_the_learnt_landing_at_the_gate_lands_with
         failures.push_back(text);
     }
     none_wrong(failures, 1, "handed-over landings fell short");
+}
+
+// **A policy flies the aircraft it was trained on, and no other**: the
+// C172P's landing handed a Cessna 182S is refused, and nothing is handed
+// over - the pilot still has her, with the controls where they were.
+GLIDESLOPE_TEST(a_learnt_landing_handed_another_aircraft_is_refused_and_the_pilot_keeps_her) {
+    const auto policy = the_policy();
+    glideslope::sim::Aircraft skylane(data() / "jsbsim", "c182");
+    Controls pilot;
+    pilot.throttle = 0.6;
+    glideslope::sim::Controller controller(skylane, pilot);
+    controller.set_pilot(pilot);
+    bool refused = false;
+    try {
+        controller.to_ai_learnt_approach(a_runway(), speeds(), policy);
+    } catch (const std::invalid_argument& e) {
+        refused = true;
+        std::printf("  refused: %s\n", e.what());
+    }
+    check(refused, "the C172P's landing is refused for a C182S");
+    check(controller.flying() == glideslope::sim::Controller::Flying::pilot &&
+              controller.learnt() == nullptr,
+          "the pilot still has her, and no learnt landing does");
+    check(controller.fly() == pilot, "her controls are the pilot's, as they were");
+    bool refused_alone = false;
+    try {
+        LearntLander lander(skylane, a_runway(), policy, speeds());
+    } catch (const std::invalid_argument&) {
+        refused_alone = true;
+    }
+    check(refused_alone, "the learnt lander itself refuses her");
 }
 
 // **A policy file that does not fit is refused**, not flown: one for another

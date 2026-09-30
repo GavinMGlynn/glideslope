@@ -93,6 +93,8 @@ public:
     // never met in training: there the controls were always its own.
     // Handed back to the pilot, it is dropped (a take-back on its roll gets
     // the plain autopilot, not this).
+    // Throws std::invalid_argument for a policy trained on another aircraft,
+    // and hands nothing over.
     void to_ai_learnt_approach(const Runway& runway, const ApproachSpeeds& speeds,
                                std::shared_ptr<const LearntPolicy> policy);
 
