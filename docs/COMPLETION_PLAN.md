@@ -341,8 +341,8 @@ ends in a debrief, never a score.
       autopilot's 5 (8 of 27 starts within) - and a policy trained with its
       fuel set for each flight, which none yet was. It touches down on the runway
       under 150 ft/min from every start and the autopilot stops it there,
-      with no Python; the controller can be handed an aircraft, but no
-      client or server offers it yet. One aircraft only.
+      with no Python; `glideslope_cli land c172p --learnt` hands one to it,
+      but no client or server offers it yet. One aircraft only.
 
 ---
 

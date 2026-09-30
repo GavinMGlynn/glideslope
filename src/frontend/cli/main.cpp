@@ -32,6 +32,9 @@
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
 #include "sim/fixed_step.hpp"
+#include "sim/lander.hpp"
+#include "sim/learnt.hpp"
+#include "sim/weather.hpp"
 #include "sim/selftest.hpp"
 #include "sim/version.hpp"
 #include "world/dem.hpp"
@@ -103,6 +106,18 @@ void print_usage(std::FILE* out) {
         "                            directory), and print it; --record keeps what\n"
         "                            was asked and said, --playback asks nothing and\n"
         "                            plays a recording back instead\n"
+        "  land AIRCRAFT [--learnt] [--crosswind KTS] [--across M] [--high M]\n"
+        "       [--fuel LBS]\n"
+        "                            hand AIRCRAFT to the AI at a final-approach gate\n"
+        "                            two miles out - M metres right of the centreline\n"
+        "                            and above the glidepath, in KTS of crosswind from\n"
+        "                            the left, LBS in each tank (full by default) - on\n"
+        "                            a runway at sea level, and say where it touched\n"
+        "                            and stopped: the approach autopilot lands it, or\n"
+        "                            with --learnt the landing learnt by reinforcement\n"
+        "                            learning (data/rl/AIRCRAFT-landing.txt), rolled\n"
+        "                            out by the autopilot; exits 1 unless it touched\n"
+        "                            and stopped on the runway\n"
         "  fly-plan FILE [--minutes M] [--orbits N]\n"
         "                            fly a flight plan over the DEM with the AI, and\n"
         "                            say how each part of it was flown; an orbit with\n"
@@ -253,6 +268,173 @@ int fly_figures(const std::filesystem::path& data, const std::string& model,
     }
     std::printf("\n%d of %d in range\n", flown - failed, flown);
     return failed == 0 ? 0 : 1;
+}
+
+// **A landing handed to the AI at the gate**, the approach autopilot's or the
+// learnt one, through the controller as any hand-over is: on a runway at sea
+// level over level ground - the runway the landing tests fly to, pointing
+// 070 - so that what is shown is the landing, not the terrain.
+int land(const std::filesystem::path& data, const std::vector<std::string_view>& args) {
+    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    constexpr double feet_per_metre = 3.280839895013123;
+    const glideslope::sim::CatalogueEntry entry =
+        glideslope::sim::find_aircraft(data, std::string(args[1]));
+    bool learnt = false;
+    double crosswind_kts = 0.0;
+    double across_m = 0.0;
+    double high_m = 0.0;
+    double fuel_lbs = -1.0;
+    const auto number = [&](std::size_t i) {
+        if (i >= args.size()) {
+            throw std::runtime_error("land: " + std::string(args[i - 1]) + " needs a number");
+        }
+        return std::stod(std::string(args[i]));
+    };
+    for (std::size_t i = 2; i < args.size(); ++i) {
+        if (args[i] == "--learnt") {
+            learnt = true;
+        } else if (args[i] == "--crosswind") {
+            crosswind_kts = number(++i);
+        } else if (args[i] == "--across") {
+            across_m = number(++i);
+        } else if (args[i] == "--high") {
+            high_m = number(++i);
+        } else if (args[i] == "--fuel") {
+            fuel_lbs = number(++i);
+        } else {
+            throw std::runtime_error("land: what is " + std::string(args[i]) + "?");
+        }
+    }
+    std::shared_ptr<const glideslope::sim::LearntPolicy> policy;
+    if (learnt) {
+        const auto file = data / "rl" / (entry.model + "-landing.txt");
+        if (!std::filesystem::exists(file)) {
+            throw std::runtime_error("land: " + entry.model +
+                                     " has no learnt landing (" + file.string() + ")");
+        }
+        policy = std::make_shared<const glideslope::sim::LearntPolicy>(
+            glideslope::sim::LearntPolicy::read(file));
+    }
+    const glideslope::sim::ApproachSpeeds speeds =
+        glideslope::sim::approach_speeds(data, entry.model);
+
+    glideslope::sim::Runway runway;
+    runway.name = "070";
+    runway.threshold_lat_deg = -33.9461;
+    runway.threshold_lon_deg = 151.1772;
+    runway.elevation_ft = 0.0;
+    runway.heading_deg = 70.0;
+    runway.length_m = 3000.0;
+
+    glideslope::sim::Aircraft aircraft(data / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    if (crosswind_kts != 0.0) {
+        glideslope::sim::Conditions conditions;
+        const double towards = (runway.heading_deg + 90.0) / degrees;
+        conditions.wind_north_mps = crosswind_kts * 0.514444 * std::cos(towards);
+        conditions.wind_east_mps = crosswind_kts * 0.514444 * std::sin(towards);
+        aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(conditions));
+    }
+    if (fuel_lbs >= 0.0) {
+        glideslope::sim::Loading loading;
+        loading.tank_lbs = {{0, fuel_lbs}, {1, fuel_lbs}};
+        aircraft.load(loading);
+    }
+    const double out_m = 2.0 * 1852.0;
+    const double heading = runway.heading_deg / degrees;
+    const double north_m = -out_m * std::cos(heading) - across_m * std::sin(heading);
+    const double east_m = -out_m * std::sin(heading) + across_m * std::cos(heading);
+    const double lat = runway.threshold_lat_deg / degrees;
+    const double per_deg_lat = 111132.92 - 559.82 * std::cos(2.0 * lat) +
+                               1.175 * std::cos(4.0 * lat) - 0.0023 * std::cos(6.0 * lat);
+    const double per_deg_lon = 111412.84 * std::cos(lat) - 93.5 * std::cos(3.0 * lat) +
+                               0.118 * std::cos(5.0 * lat);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg + north_m / per_deg_lat;
+    ic.longitude_deg = runway.threshold_lon_deg + east_m / per_deg_lon;
+    ic.altitude_ft = runway.elevation_ft +
+                     ((out_m + speeds.aim_m) * std::tan(3.0 / degrees) + high_m) * feet_per_metre;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = policy ? policy->vref_kts : speeds.vref_kts;
+    ic.engine_running = true;
+    ic.flaps = policy ? policy->flaps : speeds.flap;
+    ic.flight_path_deg = -3.0;
+    ic.trim = true;
+    aircraft.initialize(ic);
+
+    // Flown by its pilot, hands still, and handed to the AI.
+    glideslope::sim::Controls pilot;
+    pilot.flaps = ic.flaps;
+    glideslope::sim::Controller controller(aircraft, pilot);
+    if (policy) {
+        controller.to_ai_learnt_approach(runway, speeds, policy);
+    } else {
+        controller.to_ai_approach(runway, speeds);
+    }
+    bool touched = false;
+    long decisions = 0; // the learnt policy's, which says it flew
+    bool stopped = false;
+    double sink_fpm = 0.0;
+    double touch_across_m = 0.0;
+    double touch_along_m = 0.0;
+    double stop_across_m = 0.0;
+    double stop_along_m = 0.0;
+    for (long tick = 0; tick < 600L * glideslope::sim::steps_per_second && !stopped; ++tick) {
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        const glideslope::sim::Lander* rolling = nullptr;
+        if (const auto* l = controller.learnt()) {
+            if (l->touched() && !touched) {
+                touched = true;
+                sink_fpm = l->touchdown_sink_fpm();
+                touch_across_m = l->touchdown_across_m();
+                touch_along_m = l->touchdown_along_m();
+            }
+            rolling = &l->rollout();
+            decisions = l->decisions();
+            stopped = l->stage() == glideslope::sim::LearntLander::Stage::stopped;
+        } else if (const auto* a = controller.lander()) {
+            if ((a->touchdown_sink_fpm() != 0.0 || a->touchdown_along_m() != 0.0) && !touched) {
+                touched = true;
+                sink_fpm = a->touchdown_sink_fpm();
+                touch_across_m = a->touchdown_across_m();
+                touch_along_m = a->touchdown_along_m();
+            }
+            rolling = a;
+            stopped = a->stage() == glideslope::sim::Lander::Stage::stopped;
+        }
+        if (stopped && rolling != nullptr) {
+            stop_along_m = -rolling->along_m();
+            stop_across_m = rolling->across_m();
+        }
+    }
+    std::printf("%s landed by the %s from 2 nm, %+.0f m across, %+.0f m high, %+.0f kt of "
+                "crosswind\n",
+                entry.model.c_str(), policy ? "learnt landing" : "approach autopilot",
+                across_m, high_m, crosswind_kts);
+    if (!touched) {
+        std::printf("  never touched down\n");
+        return 1;
+    }
+    std::printf("  touched down at %.0f ft/min, %+.2f m across the centreline, %.0f m past "
+                "the threshold\n",
+                sink_fpm, touch_across_m, touch_along_m);
+    if (!stopped) {
+        std::printf("  did not stop\n");
+        return 1;
+    }
+    std::printf("  stopped %.0f m past the threshold, %+.2f m across\n", stop_along_m,
+                stop_across_m);
+    if (policy) {
+        std::printf("  the learnt policy decided %ld times, ten a second, to the touch\n",
+                    decisions);
+    }
+    const bool on_runway = touch_along_m >= 0.0 && touch_along_m <= runway.length_m &&
+                           stop_along_m >= 0.0 && stop_along_m <= runway.length_m &&
+                           std::abs(stop_across_m) <= 15.0;
+    return on_runway ? 0 : 1;
 }
 
 int selftest(const std::filesystem::path& data, const std::string& model) {
@@ -3204,6 +3386,9 @@ static int run_program(int argc, char** argv) {
         }
         if (args.size() >= 4 && args[0] == "plan") {
             return plan_command(data, args);
+        }
+        if (args.size() >= 2 && args[0] == "land") {
+            return land(data, args);
         }
         if (args.size() >= 2 && args[0] == "fly-plan") {
             return fly_plan(data, args);
