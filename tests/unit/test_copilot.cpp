@@ -1,15 +1,21 @@
 #include "harness.hpp"
 
+#include "copilot/copilot.hpp"
 #include "copilot/planner.hpp"
 #include "copilot/provider.hpp"
 #include "world/json.hpp"
 
+#include <chrono>
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <mutex>
+#include <optional>
 #include <string>
 #include <utility>
+#include <thread>
 #include <vector>
 
 using glideslope::copilot::Post;
@@ -417,4 +423,244 @@ GLIDESLOPE_TEST(a_task_file_names_its_aircraft_airport_and_words_and_anything_el
     }
     check(refused == wrong.size(), "every wrong task refused: " + std::to_string(refused) +
                                        " of " + std::to_string(wrong.size()));
+}
+
+namespace {
+
+// The Cessna the copilot is told of, and the pilot's task.
+glideslope::copilot::Brief cessna_brief() {
+    glideslope::copilot::Brief b;
+    b.aircraft = "c172p";
+    b.aircraft_name = "Cessna 172P Skyhawk";
+    b.approach_kts = 62;
+    b.climb_kts = 74;
+    b.cruise_kts = 105;
+    b.task = "follow the coast north to Palm Beach";
+    return b;
+}
+
+// Off Bondi at 2,000 ft, heading north at 100 kt, over the sea.
+glideslope::copilot::Situation off_bondi(bool engine_running) {
+    glideslope::copilot::Situation now;
+    now.seconds = 60;
+    now.latitude_deg = -33.89;
+    now.longitude_deg = 151.28;
+    now.altitude_ft = 2000;
+    now.ground_ft = 0;
+    now.heading_deg = 0;
+    now.airspeed_kts = 100;
+    now.vertical_speed_fpm = 0;
+    now.engine_running = engine_running;
+    now.event = engine_running ? "a routine look" : "the engine has stopped";
+    return now;
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(a_copilots_answer_is_read_as_keep_or_a_route_and_refused_wherever_it_cannot_be_flown) {
+    const auto brief = cessna_brief();
+    const auto running = off_bondi(true);
+    const auto stopped = off_bondi(false);
+    auto gliding = stopped;
+    gliding.gliding_kts = 68;
+    // Why an answer is refused, or empty when it is flown.
+    const auto verdict = [&](const glideslope::copilot::Situation& now, const std::string& answer) {
+        try {
+            const auto change = glideslope::copilot::read_change(brief, now, answer);
+            return glideslope::copilot::change_refusal(brief, now, change);
+        } catch (const glideslope::sim::FlightPlanError& e) {
+            return std::string(e.what());
+        }
+    };
+
+    // Taken: keep, a route, a route in a fence, and with the engine stopped
+    // a glide - or keep while one is flown.
+    const auto kept = glideslope::copilot::read_change(brief, running, "keep\n");
+    check(kept.keep && !kept.glide_kts, "`keep` alone keeps what is flown");
+    const auto route = glideslope::copilot::read_change(
+        brief, running,
+        "```\nwaypoint MANLY -33.80 151.30 2000 100\n"
+        "orbit BARRENJOEY -33.58 151.33 1500 2000 90 2 right\n```\n");
+    check(!route.keep && !route.glide_kts && route.plan.waypoints.size() == 2 &&
+              route.plan.start && route.plan.start->latitude_deg == -33.89 &&
+              route.plan.waypoints[1].orbit && route.plan.waypoints[1].orbit->turns == 2 &&
+              route.plan.waypoints[1].orbit->right,
+          "a route, less its fence, is a plan flown from where the aircraft is");
+    check(glideslope::copilot::change_refusal(brief, running, route).empty(),
+          "and it may be flown");
+    const auto glide = glideslope::copilot::read_change(
+        brief, stopped, "glide 68\norbit YSSY -33.95 151.18 1500 1000 68 0 left\n");
+    check(!glide.keep && glide.glide_kts == 68.0 &&
+              glideslope::copilot::change_refusal(brief, stopped, glide).empty(),
+          "with the engine stopped, a glide to a field is flown");
+    check(verdict(gliding, "keep").empty(), "and kept while it is flown");
+
+    // Refused: every way, each saying why. The space is these twelve.
+    struct Refusal {
+        const glideslope::copilot::Situation* now;
+        std::string answer;
+        std::string says;
+    };
+    const std::vector<Refusal> refusals{
+        {&running, "", "empty"},
+        {&running, "turn left now", "none of keep, glide, waypoint or orbit"},
+        {&running, "keep\nwaypoint A -33.80 151.30 2000 100", "an answer alone"},
+        {&stopped, "waypoint A -33.80 151.30 2000 68\nglide 68", "the first line"},
+        {&stopped, "glide sixty\nwaypoint A -33.80 151.30 2000 68", "the first line"},
+        {&running, "glide 68\nwaypoint A -33.80 151.30 2000 68", "the engine is running"},
+        {&stopped, "glide 90\nwaypoint A -33.80 151.30 2000 90", "a glide at 90 kt, outside 62 to 74"},
+        {&stopped, "waypoint A -33.80 151.30 2000 68", "must begin with `glide"},
+        {&stopped, "keep", "nothing glides"},
+        {&running, "waypoint A -33.80 151.30 400 100", "below 500 ft"},
+        {&running, "waypoint A -33.80 151.30 2000 140", "outside 62 to 126"},
+        {&running, "waypoint A -35.80 151.30 2000 100", "more than 200"},
+        {&running, "orbit A -33.80 151.30 500 2000 100 1 left", "radius"},
+    };
+    std::size_t covered = 0;
+    for (const Refusal& r : refusals) {
+        const std::string why = verdict(*r.now, r.answer);
+        check(why.find(r.says) != std::string::npos,
+              "\"" + r.answer + "\" is refused, saying \"" + r.says + "\": " +
+                  (why.empty() ? "it was taken" : why));
+        ++covered;
+    }
+    check(covered == 13 && refusals.size() == 13, "all 13 ways an answer is refused were tried");
+}
+
+GLIDESLOPE_TEST(a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown) {
+    const auto brief = cessna_brief();
+    Scripted second_time({"waypoint A -33.80 151.30 400 100",
+                          "waypoint A -33.80 151.30 2000 100"});
+    const auto change = glideslope::copilot::decide(second_time, brief, off_bondi(true));
+    check(change.attempts == 2 && change.refused.size() == 1 &&
+              change.refused[0].find("below 500 ft") != std::string::npos,
+          "the first answer refused, the second flown");
+    check(second_time.conversations.size() == 2 &&
+              second_time.conversations[1].size() == 3 &&
+              second_time.conversations[1][2].text.find("below 500 ft") != std::string::npos,
+          "the model is told why, and asked again");
+    check(second_time.conversations[0][0].text.find("follow the coast north to Palm Beach") !=
+                  std::string::npos &&
+              second_time.conversations[0][0].text.find("a routine look") != std::string::npos,
+          "it is told the pilot's task and why it is asked");
+
+    Scripted stubborn({"turn left"});
+    try {
+        (void)glideslope::copilot::decide(stubborn, brief, off_bondi(true));
+        fail("an answer refused three times was taken");
+    } catch (const ProviderError& e) {
+        check(stubborn.conversations.size() == 3 &&
+                  std::string(e.what()).find("answers were each refused") != std::string::npos,
+              std::string("three answers, each refused, and said so: ") + e.what());
+    }
+}
+
+namespace {
+
+// A provider that answers `keep` only once let go, and says whether it was
+// let go or gave up waiting - a minute, far longer than the steps it waits
+// for take on the slowest machine - after which it answers at once.
+class Held : public glideslope::copilot::Provider {
+public:
+    std::string name() const override {
+        return "held";
+    }
+    std::string model() const override {
+        return "none";
+    }
+    std::string answer(const std::string&, const std::vector<glideslope::copilot::Turn>&) override {
+        std::unique_lock lock(m_);
+        if (!let_go_cv_.wait_for(lock, std::chrono::minutes(1), [this] { return let_go_; })) {
+            // Given up on, it answers at once from then on: a copilot that
+            // waited for it is seen to have been answered too soon, not hung.
+            gave_up_ = true;
+            let_go_ = true;
+        }
+        return "keep";
+    }
+    void let_go() {
+        {
+            std::lock_guard lock(m_);
+            let_go_ = true;
+        }
+        let_go_cv_.notify_all();
+    }
+    bool gave_up() {
+        std::lock_guard lock(m_);
+        return gave_up_;
+    }
+
+private:
+    std::mutex m_;
+    std::condition_variable let_go_cv_;
+    bool let_go_ = false;
+    bool gave_up_ = false;
+};
+
+} // namespace
+
+GLIDESLOPE_TEST(the_copilot_asks_on_a_thread_of_its_own_and_the_step_never_waits_for_the_model) {
+    auto held = std::make_unique<Held>();
+    Held& model = *held;
+    glideslope::copilot::Copilot copilot(std::move(held), cessna_brief());
+    check(copilot.ask(off_bondi(true)), "asked");
+    check(copilot.asking(), "and a question is outstanding");
+    // Ten simulated seconds of steps, each asking for the answer and asking
+    // again, while the model has not answered: none waits, or the model is
+    // never let go and gives up a minute later.
+    constexpr int steps = 10 * 120;
+    int stepped = 0;
+    int asked_again = 0;
+    int answered = 0;
+    for (; stepped < steps; ++stepped) {
+        answered += copilot.answered() ? 1 : 0;
+        asked_again += copilot.ask(off_bondi(true)) ? 1 : 0;
+    }
+    model.let_go();
+    check(stepped == steps && answered == 0 && asked_again == 0,
+          "1200 steps with the model thinking: nothing answered, nothing asked again (" +
+              std::to_string(answered) + " answered, " + std::to_string(asked_again) +
+              " asked again)");
+    // Picked up between steps once it has come.
+    std::optional<glideslope::copilot::Change> change;
+    while (!change) {
+        change = copilot.answered();
+        std::this_thread::yield();
+    }
+    check(change->keep && !copilot.asking(), "the answer is taken once, and nothing is outstanding");
+    check(!model.gave_up(), "the model was let go by the steps, not given up on");
+    check(!copilot.answered(), "and taken only once");
+}
+
+GLIDESLOPE_TEST(a_recording_played_back_but_its_numbers_answers_a_request_whose_figures_moved_and_no_other) {
+    const auto file = scratch("copilot-numbers.jsonl");
+    std::vector<Sent> sent;
+    const Post recorded = glideslope::copilot::recording(stand_in(sent, {answered(200, "keep")}), file);
+    glideslope::platform::HttpRequest request;
+    request.url = "https://api.example/v1";
+    (void)recorded(request, "at -33.8900 151.2800, 2000 ft, vertical speed -3 ft a minute");
+
+    const auto body = [](const glideslope::platform::HttpResponse& r) {
+        return std::string(r.body.begin(), r.body.end());
+    };
+    const auto moved = "at -33.8911 151.2799, 2004 ft, vertical speed 12.5 ft a minute";
+    check(body(glideslope::copilot::playback(file, glideslope::copilot::Match::but_numbers)(
+              request, moved)) == "keep",
+          "its figures moved, its words the same: answered");
+    std::size_t refused = 0;
+    try {
+        (void)glideslope::copilot::playback(file)(request, moved);
+        fail("played back exactly, a request whose figures moved was answered");
+    } catch (const ProviderError&) {
+        ++refused;
+    }
+    try {
+        (void)glideslope::copilot::playback(file, glideslope::copilot::Match::but_numbers)(
+            request, "at -33.8900 151.2800, 2000 ft, the engine stopped");
+        fail("a request in other words was answered");
+    } catch (const ProviderError& e) {
+        check(std::string(e.what()).find("recorded again") != std::string::npos, e.what());
+        ++refused;
+    }
+    check(refused == 2, "moved figures played back exactly, and other words: both refused");
 }

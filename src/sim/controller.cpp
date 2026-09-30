@@ -79,6 +79,63 @@ void Controller::to_ai(FlightPlan plan) {
     navigator_.emplace(a_, std::move(plan));
 }
 
+void Controller::replan(FlightPlan plan) {
+    if (flying_ != Flying::ai || departure_ || lander_) {
+        to_ai(std::move(plan));
+        return;
+    }
+    navigator_.emplace(a_, std::move(plan));
+}
+
+void Controller::set_glide(std::optional<double> airspeed_kts) {
+    if (airspeed_kts && !glide_kts_) {
+        // From the vertical speed the aircraft has, so nothing jumps.
+        glide_sink_fpm_ = std::min(a_.property("velocities/h-dot-fps") * 60.0, 0.0);
+        glide_last_kts_ = a_.property("velocities/vc-kts");
+        glide_trend_kts_per_s_ = 0.0;
+    }
+    glide_kts_ = airspeed_kts;
+}
+
+// **A glide is the airspeed flown by the vertical speed**: faster than the
+// glide, less sink is asked for, and the nose comes up; slower, more. The
+// sink the glide settles at is found by an integral, from the vertical speed
+// the glide began with. Not the autopilot's own airspeed on the elevator
+// (AutopilotModes::speed_on_elevator), which is its stall recovery: it keeps
+// the wing below the greatest angle of attack it has seen, so an aeroplane
+// that has only cruised cannot be slowed by it to a glide - a Cessna asked for
+// 68 kt from 100 swung between 73 and 84 kt for a minute.
+AutopilotModes Controller::gliding(AutopilotModes modes) {
+    constexpr double fpm_per_knot = 80.0;
+    constexpr double fpm_per_knot_second = 4.0;
+    constexpr double fpm_per_knot_a_second = 250.0; // the speed's trend, to damp it
+    constexpr double trend_filter_s = 1.0;
+    constexpr double least_fpm = -2500.0;
+    constexpr double most_fpm = 500.0;
+    const double dt = 1.0 / static_cast<double>(steps_per_second);
+    const double kts = a_.property("velocities/vc-kts");
+    glide_trend_kts_per_s_ +=
+        ((kts - glide_last_kts_) / dt - glide_trend_kts_per_s_) * dt / trend_filter_s;
+    glide_last_kts_ = kts;
+    const double over_kts = kts - *glide_kts_;
+    // A glide's own sink is a descent: the integral finds it between level
+    // and the steepest asked for.
+    glide_sink_fpm_ =
+        std::clamp(glide_sink_fpm_ + fpm_per_knot_second * over_kts * dt, least_fpm, 0.0);
+    modes.vertical_speed_fpm =
+        std::clamp(glide_sink_fpm_ + fpm_per_knot * over_kts +
+                       fpm_per_knot_a_second * glide_trend_kts_per_s_,
+                   least_fpm, most_fpm);
+    // The glide's airspeed is still asked for, which the throttle cannot
+    // give with the engine stopped: asked for, it lowers the least speed the
+    // autopilot holds a climb or descent to (Aircraft::climb_floor_kts), which
+    // is above a light aircraft's best glide.
+    modes.altitude_ft.reset();
+    modes.airspeed_kts = *glide_kts_;
+    modes.speed_on_elevator = false;
+    return modes;
+}
+
 void Controller::to_ai_take_off(const Runway& runway, const DepartureSpeeds& speeds,
                                 double to_ft) {
     engage();
@@ -173,7 +230,11 @@ Controls Controller::fly() {
             autopilot_.emplace(a_, applied_);
         }
         if (navigator_) {
-            autopilot_->set(navigator_->steer());
+            AutopilotModes modes = navigator_->steer();
+            if (glide_kts_) {
+                modes = gliding(modes);
+            }
+            autopilot_->set(modes);
         }
         applied_ = autopilot_->fly();
         return applied_;

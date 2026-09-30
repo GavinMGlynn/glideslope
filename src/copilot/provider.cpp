@@ -205,7 +205,35 @@ Post recording(Post post, std::filesystem::path file) {
     };
 }
 
-Post playback(const std::filesystem::path& file) {
+namespace {
+
+// `text` with each run of digits, and a sign or point in or before it, as one
+// `#`.
+std::string numbers_disregarded(const std::string& text) {
+    std::string out;
+    out.reserve(text.size());
+    bool in_number = false;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        const char c = text[i];
+        const bool digit = c >= '0' && c <= '9';
+        const bool part = digit || ((c == '.' || c == '-') && i + 1 < text.size() &&
+                                    text[i + 1] >= '0' && text[i + 1] <= '9');
+        if (part || (in_number && c == '.')) {
+            if (!in_number) {
+                out += '#';
+            }
+            in_number = true;
+        } else {
+            in_number = false;
+            out += c;
+        }
+    }
+    return out;
+}
+
+} // namespace
+
+Post playback(const std::filesystem::path& file, Match match) {
     std::ifstream in(file, std::ios::binary);
     if (!in) {
         throw ProviderError("cannot read the recording " + file.string());
@@ -228,13 +256,17 @@ Post playback(const std::filesystem::path& file) {
         }
     }
     auto next = std::make_shared<std::size_t>(0);
-    return [recorded, next, file](const platform::HttpRequest& request, const std::string& body) {
+    return [recorded, next, file, match](const platform::HttpRequest& request,
+                                         const std::string& body) {
         if (*next >= recorded->size()) {
             throw ProviderError(file.string() + " recorded " + std::to_string(recorded->size()) +
                                 " exchanges, and this is one more");
         }
         const Recorded& r = (*recorded)[(*next)++];
-        if (r.url != request.url || r.request != body) {
+        const bool same = match == Match::exactly
+                              ? r.request == body
+                              : numbers_disregarded(r.request) == numbers_disregarded(body);
+        if (r.url != request.url || !same) {
             throw ProviderError(file.string() + ": exchange " + std::to_string(*next) +
                                 " was recorded for another request; the prompt has changed "
                                 "since it was recorded, and it must be recorded again");

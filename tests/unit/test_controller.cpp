@@ -200,3 +200,130 @@ GLIDESLOPE_TEST(handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_p
                   std::to_string(to_ai_load) + ", " + std::to_string(catching_load));
     }
 }
+
+namespace {
+
+// The Cessna off Bondi at `feet`, heading north at 100 kt, flown by the AI up
+// the coast to Manly.
+struct UpTheCoast {
+    Aircraft aircraft{GLIDESLOPE_TEST_DATA_DIR, "c172p"};
+    Controller controller{aircraft, Controls{}};
+    explicit UpTheCoast(double feet) {
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.89;
+        ic.longitude_deg = 151.28;
+        ic.altitude_ft = feet;
+        ic.heading_deg = 0.0;
+        ic.airspeed_kts = 100.0;
+        ic.engine_running = true;
+        aircraft.initialize(ic);
+        controller.to_ai(glideslope::sim::parse_flight_plan(
+            "aircraft c172p\nstart -33.89 151.28 " + std::to_string(feet) +
+            " 0 100\nwaypoint MANLY -33.80 151.30 " + std::to_string(feet) + " 100\n"));
+    }
+    Controls step() {
+        const Controls c = controller.fly();
+        aircraft.set_controls(c);
+        aircraft.step();
+        return c;
+    }
+    double latitude() const {
+        return aircraft.property("position/lat-geod-deg");
+    }
+    double longitude() const {
+        return aircraft.property("position/long-gc-deg");
+    }
+};
+
+// A route from where the aircraft is to one waypoint, at `feet` and `knots`.
+glideslope::sim::FlightPlan route_to(const UpTheCoast& f, const char* name, double latitude,
+                                     double longitude, double feet, double knots) {
+    char text[256];
+    std::snprintf(text, sizeof text,
+                  "aircraft c172p\nstart %.6f %.6f 2000 0 100\n"
+                  "waypoint %s %.4f %.4f %.0f %.0f\n",
+                  f.latitude(), f.longitude(), name, latitude, longitude, feet, knots);
+    return glideslope::sim::parse_flight_plan(text);
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(a_plan_changed_while_the_ai_flies_moves_no_control_at_the_change_and_is_flown) {
+    UpTheCoast f(2000.0);
+    const int second = steps_per_second;
+    Controls before;
+    for (int i = 0; i < 30 * second; ++i) {
+        before = f.step();
+    }
+    // A new route at the aircraft's height and speed: the autopilot, kept,
+    // turns to it at its own pace. Stated from what was measured: the
+    // largest step in any control the second after is under a fiftieth of
+    // its travel.
+    f.controller.replan(route_to(f, "ROSE_BAY", -33.87, 151.26, 2000.0, 100.0));
+    double largest = 0.0;
+    for (int i = 0; i < second; ++i) {
+        const Controls c = f.step();
+        largest = std::max(largest, largest_step(c, before));
+        before = c;
+    }
+    std::fprintf(stderr, "the largest step in a control the second after the change: %.4f\n",
+                 largest);
+    check(largest < 0.02, "no control steps at the change: " + std::to_string(largest));
+    check(f.controller.navigator() != nullptr &&
+              f.controller.navigator()->plan().waypoints.front().name == "ROSE_BAY",
+          "the new route is the one flown");
+    int steps = 0;
+    while (!f.controller.navigator()->finished() && steps < 5 * 60 * second) {
+        f.step();
+        ++steps;
+    }
+    check(f.controller.navigator()->finished(),
+          "and flown to its end, in " + std::to_string(steps / second) + " s");
+}
+
+GLIDESLOPE_TEST(a_glide_with_the_engine_stopped_holds_its_airspeed_on_the_elevator_along_its_route) {
+    UpTheCoast f(5000.0);
+    const int second = steps_per_second;
+    for (int i = 0; i < 10 * second; ++i) {
+        f.step();
+    }
+    f.aircraft.fail_engine(0, false);
+    f.controller.replan(route_to(f, "AIRPORT", -33.95, 151.18, 5000.0, 68.0));
+    f.controller.set_glide(68.0);
+    // Stated from what was measured: slowed from 100 kt, it dips to 62 and
+    // comes back to 68 without passing it; from 45 s on, when it has slowed
+    // to it, the glide is held within 5 kt for a minute and a half, down all
+    // the way, and towards the airport.
+    double slowest = 1e9;
+    double fastest = 0.0;
+    double highest_after = 0.0;
+    double feet_at_45 = 0.0;
+    double away_at_45 = 0.0;
+    for (int i = 0; i < 135 * second; ++i) {
+        f.step();
+        if (i == 45 * second) {
+            feet_at_45 = f.aircraft.property("position/h-sl-ft");
+            away_at_45 = glideslope::sim::distance_m(f.latitude(), f.longitude(), -33.95, 151.18);
+        } else if (i > 45 * second) {
+            const double kts = f.aircraft.property("velocities/vc-kts");
+            slowest = std::min(slowest, kts);
+            fastest = std::max(fastest, kts);
+            highest_after = std::max(highest_after, f.aircraft.property("position/h-sl-ft"));
+        }
+    }
+    const double feet = f.aircraft.property("position/h-sl-ft");
+    const double away = glideslope::sim::distance_m(f.latitude(), f.longitude(), -33.95, 151.18);
+    std::fprintf(stderr,
+                 "gliding at 68 kt: %.1f to %.1f kt, %.0f ft down in a minute and a half, %.0f m "
+                 "nearer the airport\n",
+                 slowest, fastest, feet_at_45 - feet, away_at_45 - away);
+    check(slowest >= 63.0 && fastest <= 73.0,
+          "the glide's airspeed held within 5 kt of 68: " + std::to_string(slowest) + " to " +
+              std::to_string(fastest));
+    check(highest_after <= feet_at_45 && feet_at_45 - feet > 500.0,
+          "and it glides down: " + std::to_string(feet_at_45 - feet) + " ft in a minute and a half");
+    check(away_at_45 - away > 1500.0,
+          "towards its waypoint: " + std::to_string(away_at_45 - away) +
+              " m nearer in a minute and a half");
+    check(f.controller.glide() == 68.0, "the glide is what the controller says it flies");
+}

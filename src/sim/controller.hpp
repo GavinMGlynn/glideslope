@@ -98,6 +98,19 @@ public:
     void to_ai_learnt_approach(const Runway& runway, const ApproachSpeeds& speeds,
                                std::shared_ptr<const LearntPolicy> policy);
 
+    // **A new plan while the AI flies**, from where the aircraft is: the
+    // navigator is replaced and the autopilot kept, so nothing it holds is
+    // dropped and the aircraft does not lurch. Flying a take-off or an
+    // approach, or not flying at all, it is `to_ai(plan)`.
+    void replan(FlightPlan plan);
+    // **A glide**: the plan's route steered at `airspeed_kts`, held by the
+    // vertical speed asked of the autopilot, its heights not flown - for an
+    // engine that has stopped. None flies the plan's heights again.
+    void set_glide(std::optional<double> airspeed_kts);
+    std::optional<double> glide() const {
+        return glide_kts_;
+    }
+
     // Where the take-off or the approach has got to, or nothing when the AI
     // is not flying one.
     const Departure* departure() const { return departure_ ? &*departure_ : nullptr; }
@@ -140,6 +153,11 @@ private:
     // The lander's controls, reached from the pilot's at a hand's pace after
     // a take-back on the roll.
     bool easing_in_ = false;
+    std::optional<double> glide_kts_;
+    double glide_sink_fpm_ = 0.0;
+    double glide_last_kts_ = 0.0;
+    double glide_trend_kts_per_s_ = 0.0;
+    AutopilotModes gliding(AutopilotModes modes);
 };
 
 } // namespace glideslope::sim
