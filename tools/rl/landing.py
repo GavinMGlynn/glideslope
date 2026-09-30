@@ -371,8 +371,12 @@ class Flight:
     seconds: float = 0.0
 
 
-# How long after the touch a flight is flown on, to see it stays down.
-AFTER_TOUCH_S = 5.0
+# How long after the touch the policy flies on: none. The simulation hands
+# the rollout to the approach autopilot at the touch (src/sim/learnt.hpp),
+# so a flight here ends at the decision the wheels first touch in; what she
+# does on the ground is the autopilot's, and the C++ tests judge it. Until
+# 2026-09-30 it was five seconds, which the simulation never flew.
+AFTER_TOUCH_S = 0.0
 # The longest a flight is let run.
 LONGEST_S = 300.0
 
