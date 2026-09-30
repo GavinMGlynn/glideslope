@@ -337,11 +337,11 @@ ends in a debrief, never a score.
 - [ ] **Reinforcement-learning agents** (stretch goal). *Verification: an agent
       trained through JSBSim's gym-style wrappers lands within stated limits.*
       **In progress.** Missing: the centreline - in a ten-knot crosswind the
-      Cessna 172P's trained policy touches down 10 to 19 m off it, and 6 m
-      once in calm air, against the autopilot's 5; and nothing hands an
-      aircraft to it yet. From 27 starts at a two-mile gate it does touch
-      down on the runway, under 150 ft/min, and stays down, flown by the
-      simulation with no Python. One aircraft only.
+      Cessna 172P's trained policy touches down 10 to 19 m off it, against
+      the autopilot's 5 (8 of 27 starts within). It can be handed an
+      aircraft at the approach gate, touches down on the runway under
+      150 ft/min from every start, and the autopilot rolls it out to a stop
+      on the runway, flown with no Python. One aircraft only.
 
 ---
 

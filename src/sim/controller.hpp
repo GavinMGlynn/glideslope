@@ -28,8 +28,10 @@
 #include "sim/autopilot.hpp"
 #include "sim/departure.hpp"
 #include "sim/lander.hpp"
+#include "sim/learnt.hpp"
 #include "sim/navigator.hpp"
 
+#include <memory>
 #include <optional>
 
 namespace glideslope::sim {
@@ -81,10 +83,20 @@ public:
     void to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
                         double glidepath_deg = 3.0);
 
+    // **The landing learnt by reinforcement learning** (sim/learnt.hpp): the
+    // policy flies her from where she is - an approach gate - to the touch,
+    // and the approach autopilot rolls her out to a stop. Its controls are
+    // reached from the ones she has at a hand's pace, full travel in a second,
+    // so the hand-over steps nothing. Handed back to the pilot, it is dropped
+    // (a take-back on its roll gets the plain autopilot, not this).
+    void to_ai_learnt_approach(const Runway& runway, const ApproachSpeeds& speeds,
+                               std::shared_ptr<const LearntPolicy> policy);
+
     // Where the take-off or the approach has got to, or nothing when the AI
     // is not flying one.
     const Departure* departure() const { return departure_ ? &*departure_ : nullptr; }
     const Lander* lander() const { return lander_ ? &*lander_ : nullptr; }
+    const LearntLander* learnt() const { return learnt_ ? &*learnt_ : nullptr; }
     // Hands it back to the pilot.
     void to_pilot();
 
@@ -113,6 +125,7 @@ private:
     std::optional<Navigator> navigator_;
     std::optional<Departure> departure_;
     std::optional<Lander> lander_;
+    std::optional<LearntLander> learnt_;
     // The approach's lander while the pilot has her, kept from the hand-over
     // so a take-back on its landing roll can finish it; dropped the first
     // step she is not still landing, and when the AI is given her again, for

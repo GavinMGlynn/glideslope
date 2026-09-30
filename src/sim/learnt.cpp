@@ -6,6 +6,7 @@
 #include <map>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 namespace glideslope::sim {
 namespace {
@@ -214,7 +215,7 @@ const std::array<const char*, LandingReadings::count>& LandingReadings::names() 
         "velocities/p-rad_sec",  "velocities/q-rad_sec", "velocities/r-rad_sec",
         "velocities/vc-kts",     "velocities/v-north-fps", "velocities/v-east-fps",
         "velocities/v-down-fps", "aero/alpha-rad",       "aero/beta-rad",
-        "gear/wow"};
+        "gear/wow",              "velocities/vtrue-fps"};
     return n;
 }
 
@@ -228,7 +229,8 @@ LandingReadings LandingReadings::of(const Aircraft& aircraft) {
 
 std::vector<double> landing_observation(const LandingReadings& r, const Runway& runway,
                                         const LearntPolicy& policy,
-                                        const std::array<double, LearntPolicy::actions>& previous) {
+                                        const std::array<double, LearntPolicy::actions>& previous,
+                                        double integral) {
     const Where w = where(r, runway);
     const double h = runway.heading_deg / degrees;
     const double glidepath_m = (w.along_m + policy.aim_m) * std::tan(policy.glidepath_deg / degrees);
@@ -238,6 +240,14 @@ std::vector<double> landing_observation(const LandingReadings& r, const Runway& 
     const double v_along = ve * std::sin(h) + vn * std::cos(h);
     const double v_across = ve * std::cos(h) - vn * std::sin(h);
     const double climb = -r.values[12] * mps_per_fps;
+    const double track = std::atan2(ve, vn);
+    const double drift = std::remainder(track - r.values[5], 2.0 * pi);
+    const double vt = r.values[16] * mps_per_fps;
+    const double air = r.values[5] + r.values[14];
+    const double wind_n = vn - vt * std::cos(air);
+    const double wind_e = ve - vt * std::sin(air);
+    const double wind_across = wind_e * std::cos(h) - wind_n * std::sin(h);
+    const double wind_along = wind_e * std::sin(h) + wind_n * std::cos(h);
     return {w.along_m / 1000.0,
             w.across_m / 30.0,
             (w.above_m - glidepath_m) / 10.0,
@@ -258,7 +268,11 @@ std::vector<double> landing_observation(const LandingReadings& r, const Runway& 
             previous[0],
             previous[1],
             previous[2],
-            previous[3]};
+            previous[3],
+            drift,
+            wind_across / 5.0,
+            wind_along / 5.0,
+            integral / 300.0};
 }
 
 Controls landing_controls(const std::array<double, LearntPolicy::actions>& action,
@@ -278,11 +292,64 @@ Controls landing_controls(const std::array<double, LearntPolicy::actions>& actio
     return c;
 }
 
+double remember_drift(double integral, double across_m, const LearntPolicy& policy) {
+    constexpr double memory_s = 10.0;
+    const double dt = static_cast<double>(policy.decision_steps) / 120.0;
+    return integral * std::exp(-dt / memory_s) + across_m * dt;
+}
+
+namespace {
+
+// A pilot's hand: full travel in a second, as sim::Controller moves one.
+bool towards(double& from, double to) {
+    constexpr double step = 1.0 / 120.0;
+    from += std::clamp(to - from, -step, step);
+    return from == to;
+}
+
+bool towards(Controls& from, const Controls& to) {
+    bool met = true;
+    for (auto [control, wanted] :
+         {std::pair{&from.aileron, to.aileron}, std::pair{&from.elevator, to.elevator},
+          std::pair{&from.rudder, to.rudder}, std::pair{&from.throttle, to.throttle},
+          std::pair{&from.mixture, to.mixture}, std::pair{&from.flaps, to.flaps},
+          std::pair{&from.left_brake, to.left_brake},
+          std::pair{&from.right_brake, to.right_brake},
+          std::pair{&from.pitch_trim, to.pitch_trim},
+          std::pair{&from.propeller, to.propeller}, std::pair{&from.gear, to.gear},
+          std::pair{&from.speedbrake, to.speedbrake}}) {
+        met = towards(*control, wanted) && met;
+    }
+    return met;
+}
+
+} // namespace
+
 LearntLander::LearntLander(const Aircraft& aircraft, const Runway& runway,
-                           const LearntPolicy& policy)
-    : a_(aircraft), runway_(runway), policy_(policy) {}
+                           std::shared_ptr<const LearntPolicy> policy,
+                           const ApproachSpeeds& speeds)
+    : a_(aircraft), runway_(runway), policy_(std::move(policy)),
+      rollout_(aircraft, runway, speeds, policy_ ? policy_->glidepath_deg : 3.0) {
+    if (!policy_) {
+        throw std::invalid_argument("a learnt lander needs a policy");
+    }
+}
 
 Controls LearntLander::fly() {
+    if (stage_ != Stage::flying) {
+        const Controls rolling = rollout_.fly();
+        if (easing_) {
+            easing_ = !towards(held_, rolling);
+        } else {
+            held_ = rolling;
+        }
+        if (rollout_.stage() == Lander::Stage::stopped) {
+            stage_ = Stage::stopped;
+        }
+        return held_;
+    }
+    // The rollout's lander watches, to know where she touched.
+    rollout_.watch();
     const LandingReadings r = LandingReadings::of(a_);
     if (!touched_ && r.values[15] > 0.5) {
         const Where w = where(r, runway_);
@@ -291,10 +358,17 @@ Controls LearntLander::fly() {
         touchdown_across_m_ = w.across_m;
         touchdown_along_m_ = -w.along_m;
     }
-    if (steps_ % policy_.decision_steps == 0) {
+    if (touched_) {
+        stage_ = Stage::rollout;
+        rollout_.resume(held_.throttle);
+        easing_ = true;
+        return fly();
+    }
+    if (steps_ % policy_->decision_steps == 0) {
+        integral_ = remember_drift(integral_, where(r, runway_).across_m, *policy_);
         const std::array<double, LearntPolicy::actions> action =
-            policy_.act(landing_observation(r, runway_, policy_, previous_));
-        held_ = landing_controls(action, policy_);
+            policy_->act(landing_observation(r, runway_, *policy_, previous_, integral_));
+        held_ = landing_controls(action, *policy_);
         previous_ = action;
         ++decisions_;
     }

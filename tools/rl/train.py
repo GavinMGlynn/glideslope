@@ -94,6 +94,8 @@ def main() -> None:
     ap.add_argument("--envs", type=int, default=8)
     ap.add_argument("--out", default=os.path.expanduser("~/.cache/glideslope-rl/run"))
     ap.add_argument("--resume", default="")
+    ap.add_argument("--lr", type=float, default=None,
+                    help="resuming: this learning rate, and a clip range of 0.1")
     ap.add_argument("--log-std", type=float, default=None,
                     help="resuming: hold the action noise at this log standard deviation")
     args = ap.parse_args()
@@ -106,7 +108,9 @@ def main() -> None:
     venv = SubprocVecEnv([make(i) for i in range(args.envs)])
     if args.resume:
         venv = VecNormalize.load(args.resume.removesuffix(".zip") + ".vecnorm", venv)
-        model = PPO.load(args.resume, env=venv, device="cpu")
+        # A fine-tune steps more gently than a start from nothing.
+        custom = {} if args.lr is None else {"learning_rate": args.lr, "clip_range": 0.1}
+        model = PPO.load(args.resume, env=venv, device="cpu", custom_objects=custom)
         if args.log_std is not None:
             # **The noise held small and still**, so that the mean action -
             # what the simulation flies - is what training flew. With PPO's

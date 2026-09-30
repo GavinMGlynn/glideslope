@@ -227,7 +227,119 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### A landing learnt by reinforcement learning touches down on the runway; not yet on the centreline in a crosswind, 2026-09-30 — item in progress
+### A landing learnt by reinforcement learning is a controller, lands on the runway and is stopped on it; not yet on the centreline in a crosswind, 2026-09-30 — item in progress
+
+**What is not done first.**
+- **The centreline, which is the item's verification.** From the 27
+  verification starts the committed policy touches down 10.4 to 18.3 m right
+  of the centreline in a ten-knot crosswind from the left, 13.0 to 19.3 m left
+  of it in one from the right, and in calm air within 5 m at eight starts of
+  nine (5.84 m at the ninth): **8 of 27 within the autopilot's 5 m.** The
+  item stays open.
+- **The committed policy does not use what was built to fix that.** The
+  observation grew by four - the drift angle, the wind across and along the
+  runway as the instruments estimate it, and a remembered drift - and the
+  simulation computes all four, but the committed network is the previous
+  one carried over with those inputs weighted nothing (`tools/rl/warm_start.py`).
+  Three fine-tunes that used them (below) scored worse on the held-out
+  starts, and the best of everything scored is what is committed.
+- **An unexplained gap between training and evaluation.** In the fine-tune
+  from the carried-over policy, the training rollouts reported a median of
+  2.3 m across and three landings in four within every limit; the same
+  checkpoint flown on those rollouts' own start distribution, deterministic
+  or sampled, through stable-baselines3's own normalisation, touched down
+  14 to 29 m right of the centreline every time. Not found yet; it is the
+  first thing to look at next, before more training.
+- **The fine-tunes collapse.** Twice, about three million decisions in, the
+  touchdown sink went from about 100 to about 550 ft/min across every
+  episode and stayed there; a run from nothing with the new observations
+  settled there too. The bounce penalty after the touch is the suspect.
+- **One aircraft, one runway geometry, steady winds**: the C172P, at sea
+  level, no turbulence, gusts or shear.
+
+**A controller.** `Controller::to_ai_learnt_approach(runway, speeds, policy)`
+hands an aeroplane to the learnt landing as `to_ai_approach` hands it to the
+approach autopilot: the policy flies from where she is to the touch, and the
+controls are reached from the ones she had at a hand's pace, full travel in
+a second, so the hand-over steps nothing. Handed back to the pilot it is
+dropped (a take-back on its roll gets the plain autopilot, not this).
+
+**The rollout is the approach autopilot's.** `sim::LearntLander` keeps a
+`sim::Lander` on the same runway that watches the whole landing and is given
+her at the moment the wheels touch; it brakes her to a stop on the
+centreline, at the same hand's pace from the policy's controls. **At the
+touch, not later**: the policy was trained to five seconds past it, and in
+those seconds, flown, it let her swing from 057 to 040 on a runway of 070 and
+run 60 m off the centreline - every landing stopped 30 to 67 m off it. Given
+her at the touch the autopilot stops every one within 3.4 m of it. The
+policy is still trained to five seconds past the touch; those seconds are
+never flown.
+
+**Honest selection.** Checkpoints are chosen on forty held-out starts
+(`landing.py`'s `held_out_starts`, `evaluate.py --held-out`): gates 1.6 to
+2.4 miles out, up to 60 m across, 20 m off the glidepath and 5 degrees off
+the heading, in a steady wind of up to fifteen knots from anywhere with no
+more than five behind - drawn once with their own seed. The verification's
+27 are flown only by `export.py`, to record the fixture, and by the tests.
+Scores on the held-out starts (within every limit, of 40): the carried-over
+policy 16, worst 24.4 m across and 149 ft/min; the first fine-tune (learning
+rate 3e-4) 0 at its one checkpoint; with the noise held at a standard deviation of 0.08,
+15, 0, 16 (worst 31.6 m); with the learning rate at 1e-4 and three starts in
+four from the gate, 15, 0, 0. The previous round chose among checkpoints by
+flying the verification's starts; that policy is the one carried over, and
+is committed again because it scored best here.
+
+**The training side.** The environment now draws winds up to fifteen knots
+from anywhere (at most five behind), and the touch costs a point a degree of
+crab left on (at most fifteen). `train.py` runs niced with eight
+environments, as the machine is shared - a timing test elsewhere failed under
+the load of more - and can resume a checkpoint with a gentler learning rate
+(`--lr`) or with the action noise held (`--log-std`).
+
+**The verification's starts, flown by the simulation with the committed policy:**
+
+| | calm | 10 kt from the left | 10 kt from the right |
+| --- | --- | --- | --- |
+| touchdown sink, ft/min | 120 - 134 | 87 - 99 | 141 - 147 |
+| across the centreline at the touch, m | -5.84 to +1.59 | +10.36 to +18.28 | -19.30 to -13.02 |
+| along from the threshold at the touch, m | 209 - 320 | 69 - 145 | 536 - 615 |
+| after the touch: rose, banked, nose down | 0.0 ft, 3.9, 0.0 | 0.0 ft, 3.6, 0.0 | 0.0 ft, 3.8, 0.0 |
+| stopped: along, m | 413 - 525 | 262 - 339 | 729 - 804 |
+| stopped: across, m | -2.84 to -2.00 | -3.41 to -3.07 | -0.93 to +0.47 |
+
+The starts: a gate two nautical miles out, on the centreline and 50 m either
+side of it, on the glidepath and 15 m above and below it, in calm air and a
+ten-knot crosswind from either side - 3 x 3 x 3, at the reference speed,
+trimmed, pointing down the runway.
+
+**Verification run.** Five tests, all passing:
+- `the_learnt_landing_sees_and_acts_in_the_simulation_as_it_did_in_training`:
+  192 recorded decisions, 46 on the ground and 188 remembering a drift; the
+  simulation's observation and action agree with training's to 3.8e-15 and
+  9.2e-16; the drift memory and the action-to-controls mapping are checked
+  by value.
+- `the_learnt_policy_touches_down_in_the_simulation_where_it_did_in_training`:
+  all 27 starts, within 0.28 ft/min, 0.019 m across and 0.37 m along of
+  Python's flights of them.
+- `the_learnt_policy_touches_the_c172p_down_on_the_runway_under_300_ft_a_minute_and_it_is_stopped_on_it_from_every_start`:
+  all 27, counted, nine in each wind; on the runway under 300 ft/min, down
+  and upright for five seconds, stopped between the threshold and the far
+  end within 15 m of the centreline. **The 5 m is printed, not asserted**,
+  because it does not hold; the test says so.
+- `an_aeroplane_handed_to_the_learnt_landing_at_the_gate_is_landed_and_stopped_with_no_step_in_its_controls`:
+  flown by a pilot with every control away from the policy's, handed over at
+  the gate in a ten-knot crosswind; no control moves more than 1/120 in a
+  step at the switch (it moved 0.00833), and she is landed on the runway and
+  stopped on it (touched 15.2 m off the centreline, stopped 3.3 m off it).
+- `a_policy_file_that_does_not_fit_the_simulation_is_refused`.
+
+**Seen to fail**, each reverted: the hand-over without the hand's pace (a
+control moved 1.0018 in one step); the drift memory's sign reversed (the
+memory's check); the rollout never handed over (27 of 27 "did not stop");
+and, in the round before, a sign flipped in the observation, a weight moved
+in the policy file and the ailerons reversed.
+
+### A landing learnt by reinforcement learning touches down on the runway; not yet on the centreline in a crosswind, 2026-09-30 — superseded the same day, above
 
 **What is not done first.**
 - **The centreline.** From the 27 starts below, the trained policy touches
