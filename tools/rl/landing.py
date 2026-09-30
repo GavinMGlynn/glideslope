@@ -52,9 +52,21 @@ READINGS = (
     "aero/alpha-rad",
     "aero/beta-rad",
     "gear/wow",
+    "velocities/vtrue-fps",
 )
 
-OBSERVATIONS = 21
+OBSERVATIONS = 25
+
+# **The drift the agent remembers**: a leaky integral of its distance across
+# the centreline, metre-seconds, forgetting with this time constant - what
+# lets a policy with no other memory take out a steady offset, as the
+# integral of a PID does. Kept by the controller, advanced once a decision.
+DRIFT_MEMORY_S = 10.0
+
+
+def remember(integral: float, across_m: float, ap: "Approach") -> float:
+    dt = ap.decision_steps / STEPS_PER_SECOND
+    return integral * math.exp(-dt / DRIFT_MEMORY_S) + across_m * dt
 ACTIONS = 4
 
 
@@ -136,9 +148,16 @@ def observe(
     rw: Runway,
     ap: Approach,
     previous: list[float] | tuple[float, ...],
+    integral: float,
 ) -> list[float]:
-    """The observation, from `READINGS`' values and the last action taken.
-    Unnormalised: the policy file carries the normalisation."""
+    """The observation, from `READINGS`' values, the last action taken and
+    the remembered drift (`remember`). Unnormalised: the policy file carries
+    the normalisation.
+
+    **The wind is what the instruments would estimate**, as a flight
+    management system does: the ground velocity less the air velocity, the
+    true airspeed along the heading turned by the sideslip. Nothing reads
+    JSBSim's wind itself."""
     w = where(r, rw)
     h = rw.heading_deg / DEGREES
     glidepath_m = (w.along_m + ap.aim_m) * math.tan(ap.glidepath_deg / DEGREES)
@@ -148,6 +167,14 @@ def observe(
     v_along = ve * math.sin(h) + vn * math.cos(h)
     v_across = ve * math.cos(h) - vn * math.sin(h)
     climb = -r[12] * FPS_TO_MPS
+    track = math.atan2(ve, vn)
+    drift = remainder(track - r[5], 2.0 * math.pi)
+    vt = r[16] * FPS_TO_MPS
+    air = r[5] + r[14]
+    wind_n = vn - vt * math.cos(air)
+    wind_e = ve - vt * math.sin(air)
+    wind_across = wind_e * math.cos(h) - wind_n * math.sin(h)
+    wind_along = wind_e * math.sin(h) + wind_n * math.cos(h)
     return [
         w.along_m / 1000.0,
         w.across_m / 30.0,
@@ -170,6 +197,10 @@ def observe(
         float(previous[1]),
         float(previous[2]),
         float(previous[3]),
+        drift,
+        wind_across / 5.0,
+        wind_along / 5.0,
+        integral / 300.0,
     ]
 
 
@@ -307,6 +338,7 @@ class Touch:
     across_m: float = 0.0
     along_m: float = 0.0  # from the threshold, positive down the runway
     pitch_deg: float = 0.0
+    heading_error_deg: float = 0.0  # from the runway's, at the touch
 
 
 @dataclass
@@ -359,4 +391,33 @@ def verification_starts() -> list[tuple[str, Start]]:
                     (name, Start(out_m=2.0 * METRES_PER_NM, across_m=across, high_m=high,
                                  crosswind_kts=wind))
                 )
+    return out
+
+
+def held_out_starts() -> list[tuple[str, Start]]:
+    """**The starts checkpoints are chosen on**, which are not the
+    verification's: forty drawn once, with their own seed, from gates between
+    1.6 and 2.4 miles out, up to 60 m off the centreline, 20 m off the
+    glidepath and 5 degrees off the heading, in a steady wind of up to fifteen
+    knots from anywhere with no more than five behind."""
+    import numpy as np
+
+    rng = np.random.default_rng(20260930)
+    out = []
+    while len(out) < 40:
+        speed = rng.uniform(0.0, 15.0)
+        towards = rng.uniform(0.0, 2.0 * np.pi)
+        cross, head = speed * np.sin(towards), speed * np.cos(towards)
+        if head < -5.0:
+            continue
+        s = Start(
+            out_m=float(rng.uniform(1.6, 2.4) * METRES_PER_NM),
+            across_m=float(rng.uniform(-60.0, 60.0)),
+            high_m=float(rng.uniform(-20.0, 20.0)),
+            heading_offset_deg=float(rng.uniform(-5.0, 5.0)),
+            crosswind_kts=float(cross),
+            headwind_kts=float(head),
+        )
+        out.append((f"held out {len(out):2d}: {s.out_m:4.0f} m out, across {s.across_m:+3.0f} m, "
+                    f"high {s.high_m:+3.0f} m, wind across {cross:+5.1f} kt, head {head:+5.1f} kt", s))
     return out

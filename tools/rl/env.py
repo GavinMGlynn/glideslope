@@ -49,8 +49,10 @@ class Flier:
         self.touch_agl_ft = 0.0
         self.t = 0.0
         self.readings = L.read(self.fdm)
-        self.phi = self.potential(self.readings, L.where(self.readings, self.rw))
-        return L.observe(self.readings, self.rw, self.ap, self.previous)
+        w = L.where(self.readings, self.rw)
+        self.phi = self.potential(self.readings, w)
+        self.integral = L.remember(0.0, w.across_m, self.ap)
+        return L.observe(self.readings, self.rw, self.ap, self.previous, self.integral)
 
     def potential(self, r: list[float], w: L.Where) -> float:
         """How well placed the aeroplane is, 0 at best: near the centreline,
@@ -94,6 +96,7 @@ class Flier:
                     across_m=w.across_m,
                     along_m=-w.along_m,
                     pitch_deg=r[4] * L.DEGREES,
+                    heading_error_deg=L.remainder(r[5] * L.DEGREES - self.rw.heading_deg, 360.0),
                 )
                 self.touch_time = self.t
                 self.touch_above_m = w.above_m
@@ -110,7 +113,8 @@ class Flier:
         r = L.read(self.fdm)
         self.readings = r
         w = L.where(r, self.rw)
-        obs = L.observe(r, self.rw, self.ap, a)
+        self.integral = L.remember(self.integral, w.across_m, self.ap)
+        obs = L.observe(r, self.rw, self.ap, a, self.integral)
         # Moving the controls about costs a little.
         reward -= 0.02 * sum((x - y) ** 2 for x, y in zip(a, self.previous))
         self.previous = a
@@ -150,6 +154,9 @@ class Flier:
         r = 40.0
         r += 40.0 * math.exp(-((t.sink_fpm / 250.0) ** 2)) - min(max(t.sink_fpm, 0.0), 1500.0) / 50.0
         r += 60.0 * math.exp(-((t.across_m / 4.0) ** 2)) - min(abs(t.across_m), 150.0) / 3.0
+        # The crab taken off before the wheels meet the runway: pointing down
+        # it, not sliding across it.
+        r -= 1.0 * min(abs(t.heading_error_deg), 15.0)
         # On the runway, and well past its threshold: a hundred metres in.
         # Short of it is off the runway, which is worse than any touch on it
         # and worse than going wrong in the air - the further short the worse.
@@ -175,9 +182,20 @@ def random_start(rng: np.random.Generator) -> L.Start:
         high_m=rng.uniform(-high_limit, high_limit),
         heading_offset_deg=rng.uniform(-8.0, 8.0),
         airspeed_kts=59.8 + rng.uniform(-3.0, 8.0),
-        crosswind_kts=rng.uniform(-13.0, 13.0),
-        headwind_kts=rng.uniform(-2.0, 8.0),
+        **wind(rng),
     )
+
+
+def wind(rng: np.random.Generator) -> dict[str, float]:
+    """A steady wind of up to fifteen knots from anywhere, but no more than
+    five knots of it behind - which is as much tailwind as a light
+    aeroplane's handbook lands with."""
+    while True:
+        speed = rng.uniform(0.0, 15.0)
+        towards = rng.uniform(0.0, 2.0 * np.pi)
+        cross, head = speed * np.sin(towards), speed * np.cos(towards)
+        if head >= -5.0:
+            return {"crosswind_kts": float(cross), "headwind_kts": float(head)}
 
 
 class LandingEnv(gym.Env):
