@@ -294,7 +294,12 @@ whose block does not decode (the tile test, "a height tile damaged ... fails
 its Adler-32 checksum", and the third-time test); the once-only guard gone
 (the third-time test, which recursed until it died, 26 s); `fetch_pinned`
 not checking a cached file (the pinned test, "a pinned file cut short is
-fetched again, once"). Windows: see below.
+fetched again, once"). **Windows debug** (`tools/windows_build.sh`, the
+development machine, at 9e46b48): the three new tests pass, and so do the
+eight download tests around them - the delete-pending, unshared and
+put-in-place ones among them; `many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole`
+passes with every write now flushed to the disk, in 13.7 s there (6.1 s on
+Linux debug).
 
 ### Each AI aircraft is planned by the model its server chooses, 2026-09-30 — item not done
 
