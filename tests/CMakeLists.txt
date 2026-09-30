@@ -2224,6 +2224,21 @@ add_test(NAME the_cli_prints_the_figures_jsbsim_read_from_the_cessna_172_files
         -DMODEL=c172p
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/aircraft_figures.cmake)
 
+# **The learnt landing is offered outside the tests' own code**: the CLI hands
+# the C172P to it at the gate, in a ten-knot crosswind, and it is landed and
+# stopped on the runway; an aircraft with no learnt landing is refused.
+add_test(NAME the_cli_hands_the_c172p_at_the_gate_to_the_learnt_landing_and_it_is_stopped_on_the_runway
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=land c172p --learnt --crosswind 10"
+        -DEXIT=0
+        "-DSTDOUT_MATCHES=c172p landed by the learnt landing from 2 nm.*touched down at [0-9]+ ft/min, [-+][0-9.]+ m across the centreline.*stopped [0-9]+ m past the threshold.*the learnt policy decided [1-9][0-9]+ times"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+add_test(NAME the_cli_refuses_a_learnt_landing_for_an_aircraft_that_has_none
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=land j3cub --learnt" -DEXIT=1
+        "-DSTDERR_MATCHES=j3cub has no learnt landing"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
 add_test(NAME the_cli_lists_the_aircraft_the_data_holds
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=aircraft -DEXIT=0

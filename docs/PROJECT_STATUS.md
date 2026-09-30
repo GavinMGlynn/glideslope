@@ -334,8 +334,17 @@ is checked against its pin each time it is read.
   from (kept outside the repository); exporting that checkpoint is
   deterministic and gives the file byte for byte - done again in this round,
   with only the header changing.
-- **Nothing outside the tests hands an aircraft to it.** No client or server
-  offers the learnt landing.
+- **No client or server offers it.** The CLI does, since the next
+  entry's round: `glideslope_cli land AIRCRAFT [--learnt] [--crosswind KTS]
+  [--across M] [--high M] [--fuel LBS]` hands the aircraft to the AI at the
+  two-mile gate - the approach autopilot, or with `--learnt` the learnt
+  landing, through `Controller` as any hand-over - over level ground at sea
+  level, and says where it touched and stopped, and how many times the
+  policy decided. `the_cli_hands_the_c172p_at_the_gate_to_the_learnt_landing_and_it_is_stopped_on_the_runway`
+  runs it in a ten-knot crosswind and requires the policy's decisions in
+  what it prints; seen to fail with the CLI handing to the approach
+  autopilot instead. `the_cli_refuses_a_learnt_landing_for_an_aircraft_that_has_none`
+  holds that the J-3 Cub, which has none, is refused.
 - **One aircraft, one runway geometry, steady winds**: the C172P, at sea
   level, no turbulence, gusts or shear.
 
