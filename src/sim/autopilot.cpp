@@ -605,6 +605,9 @@ Controls Autopilot::fly() {
     return c;
 }
 
+// In a steady turn with the integral at its limit, most_bank_integral_deg:
+// true below about 15 degrees of bank, within which the heading stays inside
+// bank_integral_within_deg and the integral winds (autopilot.hpp).
 double heading_off_for_bank_deg(double bank_deg) {
     const double beyond = std::max(std::abs(bank_deg) - most_bank_integral_deg, 0.0);
     return std::copysign(beyond / bank_per_degree, bank_deg);
