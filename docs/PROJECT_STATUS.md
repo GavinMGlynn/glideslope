@@ -232,6 +232,62 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The Learjet's stabilizer tied to her maintenance manual's travel, 2026-09-30 — tail not done
+
+**What is missing first: tied, she trims in cruise but rotates late, and
+`a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief` fails.**
+Her take-off had been leaning on the stabilizer's mis-tied zero. With the
+AFM's take-off setting now on the rigging's scale (3.6 degrees less nose up
+on the model's), the Learjet in that lesson leaves at 135 knots by the book
+(rotation speed 125) and at 130 rotated early - later than her rotation
+speed, so the early rotation is not a fault. In
+`every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early`
+she still passes, barely: 128.9 by the book (was 125.9), 125.7 rotated early
+(was 114.3), 3.2 knots sooner where three are asked. Not landable as it is:
+the model's ground rotation lacks about 3.6 degrees of stabilizer's worth of
+nose-up authority (0.13 of pitching moment at 125 knots), which the old zero
+supplied; the cause is not found. Candidates, all estimated in the script:
+the engines' thrust line (water line 22, some 50 in above the main wheels'
+contact), the centre of gravity's height, the tail in ground effect.
+
+**The cause of the tail.** The stabilizer's scale was the flight model's:
+zero where TN D-7647's pitching moment holds, the nose-down stop the tunnel
+aircraft's 0.4 degrees, and the AFM's take-off settings (degrees leading edge
+down from the rigging's neutral) read as if that neutral were the model's
+zero. From 250 to 350 knots JSBSim's trim found no setting on 20 of the 24
+cases below. The maintenance manual (Learjet 35/35A/36/36A MM 27-40-00,
+Adjustment/Test, and its figure 202) gives the travel: nose-down stop 1 deg
+30' to 1 deg 55' leading edge down from neutral, nose-up stop 8 deg 30' to 9
+deg 00', take-off limits 4 deg 39' to 7 deg 54' on the same scale.
+
+**What changed** (`tools/make_learjet35a.py`, its docstring says why). The
+stops are the manual's, the middles of its tolerances, 1.71 and 8.75 degrees,
+and the rigging's neutral is put 3.6 degrees nose up of the model's zero -
+estimated, since no source ties the two. Measured with the travel unbounded,
+the model trims from 1.81 degrees nose down of its zero (350 knots at 10,000
+ft, the light loading, aftmost at 28.8% of the chord) to 5.29 nose up (125
+knots, 40 degrees of flap, the stall-example loading at 18.4%): 7.1 degrees,
+against the manual's 7.04. At 3.6 the stops are +1.89 and -5.15 on the
+model's scale, holding all of it but the last 0.14 degrees on that approach.
+The take-off table is the AFM's setting less 3.6, over the nose-up half.
+
+**The test.** `the_learjet_35a_trims_level_from_250_to_350_knots_with_her_elevator_at_neutral`
+starts every loading her figures name (four) level at 250, 300 and 350 KCAS
+at 10,000 and 20,000 ft - 24 cases, counted and asserted; 350 knots at 20,000
+ft is Mach 0.77, inside her 0.81 - trims her with JSBSim on the pitch trim
+alone, the elevator left at neutral, then flies each thirty seconds hands off,
+wings held level: she must have trimmed, and hold her height within 100 ft
+and her speed within 3 knots. **Seen failing on the old model**: 20 of 24
+did not trim (all but 250 knots at the landing and stall-example loadings,
+which trimmed at +0.24 to +0.28 degrees against the 0.4 stop). Now all 24
+trim, the stabilizer at +0.20 to +1.81 degrees (pitch trim to 0.956 of its
+nose-down half, at 350 knots light), and hold their height within 12 ft and
+speed within 0.2 knots.
+
+**Unchanged**: the C172P's model is untouched, and the selftest's hash is
+d36123c1eecc3e23 twice on this build. The committed model is what its script
+writes.
+
 ### The copilot flies with you, on a server: asked on the player's machine, flown by the server, 2026-09-30 — item done
 
 **What is not done**: a client predicting its own aircraft does not know its

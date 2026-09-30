@@ -6,9 +6,13 @@
 #include "sim/test_pilot.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <iterator>
 #include <cstdio>
 #include <string>
 #include <utility>
+#include <vector>
 
 using glideslope::sim::Aircraft;
 using glideslope::sim::Controls;
@@ -208,4 +212,84 @@ GLIDESLOPE_TEST(the_speedbrake_lever_moves_the_spoilers) {
           "flight and ground spoilers out: " +
               std::to_string(a.property("fcs/speedbrake-pos-norm")) + ", " +
               std::to_string(a.property("fcs/spoiler-pos-norm")));
+}
+
+// **The Learjet 35A trims in cruise on her stabilizer**, the elevator left at
+// neutral. She trims by moving the whole horizontal stabilizer, and her
+// maintenance manual gives its travel (27-40-00): from 1 deg 30' to 1 deg 55'
+// leading edge down at the nose-down stop. Her model's nose-down stop had been
+// the tunnel aircraft's setting, 0.4 degrees, which is not tied to the zero of
+// the flight model's pitching moment, and it reached a fifth of what cruise
+// needs: from 250 to 350 knots JSBSim could not trim her on it, and a pilot
+// flying by hand held the stick forward. Here every loading her figures name
+// is started level at 250, 300 and 350 knots at 10,000 and 20,000 ft (350
+// knots at 20,000 ft is Mach 0.77, inside her 0.81), trimmed by JSBSim on her
+// pitch trim alone - the elevator stays where it starts, at neutral - and
+// then flown for thirty seconds hands off: the elevator at neutral, the
+// stabilizer where the trim left it, the wings held level. She must trim, and
+// hold her height within 100 ft and her speed within 3 knots.
+GLIDESLOPE_TEST(the_learjet_35a_trims_level_from_250_to_350_knots_with_her_elevator_at_neutral) {
+    const auto figures = glideslope::sim::read_published_figures(
+        std::string(GLIDESLOPE_TEST_FIGURES_DIR) + "/learjet35a.xml");
+    const double speeds_kts[] = {250.0, 300.0, 350.0};
+    const double heights_ft[] = {10000.0, 20000.0};
+    const std::size_t space = figures.loadings.size() * std::size(speeds_kts) * std::size(heights_ft);
+    std::size_t covered = 0;
+    std::vector<std::string> failed;
+    for (const auto& [name, loading] : figures.loadings) {
+        for (const double speed : speeds_kts) {
+            for (const double height : heights_ft) {
+                Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "learjet35a");
+                a.load(loading.loading);
+                InitialConditions ic;
+                ic.latitude_deg = -33.9;
+                ic.longitude_deg = 151.2;
+                ic.altitude_ft = height;
+                ic.terrain_elevation_ft = 0.0;
+                ic.airspeed_kts = speed;
+                ic.gear = 0.0;
+                ic.trim = true;
+                a.initialize(ic);
+                const std::string what = name + " at " + std::to_string(static_cast<int>(speed)) +
+                                         " kt and " + std::to_string(static_cast<int>(height)) + " ft";
+                ++covered;
+                const bool trimmed = a.trimmed();
+                Controls c;
+                c.gear = 0.0;
+                c.elevator = 0.0;
+                c.throttle = a.property("fcs/throttle-cmd-norm[0]");
+                c.pitch_trim = -a.property("fcs/pitch-trim-cmd-norm");
+                const double stabilizer = a.property("fcs/stabilizer-pos-rad") * 57.29577951308232;
+                const auto start = a.state();
+                TestPilot pilot(a);
+                double worst_height = 0.0;
+                double worst_speed = 0.0;
+                for (int i = 0; i < 30 * steps_per_second; ++i) {
+                    c.aileron = pilot.roll_to(0.0);
+                    a.set_controls(c);
+                    a.step();
+                    const auto s = a.state();
+                    worst_height = std::max(worst_height, std::abs(s.altitude_ft - start.altitude_ft));
+                    worst_speed = std::max(worst_speed, std::abs(s.airspeed_kts - start.airspeed_kts));
+                }
+                std::printf("%s: %s, pitch trim %.3f, stabilizer %+.2f deg, throttle %.2f; "
+                            "hands off for 30 s, height within %.0f ft, speed within %.1f kt\n",
+                            what.c_str(), trimmed ? "trimmed" : "NOT TRIMMED", c.pitch_trim,
+                            stabilizer, c.throttle, worst_height, worst_speed);
+                if (!trimmed || worst_height >= 100.0 || worst_speed >= 3.0) {
+                    failed.push_back(what);
+                }
+            }
+        }
+    }
+    std::string failures;
+    for (const std::string& what : failed) {
+        failures += "; " + what;
+    }
+    check(failed.empty(), std::to_string(failed.size()) +
+                              " cases did not trim, or did not hold height and speed hands off" + failures);
+    check(figures.loadings.size() == 4, "her figures name four loadings, not " +
+                                            std::to_string(figures.loadings.size()));
+    check(covered == space && space == 24,
+          "flown " + std::to_string(covered) + " of " + std::to_string(space) + " cases, of 24");
 }
