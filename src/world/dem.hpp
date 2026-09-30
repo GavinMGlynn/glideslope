@@ -36,6 +36,8 @@
 #include <filesystem>
 #include <list>
 #include <map>
+#include <optional>
+#include <set>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -109,12 +111,16 @@ public:
                                                               DemCell cell) = 0;
     // **A tile that could not be read whole** - cut short, or damaged so it
     // does not decode - taken away, so that the next open has it anew: true if
-    // it was, and the Dem opens it once more; false, the default, if these
-    // tiles have nowhere to have it anew from, and the Dem's query fails.
-    // Tiles fetched into a cache must not leave such a file there to fail
-    // every query for good.
-    virtual bool take_away(DemDataset dataset, DemCell cell);
-    virtual bool take_away_water_mask(DemDataset dataset, DemCell cell);
+    // the next open will, and the Dem opens it once more; false, the default,
+    // if these tiles have nowhere to have it anew from, and the Dem's query
+    // fails. Tiles fetched into a cache must not leave such a file there to
+    // fail every query for good. `read` is the identity of the file found
+    // wanting, if it was a file: one another has put in its place since is
+    // left there. Throws DemError if the file cannot be taken away.
+    virtual bool take_away(DemDataset dataset, DemCell cell,
+                           const std::optional<FileIdentity>& read);
+    virtual bool take_away_water_mask(DemDataset dataset, DemCell cell,
+                                      const std::optional<FileIdentity>& read);
 };
 
 // Tiles already in a directory, named <tile name>.tif, and their masks,
@@ -167,13 +173,13 @@ private:
     const Tile& tile(DemCell cell, Layer layer);
     // The tile's file opened and its layout read into `t`; throws DemError.
     void open_tile(Tile& t, DemCell cell);
-    // Whether the tile's file was taken away, to be opened anew: never one
-    // that was not opened. Lets go of `t`'s bytes.
-    bool take_away(Tile& t, DemCell cell);
-    // `anew` when the tile's file was taken away and had anew for this
-    // sample; it is not taken away a second time.
+    // The tile's file, found wanting as `why` says, taken away to be opened
+    // anew: never one that was not opened, and never one this Dem has taken
+    // away before - that throws DemError at once, saying it was had anew as
+    // it was. False if the tiles cannot have it anew. Lets go of `t`'s bytes.
+    bool take_away(Tile& t, DemCell cell, const std::string& why);
     float stored_sample(const Tile& tile, DemCell cell, std::int64_t row,
-                        std::int64_t column, bool anew = false);
+                        std::int64_t column);
     double sample(DemCell cell, std::int64_t row, std::int64_t column, int depth);
     double at_units(std::int64_t latitude, std::int64_t longitude, int depth);
     double interpolate(DemCell cell, double row, double column, int depth);
@@ -190,6 +196,10 @@ private:
     };
     std::map<TileKey, Tile> tile_cache_;
     std::list<TileKey> tile_order_; // most recently used first
+    // **Tiles this Dem has taken away and had anew**, for as long as it lives:
+    // one found wanting again - bad where it is fetched from - fails every
+    // query of it at once, rather than being fetched again for each.
+    std::set<TileKey> taken_away_;
 
     struct BlockKey {
         int latitude;

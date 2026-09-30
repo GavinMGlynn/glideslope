@@ -571,7 +571,7 @@ Found while implementing something else. Added when found, not when remembered.
       cached tile cut short, or damaged, is fetched again and read whole.*
       Done 2026-09-30: downloads reach the disk before they take their name,
       and a cached tile, water mask or pinned file that cannot be read whole
-      is taken away and fetched again, once.
+      is taken away and fetched again - a tile once, not on every query.
 - [x] **Over a network a client's own aircraft is corrected by metres**, because
       the server does not say how far into its latest input it had flown.
       *Verification: through 200 ms with jitter and loss, the worst prediction

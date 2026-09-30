@@ -186,8 +186,10 @@ public:
 
     // The tile's file taken out of the cache, so the next open fetches it
     // again: always true. Throws DemError if it is there and cannot be moved.
-    bool take_away(DemDataset dataset, DemCell cell) override;
-    bool take_away_water_mask(DemDataset dataset, DemCell cell) override;
+    bool take_away(DemDataset dataset, DemCell cell,
+                   const std::optional<FileIdentity>& read) override;
+    bool take_away_water_mask(DemDataset dataset, DemCell cell,
+                              const std::optional<FileIdentity>& read) override;
 
     // Files fetched, rather than found in the cache, since construction.
     int downloads() const {

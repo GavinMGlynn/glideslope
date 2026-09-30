@@ -48,6 +48,11 @@ bool passes(DWORD error) {
            error == ERROR_DELETE_PENDING;
 }
 
+FileIdentity identity_from(const BY_HANDLE_FILE_INFORMATION& info) {
+    return {info.dwVolumeSerialNumber,
+            (std::uint64_t{info.nFileIndexHigh} << 32) | info.nFileIndexLow};
+}
+
 bool not_there(DWORD error) {
     return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ||
            error == ERROR_INVALID_NAME || error == ERROR_BAD_NETPATH;
@@ -119,8 +124,14 @@ FileSource::FileSource(const std::filesystem::path& path) : path_(path) {
         CloseHandle(h);
         throw ByteSourceError("cannot find the size of " + path.string());
     }
+    BY_HANDLE_FILE_INFORMATION info{};
+    if (!GetFileInformationByHandle(h, &info)) {
+        CloseHandle(h);
+        throw ByteSourceError("cannot tell which file " + path.string() + " is");
+    }
     file_ = reinterpret_cast<std::intptr_t>(h);
     size_ = static_cast<std::uint64_t>(size.QuadPart);
+    identity_ = identity_from(info);
 }
 
 FileSource::~FileSource() {
@@ -183,11 +194,17 @@ void write_durably(const std::filesystem::path& path, std::span<const std::uint8
         const auto want = static_cast<DWORD>(
             std::min<std::size_t>(bytes.size() - done, std::size_t{1} << 30));
         DWORD wrote = 0;
-        if (!WriteFile(h, bytes.data() + done, want, &wrote, nullptr) || wrote == 0) {
+        if (!WriteFile(h, bytes.data() + done, want, &wrote, nullptr)) {
             const DWORD error = GetLastError();
             CloseHandle(h);
             throw ByteSourceError("cannot write " + path.string() + ": Windows error " +
                                   std::to_string(error));
+        }
+        if (wrote == 0) {
+            CloseHandle(h);
+            throw ByteSourceError("cannot write " + path.string() + ": Windows wrote " +
+                                  "nothing of the " + std::to_string(bytes.size() - done) +
+                                  " bytes left, and said no error");
         }
         done += wrote;
     }
@@ -203,7 +220,78 @@ void write_durably(const std::filesystem::path& path, std::span<const std::uint8
     }
 }
 
+
+std::optional<FileIdentity> identity_of(const std::filesystem::path& path) {
+    HANDLE h = INVALID_HANDLE_VALUE;
+    const Settled s = settle([&]() -> DWORD {
+        h = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                        OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+        return h != INVALID_HANDLE_VALUE ? DWORD{0} : GetLastError();
+    });
+    if (s.error != 0) {
+        if (not_there(s.error)) {
+            return std::nullopt;
+        }
+        throw ByteSourceError("cannot tell which file " + path.string() + " is: " +
+                              s.said());
+    }
+    BY_HANDLE_FILE_INFORMATION info{};
+    const bool told = GetFileInformationByHandle(h, &info) != 0;
+    CloseHandle(h);
+    if (!told) {
+        throw ByteSourceError("cannot tell which file " + path.string() + " is");
+    }
+    return identity_from(info);
+}
+
+namespace {
+// `path` renamed to `aside`: true, or false if nothing is at `path`. A
+// refusal that passes is waited out, as every move here waits it out.
+bool rename_aside(const std::filesystem::path& path, const std::filesystem::path& aside) {
+    const Settled s = settle([&]() -> DWORD {
+        return MoveFileExW(path.c_str(), aside.c_str(), MOVEFILE_WRITE_THROUGH)
+                   ? DWORD{0}
+                   : GetLastError();
+    });
+    if (s.error == 0) {
+        return true;
+    }
+    if (not_there(s.error)) {
+        return false;
+    }
+    throw ByteSourceError("cannot take " + path.string() + " away: " + s.said());
+}
+} // namespace
+
 #else
+
+std::optional<FileIdentity> identity_of(const std::filesystem::path& path) {
+    struct stat st{};
+    if (::stat(path.c_str(), &st) != 0) {
+        const int error = errno;
+        if (error == ENOENT || error == ENOTDIR) {
+            return std::nullopt;
+        }
+        throw ByteSourceError("cannot tell which file " + path.string() + " is: " +
+                              std::strerror(error));
+    }
+    return FileIdentity{static_cast<std::uint64_t>(st.st_dev),
+                        static_cast<std::uint64_t>(st.st_ino)};
+}
+
+namespace {
+bool rename_aside(const std::filesystem::path& path, const std::filesystem::path& aside) {
+    if (::rename(path.c_str(), aside.c_str()) == 0) {
+        return true;
+    }
+    const int error = errno;
+    if (error == ENOENT) {
+        return false;
+    }
+    throw ByteSourceError("cannot take " + path.string() + " away: " + std::strerror(error));
+}
+} // namespace
 
 bool file_is_there(const std::filesystem::path& path) {
     std::error_code error;
@@ -230,6 +318,7 @@ FileSource::FileSource(const std::filesystem::path& path) : path_(path) {
     }
     file_ = fd;
     size_ = static_cast<std::uint64_t>(st.st_size);
+    identity_ = {static_cast<std::uint64_t>(st.st_dev), static_cast<std::uint64_t>(st.st_ino)};
 }
 
 FileSource::~FileSource() {
@@ -256,7 +345,14 @@ void write_durably(const std::filesystem::path& path, std::span<const std::uint8
         }
         done += static_cast<std::size_t>(wrote);
     }
-    if (::fsync(fd) != 0) {
+#if defined(__APPLE__)
+    // Apple's fsync reaches the drive but not past its own cache; F_FULLFSYNC
+    // asks the drive to write that too, and a filesystem that cannot is fsynced.
+    const bool flushed = ::fcntl(fd, F_FULLFSYNC) == 0 || ::fsync(fd) == 0;
+#else
+    const bool flushed = ::fsync(fd) == 0;
+#endif
+    if (!flushed) {
         const int error = errno;
         ::close(fd);
         throw ByteSourceError("cannot flush " + path.string() + " to the disk: " +
@@ -361,19 +457,21 @@ bool move_into_place_unless_there(const std::filesystem::path& from,
 
 #endif
 
-bool take_away(const std::filesystem::path& path) {
+bool take_away(const std::filesystem::path& path, const std::optional<FileIdentity>& read) {
+    if (read) {
+        const std::optional<FileIdentity> there = identity_of(path);
+        if (!there || *there != *read) {
+            return false;
+        }
+    }
     static std::atomic<unsigned long long> taken{0};
     std::filesystem::path aside = path;
     aside += ".taken-away." + std::to_string(std::random_device{}()) + "-" +
              std::to_string(taken++);
-    std::error_code error;
-    std::filesystem::rename(path, aside, error);
-    if (error) {
-        if (!file_is_there(path)) {
-            return false;
-        }
-        throw ByteSourceError("cannot take " + path.string() + " away: " + error.message());
+    if (!rename_aside(path, aside)) {
+        return false;
     }
+    std::error_code error;
     std::filesystem::remove(aside, error);
     return true;
 }

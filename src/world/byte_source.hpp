@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -15,6 +16,16 @@ struct ByteSourceError : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+// **Which file a name held**: its device, or volume, and its number on it -
+// st_dev and st_ino on POSIX, the volume serial number and file index on
+// Windows. Two names with one identity are one file; a file moved into place
+// over a name gives the name another.
+struct FileIdentity {
+    std::uint64_t device = 0;
+    std::uint64_t file = 0;
+    bool operator==(const FileIdentity&) const = default;
+};
+
 // Where a file's bytes come from: a file on disk, memory, or later a download.
 class ByteSource {
 public:
@@ -23,6 +34,10 @@ public:
     // Fills `out` from `offset`. Throws ByteSourceError if that runs past the end
     // or the read fails.
     virtual void read(std::uint64_t offset, std::span<std::uint8_t> out) const = 0;
+    // The file read, if the bytes are a file's.
+    virtual std::optional<FileIdentity> identity() const {
+        return std::nullopt;
+    }
 };
 
 // A file on disk, read at any offset from any thread.
@@ -44,12 +59,16 @@ public:
 
     std::uint64_t size() const override;
     void read(std::uint64_t offset, std::span<std::uint8_t> out) const override;
+    std::optional<FileIdentity> identity() const override {
+        return identity_;
+    }
 
 private:
     std::filesystem::path path_;
     // A HANDLE on Windows, a file descriptor elsewhere.
     std::intptr_t file_ = -1;
     std::uint64_t size_ = 0;
+    FileIdentity identity_;
 };
 
 // **How long a refusal that passes is asked again**, a millisecond apart - or
@@ -121,7 +140,8 @@ bool move_into_place_unless_there(const std::filesystem::path& from,
 
 // **`bytes` written to `path`, and on the disk before this returns**: the
 // file made or emptied, written, and flushed through the operating system's
-// cache - fsync on POSIX, FlushFileBuffers on Windows. A file moved into place
+// cache - fsync on POSIX (F_FULLFSYNC on Apple's, whose fsync leaves the data
+// in the drive's own cache), FlushFileBuffers on Windows. A file moved into place
 // after this is whole after a power cut too: without it, the rename can reach
 // the disk before the data does, and a cache is left holding a file cut short
 // under its final name. Throws ByteSourceError if any of it fails.
@@ -130,11 +150,25 @@ void write_durably(const std::filesystem::path& path, std::span<const std::uint8
 // **The file at `path` taken away, its name free at once**: renamed to a name
 // of its own beside it and that removed, so on Windows a reader still holding
 // it (FileSource shares deletion) does not leave the name delete-pending for
-// the fetch that follows. True if it was taken away; false if nothing was
-// there - another took it first. Throws ByteSourceError if it is there and
-// cannot be moved. A renamed file that cannot then be removed is left under
-// its own name, which nothing asks for.
-bool take_away(const std::filesystem::path& path);
+// the fetch that follows. On Windows a refusal that passes is waited out, as
+// every move here waits it out.
+//
+// **Only the file that was read**: given `read`, the identity of the file
+// found wanting, a file at the name that is another - put in place by another
+// process that found the same file wanting and fetched it again first - is
+// left where it is. What remains is the moment between looking and renaming:
+// a file put in place in it is taken away, and fetched again.
+//
+// True if a file was taken away; false if nothing was there, or another file
+// than `read` is. Throws ByteSourceError if the file is there and cannot be
+// moved. A renamed file that cannot then be removed is left under its own
+// name, which nothing asks for.
+bool take_away(const std::filesystem::path& path,
+               const std::optional<FileIdentity>& read = std::nullopt);
+
+// The identity of the file at `path`, or nothing if nothing is there. Throws
+// ByteSourceError if it cannot be told.
+std::optional<FileIdentity> identity_of(const std::filesystem::path& path);
 
 class MemorySource : public ByteSource {
 public:

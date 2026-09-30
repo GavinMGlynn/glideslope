@@ -183,11 +183,12 @@ std::shared_ptr<const ByteSource> DirectoryTiles::open_water_mask(DemDataset dat
     return open_file(directory_ / (dem_water_mask_name(dataset, cell) + ".tif"));
 }
 
-bool DemTiles::take_away(DemDataset, DemCell) {
+bool DemTiles::take_away(DemDataset, DemCell, const std::optional<FileIdentity>&) {
     return false;
 }
 
-bool DemTiles::take_away_water_mask(DemDataset, DemCell) {
+bool DemTiles::take_away_water_mask(DemDataset, DemCell,
+                                    const std::optional<FileIdentity>&) {
     return false;
 }
 
@@ -230,16 +231,31 @@ void Dem::open_tile(Tile& t, DemCell cell) {
     }
 }
 
-bool Dem::take_away(Tile& t, DemCell cell) {
+bool Dem::take_away(Tile& t, DemCell cell, const std::string& why) {
     // A file that could not be had is not taken away: fetching it failed, and
     // what is in the cache, if anything, was never read.
     if (!t.opened) {
         return false;
     }
+    const TileKey key{cell.latitude, cell.longitude, t.layer};
+    if (taken_away_.contains(key)) {
+        throw DemError(why + ", and it was had anew as it was");
+    }
     // Let go first, so nothing of this Dem's holds the file as it goes.
+    const std::optional<FileIdentity> read = t.bytes ? t.bytes->identity() : std::nullopt;
     t.bytes.reset();
-    return t.layer == Layer::heights ? tiles_.take_away(t.dataset, cell)
-                                     : tiles_.take_away_water_mask(t.dataset, cell);
+    bool taken = false;
+    try {
+        taken = t.layer == Layer::heights
+                    ? tiles_.take_away(t.dataset, cell, read)
+                    : tiles_.take_away_water_mask(t.dataset, cell, read);
+    } catch (const DemError& e) {
+        throw DemError(why + "; and it cannot be taken away: " + e.what());
+    }
+    if (taken) {
+        taken_away_.insert(key);
+    }
+    return taken;
 }
 
 void Dem::forget_blocks(const TileKey& key) {
@@ -273,12 +289,16 @@ const Dem::Tile& Dem::tile(DemCell cell, Layer layer) {
     } else {
         try {
             open_tile(t, cell);
-        } catch (const DemError&) {
+        } catch (const DemError& e) {
             // Cut short or damaged, perhaps: had anew, once, if it can be.
-            if (!take_away(t, cell)) {
+            if (!take_away(t, cell, e.what())) {
                 throw;
             }
-            open_tile(t, cell);
+            try {
+                open_tile(t, cell);
+            } catch (const DemError& again) {
+                throw DemError(std::string(again.what()) + ", and it was had anew as it was");
+            }
         }
     }
     if (tile_cache_.size() >= max_tiles) {
@@ -292,7 +312,7 @@ const Dem::Tile& Dem::tile(DemCell cell, Layer layer) {
 }
 
 float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
-                         std::int64_t column, bool anew) {
+                         std::int64_t column) {
     if (t.dataset == DemDataset::none) {
         return 0.0f;
     }
@@ -311,21 +331,19 @@ float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
                                          ? dem_tile_name(t.dataset, cell)
                                          : dem_water_mask_name(t.dataset, cell)) +
                                     ": " + e.what();
-            if (anew) {
-                throw DemError(why + ", had anew as it was");
-            }
             // Damaged, perhaps: the tile had anew, once, if it can be, with
             // every block read from the old file forgotten. `t` is the cached
-            // tile, and goes with it.
+            // tile, and goes with it. Taken away before, it is not again
+            // (take_away throws), so this recurses once at most.
             const TileKey tile_key{cell.latitude, cell.longitude, t.layer};
             Tile gone = std::move(tile_cache_.at(tile_key));
             tile_cache_.erase(tile_key);
             tile_order_.remove(tile_key);
             forget_blocks(tile_key);
-            if (!take_away(gone, cell)) {
+            if (!take_away(gone, cell, why)) {
                 throw DemError(why);
             }
-            return stored_sample(tile(cell, gone.layer), cell, row, column, true);
+            return stored_sample(tile(cell, gone.layer), cell, row, column);
         }
         if (block_cache_.size() >= max_blocks) {
             block_cache_.erase(block_order_.back());
