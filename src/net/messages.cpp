@@ -121,6 +121,7 @@ bool known_message(std::uint8_t kind) {
     case Message::watch:
     case Message::controller_swap:
     case Message::weather_aloft:
+    case Message::copilot_route:
         return true;
     }
     return false;
@@ -438,6 +439,84 @@ bool read(std::span<const std::uint8_t> body, ControllerSwap& out) {
     }
     got.to = static_cast<Controller>(to);
     got.at_simulation_time_s = r.f64();
+    if (!r.done()) {
+        return false;
+    }
+    out = std::move(got);
+    return true;
+}
+
+// ---- a copilot's route --------------------------------------------------
+
+std::vector<std::uint8_t> write(const CopilotRoute& m) {
+    Writer w = begin_message(Message::copilot_route);
+    w.u8(m.aircraft);
+    w.u8(m.glide_kts ? 1u : 0u);
+    w.f64(m.glide_kts ? *m.glide_kts : 0.0);
+    w.u8(static_cast<std::uint8_t>(m.waypoints.size()));
+    for (const RouteWaypoint& p : m.waypoints) {
+        w.text(p.name);
+        w.f64(p.latitude_deg);
+        w.f64(p.longitude_deg);
+        w.f64(p.altitude_ft);
+        w.f64(p.airspeed_kts);
+        w.u8(p.orbit ? 1u : 0u);
+        if (p.orbit) {
+            w.f64(p.orbit->radius_m);
+            w.u8(p.orbit->turns);
+            w.u8(p.orbit->right ? 1u : 0u);
+        }
+    }
+    return w.take();
+}
+
+bool read(std::span<const std::uint8_t> body, CopilotRoute& out) {
+    bool is_kind = false;
+    MessageReader r = after_kind(body, Message::copilot_route, is_kind);
+    if (!is_kind) {
+        return false;
+    }
+    CopilotRoute got;
+    got.aircraft = r.u8();
+    const std::uint8_t gliding = r.u8();
+    const double glide = r.f64();
+    // The glide's airspeed is nought when there is no glide: a field nobody
+    // reads is a field that can carry anything.
+    if (!r.ok() || gliding > 1 || (gliding == 0 && glide != 0.0)) {
+        return false;
+    }
+    if (gliding == 1) {
+        got.glide_kts = glide;
+    }
+    bool ok = true;
+    const std::size_t n = count(r, most_route_waypoints, ok);
+    if (!ok || n == 0) {
+        return false;
+    }
+    for (std::size_t i = 0; i < n; ++i) {
+        RouteWaypoint p;
+        p.name = r.text(most_waypoint_name_bytes);
+        p.latitude_deg = r.f64();
+        p.longitude_deg = r.f64();
+        p.altitude_ft = r.f64();
+        p.airspeed_kts = r.f64();
+        const std::uint8_t orbit = r.u8();
+        if (!r.ok() || orbit > 1) {
+            return false;
+        }
+        if (orbit == 1) {
+            RouteWaypoint::Orbit o;
+            o.radius_m = r.f64();
+            o.turns = r.u8();
+            const std::uint8_t right = r.u8();
+            if (!r.ok() || right > 1) {
+                return false;
+            }
+            o.right = right == 1;
+            p.orbit = o;
+        }
+        got.waypoints.push_back(std::move(p));
+    }
     if (!r.done()) {
         return false;
     }

@@ -17,7 +17,9 @@
 #include "flight.hpp"
 #include "net/inputs.hpp"
 #include "net/interpolation.hpp"
+#include "net/messages.hpp"
 #include "net/session.hpp"
+#include "net/state.hpp"
 #include "sim/aircraft.hpp"
 
 #include <array>
@@ -25,6 +27,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <utility>
 #include <string>
 #include <thread>
 #include <vector>
@@ -145,6 +148,16 @@ public:
     // is; taken back, the flight is put where the next update says and
     // predicted again from there.
     void hand_over(bool to_ai);
+    // **Its copilot's route** (`COPILOT_ROUTE`) for its own aircraft: the
+    // model was asked on this machine, with the player's key; only the route
+    // goes. The server checks it, and flies it with its AI - handing the
+    // aircraft over first if the player was flying it - or refuses it.
+    void send_route(net::CopilotRoute route);
+    // Its own aircraft as the newest update had it, and that update's time
+    // on the session's clock: what its copilot is told.
+    const std::optional<std::pair<double, net::AircraftState>>& own_heard() const {
+        return own_heard_;
+    }
     // Who the server said flies it changed since last asked: the caller draws
     // a frame of the switch, and says so.
     bool switched() {
@@ -269,6 +282,7 @@ private:
     bool corrected_ = false;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;
+    std::optional<std::pair<double, net::AircraftState>> own_heard_;
 };
 
 // A state update's own motion, as the simulation takes it.

@@ -19,8 +19,8 @@
 # Cronulla; the engine stops 90 s in. The copilot must glide - an answer
 # with `glide` in it - and the aircraft come within 1.5 km of a runway's
 # threshold that was within 40 km when it stopped, more than 300 ft above the
-# ground there, holding its glide's airspeed within a 10 kt band from 45 s
-# after the glide began, and come down to 300 ft above the ground within 3 km of
+# ground there, holding the glide's airspeed the copilot asked for within 5 kt
+# from 45 s after the glide began, and come down to 300 ft above the ground within 3 km of
 # one - over the airport, not short of it.
 #
 # In each, nothing wrecked, and the copilot asked more than once.
@@ -70,7 +70,14 @@ execute_process(
     COMMAND "${CLI}" --data "${DATA}" fly-copilot c172p ${_flight} --provider ${PROVIDER} ${_how}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 glideslope_skip_when_not_downloaded("${_rc}" "${_err}" "cannot download|no network")
-if(NOT _rc EQUAL 0)
+# **A flight played back that went another way** ends where the recording has
+# no answer for it (exit 3), saying what it measured till then: the checks
+# below are made of that first, so that a flight gone wrong fails on what went
+# wrong, and then it fails for the recording.
+set(_went_another_way FALSE)
+if(_rc EQUAL 3 AND DEFINED PLAYBACK)
+    set(_went_another_way TRUE)
+elseif(NOT _rc EQUAL 0)
     if(NOT DEFINED PLAYBACK AND _err MATCHES "no (OpenAI|Anthropic) key|no credits|credit balance|insufficient_quota")
         message(STATUS "${PROVIDER} cannot be asked here: ${_err}")
         cmake_language(EXIT 77)
@@ -106,8 +113,24 @@ if(SCENARIO STREQUAL "coast")
     message(STATUS "came to Cronulla with the coast within 1 km in ${_seen} of ${_looks} looks, "
                    "and never more than ${_farthest} m from it")
 else()
-    if(NOT _out MATCHES "gliding at [0-9]+ kt")
+    if(NOT _out MATCHES "gliding at ([0-9]+) to ([0-9]+) kt from 45 s after the glide began")
+        message(FATAL_ERROR "no glide was held:\n${_out}")
+    endif()
+    set(_slowest "${CMAKE_MATCH_1}")
+    set(_fastest "${CMAKE_MATCH_2}")
+    # **The glide is the airspeed the copilot asked for**, within 5 kt - not
+    # merely a steady one. With the engine stopped and no glide flown, the
+    # autopilot's least speed for a descent held 67 to 72 kt, steady but not
+    # the 60 asked for.
+    if(NOT _out MATCHES "answered, [0-9]+ s in: a route of [0-9]+,[^\n]*, gliding at ([0-9]+) kt")
         message(FATAL_ERROR "the copilot never glided:\n${_out}")
+    endif()
+    set(_asked "${CMAKE_MATCH_1}")
+    math(EXPR _low "${_asked} - 5")
+    math(EXPR _high "${_asked} + 5")
+    if(_slowest LESS _low OR _fastest GREATER _high)
+        message(FATAL_ERROR "the glide from ${_slowest} to ${_fastest} kt, not within 5 kt of "
+                            "the ${_asked} kt asked for:\n${_out}")
     endif()
     if(NOT _out MATCHES "nearest ([A-Z0-9]+ [0-9A-Z]+)'s threshold, ([0-9]+) m from it at ([-0-9]+) ft above the ground")
         message(FATAL_ERROR "the engine stopped near no runway:\n${_out}")
@@ -128,16 +151,11 @@ else()
         message(FATAL_ERROR "down to 300 ft above the ground ${_down} m from the nearest "
                             "threshold, more than 3 km:\n${_out}")
     endif()
-    if(NOT _out MATCHES "gliding at ([0-9]+) to ([0-9]+) kt from 45 s after the glide began")
-        message(FATAL_ERROR "no glide was held:\n${_out}")
-    endif()
-    math(EXPR _band "${CMAKE_MATCH_2} - ${CMAKE_MATCH_1}")
-    if(_band GREATER 10)
-        message(FATAL_ERROR "the glide from ${CMAKE_MATCH_1} to ${CMAKE_MATCH_2} kt, not "
-                            "within 10 kt:\n${_out}")
-    endif()
     message(STATUS "glided to ${_field}, ${_off} m from its threshold at ${_above} ft above "
-                   "the ground, at ${CMAKE_MATCH_1} to ${CMAKE_MATCH_2} kt, and down to 300 ft "
+                   "the ground, at ${_slowest} to ${_fastest} kt, and down to 300 ft "
                    "above the ground ${_down} m from a threshold")
+endif()
+if(_went_another_way)
+    message(FATAL_ERROR "the flight went another way than the one recorded:\n${_out}\n${_err}")
 endif()
 message(STATUS "${_out}")

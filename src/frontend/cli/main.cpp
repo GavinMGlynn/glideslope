@@ -6,6 +6,7 @@
 
 #include "copilot/planner.hpp"
 #include "frontend/cli/fly_copilot.hpp"
+#include "frontend/players_copilot.hpp"
 #include "copilot/provider.hpp"
 #include "net/handshake.hpp"
 #include "platform/end_process.hpp"
@@ -73,6 +74,56 @@
 #include <vector>
 
 namespace {
+
+// **A player's copilot, asked by this client** (`connect ... --copilot`):
+// the model asked here, with the player's key, and only the route it answers
+// sent to the server (`COPILOT_ROUTE`). Set from the command line; the
+// connection it rides is in `stay`.
+struct ConnectCopilot {
+    std::optional<glideslope::frontend::PlayersCopilotOptions> options;
+    double at_s = 0.0;   // asked when the session's clock reaches this
+    int answers = 1;     // leaves once this many are answered...
+    double stay_s = 60.0; // ...and this long after the last route sent
+    std::string route_file; // or, sent as it is: a route the model never saw
+    std::unique_ptr<glideslope::frontend::PlayersCopilot> seat;
+    bool asked = false;
+    bool route_sent = false;
+    std::optional<double> sent_at_s;
+    bool done = false;
+};
+ConnectCopilot connect_copilot;
+
+// A route written as a plan's `waypoint` and `orbit` lines, with `glide KT`
+// first if it glides, read as it is - checked by nothing on this side.
+glideslope::net::CopilotRoute route_from_file(const std::string& file) {
+    std::ifstream in(file, std::ios::binary);
+    if (!in) {
+        throw std::runtime_error("cannot read " + file);
+    }
+    std::string text(std::istreambuf_iterator<char>(in), {});
+    glideslope::net::CopilotRoute route;
+    if (text.rfind("glide ", 0) == 0) {
+        const auto end = text.find('\n');
+        route.glide_kts = std::strtod(text.substr(6, end - 6).c_str(), nullptr);
+        text = end == std::string::npos ? std::string() : text.substr(end + 1);
+    }
+    const glideslope::sim::FlightPlan plan =
+        glideslope::sim::parse_flight_plan("aircraft any\nstart 0 0 0 0 1\n" + text);
+    for (const glideslope::sim::Waypoint& w : plan.waypoints) {
+        glideslope::net::RouteWaypoint p;
+        p.name = w.name;
+        p.latitude_deg = w.latitude_deg;
+        p.longitude_deg = w.longitude_deg;
+        p.altitude_ft = w.altitude_ft;
+        p.airspeed_kts = w.airspeed_kts;
+        if (w.orbit) {
+            p.orbit = glideslope::net::RouteWaypoint::Orbit{
+                w.orbit->radius_m, static_cast<std::uint8_t>(w.orbit->turns), w.orbit->right};
+        }
+        route.waypoints.push_back(p);
+    }
+    return route;
+}
 
 void print_usage(std::FILE* out) {
     std::fputs(
@@ -2076,6 +2127,11 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (until_flying_again > 0 && flown_again >= until_flying_again) {
             break;
         }
+        // **Stay until the copilot's route has been flown a while**
+        // (`--copilot`, `--send-route`), on the session's clock.
+        if (connect_copilot.done) {
+            break;
+        }
         // **Stay until its aircraft has rolled past 90 degrees**
         // (`--stall-once-rolled`, in the session it joins again): what a test
         // waits for to know it flew again, SECONDS only the most.
@@ -2351,6 +2407,47 @@ int stay(glideslope::platform::UdpSocket& socket,
             if (newest_state) {
                 applied = state->last_input_applied;
                 mine = state->your_aircraft;
+            }
+            // **Its copilot, asked here and answered as a route sent** - or a
+            // route read from a file, sent as it is.
+            ConnectCopilot& cc = connect_copilot;
+            if (newest_state && mine != glideslope::net::no_aircraft &&
+                (cc.seat || !cc.route_file.empty())) {
+                const double now_s = state->simulation_time_s;
+                const auto send_route = [&](glideslope::net::CopilotRoute route) {
+                    route.aircraft = mine;
+                    const std::vector<std::uint8_t> body = glideslope::net::write(route);
+                    (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                    cc.sent_at_s = now_s;
+                    say_heard("sent its copilot's route of " + std::to_string(route.waypoints.size()) +
+                              " at " + std::to_string(std::llround(now_s)) + " s");
+                };
+                for (const glideslope::net::AircraftState& a : state->aircraft) {
+                    if (a.index != mine || now_s < cc.at_s) {
+                        continue;
+                    }
+                    if (!cc.route_file.empty() && !cc.route_sent) {
+                        cc.route_sent = true;
+                        send_route(route_from_file(cc.route_file));
+                    }
+                    if (cc.seat) {
+                        if (!cc.asked) {
+                            cc.asked = true;
+                            cc.seat->ask();
+                        }
+                        const auto route = cc.seat->look(now_s, a);
+                        for (const std::string& line : cc.seat->said()) {
+                            say_heard(line);
+                        }
+                        if (route) {
+                            send_route(*route);
+                        }
+                    }
+                }
+                const bool all_answered = !cc.seat || cc.seat->answers() >= cc.answers;
+                if (all_answered && cc.sent_at_s && now_s - *cc.sent_at_s >= cc.stay_s) {
+                    cc.done = true;
+                }
             }
             // The AI aircraft it would take over: the one it watches, or else
             // the first the AI flies - or the one it is told, whoever's.
@@ -3336,6 +3433,64 @@ static int run_program(int argc, char** argv) {
                     predict = true;
                     continue;
                 }
+                // **Its copilot** (`--copilot AIRCRAFT TASK`), asked with the
+                // player's own key; `--copilot-provider`, `--copilot-model`,
+                // `--copilot-record FILE` or `--copilot-playback FILE`,
+                // `--copilot-at S` on the session's clock, `--copilot-answers N`
+                // and `--copilot-stay S` after the last route sent.
+                if (args[i] == "--copilot" && i + 2 < args.size()) {
+                    glideslope::frontend::PlayersCopilotOptions c;
+                    if (connect_copilot.options) {
+                        c = *connect_copilot.options;
+                    }
+                    c.aircraft = std::string(args[i + 1]);
+                    c.task = std::string(args[i + 2]);
+                    connect_copilot.options = c;
+                    i += 2;
+                    continue;
+                }
+                if (args[i].starts_with("--copilot-") && i + 1 < args.size()) {
+                    const std::string v(args[i + 1]);
+                    const bool of_the_model = args[i] == "--copilot-provider" ||
+                                              args[i] == "--copilot-model" ||
+                                              args[i] == "--copilot-record" ||
+                                              args[i] == "--copilot-playback";
+                    if (of_the_model && !connect_copilot.options) {
+                        connect_copilot.options.emplace();
+                    }
+                    glideslope::frontend::PlayersCopilotOptions scratch;
+                    glideslope::frontend::PlayersCopilotOptions& c =
+                        of_the_model ? *connect_copilot.options : scratch;
+                    if (args[i] == "--copilot-provider") {
+                        c.provider = v;
+                    } else if (args[i] == "--copilot-model") {
+                        c.model = v;
+                    } else if (args[i] == "--copilot-record") {
+                        c.record = v;
+                    } else if (args[i] == "--copilot-playback") {
+                        c.playback = v;
+                    } else if (args[i] == "--copilot-at") {
+                        connect_copilot.at_s = std::strtod(v.c_str(), nullptr);
+                    } else if (args[i] == "--copilot-answers") {
+                        connect_copilot.answers = std::atoi(v.c_str());
+                    } else if (args[i] == "--copilot-stay") {
+                        connect_copilot.stay_s = std::strtod(v.c_str(), nullptr);
+                    } else {
+                        std::fprintf(stderr, "glideslope_cli: what is %s?\n",
+                                     std::string(args[i]).c_str());
+                        return 2;
+                    }
+                    ++i;
+                    continue;
+                }
+                // **A route sent as it is** (`--send-route FILE`), at
+                // `--copilot-at`: what a client could send that its copilot
+                // never checked, for the server to refuse.
+                if (args[i] == "--send-route" && i + 1 < args.size()) {
+                    connect_copilot.route_file = std::string(args[i + 1]);
+                    ++i;
+                    continue;
+                }
                 if (args[i] == "--hand-over-at" && i + 1 < args.size()) {
                     hand_over_at_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
                     ++i;
@@ -3427,6 +3582,14 @@ static int run_program(int argc, char** argv) {
                                  "than nothing\n");
                     return 2;
                 }
+            }
+            if (connect_copilot.options) {
+                if (connect_copilot.options->aircraft.empty()) {
+                    std::fprintf(stderr, "glideslope_cli: --copilot-* needs --copilot AIRCRAFT TASK\n");
+                    return 2;
+                }
+                connect_copilot.seat = std::make_unique<glideslope::frontend::PlayersCopilot>(
+                    data, *connect_copilot.options);
             }
             if (again_when_let_go && (stay_s <= 0.0 || again || fly)) {
                 std::fprintf(stderr, "glideslope_cli: --again-when-let-go needs "

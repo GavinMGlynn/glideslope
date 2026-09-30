@@ -333,10 +333,11 @@ must not trust a length it has not checked.
 
 ## Reliable messages
 
-Seven things must each arrive, exactly once, in the order they were sent: the
+Eight things must each arrive, exactly once, in the order they were sent: the
 lobby, the session, the weather, an aircraft's definition, the terrain
-dataset, a controller swap and which aircraft a client is watching. They go
-as **eight kinds of message**, because the weather is two of them. They ride the reliable layer below,
+dataset, a controller swap, which aircraft a client is watching and a
+copilot's route. They go as **nine kinds of message**, because the weather is
+two of them. They ride the reliable layer below,
 which numbers them and repeats them until they are acknowledged.
 
 **An acknowledgement of a message that was never sent is not believed.** That
@@ -373,6 +374,7 @@ is that kind's fields in the order given here.
 | `06` | `CONTROLLER_SWAP` |
 | `07` | `WEATHER_ALOFT` |
 | `08` | `WATCH` |
+| `09` | `COPILOT_ROUTE` |
 
 A kind this version does not know is not a message, and is refused rather
 than skipped.
@@ -549,6 +551,52 @@ any aircraft, its own and other players' among them.
 | --- | --- |
 | `u8` | `08`, the kind |
 | `u8` | the aircraft's number, as a state update gives it, or `FF` for none |
+
+### `COPILOT_ROUTE`
+
+**A route for the client's own aircraft, from its copilot**, sent by a
+client (the project owner, 2026-09-30; `REQUIREMENTS.md` section 5). The
+player's client asks a language model with the player's own key and sends
+only what came of it: waypoints and orbits, and a glide airspeed for an
+engine that has stopped. **The key is never sent.**
+
+**It is an input, not an order.** The server honours it only for that
+client's own aircraft, and a wreck's not at all. It reads the route as a
+flight plan from where the aircraft is, and checks it against the aircraft
+as the server has it - every waypoint within 200 km, every height 500 ft
+above both the sea and the ground beneath the aircraft and every airspeed
+from the aircraft's approach speed to a fifth over its cruise (none of these
+for a glide, which flies neither), every orbit wide enough for its airspeed,
+a glide only with the engine stopped and from the approach speed to the best
+climb, and with the engine stopped nothing but a glide. **A route that fails
+is refused, and nothing changes**: the aircraft goes on as it was. The server
+says nothing back; a client learns what its aircraft does from the state
+updates, like any other. A route that passes is flown by the server's AI
+pilot, from the step it is read: if the player was flying the aircraft it is
+handed to the AI first, announced to every client with a `CONTROLLER_SWAP` as
+any hand-over is, and the client stops predicting it.
+
+| written as | field |
+| --- | --- |
+| `u8` | `09`, the kind |
+| `u8` | the aircraft's number, as a state update gives it |
+| `u8` | `01` if the route is a glide, `00` if not |
+| `f64` | the glide's airspeed, knots calibrated, and nought when there is no glide |
+| `u8` | how many waypoints follow, 1 to 12: at most 12 |
+| | then, per waypoint, in the order they are flown: |
+| text | its name, at most 32 bytes: letters, digits and underscores |
+| `f64` | its latitude, degrees |
+| `f64` | its longitude, degrees |
+| `f64` | its altitude, feet above mean sea level |
+| `f64` | its airspeed, knots calibrated |
+| `u8` | `01` if it is an orbit, `00` if it is flown to and passed |
+| | and only for an orbit: |
+| `f64` | its radius, metres |
+| `u8` | how many times round, `00` for round and round |
+| `u8` | `01` turning right, `00` turning left |
+
+At its limits this is 925 bytes. A count of none, a flag other than `00` or
+`01`, and a glide airspeed other than nought with the flag `00` are refused.
 
 ### What a reader must refuse
 
@@ -951,8 +999,8 @@ startup.
 
 ## What is not here yet
 
-- **Five of the eight reliable messages.** `AIRCRAFT`, `CONTROLLER_SWAP` and
-  `WATCH` travel, inside `RELIABLE`. The lobby, the session, the weather and the
+- **Five of the nine reliable messages.** `AIRCRAFT`, `CONTROLLER_SWAP`,
+  `WATCH` and `COPILOT_ROUTE` travel, inside `RELIABLE`. The lobby, the session, the weather and the
   terrain dataset are defined and encoded, and nothing sends them yet.
 - **Any check on what a client sends.** A client's inputs reach its aircraft
   with no range check and no rate limit: a value outside -1 to 1 cannot be

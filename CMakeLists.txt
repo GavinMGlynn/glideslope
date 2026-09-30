@@ -400,9 +400,10 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
         src/frontend/client/online.cpp
         src/frontend/client/scenes.cpp
         src/frontend/client/shown.cpp
-        src/frontend/client/terrain.cpp)
+        src/frontend/client/terrain.cpp
+        src/frontend/players_copilot.cpp)
     target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_net glideslope_sim glideslope_world
-                                             glideslope_platform)
+                                             glideslope_platform glideslope_copilot)
     glideslope_configure(glideslope)
 endif()
 
@@ -412,7 +413,8 @@ endif()
 # ---------------------------------------------------------------------------
 add_executable(glideslope_cli
     src/frontend/cli/main.cpp
-    src/frontend/cli/fly_copilot.cpp)
+    src/frontend/cli/fly_copilot.cpp
+    src/frontend/players_copilot.cpp)
 target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_net glideslope_world
                                              glideslope_platform glideslope_copilot)
 glideslope_configure(glideslope_cli)
