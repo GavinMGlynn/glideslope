@@ -357,20 +357,25 @@ Found while implementing something else. Added when found, not when remembered.
       Claude's CBD plan, 521 m at 60 kt, was flown 94 to 127 m inside it.
       *Verification: an orbit at the tightest radius allowed, at the approach
       speed, is flown within a stated distance of its circle, measured, not
-      assumed.* Done 2026-09-30: every light aeroplane within 60 m, the others
-      that can fly it within 200 m, and Claude's plan 1 to 19 m inside.
+      assumed.* Done 2026-09-30: every light aeroplane within 60 m (the Cub
+      and the Cherokee in calm air only - tail below), and Claude's plan
+      within 19 m. Of the 12 others, 3 are flown within 200 m and the A320's
+      circle is held; 7 jets cannot fly clean at their approach speed (tail
+      below), and 2 have no approach speed.
 
 - [ ] **A plan may fly a jet clean at its approach speed.** The slowest a
       plan may fly is the approach speed, a flaps-down figure; clean at it,
-      the 737-300, 787-8, A320, A380, Learjet 35A, B-2 and F-35B cannot hold
-      their height or speed round their tightest orbit, and the 737 stalls
-      turning onto it. *Verification: every aircraft holds every speed a plan
-      may ask of it round its tightest orbit, measured.*
+      the 737-300, 787-8, A380, Learjet 35A, B-2 and F-35B come down to the
+      ground round their tightest orbit and the A320 loses 600 ft. The
+      refusal belongs in the copilot's planner, which knows each aircraft's
+      speeds: a clean floor for each aircraft, below which no plan may fly.
+      *Verification: every aircraft holds every speed a plan may ask of it
+      round its tightest orbit, measured.*
 
-- [ ] **In wind the Cherokee yaws from side to side.** In a 10 kt wind the
-      autopilot's PA-28 swings 35 degrees either side of its heading every few
-      seconds, flying straight as well as round, while the heading asked
-      barely moves; in calm air it does not. *Verification: every light
+- [ ] **In wind the Cub and the Cherokee yaw from side to side.** Holding
+      a heading in a 10 kt crosswind, with no plan, the autopilot's J-3 Cub
+      and PA-28 sideslip 35 degrees either way every few seconds; in calm air
+      they do not, and the Cessnas never do. *Verification: every light
       aeroplane holds a heading in a 20 kt crosswind with its sideslip within
       a stated bound.*
 

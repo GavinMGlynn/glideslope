@@ -22,8 +22,8 @@ constexpr double most_intercept_deg = 30.0;
 constexpr double drift_average_s = 5.0;
 constexpr double least_speed_fps = 10.0;
 // **Round an orbit the heading asked for is kept ahead of the tangent by what
-// the autopilot needs to bank for the circle**, atan(v^2 / g r) at the
-// ground speed (sim::heading_off_for_bank_deg); turned in towards the circle
+// the autopilot needs to bank for the circle**, atan(v_air v_ground / g r)
+// (sim::heading_off_for_bank_deg); turned in towards the circle
 // by 90 degrees for each kilometre off it, 45 at most; and trimmed by an
 // integral on how far off it is, a sixtieth of that each second, 15 degrees at
 // most, for what the autopilot's bank and the aeroplane's turn do not quite
@@ -49,19 +49,47 @@ double normalised(double degrees) {
     return d < 0.0 ? d + 360.0 : d;
 }
 
+// **Where the air carries the aircraft, over the ground**: its velocity
+// through the air, north and east, feet a second - the body's air-relative
+// velocity turned through its attitude, so its sideslip and its climb through
+// the air are counted, not its heading taken for where it goes.
+struct AirVelocity {
+    double north_fps = 0.0;
+    double east_fps = 0.0;
+};
+
+AirVelocity air_velocity(const Aircraft& a) {
+    const double u = a.property("velocities/u-aero-fps");
+    const double v = a.property("velocities/v-aero-fps");
+    const double w = a.property("velocities/w-aero-fps");
+    const double phi = a.property("attitude/phi-deg") * radians;
+    const double theta = a.property("attitude/theta-deg") * radians;
+    const double psi = a.property("attitude/psi-deg") * radians;
+    const double sf = std::sin(phi), cf = std::cos(phi);
+    const double st = std::sin(theta), ct = std::cos(theta);
+    const double ss = std::sin(psi), cs = std::cos(psi);
+    AirVelocity out;
+    out.north_fps = u * ct * cs + v * (sf * st * cs - cf * ss) + w * (cf * st * cs + sf * ss);
+    out.east_fps = u * ct * ss + v * (sf * st * ss + cf * cs) + w * (cf * st * ss - sf * cs);
+    return out;
+}
+
 } // namespace
 
 Navigator::Navigator(const Aircraft& aircraft, FlightPlan plan)
     : a_(aircraft), plan_(std::move(plan)) {
-    from_latitude_deg_ = a_.property("position/lat-geod-deg");
-    from_longitude_deg_ = a_.property("position/long-gc-deg");
-    last_track_deg_ = a_.property("attitude/psi-deg");
+    begin_here();
 }
 
 void Navigator::begin_here() {
     from_latitude_deg_ = a_.property("position/lat-geod-deg");
     from_longitude_deg_ = a_.property("position/long-gc-deg");
     last_track_deg_ = a_.property("attitude/psi-deg");
+    // The wind as it is now, not calm: a plan taken over in the air, or
+    // after a take-off, starts from the wind there.
+    const AirVelocity air = air_velocity(a_);
+    wind_north_fps_ = a_.property("velocities/v-north-fps") - air.north_fps;
+    wind_east_fps_ = a_.property("velocities/v-east-fps") - air.east_fps;
 }
 
 AutopilotModes Navigator::steer() {
@@ -77,14 +105,14 @@ AutopilotModes Navigator::steer() {
             std::remainder(track - a_.property("attitude/psi-deg"), 360.0);
         drift_deg_ += (drift - drift_deg_) * dt / drift_average_s;
     }
-    // The wind: where the aircraft goes against where the air takes it, along
-    // its heading at its true airspeed. Unlike the drift it does not change as
-    // the aircraft turns, so round an orbit it is what the heading allows for.
-    const double true_fps = a_.property("velocities/vtrue-fps");
-    if (true_fps > least_speed_fps) {
-        const double psi = a_.property("attitude/psi-deg") * radians;
-        wind_north_fps_ += (north - true_fps * std::cos(psi) - wind_north_fps_) * dt / drift_average_s;
-        wind_east_fps_ += (east - true_fps * std::sin(psi) - wind_east_fps_) * dt / drift_average_s;
+    // The wind: where the aircraft goes against where the air takes it.
+    // Unlike the drift it does not change as the aircraft turns, so round an
+    // orbit it is what the heading allows for.
+    const AirVelocity air = air_velocity(a_);
+    const double air_fps = std::hypot(air.north_fps, air.east_fps);
+    if (air_fps > least_speed_fps) {
+        wind_north_fps_ += (north - air.north_fps - wind_north_fps_) * dt / drift_average_s;
+        wind_east_fps_ += (east - air.east_fps - wind_east_fps_) * dt / drift_average_s;
     }
     bool orbiting = false;
 
@@ -134,30 +162,30 @@ AutopilotModes Navigator::steer() {
                 modes.airspeed_kts = to.airspeed_kts;
                 break;
             }
-            {
-                if (circling_ && std::abs(off_circle_m) <= orbit_joined_m) {
-                    trim_deg_ = std::clamp(trim_deg_ + orbit_trim_per_metre_s * off_circle_m * dt,
-                                           -most_orbit_trim_deg, most_orbit_trim_deg);
-                }
-                // Along the tangent a few seconds on, turned in towards the
-                // circle - to the right of the tangent, flying round to the
-                // right - or out.
-                const double speed_mps = std::hypot(north, east) * 0.3048;
-                const double bank_deg =
-                    std::atan(speed_mps * speed_mps / (gravity_mps2 * to.orbit->radius_m)) /
-                    radians;
-                const double lead_deg = heading_off_for_bank_deg(bank_deg);
-                const double in = std::clamp(
-                    orbit_intercept_per_metre * (from_centre_m - to.orbit->radius_m),
-                    -most_orbit_intercept_deg, most_orbit_intercept_deg);
-                const double turned_in = lead_deg + in + trim_deg_;
-                track = to.orbit->right ? around + 90.0 + turned_in : around - 90.0 - turned_in;
-                off_m = 0.0;
-                orbiting = true;
-                modes.altitude_ft = to.altitude_ft;
-                modes.airspeed_kts = to.airspeed_kts;
-                break;
+            if (circling_ && std::abs(off_circle_m) <= orbit_joined_m) {
+                trim_deg_ = std::clamp(trim_deg_ + orbit_trim_per_metre_s * off_circle_m * dt,
+                                       -most_orbit_trim_deg, most_orbit_trim_deg);
             }
+            // Along the tangent, ahead of it by the heading the autopilot needs
+            // to bank for the circle, turned in towards the circle - to the
+            // right of the tangent, flying round to the right - or out. Round
+            // a circle over the ground the track turns at the ground speed
+            // over the radius, and the air is turned through that at the
+            // airspeed: tan bank = v_air v_ground / g r.
+            const double ground_mps = std::hypot(north, east) * 0.3048;
+            const double air_mps = air_fps * 0.3048;
+            const double bank_deg =
+                std::atan(air_mps * ground_mps / (gravity_mps2 * r)) / radians;
+            const double lead_deg = heading_off_for_bank_deg(bank_deg);
+            const double in = std::clamp(orbit_intercept_per_metre * off_circle_m,
+                                         -most_orbit_intercept_deg, most_orbit_intercept_deg);
+            const double turned_in = lead_deg + in + trim_deg_;
+            track = to.orbit->right ? around + 90.0 + turned_in : around - 90.0 - turned_in;
+            off_m = 0.0;
+            orbiting = true;
+            modes.altitude_ft = to.altitude_ft;
+            modes.airspeed_kts = to.airspeed_kts;
+            break;
         }
         // The leg, and where the aircraft is along and across it.
         const double leg = distance_m(from_latitude_deg_, from_longitude_deg_,
@@ -201,13 +229,13 @@ AutopilotModes Navigator::steer() {
     last_track_deg_ = track;
     const double course = track - std::clamp(intercept_per_metre * off_m,
                                              -most_intercept_deg, most_intercept_deg);
-    if (orbiting && true_fps > least_speed_fps) {
+    if (orbiting && air_fps > least_speed_fps) {
         // The heading whose air velocity and the wind together go along the
         // track: turned into the wind across it.
         const double t = course * radians;
         const double across = wind_east_fps_ * std::cos(t) - wind_north_fps_ * std::sin(t);
         modes.heading_deg =
-            normalised(course - std::asin(std::clamp(across / true_fps, -1.0, 1.0)) / radians);
+            normalised(course - std::asin(std::clamp(across / air_fps, -1.0, 1.0)) / radians);
     } else {
         modes.heading_deg = normalised(course - drift_deg_);
     }
