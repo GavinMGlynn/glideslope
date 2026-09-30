@@ -5,10 +5,12 @@
 #include "world/dem.hpp"
 #include "world/digest.hpp"
 #include "world/download.hpp"
+#include "world/geotiff.hpp"
 
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -223,6 +225,219 @@ GLIDESLOPE_TEST(a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash) {
     glideslope::world::fetch_pinned(
         cache, "grid.zip", "https://example.invalid/grid.zip", right, bucket.fetch());
     check(bucket.asked.size() == 2, "and not fetched again");
+}
+
+namespace {
+
+// What a cached file can have become that makes it unreadable: cut short, as
+// a power cut between the rename and the data reaching the disk left it, or
+// damaged where its samples are, as a failing disk leaves it.
+enum class Fault { cut_short, damaged };
+
+// A 6-by-6 tile, or 8-bit water mask, of Sydney's cell, compressed in four
+// blocks as the bucket's are, every sample `value`.
+std::vector<std::uint8_t> whole_file(bool mask, float value) {
+    glideslope::test::tiff::Spec spec;
+    spec.bits = mask ? 8 : 32;
+    spec.width = 6;
+    spec.height = 6;
+    spec.block = 3;
+    spec.deflate = true;
+    spec.float_predictor = !mask;
+    spec.differencing = mask;
+    spec.overview = false;
+    spec.latitude_step = 1.0 / 6.0;
+    spec.longitude_step = 1.0 / 6.0;
+    spec.origin_latitude = -33.0;
+    spec.origin_longitude = 151.0;
+    return glideslope::test::tiff::write_tiff(spec, std::vector<float>(36, value), {});
+}
+
+// `whole` with `fault`, built so that it fails where it is meant to: a file
+// cut short fails as it is opened, its blocks lying past its end; a damaged
+// one opens, and its first block fails its checksum as it is read.
+std::vector<std::uint8_t> with_fault(const std::vector<std::uint8_t>& whole, Fault fault) {
+    using glideslope::world::MemorySource;
+    const auto tiff = glideslope::world::read_geotiff(MemorySource(whole));
+    const auto& image = tiff.images[0];
+    std::vector<std::uint8_t> bytes = whole;
+    if (fault == Fault::cut_short) {
+        bytes.resize(static_cast<std::size_t>(image.offsets.back() + 1));
+        bool refused = false;
+        try {
+            (void)glideslope::world::read_geotiff(MemorySource(bytes));
+        } catch (const glideslope::world::GeoTiffError&) {
+            refused = true;
+        }
+        check(refused, "the file cut short is refused as it is opened");
+    } else {
+        bytes[static_cast<std::size_t>(image.offsets[0] + image.byte_counts[0] / 2)] ^= 0x5a;
+        const MemorySource damaged(bytes);
+        const auto layout = glideslope::world::read_geotiff(damaged);
+        bool refused = false;
+        try {
+            (void)glideslope::world::read_block(damaged, layout.images[0], 0, 0);
+        } catch (const glideslope::world::GeoTiffError&) {
+            refused = true;
+        }
+        check(refused, "the damaged file opens, and its first block is refused");
+    }
+    return bytes;
+}
+
+void leave_in_cache(const std::filesystem::path& path,
+                    const std::vector<std::uint8_t>& bytes) {
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out.write(reinterpret_cast<const char*>(bytes.data()),
+              static_cast<std::streamsize>(bytes.size()));
+    check(static_cast<bool>(out), "the faulty file is left in the cache");
+}
+
+std::vector<std::uint8_t> in_cache(const std::filesystem::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+}
+
+// Names in `directory` a file was set aside under, or written to first.
+int leftovers(const std::filesystem::path& directory) {
+    int found = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+        const std::string name = entry.path().filename().string();
+        found += name.find(".taken-away") != std::string::npos ||
+                 name.find(".part") != std::string::npos;
+    }
+    return found;
+}
+
+// A bucket answering the one file asked of it, with its ETag.
+glideslope::world::Fetch serving(const std::vector<std::uint8_t>& body,
+                                 const std::string& etag, std::vector<std::string>& asked) {
+    return [&body, etag, &asked](const std::string& url) {
+        asked.push_back(url);
+        HttpResponse r;
+        r.status = 200;
+        r.body = body;
+        r.headers["etag"] = etag;
+        return r;
+    };
+}
+
+glideslope::world::DemCoverage sydney_coverage() {
+    std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) /
+                     "../assets/dem/coverage.txt");
+    const std::string text{std::istreambuf_iterator<char>(in),
+                           std::istreambuf_iterator<char>()};
+    glideslope::world::DemCoverage coverage(text);
+    check(coverage.at({-34, 151}) == DemDataset::glo30, "Sydney's cell has a 30 m tile");
+    return coverage;
+}
+
+} // namespace
+
+// A tile left in the cache cut short, or damaged, must not fail every query
+// of its cell for good: the Dem takes it away and it is fetched again, once,
+// and read whole. Every layer (heights and the water mask) with every fault.
+GLIDESLOPE_TEST(a_cached_tile_cut_short_or_damaged_is_fetched_again_and_read_whole) {
+    const DemCell sydney{-34, 151};
+    const auto coverage = sydney_coverage();
+    int covered = 0;
+    for (const bool mask : {false, true}) {
+        for (const Fault fault : {Fault::cut_short, Fault::damaged}) {
+            const std::string what = std::string(mask ? "a water mask" : "a height tile") +
+                                     (fault == Fault::cut_short ? " cut short" : " damaged");
+            const auto cache = scratch(std::string("faulty-") + (mask ? "mask-" : "tile-") +
+                                       (fault == Fault::cut_short ? "cut" : "damaged"));
+            const std::vector<std::uint8_t> whole = whole_file(mask, mask ? 2.0f : 42.0f);
+            const std::string name =
+                mask ? glideslope::world::dem_water_mask_name(DemDataset::glo30, sydney)
+                     : glideslope::world::dem_tile_name(DemDataset::glo30, sydney);
+            const std::string url =
+                mask ? glideslope::world::dem_water_mask_url(DemDataset::glo30, sydney)
+                     : glideslope::world::dem_tile_url(DemDataset::glo30, sydney);
+            const auto path = cache / "copernicus-dem-30m" / (name + ".tif");
+            leave_in_cache(path, with_fault(whole, fault));
+
+            std::vector<std::string> asked;
+            DownloadedTiles tiles(
+                cache, serving(whole, "\"" + glideslope::world::md5_hex(whole) + "\"", asked));
+            glideslope::world::Dem dem(coverage, tiles, nullptr);
+            try {
+                // Within the first block, which is the damaged one.
+                if (mask) {
+                    check(dem.water(-33.2, 151.2) == glideslope::world::Water::lake,
+                          what + ": the mask is read whole once fetched again");
+                } else {
+                    check(std::abs(dem.height_above_geoid(-33.2, 151.2) - 42.0) < 1e-9,
+                          what + ": the height is read whole once fetched again");
+                }
+            } catch (const DemError& e) {
+                fail(what + " was not fetched again: " + e.what());
+            }
+            check(tiles.downloads() == 1 && asked.size() == 1 && asked[0] == url,
+                  what + " is fetched again, once, from its own URL");
+            check(in_cache(path) == whole, what + " is whole in the cache after");
+            check(leftovers(path.parent_path()) == 0,
+                  what + " leaves no file set aside or half-written");
+            ++covered;
+        }
+    }
+    check(covered == 4, "both layers with both faults: 4 cases, " +
+                            std::to_string(covered) + " covered");
+}
+
+// The retry is once: a tile the bucket keeps sending damaged - a multipart
+// upload's, which no ETag checks - fails its query rather than being fetched
+// for ever.
+GLIDESLOPE_TEST(a_tile_still_damaged_when_fetched_again_fails_and_is_not_fetched_a_third_time) {
+    const DemCell sydney{-34, 151};
+    const auto coverage = sydney_coverage();
+    const auto cache = scratch("damaged-at-source");
+    const std::vector<std::uint8_t> damaged = with_fault(whole_file(false, 42.0f),
+                                                         Fault::damaged);
+    const auto path = cache / "copernicus-dem-30m" /
+                      (glideslope::world::dem_tile_name(DemDataset::glo30, sydney) + ".tif");
+    leave_in_cache(path, damaged);
+    std::vector<std::string> asked;
+    DownloadedTiles tiles(cache,
+                          serving(damaged, "\"0123456789abcdef0123456789abcdef-3\"", asked));
+    glideslope::world::Dem dem(coverage, tiles, nullptr);
+    bool refused = false;
+    try {
+        (void)dem.height_above_geoid(-33.2, 151.2);
+    } catch (const DemError& e) {
+        refused = std::string(e.what()).find("had anew as it was") != std::string::npos;
+    }
+    check(refused, "the query fails, saying the tile was had anew as it was");
+    check(asked.size() == 1, "fetched again once, not " + std::to_string(asked.size()) +
+                                 " times");
+}
+
+// A pinned file - the geoid, the runways - left in the cache cut short or
+// damaged is checked against its pin, taken away and fetched again whole.
+GLIDESLOPE_TEST(a_cached_pinned_file_cut_short_or_damaged_is_fetched_again_and_read_whole) {
+    const std::vector<std::uint8_t> whole = whole_file(false, 7.0f);
+    const std::string sha = glideslope::world::sha256_hex(whole);
+    int covered = 0;
+    for (const Fault fault : {Fault::cut_short, Fault::damaged}) {
+        const std::string what =
+            fault == Fault::cut_short ? "a pinned file cut short" : "a pinned file damaged";
+        const auto cache =
+            scratch(std::string("pinned-") + (fault == Fault::cut_short ? "cut" : "damaged"));
+        leave_in_cache(cache / "grid.tif", with_fault(whole, fault));
+        std::vector<std::string> asked;
+        const auto path = glideslope::world::fetch_pinned(
+            cache, "grid.tif", "https://example.invalid/grid.tif", sha,
+            serving(whole, "\"unchecked\"", asked));
+        check(asked.size() == 1, what + " is fetched again, once");
+        check(in_cache(path) == whole, what + " is whole in the cache after");
+        check(leftovers(cache) == 0, what + " leaves no file set aside or half-written");
+        glideslope::world::fetch_pinned(cache, "grid.tif", "https://example.invalid/grid.tif",
+                                        sha, serving(whole, "\"unchecked\"", asked));
+        check(asked.size() == 1, what + ": once whole, it is not fetched again");
+        ++covered;
+    }
+    check(covered == 2, "both faults: 2 cases, " + std::to_string(covered) + " covered");
 }
 
 GLIDESLOPE_TEST(

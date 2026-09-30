@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstring>
+#include <random>
 #include <string>
 #include <system_error>
 #include <thread>
@@ -140,7 +141,8 @@ bool move_into_place_unless_there(const std::filesystem::path& from,
         // refuses.
         const Settled s = settle(
             [&]() -> DWORD {
-                return MoveFileExW(from.c_str(), to.c_str(), 0) ? DWORD{0}
+                return MoveFileExW(from.c_str(), to.c_str(), MOVEFILE_WRITE_THROUGH)
+                           ? DWORD{0}
                                                                 : GetLastError();
             },
             start);
@@ -166,6 +168,38 @@ bool move_into_place_unless_there(const std::filesystem::path& from,
                                   std::to_string(transient_refusal_wait.count()) +
                                   " ms");
         }
+    }
+}
+
+void write_durably(const std::filesystem::path& path, std::span<const std::uint8_t> bytes) {
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                           FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) {
+        throw ByteSourceError("cannot write " + path.string() + ": Windows error " +
+                              std::to_string(GetLastError()));
+    }
+    std::size_t done = 0;
+    while (done < bytes.size()) {
+        const auto want = static_cast<DWORD>(
+            std::min<std::size_t>(bytes.size() - done, std::size_t{1} << 30));
+        DWORD wrote = 0;
+        if (!WriteFile(h, bytes.data() + done, want, &wrote, nullptr) || wrote == 0) {
+            const DWORD error = GetLastError();
+            CloseHandle(h);
+            throw ByteSourceError("cannot write " + path.string() + ": Windows error " +
+                                  std::to_string(error));
+        }
+        done += wrote;
+    }
+    if (!FlushFileBuffers(h)) {
+        const DWORD error = GetLastError();
+        CloseHandle(h);
+        throw ByteSourceError("cannot flush " + path.string() + " to the disk: Windows error " +
+                              std::to_string(error));
+    }
+    if (!CloseHandle(h)) {
+        throw ByteSourceError("cannot close " + path.string() + ": Windows error " +
+                              std::to_string(GetLastError()));
     }
 }
 
@@ -201,6 +235,55 @@ FileSource::FileSource(const std::filesystem::path& path) : path_(path) {
 FileSource::~FileSource() {
     ::close(static_cast<int>(file_));
 }
+
+void write_durably(const std::filesystem::path& path, std::span<const std::uint8_t> bytes) {
+    const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (fd < 0) {
+        const int error = errno;
+        throw ByteSourceError("cannot write " + path.string() + ": " + std::strerror(error));
+    }
+    std::size_t done = 0;
+    while (done < bytes.size()) {
+        const ssize_t wrote = ::write(fd, bytes.data() + done, bytes.size() - done);
+        if (wrote < 0 && errno == EINTR) {
+            continue;
+        }
+        if (wrote <= 0) {
+            const int error = wrote < 0 ? errno : EIO;
+            ::close(fd);
+            throw ByteSourceError("cannot write " + path.string() + ": " +
+                                  std::strerror(error));
+        }
+        done += static_cast<std::size_t>(wrote);
+    }
+    if (::fsync(fd) != 0) {
+        const int error = errno;
+        ::close(fd);
+        throw ByteSourceError("cannot flush " + path.string() + " to the disk: " +
+                              std::strerror(error));
+    }
+    if (::close(fd) != 0) {
+        const int error = errno;
+        throw ByteSourceError("cannot close " + path.string() + ": " + std::strerror(error));
+    }
+}
+
+namespace {
+// The directory holding `path` synced, so a name just made in it outlasts a
+// power cut. Asked, not insisted on: see move_into_place_unless_there.
+void sync_directory_of(const std::filesystem::path& path) {
+    std::filesystem::path directory = path.parent_path();
+    if (directory.empty()) {
+        directory = ".";
+    }
+    const int fd = ::open(directory.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (fd < 0) {
+        return;
+    }
+    (void)::fsync(fd);
+    ::close(fd);
+}
+} // namespace
 
 namespace {
 int exclusive_rename(const char* from, const char* to) {
@@ -247,6 +330,7 @@ bool move_into_place_unless_there(const std::filesystem::path& from,
                                   from.string() + " cannot be removed: " +
                                   std::strerror(error));
         }
+        sync_directory_of(to);
         return true;
     }
     int error = errno;
@@ -257,6 +341,7 @@ bool move_into_place_unless_there(const std::filesystem::path& from,
         refuse_move(from, std::string("link: ") + std::strerror(error));
     }
     if (moves.rename_exclusive(from.c_str(), to.c_str()) == 0) {
+        sync_directory_of(to);
         return true;
     }
     error = errno;
@@ -267,6 +352,7 @@ bool move_into_place_unless_there(const std::filesystem::path& from,
         refuse_move(from, std::string("an exclusive rename: ") + std::strerror(error));
     }
     if (moves.rename(from.c_str(), to.c_str()) == 0) {
+        sync_directory_of(to);
         return true;
     }
     error = errno;
@@ -274,6 +360,23 @@ bool move_into_place_unless_there(const std::filesystem::path& from,
 }
 
 #endif
+
+bool take_away(const std::filesystem::path& path) {
+    static std::atomic<unsigned long long> taken{0};
+    std::filesystem::path aside = path;
+    aside += ".taken-away." + std::to_string(std::random_device{}()) + "-" +
+             std::to_string(taken++);
+    std::error_code error;
+    std::filesystem::rename(path, aside, error);
+    if (error) {
+        if (!file_is_there(path)) {
+            return false;
+        }
+        throw ByteSourceError("cannot take " + path.string() + " away: " + error.message());
+    }
+    std::filesystem::remove(aside, error);
+    return true;
+}
 
 std::uint64_t FileSource::size() const {
     return size_;

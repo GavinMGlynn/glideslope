@@ -109,9 +109,32 @@ const PosixMoves& posix_moves();
 // file's name is free at once, and whoever has it open reads on. Throws
 // ByteSourceError on any other failure, and if the first name cannot be
 // removed after link() made the second.
+//
+// **The move is made durable**: on Windows with MOVEFILE_WRITE_THROUGH, on
+// POSIX by syncing the directory after it. The directory's sync is asked and
+// not insisted on - some filesystems refuse to sync a directory - since what
+// a power cut can then lose is the new name, and a name lost is a file fetched
+// again, never a file cut short: its bytes were written with write_durably.
 bool move_into_place_unless_there(const std::filesystem::path& from,
                                   const std::filesystem::path& to,
                                   const PosixMoves& moves = posix_moves());
+
+// **`bytes` written to `path`, and on the disk before this returns**: the
+// file made or emptied, written, and flushed through the operating system's
+// cache - fsync on POSIX, FlushFileBuffers on Windows. A file moved into place
+// after this is whole after a power cut too: without it, the rename can reach
+// the disk before the data does, and a cache is left holding a file cut short
+// under its final name. Throws ByteSourceError if any of it fails.
+void write_durably(const std::filesystem::path& path, std::span<const std::uint8_t> bytes);
+
+// **The file at `path` taken away, its name free at once**: renamed to a name
+// of its own beside it and that removed, so on Windows a reader still holding
+// it (FileSource shares deletion) does not leave the name delete-pending for
+// the fetch that follows. True if it was taken away; false if nothing was
+// there - another took it first. Throws ByteSourceError if it is there and
+// cannot be moved. A renamed file that cannot then be removed is left under
+// its own name, which nothing asks for.
+bool take_away(const std::filesystem::path& path);
 
 class MemorySource : public ByteSource {
 public:

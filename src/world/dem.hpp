@@ -107,6 +107,14 @@ public:
     // had.
     virtual std::shared_ptr<const ByteSource> open_water_mask(DemDataset dataset,
                                                               DemCell cell) = 0;
+    // **A tile that could not be read whole** - cut short, or damaged so it
+    // does not decode - taken away, so that the next open has it anew: true if
+    // it was, and the Dem opens it once more; false, the default, if these
+    // tiles have nowhere to have it anew from, and the Dem's query fails.
+    // Tiles fetched into a cache must not leave such a file there to fail
+    // every query for good.
+    virtual bool take_away(DemDataset dataset, DemCell cell);
+    virtual bool take_away_water_mask(DemDataset dataset, DemCell cell);
 };
 
 // Tiles already in a directory, named <tile name>.tif, and their masks,
@@ -152,11 +160,20 @@ private:
         std::int64_t longitude_step = 0;
         std::int64_t rows = 0;
         std::int64_t columns = 0;
+        // Whether the file was had: what fails after that is the file's own.
+        bool opened = false;
     };
 
     const Tile& tile(DemCell cell, Layer layer);
+    // The tile's file opened and its layout read into `t`; throws DemError.
+    void open_tile(Tile& t, DemCell cell);
+    // Whether the tile's file was taken away, to be opened anew: never one
+    // that was not opened. Lets go of `t`'s bytes.
+    bool take_away(Tile& t, DemCell cell);
+    // `anew` when the tile's file was taken away and had anew for this
+    // sample; it is not taken away a second time.
     float stored_sample(const Tile& tile, DemCell cell, std::int64_t row,
-                        std::int64_t column);
+                        std::int64_t column, bool anew = false);
     double sample(DemCell cell, std::int64_t row, std::int64_t column, int depth);
     double at_units(std::int64_t latitude, std::int64_t longitude, int depth);
     double interpolate(DemCell cell, double row, double column, int depth);
@@ -182,6 +199,8 @@ private:
         auto operator<=>(const BlockKey&) const = default;
     };
     std::map<BlockKey, std::vector<float>> block_cache_;
+    // Every block of the tile's forgotten.
+    void forget_blocks(const TileKey& key);
     std::list<BlockKey> block_order_;
 };
 
