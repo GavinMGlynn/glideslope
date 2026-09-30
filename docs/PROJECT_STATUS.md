@@ -14260,7 +14260,9 @@ Found while implementing something else. Added when found, not when remembered.
       other tests through the relay - both take-over tests, the impaired
       network at 100 and 200 ms, the window client's hand-over and joining
       again, the relay's giving up, the closed-pipe test, the gearstick
-      refusal and the port check - pass. **What this does not do**: nothing
+      refusal and the port check - pass. On Windows debug, built from WSL
+      with tools/windows_build.sh, the new relay test, the relay's giving up
+      and the gearstick refusal pass. **What this does not do**: nothing
       in the product changed, so a real client dropped while every copy of
       its goodbye is lost still learns of it only from the refusal of its
       next knock, which needs the server still running.
