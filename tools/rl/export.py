@@ -106,13 +106,28 @@ def parity(policy: policy_file.Policy) -> list[str]:
         "# Made by tools/rl/export.py, from flights of assets/rl/c172p-landing.txt",
         "# in JSBSim's Python bindings. Each case: the previous action (4), the",
         "# readings (16, tools/rl/landing.py's READINGS), the observation (21)",
-        "# and the policy's action (4).",
+        "# and the policy's action (4). Then each of the verification's flights:",
+        "# touched (1 or 0), the sink ft/min, across m, along m, the most it rose,",
+        "# banked and pitched down (ft, degrees) in the five seconds after.",
         "runway " + " ".join(number(v) for v in (rw.threshold_lat_deg, rw.threshold_lon_deg,
                                                   rw.elevation_ft, rw.heading_deg, rw.length_m)),
         f"cases {len(cases)}",
     ]
     for prev, readings, obs, act in cases:
         lines.append("case " + " ".join(number(v) for v in prev + readings + obs + act))
+    # And each of the verification's flights, whole, as JSBSim's Python
+    # bindings flew it: where it touched, and how it stayed down.
+    starts = L.verification_starts()
+    lines.append(f"flights {len(starts)}")
+    for i, (_, start) in enumerate(starts):
+        f = fly(policy, start)
+        lines.append(
+            f"flight {i} " + " ".join(
+                number(v) for v in (1.0 if f.touched else 0.0, f.touch.sink_fpm, f.touch.across_m,
+                                    f.touch.along_m, f.highest_after_touch_ft,
+                                    f.worst_roll_after_touch_deg, f.least_pitch_after_touch_deg)
+            )
+        )
     return lines
 
 
@@ -122,6 +137,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--steps", required=True, help="the training steps the checkpoint took")
     ap.add_argument("--note", default="")
+    ap.add_argument("--policy", default=POLICY, help="where to write the policy")
+    ap.add_argument("--parity", default=PARITY, help="where to write the parity cases")
     args = ap.parse_args()
     versions = ", ".join(
         f"{p} {metadata.version(p)}"
@@ -138,14 +155,14 @@ def main() -> None:
     if args.note:
         header.append(args.note)
     p = from_checkpoint(args.checkpoint, header)
-    os.makedirs(os.path.dirname(POLICY), exist_ok=True)
-    policy_file.write(POLICY, p)
-    again = policy_file.read(POLICY)
+    os.makedirs(os.path.dirname(os.path.abspath(args.policy)), exist_ok=True)
+    policy_file.write(args.policy, p)
+    again = policy_file.read(args.policy)
     assert again.layers[0].weights == p.layers[0].weights
-    os.makedirs(os.path.dirname(PARITY), exist_ok=True)
-    with open(PARITY, "w", newline="\n") as f:
+    os.makedirs(os.path.dirname(os.path.abspath(args.parity)), exist_ok=True)
+    with open(args.parity, "w", newline="\n") as f:
         f.write("\n".join(parity(again)) + "\n")
-    print("wrote", POLICY, "and", PARITY)
+    print("wrote", args.policy, "and", args.parity)
 
 
 if __name__ == "__main__":

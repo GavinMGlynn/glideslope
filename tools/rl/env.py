@@ -7,11 +7,11 @@ runway heading and off the speed, in a steady wind of up to thirteen knots
 across the runway and up to eight down it - and ends five seconds after the
 wheels first touch, or when the flight goes wrong.
 
-**The reward** is a little for each tenth of a second flown near the
-centreline, on the glidepath, tracking down the runway and at the speed, less
-a little for moving the controls; and at the touch, most of it: for touching
-at all, for sinking slowly, for touching near the centreline and on the
-runway. After the touch, bouncing and banking cost. Going wrong costs.
+**The reward** is mostly at the touch: for touching at all, for sinking
+slowly, for touching near the centreline and on the runway. Before it, the
+approach is shaped by a potential - near the centreline, on the glidepath,
+tracking down the runway, at the speed - and moving the controls about costs
+a little. After it, bouncing and banking cost. Going wrong costs.
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 JSBSIM_ROOT = os.path.join(REPO, "assets", "jsbsim")
 
 
-def gauss(x: float, width: float) -> float:
-    return math.exp(-((x / width) ** 2))
+# The discount, as train.py's.
+GAMMA = 0.995
 
 
 class Flier:
@@ -49,7 +49,29 @@ class Flier:
         self.touch_agl_ft = 0.0
         self.t = 0.0
         self.readings = L.read(self.fdm)
+        self.phi = self.potential(self.readings, L.where(self.readings, self.rw))
         return L.observe(self.readings, self.rw, self.ap, self.previous)
+
+    def potential(self, r: list[float], w: L.Where) -> float:
+        """How well placed the aeroplane is, 0 at best: near the centreline,
+        on the glidepath (less so near the ground, where the flare leaves
+        it), tracking down the runway, at the speed, wings level, and not
+        floating past where the glidepath meets the runway."""
+        glidepath_m = (w.along_m + self.ap.aim_m) * math.tan(self.ap.glidepath_deg / L.DEGREES)
+        fade = min(1.0, max(0.0, w.above_m / 15.0))
+        h = self.rw.heading_deg / L.DEGREES
+        vn, ve = r[10] * L.FPS_TO_MPS, r[11] * L.FPS_TO_MPS
+        track = math.atan2(ve * math.cos(h) - vn * math.sin(h),
+                           ve * math.sin(h) + vn * math.cos(h))
+        return -(
+            min(abs(w.across_m), 300.0) / 10.0
+            + 4.0 * (1.0 - math.exp(-((w.across_m / 8.0) ** 2)))
+            + fade * min(abs(w.above_m - glidepath_m), 60.0) / 4.0
+            + min(abs(track), 1.0) / 0.2
+            + fade * min(abs(r[9] - self.ap.vref_kts), 30.0) / 5.0
+            + max(0.0, -w.along_m - self.ap.aim_m) / 50.0
+            + abs(r[3]) / 0.5
+        )
 
     def decide(self, action) -> tuple[list[float], float, bool, bool]:
         """Flies one decision: returns the observation, the reward, whether
@@ -95,9 +117,9 @@ class Flier:
         f.seconds = self.t
         if f.touched:
             rise = self.fdm["position/h-agl-ft"] - self.touch_agl_ft
-            reward -= 0.5 * max(0.0, rise - 0.5)
+            reward -= 0.5 * min(10.0, max(0.0, rise - 0.5))
             reward -= 0.05 * max(0.0, abs(r[3]) * L.DEGREES - 5.0)
-            reward -= 0.02 * max(0.0, abs(w.across_m) - 3.0)
+            reward -= 0.02 * min(30.0, max(0.0, abs(w.across_m) - 3.0))
             if self.t - self.touch_time >= L.AFTER_TOUCH_S:
                 f.ended = "touched"
                 # Staying down the whole time is part of landing.
@@ -108,19 +130,14 @@ class Flier:
         wrong = L.crashed(r, w)
         if wrong:
             f.ended = wrong
-            return obs, reward - 50.0, True, False
-        # Flying the approach well is worth a little every tenth of a second.
-        glidepath_m = (w.along_m + self.ap.aim_m) * math.tan(self.ap.glidepath_deg / L.DEGREES)
-        near_ground = min(1.0, max(0.0, w.above_m / 15.0))
-        h = self.rw.heading_deg / L.DEGREES
-        vn, ve = r[10] * L.FPS_TO_MPS, r[11] * L.FPS_TO_MPS
-        track_error = math.atan2(ve * math.cos(h) - vn * math.sin(h), ve * math.sin(h) + vn * math.cos(h))
-        reward += 0.025 * (
-            gauss(w.across_m, 15.0)
-            + near_ground * gauss(w.above_m - glidepath_m, 6.0)
-            + gauss(track_error, 0.1)
-            + near_ground * gauss(r[9] - self.ap.vref_kts, 6.0)
-        )
+            return obs, reward - 70.0, True, False
+        # Flying the approach well is shaped by a potential (Ng, Harada and
+        # Russell, 1999): the reward is how much better the aeroplane is
+        # placed than a tenth of a second ago, which cannot be farmed by
+        # flying on and on, and leaves the touch the prize.
+        phi = self.potential(r, w)
+        reward += GAMMA * phi - self.phi
+        self.phi = phi
         if self.t >= L.LONGEST_S:
             f.ended = "out of time"
             return obs, reward, True, True
@@ -128,10 +145,20 @@ class Flier:
 
     @staticmethod
     def touchdown_reward(t: L.Touch) -> float:
-        r = 20.0
-        r += 30.0 * max(-2.0, 1.0 - t.sink_fpm / 300.0)
-        r += 30.0 * max(-2.0, 1.0 - abs(t.across_m) / 5.0)
-        r += 10.0 if 0.0 <= t.along_m <= 1200.0 else -20.0
+        # Smooth all the way out, so that a touch far off still says which
+        # way is better: a bowl near the limits, and a slope beyond them.
+        r = 40.0
+        r += 40.0 * math.exp(-((t.sink_fpm / 250.0) ** 2)) - min(max(t.sink_fpm, 0.0), 1500.0) / 50.0
+        r += 60.0 * math.exp(-((t.across_m / 4.0) ** 2)) - min(abs(t.across_m), 150.0) / 3.0
+        # On the runway, and well past its threshold: a hundred metres in.
+        # Short of it is off the runway, which is worse than any touch on it
+        # and worse than going wrong in the air - the further short the worse.
+        if t.along_m < 0.0:
+            r -= 120.0 + min(-t.along_m, 1000.0) / 10.0
+        elif t.along_m <= 1200.0:
+            r += 10.0 * min(1.0, t.along_m / 100.0)
+        else:
+            r -= 20.0
         return r
 
 
