@@ -24,6 +24,7 @@
 // after every tick.
 
 #include "flight.hpp"
+#include "frontend/players_copilot.hpp"
 #include "online.hpp"
 #include "shown.hpp"
 #include "platform/end_process.hpp"
@@ -160,6 +161,13 @@ struct Options {
     // On a server, hand its own aircraft to the AI this many seconds of
     // flight in, and take it back this many in, as A does; below nought, never.
     double hand_over_after_s = -1.0;
+    // **Its copilot** (`--copilot TASK`), asked with the player's own key on
+    // this machine when C is pressed; only its route goes to the server.
+    std::string copilot_task;
+    std::string copilot_provider = "openai";
+    std::string copilot_model;
+    std::string copilot_playback; // for tests: a recording, asked of nobody
+    double copilot_after_s = -1.0; // for tests: as C does, S seconds after joining
     double take_back_after_s = -1.0;
     // On a server, stall this many seconds of flight in - send nothing and
     // answer nothing, as a stopped process - until the server lets it go.
@@ -235,6 +243,11 @@ void usage(std::FILE* out) {
         "                over the one ridden in, if the AI flies it\n"
         "  --take-over-after S  riding along, take it over S seconds after\n"
         "                joining\n"
+        "  --copilot TASK  on a server, C asks a language model - with your own\n"
+        "                key, on this machine - to fly TASK, and then again each\n"
+        "                minute; only its route goes to the server, which checks\n"
+        "                it and flies it with its AI. --copilot-provider openai|\n"
+        "                anthropic, --copilot-model M\n"
         "  --hand-over-after S, --take-back-after S  on a server, hand your own\n"
         "                aircraft to the AI S seconds after joining, and take it\n"
         "                back, as A does (for tests)\n"
@@ -465,6 +478,16 @@ static int run_program(int argc, char** argv) {
             o.ride_along = true;
         } else if (a == "--take-over-after" && has_value) {
             o.take_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--copilot" && has_value) {
+            o.copilot_task = std::string(args[++i]);
+        } else if (a == "--copilot-provider" && has_value) {
+            o.copilot_provider = std::string(args[++i]);
+        } else if (a == "--copilot-model" && has_value) {
+            o.copilot_model = std::string(args[++i]);
+        } else if (a == "--copilot-playback" && has_value) {
+            o.copilot_playback = std::string(args[++i]);
+        } else if (a == "--copilot-after" && has_value) {
+            o.copilot_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--hand-over-after" && has_value) {
             o.hand_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--stall-after" && has_value) {
@@ -1064,6 +1087,35 @@ static int run_program(int argc, char** argv) {
         double own_framed_s = -1.0;
         // **Its own aircraft handed over, or taken back**: asked of the
         // server, which decides; what it says comes back in the updates.
+        // **Ask the copilot** (C, or `--copilot-after`): the model is asked
+        // here, with the player's key, and what it answers goes to the server
+        // as a route, which the server's AI flies. Without a task, or a key,
+        // it says so.
+        std::unique_ptr<glideslope::frontend::PlayersCopilot> copilot;
+        bool asked_the_copilot = false;
+        const auto ask_the_copilot = [&]() {
+            if (o.copilot_task.empty()) {
+                std::printf("glideslope: no copilot: start with --copilot TASK\n");
+                return;
+            }
+            try {
+                if (!copilot) {
+                    glideslope::frontend::PlayersCopilotOptions c;
+                    c.aircraft = joined->aircraft_id;
+                    c.task = o.copilot_task;
+                    c.provider = o.copilot_provider;
+                    c.model = o.copilot_model;
+                    c.playback = o.copilot_playback;
+                    c.routine_s = 60.0;
+                    copilot = std::make_unique<glideslope::frontend::PlayersCopilot>(
+                        glideslope::platform::data_directory(), c);
+                    std::printf("glideslope: copilot %s engaged\n", copilot->provider().c_str());
+                }
+                copilot->ask();
+            } catch (const std::exception& e) {
+                std::printf("glideslope: no copilot: %s\n", e.what());
+            }
+        };
         const auto hand_over = [&](bool to_ai) {
             online->hand_over(to_ai);
             std::printf("glideslope: asked for aircraft %u to be handed to %s\n",
@@ -1228,6 +1280,9 @@ static int run_program(int argc, char** argv) {
                         flight->swap_pilot();
                     }
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == SDL_SCANCODE_C && online && joined) {
+                    ask_the_copilot();
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_T && online && joined &&
                            online->watching() != glideslope::net::no_aircraft) {
                     // **Take the controls** of the aircraft ridden in, if the
@@ -1369,6 +1424,26 @@ static int run_program(int argc, char** argv) {
                 const double joined_s =
                     static_cast<double>(ticks) /
                     static_cast<double>(glideslope::sim::steps_per_second);
+                if (o.copilot_after_s >= 0.0 && !asked_the_copilot &&
+                    joined_s >= o.copilot_after_s) {
+                    asked_the_copilot = true;
+                    ask_the_copilot();
+                }
+                // Its copilot looked at between frames: never waits for the
+                // model, and sends its route when one is due.
+                if (copilot && online->own_heard()) {
+                    try {
+                        const auto& [heard_s, own] = *online->own_heard();
+                        if (auto route = copilot->look(heard_s, own)) {
+                            online->send_route(std::move(*route));
+                        }
+                    } catch (const std::exception& e) {
+                        std::printf("glideslope: copilot: %s\n", e.what());
+                    }
+                    for (const std::string& line : copilot->said()) {
+                        std::printf("glideslope: %s\n", line.c_str());
+                    }
+                }
                 if (o.hand_over_after_s >= 0.0 && !asked_to_hand_over &&
                     joined_s >= o.hand_over_after_s) {
                     asked_to_hand_over = true;

@@ -1901,6 +1901,56 @@ foreach(_net IN ITEMS "100;30;5;11;24780;8" "200;60;10;12;24782;10")
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_impaired_${_delay})
 endforeach()
 
+# **A player's copilot is asked on the player's machine and its route flown
+# by the server**, from the recording committed in data/copilot, with no key;
+# asked now (labelled live) only with GLIDESLOPE_LIVE_MODEL=1. And **a route
+# the server cannot fly is refused by it**, though a client sent it. See
+# cmake/server_copilot.cmake.
+add_test(NAME a_players_copilot_asked_on_the_players_machine_is_flown_by_the_server_as_recorded
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot
+        -DPORT=24708 -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001
+        -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/manly-server-anthropic.jsonl
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
+set_tests_properties(a_players_copilot_asked_on_the_players_machine_is_flown_by_the_server_as_recorded
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+add_test(NAME a_players_copilot_asked_on_the_players_machine_is_flown_by_the_server_asking_anthropic_now
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_now
+        -DPORT=24710 -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001
+        -DRECORD=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_now/manly-server-anthropic.jsonl
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
+set_tests_properties(a_players_copilot_asked_on_the_players_machine_is_flown_by_the_server_asking_anthropic_now
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads LABELS live)
+add_test(NAME a_route_the_server_cannot_fly_is_refused_by_it_though_a_client_sent_it
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_refused
+        -DPORT=24712
+        -DROUTE=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/route-200-ft-over-the-sea.txt
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
+set_tests_properties(a_route_the_server_cannot_fly_is_refused_by_it_though_a_client_sent_it
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_copilot
+     ${CMAKE_CURRENT_BINARY_DIR}/server_copilot_now ${CMAKE_CURRENT_BINARY_DIR}/server_copilot_refused)
+
+# **The client with the window asks its copilot, and the server flies its
+# route**, played back from the same recording, with no key; what the client
+# shows does not step as its aircraft goes to the AI. See
+# cmake/client_copilot.cmake.
+add_test(NAME the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/client_copilot
+        -DPORT=24714 -DDRIVER=vulkan
+        -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/manly-server-anthropic.jsonl
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_copilot.cmake)
+set_tests_properties(the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_copilot)
+
 # **A player's aircraft handed to the AI and back, then wrecked, flies again
 # as the player's.** See cmake/server_swap_wreck.cmake.
 add_test(NAME an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players

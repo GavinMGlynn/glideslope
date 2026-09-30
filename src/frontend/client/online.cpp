@@ -156,6 +156,14 @@ void Online::noticed() {
 
 void Online::heard(const net::StatePacket& state, double local_s, Flight& flight) {
     clock_.heard(state.simulation_time_s, local_s);
+    // Its own aircraft as this update has it, for its copilot to be told.
+    if (!own_heard_ || state.simulation_time_s > own_heard_->first) {
+        for (const net::AircraftState& a : state.aircraft) {
+            if (a.index == mine_) {
+                own_heard_ = std::pair{state.simulation_time_s, a};
+            }
+        }
+    }
     // The watched aircraft's controls, by the time they were true.
     if (state.watched && state.watched->aircraft == watching_) {
         watched_[state.simulation_time_s] = *state.watched;
@@ -410,6 +418,12 @@ void Online::take_over(std::uint8_t number) {
     swap.aircraft = number;
     swap.to = net::Controller::person;
     const std::vector<std::uint8_t> body = net::write(swap);
+    session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
+}
+
+void Online::send_route(net::CopilotRoute route) {
+    route.aircraft = mine_;
+    const std::vector<std::uint8_t> body = net::write(route);
     session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
 }
 

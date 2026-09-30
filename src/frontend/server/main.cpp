@@ -9,6 +9,7 @@
 // used; not given, one is minted. Either way the public half is printed at
 // startup, because a client cannot begin an `IK` handshake without it.
 
+#include "copilot/copilot.hpp"
 #include "frontend/server/dashboard.hpp"
 #include "frontend/server/window.hpp"
 #include "net/handshake.hpp"
@@ -1228,6 +1229,133 @@ public:
         return false;
     }
 
+    // **A copilot's route for a player's own aircraft** (`COPILOT_ROUTE`,
+    // REQUIREMENTS.md section 5 as decided 2026-09-30): planned on the
+    // player's client with the player's key, and here an input like any
+    // other - **trusted no further than a plan**. It is read as a flight plan
+    // from where the aircraft is (sim::parse_flight_plan refuses what it
+    // cannot read, and an orbit too tight for its speed), and checked against
+    // the aircraft as this server has it, by the checks a copilot's answer is
+    // held to (copilot::change_refusal): heights above the ground under it,
+    // airspeeds the aircraft flies, nothing more than 200 km away, a glide
+    // only with its engine stopped. Refused, nothing changes, and why is
+    // returned. Taken, the aircraft is handed to the AI if its player was
+    // flying it - announced as any hand-over is - and flies the route from
+    // here: its heights above the sea, as the aircraft's are above the
+    // ellipsoid. Empty when flown.
+    std::string fly_route(std::uint8_t index, const glideslope::net::CopilotRoute& route) {
+        Aircraft* found = nullptr;
+        for (Aircraft& a : flown_) {
+            if (a.index == index && a.slot >= 0) {
+                found = &a;
+            }
+        }
+        if (found == nullptr) {
+            return "no player's aircraft is number " + std::to_string(index);
+        }
+        Aircraft& a = *found;
+        if (a.wrecked_at_s >= 0.0) {
+            return "it is a wreck";
+        }
+        const glideslope::sim::Aircraft& craft = *a.aircraft;
+        const double lat = craft.property("position/lat-geod-deg");
+        const double lon = craft.property("position/long-gc-deg");
+        const double undulation_ft = geoid_.undulation(lat, lon) * feet_per_metre;
+        glideslope::copilot::Brief brief;
+        brief.aircraft = a.catalogue_id;
+        brief.approach_kts = glideslope::sim::approach_speeds(data_, a.model).vref_kts;
+        brief.climb_kts = glideslope::sim::departure_speeds(data_, a.model).climb_kts;
+        brief.cruise_kts = glideslope::sim::find_aircraft(data_, a.catalogue_id).start_airspeed_kts;
+        glideslope::copilot::Situation now;
+        now.latitude_deg = lat;
+        now.longitude_deg = lon;
+        now.altitude_ft = craft.property("position/h-sl-ft") - undulation_ft;
+        now.ground_ft = dem_->height_above_geoid(lat, lon) * feet_per_metre;
+        now.heading_deg = craft.property("attitude/psi-deg");
+        now.airspeed_kts = craft.property("velocities/vc-kts");
+        now.engine_running = !craft.has_property("propulsion/engine/set-running") ||
+                             craft.property("propulsion/engine/set-running") > 0.5;
+        if (a.controller) {
+            now.gliding_kts = a.controller->glide();
+        }
+        // The route as a plan's lines, read by the plan's own reader.
+        std::string text = "aircraft " + a.catalogue_id + "\n";
+        char line[256];
+        std::snprintf(line, sizeof line, "start %.7f %.7f %.1f %.1f %.1f\n", lat, lon,
+                      now.altitude_ft, now.heading_deg, std::max(now.airspeed_kts, 1.0));
+        text += line;
+        for (const glideslope::net::RouteWaypoint& w : route.waypoints) {
+            if (w.orbit) {
+                std::snprintf(line, sizeof line, " %.7f %.7f %.1f %.1f %.1f %u %s\n", w.latitude_deg,
+                              w.longitude_deg, w.orbit->radius_m, w.altitude_ft, w.airspeed_kts,
+                              static_cast<unsigned>(w.orbit->turns), w.orbit->right ? "right" : "left");
+                text += "orbit " + w.name + line;
+            } else {
+                std::snprintf(line, sizeof line, " %.7f %.7f %.1f %.1f\n", w.latitude_deg,
+                              w.longitude_deg, w.altitude_ft, w.airspeed_kts);
+                text += "waypoint " + w.name + line;
+            }
+        }
+        glideslope::copilot::Change change;
+        change.keep = false;
+        change.glide_kts = route.glide_kts;
+        try {
+            change.plan = glideslope::sim::parse_flight_plan(text);
+        } catch (const glideslope::sim::FlightPlanError& e) {
+            return e.what();
+        }
+        if (std::string why = glideslope::copilot::change_refusal(brief, now, change); !why.empty()) {
+            return why;
+        }
+        if (!ai_flying(a)) {
+            (void)hand(index, true);
+        }
+        glideslope::sim::FlightPlan plan = change.plan;
+        for (glideslope::sim::Waypoint& w : plan.waypoints) {
+            w.altitude_ft += geoid_.undulation(w.latitude_deg, w.longitude_deg) * feet_per_metre;
+        }
+        a.controller->replan(std::move(plan));
+        a.controller->set_glide(route.glide_kts);
+        a.on_plan = false;
+        a.copilot_route.clear();
+        for (const glideslope::net::RouteWaypoint& w : route.waypoints) {
+            a.copilot_route.push_back(w.name);
+        }
+        return {};
+    }
+
+    // **Where each aircraft on a copilot's route has got to**, a line each:
+    // the waypoint it is flying to, and how far off it is.
+    std::vector<std::string> copilot_progress() const {
+        std::vector<std::string> out;
+        for (const Aircraft& a : flown_) {
+            if (a.copilot_route.empty() || !a.controller || a.controller->navigator() == nullptr) {
+                continue;
+            }
+            const glideslope::sim::Navigator& n = *a.controller->navigator();
+            const double lat = a.aircraft->property("position/lat-geod-deg");
+            const double lon = a.aircraft->property("position/long-gc-deg");
+            char line[256];
+            if (n.finished()) {
+                std::snprintf(line, sizeof line,
+                              "aircraft %u has flown its copilot's route of %zu",
+                              static_cast<unsigned>(a.index), a.copilot_route.size());
+            } else {
+                const glideslope::sim::Waypoint& to = n.plan().waypoints[n.next()];
+                std::snprintf(line, sizeof line,
+                              "aircraft %u on its copilot's route: to %s, %zu of %zu, %.0f m "
+                              "from it at %.0f kt",
+                              static_cast<unsigned>(a.index), to.name.c_str(), n.next() + 1,
+                              a.copilot_route.size(),
+                              glideslope::sim::distance_m(lat, lon, to.latitude_deg,
+                                                          to.longitude_deg),
+                              a.aircraft->property("velocities/vc-kts"));
+            }
+            out.emplace_back(line);
+        }
+        return out;
+    }
+
     // **One step of every aircraft**, which is what "the server owns them"
     // means - and **the collisions resolved**, which is the server's to decide
     // (sim/crash.hpp): each aircraft judged against the ground, and every two
@@ -1283,6 +1411,12 @@ public:
             }
             if (a.own_plan && a.on_plan) {
                 follow(a);
+            }
+        }
+        // Where each copilot's route has got to, every half minute.
+        if (steps_ % (30 * glideslope::sim::steps_per_second) == 0) {
+            for (std::string& line : copilot_progress()) {
+                happened.push_back(std::move(line));
             }
         }
         // Every two still flying, closer than the mean of their wingspans.
@@ -1361,6 +1495,10 @@ public:
         glideslope::sim::DepartureSpeeds departure{};
         // How its plan went, for the end of the run to say.
         PlanProgress progress{};
+        // **Flying its player's copilot's route** (`COPILOT_ROUTE`): the
+        // waypoints' names, as the route gave them, for the log to say
+        // where it has got to.
+        std::vector<std::string> copilot_route{};
     };
 
     // Whether an AI pilot has it, rather than a person - a controller of its
@@ -2399,6 +2537,38 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                                     std::get<std::string>(result).c_str());
                         std::fflush(stdout);
                     }
+                    continue;
+                }
+                // **A copilot's route**, for this client's own aircraft and
+                // no other: checked here as any plan is, and flown by the
+                // server's AI, or refused.
+                glideslope::net::CopilotRoute route;
+                if (fleet != nullptr && c.aircraft != glideslope::net::no_aircraft &&
+                    glideslope::net::read(
+                        std::span<const std::uint8_t>(message.data(), message.size()), route)) {
+                    std::string refused = route.aircraft != c.aircraft
+                                          ? std::string("it is not this client's aircraft")
+                                          : std::string();
+                    if (refused.empty()) {
+                        apply_input(c, *fleet);
+                        refused = fleet->fly_route(c.aircraft, route);
+                    }
+                    if (refused.empty()) {
+                        std::string names;
+                        for (const glideslope::net::RouteWaypoint& w : route.waypoints) {
+                            names += " " + w.name;
+                        }
+                        std::printf("aircraft %u flies its copilot's route of %zu:%s%s\n",
+                                    static_cast<unsigned>(c.aircraft), route.waypoints.size(),
+                                    names.c_str(),
+                                    route.glide_kts
+                                        ? (", gliding at " + std::to_string(std::lround(*route.glide_kts)) + " kt").c_str()
+                                        : "");
+                    } else {
+                        std::printf("aircraft %u: a copilot's route refused: %s\n",
+                                    static_cast<unsigned>(route.aircraft), refused.c_str());
+                    }
+                    std::fflush(stdout);
                     continue;
                 }
                 if (fleet != nullptr && c.aircraft != glideslope::net::no_aircraft &&

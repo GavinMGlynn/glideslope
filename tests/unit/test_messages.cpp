@@ -20,6 +20,8 @@ using glideslope::net::AircraftDefinition;
 using glideslope::net::AloftLevel;
 using glideslope::net::Controller;
 using glideslope::net::ControllerSwap;
+using glideslope::net::CopilotRoute;
+using glideslope::net::RouteWaypoint;
 using glideslope::net::Lobby;
 using glideslope::net::Message;
 using glideslope::net::Microburst;
@@ -99,6 +101,50 @@ ControllerSwap a_swap() {
     m.to = Controller::ai;
     m.at_simulation_time_s = 987.25;
     return m;
+}
+
+// A glide to an orbit over a field, by way of a waypoint: every field there
+// is, the orbit's among them.
+CopilotRoute a_route() {
+    CopilotRoute m;
+    m.aircraft = 3;
+    m.glide_kts = 68.0;
+    RouteWaypoint to;
+    to.name = "KURNELL";
+    to.latitude_deg = -34.0125;
+    to.longitude_deg = 151.2095;
+    to.altitude_ft = 1500.0;
+    to.airspeed_kts = 90.0;
+    RouteWaypoint round = to;
+    round.name = "YSSY";
+    round.latitude_deg = -33.9461;
+    round.longitude_deg = 151.1772;
+    round.altitude_ft = 21.0;
+    round.airspeed_kts = 68.0;
+    round.orbit = RouteWaypoint::Orbit{1500.0, 2, true};
+    m.waypoints = {to, round};
+    return m;
+}
+
+bool same_route(const CopilotRoute& a, const CopilotRoute& b) {
+    if (a.aircraft != b.aircraft || a.glide_kts != b.glide_kts ||
+        a.waypoints.size() != b.waypoints.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < a.waypoints.size(); ++i) {
+        const RouteWaypoint& x = a.waypoints[i];
+        const RouteWaypoint& y = b.waypoints[i];
+        if (x.name != y.name || x.latitude_deg != y.latitude_deg ||
+            x.longitude_deg != y.longitude_deg || x.altitude_ft != y.altitude_ft ||
+            x.airspeed_kts != y.airspeed_kts || x.orbit.has_value() != y.orbit.has_value()) {
+            return false;
+        }
+        if (x.orbit && (x.orbit->radius_m != y.orbit->radius_m ||
+                        x.orbit->turns != y.orbit->turns || x.orbit->right != y.orbit->right)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Each kind, as bytes, with a reader that says whether a body is that kind
@@ -254,6 +300,17 @@ std::vector<Kind> every_kind() {
                        glideslope::net::Watch got;
                        return glideslope::net::read(b, got);
                    }});
+
+    const CopilotRoute route = a_route();
+    out.push_back({Message::copilot_route, "copilot_route", glideslope::net::write(route),
+                   [route](std::span<const std::uint8_t> b) {
+                       CopilotRoute got;
+                       return glideslope::net::read(b, got) && same_route(got, route);
+                   },
+                   [](std::span<const std::uint8_t> b) {
+                       CopilotRoute got;
+                       return glideslope::net::read(b, got);
+                   }});
     return out;
 }
 
@@ -288,11 +345,11 @@ GLIDESLOPE_TEST(every_message_writes_and_reads_back_what_went_into_it) {
         ++walked;
     }
     // **The space this walked, stated**: the six kinds the item names, the
-    // forecast, and which aircraft a client watches.
-    check(walked == 8, "eight kinds were walked, not " + std::to_string(walked));
+    // forecast, which aircraft a client watches, and a copilot's route.
+    check(walked == 9, "nine kinds were walked, not " + std::to_string(walked));
 }
 
-// **A body of one kind is never read as another.** All thirty-six pairs are
+// **A body of one kind is never read as another.** All eighty-one pairs are
 // tried, because a reader that accepted another kind's bytes would hand a
 // caller a message it never sent.
 GLIDESLOPE_TEST(no_message_reads_as_a_kind_it_is_not) {
@@ -311,8 +368,8 @@ GLIDESLOPE_TEST(no_message_reads_as_a_kind_it_is_not) {
             ++pairs;
         }
     }
-    check(pairs == 64, "all sixty-four pairs were tried, not " + std::to_string(pairs));
-    check(refused == 56, "fifty-six of them are refused, not " + std::to_string(refused));
+    check(pairs == 81, "all eighty-one pairs were tried, not " + std::to_string(pairs));
+    check(refused == 72, "seventy-two of them are refused, not " + std::to_string(refused));
 }
 
 // **Every truncation of every message is refused.** A datagram can arrive
@@ -342,7 +399,7 @@ GLIDESLOPE_TEST(every_message_with_anything_trailing_is_refused) {
         check(!k.reads(longer), k.name + " with a byte after it must be refused");
         ++walked;
     }
-    check(walked == 8, "every kind was tried");
+    check(walked == 9, "every kind was tried");
 }
 
 // **Every single-byte change to every message either reads or is refused,
@@ -394,7 +451,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++kinds;
         }
     }
-    check(kinds == 8, "eight kinds are known, not " + std::to_string(kinds));
+    check(kinds == 9, "nine kinds are known, not " + std::to_string(kinds));
 
     std::size_t controllers = 0;
     for (int v = 0; v < 256; ++v) {
@@ -413,7 +470,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++not_a_kind;
         }
     }
-    check(not_a_kind == 248, "two hundred and forty-eight first bytes are no kind, not " +
+    check(not_a_kind == 247, "two hundred and forty-seven first bytes are no kind, not " +
                                  std::to_string(not_a_kind));
     check(!glideslope::net::kind_of({}).has_value(), "and an empty body is none");
 }
@@ -430,7 +487,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
 // exchange finishes and the test can say what came out.
 GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_loss) {
     const std::vector<Kind> kinds = every_kind();
-    check(kinds.size() == 8, "the six the item names, the forecast, and a watch");
+    check(kinds.size() == 9, "the six the item names, the forecast, a watch and a route");
 
     constexpr int mask_width = 12;
     constexpr std::uint32_t patterns = 1u << mask_width;
@@ -486,7 +543,7 @@ GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_l
         if (!finished || arrived.size() != kinds.size()) {
             glideslope::test::fail(
                 "with loss pattern " + std::to_string(lose) + ", " +
-                std::to_string(arrived.size()) + " of seven messages arrived" +
+                std::to_string(arrived.size()) + " of nine messages arrived" +
                 (finished ? "" : " and it never finished"));
         }
         // In order, once each, and each one still itself: the bytes are not
@@ -511,13 +568,13 @@ GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_l
                                   std::to_string(walked) + " of " +
                                   std::to_string(patterns));
     check(patterns == 4096, "there are 4,096 patterns over twelve datagrams");
-    // Eight messages with nothing lost are over in nine datagrams - eight
-    // out and one acknowledgement back - so a pattern whose set bits all lie
-    // at 9 to 11 never touches anything. There are 2^3 = 8 of those,
-    // including the empty one, which leaves 4,088 that do lose something.
-    check(with_loss == 4088, "4,088 of the patterns lost something, not " +
+    // Nine messages with nothing lost are over in ten datagrams - nine out
+    // and one acknowledgement back - so a pattern whose set bits all lie at
+    // 10 and 11 never touches anything. There are 2^2 = 4 of those,
+    // including the empty one, which leaves 4,092 that do lose something.
+    check(with_loss == 4092, "4,092 of the patterns lost something, not " +
                                  std::to_string(with_loss));
-    std::printf("  8 messages through 4,096 loss patterns; worst took %llu datagrams\n",
+    std::printf("  9 messages through 4,096 loss patterns; worst took %llu datagrams\n",
                 static_cast<unsigned long long>(worst_datagrams));
 }
 
@@ -546,7 +603,8 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
         {Message::terrain_dataset, "TERRAIN_DATASET"},
         {Message::controller_swap, "CONTROLLER_SWAP"},
         {Message::weather_aloft, "WEATHER_ALOFT"},
-        {Message::watch, "WATCH"}};
+        {Message::watch, "WATCH"},
+        {Message::copilot_route, "COPILOT_ROUTE"}};
     std::size_t walked = 0;
     for (const auto& [kind, name] : kinds) {
         char buf[8];
@@ -557,7 +615,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
               name + " is a kind the code knows");
         ++walked;
     }
-    check(walked == 8, "every kind was walked");
+    check(walked == 9, "every kind was walked");
 
     // Every controller, by value and by name.
     const std::vector<std::pair<Controller, std::string>> controllers{
@@ -585,7 +643,9 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
         {glideslope::net::most_metar_bytes, "at most 256 bytes"},
         {glideslope::net::most_name_bytes, "at most 64 bytes"},
         {glideslope::net::most_time_bytes, "at most 32 bytes"},
-        {glideslope::net::sha256_bytes, "exactly 32 bytes"}};
+        {glideslope::net::sha256_bytes, "exactly 32 bytes"},
+        {glideslope::net::most_route_waypoints, "at most 12"},
+        {glideslope::net::most_waypoint_name_bytes, "at most 32 bytes"}};
     std::size_t held = 0;
     for (const auto& [value, phrase] : limits) {
         check(phrase.find(std::to_string(value)) != std::string::npos,
@@ -593,8 +653,8 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
         check(says(phrase), "the document says \"" + phrase + "\"");
         ++held;
     }
-    check(held == 8, "every limit was walked");
-    std::printf("  the document holds 7 kinds, 3 controllers and 8 limits\n");
+    check(held == 10, "every limit was walked");
+    std::printf("  the document holds 9 kinds, 3 controllers and 10 limits\n");
 }
 
 // **Every message, filled to its limits, fits in one datagram.** Nothing
@@ -672,9 +732,17 @@ GLIDESLOPE_TEST(every_message_filled_to_its_limits_fits_in_one_datagram) {
     swap.to = Controller::ai;
     hold("controller_swap", glideslope::net::write(swap));
 
-    // **The space this walked, stated**: every kind there is, and each one
-    // filled rather than sampled.
-    check(walked == 7, "every kind was filled to its limits, not " +
+    CopilotRoute route;
+    route.glide_kts = 68.0;
+    RouteWaypoint longest;
+    longest.name = std::string(glideslope::net::most_waypoint_name_bytes, 'W');
+    longest.orbit = RouteWaypoint::Orbit{};
+    route.waypoints.assign(glideslope::net::most_route_waypoints, longest);
+    hold("copilot_route", glideslope::net::write(route));
+
+    // **The space this walked, stated**: every kind there is but `WATCH`,
+    // one byte with nothing to fill, and each one filled rather than sampled.
+    check(walked == 8, "every kind was filled to its limits, not " +
                            std::to_string(walked));
     // And the forecast this project really fetches fits, which is the case
     // that matters: nineteen pressure levels and four near-ground winds.
@@ -723,7 +791,8 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
         {Message::terrain_dataset, "TERRAIN_DATASET"},
         {Message::controller_swap, "CONTROLLER_SWAP"},
         {Message::weather_aloft, "WEATHER_ALOFT"},
-        {Message::watch, "WATCH"}};
+        {Message::watch, "WATCH"},
+        {Message::copilot_route, "COPILOT_ROUTE"}};
     std::size_t named = 0;
     for (const auto& [kind, name] : kinds) {
         check(glideslope::net::known_message(static_cast<std::uint8_t>(kind)),
@@ -741,7 +810,7 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
     }
     check(named == known, "every kind the code knows was looked for: " +
                               std::to_string(named) + " of " + std::to_string(known));
-    check(named == 8, "eight kinds, not " + std::to_string(named));
+    check(named == 9, "nine kinds, not " + std::to_string(named));
 
     // **It says what it does not defend.** A threats document that only
     // listed defences would be the more dangerous for it.
@@ -868,6 +937,23 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
                        ControllerSwap got;
                        return glideslope::net::read(b, got);
                    }});
+    fields.clear();
+
+    // A glide, and one waypoint that is an orbit, so that each field appears.
+    CopilotRoute route = a_route();
+    route.glide_kts = next();
+    RouteWaypoint w = route.waypoints[1];
+    w.latitude_deg = next();
+    w.longitude_deg = next();
+    w.altitude_ft = next();
+    w.airspeed_kts = next();
+    w.orbit->radius_m = next();
+    route.waypoints = {w};
+    out.push_back({"copilot_route", glideslope::net::write(route), fields,
+                   [](std::span<const std::uint8_t> b) {
+                       CopilotRoute got;
+                       return glideslope::net::read(b, got);
+                   }});
     return out;
 }
 
@@ -880,22 +966,25 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
 // infinite duration never ends. A number that is not one is refused exactly
 // as a bad count or a trailing byte is.
 //
-// **The space, stated.** Seven kinds of message carry nineteen
+// **The space, stated.** Five kinds of message carry twenty-five
 // floating-point fields between them:
 //
 //   - `SESSION`, one - the simulation's clock;
 //   - `WEATHER`, three of its own and six per microburst;
 //   - `WEATHER_ALOFT`, five per pressure level and three per near-ground
 //     wind;
-//   - `CONTROLLER_SWAP`, one.
+//   - `CONTROLLER_SWAP`, one;
+//   - `COPILOT_ROUTE`, the glide's airspeed, four per waypoint and one more
+//     per orbit.
 //
-// **The three kinds left out are named**: `LOBBY`, `AIRCRAFT` and
-// `TERRAIN_DATASET` carry no floating-point field at all - slot indices,
-// names and a hash - so there is nothing in them for this to walk.
+// **The four kinds left out are named**: `LOBBY`, `AIRCRAFT`,
+// `TERRAIN_DATASET` and `WATCH` carry no floating-point field at all - slot
+// indices, names, a hash and a number - so there is nothing in them for this
+// to walk.
 //
 // Each of the nineteen is overwritten with six bit patterns that are not a
 // number and must be refused, and five that are numbers however extreme and
-// must still read: 114 refusals and 95 readings, each counted.
+// must still read: 150 refusals and 125 readings, each counted.
 GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an_infinity) {
     // The bit patterns that are not a number. Both infinities, and NaNs
     // quiet and signalling, signed and with a payload, because a reader that
@@ -919,8 +1008,8 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
         {0x0000000000000001ull, "the smallest subnormal"}};
 
     const std::vector<WithNumbers> kinds = every_kind_that_carries_a_number();
-    check(kinds.size() == 4,
-          "four of the seven kinds carry a floating-point field, not " +
+    check(kinds.size() == 5,
+          "five of the nine kinds carry a floating-point field, not " +
               std::to_string(kinds.size()));
 
     std::size_t walked = 0;
@@ -952,12 +1041,12 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
             ++walked;
         }
     }
-    check(walked == 19, "nineteen floating-point fields were walked, not " +
+    check(walked == 25, "twenty-five floating-point fields were walked, not " +
                             std::to_string(walked));
-    check(refused == 19 * 6, "114 numbers that are not numbers were refused, not " +
+    check(refused == 25 * 6, "150 numbers that are not numbers were refused, not " +
                                  std::to_string(refused));
-    check(accepted == 19 * 5, "95 extreme numbers still read, not " +
+    check(accepted == 25 * 5, "125 extreme numbers still read, not " +
                                   std::to_string(accepted));
-    std::printf("  19 floating-point fields: %zu refused, %zu still read\n", refused,
+    std::printf("  25 floating-point fields: %zu refused, %zu still read\n", refused,
                 accepted);
 }

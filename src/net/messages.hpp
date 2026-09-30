@@ -4,7 +4,8 @@
 //
 // **Six things must each arrive, exactly once, in order**: the lobby, the
 // session, the weather, an aircraft's definition, the terrain dataset and a
-// controller swap. They go as **seven kinds of message**, because the
+// controller swap - and, since, which aircraft a client watches and a
+// copilot's route. They go as **nine kinds of message**, because the
 // weather is two of them - see below. `net/reliable.hpp` makes delivery true
 // of an opaque body; this says what those bodies are.
 //
@@ -57,6 +58,7 @@ enum class Message : std::uint8_t {
     controller_swap = 6,
     weather_aloft = 7,
     watch = 8,
+    copilot_route = 9,
 };
 
 // Whether `kind` is one this version knows.
@@ -180,6 +182,36 @@ struct Watch {
     std::uint8_t aircraft = 0;
 };
 
+// **A copilot's route for a client's own aircraft** (REQUIREMENTS.md section
+// 5, decided 2026-09-30): the player's own client asks the language model,
+// with the player's key, which never leaves it, and sends only what came of
+// it - the route and the glide, as a plan the AI is to fly. The server takes
+// it as an input and nothing more: it reads it as a flight plan, checks it
+// against its own aircraft as it is, refuses what cannot be flown, and flies
+// the rest with its own AI - handing the aircraft to the AI if the player was
+// flying it.
+struct RouteWaypoint {
+    std::string name;
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+    double altitude_ft = 0.0; // above sea level
+    double airspeed_kts = 0.0;
+    struct Orbit {
+        double radius_m = 0.0;
+        std::uint8_t turns = 0; // 0: for ever
+        bool right = false;
+    };
+    std::optional<Orbit> orbit;
+};
+
+struct CopilotRoute {
+    std::uint8_t aircraft = 0;
+    // The airspeed to glide at, for an engine that has stopped; none flies
+    // the route's heights and airspeeds.
+    std::optional<double> glide_kts;
+    std::vector<RouteWaypoint> waypoints; // 1 to most_route_waypoints
+};
+
 // **The most of each variable-length thing a message may carry.** A reader
 // that trusted a count could be told to hold four billion slots by six
 // bytes; these are what this protocol will accept, and anything more breaks
@@ -197,6 +229,8 @@ inline constexpr std::size_t most_metar_bytes = 256;
 inline constexpr std::size_t most_name_bytes = 64;
 inline constexpr std::size_t most_time_bytes = 32;
 inline constexpr std::size_t sha256_bytes = 32;
+inline constexpr std::size_t most_route_waypoints = 12;
+inline constexpr std::size_t most_waypoint_name_bytes = 32;
 
 // **The most a message body may be**: a datagram, less the envelope in front
 // of it and the reliable layer's number and acknowledgement. Nothing
@@ -223,6 +257,7 @@ std::vector<std::uint8_t> write(const AircraftDefinition& m);
 std::vector<std::uint8_t> write(const TerrainDataset& m);
 std::vector<std::uint8_t> write(const ControllerSwap& m);
 std::vector<std::uint8_t> write(const Watch& m);
+std::vector<std::uint8_t> write(const CopilotRoute& m);
 
 // Which kind a body is, or nothing if it is empty or a kind this version
 // does not know.
@@ -241,5 +276,6 @@ bool read(std::span<const std::uint8_t> body, AircraftDefinition& out);
 bool read(std::span<const std::uint8_t> body, TerrainDataset& out);
 bool read(std::span<const std::uint8_t> body, ControllerSwap& out);
 bool read(std::span<const std::uint8_t> body, Watch& out);
+bool read(std::span<const std::uint8_t> body, CopilotRoute& out);
 
 } // namespace glideslope::net

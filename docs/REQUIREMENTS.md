@@ -243,6 +243,14 @@ Layered, each built on the one below:
    cannot hold an aircraft at the 120 Hz a control loop needs, so its output
    is modes and plans, never control positions. It needs an autopilot that
    can fly an approach and land, and the player's own key.
+   **The player's key stays on the player's machine** (the project owner,
+   2026-09-30). A player's copilot is asked by the player's own client, with
+   the player's key, and what the client sends the server is only what came
+   of it: a route and a glide, as an input (`COPILOT_ROUTE`, 6.4). The server
+   checks it as it checks any plan - refusing what cannot be flown, and
+   trusting it no further - and its own AI flies it there. The key never
+   leaves the client. AI aircraft the server runs are planned with the
+   operator's key, on the server.
 4. **Reinforcement learning (stretch goal):** JSBSim has Python gym-style
    wrappers for training landing or aerobatic agents.
 
@@ -312,6 +320,14 @@ host:
 
 - Input sequence number and session timestamp
 - The last several input frames, for redundancy
+
+**Client → server, when its copilot answers** (the project owner,
+2026-09-30): a copilot's route for the client's own aircraft - waypoints,
+orbits and a glide airspeed, never a control position - sent reliably. It is
+an input like the frames above: the server reads it as a flight plan, checks
+it against the aircraft as the server has it, refuses what cannot be flown,
+and flies the rest with its own AI pilot. The language model is asked on the
+client, with the player's key; the key never goes to the server.
 
 **Server → client, 20–30 times per second:**
 
@@ -384,7 +400,8 @@ not the session.
   document alone.
 - Inputs (redundant) and state updates are unreliable (latest wins). Lobby,
   session, weather, aircraft definitions, terrain dataset and controller-swap
-  messages need a small reliable-delivery layer on top.
+  messages need a small reliable-delivery layer on top - and, since
+  2026-09-30, a copilot's route.
 
 ## 7. Phases
 

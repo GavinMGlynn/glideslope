@@ -280,8 +280,8 @@ token, which is how the dashboard's round trip is measured and how a client
 stays alive against `--timeout`; a `pong` is believed only when its token is
 the one outstanding. `inputs` go from each client and are applied to its own
 aircraft only; `state` goes from the server; `reliable` carries the messages
-both ways, and the server acts on a client's `CONTROLLER_SWAP` and `WATCH`
-alone (above); `leaving` goes from a client, and lets its own session go (see
+both ways, and the server acts on a client's `CONTROLLER_SWAP`, `WATCH` and
+`COPILOT_ROUTE` alone (above); `leaving` goes from a client, and lets its own session go (see
 "Ending somebody else's session" below). A first byte the server does not know
 is ignored rather than refused, deliberately, so that a later version's client
 is not dropped for speaking one.
@@ -367,9 +367,10 @@ that is handed one has been handed something with no meaning.
 | `CONTROLLER_SWAP` | server, and a client asking | **yes** |
 | `WEATHER_ALOFT` | server | no |
 | `WATCH` | a client | **yes** |
+| `COPILOT_ROUTE` | a client | **yes** |
 
-**So `CONTROLLER_SWAP` and `WATCH` are the two with a client-to-server
-threat surface**, and the readers for the other six matter in the opposite
+**So `CONTROLLER_SWAP`, `WATCH` and `COPILOT_ROUTE` are the three with a
+client-to-server threat surface**, and the readers for the other six matter in the opposite
 direction: they are what defends a client against a server that is hostile,
 broken or a different version. That direction is not hypothetical - a client
 is told a server's host, port and key by whoever ran the server: on a command
@@ -379,12 +380,12 @@ The two a client acts on are `AIRCRAFT`, which names the model it loads -
 a catalogue id it looks up, never a path it opens - and `CONTROLLER_SWAP`.
 
 **The server drops the other six** (2026-09-25). It reads every reliable
-message a client sends, acts on a `CONTROLLER_SWAP` or a `WATCH` and on nothing
-else: anything else is acknowledged, so that the client stops repeating it,
+message a client sends, acts on a `CONTROLLER_SWAP`, a `WATCH` or a
+`COPILOT_ROUTE` and on nothing else: anything else is acknowledged, so that the client stops repeating it,
 and let go. The server's dashboard also builds a `LOBBY` from `Slots` to draw
 its own table, and that one is never written to the wire.
 
-Common to all eight, in `src/net/messages.cpp`, and all built:
+Common to all nine, in `src/net/messages.cpp`, and all built:
 
 - **A body is read as the kind its first byte says and never as another.**
   `after_kind` refuses at once if the kind byte is not the one being asked
@@ -564,6 +565,24 @@ client it is ignored, and the time the server announces is its own clock's.
 Nothing limits how often a client may ask: each swap is a controller change
 and a reliable message to every client, so a client asking a hundred times a
 second costs the server that. A rate limit is owed (below).
+
+#### `COPILOT_ROUTE`
+
+**A client sends a route for its own aircraft**, which its copilot - a
+language model the client asked with the player's own key - planned
+(2026-09-30). The key never reaches the server, so a server operator cannot
+spend a player's key, and a player's client cannot spend the operator's. The
+threat is a route that would hurt: one that flies into the ground, too slow
+to stay in the air, too tight to follow, or somewhere absurd. **The server
+trusts none of it**: the route is read as a flight plan (`sim::parse_flight_plan`,
+which refuses names, numbers and orbits it cannot fly) and checked against
+the aircraft as the server has it, with the same checks a copilot's answer
+is held to (`copilot::change_refusal`); one that fails is refused, printed,
+and changes nothing. It can be for the sender's own aircraft only, and never
+a wreck. What it cannot stop is a route that is flyable and foolish - over
+the sea until the fuel runs out, say - which is no more than a player
+flying their own aircraft badly. Rate limiting is owed here as for
+`CONTROLLER_SWAP`: each route read costs the server a plan parsed.
 
 #### `WATCH`
 

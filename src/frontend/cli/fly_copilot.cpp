@@ -324,6 +324,7 @@ int fly_copilot(const std::filesystem::path& data, const std::vector<std::string
     std::vector<world::RunwayEnd> fields_then;
     std::optional<std::int64_t> glide_began;
 
+    std::optional<std::string> playback_ended;
     std::int64_t step = 0;
     for (; step < most_steps; ++step) {
         // **The engine stops**, as a failure does.
@@ -362,9 +363,12 @@ int fly_copilot(const std::filesystem::path& data, const std::vector<std::string
             } catch (const copilot::ProviderError& e) {
                 // **Played back, every question was answered**: one the
                 // recording does not hold is a flight that has gone another
-                // way, and it is said, not flown past.
+                // way. The flight ends there, says what it measured up to
+                // then - so that a check of it can fail on its own terms -
+                // and then says this, and fails.
                 if (!live) {
-                    throw;
+                    playback_ended = e.what();
+                    break;
                 }
                 // **No answer is no change**: the AI flies on as it was. What
                 // happened is asked again at once, twice at most; a routine
@@ -532,5 +536,9 @@ int fly_copilot(const std::filesystem::path& data, const std::vector<std::string
     std::printf("the copilot, %s, was asked %d times: %d new routes, %d kept, %d not "
                 "answered; each answer taken between two steps\n",
                 provider_said.c_str(), questions, routes, keeps, failures);
+    if (playback_ended) {
+        std::fprintf(stderr, "glideslope_cli: fly-copilot: %s\n", playback_ended->c_str());
+        return 3;
+    }
     return 0;
 }

@@ -232,13 +232,79 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The copilot flies with you, in `glideslope_cli fly-copilot`, 2026-09-30 — item in progress
+### The copilot flies with you, on a server: asked on the player's machine, flown by the server, 2026-09-30 — item done
 
-**Missing first: only `glideslope_cli` flies with a copilot.** Neither the
-client nor the server offers one - no key, menu or setting turns it on in a
-flight a player is in, and the server's AI aircraft do not ask one. Nothing
-has been built or run on Windows or macOS but by CI; the code is not
-platform code (a thread, a clock and a sleep, from the standard library).
+**What a player's copilot is not told**: whether the engine runs - no state
+update says so, so a player's copilot is told it does (a tail, below). No
+engine can yet be failed on a server, so nothing on one needs it. The
+server's own AI aircraft do not ask a model in flight: each is planned once,
+by the model its server chooses, with the operator's key ("Each AI aircraft
+is planned by the model its server chooses", below).
+
+**The key stays on the player's machine** (the project owner, 2026-09-30;
+REQUIREMENTS.md section 5 and 6.4, TRANSPORT.md, THREATS.md). The player's
+client asks the model with the player's key, and sends the server only the
+route it answered, as a new reliable message, `COPILOT_ROUTE` (`09`):
+waypoints and orbits, and a glide airspeed, at most 12 waypoints, 925 bytes at
+its limits, written byte for byte in TRANSPORT.md. **The server trusts it no
+further than a plan**: it reads it as one (`sim::parse_flight_plan`) from
+where its own aircraft is, checks it with the checks a copilot's answer is
+held to (`copilot::change_refusal`, which the server now links) against the
+aircraft as the server has it - its ground from the server's DEM, its height
+above the sea from the server's geoid - and refuses what fails, printing why
+and changing nothing. What passes is flown by the server's AI: the aircraft
+handed to it first if the player was flying it, announced as any hand-over
+is, so the client stops predicting it and draws it from the updates. The
+server says where each copilot's route has got to every half minute.
+
+- **The client with the window**: `glideslope --copilot TASK
+  [--copilot-provider P] [--copilot-model M]`; C asks, and the copilot looks
+  again a minute after each answer. **The headless client**: `glideslope_cli
+  connect ... --copilot AIRCRAFT TASK` with `--copilot-provider`,
+  `--copilot-model`, `--copilot-record`/`--copilot-playback`, `--copilot-at S`
+  on the session's clock, `--copilot-answers N` and `--copilot-stay S`; and
+  `--send-route FILE`, a route sent as it is, never checked on this side. Both
+  use `frontend::PlayersCopilot` (`src/frontend/players_copilot.hpp`): told
+  its position from the updates, its height above the sea from the geoid and
+  the ground from the DEM as the player's machine has them, its speed over
+  the ground (no update carries airspeed) and the runways near it.
+- `a_players_copilot_asked_on_the_players_machine_is_flown_by_the_server_as_recorded`:
+  the server and the headless client, played back from Claude Haiku 4.5's
+  recorded answer to "fly to Manly at 3,000 ft, then orbit over Manly beach"
+  (`tests/data/copilot/manly-server-anthropic.jsonl`), no key. The server
+  handed the aircraft to its AI and flew the route - to MANLY, 6,188 m from
+  it at 30 s and 4,579 m at 60 s. The client leaves 60 s of the session's
+  clock after sending it; the server runs until it has gone. Red with the
+  server not flying what it took.
+- `a_route_the_server_cannot_fly_is_refused_by_it_though_a_client_sent_it`:
+  a client sends a waypoint 200 ft over the sea
+  (`tests/data/copilot/route-200-ft-over-the-sea.txt`); the server says "LOW
+  is at 200 ft, below 500 ft", and neither hands the aircraft over nor flies
+  it. Red with the server's check taken out.
+- `the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route`:
+  the client with the window, headless on Vulkan, asks its copilot three
+  seconds in (`--copilot-after 3`, what C does) from the same recording; the
+  server hands its aircraft to the AI, and what the client showed of its own
+  aircraft stepped 0.180 m at the switch from predicting it to drawing it from
+  the updates - under the 5 m bound. Red with the route not sent.
+- The message is walked by every message test: it writes and reads back,
+  every truncation, trailing byte and single-byte change is refused or read,
+  its six floating-point fields refuse NaN and infinity (25 fields in all
+  now), it fits a datagram at its limits, and TRANSPORT.md and THREATS.md name
+  it; `every_message_writes_and_reads_back_what_went_into_it` was red with an
+  orbit's direction dropped on reading.
+- **A glide is checked on its own terms**: the engine-failure flight must
+  hold the glide airspeed the copilot asked for within 5 kt, not merely a
+  steady one. A played-back flight that goes another way now ends where the
+  recording runs out, says what it measured, and fails after (exit 3), so
+  with the glide not flown the test is red for the glide - "67 to 72 kt, not
+  within 5 kt of the 60 kt asked for" - before it is red for the recording.
+
+### The copilot flies with you, in `glideslope_cli fly-copilot`, 2026-09-30 — finished above
+
+**Was missing: only `glideslope_cli` flew with a copilot** - done above.
+Nothing is built or run on Windows or macOS here but by CI and
+`tools/windows_build.sh`; the code is not platform code.
 
 **What flies**: `glideslope_cli fly-copilot AIRCRAFT LAT LON FEET HEADING
 KNOTS TASK` flies an aircraft over the DEM with the AI, and a language model
