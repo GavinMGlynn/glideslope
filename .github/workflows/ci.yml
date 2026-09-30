@@ -78,8 +78,8 @@ env:
 #     release presets run it. The debug presets leave it out every night too:
 #     those tests assert the 20 fps their bounds are claimed at, and fail
 #     as testing nothing where it is not met - as windows-release did once,
-#     at 102 ms around a switch: the frame the first switch is drawn in, not
-#     yet explained (run 36638803155, PROJECT_STATUS.md 2026-09-30).
+#     at 102 ms around a switch, where the first switch read a model from
+#     disk (run 36638803155; fixed, PROJECT_STATUS.md 2026-09-30).
 #   - A push to main, after a merge: the builds only - the tree was tested
 #     before it merged, since main takes a branch only when it is up to date -
 #     which keeps main's caches warm for the pull requests that restore them.

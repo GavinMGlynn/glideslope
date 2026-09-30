@@ -1014,6 +1014,16 @@ static int run_program(int argc, char** argv) {
             }
             return found->second;
         };
+        // **Its own aircraft's model for riding along in, loaded before the
+        // first frame**, not at the frame that first needs it: riding along
+        // in its own seat at a hand-over read the Cessna's model there, 42 ms
+        // of a 50 ms frame in a debug build, and windows-release's 102 ms
+        // frame at the switch failed the 20 fps floor. Loaded in the first
+        // frames instead, it lengthened one while the clocks' difference was
+        // being learned (PROJECT_STATUS.md, 2026-09-30).
+        if (flight) {
+            (void)model_of(flight->aircraft().id);
+        }
         bool rode_along = false;
         bool asked_to_take_over = false;
         bool asked_to_hand_over = false;
@@ -1384,6 +1394,15 @@ static int run_program(int argc, char** argv) {
             // flies it.
             if (online && joined) {
                 others_now = online->others(seconds_since_start());
+                // **Every other model it may draw or ride in, loaded when
+                // the aircraft is first heard of**, not at the frame that
+                // first needs it (its own is loaded before the first frame,
+                // above).
+                for (const glideslope::client::Other& other : others_now) {
+                    if (!other.aircraft_id.empty()) {
+                        (void)model_of(other.aircraft_id);
+                    }
+                }
                 if (o.ride_along && !rode_along) {
                     for (const glideslope::client::Other& other : others_now) {
                         if (other.ai_flying) {

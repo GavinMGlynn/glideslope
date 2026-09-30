@@ -2025,9 +2025,10 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rides_along)
 # sanitizer. So CI runs this label in its release presets, on pull requests
 # and every night; its debug presets and nightly.yml leave it out. That the
 # frame rate holds there is not a given: windows-release failed the hand-over
-# test at "frames of 102 ms around the switch" (run 36638803155): the frame
-# the first switch is drawn in, 48 to 70 ms in a debug build here and 17 ms
-# at the second; why is not yet found (PROJECT_STATUS.md, 2026-09-30).
+# test at "frames of 102 ms around the switch" (run 36638803155): the first
+# switch read the model of the aircraft ridden in from disk, 42 ms of a 50 ms
+# frame in a debug build here; it is loaded before now (PROJECT_STATUS.md,
+# 2026-09-30).
 add_test(NAME the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}

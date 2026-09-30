@@ -232,10 +232,13 @@ are the risks the phase order is built around:
 **What is still missing, first**: this has not been seen passing on CI's
 release presets, and the take-over item stays open until it has. CI has
 failed the floor on a release preset: windows-release, the hand-over test,
-"frames of 102 ms around the switch" (run 36638803155), and it fails the
-same way here in linux-debug run alone: the frame the first switch is drawn
-in is 48 to 70 ms, every other 17 ms (below). Which part of that draw is
-slow is not found, and it is not fixed. A client whose every
+"frames of 102 ms around the switch" (run 36638803155), and it failed the
+same way here in linux-debug. The cause is found and fixed - the first
+switch read the Cessna's model from disk (below) - and the test passes here
+now; that it passes on windows-release is not yet seen, and under a load
+average of 12 from other work on this machine it failed twice more
+(305 ms and 66 ms around a switch) where it passed ten times at 8 to 9 and
+quiet. A client whose every
 frame is slow - CI's sanitized software Vulkan, 0.95 to 2.4 s - is not yet
 shown to stay under the 20 m correction bound: run beside two other window
 tests in the sanitized build here, with every frame 0.8 s and more, the
@@ -415,21 +418,32 @@ one does.
     clocks' difference was known after the frame, from its words" failed;
     reverted, it passes. And `three_seconds_of_unacknowledged_inputs_are_held`
     - **seen to fail** at 240: "held 240 of the 360 steps flown".
-  - **The switch's long frame, found and not fixed.** A shot on a server
-    draws only its own frame and a switch's. A debug print (not kept) of the
-    frames around each switch in the hand-over test, linux-debug, run alone:
-    the frame the first switch's draw is in - handed to the AI, riding along
-    in its own seat - was 48.0, 70.3, 53.1 and 61.7 ms in four runs; every
-    other frame around both switches, the second switch's draw included,
-    17 to 18 ms. The last three runs failed the floor, as windows-release
-    did at 102 ms. Drawing a frame as soon as the flight is built, so that
-    the switch's draw was not the renderer's first, was tried and did not
-    help (17 ms once, then 70, 53 and 62 ms), and was taken out - it also
-    made the clocks' difference learn across that cold frame, putting the
-    slow-frames test right by 24.2 and 21.1 m. The floor is not loosened,
-    and the switch's frame is not left out of the window, either of which
-    would pass a test by not measuring the frame that fails it. What in the
-    first switch's draw costs 30 to 50 ms is the next lead.
+  - **The switch's long frame: the model of the aircraft ridden in, read
+    from disk at the switch.** A shot on a server draws only its own frame
+    and a switch's. Frames around each switch in the hand-over test,
+    linux-debug, alone, before: the frame the first switch's draw is in -
+    handed to the AI, riding along in its own seat - 48.0, 70.3, 53.1, 61.7,
+    51 and 52 ms in six runs, five failing the floor; every other frame
+    17 to 18 ms. Timing the sections of that pass with a steady clock (a
+    debug print, not kept): ticks 0.0 ms, hearing 0.1, scene and HUD text
+    3.0, render 4.4 - and 42.3 ms finding the aircraft ridden in, where
+    `model_of` read the Cessna's visual model and geometry the first time
+    anything asked for them; 0.0 ms at the second switch, and at every other
+    pass. The fix loads its own aircraft's model before the first frame, and
+    every other aircraft's when it is first heard of. After, the switch's
+    pass 12.8 to 16.7 ms, the model lookup 0.0 ms, and the hand-over test
+    alone passed ten runs in ten: frames around the switches 22, 25, 25, 26
+    and 27 ms at most on a quiet machine (with the models loaded on first
+    sight in the frame loop, own included), and 39, 34, 33, 41 and 26 ms
+    under a load average of 9 from other work (the fix as committed); at a
+    load average of 12, 305 and 66 ms, which is that load, not the switch -
+    the timed switch passes there were 13 to 17 ms. Loading its own model in
+    the first frames rather than before them lengthened one while the
+    clocks' difference was learned and the slow-frames test was put right by
+    20.5 m once, so it is loaded before the first frame. An earlier try,
+    drawing a frame as soon as the flight was built, did not help (17, 70,
+    53, 62 ms) and was taken out. The floor is not loosened, and no frame is
+    left out of the window.
   - **A waiting take-over kept in step.** A newer word replacing it now also
     reads who flies it, and gives the clocks' difference, as an older word
     of a frame does.
