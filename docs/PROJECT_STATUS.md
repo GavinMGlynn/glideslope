@@ -471,6 +471,21 @@ one does.
     switch, its own and the four after; the window tests print it beside
     their frames, and first in a failure. A report, not a check: nothing
     asserts it.
+  - **Two lesson tests timed out on windows-debug in run 36685209843** (on
+    48ade7b): `a_circuit_flown_low_downwind_is_named_in_the_debrief` and
+    `an_approach_taken_back_at_half_speed_is_landed_to_a_stop`, 900 s each,
+    and the shard was cancelled. Not this change: they fly the lessons in
+    `sim/` and use nothing it touched (the prediction, and the client's frame
+    loop). That shard's runner was slow at everything - the approach lesson
+    886 s against its 200 s cost, the cockpit and orbit view shots 447 and
+    569 s against 119 and 150 - about four times its cost on average, where
+    the same run's shards 1 and 3 took 0.81 and 1.14 times theirs. On this
+    branch's four other runs (36638803155, 36674576086, 36678421057,
+    36681942297) the circuit test took 362, 443, 420 and 324 s and the
+    half-speed approach 174, 211, 201 and 167 s, as on other branches (323
+    to 501 s and 150 to 272 s in the last 30 runs). Here in linux-debug,
+    rebased, under a load average of 8 to 12: 364 and 159 s, inside their
+    452 and 204 s costs.
   - **Counting, and what is held.** Frames put right are now counted where
     the correction is made, so a frame whose last word handed the aircraft
     to the AI is not counted. Unit test
