@@ -14,7 +14,11 @@
 # server's own updates (the HUD then reading FLYING AI); and **what the client
 # showed of its own aircraft must not step at the switch** from predicting it
 # to drawing it from the updates: one switch, under the 5 m the network checks
-# hold. The shot, 25 s in, ends it.
+# hold. **The shot waits on the events**, not the clock: from its tick, 5 s
+# in, until the route is sent and the server says the AI has the aircraft,
+# up to five minutes of the flight past it. It was drawn at a fixed 25 s at
+# first, and on CI (run 36686103327) the copilot had been asked and had not
+# yet answered by then.
 #
 # It needs a GPU driver, and the DEM's tiles; without either it reports
 # itself skipped (exit 77), never passed.
@@ -51,7 +55,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
-            --shot "${_shot}" --shot-at 3000 --view cockpit
+            --shot "${_shot}" --shot-at 600 --view cockpit
             --copilot "fly to Manly at 3,000 ft, then orbit over Manly beach"
             --copilot-provider anthropic --copilot-model claude-haiku-4-5-20251001
             --copilot-playback "${PLAYBACK}" --copilot-after 3
@@ -68,6 +72,9 @@ endif()
 glideslope_judge_leaks("${_err}")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the client exited ${_rc}:\n${_out}\n${_err}")
+endif()
+if(NOT _out MATCHES "the shot drawn [0-9.]+ s past its tick; its copilot's route sent, and the server says the AI has it")
+    message(FATAL_ERROR "the shot was drawn before the copilot's route was flown:\n${_out}")
 endif()
 if(NOT _out MATCHES "glideslope: its copilot answered with a route of [0-9]+:")
     message(FATAL_ERROR "the client's copilot did not answer with a route:\n${_out}")

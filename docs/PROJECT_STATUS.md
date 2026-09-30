@@ -235,8 +235,11 @@ are the risks the phase order is built around:
 ### The copilot flies with you, on a server: asked on the player's machine, flown by the server, 2026-09-30 — item done
 
 **What is not done**: a client predicting its own aircraft does not know its
-engine has stopped (a tail): only a test stops one (`--fail-engine-at`), and
-in the tests the AI is flying it by then, so nothing is predicted. The
+engine has stopped (a tail) - and that is ordinary play, not a test's alone:
+the state update's `02` is said for any engine the flight model has stopped,
+a tank run dry as much as `--fail-engine-at`. In the tests the AI is flying
+it by then, so nothing is predicted. A client older than `02` refuses every
+state update while any aircraft has an engine stopped. The
 server says nothing back of a route it refuses: the client takes the route
 it sent as the one flown. The window client's copilot is tested by one
 flight; its routine looks and its standing by are the same code as the
@@ -339,6 +342,63 @@ server says where each copilot's route has got to every half minute.
   recording runs out, says what it measured, and fails after (exit 3), so
   with the glide not flown the test is red for the glide - "67 to 72 kt, not
   within 5 kt of the 60 kt asked for" - before it is red for the recording.
+
+**From the re-review (2026-09-30), fixed:**
+
+- **CI failed** (run 36686103327, ubuntu linux-debug):
+  `the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route`
+  drew its shot at a fixed 25 s, and the copilot, asked, had not answered by
+  then - its answer is taken 10 s after it is asked, and now after its ground
+  is made too. The shot now waits on the events - the route sent and the
+  server saying the AI has the aircraft - up to five minutes of flight past
+  its tick. In the same run
+  `the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again`
+  failed on Rocky 9; it is not this change's: no copilot is made there, and
+  it failed on main as well (run 36674751464).
+- `every_flag_the_server_prints_in_its_usage_is_one_it_takes` failed:
+  `--fail-engine-at` was not in its list. It is, and a time that is
+  negative, not a number or NaN is refused (three tests, red with the check
+  loosened); `--dry-run` says when it will stop the engines.
+- **The stand-by test could not fail on its rule**: the answer after the
+  take-back was `keep`, which is sent by nobody. The recording's second
+  answer is now written in by hand as a route (the only answer in any
+  recording not a model's), and the test asserts that no route was sent
+  after the take-back and that the AI was given the aircraft once. Red with
+  the not-engaged answer sent: handed to the AI twice.
+- **The glide's airspeed is checked at every half-minute line from 45 s
+  after the glide was taken**, at least two of them, not the last alone -
+  the server now says the time on those lines. Red with the server not
+  flying the glide: 80 kt against the 65 asked for.
+- **An engine that stops while a question is out is asked about**: the
+  question asked with it running answers with a route the server refuses
+  ("the engine has stopped: the route must begin with glide"), which never
+  hands the aircraft to the AI; the copilot waited for that before asking
+  about the engine, so it never did. It asks as soon as it can, whoever
+  flies it, and again if the engine runs again.
+  `a_players_copilot_glides_when_the_engine_stops_while_it_is_thinking_as_recorded`
+  (Claude Haiku 4.5, recorded; the engine stopped 10 s in): the Manly route
+  refused, the glide to runway 25 flown. Red with the old wait.
+- `02` is said for any engine stopped, fuel exhaustion included; an older
+  client refuses the whole update while one is (TRANSPORT.md).
+- **Its ground failing kills its copilot once, and says so**: whatever
+  making the ground threw - a fetch, a file - ended every question after
+  without a word. Now it says "no copilot: ..." once and is gone for the
+  session. Going away, its fetches are given up (`world::FetchesGivenUp`)
+  as its model's request is abandoned, and each is waited for only as long
+  as giving up takes. Neither has a test of its own.
+- The route for another's aircraft is sent for another **player's** - a
+  second client's - which only the ownership check refuses: red with that
+  alone taken out. Speeds are kept by catalogue id; the engine count is
+  kept, not read at each update; `--copilot-routine` wants a positive
+  number, and `--route-for-another`/`--route-when-wrecked` want
+  `--send-route`.
+- Every test in the areas this touches was run - 234, by name: server,
+  client, copilot, state, message, flag, refusal, connect, take-over,
+  hand-over, ride-along and planned. 233 passed or skipped as they should;
+  `an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players`
+  failed once, in 2.8 s at the start of that run, and passed in each of three
+  runs after, alone and beside another server test. Its output was not
+  kept, so why is not known; it touches no copilot code.
 
 **From the review (2026-09-30), fixed:**
 

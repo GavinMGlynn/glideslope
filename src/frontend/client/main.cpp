@@ -1100,6 +1100,7 @@ static int run_program(int argc, char** argv) {
         std::unique_ptr<glideslope::frontend::PlayersCopilot> copilot;
         bool copilot_made = false;
         bool asked_the_copilot = false;
+        bool copilot_route_sent = false;
         const auto make_the_copilot = [&]() {
             if (copilot_made || o.copilot_task.empty() || !joined) {
                 return;
@@ -1451,6 +1452,7 @@ static int run_program(int argc, char** argv) {
                         const auto& [heard_s, own] = *online->own_heard();
                         if (auto route = copilot->look(heard_s, own)) {
                             online->send_route(std::move(*route));
+                            copilot_route_sent = true;
                         }
                     } catch (const std::exception& e) {
                         std::printf("glideslope: copilot: %s\n", e.what());
@@ -1612,6 +1614,27 @@ static int run_program(int argc, char** argv) {
                                     : "gone back to its old session, and flown by an input "
                                       "sent since",
                                 online->sequence(), online->applied(), online->back_at());
+                }
+                // **Its copilot asked, the shot waits for its route to be
+                // sent and the server to have given the AI the aircraft**:
+                // events again - the copilot's ground made and the model's
+                // answer taken, which on a slow machine is well past any
+                // tick. Five minutes of the flight past it bound it.
+                const bool copilot_unheard =
+                    asked_the_copilot && (!copilot_route_sent || !online->own_ai_flying());
+                const bool waited_for_copilot =
+                    ticks >= o.shot_at + 300 * glideslope::sim::steps_per_second;
+                if (shot_now && copilot_unheard && !waited_for_copilot) {
+                    shot_now = false;
+                }
+                if (shot_now && asked_the_copilot) {
+                    std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",
+                                static_cast<double>(ticks - o.shot_at) /
+                                    static_cast<double>(glideslope::sim::steps_per_second),
+                                copilot_unheard
+                                    ? "its copilot's route not yet sent and flown by the AI"
+                                    : "its copilot's route sent, and the server says the AI "
+                                      "has it");
                 }
                 if (shot_now && asked_to_stall) {
                     std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",

@@ -29,13 +29,18 @@
 #
 # **With TAKE_BACK_AT**, the player takes the aircraft back that many seconds
 # after joining, and the copilot, asked for a routine look every 20 s, must
-# stand by from then: the server hands the aircraft to the AI once, not
-# again, and the client says its copilot stands by.
+# stand by from then: the answer that comes after the take-back must not be
+# sent, and the server hands the aircraft to the AI once, not again. The
+# recording played back for it (data/copilot/take_back-server-anthropic.jsonl)
+# is Claude Haiku's, recorded, but for its second answer, which was `keep`
+# and is written in by hand as a route - a `keep` is sent by nobody, so it
+# would test nothing.
 #
 # **Sent as it is** (ROUTE): a route the client's copilot never checked, one
 # the server cannot fly. The server must refuse it, saying why (EXPECT), and
 # neither hand the aircraft to the AI nor fly it - and go on: both programs
-# end as they should. FOR=another sends it for another aircraft's number, and
+# end as they should. FOR=another sends it for another player's aircraft - a
+# second client's, joined first and flying its own - and
 # FOR=wreck once the client's own is a wreck (it dives into the sea, as
 # server_swap_wreck.cmake's does); PLAN gives the server a plan whose aircraft
 # - the players' too - is one whose figures give no speeds to check against.
@@ -89,7 +94,7 @@ else()
     set(_asking --copilot c172p "fly to Manly at 3,000 ft, then orbit over Manly beach"
                 --copilot-provider ${PROVIDER} --copilot-stay 60)
     if(DEFINED ENGINE_AT)
-        list(APPEND _asking --copilot-answers 2 --copilot-stay 70)
+        list(APPEND _asking --copilot-answers 2 --copilot-stay 100)
         list(APPEND _plan --fail-engine-at ${ENGINE_AT})
     endif()
     if(DEFINED TAKE_BACK_AT)
@@ -107,18 +112,29 @@ endif()
 
 # The client first and the server last, so that what the server prints is
 # what comes out of the pipeline. SECONDS, 300, is only the most the client
-# waits: it leaves on the session's clock.
+# waits: it leaves on the session's clock. With FOR=another, another player
+# first, flying its own aircraft, whose number the route is sent for.
+set(_other)
+set(_players)
+if(FOR STREQUAL "another")
+    # (A list, not a set(): the address holds ${PORT} itself, and
+    # test_ports.cmake reads a set() of it as a port derived.)
+    list(APPEND _other COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}"
+                "${_key}" 40 --fly)
+    set(_players --players 2)
+endif()
 execute_process(
+    ${_other}
     COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 300 --after 1
             --predict --copilot-at 5 ${_asking} --heard "${_heard}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 400 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}" ${_plan}
+            --data "${DATA}" --timeout 5 --store "${_store}" ${_plan} ${_players}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _served ERROR_VARIABLE _err)
 if(NOT EXISTS "${_heard}")
     message(FATAL_ERROR "the client heard nothing (exit codes ${_rcs}):\n${_served}\n${_err}")
 endif()
 file(READ "${_heard}" _said)
-if(NOT _rcs STREQUAL "0;0")
+if(NOT _rcs STREQUAL "0;0" AND NOT _rcs STREQUAL "0;0;0")
     if(DEFINED RECORD AND _err MATCHES "no (OpenAI|Anthropic) key|no credits|credit balance|insufficient_quota")
         message(STATUS "${PROVIDER} cannot be asked here: ${_err}")
         cmake_language(EXIT 77)
@@ -156,35 +172,41 @@ if(NOT _served MATCHES "aircraft ([0-9]+) flies its copilot's route of [0-9]+:([
     message(FATAL_ERROR "the server never flew the copilot's route:\n${_served}")
 endif()
 set(_names "${CMAKE_MATCH_2}")
-if(_served MATCHES "copilot's route refused")
+if(_served MATCHES "copilot's route refused" AND NOT REFUSED_FIRST)
     message(FATAL_ERROR "the server refused the copilot's route:\n${_served}")
+endif()
+# **With REFUSED_FIRST**, the engine stops while the first question is out:
+# its route, no glide, must be refused by the server, and the copilot asked
+# about the engine all the same.
+if(REFUSED_FIRST AND NOT _served MATCHES "copilot's route refused: the engine has stopped")
+    message(FATAL_ERROR "the first route was not refused for the stopped engine, so this "
+                        "tested nothing:\n${_served}")
 endif()
 # Its progress, each half minute: the first line and the last - but for a
 # route its pilot took back, which ends when it is.
 if(NOT DEFINED TAKE_BACK_AT)
-# Its progress, each half minute: the first line and the last.
-string(REGEX MATCHALL "on its copilot's route: to [A-Za-z0-9_]+, [0-9]+ of [0-9]+, [0-9]+ m"
-       _progress "${_served}")
-list(LENGTH _progress _n)
-if(_n LESS 2)
-    message(FATAL_ERROR "the server said where the route had got to ${_n} times, not twice:\n"
-                        "${_served}")
-endif()
-list(GET _progress 0 _first)
-list(GET _progress -1 _last)
-string(REGEX MATCH "to ([A-Za-z0-9_]+), ([0-9]+) of [0-9]+, ([0-9]+) m" _m "${_first}")
-set(_first_to "${CMAKE_MATCH_1}")
-set(_first_leg "${CMAKE_MATCH_2}")
-set(_first_m "${CMAKE_MATCH_3}")
-string(REGEX MATCH "to ([A-Za-z0-9_]+), ([0-9]+) of [0-9]+, ([0-9]+) m" _m "${_last}")
-set(_last_to "${CMAKE_MATCH_1}")
-set(_last_leg "${CMAKE_MATCH_2}")
-set(_last_m "${CMAKE_MATCH_3}")
-if(_last_to STREQUAL _first_to AND _last_leg EQUAL _first_leg AND NOT _last_m LESS _first_m)
-    message(FATAL_ERROR "the aircraft came no nearer its waypoint: ${_first}, then ${_last}\n"
-                        "${_served}")
-endif()
-message(STATUS "the server flew the copilot's route,${_names}: ${_first}; then ${_last}")
+    string(REGEX MATCHALL "on its copilot's route: to [A-Za-z0-9_]+, [0-9]+ of [0-9]+, [0-9]+ m"
+           _progress "${_served}")
+    list(LENGTH _progress _n)
+    if(_n LESS 2)
+        message(FATAL_ERROR "the server said where the route had got to ${_n} times, not twice:\n"
+                            "${_served}")
+    endif()
+    list(GET _progress 0 _first)
+    list(GET _progress -1 _last)
+    string(REGEX MATCH "to ([A-Za-z0-9_]+), ([0-9]+) of [0-9]+, ([0-9]+) m" _m "${_first}")
+    set(_first_to "${CMAKE_MATCH_1}")
+    set(_first_leg "${CMAKE_MATCH_2}")
+    set(_first_m "${CMAKE_MATCH_3}")
+    string(REGEX MATCH "to ([A-Za-z0-9_]+), ([0-9]+) of [0-9]+, ([0-9]+) m" _m "${_last}")
+    set(_last_to "${CMAKE_MATCH_1}")
+    set(_last_leg "${CMAKE_MATCH_2}")
+    set(_last_m "${CMAKE_MATCH_3}")
+    if(_last_to STREQUAL _first_to AND _last_leg EQUAL _first_leg AND NOT _last_m LESS _first_m)
+        message(FATAL_ERROR "the aircraft came no nearer its waypoint: ${_first}, then ${_last}\n"
+                            "${_served}")
+    endif()
+    message(STATUS "the server flew the copilot's route,${_names}: ${_first}; then ${_last}")
 endif()
 
 if(DEFINED TAKE_BACK_AT)
@@ -194,8 +216,19 @@ if(DEFINED TAKE_BACK_AT)
         message(FATAL_ERROR "the server handed the aircraft to the AI ${_times} times, not once: "
                             "the copilot took it back from its pilot:\n${_served}\n${_said}")
     endif()
-    if(NOT _said MATCHES "its pilot has taken it back: the copilot stands by")
+    string(FIND "${_said}" "its pilot has taken it back: the copilot stands by" _back)
+    if(_back LESS 0)
         message(FATAL_ERROR "the copilot did not stand by when taken back:\n${_said}")
+    endif()
+    # **The rule itself**: the answer that came after the take-back - in the
+    # recording played back, a route - was not sent.
+    string(SUBSTRING "${_said}" ${_back} -1 _after_back)
+    if(NOT _after_back MATCHES "its copilot answered, and was not heard")
+        message(FATAL_ERROR "no answer came after the take-back, so the rule was not "
+                            "tested:\n${_said}")
+    endif()
+    if(_after_back MATCHES "sent its copilot's route")
+        message(FATAL_ERROR "a route was sent after its pilot took the aircraft back:\n${_said}")
     endif()
     message(STATUS "taken back, the copilot stood by, and the AI was given the aircraft once")
 endif()
@@ -207,14 +240,15 @@ if(DEFINED ENGINE_AT)
     if(NOT _said MATCHES "asked its copilot, the engine has stopped")
         message(FATAL_ERROR "the copilot was not asked when the engine stopped:\n${_said}")
     endif()
-    if(NOT _served MATCHES "flies its copilot's route of [0-9]+:[^\n]*, gliding at ([0-9]+) kt")
+    if(NOT _served MATCHES "flies its copilot's route of [0-9]+:[^\n]*, gliding at ([0-9]+) kt, ([0-9]+) s in")
         message(FATAL_ERROR "the server never flew a glide:\n${_served}")
     endif()
     set(_glide "${CMAKE_MATCH_1}")
+    math(EXPR _settled "${CMAKE_MATCH_2} + 45")
     # The half-minute lines after the glide was taken.
     string(FIND "${_served}" ", gliding at" _from)
     string(SUBSTRING "${_served}" ${_from} -1 _after)
-    string(REGEX MATCHALL "to [A-Za-z0-9_]+, [0-9]+ of [0-9]+, [0-9]+ m from it at [0-9]+ kt"
+    string(REGEX MATCHALL "to [A-Za-z0-9_]+, [0-9]+ of [0-9]+, [0-9]+ m from it at [0-9]+ kt, [0-9]+ s in"
            _lines "${_after}")
     list(LENGTH _lines _n)
     if(_n LESS 2)
@@ -233,11 +267,28 @@ if(DEFINED ENGINE_AT)
     if(_last_leg EQUAL _first_leg AND NOT _last_m LESS _first_m)
         message(FATAL_ERROR "the glide came no nearer its waypoint: ${_first}, then ${_last}")
     endif()
+    # **Every line from 45 s after the glide was taken at the glide's
+    # airspeed**, not the last alone - the model gave every waypoint that
+    # airspeed too, and an aircraft flying them without the glide slows to it
+    # in time - and at least two of them. The 45 s are the glide's to slow
+    # from cruise to it (a_glide_with_the_engine_stopped_holds_its_airspeed_...).
     math(EXPR _low "${_glide} - 5")
     math(EXPR _high "${_glide} + 5")
-    if(_kts LESS _low OR _kts GREATER _high)
-        message(FATAL_ERROR "gliding at ${_kts} kt, not within 5 kt of the ${_glide} kt asked "
-                            "for: ${_last}\n${_served}")
+    set(_held 0)
+    foreach(_line IN LISTS _lines)
+        string(REGEX MATCH "at ([0-9]+) kt, ([0-9]+) s in" _m "${_line}")
+        if(CMAKE_MATCH_2 LESS _settled)
+            continue()
+        endif()
+        if(CMAKE_MATCH_1 LESS _low OR CMAKE_MATCH_1 GREATER _high)
+            message(FATAL_ERROR "gliding at ${CMAKE_MATCH_1} kt, not within 5 kt of the "
+                                "${_glide} kt asked for: ${_line}\n${_served}")
+        endif()
+        math(EXPR _held "${_held} + 1")
+    endforeach()
+    if(_held LESS 2)
+        message(FATAL_ERROR "only ${_held} lines from 45 s into the glide, not 2: the glide was "
+                            "not watched long enough to say it was held:\n${_served}")
     endif()
     message(STATUS "the engine stopped, and the player's copilot glided it at ${_glide} kt: "
                    "${_first}; then ${_last}")
