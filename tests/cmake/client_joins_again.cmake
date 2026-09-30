@@ -137,7 +137,15 @@ if(DROP)
         message(FATAL_ERROR "the server dropped nobody:\n${_out}\n${_err}")
     endif()
     if(NOT _out MATCHES "glideslope: the server ended this session \\(dropped, or taken over by a newer session for this key\\); not joining again\n")
-        message(FATAL_ERROR "the dropped client did not say it was dropped:\n${_out}\n${_err}")
+        # The relay says what it took from the server after the server's
+        # output ended, and delivered: none taken is a goodbye that never
+        # reached the relay; taken and delivered is one the client lost.
+        string(REGEX MATCH "impair: after its input ended[^\n]*" _relay_said "${_err}")
+        if(_relay_said STREQUAL "")
+            set(_relay_said "the relay said nothing of the server's last words")
+        endif()
+        message(FATAL_ERROR "the dropped client did not say it was dropped; ${_relay_said}:\n"
+                            "${_out}\n${_err}")
     endif()
     if(_out MATCHES "; joining again\n|joined again")
         message(FATAL_ERROR "the dropped client tried to join again:\n${_out}")

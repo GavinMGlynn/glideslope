@@ -8,6 +8,8 @@
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
+// After winsock2.h, which it needs: SIO_UDP_CONNRESET.
+#include <mswsock.h>
 
 #include <atomic>
 #include <cstring>
@@ -87,6 +89,25 @@ std::optional<UdpSocket> UdpSocket::bound(std::uint16_t port, bool v6) {
     // which clang-cl says plainly under -Wsign-conversion and MSVC does not
     // mention at all. The cast is this project's, not the SDK's.
     if (::ioctlsocket(fd, static_cast<long>(FIONBIO), &non_blocking) != 0) {
+        ::closesocket(fd);
+        winsock_down();
+        return std::nullopt;
+    }
+    // **A datagram sent to a closed port is not an error on this socket.**
+    // Windows, alone, reports the ICMP "port unreachable" that comes back as
+    // WSAECONNRESET on the sender's next recvfrom, which receive() cannot
+    // tell from nothing waiting - so each one took the place of a datagram
+    // that had come, and a loop reading until nothing is waiting stopped
+    // with datagrams still unread: the test relay, forwarding a client's
+    // knocks to a server that had gone, with the server's goodbye still to
+    // read. POSIX gives an unconnected socket no such error, and every
+    // socket here is unconnected. SIO_UDP_CONNRESET off makes Windows the
+    // same.
+    BOOL report_resets = FALSE;
+    DWORD returned = 0;
+    if (::WSAIoctl(fd, SIO_UDP_CONNRESET, &report_resets,
+                   static_cast<DWORD>(sizeof(report_resets)), nullptr, 0,
+                   &returned, nullptr, nullptr) == SOCKET_ERROR) {
         ::closesocket(fd);
         winsock_down();
         return std::nullopt;
