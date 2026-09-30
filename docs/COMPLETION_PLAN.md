@@ -803,7 +803,9 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The Learjet's stabilizer cannot trim her in cruise.** Its nose-down
       stop is not tied to the flight model's zero, so at 250 to 350 knots she
       is held by a quarter of the elevator's nose-down travel, and a pilot
-      flying by hand holds the stick forward. *Verification: the Learjet
+      flying by hand holds the stick forward. Tied to the maintenance
+      manual's travel she trims in cruise, but then rotates late: her take-off
+      had been leaning on the mis-tied stop. *Verification: the Learjet
       cruises from 250 to 350 knots with its elevator near neutral.*
 - [ ] **The Learjet has nothing behind its main wheels to strike with**, so
       the take-off cannot keep its tail off the runway and a strike goes

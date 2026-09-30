@@ -412,6 +412,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_failed_jet_engine_stays_failed
     frozen_fuel_is_not_burned
     the_speedbrake_lever_moves_the_spoilers
+    the_learjet_35a_trims_level_from_250_to_350_knots_with_her_elevator_at_neutral
     the_boeing_737_300_stalls_where_its_own_model_said_it_would
     the_boeing_787_8_stalls_where_its_own_model_said_it_would
     the_airbus_a320_stalls_where_its_own_model_said_it_would

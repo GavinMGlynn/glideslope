@@ -24,10 +24,19 @@ Where each number comes from:
     degrees for take-off and 40 for landing (5-1); the yaw damper (1-14B);
     and the horizontal stabilizer's take-off setting for the centre of
     gravity, 7.6 degrees nose up at 5% of the chord to 7.2 at 20% and 5.0 at
-    28% and aft (figure 2-2, TAKEOFF TRIM - CG FUNCTION), which is also the
-    most nose-up setting it names.
+    28% and aft (figure 2-2, TAKEOFF TRIM - CG FUNCTION), in degrees of the
+    stabilizer's leading edge down from its rigging neutral, as the
+    maintenance manual's take-off limits (below) are.
     Its stall speeds (figure 5-11) set the lift's maximum at each flap
     setting, which the figures then fly.
+  Learjet 35/35A/36/36A Maintenance Manual, 27-40-00, Adjustment/Test (Feb
+  11/00): the horizontal stabilizer's rigging
+    Its travel, on the 35-067 and after and those modified by AAK 76-4: the
+    nose-down stop 1 deg 30' to 1 deg 55' leading edge down from its rigging
+    neutral, and the nose-up stop 8 deg 30' to 9 deg 00' leading edge down;
+    the model's stops are the middles of those tolerances, 1.71 and 8.75
+    degrees. Its figure 202 puts the take-off limits on the same scale, 4 deg
+    39' to 7 deg 54', which is the AFM's figure 2-2.
   FAA type certificate data sheet A10CE, revision 67
     The TFE731-2-2B's take-off thrust, 3,500 lb; the controls' travel:
     elevator 16 degrees up and 15 down, ailerons 18 each way, rudder 30,
@@ -49,10 +58,7 @@ Where each number comes from:
   and, from its figure 7 - the same elevator settings at tail incidences of
     0.4 and -7 degrees, flaps up - the stabilizer's pitching moment, 0.0368 a
     degree, 2.11 a radian: the pitching moment at no incidence goes from 0.051
-    to 0.323 as the stabilizer goes from 0.4 to -7. **The stabilizer's
-    travel nose down, 0.4 degrees, is not sourced for the 35A**: it is the
-    tunnel aircraft's (a Learjet 23's) setting in that test, not a stop
-    anything published gives for this aeroplane.
+    to 0.323 as the stabilizer goes from 0.4 to -7.
   NASA TN D-7647, Wingrove's identification of a Lear Jet's longitudinal
   coefficients from flight (1974), table II
     The lift slope, 5.12; the lift and pitching moment at no incidence, 0.111
@@ -71,7 +77,8 @@ Estimated, as no source gives them, each named below with its number: the
 empty aircraft's centre of gravity, its inertias, the positions of the
 engines and the payload, the damping in roll and yaw and the side force, the
 engines' thrust with height and speed, the drag rise's Mach, the gear's
-springs and the wheels' size, and the fan's, for a stopped engine's drag.
+springs and the wheels' size, the fan's, for a stopped engine's drag, and
+where the stabilizer's rigging neutral lies on the flight model's scale.
 """
 
 import math
@@ -149,9 +156,8 @@ FLAP_PITCH = -0.03           # at 40 degrees
 # elevator: the 35A trims by its stabilizer, and is set for take-off by it
 # (the AFM's figure 2-2). Its pitching moment a radian (TN D-6573 figure 7),
 # its lift by the elevator's ratio of lift to moment - the same tail at the
-# same arm - and its travel: nose up to the AFM's greatest take-off setting,
-# nose down to the tunnel aircraft's, unsourced for the 35A. Its rate is estimated: its whole travel
-# in sixteen seconds, half a degree a second.
+# same arm - and its travel, the maintenance manual's. Its rate is estimated:
+# its whole travel in sixteen seconds, near half a degree a second.
 #
 # **Why it is here.** With the pitch trim on the elevator, and no take-off
 # setting, the elevator alone had to lift the nose wheel, and could not until
@@ -160,10 +166,28 @@ FLAP_PITCH = -0.03           # at 40 degrees
 # leaves at 129 by the book and at 114 pulled early.
 CM_STAB = -2.11
 CL_STAB = CL_DE * CM_STAB / CM_DE
-STAB_NOSE_UP_DEG, STAB_NOSE_DOWN_DEG = 7.6, 0.4
 STAB_TRAVEL_S = 16.0
-# The AFM's figure 2-2: the take-off setting, degrees nose up, by the centre
-# of gravity's place along the chord.
+# **The rigging's neutral on the flight model's scale.** The manual measures
+# the stabilizer from its rigging neutral, and the flight model's zero - the
+# setting at which its pitching moment is TN D-7647's - is not that neutral:
+# no source ties the two. It had been taken for it, with the nose-down stop
+# the tunnel aircraft's 0.4 degrees, and in the cruise she could not be
+# trimmed - from 250 to 350 knots JSBSim's trim found no setting, and a pilot
+# flying by hand held the stick forward, a quarter of the elevator's nose-down
+# travel. Measured with its travel unbounded, the model trims from 1.81
+# degrees nose down of its zero (350 knots, her lightest loading, aftmost)
+# to 5.29 nose up (125 knots, 40 degrees of flap, the forward loading): 7.1
+# degrees, where the manual's travel is 7.04. The zero is set here 3.6
+# degrees leading edge down on the rigging's scale, which puts that whole
+# range within the travel but its last 0.14 degrees nose up, on the
+# approach, which the elevator carries. The AFM's take-off settings move with
+# it, 3.6 degrees less nose up on the model's scale than they had been.
+STAB_ZERO_DEG = 3.6
+STAB_NOSE_DOWN_STOP_DEG, STAB_NOSE_UP_STOP_DEG = 1.71, 8.75  # leading edge down, rigged
+STAB_NOSE_DOWN_DEG = STAB_ZERO_DEG - STAB_NOSE_DOWN_STOP_DEG   # on the model's scale
+STAB_NOSE_UP_DEG = STAB_NOSE_UP_STOP_DEG - STAB_ZERO_DEG
+# The AFM's figure 2-2: the take-off setting, degrees leading edge down from
+# the rigging's neutral, by the centre of gravity's place along the chord.
 TAKEOFF_TRIM = [(0.05, 7.6), (0.20, 7.2), (0.28, 5.0), (0.30, 5.0)]
 # Lateral: TN D-6573's; the damping and side force estimated (see above).
 CL_BETA = [(0.0, -0.097), (0.14, -0.120), (0.244, -0.149)]
@@ -262,7 +286,7 @@ def flight_control():
     # The AFM's take-off setting for where the centre of gravity is, as a
     # pitch trim - positive nose up, as glideslope's controls have it - for
     # whoever sets it before take-off.
-    rows = "".join(f"                            {mac(f):.2f}\t{deg / STAB_NOSE_UP_DEG:.4f}\n"
+    rows = "".join(f"                            {mac(f):.2f}\t{(deg - STAB_ZERO_DEG) / STAB_NOSE_UP_DEG:.4f}\n"
                    for f, deg in TAKEOFF_TRIM)
     out += ("            <fcs_function name=\"Pitch Trim Takeoff Norm\">\n"
             "                <function>\n"
