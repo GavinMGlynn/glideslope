@@ -43,7 +43,15 @@ Post recording(Post post, std::filesystem::path file);
 // The exchanges `file` holds, played back in order. Throws ProviderError for
 // a request to another URL or with another body than the one recorded next,
 // or for one more than were recorded.
-Post playback(const std::filesystem::path& file);
+//
+// **A flight's numbers are not the words.** The copilot tells a model where
+// the aircraft is, and a flight flown again on another machine - or on this
+// one, a step later - is not where it was to the last digit. `but_numbers`
+// matches a request with every number in it disregarded: its words - what
+// the model is told and what happened - must be the recording's, and its
+// figures need not; nor, it follows, the digits of the model's name.
+enum class Match { exactly, but_numbers };
+Post playback(const std::filesystem::path& file, Match match = Match::exactly);
 
 // One turn of a conversation: "user" or "assistant", and what was said.
 struct Turn {

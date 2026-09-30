@@ -232,6 +232,68 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The copilot flies with you: decided, checked and flown by the controllers, 2026-09-30 — item in progress
+
+**Missing first: nothing flies with a copilot yet.** No program asks one in
+flight - not `glideslope_cli`, not the client, not the server - so no coast
+has been followed, no engine failure handled and nothing replays in CI. What
+is built is the part a program needs to do it, each piece tested alone:
+
+- **`copilot::Copilot`** (`src/copilot/copilot.hpp`): told once the aircraft
+  and the pilot's task, and asked - at engagement, now and then, and when
+  something happens - where the aircraft is, what it is doing, the route left
+  and the runways nearby. It answers `keep`, or a whole new route of
+  waypoints and orbits flown from where the aircraft is, first line
+  `glide AIRSPEED_KT` when the engine has stopped. The answer is read as a
+  flight plan (`sim::parse_flight_plan`) and checked against the flight as the
+  model was told it: every waypoint within 200 km, every height 500 ft above
+  the sea and the ground beneath, every airspeed from the approach speed to a
+  fifth over the cruise, a glide only with the engine stopped and from the
+  approach speed to the best climb, and with it stopped nothing but a glide.
+  One refused is told back to the model, up to three answers, as the planner's
+  are. It is built inside the copilot's walls (`cmake/Copilot.cmake`): it
+  sees the plan and the autopilot's modes, and nothing that moves a control.
+- **It never slows the step.** A question is asked on a thread of its own
+  (`ask`), and its answer taken between two steps when it has come
+  (`answered`); neither waits, and a question outstanding is not asked again.
+- **`sim::Controller::replan`** gives the AI a new route while it flies,
+  keeping the autopilot, so nothing it holds is dropped: the largest step in
+  any control the second after a turn to a new route is 0.0017 of its travel.
+- **`sim::Controller::set_glide`** flies the route at an airspeed with the
+  engine stopped: the airspeed is held by the vertical speed asked of the
+  autopilot - 80 ft/min for each knot off it, an integral of 4 ft/min a knot a
+  second finding the glide's own sink, and 250 ft/min for each knot a second
+  of the speed's trend to damp it. **Not the autopilot's airspeed on the
+  elevator**, which is its stall recovery and keeps the wing below the
+  greatest angle of attack it has seen: a Cessna that had only cruised,
+  asked for 68 kt from 100, swung between 73 and 84 kt for a minute and a
+  half. The glide's airspeed is still asked of the autopilot, so that the
+  least speed it holds a descent to (`Aircraft::climb_floor_kts`, above the
+  Cessna's best glide) is lowered to it. Slowed from 100 kt the Cessna dips
+  to 62 and comes back to 68 without passing it; from 45 s on it holds 65.2
+  to 68.3 kt.
+- **A recording plays back but its numbers** (`copilot::Match::but_numbers`):
+  a flight flown again is not where it was to the last digit, so the requests
+  a copilot recorded are matched with every number in them disregarded - the
+  words, what the model was told and what happened, must be the recording's.
+  The vertical speed is told as a signed number for that reason, not as
+  "climbing" or "descending", which would turn on a sign.
+
+Tests, each seen red with a bug put in and taken out again:
+`a_copilots_answer_is_read_as_keep_or_a_route_and_refused_wherever_it_cannot_be_flown`
+(all 13 ways an answer is refused, counted; red with the 200 km check
+widened tenfold), `a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown`
+(red with the reason left out of what the model is told),
+`the_copilot_asks_on_a_thread_of_its_own_and_the_step_never_waits_for_the_model`
+(1,200 steps taken while a stand-in model is held, which the steps let go;
+red, after the minute the stand-in waits, with `ask` waiting for its answer),
+`a_recording_played_back_but_its_numbers_answers_a_request_whose_figures_moved_and_no_other`
+(red with every request taken as matching),
+`a_plan_changed_while_the_ai_flies_moves_no_control_at_the_change_and_is_flown`
+(red with the autopilot engaged afresh at the change) and
+`a_glide_with_the_engine_stopped_holds_its_airspeed_on_the_elevator_along_its_route`
+(red with the glide not applied).
+
 ### A slow Windows configure was a new runner image, rebuilt by every pull request; now pull requests may publish, 2026-09-30 — tail still open
 
 **What is still missing, first**: the plan item's verification - every

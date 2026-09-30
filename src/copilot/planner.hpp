@@ -54,6 +54,9 @@ struct Planned {
 std::string planning_instructions();
 // And what is asked of it: the aircraft, where it stands, and the command.
 std::string planning_request(const PlanRequest& request);
+// The answer less any Markdown fence a model puts round it.
+std::string unfenced(const std::string& answer);
+
 // A runway end as a plan's `runway` line.
 std::string runway_line(const world::RunwayEnd& end);
 

@@ -22,6 +22,11 @@ std::string whole(double d) {
     return text;
 }
 
+constexpr double least_height_ft = 500.0;
+constexpr double farthest_m = 200000.0;
+
+} // namespace
+
 // The answer less any Markdown fence a model puts round it.
 std::string unfenced(const std::string& answer) {
     std::istringstream in(answer);
@@ -36,11 +41,6 @@ std::string unfenced(const std::string& answer) {
     }
     return out;
 }
-
-constexpr double least_height_ft = 500.0;
-constexpr double farthest_m = 200000.0;
-
-} // namespace
 
 std::string runway_line(const world::RunwayEnd& end) {
     return "runway " + end.ident + " " + degrees(end.latitude_deg) + " " +
