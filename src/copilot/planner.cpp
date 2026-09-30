@@ -182,9 +182,16 @@ Task parse_task(const std::string& text) {
                             : key == "airport" ? &out.airport
                             : key == "task"    ? &out.command
                                                : nullptr;
+        const std::string where = "line " + std::to_string(number) + " of the task, \"" + line +
+                                  "\", ";
+        if (key.find('\t') != std::string::npos) {
+            throw ProviderError(where + "has a tab after its key, and a task wants a space");
+        }
         if (into == nullptr || value.empty()) {
-            throw ProviderError("line " + std::to_string(number) + " of the task, \"" + line +
-                                "\", is not aircraft, airport or task with its value");
+            throw ProviderError(where + "is not aircraft, airport or task with its value");
+        }
+        if (!into->empty()) {
+            throw ProviderError(where + "gives " + key + " a second time");
         }
         *into = value;
     }

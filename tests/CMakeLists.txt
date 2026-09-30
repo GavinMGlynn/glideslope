@@ -2061,6 +2061,52 @@ set_tests_properties(each_ai_aircraft_is_planned_by_the_model_its_server_gives_i
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planned)
 
+# **Two planned aircraft wrecked together on one runway fly again one after
+# the other**, not onto each other every five seconds for ever: the collision
+# built by standing both on 16R at once. See cmake/server_planned_together.cmake.
+add_test(NAME two_planned_aircraft_wrecked_together_on_one_runway_fly_again_one_after_the_other
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot -DSTEPS=36000
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_planned_together.cmake)
+set_tests_properties(two_planned_aircraft_wrecked_together_on_one_runway_fly_again_one_after_the_other
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1200)
+
+# **An AI aircraft whose runways cannot be read is said to be unplannable and
+# flies the plan file**; the server goes on. See cmake/server_planned_runways.cmake.
+add_test(NAME an_ai_aircraft_whose_runways_cannot_be_read_flies_the_plan_file_and_the_server_goes_on
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_planned_runways
+        -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_planned_runways.cmake)
+set_tests_properties(an_ai_aircraft_whose_runways_cannot_be_read_flies_the_plan_file_and_the_server_goes_on
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planned_runways)
+
+# **What the server refuses about planned AI aircraft**, each in words a
+# person can act on, before anything is fetched or flown.
+foreach(_refusal
+        "the_server_refuses_a_planner_for_an_ai_aircraft_it_does_not_run|--ai 2 --ai-planner 3=openai --dry-run|--ai-planner names AI aircraft 3, and there are 2, numbered from 1"
+        "the_server_refuses_a_planner_for_ai_aircraft_nought|--ai 2 --ai-planner 0=openai --dry-run|--ai-planner names AI aircraft 0, and there are 2, numbered from 1"
+        "the_server_refuses_a_planner_that_is_not_anthropic_openai_or_none|--ai-planner 1=gemini --dry-run|--ai-planner wants anthropic, openai or none, not 'gemini'"
+        "the_server_refuses_a_playback_for_an_ai_aircraft_with_no_model|--ai-playback 1=answers.jsonl --dry-run|--ai-playback 1 plays back a model's answers, and --ai-planner gives that aircraft none"
+        "the_server_refuses_a_task_when_no_ai_aircraft_has_a_model|--ai-task some.task --dry-run|--ai-task is what a model is asked to plan, and --ai-planner gives no AI aircraft a model"
+        "the_server_refuses_a_negative_number_of_steps|--steps -1 --dry-run|--steps is -1, and a number of steps is not negative"
+        "the_server_refuses_steps_with_seconds|--steps 10 --seconds 5 --dry-run|--steps runs with nobody joining and stops"
+        "the_server_refuses_steps_with_until_empty|--steps 10 --until-empty --dry-run|--steps runs with nobody joining and stops"
+        "the_server_refuses_steps_with_a_window|--steps 10 --window --dry-run|--steps runs with nobody joining and stops"
+        "the_server_refuses_a_negative_spacing_between_planned_take_offs|--ai-spacing -5 --dry-run|--ai-spacing is -5.0+, and a length of time is a number, not negative")
+    string(REPLACE "|" ";" _refusal "${_refusal}")
+    list(GET _refusal 0 _name)
+    list(GET _refusal 1 _args)
+    list(GET _refusal 2 _says)
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=${_args}"
+            -DEXIT=2 "-DSTDERR_MATCHES=${_says}" -P ${GLIDESLOPE_EXPECT_RUN})
+endforeach()
+
 add_test(NAME the_server_refuses_more_ai_aircraft_than_it_will_run
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--ai 17 --dry-run"

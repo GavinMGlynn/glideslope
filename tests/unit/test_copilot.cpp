@@ -9,6 +9,7 @@
 #include <iterator>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 using glideslope::copilot::Post;
@@ -389,21 +390,28 @@ GLIDESLOPE_TEST(a_task_file_names_its_aircraft_airport_and_words_and_anything_el
     check(task.aircraft == "c172p" && task.airport == "YSSY" &&
               task.command == "take off, climb to 3,000 ft and orbit the CBD",
           "the committed task reads as the words the recordings were asked: " + task.command);
-    // Each way of being wrong, each refused: an unknown line, a key with no
-    // value, and each of the three missing.
-    const std::vector<std::string> wrong{
-        "aircraft c172p\nairport YSSY\ntask go\nfly left\n",
-        "aircraft c172p\nairport\ntask go\n",
-        "airport YSSY\ntask go\n",
-        "aircraft c172p\ntask go\n",
-        "aircraft c172p\nairport YSSY\n",
+    // Each way of being wrong, each refused, saying what is wrong with it: an
+    // unknown line, a key with no value, each of the three missing, each of
+    // the three given twice, and a tab after a key.
+    const std::vector<std::pair<std::string, std::string>> wrong{
+        {"aircraft c172p\nairport YSSY\ntask go\nfly left\n", "is not aircraft, airport or task"},
+        {"aircraft c172p\nairport\ntask go\n", "is not aircraft, airport or task"},
+        {"airport YSSY\ntask go\n", "names its aircraft, its airport and its task"},
+        {"aircraft c172p\ntask go\n", "names its aircraft, its airport and its task"},
+        {"aircraft c172p\nairport YSSY\n", "names its aircraft, its airport and its task"},
+        {"aircraft c172p\naircraft pa28\nairport YSSY\ntask go\n", "gives aircraft a second time"},
+        {"aircraft c172p\nairport YSSY\nairport YSBK\ntask go\n", "gives airport a second time"},
+        {"aircraft c172p\nairport YSSY\ntask go\ntask stay\n", "gives task a second time"},
+        {"aircraft c172p\nairport\tYSSY\ntask go\n", "has a tab after its key"},
     };
     std::size_t refused = 0;
-    for (const std::string& text : wrong) {
+    for (const auto& [text, why] : wrong) {
         try {
             (void)glideslope::copilot::parse_task(text);
             fail("a task was read from: " + text);
-        } catch (const ProviderError&) {
+        } catch (const ProviderError& e) {
+            check(std::string(e.what()).find(why) != std::string::npos,
+                  "the task \"" + text + "\" is refused saying \"" + why + "\", not: " + e.what());
             ++refused;
         }
     }

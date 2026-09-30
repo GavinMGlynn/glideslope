@@ -61,6 +61,7 @@
 #include <optional>
 #include <set>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -99,6 +100,13 @@ constexpr int most_ai = 16;
 // How far apart the AI aircraft are stacked when they fly one plan, feet.
 constexpr double ai_stack_ft = 500.0;
 
+// **How far apart in time AI aircraft planned to take off go**, simulated
+// seconds, unless the server is told otherwise (`--ai-spacing`). Two planned
+// by different models may well choose the same runway - the CBD orbit's
+// recordings both do - and two standing on one threshold collide before
+// either has moved. The second is not in the sky until then.
+constexpr double default_departure_spacing_s = 90.0;
+
 // An aircraft the server is to fly, and where it starts.
 struct Flown {
     std::string id;
@@ -126,6 +134,9 @@ struct Options {
     // and the task each is given to plan.
     std::map<int, Planner> planners;
     std::filesystem::path task;
+    // Simulated seconds between one planned AI aircraft's departure and the
+    // next's.
+    double ai_spacing_s = default_departure_spacing_s;
     // For a test: take this many steps as fast as they go, with nobody
     // joining, and stop - simulated time, not the machine's.
     long long steps = 0;
@@ -191,6 +202,8 @@ void print_usage(std::FILE* out) {
         "                     tasks/sydney-cbd-orbit.task in the data)\n"
         "  --ai-playback N=FILE  AI aircraft N's model is not asked: its answers\n"
         "                     are played back from FILE, a recording, for tests\n"
+        "  --ai-spacing S     simulated seconds between one planned AI aircraft's\n"
+        "                     take-off and the next's (default 90)\n"
         "  --seconds N        stop after N seconds instead of running until killed\n"
         "  --until-empty      stop once every client that joined has gone and been\n"
         "                     let go - for a test, which then waits on its clients\n"
@@ -261,6 +274,10 @@ std::string wrong_with(const Options& o) {
         })) {
         return "--ai-task is what a model is asked to plan, and --ai-planner gives no AI "
                "aircraft a model";
+    }
+    if (!std::isfinite(o.ai_spacing_s) || o.ai_spacing_s < 0.0) {
+        return "--ai-spacing is " + std::to_string(o.ai_spacing_s) +
+               ", and a length of time is a number, not negative";
     }
     if (o.steps < 0) {
         return "--steps is " + std::to_string(o.steps) + ", and a number of steps is not negative";
@@ -461,6 +478,14 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         } else if (a == "--ai-task") {
             if (!next(value)) return std::nullopt;
             o.task = std::filesystem::path(std::string(value));
+        } else if (a == "--ai-spacing") {
+            if (!next(value)) return std::nullopt;
+            const auto n = number(value);
+            if (!n) {
+                why = "--ai-spacing wants a number of seconds, not '" + std::string(value) + "'";
+                return std::nullopt;
+            }
+            o.ai_spacing_s = *n;
         } else if (a == "--steps") {
             if (!next(value)) return std::nullopt;
             const auto n = whole(value);
@@ -575,6 +600,7 @@ void print_settings(const Options& o, std::FILE* out) {
         std::fprintf(out, "task      %s\n",
                      o.task.empty() ? "(the data's tasks/sydney-cbd-orbit.task)"
                                     : o.task.string().c_str());
+        std::fprintf(out, "spacing   %.0f s between planned take-offs\n", o.ai_spacing_s);
     }
     if (o.steps > 0) {
         std::fprintf(out, "steps     %lld, as fast as they go\n", o.steps);
@@ -795,12 +821,6 @@ void send_sealed(glideslope::platform::UdpSocket& socket,
 // Feet in a metre, for putting an aircraft above the ground the DEM gives.
 constexpr double feet_per_metre = 3.280839895013123;
 
-// **How far apart in time AI aircraft planned to take off go**, simulated
-// seconds. Two planned by different models may well choose the same runway -
-// the CBD orbit's recordings both do - and two standing on one threshold
-// collide before either has moved. The second is not in the sky until then.
-constexpr double departure_spacing_s = 90.0;
-
 // **How a model's plan went**, for the end of the run to say: the take-off
 // handed over, and the orbit it last flew, how often round and how close.
 struct PlanProgress {
@@ -815,12 +835,19 @@ struct PlanProgress {
     double highest_ft = -1e18;
 };
 
+// **An AI aircraft that cannot be planned** for want of something the model
+// is not to blame for - the airport's runways - rather than refused by it.
+struct Unplannable : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
 // **A model's plan for an AI aircraft**, asked when the server starts, before
 // its clock does: the server owner's key, the task file's words, and the
 // airport's runways as OurAirports gives them. What comes back is only a
 // flight plan, checked (copilot/planner.hpp), and the autopilot flies it.
 // Throws copilot::ProviderError for a provider with no key - refused, not
-// faked - or for one whose plans were each refused.
+// faked - or for one whose plans were each refused; Unplannable when the
+// airport's runways cannot be had.
 glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
                                            const Planner& planner,
                                            const glideslope::copilot::Task& task,
@@ -846,13 +873,19 @@ glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
                                          : glideslope::copilot::http_post();
     const auto provider = glideslope::copilot::make_provider(planner.provider, key, planner.model,
                                                              std::move(post), played_back);
-    request.runways = glideslope::world::runways_at(
-        glideslope::world::world_runways(glideslope::platform::cache_directory(),
-                                         glideslope::world::http_fetch()),
-        task.airport);
+    // **The runways, which may not be had** - OurAirports unreachable, or
+    // its file damaged in the cache: the aircraft cannot be planned, which
+    // is said, and it flies the plan file. Not the server stopped.
+    try {
+        request.runways = glideslope::world::runways_at(
+            glideslope::world::world_runways(glideslope::platform::cache_directory(),
+                                             glideslope::world::http_fetch()),
+            task.airport);
+    } catch (const std::exception& e) {
+        throw Unplannable(std::string("the runways cannot be read: ") + e.what());
+    }
     if (request.runways.empty()) {
-        throw glideslope::copilot::ProviderError("OurAirports has no runways at " +
-                                                 task.airport);
+        throw Unplannable("OurAirports has no runways at " + task.airport);
     }
     said_by = provider->name() + ", " + provider->model() + (played_back ? ", played back" : "");
     return glideslope::copilot::plan_from_words(*provider, request);
@@ -867,8 +900,9 @@ class Fleet {
 public:
     Fleet(const std::filesystem::path& data, const std::vector<Flown>& fly, int ai,
           const std::filesystem::path& plan_file, const std::map<int, Planner>& planners,
-          const std::filesystem::path& task_file)
-        : coverage_(read_coverage(data)),
+          const std::filesystem::path& task_file, double departure_spacing_s)
+        : departure_spacing_s_(departure_spacing_s),
+          coverage_(read_coverage(data)),
           fetch_(glideslope::world::http_fetch()),
           tiles_(glideslope::platform::cache_directory(), fetch_),
           geoid_(glideslope::world::egm2008_geoid(
@@ -1000,6 +1034,10 @@ public:
                     // file, as one given no planner does.
                     std::printf("%s: %s is refused: %s; it flies the plan file instead\n",
                                 name.c_str(), planner->second.provider.c_str(), e.what());
+                    std::fflush(stdout);
+                } catch (const Unplannable& e) {
+                    std::printf("%s cannot be planned: %s; it flies the plan file instead\n",
+                                name.c_str(), e.what());
                     std::fflush(stdout);
                 }
             }
@@ -1211,7 +1249,7 @@ public:
         }
         for (Aircraft& a : flown_) {
             if (a.wrecked_at_s >= 0.0) {
-                if (now_s - a.wrecked_at_s >= wreck_s) {
+                if (now_s - a.wrecked_at_s >= wreck_s && may_fly_again(a, happened)) {
                     fly_again(a);
                     happened.push_back("aircraft " + std::to_string(a.index) + ", " + a.id +
                                        ", flies again");
@@ -1311,6 +1349,9 @@ public:
         std::optional<glideslope::sim::FlightPlan> own_plan{};
         std::string planned_by{};
         double departs_at_s = 0.0;
+        // A wreck whose time is up, kept on the ground until its runway is
+        // clear, and said so once.
+        bool waits_for_runway = false;
         glideslope::sim::DepartureSpeeds departure{};
         // How its plan went, for the end of the run to say.
         PlanProgress progress{};
@@ -1325,6 +1366,10 @@ public:
     // flies again (REQUIREMENTS.md 6.4: a crash costs the flight, not the
     // session).
     static constexpr double wreck_s = 5.0;
+    // **How far from its threshold anything flying keeps a planned aircraft
+    // from taking off again**, metres, in a straight line: an aeroplane just
+    // gone is this far along its climb, not on the runway. See `may_fly_again`.
+    static constexpr double runway_clear_m = 2000.0;
 
     const std::vector<Aircraft>& flown() const { return flown_; }
 
@@ -1479,7 +1524,7 @@ public:
 private:
     // **An AI aircraft flying a model's plan**, standing on the runway the
     // plan takes off from - its height the DEM's at the threshold, which is
-    // what it stands on - and departing `departure_spacing_s` after the one
+    // what it stands on - and departing `departure_spacing_s_` after the one
     // planned before it. The plan's heights are above sea level; the
     // aircraft's are above the ellipsoid, so the geoid is added. **Stacked**
     // as the plan file's aircraft are: the n-th planned flies its plan
@@ -1530,7 +1575,7 @@ private:
         a.ai_number = i + 1;
         a.planned_by = provider;
         a.departure = glideslope::sim::departure_speeds(data_, entry.model);
-        a.departs_at_s = static_cast<double>(departures) * departure_spacing_s;
+        a.departs_at_s = static_cast<double>(departures) * departure_spacing_s_;
         a.own_plan = std::move(plan);
         a.controller =
             std::make_unique<glideslope::sim::Controller>(*a.aircraft, glideslope::sim::Controls{});
@@ -1619,6 +1664,46 @@ private:
                            ", is a wreck: " + why);
     }
 
+    // **Whether a wreck whose time is up may fly again now.** Anything but a
+    // planned aircraft that takes off may. That one starts again on its
+    // runway's threshold, and two planned aircraft may well have the same
+    // one - the CBD orbit's recordings both take off from 16R. Two wrecked
+    // together, say by colliding, would be put back on one point in one
+    // step and collide again, every `wreck_s`, for ever. So it waits, a
+    // wreck, until nothing flying is within `runway_clear_m` of its
+    // threshold. The aircraft are gone through in turn, and one that flies
+    // again is flying at once, so of two due in one step the second sees the
+    // first on the runway and waits for it to go.
+    bool may_fly_again(Aircraft& a, std::vector<std::string>& happened) const {
+        if (!a.on_plan || !a.own_plan || !a.own_plan->takeoff) {
+            return true;
+        }
+        const glideslope::world::Ecef threshold =
+            glideslope::world::to_ecef(glideslope::world::Geodetic{
+                a.start.latitude_deg, a.start.longitude_deg, a.start.altitude_ft / feet_per_metre});
+        for (const Aircraft& b : flown_) {
+            if (&b == &a || b.wrecked_at_s >= 0.0) {
+                continue;
+            }
+            const glideslope::world::Ecef at = where(b);
+            const double dx = at.x - threshold.x;
+            const double dy = at.y - threshold.y;
+            const double dz = at.z - threshold.z;
+            if (std::sqrt(dx * dx + dy * dy + dz * dz) < runway_clear_m) {
+                if (!a.waits_for_runway) {
+                    a.waits_for_runway = true;
+                    happened.push_back("aircraft " + std::to_string(a.index) + ", " + a.id +
+                                       ", waits for " + a.own_plan->takeoff->runway.name +
+                                       " to be clear of aircraft " + std::to_string(b.index) +
+                                       " before it flies again");
+                }
+                return false;
+            }
+        }
+        a.waits_for_runway = false;
+        return true;
+    }
+
     // **Flown again from where it started**: the flight model set back to its
     // start, the judge told it has not hit anything, and an AI pilot given
     // its plan again from the beginning. A player's inputs go on arriving and
@@ -1666,6 +1751,7 @@ private:
             std::string(std::istreambuf_iterator<char>(in), {}));
     }
 
+    double departure_spacing_s_;
     glideslope::world::DemCoverage coverage_;
     glideslope::world::Fetch fetch_;
     glideslope::world::DownloadedTiles tiles_;
@@ -2463,7 +2549,7 @@ int run(const Options& o) {
     // so it is not built at all when there is nothing to fly.
     std::optional<Fleet> fleet;
     if (!o.fly.empty() || o.ai > 0) {
-        fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task);
+        fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task, o.ai_spacing_s);
     }
 
     std::printf("listening on port %u\n", static_cast<unsigned>(socket->port()));
