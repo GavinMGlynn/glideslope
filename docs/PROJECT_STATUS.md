@@ -232,17 +232,33 @@ are the risks the phase order is built around:
 **What is still missing, first**: this has not been seen passing on CI's
 release presets, and the take-over item stays open until it has. CI has
 failed the floor on a release preset: windows-release, the hand-over test,
-"frames of 102 ms around the switch" (run 36638803155), and it failed the
-same way here in linux-debug. The cause is found and fixed - the first
-switch read the Cessna's model from disk (below) - and the test passes here
-now; that it passes on windows-release is not yet seen, and under a load
+"frames of 102 ms around the switch" (run 36638803155), and again at 77 ms
+(run 36678421057, on af61c52, before the change below), and it failed the
+same way here in linux-debug. Here the first switch read the Cessna's model
+from disk (below), and with that moved the test passes here; the 42 ms that
+read cost is measured in the sanitized linux-debug build only, so what the
+rest of windows-release's frame costs is not known, and that the change
+holds there is not seen: run 36681942297, on b684035 with the model loaded
+before the first frame, windows-release failed the hand-over test again,
+"frames of 75 ms around the switch", its longest frame 108 ms. So on
+Windows something else in that frame is long, and what is not yet known:
+the client now says where the longest pass around a switch spent its time
+- "the longest pass around a switch N ms: ticks, hearing, scene, terrain,
+sky and draws, HUD, render" - and the window tests print it, failing or
+passing (here, linux-debug: 8.5 ms - scene 0.7, sky and draws 2.8, HUD 2.1,
+render 2.8), for the next windows-release run to say. Under a load
 average of 12 from other work on this machine it failed twice more
 (305 ms and 66 ms around a switch) where it passed ten times at 8 to 9 and
 quiet. A client whose every
 frame is slow - CI's sanitized software Vulkan, 0.95 to 2.4 s - is not yet
 shown to stay under the 20 m correction bound: run beside two other window
 tests in the sanitized build here, with every frame 0.8 s and more, the
-slow-frames test was put right by 21.4 m once, cause not found. The step
+slow-frames test was put right by 21.4 m once, cause not found; and before
+it was labelled `timing`, CI's debug presets failed it in run 36674576086
+(on b20eaf8): linux-debug 20.624 m, windows-debug 29.491 m, each "1 too
+large to hide" in 11 corrections. The plain on-server window test runs on
+the debug presets in the same regime, every frame slow, and may fail there
+the same way. The step
 bounds are **not** claimed on a slow machine: with 1.3 s frames the
 take-over test steps 3.3 to 3.6 m, and it now fails there as testing
 nothing rather than as a step too large. No simulated frame clock or
@@ -305,9 +321,11 @@ one does.
   corrections and what made its largest step at the switch.
 - **Fixed: ticks dropped.** The client flew at most 24 ticks a pass and
   dropped the rest, so a pass over 0.2 s put its prediction behind the
-  server unflagged. It now carries what it owes to the next pass, as the
-  server does, flying at most four seconds' ticks a pass (a second's was
-  tried, and at 1.3 s passes fell further behind each pass). With a debug
+  server unflagged. This change carried what it owed to the next pass, as
+  the server does, at most four seconds' ticks a pass (a second's was tried,
+  and at 1.3 s passes fell further behind each pass); since the review,
+  nothing is carried - a pass on a server flies up to four seconds' and
+  lets the rest go (below). With a debug
   print of every correction (not kept), at 250 ms passes: before, no server
   word replayed any of the client's inputs, and each pass's first
   correction was 5.0 to 5.4 m; after, each replays 2 to 35 and moves it
@@ -429,8 +447,11 @@ one does.
     3.0, render 4.4 - and 42.3 ms finding the aircraft ridden in, where
     `model_of` read the Cessna's visual model and geometry the first time
     anything asked for them; 0.0 ms at the second switch, and at every other
-    pass. The fix loads its own aircraft's model before the first frame, and
-    every other aircraft's when it is first heard of. After, the switch's
+    pass. The change loads its own aircraft's model before the first frame,
+    on a server only. (Other aircraft's models are still read when first
+    drawn or ridden in: loading them when first heard of was tried and taken
+    out, being untested and able to lengthen an early frame of a mixed
+    fleet's while the clocks' difference is learned.) After, the switch's
     pass 12.8 to 16.7 ms, the model lookup 0.0 ms, and the hand-over test
     alone passed ten runs in ten: frames around the switches 22, 25, 25, 26
     and 27 ms at most on a quiet machine (with the models loaded on first
@@ -444,6 +465,18 @@ one does.
     drawing a frame as soon as the flight was built, did not help (17, 70,
     53, 62 ms) and was taken out. The floor is not loosened, and no frame is
     left out of the window.
+  - **Where a switch's pass spent its time**, said by the client: "the
+    longest pass around a switch N ms: ticks, hearing, scene, terrain, sky
+    and draws, HUD, render", the longest pass among the four before each
+    switch, its own and the four after; the window tests print it beside
+    their frames, and first in a failure. A report, not a check: nothing
+    asserts it.
+  - **Counting, and what is held.** Frames put right are now counted where
+    the correction is made, so a frame whose last word handed the aircraft
+    to the AI is not counted. Unit test
+    `no_more_than_four_seconds_of_unacknowledged_inputs_are_held`: five
+    seconds flown with nothing acknowledged leaves 480 held - **seen to
+    fail** with the limit six seconds; reverted, it passes.
   - **A waiting take-over kept in step.** A newer word replacing it now also
     reads who flies it, and gives the clocks' difference, as an older word
     of a frame does.

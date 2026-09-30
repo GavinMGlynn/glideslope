@@ -184,10 +184,11 @@ public:
     }
     std::size_t corrections() const { return corrections_; }
     // **What it heard of its own, predicted**: how many words, over how long
-    // of the server's time from the first to the last, and in how many
-    // frames. Corrections are one a frame that heard any, so a test can
-    // hold them to the frames and the words to the server's rate, whatever
-    // the frame rate.
+    // of the server's time from the first to the last, and how many frames
+    // were put right from them - one correction each, from the newest; a
+    // frame whose words ended with the aircraft handed to the AI is not
+    // counted. A test holds the words to the server's rate, whatever the
+    // frame rate.
     std::size_t own_words_heard() const { return own_words_; }
     double own_words_span_s() const {
         return own_words_ > 0 ? last_own_word_s_ - first_own_word_s_ : 0.0;

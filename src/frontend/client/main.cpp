@@ -1021,7 +1021,8 @@ static int run_program(int argc, char** argv) {
         // frame at the switch failed the 20 fps floor. Loaded in the first
         // frames instead, it lengthened one while the clocks' difference was
         // being learned (PROJECT_STATUS.md, 2026-09-30).
-        if (flight) {
+        // Only on a server, where it may be ridden in; alone nothing is.
+        if (flight && online) {
             (void)model_of(flight->aircraft().id);
         }
         bool rode_along = false;
@@ -1110,7 +1111,45 @@ static int run_program(int argc, char** argv) {
         bool running = true;
         // The frame loop keeps the session from here.
         kept_alive.reset();
+        // **Where the time of a pass went**, milliseconds by part, for the
+        // longest pass around a switch: the step bounds' 20 fps floor has
+        // failed on windows-release in the frame a switch is drawn in, and
+        // this says which part of it was long, from the machine it was long
+        // on (PROJECT_STATUS.md, 2026-09-30).
+        struct PassTimes {
+            double total = 0.0, ticks = 0.0, hear = 0.0, scene = 0.0, terrain = 0.0,
+                   draws = 0.0, hud = 0.0, render = 0.0;
+        };
+        PassTimes pass_times;
+        std::array<PassTimes, 4> passes_before{};
+        PassTimes longest_pass_at_switch;
+        double pass_mark = 0.0;
+        const auto pass_part = [&](double& part) {
+            const double now_s = seconds_since_start();
+            part = (now_s - pass_mark) * 1000.0;
+            pass_mark = now_s;
+        };
+        double pass_began = 0.0;
+        const auto pass_done = [&] {
+            pass_times.total = (seconds_since_start() - pass_began) * 1000.0;
+            const int since = own_shown.frames_since_switch();
+            if (since == 0) {
+                for (const PassTimes& p : passes_before) {
+                    if (p.total > longest_pass_at_switch.total) {
+                        longest_pass_at_switch = p;
+                    }
+                }
+            }
+            if (since <= 4 && pass_times.total > longest_pass_at_switch.total) {
+                longest_pass_at_switch = pass_times;
+            }
+            std::rotate(passes_before.begin(), passes_before.begin() + 1, passes_before.end());
+            passes_before.back() = pass_times;
+        };
         while (running) {
+            pass_times = PassTimes{};
+            pass_began = seconds_since_start();
+            pass_mark = pass_began;
             if (glideslope::platform::stop_requested()) {
                 break;
             }
@@ -1250,6 +1289,7 @@ static int run_program(int argc, char** argv) {
             // **Handed to the AI on a server, it is not predicted**: the
             // server flies it, and it is drawn from the updates.
             const bool own_ai_online = online && joined && online->own_ai_flying();
+            pass_mark = seconds_since_start();
             for (std::int64_t i = 0; i < due; ++i) {
                 if (flight && !own_ai_online) {
                     flight->step(flown);
@@ -1259,6 +1299,7 @@ static int run_program(int argc, char** argv) {
                 }
                 ++ticks;
             }
+            pass_part(pass_times.ticks);
             // **What arrived is heard once the ticks it may be about are
             // flown**: at the end of a long frame the newest word is about a
             // moment past where the prediction was before them, and heard
@@ -1268,6 +1309,7 @@ static int run_program(int argc, char** argv) {
                 online->hear(seconds_since_start(), *flight);
             }
 
+            pass_part(pass_times.hear);
             // **Quitting**, at a tick, straight after the steps that reach it:
             // no frame drawn and no tile waited for, so what is under way -
             // a weather refresh - is under way still. Said, flushed, for a
@@ -1394,15 +1436,6 @@ static int run_program(int argc, char** argv) {
             // flies it.
             if (online && joined) {
                 others_now = online->others(seconds_since_start());
-                // **Every other model it may draw or ride in, loaded when
-                // the aircraft is first heard of**, not at the frame that
-                // first needs it (its own is loaded before the first frame,
-                // above).
-                for (const glideslope::client::Other& other : others_now) {
-                    if (!other.aircraft_id.empty()) {
-                        (void)model_of(other.aircraft_id);
-                    }
-                }
                 if (o.ride_along && !rode_along) {
                     for (const glideslope::client::Other& other : others_now) {
                         if (other.ai_flying) {
@@ -1528,6 +1561,7 @@ static int run_program(int argc, char** argv) {
                 }
             }
             if (shooting && joined && !shot_now && !switched_now && !said_the_view) {
+                pass_done();
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
             }
@@ -1569,6 +1603,7 @@ static int run_program(int argc, char** argv) {
                 camera.position.y += own_moved->y;
                 camera.position.z += own_moved->z;
             }
+            pass_part(pass_times.scene);
             if (terrain) {
                 // **Kept in the session while the shot waits for its
                 // terrain**, which on a cold cache is longer than a server
@@ -1585,6 +1620,7 @@ static int run_program(int argc, char** argv) {
                     break; // told to stop while it waited: no frame, and no shot
                 }
             }
+            pass_part(pass_times.terrain);
             if (flight && flight->weather_report() != nullptr &&
                 flight->weather_report()->air_seed != sky_of) {
                 const glideslope::world::WeatherReport& report =
@@ -1710,6 +1746,7 @@ static int run_program(int argc, char** argv) {
                     }
                 }
             }
+            pass_part(pass_times.draws);
             if (flight) {
                 glideslope::gfx::HudReadings readings = flight->hud();
                 if (online && joined) {
@@ -1788,6 +1825,7 @@ static int run_program(int argc, char** argv) {
                                         credits.end());
                 const glideslope::gfx::Mesh hud =
                     glideslope::gfx::hud_mesh(readings, o.width, o.height);
+                pass_part(pass_times.hud);
                 renderer.render(camera, drawn, &hud, haze, background);
             } else if (!credits.empty()) {
                 const glideslope::gfx::Mesh overlay =
@@ -1797,6 +1835,8 @@ static int run_program(int argc, char** argv) {
                 renderer.render(camera, drawn, nullptr, haze, background);
             }
             ++frames;
+            pass_part(pass_times.render);
+            pass_done();
             said_the_view = false;
             if (o.memory_every > 0 && (frames == 1 || frames % o.memory_every == 0)) {
                 const auto held = glideslope::platform::memory_held_bytes();
@@ -1852,6 +1892,12 @@ static int run_program(int argc, char** argv) {
                             own_shown.worst_step_otherwise_frame_ms());
                 std::printf("glideslope: own aircraft's longest frame %.0f ms\n",
                             own_shown.longest_frame_ms());
+                const PassTimes& l = longest_pass_at_switch;
+                std::printf("glideslope: the longest pass around a switch %.1f ms: ticks %.1f, "
+                            "hearing %.1f, scene %.1f, terrain %.1f, sky and draws %.1f, HUD "
+                            "%.1f, render %.1f\n",
+                            l.total, l.ticks, l.hear, l.scene, l.terrain, l.draws, l.hud,
+                            l.render);
             }
             if (shot_now) {
                 if (terrain) {
