@@ -334,15 +334,13 @@ ends in a debrief, never a score.
       The server's choice is done: each AI aircraft may be planned by Claude,
       ChatGPT or none, and CI flies one of each from its recording; a model
       with no key is refused and the aircraft flies the plan file.
-- [ ] **Reinforcement-learning agents** (stretch goal). *Verification: an agent
+- [x] **Reinforcement-learning agents** (stretch goal). *Verification: an agent
       trained through JSBSim's gym-style wrappers lands within stated limits.*
-      **In progress.** Missing: the centreline - in a ten-knot crosswind the
-      Cessna 172P's policy touches down 10 to 19 m off it, against the
-      autopilot's 5 (8 of 27 starts within) - and a policy trained with its
-      fuel set for each flight, which none yet was. It touches down on the runway
-      under 150 ft/min from every start and the autopilot stops it there,
-      with no Python; `glideslope_cli land c172p --learnt` hands one to it,
-      but no client or server offers it yet. One aircraft only.
+      Done 2026-09-30: the Cessna 172P's learnt landing touches down within
+      5 m of the centreline under 300 ft/min from all 27 approach starts, in
+      calm air and a 10-knot crosswind either way, from a quarter to full tanks;
+      `glideslope_cli land c172p --learnt` flies it. One aircraft; no client
+      or server offers it.
 
 ---
 

@@ -85,11 +85,10 @@ double metres_per_degree_longitude(double latitude_deg) {
 // centreline and 50 m either side of it; on the glidepath and 15 m - about
 // fifty feet - above and below it; in calm air and a ten-knot crosswind from
 // either side. At the reference speed, pointing down the runway, trimmed.
-// **The committed policy was not chosen blind of them**: it is a 21-input
-// policy carried over, and that one was chosen among checkpoints by flying
-// these starts. Since, checkpoints are chosen on other starts (landing.py's
-// `held_out_starts`), never these - and the carried-over policy was chosen
-// again there, over every fine-tune of it.
+// **The committed checkpoint was chosen on other starts** (landing.py's
+// `held_out_starts`), never these. Its lineage was not blind of them: a
+// 21-input ancestor, thirteen million decisions before it, was chosen among
+// checkpoints by flying these starts (the policy file's header).
 struct Start {
     double across_m;
     double high_m;
@@ -116,7 +115,9 @@ std::string named(const Start& s) {
 }
 
 // The C172P at `start`, trimmed on the glidepath, in its wind.
-std::unique_ptr<glideslope::sim::Aircraft> at(const LearntPolicy& policy, const Start& start) {
+// `fuel_lbs` in each of her two tanks; below nothing, as the model has them - full.
+std::unique_ptr<glideslope::sim::Aircraft> at(const LearntPolicy& policy, const Start& start,
+                                              double fuel_lbs = -1.0) {
     const Runway runway = a_runway();
     auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", policy.aircraft);
     aircraft->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
@@ -151,6 +152,11 @@ std::unique_ptr<glideslope::sim::Aircraft> at(const LearntPolicy& policy, const 
     ic.flaps = policy.flaps;
     ic.flight_path_deg = -policy.glidepath_deg;
     ic.trim = true;
+    if (fuel_lbs >= 0.0) {
+        glideslope::sim::Loading loading;
+        loading.tank_lbs = {{0, fuel_lbs}, {1, fuel_lbs}};
+        aircraft->load(loading);
+    }
     aircraft->initialize(ic);
     return aircraft;
 }
@@ -211,8 +217,8 @@ void print(const std::string& name, const Landing& l) {
 // wheels first touch or, `to_stop`, on through the rollout to the stop. Five minutes to the touch at most, the
 // longest a training flight was let run, and two more to the stop.
 Landing land(const std::shared_ptr<const LearntPolicy>& policy, const Start& start,
-             bool to_stop) {
-    auto aircraft = at(*policy, start);
+             bool to_stop, double fuel_lbs = -1.0) {
+    auto aircraft = at(*policy, start, fuel_lbs);
     LearntLander lander(*aircraft, a_runway(), policy, speeds());
     Landing out;
     AfterTouch after;
@@ -534,18 +540,13 @@ GLIDESLOPE_TEST(the_learnt_policy_touches_down_in_the_simulation_where_it_did_in
     none_wrong(failures, flown, "landings were not where training's were");
 }
 
-// **What the committed policy does from each of the 27 starts**: touches
-// the C172P down on the runway under 300 ft/min, and the rollout it hands
-// over to keeps her down and upright and stops her on the runway - in calm
-// air and a ten-knot crosswind from either side. Flown in the simulation, by
-// the simulation's code: no Python.
-//
-// **Not the item's verification, which also asks for 5 m of the
-// centreline**: a ten-knot crosswind carries this policy 10 to 19 m off it
-// (docs/PROJECT_STATUS.md). The distance is printed, not asserted, so that
-// the test holds what is true; `short_of_the_limits(l, true)` is the
-// verification's check, for when a policy meets it.
-GLIDESLOPE_TEST(the_learnt_policy_touches_the_c172p_down_on_the_runway_under_300_ft_a_minute_and_it_is_stopped_on_it_from_every_start) {
+// **The item's verification**: from each of the 27 starts the committed
+// policy lands the C172P within the autopilot's limits - on the runway,
+// within 5 m of the centreline, sinking under 300 ft/min, down and upright
+// after - in calm air and a ten-knot crosswind from either side, and the
+// rollout it hands over to stops her on the runway. Flown in the
+// simulation, by the simulation's code, with full tanks: no Python.
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_5_m_of_the_centreline_under_300_ft_a_minute_in_calm_air_and_a_ten_knot_crosswind) {
     const auto policy = the_policy();
     check(policy->aircraft == "c172p", "the policy is the C172P's");
     const std::vector<Start> all = starts();
@@ -566,7 +567,7 @@ GLIDESLOPE_TEST(the_learnt_policy_touches_the_c172p_down_on_the_runway_under_300
         worst_sink = std::max(worst_sink, l.sink_fpm);
         worst_across = std::max(worst_across, std::abs(l.across_m));
         within_5_m += std::abs(l.across_m) <= 5.0 ? 1U : 0U;
-        std::vector<std::string> wrong = short_of_the_limits(l, false);
+        std::vector<std::string> wrong = short_of_the_limits(l, true);
         for (const std::string& w : not_stopped_on_the_runway(l)) {
             wrong.push_back(w);
         }
@@ -578,7 +579,7 @@ GLIDESLOPE_TEST(the_learnt_policy_touches_the_c172p_down_on_the_runway_under_300
             failures.push_back(text);
         }
     }
-    std::printf("%zu of %zu touched on the runway, gently, and stopped on it; worst sink %.0f "
+    std::printf("%zu of %zu within the limits and stopped on the runway; worst sink %.0f "
                 "ft/min; within 5 m of the centreline at %zu, worst %.2f m\n",
                 flown - failures.size(), flown, worst_sink, within_5_m, worst_across);
     check(all.size() == 27 && flown == all.size(),
@@ -586,7 +587,46 @@ GLIDESLOPE_TEST(the_learnt_policy_touches_the_c172p_down_on_the_runway_under_300
               std::to_string(flown));
     check(calm == 9 && from_left == 9 && from_right == 9,
           "nine starts each in calm air and ten knots from either side");
-    none_wrong(failures, flown, "landings were not on the runway, gentle, and stopped on it");
+    none_wrong(failures, flown, "landings fell short of the limits");
+}
+
+// **And with any fuel on board**: a session's aircraft arrive with whatever
+// they have left, and the policy was trained on 25 to 100 lb a tank. Every
+// one of the 27 starts again, at 25, 50 and 75 lb a tank - full is the test
+// above - within the same limits and stopped on the runway: 81 landings.
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_a_quarter_a_half_and_three_quarters_of_its_fuel) {
+    const auto policy = the_policy();
+    const std::vector<Start> all = starts();
+    const std::vector<double> loads{25.0, 50.0, 75.0};
+    std::size_t flown = 0;
+    double worst_sink = 0.0;
+    double worst_across = 0.0;
+    std::vector<std::string> failures;
+    for (const double lbs : loads) {
+        for (const Start& s : all) {
+            std::printf("  with %.0f lb a tank:\n", lbs);
+            const Landing l = land(policy, s, true, lbs);
+            ++flown;
+            worst_sink = std::max(worst_sink, l.sink_fpm);
+            worst_across = std::max(worst_across, std::abs(l.across_m));
+            std::vector<std::string> wrong = short_of_the_limits(l, true);
+            for (const std::string& w : not_stopped_on_the_runway(l)) {
+                wrong.push_back(w);
+            }
+            if (!wrong.empty()) {
+                std::string text = "from " + named(s) + " with " + std::to_string(lbs) + " lb a tank:";
+                for (const std::string& w : wrong) {
+                    text += " " + w + ";";
+                }
+                failures.push_back(text);
+            }
+        }
+    }
+    std::printf("%zu of %zu within the limits; worst sink %.0f ft/min, worst %.2f m across\n",
+                flown - failures.size(), flown, worst_sink, worst_across);
+    check(flown == loads.size() * all.size() && flown == 81,
+          "every start at every load was flown: " + std::to_string(flown) + " of 81");
+    none_wrong(failures, flown, "landings fell short of the limits");
 }
 
 // **An aeroplane is handed to the learnt landing as it is to the AI pilot**:
@@ -594,8 +634,9 @@ GLIDESLOPE_TEST(the_learnt_policy_touches_the_c172p_down_on_the_runway_under_300
 // runway and stopped on it - with no control moved at the switch by more
 // than a hand moves it in a step, full travel in a second. The pilot's
 // controls are set away from anything the policy flies with, so there is a
-// gap to close. The centreline is not asserted, as above.
-GLIDESLOPE_TEST(an_aeroplane_handed_to_the_learnt_landing_at_the_gate_is_landed_and_stopped_with_no_step_in_its_controls) {
+// gap to close. In a ten-knot crosswind, 20 m right of the centreline and
+// 5 m high: landed within the verification's limits, and stopped.
+GLIDESLOPE_TEST(an_aeroplane_handed_to_the_learnt_landing_at_the_gate_lands_within_5_m_of_the_centreline_with_no_step_in_its_controls) {
     const auto policy = the_policy();
     const Start start{20.0, 5.0, 10.0};
     auto aircraft = at(*policy, start);
@@ -664,7 +705,7 @@ GLIDESLOPE_TEST(an_aeroplane_handed_to_the_learnt_landing_at_the_gate_is_landed_
     check(worst_step > hand / 2.0,
           "the controls did have a gap to close, so the switch was tested");
     check(stopped, "the learnt landing stopped her, and then gave her to the autopilot");
-    std::vector<std::string> wrong = short_of_the_limits(out, false);
+    std::vector<std::string> wrong = short_of_the_limits(out, true);
     for (const std::string& w : not_stopped_on_the_runway(out)) {
         wrong.push_back(w);
     }

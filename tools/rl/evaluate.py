@@ -26,6 +26,9 @@ def fly(policy: policy_file.Policy, start: L.Start, flier: Flier | None = None,
             record(flier, obs)
         obs, _, done, _ = flier.decide(policy.act(obs))
         if done:
+            # And the last: the wheels on the ground, as the flight ends there.
+            if record is not None:
+                record(flier, obs)
             return flier.flight
 
 

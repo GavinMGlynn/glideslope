@@ -94,8 +94,8 @@ def from_checkpoint(path: str, header: list[str]) -> policy_file.Policy:
 def parity(policy: policy_file.Policy) -> list[str]:
     """Readings, observations and actions from flights of the policy: every
     thirtieth decision of three of the verification's flights and of one
-    begun 150 m short of the threshold, and every fifth decision with the
-    wheels on the ground."""
+    begun 150 m short of the threshold, and the last of each, at the touch,
+    with the wheels on the ground."""
     rw = L.Runway()
     cases: list[tuple[list[float], list[float], list[float], list[float]]] = []
     starts = [s for _, s in L.verification_starts()]
@@ -106,7 +106,7 @@ def parity(policy: policy_file.Policy) -> list[str]:
         def record(flier: Flier, obs: list[float]) -> None:
             n[0] += 1
             on_ground = flier.readings[15] > 0.5
-            if n[0] % 30 == 1 or (on_ground and n[0] % 5 == 0):
+            if n[0] % 30 == 1 or on_ground:
                 cases.append((list(flier.previous) + [flier.integral], list(flier.readings), list(obs),
                               policy.act(obs)))
 
