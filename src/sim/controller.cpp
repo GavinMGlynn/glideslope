@@ -103,8 +103,11 @@ void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& spee
 
 void Controller::to_ai_learnt_approach(const Runway& runway, const ApproachSpeeds& speeds,
                                        std::shared_ptr<const LearntPolicy> policy) {
+    // Made first, so that a policy for another aircraft is refused before
+    // anything the AI or the pilot had is let go.
+    LearntLander landing(a_, runway, std::move(policy), speeds);
     engage();
-    learnt_.emplace(a_, runway, std::move(policy), speeds);
+    learnt_.emplace(std::move(landing));
     easing_in_ = true;
 }
 

@@ -259,7 +259,7 @@ rollout stops her on it. With full tanks (the verification test):
 **With any fuel.** The same 27 at 25, 50, 75 and 100 lb a tank: 27 of 27
 each, worst 4.38, 3.85, 3.29 and 2.73 m across and 183, 208, 230 and 247
 ft/min (in Python, and at 25, 50 and 75 in the simulation too - a test of
-its own, 81 landings, worst 4.38 m and 230 ft/min). The sink grows with
+one a load, 81 landings, worst 4.38 m and 230 ft/min). The sink grows with
 the weight; 247 ft/min at full tanks is the least margin, 53 ft/min.
 
 **Chosen on held-out starts only.** Forty starts drawn once with their own
@@ -286,11 +286,17 @@ to the autopilot there.
 
 **Training, this round** (tools/rl at 4f6fc88, `nice -n 10`, eight
 environments, CPU): from the fine-tune that scored 22 of 40 last round
-(13 million decisions), four million at a learning rate of 1e-4 with the
-action noise held at a standard deviation of 0.08 - held-out at full tanks
-by the million: 0, 31, 22, 37, 12 of 40 - then from its best (17 million)
-six million at 3e-5: 16, 10, 23, 23, 38, 40, 38, 28, 36. The committed
-policy is the 23-million checkpoint. The scores swing from one checkpoint
+(13 million decisions), a learning rate of 1e-4 with the action noise held
+at a standard deviation of 0.08, stopped a little past 18 million; then,
+from its checkpoint at 17 million, 3e-5, stopped a little past 26 million.
+Held-out at full tanks, each checkpoint by the decisions it had flown:
+
+| run | 14M | 15M | 16M | 17M | 18M | 19M | 20M | 21M | 22M | 23M | 24M | 25M | 26M |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1e-4, from 13M | 0 | 31 | 22 | 37 | 12 | | | | | | | | |
+| 3e-5, from 17M | | | | | 16 | 10 | 23 | 23 | 38 | **40** | 38 | 28 | 36 |
+
+The committed policy is the 23-million checkpoint, from the second run. The scores swing from one checkpoint
 to the next; choosing on the held-out starts at several fuel loads is what
 keeps that honest. Two other runs this round, at 0.995 with four
 environments each (from that fine-tune, and from the 21-input policy
@@ -306,12 +312,13 @@ to the AI at the gate through `Controller` and says where it touched and
 stopped and how many times the policy decided: in ten knots of crosswind,
 214 ft/min, +0.09 m across, stopped 500 m along, 1,066 decisions.
 
-**Verification run.** Nine tests, all passing (release):
+**Verification run.** Nineteen tests, all passing in linux-debug (sanitized) and linux-release:
 - `the_learnt_policy_lands_the_c172p_within_5_m_of_the_centreline_under_300_ft_a_minute_in_calm_air_and_a_ten_knot_crosswind`:
   the item's verification, 27 starts counted, nine in each wind, and each
   stopped on the runway.
-- `the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_a_quarter_a_half_and_three_quarters_of_its_fuel`:
-  81 landings, counted.
+- `the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_a_quarter_of_its_fuel`,
+  `..._with_half_its_fuel` and `..._with_three_quarters_of_its_fuel`: 27
+  landings each, counted, the weight checked for each.
 - `an_aeroplane_handed_to_the_learnt_landing_at_the_gate_lands_within_5_m_of_the_centreline_with_no_step_in_its_controls`:
   0.00833 at the switch; +0.02 m across, 216 ft/min, in ten knots across.
 - `the_learnt_policy_touches_down_in_the_simulation_where_it_did_in_training`:
@@ -323,6 +330,48 @@ stopped and how many times the policy decided: in ten knots of crosswind,
 - `the_cli_hands_the_c172p_at_the_gate_to_the_learnt_landing_and_it_is_stopped_on_the_runway`:
   now requires under 300 ft/min and under 5 m in what it prints.
 - `the_cli_refuses_a_learnt_landing_for_an_aircraft_that_has_none`.
+- `a_learnt_landing_handed_another_aircraft_is_refused_and_the_pilot_keeps_her`.
+- `the_cli_hands_the_c172p_at_the_gate_to_the_approach_autopilot_and_it_is_stopped_on_the_runway`.
+- `the_cli_land_refuses_a_word_for_a_number`, `..._a_number_with_text_after_it`,
+  `..._a_nan`, `..._an_infinity`, `..._fuel_below_nothing` and
+  `..._more_fuel_than_a_tank_holds`.
+
+**From the review of #69.**
+- **A property by name is found once.** Profiled in the sanitized debug
+  build, a learnt landing spent half its samples in JSBSim walking property
+  paths - `Aircraft::property`, `state`, `set_controls` and the weather,
+  called by name every step by the learnt lander and the approach
+  autopilot - and a quarter in the sanitizer's allocations that walk made;
+  JSBSim's own step was about a sixth. `Aircraft` now keeps each property's
+  node from the first time it is asked for. One landing to the stop in the
+  debug build: 3.48 s before, 1.25 s after (release 0.30 s); the release
+  selftest hash is unchanged (d36123c1eecc3e23), since every value read and
+  written is the same. Locally in linux-debug, at `-j4`: the verification
+  test 41.7 s, the simulation-against-training test 38.0 s, each fuel load
+  34.8 to 44.0 s. CI measured the verification test at 472 s on Ubuntu
+  linux-debug before this (run 36695190570), about five times these.
+- **The fuel test is one test a load** - a quarter, half and three
+  quarters - each of 27 landings, so that none comes near ctest's 900 s on
+  the slowest build. `tests/ci_costs` gains the learnt tests as run
+  36695190570 measured them, before the speed-up, and each fuel load as the
+  verification test; to be measured again once CI has run them.
+- **The fuel test holds the weight**: each load is checked in every tank
+  and in `inertia/weight-lbs` - the empty aeroplane, what is on board and
+  the fuel - so a load that stopped taking effect fails at the first start
+  (seen: "she weighs 1880 lb, not 1730" with `Aircraft::load` made to do
+  nothing).
+- **A policy flies only its own aircraft**: `LearntLander`, and so
+  `Controller::to_ai_learnt_approach`, refuses a policy trained on another
+  model before anything is handed over - the pilot keeps her, controls as
+  they were (seen to fail with the check taken out).
+- **`land` takes only what it can use**: a word, trailing text, a NaN or an
+  infinity for a number, and fuel below nothing or above what each of the
+  model's tanks holds (185 lb for the C172P's), each refused with a test;
+  `--fuel` fills every tank the model has. Seen to fail: "10kt" read as 10
+  with the whole-word check taken out.
+- **`Lander::touched()`** replaces `land`'s guess from the touchdown
+  figures, and `land c172p` without `--learnt` has a test (seen to fail
+  with `touched()` made to say no).
 
 **Seen to fail**, each reverted: the verification test and the fuel test
 with #66's policy file in place of this one (19 of 27 and 71 of 81 short of

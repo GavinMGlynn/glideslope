@@ -139,7 +139,11 @@ class Flier:
             reward -= 0.02 * min(30.0, max(0.0, abs(w.across_m) - 3.0))
             if self.t - self.touch_time >= L.AFTER_TOUCH_S:
                 f.ended = "touched"
-                # Staying down the whole time is part of landing.
+                # Staying down after the touch was part of landing when the
+                # policy flew five seconds past it. With the flight ending at
+                # the touch (AFTER_TOUCH_S = 0) nothing can rise or bank in
+                # time, so this is ten added to every touch: a constant, kept
+                # because the committed policy was trained with it.
                 if f.highest_after_touch_ft < 3.0 and f.worst_roll_after_touch_deg < 15.0:
                     reward += 10.0
                 return obs, reward, True, False

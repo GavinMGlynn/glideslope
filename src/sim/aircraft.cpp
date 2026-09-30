@@ -25,6 +25,7 @@
 #include <models/propulsion/FGEngine.h>
 #include <models/propulsion/FGPiston.h>
 #include <models/propulsion/FGPropeller.h>
+#include <models/propulsion/FGTank.h>
 #include <models/propulsion/FGThruster.h>
 #include <models/propulsion/FGTurbine.h>
 #include <simgear/misc/sg_path.hxx>
@@ -197,6 +198,15 @@ AircraftFigures Aircraft::figures() const {
         }
     }
     return f;
+}
+
+std::vector<double> Aircraft::tank_capacities_lbs() const {
+    std::vector<double> out;
+    const auto propulsion = exec_->GetPropulsion();
+    for (unsigned i = 0; i < propulsion->GetNumTanks(); ++i) {
+        out.push_back(propulsion->GetTank(i)->GetCapacity());
+    }
+    return out;
 }
 
 void Aircraft::load(const Loading& loading) {
@@ -512,41 +522,41 @@ bool Aircraft::in_water() const {
 }
 
 void Aircraft::set_controls(const Controls& c) {
-    exec_->SetPropertyValue("fcs/elevator-cmd-norm", -c.elevator);
-    exec_->SetPropertyValue("fcs/aileron-cmd-norm", c.aileron);
-    exec_->SetPropertyValue("fcs/rudder-cmd-norm", c.rudder);
+    set("fcs/elevator-cmd-norm", -c.elevator);
+    set("fcs/aileron-cmd-norm", c.aileron);
+    set("fcs/rudder-cmd-norm", c.rudder);
     const std::size_t engines = exec_->GetPropulsion()->GetNumEngines();
     for (std::size_t i = 0; i < engines; ++i) {
         const std::string n = "[" + std::to_string(i) + "]";
         const double offset = i < c.throttle_offset.size() ? c.throttle_offset[i] : 0.0;
-        exec_->SetPropertyValue("fcs/throttle-cmd-norm" + n,
+        set("fcs/throttle-cmd-norm" + n,
                                 std::clamp(c.throttle + offset, 0.0, 1.0));
-        exec_->SetPropertyValue("fcs/mixture-cmd-norm" + n, c.mixture);
-        exec_->SetPropertyValue("fcs/advance-cmd-norm" + n, c.propeller);
+        set("fcs/mixture-cmd-norm" + n, c.mixture);
+        set("fcs/advance-cmd-norm" + n, c.propeller);
         // Only a model that declares them has cooling flaps.
         const std::string cooling = "fcs/cooling-flaps-cmd-norm" + n;
         if (i < c.cooling_flaps.size() &&
-            exec_->GetPropertyManager()->HasNode(cooling)) {
-            exec_->SetPropertyValue(cooling, c.cooling_flaps[i]);
+            has_property(cooling)) {
+            set(cooling, c.cooling_flaps[i]);
         }
     }
-    exec_->SetPropertyValue("fcs/flap-cmd-norm", c.flaps);
+    set("fcs/flap-cmd-norm", c.flaps);
     if (retractable_gear(*exec_)) {
-        exec_->SetPropertyValue("gear/gear-cmd-norm", c.gear);
+        set("gear/gear-cmd-norm", c.gear);
     }
     // Only a model that declares them has speedbrakes or ground spoilers.
     for (const char* spoilers : {"fcs/speedbrake-cmd-norm", "fcs/spoiler-cmd-norm"}) {
-        if (exec_->GetPropertyManager()->HasNode(spoilers)) {
-            exec_->SetPropertyValue(spoilers, c.speedbrake);
+        if (has_property(spoilers)) {
+            set(spoilers, c.speedbrake);
         }
     }
     // Only a model that declares the switch has one.
-    if (exec_->GetPropertyManager()->HasNode("fcs/supercharger-cmd-norm")) {
-        exec_->SetPropertyValue("fcs/supercharger-cmd-norm", c.supercharger);
+    if (has_property("fcs/supercharger-cmd-norm")) {
+        set("fcs/supercharger-cmd-norm", c.supercharger);
     }
-    exec_->SetPropertyValue("fcs/left-brake-cmd-norm", c.left_brake);
-    exec_->SetPropertyValue("fcs/right-brake-cmd-norm", c.right_brake);
-    exec_->SetPropertyValue("fcs/pitch-trim-cmd-norm", -c.pitch_trim);
+    set("fcs/left-brake-cmd-norm", c.left_brake);
+    set("fcs/right-brake-cmd-norm", c.right_brake);
+    set("fcs/pitch-trim-cmd-norm", -c.pitch_trim);
 }
 
 void Aircraft::fail_engine(int engine, bool feather) {
@@ -584,33 +594,33 @@ void Aircraft::apply_weather() {
     constexpr double feet_per_metre = 1.0 / 0.3048;
     constexpr double psf_per_hpa = 2.0885434233;
     const Conditions c = weather_->at(
-        exec_->GetPropertyValue("position/lat-geod-deg"),
-        exec_->GetPropertyValue("position/long-gc-deg"),
-        exec_->GetPropertyValue("position/geod-alt-ft") * 0.3048, exec_->GetSimTime());
-    exec_->SetPropertyValue("atmosphere/wind-north-fps",
+        value("position/lat-geod-deg"),
+        value("position/long-gc-deg"),
+        value("position/geod-alt-ft") * 0.3048, exec_->GetSimTime());
+    set("atmosphere/wind-north-fps",
                             c.wind_north_mps * feet_per_metre);
-    exec_->SetPropertyValue("atmosphere/wind-east-fps",
+    set("atmosphere/wind-east-fps",
                             c.wind_east_mps * feet_per_metre);
-    exec_->SetPropertyValue("atmosphere/wind-down-fps",
+    set("atmosphere/wind-down-fps",
                             c.wind_down_mps * feet_per_metre);
     if (c.temperature_offset_c != applied_temperature_offset_c_) {
-        exec_->SetPropertyValue("atmosphere/delta-T", c.temperature_offset_c * 1.8);
+        set("atmosphere/delta-T", c.temperature_offset_c * 1.8);
         applied_temperature_offset_c_ = c.temperature_offset_c;
     }
     if (c.sea_level_pressure_hpa != applied_pressure_hpa_) {
-        exec_->SetPropertyValue("atmosphere/P-sl-psf",
+        set("atmosphere/P-sl-psf",
                                 c.sea_level_pressure_hpa * psf_per_hpa);
         applied_pressure_hpa_ = c.sea_level_pressure_hpa;
     }
     if (c.turbulence_severity != applied_turbulence_) {
         // Type 3 is MIL-F-8785C; 0 is none.
-        exec_->SetPropertyValue("atmosphere/turb-type",
+        set("atmosphere/turb-type",
                                 c.turbulence_severity > 0 ? 3.0 : 0.0);
-        exec_->SetPropertyValue("atmosphere/turbulence/milspec/severity",
+        set("atmosphere/turbulence/milspec/severity",
                                 static_cast<double>(c.turbulence_severity));
         applied_turbulence_ = c.turbulence_severity;
     }
-    exec_->SetPropertyValue("atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps",
+    set("atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps",
                             c.wind_at_20ft_mps * feet_per_metre);
 }
 
@@ -619,8 +629,8 @@ void Aircraft::step() {
         apply_weather();
     }
     if (terrain_) {
-        apply_ground(exec_->GetPropertyValue("position/lat-geod-deg"),
-                     exec_->GetPropertyValue("position/long-gc-deg"));
+        apply_ground(value("position/lat-geod-deg"),
+                     value("position/long-gc-deg"));
     }
     exec_->Run();
     // Hold-down stops the aircraft - its velocities and rates to nothing - and
@@ -634,26 +644,26 @@ void Aircraft::step() {
 AircraftState Aircraft::state() const {
     AircraftState s;
     s.sim_time_s = exec_->GetSimTime();
-    s.latitude_deg = exec_->GetPropertyValue("position/lat-geod-deg");
-    s.longitude_deg = exec_->GetPropertyValue("position/long-gc-deg");
-    s.altitude_ft = exec_->GetPropertyValue("position/h-sl-ft");
-    s.height_above_ground_ft = exec_->GetPropertyValue("position/h-agl-ft");
+    s.latitude_deg = value("position/lat-geod-deg");
+    s.longitude_deg = value("position/long-gc-deg");
+    s.altitude_ft = value("position/h-sl-ft");
+    s.height_above_ground_ft = value("position/h-agl-ft");
     s.terrain_elevation_ft =
-        exec_->GetPropertyValue("position/terrain-elevation-asl-ft");
+        value("position/terrain-elevation-asl-ft");
     s.on_water = !exec_->GetGroundReactions()->GetSolid();
     s.ditched = exec_->GetHoldDown();
-    s.roll_deg = exec_->GetPropertyValue("attitude/phi-deg");
-    s.pitch_deg = exec_->GetPropertyValue("attitude/theta-deg");
-    s.heading_deg = exec_->GetPropertyValue("attitude/psi-deg");
-    s.u_fps = exec_->GetPropertyValue("velocities/u-fps");
-    s.v_fps = exec_->GetPropertyValue("velocities/v-fps");
-    s.w_fps = exec_->GetPropertyValue("velocities/w-fps");
-    s.p_radps = exec_->GetPropertyValue("velocities/p-rad_sec");
-    s.q_radps = exec_->GetPropertyValue("velocities/q-rad_sec");
-    s.r_radps = exec_->GetPropertyValue("velocities/r-rad_sec");
-    s.airspeed_kts = exec_->GetPropertyValue("velocities/vc-kts");
-    s.climb_rate_fpm = exec_->GetPropertyValue("velocities/h-dot-fps") * 60.0;
-    s.engine_rpm = exec_->GetPropertyValue("propulsion/engine[0]/engine-rpm");
+    s.roll_deg = value("attitude/phi-deg");
+    s.pitch_deg = value("attitude/theta-deg");
+    s.heading_deg = value("attitude/psi-deg");
+    s.u_fps = value("velocities/u-fps");
+    s.v_fps = value("velocities/v-fps");
+    s.w_fps = value("velocities/w-fps");
+    s.p_radps = value("velocities/p-rad_sec");
+    s.q_radps = value("velocities/q-rad_sec");
+    s.r_radps = value("velocities/r-rad_sec");
+    s.airspeed_kts = value("velocities/vc-kts");
+    s.climb_rate_fpm = value("velocities/h-dot-fps") * 60.0;
+    s.engine_rpm = value("propulsion/engine[0]/engine-rpm");
     return s;
 }
 
@@ -927,15 +937,42 @@ bool Aircraft::gear_retracts() const {
     return retractable_gear(*exec_);
 }
 
+SGPropertyNode* Aircraft::node(const std::string& name) const {
+    const auto found = nodes_.find(name);
+    if (found != nodes_.end()) {
+        return found->second;
+    }
+    SGPropertyNode* n = exec_->GetPropertyManager()->GetNode(name);
+    if (n != nullptr) {
+        nodes_.emplace(name, n);
+    }
+    return n;
+}
+
+void Aircraft::set(const std::string& name, double v) {
+    if (SGPropertyNode* n = node(name)) {
+        n->setDoubleValue(v);
+    } else {
+        // As JSBSim's own SetPropertyValue: made where it is not.
+        exec_->SetPropertyValue(name, v);
+    }
+}
+
+double Aircraft::value(const std::string& name) const {
+    const SGPropertyNode* n = node(name);
+    return n != nullptr ? n->getDoubleValue() : 0.0;
+}
+
 bool Aircraft::has_property(const std::string& name) const {
-    return exec_->GetPropertyManager()->HasNode(name);
+    return node(name) != nullptr;
 }
 
 double Aircraft::property(const std::string& name) const {
-    if (!exec_->GetPropertyManager()->HasNode(name)) {
+    const SGPropertyNode* n = node(name);
+    if (n == nullptr) {
         throw std::out_of_range(model_ + " has no property " + name);
     }
-    return exec_->GetPropertyValue(name);
+    return n->getDoubleValue();
 }
 
 } // namespace glideslope::sim

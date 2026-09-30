@@ -66,6 +66,8 @@ public:
     Controls fly();
 
     Stage stage() const { return stage_; }
+    // Whether the wheels have touched the runway yet.
+    bool touched() const { return touched_; }
 
     // **Whether she is still landing on this runway**, for an AI given her
     // back after a pilot had her (sim/controller.hpp), with the throttle at

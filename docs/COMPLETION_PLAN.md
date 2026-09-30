@@ -339,8 +339,7 @@ ends in a debrief, never a score.
       Done 2026-09-30: the Cessna 172P's learnt landing touches down within
       5 m of the centreline under 300 ft/min from all 27 approach starts, in
       calm air and a 10-knot crosswind either way, from a quarter to full tanks;
-      `glideslope_cli land c172p --learnt` flies it. One aircraft; no client
-      or server offers it.
+      `glideslope_cli land c172p --learnt` flies it.
 
 ---
 
@@ -348,6 +347,14 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [ ] **Offer the learnt landing in a session.** Only the CLI hands an
+      aircraft to it; no client or server does. *Verification: an AI
+      aircraft on a server is landed by it when asked, and a client's
+      aircraft handed over at the gate is too.*
+- [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
+      *Verification: each light aircraft's policy lands within the
+      autopilot's limits from the same starts, in calm air and a 10-knot
+      crosswind.*
 - [ ] **On tight, slow orbits the navigator flies inside the circle.**
       Claude's CBD plan, 521 m at 60 kt, was flown 94 to 127 m inside it:
       the steering's lead along the tangent is balanced against its

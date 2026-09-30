@@ -6,12 +6,14 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 namespace JSBSim {
 class FGFDMExec;
 }
+class SGPropertyNode;
 
 namespace glideslope::sim {
 
@@ -269,6 +271,8 @@ public:
     // Sets what is on board. Call before initialize(); the weight is what JSBSim
     // computes from it once the aircraft is initialised.
     void load(const Loading& loading);
+    // What each of its fuel tanks holds full, pounds, by JSBSim's index.
+    std::vector<double> tank_capacities_lbs() const;
 
     // Puts the aircraft at `ic`, at rest in the sense that no time has passed,
     // with the engine running if asked. Throws std::runtime_error if JSBSim
@@ -358,6 +362,18 @@ public:
     bool gear_retracts() const;
 
 private:
+    // **A property by name, found once.** JSBSim finds a property by
+    // walking its path through the tree, allocating as it goes; asked for
+    // by name every step - the learnt landing reads seventeen, the approach
+    // autopilot as many again - that walk was most of a flight's time in
+    // the sanitized debug build. Each node is found the first time it is
+    // asked for and kept; the tree owns it for as long as `exec_` lives.
+    // Null for a property the model does not have.
+    SGPropertyNode* node(const std::string& name) const;
+    double value(const std::string& name) const;
+    void set(const std::string& name, double v);
+    mutable std::unordered_map<std::string, SGPropertyNode*> nodes_;
+
     void apply_weather();
     void apply_ground(double latitude_deg, double longitude_deg);
     bool meets_the_surface() const;

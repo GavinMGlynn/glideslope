@@ -276,9 +276,12 @@ set(GLIDESLOPE_UNIT_TESTS
     the_learnt_landing_sees_and_acts_in_the_simulation_as_it_did_in_training
     the_learnt_policy_touches_down_in_the_simulation_where_it_did_in_training
     the_learnt_policy_lands_the_c172p_within_5_m_of_the_centreline_under_300_ft_a_minute_in_calm_air_and_a_ten_knot_crosswind
-    the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_a_quarter_a_half_and_three_quarters_of_its_fuel
+    the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_a_quarter_of_its_fuel
+    the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_half_its_fuel
+    the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_three_quarters_of_its_fuel
     an_aeroplane_handed_to_the_learnt_landing_at_the_gate_lands_within_5_m_of_the_centreline_with_no_step_in_its_controls
     a_policy_file_that_does_not_fit_the_simulation_is_refused
+    a_learnt_landing_handed_another_aircraft_is_refused_and_the_pilot_keeps_her
     the_wind_the_learnt_landing_estimates_is_the_steady_wind_blowing
     every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_crosswind
     the_approach_speed_is_a_third_above_the_published_landing_stall
@@ -2234,6 +2237,31 @@ add_test(NAME the_cli_hands_the_c172p_at_the_gate_to_the_learnt_landing_and_it_i
         -DEXIT=0
         "-DSTDOUT_MATCHES=c172p landed by the learnt landing from 2 nm.*touched down at [0-2]?[0-9]?[0-9] ft/min, [-+][0-4][.][0-9]+ m across the centreline.*stopped [0-9]+ m past the threshold.*the learnt policy decided [1-9][0-9]+ times"
         -P ${GLIDESLOPE_EXPECT_RUN})
+add_test(NAME the_cli_hands_the_c172p_at_the_gate_to_the_approach_autopilot_and_it_is_stopped_on_the_runway
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=land c172p --crosswind 10" -DEXIT=0
+        "-DSTDOUT_MATCHES=c172p landed by the approach autopilot from 2 nm.*touched down at [0-2]?[0-9]?[0-9] ft/min, [-+][0-4][.][0-9]+ m across the centreline.*stopped [0-9]+ m past the threshold"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+# **What `land` is given is a number, whole, finite, and fuel that fits**:
+# a word, trailing text, a NaN, an infinity, no fuel below nothing and none
+# above what a tank holds.
+foreach(_bad
+        "a_word_for_a_number|--crosswind ten|--crosswind needs a number, not 'ten'"
+        "a_number_with_text_after_it|--crosswind 10kt|--crosswind needs a number, not '10kt'"
+        "a_nan|--across nan|--across needs a number, not 'nan'"
+        "an_infinity|--high inf|--high needs a number, not 'inf'"
+        "fuel_below_nothing|--fuel -5|--fuel -5 lb will not go in c172p's tank 0"
+        "more_fuel_than_a_tank_holds|--fuel 500|--fuel 500 lb will not go in c172p's tank 0")
+    string(REPLACE "|" ";" _parts "${_bad}")
+    list(GET _parts 0 _what)
+    list(GET _parts 1 _args)
+    list(GET _parts 2 _says)
+    add_test(NAME the_cli_land_refuses_${_what}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=land c172p ${_args}" -DEXIT=1
+            "-DSTDERR_MATCHES=${_says}"
+            -P ${GLIDESLOPE_EXPECT_RUN})
+endforeach()
 add_test(NAME the_cli_refuses_a_learnt_landing_for_an_aircraft_that_has_none
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=land j3cub --learnt" -DEXIT=1
