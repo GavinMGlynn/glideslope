@@ -54,11 +54,14 @@ def within_limits(f: L.Flight, runway: L.Runway) -> list[str]:
 
 def main() -> int:
     policy = policy_file.read(sys.argv[1])
+    # --held-out flies the starts checkpoints are chosen on; without it, the
+    # verification's, which are flown once, for the final report.
+    starts = L.held_out_starts() if "--held-out" in sys.argv[2:] else L.verification_starts()
     rw = L.Runway()
     flier = Flier(rw, policy.approach)
     bad = 0
     worst_sink = worst_across = 0.0
-    for name, start in L.verification_starts():
+    for name, start in starts:
         f = fly(policy, start, flier)
         wrong = within_limits(f, rw)
         bad += bool(wrong)
@@ -70,7 +73,7 @@ def main() -> int:
             f"rose {f.highest_after_touch_ft:.1f} ft"
             + ("" if not wrong else "   <-- " + "; ".join(wrong))
         )
-    n = len(L.verification_starts())
+    n = len(starts)
     print(f"{n - bad} of {n} within limits; worst sink {worst_sink:.0f} ft/min, "
           f"worst {worst_across:.2f} m across")
     return 1 if bad else 0

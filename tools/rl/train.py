@@ -5,11 +5,15 @@ virtual environment outside the repository:
     python3 -m venv ~/.venvs/glideslope-rl
     ~/.venvs/glideslope-rl/bin/pip install -r tools/rl/requirements.txt \
         --extra-index-url https://download.pytorch.org/whl/cpu
-    ~/.venvs/glideslope-rl/bin/python tools/rl/train.py --seed 1 --steps 20000000
+    nice -n 10 ~/.venvs/glideslope-rl/bin/python tools/rl/train.py --seed 7 --envs 8
+
+Eight environments, niced: the machine is shared with builds and CI runs,
+and a timing test elsewhere has failed under the load of more.
 
 Checkpoints go to --out (outside the repository, by default under
 ~/.cache/glideslope-rl); tools/rl/export.py turns one into the policy file the
-simulation reads, and tools/rl/evaluate.py flies a policy file from the
+simulation reads, and tools/rl/evaluate.py flies a policy file: from the
+held-out starts (--held-out) that checkpoints are chosen on, or from the
 verification's starts.
 """
 
@@ -42,6 +46,10 @@ class Landings(BaseCallback):
         self.next_save = every
         self.recent: list[dict] = []
         self.started = time.time()
+
+    def _on_training_start(self) -> None:
+        # Resumed, the next checkpoint is the next whole `every` from here.
+        self.next_save = (self.num_timesteps // self.every + 1) * self.every
 
     def _on_step(self) -> bool:
         for info in self.locals["infos"]:
@@ -83,9 +91,11 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--steps", type=int, default=20_000_000)
-    ap.add_argument("--envs", type=int, default=16)
+    ap.add_argument("--envs", type=int, default=8)
     ap.add_argument("--out", default=os.path.expanduser("~/.cache/glideslope-rl/run"))
     ap.add_argument("--resume", default="")
+    ap.add_argument("--log-std", type=float, default=None,
+                    help="resuming: hold the action noise at this log standard deviation")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     torch.set_num_threads(1)
@@ -97,6 +107,14 @@ def main() -> None:
     if args.resume:
         venv = VecNormalize.load(args.resume.removesuffix(".zip") + ".vecnorm", venv)
         model = PPO.load(args.resume, env=venv, device="cpu")
+        if args.log_std is not None:
+            # **The noise held small and still**, so that the mean action -
+            # what the simulation flies - is what training flew. With PPO's
+            # own noise (a standard deviation of 0.15 to 0.27) the sampled
+            # flights landed on the centreline and the mean ones 15 to 20 m
+            # right of it.
+            model.policy.log_std.data.fill_(args.log_std)
+            model.policy.log_std.requires_grad_(False)
     else:
         venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=0.995)
         model = PPO(
@@ -110,7 +128,7 @@ def main() -> None:
             gae_lambda=0.95,
             clip_range=0.2,
             ent_coef=0.0,
-            policy_kwargs=dict(net_arch=dict(pi=[64, 64], vf=[128, 128]), log_std_init=-1.0),
+            policy_kwargs=dict(net_arch=dict(pi=[64, 64], vf=[128, 128]), log_std_init=-0.5),
             seed=args.seed,
             device="cpu",
             verbose=0,

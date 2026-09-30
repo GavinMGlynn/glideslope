@@ -97,7 +97,7 @@ def parity(policy: policy_file.Policy) -> list[str]:
             n[0] += 1
             on_ground = flier.readings[15] > 0.5
             if n[0] % 30 == 1 or (on_ground and n[0] % 5 == 0):
-                cases.append((list(flier.previous), list(flier.readings), list(obs),
+                cases.append((list(flier.previous) + [flier.integral], list(flier.readings), list(obs),
                               policy.act(obs)))
 
         fly(policy, start, record=record)
@@ -105,7 +105,8 @@ def parity(policy: policy_file.Policy) -> list[str]:
         "# The simulation's observation and action, held to the training's.",
         "# Made by tools/rl/export.py, from flights of assets/rl/c172p-landing.txt",
         "# in JSBSim's Python bindings. Each case: the previous action (4), the",
-        "# readings (16, tools/rl/landing.py's READINGS), the observation (21)",
+        "# remembered drift (1, landing.remember's), the",
+        "# readings (17, tools/rl/landing.py's READINGS), the observation (25)",
         "# and the policy's action (4). Then each of the verification's flights:",
         "# touched (1 or 0), the sink ft/min, across m, along m, the most it rose,",
         "# banked and pitched down (ft, degrees) in the five seconds after.",
@@ -139,6 +140,8 @@ def main() -> None:
     ap.add_argument("--note", default="")
     ap.add_argument("--policy", default=POLICY, help="where to write the policy")
     ap.add_argument("--parity", default=PARITY, help="where to write the parity cases")
+    ap.add_argument("--policy-only", action="store_true",
+                    help="write the policy alone: no parity cases, no flights of the verification's starts")
     args = ap.parse_args()
     versions = ", ".join(
         f"{p} {metadata.version(p)}"
@@ -159,6 +162,9 @@ def main() -> None:
     policy_file.write(args.policy, p)
     again = policy_file.read(args.policy)
     assert again.layers[0].weights == p.layers[0].weights
+    if args.policy_only:
+        print("wrote", args.policy)
+        return
     os.makedirs(os.path.dirname(os.path.abspath(args.parity)), exist_ok=True)
     with open(args.parity, "w", newline="\n") as f:
         f.write("\n".join(parity(again)) + "\n")
