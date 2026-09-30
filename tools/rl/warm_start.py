@@ -38,7 +38,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 import landing as L
-from env import LandingEnv
+from env import GAMMA, LandingEnv
 
 
 def main() -> None:
@@ -50,9 +50,9 @@ def main() -> None:
     assert n_old == 21 and L.OBSERVATIONS == 25, (n_old, L.OBSERVATIONS)
 
     venv = VecNormalize(DummyVecEnv([lambda: LandingEnv(0)]), norm_obs=True,
-                        norm_reward=True, clip_obs=10.0, gamma=0.995)
+                        norm_reward=True, clip_obs=10.0, gamma=GAMMA)
     new = PPO("MlpPolicy", venv, n_steps=1024, batch_size=4096, n_epochs=10,
-              learning_rate=3e-4, gamma=0.995, gae_lambda=0.95, clip_range=0.2,
+              learning_rate=3e-4, gamma=GAMMA, gae_lambda=0.95, clip_range=0.2,
               ent_coef=0.0,
               policy_kwargs=dict(net_arch=dict(pi=[64, 64], vf=[128, 128])),
               seed=old.seed, device="cpu", verbose=0)
