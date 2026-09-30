@@ -1729,6 +1729,15 @@ add_test(NAME the_relay_fails_when_it_gives_up_with_its_input_still_open
         -DHOLD=$<TARGET_FILE:glideslope_hold_open>
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/impair_gives_up.cmake)
 
+# **The relay, its server gone, first passes on what the server sent before it
+# went**: a dropped client's goodbye, sent by a server that then stopped, was
+# lost in it. See cmake/impair_last_words.cmake.
+add_test(NAME the_relay_passes_on_what_its_server_sent_before_it_went
+    COMMAND ${CMAKE_COMMAND} -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DCHECK=$<TARGET_FILE:glideslope_datagram_check>
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/relay_last_words -DPORT=24720
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/impair_last_words.cmake)
+
 # **Every program a test runs in a pipeline carries on when the one it writes
 # to has gone**, rather than dying of SIGPIPE - which a client did on macOS CI
 # after the goodbye that ended its server. See cmake/closed_pipes.cmake. Not on

@@ -13,7 +13,8 @@
 //
 // It stops after S seconds (600 unless given) or, with `--until-input-ends`,
 // when its standard input ends - which, last in a test's pipeline, is when the
-// server before it has gone - and says what it did: how many datagrams each
+// server before it has gone - once it has delivered everything the server sent
+// before it went; and says what it did: how many datagrams each
 // way, and how many it dropped. With `--until-input-ends`, stopping for the
 // time instead is a failure, and it exits 1. What it reads from standard input it passes
 // on to standard error a whole line at a time, so that the program before it
@@ -182,16 +183,36 @@ int main(int argc, char** argv) {
                         to_server, to, client, std::vector<std::uint8_t>(data, data + n)});
     };
 
+    // **What the server sent before it went is still passed on.** Its input
+    // ending is the server gone, but not its last words: a server that drops
+    // a client sends its goodbye and, with nobody left, stops at once
+    // (--until-empty). The relay once stopped on the first pass that saw its
+    // input ended, and a goodbye still waiting in its socket, or held for the
+    // pass after, was never delivered: the dropped client never heard it, and
+    // the test of the window client dropped by the operator failed on CI
+    // four times for it (2026-09-30). The server's send comes before its exit,
+    // and its exit before its output ends; so once the input is seen ended,
+    // one more pass takes everything already come from the server, and the
+    // relay stops only when all of it towards the clients has been delivered,
+    // each at its own delay. What comes from the clients from then on has no
+    // server to go to, and is let go.
+    bool ending = false;
     for (;;) {
         const auto now = std::chrono::steady_clock::now();
         const double up_s = std::chrono::duration<double>(now - began).count();
-        if (up_s >= seconds || input_ended) {
+        if (up_s >= seconds) {
             break;
         }
+        // Read before this pass's receives, so that the pass takes
+        // everything the server sent before its input ended.
+        const bool ended_before_this_pass = input_ended;
         bool busy = false;
         glideslope::platform::Address from;
         // From the clients, towards the server.
         for (std::size_t got; (got = front->receive(buffer, from)) > 0;) {
+            if (ending) {
+                continue;
+            }
             busy = true;
             const std::string client = from.text();
             if (!upstream.count(client)) {
@@ -232,6 +253,19 @@ int main(int argc, char** argv) {
                 ++down;
             }
             it = held.erase(it);
+            busy = true;
+        }
+        if (ended_before_this_pass) {
+            if (ending) {
+                // A pass after the last one that could take anything from
+                // the server: only what is still held towards a client keeps
+                // the relay running, until it falls due.
+                std::erase_if(held, [](const Held& h) { return h.to_server; });
+                if (held.empty()) {
+                    break;
+                }
+            }
+            ending = true;
             busy = true;
         }
         if (!busy) {

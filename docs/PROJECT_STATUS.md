@@ -14212,3 +14212,55 @@ Found while implementing something else. Added when found, not when remembered.
       calls. And an unfinished line the relay holds when it gives up for the
       time (`--seconds`, which ends it with `_Exit`) is lost, where before
       its characters were already out.
+
+#### A client dropped by the operator did not always say so.
+
+- [x] **A client dropped by the operator did not always say so.**
+      *(Found on CI, 2026-09-30: main 0c39005 run 36674751464 and
+      copilot-flies-with-you b095920 run 36686103327, both Rocky 9
+      linux-release; slow-frames-lose-no-ticks 48ade7b run 36685209843,
+      Ubuntu linux-release; slow-frames b684035 run 36681942297 - "the dropped
+      client did not say it was dropped".)* Every failure has the same shape:
+      the server says `dropped 127.0.0.1:N by the operator`, `let go ...: its
+      key was dropped`, and `everybody who joined has gone, 0.6-1.2 s in`; the
+      window client says nothing of it, hears nothing more, and flies on to its
+      bound, the shot at tick 7200. **The cause was the relay, not the client
+      or the server.** The server sends its goodbye (`LEAVING`, three copies)
+      and, with nobody left, stops at once (`--until-empty`); its output ends,
+      and `glideslope_impair --until-input-ends`, between it and the client,
+      stopped on the first pass that saw its input ended. The goodbye was by
+      then either still in the relay's socket, or taken and held for the pass
+      after - a datagram taken in a pass falls due a moment after that pass
+      began, so even with `--delay 0` it went out only on the next - and was
+      never delivered. The server's refusal of the client's next initiation
+      (`DROPPED`), which a real dropped client hears if the goodbye is lost,
+      could not come either: the server had gone. The client's handling is
+      right: it says so on either.
+      **The fix**: the relay passes on what the server sent before it went.
+      Once its input is seen ended it makes one more pass, reading the flag
+      before that pass's receives, so everything the server sent before its
+      exit - which is before its output ends - is taken (on Linux a loopback
+      send is in the receiver's socket when the send returns; on Windows the
+      same is so in practice, not documented); then it stops only when
+      everything held towards a client has been delivered at its own delay.
+      What comes from the clients after that has no server, and is let go.
+      **Verification**: `the_relay_passes_on_what_its_server_sent_before_it_went`
+      (tests/cmake/impair_last_words.cmake) builds the situation: a stand-in
+      server (`glideslope_datagram_check --answer`) answers one datagram and
+      exits at once, through the relay at `--delay 1000` and `--delay 0`, and
+      the asker must hear the answer. With the old relay it failed three runs
+      of three (the answer held a second, the server long gone); with the fix
+      it passes in 2 s. The CI failure itself was made on purpose: with a
+      20 ms pause added to every pass of the relay, as a loaded runner makes
+      it, the window client's drop test failed three runs of three with the
+      old relay, each "the dropped client did not say it was dropped" as on
+      CI, and passed three of three with the fix and the same pause. Without
+      the pause, with the fix, it passed 30 of 30 on an idle machine and 30
+      of 30 with eight CPU burners running (20 cores), Linux release; and the
+      other tests through the relay - both take-over tests, the impaired
+      network at 100 and 200 ms, the window client's hand-over and joining
+      again, the relay's giving up, the closed-pipe test, the gearstick
+      refusal and the port check - pass. **What this does not do**: nothing
+      in the product changed, so a real client dropped while every copy of
+      its goodbye is lost still learns of it only from the refusal of its
+      next knock, which needs the server still running.
