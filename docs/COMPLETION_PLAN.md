@@ -838,3 +838,10 @@ Found while implementing something else. Added when found, not when remembered.
       three runs of three; passing on whole lines, it passed three of
       three.* Done
       2026-09-29.
+- [x] **A client dropped by the operator did not always say so.** On CI,
+      four times, the server dropped the window client and then stopped,
+      and the relay in front of it stopped too, before passing on the
+      server's goodbye. *Verification: with the relay slowed on purpose the
+      test failed three runs of three and passes three of three now; a relay
+      holding the server's last words when the server goes is seen to lose
+      them before the fix and pass them on after.* Done 2026-09-30.
