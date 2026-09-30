@@ -2434,8 +2434,11 @@ int stay(glideslope::platform::UdpSocket& socket,
                         glideslope::net::CopilotRoute route = route_from_file(cc.route_file);
                         std::uint8_t to = mine;
                         if (cc.route_for_another) {
+                            // Another player's: an AI's is refused anyway,
+                            // as no player's.
                             for (const glideslope::net::AircraftState& other : state->aircraft) {
-                                if (other.index != mine) {
+                                if (other.index != mine &&
+                                    other.controller == glideslope::net::Controller::person) {
                                     to = other.index;
                                     break;
                                 }
@@ -3498,7 +3501,16 @@ static int run_program(int argc, char** argv) {
                     } else if (args[i] == "--copilot-playback") {
                         c.playback = v;
                     } else if (args[i] == "--copilot-routine") {
-                        c.routine_s = std::strtod(v.c_str(), nullptr);
+                        char* end = nullptr;
+                        c.routine_s = std::strtod(v.c_str(), &end);
+                        if (end == v.c_str() || *end != '\0' || !(c.routine_s > 0.0) ||
+                            !std::isfinite(c.routine_s)) {
+                            std::fprintf(stderr,
+                                         "glideslope_cli: --copilot-routine wants a number of "
+                                         "seconds more than nought, not '%s'\n",
+                                         v.c_str());
+                            return 2;
+                        }
                     } else if (args[i] == "--copilot-at") {
                         connect_copilot.at_s = std::strtod(v.c_str(), nullptr);
                     } else if (args[i] == "--copilot-answers") {
@@ -3516,7 +3528,7 @@ static int run_program(int argc, char** argv) {
                 // **A route sent as it is** (`--send-route FILE`), at
                 // `--copilot-at`: what a client could send that its copilot
                 // never checked, for the server to refuse.
-                // ...for another aircraft than its own (`--route-for-another`),
+                // ...for another player's aircraft (`--route-for-another`),
                 // or once its own is a wreck (`--route-when-wrecked`).
                 if (args[i] == "--route-for-another") {
                     connect_copilot.route_for_another = true;
@@ -3622,6 +3634,13 @@ static int run_program(int argc, char** argv) {
                                  "than nothing\n");
                     return 2;
                 }
+            }
+            if ((connect_copilot.route_for_another || connect_copilot.route_when_wrecked) &&
+                connect_copilot.route_file.empty()) {
+                std::fprintf(stderr, "glideslope_cli: --route-for-another and "
+                                     "--route-when-wrecked say how --send-route FILE is sent, "
+                                     "and there is none\n");
+                return 2;
             }
             if (connect_copilot.options) {
                 if (connect_copilot.options->aircraft.empty()) {

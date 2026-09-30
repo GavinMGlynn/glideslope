@@ -966,9 +966,10 @@ Found while implementing something else. Added when found, not when remembered.
       player's copilot, which answers with a glide the server flies.* Done
       2026-09-30, with the item above.
 - [ ] **A client predicting its own aircraft does not know its engine has
-      stopped.** An engine the server stops (`--fail-engine-at`, a test's)
-      while the player flies is still run by the client's prediction, which
-      the server's updates then put right, correction by correction.
+      stopped.** An engine that stops on the server - its fuel run out, or
+      a test's `--fail-engine-at` - while the player flies is still run by
+      the client's prediction, which the server's updates then put right,
+      correction by correction.
       *Verification: with an engine stopped under a player flying it, the
       client's corrections are as small as with it running.*
 

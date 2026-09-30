@@ -83,16 +83,24 @@ PlayersCopilot::PlayersCopilot(const std::filesystem::path& data, PlayersCopilot
     }
     std::string coverage(std::istreambuf_iterator<char>(coverage_file), {});
     const std::filesystem::path cache = platform::cache_directory();
+    // Its fetches given up as it goes (`going_`), so that quitting while
+    // they are under way does not wait for them.
     ground_ = std::async(std::launch::async,
-                         [coverage = std::move(coverage), cache] {
+                         [coverage = std::move(coverage), cache, going = &going_] {
+                             const world::FetchesGivenUp given_up(*going);
                              return std::make_shared<Ground>(coverage, cache);
                          })
                   .share();
 }
 
 PlayersCopilot::~PlayersCopilot() {
-    // Its question first: it may be using this.
+    // **Going**: every fetch of its ground's given up, and the model's
+    // request abandoned (copilot::Copilot's destructor); its question first,
+    // which may be using this, then its ground - each waited for only as
+    // long as giving up takes.
+    going_ = true;
     helper_.reset();
+    ground_ = {};
 }
 
 std::string PlayersCopilot::provider() const {
@@ -150,6 +158,9 @@ copilot::Situation PlayersCopilot::situation(double simulation_s, const net::Air
 
 std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
                                                       const net::AircraftState& own) {
+    if (gone_) {
+        return std::nullopt;
+    }
     const bool ai_now = own.controller == net::Controller::ai;
     // **Taken back by the player, it stands by**: nothing more asked, and
     // no answer sent, until the player asks again.
@@ -160,8 +171,16 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
         said_.push_back("its pilot has taken it back: the copilot stands by");
     }
     ai_flying_ = ai_now;
+    // **An engine stopped is asked about while it is engaged**, whoever the
+    // server says is flying: a question asked with the engine running may
+    // still be out, its route - no glide - to be refused by the server, which
+    // then never hands the aircraft over; waiting for that would never ask.
+    // Running again - flown again after a wreck - it may be asked again.
     const bool engine_stopped = own.condition == net::Condition::engine_stopped;
-    if (engine_stopped && !engine_said_ && engaged_ && ai_now) {
+    if (!engine_stopped && own.condition == net::Condition::flying) {
+        engine_said_ = false;
+    }
+    if (engine_stopped && !engine_said_ && engaged_) {
         engine_said_ = true;
         wanted_ = "the engine has stopped";
     }
@@ -177,6 +196,7 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
         // what making it threw taken as the question not answered.
         if (helper_->ask([this, simulation_s, own, event, route = std::move(route),
                           ground = ground_]() mutable {
+                const world::FetchesGivenUp given_up(going_);
                 return situation(simulation_s, own, event, std::move(route), ground.get());
             })) {
             said_.push_back("asked its copilot, " + event);
@@ -200,6 +220,14 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
         }
         answered_at_s_ = simulation_s;
         said_.push_back(std::string("its copilot did not answer: ") + e.what());
+        return std::nullopt;
+    } catch (const std::exception& e) {
+        // **Its ground could not be had** - a geoid, a DEM or the runways
+        // not fetched or not read: every question would throw it again, so
+        // the copilot is gone for the session, and says so once.
+        gone_ = true;
+        said_.push_back(std::string("no copilot: what it is told could not be worked out: ") +
+                        e.what());
         return std::nullopt;
     }
     if (!change) {

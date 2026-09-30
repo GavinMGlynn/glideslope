@@ -56,13 +56,15 @@ list(LENGTH _flags _count)
 # aircraft a model to plan its flight and the task it is asked, --ai-playback
 # plays that model's answers back from a recording, --ai-spacing sets how
 # long apart planned aircraft take off, and --steps flies a number
-# of steps as fast as they go (server_planned.cmake).
+# of steps as fast as they go (server_planned.cmake). --fail-engine-at stops
+# every player's first engine at a time on the simulation's clock, for a
+# player's copilot to glide from (server_copilot.cmake).
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
               --until-empty --ready-file --no-take-over --test-step-ms
               --drop-once-flown --ai-planner --ai-task --ai-playback --ai-spacing
-              --steps)
+              --steps --fail-engine-at)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)

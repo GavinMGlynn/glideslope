@@ -1941,19 +1941,24 @@ set_tests_properties(a_route_the_server_cannot_fly_is_refused_by_it_though_a_cli
 # aircraft back**, from their recordings in data/copilot with no key; asked
 # now (live) only with GLIDESLOPE_LIVE_MODEL=1. See cmake/server_copilot.cmake.
 foreach(_case engine:ENGINE_AT=30:24722:24724:a_players_copilot_glides_its_aircraft_on_a_server_when_the_engine_stops
-              take_back:TAKE_BACK_AT=40:24726:24728:a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back)
+              take_back:TAKE_BACK_AT=40:24726:24728:a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back
+              engine_thinking:ENGINE_AT=10:24730:24732:a_players_copilot_glides_when_the_engine_stops_while_it_is_thinking)
     string(REPLACE ":" ";" _case "${_case}")
     list(GET _case 0 _what)
     list(GET _case 1 _define)
     list(GET _case 2 _port)
     list(GET _case 3 _port_now)
     list(GET _case 4 _name)
+    set(_first)
+    if(_what STREQUAL "engine_thinking")
+        set(_first -DREFUSED_FIRST=TRUE)
+    endif()
     add_test(NAME ${_name}_as_recorded
         COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
             -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_what} -DPORT=${_port}
-            -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001 -D${_define}
+            -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001 -D${_define} ${_first}
             -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/${_what}-server-anthropic.jsonl
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
     set_tests_properties(${_name}_as_recorded
@@ -1963,7 +1968,7 @@ foreach(_case engine:ENGINE_AT=30:24722:24724:a_players_copilot_glides_its_aircr
             -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_what}_now -DPORT=${_port_now}
-            -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001 -D${_define}
+            -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001 -D${_define} ${_first}
             -DRECORD=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_what}_now/${_what}-server-anthropic.jsonl
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
     set_tests_properties(${_name}_asking_anthropic_now
@@ -2410,7 +2415,10 @@ foreach(_refusal
         "the_server_refuses_steps_with_seconds|--steps 10 --seconds 5 --dry-run|--steps runs with nobody joining and stops"
         "the_server_refuses_steps_with_until_empty|--steps 10 --until-empty --dry-run|--steps runs with nobody joining and stops"
         "the_server_refuses_steps_with_a_window|--steps 10 --window --dry-run|--steps runs with nobody joining and stops"
-        "the_server_refuses_a_negative_spacing_between_planned_take_offs|--ai-spacing -5 --dry-run|--ai-spacing is -5.0+, and a length of time is a number, not negative")
+        "the_server_refuses_a_negative_spacing_between_planned_take_offs|--ai-spacing -5 --dry-run|--ai-spacing is -5.0+, and a length of time is a number, not negative"
+        "the_server_refuses_an_engine_failure_at_a_negative_time|--fail-engine-at -5 --dry-run|--fail-engine-at wants a number of seconds, not '-5'"
+        "the_server_refuses_an_engine_failure_at_a_time_that_is_not_a_number|--fail-engine-at soon --dry-run|--fail-engine-at wants a number of seconds, not 'soon'"
+        "the_server_refuses_an_engine_failure_at_no_time_at_all|--fail-engine-at nan --dry-run|--fail-engine-at wants a number of seconds, not 'nan'")
     string(REPLACE "|" ";" _refusal "${_refusal}")
     list(GET _refusal 0 _name)
     list(GET _refusal 1 _args)
@@ -2425,6 +2433,12 @@ add_test(NAME the_server_refuses_more_ai_aircraft_than_it_will_run
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--ai 17 --dry-run"
         -DEXIT=2 "-DSTDERR_MATCHES=--ai is 17, and a server runs 0 to 16 AI aircraft"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+add_test(NAME the_server_says_when_it_will_stop_its_players_engines
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--fail-engine-at 30 --dry-run"
+        -DEXIT=0 "-DSTDOUT_MATCHES=engines +every player's first engine stops 30 s in"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_server_defaults_to_four_ai_aircraft

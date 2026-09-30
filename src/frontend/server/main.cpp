@@ -1363,6 +1363,11 @@ public:
         return {};
     }
 
+    // The simulation's clock.
+    double now_s() const {
+        return static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
+    }
+
     // **Where each aircraft on a copilot's route has got to**, a line each:
     // the waypoint it is flying to, and how far off it is.
     std::vector<std::string> copilot_progress() const {
@@ -1383,12 +1388,12 @@ public:
                 const glideslope::sim::Waypoint& to = n.plan().waypoints[n.next()];
                 std::snprintf(line, sizeof line,
                               "aircraft %u on its copilot's route: to %s, %zu of %zu, %.0f m "
-                              "from it at %.0f kt",
+                              "from it at %.0f kt, %.0f s in",
                               static_cast<unsigned>(a.index), to.name.c_str(), n.next() + 1,
                               a.copilot_route.size(),
                               glideslope::sim::distance_m(lat, lon, to.latitude_deg,
                                                           to.longitude_deg),
-                              a.aircraft->property("velocities/vc-kts"));
+                              a.aircraft->property("velocities/vc-kts"), now_s());
             }
             out.emplace_back(line);
         }
@@ -1555,6 +1560,7 @@ public:
         // stall speed or climb rate, whose routes are all refused.
         std::optional<glideslope::copilot::Brief> brief{};
         std::string no_brief{};
+        int engines = 1;
     };
 
     void fail_engines_at(double s) {
@@ -1563,8 +1569,7 @@ public:
     // **Whether any of its engines has stopped**, as the state update says
     // (`net::Condition::engine_stopped`).
     static bool engine_stopped(const Aircraft& a) {
-        const int engines = std::max(1, a.aircraft->figures().engines);
-        for (int i = 0; i < engines; ++i) {
+        for (int i = 0; i < a.engines; ++i) {
             const std::string running = "propulsion/engine[" + std::to_string(i) + "]/set-running";
             if (a.aircraft->has_property(running) && a.aircraft->property(running) < 0.5) {
                 return true;
@@ -1857,11 +1862,11 @@ private:
     }
 
     // **An aircraft's speeds, worked out once** as it is made, and kept by
-    // model: reading them parses its figures, which is not for the stepping
+    // catalogue id - which names its model and its cruise both: reading them parses its figures, which is not for the stepping
     // thread to do at every route. An aircraft whose figures give none -
     // the 747-400 publishes no rate of climb - keeps why.
     void learn_speeds(Aircraft& a) {
-        auto it = speeds_.find(a.model);
+        auto it = speeds_.find(a.catalogue_id);
         if (it == speeds_.end()) {
             Speeds learnt;
             try {
@@ -1875,10 +1880,12 @@ private:
             } catch (const std::exception& e) {
                 learnt.why = e.what();
             }
-            it = speeds_.emplace(a.model, learnt).first;
+            it = speeds_.emplace(a.catalogue_id, learnt).first;
         }
         a.brief = it->second.brief;
         a.no_brief = it->second.why;
+        // And how many engines it has, for every state update to ask.
+        a.engines = std::max(1, a.aircraft->figures().engines);
     }
 
     void remember_start(Aircraft& a, const glideslope::sim::InitialConditions& ic,
@@ -2664,12 +2671,13 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                         for (const glideslope::net::RouteWaypoint& w : route.waypoints) {
                             names += " " + w.name;
                         }
-                        std::printf("aircraft %u flies its copilot's route of %zu:%s%s\n",
+                        std::printf("aircraft %u flies its copilot's route of %zu:%s%s, %.0f s in\n",
                                     static_cast<unsigned>(c.aircraft), route.waypoints.size(),
                                     names.c_str(),
                                     route.glide_kts
                                         ? (", gliding at " + std::to_string(std::lround(*route.glide_kts)) + " kt").c_str()
-                                        : "");
+                                        : "",
+                                    fleet->now_s());
                     } else {
                         std::printf("aircraft %u: a copilot's route refused: %s\n",
                                     static_cast<unsigned>(route.aircraft), refused.c_str());

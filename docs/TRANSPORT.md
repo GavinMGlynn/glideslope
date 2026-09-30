@@ -897,11 +897,18 @@ aircraft stays where it hit, a wreck, for a few seconds; then it flies again
 from where it started, under the same number, `00` again.
 
 **An engine stopped** (`02`, 2026-09-30) is an aircraft still flying with at
-least one of its engines not running - a failure the server was told to
-give it (`--fail-engine-at`). A player's copilot, asked on the player's
-machine, is told so, and answers with a glide (`COPILOT_ROUTE`). It says
-nothing of which engine, nor of whether it will start again: flown again
-after a wreck, an aircraft's engines run.
+least one of its engines not running, for whatever reason the flight model
+has: a failure the server was told to give it (`--fail-engine-at`, a
+test's), and as much its fuel run out, in any flight. A player's copilot,
+asked on the player's machine, is told so, and answers with a glide
+(`COPILOT_ROUTE`). It says nothing of which engine, nor of whether it will
+start again: flown again after a wreck, an aircraft's engines run.
+
+**A client older than `02` refuses the whole state update** while any
+aircraft in it has an engine stopped, as it refuses any condition it does
+not know (below) - every aircraft's position with it, not only that one's -
+as an older client refuses `DROPPED` as an unknown reason. Such a client
+must be brought up to date to play on a server where an engine can stop.
 
 **A reader refuses**: a kind that is not `03`, fewer bytes than the fields
 need, any byte left over at the end, more than 20 aircraft, a controller or a

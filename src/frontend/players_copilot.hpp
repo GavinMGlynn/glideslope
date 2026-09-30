@@ -23,13 +23,18 @@
 //
 // **It flies only what the player gave it.** The player asks (`ask`): the
 // copilot is engaged, and its route, sent, has the server hand the aircraft
-// to its AI. From then on it looks again `routine_s` after each answer, and
-// at once when the engine stops - **while the server says the AI flies the
-// aircraft**. Taken back by the player, it stands by: nothing more is asked,
+// to its AI. From then on it looks again `routine_s` after each answer
+// **while the server says the AI flies the aircraft**, and as soon as it can
+// when the engine stops, whoever flies it. Taken back by the player, it stands by: nothing more is asked,
 // an answer still to come is not sent, and it is engaged again only when the
 // player asks again. Its answer is taken `thinking_s` seconds after it was
 // asked on the session's clock, or when it comes if that is later, and never
 // waits for it.
+//
+// **Going away is not held up**: the model's request is abandoned and every
+// fetch of its ground given up (world::FetchesGivenUp), and each is waited
+// for only as long as giving up takes. **Its ground not had** - a fetch or a
+// file that fails - it says so once and is gone for the session.
 //
 // **The route it knows is the one it sent**: the server says nothing back
 // of a route it refused, so a route this side took and the server did not
@@ -41,6 +46,7 @@
 #include "net/state.hpp"
 #include "world/runways.hpp"
 
+#include <atomic>
 #include <filesystem>
 #include <future>
 #include <memory>
@@ -109,6 +115,8 @@ private:
     // a thread of their own, and used only on the question's.
     std::shared_future<std::shared_ptr<Ground>> ground_;
     bool engaged_ = false;
+    bool gone_ = false; // its ground could not be had: see look()
+    std::atomic<bool> going_{false};
     bool ai_flying_ = false;
     bool engine_said_ = false;
     std::optional<std::string> wanted_;
