@@ -275,8 +275,9 @@ set(GLIDESLOPE_UNIT_TESTS
     every_light_aircraft_is_flown_down_a_glidepath_and_lands_in_calm_air
     the_learnt_landing_sees_and_acts_in_the_simulation_as_it_did_in_training
     the_learnt_policy_touches_down_in_the_simulation_where_it_did_in_training
-    the_learnt_policy_touches_the_c172p_down_on_the_runway_under_300_ft_a_minute_and_it_is_stopped_on_it_from_every_start
-    an_aeroplane_handed_to_the_learnt_landing_at_the_gate_is_landed_and_stopped_with_no_step_in_its_controls
+    the_learnt_policy_lands_the_c172p_within_5_m_of_the_centreline_under_300_ft_a_minute_in_calm_air_and_a_ten_knot_crosswind
+    the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_a_quarter_a_half_and_three_quarters_of_its_fuel
+    an_aeroplane_handed_to_the_learnt_landing_at_the_gate_lands_within_5_m_of_the_centreline_with_no_step_in_its_controls
     a_policy_file_that_does_not_fit_the_simulation_is_refused
     the_wind_the_learnt_landing_estimates_is_the_steady_wind_blowing
     every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_crosswind
@@ -2231,7 +2232,7 @@ add_test(NAME the_cli_hands_the_c172p_at_the_gate_to_the_learnt_landing_and_it_i
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=land c172p --learnt --crosswind 10"
         -DEXIT=0
-        "-DSTDOUT_MATCHES=c172p landed by the learnt landing from 2 nm.*touched down at [0-9]+ ft/min, [-+][0-9.]+ m across the centreline.*stopped [0-9]+ m past the threshold.*the learnt policy decided [1-9][0-9]+ times"
+        "-DSTDOUT_MATCHES=c172p landed by the learnt landing from 2 nm.*touched down at [0-2]?[0-9]?[0-9] ft/min, [-+][0-4][.][0-9]+ m across the centreline.*stopped [0-9]+ m past the threshold.*the learnt policy decided [1-9][0-9]+ times"
         -P ${GLIDESLOPE_EXPECT_RUN})
 add_test(NAME the_cli_refuses_a_learnt_landing_for_an_aircraft_that_has_none
     COMMAND ${CMAKE_COMMAND}
