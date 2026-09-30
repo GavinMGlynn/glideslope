@@ -232,14 +232,52 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The copilot flies with you, on a server: asked on the player's machine, flown by the server, 2026-09-30 — item not done
+### The copilot flies with you, on a server: asked on the player's machine, flown by the server, 2026-09-30 — item done
 
-**Missing first: on a server, a player's copilot cannot handle an engine
-failure** - the review found the item ticked on that, wrongly. **What a
-player's copilot is not told**: whether the engine runs - no state
-update says so, so a player's copilot is told it does (a tail, below). No
-engine can yet be failed on a server, so nothing on one needs it. The
-server's own AI aircraft do not ask a model in flight: each is planned once,
+**What is not done**: a client predicting its own aircraft does not know its
+engine has stopped (a tail): only a test stops one (`--fail-engine-at`), and
+in the tests the AI is flying it by then, so nothing is predicted. The
+server says nothing back of a route it refuses: the client takes the route
+it sent as the one flown. The window client's copilot is tested by one
+flight; its routine looks and its standing by are the same code as the
+headless client's, tested there.
+
+**An engine failure on a server, made true after the review** (it had been
+ticked on the command line's alone). The state update's condition byte says
+`02`, flying with an engine stopped (TRANSPORT.md); the server stops every
+player's first engine at `--fail-engine-at S`; the player's copilot, told,
+is asked at once, "the engine has stopped", and answers with a glide the
+server checks and flies.
+`a_players_copilot_glides_its_aircraft_on_a_server_when_the_engine_stops_as_recorded`:
+Claude Haiku 4.5, recorded (`tests/data/copilot/engine-server-anthropic.jsonl`),
+first flew to Manly, then, the engine stopped 30 s in, glided at 65 kt to
+Sydney's runway 25 - 8,778 m from it at 67 kt, then 7,828 m at 61 kt. Red
+with the condition never said: the client never heard its engine stop.
+
+**It flies only what its player gave it** (from the review): taken back
+with A, the copilot stands by - nothing more asked, an answer still to come
+not sent - until the player asks again.
+`a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back_as_recorded`:
+routine looks every 20 s, taken back 40 s in, and the answer that came after
+was not heard; the server handed the aircraft to the AI once. Red with the
+standing by taken out.
+
+**Nothing of it is on the thread that steps or draws** (from the review):
+its ground - a geoid, a DEM and the world's runways, which a fresh cache
+downloads - is made on a thread of its own as the copilot is made, when the
+client has an aircraft rather than at the first C; and what the copilot is
+told is worked out on the question's own thread (`copilot::Copilot::ask`
+with a function). It keeps a DEM of its own, not the client's: a
+`world::Dem` is not for two threads, and the tiles are shared on disk.
+Going away, a copilot abandons its model's request at once
+(`platform::HttpRequest::abandon`) and asks nothing more:
+`a_copilot_going_away_gives_up_its_question_at_once`, red with the request
+left to run - it was waited out. A model silent for two minutes, not five,
+is given up.
+
+**What a player's copilot is told** now includes whether the engine runs
+(above); its speed is its speed over the ground, which is what the updates
+carry. The server's own AI aircraft do not ask a model in flight: each is planned once,
 by the model its server chooses, with the operator's key ("Each AI aircraft
 is planned by the model its server chooses", below).
 

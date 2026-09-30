@@ -265,11 +265,15 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
     return {};
 }
 
-Change decide(Provider& provider, const Brief& brief, const Situation& now) {
+Change decide(Provider& provider, const Brief& brief, const Situation& now,
+              const std::atomic<bool>* given_up) {
     const std::string instructions = copilot_instructions();
     std::vector<Turn> conversation{{"user", situation_text(brief, now)}};
     std::vector<std::string> refused;
     for (int attempt = 1; attempt <= most_attempts; ++attempt) {
+        if (given_up != nullptr && given_up->load()) {
+            throw ProviderError("the question was given up");
+        }
         const std::string answer = provider.answer(instructions, conversation);
         std::string why;
         Change change;
@@ -298,9 +302,12 @@ Change decide(Provider& provider, const Brief& brief, const Situation& now) {
 }
 
 Copilot::Copilot(std::unique_ptr<Provider> provider, Brief brief)
-    : provider_(std::move(provider)), brief_(std::move(brief)) {}
+    : provider_(std::move(provider)), brief_(std::move(brief)) {
+    provider_->abandon_on(&given_up_);
+}
 
 Copilot::~Copilot() {
+    given_up_ = true;
     if (pending_.valid()) {
         pending_.wait();
     }
@@ -311,7 +318,17 @@ bool Copilot::ask(Situation now) {
         return false;
     }
     pending_ = std::async(std::launch::async, [this, now = std::move(now)] {
-        return decide(*provider_, brief_, now);
+        return decide(*provider_, brief_, now, &given_up_);
+    });
+    return true;
+}
+
+bool Copilot::ask(std::function<Situation()> told) {
+    if (pending_.valid()) {
+        return false;
+    }
+    pending_ = std::async(std::launch::async, [this, told = std::move(told)] {
+        return decide(*provider_, brief_, told(), &given_up_);
     });
     return true;
 }

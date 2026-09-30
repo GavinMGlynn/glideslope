@@ -51,10 +51,13 @@ inline constexpr std::size_t state_per_aircraft_bytes = 1 + 1 + 1 + 3 * 8 + 6 * 
 
 // **Whether an aircraft is flying or a wreck.** Collisions are the server's
 // to decide (sim/crash.hpp), and every client is told: a wreck stays where it
-// hit for a few seconds, then flies again from the start.
+// hit for a few seconds, then flies again from the start. **And whether its
+// engines run** (2026-09-30): flying with an engine stopped is said, so that
+// a player's copilot, on the player's machine, knows to glide.
 enum class Condition : std::uint8_t {
     flying = 0,
     wrecked = 1,
+    engine_stopped = 2,
 };
 bool known_condition(std::uint8_t value);
 

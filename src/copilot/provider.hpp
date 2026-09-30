@@ -15,6 +15,7 @@
 
 #include "platform/http.hpp"
 
+#include <atomic>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -70,6 +71,16 @@ public:
     // status, the service's own error, or a body that does not hold text.
     virtual std::string answer(const std::string& instructions,
                                const std::vector<Turn>& conversation) = 0;
+
+    // **A question given up when `flag` becomes true**: the request being
+    // made is abandoned at once (platform::HttpRequest::abandon), and
+    // answer() throws. The flag must outlive the provider's use of it.
+    void abandon_on(const std::atomic<bool>* flag) {
+        abandon_ = flag;
+    }
+
+protected:
+    const std::atomic<bool>* abandon_ = nullptr;
 };
 
 // The providers, each with the model it asks by default. OpenAI's is a dated

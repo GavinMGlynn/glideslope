@@ -11,13 +11,30 @@
 // aircraft is, its heading, its speed over the ground (the updates carry no
 // airspeed) and its vertical speed; the ground under it from the DEM and its
 // height above the sea from the geoid, both as this machine has them; the
-// runways near it; and the route it last sent. **Not whether the engine
-// runs**, which no update says: a player's copilot is told it does.
+// runways near it; the route it last sent; and whether the engine runs, from
+// the aircraft's condition (`net::Condition::engine_stopped`).
 //
-// **When it is asked**: when the player asks (`ask`), and then a minute after
-// each answer taken, if `routine_s` is set. Its answer is taken `thinking_s`
-// seconds after it was asked on the session's clock, or when it comes if that
-// is later, and never waits for it.
+// **Nothing here holds up the thread that calls it.** Its ground - a geoid,
+// a DEM and the world's runways, which may be downloaded - is made on a
+// thread of its own as it is made, and what it is told is worked out on the
+// question's own thread (copilot::Copilot::ask): a DEM of its own, not the
+// client's, because a `world::Dem` is not for two threads, and the tiles
+// are shared through the cache on disk.
+//
+// **It flies only what the player gave it.** The player asks (`ask`): the
+// copilot is engaged, and its route, sent, has the server hand the aircraft
+// to its AI. From then on it looks again `routine_s` after each answer, and
+// at once when the engine stops - **while the server says the AI flies the
+// aircraft**. Taken back by the player, it stands by: nothing more is asked,
+// an answer still to come is not sent, and it is engaged again only when the
+// player asks again. Its answer is taken `thinking_s` seconds after it was
+// asked on the session's clock, or when it comes if that is later, and never
+// waits for it.
+//
+// **The route it knows is the one it sent**: the server says nothing back
+// of a route it refused, so a route this side took and the server did not
+// is taken here as flown - which the checks being the same on both sides,
+// with the same figures and the same DEM, makes rare.
 
 #include "copilot/copilot.hpp"
 #include "net/messages.hpp"
@@ -25,6 +42,7 @@
 #include "world/runways.hpp"
 
 #include <filesystem>
+#include <future>
 #include <memory>
 #include <optional>
 #include <string>
@@ -52,9 +70,13 @@ public:
     PlayersCopilot(const PlayersCopilot&) = delete;
     PlayersCopilot& operator=(const PlayersCopilot&) = delete;
 
-    // The player asks: at the next look.
+    // The player asks: at the next look, and engaged from then.
     void ask() {
         wanted_ = "the pilot has asked";
+        engaged_ = true;
+    }
+    bool engaged() const {
+        return engaged_;
     }
 
     // **A look, between two frames**, with the newest update's clock and the
@@ -74,16 +96,21 @@ public:
     std::string provider() const;
 
 private:
+    struct Ground;
+    // Worked out on the question's thread: see above.
     copilot::Situation situation(double simulation_s, const net::AircraftState& own,
-                                 const std::string& event) const;
+                                 const std::string& event, std::vector<sim::Waypoint> route,
+                                 const std::shared_ptr<Ground>& ground);
 
     PlayersCopilotOptions o_;
     std::unique_ptr<copilot::Copilot> helper_;
     std::string provider_;
-    // The DEM and the geoid, as this machine has them.
-    struct Ground;
-    std::unique_ptr<Ground> ground_;
-    std::vector<world::RunwayEnd> runways_;
+    // The DEM, the geoid and the runways, as this machine has them: made on
+    // a thread of their own, and used only on the question's.
+    std::shared_future<std::shared_ptr<Ground>> ground_;
+    bool engaged_ = false;
+    bool ai_flying_ = false;
+    bool engine_said_ = false;
     std::optional<std::string> wanted_;
     std::optional<double> asked_at_s_;
     std::optional<double> answered_at_s_;

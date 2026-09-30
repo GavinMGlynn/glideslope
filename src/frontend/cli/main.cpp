@@ -2507,7 +2507,10 @@ int stay(glideslope::platform::UdpSocket& socket,
                 if (was == heard_as.end() || was->second != a.condition) {
                     if (a.condition == glideslope::net::Condition::wrecked) {
                         say_heard("aircraft " + std::to_string(a.index) + " is a wreck");
-                    } else if (was != heard_as.end()) {
+                    } else if (a.condition == glideslope::net::Condition::engine_stopped) {
+                        say_heard("aircraft " + std::to_string(a.index) + "'s engine has stopped");
+                    } else if (was != heard_as.end() &&
+                               was->second == glideslope::net::Condition::wrecked) {
                         say_heard("aircraft " + std::to_string(a.index) + " flies again");
                         ++flown_again;
                     }
@@ -3476,6 +3479,7 @@ static int run_program(int argc, char** argv) {
                 if (args[i].starts_with("--copilot-") && i + 1 < args.size()) {
                     const std::string v(args[i + 1]);
                     const bool of_the_model = args[i] == "--copilot-provider" ||
+                                              args[i] == "--copilot-routine" ||
                                               args[i] == "--copilot-model" ||
                                               args[i] == "--copilot-record" ||
                                               args[i] == "--copilot-playback";
@@ -3493,6 +3497,8 @@ static int run_program(int argc, char** argv) {
                         c.record = v;
                     } else if (args[i] == "--copilot-playback") {
                         c.playback = v;
+                    } else if (args[i] == "--copilot-routine") {
+                        c.routine_s = std::strtod(v.c_str(), nullptr);
                     } else if (args[i] == "--copilot-at") {
                         connect_copilot.at_s = std::strtod(v.c_str(), nullptr);
                     } else if (args[i] == "--copilot-answers") {

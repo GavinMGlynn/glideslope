@@ -5,6 +5,7 @@
 #include "copilot/provider.hpp"
 #include "world/json.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <filesystem>
@@ -678,4 +679,39 @@ GLIDESLOPE_TEST(a_recording_played_back_but_its_numbers_answers_a_request_whose_
         ++refused;
     }
     check(refused == 2, "moved figures played back exactly, and other words: both refused");
+}
+
+// **A copilot going away gives up its question at once**: the model's
+// request is abandoned (platform::HttpRequest::abandon) rather than waited
+// out, so quitting is not held up by a model thinking. The stand-in service
+// answers only when its request is abandoned, or after a minute, which is
+// far longer than any machine takes to get there, and says which.
+GLIDESLOPE_TEST(a_copilot_going_away_gives_up_its_question_at_once) {
+    auto seen = std::make_shared<std::atomic<int>>(0); // 1 abandoned, 2 waited out
+    auto asked = std::make_shared<std::atomic<bool>>(false);
+    const Post never_answers = [seen, asked](const glideslope::platform::HttpRequest& request,
+                                             const std::string&) {
+        *asked = true;
+        const auto until = std::chrono::steady_clock::now() + std::chrono::minutes(1);
+        while (std::chrono::steady_clock::now() < until) {
+            if (request.abandon != nullptr && request.abandon->load()) {
+                *seen = 1;
+                throw glideslope::platform::HttpError("abandoned");
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        *seen = 2;
+        return answered(200, openai_answer("keep"));
+    };
+    {
+        glideslope::copilot::Copilot copilot(
+            glideslope::copilot::make_provider("openai", "the-key", "", never_answers),
+            cessna_brief());
+        check(copilot.ask(off_bondi(true)), "asked");
+        while (!*asked) {
+            std::this_thread::yield();
+        }
+    }
+    check(*seen == 1, "the request was abandoned as the copilot went, not waited out (" +
+                          std::string(*seen == 2 ? "waited out" : "neither") + ")");
 }

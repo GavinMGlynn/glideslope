@@ -1091,30 +1091,44 @@ static int run_program(int argc, char** argv) {
         // here, with the player's key, and what it answers goes to the server
         // as a route, which the server's AI flies. Without a task, or a key,
         // it says so.
+        //
+        // **Made as soon as there is an aircraft to be the copilot of**, not
+        // at the first C: its ground - a geoid, a DEM and the world's
+        // runways, which may be downloaded - is made on a thread of its own
+        // from then (frontend/players_copilot.hpp), and nothing it does is
+        // on this thread after.
         std::unique_ptr<glideslope::frontend::PlayersCopilot> copilot;
+        bool copilot_made = false;
         bool asked_the_copilot = false;
-        const auto ask_the_copilot = [&]() {
-            if (o.copilot_task.empty()) {
-                std::printf("glideslope: no copilot: start with --copilot TASK\n");
+        const auto make_the_copilot = [&]() {
+            if (copilot_made || o.copilot_task.empty() || !joined) {
                 return;
             }
+            copilot_made = true;
             try {
-                if (!copilot) {
-                    glideslope::frontend::PlayersCopilotOptions c;
-                    c.aircraft = joined->aircraft_id;
-                    c.task = o.copilot_task;
-                    c.provider = o.copilot_provider;
-                    c.model = o.copilot_model;
-                    c.playback = o.copilot_playback;
-                    c.routine_s = 60.0;
-                    copilot = std::make_unique<glideslope::frontend::PlayersCopilot>(
-                        glideslope::platform::data_directory(), c);
-                    std::printf("glideslope: copilot %s engaged\n", copilot->provider().c_str());
-                }
-                copilot->ask();
+                glideslope::frontend::PlayersCopilotOptions c;
+                c.aircraft = joined->aircraft_id;
+                c.task = o.copilot_task;
+                c.provider = o.copilot_provider;
+                c.model = o.copilot_model;
+                c.playback = o.copilot_playback;
+                c.routine_s = 60.0;
+                copilot = std::make_unique<glideslope::frontend::PlayersCopilot>(
+                    glideslope::platform::data_directory(), c);
+                std::printf("glideslope: copilot %s ready: C asks it\n",
+                            copilot->provider().c_str());
             } catch (const std::exception& e) {
                 std::printf("glideslope: no copilot: %s\n", e.what());
             }
+        };
+        const auto ask_the_copilot = [&]() {
+            make_the_copilot();
+            if (!copilot) {
+                std::printf("glideslope: no copilot%s\n",
+                            o.copilot_task.empty() ? ": start with --copilot TASK" : "");
+                return;
+            }
+            copilot->ask();
         };
         const auto hand_over = [&](bool to_ai) {
             online->hand_over(to_ai);
@@ -1424,6 +1438,7 @@ static int run_program(int argc, char** argv) {
                 const double joined_s =
                     static_cast<double>(ticks) /
                     static_cast<double>(glideslope::sim::steps_per_second);
+                make_the_copilot();
                 if (o.copilot_after_s >= 0.0 && !asked_the_copilot &&
                     joined_s >= o.copilot_after_s) {
                     asked_the_copilot = true;
