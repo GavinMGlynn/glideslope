@@ -180,6 +180,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_prediction_begun_part_way_through_an_input_is_not_put_off_by_it
     a_client_that_flew_different_inputs_is_put_back_where_the_server_says
     a_client_that_flew_different_inputs_is_put_back_by_the_servers_motion_alone
+    an_aircraft_taken_over_is_flown_on_to_now_from_the_word_that_gave_it
     a_lesson_written_down_and_read_back_is_the_one_that_was_written
     a_lesson_file_that_is_wrong_is_refused_and_says_where
     the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief
@@ -1918,6 +1919,19 @@ add_test(NAME the_client_with_the_window_flies_the_servers_aircraft_and_draws_th
 set_tests_properties(the_client_with_the_window_flies_the_servers_aircraft_and_draws_the_others
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server)
+# **The same, with its frames held 0.7 s**, as a slow machine's are: it hears
+# the server after the ticks those frames were owed, and is put right once a
+# frame - never too far to hide (cmake/client_on_server.cmake).
+add_test(NAME a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_server_slow -DPORT=24785 -DDRIVER=vulkan
+        -DSLOW_FRAMES=700
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
+set_tests_properties(a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_slow)
 
 # **A flight plan that takes off and orbits is flown over the DEM** by
 # glideslope_cli fly-plan, from a plan written by hand; and **a command in

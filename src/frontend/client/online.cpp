@@ -88,12 +88,33 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
         session_.send_inputs(std::span<const std::uint8_t>(packet.data(), packet.size()));
         flight.set_input_sequence(sequence_);
     }
+    return flying_;
+}
+
+void Online::hear(double local_s, Flight& flight) {
     session_.poll(local_s);
     noticed();
     for (const net::StatePacket& state : session_.take_states()) {
         heard(state, local_s, flight);
     }
-    return flying_;
+    if (!own_word_) {
+        return;
+    }
+    const OwnWord word = *own_word_;
+    own_word_.reset();
+    if (word.adopt) {
+        flight.adopt(word.motion);
+        return;
+    }
+    const auto c =
+        flight.reconcile(word.motion, word.last_applied, word.steps_into, word.server_steps);
+    ++corrections_;
+    worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
+    if (c.snapped) {
+        ++snapped_;
+    } else {
+        corrected_ = true;
+    }
 }
 
 void Online::noticed() {
@@ -117,6 +138,7 @@ void Online::noticed() {
     // old session can open under the new one's keys to be reordered past
     // it - so the clock, the newest word and everything drawn start afresh.
     reconciled_s_.reset();
+    own_word_.reset();
     clock_ = net::SessionClock{};
     origin_.reset();
     shown_.clear();
@@ -148,6 +170,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             taken_back_ = false;
             rejoined_ = true;
             reconciled_s_ = state.simulation_time_s;
+            own_word_.reset();
             for (const net::AircraftState& a : state.aircraft) {
                 if (a.index == mine_) {
                     own_ai_flying_ = a.controller == net::Controller::ai;
@@ -173,6 +196,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             rejoined_ = false;
             resuming_ = false;
             reconciled_s_ = state.simulation_time_s;
+            own_word_.reset();
             watch(net::no_aircraft);
             for (const net::AircraftState& a : state.aircraft) {
                 if (a.index == mine_) {
@@ -196,6 +220,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             newer->again = taken_->again;
             taken_ = std::move(newer);
             reconciled_s_ = state.simulation_time_s;
+            own_word_.reset();
         }
     } else if (state.yours && state.your_aircraft == mine_ &&
         (!reconciled_s_ || state.simulation_time_s > *reconciled_s_)) {
@@ -225,23 +250,26 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
         if (own_ai_flying_) {
             // The AI's: drawn from the updates, below, and not predicted.
             reconciled_s_ = state.simulation_time_s;
-        } else if (!reconciled_s_ || resuming_) {
+            own_word_.reset();
+        } else if (!reconciled_s_ || resuming_ || (own_word_ && own_word_->adopt)) {
+            // Put there by `hear` from the newest word, when the words
+            // heard together are those waiting since it joined.
             reconciled_s_ = state.simulation_time_s;
             resuming_ = false;
-            flight.adopt(motion_of(*state.yours));
+            own_word_ = OwnWord{motion_of(*state.yours), 0, 0, 0, true};
         } else {
+            // **Put right from the newest of the words heard together**, by
+            // `hear`, once they are all heard; each older one says only the
+            // clocks' difference.
             reconciled_s_ = state.simulation_time_s;
-            const auto c = flight.reconcile(
-                motion_of(*state.yours), state.last_input_applied, state.yours->steps_into_input,
-                static_cast<std::uint64_t>(std::llround(
-                    state.simulation_time_s * static_cast<double>(sim::steps_per_second))));
-            ++corrections_;
-            worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
-            if (c.snapped) {
-                ++snapped_;
-            } else {
-                corrected_ = true;
+            const std::uint64_t server_steps = static_cast<std::uint64_t>(std::llround(
+                state.simulation_time_s * static_cast<double>(sim::steps_per_second)));
+            if (own_word_) {
+                flight.hear_clock(own_word_->last_applied, own_word_->steps_into,
+                                  own_word_->server_steps);
             }
+            own_word_ = OwnWord{motion_of(*state.yours), state.last_input_applied,
+                                state.yours->steps_into_input, server_steps};
         }
     }
     // **Everybody else, to be drawn behind the clock**, and what the server

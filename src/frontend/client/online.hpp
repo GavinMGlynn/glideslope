@@ -76,10 +76,22 @@ public:
     template <typename Clock>
     std::optional<Joined> join(double give_up_after_s, Clock local_s);
 
-    // **One frame.** Sends the stick if an input is due, reads what has
-    // arrived, and puts `flight` right from the newest word on it. Returns
-    // the controls to fly this frame: the stick as it was last sent.
+    // **One frame, before its ticks are flown.** Sends the stick if an input
+    // is due. Returns the controls to fly this frame: the stick as it was
+    // last sent.
     sim::Controls fly(double local_s, const sim::Controls& stick, Flight& flight);
+
+    // **The same frame, after its ticks are flown.** Reads what has arrived,
+    // and puts `flight` right once, from the newest word on it; the older
+    // ones give the clocks' difference alone. After the ticks and not
+    // before: a word heard at the end of a long frame is about a moment its
+    // ticks have not yet reached, and heard before them it put the
+    // prediction where the server was, with nothing to replay, for the ticks
+    // to fly it on past. And once: put right from every word in turn, each
+    // replaying the inputs since, a long frame made the next one longer.
+    // Together, 26.8 m on CI at a frame of 1.7 s, and 33 m here at frames
+    // held 0.7 s (PROJECT_STATUS.md, 2026-09-30).
+    void hear(double local_s, Flight& flight);
 
     // **Kept in the session and nothing more**, for a client the server gave
     // no aircraft: its knocking answered, what arrives read and let go.
@@ -203,6 +215,18 @@ private:
     // Taken back, and not yet put where the server says it is.
     bool resuming_ = false;
     std::optional<double> reconciled_s_;
+    // **The newest word on its own aircraft this frame has heard**, to be put
+    // right from once all of them are (`hear`).
+    struct OwnWord {
+        sim::Motion motion;
+        std::uint32_t last_applied = 0;
+        std::size_t steps_into = 0;
+        std::uint64_t server_steps = 0;
+        // Where it is, not a correction: the first word since joining, or
+        // since it was taken back from the AI.
+        bool adopt = false;
+    };
+    std::optional<OwnWord> own_word_;
     net::SessionClock clock_;
     // A local frame to interpolate in: north-east-down about where this
     // client joined.

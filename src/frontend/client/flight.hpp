@@ -153,6 +153,10 @@ public:
                                           std::uint32_t last_applied,
                                           std::size_t steps_into,
                                           std::uint64_t server_steps);
+    // The clocks' difference alone, from a word not reconciled from
+    // (sim::Prediction::hear_clock).
+    void hear_clock(std::uint32_t last_applied, std::size_t steps_into,
+                    std::uint64_t server_steps);
 
     // Hands the aircraft to the AI - flying what is left of the plan, if any
     // is - or back to the pilot (sim/controller.hpp).

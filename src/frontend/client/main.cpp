@@ -1229,7 +1229,8 @@ static int run_program(int argc, char** argv) {
             // before what this pass hears changes it.
             const bool predicted_before =
                 online && joined && flight && flight->predicting() && !online->own_ai_flying();
-            // On a server, what is flown is what was last sent.
+            // On a server, what is flown is what was last sent; what the
+            // server said is heard after it is flown, below.
             const glideslope::sim::Controls flown =
                 joined && flight ? online->fly(seconds_since_start(), controls, *flight)
                                  : controls;
@@ -1244,6 +1245,14 @@ static int run_program(int argc, char** argv) {
                     }
                 }
                 ++ticks;
+            }
+            // **What arrived is heard once the ticks it may be about are
+            // flown**: at the end of a long frame the newest word is about a
+            // moment past where the prediction was before them, and heard
+            // then it was put there with nothing to replay, and flown on past
+            // it (Online::hear).
+            if (joined && flight) {
+                online->hear(seconds_since_start(), *flight);
             }
 
             // **Quitting**, at a tick, straight after the steps that reach it:
