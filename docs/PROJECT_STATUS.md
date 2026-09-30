@@ -16052,7 +16052,7 @@ Found while implementing something else. Added when found, not when remembered.
 
 #### The network checks on macOS drew frames of another aircraft metres off.
 
-- [ ] **The network checks on macOS drew frames of another aircraft metres
+- [x] **The network checks on macOS drew frames of another aircraft metres
       off.** *(Found on CI: once at 100 ms, "four frames of 1,946 more than
       2 m off, the worst 8.6 m"; at 200 ms in PR #67's run 36689199151,
       macos-debug tests 4/4: 8 frames at 2 m or more, the worst 8.461 m,
@@ -16133,15 +16133,18 @@ Found while implementing something else. Added when found, not when remembered.
       1,667 m. The wreck and take-over network tests pass with it. A wreck
       whose every wrecked update was lost is not seen as one, and is still
       blended.
-      **What remains**: the check run a hundred times on macOS. The nightly
+      **A hundred times on macOS.** The nightly
       workflow now runs both network checks on macOS debug, twenty times each
       a night over four runners, and by hand as many as asked (`gh workflow
       run nightly.yml --ref BRANCH -f macos_network_repeats=100`); a failed
       run keeps its tracks as an artifact. Asked for by hand, it runs the
       macOS job alone; the Linux repeats come too only with `-f
       linux_repeats=true`. A hundred of each was asked for on this branch
-      (run 36705059324), which waited some twenty minutes for its first
-      macOS runners. **Not done**: the
+      (run 36705059324, of ab538ec - the fix, before the review's additions,
+      which touch only a wreck flying again and the tests), which waited
+      some twenty minutes for its first macOS runners: every one of the 200
+      runs passed, 50 of 50 on each of the four runners, each pair of checks
+      some 68 s and each runner half an hour. **Not done**: the
       clock still runs ahead of a server that has just caught up, for as
       long as its two-second window takes to forget the burst; the aircraft
       is guessed through that, correctly, but the guesses are longer than

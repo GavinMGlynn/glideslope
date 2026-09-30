@@ -407,10 +407,11 @@ Found while implementing something else. Added when found, not when remembered.
       Done 2026-09-26: four contacts either side of its keel, measured from
       its visual model.
 
-- [ ] **The network checks on macOS drew another aircraft metres off** (8.6 m
-      at 100 ms, 8.5 m at 200 ms). Cause found and fixed; the hundred macOS
-      runs remain. *Verification: the cause found, and the check run a
-      hundred times on macOS within its bound.*
+- [x] **The network checks on macOS drew another aircraft metres off** (8.6 m
+      at 100 ms, 8.5 m at 200 ms). *Verification: the cause found, and the
+      check run a hundred times on macOS within its bound.* Done 2026-09-30:
+      an aircraft guessed through late updates now comes back from where it
+      was drawn; both checks passed a hundred times each on macOS.
 
 - [x] **A HUD test fails, rather than skipping, when the weather service
       does not answer** (Windows CI, 2026-09-25: WinHTTP 12002 from
