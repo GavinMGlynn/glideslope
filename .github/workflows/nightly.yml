@@ -21,10 +21,17 @@ on:
         description: How many times macOS runs each network check (split over four runners)
         type: number
         default: 100
+      linux_repeats:
+        description: Run the Linux multi-process tests five times each as well
+        type: boolean
+        default: false
 
 jobs:
   repeat:
     name: The multi-process tests, five times each
+    # Every night; by hand only when asked, so that asking for the macOS
+    # repeats does not also spend an hour of Linux on them.
+    if: ${{ github.event_name == 'schedule' || inputs.linux_repeats }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -106,10 +113,19 @@ jobs:
   # four runners; run by hand (`gh workflow run nightly.yml --ref BRANCH -f
   # macos_network_repeats=100`), as many as asked. Every run is counted, a
   # skipped one is not a pass, and a failed one keeps its tracks.
+  #
+  # **Its time.** The two checks take some 70 s a run on a macOS runner (the
+  # 200 ms one 34.6 s in PR #67's CI), and building what they need about a
+  # minute from ccache: a hundred of each over four runners is some half an
+  # hour a runner, and the timeout three times that. The four
+  # wait for macOS runners like any other job, and at 17:00 UTC they share
+  # them with whatever else is queued - a dispatched run waited twenty
+  # minutes for its first two (2026-09-30).
   macos-network:
     name: macOS - the network checks, runner ${{ matrix.runner }} of 4
+    if: ${{ github.event_name == 'schedule' || inputs.macos_network_repeats > 0 }}
     runs-on: macos-15
-    timeout-minutes: 180
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix: { runner: [1, 2, 3, 4] }

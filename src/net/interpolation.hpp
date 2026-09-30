@@ -51,6 +51,9 @@ struct RemoteState {
     double heading_deg = 0.0;
     double pitch_deg = 0.0;
     double roll_deg = 0.0;
+    // A wreck, as the server said. One that flies again is somewhere else,
+    // and what it was is no guide to where it is.
+    bool wrecked = false;
 };
 
 // The shortest way round from `from` to `to`, degrees, in -180..180.
@@ -60,6 +63,10 @@ class Interpolated {
 public:
     // A snapshot off the wire. One older than the newest already held is
     // taken - it may fill a gap - and one that is a duplicate is not.
+    // **A wreck flying again starts afresh**: the first snapshot newer than
+    // a wreck that is not one throws away everything held, and every guess
+    // and blend, and nothing from before it is taken again - drawn where it
+    // now is at once, not moved there from the wreck over a blend.
     void received(const RemoteState& snapshot);
 
     // Where the aircraft is shown at session time `now_s`. Before anything
@@ -103,6 +110,9 @@ private:
     // the same instant. Comparing one frame's answer with the last frame's
     // would measure the aircraft's own motion between them instead.
     RemoteState guessed_from_{};
+    // Nothing older than this is taken: the moment a wreck flew again.
+    double taken_from_s_ = 0.0;
+    bool has_taken_from_ = false;
     bool has_guessed_from_ = false;
     // When it was last asked. A guess, and what taking it up adds, are kept
     // only for an aircraft that is being drawn: asked again after longer

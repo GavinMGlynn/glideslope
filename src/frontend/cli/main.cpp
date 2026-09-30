@@ -1355,6 +1355,7 @@ public:
             r.heading_deg = static_cast<double>(a.heading_deg);
             r.pitch_deg = static_cast<double>(a.pitch_deg);
             r.roll_deg = static_cast<double>(a.roll_deg);
+            r.wrecked = a.condition == glideslope::net::Condition::wrecked;
             // Its own is kept too: while the AI flies it, it is drawn from
             // the updates like any other.
             if (a.index == state.your_aircraft) {

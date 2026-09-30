@@ -16105,13 +16105,43 @@ Found while implementing something else. Added when found, not when remembered.
       100 ms; 341 ms between frames in the first), which its own comment
       says is a guard a machine falling behind real time can trip; that one
       is not this, and was not seen on macOS.
+      **From the review.** The steady turn of that test makes the guess
+      moved on from and the one moved to centimetres apart, so a version
+      that took the newer late update with no blend passed it.
+      `an_aircraft_guessed_through_a_manoeuvre_moves_between_guesses_without_a_jump`
+      flies the same late second jinking - 100 m/s north and 60 m/s east or
+      west, turning every 0.21 s - so that the two guesses are up to 10.0 m
+      apart, and holds every frame to a metre beyond the fastest the
+      aeroplane flies in one (worst 0.415 m); it asserts the situation was
+      built, 20 or more guesses moved on from and more than 3 m between
+      them. With that version it failed, a 7.2 m step at 1.234 s, where the
+      steady-turn test still passed. And blending everything now made a
+      wreck that flies again worse: an update from where it flies again,
+      arriving while the wreck was being guessed at, was blended into from
+      the wreck, kilometres in a quarter of a second, and the path's
+      velocity said so - thousands of m/s, which a take-over hands on as the
+      aircraft's motion. Each update now says whether its aircraft is a
+      wreck (`RemoteState::wrecked`, from the wire's condition, in both the
+      window client and the command-line one), and the first update newer
+      than a wreck that is not one starts `net::Interpolated` afresh:
+      everything held, every guess and blend dropped, and nothing older than
+      it taken again. `a_wreck_that_flies_again_is_drawn_where_it_flies_again_moving_sanely`
+      guesses at a wreck, then hears it fly again 5 km off and a late update
+      from while it was a wreck: every frame after is where it flies (0.000
+      m off) and moving at 50.0 m/s, as it flies. With the fresh start taken
+      out it failed, 5,000 m off; with only the late update let back in,
+      1,667 m. The wreck and take-over network tests pass with it. A wreck
+      whose every wrecked update was lost is not seen as one, and is still
+      blended.
       **What remains**: the check run a hundred times on macOS. The nightly
       workflow now runs both network checks on macOS debug, twenty times each
       a night over four runners, and by hand as many as asked (`gh workflow
       run nightly.yml --ref BRANCH -f macos_network_repeats=100`); a failed
-      run keeps its tracks as an artifact. A hundred of each was asked for
-      on this branch (run 36705059324), waiting on macOS runners when this
-      was written. **Not done**: the
+      run keeps its tracks as an artifact. Asked for by hand, it runs the
+      macOS job alone; the Linux repeats come too only with `-f
+      linux_repeats=true`. A hundred of each was asked for on this branch
+      (run 36705059324), which waited some twenty minutes for its first
+      macOS runners. **Not done**: the
       clock still runs ahead of a server that has just caught up, for as
       long as its two-second window takes to forget the burst; the aircraft
       is guessed through that, correctly, but the guesses are longer than

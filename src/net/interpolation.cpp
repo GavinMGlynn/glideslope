@@ -57,6 +57,19 @@ double shortest_turn_deg(double from, double to) {
 }
 
 void Interpolated::received(const RemoteState& snapshot) {
+    if (has_taken_from_ && snapshot.time_s < taken_from_s_) {
+        return; // from before it flew again
+    }
+    if (!held_.empty() && held_.back().wrecked && !snapshot.wrecked &&
+        snapshot.time_s > held_.back().time_s) {
+        held_.clear();
+        was_extrapolating_ = false;
+        extrapolating_ = false;
+        has_guessed_from_ = false;
+        has_offset_ = false;
+        taken_from_s_ = snapshot.time_s;
+        has_taken_from_ = true;
+    }
     // A snapshot already held, by its time, is a duplicate.
     for (const RemoteState& s : held_) {
         if (s.time_s == snapshot.time_s) {
