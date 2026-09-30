@@ -343,6 +343,22 @@ server says where each copilot's route has got to every half minute.
   with the glide not flown the test is red for the glide - "67 to 72 kt, not
   within 5 kt of the 60 kt asked for" - before it is red for the recording.
 
+**From the final check (2026-09-30), fixed:**
+
+- **The stand-by test could still go quiet**: a `keep` and a route not heard
+  after a take-back were said alike, so a `keep` there passed. They are said
+  apart now, the test wants the route, fails on a `keep` played back, and
+  asked of a model now skips on one ("the model answered keep; the rule was
+  not tested") rather than passing. The hand-written answer's line says so
+  itself, in a "note" the playback does not read. Red with a route sent
+  after the take-back (handed over twice); a `keep` played back is refused.
+- **One question's situation failing no longer ends the copilot**: only its
+  ground not had as it is made does; a DEM tile not fetched for one question
+  leaves that question unanswered and asks it again, twice at most. Not
+  tested on its own.
+- `glideslope_cli connect` says a wreck flies again before anything else it
+  flies again with - an engine stopped among it.
+
 **From the re-review (2026-09-30), fixed:**
 
 - **CI failed** (run 36686103327, ubuntu linux-debug):
