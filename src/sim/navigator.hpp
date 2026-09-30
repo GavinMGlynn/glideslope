@@ -70,6 +70,8 @@ private:
     double from_latitude_deg_ = 0.0;
     double from_longitude_deg_ = 0.0;
     double drift_deg_ = 0.0;
+    double wind_north_fps_ = 0.0;
+    double wind_east_fps_ = 0.0;
     double last_track_deg_ = 0.0;
     // Round an orbit: whether on its circle - come within orbit_joined_m of
     // it, and counting - the bearing from its centre when last steered, and
@@ -77,6 +79,7 @@ private:
     bool circling_ = false;
     double around_deg_ = 0.0;
     double turned_deg_ = 0.0;
+    double trim_deg_ = 0.0;
 };
 
 } // namespace glideslope::sim

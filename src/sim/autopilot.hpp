@@ -113,4 +113,11 @@ private:
     std::optional<MixtureLeaner> leaner_;
 };
 
+// **How far ahead of the aircraft a heading must be held for the autopilot to
+// bank `bank_deg`** and hold it there, turning: in a steady turn its integral
+// near the heading winds to its most, 5 degrees, and a degree of bank for each
+// degree off gives the rest. The sign is the bank's. For the navigator, which
+// flies an orbit by keeping the heading it asks for this far ahead.
+double heading_off_for_bank_deg(double bank_deg);
+
 } // namespace glideslope::sim
