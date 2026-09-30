@@ -285,6 +285,7 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
     double high_m = 0.0;
     double fuel_lbs = 0.0;
     bool fuel_set = false;
+    std::size_t fuel_arg = 0;
     // A number, the whole word and finite: "10kt", "ten", "nan" and "inf" are
     // refused, not read as far as they go.
     const auto number = [&](std::size_t i) {
@@ -316,6 +317,7 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
             high_m = number(++i);
         } else if (args[i] == "--fuel") {
             fuel_lbs = number(++i);
+            fuel_arg = i;
             fuel_set = true;
         } else {
             throw std::runtime_error("land: what is " + std::string(args[i]) + "?");
@@ -355,9 +357,16 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
     // The same in every tank the model has, and no more than each holds.
     if (fuel_set) {
         const std::vector<double> capacities = aircraft.tank_capacities_lbs();
+        if (fuel_lbs < 0.0) {
+            throw std::runtime_error("land: --fuel " + std::string(args[fuel_arg]) +
+                                     " lb is less than nothing");
+        }
+        if (capacities.empty()) {
+            throw std::runtime_error("land: " + entry.model + " has no fuel tanks for --fuel");
+        }
         glideslope::sim::Loading loading;
         for (std::size_t t = 0; t < capacities.size(); ++t) {
-            if (fuel_lbs < 0.0 || fuel_lbs > capacities[t]) {
+            if (fuel_lbs > capacities[t]) {
                 char text[160];
                 std::snprintf(text, sizeof text,
                               "land: --fuel %g lb will not go in %s's tank %zu, which holds 0 to %g",

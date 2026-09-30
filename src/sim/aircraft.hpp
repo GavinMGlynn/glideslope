@@ -218,6 +218,10 @@ struct Motion {
 //
 // JSBSim's headers stay behind this class, so nothing that includes it compiles
 // JSBSim's headers or is affected by them.
+//
+// **An Aircraft is read and written from one thread only**: even its const
+// accessors fill a cache of JSBSim's property nodes (`nodes_`), so a const
+// Aircraft& used from a second thread is a data race.
 class Aircraft {
 public:
     // Loads `model` from `jsbsim_root`, which holds aircraft/, engine/ and

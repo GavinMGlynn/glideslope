@@ -2250,7 +2250,7 @@ foreach(_bad
         "a_number_with_text_after_it|--crosswind 10kt|--crosswind needs a number, not '10kt'"
         "a_nan|--across nan|--across needs a number, not 'nan'"
         "an_infinity|--high inf|--high needs a number, not 'inf'"
-        "fuel_below_nothing|--fuel -5|--fuel -5 lb will not go in c172p's tank 0"
+        "fuel_below_nothing|--fuel -5|--fuel -5 lb is less than nothing"
         "more_fuel_than_a_tank_holds|--fuel 500|--fuel 500 lb will not go in c172p's tank 0")
     string(REPLACE "|" ";" _parts "${_bad}")
     list(GET _parts 0 _what)
