@@ -8,10 +8,16 @@
 #
 # **No network is needed to build it.** The server is given a cache of its
 # own: everything in the downloads cache, linked, except OurAirports' runways,
-# which is a file with no runways' columns. A file in the cache is not fetched
-# again, so this is the same failure as OurAirports being unreachable with no
-# copy - the runways cannot be had - reached without touching the network.
-# The model is played back from its recording, so its key is not wanted.
+# which is a file with no runways' columns - no usable copy. A cached copy
+# that is not the pinned file is fetched again, so OurAirports is made
+# unreachable too: GLIDESLOPE_RUNWAYS_SOURCE sends the runways' fetch to
+# http://127.0.0.1:1, where nothing listens (port 1, as
+# frame_hud_no_weather.cmake's weather), and every try is refused - the
+# runways cannot be had, with no network touched. (Until 2026-09-30 the
+# damaged copy alone did it, when nothing in the cache was fetched again.)
+# The fetch's five tries wait 2 + 4 + 8 + 16 s between them: about 30 s of
+# the test is that. The model is played back from its recording, so its key
+# is not wanted.
 #
 # Without the DEM's tiles it reports itself skipped (exit 77), unless
 # GLIDESLOPE_REQUIRE_NETWORK is set (client.cmake).
@@ -36,6 +42,7 @@ foreach(_entry IN LISTS _entries)
 endforeach()
 file(WRITE "${_cache}/ourairports-runways.csv" "this,is,not,a,runways,file\n")
 set(ENV{GLIDESLOPE_CACHE} "${_cache}")
+set(ENV{GLIDESLOPE_RUNWAYS_SOURCE} "http://127.0.0.1:1")
 
 execute_process(
     COMMAND "${SERVER}" --data "${DATA}" --headless --port 0 --ai 1
@@ -47,7 +54,8 @@ glideslope_skip_when_not_downloaded("${_rc}" "${_err}" "cannot download|no netwo
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the server stopped when the runways could not be read (exit ${_rc}):\n${_out}\n${_err}")
 endif()
-if(NOT _out MATCHES "AI 1 cannot be planned: the runways cannot be read: [^\n]*; it flies the plan file instead")
+# Not had: the fetch from where nothing listens failed, and said so.
+if(NOT _out MATCHES "AI 1 cannot be planned: the runways cannot be read: could not download[^\n]*127\.0\.0\.1:1[^\n]*; it flies the plan file instead")
     message(FATAL_ERROR "the aircraft was not said to be unplannable:\n${_out}")
 endif()
 if(_out MATCHES "planned by")

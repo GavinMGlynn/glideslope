@@ -211,6 +211,11 @@ private:
 // docs/ASSETS.md.
 std::vector<RunwayEnd> world_runways(const std::filesystem::path& cache, const Fetch& fetch);
 
+// **Where the runways are fetched from**: GitHub's raw host, or
+// platform::runways_source() when a test names one. Throws RunwayError if it
+// names one that weather_service_allowed refuses.
+std::string runways_host();
+
 // The EGM2008 5-minute geoid, from the cache or fetched into it. See
 // docs/ASSETS.md.
 Geoid egm2008_geoid(const std::filesystem::path& cache, const Fetch& fetch);

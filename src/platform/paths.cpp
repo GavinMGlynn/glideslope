@@ -269,6 +269,10 @@ std::string weather_service() {
     return environment_path("GLIDESLOPE_WEATHER_SERVICE").string();
 }
 
+std::string runways_source() {
+    return environment_path("GLIDESLOPE_RUNWAYS_SOURCE").string();
+}
+
 namespace {
 
 // One line of a `server.txt`, or nothing if it is not one.

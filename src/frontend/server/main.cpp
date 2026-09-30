@@ -873,9 +873,10 @@ glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
                                          : glideslope::copilot::http_post();
     const auto provider = glideslope::copilot::make_provider(planner.provider, key, planner.model,
                                                              std::move(post), played_back);
-    // **The runways, which may not be had** - OurAirports unreachable, or
-    // its file damaged in the cache: the aircraft cannot be planned, which
-    // is said, and it flies the plan file. Not the server stopped.
+    // **The runways, which may not be had** - OurAirports unreachable with no
+    // whole copy in the cache (one that is not the pinned file is fetched
+    // again): the aircraft cannot be planned, which is said, and it flies
+    // the plan file. Not the server stopped.
     try {
         request.runways = glideslope::world::runways_at(
             glideslope::world::world_runways(glideslope::platform::cache_directory(),
