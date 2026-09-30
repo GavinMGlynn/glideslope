@@ -16096,13 +16096,22 @@ Found while implementing something else. Added when found, not when remembered.
       m at the guess's end; after, the worst 0.214 m and no step beyond the
       aircraft's own motion over 22 guesses moved on. Every other
       interpolation test passes unchanged in what it checks. With all five
-      programs on one core, the 200 ms check, one run in three to six failed
-      before the fix; after it, see the repeats below.
+      programs on one core, the 200 ms check's interpolation failed two runs
+      of nine before the fix; after it, none of eleven at 200 ms (the worst
+      frame 0.477 m) and none of six at 100 ms (0.179 m) - a twelfth at 200
+      ms was spoilt by a second copy of the test started beside it on the
+      same port. Starved that hard, two of those runs failed another check,
+      the prediction error's (10.7 m against 10 at 200 ms, 10.0 against 8 at
+      100 ms; 341 ms between frames in the first), which its own comment
+      says is a guard a machine falling behind real time can trip; that one
+      is not this, and was not seen on macOS.
       **What remains**: the check run a hundred times on macOS. The nightly
       workflow now runs both network checks on macOS debug, twenty times each
       a night over four runners, and by hand as many as asked (`gh workflow
       run nightly.yml --ref BRANCH -f macos_network_repeats=100`); a failed
-      run keeps its tracks as an artifact. **Not done**: the
+      run keeps its tracks as an artifact. A hundred of each was asked for
+      on this branch (run 36705059324), waiting on macOS runners when this
+      was written. **Not done**: the
       clock still runs ahead of a server that has just caught up, for as
       long as its two-second window takes to forget the burst; the aircraft
       is guessed through that, correctly, but the guesses are longer than
