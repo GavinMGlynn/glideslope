@@ -110,10 +110,6 @@ RemoteState Interpolated::at(double now_s) {
         if (want - held_.back().time_s < extrapolate_at_most_s) {
             path_mps_ = {held_.back().north_mps, held_.back().east_mps, held_.back().down_mps};
         }
-        if (guessing && !was_extrapolating_) {
-            guessed_from_ = held_.back();
-            has_guessed_from_ = true;
-        }
     } else {
         // Between two: the usual case.
         for (std::size_t i = 1; i < held_.size(); ++i) {
@@ -131,22 +127,38 @@ RemoteState Interpolated::at(double now_s) {
         }
     }
 
-    // **Coming back from a guess without jumping.** The offset to take up is
-    // simply the step the aircraft would otherwise make at this moment:
-    // where it was last shown, less where it is now said to be. Working it
-    // out from the snapshots instead would be wrong, because by now the
-    // newest snapshot is the one that ended the guess, not the one the guess
-    // was carried on from.
-    if (was_extrapolating_ && !guessing && has_guessed_from_) {
+    // **Coming back from a guess without jumping** - and moving on from one
+    // guess to the next without jumping, when an update arrives that is
+    // newer than the one guessed from but still older than the moment shown,
+    // as every update is to a clock running ahead. The offset to take up is
+    // the step the aircraft would otherwise make at this moment: what the
+    // last frame's guess, carried on, and whatever of an offset was still
+    // being taken up, would show now, less where it is now said to be.
+    // Working it out from any other snapshot would be wrong. Kept from the
+    // first guess of a run of them instead, a guess carried across late
+    // updates for longer than a guess is held came back from where the first
+    // one stopped, metres behind - after a server caught up, and the clock
+    // with it ran ahead: 61.8 m in the 200 ms network check with its
+    // programs held to one core, where macOS CI had 8.5 m (2026-09-30).
+    const bool moved_on = has_guessed_from_ &&
+                          (!guessing || held_.back().time_s != guessed_from_.time_s);
+    if (was_extrapolating_ && moved_on) {
         const RemoteState would_have = carried_on(
             guessed_from_,
             std::min(std::max(0.0, want - guessed_from_.time_s), extrapolate_at_most_s));
-        offset_.north_m = would_have.north_m - answer.north_m;
-        offset_.east_m = would_have.east_m - answer.east_m;
-        offset_.down_m = would_have.down_m - answer.down_m;
+        const double left =
+            has_offset_ ? std::clamp(1.0 - (now_s - offset_from_s_) / blend_s, 0.0, 1.0) : 0.0;
+        offset_.north_m = would_have.north_m + offset_.north_m * left - answer.north_m;
+        offset_.east_m = would_have.east_m + offset_.east_m * left - answer.east_m;
+        offset_.down_m = would_have.down_m + offset_.down_m * left - answer.down_m;
         offset_from_s_ = now_s;
         has_offset_ = true;
         has_guessed_from_ = false;
+    }
+    // What this frame's guess is carried on from.
+    if (guessing && !has_guessed_from_) {
+        guessed_from_ = held_.back();
+        has_guessed_from_ = true;
     }
     was_extrapolating_ = guessing;
     extrapolating_ = guessing;

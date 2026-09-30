@@ -16050,6 +16050,64 @@ Found while implementing something else. Added when found, not when remembered.
       time (`--seconds`, which ends it with `_Exit`) is lost, where before
       its characters were already out.
 
+#### The network checks on macOS drew frames of another aircraft metres off.
+
+- [ ] **The network checks on macOS drew frames of another aircraft metres
+      off.** *(Found on CI: once at 100 ms, "four frames of 1,946 more than
+      2 m off, the worst 8.6 m"; at 200 ms in PR #67's run 36689199151,
+      macos-debug tests 4/4: 8 frames at 2 m or more, the worst 8.461 m,
+      aircraft 4 - the AI - at 7.116 s, the mean 0.040 m.)*
+      **The cause, found.** The failure message said only the worst frame,
+      so the interpolation check (`tests/tools/interpolation_check.cpp`) now
+      prints, whenever a frame is out of bound, every frame drawn of that
+      aircraft for a third of a second either side of the worst - its error,
+      where it was drawn against where it was, and what the drawing client
+      wrote beside it: its own clock, whether the frame was a guess, the
+      newest update it held, and how far a blend back from a guess moved it -
+      with the updates the client that heard everything heard then, and when
+      each update reached the drawing client with the session time and rate
+      its clock made of them. With all five programs held to one core
+      (`taskset -c 0`) the 200 ms check failed on Linux debug one run in three
+      to six, the same shape as macOS: aircraft 4, the mean 0.039 m, the
+      worst 5.9 m and 61.8 m. What the frames said: the server, starved,
+      fell behind real time and caught up, sending three seconds of session
+      in two; the client's clock (`net::SessionClock`) fitted that rate, 1.54,
+      and ran some 0.3 s ahead of the updates as the server went back to
+      real time. So for over a second every update arrived already older
+      than the moment being drawn, and the aircraft was guessed frame after
+      frame - each guess carried on from the newest update, a centimetre or
+      so off. But `net::Interpolated` kept the update it had begun the run of
+      guesses from, and when an update finally arrived in time it worked the
+      blend back out from that one, carried on no further than half a second,
+      where the aircraft had been guessed from a second ago: 61.8 m, taken up
+      over a quarter of a second, from a frame before it that was 0.007 m
+      off. That macOS did the same is inferred, not seen - its failure said
+      only the worst frame - but its 8.461 m has the same shape: the AI
+      aircraft, frames at one moment, the mean 0.040 m where the 5.9 m run
+      here had 0.039 m.
+      **The fix.** A guess moving on to a newer update, and a guess ending,
+      blend from what the last frame showed - its guess carried on, and what
+      was left of any blend it was still taking up, which ending a guess used
+      to drop - to where the aircraft is now said to be.
+      *Verification*: `an_aircraft_guessed_across_late_updates_comes_back_from_what_was_shown`
+      builds it - for a second every update arrives 50 ms after its moment
+      was drawn, then they come in time - and holds every frame to the 2 m
+      bound and every step to its own motion: before the fix it failed, 94.8
+      m at the guess's end; after, the worst 0.214 m and no step beyond the
+      aircraft's own motion over 22 guesses moved on. Every other
+      interpolation test passes unchanged in what it checks. With all five
+      programs on one core, the 200 ms check, one run in three to six failed
+      before the fix; after it, see the repeats below.
+      **What remains**: the check run a hundred times on macOS. The nightly
+      workflow now runs both network checks on macOS debug, twenty times each
+      a night over four runners, and by hand as many as asked (`gh workflow
+      run nightly.yml --ref BRANCH -f macos_network_repeats=100`); a failed
+      run keeps its tracks as an artifact. **Not done**: the
+      clock still runs ahead of a server that has just caught up, for as
+      long as its two-second window takes to forget the burst; the aircraft
+      is guessed through that, correctly, but the guesses are longer than
+      they need be.
+
 #### A client dropped by the operator did not always say so.
 
 - [x] **A client dropped by the operator did not always say so.**

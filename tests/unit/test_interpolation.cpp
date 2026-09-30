@@ -450,3 +450,80 @@ GLIDESLOPE_TEST(an_aircraft_drawn_again_after_a_pause_is_drawn_where_it_is) {
     std::printf("  %zu frames guessed before the pause; after it, %.3g m and %.3g m/s off\n",
                 guessed, off, off_v);
 }
+
+// **An aircraft guessed across updates that all come late comes back from
+// what was shown.** For a second every update arrives after the moment it
+// is about has been drawn, as every one does to a client whose clock runs
+// ahead - so the aircraft is guessed, frame after frame, each guess carried
+// on from a newer update than the last - and then they arrive in time again.
+// Every frame must be within the 2 m bound of where it was, and none may
+// step more than half a metre beyond its own motion. Kept from the first
+// update of the run, the guess came back from where that one's stopped,
+// half a second of flight behind: 94.8 m here at 200 m/s, and 61.8 m in the
+// 200 ms network check with its programs held to one core (2026-09-30).
+GLIDESLOPE_TEST(an_aircraft_guessed_across_late_updates_comes_back_from_what_was_shown) {
+    constexpr double bound_m = 2.0;
+    struct Posted {
+        double arrives_s;
+        RemoteState state;
+    };
+    std::vector<Posted> post;
+    for (int i = 0; i < 75; ++i) {
+        const double t = i * 0.04;
+        const bool late = t >= 1.0 && t < 2.0;
+        post.push_back({t + (late ? 0.15 : 0.02), truth(t)});
+    }
+    std::sort(post.begin(), post.end(),
+              [](const Posted& a, const Posted& b) { return a.arrives_s < b.arrives_s; });
+    Interpolated shown;
+    std::size_t next = 0;
+    double worst = 0.0;
+    double worst_step = 0.0;
+    double longest_guess_s = 0.0;
+    double guess_began_s = -1.0;
+    std::size_t moved_on = 0;
+    double guessed_from_s = -1.0;
+    RemoteState last{};
+    bool have_last = false;
+    for (int k = 0; k < 180; ++k) {
+        const double now = k / 60.0 + 0.0003;
+        for (; next < post.size() && post[next].arrives_s <= now; ++next) {
+            shown.received(post[next].state);
+        }
+        if (!shown.known()) continue;
+        const RemoteState got = shown.at(now);
+        const double want = now - glideslope::net::shown_behind_s;
+        if (want < 0.0) continue;
+        const double off = how_far(got, truth(want));
+        worst = std::max(worst, off);
+        check(off < bound_m, "at " + std::to_string(now) + " s it was " + std::to_string(off) +
+                                 " m from where it was");
+        if (shown.extrapolating()) {
+            if (guess_began_s < 0.0) guess_began_s = now;
+            longest_guess_s = std::max(longest_guess_s, now - guess_began_s);
+            if (guessed_from_s >= 0.0 && shown.newest_s() != guessed_from_s) ++moved_on;
+            guessed_from_s = shown.newest_s();
+        } else {
+            guess_began_s = -1.0;
+            guessed_from_s = -1.0;
+        }
+        // A step: how far it moved beyond what 200 m/s covers in a frame.
+        if (have_last) {
+            const double step = how_far(got, last) - speed_mps / 60.0;
+            worst_step = std::max(worst_step, step);
+        }
+        last = got;
+        have_last = true;
+    }
+    // The situation, built: a guess carried across late updates for longer
+    // than a guess is held.
+    check(longest_guess_s > glideslope::net::extrapolate_at_most_s,
+          "the longest run of guesses was " + std::to_string(longest_guess_s) + " s");
+    check(moved_on >= 20, "a guess moved on to a newer update " + std::to_string(moved_on) +
+                              " times, of the 25 that came late");
+    check(worst_step < 0.5, "a frame stepped " + std::to_string(worst_step) +
+                                " m beyond its own motion");
+    std::printf("  guessed for %.2f s across %zu late updates: worst %.3f m, a step at most "
+                "%.3f m beyond its motion\n",
+                longest_guess_s, moved_on, worst, worst_step);
+}

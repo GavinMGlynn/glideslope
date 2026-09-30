@@ -16,6 +16,11 @@ on:
     # 17:00 UTC is three in the morning in Sydney, when nobody is pushing.
     - cron: '0 17 * * *'
   workflow_dispatch:
+    inputs:
+      macos_network_repeats:
+        description: How many times macOS runs each network check (split over four runners)
+        type: number
+        default: 100
 
 jobs:
   repeat:
@@ -93,3 +98,89 @@ jobs:
             !.downloads/test-scratch
           key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
+
+  # **The network checks on macOS, over and over.** The interpolation they hold
+  # to 2 m drew frames 8 m off on macOS CI, and nowhere else, once in a while
+  # (COMPLETION_PLAN.md): a once-in-a-while failure is shown gone only by
+  # many runs where it happened. Each night twenty of each, five on each of
+  # four runners; run by hand (`gh workflow run nightly.yml --ref BRANCH -f
+  # macos_network_repeats=100`), as many as asked. Every run is counted, a
+  # skipped one is not a pass, and a failed one keeps its tracks.
+  macos-network:
+    name: macOS - the network checks, runner ${{ matrix.runner }} of 4
+    runs-on: macos-15
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix: { runner: [1, 2, 3, 4] }
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 600M
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/macos-setup
+      - name: Keep vcpkg's binary cache in the workspace
+        run: |
+          mkdir -p .vcpkg-archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      - name: The toolchain vcpkg's packages are built with
+        id: toolchain
+        shell: bash
+        run: |
+          id="$ImageOS-$ImageVersion"
+          echo "id=$(printf '%s' "$id" | tr -c 'A-Za-z0-9._-' '_')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-macos-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          restore-keys: |
+            vcpkg-macos-${{ steps.toolchain.outputs.id }}-
+            vcpkg-macos-
+      - uses: actions/cache/restore@v6
+        with:
+          path: .ccache
+          key: ccache-macos-macos-debug-${{ github.sha }}
+          restore-keys: ccache-macos-macos-debug-
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - name: Build what the network checks run
+        run: |
+          cmake --preset macos-debug -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
+          cmake --build --preset macos-debug --target glideslope_server glideslope_cli glideslope_impair glideslope_interpolation_check
+      - name: Each network check, again and again
+        shell: bash
+        env:
+          REPEATS: ${{ inputs.macos_network_repeats || 20 }}
+        run: |
+          runs=$(( (REPEATS + 3) / 4 ))
+          passed=0 failed=0 skipped=0
+          mkdir -p failed
+          for i in $(seq 1 "$runs"); do
+            out=$(ctest --preset macos-debug -R 'hold_at_(100|200)_ms' --output-on-failure 2>&1 || true)
+            p=$(grep -cE 'Test +#[0-9]+: .* +Passed' <<<"$out" || true)
+            f=$(grep -cE 'Test +#[0-9]+: .*\*\*\*(Failed|Timeout|Exception)' <<<"$out" || true)
+            s=$(grep -cE 'Test +#[0-9]+: .*Skipped' <<<"$out" || true)
+            passed=$((passed + p)) failed=$((failed + f)) skipped=$((skipped + s))
+            echo "run $i of $runs: $p passed, $f failed, $s skipped"
+            if (( p + f + s != 2 )); then echo "$out"; echo "run $i did not run both checks"; exit 1; fi
+            if (( f > 0 )); then
+              echo "$out"
+              mkdir -p "failed/run-$i"
+              cp -R build/macos-debug/tests/server_impaired_* "failed/run-$i/"
+            fi
+          done
+          echo "the network checks on macOS, runner ${{ matrix.runner }}: $passed passed, $failed failed and $skipped skipped of $((2 * runs))"
+          (( failed == 0 && skipped == 0 ))
+      - uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with: { name: 'network-tracks-macos-${{ matrix.runner }}', path: failed/, if-no-files-found: ignore }

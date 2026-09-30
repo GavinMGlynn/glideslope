@@ -408,8 +408,13 @@ Found while implementing something else. Added when found, not when remembered.
       its visual model.
 
 - [ ] **The 100 ms network check on macOS once drew four frames of 1,946 more
-      than 2 m off, the worst 8.6 m.** *Verification: the cause found, and
-      the check run a hundred times on macOS within its bound.*
+      than 2 m off, the worst 8.6 m** (and the 200 ms one, 8.5 m, 2026-09-30).
+      *Verification: the cause found, and the check run a hundred times on
+      macOS within its bound.* The cause is found and fixed: after a server
+      caught up, an aircraft guessed through late updates came back from
+      where its first guess stopped, not from where it was drawn. Remaining:
+      the hundred runs on macOS, which the nightly workflow now runs on
+      request.
 
 - [x] **A HUD test fails, rather than skipping, when the weather service
       does not answer** (Windows CI, 2026-09-25: WinHTTP 12002 from

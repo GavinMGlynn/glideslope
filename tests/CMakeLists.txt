@@ -174,6 +174,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_turning_through_north_takes_the_short_way_round
     the_velocity_an_aircraft_is_drawn_moving_at_is_its_paths_own
     an_aircraft_drawn_again_after_a_pause_is_drawn_where_it_is
+    an_aircraft_guessed_across_late_updates_comes_back_from_what_was_shown
     the_client_follows_the_servers_clock_at_the_servers_own_rate
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
     prediction_reconciled_from_motion_alone_stays_within_its_bound_at_100_and_200_ms
