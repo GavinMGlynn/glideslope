@@ -72,7 +72,8 @@ class Landings(BaseCallback):
         print(
             f"{self.num_timesteps:>10} steps {time.time() - self.started:7.0f} s: "
             f"{len(touched)}/{len(r)} touched, {len(good)} within limits; "
-            f"sink median {np.median(sinks) if sinks else float('nan'):.0f} fpm; ends {ends}",
+            f"sink median {np.median(sinks) if sinks else float('nan'):.0f} fpm, across median "
+            f"{np.median([abs(x['across_m']) for x in touched]) if touched else float('nan'):.1f} m; ends {ends}",
             flush=True,
         )
         self.recent = self.recent[-400:]
@@ -82,19 +83,19 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--steps", type=int, default=20_000_000)
-    ap.add_argument("--envs", type=int, default=12)
+    ap.add_argument("--envs", type=int, default=16)
     ap.add_argument("--out", default=os.path.expanduser("~/.cache/glideslope-rl/run"))
     ap.add_argument("--resume", default="")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
-    torch.set_num_threads(4)
+    torch.set_num_threads(1)
 
     def make(i: int):
         return lambda: LandingEnv(seed=args.seed * 1000 + i)
 
     venv = SubprocVecEnv([make(i) for i in range(args.envs)])
     if args.resume:
-        venv = VecNormalize.load(args.resume + ".vecnorm", venv)
+        venv = VecNormalize.load(args.resume.removesuffix(".zip") + ".vecnorm", venv)
         model = PPO.load(args.resume, env=venv, device="cpu")
     else:
         venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=0.995)
@@ -109,7 +110,7 @@ def main() -> None:
             gae_lambda=0.95,
             clip_range=0.2,
             ent_coef=0.0,
-            policy_kwargs=dict(net_arch=dict(pi=[64, 64], vf=[128, 128]), log_std_init=-0.5),
+            policy_kwargs=dict(net_arch=dict(pi=[64, 64], vf=[128, 128]), log_std_init=-1.0),
             seed=args.seed,
             device="cpu",
             verbose=0,
