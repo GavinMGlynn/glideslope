@@ -79,12 +79,18 @@ public:
     bool extrapolating() const { return extrapolating_; }
     bool known() const { return !held_.empty(); }
     std::size_t held() const { return held_.size(); }
+    // The session time of the newest snapshot held, and how far the last
+    // answer was moved to take up a guess's difference, metres: what a frame
+    // drawn wrong is explained by (tools/interpolation_check.cpp).
+    double newest_s() const { return held_.empty() ? 0.0 : held_.back().time_s; }
+    double blending_m() const { return blending_m_; }
 
 private:
     // The snapshots, oldest first. Only a moment's worth is kept.
     std::deque<RemoteState> held_;
     bool extrapolating_ = false;
     std::array<double, 3> path_mps_{};
+    double blending_m_ = 0.0;
     // What was added to the answer to keep it from jumping, and when it
     // started being taken up.
     RemoteState offset_{};

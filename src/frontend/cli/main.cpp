@@ -1242,6 +1242,11 @@ public:
     void heard(const glideslope::net::StatePacket& state, double local_s) {
         // The session clock, at the rate it runs (net::SessionClock).
         clock_.heard(state.simulation_time_s, local_s);
+        // When each update arrived, and what the clock made of it.
+        if (track_) {
+            *track_ << "arrived " << state.simulation_time_s << ' ' << local_s << ' '
+                    << clock_.now(local_s) << ' ' << clock_.rate() << '\n';
+        }
         // The watched aircraft's controls, kept by the time they were true.
         if (state.watched) {
             watched_[state.simulation_time_s] = *state.watched;
@@ -1470,9 +1475,15 @@ public:
                 // Where it was drawn, back in the Earth-centred frame, and the
                 // session time it was drawn as being at.
                 std::array<double, 3> at = ecef(got.north_m, got.east_m, got.down_m);
+                // After them, what explains a frame drawn wrong: this
+                // machine's clock, whether it was a guess, the newest update
+                // it had, and how far a blend back from a guess moved it
+                // (tools/interpolation_check.cpp prints them).
                 *track_ << "shown " << now - glideslope::net::shown_behind_s << ' '
                         << static_cast<unsigned>(index) << ' ' << at[0] << ' ' << at[1]
-                        << ' ' << at[2] << '\n';
+                        << ' ' << at[2] << ' ' << local_s << ' '
+                        << (shown.extrapolating() ? 1 : 0) << ' ' << shown.newest_s() << ' '
+                        << shown.blending_m() << '\n';
             }
         }
     }
