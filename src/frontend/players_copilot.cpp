@@ -19,6 +19,16 @@
 
 namespace glideslope::frontend {
 
+namespace {
+
+// What making a copilot's ground threw, told apart from what working out one
+// question's situation threw: the one ends the copilot, the other a question.
+struct GroundNotHad : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
+} // namespace
+
 static_assert(copilot::most_route_waypoints == net::most_route_waypoints &&
                   copilot::most_waypoint_name_bytes == net::most_waypoint_name_bytes,
               "what a copilot may answer is what a COPILOT_ROUTE may carry");
@@ -177,7 +187,7 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
     // then never hands the aircraft over; waiting for that would never ask.
     // Running again - flown again after a wreck - it may be asked again.
     const bool engine_stopped = own.condition == net::Condition::engine_stopped;
-    if (!engine_stopped && own.condition == net::Condition::flying) {
+    if (own.condition == net::Condition::flying) {
         engine_said_ = false;
     }
     if (engine_stopped && !engine_said_ && engaged_) {
@@ -197,9 +207,16 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
         if (helper_->ask([this, simulation_s, own, event, route = std::move(route),
                           ground = ground_]() mutable {
                 const world::FetchesGivenUp given_up(going_);
-                return situation(simulation_s, own, event, std::move(route), ground.get());
+                std::shared_ptr<Ground> had;
+                try {
+                    had = ground.get();
+                } catch (const std::exception& e) {
+                    throw GroundNotHad(e.what());
+                }
+                return situation(simulation_s, own, event, std::move(route), had);
             })) {
             said_.push_back("asked its copilot, " + event);
+            asked_about_ = event;
             wanted_.reset();
             asked_at_s_ = simulation_s;
             ++questions_;
@@ -221,13 +238,24 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
         answered_at_s_ = simulation_s;
         said_.push_back(std::string("its copilot did not answer: ") + e.what());
         return std::nullopt;
-    } catch (const std::exception& e) {
+    } catch (const GroundNotHad& e) {
         // **Its ground could not be had** - a geoid, a DEM or the runways
-        // not fetched or not read: every question would throw it again, so
-        // the copilot is gone for the session, and says so once.
+        // not fetched or not read, as it was made: every question would
+        // throw it again, so the copilot is gone for the session, and says
+        // so once.
         gone_ = true;
-        said_.push_back(std::string("no copilot: what it is told could not be worked out: ") +
-                        e.what());
+        said_.push_back(std::string("no copilot: its ground could not be had: ") + e.what());
+        return std::nullopt;
+    } catch (const std::exception& e) {
+        // **What it was told could not be worked out, this once** - a DEM
+        // tile not fetched for where the aircraft is, say: that question is
+        // not answered, and what it asked about is asked again, twice at
+        // most; a routine look comes round anyway.
+        answered_at_s_ = simulation_s;
+        said_.push_back(std::string("its copilot could not be told where it is: ") + e.what());
+        if (asked_about_ != "a routine look" && ++asked_again_ <= 2) {
+            wanted_ = asked_about_;
+        }
         return std::nullopt;
     }
     if (!change) {
@@ -235,8 +263,14 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
     }
     answered_at_s_ = simulation_s;
     ++answers_;
+    asked_again_ = 0;
     if (!engaged_) {
-        said_.push_back("its copilot answered, and was not heard: its pilot has it");
+        said_.push_back(change->keep
+                            ? std::string("its copilot answered keep, and was not heard: its "
+                                          "pilot has it")
+                            : "its copilot answered with a route of " +
+                                  std::to_string(change->plan.waypoints.size()) +
+                                  ", and was not heard: its pilot has it");
         return std::nullopt;
     }
     for (const std::string& why : change->refused) {

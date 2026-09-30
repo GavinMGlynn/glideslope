@@ -33,8 +33,10 @@
 //
 // **Going away is not held up**: the model's request is abandoned and every
 // fetch of its ground given up (world::FetchesGivenUp), and each is waited
-// for only as long as giving up takes. **Its ground not had** - a fetch or a
-// file that fails - it says so once and is gone for the session.
+// for only as long as giving up takes. **Its ground not had** as it is made -
+// a fetch or a file that fails - it says so once and is gone for the
+// session; what one question is told not worked out - a DEM tile not
+// fetched, say - is that question unanswered, and asked again.
 //
 // **The route it knows is the one it sent**: the server says nothing back
 // of a route it refused, so a route this side took and the server did not
@@ -116,6 +118,8 @@ private:
     std::shared_future<std::shared_ptr<Ground>> ground_;
     bool engaged_ = false;
     bool gone_ = false; // its ground could not be had: see look()
+    std::string asked_about_; // the question out, or last asked
+    int asked_again_ = 0;
     std::atomic<bool> going_{false};
     bool ai_flying_ = false;
     bool engine_said_ = false;

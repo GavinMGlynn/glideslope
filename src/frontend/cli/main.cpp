@@ -2508,14 +2508,17 @@ int stay(glideslope::platform::UdpSocket& socket,
             for (const glideslope::net::AircraftState& a : state->aircraft) {
                 const auto was = heard_as.find(a.index);
                 if (was == heard_as.end() || was->second != a.condition) {
+                    // A wreck flown again first, whatever it flies again
+                    // with - an engine stopped among it.
                     if (a.condition == glideslope::net::Condition::wrecked) {
                         say_heard("aircraft " + std::to_string(a.index) + " is a wreck");
-                    } else if (a.condition == glideslope::net::Condition::engine_stopped) {
-                        say_heard("aircraft " + std::to_string(a.index) + "'s engine has stopped");
                     } else if (was != heard_as.end() &&
                                was->second == glideslope::net::Condition::wrecked) {
                         say_heard("aircraft " + std::to_string(a.index) + " flies again");
                         ++flown_again;
+                    }
+                    if (a.condition == glideslope::net::Condition::engine_stopped) {
+                        say_heard("aircraft " + std::to_string(a.index) + "'s engine has stopped");
                     }
                     heard_as[a.index] = a.condition;
                 }

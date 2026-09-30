@@ -33,8 +33,9 @@
 # sent, and the server hands the aircraft to the AI once, not again. The
 # recording played back for it (data/copilot/take_back-server-anthropic.jsonl)
 # is Claude Haiku's, recorded, but for its second answer, which was `keep`
-# and is written in by hand as a route - a `keep` is sent by nobody, so it
-# would test nothing.
+# and is written in by hand as a route - its line says so, in a "note" the
+# playback does not read - since a `keep` is sent by nobody, and would test
+# nothing. Asked now, a model that answers `keep` there makes the test skip.
 #
 # **Sent as it is** (ROUTE): a route the client's copilot never checked, one
 # the server cannot fly. The server must refuse it, saying why (EXPECT), and
@@ -220,11 +221,21 @@ if(DEFINED TAKE_BACK_AT)
     if(_back LESS 0)
         message(FATAL_ERROR "the copilot did not stand by when taken back:\n${_said}")
     endif()
-    # **The rule itself**: the answer that came after the take-back - in the
-    # recording played back, a route - was not sent.
+    # **The rule itself**: the answer that came after the take-back - a
+    # route - was not sent. A `keep` there tests nothing, being sent by
+    # nobody: asked now, a model that said it leaves the rule untested, which
+    # is a skip, not a pass; played back, the recording is wrong.
     string(SUBSTRING "${_said}" ${_back} -1 _after_back)
-    if(NOT _after_back MATCHES "its copilot answered, and was not heard")
-        message(FATAL_ERROR "no answer came after the take-back, so the rule was not "
+    if(_after_back MATCHES "its copilot answered keep, and was not heard")
+        if(DEFINED RECORD)
+            message(STATUS "the model answered keep; the rule was not tested")
+            cmake_language(EXIT 77)
+        endif()
+        message(FATAL_ERROR "the answer after the take-back was keep, so the rule was not "
+                            "tested - the recording must hold a route there:\n${_said}")
+    endif()
+    if(NOT _after_back MATCHES "its copilot answered with a route of [0-9]+, and was not heard")
+        message(FATAL_ERROR "no route came after the take-back, so the rule was not "
                             "tested:\n${_said}")
     endif()
     if(_after_back MATCHES "sent its copilot's route")
