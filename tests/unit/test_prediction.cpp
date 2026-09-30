@@ -760,3 +760,19 @@ GLIDESLOPE_TEST(three_seconds_of_unacknowledged_inputs_are_held) {
           "held " + std::to_string(client.unacknowledged()) + " of the " +
               std::to_string(three_seconds) + " steps flown");
 }
+
+// **And no more than four seconds are held**: flown five seconds with nothing
+// acknowledged, the oldest second is let go, and what is held is the four
+// seconds sim::most_unacknowledged says.
+GLIDESLOPE_TEST(no_more_than_four_seconds_of_unacknowledged_inputs_are_held) {
+    Aircraft own(data() / "jsbsim", "c172p");
+    set_up(own);
+    Prediction client(own);
+    constexpr int five_seconds = 5 * steps_per_second;
+    for (int step = 0; step < five_seconds; ++step) {
+        client.step(static_cast<std::uint32_t>(step / 4 + 1), flying(step));
+    }
+    check(client.unacknowledged() == 4 * steps_per_second,
+          "held " + std::to_string(client.unacknowledged()) + " of the " +
+              std::to_string(five_seconds) + " steps flown, not four seconds' 480");
+}

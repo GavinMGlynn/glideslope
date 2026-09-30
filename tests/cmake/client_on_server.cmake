@@ -115,8 +115,9 @@ set(_corrections "${CMAKE_MATCH_1}")
 set(_worst "${CMAKE_MATCH_2}")
 set(_snapped "${CMAKE_MATCH_3}")
 # **Put right all through, whatever the frame rate.** A correction is made
-# once a frame that heard a word on its own, from the newest, so they are
-# held to those frames - not to a count a slow machine's few frames miss.
+# once a frame that heard a word on its own, from the newest; the client
+# counts both, and they must agree - not a count a slow machine's few frames
+# miss.
 # The words are held to the server's rate: 25 for each second it simulates,
 # from the first to the last heard, four in five of them at least; and 20 at
 # least in all, the floor that says the prediction was heard all through (75

@@ -90,6 +90,8 @@ public:
     double longest_frame_at_switch_ms() const { return longest_at_switch_ms_; }
     double worst_step_otherwise_frame_ms() const { return worst_otherwise_frame_ms_; }
     double longest_frame_ms() const { return longest_ms_; }
+    // How many frames since the last switch: nought in its own.
+    int frames_since_switch() const { return frames_since_switch_; }
 
 private:
     // What was shown, and when, as its parts: the source it was shown from

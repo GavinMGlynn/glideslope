@@ -193,9 +193,16 @@ function(glideslope_require_playable_frames out)
     endif()
     set(_around "${CMAKE_MATCH_1}")
     set(_otherwise "${CMAKE_MATCH_2}")
+    # Where the longest pass around a switch spent its time, said first, so
+    # that a failure on a machine nobody here has says which part was long.
+    set(_parts "")
+    if(out MATCHES "(the longest pass around a switch [^\n]*)")
+        set(_parts "${CMAKE_MATCH_1}")
+    endif()
     if(_around GREATER GLIDESLOPE_PLAYABLE_FRAME_MS)
         message(FATAL_ERROR "frames of ${_around} ms around the switch: slower than the 20 fps "
-                            "this bound is claimed for, so the bound tests nothing:\n${out}")
+                            "this bound is claimed for, so the bound tests nothing; "
+                            "${_parts}:\n${out}")
     endif()
     if(_arg_OTHERWISE AND _otherwise GREATER GLIDESLOPE_PLAYABLE_FRAME_MS)
         message(FATAL_ERROR "a frame of ${_otherwise} ms where the largest step away from a "
@@ -204,5 +211,5 @@ function(glideslope_require_playable_frames out)
     endif()
     message(STATUS "frames of ${_around} ms at most around the switches, and "
                    "${_otherwise} ms where the largest step otherwise came: "
-                   "${GLIDESLOPE_PLAYABLE_FRAME_MS} ms at most, 20 fps")
+                   "${GLIDESLOPE_PLAYABLE_FRAME_MS} ms at most, 20 fps; ${_parts}")
 endfunction()

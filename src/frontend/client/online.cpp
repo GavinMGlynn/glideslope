@@ -94,12 +94,8 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
 void Online::hear(double local_s, Flight& flight) {
     session_.poll(local_s);
     noticed();
-    const std::size_t words_before = own_words_;
     for (const net::StatePacket& state : session_.take_states()) {
         heard(state, local_s, flight);
-    }
-    if (own_words_ > words_before) {
-        ++frames_heard_own_;
     }
     if (!own_word_) {
         return;
@@ -113,6 +109,7 @@ void Online::hear(double local_s, Flight& flight) {
     const auto c =
         flight.reconcile(word.motion, word.last_applied, word.steps_into, word.server_steps);
     ++corrections_;
+    ++frames_heard_own_;
     worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
     if (c.snapped) {
         ++snapped_;

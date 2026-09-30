@@ -183,6 +183,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_taken_over_is_flown_on_to_now_from_the_word_that_gave_it
     a_seconds_frame_heard_at_once_is_put_right_once_from_its_newest_word
     three_seconds_of_unacknowledged_inputs_are_held
+    no_more_than_four_seconds_of_unacknowledged_inputs_are_held
     a_lesson_written_down_and_read_back_is_the_one_that_was_written
     a_lesson_file_that_is_wrong_is_refused_and_says_where
     the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief
@@ -2025,10 +2026,12 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rides_along)
 # sanitizer. So CI runs this label in its release presets, on pull requests
 # and every night; its debug presets and nightly.yml leave it out. That the
 # frame rate holds there is not a given: windows-release failed the hand-over
-# test at "frames of 102 ms around the switch" (run 36638803155): the first
-# switch read the model of the aircraft ridden in from disk, 42 ms of a 50 ms
-# frame in a debug build here; it is loaded before now (PROJECT_STATUS.md,
-# 2026-09-30).
+# test at 102, 77 and 75 ms around the switch (runs 36638803155,
+# 36678421057, 36681942297). In a debug build here the first switch read the
+# model of the aircraft ridden in from disk, 42 ms of a 50 ms frame, and it
+# is loaded earlier now; on windows-release that was not all of it (75 ms
+# after), and the client now says where the longest pass around a switch
+# spent its time (PROJECT_STATUS.md, 2026-09-30).
 add_test(NAME the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}

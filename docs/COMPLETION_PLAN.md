@@ -464,12 +464,14 @@ Found while implementing something else. Added when found, not when remembered.
       and hand-over tests fail, not pass, when frames around a switch are
       slower.* Passes locally on linux-release, and on linux-debug alone ten
       runs in ten since the first switch no longer reads a model from disk
-      (it failed there at 48 to 70 ms, and on windows-release at 102 ms);
-      not yet seen passing on CI's release presets.
+      (it failed there at 48 to 70 ms). windows-release still fails it
+      (102, 77, and 75 ms after that change), for a cost not yet found.
 - [ ] **A client whose every frame is slow is not shown to stay under the
       20 m correction bound** (the window client beside other tests in a
-      sanitized build, every frame 0.8 s and more: 21.4 m once; CI's
-      linux-debug draws frames of 0.95 to 2.4 s). *Verification: the
+      sanitized build, every frame 0.8 s and more: 21.4 m once; CI run
+      36674576086, the slow-frames test: linux-debug 20.624 m, windows-debug
+      29.491 m). The plain on-server window test on the debug presets is in
+      the same regime. *Verification: the
       on-server window test with every frame held a second stays under 20 m.*
 - [ ] **The client with the window is not tested with its updates
       reordered across a take-over**; it has the guard the command-line client
