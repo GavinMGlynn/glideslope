@@ -56,6 +56,7 @@ void Controller::engage() {
     navigator_.reset();
     departure_.reset();
     lander_.reset();
+    learnt_.reset();
     landing_.reset();
 }
 
@@ -100,6 +101,13 @@ void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& spee
     lander_.emplace(a_, runway, speeds, glidepath_deg);
 }
 
+void Controller::to_ai_learnt_approach(const Runway& runway, const ApproachSpeeds& speeds,
+                                       std::shared_ptr<const LearntPolicy> policy) {
+    engage();
+    learnt_.emplace(a_, runway, std::move(policy), speeds);
+    easing_in_ = true;
+}
+
 void Controller::to_pilot() {
     flying_ = Flying::pilot;
     catching_up_ = true;
@@ -107,6 +115,7 @@ void Controller::to_pilot() {
     autopilot_.reset();
     navigator_.reset();
     departure_.reset();
+    learnt_.reset();
     // An approach not yet landed to the stop is kept, for a take-back on its
     // roll to finish.
     landing_.reset();
@@ -133,6 +142,19 @@ Controls Controller::fly() {
             if (navigator_) {
                 navigator_->begin_here();
             }
+        }
+        if (learnt_) {
+            if (learnt_->stage() != LearntLander::Stage::stopped) {
+                const Controls landing = learnt_->fly();
+                if (easing_in_) {
+                    easing_in_ = !towards(applied_, landing);
+                } else {
+                    applied_ = landing;
+                }
+                return applied_;
+            }
+            learnt_.reset();
+            autopilot_.emplace(a_, applied_);
         }
         if (lander_) {
             if (lander_->stage() != Lander::Stage::stopped) {

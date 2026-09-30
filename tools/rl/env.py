@@ -170,10 +170,12 @@ class Flier:
 
 
 def random_start(rng: np.random.Generator) -> L.Start:
-    if rng.random() < 0.5:
-        out = rng.uniform(1800.0, 4600.0)
+    # Three in four from a final-approach gate, where the whole approach is
+    # flown; the rest from nearer in, where the flare is learnt sooner.
+    if rng.random() < 0.75:
+        out = rng.uniform(2800.0, 4600.0)
     else:
-        out = rng.uniform(300.0, 1800.0)
+        out = rng.uniform(300.0, 2800.0)
     across_limit = min(100.0, 0.04 * out)
     high_limit = min(25.0, 0.008 * out)
     return L.Start(
