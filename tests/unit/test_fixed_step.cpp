@@ -2,6 +2,7 @@
 
 #include "sim/fixed_step.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -136,4 +137,50 @@ GLIDESLOPE_TEST(the_fixed_step_counts_a_century_without_overflowing) {
     check(steps == 120LL * 60 * 60 * 24 * 36525,
           "a century is 120 steps per second of it");
     check(fixed.alpha() == 0.0, "a whole number of seconds leaves no fraction");
+}
+
+// **A frame loop back from an hour away flies four seconds of it on a server,
+// a fifth of a second alone, and moves a held key a fifth of a second's
+// worth** - never the hour, which unattended is out of fuel or on the ground.
+// Walked: both places a client flies (on a server and alone), each against a
+// pass of one step, a playable frame, a slow machine's frame, a pass at each
+// cap and one past it, and an hour.
+GLIDESLOPE_TEST(a_frame_loop_back_from_an_hour_away_flies_four_seconds_on_a_server_and_a_fifth_alone) {
+    using glideslope::sim::key_seconds;
+    using glideslope::sim::steps_to_fly;
+    FixedStep fixed;
+    const std::int64_t hour = fixed.advance(std::chrono::hours(1));
+    check(hour == 432'000, "an hour is 432000 steps");
+    struct Case {
+        std::int64_t due;
+        std::int64_t on_a_server;
+        std::int64_t alone;
+    };
+    const std::vector<Case> cases = {
+        {1, 1, 1},        {2, 2, 2},       {30, 30, 24},     {24, 24, 24},
+        {25, 25, 24},     {198, 198, 24},  {480, 480, 24},   {481, 480, 24},
+        {hour, 480, 24},
+    };
+    int walked = 0;
+    for (const Case& c : cases) {
+        check(steps_to_fly(c.due, true) == c.on_a_server,
+              "on a server, " + std::to_string(c.due) + " due flies " +
+                  std::to_string(steps_to_fly(c.due, true)) + ", not " +
+                  std::to_string(c.on_a_server));
+        check(steps_to_fly(c.due, false) == c.alone,
+              "alone, " + std::to_string(c.due) + " due flies " +
+                  std::to_string(steps_to_fly(c.due, false)) + ", not " +
+                  std::to_string(c.alone));
+        const double keys = key_seconds(steps_to_fly(c.due, true));
+        const double expected = static_cast<double>(std::min<std::int64_t>(c.on_a_server, 24)) /
+                                120.0;
+        check(keys == expected, "keys moved for " + std::to_string(keys) + " s after " +
+                                    std::to_string(c.due) + " due, not " +
+                                    std::to_string(expected));
+        check(keys <= 0.2, "a held key never moves more than a fifth of a second's worth");
+        walked += 2;
+    }
+    const int expected = static_cast<int>(cases.size()) * 2;
+    check(walked == expected, "walked " + std::to_string(walked) + " of " +
+                                  std::to_string(expected) + " passes, on a server and alone");
 }

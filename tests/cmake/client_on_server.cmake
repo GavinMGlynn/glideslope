@@ -111,21 +111,46 @@ set(_away "${CMAKE_MATCH_2}")
 if(NOT _out MATCHES "predicted: ([0-9]+) corrections, the worst ([0-9.]+) m, ([0-9]+) too large to hide")
     message(FATAL_ERROR "the client did not say how its prediction went:\n${_out}")
 endif()
-# A correction for each frame that heard a word on it, from the newest, and
-# words come 25 for each second the server simulates: 250 in ten seconds
-# here, 277 on CI when each word was one, and 75 from a Windows debug server
-# that could not keep real time. Two a second is the floor that says the
-# prediction was put right all through; how far, below, is the bound. With
-# frames held, one a second: 30 in ten seconds here at 0.7 s.
-set(_floor 20)
+set(_corrections "${CMAKE_MATCH_1}")
+set(_worst "${CMAKE_MATCH_2}")
+set(_snapped "${CMAKE_MATCH_3}")
+# **Put right all through, whatever the frame rate.** A correction is made
+# once a frame that heard a word on its own, from the newest, so they are
+# held to those frames - not to a count a slow machine's few frames miss.
+# The words are held to the server's rate: 25 for each second it simulates,
+# from the first to the last heard, four in five of them at least; and 20 at
+# least in all, the floor that says the prediction was heard all through (75
+# came from a Windows debug server that could not keep real time).
+if(NOT _out MATCHES "heard ([0-9]+) words on its own aircraft over ([0-9]+)\\.([0-9][0-9]) s of the server's time, in ([0-9]+) frames")
+    message(FATAL_ERROR "the client did not say what it heard of its own:\n${_out}")
+endif()
+set(_words "${CMAKE_MATCH_1}")
+math(EXPR _span_cs "${CMAKE_MATCH_2} * 100 + ${CMAKE_MATCH_3}")
+set(_frames "${CMAKE_MATCH_4}")
+if(NOT _corrections EQUAL _frames)
+    message(FATAL_ERROR "${_corrections} corrections, but ${_frames} frames heard a word on "
+                        "its own - one each:\n${_out}")
+endif()
+math(EXPR _least "${_span_cs} * 25 * 4 / 500")
+if(_words LESS 20 OR _words LESS _least)
+    message(FATAL_ERROR "only ${_words} words heard on its own over ${_span_cs} hundredths "
+                        "of a second of the server's time, where at least ${_least} and 20 "
+                        "were due:\n${_out}")
+endif()
+# **Held long, as asked**: a flag read as nought held nothing and passed
+# untested, so the frames are checked to have been as long as the holds.
 if(DEFINED SLOW_FRAMES)
-    set(_floor 10)
+    if(NOT _out MATCHES "own aircraft's longest frame ([0-9]+) ms")
+        message(FATAL_ERROR "the client did not say how long its frames were:\n${_out}")
+    endif()
+    if(CMAKE_MATCH_1 LESS SLOW_FRAMES)
+        message(FATAL_ERROR "its longest frame was ${CMAKE_MATCH_1} ms, shorter than the "
+                            "${SLOW_FRAMES} ms every hold was:\n${_out}")
+    endif()
 endif()
-if(CMAKE_MATCH_1 LESS _floor)
-    message(FATAL_ERROR "only ${CMAKE_MATCH_1} corrections in ten seconds:\n${_out}")
-endif()
-if(NOT CMAKE_MATCH_3 EQUAL 0 OR CMAKE_MATCH_2 GREATER_EQUAL 20)
+if(NOT _snapped EQUAL 0 OR _worst GREATER_EQUAL 20)
     message(FATAL_ERROR "its own aircraft was put right too far to hide:\n${_out}")
 endif()
 message(STATUS "the client flew aircraft ${_mine} on the server, and drew the AI "
-               "${_away} m away; the worst correction ${CMAKE_MATCH_2} m")
+               "${_away} m away; ${_corrections} corrections in ${_frames} frames from "
+               "${_words} words, the worst ${_worst} m")

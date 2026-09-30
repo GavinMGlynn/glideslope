@@ -462,9 +462,15 @@ Found while implementing something else. Added when found, not when remembered.
       (decided 2026-09-30), not on any machine. *Verification: the bound
       holds at 20 fps and above, with the frame rate asserted - the take-over
       and hand-over tests fail, not pass, when frames around a switch are
-      slower.* Passes locally on linux-release, and on linux-debug alone at
-      the floor (hand-over frames of 50 ms); not yet seen on CI's release
-      presets.
+      slower.* Passes locally on linux-release. Fails on windows-release
+      (102 ms) and on linux-debug alone (48 to 70 ms) in the frame the first
+      switch is drawn in, not yet explained; not yet seen passing on CI's
+      release presets.
+- [ ] **A client whose every frame is slow is not shown to stay under the
+      20 m correction bound** (the window client beside other tests in a
+      sanitized build, every frame 0.8 s and more: 21.4 m once; CI's
+      linux-debug draws frames of 0.95 to 2.4 s). *Verification: the
+      on-server window test with every frame held a second stays under 20 m.*
 - [ ] **The client with the window is not tested with its updates
       reordered across a take-over**; it has the guard the command-line client
       needed. *Verification: an update from before the take-over, heard after

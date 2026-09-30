@@ -183,6 +183,16 @@ public:
         return out;
     }
     std::size_t corrections() const { return corrections_; }
+    // **What it heard of its own, predicted**: how many words, over how long
+    // of the server's time from the first to the last, and in how many
+    // frames. Corrections are one a frame that heard any, so a test can
+    // hold them to the frames and the words to the server's rate, whatever
+    // the frame rate.
+    std::size_t own_words_heard() const { return own_words_; }
+    double own_words_span_s() const {
+        return own_words_ > 0 ? last_own_word_s_ - first_own_word_s_ : 0.0;
+    }
+    std::size_t frames_that_heard_own() const { return frames_heard_own_; }
     std::size_t snapped() const { return snapped_; }
     double worst_correction_m() const { return worst_correction_m_; }
 
@@ -238,6 +248,10 @@ private:
     std::map<double, net::Watched> watched_;
     std::size_t watched_heard_ = 0;
     std::size_t corrections_ = 0;
+    std::size_t own_words_ = 0;
+    double first_own_word_s_ = 0.0;
+    double last_own_word_s_ = 0.0;
+    std::size_t frames_heard_own_ = 0;
     bool corrected_ = false;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;

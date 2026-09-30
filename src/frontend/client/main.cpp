@@ -440,7 +440,20 @@ static int run_program(int argc, char** argv) {
         } else if (a == "--slow-start" && has_value) {
             o.slow_start_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--slow-frames" && has_value) {
-            o.slow_frames_ms = std::strtod(std::string(args[++i]).c_str(), nullptr);
+            // A number of milliseconds above nought, or refused: a word
+            // read as nought held nothing, and the test it was for passed
+            // without testing.
+            const std::string text(args[++i]);
+            char* end = nullptr;
+            o.slow_frames_ms = std::strtod(text.c_str(), &end);
+            ok = end != text.c_str() && *end == '\0' && o.slow_frames_ms > 0.0 &&
+                 o.slow_frames_ms <= 60000.0;
+            if (!ok) {
+                std::fprintf(stderr,
+                             "glideslope: --slow-frames wants milliseconds, above nought "
+                             "and at most 60000, not '%s'\n",
+                             text.c_str());
+            }
         } else if (a == "--ride-along") {
             o.ride_along = true;
         } else if (a == "--take-over-after" && has_value) {
@@ -1079,8 +1092,6 @@ static int run_program(int argc, char** argv) {
         glideslope::platform::Joysticks joysticks;
         glideslope::platform::KeyboardControls keys;
         glideslope::sim::FixedStep clock;
-        // Ticks due and not yet flown, carried from one pass to the next.
-        std::int64_t owed = 0;
         auto last = std::chrono::steady_clock::now();
         std::int64_t ticks = 0;
         long frames = 0;
@@ -1201,27 +1212,19 @@ static int run_program(int argc, char** argv) {
                     o.shot_at - ticks);
             } else {
                 const auto now = std::chrono::steady_clock::now();
-                // **Every tick due is flown, if not in this pass then in the
-                // next**: a pass longer than four seconds flies four seconds'
-                // ticks and carries the rest over, where once whatever was
-                // past 24 ticks - a fifth of a second - was dropped. (At most
-                // a second's, a machine whose passes took 1.3 s fell further
-                // behind with each.) On a server a
-                // dropped tick is the prediction falling behind the server's
-                // clock unflagged: CI's sanitized software Vulkan draws a
-                // frame in 250 ms and more, and what the client showed
-                // stepped by the ticks it lost (PROJECT_STATUS.md,
+                // **Every tick due is flown on a server, up to four
+                // seconds' a pass** (sim::steps_to_fly), where once whatever
+                // was past 24 ticks - a fifth of a second - was dropped: a
+                // dropped tick there is the prediction falling behind the
+                // server's clock unflagged, and CI's sanitized software
+                // Vulkan draws a frame in 250 ms and more (PROJECT_STATUS.md,
                 // 2026-09-30).
-                owed += clock.advance(now - last);
-                due = std::min<std::int64_t>(owed, 4 * glideslope::sim::steps_per_second);
-                owed -= due;
+                due = glideslope::sim::steps_to_fly(clock.advance(now - last),
+                                                    online.has_value());
                 last = now;
                 int key_count = 0;
                 const bool* key_state = SDL_GetKeyboardState(&key_count);
-                keys.apply(controls,
-                           static_cast<double>(due) /
-                               static_cast<double>(glideslope::sim::steps_per_second),
-                           key_state, key_count);
+                keys.apply(controls, glideslope::sim::key_seconds(due), key_state, key_count);
             }
             mapper.apply(joysticks.read(), controls);
             // Whether its own was predicted up to this pass - flown here on
@@ -1802,6 +1805,10 @@ static int run_program(int argc, char** argv) {
                             "%zu too large to hide\n",
                             online->corrections(), online->worst_correction_m(),
                             online->snapped());
+                std::printf("glideslope: heard %zu words on its own aircraft over %.2f s of "
+                            "the server's time, in %zu frames\n",
+                            online->own_words_heard(), online->own_words_span_s(),
+                            online->frames_that_heard_own());
                 // **How far what it showed of its own stepped**, measured as
                 // glideslope_cli measures it (client/shown.hpp).
                 std::printf("glideslope: own aircraft: %zu switches; the largest step at a "
@@ -1824,6 +1831,8 @@ static int run_program(int argc, char** argv) {
                             "%.0f ms long\n",
                             own_shown.longest_frame_at_switch_ms(),
                             own_shown.worst_step_otherwise_frame_ms());
+                std::printf("glideslope: own aircraft's longest frame %.0f ms\n",
+                            own_shown.longest_frame_ms());
             }
             if (shot_now) {
                 if (terrain) {

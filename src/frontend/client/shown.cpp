@@ -70,6 +70,7 @@ world::Ecef OwnShown::frame(double local_s, const Source& source) {
         }
     }
     const double frame_ms = before_ ? (local_s - before_->s) * 1000.0 : 0.0;
+    longest_ms_ = std::max(longest_ms_, frame_ms);
     if (frames_since_switch_ <= 4) {
         longest_at_switch_ms_ = std::max(longest_at_switch_ms_, frame_ms);
     }

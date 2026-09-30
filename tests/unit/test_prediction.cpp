@@ -607,3 +607,156 @@ GLIDESLOPE_TEST(an_aircraft_taken_over_is_flown_on_to_now_from_the_word_that_gav
     check(apart_m < 1.0, "the aircraft taken over was " + std::to_string(apart_m) +
                              " m from where the server has it, over the 1 m bound");
 }
+
+namespace {
+
+struct LongFrame {
+    Prediction::Correction last;
+    glideslope::sim::AircraftState client;
+    std::size_t words = 0;
+    bool settled = false;
+};
+
+// **A frame a second long, heard all at once.** Client and server 100 ms
+// apart each way; the client sends an input every four steps and hears each
+// word as it arrives, until half a second in, when a frame takes a second:
+// nothing is sent, flown or heard, and then the input read at its end is
+// sent, the second's 120 steps are flown on it, and every word that arrived
+// meanwhile is heard - as the window client does (Online::hear). With
+// `newest_only`, the older words give only the clocks' difference
+// (Prediction::hear_clock) and the newest puts it right; otherwise each is
+// reconciled in turn, as it was.
+LongFrame fly_a_long_frame(bool newest_only) {
+    constexpr int one_way = 12;
+    constexpr int steps_per_input = 4;
+    constexpr int long_at = steps_per_second / 2;
+    constexpr int long_for = steps_per_second;
+    Aircraft server(data() / "jsbsim", "c172p");
+    Aircraft own(data() / "jsbsim", "c172p");
+    set_up(server);
+    set_up(own);
+    Prediction client(own);
+    struct Sent {
+        int arrives_at = 0;
+        std::uint32_t sequence = 0;
+        Controls controls;
+    };
+    struct Posted {
+        int arrives_at = 0;
+        glideslope::sim::Motion motion;
+        std::uint32_t applied = 0;
+        std::size_t into = 0;
+        std::uint64_t server_steps = 0;
+    };
+    std::deque<Sent> up;
+    std::deque<Posted> down;
+    std::uint32_t sequence = 0;
+    Controls stick;
+    std::uint32_t applied = 0;
+    Controls applied_controls;
+    std::size_t into = 0;
+    std::uint64_t server_steps = 0;
+    const auto send = [&](int frame) {
+        ++sequence;
+        stick = flying(static_cast<int>(sequence) * steps_per_input);
+        up.push_back({frame + one_way, sequence, stick});
+    };
+    LongFrame out;
+    for (int frame = 0; frame <= long_at + long_for; ++frame) {
+        // The server, on its own clock: every step, whatever the client does.
+        while (!up.empty() && up.front().arrives_at <= frame) {
+            applied = up.front().sequence;
+            applied_controls = up.front().controls;
+            into = 0;
+            up.pop_front();
+        }
+        if (applied > 0) {
+            server.set_controls(applied_controls);
+            server.step();
+            ++into;
+            ++server_steps;
+            if (server_steps % 5 == 0) {
+                down.push_back({frame + one_way, server.motion(), applied, into, server_steps});
+            }
+        }
+        if (frame < long_at) {
+            if (frame % steps_per_input == 0) {
+                send(frame);
+            }
+            client.step(sequence, stick);
+            while (!down.empty() && down.front().arrives_at <= frame) {
+                (void)client.reconcile(down.front().motion, down.front().applied,
+                                       down.front().into, down.front().server_steps);
+                down.pop_front();
+            }
+        } else if (frame == long_at + long_for) {
+            send(frame);
+            for (int i = 0; i < long_for; ++i) {
+                client.step(sequence, stick);
+            }
+            while (!down.empty() && down.front().arrives_at <= frame) {
+                const Posted& p = down.front();
+                ++out.words;
+                if (newest_only && down.size() > 1 && down[1].arrives_at <= frame) {
+                    client.hear_clock(p.applied, p.into, p.server_steps);
+                } else {
+                    out.last = client.reconcile(p.motion, p.applied, p.into, p.server_steps);
+                }
+                down.pop_front();
+            }
+        }
+    }
+    out.client = own.state();
+    out.settled = client.settled();
+    return out;
+}
+
+} // namespace
+
+// **A second's frame heard all at once is put right once, from the newest
+// word, by a little, and knows the clocks' difference as well as when every
+// word put it right.** Put right from each in turn, every one replayed the
+// inputs since - 24 words, each up to a second of steps - which in a
+// sanitized build made the next frame longer still (PROJECT_STATUS.md,
+// 2026-09-30). Settled only by the words heard in that frame, so a word left
+// out of the clocks' difference shows.
+GLIDESLOPE_TEST(a_seconds_frame_heard_at_once_is_put_right_once_from_its_newest_word) {
+    const LongFrame once = fly_a_long_frame(true);
+    const LongFrame each = fly_a_long_frame(false);
+    const double apart_m = glideslope::sim::how_far_apart_m(once.client, each.client);
+    std::printf("  %zu words in the frame: put right once by %.3f m, replaying %zu steps, "
+                "at step %lld; %.6f m from where putting it right from each left it\n",
+                once.words, once.last.moved_m, once.last.replayed,
+                once.last.at_step ? static_cast<long long>(*once.last.at_step) : -1LL, apart_m);
+    check(once.words >= 20, "the frame heard " + std::to_string(once.words) +
+                                " words, not the second's 24 it was built to");
+    check(once.settled && each.settled,
+          "the clocks' difference was known after the frame, from its words");
+    check(once.last.at_step.has_value() && once.last.at_step == each.last.at_step,
+          "the newest word was placed at the step putting it right from each placed it");
+    check(once.last.moved_m < 2.0,
+          "put right by " + std::to_string(once.last.moved_m) + " m, over the 2 m bound");
+    // Not to the bit: a word puts back the motion alone, and the engine and
+    // actuators flown through each replay in turn are not quite where one
+    // replay leaves them - 0.2 mm here.
+    check(apart_m < 0.01, "left " + std::to_string(apart_m) +
+                              " m from where putting it right from each word left it, over "
+                              "the centimetre bound");
+}
+
+// **Three seconds of inputs are still held**: a frame on a slow machine and
+// the round trip came to two, and the prediction once let go of what was
+// past 240 steps - two seconds at 120 Hz - so a word about one of them could
+// not be replayed from.
+GLIDESLOPE_TEST(three_seconds_of_unacknowledged_inputs_are_held) {
+    Aircraft own(data() / "jsbsim", "c172p");
+    set_up(own);
+    Prediction client(own);
+    constexpr int three_seconds = 3 * steps_per_second;
+    for (int step = 0; step < three_seconds; ++step) {
+        client.step(static_cast<std::uint32_t>(step / 4 + 1), flying(step));
+    }
+    check(client.unacknowledged() == static_cast<std::size_t>(three_seconds),
+          "held " + std::to_string(client.unacknowledged()) + " of the " +
+              std::to_string(three_seconds) + " steps flown");
+}
