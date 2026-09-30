@@ -58,11 +58,15 @@ def main() -> int:
     # verification's, which are flown once, for the final report.
     starts = L.held_out_starts() if "--held-out" in sys.argv[2:] else L.verification_starts()
     rw = L.Runway()
-    flier = Flier(rw, policy.approach)
+    # --fuel LBS flies every start with that much in each tank; full otherwise.
+    fuel = float(sys.argv[sys.argv.index("--fuel") + 1]) if "--fuel" in sys.argv else L.FULL_TANK_LBS
     bad = 0
     worst_sink = worst_across = 0.0
     for name, start in starts:
-        f = fly(policy, start, flier)
+        start.fuel_lbs = fuel
+        # A fresh aeroplane for every start, so that no start depends on the
+        # ones flown before it.
+        f = fly(policy, start, Flier(rw, policy.approach))
         wrong = within_limits(f, rw)
         bad += bool(wrong)
         worst_sink = max(worst_sink, f.touch.sink_fpm)

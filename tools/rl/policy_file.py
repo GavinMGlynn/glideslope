@@ -78,7 +78,11 @@ class Policy:
 
 
 def number(x: float) -> str:
-    return repr(float(x)) if math.isfinite(x) else "nan"
+    # A policy with a number that is not one is refused here, and by the
+    # simulation's reader: nothing writes "nan".
+    if not math.isfinite(x):
+        raise ValueError(f"a policy's numbers are finite, and this is {x}")
+    return repr(float(x))
 
 
 def write(path: str, p: Policy) -> None:

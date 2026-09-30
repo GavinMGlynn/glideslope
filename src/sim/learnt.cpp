@@ -56,16 +56,33 @@ std::vector<double> numbers(const std::string& text, const std::string& what) {
         try {
             std::size_t used = 0;
             out.push_back(std::stod(word, &used));
-            if (used != word.size()) {
+            // std::stod reads "nan" and "inf" as numbers; a weight that is
+            // one would fly every step as NaN.
+            if (used != word.size() || !std::isfinite(out.back())) {
                 throw std::invalid_argument(word);
             }
         } catch (const std::exception&) {
             throw std::runtime_error("the policy's " + what + " has '" + word +
-                                     "', which is not a number");
+                                     "', which is not a finite number");
         }
     }
     return out;
 }
+
+// A count or a size: a whole number from `least` to `most`, so that nothing
+// is truncated or wrapped on the way to an integer.
+std::size_t whole(double v, double least, double most, const std::string& what) {
+    if (!(v >= least && v <= most) || v != std::floor(v)) {
+        throw std::runtime_error("the policy's " + what + " is " + std::to_string(v) +
+                                 ", not a whole number from " + std::to_string(least) +
+                                 " to " + std::to_string(most));
+    }
+    return static_cast<std::size_t>(v);
+}
+
+// The widest layer a policy may have: far wider than any trained here, and
+// small enough that a file cannot ask for memory it should not.
+constexpr double widest_layer = 4096.0;
 
 } // namespace
 
@@ -116,16 +133,14 @@ LearntPolicy LearntPolicy::read(const std::filesystem::path& file) {
         throw fail("not a landing policy for a named aircraft");
     }
     p.aircraft = kv["aircraft"];
-    p.decision_steps = static_cast<int>(one("decision_steps"));
-    if (p.decision_steps < 1) {
-        throw fail("decision_steps is less than one");
-    }
+    // A decision from every step to every ten seconds.
+    p.decision_steps = static_cast<int>(whole(one("decision_steps"), 1.0, 1200.0, "decision_steps"));
     p.vref_kts = one("vref_kts");
     p.flaps = one("flaps");
     p.glidepath_deg = one("glidepath_deg");
     p.aim_m = one("aim_m");
-    if (static_cast<std::size_t>(one("observations")) != observations ||
-        static_cast<std::size_t>(one("actions")) != actions) {
+    if (whole(one("observations"), 1.0, widest_layer, "observations") != observations ||
+        whole(one("actions"), 1.0, widest_layer, "actions") != actions) {
         throw fail("its observations and actions are not the " +
                    std::to_string(observations) + " and " + std::to_string(actions) +
                    " the simulation makes and takes");
@@ -136,18 +151,30 @@ LearntPolicy LearntPolicy::read(const std::filesystem::path& file) {
         throw fail("obs_mean and obs_scale are not one number an observation");
     }
     p.obs_clip = one("obs_clip");
-    const auto count = static_cast<std::size_t>(one("layers"));
+    if (!(p.obs_clip > 0.0)) {
+        throw fail("obs_clip is not above nothing");
+    }
+    const std::size_t count = whole(one("layers"), 1.0, 64.0, "layers");
     std::size_t inputs = observations;
     for (std::size_t l = 0; l < count; ++l) {
         if (i >= lines.size()) {
             throw fail("fewer layers than it says");
         }
         std::istringstream head(lines[i++]);
-        std::string word, activation;
+        std::string word, n_in, n_out, activation, extra;
         Layer layer;
-        head >> word >> layer.inputs >> layer.outputs >> activation;
-        if (word != "layer" || layer.inputs != inputs || layer.outputs == 0 ||
-            (activation != "tanh" && activation != "linear")) {
+        head >> word >> n_in >> n_out >> activation;
+        if (word != "layer" || (head >> extra)) {
+            throw fail("layer " + std::to_string(l) + "'s heading is not 'layer IN OUT ACTIVATION'");
+        }
+        const std::vector<double> in_n = numbers(n_in, "layer size");
+        const std::vector<double> out_n = numbers(n_out, "layer size");
+        if (in_n.size() != 1 || out_n.size() != 1) {
+            throw fail("layer " + std::to_string(l) + " does not say its sizes");
+        }
+        layer.inputs = whole(in_n.front(), 1.0, widest_layer, "layer size");
+        layer.outputs = whole(out_n.front(), 1.0, widest_layer, "layer size");
+        if (layer.inputs != inputs || (activation != "tanh" && activation != "linear")) {
             throw fail("layer " + std::to_string(l) + " does not follow the one before");
         }
         layer.tanh = activation == "tanh";

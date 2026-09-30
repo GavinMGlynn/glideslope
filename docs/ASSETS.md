@@ -846,7 +846,7 @@ airworthy guidance. They exist to teach the simulator's aeroplanes.
 | | |
 | --- | --- |
 | Source | **None outside this project.** Trained here by `tools/rl/train.py` on this project's own C172P flight model (`assets/jsbsim`), and written by `tools/rl/export.py`; its header names the seed, the training steps and the package versions |
-| In the repository | `assets/rl/c172p-landing.txt`: a small neural network's weights, as text; its header says how it was trained, carried over and chosen. `tests/data/rl/c172p-landing-parity.txt` is what the scripts recorded of it, for the tests |
+| In the repository | `assets/rl/c172p-landing.txt`: a small neural network's weights, as text; its header says how it was trained, carried over and chosen, and the SHA-256 of the checkpoint (kept outside the repository) that `tools/rl/export.py` makes it from, deterministically. **The committed scripts cannot train it again**: its reward, its inputs and its fuel (never refilled between episodes) were not what `tools/rl` now has, and training is not reproducible in any case. `tests/data/rl/c172p-landing-parity.txt` is what the scripts recorded of it, for the tests |
 | What made it | Python packages used only to train, never built or shipped: jsbsim 1.3.1 (LGPL-2.1), gymnasium (MIT), stable-baselines3 (MIT), PyTorch (BSD-3-Clause) and numpy (BSD-3-Clause), pinned in `tools/rl/requirements.txt` |
 | Licence | This project's own, GPL-3.0-or-later with the rest |
 | Where it goes | Copied at configure time into `data/rl/` beside the programs |
