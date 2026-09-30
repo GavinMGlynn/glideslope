@@ -21,6 +21,14 @@
 // - **where TRUTH has no update either side** no more than two updates apart:
 //   before it started hearing, after it stopped, or where it lost one itself.
 //
+// **A frame out of bound explains itself.** When any is, the frames drawn of
+// that aircraft for a third of a second either side of the worst are printed:
+// each one's error, where it was drawn against where it was, and what SHOWN
+// wrote after its position - the drawing client's own clock, whether it was
+// a guess, the newest update it had and how far a blend back from a guess
+// moved it - with the updates TRUTH heard then, and when each update reached
+// SHOWN with the session time its clock made of that moment.
+//
 // With CONTROLS_WORST, **the watched aircraft's controls** are judged the same
 // way: each frame SHOWN drew of them against TRUTH's, both watching the same
 // aircraft, at that session time. It fails when any control is CONTROLS_WORST
@@ -43,6 +51,7 @@ namespace {
 struct At {
     double t = 0.0;
     double x = 0.0, y = 0.0, z = 0.0;
+    std::string rest; // whatever the line said after its position
 };
 
 // The watched controls at a moment: aileron, elevator, rudder, throttle, flaps.
@@ -80,7 +89,44 @@ std::map<unsigned, std::vector<At>> read(const std::string& file, const std::str
         unsigned index = 0;
         At a;
         if (words >> what >> a.t >> index >> a.x >> a.y >> a.z && what == kind) {
+            std::getline(words, a.rest);
             out[index].push_back(a);
+        }
+    }
+    return out;
+}
+
+// Where TRUTH's path `p` puts an aircraft at `t`, between the two updates
+// either side no more than `widest_s` apart; nothing where there are none.
+bool truth_at(const std::vector<At>& p, double t, double widest_s, At& out) {
+    for (std::size_t i = 1; i < p.size(); ++i) {
+        if (p[i - 1].t <= t && t <= p[i].t) {
+            const double span = p[i].t - p[i - 1].t;
+            if (span > widest_s) return false;
+            const double k = span > 0.0 ? (t - p[i - 1].t) / span : 0.0;
+            out.t = t;
+            out.x = p[i - 1].x + k * (p[i].x - p[i - 1].x);
+            out.y = p[i - 1].y + k * (p[i].y - p[i - 1].y);
+            out.z = p[i - 1].z + k * (p[i].z - p[i - 1].z);
+            return true;
+        }
+    }
+    return false;
+}
+
+// The lines of `file` that start with `kind` and whose first number is within
+// `from`..`to`, as they are.
+std::vector<std::string> lines_between(const std::string& file, const std::string& kind,
+                                       double from, double to) {
+    std::vector<std::string> out;
+    std::ifstream in(file);
+    std::string line;
+    while (std::getline(in, line)) {
+        std::istringstream words(line);
+        std::string what;
+        double t = 0.0;
+        if (words >> what >> t && what == kind && t >= from && t <= to) {
+            out.push_back(line);
         }
     }
     return out;
@@ -115,27 +161,17 @@ int main(int argc, char** argv) {
                 continue;
             }
             if (path == truth.end()) continue;
-            const std::vector<At>& p = path->second;
-            for (std::size_t i = 1; i < p.size(); ++i) {
-                if (p[i - 1].t <= f.t && f.t <= p[i].t) {
-                    const double span = p[i].t - p[i - 1].t;
-                    if (span > widest_s) break;
-                    const double k = span > 0.0 ? (f.t - p[i - 1].t) / span : 0.0;
-                    const double x = p[i - 1].x + k * (p[i].x - p[i - 1].x);
-                    const double y = p[i - 1].y + k * (p[i].y - p[i - 1].y);
-                    const double z = p[i - 1].z + k * (p[i].z - p[i - 1].z);
-                    const double error = std::hypot(f.x - x, f.y - y, f.z - z);
-                    if (error > worst) {
-                        worst = error;
-                        worst_t = f.t;
-                        worst_index = index;
-                    }
-                    sum += error;
-                    if (error >= bound_m) ++over;
-                    ++judged;
-                    break;
-                }
+            At then;
+            if (!truth_at(path->second, f.t, widest_s, then)) continue;
+            const double error = std::hypot(f.x - then.x, f.y - then.y, f.z - then.z);
+            if (error > worst) {
+                worst = error;
+                worst_t = f.t;
+                worst_index = index;
             }
+            sum += error;
+            if (error >= bound_m) ++over;
+            ++judged;
         }
     }
     std::printf("interpolation: %zu of %zu frames drawn were judged (%zu before the "
@@ -144,6 +180,40 @@ int main(int argc, char** argv) {
                 "%zu at %.1f m or more\n",
                 judged, drawn, appearing, drawn - judged - appearing, judged ? sum / static_cast<double>(judged) : 0.0,
                 worst, worst_index, worst_t, over, bound_m);
+    if (over > 0) {
+        constexpr double around_s = 0.33;
+        std::printf("interpolation: aircraft %u from %.3f to %.3f s - each frame drawn: the "
+                    "session time, the error m, drawn minus true (x y z) m, then as SHOWN "
+                    "wrote it: this machine's clock s, a guess (1) or not, the newest update "
+                    "held s, the blend back from a guess m\n",
+                    worst_index, worst_t - around_s, worst_t + around_s);
+        const auto path = truth.find(worst_index);
+        for (const At& f : shown.at(worst_index)) {
+            if (f.t < worst_t - around_s || f.t > worst_t + around_s) continue;
+            At then;
+            if (path != truth.end() && truth_at(path->second, f.t, widest_s, then)) {
+                std::printf("  shown %.4f %7.3f %8.3f %8.3f %8.3f |%s\n", f.t,
+                            std::hypot(f.x - then.x, f.y - then.y, f.z - then.z), f.x - then.x,
+                            f.y - then.y, f.z - then.z, f.rest.c_str());
+            } else {
+                std::printf("  shown %.4f (not judged) |%s\n", f.t, f.rest.c_str());
+            }
+        }
+        std::printf("interpolation: the updates TRUTH heard of it then (session time, x y z)\n");
+        if (path != truth.end()) {
+            for (const At& a : path->second) {
+                if (a.t >= worst_t - around_s - 0.5 && a.t <= worst_t + around_s) {
+                    std::printf("  heard %.4f %.3f %.3f %.3f\n", a.t, a.x, a.y, a.z);
+                }
+            }
+        }
+        std::printf("interpolation: when updates reached SHOWN (session time, this machine's "
+                    "clock s, its session clock then, that clock's rate)\n");
+        for (const std::string& line :
+             lines_between(argv[2], "arrived", worst_t - around_s - 0.8, worst_t + around_s)) {
+            std::printf("  %s\n", line.c_str());
+        }
+    }
     if (drawn == 0 || static_cast<double>(judged) < 0.95 * static_cast<double>(drawn)) {
         std::printf("interpolation: too few frames judged to say anything\n");
         return 1;

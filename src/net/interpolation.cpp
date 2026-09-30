@@ -76,6 +76,7 @@ void Interpolated::received(const RemoteState& snapshot) {
 
 RemoteState Interpolated::at(double now_s) {
     path_mps_ = {};
+    blending_m_ = 0.0;
     // **Not asked for a while, it was not being drawn**, so there is no
     // guess to come back from and no jump to hide: taking up the difference
     // between a guess seconds old and where it is now moved an aircraft
@@ -159,6 +160,7 @@ RemoteState Interpolated::at(double now_s) {
             answer.north_m += offset_.north_m * left;
             answer.east_m += offset_.east_m * left;
             answer.down_m += offset_.down_m * left;
+            blending_m_ = std::hypot(offset_.north_m, offset_.east_m, offset_.down_m) * left;
             path_mps_[0] -= offset_.north_m / blend_s;
             path_mps_[1] -= offset_.east_m / blend_s;
             path_mps_[2] -= offset_.down_m / blend_s;
