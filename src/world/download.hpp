@@ -160,7 +160,10 @@ bool answered_json(std::string_view text, const std::string& url, int attempt);
 // own temporary file cannot be removed.
 bool put_in_place(const std::filesystem::path& path, const std::vector<std::uint8_t>& bytes);
 
-// A file pinned by SHA-256, from the cache or else fetched into it. Throws
+// A file pinned by SHA-256, from the cache or else fetched into it. **One in
+// the cache is read whole and checked against the pin** each time it is
+// asked for - about 0.1 s for the geoid's 17 MB - and one that is not what
+// was pinned, cut short or damaged, is taken away and fetched again. Throws
 // DemError if it cannot be had, or arrives as anything but what was pinned.
 std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
                                    const std::string& name, const std::string& url,
@@ -170,7 +173,9 @@ std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
 // public buckets into it when they are not there yet. A file is checked
 // against the MD5 the bucket gives as its ETag before it is kept; one that
 // arrives different, or not at all, is not kept, and the query that wanted it
-// fails with the reason.
+// fails with the reason. **One in the cache that cannot be read whole** - cut
+// short, or damaged - the Dem finds as it reads it and takes away
+// (DemTiles::take_away), and the file is fetched again.
 class DownloadedTiles : public DemTiles {
 public:
     DownloadedTiles(std::filesystem::path cache, Fetch fetch);
@@ -179,12 +184,18 @@ public:
     std::shared_ptr<const ByteSource> open_water_mask(DemDataset dataset,
                                                       DemCell cell) override;
 
+    // The tile's file taken out of the cache, so the next open fetches it
+    // again: always true. Throws DemError if it is there and cannot be moved.
+    bool take_away(DemDataset dataset, DemCell cell) override;
+    bool take_away_water_mask(DemDataset dataset, DemCell cell) override;
+
     // Files fetched, rather than found in the cache, since construction.
     int downloads() const {
         return downloads_;
     }
 
 private:
+    std::filesystem::path path_of(DemDataset dataset, const std::string& name) const;
     std::shared_ptr<const ByteSource> fetched(DemDataset dataset, const std::string& name,
                                               const std::string& url);
 

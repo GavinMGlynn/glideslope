@@ -78,6 +78,27 @@ std::optional<std::chrono::milliseconds> retry_after_seconds(const platform::Htt
     return std::chrono::milliseconds(seconds * 1000);
 }
 
+// Whether the file at `path` is whole: its SHA-256 is `sha256`. One that
+// cannot be read, or has gone since it was seen, is not.
+bool whole(const std::filesystem::path& path, const std::string& sha256) {
+    try {
+        const FileSource file(path);
+        std::vector<std::uint8_t> bytes(static_cast<std::size_t>(file.size()));
+        file.read(0, bytes);
+        return sha256_hex(bytes) == sha256;
+    } catch (const ByteSourceError&) {
+        return false;
+    }
+}
+
+void taken_away(const std::filesystem::path& path) {
+    try {
+        take_away(path);
+    } catch (const ByteSourceError& e) {
+        throw DemError(e.what());
+    }
+}
+
 } // namespace
 
 bool put_in_place(const std::filesystem::path& path, const std::vector<std::uint8_t>& bytes) {
@@ -91,14 +112,11 @@ bool put_in_place(const std::filesystem::path& path, const std::vector<std::uint
     std::filesystem::path part = path;
     part += ".part." + std::to_string(std::random_device{}()) + "-" +
             std::to_string(writes++);
-    {
-        std::ofstream out(part, std::ios::binary | std::ios::trunc);
-        out.write(reinterpret_cast<const char*>(bytes.data()),
-                  static_cast<std::streamsize>(bytes.size()));
-        if (!out) {
-            std::filesystem::remove(part, error);
-            throw DemError("cannot write " + part.string());
-        }
+    try {
+        write_durably(part, bytes);
+    } catch (const ByteSourceError& e) {
+        std::filesystem::remove(part, error);
+        throw DemError(e.what());
     }
     bool put = false;
     try {
@@ -280,7 +298,11 @@ std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
                                    const std::string& sha256, const Fetch& fetch) {
     const std::filesystem::path path = cache / name;
     if (there(path)) {
-        return path;
+        if (whole(path, sha256)) {
+            return path;
+        }
+        // Cut short, or damaged: taken away and fetched again.
+        taken_away(path);
     }
     const platform::HttpResponse r = get(fetch, url);
     const std::string got = sha256_hex(r.body);
@@ -306,13 +328,27 @@ std::shared_ptr<const ByteSource> DownloadedTiles::open_water_mask(DemDataset da
                    dem_water_mask_url(dataset, cell));
 }
 
+bool DownloadedTiles::take_away(DemDataset dataset, DemCell cell) {
+    taken_away(path_of(dataset, dem_tile_name(dataset, cell)));
+    return true;
+}
+
+bool DownloadedTiles::take_away_water_mask(DemDataset dataset, DemCell cell) {
+    taken_away(path_of(dataset, dem_water_mask_name(dataset, cell)));
+    return true;
+}
+
+std::filesystem::path DownloadedTiles::path_of(DemDataset dataset,
+                                               const std::string& name) const {
+    return cache_ /
+           (dataset == DemDataset::glo30 ? "copernicus-dem-30m" : "copernicus-dem-90m") /
+           (name + ".tif");
+}
+
 std::shared_ptr<const ByteSource> DownloadedTiles::fetched(DemDataset dataset,
                                                            const std::string& name,
                                                            const std::string& url) {
-    const std::filesystem::path path =
-        cache_ /
-        (dataset == DemDataset::glo30 ? "copernicus-dem-30m" : "copernicus-dem-90m") /
-        (name + ".tif");
+    const std::filesystem::path path = path_of(dataset, name);
     if (!there(path)) {
         const platform::HttpResponse r = get(fetch_, url);
         // S3 gives a file uploaded whole its MD5 as its ETag. One uploaded in

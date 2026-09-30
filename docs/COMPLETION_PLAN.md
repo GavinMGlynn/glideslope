@@ -565,10 +565,13 @@ Found while implementing something else. Added when found, not when remembered.
       the many-at-once test passes 20 times over there.* Done 2026-09-26: a
       fetched file never replaces one already in place, and a refusal that
       passes is asked again for up to 3 seconds.
-- [ ] **A cached tile cut short by a power cut is never fetched again.**
+- [x] **A cached tile cut short by a power cut is never fetched again.**
       Nothing flushes a download to disk before it is moved into place, and
       nothing deletes a cached file that cannot be read. *Verification: a
       cached tile cut short, or damaged, is fetched again and read whole.*
+      Done 2026-09-30: downloads reach the disk before they take their name,
+      and a cached tile, water mask or pinned file that cannot be read whole
+      is taken away and fetched again, once.
 - [x] **Over a network a client's own aircraft is corrected by metres**, because
       the server does not say how far into its latest input it had flown.
       *Verification: through 200 ms with jitter and loss, the worst prediction

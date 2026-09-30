@@ -227,6 +227,75 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A cached tile cut short or damaged is fetched again and read whole, 2026-09-30 — tail done
+
+**What is not covered first.** A tile that is damaged yet still decodes is
+not found: a DEM tile has no digest kept beside it, so what is checked is
+that it decodes - its blocks inside the file, and each block's zlib stream
+passing its Adler-32 - and a change the checksum misses (1 in 2^32) or one
+in an uncompressed tile (the buckets publish none) is read as it is. A
+tile's blocks are checked as they are read, not all at once, so a damaged
+block is found by the first query that needs it. Nothing can simulate the
+power cut itself: that the file reaches the disk before its name is read
+from the code (fsync, FlushFileBuffers), not from a test. The directory's
+sync on POSIX is asked and not insisted on.
+
+**What changed.**
+- **A download is durable before it is moved into place.** `put_in_place`
+  writes through new `write_durably` (`world/byte_source`): the file made,
+  written, and flushed through the system's cache - `fsync` on POSIX,
+  `FlushFileBuffers` on Windows - before `move_into_place_unless_there`
+  gives it its name. The move is durable too: `MOVEFILE_WRITE_THROUGH` on
+  Windows; on POSIX the directory is synced after the link or rename, best
+  effort, since some filesystems refuse to sync a directory, and a name lost
+  to a power cut is a file fetched again, never a file cut short.
+- **A tile or water mask that cannot be read whole is taken away and fetched
+  again, once.** `DemTiles` gains `take_away` and `take_away_water_mask`
+  (false by default: a directory's tiles have nowhere to come from anew);
+  `DownloadedTiles` takes the file out of the cache and says true. The Dem
+  asks it when a tile it opened does not read - its layout refused, as a
+  file cut short is, its blocks lying past its end - and when a block does
+  not decode, as a damaged one does not; then it lets the file go, forgets
+  every block read from it, opens the tile anew (fetching it) and reads it
+  again. A tile that fails again fails its query, saying it was had anew as
+  it was: never fetched a third time. A tile that could not be had at all
+  (a failed fetch) is not taken away.
+- **Taking away frees the name at once**: new `take_away` renames the file to
+  a name of its own beside it and removes that, so on Windows a reader still
+  holding it (FileSource shares deletion) cannot leave the name
+  delete-pending for the fetch that follows.
+- **A pinned file is checked against its pin each time it is asked for**
+  (`fetch_pinned`: the geoid, the runways): read whole and hashed, and one
+  that is not what was pinned is taken away and fetched again. The cost,
+  measured on the development machine: 0.09 s for the geoid's 17 MB at -O2,
+  0.43 s in the sanitized debug build - once a program, beside the geoid's
+  own inflating.
+
+**Verification.** New tests in `tests/unit/test_download.cpp`, each building
+its fault explicitly in the cache and a fake bucket that serves the whole
+file, with no network:
+`a_cached_tile_cut_short_or_damaged_is_fetched_again_and_read_whole` (both
+layers, heights and the water mask, with both faults - a file cut short at
+its last block's first byte, checked to be refused as it is opened, and one
+with a byte of its first block changed, checked to open and have that block
+refused - 4 cases, counted: each query answers the whole file's value, the
+file is fetched once from its own URL, is whole in the cache after, and
+nothing set aside or half-written is left);
+`a_tile_still_damaged_when_fetched_again_fails_and_is_not_fetched_a_third_time`
+(a multipart ETag, which nothing checks, serving the damaged file);
+`a_cached_pinned_file_cut_short_or_damaged_is_fetched_again_and_read_whole`
+(2 cases, counted, and a whole one is not fetched again). Linux debug
+(sanitized): the three pass, and the DEM, GeoTIFF, inflate, download and
+ground tests around them (ctest `-I 309,359`, 52 tests) pass. **Seen to
+fail**, each deliberate bug introduced and reverted: the Dem not taking away
+a tile that does not open (the tile test: "a height tile cut short was not
+fetched again ... a read past the end of the file"); not taking away one
+whose block does not decode (the tile test, "a height tile damaged ... fails
+its Adler-32 checksum", and the third-time test); the once-only guard gone
+(the third-time test, which recursed until it died, 26 s); `fetch_pinned`
+not checking a cached file (the pinned test, "a pinned file cut short is
+fetched again, once"). Windows: see below.
+
 ### Each AI aircraft is planned by the model its server chooses, 2026-09-30 — item not done
 
 **What is missing first.** **Nothing chooses a model when an aircraft is
@@ -2822,7 +2891,7 @@ the old way, or one its ACL denies - still fails, and the message gives the
 Windows error, the tries and the time. On a POSIX filesystem with neither
 hard links nor an exclusive rename, a second writer replaces the first's
 file - harmless there, and not built on Windows. A cached file cut short by a
-power cut is not re-fetched: a new tail.
+power cut is not re-fetched: a new tail (done 2026-09-30, above).
 
 **Found by CI** on windows-clang, 2026-09-26: 1 of 3200 threads in
 `many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole` failed with

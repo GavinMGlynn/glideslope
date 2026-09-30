@@ -183,8 +183,76 @@ std::shared_ptr<const ByteSource> DirectoryTiles::open_water_mask(DemDataset dat
     return open_file(directory_ / (dem_water_mask_name(dataset, cell) + ".tif"));
 }
 
+bool DemTiles::take_away(DemDataset, DemCell) {
+    return false;
+}
+
+bool DemTiles::take_away_water_mask(DemDataset, DemCell) {
+    return false;
+}
+
 Dem::Dem(const DemCoverage& coverage, DemTiles& tiles, const Geoid* geoid)
     : coverage_(coverage), tiles_(tiles), geoid_(geoid) {}
+
+void Dem::open_tile(Tile& t, DemCell cell) {
+    const bool heights = t.layer == Layer::heights;
+    const std::string name = heights ? dem_tile_name(t.dataset, cell)
+                                     : dem_water_mask_name(t.dataset, cell);
+    t.opened = false;
+    t.bytes = heights ? tiles_.open(t.dataset, cell)
+                      : tiles_.open_water_mask(t.dataset, cell);
+    // What is wrong with the file from here on is the file's own fault.
+    t.opened = true;
+    try {
+        t.tiff = read_geotiff(*t.bytes);
+    } catch (const GeoTiffError& e) {
+        throw DemError(name + ": " + e.what());
+    }
+    // Heights are floats and a mask's values bytes: either read as the
+    // other would be numbers that mean nothing.
+    if (t.tiff.images[0].bits != (heights ? 32 : 8)) {
+        throw DemError(name + " holds " + std::to_string(t.tiff.images[0].bits) +
+                       "-bit samples, not " + (heights ? "heights" : "a mask"));
+    }
+    t.latitude_step = step_units(t.tiff.latitude_step_deg, name);
+    t.longitude_step = step_units(t.tiff.longitude_step_deg, name);
+    t.rows = t.tiff.images[0].height;
+    t.columns = t.tiff.images[0].width;
+    // The tile must be the cell, sample for sample: its first sample at the
+    // cell's north-west corner, and exactly a degree of samples each way.
+    const double north = cell.latitude + 1;
+    const double west = cell.longitude;
+    if (std::abs(t.tiff.origin_latitude_deg - north) > 1e-9 ||
+        std::abs(t.tiff.origin_longitude_deg - west) > 1e-9 ||
+        t.rows * t.latitude_step != units_per_degree ||
+        t.columns * t.longitude_step != units_per_degree) {
+        throw DemError(name + " does not cover its cell sample for sample");
+    }
+}
+
+bool Dem::take_away(Tile& t, DemCell cell) {
+    // A file that could not be had is not taken away: fetching it failed, and
+    // what is in the cache, if anything, was never read.
+    if (!t.opened) {
+        return false;
+    }
+    // Let go first, so nothing of this Dem's holds the file as it goes.
+    t.bytes.reset();
+    return t.layer == Layer::heights ? tiles_.take_away(t.dataset, cell)
+                                     : tiles_.take_away_water_mask(t.dataset, cell);
+}
+
+void Dem::forget_blocks(const TileKey& key) {
+    for (auto it = block_cache_.begin(); it != block_cache_.end();) {
+        if (it->first.latitude == key.latitude && it->first.longitude == key.longitude &&
+            it->first.layer == key.layer) {
+            block_order_.remove(it->first);
+            it = block_cache_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
 
 const Dem::Tile& Dem::tile(DemCell cell, Layer layer) {
     const TileKey key{cell.latitude, cell.longitude, layer};
@@ -203,58 +271,28 @@ const Dem::Tile& Dem::tile(DemCell cell, Layer layer) {
         t.rows = units_per_degree / t.latitude_step;
         t.columns = units_per_degree / t.longitude_step;
     } else {
-        const bool heights = layer == Layer::heights;
-        const std::string name = heights ? dem_tile_name(t.dataset, cell)
-                                         : dem_water_mask_name(t.dataset, cell);
-        t.bytes = heights ? tiles_.open(t.dataset, cell)
-                          : tiles_.open_water_mask(t.dataset, cell);
         try {
-            t.tiff = read_geotiff(*t.bytes);
-        } catch (const GeoTiffError& e) {
-            throw DemError(name + ": " + e.what());
-        }
-        // Heights are floats and a mask's values bytes: either read as the
-        // other would be numbers that mean nothing.
-        if (t.tiff.images[0].bits != (heights ? 32 : 8)) {
-            throw DemError(name + " holds " + std::to_string(t.tiff.images[0].bits) +
-                           "-bit samples, not " + (heights ? "heights" : "a mask"));
-        }
-        t.latitude_step = step_units(t.tiff.latitude_step_deg, name);
-        t.longitude_step = step_units(t.tiff.longitude_step_deg, name);
-        t.rows = t.tiff.images[0].height;
-        t.columns = t.tiff.images[0].width;
-        // The tile must be the cell, sample for sample: its first sample at the
-        // cell's north-west corner, and exactly a degree of samples each way.
-        const double north = cell.latitude + 1;
-        const double west = cell.longitude;
-        if (std::abs(t.tiff.origin_latitude_deg - north) > 1e-9 ||
-            std::abs(t.tiff.origin_longitude_deg - west) > 1e-9 ||
-            t.rows * t.latitude_step != units_per_degree ||
-            t.columns * t.longitude_step != units_per_degree) {
-            throw DemError(name + " does not cover its cell sample for sample");
+            open_tile(t, cell);
+        } catch (const DemError&) {
+            // Cut short or damaged, perhaps: had anew, once, if it can be.
+            if (!take_away(t, cell)) {
+                throw;
+            }
+            open_tile(t, cell);
         }
     }
     if (tile_cache_.size() >= max_tiles) {
         const TileKey oldest = tile_order_.back();
         tile_order_.pop_back();
         tile_cache_.erase(oldest);
-        for (auto it = block_cache_.begin(); it != block_cache_.end();) {
-            if (it->first.latitude == oldest.latitude &&
-                it->first.longitude == oldest.longitude &&
-                it->first.layer == oldest.layer) {
-                block_order_.remove(it->first);
-                it = block_cache_.erase(it);
-            } else {
-                ++it;
-            }
-        }
+        forget_blocks(oldest);
     }
     tile_order_.push_front(key);
     return tile_cache_.emplace(key, std::move(t)).first->second;
 }
 
 float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
-                         std::int64_t column) {
+                         std::int64_t column, bool anew) {
     if (t.dataset == DemDataset::none) {
         return 0.0f;
     }
@@ -269,10 +307,25 @@ float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
         try {
             block = read_block(*t.bytes, image, across, down);
         } catch (const GeoTiffError& e) {
-            throw DemError((t.layer == Layer::heights
-                                ? dem_tile_name(t.dataset, cell)
-                                : dem_water_mask_name(t.dataset, cell)) +
-                           ": " + e.what());
+            const std::string why = (t.layer == Layer::heights
+                                         ? dem_tile_name(t.dataset, cell)
+                                         : dem_water_mask_name(t.dataset, cell)) +
+                                    ": " + e.what();
+            if (anew) {
+                throw DemError(why + ", had anew as it was");
+            }
+            // Damaged, perhaps: the tile had anew, once, if it can be, with
+            // every block read from the old file forgotten. `t` is the cached
+            // tile, and goes with it.
+            const TileKey tile_key{cell.latitude, cell.longitude, t.layer};
+            Tile gone = std::move(tile_cache_.at(tile_key));
+            tile_cache_.erase(tile_key);
+            tile_order_.remove(tile_key);
+            forget_blocks(tile_key);
+            if (!take_away(gone, cell)) {
+                throw DemError(why);
+            }
+            return stored_sample(tile(cell, gone.layer), cell, row, column, true);
         }
         if (block_cache_.size() >= max_blocks) {
             block_cache_.erase(block_order_.back());
@@ -423,9 +476,11 @@ Water Dem::water(double latitude_deg, double longitude_deg) {
                          static_cast<double>(column * t.longitude_step) /
                              static_cast<double>(units_per_degree));
     }
+    // Kept before the sample, which may have the tile anew and let `t` go.
+    const DemDataset dataset = t.dataset;
     const float value = stored_sample(t, cell, row, column);
     if (value > 3.0f) {
-        throw DemError(dem_water_mask_name(t.dataset, cell) + " holds " +
+        throw DemError(dem_water_mask_name(dataset, cell) + " holds " +
                        std::to_string(static_cast<int>(value)) +
                        ", which is no water body the handbook gives");
     }
