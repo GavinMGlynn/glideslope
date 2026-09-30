@@ -114,10 +114,10 @@ jobs:
   # macos_network_repeats=100`), as many as asked. Every run is counted, a
   # skipped one is not a pass, and a failed one keeps its tracks.
   #
-  # **Its time.** The two checks take some 70 s a run on a macOS runner (the
-  # 200 ms one 34.6 s in PR #67's CI), and building what they need about a
-  # minute from ccache: a hundred of each over four runners is some half an
-  # hour a runner, and the timeout three times that. The four
+  # **Its time.** The two checks take some 68 s a run on a macOS runner, and
+  # building what they need about a minute from ccache: a hundred of each
+  # over four runners took 30 to 31 minutes a runner (run 36705059324), and
+  # the timeout is three times that. The four
   # wait for macOS runners like any other job, and at 17:00 UTC they share
   # them with whatever else is queued - a dispatched run waited twenty
   # minutes for its first two (2026-09-30).
