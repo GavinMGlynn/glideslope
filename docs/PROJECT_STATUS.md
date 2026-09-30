@@ -232,13 +232,16 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### A slow Windows configure was a new runner image, rebuilt by every pull request; now the first job publishes, 2026-09-30 — tail still open
+### A slow Windows configure was a new runner image, rebuilt by every pull request; now pull requests may publish, 2026-09-30 — tail still open
 
 **What is still missing, first**: the plan item's verification - every
 Windows configure whose vcpkg cache hit under 3 minutes, over a week of runs
-on main - is not yet counted; a week has not passed. And a new image still
-costs more than one rebuild while it arrives: every job that lands on it
-before the first one has finished and uploaded (about 22 minutes) builds too.
+on main - is not yet counted; a week has not passed. No pull request's
+upload has been seen yet: this branch's runs only read (it changes
+`.github/`), and the first comes with the next new image or port change on
+a pull request allowed to write. And a new image will still cost more than
+one rebuild while it arrives: every job that lands on it before the first
+has finished and uploaded (about 22 minutes) builds too.
 
 **The cause, from the logs, not a guess.** The ~1,370 s configures were not a
 wait but a full rebuild of the 39 packages ("All requested installations
@@ -275,19 +278,40 @@ there (run 36680141695) and uploaded the new versions (abseil's, for one, at
 while main's job was building and uploading; what it restored its log does
 not say, which is what the logging below is for.
 
-**The fix.** Every job writes to the feed, a pull request's too
-(`.github/actions/vcpkg-github-packages` has no `write` input now; ci.yml's
-three Windows builds and package.yml's Windows zip pass none). The Actions
-cache's reason for read-only pull requests - one 10 GB for the repository,
-which pull requests' saves crowded main out of - does not hold for public
-packages, which are free and have no limit, and each version is keyed by its
-ABI, so a pull request that changes a port uploads under a hash main never
-asks for. A fork's pull request has no `VCPKG_PAT` and builds from source,
-as before.
+**The fix.** A pull request's Windows jobs have write access to the feed
+too, unless its diff could change how a package builds. The Actions cache's
+reason for read-only pull requests - one 10 GB for the repository, which
+pull requests' saves crowded main out of - does not hold for public
+packages, which are free and have no limit. But the ABI hash does not cover
+everything (review found this): it covers the port files, triplet, cl.exe's
+hash, toolchain file, CMake and PowerShell versions, helper scripts,
+dependencies and VCPKG_ENV_PASSTHROUGH, not vcpkg's own binary, the rest of
+the MSVC toolset and SDK, tools on PATH, or variables kept by
+VCPKG_KEEP_ENV_VARS (`_CL_=/Od`, say); and a NuGet version is written once,
+first writer wins. A port change uploads under a hash main never asks for,
+but a pull request that changed the workflow or the CMake around vcpkg could
+publish packages main would restore for ever. So ci.yml's `changes` job
+gives the three Windows builds and package.yml's Windows zip `write` - true
+on main (push, schedule), and on a pull request only when its diff against
+its base touches none of `.github/`, `cmake/`, the top-level
+`CMakeLists.txt`, `CMakePresets.json`, `vcpkg.json`,
+`vcpkg-configuration.json`, `.gitmodules` or `ext/cesium-native`; otherwise,
+or when the diff cannot be taken, false. A bad version is deleted by hand
+(the action's header says how). A fork's pull request has no `VCPKG_PAT`
+and builds from source, as before.
+
+**The guard, checked dry**: the step's script, taken from ci.yml, run
+against real commits - a pull request touching only `src/`, `tests/` and
+`tests/cmake/` (1a6c8f5..2753af1) writes; one touching the top-level
+`CMakeLists.txt` (0c39005..1a6c8f5) and this branch (`.github/`, `cmake/`)
+only read; a base that is missing or not fetched reads; a push or the
+schedule on main writes; a dispatch on another branch reads.
 
 **Now visible in every job's log.** `cmake/Vcpkg.cmake` prints vcpkg's
 summary lines - the compiler it found, what it restored and from where, each
-package it built with its time, each upload - not only the last line; CI
+package it built with its time, each upload, and an upload refused ("Pushing
+NuGet to ... failed", NuGet's status code; checked with `cmake -P` on sample
+output) - not only the last line; CI
 keeps `vcpkg-install.log` from each Windows configure as the artifact
 `vcpkg-install-<preset>` (14 days); and the feed's step prints the runner
 image. On this branch's run 36686994405, windows-clang on 20260922.246.2

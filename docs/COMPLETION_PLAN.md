@@ -731,8 +731,9 @@ Found while implementing something else. Added when found, not when remembered.
       (26-28 minutes a Windows configure). *Verification: a new runner image
       costs one rebuild, saved, not one per run.* Windows uses GitHub
       Packages, public, and restores its 39 packages from them (22 s);
-      every job writes to them now, but jobs that land on a new image before
-      the first has uploaded (about 22 minutes) still rebuild too. Linux and
+      pull requests may now write to them too, unless they change what
+      builds them, but no pull request's upload is seen yet, and jobs that
+      land on a new image before the first upload still rebuild. Linux and
       macOS use a cache keyed on the image.
 - [ ] **A CI run takes 90-120 minutes where its jobs need about 40**: the
       Actions caches overflowed their 10 GB and builds compiled from nothing.
@@ -752,8 +753,8 @@ Found while implementing something else. Added when found, not when remembered.
       hit takes under 3 minutes, over a week of runs on main.* Found
       2026-09-30: not a wait but a rebuild, on runners with a newer image's
       compiler, repeated by every pull request because only main uploaded;
-      every job uploads now, and a configure prints what vcpkg restored and
-      built. The week on main is not yet counted.
+      pull requests may upload now, and a configure prints what vcpkg
+      restored and built. The week on main is not yet counted.
 - [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of
