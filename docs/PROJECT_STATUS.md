@@ -367,7 +367,11 @@ stopped and how many times the policy decided: in ten knots of crosswind,
 - **`land` takes only what it can use**: a word, trailing text, a NaN or an
   infinity for a number, and fuel below nothing or above what each of the
   model's tanks holds (185 lb for the C172P's), each refused with a test;
-  `--fuel` fills every tank the model has. Seen to fail: "10kt" read as 10
+  `--fuel` fills every tank the model has; fuel below nothing is refused
+  before the tanks are looked at, and a model with no tanks refuses it
+  (untested: every aircraft here has tanks). The node cache makes even a
+  const `Aircraft` write, so its header says it is used from one thread.
+  Seen to fail: "10kt" read as 10
   with the whole-word check taken out.
 - **`Lander::touched()`** replaces `land`'s guess from the touchdown
   figures, and `land c172p` without `--learnt` has a test (seen to fail
