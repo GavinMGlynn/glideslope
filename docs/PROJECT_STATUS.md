@@ -290,8 +290,31 @@ asked and not insisted on.
   (`Flight::Flight`) and the terrain (`Ground`, `client/terrain.cpp`) each
   load it - beside the geoid's own inflating.
 
+- **The runways' source can be named for a test**:
+  `GLIDESLOPE_RUNWAYS_SOURCE` (`platform::runways_source`, read by
+  `world::runways_host`), a scheme and host put in place of
+  `https://raw.githubusercontent.com`, allowed as a weather service's
+  stand-in is - https, or http to the loopback - and the file still held to
+  its pinned SHA-256 wherever it comes from. #62's
+  `an_ai_aircraft_whose_runways_cannot_be_read_flies_the_plan_file_and_the_server_goes_on`
+  built "OurAirports unreachable" from a damaged cached copy alone, which is
+  now fetched again: on CI it fetched the real runways and planned the
+  aircraft ("the aircraft was not said to be unplannable", every platform,
+  on e216e07). It now points the runways at `http://127.0.0.1:1`, where
+  nothing listens, beside the damaged copy, and expects "could not download
+  ... 127.0.0.1:1" in the message; its five refused tries wait about 30 s
+  between them, so it takes 31 s, and its CI costs say 32.
+
 **Verification.** Tests in `tests/unit/test_download.cpp`, each building its
 fault explicitly and a fake bucket, with no network:
+- `the_runways_may_be_fetched_elsewhere_for_a_test_and_are_still_held_to_their_pin`:
+  unset, GitHub; set to the loopback, the fetch goes there and a file that
+  is not the pinned one is refused and not kept; plain http to another
+  machine is refused by name. With the variable ignored (a deliberate bug)
+  it failed, "the fetch goes where the test says: https://raw.githubusercontent.com/...",
+  and so did the server test, as on CI: "the aircraft was not said to be
+  unplannable ... AI 1 planned by openai". Reverted, both pass (Linux
+  debug; the server test 31 s).
 - `a_cached_tile_cut_short_or_damaged_is_fetched_again_and_read_whole`:
   both datasets (glo30 at Sydney, glo90 in Armenia, each in its own cache
   directory), both layers, and three faults - empty (the commonest power-cut
@@ -454,7 +477,13 @@ asking, for tests.
   its own - the downloads linked, OurAirports' runways a file with no
   runways' columns, which the cache is not fetched past - so the runways
   cannot be had without touching the network. The server says the aircraft
-  cannot be planned and it flies the plan file.
+  cannot be planned and it flies the plan file. **Changed the same day** by
+  "A cached tile cut short or damaged is fetched again" (above): a cached
+  copy that is not the pinned file is now fetched again, so on CI, with
+  the network, the real runways arrived and the aircraft was planned. The
+  test now also sends the runways' fetch where nothing listens
+  (`GLIDESLOPE_RUNWAYS_SOURCE=http://127.0.0.1:1`), as OurAirports
+  unreachable, and expects the refused download in the message.
 - Ten `--dry-run` refusals, `the_server_refuses_...`: a planner for AI
   aircraft 3 of 2, and for AI aircraft 0; a planner not anthropic, openai
   or none; a playback for an aircraft with no model; a task with no model;

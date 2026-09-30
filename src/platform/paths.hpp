@@ -78,6 +78,15 @@ std::string anthropic_key();
 // have a bad minute.
 std::string weather_service();
 
+// **Where OurAirports' runways are asked instead of GitHub, for a test.**
+// GLIDESLOPE_RUNWAYS_SOURCE, a scheme and host such as `http://127.0.0.1:1`,
+// put in place of `https://raw.githubusercontent.com` in the runways' URL;
+// empty when it is not set. The file is still checked against its pinned
+// SHA-256, wherever it comes from. It exists so a test can build "OurAirports
+// unreachable" on purpose, with no network: a copy in the cache that is not
+// the pinned file is fetched again, so a damaged copy alone no longer is.
+std::string runways_source();
+
 // **The default server, as a line anybody can send you.** `--online` reads
 // it: one line naming a host, a port and the server's public key, which is
 // what a client needs and all it needs (`REQUIREMENTS.md` 6.6).

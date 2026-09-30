@@ -395,11 +395,26 @@ std::shared_ptr<const ByteSource> DownloadedTiles::fetched(DemDataset dataset,
     }
 }
 
+std::string runways_host() {
+    const std::string instead = platform::runways_source();
+    if (instead.empty()) {
+        return "https://raw.githubusercontent.com";
+    }
+    // As a weather service's stand-in is allowed: https, or the loopback.
+    if (!weather_service_allowed(instead)) {
+        throw RunwayError("GLIDESLOPE_RUNWAYS_SOURCE is \"" + instead +
+                          "\": it must be an https:// host, or http:// to 127.0.0.1 or "
+                          "localhost");
+    }
+    return instead;
+}
+
 std::vector<RunwayEnd> world_runways(const std::filesystem::path& cache, const Fetch& fetch) {
     const std::filesystem::path path = fetch_pinned(
         cache, "ourairports-runways.csv",
-        "https://raw.githubusercontent.com/davidmegginson/ourairports-data/"
-        "a46b8eb13173dc6351a7b6abaf34bd0ec9db48d0/runways.csv",
+        runways_host() +
+            "/davidmegginson/ourairports-data/"
+            "a46b8eb13173dc6351a7b6abaf34bd0ec9db48d0/runways.csv",
         "ae9a7661f230731cb4fef3a291991cd440f8a68593f41d773092798fc6ec9a8c", fetch);
     // Read as a DEM tile is (world/byte_source.hpp): on Windows a file
     // fetched into place by another process's rename is still readable while

@@ -11,6 +11,7 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <cstdlib>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -553,6 +554,69 @@ GLIDESLOPE_TEST(a_cached_pinned_file_cut_short_or_damaged_is_fetched_again_and_r
 // A file found wanting is taken away only if it is still the file that was
 // read: one another process has put in its place since - having found the
 // same file wanting and fetched it first - is left there.
+namespace {
+// GLIDESLOPE_RUNWAYS_SOURCE set to `value` for as long as this lives, and
+// taken away after.
+struct RunwaysSource {
+    explicit RunwaysSource(const std::string& value) {
+#if defined(_WIN32)
+        _putenv_s("GLIDESLOPE_RUNWAYS_SOURCE", value.c_str());
+#else
+        setenv("GLIDESLOPE_RUNWAYS_SOURCE", value.c_str(), 1);
+#endif
+    }
+    ~RunwaysSource() {
+#if defined(_WIN32)
+        _putenv_s("GLIDESLOPE_RUNWAYS_SOURCE", "");
+#else
+        unsetenv("GLIDESLOPE_RUNWAYS_SOURCE");
+#endif
+    }
+    RunwaysSource(const RunwaysSource&) = delete;
+    RunwaysSource& operator=(const RunwaysSource&) = delete;
+};
+} // namespace
+
+// A test may send the runways' fetch elsewhere - to build "OurAirports
+// unreachable" - but only over https or to the loopback, and what arrives
+// from there is still held to the pinned SHA-256.
+GLIDESLOPE_TEST(the_runways_may_be_fetched_elsewhere_for_a_test_and_are_still_held_to_their_pin) {
+    const auto cache = scratch("runways-elsewhere");
+    check(glideslope::world::runways_host() == "https://raw.githubusercontent.com",
+          "unset, the runways come from GitHub");
+    {
+        const RunwaysSource source("http://127.0.0.1:1");
+        const std::vector<std::uint8_t> not_them = {'a', ',', 'b', '\n'};
+        std::vector<std::string> asked;
+        bool refused = false;
+        try {
+            (void)glideslope::world::world_runways(cache,
+                                                   serving(not_them, "\"x\"", asked));
+        } catch (const DemError& e) {
+            refused = std::string(e.what()).find("not the pinned") != std::string::npos;
+        }
+        check(asked.size() == 1 &&
+                  asked[0].rfind("http://127.0.0.1:1/davidmegginson/ourairports-data/", 0) == 0,
+              "the fetch goes where the test says: " + (asked.empty() ? "" : asked[0]));
+        check(refused, "a file that is not the pinned one is refused, wherever it came from");
+        check(!std::filesystem::exists(cache / "ourairports-runways.csv"),
+              "and is not kept");
+    }
+    {
+        const RunwaysSource source("http://example.org");
+        bool refused = false;
+        try {
+            (void)glideslope::world::runways_host();
+        } catch (const glideslope::world::RunwayError& e) {
+            refused = std::string(e.what()).find("GLIDESLOPE_RUNWAYS_SOURCE") !=
+                      std::string::npos;
+        }
+        check(refused, "plain http to another machine is refused, by name");
+    }
+    check(glideslope::world::runways_host() == "https://raw.githubusercontent.com",
+          "unset again, GitHub again");
+}
+
 GLIDESLOPE_TEST(a_file_put_in_place_by_another_since_it_was_read_is_not_taken_away) {
     const auto directory = scratch("taken-away-by-identity");
     const auto path = directory / "tile.tif";
