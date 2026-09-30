@@ -33,6 +33,7 @@
 #include "sim/plan.hpp"
 #include "world/runways.hpp"
 
+#include <cstddef>
 #include <future>
 #include <memory>
 #include <optional>
@@ -40,6 +41,15 @@
 #include <vector>
 
 namespace glideslope::copilot {
+
+// **What a route may hold to be sent to a server** (`COPILOT_ROUTE`,
+// net/messages.hpp, which this cannot see and which holds these same limits -
+// frontend/players_copilot.cpp asserts it): so many waypoints, each named in
+// so many letters, digits and underscores, round an orbit so many times.
+// An answer past them is refused back to the model, not sent to be dropped.
+inline constexpr std::size_t most_route_waypoints = 12;
+inline constexpr std::size_t most_waypoint_name_bytes = 32;
+inline constexpr int most_orbit_turns = 255;
 
 // What the copilot is told once: the aircraft, and what the pilot asked.
 struct Brief {

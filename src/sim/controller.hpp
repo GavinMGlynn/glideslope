@@ -105,7 +105,9 @@ public:
     void replan(FlightPlan plan);
     // **A glide**: the plan's route steered at `airspeed_kts`, held by the
     // vertical speed asked of the autopilot, its heights not flown - for an
-    // engine that has stopped. None flies the plan's heights again.
+    // engine that has stopped. None flies the plan's heights again, and so
+    // does handing the aircraft over either way (to_ai, to_pilot and the
+    // rest): a glide ends with the route it came with.
     void set_glide(std::optional<double> airspeed_kts);
     std::optional<double> glide() const {
         return glide_kts_;

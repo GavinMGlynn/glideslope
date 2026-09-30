@@ -85,6 +85,8 @@ struct ConnectCopilot {
     int answers = 1;     // leaves once this many are answered...
     double stay_s = 60.0; // ...and this long after the last route sent
     std::string route_file; // or, sent as it is: a route the model never saw
+    bool route_for_another = false; // ...for another aircraft's number
+    bool route_when_wrecked = false; // ...once its own is a wreck
     std::unique_ptr<glideslope::frontend::PlayersCopilot> seat;
     bool asked = false;
     bool route_sent = false;
@@ -2426,9 +2428,31 @@ int stay(glideslope::platform::UdpSocket& socket,
                     if (a.index != mine || now_s < cc.at_s) {
                         continue;
                     }
-                    if (!cc.route_file.empty() && !cc.route_sent) {
-                        cc.route_sent = true;
-                        send_route(route_from_file(cc.route_file));
+                    if (!cc.route_file.empty() && !cc.route_sent &&
+                        (!cc.route_when_wrecked ||
+                         a.condition == glideslope::net::Condition::wrecked)) {
+                        glideslope::net::CopilotRoute route = route_from_file(cc.route_file);
+                        std::uint8_t to = mine;
+                        if (cc.route_for_another) {
+                            for (const glideslope::net::AircraftState& other : state->aircraft) {
+                                if (other.index != mine) {
+                                    to = other.index;
+                                    break;
+                                }
+                            }
+                        }
+                        if (to != mine || !cc.route_for_another) {
+                            cc.route_sent = true;
+                            route.aircraft = to;
+                            const std::vector<std::uint8_t> body = glideslope::net::write(route);
+                            (void)reliable.send(
+                                std::span<const std::uint8_t>(body.data(), body.size()));
+                            cc.sent_at_s = now_s;
+                            say_heard("sent its copilot's route of " +
+                                      std::to_string(route.waypoints.size()) + " for aircraft " +
+                                      std::to_string(to) + " at " +
+                                      std::to_string(std::llround(now_s)) + " s");
+                        }
                     }
                     if (cc.seat) {
                         if (!cc.asked) {
@@ -3486,6 +3510,16 @@ static int run_program(int argc, char** argv) {
                 // **A route sent as it is** (`--send-route FILE`), at
                 // `--copilot-at`: what a client could send that its copilot
                 // never checked, for the server to refuse.
+                // ...for another aircraft than its own (`--route-for-another`),
+                // or once its own is a wreck (`--route-when-wrecked`).
+                if (args[i] == "--route-for-another") {
+                    connect_copilot.route_for_another = true;
+                    continue;
+                }
+                if (args[i] == "--route-when-wrecked") {
+                    connect_copilot.route_when_wrecked = true;
+                    continue;
+                }
                 if (args[i] == "--send-route" && i + 1 < args.size()) {
                     connect_copilot.route_file = std::string(args[i + 1]);
                     ++i;

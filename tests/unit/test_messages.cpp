@@ -982,7 +982,7 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
 // indices, names, a hash and a number - so there is nothing in them for this
 // to walk.
 //
-// Each of the nineteen is overwritten with six bit patterns that are not a
+// Each of the twenty-five is overwritten with six bit patterns that are not a
 // number and must be refused, and five that are numbers however extreme and
 // must still read: 150 refusals and 125 readings, each counted.
 GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an_infinity) {
@@ -1049,4 +1049,81 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
                                   std::to_string(accepted));
     std::printf("  25 floating-point fields: %zu refused, %zu still read\n", refused,
                 accepted);
+}
+
+// **Every refusal `docs/TRANSPORT.md` names for a `COPILOT_ROUTE`**, each
+// built on purpose rather than hoped for from the byte walks above: no
+// waypoints, thirteen, a name of 33 bytes, an empty name, a name holding
+// anything but letters, digits and underscores - a newline, which would
+// smuggle in plan lines, a `#`, which would comment one out, an escape, which
+// would reach the operator's terminal, and a space - a flag that is neither
+// `00` nor `01` in each of its three places, and a glide airspeed that is not
+// nought with no glide. And the one they are all changed from reads.
+GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_copilot_route_is_refused) {
+    const auto reads = [](const std::vector<std::uint8_t>& body) {
+        CopilotRoute got;
+        return glideslope::net::read(std::span<const std::uint8_t>(body.data(), body.size()), got);
+    };
+    RouteWaypoint plain;
+    plain.name = "NORTH";
+    plain.latitude_deg = -33.8;
+    plain.longitude_deg = 151.3;
+    plain.altitude_ft = 3000.0;
+    plain.airspeed_kts = 100.0;
+    RouteWaypoint round = plain;
+    round.orbit = RouteWaypoint::Orbit{1500.0, 1, true};
+    CopilotRoute good;
+    good.aircraft = 1;
+    good.waypoints = {plain, round};
+    check(reads(glideslope::net::write(good)), "the route every case is changed from reads");
+
+    std::vector<std::pair<std::string, std::vector<std::uint8_t>>> refused;
+    const auto with = [&](const std::string& what, const auto& change) {
+        CopilotRoute r = good;
+        change(r);
+        refused.emplace_back(what, glideslope::net::write(r));
+    };
+    with("no waypoints", [](CopilotRoute& r) { r.waypoints.clear(); });
+    with("13 waypoints", [&](CopilotRoute& r) {
+        r.waypoints.assign(glideslope::net::most_route_waypoints + 1, plain);
+    });
+    with("a 33-byte name", [](CopilotRoute& r) {
+        r.waypoints[0].name = std::string(glideslope::net::most_waypoint_name_bytes + 1, 'N');
+    });
+    with("an empty name", [](CopilotRoute& r) { r.waypoints[0].name.clear(); });
+    with("a name with a newline", [](CopilotRoute& r) {
+        r.waypoints[0].name = "A\nwaypoint B -34 151 3000 100";
+    });
+    with("a name with a hash", [](CopilotRoute& r) { r.waypoints[0].name = "A#B"; });
+    with("a name with an escape", [](CopilotRoute& r) { r.waypoints[0].name = "A\x1b[2J"; });
+    with("a name with a space", [](CopilotRoute& r) { r.waypoints[0].name = "A B"; });
+    // The flags, by their place: the glide's is byte 2; the first waypoint's
+    // orbit flag follows its name and four f64s; the last byte is the
+    // second's direction.
+    const std::vector<std::uint8_t> bytes = glideslope::net::write(good);
+    const std::size_t glide_flag = 2;
+    const std::size_t first_orbit_flag = 12 + 2 + plain.name.size() + 4 * 8;
+    for (const auto& [what, at] :
+         std::vector<std::pair<std::string, std::size_t>>{{"a glide flag of 2", glide_flag},
+                                                          {"an orbit flag of 2", first_orbit_flag},
+                                                          {"a direction of 2", bytes.size() - 1}}) {
+        std::vector<std::uint8_t> b = bytes;
+        check(b[at] <= 1, what + ": the byte changed is a flag");
+        b[at] = 2;
+        refused.emplace_back(what, b);
+    }
+    {
+        std::vector<std::uint8_t> b = bytes;
+        check(b[glide_flag] == 0, "the good route glides not");
+        b[glide_flag + 1 + 6] = 0xF0; // the airspeed's exponent: 1.0
+        b[glide_flag + 1 + 7] = 0x3F;
+        refused.emplace_back("a glide airspeed with no glide", b);
+    }
+    std::size_t walked = 0;
+    for (const auto& [what, body] : refused) {
+        check(!reads(body), "a route with " + what + " is refused");
+        ++walked;
+    }
+    check(walked == 12 && refused.size() == 12, "all 12 refusals were tried, not " +
+                                                    std::to_string(walked));
 }

@@ -189,6 +189,28 @@ Change read_change(const Brief& b, const Situation& now, const std::string& answ
                              " " + whole(now.heading_deg) + " " +
                              whole(std::max(now.airspeed_kts, 1.0)) + "\n" + route;
     out.plan = sim::parse_flight_plan(plan);
+    if (out.plan.waypoints.size() > most_route_waypoints) {
+        throw sim::FlightPlanError("a route of " + std::to_string(out.plan.waypoints.size()) +
+                                   " waypoints: at most " +
+                                   std::to_string(most_route_waypoints));
+    }
+    for (const sim::Waypoint& w : out.plan.waypoints) {
+        const bool word =
+            !w.name.empty() && std::all_of(w.name.begin(), w.name.end(), [](char c) {
+                return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                       (c >= '0' && c <= '9') || c == '_';
+            });
+        if (!word || w.name.size() > most_waypoint_name_bytes) {
+            throw sim::FlightPlanError("the name `" + w.name + "` is not " +
+                                       std::to_string(most_waypoint_name_bytes) +
+                                       " letters, digits and underscores or fewer");
+        }
+        if (w.orbit && w.orbit->turns > most_orbit_turns) {
+            throw sim::FlightPlanError(w.name + " is flown round " +
+                                       std::to_string(w.orbit->turns) + " times: at most " +
+                                       std::to_string(most_orbit_turns) + ", or 0 for ever");
+        }
+    }
     return out;
 }
 

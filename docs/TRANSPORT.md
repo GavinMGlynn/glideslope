@@ -595,8 +595,14 @@ any hand-over is, and the client stops predicting it.
 | `u8` | how many times round, `00` for round and round |
 | `u8` | `01` turning right, `00` turning left |
 
-At its limits this is 925 bytes. A count of none, a flag other than `00` or
-`01`, and a glide airspeed other than nought with the flag `00` are refused.
+At its limits this is 936 bytes: 12 before the waypoints, and 78 for each
+of twelve orbits with 32-byte names - a text's two-byte length, 32 bytes, four
+`f64`s, the flag, the radius, the turns and the direction. A count of none or
+more than 12, a name longer than 32 bytes, an empty name or one with any byte
+but `A`-`Z`, `a`-`z`, `0`-`9` and `_` - a newline would add a plan's line, a
+`#` comment one out, and an escape reach the operator's terminal - a flag
+other than `00` or `01` in any of its three places, and a glide airspeed
+other than nought with the flag `00` are refused.
 
 ### What a reader must refuse
 

@@ -4,7 +4,8 @@
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli> -DDATA=<data dir>
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
-#         (-DPLAYBACK=<recording> | -DRECORD=<recording> | -DROUTE=<route file>)
+#         (-DPLAYBACK=<recording> | -DRECORD=<recording>
+#          | -DROUTE=<route file> -DEXPECT=<regex> [-DFOR=another|wreck] [-DPLAN=<plan>])
 #         [-DPROVIDER=openai|anthropic -DMODEL=<model>]
 #         -P server_copilot.cmake
 #
@@ -20,8 +21,12 @@
 # until it has gone.
 #
 # **Sent as it is** (ROUTE): a route the client's copilot never checked, one
-# the server cannot fly. The server must refuse it, saying why, and neither
-# hand the aircraft to the AI nor fly it.
+# the server cannot fly. The server must refuse it, saying why (EXPECT), and
+# neither hand the aircraft to the AI nor fly it - and go on: both programs
+# end as they should. FOR=another sends it for another aircraft's number, and
+# FOR=wreck once the client's own is a wreck (it dives into the sea, as
+# server_swap_wreck.cmake's does); PLAN gives the server a plan whose aircraft
+# - the players' too - is one whose figures give no speeds to check against.
 #
 # Asked of PROVIDER now costs money, so only with GLIDESLOPE_LIVE_MODEL=1; else
 # skipped (exit 77), before anything else. Without the DEM's tiles, skipped.
@@ -57,8 +62,17 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
+set(_plan)
+if(DEFINED PLAN)
+    set(_plan --plan "${PLAN}")
+endif()
 if(DEFINED ROUTE)
     set(_asking --send-route "${ROUTE}" --copilot-stay 10)
+    if(FOR STREQUAL "another")
+        list(APPEND _asking --route-for-another)
+    elseif(FOR STREQUAL "wreck")
+        list(APPEND _asking --route-when-wrecked --dive-after 1)
+    endif()
 else()
     set(_asking --copilot c172p "fly to Manly at 3,000 ft, then orbit over Manly beach"
                 --copilot-provider ${PROVIDER} --copilot-stay 60)
@@ -79,7 +93,7 @@ execute_process(
     COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 300 --after 1
             --predict --copilot-at 5 ${_asking} --heard "${_heard}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 400 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}"
+            --data "${DATA}" --timeout 5 --store "${_store}" ${_plan}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _served ERROR_VARIABLE _err)
 if(NOT EXISTS "${_heard}")
     message(FATAL_ERROR "the client heard nothing (exit codes ${_rcs}):\n${_served}\n${_err}")
@@ -101,6 +115,9 @@ if(DEFINED ROUTE)
         message(FATAL_ERROR "the server did not refuse the route:\n${_served}")
     endif()
     set(_why "${CMAKE_MATCH_1}")
+    if(DEFINED EXPECT AND NOT _why MATCHES "${EXPECT}")
+        message(FATAL_ERROR "the server refused the route, but not because ${EXPECT}: ${_why}")
+    endif()
     if(_served MATCHES "flies its copilot's route" OR _served MATCHES "handed to the AI")
         message(FATAL_ERROR "the server refused the route and flew it anyway:\n${_served}")
     endif()

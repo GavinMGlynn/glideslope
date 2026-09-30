@@ -232,9 +232,11 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The copilot flies with you, on a server: asked on the player's machine, flown by the server, 2026-09-30 — item done
+### The copilot flies with you, on a server: asked on the player's machine, flown by the server, 2026-09-30 — item not done
 
-**What a player's copilot is not told**: whether the engine runs - no state
+**Missing first: on a server, a player's copilot cannot handle an engine
+failure** - the review found the item ticked on that, wrongly. **What a
+player's copilot is not told**: whether the engine runs - no state
 update says so, so a player's copilot is told it does (a tail, below). No
 engine can yet be failed on a server, so nothing on one needs it. The
 server's own AI aircraft do not ask a model in flight: each is planned once,
@@ -245,7 +247,7 @@ is planned by the model its server chooses", below).
 REQUIREMENTS.md section 5 and 6.4, TRANSPORT.md, THREATS.md). The player's
 client asks the model with the player's key, and sends the server only the
 route it answered, as a new reliable message, `COPILOT_ROUTE` (`09`):
-waypoints and orbits, and a glide airspeed, at most 12 waypoints, 925 bytes at
+waypoints and orbits, and a glide airspeed, at most 12 waypoints, 936 bytes at
 its limits, written byte for byte in TRANSPORT.md. **The server trusts it no
 further than a plan**: it reads it as one (`sim::parse_flight_plan`) from
 where its own aircraft is, checks it with the checks a copilot's answer is
@@ -299,6 +301,42 @@ server says where each copilot's route has got to every half minute.
   recording runs out, says what it measured, and fails after (exit 3), so
   with the glide not flown the test is red for the glide - "67 to 72 kt, not
   within 5 kt of the 60 kt asked for" - before it is red for the recording.
+
+**From the review (2026-09-30), fixed:**
+
+- **One route could end the server.** Checking a route worked out the
+  aircraft's speeds from its published figures there and then, which throws
+  for an aircraft whose figures give none (the 747-400, the F-22), and
+  nothing caught it. The speeds are now worked out once, as an aircraft is
+  made, and kept by model; a route for an aircraft with none is refused,
+  saying why; and whatever else a check throws is a refusal.
+  `a_flyable_route_is_refused_when_its_speeds_are_not_known_and_the_server_goes_on`
+  gives the server a plan flown by a 747-400 (`tests/data/copilot/747-off-bondi.plan`):
+  refused, "747-400 publishes no stall speed", both programs ending as they
+  should. Red with the old code: the server died (exit codes 0;1).
+- **Whose aircraft**: `a_flyable_route_is_refused_when_it_is_not_this_client_s_aircraft_and_the_server_goes_on`
+  sends a flyable route for the AI's aircraft, and
+  `a_flyable_route_is_refused_when_it_is_a_wreck_and_the_server_goes_on` one
+  for the client's own once it is a wreck; each refused, nothing handed
+  over. Red with each check taken out.
+- **A waypoint's name is letters, digits and underscores**, and something,
+  or the message is refused: a newline had smuggled plan lines past the
+  12-waypoint limit, a `#` commented one out, and an escape reached the
+  operator's terminal. `every_refusal_the_document_names_for_a_copilot_route_is_refused`
+  builds all twelve refusals TRANSPORT.md names, one by one - red with the
+  names unchecked. The message at its limits is **936 bytes**, not the 925
+  first written: a text's length is two bytes.
+- **An answer that could not be sent is refused back to the model**: a name
+  over 32 bytes or not a word, more than 12 waypoints, or round an orbit
+  more than 255 times - which the client had sent anyway, for the server to
+  drop unread. The limits are the message's, asserted equal at compile
+  time.
+- A glide ends with every hand-over (`sim::Controller`, to the AI or back);
+  a copilot's route ends with its wreck and its take-back. A route replaces
+  the server's plan for an aircraft a player took over, on purpose: wrecked,
+  it flies again holding its course, as any player's aircraft the AI flies.
+- THREATS.md says the ground along a route is not checked - only 500 ft
+  above the ground beneath the aircraft as it is read.
 
 ### The copilot flies with you, in `glideslope_cli fly-copilot`, 2026-09-30 — finished above
 

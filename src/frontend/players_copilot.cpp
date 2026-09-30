@@ -18,6 +18,10 @@
 
 namespace glideslope::frontend {
 
+static_assert(copilot::most_route_waypoints == net::most_route_waypoints &&
+                  copilot::most_waypoint_name_bytes == net::most_waypoint_name_bytes,
+              "what a copilot may answer is what a COPILOT_ROUTE may carry");
+
 namespace {
 
 constexpr double feet_per_metre = 3.280839895013123;
@@ -186,17 +190,11 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
         p.airspeed_kts = w.airspeed_kts;
         if (w.orbit) {
             p.orbit = net::RouteWaypoint::Orbit{w.orbit->radius_m,
-                                                static_cast<std::uint8_t>(std::clamp(w.orbit->turns, 0, 255)),
+                                                static_cast<std::uint8_t>(w.orbit->turns),
                                                 w.orbit->right};
         }
         route.waypoints.push_back(std::move(p));
         names += " " + w.name;
-    }
-    if (route.waypoints.size() > net::most_route_waypoints) {
-        said_.push_back("its copilot's route of " + std::to_string(route.waypoints.size()) +
-                        " waypoints is more than " + std::to_string(net::most_route_waypoints) +
-                        " can be sent: not sent");
-        return std::nullopt;
     }
     route_ = change->plan.waypoints;
     said_.push_back("its copilot answered with a route of " +
