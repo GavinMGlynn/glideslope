@@ -21,19 +21,28 @@ constexpr double most_intercept_deg = 30.0;
 // The drift is averaged over five seconds, and measured only moving.
 constexpr double drift_average_s = 5.0;
 constexpr double least_speed_fps = 10.0;
-// Towards an orbit's circle: 90 degrees for each kilometre off it, 45 at most;
-// and along the tangent where the aircraft will be this long ahead, which the
-// heading it is asked for takes about that long to become.
+// **Round an orbit the heading asked for is kept ahead of the tangent by what
+// the autopilot needs to bank for the circle**, atan(v^2 / g r) at the
+// ground speed (sim::heading_off_for_bank_deg); turned in towards the circle
+// by 90 degrees for each kilometre off it, 45 at most; and trimmed by an
+// integral on how far off it is, a sixtieth of that each second, 15 degrees at
+// most, for what the autopilot's bank and the aeroplane's turn do not quite
+// agree on. It was led along the tangent by five seconds, which is what a
+// wide circle needs and more than a tight, slow one does: Claude's 521 m
+// orbit at 60 kt was flown 94 to 127 m inside.
 constexpr double orbit_intercept_per_metre = 90.0 / 1000.0;
 constexpr double most_orbit_intercept_deg = 45.0;
-constexpr double gravity_mps2 = 9.80665;
-// On an orbit's circle, and counting the turns round it: within this of it.
-// Reached from outside, that is where it is first crossed; from inside - a
-// plan that flies to the orbit's centre first - the aircraft is steered out
-// to it, and the turns spiralling out are not counted.
-constexpr double orbit_joined_m = 100.0;
-constexpr double orbit_trim_per_metre_s = 0.09 / 60.0;
+constexpr double orbit_trim_per_metre_s = orbit_intercept_per_metre / 60.0;
 constexpr double most_orbit_trim_deg = 15.0;
+constexpr double gravity_mps2 = 9.80665;
+// On an orbit's circle, and counting the turns round it: within this of it,
+// either side. From outside it is flown to along the line that meets it at a
+// tangent, the way round it is flown, so it is joined going round - flown
+// straight at its centre, an aeroplane crossed it at right angles and could
+// not turn onto it; from inside - a plan that flies to the orbit's centre
+// first - the aircraft is steered out to it, and the turns spiralling out are
+// not counted.
+constexpr double orbit_joined_m = 100.0;
 
 double normalised(double degrees) {
     const double d = std::fmod(degrees, 360.0);

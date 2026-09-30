@@ -27,9 +27,9 @@
 // **An orbit is a waypoint flown round**: flown to like any other, and from
 // its circle's edge flown round it, turning left or right, TURNS times before
 // the plan goes on - or, for 0, for as long as the plan is flown. It is
-// steered along the circle's tangent where the aircraft will be five seconds
-// on, turned in towards it by 90 degrees for each kilometre outside it and out
-// for each inside, up to 45.
+// joined at a tangent and steered along it with the bank the circle needs,
+// turned in towards it by 90 degrees for each kilometre outside it and out
+// for each inside, up to 45 (sim/navigator.cpp).
 
 #include <optional>
 #include <stdexcept>

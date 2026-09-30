@@ -353,6 +353,27 @@ ends in a debrief, never a score.
 
 Found while implementing something else. Added when found, not when remembered.
 
+- [x] **On tight, slow orbits the navigator flies inside the circle.**
+      Claude's CBD plan, 521 m at 60 kt, was flown 94 to 127 m inside it.
+      *Verification: an orbit at the tightest radius allowed, at the approach
+      speed, is flown within a stated distance of its circle, measured, not
+      assumed.* Done 2026-09-30: every light aeroplane within 60 m, the others
+      that can fly it within 200 m, and Claude's plan 1 to 19 m inside.
+
+- [ ] **A plan may fly a jet clean at its approach speed.** The slowest a
+      plan may fly is the approach speed, a flaps-down figure; clean at it,
+      the 737-300, 787-8, A320, A380, Learjet 35A, B-2 and F-35B cannot hold
+      their height or speed round their tightest orbit, and the 737 stalls
+      turning onto it. *Verification: every aircraft holds every speed a plan
+      may ask of it round its tightest orbit, measured.*
+
+- [ ] **In wind the Cherokee yaws from side to side.** In a 10 kt wind the
+      autopilot's PA-28 swings 35 degrees either side of its heading every few
+      seconds, flying straight as well as round, while the heading asked
+      barely moves; in calm air it does not. *Verification: every light
+      aeroplane holds a heading in a 20 kt crosswind with its sideslip within
+      a stated bound.*
+
 - [ ] **Offer the learnt landing in a session.** Only the CLI hands an
       aircraft to it; no client or server does. *Verification: an AI
       aircraft on a server is landed by it when asked, and a client's

@@ -15,7 +15,7 @@
 # there, with no header and so no key, to be played back as PLAYBACK. It must:
 #   - take off: the take-off autopilot hands over above the runway;
 #   - reach its orbit and fly round it as often as the plan asks - twice, for
-#     an orbit flown for ever (fly-plan --orbits 2) - within 150 m of its circle and
+#     an orbit flown for ever (fly-plan --orbits 2) - within 60 m of its circle and
 #     50 ft of ALTITUDE_FT - less than the geoid lifts the sea above the
 #     ellipsoid at Sydney, 72 ft, so heights confused between the two show;
 #   - have that orbit's centre within 2 km of CENTRE_LAT, CENTRE_LON - for
@@ -133,9 +133,9 @@ else()
     set(_inside 0)
 endif()
 math(EXPR _outside "${_far} - ${_radius}")
-if(_inside GREATER 150 OR _outside GREATER 150)
+if(_inside GREATER 60 OR _outside GREATER 60)
     message(FATAL_ERROR "round ${_orbit} from ${_near} to ${_far} m, off its ${_radius} m circle "
-                        "by more than 150 m:\n${_out}")
+                        "by more than 60 m:\n${_out}")
 endif()
 math(EXPR _below "${ALTITUDE_FT} - ${_low}")
 math(EXPR _above "${_high} - ${ALTITUDE_FT}")
