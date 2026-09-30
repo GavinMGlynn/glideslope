@@ -632,6 +632,10 @@ jobs:
           ) else (
             cmake --preset ${{ matrix.preset }} %cache%
           )
+      # All of vcpkg's output, kept: the configure prints only its summary.
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'vcpkg-install-${{ matrix.preset }}', path: 'build/${{ matrix.preset }}/vcpkg-install.log', if-no-files-found: warn, retention-days: 14 }
 
       - name: ${{ matrix.preset }} - build
         shell: cmd
