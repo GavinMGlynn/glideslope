@@ -94,8 +94,12 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
 void Online::hear(double local_s, Flight& flight) {
     session_.poll(local_s);
     noticed();
+    const std::size_t words_before = own_words_;
     for (const net::StatePacket& state : session_.take_states()) {
         heard(state, local_s, flight);
+    }
+    if (own_words_ > words_before) {
+        ++frames_heard_own_;
     }
     if (!own_word_) {
         return;
@@ -221,6 +225,18 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             taken_ = std::move(newer);
             reconciled_s_ = state.simulation_time_s;
             own_word_.reset();
+            // Who flies it, as the word that gave it was read; and what it
+            // says of the clocks' difference, which is the connection's and
+            // not the aircraft's, as every older word of a frame's does.
+            for (const net::AircraftState& a : state.aircraft) {
+                if (a.index == mine_) {
+                    own_ai_flying_ = a.controller == net::Controller::ai;
+                }
+            }
+            flight.hear_clock(state.last_input_applied, state.yours->steps_into_input,
+                              static_cast<std::uint64_t>(std::llround(
+                                  state.simulation_time_s *
+                                  static_cast<double>(sim::steps_per_second))));
         }
     } else if (state.yours && state.your_aircraft == mine_ &&
         (!reconciled_s_ || state.simulation_time_s > *reconciled_s_)) {
@@ -270,6 +286,11 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             }
             own_word_ = OwnWord{motion_of(*state.yours), state.last_input_applied,
                                 state.yours->steps_into_input, server_steps};
+            if (own_words_ == 0) {
+                first_own_word_s_ = state.simulation_time_s;
+            }
+            last_own_word_s_ = state.simulation_time_s;
+            ++own_words_;
         }
     }
     // **Everybody else, to be drawn behind the clock**, and what the server

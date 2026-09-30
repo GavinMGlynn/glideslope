@@ -70,7 +70,8 @@ public:
               const std::array<double, 3>& v);
 
     // **What it found**: how many switches it measured, the largest step at
-    // one - within four frames of it, to the frame after a long one - and
+    // one - in its own frame or the four after it, to the frame after a long
+    // one - and
     // elsewhere, and what made the largest at a switch and elsewhere.
     std::size_t switches() const { return switches_; }
     double worst_step_at_switch_m() const { return worst_at_switch_m_; }
@@ -79,13 +80,16 @@ public:
     const std::string& worst_step_otherwise_what() const { return worst_otherwise_what_; }
 
     // **How long the frames it measured over were**, milliseconds: the
-    // longest of the four before each switch and the four after it - the
-    // frames a switch's steps are measured in - and the one the largest step
-    // away from a switch came in. The step bounds are claimed for a playable
+    // longest of the four before each switch, its own and the four after it
+    // - the frames a switch's steps are measured in, and the ones before
+    // that lead into them - and the one the largest step away from a switch
+    // came in; and the longest of all, which a test holding its frames long
+    // on purpose checks they were. The step bounds are claimed for a playable
     // frame rate, and a test asserts these before it believes a bound
     // (tests/cmake/client.cmake, glideslope_require_playable_frames).
     double longest_frame_at_switch_ms() const { return longest_at_switch_ms_; }
     double worst_step_otherwise_frame_ms() const { return worst_otherwise_frame_ms_; }
+    double longest_frame_ms() const { return longest_ms_; }
 
 private:
     // What was shown, and when, as its parts: the source it was shown from
@@ -125,6 +129,7 @@ private:
     std::array<double, 4> recent_ms_{};
     double longest_at_switch_ms_ = 0.0;
     double worst_otherwise_frame_ms_ = 0.0;
+    double longest_ms_ = 0.0;
     std::map<std::uint8_t, std::pair<std::optional<Shown>, std::optional<Shown>>> others_;
 };
 

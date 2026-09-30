@@ -181,6 +181,8 @@ set(GLIDESLOPE_UNIT_TESTS
     a_client_that_flew_different_inputs_is_put_back_where_the_server_says
     a_client_that_flew_different_inputs_is_put_back_by_the_servers_motion_alone
     an_aircraft_taken_over_is_flown_on_to_now_from_the_word_that_gave_it
+    a_seconds_frame_heard_at_once_is_put_right_once_from_its_newest_word
+    three_seconds_of_unacknowledged_inputs_are_held
     a_lesson_written_down_and_read_back_is_the_one_that_was_written
     a_lesson_file_that_is_wrong_is_refused_and_says_where
     the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief
@@ -301,6 +303,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_fixed_step_reports_how_far_it_is_into_the_next_step
     the_fixed_step_refuses_time_running_backwards
     the_fixed_step_counts_a_century_without_overflowing
+    a_frame_loop_back_from_an_hour_away_flies_four_seconds_on_a_server_and_a_fifth_alone
     a_flight_fed_its_time_in_any_chunks_ends_in_the_same_state
     the_elevator_pulled_back_pitches_the_nose_up
     the_cessna_172p_at_full_throttle_on_the_ground_turns_within_its_static_rpm_range
@@ -1462,6 +1465,22 @@ add_test(NAME the_server_refuses_a_flag_with_nothing_after_it
         -DEXIT=2 "-DSTDERR_MATCHES=--players wants a value after it"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
+# **A client told to hold its frames by something that is not milliseconds
+# refuses it**, rather than holding nothing and letting a slow-frames test pass
+# untested. Walked: a word, a number with a word after it, nought, a negative,
+# and one past a minute - the five ways a value is not one it takes.
+foreach(_case IN ITEMS a_word=abc a_number_with_a_word_after_it=700ms nought=0
+                      a_negative=-5 more_than_a_minute=60001)
+    string(REPLACE "=" ";" _case "${_case}")
+    list(GET _case 0 _what)
+    list(GET _case 1 _bad)
+    add_test(NAME the_client_refuses_slow_frames_of_${_what}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> "-DARGS=--slow-frames ${_bad}"
+            -DEXIT=2 "-DSTDERR_MATCHES=--slow-frames wants milliseconds.*not '${_bad}'"
+            -P ${GLIDESLOPE_EXPECT_RUN})
+endforeach()
+
 # **The server flies every aircraft, each over its own terrain.** Two aircraft
 # **AI aircraft keep flying with nobody connected**, and a client joining later
 # finds them mid-flight. See cmake/server_late.cmake for why its own aircraft
@@ -1921,7 +1940,11 @@ set_tests_properties(the_client_with_the_window_flies_the_servers_aircraft_and_d
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server)
 # **The same, with its frames held 0.7 s**, as a slow machine's are: it hears
 # the server after the ticks those frames were owed, and is put right once a
-# frame - never too far to hide (cmake/client_on_server.cmake).
+# frame - never too far to hide (cmake/client_on_server.cmake). LABELS timing,
+# as below: the holds are its point, and between them it needs the quick
+# frames a release build draws. Run beside two other window tests in the
+# sanitized build, where every frame was 0.8 s and more, it was put right by
+# 21 m once (PROJECT_STATUS.md, 2026-09-30).
 add_test(NAME a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
@@ -1930,7 +1953,7 @@ add_test(NAME a_client_whose_frames_are_held_most_of_a_second_is_never_put_right
         -DSLOW_FRAMES=700
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
 set_tests_properties(a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide
-    PROPERTIES SKIP_RETURN_CODE 77)
+    PROPERTIES SKIP_RETURN_CODE 77 LABELS timing)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_slow)
 
 # **A flight plan that takes off and orbits is flown over the DEM** by
@@ -2000,8 +2023,11 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rides_along)
 # (REQUIREMENTS.md, 2026-09-30), and each test asserts it, failing - not
 # passing - when frames around a switch are slower, as they are under a
 # sanitizer. So CI runs this label in its release presets, on pull requests
-# and every night, where that frame rate holds; its debug presets and
-# nightly.yml leave it out.
+# and every night; its debug presets and nightly.yml leave it out. That the
+# frame rate holds there is not a given: windows-release failed the hand-over
+# test at "frames of 102 ms around the switch" (run 36638803155): the frame
+# the first switch is drawn in, 48 to 70 ms in a debug build here and 17 ms
+# at the second; why is not yet found (PROJECT_STATUS.md, 2026-09-30).
 add_test(NAME the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
