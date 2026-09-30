@@ -232,6 +232,114 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A tight, slow orbit is flown on its circle, 2026-09-30 — tail done
+
+**What is not covered first.** Nine aircraft of sixteen are not flown round
+their tightest orbit, each named in its test with the reason:
+- **The 747-400 and the F-22 publish no stall speed**, so they have no
+  approach speed and no plan can be made for them.
+- **The 737-300, 787-8, A320, A380, Learjet 35A, B-2 and F-35B cannot fly
+  clean at their approach speed round a turn.** The slowest a plan may fly
+  is the approach speed, a flaps-down figure (1.3 times the landing stall),
+  and the autopilot flies a plan clean. The 737 stalls turning onto the
+  circle and falls to the ground; the A320 holds its circle within 52 m but
+  loses 657 ft; the Learjet slows 12 kt; the 787, A380 and F-35B come down
+  to the ground, and the B-2 never reaches its circle. That is not the navigator: it is the new tail "A plan may fly a
+  jet clean at its approach speed".
+- **The PA-28 in wind.** In a 10 kt wind the autopilot's Cherokee swings 35
+  degrees either side of its heading every three or four seconds, flying
+  straight towards the circle as well as round it, while the heading asked
+  moves a few degrees: its sideslip goes from -35 to +36. Calm, it flies its
+  circle within 43 m. The new tail "In wind the Cherokee yaws from side to
+  side".
+The wind in the new tests is 10 kt, not the 20 kt of the older orbit tests:
+at 43 kt, the Cub's approach speed, 20 kt downwind needs about 25 degrees of
+bank round its tightest circle, all the autopilot has. The plan reader's least radius
+takes no account of the wind.
+
+**The cause.** Round an orbit the navigator asked for a heading along the
+circle's tangent where the aircraft would be five seconds on, turned in by 90
+degrees a kilometre. In a steady turn the autopilot banks a degree for each
+degree the heading is ahead, plus its integral near the heading, which winds
+to 5 degrees: so the lead the circle needs is its bank less five,
+atan(v^2 / g r) - 5 degrees. At the tightest radius a plan may ask - two and a
+half times the 25-degree circle - the bank is about 11.5 degrees whatever the
+speed, so the lead needed is about 6.5 degrees; but five seconds along the
+tangent is v t / r, which grows as the speed falls: 18 degrees for the
+Cessna's 521 m at 60 kt, 12 for 1,172 m at 90 kt. The extra was balanced by
+turning out, 90 degrees a kilometre: 124 m inside, as flown. And flown to
+straight at its centre, the aircraft crossed the circle at right angles and
+could not turn onto it: the PA-28 in wind went to 57 m from the centre of its
+593 m circle.
+
+**The fix** (`sim/navigator.cpp`, `sim::heading_off_for_bank_deg` in
+`sim/autopilot`). The physics allows it: every tightest orbit wants about
+11.5 degrees of bank, well within the autopilot's 25, so nothing in the plan
+reader changes, and no recorded plan is refused.
+- **The lead is the autopilot's own law turned round**: the heading ahead
+  that makes it bank atan(v^2 / g r) at the ground speed, now.
+- **A trim** - an integral on how far off the circle, a sixtieth of the
+  turn-in each second, 15 degrees at most, counted only within 100 m of the
+  circle - for what the autopilot's bank and the aeroplane's turn do not
+  quite agree on: a propeller turns one way more readily than the other.
+- **Joined at a tangent.** Outside the circle and not yet on it, the
+  aircraft flies the line that meets the circle at a tangent, the way round
+  it is flown; it is on the circle within 100 m of it, either side, where
+  before it had to cross into it. Begun from inside, it spirals out as
+  before.
+- **The wind by the wind triangle.** Round an orbit the drift changes all the
+  way round, and five seconds' average of it lags; the wind, found the same
+  way - where the aircraft goes, less its true airspeed along its heading -
+  does not change, so the heading is the track turned into the wind across
+  it. The legs between waypoints still use the drift.
+The selftest's hash does not move: the selftest flies no plan, and the
+autopilot's loops are unchanged (the new function only reads its constants),
+which `the_selftest_prints_the_same_hash_every_run` confirms.
+
+**Verified** (linux-debug, figures off the circle from the first quarter-turn,
+in calm air / in a 10 kt wind from the west, left and right):
+
+| aircraft, radius at approach speed | before | after |
+|---|---|---|
+| Cessna 172P, 521 m at 60 kt | -152 to +92 m | -34 to +17 m |
+| Cessna 182, 593 m at 64 kt | -160 to +124 | -45 to +15 |
+| Piper Cub, 268 m at 43 kt | -264 to +113 | -33 to +42 |
+| PA-28, 593 m at 64 kt, calm | -105 to +210 | -42 to +43 |
+| PA-28, in wind | -536 to +366 | not flown (above) |
+| Mosquito FB.6, 2,189 m at 123 kt | not measured | -39 to +19 |
+| Short S.23, 1,071 m at 86 kt | not measured | -52 to +8 |
+| F-15C, 5,559 m at 196 kt | -253 to +936 (calm, left) | -133 to +193 |
+
+- `the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_light_aeroplane`:
+  every light aeroplane in the catalogue, both ways round, calm and in wind:
+  14 of 16 orbits flown and the PA-28's two in wind named; held to 60 m,
+  its height to 50 ft and its speed to 5 kt. At worst 45 m, 35 ft, 0 kt.
+- `the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_other_aircraft_that_can_fly_it`:
+  every other aircraft: 12 of 48 orbits flown, the other 36 named. Held to
+  200 m - the F-15C's 5.6 km circle is 193 m off at worst, 3.5% - its height
+  to 50 ft and its speed to 5 kt. Each test says how big its space is and
+  fails unless what it flew and what it named are all of it, and fails on a
+  named aircraft the catalogue does not have.
+- **Claude's CBD plan**, 521 m at 60 kt: replayed by `glideslope_cli
+  fly-plan`, 502 to 520 m (394 to 427 before); on the server, 502 to 521 m
+  (394 to 428). ChatGPT's 1,447 m: 1,448 to 1,477 m (1,451 to 1,454). The
+  hand-written `sydney-cbd-orbit.plan`, 1,500 m: 1,478 to 1,502 m.
+- **The allowances come down to what is earned**: the replay tests and the
+  server's planned-aircraft test from 150 m to 60; the older orbit tests
+  from 160 m to 80 (flown from outside: at worst 61 m, where it was 150) and
+  to 110 (begun from the centre: at worst 97 m, where it was 150).
+- The server's planned-aircraft test took 139 s, the new tests 111 s and
+  241 s, under a -j4 run.
+
+**Seen to fail**, the old navigator put back, each then restored:
+- the light-aeroplane test: "on its circle within 60 m, c172p round 521 m at
+  60 kt, left, in calm air: 391 to 516 m";
+- the other-aircraft test: "within 200 m, f15c ... 5306 to 6495 m";
+- Claude's replay: "round CBD from 394 to 427 m, off its 521 m circle by
+  more than 60 m";
+- the older orbit test at 80 m: "1172 m, left, in a 20 kt wind: 1081 to
+  1322 m".
+
 ### The F-15C's pitching moment is NASA's at the approach: she flies it at 10 degrees with stabilator to spare, 2026-10-02 — item not done
 
 **What is still missing, first.**
@@ -2967,7 +3075,8 @@ asking, for tests.
     SYDNEY_CBD once, 1,451 to 1,454 m from its centre (1,447 m asked), at
     3,000 to 3,001 ft; Claude's round CBD 3.52 times, 394 to 428 m (521 m
     asked - 93 to 127 m inside it, the navigator's open tail on tight
-    orbits, and the reason the allowance is 150 m), at 3,490 to 3,500 ft (3,500 asked, stacked). Both handed over
+    orbits, and the reason the allowance was 150 m; 60 m since that tail was
+    done, below), at 3,490 to 3,500 ft (3,500 asked, stacked). Both handed over
     1,000 ft above 16R. The test took 493 s under a loaded -j4 run; its
     timeout is 1,800 s.
   - a server told to plan with Anthropic, and one with OpenAI, with no key
