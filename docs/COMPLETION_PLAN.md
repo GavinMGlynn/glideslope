@@ -800,13 +800,22 @@ Found while implementing something else. Added when found, not when remembered.
       bands reach twenty over on its account.
       *Verification: the B-2A crosses the threshold within five knots of its
       reference speed.*
-- [ ] **The Learjet's stabilizer cannot trim her in cruise.** Its nose-down
+- [x] **The Learjet's stabilizer cannot trim her in cruise.** Its nose-down
       stop is not tied to the flight model's zero, so at 250 to 350 knots she
       is held by a quarter of the elevator's nose-down travel, and a pilot
-      flying by hand holds the stick forward. Tied to the maintenance
-      manual's travel she trims in cruise, but then rotates late: her take-off
-      had been leaning on the mis-tied stop. *Verification: the Learjet
-      cruises from 250 to 350 knots with its elevator near neutral.*
+      flying by hand holds the stick forward. *Verification: the Learjet
+      cruises from 250 to 350 knots with its elevator near neutral.* Done
+      2026-09-30: her stabilizer's travel is her maintenance manual's, and at
+      every loading, at 250, 300 and 350 knots and 10,000 and 20,000 ft, she
+      trims on it and flies hands off with the elevator at neutral.
+- [ ] **The Learjet cannot be rotated early.** With her stabilizer set for
+      take-off where the manual's travel puts it, the stick held fully back
+      from well below her rotation speed lifts the nose only at about 115
+      knots, and she leaves the runway past her rotation speed, so the
+      take-off lesson has no early rotation of hers to catch. The centre of
+      gravity's height and the engines' thrust line in her model are
+      estimates. *Verification: the Learjet held fully back from 85 percent
+      of her rotation speed leaves the runway before it.*
 - [ ] **The Learjet has nothing behind its main wheels to strike with**, so
       the take-off cannot keep its tail off the runway and a strike goes
       unjudged; the Cub's only tail contact is its tail wheel.
