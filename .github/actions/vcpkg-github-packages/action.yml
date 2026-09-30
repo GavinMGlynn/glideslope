@@ -71,3 +71,5 @@ runs:
         if ($LASTEXITCODE -ne 0) { throw "nuget setapikey failed" }
         "VCPKG_BINARY_SOURCES=clear;nugetconfig,$cfg,$env:RW;nugettimeout,600" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
         Write-Output "vcpkg's binary cache: $env:FEED ($env:RW)"
+        # The image names the compiler, and the compiler is in every package's ABI.
+        Write-Output "runner image: $env:ImageOS $env:ImageVersion"

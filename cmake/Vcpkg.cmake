@@ -95,7 +95,8 @@ set(ENV{VCPKG_DISABLE_METRICS} 1)
 # Installs what vcpkg.json lists, for the target triplet, into the build
 # directory, as vcpkg's toolchain would have at project(). Build trees are
 # removed as each package is built: they are large, and nothing reads them
-# after. The whole of vcpkg's output is kept in vcpkg-install.log.
+# after. The whole of vcpkg's output is kept in vcpkg-install.log, and its
+# summary - compiler, restores, builds, uploads - printed.
 function(glideslope_vcpkg_install)
     if(NOT DEFINED Z_VCPKG_ROOT_DIR)
         message(FATAL_ERROR "vcpkg's toolchain was not loaded: CMAKE_TOOLCHAIN_FILE is "
@@ -151,9 +152,20 @@ function(glideslope_vcpkg_install)
     if(NOT _rc EQUAL 0)
         message(FATAL_ERROR "vcpkg install failed (${_rc}):\n${_out}")
     endif()
-    string(REGEX MATCH "All requested installations completed successfully in: [^\n]*"
-           _done "${_out}")
-    message(STATUS "vcpkg: ${_done}")
+    # **What vcpkg did, not only that it finished**: the compiler whose hash
+    # is in every package's ABI, what was restored and from where, and each
+    # package built instead, with its time and its upload. A configure that
+    # took twenty minutes says why in its own output (a CI job's log), not
+    # only in vcpkg-install.log.
+    string(REPLACE "\r" "" _summary "${_out}")
+    string(REPLACE ";" "," _summary "${_summary}")
+    string(REGEX MATCHALL
+           "(^|\n)(Detecting compiler|Compiler found|Restored|Building|Elapsed time|Completed submission|Waiting for|Stored binaries|Uploading|All requested|warning|error)[^\n]*"
+           _lines "${_summary}")
+    foreach(_line IN LISTS _lines)
+        string(STRIP "${_line}" _line)
+        message(STATUS "vcpkg: ${_line}")
+    endforeach()
     file(WRITE "${_stamp}" "${_stamp_wanted}")
     set_property(DIRECTORY "${CMAKE_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
                  "${CMAKE_SOURCE_DIR}/vcpkg.json" "${CMAKE_SOURCE_DIR}/vcpkg-configuration.json")
