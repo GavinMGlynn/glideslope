@@ -87,8 +87,12 @@ public:
     // policy flies her from where she is - an approach gate - to the touch,
     // and the approach autopilot rolls her out to a stop. Its controls are
     // reached from the ones she has at a hand's pace, full travel in a second,
-    // so the hand-over steps nothing. Handed back to the pilot, it is dropped
-    // (a take-back on its roll gets the plain autopilot, not this).
+    // so the hand-over steps nothing. **While they are on their way** - up to
+    // two seconds, for the elevator's full travel - the policy's `previous`
+    // input is the action it asked for, not the controls she has, which it
+    // never met in training: there the controls were always its own.
+    // Handed back to the pilot, it is dropped (a take-back on its roll gets
+    // the plain autopilot, not this).
     void to_ai_learnt_approach(const Runway& runway, const ApproachSpeeds& speeds,
                                std::shared_ptr<const LearntPolicy> policy);
 

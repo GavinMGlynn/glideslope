@@ -26,8 +26,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-import numpy as np
-
 DEGREES = 180.0 / math.pi
 FEET_PER_METRE = 3.280839895013123
 METRES_PER_NM = 1852.0
@@ -57,6 +55,13 @@ READINGS = (
 
 OBSERVATIONS = 25
 
+# The C172P's two tanks, and what each holds full - as the simulation's
+# aircraft starts, and as the verification is flown.
+TANKS = 2
+FULL_TANK_LBS = 100.0
+# What training draws for each tank, per flight: from a quarter full to full.
+TRAINING_FUEL_LBS = (25.0, 100.0)
+
 # **The drift the agent remembers**: a leaky integral of its distance across
 # the centreline, metre-seconds, forgetting with this time constant - what
 # lets a policy with no other memory take out a steady offset, as the
@@ -67,6 +72,8 @@ DRIFT_MEMORY_S = 10.0
 def remember(integral: float, across_m: float, ap: "Approach") -> float:
     dt = ap.decision_steps / STEPS_PER_SECOND
     return integral * math.exp(-dt / DRIFT_MEMORY_S) + across_m * dt
+
+
 ACTIONS = 4
 
 
@@ -241,7 +248,8 @@ class Start:
     """Where a flight begins: `out_m` before the threshold on the extended
     centreline, `across_m` right of it, `high_m` above the glidepath, and a
     steady wind - `crosswind_kts` from the left of the landing direction,
-    `headwind_kts` down it."""
+    `headwind_kts` down it - and `fuel_lbs` in each of the C172P's two tanks,
+    full (100 lb) unless said otherwise, as the simulation's aircraft starts."""
 
     out_m: float = 2.0 * METRES_PER_NM
     across_m: float = 0.0
@@ -250,6 +258,7 @@ class Start:
     airspeed_kts: float | None = None
     crosswind_kts: float = 0.0
     headwind_kts: float = 0.0
+    fuel_lbs: float = FULL_TANK_LBS
 
 
 def wind_ned_fps(rw: Runway, s: Start) -> tuple[float, float]:
@@ -279,6 +288,11 @@ def start_position(rw: Runway, ap: Approach, s: Start) -> tuple[float, float, fl
 
 
 def new_fdm(jsbsim_root: str):
+    """A C172P, loaded once and flown many times. **Its tanks are filled by
+    `initialise` every time**: JSBSim's RunIC does not start the propulsion
+    again, so without it each flight began with the fuel the last one left -
+    the training environments ran dry after about nine simulated hours, and
+    every flight after was a glide two hundred pounds lighter."""
     import jsbsim
 
     jsbsim.FGJSBBase().debug_lvl = 0
@@ -305,6 +319,8 @@ def initialise(fdm, rw: Runway, ap: Approach, s: Start) -> None:
     fdm["ic/vc-kts"] = ap.vref_kts if s.airspeed_kts is None else s.airspeed_kts
     fdm["ic/gamma-deg"] = -ap.glidepath_deg
     fdm["fcs/flap-cmd-norm"] = ap.flaps
+    for tank in range(TANKS):
+        fdm[f"propulsion/tank[{tank}]/contents-lbs"] = s.fuel_lbs
     fdm.set_trim_status(True)
     ok = fdm.run_ic()
     fdm.set_trim_status(False)
@@ -343,9 +359,8 @@ class Touch:
 
 @dataclass
 class Flight:
-    """One flight, flown from a start by `policy` (a function from the
-    observation to an action), to five seconds after the wheels first
-    touched, or to its end."""
+    """One flight, flown decision by decision (env.py's Flier), to five
+    seconds after the wheels first touched, or to its end."""
 
     touched: bool = False
     touch: Touch = field(default_factory=Touch)

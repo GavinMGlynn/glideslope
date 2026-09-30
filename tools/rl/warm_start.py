@@ -8,9 +8,20 @@ the runway as the instruments estimate it, and the remembered drift - and
 they were appended, so the first 21 mean what they meant. The new network
 is the old one with a zero column for each new input in the first layer of
 the policy and of the value function: it acts exactly as the old one did
-until training finds a use for them. The observation normalisation is the
-old one's, and for the new inputs a mean of 0 and a variance of 1, which
-training then measures. train.py --resume NEW.zip trains on from it.
+until training finds a use for them. train.py --resume NEW.zip trains on
+from it.
+
+**The normalisation of the new inputs is measured, not assumed.** The old
+one's mean and variance are kept for the first 21; for the four new ones
+they are measured from flights the old policy flies here. They share one
+running count with the old inputs, and a placeholder mean of 0 and variance
+of 1 under the old count of ten million would have stayed a placeholder for
+as long again. The count is set to the decisions measured, so every input's
+statistics go on adapting at that pace.
+
+The committed policy (assets/rl/c172p-landing.txt) was carried over by the
+first version of this script, which used the placeholder; its new inputs
+are weighted nothing, so their normalisation does not change what it does.
 """
 
 from __future__ import annotations
@@ -58,10 +69,27 @@ def main() -> None:
             target[:, :n_old] = value
     new.policy.load_state_dict(new_state)
 
+    # The new inputs as the old policy meets them, over fifty flights.
+    env = LandingEnv(20261001)
+    seen = []
+    for _ in range(50):
+        obs, _ = env.reset()
+        done = False
+        while not done:
+            seen.append(obs[n_old:])
+            norm = np.clip((obs[:n_old] - old_norm.obs_rms.mean) /
+                           np.sqrt(old_norm.obs_rms.var + old_norm.epsilon),
+                           -old_norm.clip_obs, old_norm.clip_obs)
+            action, _ = old.predict(norm, deterministic=False)
+            obs, _, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
+    seen = np.array(seen)
     rms = venv.obs_rms
-    rms.mean = np.concatenate([old_norm.obs_rms.mean, np.zeros(L.OBSERVATIONS - n_old)])
-    rms.var = np.concatenate([old_norm.obs_rms.var, np.ones(L.OBSERVATIONS - n_old)])
-    rms.count = old_norm.obs_rms.count
+    rms.mean = np.concatenate([old_norm.obs_rms.mean, seen.mean(axis=0)])
+    rms.var = np.concatenate([old_norm.obs_rms.var, seen.var(axis=0)])
+    rms.count = float(len(seen))
+    print(f"the new inputs over {len(seen)} decisions: mean {seen.mean(axis=0)}, "
+          f"standard deviation {seen.std(axis=0)}")
     venv.ret_rms = old_norm.ret_rms
     new.num_timesteps = old.num_timesteps
     new.save(new_path)

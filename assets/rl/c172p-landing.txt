@@ -1,10 +1,27 @@
 # The C172P's final approach and landing, learnt by reinforcement learning.
 # Made by tools/rl/train.py (PPO) and written by tools/rl/export.py;
 # do not edit - train again and export.
-# Seed 3; 10000004 (seed 3's 21-input policy, carried over by warm_start.py; below) training steps (decisions, ten a second).
+# Seed 3. Training steps (decisions, ten a second): 10000004, all of them by its 21-input parent.
+# tools/rl as trained: the parent's first five million decisions with tools/rl uncommitted between 77022a1 and dc7a155, its second five million at dc7a155; carried over by warm_start.py's first version, at ff5d66c.
+# Source checkpoint, kept outside the repository: warm.zip (sha256 4b3864edd7131cd517f5512aa13cd6d2e5cefe1c7b597f6038d4c5b01134f19d) and warm.vecnorm (sha256 a6a71cff371ae3f289806e48cebed1b7b4c592742bf4019739f60eff1a578c9e).
+# Exporting that checkpoint with export.py is deterministic and gives this file;
+# training itself is not reproducible (PPO over parallel environments).
 # Packages: jsbsim 1.3.1, gymnasium 1.3.0, stable_baselines3 2.9.0, torch 2.14.0+cpu, numpy 2.5.3.
 # Flown by src/sim/learnt.cpp. Observation and action: tools/rl/landing.py.
-# Carried over from the 21-observation policy (seed 3: five million decisions with an earlier reward, then five million with env.py's of that time) by tools/rl/warm_start.py, the four new inputs weighted nothing, so it does not use them. Chosen on the forty held-out starts over every checkpoint of three fine-tunes with the new observations and winds (16 of 40 within the limits; the best fine-tuned 15, most 0): see docs/PROJECT_STATUS.md.
+# Its parent was trained in two parts. The first five million decisions had an earlier reward, differing from dc7a155's in four places:
+# a touch short of the threshold cost 20 flat; the touch's centreline term was 40 exp(-(across/4)^2) - across/5;
+# the approach potential had no 4 (1 - exp(-(across/8)^2)) term; going wrong cost 50. It learnt to land short.
+# The second five million, resumed, had dc7a155's reward.
+# **Fuel**: all of it was trained with JSBSim's tanks never refilled between episodes (RunIC does not reset
+# propulsion), so mostly on part-full tanks and, after about nine simulated hours an environment, on empty ones -
+# gliding, 200 lb lighter. Evaluated with full tanks, as the simulation flies.
+# **Chosen twice**: the parent first among checkpoints by flying the verification's 27 starts; then, carried over
+# by warm_start.py with the four new inputs weighted nothing (so it does not use them, and their normalisation
+# is the first version's placeholder), again on forty held-out starts over every checkpoint of three fine-tunes
+# with the new observations and winds (16 of 40 within the limits). That scoring reused one aeroplane, its fuel
+# draining down the list; scored again with a fresh one each, it is 17 of 40 and one fine-tune checkpoint 22,
+# which this round keeps out: the next retrains. docs/PROJECT_STATUS.md.
+# The committed scripts cannot make this file again from nothing (the reward, the inputs and the fuel have changed).
 glideslope-policy 1
 aircraft c172p
 task landing

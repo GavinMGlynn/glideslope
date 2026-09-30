@@ -18,6 +18,7 @@ checkpoint's own network (PyTorch, in single precision) before it is written.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import sys
 from importlib import metadata
@@ -36,6 +37,15 @@ POLICY = os.path.join(REPO, "assets", "rl", "c172p-landing.txt")
 PARITY = os.path.join(REPO, "tests", "data", "rl", "c172p-landing-parity.txt")
 
 
+def sha256(path: str) -> str:
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def vecnorm_of(checkpoint: str) -> str:
+    return checkpoint.removesuffix(".zip") + ".vecnorm"
+
+
 def number(x: float) -> str:
     return repr(float(x))
 
@@ -45,7 +55,7 @@ def from_checkpoint(path: str, header: list[str]) -> policy_file.Policy:
     from stable_baselines3.common.vec_env import VecNormalize
 
     model = PPO.load(path, device="cpu")
-    with open(path.removesuffix(".zip") + ".vecnorm", "rb") as f:
+    with open(vecnorm_of(path), "rb") as f:
         import pickle
 
         vecnorm: VecNormalize = pickle.load(f)
@@ -137,7 +147,10 @@ def main() -> None:
     ap.add_argument("checkpoint")
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--steps", required=True, help="the training steps the checkpoint took")
-    ap.add_argument("--note", default="")
+    ap.add_argument("--trained-at", required=True,
+                    help="the tools/rl commit the checkpoint was trained with, in words if more than one")
+    ap.add_argument("--note", action="append", default=[],
+                    help="a line of the header saying how it was trained and chosen; repeatable")
     ap.add_argument("--policy", default=POLICY, help="where to write the policy")
     ap.add_argument("--parity", default=PARITY, help="where to write the parity cases")
     ap.add_argument("--policy-only", action="store_true",
@@ -151,12 +164,17 @@ def main() -> None:
         "The C172P's final approach and landing, learnt by reinforcement learning.",
         "Made by tools/rl/train.py (PPO) and written by tools/rl/export.py;",
         "do not edit - train again and export.",
-        f"Seed {args.seed}; {args.steps} training steps (decisions, ten a second).",
+        f"Seed {args.seed}. Training steps (decisions, ten a second): {args.steps}.",
+        f"tools/rl as trained: {args.trained_at}.",
+        "Source checkpoint, kept outside the repository: "
+        f"{os.path.basename(args.checkpoint)} (sha256 {sha256(args.checkpoint)}) and "
+        f"{os.path.basename(vecnorm_of(args.checkpoint))} (sha256 {sha256(vecnorm_of(args.checkpoint))}).",
+        "Exporting that checkpoint with export.py is deterministic and gives this file;",
+        "training itself is not reproducible (PPO over parallel environments).",
         f"Packages: {versions}.",
         "Flown by src/sim/learnt.cpp. Observation and action: tools/rl/landing.py.",
     ]
-    if args.note:
-        header.append(args.note)
+    header += args.note
     p = from_checkpoint(args.checkpoint, header)
     os.makedirs(os.path.dirname(os.path.abspath(args.policy)), exist_ok=True)
     policy_file.write(args.policy, p)

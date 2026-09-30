@@ -40,9 +40,19 @@ class Flier:
         self.rw = runway
         self.ap = approach
         self.fdm = L.new_fdm(JSBSIM_ROOT)
+        # What she weighs with no fuel: the empty aeroplane and what is on
+        # board, as the model has them.
+        self.dry_lbs = self.fdm["inertia/empty-weight-lbs"] + sum(
+            self.fdm[f"inertia/pointmass-weight-lbs[{i}]"] for i in range(5))
 
     def begin(self, start: L.Start) -> list[float]:
         L.initialise(self.fdm, self.rw, self.ap, start)
+        # **She weighs what the start says**: the fuel is the start's, not
+        # what the last flight left.
+        weight = self.fdm["inertia/weight-lbs"]
+        wanted = self.dry_lbs + L.TANKS * start.fuel_lbs
+        if abs(weight - wanted) > 0.01:
+            raise RuntimeError(f"she weighs {weight} lb, and the start says {wanted}")
         self.previous = [0.0] * L.ACTIONS
         self.flight = L.Flight()
         self.touch_above_m = 0.0
@@ -184,6 +194,7 @@ def random_start(rng: np.random.Generator) -> L.Start:
         high_m=rng.uniform(-high_limit, high_limit),
         heading_offset_deg=rng.uniform(-8.0, 8.0),
         airspeed_kts=59.8 + rng.uniform(-3.0, 8.0),
+        fuel_lbs=float(rng.uniform(*L.TRAINING_FUEL_LBS)),
         **wind(rng),
     )
 

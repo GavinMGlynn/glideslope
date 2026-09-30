@@ -8,6 +8,7 @@
 #include "sim/weather.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -84,8 +85,11 @@ double metres_per_degree_longitude(double latitude_deg) {
 // centreline and 50 m either side of it; on the glidepath and 15 m - about
 // fifty feet - above and below it; in calm air and a ten-knot crosswind from
 // either side. At the reference speed, pointing down the runway, trimmed.
-// Checkpoints were chosen on other starts (landing.py's `held_out_starts`),
-// never these.
+// **The committed policy was not chosen blind of them**: it is a 21-input
+// policy carried over, and that one was chosen among checkpoints by flying
+// these starts. Since, checkpoints are chosen on other starts (landing.py's
+// `held_out_starts`), never these - and the carried-over policy was chosen
+// again there, over every fine-tune of it.
 struct Start {
     double across_m;
     double high_m;
@@ -406,6 +410,55 @@ GLIDESLOPE_TEST(the_learnt_landing_sees_and_acts_in_the_simulation_as_it_did_in_
           "the flaps are the landing flap, and there is no trim and no brake");
 }
 
+// **The wind the policy sees is the wind that blows**, as its instruments
+// would estimate it - ground velocity less the true airspeed along the
+// heading and sideslip - and not JSBSim's own wind, which it never reads.
+// Flown in each steady wind from the gate for ten seconds by the policy -
+// hands off, the propeller's torque banked her twenty degrees, and a turn is
+// not what the estimate is for - in ten knots across from either side, five
+// down the runway either way, and calm. The estimate leaves out the flight
+// path's slope, three degrees, and the bank's share of the sideslip, which
+// on the approach are well under the tolerance of 0.3 m/s.
+GLIDESLOPE_TEST(the_wind_the_learnt_landing_estimates_is_the_steady_wind_blowing) {
+    const auto flown_by = the_policy();
+    const LearntPolicy& policy = *flown_by;
+    const Runway runway = a_runway();
+    struct Wind {
+        double across_kts; // blowing towards the right of the landing direction
+        double along_kts;  // blowing down the runway: a tailwind
+    };
+    const std::vector<Wind> winds{{0.0, 0.0}, {10.0, 0.0}, {-10.0, 0.0}, {0.0, 5.0}, {0.0, -5.0}};
+    std::size_t flown = 0;
+    for (const Wind& wind : winds) {
+        auto aircraft = at(policy, Start{0.0, 0.0, 0.0});
+        const double h = runway.heading_deg / degrees;
+        const double right = h + 90.0 / degrees;
+        const double across = wind.across_kts * 0.514444;
+        const double along = wind.along_kts * 0.514444;
+        glideslope::sim::Conditions conditions;
+        conditions.wind_north_mps = across * std::cos(right) + along * std::cos(h);
+        conditions.wind_east_mps = across * std::sin(right) + along * std::sin(h);
+        aircraft->set_weather(std::make_shared<glideslope::sim::SteadyWeather>(conditions));
+        LearntLander lander(*aircraft, runway, flown_by, speeds());
+        for (int tick = 0; tick < 10 * steps_per_second; ++tick) {
+            aircraft->set_controls(lander.fly());
+            aircraft->step();
+        }
+        const std::vector<double> obs = glideslope::sim::landing_observation(
+            LandingReadings::of(*aircraft), runway, policy, {}, 0.0);
+        const double seen_across = obs.at(22) * 5.0;
+        const double seen_along = obs.at(23) * 5.0;
+        std::printf("  blowing %+.2f m/s across and %+.2f along; estimated %+.3f and %+.3f\n",
+                    across, along, seen_across, seen_along);
+        check(std::abs(seen_across - across) < 0.3 && std::abs(seen_along - along) < 0.3,
+              "the wind across and along is estimated within 0.3 m/s: " +
+                  std::to_string(seen_across) + " for " + std::to_string(across) + ", " +
+                  std::to_string(seen_along) + " for " + std::to_string(along));
+        ++flown;
+    }
+    check(flown == 5, "all five winds were flown: " + std::to_string(flown));
+}
+
 // **The simulation flies the committed policy to the landing training flew
 // it to, from every start** - not just one decision at a time, as the test
 // above holds it: tools/rl/export.py flew the same 27 starts in JSBSim's
@@ -627,17 +680,35 @@ GLIDESLOPE_TEST(an_aeroplane_handed_to_the_learnt_landing_at_the_gate_is_landed_
 }
 
 // **A policy file that does not fit is refused**, not flown: one for another
-// number of observations, one cut short, one with a word for a weight.
+// number of observations; cut short; with a word, a NaN or an infinity for a
+// number (std::stod reads "nan" and "inf" as numbers, and a NaN weight would
+// fly NaN controls); with a count that is not a whole number or is out of
+// range - a fractional decision interval, a negative or enormous layer - so
+// that nothing is truncated or wrapped on its way to an integer.
 GLIDESLOPE_TEST(a_policy_file_that_does_not_fit_the_simulation_is_refused) {
     std::ifstream in(policy_file());
-    std::stringstream whole;
-    whole << in.rdbuf();
-    const std::string good = whole.str();
+    std::stringstream all;
+    all << in.rdbuf();
+    const std::string good = all.str();
     check(good.find("observations 25") != std::string::npos, "the policy says 25 observations");
-    const auto dir = std::filesystem::temp_directory_path() / "glideslope_learnt_test";
-    std::filesystem::create_directories(dir);
+    // A directory of its own, removed however the test ends.
+    struct Scratch {
+        std::filesystem::path dir = std::filesystem::temp_directory_path() /
+                                    ("glideslope-learnt-test-" +
+                                     std::to_string(std::chrono::steady_clock::now()
+                                                        .time_since_epoch()
+                                                        .count()));
+        Scratch() {
+            std::filesystem::create_directories(dir);
+        }
+        ~Scratch() {
+            std::error_code ignored;
+            std::filesystem::remove_all(dir, ignored);
+        }
+    } scratch;
+    std::size_t tried = 0;
     const auto refused = [&](const std::string& text, const std::string& what) {
-        const auto file = dir / "policy.txt";
+        const auto file = scratch.dir / "policy.txt";
         {
             std::ofstream out(file, std::ios::binary);
             out << text;
@@ -648,18 +719,47 @@ GLIDESLOPE_TEST(a_policy_file_that_does_not_fit_the_simulation_is_refused) {
         } catch (const std::runtime_error&) {
             threw = true;
         }
+        ++tried;
         check(threw, what + " is refused");
     };
-    std::string wrong = good;
-    wrong.replace(wrong.find("observations 25"), 15, "observations 21");
-    refused(wrong, "a policy for 21 observations");
+    // `good` with the text from `at` to the end of its line put as `now`.
+    const auto changed = [&](const std::string& at, const std::string& now) {
+        const auto from = good.find(at);
+        check(from != std::string::npos, "the policy has '" + at + "'");
+        const auto to = good.find('\n', from);
+        std::string out = good;
+        out.replace(from, to - from, now);
+        return out;
+    };
+    // `good` with the first number after `at` put as `now`.
+    const auto first_number = [&](const std::string& at, const std::string& now) {
+        const auto from = good.find(at);
+        check(from != std::string::npos, "the policy has '" + at + "'");
+        const auto start = from + at.size();
+        const auto end = good.find_first_of(" \n", start);
+        std::string out = good;
+        out.replace(start, end - start, now);
+        return out;
+    };
+    refused(changed("observations 25", "observations 21"), "a policy for 21 observations");
     refused(good.substr(0, good.size() / 2), "a policy cut in half");
-    std::string word = good;
-    const auto bias = word.find("\nbias ");
-    word.replace(bias + 6, 1, "x");
-    refused(word, "a policy with a word for a number");
+    refused(first_number("\nbias ", "x"), "a policy with a word for a number");
+    refused(first_number("layer 25 64 tanh\n", "nan"), "a policy with a NaN weight");
+    refused(first_number("layer 25 64 tanh\n", "inf"), "a policy with an infinite weight");
+    refused(first_number("\nbias ", "-inf"), "a policy with an infinite bias");
+    refused(first_number("obs_mean ", "nan"), "a policy with a NaN in its normalisation");
+    refused(first_number("obs_scale ", "inf"), "a policy with an infinity in its normalisation");
+    refused(changed("obs_clip ", "obs_clip nan"), "a policy with a NaN clip");
+    refused(changed("vref_kts ", "vref_kts inf"), "a policy with an infinite reference speed");
+    refused(changed("decision_steps ", "decision_steps 12.5"), "a fractional decision interval");
+    refused(changed("decision_steps ", "decision_steps 0"), "a decision interval of nothing");
+    refused(changed("decision_steps ", "decision_steps 1e30"), "an enormous decision interval");
+    refused(changed("layer 25 64 tanh", "layer 25 -64 tanh"), "a layer of negative size");
+    refused(changed("layer 25 64 tanh", "layer 25 64.5 tanh"), "a layer of fractional size");
+    refused(changed("layer 25 64 tanh", "layer 25 99999999 tanh"), "an enormous layer");
+    refused(changed("layers ", "layers 3.5"), "a fractional number of layers");
     refused("", "an empty file");
-    std::filesystem::remove_all(dir);
+    check(tried == 18, "every one of the 18 wrong files was tried: " + std::to_string(tried));
     const LearntPolicy p = LearntPolicy::read(policy_file());
     check(!p.layers.empty() && p.layers.front().inputs == 25 && p.layers.back().outputs == 4,
           "the committed policy takes 25 observations and gives 4 actions");
