@@ -53,13 +53,17 @@ std::string error_in(const std::string& body) {
     return body.substr(0, 200);
 }
 
-platform::HttpRequest request_to(const std::string& url) {
+platform::HttpRequest request_to(const std::string& url, const std::atomic<bool>* abandon) {
     platform::HttpRequest r;
     r.url = url;
     r.user_agent = "glideslope (+https://github.com/GavinMGlynn/glideslope)";
     r.max_body = std::uint64_t{4} << 20;
     // A model takes its time; one that says nothing for this long has gone.
-    r.stall_timeout_seconds = 300;
+    // Two minutes: the slowest answer yet, a whole route along a coast, took
+    // 38 s.
+    r.stall_timeout_seconds = 120;
+    // **Given up at once when whoever asked is going** (Provider::abandon_on).
+    r.abandon = abandon;
     return r;
 }
 
@@ -87,7 +91,7 @@ public:
         }
         const std::string body = world::write_json(Json::make_object(
             {{"model", Json::make_string(model_)}, {"messages", Json::make_array(messages)}}));
-        platform::HttpRequest request = request_to("https://api.openai.com/v1/chat/completions");
+        platform::HttpRequest request = request_to("https://api.openai.com/v1/chat/completions", abandon_);
         request.headers = {{"Content-Type", "application/json"},
                            {"Authorization", "Bearer " + key_}};
         const platform::HttpResponse r = post_(request, body);
@@ -137,7 +141,7 @@ public:
              {"max_tokens", Json::make_number(4096)},
              {"system", Json::make_string(instructions)},
              {"messages", Json::make_array(messages)}}));
-        platform::HttpRequest request = request_to("https://api.anthropic.com/v1/messages");
+        platform::HttpRequest request = request_to("https://api.anthropic.com/v1/messages", abandon_);
         request.headers = {{"Content-Type", "application/json"},
                            {"x-api-key", key_},
                            {"anthropic-version", "2023-06-01"}};

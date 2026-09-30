@@ -6,6 +6,7 @@
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
 #         (-DPLAYBACK=<recording> | -DRECORD=<recording>
 #          | -DROUTE=<route file> -DEXPECT=<regex> [-DFOR=another|wreck] [-DPLAN=<plan>])
+#         [-DENGINE_AT=<s>] [-DTAKE_BACK_AT=<s>]
 #         [-DPROVIDER=openai|anthropic -DMODEL=<model>]
 #         -P server_copilot.cmake
 #
@@ -19,6 +20,17 @@
 # waypoint it is flying to than the first, or past it. The client stays 60 s
 # of the session's clock after sending it, then leaves, and the server runs
 # until it has gone.
+#
+# **With ENGINE_AT**, the server stops the player's engine that many seconds
+# in (`--fail-engine-at`), and says so in its updates; the client's copilot
+# is asked again, "the engine has stopped", and must answer with a glide the
+# server flies: its last half-minute line nearer the glide's waypoint than
+# its first after the failure, at the glide's airspeed within 5 kt.
+#
+# **With TAKE_BACK_AT**, the player takes the aircraft back that many seconds
+# after joining, and the copilot, asked for a routine look every 20 s, must
+# stand by from then: the server hands the aircraft to the AI once, not
+# again, and the client says its copilot stands by.
 #
 # **Sent as it is** (ROUTE): a route the client's copilot never checked, one
 # the server cannot fly. The server must refuse it, saying why (EXPECT), and
@@ -76,6 +88,13 @@ if(DEFINED ROUTE)
 else()
     set(_asking --copilot c172p "fly to Manly at 3,000 ft, then orbit over Manly beach"
                 --copilot-provider ${PROVIDER} --copilot-stay 60)
+    if(DEFINED ENGINE_AT)
+        list(APPEND _asking --copilot-answers 2 --copilot-stay 70)
+        list(APPEND _plan --fail-engine-at ${ENGINE_AT})
+    endif()
+    if(DEFINED TAKE_BACK_AT)
+        list(APPEND _asking --copilot-routine 20 --take-back-at ${TAKE_BACK_AT})
+    endif()
     if(DEFINED MODEL)
         list(APPEND _asking --copilot-model "${MODEL}")
     endif()
@@ -140,6 +159,9 @@ set(_names "${CMAKE_MATCH_2}")
 if(_served MATCHES "copilot's route refused")
     message(FATAL_ERROR "the server refused the copilot's route:\n${_served}")
 endif()
+# Its progress, each half minute: the first line and the last - but for a
+# route its pilot took back, which ends when it is.
+if(NOT DEFINED TAKE_BACK_AT)
 # Its progress, each half minute: the first line and the last.
 string(REGEX MATCHALL "on its copilot's route: to [A-Za-z0-9_]+, [0-9]+ of [0-9]+, [0-9]+ m"
        _progress "${_served}")
@@ -151,13 +173,72 @@ endif()
 list(GET _progress 0 _first)
 list(GET _progress -1 _last)
 string(REGEX MATCH "to ([A-Za-z0-9_]+), ([0-9]+) of [0-9]+, ([0-9]+) m" _m "${_first}")
+set(_first_to "${CMAKE_MATCH_1}")
 set(_first_leg "${CMAKE_MATCH_2}")
 set(_first_m "${CMAKE_MATCH_3}")
 string(REGEX MATCH "to ([A-Za-z0-9_]+), ([0-9]+) of [0-9]+, ([0-9]+) m" _m "${_last}")
+set(_last_to "${CMAKE_MATCH_1}")
 set(_last_leg "${CMAKE_MATCH_2}")
 set(_last_m "${CMAKE_MATCH_3}")
-if(_last_leg EQUAL _first_leg AND NOT _last_m LESS _first_m)
+if(_last_to STREQUAL _first_to AND _last_leg EQUAL _first_leg AND NOT _last_m LESS _first_m)
     message(FATAL_ERROR "the aircraft came no nearer its waypoint: ${_first}, then ${_last}\n"
                         "${_served}")
 endif()
 message(STATUS "the server flew the copilot's route,${_names}: ${_first}; then ${_last}")
+endif()
+
+if(DEFINED TAKE_BACK_AT)
+    string(REGEX MATCHALL "aircraft [0-9]+ handed to the AI" _handed "${_served}")
+    list(LENGTH _handed _times)
+    if(NOT _times EQUAL 1)
+        message(FATAL_ERROR "the server handed the aircraft to the AI ${_times} times, not once: "
+                            "the copilot took it back from its pilot:\n${_served}\n${_said}")
+    endif()
+    if(NOT _said MATCHES "its pilot has taken it back: the copilot stands by")
+        message(FATAL_ERROR "the copilot did not stand by when taken back:\n${_said}")
+    endif()
+    message(STATUS "taken back, the copilot stood by, and the AI was given the aircraft once")
+endif()
+
+if(DEFINED ENGINE_AT)
+    if(NOT _said MATCHES "aircraft [0-9]+'s engine has stopped")
+        message(FATAL_ERROR "the client never heard its engine stop:\n${_said}")
+    endif()
+    if(NOT _said MATCHES "asked its copilot, the engine has stopped")
+        message(FATAL_ERROR "the copilot was not asked when the engine stopped:\n${_said}")
+    endif()
+    if(NOT _served MATCHES "flies its copilot's route of [0-9]+:[^\n]*, gliding at ([0-9]+) kt")
+        message(FATAL_ERROR "the server never flew a glide:\n${_served}")
+    endif()
+    set(_glide "${CMAKE_MATCH_1}")
+    # The half-minute lines after the glide was taken.
+    string(FIND "${_served}" ", gliding at" _from)
+    string(SUBSTRING "${_served}" ${_from} -1 _after)
+    string(REGEX MATCHALL "to [A-Za-z0-9_]+, [0-9]+ of [0-9]+, [0-9]+ m from it at [0-9]+ kt"
+           _lines "${_after}")
+    list(LENGTH _lines _n)
+    if(_n LESS 2)
+        message(FATAL_ERROR "the server said where the glide had got to ${_n} times, not twice:\n"
+                            "${_served}")
+    endif()
+    list(GET _lines 0 _first)
+    list(GET _lines -1 _last)
+    string(REGEX MATCH "to [A-Za-z0-9_]+, ([0-9]+) of [0-9]+, ([0-9]+) m from it at ([0-9]+) kt" _m "${_first}")
+    set(_first_leg "${CMAKE_MATCH_1}")
+    set(_first_m "${CMAKE_MATCH_2}")
+    string(REGEX MATCH "to [A-Za-z0-9_]+, ([0-9]+) of [0-9]+, ([0-9]+) m from it at ([0-9]+) kt" _m "${_last}")
+    set(_last_leg "${CMAKE_MATCH_1}")
+    set(_last_m "${CMAKE_MATCH_2}")
+    set(_kts "${CMAKE_MATCH_3}")
+    if(_last_leg EQUAL _first_leg AND NOT _last_m LESS _first_m)
+        message(FATAL_ERROR "the glide came no nearer its waypoint: ${_first}, then ${_last}")
+    endif()
+    math(EXPR _low "${_glide} - 5")
+    math(EXPR _high "${_glide} + 5")
+    if(_kts LESS _low OR _kts GREATER _high)
+        message(FATAL_ERROR "gliding at ${_kts} kt, not within 5 kt of the ${_glide} kt asked "
+                            "for: ${_last}\n${_served}")
+    endif()
+    message(STATUS "the engine stopped, and the player's copilot glided it at ${_glide} kt: "
+                   "${_first}; then ${_last}")
+endif()

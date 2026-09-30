@@ -139,6 +139,11 @@ struct Options {
     // Simulated seconds between one planned AI aircraft's departure and the
     // next's.
     double ai_spacing_s = default_departure_spacing_s;
+    // **A failure to give** (`--fail-engine-at S`): at S seconds on the
+    // simulation's clock every player's aircraft flying loses its first
+    // engine - what a player's copilot is tested gliding from. Below nought:
+    // never.
+    double fail_engine_at_s = -1.0;
     // For a test: take this many steps as fast as they go, with nobody
     // joining, and stop - simulated time, not the machine's.
     long long steps = 0;
@@ -204,6 +209,8 @@ void print_usage(std::FILE* out) {
         "                     tasks/sydney-cbd-orbit.task in the data)\n"
         "  --ai-playback N=FILE  AI aircraft N's model is not asked: its answers\n"
         "                     are played back from FILE, a recording, for tests\n"
+        "  --fail-engine-at S at S simulated seconds, every player's aircraft\n"
+        "                     flying loses its first engine (for tests)\n"
         "  --ai-spacing S     simulated seconds between one planned AI aircraft's\n"
         "                     take-off and the next's (default 90)\n"
         "  --seconds N        stop after N seconds instead of running until killed\n"
@@ -480,6 +487,14 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         } else if (a == "--ai-task") {
             if (!next(value)) return std::nullopt;
             o.task = std::filesystem::path(std::string(value));
+        } else if (a == "--fail-engine-at") {
+            if (!next(value)) return std::nullopt;
+            const auto n = number(value);
+            if (!n || !(*n >= 0.0)) {
+                why = "--fail-engine-at wants a number of seconds, not '" + std::string(value) + "'";
+                return std::nullopt;
+            }
+            o.fail_engine_at_s = *n;
         } else if (a == "--ai-spacing") {
             if (!next(value)) return std::nullopt;
             const auto n = number(value);
@@ -603,6 +618,10 @@ void print_settings(const Options& o, std::FILE* out) {
                      o.task.empty() ? "(the data's tasks/sydney-cbd-orbit.task)"
                                     : o.task.string().c_str());
         std::fprintf(out, "spacing   %.0f s between planned take-offs\n", o.ai_spacing_s);
+    }
+    if (o.fail_engine_at_s >= 0.0) {
+        std::fprintf(out, "engines   every player's first engine stops %.0f s in\n",
+                     o.fail_engine_at_s);
     }
     if (o.steps > 0) {
         std::fprintf(out, "steps     %lld, as fast as they go\n", o.steps);
@@ -1287,8 +1306,7 @@ public:
         now.ground_ft = dem_->height_above_geoid(lat, lon) * feet_per_metre;
         now.heading_deg = craft.property("attitude/psi-deg");
         now.airspeed_kts = craft.property("velocities/vc-kts");
-        now.engine_running = !craft.has_property("propulsion/engine/set-running") ||
-                             craft.property("propulsion/engine/set-running") > 0.5;
+        now.engine_running = !engine_stopped(a);
         if (a.controller) {
             now.gliding_kts = a.controller->glide();
         }
@@ -1388,6 +1406,17 @@ public:
         const double now_s =
             static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
         std::vector<std::string> happened;
+        // **The failure it was told to give** (`--fail-engine-at`), once.
+        if (fail_engines_at_s_ >= 0.0 && !engines_failed_ && now_s >= fail_engines_at_s_) {
+            engines_failed_ = true;
+            for (Aircraft& a : flown_) {
+                if (a.slot >= 0 && a.wrecked_at_s < 0.0) {
+                    a.aircraft->fail_engine(0, false);
+                    happened.push_back("aircraft " + std::to_string(a.index) +
+                                       "'s engine has stopped");
+                }
+            }
+        }
         // **A planned aircraft whose turn to depart has come** is put on its
         // runway, under the lowest number free.
         for (auto it = waiting_.begin(); it != waiting_.end();) {
@@ -1528,6 +1557,21 @@ public:
         std::string no_brief{};
     };
 
+    void fail_engines_at(double s) {
+        fail_engines_at_s_ = s;
+    }
+    // **Whether any of its engines has stopped**, as the state update says
+    // (`net::Condition::engine_stopped`).
+    static bool engine_stopped(const Aircraft& a) {
+        const int engines = std::max(1, a.aircraft->figures().engines);
+        for (int i = 0; i < engines; ++i) {
+            const std::string running = "propulsion/engine[" + std::to_string(i) + "]/set-running";
+            if (a.aircraft->has_property(running) && a.aircraft->property(running) < 0.5) {
+                return true;
+            }
+        }
+        return false;
+    }
     // Whether an AI pilot has it, rather than a person - a controller of its
     // own is not enough to say: a player's aircraft given back keeps one.
     static bool ai_flying(const Aircraft& a) {
@@ -1973,6 +2017,8 @@ private:
         std::string why;
     };
     std::map<std::string, Speeds> speeds_;
+    double fail_engines_at_s_ = -1.0;
+    bool engines_failed_ = false;
     // **The number to give an aircraft nobody is flying**: the lowest from
     // `most_slots` up that no aircraft has, so that numbers are used again
     // rather than counted up to where they would wrap round into the
@@ -2047,8 +2093,9 @@ glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s) {
         out.index = a.index;
         out.controller = Fleet::ai_flying(a) ? glideslope::net::Controller::ai
                                       : glideslope::net::Controller::person;
-        out.condition = a.wrecked_at_s >= 0.0 ? glideslope::net::Condition::wrecked
-                                              : glideslope::net::Condition::flying;
+        out.condition = a.wrecked_at_s >= 0.0     ? glideslope::net::Condition::wrecked
+                        : Fleet::engine_stopped(a) ? glideslope::net::Condition::engine_stopped
+                                                   : glideslope::net::Condition::flying;
         out.x_m = at.x;
         out.y_m = at.y;
         out.z_m = at.z;
@@ -2785,6 +2832,7 @@ int run(const Options& o) {
     std::optional<Fleet> fleet;
     if (!o.fly.empty() || o.ai > 0) {
         fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task, o.ai_spacing_s);
+        fleet->fail_engines_at(o.fail_engine_at_s);
     }
 
     std::printf("listening on port %u\n", static_cast<unsigned>(socket->port()));

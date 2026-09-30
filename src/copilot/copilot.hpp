@@ -33,7 +33,9 @@
 #include "sim/plan.hpp"
 #include "world/runways.hpp"
 
+#include <atomic>
 #include <cstddef>
+#include <functional>
 #include <future>
 #include <memory>
 #include <optional>
@@ -108,13 +110,17 @@ std::string change_refusal(const Brief& brief, const Situation& now, const Chang
 // Asks `provider` what to do now, and checks what it says: waits for the
 // model, so it is for a thread of its own. Throws ProviderError when the
 // provider fails, or when every answer is refused, saying why each was.
-Change decide(Provider& provider, const Brief& brief, const Situation& now);
+// `given_up`, when it becomes true, ends it between answers with a
+// ProviderError.
+Change decide(Provider& provider, const Brief& brief, const Situation& now,
+              const std::atomic<bool>* given_up = nullptr);
 
 class Copilot {
 public:
     Copilot(std::unique_ptr<Provider> provider, Brief brief);
-    // Waits for a question still outstanding: the provider is not left
-    // talking to nobody.
+    // **Gives up a question still outstanding, and waits for that**: the
+    // model's request is abandoned at once and no further answer is asked
+    // for, so a player quitting is not held up by a model thinking.
     ~Copilot();
     Copilot(const Copilot&) = delete;
     Copilot& operator=(const Copilot&) = delete;
@@ -129,6 +135,10 @@ public:
     // Asks, on a thread of its own, what to do now. Returns at once; false,
     // asking nothing, while an earlier question is still outstanding.
     bool ask(Situation now);
+    // Or with what it is told worked out there too, on its own thread, by
+    // `told` - for a situation whose ground has to be looked up, which is
+    // not for the thread that steps.
+    bool ask(std::function<Situation()> told);
     // Whether a question is outstanding: asked, and its answer not yet
     // taken by `answered`.
     bool asking() const {
@@ -144,6 +154,7 @@ private:
     std::unique_ptr<Provider> provider_;
     Brief brief_;
     std::future<Change> pending_;
+    std::atomic<bool> given_up_{false};
 };
 
 } // namespace glideslope::copilot

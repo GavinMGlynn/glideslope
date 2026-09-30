@@ -519,6 +519,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_refusal_the_document_names_for_a_copilot_route_is_refused
     a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown
     the_copilot_asks_on_a_thread_of_its_own_and_the_step_never_waits_for_the_model
+    a_copilot_going_away_gives_up_its_question_at_once
     a_recording_played_back_but_its_numbers_answers_a_request_whose_figures_moved_and_no_other
     a_plan_changed_while_the_ai_flies_moves_no_control_at_the_change_and_is_flown
     a_glide_with_the_engine_stopped_holds_its_airspeed_on_the_elevator_along_its_route
@@ -1935,6 +1936,42 @@ add_test(NAME a_route_the_server_cannot_fly_is_refused_by_it_though_a_client_sen
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
 set_tests_properties(a_route_the_server_cannot_fly_is_refused_by_it_though_a_client_sent_it
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+# **A player's copilot on a server glides the aircraft when its engine stops**
+# (the server's --fail-engine-at), and **stands by when its pilot takes the
+# aircraft back**, from their recordings in data/copilot with no key; asked
+# now (live) only with GLIDESLOPE_LIVE_MODEL=1. See cmake/server_copilot.cmake.
+foreach(_case engine:ENGINE_AT=30:24722:24724:a_players_copilot_glides_its_aircraft_on_a_server_when_the_engine_stops
+              take_back:TAKE_BACK_AT=40:24726:24728:a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back)
+    string(REPLACE ":" ";" _case "${_case}")
+    list(GET _case 0 _what)
+    list(GET _case 1 _define)
+    list(GET _case 2 _port)
+    list(GET _case 3 _port_now)
+    list(GET _case 4 _name)
+    add_test(NAME ${_name}_as_recorded
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_what} -DPORT=${_port}
+            -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001 -D${_define}
+            -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/${_what}-server-anthropic.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
+    set_tests_properties(${_name}_as_recorded
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    add_test(NAME ${_name}_asking_anthropic_now
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_what}_now -DPORT=${_port_now}
+            -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001 -D${_define}
+            -DRECORD=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_what}_now/${_what}-server-anthropic.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
+    set_tests_properties(${_name}_asking_anthropic_now
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads LABELS live)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_what}
+         ${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_what}_now)
+endforeach()
+
 # **A route the server could fly is refused all the same** when it is for
 # another aircraft than the client's, for a wreck, or for an aircraft whose
 # figures give no speeds to check it against - and the server goes on.

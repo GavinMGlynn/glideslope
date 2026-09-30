@@ -110,7 +110,8 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
 
 bool known_condition(std::uint8_t value) {
     return value == static_cast<std::uint8_t>(Condition::flying) ||
-           value == static_cast<std::uint8_t>(Condition::wrecked);
+           value == static_cast<std::uint8_t>(Condition::wrecked) ||
+           value == static_cast<std::uint8_t>(Condition::engine_stopped);
 }
 
 std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {

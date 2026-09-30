@@ -423,9 +423,10 @@ GLIDESLOPE_TEST(a_state_packet_with_a_controller_that_is_not_one_is_refused) {
     check(refused == 253, "and 253 are not, not " + std::to_string(refused));
 }
 
-// **Every byte a condition could be, walked**: flying and wrecked are read,
-// and the other 254 make the whole packet unreadable rather than being taken
-// for one of them. A wreck is said and read back as a wreck.
+// **Every byte a condition could be, walked**: flying, wrecked and flying
+// with an engine stopped are read, and the other 253 make the whole packet
+// unreadable rather than being taken for one of them. A wreck is said and
+// read back as a wreck, and an engine stopped as one.
 GLIDESLOPE_TEST(a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_not_know) {
     StatePacket wreck = a_packet(2);
     wreck.aircraft[1].condition = glideslope::net::Condition::wrecked;
@@ -433,6 +434,11 @@ GLIDESLOPE_TEST(a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_n
     check(said.has_value(), "a packet with a wreck in it is written");
     const auto heard = read_state(*said);
     check(heard.has_value() && *heard == wreck, "and read back the same, the wreck a wreck");
+    StatePacket stopped = a_packet(2);
+    stopped.aircraft[0].condition = glideslope::net::Condition::engine_stopped;
+    const auto stopped_heard = read_state(*write_state(stopped));
+    check(stopped_heard.has_value() && *stopped_heard == stopped,
+          "and an engine stopped is read back as one");
 
     const std::size_t at = glideslope::net::state_header_bytes + 2; // the first aircraft's
     std::size_t taken = 0;
@@ -446,8 +452,8 @@ GLIDESLOPE_TEST(a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_n
             ++refused;
         }
     }
-    check(taken == 2, "two bytes are conditions, not " + std::to_string(taken));
-    check(refused == 254, "and 254 are not, not " + std::to_string(refused));
+    check(taken == 3, "three bytes are conditions, not " + std::to_string(taken));
+    check(refused == 253, "and 253 are not, not " + std::to_string(refused));
     check(taken + refused == 256, "every byte was tried");
 }
 

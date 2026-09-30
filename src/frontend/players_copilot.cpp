@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <future>
 #include <iterator>
 #include <stdexcept>
 #include <utility>
@@ -38,13 +39,15 @@ struct PlayersCopilot::Ground {
     world::DownloadedTiles tiles;
     world::Geoid geoid;
     world::Dem dem;
+    std::vector<world::RunwayEnd> runways;
 
     Ground(std::string_view coverage_text, const std::filesystem::path& cache)
         : coverage(coverage_text),
           fetch(world::http_fetch()),
           tiles(cache, fetch),
           geoid(world::egm2008_geoid(cache, fetch)),
-          dem(coverage, tiles, &geoid) {}
+          dem(coverage, tiles, &geoid),
+          runways(world::world_runways(cache, fetch)) {}
 };
 
 PlayersCopilot::PlayersCopilot(const std::filesystem::path& data, PlayersCopilotOptions options)
@@ -78,13 +81,19 @@ PlayersCopilot::PlayersCopilot(const std::filesystem::path& data, PlayersCopilot
     if (!coverage_file) {
         throw std::runtime_error("cannot read " + (data / "dem" / "coverage.txt").string());
     }
-    const std::string coverage(std::istreambuf_iterator<char>(coverage_file), {});
+    std::string coverage(std::istreambuf_iterator<char>(coverage_file), {});
     const std::filesystem::path cache = platform::cache_directory();
-    ground_ = std::make_unique<Ground>(coverage, cache);
-    runways_ = world::world_runways(cache, ground_->fetch);
+    ground_ = std::async(std::launch::async,
+                         [coverage = std::move(coverage), cache] {
+                             return std::make_shared<Ground>(coverage, cache);
+                         })
+                  .share();
 }
 
-PlayersCopilot::~PlayersCopilot() = default;
+PlayersCopilot::~PlayersCopilot() {
+    // Its question first: it may be using this.
+    helper_.reset();
+}
 
 std::string PlayersCopilot::provider() const {
     return provider_;
@@ -95,16 +104,18 @@ std::vector<std::string> PlayersCopilot::said() {
 }
 
 copilot::Situation PlayersCopilot::situation(double simulation_s, const net::AircraftState& own,
-                                             const std::string& event) const {
+                                             const std::string& event,
+                                             std::vector<sim::Waypoint> route,
+                                             const std::shared_ptr<Ground>& ground) {
     const world::Geodetic at = world::to_geodetic({own.x_m, own.y_m, own.z_m});
     copilot::Situation now;
     now.seconds = simulation_s;
     now.latitude_deg = at.latitude_deg;
     now.longitude_deg = at.longitude_deg;
     now.altitude_ft =
-        (at.height_m - ground_->geoid.undulation(at.latitude_deg, at.longitude_deg)) *
+        (at.height_m - ground->geoid.undulation(at.latitude_deg, at.longitude_deg)) *
         feet_per_metre;
-    now.ground_ft = ground_->dem.height_above_geoid(at.latitude_deg, at.longitude_deg) * feet_per_metre;
+    now.ground_ft = ground->dem.height_above_geoid(at.latitude_deg, at.longitude_deg) * feet_per_metre;
     now.heading_deg = static_cast<double>(own.heading_deg);
     const double vx = static_cast<double>(own.vx_mps);
     const double vy = static_cast<double>(own.vy_mps);
@@ -115,10 +126,10 @@ copilot::Situation PlayersCopilot::situation(double simulation_s, const net::Air
     const double up = vx * std::cos(lat) * std::cos(lon) + vy * std::cos(lat) * std::sin(lon) +
                       vz * std::sin(lat);
     now.vertical_speed_fpm = up * feet_per_metre * 60.0;
-    now.engine_running = true;
-    now.route = route_;
+    now.engine_running = own.condition != net::Condition::engine_stopped;
+    now.route = std::move(route);
     std::vector<std::pair<double, const world::RunwayEnd*>> near;
-    for (const world::RunwayEnd& end : runways_) {
+    for (const world::RunwayEnd& end : ground->runways) {
         if (std::isnan(end.elevation_ft)) {
             continue;
         }
@@ -139,16 +150,41 @@ copilot::Situation PlayersCopilot::situation(double simulation_s, const net::Air
 
 std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
                                                       const net::AircraftState& own) {
-    if (!wanted_ && !helper_->asking() && answered_at_s_ && o_.routine_s > 0.0 &&
-        simulation_s - *answered_at_s_ >= o_.routine_s) {
+    const bool ai_now = own.controller == net::Controller::ai;
+    // **Taken back by the player, it stands by**: nothing more asked, and
+    // no answer sent, until the player asks again.
+    if (ai_flying_ && !ai_now && engaged_) {
+        engaged_ = false;
+        wanted_.reset();
+        route_.clear();
+        said_.push_back("its pilot has taken it back: the copilot stands by");
+    }
+    ai_flying_ = ai_now;
+    const bool engine_stopped = own.condition == net::Condition::engine_stopped;
+    if (engine_stopped && !engine_said_ && engaged_ && ai_now) {
+        engine_said_ = true;
+        wanted_ = "the engine has stopped";
+    }
+    if (!wanted_ && engaged_ && ai_now && !helper_->asking() && answered_at_s_ &&
+        o_.routine_s > 0.0 && simulation_s - *answered_at_s_ >= o_.routine_s) {
         wanted_ = "a routine look";
     }
-    if (wanted_ && !helper_->asking() && helper_->ask(situation(simulation_s, own, *wanted_))) {
-        said_.push_back("asked its copilot, " + *wanted_);
-        wanted_.reset();
-        asked_at_s_ = simulation_s;
-        ++questions_;
-        return std::nullopt;
+    if (wanted_ && !helper_->asking()) {
+        const std::string event = *wanted_;
+        std::vector<sim::Waypoint> route = route_;
+        // Its ground waited for on the question's thread - a copy of the
+        // future each, for one is not to be read from two threads - and
+        // what making it threw taken as the question not answered.
+        if (helper_->ask([this, simulation_s, own, event, route = std::move(route),
+                          ground = ground_]() mutable {
+                return situation(simulation_s, own, event, std::move(route), ground.get());
+            })) {
+            said_.push_back("asked its copilot, " + event);
+            wanted_.reset();
+            asked_at_s_ = simulation_s;
+            ++questions_;
+            return std::nullopt;
+        }
     }
     if (!helper_->asking() || !asked_at_s_ || simulation_s - *asked_at_s_ < o_.thinking_s) {
         return std::nullopt;
@@ -171,6 +207,10 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
     }
     answered_at_s_ = simulation_s;
     ++answers_;
+    if (!engaged_) {
+        said_.push_back("its copilot answered, and was not heard: its pilot has it");
+        return std::nullopt;
+    }
     for (const std::string& why : change->refused) {
         said_.push_back("its copilot's answer refused: " + why);
     }

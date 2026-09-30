@@ -819,7 +819,7 @@ Then, for each aircraft:
 | --- | --- |
 | `u8` | the server's number for this aircraft, steady for as long as it flies |
 | `u8` | who is flying it, a `CONTROLLER` |
-| `u8` | whether it is flying or a wreck: `00` flying, `01` wrecked |
+| `u8` | whether it is flying or a wreck: `00` flying, `01` wrecked, `02` flying with an engine stopped |
 | `f64` | its position, Earth-centred and Earth-fixed, metres, x |
 | `f64` | the same, y |
 | `f64` | the same, z |
@@ -895,6 +895,13 @@ has one to give, and `FF` otherwise.
 harder than its gear takes. The server decides it and says it here, and the
 aircraft stays where it hit, a wreck, for a few seconds; then it flies again
 from where it started, under the same number, `00` again.
+
+**An engine stopped** (`02`, 2026-09-30) is an aircraft still flying with at
+least one of its engines not running - a failure the server was told to
+give it (`--fail-engine-at`). A player's copilot, asked on the player's
+machine, is told so, and answers with a glide (`COPILOT_ROUTE`). It says
+nothing of which engine, nor of whether it will start again: flown again
+after a wreck, an aircraft's engines run.
 
 **A reader refuses**: a kind that is not `03`, fewer bytes than the fields
 need, any byte left over at the end, more than 20 aircraft, a controller or a
