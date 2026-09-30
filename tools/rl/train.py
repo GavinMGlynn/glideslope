@@ -32,7 +32,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 
-from env import LandingEnv
+from env import GAMMA, LandingEnv
 
 
 class Landings(BaseCallback):
@@ -108,8 +108,11 @@ def main() -> None:
     venv = SubprocVecEnv([make(i) for i in range(args.envs)])
     if args.resume:
         venv = VecNormalize.load(args.resume.removesuffix(".zip") + ".vecnorm", venv)
+        venv.gamma = GAMMA
         # A fine-tune steps more gently than a start from nothing.
-        custom = {} if args.lr is None else {"learning_rate": args.lr, "clip_range": 0.1}
+        custom = {"gamma": GAMMA}
+        if args.lr is not None:
+            custom |= {"learning_rate": args.lr, "clip_range": 0.1}
         model = PPO.load(args.resume, env=venv, device="cpu", custom_objects=custom)
         if args.log_std is not None:
             # **The noise held small and still**, so that the mean action -
@@ -120,7 +123,7 @@ def main() -> None:
             model.policy.log_std.data.fill_(args.log_std)
             model.policy.log_std.requires_grad_(False)
     else:
-        venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=0.995)
+        venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=GAMMA)
         model = PPO(
             "MlpPolicy",
             venv,
@@ -128,7 +131,7 @@ def main() -> None:
             batch_size=4096,
             n_epochs=10,
             learning_rate=3e-4,
-            gamma=0.995,
+            gamma=GAMMA,
             gae_lambda=0.95,
             clip_range=0.2,
             ent_coef=0.0,

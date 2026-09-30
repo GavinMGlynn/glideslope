@@ -28,8 +28,11 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 JSBSIM_ROOT = os.path.join(REPO, "assets", "jsbsim")
 
 
-# The discount, as train.py's.
-GAMMA = 0.995
+# The discount, as train.py's. **0.999, not 0.995**: from the gate the touch
+# is some 1,300 decisions away, and 0.995 to that power is 0.0015 - the
+# touch's reward, the centreline's most of all, was invisible for all but
+# the last twenty seconds. 0.999 to the power of the last 200 is 0.82.
+GAMMA = 0.999
 
 
 class Flier:
@@ -152,6 +155,12 @@ class Flier:
         phi = self.potential(r, w)
         reward += GAMMA * phi - self.phi
         self.phi = phi
+        # **Off the centreline on short final costs, every tenth of a second**:
+        # inside 1,500 m of the threshold, a hundredth for each metre off it,
+        # to fifty. A cost, so nothing is gained by flying on; the touch short
+        # of the threshold costs more than any of it.
+        if w.along_m < 1500.0:
+            reward -= 0.01 * min(abs(w.across_m), 50.0)
         if self.t >= L.LONGEST_S:
             f.ended = "out of time"
             return obs, reward, True, True
