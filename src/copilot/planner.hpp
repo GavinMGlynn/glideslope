@@ -78,8 +78,8 @@ struct Task {
     std::string command;
 };
 
-// Throws ProviderError for a line it does not know, or a task missing any of
-// the three.
+// Throws ProviderError for a line it does not know, a key given twice, a key
+// followed by a tab rather than a space, or a task missing any of the three.
 Task parse_task(const std::string& text);
 
 // Asks `provider` for a plan, and checks it. Throws ProviderError when the
