@@ -25,6 +25,12 @@ name: package
 
 on:
   workflow_call:
+    inputs:
+      vcpkg-write:
+        description: "'true' when the Windows job may upload vcpkg's packages (ci.yml's changes job)."
+        type: string
+        required: false
+        default: 'false'
   workflow_dispatch:
 
 jobs:
@@ -320,6 +326,7 @@ jobs:
       - uses: ./.github/actions/vcpkg-github-packages
         with:
           token: ${{ secrets.VCPKG_PAT }}
+          write: ${{ inputs.vcpkg-write }}
       - uses: ./.github/actions/msvc-dev-env
 
       - name: Configure

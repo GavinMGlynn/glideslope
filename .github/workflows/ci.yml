@@ -31,8 +31,8 @@ concurrency:
 # and macOS vcpkg's binary cache is kept between runs in .vcpkg-archives, keyed
 # on the toolchain and everything that decides what is built; on Windows it is
 # a NuGet feed in GitHub Packages (.github/actions/vcpkg-github-packages), one
-# package per ABI, written by every job, a pull request's too (the action says
-# why).
+# package per ABI, written by main and by a pull request that changes nothing
+# which could shape a package (the changes job decides; the action says why).
 #
 # **Only main saves a cache; a pull request only restores.** A pull request can
 # read main's caches and nobody else's, and all of them share the repository's
@@ -566,6 +566,8 @@ jobs:
   windows-build:
     name: Windows ${{ matrix.preset }} - build
     runs-on: windows-latest
+    # For whether it may upload vcpkg's packages.
+    needs: changes
     # A build whose caches missed takes most of 45 minutes (44 for one pull
     # request on 2026-09-25), and one was cancelled at step 1215 of 1239.
     timeout-minutes: 75
@@ -585,6 +587,7 @@ jobs:
       - uses: ./.github/actions/vcpkg-github-packages
         with:
           token: ${{ secrets.VCPKG_PAT }}
+          write: ${{ needs.changes.outputs.vcpkg-write }}
 
       # **ccache, as on Linux and macOS**: without it each Windows build
       # compiled everything from nothing, 17-19 minutes on every push. ccache
@@ -853,9 +856,36 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       build: ${{ steps.decide.outputs.build }}
+      vcpkg-write: ${{ steps.vcpkg.outputs.write }}
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      # **Who may upload vcpkg's packages to GitHub Packages**: main, and a
+      # pull request whose diff touches nothing that could change how they
+      # build without changing their ABI hash - the workflows and actions,
+      # the CMake that runs before vcpkg, its manifest and configuration, the
+      # Cesium Native pointer (.github/actions/vcpkg-github-packages says why).
+      # Anything else, or a diff that cannot be taken, only reads.
+      - id: vcpkg
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          write=false
+          if [ "$EVENT" != pull_request ]; then
+            if [ "$REF" = refs/heads/main ]; then write=true; fi
+          elif [ -n "$BASE" ] && git cat-file -e "$BASE" 2>/dev/null \
+               && changed=$(git diff --name-only "$BASE" "$HEAD"); then
+            if echo "$changed" | grep -Eq '^(\.github/|cmake/|CMakeLists\.txt$|CMakePresets\.json$|vcpkg\.json$|vcpkg-configuration\.json$|\.gitmodules$|ext/cesium-native$)'; then
+              echo "this pull request changes what could shape vcpkg's packages; they are only read"
+            else
+              write=true
+            fi
+          fi
+          echo "vcpkg's packages uploaded: $write"
+          echo "write=$write" >> "$GITHUB_OUTPUT"
       - id: decide
         env:
           BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -882,6 +912,8 @@ jobs:
     uses: ./.github/workflows/package.yml
     # Its Windows job takes vcpkg's packages from GitHub Packages (VCPKG_PAT).
     secrets: inherit
+    with:
+      vcpkg-write: ${{ needs.changes.outputs.vcpkg-write }}
 
   # ---------------------------------------------------------------------------
   # **Main keeps one cache of each kind, not one per commit.** Each build on

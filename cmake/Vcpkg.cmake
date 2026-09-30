@@ -154,13 +154,14 @@ function(glideslope_vcpkg_install)
     endif()
     # **What vcpkg did, not only that it finished**: the compiler whose hash
     # is in every package's ABI, what was restored and from where, and each
-    # package built instead, with its time and its upload. A configure that
+    # package built instead, with its time and its upload, and an upload
+    # refused (NuGet's "failed", its status code). A configure that
     # took twenty minutes says why in its own output (a CI job's log), not
     # only in vcpkg-install.log.
     string(REPLACE "\r" "" _summary "${_out}")
     string(REPLACE ";" "," _summary "${_summary}")
     string(REGEX MATCHALL
-           "(^|\n)((Detecting compiler|Compiler found|Restored|Building|Completed submission|Waiting for|Stored binaries|Uploading|All requested|warning|error)[^\n]*|Elapsed time[^\n]*: [0-9.]+ (s|min|h))"
+           "(^|\n)((Detecting compiler|Compiler found|Restored|Building|Completed submission|Waiting for|Stored binaries|Uploading|Pushing|All requested|warning|error)[^\n]*|Elapsed time[^\n]*: [0-9.]+ (s|min|h)|[^\n]*([Ff]ailed|status code)[^\n]*)"
            _lines "${_summary}")
     foreach(_line IN LISTS _lines)
         string(STRIP "${_line}" _line)
