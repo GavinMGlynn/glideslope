@@ -17,6 +17,18 @@
 # packages are free. Each package is made public once, after its first upload
 # (PROJECT_STATUS says how); later versions keep it.
 #
+# **Every job writes, a pull request's too.** A new image's compiler changes
+# every package's ABI, and GitHub rolls an image out over days, to some
+# runners at a time: when only main wrote, each pull request's job that landed
+# on the new image rebuilt all 39 packages (21-22 minutes a configure) and
+# kept nothing, until one of main's own jobs happened to land there too - 7
+# such configures on 2026-09-30 (PROJECT_STATUS). Now the first job on the new
+# image uploads, and every later one restores. The reason a pull request only
+# reads the Actions cache - one 10 GB for the repository - does not hold here:
+# public packages are free and unlimited, and each version is keyed by its ABI,
+# so a pull request that changes a port uploads under a hash main's jobs never
+# ask for. A pull request from a fork has no secret, and builds from source.
+#
 # **Windows only**: elsewhere vcpkg runs nuget.exe under Mono, which
 # ubuntu-24.04 and macOS no longer carry; there the packages are small and the
 # Actions cache, keyed on the toolchain, serves.
@@ -30,10 +42,6 @@ inputs:
   token:
     description: A classic personal access token with read:packages and write:packages.
     required: false
-  write:
-    description: "'true' to upload what is built (main); otherwise only read (pull requests)."
-    required: false
-    default: 'false'
 runs:
   using: composite
   steps:
@@ -42,7 +50,6 @@ runs:
         VCPKG_PAT: ${{ inputs.token }}
         FEED: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
         OWNER: ${{ github.repository_owner }}
-        RW: ${{ inputs.write == 'true' && 'readwrite' || 'read' }}
       run: |
         $ErrorActionPreference = 'Stop'
         $ProgressPreference = 'SilentlyContinue'
@@ -69,7 +76,7 @@ runs:
         if ($LASTEXITCODE -ne 0) { throw "nuget sources add failed" }
         & $nuget setapikey $env:VCPKG_PAT -Source $env:FEED -ConfigFile $cfg -NonInteractive | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "nuget setapikey failed" }
-        "VCPKG_BINARY_SOURCES=clear;nugetconfig,$cfg,$env:RW;nugettimeout,600" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-        Write-Output "vcpkg's binary cache: $env:FEED ($env:RW)"
+        "VCPKG_BINARY_SOURCES=clear;nugetconfig,$cfg,readwrite;nugettimeout,600" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+        Write-Output "vcpkg's binary cache: $env:FEED (readwrite)"
         # The image names the compiler, and the compiler is in every package's ABI.
         Write-Output "runner image: $env:ImageOS $env:ImageVersion"

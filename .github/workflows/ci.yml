@@ -31,14 +31,16 @@ concurrency:
 # and macOS vcpkg's binary cache is kept between runs in .vcpkg-archives, keyed
 # on the toolchain and everything that decides what is built; on Windows it is
 # a NuGet feed in GitHub Packages (.github/actions/vcpkg-github-packages), one
-# package per ABI, written by main only.
+# package per ABI, written by every job, a pull request's too (the action says
+# why).
 #
 # **Only main saves a cache; a pull request only restores.** A pull request can
 # read main's caches and nobody else's, and all of them share the repository's
 # 10 GB: when every pull request saved its own ccache and downloads (2.5 GB a
 # platform), main's were pushed out, and builds compiled everything from
-# nothing, 0% ccache hits, 20-35 minutes each. A pull request that changes
-# vcpkg's dependencies builds them afresh on each push until it lands.
+# nothing, 0% ccache hits, 20-35 minutes each. On Linux and macOS, a pull
+# request that changes vcpkg's dependencies builds them afresh on each push
+# until it lands.
 env:
   GLIDESLOPE_REQUIRE_WINDOW: 1
   GLIDESLOPE_REQUIRE_NETWORK: 1
@@ -583,7 +585,6 @@ jobs:
       - uses: ./.github/actions/vcpkg-github-packages
         with:
           token: ${{ secrets.VCPKG_PAT }}
-          write: ${{ github.event_name != 'pull_request' }}
 
       # **ccache, as on Linux and macOS**: without it each Windows build
       # compiled everything from nothing, 17-19 minutes on every push. ccache
