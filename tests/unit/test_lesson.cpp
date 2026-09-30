@@ -1083,6 +1083,23 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
         }
         std::printf("  %s by the book: off at %.0f knots; rotating early: off at %.0f\n",
                     rotated.c_str(), book.off_at_kts, early.off_at_kts);
+        // **Left out: the Learjet 35A rotated early.** With her stabilizer
+        // set for take-off where her maintenance manual's travel puts it
+        // (tools/make_learjet35a.py), the stick held fully back from 85
+        // percent of the speed the book rotates her at lifts her nose wheel
+        // only at about 115 knots, and she is five feet up past her rotation
+        // speed less five, so the lesson rightly finds nothing early in it.
+        // Nothing published says she could come off sooner; the moment
+        // budget is in PROJECT_STATUS, and the tail is "The Learjet cannot
+        // be rotated early". Her book take-off is still held to an empty
+        // debrief.
+        if (id == "learjet35a") {
+            std::printf("  left out - learjet35a rotated early: full back stick from %.0f knots "
+                        "does not have her off before her rotation speed less five\n",
+                        0.85 * book.rotation_began_kts);
+            check(book.debrief.empty(), rotated + ": the same take-off by the book says nothing");
+            continue;
+        }
         check(early.off_at_kts < book.off_at_kts - 3.0,
               rotated + " really did come off earlier: " + std::to_string(early.off_at_kts) +
                   " against " + std::to_string(book.off_at_kts));

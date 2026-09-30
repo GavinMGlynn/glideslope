@@ -232,23 +232,61 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The Learjet's stabilizer tied to her maintenance manual's travel, 2026-09-30 — tail not done
+### The Learjet's stabilizer tied to her maintenance manual's travel: she trims in cruise, 2026-09-30 — tail done
 
-**What is missing first: tied, she trims in cruise but rotates late, and
-`a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief` fails.**
-Her take-off had been leaning on the stabilizer's mis-tied zero. With the
-AFM's take-off setting now on the rigging's scale (3.6 degrees less nose up
-on the model's), the Learjet in that lesson leaves at 135 knots by the book
-(rotation speed 125) and at 130 rotated early - later than her rotation
-speed, so the early rotation is not a fault. In
+**What is missing first: she can no longer be rotated early.** Her take-off
+had been leaning on the stabilizer's mis-tied zero. With the AFM's take-off
+setting on the rigging's scale (3.6 degrees less nose up on the model's),
+the stick held fully back from 85 percent of the speed the book rotates her
+at lifts her nose wheel only at about 115 knots, and she is five feet up at
+130 - past her rotation speed less five (125.3 - 5), so the business-jet
+take-off lesson finds nothing early in it. **The Learjet's early rotation is
+left out of `a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`**,
+named there with its reason, and is a tail ("The Learjet cannot be rotated
+early"); her book take-off there still leaves an empty debrief (off at 135
+knots, five feet up). No published figure (a minimum unstick speed) was
+found to change what the lesson expects. In
 `every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early`
-she still passes, barely: 128.9 by the book (was 125.9), 125.7 rotated early
-(was 114.3), 3.2 knots sooner where three are asked. Not landable as it is:
-the model's ground rotation lacks about 3.6 degrees of stabilizer's worth of
-nose-up authority (0.13 of pitching moment at 125 knots), which the old zero
-supplied; the cause is not found. Candidates, all estimated in the script:
-the engines' thrust line (water line 22, some 50 in above the main wheels'
-contact), the centre of gravity's height, the tail in ground effect.
+she still passes, near its edge: 128.9 by the book (was 125.9), 125.7 rotated
+early (was 114.3), 3.2 knots sooner where three are asked.
+
+**The moment budget at the rotation**, measured (a scratch probe, not
+committed): the stall-example loading (15,800 lb, 18.4% of the chord), flaps
+8, full thrust, the take-off setting (stabilizer -3.64 degrees on the model's
+scale), the stick fully back from 90 knots. Moments about the main wheels'
+contact, ft-lb, positive nose up, when the nose wheel leaves at 114.8 knots:
+
+| Term | ft-lb |
+| --- | --- |
+| Elevator, 16 degrees up (Cmde) | +22,600 |
+| Stabilizer (Cmstab) | +10,500 |
+| Pitching moment at no incidence (Cm0) | +5,200 |
+| Incidence, flaps, pitch rate | -1,500 |
+| Lift and drag, about the wheels | +3,900 |
+| Thrust, 6,800 lb on its line | -27,200 |
+| Weight, 1.6 ft ahead of the wheels | -25,100 |
+| Acceleration, at the centre of gravity's height | +13,200 |
+
+At the old setting (-7.24 on the model's scale) the stabilizer's term was
+about +20,900 - some 10,400 more - and the nose came up as the stick did, at
+90 knots. The maximum loading (18,300 lb, 24.6%) is the same: nose off at
+114.5 knots. **The suspects, each checked against a source**:
+- The elevator's travel, 16 degrees up: TCDS A10CE, as the model has it; its
+  moment, -1.036 a radian: TN D-7647's flight identification.
+- The main wheels: FS 396.82 static (MM 6-00-03, figure 1 sheet 2, Major
+  Structural Member Locations), as the model has them (396.83, the AFM's).
+- The thrust line: the model's engines are at WL 22 (estimated). MM 6-00-03
+  puts the engine beams that carry the pylons at WL 40.00 (FS 443.23) and WL
+  39.82 (FS 473.00); the nacelles' centreline is not given. Raised to the
+  beams, the thrust's moment about the wheels would grow by about 10,000
+  ft-lb nose down: the wrong way, so not the cause. Left as it was.
+- The centre of gravity's height: the model has it at WL 0, which MM 6-00-02
+  (figure 1 sheet 2) shows is the bottom of the fuselage (the floorboards are
+  at WL 5.87). It is surely too low, but no source gives it; raised, the
+  acceleration's term grows by about 5,000 ft-lb a foot, which would help.
+  With the thrust line raised too, the two nearly cancel. Left as it was.
+- The tail in ground effect: the model has ground effect on the wing's lift
+  only (kCLge 1.168 on the roll); nothing published gives the T-tail's.
 
 **The cause of the tail.** The stabilizer's scale was the flight model's:
 zero where TN D-7647's pitching moment holds, the nose-down stop the tunnel
@@ -286,7 +324,9 @@ speed within 0.2 knots.
 
 **Unchanged**: the C172P's model is untouched, and the selftest's hash is
 d36123c1eecc3e23 twice on this build. The committed model is what its script
-writes.
+writes. Every other Learjet test passes: her figures (field length, climbs,
+ceiling, cruise Mach, stalls), the take-off, approach, circuit, landing and
+stall lessons, and the autopilot's walks of the catalogue.
 
 ### The copilot flies with you, on a server: asked on the player's machine, flown by the server, 2026-09-30 — item done
 
