@@ -411,7 +411,8 @@ endif()
 # glideslope_cli - the simulation with no window.
 # ---------------------------------------------------------------------------
 add_executable(glideslope_cli
-    src/frontend/cli/main.cpp)
+    src/frontend/cli/main.cpp
+    src/frontend/cli/fly_copilot.cpp)
 target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_net glideslope_world
                                              glideslope_platform glideslope_copilot)
 glideslope_configure(glideslope_cli)

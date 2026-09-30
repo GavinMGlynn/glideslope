@@ -2076,6 +2076,43 @@ foreach(_pair openai:gpt-5.4-mini-2026-03-17 anthropic:claude-haiku-4-5-20251001
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider}-recorded)
 endforeach()
 
+# **The copilot flies with you**: a Cessna flown by the AI over the DEM, a
+# language model asked as the flight goes whether its route should change -
+# along a coast as told, and through an engine failure. Asked now, with its
+# owner's key and only with GLIDESLOPE_LIVE_MODEL=1 set (labelled live), it
+# is recorded; played back from the recording committed in data/copilot, it
+# needs no key and CI flies it. See cmake/cli_copilot_flown.cmake.
+# Each scenario is asked of the model that flew it as told: Claude Haiku
+# 4.5 and GPT-5.4 mini each flew straight to Cronulla, not along the coast.
+foreach(_triple coast:openai:gpt-5.5-2026-04-23 engine:anthropic:claude-haiku-4-5-20251001)
+    string(REPLACE ":" ";" _triple "${_triple}")
+    list(GET _triple 0 _scenario)
+    list(GET _triple 1 _provider)
+    list(GET _triple 2 _model)
+    set(_what "the_copilot_follows_the_coast_as_told")
+    if(_scenario STREQUAL "engine")
+        set(_what "the_copilot_glides_to_a_runway_when_the_engine_stops")
+    endif()
+    set(_dir ${CMAKE_CURRENT_BINARY_DIR}/copilot_flown/${_scenario}-${_provider})
+    add_test(NAME ${_what}_asking_${_provider}_now
+        COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${_dir} -DSCENARIO=${_scenario}
+            -DPROVIDER=${_provider} -DMODEL=${_model}
+            -DRECORD=${_dir}/${_scenario}-${_provider}.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli_copilot_flown.cmake)
+    set_tests_properties(${_what}_asking_${_provider}_now
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads LABELS live)
+    add_test(NAME ${_what}_by_${_provider}_as_recorded
+        COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${_dir}-recorded -DSCENARIO=${_scenario}
+            -DPROVIDER=${_provider} -DMODEL=${_model}
+            -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/${_scenario}-${_provider}.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli_copilot_flown.cmake)
+    set_tests_properties(${_what}_by_${_provider}_as_recorded
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${_dir} ${_dir}-recorded)
+endforeach()
+
 # **The client with the window rides along in an AI aircraft**: its seat, its
 # instruments and its controls. See cmake/client_rides_along.cmake.
 add_test(NAME the_client_with_the_window_rides_along_in_an_ai_aircraft_and_shows_its_controls

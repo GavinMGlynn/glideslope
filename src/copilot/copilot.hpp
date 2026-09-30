@@ -17,7 +17,9 @@
 //     its approach speed and a fifth over its cruise, and every height at
 //     least 500 ft above both the sea and the ground beneath the aircraft;
 //   - `glide` only with the engine stopped, at an airspeed from the approach
-//     speed to the best climb; and with the engine stopped, only a glide.
+//     speed to the best climb; and with the engine stopped, only a glide. A
+//     glide flies neither its waypoints' heights nor their airspeeds, so
+//     neither is checked, but its orbits must be wide enough for its airspeed.
 //
 // **It never slows the step.** A question is asked on a thread of its own,
 // and the answer, checked there, is picked up by whoever steps the
