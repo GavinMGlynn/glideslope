@@ -164,6 +164,13 @@ sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
     return prediction_->reconcile(motion, last_applied, steps_into, server_steps);
 }
 
+void Flight::hear_clock(std::uint32_t last_applied, std::size_t steps_into,
+                        std::uint64_t server_steps) {
+    if (prediction_) {
+        prediction_->hear_clock(last_applied, steps_into, server_steps);
+    }
+}
+
 void Flight::step(const sim::Controls& controls) {
     if (prediction_) {
         prediction_->step(sequence_, controls);

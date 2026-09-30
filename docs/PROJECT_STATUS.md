@@ -1319,6 +1319,43 @@ one does.
   was drawn as another, still about 70 m, not yet explained. The hand-over,
   rejoin and dropped-client window tests and the prediction network checks
   pass with the fixes.
+- **Fixed: put right before the ticks it was owed, and from every word.**
+  CI run 36638803155 (linux-debug) failed the on-server window test: "the
+  worst 26.751 m, 1 too large to hide", the largest step otherwise in a
+  frame 1655 ms long. Two causes, both made worse by flying every tick owed.
+  (1) The client heard the server before flying the pass's ticks: at the end
+  of a long frame the newest word is about a moment those ticks have not
+  reached, so it was put where the server was with nothing to replay, and
+  the ticks flew it on past. (2) It was put right from every word heard in a
+  pass in turn, each replaying every input since - up to 240 steps, 25 times
+  a second of frame - which in a sanitized build took seconds (a debug
+  print, not kept: hearing took 1.2, 4.4, then 6.2 s at 0.7 s holds, the
+  passes growing to four seconds' ticks). Now `Online::fly` only sends, and
+  `Online::hear`, after the ticks, reads everything and puts the flight right
+  once, from the newest word; each older one gives only its clocks'
+  difference (`sim::Prediction::hear_clock`). The first word after joining
+  or a take-back is adopted from the newest too, not from the oldest waiting.
+  And `sim::most_unacknowledged` is four seconds of steps, as its comment
+  always said: it was 240, four seconds at 60 Hz and two at 120, and at
+  1.6 s holds one run was put right by 72 m with 240 and by 2.9 m with 480.
+  Corrections are now one for each frame that heard a word, so the on-server
+  test's count is 250 here, not about 380.
+- **Test**: `a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide`,
+  the on-server window test with `-DSLOW_FRAMES=700` (its floor of
+  corrections 10 in ten seconds, one a second, since holds make frames few).
+  Locally, linux-debug: 30 corrections, the worst 2.2 m. **Seen to fail**:
+  the same script run against the client as this branch had it before
+  (hearing before the ticks, from every word, 240 held): "387 corrections,
+  the worst 33.567 m, 12 too large to hide". Without holds, 250 corrections,
+  the worst 0.6 m; at 250 ms holds 87, the worst 0.9 m; at 1600 ms, 12, the
+  worst 2.9 m (by hand, `--slow-frames`). The prediction unit and network
+  tests and the on-server, join, ride-along, take-over, hand-over, stall and
+  dropped window tests pass; the hand-over test failed once run beside two
+  others, as testing nothing (frames of 94 ms around its switch), and passed
+  alone - the floor guard, not a step.
+- **Registered**: the take-over unit test above was compiled but not
+  registered with ctest, which `every_compiled_unit_test_is_registered_with_ctest`
+  caught on every CI platform; it is now.
 - **Why no simulated frame clock.** A client clock stepping by a fixed
   amount each pass does not take the machine out on its own: the server
   steps on its wall clock, so a client slower than its simulated frames

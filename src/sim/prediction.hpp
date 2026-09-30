@@ -21,6 +21,7 @@
 // client's business.
 
 #include "sim/aircraft.hpp"
+#include "sim/fixed_step.hpp"
 
 #include <cstdint>
 #include <deque>
@@ -36,10 +37,15 @@ namespace glideslope::sim {
 inline constexpr double snap_beyond_m = 20.0;
 // How long a correction small enough to hide is taken up over.
 inline constexpr double correction_blend_s = 0.25;
-// The most inputs held waiting to be acknowledged. At 60 Hz this is four
-// seconds, which is far longer than any round trip this project expects; a
-// client further behind than that has a problem this cannot solve.
-inline constexpr std::size_t most_unacknowledged = 240;
+// The most inputs held waiting to be acknowledged - steps, each flown on the
+// input it was: four seconds, which is far longer than any round trip this
+// project expects; a client further behind than that has a problem this
+// cannot solve. (It was 240, four seconds at the 60 Hz it was written for and
+// two at 120: CI has drawn a frame in 1.7 s, and at frames held 1.6 s the
+// client was put right by 72 m with 240 and by 2.9 m with this
+// (PROJECT_STATUS.md, 2026-09-30).)
+inline constexpr std::size_t most_unacknowledged =
+    static_cast<std::size_t>(4 * steps_per_second);
 // How many of the server's words the clocks' difference is the least of: two
 // seconds of updates at 25 a second, long enough that one input in it came
 // through with next to no jitter, short enough to follow a server whose clock
@@ -103,6 +109,14 @@ public:
     // steps between, metres at an aeroplane's speed.
     Correction reconcile(const Motion& server, std::uint32_t last_applied,
                          std::size_t steps_into, std::uint64_t server_steps);
+    // **What a word says of the clocks' difference, and nothing else**: the
+    // sample `reconcile` above takes from it, for a word that is not the
+    // newest of those heard together. Put right from each of them in turn,
+    // the aircraft was flown through every input since, again and again -
+    // twenty-five words to a slow second, each replaying up to two seconds
+    // of steps, which made the next frame slower still.
+    void hear_clock(std::uint32_t last_applied, std::size_t steps_into,
+                    std::uint64_t server_steps);
 
     // **Another aircraft, as the server's word had it at `server_steps`**, flown
     // on to now: put there, and flown through this client's inputs since the

@@ -19,6 +19,13 @@
 # CI, slow to build, was put right too far to hide by the whole way flown
 # meanwhile.
 #
+# **A slow machine's frames**, built on purpose with `-DSLOW_FRAMES=<ms>`:
+# every pass of the frame loop held that much longer, a tenth of a second
+# apart (`--slow-frames`). CI's software Vulkan drew a frame in 1.7 s and the
+# client was put right by 26.8 m; held 0.7 s here it was put right by 33 m,
+# twelve times too far to hide, before its words were heard after its ticks
+# and once a frame (PROJECT_STATUS.md, 2026-09-30). The same bound holds.
+#
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
 
@@ -52,13 +59,17 @@ endif()
 # Leaks are judged below (client.cmake), not by LeakSanitizer's exit code -
 # which, left to it, ends the client before what it printed is written out.
 set(ENV{LSAN_OPTIONS} "exitcode=0")
+set(_slow)
+if(DEFINED SLOW_FRAMES)
+    set(_slow --slow-frames ${SLOW_FRAMES})
+endif()
 execute_process(
     # Until the client has gone.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1200 --view behind --aircraft f15c --slow-start 5
-            --server 127.0.0.1 ${PORT} --server-key ${_key}
+            ${_slow} --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
 if(NOT EXISTS "${_shot}")
@@ -100,11 +111,17 @@ set(_away "${CMAKE_MATCH_2}")
 if(NOT _out MATCHES "predicted: ([0-9]+) corrections, the worst ([0-9.]+) m, ([0-9]+) too large to hide")
     message(FATAL_ERROR "the client did not say how its prediction went:\n${_out}")
 endif()
-# A correction for each update, and updates come 25 for each second the
-# server simulates: 277 in ten seconds here, and 75 from a Windows debug
-# server that could not keep real time. Two a second is the floor that says
-# the prediction was put right all through; how far, below, is the bound.
-if(CMAKE_MATCH_1 LESS 20)
+# A correction for each frame that heard a word on it, from the newest, and
+# words come 25 for each second the server simulates: 250 in ten seconds
+# here, 277 on CI when each word was one, and 75 from a Windows debug server
+# that could not keep real time. Two a second is the floor that says the
+# prediction was put right all through; how far, below, is the bound. With
+# frames held, one a second: 30 in ten seconds here at 0.7 s.
+set(_floor 20)
+if(DEFINED SLOW_FRAMES)
+    set(_floor 10)
+endif()
+if(CMAKE_MATCH_1 LESS _floor)
     message(FATAL_ERROR "only ${CMAKE_MATCH_1} corrections in ten seconds:\n${_out}")
 endif()
 if(NOT CMAKE_MATCH_3 EQUAL 0 OR CMAKE_MATCH_2 GREATER_EQUAL 20)

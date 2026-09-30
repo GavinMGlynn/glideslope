@@ -71,18 +71,7 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
                                              std::uint64_t server_steps) {
     const AircraftState was = aircraft_.state();
     Correction out;
-    // **The clocks' difference this word implies**: where the server applied
-    // `last_applied`, less where this client began it. An input never flown
-    // here - sent before this prediction began - has no beginning, and says
-    // nothing.
-    const auto began = began_.find(last_applied);
-    if (last_applied != 0 && began != began_.end() && steps_into <= server_steps) {
-        offsets_.push_back(static_cast<std::int64_t>(server_steps - steps_into) -
-                           static_cast<std::int64_t>(began->second));
-        while (offsets_.size() > offset_window) {
-            offsets_.pop_front();
-        }
-    }
+    hear_clock(last_applied, steps_into, server_steps);
     if (!offsets_.empty()) {
         const std::int64_t offset = *std::min_element(offsets_.begin(), offsets_.end());
         const std::int64_t at = static_cast<std::int64_t>(server_steps) - offset;
@@ -108,6 +97,22 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     out.moved_m = how_far_apart_m(was, aircraft_.state());
     out.snapped = out.moved_m > snap_beyond_m;
     return out;
+}
+
+void Prediction::hear_clock(std::uint32_t last_applied, std::size_t steps_into,
+                            std::uint64_t server_steps) {
+    // **The clocks' difference this word implies**: where the server applied
+    // `last_applied`, less where this client began it. An input never flown
+    // here - sent before this prediction began - has no beginning, and says
+    // nothing.
+    const auto began = began_.find(last_applied);
+    if (last_applied != 0 && began != began_.end() && steps_into <= server_steps) {
+        offsets_.push_back(static_cast<std::int64_t>(server_steps - steps_into) -
+                           static_cast<std::int64_t>(began->second));
+        while (offsets_.size() > offset_window) {
+            offsets_.pop_front();
+        }
+    }
 }
 
 std::size_t Prediction::adopt(const Motion& motion, std::uint64_t server_steps) {
