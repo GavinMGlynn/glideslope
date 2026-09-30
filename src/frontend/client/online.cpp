@@ -323,6 +323,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
         r.heading_deg = static_cast<double>(a.heading_deg);
         r.pitch_deg = static_cast<double>(a.pitch_deg);
         r.roll_deg = static_cast<double>(a.roll_deg);
+        r.wrecked = a.condition == net::Condition::wrecked;
         shown_[a.index].received(r);
         wrecked_[a.index] = a.condition == net::Condition::wrecked;
         ai_[a.index] = a.controller == net::Controller::ai;

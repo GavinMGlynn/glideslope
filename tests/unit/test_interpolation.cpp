@@ -527,3 +527,156 @@ GLIDESLOPE_TEST(an_aircraft_guessed_across_late_updates_comes_back_from_what_was
                 "%.3f m beyond its motion\n",
                 longest_guess_s, moved_on, worst, worst_step);
 }
+
+// **And from one guess to the next without a jump, through a manoeuvre.**
+// The same second of late updates, from an aeroplane jinking - 100 m/s north
+// and 60 m/s east or west, turning about every fifth of a second - so that
+// a guess carried on from one update and the guess from the next are metres
+// apart. Moving on to the newer one must be taken up, not jumped: no frame
+// may move more than a metre beyond the fastest the aeroplane flies in
+// a frame. Taking the newer update as it came, with no blend, jumped the
+// aircraft by the difference between the guesses at once.
+GLIDESLOPE_TEST(an_aircraft_guessed_through_a_manoeuvre_moves_between_guesses_without_a_jump) {
+    constexpr double north_mps = 100.0;
+    constexpr double east_mps = 60.0;
+    constexpr double leg_s = 0.21;
+    // Where the jinking aeroplane is at `t`, and how fast it is going.
+    const auto jinking = [](double t) {
+        RemoteState s;
+        s.time_s = t;
+        const int legs = static_cast<int>(t / leg_s);
+        double east = 0.0;
+        for (int i = 0; i < legs; ++i) east += (i % 2 == 0 ? east_mps : -east_mps) * leg_s;
+        const double sign = legs % 2 == 0 ? 1.0 : -1.0;
+        east += sign * east_mps * (t - legs * leg_s);
+        s.north_m = north_mps * t;
+        s.east_m = east;
+        s.north_mps = north_mps;
+        s.east_mps = sign * east_mps;
+        return s;
+    };
+    struct Posted {
+        double arrives_s;
+        RemoteState state;
+    };
+    std::vector<Posted> post;
+    for (int i = 0; i < 75; ++i) {
+        const double t = i * 0.04;
+        const bool late = t >= 1.0 && t < 2.0;
+        post.push_back({t + (late ? 0.15 : 0.02), jinking(t)});
+    }
+    std::sort(post.begin(), post.end(),
+              [](const Posted& a, const Posted& b) { return a.arrives_s < b.arrives_s; });
+    const double fastest_per_frame =
+        std::sqrt(north_mps * north_mps + east_mps * east_mps) / 60.0;
+    Interpolated shown;
+    std::size_t next = 0;
+    double worst_step = 0.0;
+    double widest_between_guesses = 0.0;
+    std::size_t moved_on = 0;
+    double guessed_from_s = -1.0;
+    RemoteState last{};
+    bool have_last = false;
+    for (int k = 0; k < 180; ++k) {
+        const double now = k / 60.0 + 0.0003;
+        for (; next < post.size() && post[next].arrives_s <= now; ++next) {
+            shown.received(post[next].state);
+        }
+        if (!shown.known()) continue;
+        const RemoteState got = shown.at(now);
+        const double want = now - glideslope::net::shown_behind_s;
+        if (shown.extrapolating()) {
+            if (guessed_from_s >= 0.0 && shown.newest_s() != guessed_from_s) {
+                ++moved_on;
+                // How far apart the guess it had and the one it moved on to
+                // are at this moment: what a jump would have been.
+                const RemoteState a = jinking(guessed_from_s);
+                const RemoteState b = jinking(shown.newest_s());
+                const double da = want - a.time_s;
+                const double db = want - b.time_s;
+                widest_between_guesses = std::max(
+                    widest_between_guesses,
+                    std::hypot(a.north_m + a.north_mps * da - b.north_m - b.north_mps * db,
+                               a.east_m + a.east_mps * da - b.east_m - b.east_mps * db));
+            }
+            guessed_from_s = shown.newest_s();
+        } else {
+            guessed_from_s = -1.0;
+        }
+        if (have_last) {
+            const double step = how_far(got, last) - fastest_per_frame;
+            worst_step = std::max(worst_step, step);
+            check(step < 1.0, "at " + std::to_string(now) + " s it stepped " +
+                                  std::to_string(step) + " m beyond the fastest it flies");
+        }
+        last = got;
+        have_last = true;
+    }
+    // The situation, built: guesses moved on from, and metres between them.
+    check(moved_on >= 20, "a guess moved on to a newer update " + std::to_string(moved_on) +
+                              " times, of the 25 that came late");
+    check(widest_between_guesses > 3.0,
+          "the guesses moved between were at most " + std::to_string(widest_between_guesses) +
+              " m apart: no manoeuvre was guessed through");
+    std::printf("  %zu guesses moved on from, as much as %.2f m apart; a step at most %.3f m "
+                "beyond its motion\n",
+                moved_on, widest_between_guesses, worst_step);
+}
+
+// **A wreck that flies again is drawn where it flies again, at once**, and
+// not moved there from the wreck - even when it was being guessed at when
+// the news came, and when an update from before it flew again arrives late.
+// Blended, it would cross kilometres in a quarter of a second, and say it
+// was moving at thousands of metres a second to anything that took its
+// motion - a take-over hands an aircraft over moving as it was drawn.
+GLIDESLOPE_TEST(a_wreck_that_flies_again_is_drawn_where_it_flies_again_moving_sanely) {
+    Interpolated shown;
+    // A wreck, still, heard until 1.0 s, the last two updates late - so it
+    // is being guessed at - and then flying again 5 km away from 1.2 s,
+    // straight north at 50 m/s.
+    RemoteState wreck;
+    wreck.wrecked = true;
+    const auto flying = [](double t) {
+        RemoteState s;
+        s.time_s = t;
+        s.north_m = 5000.0 + 50.0 * (t - 1.2);
+        s.north_mps = 50.0;
+        return s;
+    };
+    std::size_t guessed = 0;
+    for (int k = 0; k <= 72; ++k) {
+        const double now = k / 60.0 + 0.0003;
+        for (double t = 0.0; t <= std::min(now - 0.02, 0.92); t += 0.04) {
+            wreck.time_s = std::round(t / 0.04) * 0.04;
+            shown.received(wreck);
+        }
+        (void)shown.at(now);
+        if (shown.extrapolating()) ++guessed;
+    }
+    check(guessed > 0, "the wreck was being guessed at when it flew again");
+    shown.received(flying(1.2));
+    // An update from while it was a wreck, late.
+    wreck.time_s = 0.96;
+    shown.received(wreck);
+    double worst_from_m = 0.0;
+    double fastest_mps = 0.0;
+    std::size_t drawn = 0;
+    for (int k = 0; k < 30; ++k) {
+        const double now = 1.2 + 0.02 + k / 60.0;
+        for (double t = 1.24; t <= now - 0.02; t += 0.04) shown.received(flying(t));
+        const RemoteState got = shown.at(now);
+        const std::array<double, 3> v = shown.path_velocity();
+        // Where it flies, from the moment it flew again: never nearer the
+        // wreck than that.
+        const double want = std::max(1.2, now - glideslope::net::shown_behind_s);
+        worst_from_m = std::max(worst_from_m, how_far(got, flying(want)));
+        fastest_mps = std::max(fastest_mps, std::hypot(v[0], v[1], v[2]));
+        ++drawn;
+    }
+    check(worst_from_m < 1.0, "flying again, it was drawn " + std::to_string(worst_from_m) +
+                                  " m from where it flew");
+    check(fastest_mps < 60.0, "and said to be moving at " + std::to_string(fastest_mps) +
+                                  " m/s, where it flies at 50");
+    std::printf("  %zu frames after flying again: at worst %.3f m off and %.1f m/s\n", drawn,
+                worst_from_m, fastest_mps);
+}
