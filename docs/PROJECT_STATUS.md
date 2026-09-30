@@ -16146,6 +16146,10 @@ Found while implementing something else. Added when found, not when remembered.
       long as its two-second window takes to forget the burst; the aircraft
       is guessed through that, correctly, but the guesses are longer than
       they need be.
+      *Found on the way*: the pre-push hook ran the quick tests eight at
+      once, where CLAUDE.md caps ctest at four in WSL; it runs four now
+      (its build stays at `-j8`, which CLAUDE.md gives for the build).
+
 
 #### A client dropped by the operator did not always say so.
 

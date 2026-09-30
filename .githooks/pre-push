@@ -57,7 +57,8 @@ if [[ -f "$costs" ]]; then
     if [[ -n "$quick" ]]; then
         # Never a live model call (label live): it costs money, and a skipped
         # one measures as quick. GLIDESLOPE_LIVE_MODEL is dropped as well.
-        if ! env -u GLIDESLOPE_LIVE_MODEL ctest --preset linux-debug -j8 -R "$quick" -LE live \
+        # Four at once, as CLAUDE.md caps ctest in WSL.
+        if ! env -u GLIDESLOPE_LIVE_MODEL ctest --preset linux-debug -j4 -R "$quick" -LE live \
                 > /tmp/glideslope-pre-push-tests.log 2>&1; then
             grep -E 'Failed|\*\*\*' /tmp/glideslope-pre-push-tests.log >&2
             echo "pre-push: a quick test fails (log in /tmp/glideslope-pre-push-tests.log)" >&2
