@@ -160,7 +160,7 @@ function(glideslope_vcpkg_install)
     string(REPLACE "\r" "" _summary "${_out}")
     string(REPLACE ";" "," _summary "${_summary}")
     string(REGEX MATCHALL
-           "(^|\n)(Detecting compiler|Compiler found|Restored|Building|Elapsed time|Completed submission|Waiting for|Stored binaries|Uploading|All requested|warning|error)[^\n]*"
+           "(^|\n)((Detecting compiler|Compiler found|Restored|Building|Completed submission|Waiting for|Stored binaries|Uploading|All requested|warning|error)[^\n]*|Elapsed time[^\n]*: [0-9.]+ (s|min|h))"
            _lines "${_summary}")
     foreach(_line IN LISTS _lines)
         string(STRIP "${_line}" _line)
