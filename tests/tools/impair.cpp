@@ -15,8 +15,11 @@
 // when its standard input ends - which, last in a test's pipeline, is when the
 // server before it has gone - once it has delivered everything the server sent
 // before it went; and says what it did: how many datagrams each
-// way, and how many it dropped. With `--until-input-ends`, stopping for the
-// time instead is a failure, and it exits 1. What it reads from standard input it passes
+// way, and how many it dropped; and, its input ended, what it took from the
+// server after that and delivered to the clients, on standard error. With
+// `--until-input-ends`, stopping for the time instead is a failure, and it
+// exits 1; so is the time running out with something the server sent still
+// held for a client after the input ended. What it reads from standard input it passes
 // on to standard error a whole line at a time, so that the program before it
 // can still be heard, and its lines are not torn by others written to the
 // same standard error.
@@ -31,6 +34,7 @@
 #include "platform/closed_pipes.hpp"
 #include "platform/socket.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -196,7 +200,18 @@ int main(int argc, char** argv) {
     // relay stops only when all of it towards the clients has been delivered,
     // each at its own delay. What comes from the clients from then on has no
     // server to go to, and is let go.
+    //
+    // **Whether that pass took everything is said, not assumed.** A send on
+    // loopback is in the receiver's socket when it returns in practice, not
+    // by guarantee: Linux can defer loopback delivery to ksoftirqd on a
+    // loaded machine, and macOS hands lo0's input to a thread of its own. So
+    // the relay counts what it took from the server once its input was seen
+    // ended and what it delivered to the clients after that, and says both
+    // on standard error - where a test reads the programs' words - so that a
+    // client that never heard the server's last words shows whether they
+    // ever reached the relay.
     bool ending = false;
+    std::uint64_t taken_after_end = 0, delivered_after_end = 0;
     for (;;) {
         const auto now = std::chrono::steady_clock::now();
         const double up_s = std::chrono::duration<double>(now - began).count();
@@ -232,6 +247,9 @@ int main(int argc, char** argv) {
         for (auto& [client, socket] : upstream) {
             for (std::size_t got; (got = socket->receive(buffer, from)) > 0;) {
                 busy = true;
+                if (ended_before_this_pass) {
+                    ++taken_after_end;
+                }
                 hold(false, client_of[client], client, buffer.data(), got);
             }
         }
@@ -251,6 +269,9 @@ int main(int argc, char** argv) {
             } else {
                 (void)front->send(it->to, bytes);
                 ++down;
+                if (ended_before_this_pass) {
+                    ++delivered_after_end;
+                }
             }
             it = held.erase(it);
             busy = true;
@@ -285,8 +306,26 @@ int main(int argc, char** argv) {
     if (gave_up) {
         std::printf("impair: gave up after %.0f s with its input still open\n", seconds);
     }
+    // **Its time run out with the server's last words still held** is a
+    // failure too: they were never delivered, and nothing else would say so.
+    const auto still_held = static_cast<unsigned long long>(
+        std::count_if(held.begin(), held.end(), [](const Held& h) { return !h.to_server; }));
+    const bool lost_last_words = ending && still_held > 0;
+    if (ending) {
+        std::fprintf(stderr,
+                     "impair: after its input ended, took %llu from the server and delivered "
+                     "%llu to the clients; %llu still held when it stopped\n",
+                     static_cast<unsigned long long>(taken_after_end),
+                     static_cast<unsigned long long>(delivered_after_end), still_held);
+        std::fflush(stderr);
+    }
+    if (lost_last_words) {
+        std::printf("impair: its time ran out with %llu held for the clients after its input "
+                    "ended\n",
+                    still_held);
+    }
     std::fflush(stdout);
     // Out without the runtime's tidying up, which can wait on standard
     // input's lock - held by the reading thread, if the input has not ended.
-    std::_Exit(gave_up ? 1 : 0);
+    std::_Exit(gave_up || lost_last_words ? 1 : 0);
 }

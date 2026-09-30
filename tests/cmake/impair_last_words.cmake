@@ -19,9 +19,12 @@
 # before it may go, and the answering server has long gone by then: a relay
 # that stops when its input ends, holding it, loses it every time - seen, with
 # the relay's old loop put back. With --delay 0, the case the window client's
-# test runs, the answer is taken and delivered in the passes after the input
-# is seen ended. The asker's minute is a bound, not a wait: the answer comes in
-# a second or two, and without it the test fails saying so.
+# test runs, the answer must arrive whether the relay takes it before or after
+# it sees its input ended. The asker's minute, and the stand-in server's, are
+# bounds, not waits: the answer comes in a second or two, and without it the
+# test fails saying so. Last, the relay's time is made to run out with the
+# answer still held for the asker: it must say so and exit 1, not stop
+# quietly.
 
 cmake_minimum_required(VERSION 3.28)
 
@@ -35,7 +38,7 @@ file(WRITE "${_last}" "6c61737420776f726473\n")
 
 foreach(_delay IN ITEMS 1000 0)
     execute_process(
-        COMMAND "${CHECK}" --answer ${PORT} "${_last}" 600
+        COMMAND "${CHECK}" --answer ${PORT} "${_last}" 60
         COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay ${_delay} --jitter 0
                 --loss 0 --seed 1 --until-input-ends --seconds 600
         COMMAND "${CHECK}" "127.0.0.1:${_relay}" "${_ask}" 60
@@ -44,14 +47,43 @@ foreach(_delay IN ITEMS 1000 0)
         message(FATAL_ERROR "with --delay ${_delay}, the server was never asked "
                             "(${_rcs}):\n${_out}${_err}")
     endif()
+    # The relay's own account of what it took and delivered after the
+    # server went, first in any failure.
+    string(REGEX MATCH "impair: after its input ended[^\n]*" _relay_said "${_err}")
     if(NOT _out MATCHES "^answer 6c61737420776f726473\n")
         message(FATAL_ERROR "with --delay ${_delay}, the relay stopped without passing on "
-                            "the answer the server sent before it went (${_rcs}):\n"
-                            "${_out}${_err}")
+                            "the answer the server sent before it went (${_rcs}); "
+                            "${_relay_said}:\n${_out}${_err}")
     endif()
     if(NOT _rcs STREQUAL "0;0;0")
         message(FATAL_ERROR "with --delay ${_delay}, the programs exited ${_rcs}, not "
                             "0;0;0:\n${_out}${_err}")
     endif()
+    # Held a second, the answer was still held when the input was seen
+    # ended, so the relay's account must have it delivered after that.
+    if(_delay EQUAL 1000 AND NOT _relay_said MATCHES "delivered 1 to the clients; 0 still held")
+        message(FATAL_ERROR "with --delay 1000, the relay did not say it delivered the answer "
+                            "after the server went: '${_relay_said}'\n${_out}${_err}")
+    endif()
 endforeach()
-message(STATUS "the relay passed on the server's last words, held a second and not held")
+
+# **Its time run out with the last words still held is a failure it says.**
+# Held five seconds each way, the ask reaches the server no sooner than five
+# seconds after the relay starts, and the answer cannot be due back before
+# ten; the relay's eight seconds run out between, three seconds after the
+# server has answered and gone. It must exit 1 and say what it still held -
+# taken from the server before or after it saw the server gone, as it happens.
+execute_process(
+    COMMAND "${CHECK}" --answer ${PORT} "${_last}" 60
+    COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 5000 --jitter 0
+            --loss 0 --seed 1 --until-input-ends --seconds 8
+    COMMAND "${CHECK}" "127.0.0.1:${_relay}" "${_ask}" 12
+    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+if(NOT _rcs MATCHES "^0;1;"
+   OR NOT _err MATCHES "impair: after its input ended, took [01] from the server and delivered 0 to the clients; 1 still held when it stopped\n"
+   OR NOT _err MATCHES "answered\n")
+    message(FATAL_ERROR "with its time run out holding the server's answer, the relay exited "
+                        "${_rcs}, not 0;1;..., or did not say it:\n${_out}${_err}")
+endif()
+message(STATUS "the relay passed on the server's last words, held a second and not held, "
+               "and failed saying so when its time ran out holding them")
