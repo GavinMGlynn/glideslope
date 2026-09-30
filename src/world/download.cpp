@@ -78,22 +78,29 @@ std::optional<std::chrono::milliseconds> retry_after_seconds(const platform::Htt
     return std::chrono::milliseconds(seconds * 1000);
 }
 
+// What reading the file at `path` against its pin found.
+struct Pinned {
+    bool whole = false;
+    // The file read, if one was.
+    std::optional<FileIdentity> read;
+};
+
 // Whether the file at `path` is whole: its SHA-256 is `sha256`. One that
-// cannot be read, or has gone since it was seen, is not.
-bool whole(const std::filesystem::path& path, const std::string& sha256) {
+// cannot be read, or has gone since it was seen, is not, and nothing was read.
+Pinned read_pinned(const std::filesystem::path& path, const std::string& sha256) {
     try {
         const FileSource file(path);
         std::vector<std::uint8_t> bytes(static_cast<std::size_t>(file.size()));
         file.read(0, bytes);
-        return sha256_hex(bytes) == sha256;
+        return {sha256_hex(bytes) == sha256, file.identity()};
     } catch (const ByteSourceError&) {
-        return false;
+        return {};
     }
 }
 
-void taken_away(const std::filesystem::path& path) {
+void taken_away(const std::filesystem::path& path, const std::optional<FileIdentity>& read) {
     try {
-        take_away(path);
+        take_away(path, read);
     } catch (const ByteSourceError& e) {
         throw DemError(e.what());
     }
@@ -298,11 +305,15 @@ std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
                                    const std::string& sha256, const Fetch& fetch) {
     const std::filesystem::path path = cache / name;
     if (there(path)) {
-        if (whole(path, sha256)) {
+        const Pinned found = read_pinned(path, sha256);
+        if (found.whole) {
             return path;
         }
-        // Cut short, or damaged: taken away and fetched again.
-        taken_away(path);
+        // Cut short, or damaged: taken away and fetched again - unless
+        // another has put a file in its place since, which is left there.
+        if (found.read) {
+            taken_away(path, found.read);
+        }
     }
     const platform::HttpResponse r = get(fetch, url);
     const std::string got = sha256_hex(r.body);
@@ -328,13 +339,15 @@ std::shared_ptr<const ByteSource> DownloadedTiles::open_water_mask(DemDataset da
                    dem_water_mask_url(dataset, cell));
 }
 
-bool DownloadedTiles::take_away(DemDataset dataset, DemCell cell) {
-    taken_away(path_of(dataset, dem_tile_name(dataset, cell)));
+bool DownloadedTiles::take_away(DemDataset dataset, DemCell cell,
+                                const std::optional<FileIdentity>& read) {
+    taken_away(path_of(dataset, dem_tile_name(dataset, cell)), read);
     return true;
 }
 
-bool DownloadedTiles::take_away_water_mask(DemDataset dataset, DemCell cell) {
-    taken_away(path_of(dataset, dem_water_mask_name(dataset, cell)));
+bool DownloadedTiles::take_away_water_mask(DemDataset dataset, DemCell cell,
+                                           const std::optional<FileIdentity>& read) {
+    taken_away(path_of(dataset, dem_water_mask_name(dataset, cell)), read);
     return true;
 }
 
