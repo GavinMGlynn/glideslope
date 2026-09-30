@@ -318,9 +318,11 @@ ends in a debrief, never a score.
 - [ ] **The copilot flies with you** — a model that changes the autopilot's
       modes and plan as the flight goes, opt-in with the player's key.
       *Verification: it follows a coast as told, handles an engine failure,
-      never slows the step, and replays in CI without a key.* Missing: no
-      program flies with it yet; the copilot, its checks, a new route and a
-      glide in flight are built and tested alone.
+      never slows the step, and replays in CI without a key.* Missing: only
+      `glideslope_cli fly-copilot` flies with one - GPT-5.5 follows the coast
+      to Cronulla and Claude Haiku glides to Sydney's runway 25 when the
+      engine stops, replayed in CI - neither the client nor the server offers
+      it yet.
 - [x] **The model never drives a control surface.** *Verification: the copilot
       can produce only a flight plan and autopilot modes, checked by the
       build: what it sees, opens and links.* Done 2026-09-25. It was first

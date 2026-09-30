@@ -5,6 +5,7 @@
 // test, and inside the server.
 
 #include "copilot/planner.hpp"
+#include "frontend/cli/fly_copilot.hpp"
 #include "copilot/provider.hpp"
 #include "net/handshake.hpp"
 #include "platform/end_process.hpp"
@@ -124,6 +125,18 @@ void print_usage(std::FILE* out) {
         "                            say how each part of it was flown; an orbit with\n"
         "                            no end is left after N turns (default 2), and\n"
         "                            the flight after M minutes (default 30)\n"
+        "  fly-copilot AIRCRAFT LAT LON FEET HEADING KNOTS TASK\n"
+        "       [--provider openai|anthropic] [--model M] [--record FILE | --playback FILE]\n"
+        "       [--minutes M] [--thinking S] [--engine-fails-at S] [--to LAT LON]\n"
+        "                            fly AIRCRAFT from LAT LON at FEET with the AI\n"
+        "                            and a language model as its copilot, told TASK\n"
+        "                            and asked as the flight goes whether its route\n"
+        "                            should change, with your own key; its answer is\n"
+        "                            flown S seconds after it is asked (default 45),\n"
+        "                            or when it comes. --engine-fails-at stops the\n"
+        "                            engine S seconds in; --to says when it came to\n"
+        "                            LAT LON, and how much of the way the coast was\n"
+        "                            near\n"
         "\n"
         "  connect --server HOST PORT --server-key HEX [SECONDS] [--fly]\n"
         "                            connect to a server named on the command line\n"
@@ -3476,6 +3489,9 @@ static int run_program(int argc, char** argv) {
         }
         if (args.size() >= 2 && args[0] == "fly-plan") {
             return fly_plan(data, args);
+        }
+        if (args.size() >= 8 && args[0] == "fly-copilot") {
+            return fly_copilot(data, args);
         }
         if (args.size() == 2 && args[0] == "weather") {
             return weather(std::string(args[1]));

@@ -78,8 +78,9 @@ std::string copilot_instructions() {
            "cannot hold its height, and the autopilot holds AIRSPEED_KT with the elevator while "
            "the route steers it down. Glide to a runway nearby that it can reach - a light "
            "aircraft glides about 1.5 km for each 1,000 ft it is above the ground - and orbit "
-           "over it to lose the height left. The altitudes of a glide's waypoints are not "
-           "flown.\n"
+           "over it to lose the height left. A glide's waypoints' altitudes and airspeeds are "
+           "not flown: give each the field's elevation and the glide's airspeed, and an orbit "
+           "a radius wide enough for the glide's airspeed.\n"
            "- Latitudes and longitudes are WGS84 decimal degrees, south and west negative. Use "
            "what you know of where places are.\n"
            "- Altitudes are feet above mean sea level; airspeeds are knots, calibrated, within "
@@ -213,11 +214,22 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
     const double slowest = b.approach_kts;
     const double fastest = b.cruise_kts * 1.2;
     for (const sim::Waypoint& w : change.plan.waypoints) {
-        if (w.altitude_ft < least_ft) {
+        // **A glide flies neither a waypoint's height nor its airspeed**, so
+        // neither is held to anything - a glide ends low, over its field -
+        // but an orbit is flown at the glide's airspeed, and must be wide
+        // enough for it.
+        if (change.glide_kts) {
+            if (w.orbit && w.orbit->radius_m < sim::least_orbit_radius_m(*change.glide_kts)) {
+                return "the orbit " + w.name + ", " + whole(w.orbit->radius_m) +
+                       " m, is too tight to glide round at " + whole(*change.glide_kts) +
+                       " kt: at least " +
+                       whole(std::ceil(sim::least_orbit_radius_m(*change.glide_kts))) + " m";
+            }
+        } else if (w.altitude_ft < least_ft) {
             return w.name + " is at " + whole(w.altitude_ft) + " ft, below " + whole(least_ft) +
                    " ft, 500 ft above the sea and the ground beneath the aircraft";
         }
-        if (w.airspeed_kts < slowest - 0.5 || w.airspeed_kts > fastest + 0.5) {
+        if (!change.glide_kts && (w.airspeed_kts < slowest - 0.5 || w.airspeed_kts > fastest + 0.5)) {
             return w.name + " is flown at " + whole(w.airspeed_kts) + " kt, outside " +
                    whole(slowest) + " to " + whole(fastest) + " kt";
         }

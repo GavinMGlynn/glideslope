@@ -494,8 +494,12 @@ GLIDESLOPE_TEST(a_copilots_answer_is_read_as_keep_or_a_route_and_refused_whereve
               glideslope::copilot::change_refusal(brief, stopped, glide).empty(),
           "with the engine stopped, a glide to a field is flown");
     check(verdict(gliding, "keep").empty(), "and kept while it is flown");
+    check(verdict(stopped, "glide 68\nwaypoint YSSY_34L -33.96 151.18 14 60\n"
+                           "orbit YSSY -33.95 151.18 800 14 60 0 left\n")
+              .empty(),
+          "a glide's heights and airspeeds are not flown, so neither is held to anything");
 
-    // Refused: every way, each saying why. The space is these twelve.
+    // Refused: every way, each saying why. The space is these fourteen.
     struct Refusal {
         const glideslope::copilot::Situation* now;
         std::string answer;
@@ -515,6 +519,7 @@ GLIDESLOPE_TEST(a_copilots_answer_is_read_as_keep_or_a_route_and_refused_whereve
         {&running, "waypoint A -33.80 151.30 2000 140", "outside 62 to 126"},
         {&running, "waypoint A -35.80 151.30 2000 100", "more than 200"},
         {&running, "orbit A -33.80 151.30 500 2000 100 1 left", "radius"},
+        {&stopped, "glide 68\norbit A -33.80 151.30 550 14 60 1 left", "too tight to glide round at 68"},
     };
     std::size_t covered = 0;
     for (const Refusal& r : refusals) {
@@ -524,7 +529,7 @@ GLIDESLOPE_TEST(a_copilots_answer_is_read_as_keep_or_a_route_and_refused_whereve
                   (why.empty() ? "it was taken" : why));
         ++covered;
     }
-    check(covered == 13 && refusals.size() == 13, "all 13 ways an answer is refused were tried");
+    check(covered == 14 && refusals.size() == 14, "all 14 ways an answer is refused were tried");
 }
 
 GLIDESLOPE_TEST(a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown) {
