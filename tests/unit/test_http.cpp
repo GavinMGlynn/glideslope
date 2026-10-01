@@ -6,6 +6,7 @@
 #include "world/json.hpp"
 
 #include <atomic>
+#include <cctype>
 #include <cstring>
 #include <functional>
 #include <string>
@@ -420,7 +421,7 @@ void check_plain(const HttpResponse& r, const std::string& what) {
 
 } // namespace
 
-GLIDESLOPE_TEST(a_body_gzipped_unasked_arrives_as_it_was_before_it_was_gzipped) {
+GLIDESLOPE_TEST(a_body_served_gzipped_arrives_as_it_was_before_it_was_gzipped) {
     // Cesium ion's layer.json is kept gzipped and served with
     // `Content-Encoding: gzip` whatever the request said, so this server does
     // the same: whatever the client offered, or did not, it gets gzip.
@@ -502,6 +503,9 @@ GLIDESLOPE_TEST(cesium_ions_layer_json_is_fetched_and_read) {
     try {
         r = http_get(request);
     } catch (const HttpError&) {
+        if (!glideslope::test::network_required()) {
+            glideslope::test::skip("ion's layer.json could not be reached");
+        }
         fail("ion's layer.json could not be fetched");
     }
     std::printf("fetched %zu bytes of layer.json through %s\n", r.body.size(),
