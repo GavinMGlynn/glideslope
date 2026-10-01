@@ -530,6 +530,10 @@ static int run_program(int argc, char** argv) {
         std::fputs("glideslope: --shot-frame is a frame of a --shot flown alone\n", stderr);
         return 2;
     }
+    if (o.shot_once_back && (o.shot.empty() || (o.server.empty() && !o.online))) {
+        std::fputs("glideslope: --shot-once-back holds a --shot flown on a server\n", stderr);
+        return 2;
+    }
     if (!o.microbursts.empty() && o.weather_station.empty()) {
         std::fputs("glideslope: a --microburst is put into --weather\n", stderr);
         return 2;

@@ -231,16 +231,26 @@ are the risks the phase order is built around:
 
 **What is still not covered first.** A client goes back to its old session on
 *anything* that opens under the old keys, and a datagram the server sealed
-before it let the session go opens as well as a new one: a client whose
+before it let the session go opens as well as a new one. So a client whose
 session really was let go, and whose held-back updates arrive while it is
-joining again, goes back to a dead session, is refused there, and believes it
-three seconds later - three seconds lost, not a ghost player. This was seen in
-the window test's first form (below), not changed. Nothing tests the window
-client refused `DROPPED` with its goodbyes lost (its own tail). The window
-client builds its flight without reading its socket: a debug build under load
-was silent to the server for more than five seconds just after it was given
-its aircraft (below) - with a short `--timeout` it is let go at once and
-joins again; not investigated further here.
+joining again, goes back to a dead session - and it costs more than it looks
+(server `take()`, the initiation arm): the fresh initiation join_again() had
+already sent is **admitted** - a slot, and an aircraft from the fleet - and
+the client, gone back, ignores the answer. Its datagrams under the old keys
+open under nothing the server has at that address, and are dropped in
+silence, not refused, so the client sits quiet until that orphan session is
+let go for silence (`--timeout`, 10 s by default), and only then is refused,
+believes it three seconds later, and joins again: about 13 s lost, and **a
+ghost session holding a slot and an aircraft for the timeout** - on a full
+server, a real `SERVER_FULL` for somebody else. It is a tail in the plan.
+This was seen in the window test's first form (below), not changed. Nothing
+tests the window client refused `DROPPED` with its goodbyes lost (its own
+tail). The window client builds its flight without reading its socket: a
+debug build under load was silent to the server for more than five seconds
+just after it was given its aircraft (below) - a tail. The client's half of
+a session is written twice, `stay()`/`join_again()` in `glideslope_cli` and
+`net::ClientSession` - which is how the one bug fixed here was in one and
+not the other - a tail.
 
 **What was wrong.** The going back - `join_again()` in `glideslope_cli`,
 `net::ClientSession::keep_joining_again()` in the client with the window - had
@@ -269,12 +279,17 @@ both, and `client::Online` numbers its inputs on.
   its own port, the server's address as the client sees it. The first
   handshake initiation from a client ends the hold - the event, not a time -
   and what was held is delivered in order, and nothing more forged. It says on
-  standard error how many it forged and whether the hold ended so. It links
-  `glideslope_net` now, for the envelope.
+  standard error how many it forged and whether the hold ended so. It is for
+  one client: the hold is of everything, and any client's initiation ends it.
+  It holds at most 4,096 datagrams and says how many it dropped past that;
+  both tests require none. It links `glideslope_net` now, for the envelope.
 - **The client with the window** says, at a `--shot-once-back` shot, whether it
   has gone back and been flown by an input sent since, with the input sent,
   the input applied and the input sent when it went back
-  (`client::Online::gone_back()`, `flown_since_going_back()`).
+  (`client::Online::gone_back()`, `flown_since_going_back()`). It refuses
+  `--shot-once-back` without a `--shot` on a server
+  (`the_client_refuses_to_hold_a_shot_for_going_back_with_no_server`, seen to
+  fail with the refusal taken out).
 - **Docs**: `docs/TRANSPORT.md` says both clients join again (it still said
   only the command-line one, in "Refusals"), and that back in the old session
   nothing starts again: inputs numbered on, the reliable streams where they
@@ -310,7 +325,8 @@ letting it go for 30 s of silence); reverted. **Its first form failed by
 itself**, once in five, with `--timeout 5`: the window client was silent to the
 server for five seconds while building its flight, the server let the session
 go before the hold ended, and the client went back to the dead session on an
-update held from before ("input 2024 sent, 86 applied, 86 when it went back").
+update held from before ("input 2024 sent, 86 applied, 86 when it went back") -
+the ghost case above, with the server stopping as everybody had gone.
 The session in this test must be merely quiet, so the server's timeout is now
 30 s; the client's own three seconds are what is tested.
 

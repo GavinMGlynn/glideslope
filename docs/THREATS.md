@@ -316,7 +316,14 @@ to that session - a server that still has the session has dropped the new
 initiation from that address without a word, so nothing else changed - the
 client numbers its inputs on from where they were, as the server still
 counts them. Both clients are tested going back, a relay holding the
-server's datagrams for the quiet and forging the refusal (#78). A
+server's datagrams for the quiet and forging the refusal (#78). **That
+costs nothing only while the session is alive.** A party on the path that
+can delay single datagrams can hold a session's updates past the server's
+`--timeout` and release them while the client joins again: the server admits
+the new initiation, the client goes back to the dead session on a held
+update, and the new session is a ghost holding a slot and an aircraft until
+it times out - and done again, repeated ghost admissions (an open tail in
+the plan). A
 forged `SERVER_FULL` or `DROPPED` from the server's address during that
 attempt does end it, as either would end a first handshake (below). The
 drop itself is sealed: the server's goodbye opens only under the dropped

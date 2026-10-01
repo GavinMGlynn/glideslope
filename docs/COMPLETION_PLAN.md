@@ -424,10 +424,23 @@ Found while implementing something else. Added when found, not when remembered.
       forger while its session is merely quiet goes back to that session, and
       the server makes no second player - both clients.*
 - [ ] **A client goes back to a session already let go** when an update the
-      server sent before letting it go arrives while the client joins again;
-      it is refused there and joins again three seconds later. *Verification:
-      a client whose session was let go, with the server's last updates held
-      until it tries to join again, joins again without going back.*
+      server sent before letting it go arrives while it joins again: the
+      server has admitted its new initiation, so a ghost session holds a slot
+      and an aircraft until its timeout, and the client is lost for about 13 s.
+      *Verification: a client whose session was let go, with the server's last
+      updates held until it tries to join again, joins again without going
+      back, and is admitted once.*
+- [ ] **The client with the window builds its flight without reading its
+      socket**, so a slow build can outlast the server's timeout and be let
+      go. *Verification: a window client that takes longer than the server's
+      timeout to build its flight is not let go.*
+- [ ] **The client's half of a session is written twice** - the command-line
+      client's own and the shared one the window client uses - and a bug was
+      found in one and not the other. *Verification: both clients use one
+      session, and every rejoin and going-back test passes through it.*
+- [ ] **The command-line forger test once failed after 300 s, cause not
+      known**: a flake candidate until understood. *Verification: the cause
+      found, or the test repeated under load on every platform without it.*
 - [ ] **Nothing tests the client with the window refused `DROPPED`** when every
       one of the server's goodbyes was lost. *Verification: a window client
       dropped with its goodbyes lost tries to join again, is refused, and stops
