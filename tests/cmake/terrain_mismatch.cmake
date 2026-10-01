@@ -2,22 +2,29 @@
 #
 #   cmake -DPROGRAM=<glideslope> -DPROVIDER=<open|ion|google> -DDRIVER=<driver>
 #         -DWORK=<dir> -DCACHE=<downloads dir> -DPLACES=<surveyed.txt>
-#         -DBOUND_MM=<millimetres> -P terrain_mismatch.cmake
+#         -DBOUND_MM=<millimetres> [-DAGAINST=flown|dem] -P terrain_mismatch.cmake
 #
 # The bound is in millimetres because CMake's arithmetic is whole numbers
 # only: "0.25 * 1000" is not a sum it can do.
 #
-# **The ground an aircraft meets is always the open DEM.** That is what lets a
-# server and every client agree on where the ground is, whatever is drawn. A
-# visual provider may put its surface somewhere else, and this measures how
-# far, at the twelve surveyed runway ends of six airfields - the same places
-# the DEM itself is held to.
+# **The ground an aircraft meets is always the open DEM**, with every runway
+# made its own surface (world/runway_ground.hpp). That is what lets a server
+# and every client agree on where the ground is, whatever is drawn. A visual
+# provider may put its surface somewhere else, and this measures how far, at
+# the twelve surveyed runway ends of six airfields - the same places the DEM
+# itself is held to. AGAINST=flown (the default) measures it from that
+# ground; AGAINST=dem from the DEM as it is, runways unflattened - which the
+# open provider draws, so that a fault in drawing it is not hidden by the
+# flattening.
 #
 # Every one of them must answer with a height, and none may be further from
 # the DEM than BOUND. A provider whose key this machine has not got reports
 # itself skipped - skipped, never passed.
 
 cmake_minimum_required(VERSION 3.28)
+if(NOT DEFINED AGAINST)
+    set(AGAINST flown)
+endif()
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
 file(MAKE_DIRECTORY "${WORK}")
@@ -43,18 +50,32 @@ if(NOT _rc EQUAL 0)
 endif()
 
 # Every place it was asked about, and what it said.
-string(REGEX MATCHALL "mismatch [^\n]+" _lines "${_out}")
+# AGAINST is flown, the ground an aircraft meets, or dem, the DEM as it is.
+if(AGAINST STREQUAL "dem")
+    set(_prefix "mismatch-dem ")
+else()
+    set(_prefix "mismatch ")
+endif()
+string(REGEX MATCHALL "${_prefix}[^\n]+" _lines "${_out}")
 if(NOT _lines)
     message(FATAL_ERROR "${PROVIDER} measured nothing:\n${_out}${_err}")
 endif()
 list(LENGTH _lines _asked)
+if(AGAINST STREQUAL "dem")
+    string(REGEX MATCHALL "mismatch [^\n]+" _flown "${_out}")
+    list(LENGTH _flown _places)
+    if(NOT _asked EQUAL _places)
+        message(FATAL_ERROR "${PROVIDER} was measured against the DEM at ${_asked} of "
+                            "${_places} places:\n${_out}")
+    endif()
+endif()
 
 set(_worst 0)
 set(_worst_where "")
 set(_no_height "")
 foreach(_line IN LISTS _lines)
     # mismatch <name> <lat> <lon> drawn <m> flown <m> off <m> [not-a-height]
-    if(_line MATCHES "mismatch ([^ ]+) .* off ([-+.0-9]+)( not-a-height)?$")
+    if(_line MATCHES "${_prefix}([^ ]+) .* off ([-+.0-9]+)( not-a-height)?$")
         set(_name "${CMAKE_MATCH_1}")
         set(_off "${CMAKE_MATCH_2}")
         if(NOT "${CMAKE_MATCH_3}" STREQUAL "")
@@ -72,7 +93,7 @@ foreach(_line IN LISTS _lines)
             set(_worst ${_mm})
             set(_worst_where "${_name}")
         endif()
-    elseif(_line MATCHES "mismatch ([^ ]+) .* none-drawn")
+    elseif(_line MATCHES "${_prefix}([^ ]+) .* none-drawn")
         list(APPEND _no_height "${CMAKE_MATCH_1}")
     endif()
 endforeach()
@@ -87,10 +108,10 @@ endif()
 
 set(_bound_mm ${BOUND_MM})
 message(STATUS "${PROVIDER}: ${_asked} airfields, worst ${_worst} mm from the "
-               "ground flown, at ${_worst_where}; held to ${_bound_mm} mm")
+               "ground ${AGAINST}, at ${_worst_where}; held to ${_bound_mm} mm")
 if(_worst GREATER _bound_mm)
     message(FATAL_ERROR
-            "${PROVIDER}'s terrain is ${_worst} mm from the ground flown at "
+            "${PROVIDER}'s terrain is ${_worst} mm from the ground ${AGAINST} at "
             "${_worst_where}, beyond the ${_bound_mm} mm stated in "
             "docs/PROJECT_STATUS.md")
 endif()

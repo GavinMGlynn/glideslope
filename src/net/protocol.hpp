@@ -37,7 +37,14 @@ namespace glideslope::net {
 inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 
 // The version of the wire format. A datagram of any other version is refused.
-inline constexpr std::uint8_t protocol_version = 1;
+//
+// **It moves with the collision ground too.** A server and a client predicting
+// on different ground drift for a reason nothing measures, so a change to the
+// ground under runways - its rules (`world::collision_ground_rules`) or the
+// runways it is made from (`assets/runways/strips.csv`) - is a change of
+// version, and a test pins the three together. Version 2: the ground under
+// runways, rules 1, strips of 2026-10-01.
+inline constexpr std::uint8_t protocol_version = 2;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.

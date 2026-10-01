@@ -89,6 +89,11 @@ the controls to an AI pilot whenever you like, then take them back.
   In a shared session, every player's aircraft touches down on the same ground,
   wherever each player's scenery comes from.
 
+- **Runways you can roll on.** `CORE`
+  Every runway the open airport data places, anywhere in the world, is as
+  smooth to take off from and land on as a runway is, following its real
+  slope from end to end, however rough the terrain data around it.
+
 - **Richer scenery from Cesium ion.** `WANTED`
   Players with their own Cesium ion token can fly over Cesium World Terrain and
   imagery instead.
@@ -249,10 +254,6 @@ the controls to an AI pilot whenever you like, then take them back.
   With at most four players, every player receives every aircraft.
 
 ## Open questions
-
-- **How smooth are runways?** The open terrain data is too coarse and too noisy
-  to show a runway as it really is. Whether runways get a smooth surface that
-  follows their real slope, or are left as the data has them, is undecided.
 
 - **Where the free buildings come from.** The default scenery needs a source
   of buildings that needs no account. (The free imagery is settled: a

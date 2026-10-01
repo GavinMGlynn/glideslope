@@ -619,8 +619,8 @@ programme endorses this project, as (d) asks.
 | Source | OurAirports' data, <https://github.com/davidmegginson/ourairports-data>, the file `runways.csv` |
 | What it is | Every runway OurAirports knows of, one line a runway: its airport, length and surface, whether it is closed, and each end's ident, position, elevation and true heading. 48,267 runways; 27,116 ends with a place and a heading, open and not a helipad |
 | Pinned | The repository's commit `a46b8eb13173dc6351a7b6abaf34bd0ec9db48d0` (2026-09-25); `tests/data/downloads/files.txt`: `ourairports-runways.csv`, 3,965,993 bytes, SHA-256 `ae9a7661f230731cb4fef3a291991cd440f8a68593f41d773092798fc6ec9a8c` |
-| In the repository | Nothing: fetched, as the DEM is |
-| Use | Where a plan that takes off takes off from (`world/runways.hpp`): a language model names a runway, and where it is comes from here |
+| In the repository | `assets/runways/strips.csv`, made from it; the file itself is fetched, as the DEM is |
+| Use | Where a plan that takes off takes off from (`world/runways.hpp`): a language model names a runway, and where it is comes from here. And, reduced by `tools/make_runway_strips.py` to `assets/runways/strips.csv` (about 0.93 MB: every open runway, not a helipad or on water, whose ends the file places - its ends, their elevations and its width), the collision ground under every runway (`world/runway_ground.hpp`, decided 2026-10-01), on the server and in every client's prediction alike. A test holds the committed strips to what the script makes of the pinned file |
 | Licence | **Public domain.** The repository's `LICENSE` is the Unlicense: "This is free and unencumbered software released into the public domain." |
 
 ### The EGM2008 geoid, GeographicLib's 5-minute grid

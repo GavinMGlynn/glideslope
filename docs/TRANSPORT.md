@@ -38,6 +38,16 @@ Said first, because a transport's limits matter more than its features.
   release, a message's layout changes without the version changing, so a build
   of another day may not read today's updates - it refuses them as the wrong
   length, and says nothing more useful.
+- **It does keep the version with the ground.** The collision ground is the
+  DEM with every runway made its own surface, from the runway strips the
+  build carries (`assets/runways/strips.csv`) by rules that are numbered
+  (`world::collision_ground_rules`). A client predicting on other ground than
+  its server's would drift for no reason it could see, so either changing
+  moves the version, and builds on different ground refuse each other at the
+  envelope as `WRONG_VERSION`. A test holds the version, the rules' number
+  and the strips' SHA-256 together. Version `02` is the first with runways
+  flattened: rules 1, strips SHA-256
+  `6c1ba3c3e6dc3bf19a6b0a402a00734b4d886b95e40c1097f1c69a301576898f`.
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -48,7 +58,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `01` |
+| 4 | 1 | version | `02` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.

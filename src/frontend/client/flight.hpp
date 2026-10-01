@@ -15,6 +15,7 @@
 #include "gfx/sky.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
+#include "world/runway_ground.hpp"
 #include "world/geoid.hpp"
 #include "world/weather.hpp"
 
@@ -260,7 +261,9 @@ private:
     std::unique_ptr<world::DemCoverage> coverage_;
     std::unique_ptr<world::DemTiles> tiles_;
     std::unique_ptr<world::Geoid> geoid_;
-    std::shared_ptr<world::Dem> dem_;
+    // The DEM, with every runway its own surface (world/runway_ground.hpp): the
+    // ground the server's aircraft meet, which this one's prediction must too.
+    std::shared_ptr<world::CollisionGround> collision_;
     sim::CatalogueEntry aircraft_entry_;
     // The visual model, read once, and where it sits on this aeroplane.
     std::optional<gfx::Model> model_;
