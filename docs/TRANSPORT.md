@@ -110,9 +110,10 @@ was. The server sends one:
 
 - to a datagram whose envelope it cannot read, with the reason above;
 - **instead of a handshake answer**: `SERVER_FULL` when every slot is taken
-  and the initiation is not from a key already in one (see "Starting a
-  session"), `BAD_HANDSHAKE` when the initiation does not complete on a server
-  with a slot free, and `DROPPED` when it completes from a static key the
+  and the initiation is not answered - a stranger's key, a claim of a
+  player's key that does not complete, or anything past a full server's
+  budget of reads (see "Starting a session") - `BAD_HANDSHAKE` when the
+  initiation does not complete on a server with a slot free, and `DROPPED` when it completes from a static key the
   operator has dropped (see "Leaving");
 - to a `SEALED` datagram from an address that has no session: `BAD_HANDSHAKE`.
 

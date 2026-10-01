@@ -269,8 +269,20 @@ GLIDESLOPE_TEST(a_full_server_reads_at_most_its_budget_of_initiations_a_second) 
     check(read == per_second / 2, "half a second later, half the budget: " +
                                       std::to_string(read));
 
-    // A clock that goes backwards gives nothing back.
-    check(!budget.take(0.5), "a clock gone backwards refills nothing");
+    // **A clock that goes backwards gives nothing back**, and coming forward
+    // again to where it was gives nothing either: refilled at 10 s and
+    // emptied there, a step back to 9 s and forward to 10 s again reads
+    // nothing - a refill on the size of the step, either way, would read a
+    // second's worth twice.
+    read = 0;
+    for (int i = 0; i < asked; ++i) {
+        if (budget.take(10.0)) {
+            ++read;
+        }
+    }
+    check(read == per_second, "refilled at 10 s: " + std::to_string(read));
+    check(!budget.take(9.0), "a clock gone back a second refills nothing");
+    check(!budget.take(10.0), "and come forward to where it was, nothing either");
 
     // An hour idle is still one second's worth, not an hour's.
     read = 0;
