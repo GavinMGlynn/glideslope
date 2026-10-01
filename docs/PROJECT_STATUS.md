@@ -232,6 +232,102 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The F-15C's pitching moment is NASA's: she approaches at 10 degrees with stabilator to spare, 2026-10-01 — item not done
+
+**What is still missing, first.** The plan item this belongs to asks for a
+published stall speed, and the F-15's flight manual has none: at full aft
+stick its angle of attack settles at 45 units or more at 100 knots or less,
+sinking (T.O. 1F-15A-1, section VI). The model now does what that describes
+- her lift never breaks - but what stands for "near its published speed"
+needs the owner's word. One new named exception: recovered at the stall
+warning she loses 560 ft against the fighter lesson's 500.
+
+**Why.** On #79's 160-knot approach her stabilator sat near its stop and her
+nose crept up, and #77's flare wrecked her in the circuit at 1,042 ft/min.
+NASA TM-4604 (Corda, Stephenson, Burcham and Curry, 1994, page 8) gives the
+derivatives of the NASA Dryden F-15 simulator's database at the F-15's
+approach, 8 degrees of alpha and -5 of stabilator: CL-alpha 0.065, CL-delta
+0.005 and Cm-alpha -0.0021 a degree, Cm-delta -0.00072. The model's lift
+slope agreed (0.069). Its pitching moment's slope about the centre of
+gravity, the lift at the aerodynamic reference point 2.24 in behind it
+counted, was -0.0098 a degree - near five times as stable - and its
+stabilator's lift 0.010, twice NASA's.
+
+**The change** (`tools/make_f15c.py`, `with_nasa_pitch`, a docstring entry):
+the pitching moment's table scaled by 0.146, its shape kept, until its slope
+at 8 degrees is NASA's, which the script checks; the stabilator's lift set to
+NASA's 0.2865 a radian. **Cm-delta is the model's, -0.008 a degree, not the
+-0.00072 TM-4604 prints**: with the report's own Cm-alpha that would trim at
+most nine degrees of alpha with all 26 degrees of stabilator, where the
+manual reaches 45 units at full aft stick and lifts the nose wheel at 91
+knots, and it is a tenth of the model's - taken as a misprint, and said so.
+
+**Before and after.**
+
+| | Before | After |
+|---|---|---|
+| Approach at the manual's 160 kt, 36,946 lb: alpha | 10.5 to 18.3°, 17.5 at 50 ft | 9.9 to 11.4°, 10.8 at 50 ft |
+| Nose-up stabilator used on it | up to 0.98 of its travel | at most 0.14 |
+| Full aft stick, decelerating at a knot a second | stabilator at its stop at 18.3°, 151 kt | half the stabilator at 45° and 106 kt, the nose still rising, sinking 6,500 ft/min |
+| Stall (measured) | 151.06 kt, lowest speed | 112.22 kt, first CL maximum (32°) |
+| Nose wheel off, full aft stick, military (A3-6: 91.5 / 100.1 / 110.7) | 98 / 103 / 107 kt | 92 / 96 / 100 kt |
+| Lift-off speed | 1.15 × stall: 173.7, left at 178.2 | A3-6 made flaps-up: 154.4, left at 159.9 |
+| `figures f15c`, the six published | all in range | all in range: Mach 2.40, 15,467 and 56,928 ft/min, ceilings 47,686 and 58,232 ft, 7.80 °/s |
+| Stall recovery at the warning | 281 ft of 500, 1.70 g | 560 ft of 500 (named), 1.65 g |
+| Left thirty seconds in the stall | 958 ft of 2,952, 1.89 g (named for load) | 2,176 of 6,016, 1.73 g - the name taken off |
+
+**What had to be measured or pinned again, and how.**
+- **The stall.** Flown by the same deceleration, she no longer stalls: the
+  speed falls past 100 knots with the nose still rising, to 80 degrees of
+  alpha, and the old flight's "lowest speed before it gathers three knots"
+  read 29.8. 14 CFR 25.103(b) defines a stall speed for an aeroplane like
+  that - the speed at which the lift coefficient, corrected for load factor,
+  is first a maximum - and `stall_speed` now measures that where a figure
+  says `clmax="1"`, from the wind-axis lift (the body's normal force at sixty
+  degrees is half drag; measured that way it read 95.8). From entries of 160,
+  200 and 240 knots: 112.08, 112.22, 112.21.
+- **The take-off.** Rotating at 1.15 times a stall at 32 degrees of alpha
+  is rotating at 129 knots, where she cannot leave the ground below her tail
+  strike; she left at 143, 14 late, and three take-off tests went red.
+  Figure A3-6 gives the take-off speed outright - normal take-off, military
+  thrust, 141.4 at 36,946 lb - but with full flaps, which the model has not
+  got; figure A8-1's ratio of flaps-up to flaps-down approach speed at that
+  weight, 160.5 to 147.0, makes it 154.4. A figures file may now give that
+  as `<takeoff kcas loading>` (`PublishedFigures::takeoff_kcas`), and
+  `departure_speeds` takes off at it. She leaves 4.6 to 6.0 knots past it at
+  every loading.
+- **The climbing speed is kept at 200 knots.** It was the floor under the
+  ninety-five per cent rule, 1.3 times the old stall; the new floor is 146,
+  and the rate at 200 is unchanged (24,561 ft/min). Kept, not re-chosen: a
+  climb lesson at 146 knots is not one the manual flies. Said so in the
+  figure's note.
+- The fighter stall lesson's note: its warning, stall + 8, was 5% of 151;
+  now it is a little more than the 6.1 that 5% of the F-35B's 122 asks.
+
+**Verified** (linux-release):
+- New: `the_f15c_flies_its_approach_near_nasas_angle_of_attack_with_stabilator_to_spare`
+  (8 to 13 degrees down the whole approach stage, under a third of the
+  nose-up travel) and
+  `the_f15c_lifts_its_nose_wheel_near_its_flight_manuals_speed_at_each_weight`
+  (within five knots at the clean loading, a tenth at the heavier two: the
+  manual's speed rises twice what the root of the weight gives, because the
+  real aeroplane's centre of gravity moves with its fuel and stores, and the
+  model's carries both at its centre of gravity). **Both seen red** with the
+  model made without `with_nasa_pitch`: 10.3 to 18.4 degrees; the nose wheel
+  off at 97.9 at the clean loading. So was
+  `the_f15c_stalls_where_its_own_model_said_it_would`. The take-off speed's
+  checks were seen red by the model itself, at 1.15 times the new stall.
+- 190 tests across take-off, figures, lessons, approach, landing, the
+  learnt landing, departure, stalls, circuits, the autopilot and plans: all
+  passed (window client tests left out). The committed model matches its
+  script. Selftest hash (C172P) unchanged, `d36123c1eecc3e23`.
+- **With #77 on top** (origin/the-ai-flares-to-its-wheels at 3522308,
+  merged on a scratch branch, not committed): the F-15C's circuit landing
+  touches at 427 ft/min, not 1,042, and is not wrecked; a flare pulled
+  hard and handed back in the air touches at 269. **But she rises 2.3 ft after her wheels meet
+  the runway** in the approach and circuit lessons, and 3.1 ft taken back
+  at the touch, so #77's three after-touch checks are red for her. That is
+  #77's flare and her gear, not her pitch.
 ### The AI leans the mixture for best power, 2026-10-01 — tail still open
 
 **What is still missing.** The tail's verification is that the AI climbs
