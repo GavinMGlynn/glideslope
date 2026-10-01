@@ -262,6 +262,72 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The client with the window keeps its session whatever its frame loop is doing, 2026-10-02 — tail done
+
+**What is still not covered first.** The session is kept while the frame loop
+is away, not the window: SDL's events are still read once a pass, so a long
+build or a long pass still leaves the window unresponsive for as long as it
+takes. The command-line client is unchanged - it builds nothing slow between
+polls - and its half of a session is still written twice (its own tail). What
+held the debug client silent for more than five seconds in PR #78's run was
+not reproduced; the keeper covers every place the frame loop can be, so it
+covers that too, whichever it was.
+
+**What was wrong.** The window client polled its session once a pass of its
+frame loop, in `Online::hear`. Two scoped `KeptAlive` threads covered two
+known waits - from being given an aircraft to the first pass, and the shot's
+wait for its terrain - and nothing else: a long pass, a flight built again at
+a take-over of another aeroplane, a DEM tile fetched on a step, all left the
+server hearing nothing. A pass longer than the server's `--timeout` was let go
+(seen: the test below, with the keeper not polling).
+
+**What it does now.** `client::Online` keeps its session from a thread of its
+own, started with it and stopped first as it goes: whenever the frame loop has
+not polled the session for `kept_after_s` (0.2 s), the keeper polls it every
+50th of a second - the server's knocks answered, what must arrive
+acknowledged, and every update left waiting, oldest first, for the frame loop
+to hear when it is back (as `KeptAlive` did, so the flight is put right from
+them as if it had never been away). It touches the session and nothing else:
+the flight and everything `Online` keeps of it are the frame loop's alone
+(`sim::Aircraft` is single-threaded), and the session is behind a mutex every
+`Online` method that uses it holds. `fly()` takes in a join-again the keeper
+heard before an input goes into the new session. `Online::session()`, a
+reference the keeper could change under its reader, became `standing()`, a
+copy. Both `KeptAlive`s are gone. The prediction starts as it did: the frame
+loop's clock begins when the loop does, so a slow build owes no ticks. The
+client says how long it was away while kept: once its flight is built, at the
+shot, and at the end.
+
+**Verification**, each seen to fail with the keeper measuring but not polling
+(the server let the session go for silence, the client away 8.5 s and 3.3 s):
+- `the_client_with_the_window_building_its_flight_for_longer_than_the_servers_timeout_is_not_let_go`:
+  a server with `--timeout 2`; the client stands still six seconds after
+  joining (`--slow-start 6`). It must say it was away past the 2 s building its
+  flight (8.1 s here), and the server let nobody go for silence, admitted it
+  once and let it go once, for its goodbye; it flew its aircraft by the pilot
+  at the shot (tick 1200).
+- `the_client_with_the_window_in_a_pass_longer_than_the_servers_timeout_is_not_let_go`:
+  the same, with every pass held three seconds (`--slow-frames 3000`); away
+  3.3 s since flying began, before the shot. This is the case the old code
+  had nothing for: outside the shot's wait, nothing kept the session in the
+  frame loop (the old code itself was not run against it - it does not say
+  how long it was away, which the test requires).
+- Every window-client, online, prediction, rejoin, slow-frames and session
+  test (48, `-j4`) passed but one, the command-line copilot's
+  `..._engine_stops_as_recorded` (refused reason 6 under load; it uses no
+  window client), which passed run again alone.
+- **On Windows** (`tools/windows_build.sh`, MSVC, windows-debug, at 3cf65d4):
+  it builds, and both tests pass (87 s and 91 s). At 8568a0b both tests, and
+  the first Linux run of them, **timed out at ctest's 900 s** while they ran
+  at once on one cold Cesium cache file - the two cases shared it; the
+  stalled run's output was lost with it. Each case now has its own file
+  (`tests/cmake/client.cmake`), and run at once from cold caches they pass in
+  about a minute here. That two programs on one cold cache could stall that
+  long, where `gfx::open_cesium_cache` is said to cost only a wait, was not
+  investigated further: a possible tail. The ride-along, stall, forged-refusal
+  and both command-line rejoin tests also passed there at 8568a0b.
+- Ports 24746/24747 and 24748/24749 (the relay at PORT + 1).
+
 ### The registered-tests check reads its names from a file: it had stopped starting on Windows, 2026-10-02 — fix
 
 `every_compiled_unit_test_is_registered_with_ctest` failed `BAD_COMMAND` on all
