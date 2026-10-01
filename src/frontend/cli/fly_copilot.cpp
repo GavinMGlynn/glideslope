@@ -195,8 +195,9 @@ int fly_copilot(const std::filesystem::path& data, const std::vector<std::string
     brief.aircraft = entry.id;
     brief.aircraft_name = entry.name;
     brief.approach_kts = sim::approach_speeds(data, entry.model).vref_kts;
-    brief.slowest_kts = sim::plan_speeds(data, entry.model).slowest_kts;
-    brief.fastest_kts = sim::plan_speeds(data, entry.model).fastest_kts;
+    const sim::PlanSpeeds plannable_speeds = sim::plan_speeds(data, entry.model);
+    brief.slowest_kts = plannable_speeds.slowest_kts;
+    brief.fastest_kts = plannable_speeds.fastest_kts;
     brief.climb_kts = sim::departure_speeds(data, entry.model).climb_kts;
     brief.cruise_kts = entry.start_airspeed_kts;
     brief.task = task;

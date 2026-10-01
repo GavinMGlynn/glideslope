@@ -73,7 +73,9 @@ struct Brief {
 // The slowest a route may fly the aircraft under power: its slowest, or its
 // approach speed where that is more.
 inline double slowest_routed_kts(const Brief& b) {
-    return b.slowest_kts > b.approach_kts ? b.slowest_kts : b.approach_kts;
+    // Within half a knot of the approach speed, it is the approach speed
+    // written in whole knots, and the approach speed is said, as before.
+    return b.slowest_kts > b.approach_kts + 0.5 ? b.slowest_kts : b.approach_kts;
 }
 
 // The fastest a route may fly it: its fastest, or a fifth over its cruise

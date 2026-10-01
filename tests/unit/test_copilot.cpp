@@ -772,6 +772,15 @@ GLIDESLOPE_TEST(a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_r
               glideslope::copilot::planning_request(unsaid).find("never slower") ==
                   std::string::npos,
           "with none given, the approach speed is taken, and nothing said of a slowest");
+    // A slowest within half a knot of the approach speed is the approach
+    // speed written in whole knots: the request is word for word as before,
+    // so a recording made before still plays back to it.
+    glideslope::copilot::PlanRequest whole_knots = unsaid;
+    whole_knots.slowest_kts = 62.4;
+    check(glideslope::copilot::planning_request(whole_knots) ==
+              glideslope::copilot::planning_request(unsaid),
+          "a slowest of 62.4 kt over a 62 kt approach asks word for word as none given");
+    ++covered;
     // A slowest below the approach speed is the approach speed.
     unsaid.slowest_kts = 50;
     Scripted below({plan_at(55), plan_at(62)});
@@ -802,5 +811,5 @@ GLIDESLOPE_TEST(a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_r
     }
     check(route_at(80).empty() && route_at(120).empty(), "at 80 and 120 kt it is flown");
     covered += 2;
-    check(covered == 14, "fourteen cases: " + std::to_string(covered));
+    check(covered == 15, "fifteen cases: " + std::to_string(covered));
 }

@@ -193,7 +193,7 @@ void print_usage(std::FILE* out) {
         "                            learning (data/rl/AIRCRAFT-landing.txt), rolled\n"
         "                            out by the autopilot; exits 1 unless it touched\n"
         "                            and stopped on the runway\n"
-        "  plan-speeds AIRCRAFT [FROM_KT]\n"
+        "  plan-speeds AIRCRAFT [FROM_KT | --every]\n"
         "                            measure the speeds AIRCRAFT may be planned at\n"
         "                            (its figures file's <plan_speeds>): round the\n"
         "                            tightest orbit allowed, clean, both ways round,\n"
@@ -201,7 +201,10 @@ void print_usage(std::FILE* out) {
         "                            within 50 ft and its speed within 5 kt. The\n"
         "                            slowest is sought up from FROM_KT (default its\n"
         "                            approach speed) in 5 kt steps; the fastest down\n"
-        "                            from a fifth over its start speed, the same way\n"
+        "                            from a fifth over its start speed, the same way.\n"
+        "                            --every flies the speeds the file gives instead,\n"
+        "                            every 5 kt from its slowest to its fastest, and\n"
+        "                            exits 1 unless every one held\n"
         "  fly-plan FILE [--minutes M] [--orbits N]\n"
         "                            fly a flight plan over the DEM with the AI, and\n"
         "                            say how each part of it was flown; an orbit with\n"
@@ -389,8 +392,9 @@ int fly_figures(const std::filesystem::path& data, const std::string& model,
 int plan_speeds(const std::filesystem::path& data, const std::vector<std::string_view>& args) {
     const glideslope::sim::CatalogueEntry entry =
         glideslope::sim::find_aircraft(data, std::string(args[1]));
+    const bool every = args.size() >= 3 && args[2] == "--every";
     double from = 0.0;
-    if (args.size() >= 3) {
+    if (args.size() >= 3 && !every) {
         const std::string word(args[2]);
         std::size_t used = 0;
         try {
@@ -402,7 +406,7 @@ int plan_speeds(const std::filesystem::path& data, const std::vector<std::string
             throw std::runtime_error("plan-speeds: FROM_KT is a speed from 20 to 600, not '" +
                                      word + "'");
         }
-    } else {
+    } else if (!every) {
         from = std::round(glideslope::sim::approach_speeds(data, entry.model).vref_kts);
     }
     // All four ways round at one speed; whether every one held.
@@ -431,6 +435,26 @@ int plan_speeds(const std::filesystem::path& data, const std::vector<std::string
         }
         return true;
     };
+    // **--every**: the figures file's speeds checked rather than sought -
+    // every 5 kt from its slowest, and its fastest - and said whether all
+    // held.
+    if (every) {
+        const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, entry.model);
+        std::size_t held = 0;
+        std::size_t asked = 0;
+        for (double kts = speeds.slowest_kts;; kts = std::min(kts + 5.0, speeds.fastest_kts)) {
+            ++asked;
+            if (four(kts)) {
+                ++held;
+            }
+            if (kts >= speeds.fastest_kts) {
+                break;
+            }
+        }
+        std::printf("%s: %zu of %zu speeds from %.0f to %.0f kt held\n", entry.id.c_str(), held,
+                    asked, speeds.slowest_kts, speeds.fastest_kts);
+        return held == asked ? 0 : 1;
+    }
     const double top = std::round(entry.start_airspeed_kts * 1.2);
     double slowest = 0.0;
     for (double kts = from; kts <= top; kts += 5.0) {
@@ -766,8 +790,10 @@ int plan_command(const std::filesystem::path& data, const std::vector<std::strin
     request.aircraft_name = entry.name;
     request.climb_kts = glideslope::sim::departure_speeds(data, entry.model).climb_kts;
     request.approach_kts = glideslope::sim::approach_speeds(data, entry.model).vref_kts;
-    request.slowest_kts = glideslope::sim::plan_speeds(data, entry.model).slowest_kts;
-    request.fastest_kts = glideslope::sim::plan_speeds(data, entry.model).fastest_kts;
+    const glideslope::sim::PlanSpeeds plannable_speeds =
+        glideslope::sim::plan_speeds(data, entry.model);
+    request.slowest_kts = plannable_speeds.slowest_kts;
+    request.fastest_kts = plannable_speeds.fastest_kts;
     request.cruise_kts = entry.start_airspeed_kts;
     request.airport = airport;
     request.runways = glideslope::world::runways_at(

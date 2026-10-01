@@ -51,7 +51,9 @@ inline constexpr int most_attempts = 3;
 // The slowest a plan may fly the aircraft: its slowest, or its approach
 // speed where that is more.
 inline double slowest_planned_kts(const PlanRequest& r) {
-    return r.slowest_kts > r.approach_kts ? r.slowest_kts : r.approach_kts;
+    // Within half a knot of the approach speed, it is the approach speed
+    // written in whole knots, and the approach speed is said, as before.
+    return r.slowest_kts > r.approach_kts + 0.5 ? r.slowest_kts : r.approach_kts;
 }
 
 // The fastest a plan may fly it: its fastest, or a fifth over its cruise
