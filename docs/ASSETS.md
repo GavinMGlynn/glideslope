@@ -406,18 +406,24 @@ matched their pins on 2026-10-01, when that web view was in SourceForge's
 "Disaster Recovery mode" and answered every file with a 302 to an 859-byte
 HTML page (SHA-256 `f188236c...`).
 
-**Fifteen files have no source outside SourceForge.** Software Heritage's copy
-of FGAddon is from 2022 (its later visits failed), and these changed after it;
-no git repository it archives, nor the aircraft's GitHub repositories that
-were checked (Zaretto's F-15, the IDG A320 family, the 787 family, a c182s),
-holds the
-same bytes. They are the 787-8's `787-8.ac` and `787-8.xml`; the A320's six
+**Fifteen files are published by this project.** Software Heritage's copy of
+FGAddon is from 2022 (its later visits failed), and fifteen files changed
+after it; no git repository it archives, nor the aircraft's GitHub
+repositories that were checked (Zaretto's F-15, the IDG A320 family, the 787
+family, a c182s), holds the same bytes. So they are published, unmodified and
+each under the name glideslope caches it by, as assets of this repository's
+release `model-sources-r21588`
+(<https://github.com/GavinMGlynn/glideslope/releases/tag/model-sources-r21588>,
+2026-10-01), with a `SHA256SUMS` and the licence texts their directories carry
+(the 787-8's `COPYING`, the A320-family's and the c182s's `LICENSE`, each the
+GNU GPL v2). That URL is listed second for each, after the Subversion server
+and before SourceForge's web view, so every file has a source outside
+SourceForge. They are the 787-8's `787-8.ac` and `787-8.xml`; the A320's six
 (`A320-200-CFM.xml`, `A320-common.xml`, `Fuselage/a320.cfm.xml`,
 `Fuselage/fuselage.xml`, `Fuselage/res/A320-216.ac`,
 `Fuselage/res/CFM56.ac`); the A380's `XML/A380.xml`; the c182's `c182s.xml`;
 the F-15's `f15c.ac` and `f15c.xml`; and the Mosquito's `Mosquito-FB6.xml`,
-`pdiskL.xml` and `pdiskR.xml`. For those, the Subversion server and the web
-view are two services of one host.
+`pdiskL.xml` and `pdiskR.xml`.
 
 ### Visual model: c172p - FlightGear's c172p
 

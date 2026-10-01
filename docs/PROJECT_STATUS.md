@@ -232,29 +232,29 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The visual models' sources are fetched from a source that serves their pinned files, 2026-10-01 — tail partly done
+### The visual models' sources are fetched from a source that serves their pinned files, 2026-10-01 — tail done
 
-**What is not done first.** Fifteen of the 75 files the visual models are made
-from have no source outside SourceForge: the 787-8's `787-8.ac` and
-`787-8.xml`; the A320's `A320-200-CFM.xml`, `A320-common.xml`,
-`Fuselage/a320.cfm.xml`, `Fuselage/fuselage.xml`, `Fuselage/res/A320-216.ac`
-and `Fuselage/res/CFM56.ac`; the A380's `XML/A380.xml`; the c182's
-`c182s.xml`; the F-15's `f15c.ac` and `f15c.xml`; and the Mosquito's
-`Mosquito-FB6.xml`, `pdiskL.xml` and `pdiskR.xml`. They come from
-SourceForge's Subversion server, which serves them today, and its web view,
-which does not; if the Subversion server goes the way the web view did, the
-visual-model test fails again on a machine without them cached. The tail stays
-open in `COMPLETION_PLAN.md`. The fallback, which the owner approved on
-2026-10-01, is a copy this project publishes: the fifteen, unmodified, as
-assets of a release `model-sources-r21588` of its GitHub repository, each
-under its cached name and pinned by the same SHA-256, with the three licence
-texts their directories carry. `tools/make_models.py --refresh` lists that
-release's URL second for a file Software Heritage does not hold, once the
-release serves the pinned bytes - a check made with a stand-in for the network
-over all four cases of either archive holding the file or not. The release
-is <https://github.com/GavinMGlynn/glideslope/releases/tag/model-sources-r21588>,
-made in the owner's session from the staged files after checking their
-`SHA256SUMS`.
+**Every file has a source outside SourceForge.** Software Heritage holds 60
+of the 75. The other fifteen - the 787-8's `787-8.ac` and `787-8.xml`; the
+A320's `A320-200-CFM.xml`, `A320-common.xml`, `Fuselage/a320.cfm.xml`,
+`Fuselage/fuselage.xml`, `Fuselage/res/A320-216.ac` and
+`Fuselage/res/CFM56.ac`; the A380's `XML/A380.xml`; the c182's `c182s.xml`;
+the F-15's `f15c.ac` and `f15c.xml`; and the Mosquito's `Mosquito-FB6.xml`,
+`pdiskL.xml` and `pdiskR.xml` - are published by this project, as the owner
+approved on 2026-10-01: unmodified, each under its cached name, as assets of
+the release `model-sources-r21588`
+(<https://github.com/GavinMGlynn/glideslope/releases/tag/model-sources-r21588>),
+with a `SHA256SUMS` and the three licence texts their directories carry (all
+GNU GPL v2). Each was checked against its pin before it was staged, and the
+release was made in the owner's session after checking `SHA256SUMS`.
+
+**`--refresh` and Software Heritage's limit.** `tools/make_models.py
+--refresh` lists the release second for an FGAddon file it serves with the
+pinned bytes, and Software Heritage second otherwise, when it holds them. It
+asks Software Heritage only about bytes neither answers for already - a file
+the pinned list has it serving, or the release holds - because asking about
+all 75 on every refresh spent the 120 requests an hour it allows: a refresh
+on 2026-10-01 failed on its 429 three times running.
 
 **What broke.** Every line of `assets/models/sources.txt` named one URL,
 `https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/...?format=raw`
@@ -297,17 +297,23 @@ holds each file before listing it.
 - `the_files_the_visual_models_are_made_from_arrive_with_their_pinned_hashes`,
   run as `fetch.cmake` with `GLIDESLOPE_REQUIRE_NETWORK=1` into an empty
   directory: all 75 fetched from their first URL, none failed, exit 0.
-- The same, with the Subversion host renamed to one that does not resolve, for
-  three files: the two Software Heritage holds came from it; the F-15's
-  `f15c.xml`, which it does not, fell through to SourceForge's web view, got
-  the 859-byte page and failed the run "fetched, but not what was pinned" -
-  the missing part above, seen.
+- Before the release, the same with the Subversion host renamed to one that
+  does not resolve, for three files: the two Software Heritage holds came from
+  it; the F-15's `f15c.xml`, which it does not, fell through to SourceForge's
+  web view, got the 859-byte page and failed the run "fetched, but not what
+  was pinned" - the gap the release closes, seen.
 - `the_committed_visual_models_are_what_their_script_writes`
   (`tools/make_models.py --check`) with the new `sources.txt`: the old script
   fails, "ValueError: too many values to unpack (expected 4)"; the new passes.
 - `tools/make_models.py --refresh`, over the 75 files fetched above, asking
   Software Heritage of each: it wrote `sources.txt` and every mesh byte for
   byte as committed.
+- With the release made, `--refresh` added its URL to exactly the fifteen
+  lines (60 keep Software Heritage), every mesh unchanged, and `--check`
+  passes.
+- `fetch.cmake` with `GLIDESLOPE_REQUIRE_NETWORK=1` into an empty directory,
+  for the fifteen, with both SourceForge hosts renamed to ones that do not
+  resolve: all fifteen came from the release with their pinned hashes, exit 0.
 
 ### Collision ground under a runway is the runway's own line, 2026-10-01 — one tail done, the 16R tail not
 
