@@ -297,6 +297,9 @@ holds each file before listing it.
 - `the_committed_visual_models_are_what_their_script_writes`
   (`tools/make_models.py --check`) with the new `sources.txt`: the old script
   fails, "ValueError: too many values to unpack (expected 4)"; the new passes.
+- `tools/make_models.py --refresh`, over the 75 files fetched above, asking
+  Software Heritage of each: it wrote `sources.txt` and every mesh byte for
+  byte as committed.
 
 ### Collision ground under a runway is the runway's own line, 2026-10-01 — one tail done, the 16R tail not
 
