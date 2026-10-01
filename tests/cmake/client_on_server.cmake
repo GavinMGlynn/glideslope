@@ -63,13 +63,16 @@ set(_slow)
 if(DEFINED SLOW_FRAMES)
     set(_slow --slow-frames ${SLOW_FRAMES})
 endif()
+# The client connects once the server is flying (client.cmake says why).
+set(_ready "${WORK}/flying")
+file(REMOVE "${_ready}")
 execute_process(
     # Until the client has gone.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}"
+            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1200 --view behind --aircraft f15c --slow-start 5
-            ${_slow} --server 127.0.0.1 ${PORT} --server-key ${_key}
+            ${_slow} --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
 if(NOT EXISTS "${_shot}")

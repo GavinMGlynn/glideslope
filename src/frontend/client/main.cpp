@@ -149,6 +149,9 @@ struct Options {
     // For tests: stand still this long after joining a server, as a slow
     // machine building its flight does, before building it.
     double slow_start_s = 0.0;
+    // For tests: on a server, connect only once this file exists - the
+    // server's --ready-file, written once its aircraft are flying.
+    std::string after_ready;
     // For tests: every pass of the frame loop held this many milliseconds
     // longer, as a slow machine's frames are - CI's sanitized software
     // Vulkan draws one in 250 ms and more.
@@ -264,6 +267,9 @@ void usage(std::FILE* out) {
         "                nothing more and waiting for nothing (for tests)\n"
         "  --weather-refresh S  fetch --weather again every S seconds of the flight\n"
         "                (at least 1; 900 unless given) (for tests)\n"
+        "  --after-ready FILE  on a server, connect only once FILE exists - the\n"
+        "                server's --ready-file - waiting up to five minutes (for\n"
+        "                tests)\n"
         "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
         "                slow machine building its flight does (for tests)\n"
         "  --slow-frames MS  hold every pass of the frame loop MS milliseconds\n"
@@ -457,6 +463,8 @@ static int run_program(int argc, char** argv) {
             o.weather_refresh_s = std::strtod(text.c_str(), &end);
             o.weather_refresh_given = true;
             ok = end != text.c_str() && *end == '\0' && o.weather_refresh_s >= 1.0;
+        } else if (a == "--after-ready" && has_value) {
+            o.after_ready = std::string(args[++i]);
         } else if (a == "--slow-start" && has_value) {
             o.slow_start_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--slow-frames" && has_value) {
@@ -709,6 +717,27 @@ static int run_program(int argc, char** argv) {
             if (key.empty()) {
                 std::fprintf(stderr, "glideslope: --server needs --server-key\n");
                 return 2;
+            }
+            // **A test's server, waited on as an event** (`--after-ready`):
+            // a server answers the handshake only once its terrain is built
+            // and its aircraft fly, and the handshake gives up five seconds
+            // after it begins. Started beside a debug server on a loaded CI
+            // runner, the client gave up first, and the server admitted it
+            // a moment later - "cannot reach" written before "listening"
+            // (run 36860567602; PROJECT_STATUS.md, 2026-10-02).
+            if (!o.after_ready.empty()) {
+                const auto asked = std::chrono::steady_clock::now();
+                while (!std::filesystem::exists(o.after_ready)) {
+                    if (glideslope::platform::stop_requested()) {
+                        return 1;
+                    }
+                    if (std::chrono::steady_clock::now() - asked > std::chrono::minutes(5)) {
+                        std::fprintf(stderr, "glideslope: %s never appeared\n",
+                                     o.after_ready.c_str());
+                        return 1;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                }
             }
             if (auto made = glideslope::net::ClientSession::connect(where, key)) {
                 session.emplace(std::move(*made));

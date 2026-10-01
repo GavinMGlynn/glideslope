@@ -63,14 +63,17 @@ math(EXPR _relay "${PORT} + 1")
 # silent long enough that the server let it go before the forger's hold had
 # ended, and the client went back to a session already gone (2026-10-01).
 # Its silence counts from what the client sends, which the relay never holds.
+# The client connects once the server is flying (client.cmake says why).
+set(_ready "${WORK}/flying")
+file(REMOVE "${_ready}")
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 30 --store "${_store}"
+            --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
             --seed 1 --until-input-ends --seconds 290 --forge-refusal-after 50
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --view cockpit --shot-at 1200 --shot-once-back
-            --server 127.0.0.1 ${_relay} --server-key ${_key}
+            --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 list(GET _rcs -1 _rc)
 

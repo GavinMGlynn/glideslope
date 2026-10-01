@@ -2312,6 +2312,13 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rides_along)
 # is loaded earlier now; on windows-release that was not all of it (75 ms
 # after), and the client now says where the longest pass around a switch
 # spent its time (PROJECT_STATUS.md, 2026-09-30).
+# **RUN_SERIAL: the 20 fps is built, not hoped for.** What it said was that the
+# time was not the client's: in four of five windows-release failures from 1
+# October 2026 the longest pass around a switch took 3 to 19 ms of a 67 to 102
+# ms frame - the rest the process waiting for a core, while three other tests
+# shared the runner's four, one drawing on the software renderer across all of
+# them (runs 36850385103, 36850472653, 36855488898, 36859801694; the fifth,
+# 36866316016, spent 73 ms in render). So these two run alone.
 add_test(NAME the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
@@ -2319,7 +2326,7 @@ add_test(NAME the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_alo
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/takes_over -DPORT=24789 -DDRIVER=vulkan
         -DTAKE_OVER=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_rides_along.cmake)
 set_tests_properties(the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in
-    PROPERTIES SKIP_RETURN_CODE 77 LABELS timing)
+    PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/takes_over)
 
 # **The client with the window hands its own aircraft to the AI on a
@@ -2333,7 +2340,7 @@ add_test(NAME the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_serve
         -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_hands_over.cmake)
 set_tests_properties(the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back
-    PROPERTIES SKIP_RETURN_CODE 77 LABELS timing)
+    PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hands_over)
 
 # **The client with the window, let go by the server for going quiet, joins
