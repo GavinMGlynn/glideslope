@@ -23,6 +23,17 @@
 # glideslope's code, SDL's, Cesium Native's, or a standard container inlined
 # into any of them - the test fails.
 
+# **A client joining a test's server connects once it is flying**: the
+# server is given `--ready-file`, which it writes once its terrain is built and
+# its aircraft fly, and the client `--after-ready` on the same file. A server
+# binds its port before it builds its aircraft and answers a handshake only
+# after, and the client's handshake gives up five seconds after it begins. On
+# CI a debug server sharing a runner with three other tests took longer than
+# that: the client said "cannot reach" before the server said "listening", and
+# the server admitted it a moment after it had gone (runs 36850131615,
+# 36860567602, 36860901932, 36871052866; PROJECT_STATUS.md, 2026-10-02). The
+# wait is on the event, not a number of seconds.
+
 # **Each test names its own Cesium cache.** Cesium Native keeps its cache in
 # one SQLite file, and `CesiumAsync::SqliteCache` alone refused a second
 # writer at once - "database is locked" - and did not store the entry. The

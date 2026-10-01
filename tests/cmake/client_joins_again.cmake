@@ -83,11 +83,12 @@ if(DROP)
     execute_process(
         COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
                 --data "${DATA}" --timeout 3 --store "${_store}" --drop-once-flown
+                --ready-file "${_ready}"
         COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
                 --seed 1 --until-input-ends --seconds 290
         COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
                 --shot "${_shot}" --view cockpit --shot-at 7200
-                --server 127.0.0.1 ${_relay} --server-key ${_key}
+                --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 else()
     # The keeper's key's public half begins f661fe1f (see server_slots.cmake).
@@ -101,7 +102,7 @@ else()
                 --seed 1 --until-input-ends --seconds 290
         COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
                 --shot "${_shot}" --view cockpit --shot-at 1200 --stall-after 2
-                --server 127.0.0.1 ${_relay} --server-key ${_key}
+                --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 endif()
 list(LENGTH _rcs _programs)

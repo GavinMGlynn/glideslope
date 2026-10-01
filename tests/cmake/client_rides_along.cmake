@@ -72,12 +72,17 @@ if(DEFINED SLOW_FRAMES)
     set(_slow --slow-frames ${SLOW_FRAMES})
 endif()
 set(ENV{LSAN_OPTIONS} "exitcode=0")
+# **The client connects once the server is flying** (its --ready-file): its
+# handshake gives up five seconds after it begins, and a debug server on a
+# loaded runner took longer than that to build its terrain (client.cmake).
+set(_ready "${WORK}/flying")
+file(REMOVE "${_ready}")
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}"
+            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1200 --view cockpit --ride-along --slow-start 5
-            ${_take_over} ${_slow}
+            ${_take_over} ${_slow} --after-ready "${_ready}"
             --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 

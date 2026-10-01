@@ -82,18 +82,21 @@ if(DEFINED SLOW_FRAMES)
     set(_slow --slow-frames ${SLOW_FRAMES})
 endif()
 set(ENV{LSAN_OPTIONS} "exitcode=0")
+# The client connects once the server is flying (client.cmake says why).
+set(_ready "${WORK}/flying")
+file(REMOVE "${_ready}")
 execute_process(
     # The server's standard output goes to the relay, which passes it to
     # standard error and stops when it ends; the client's is what is read.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}"
+            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0 --loss 0
             --seed 1 --until-input-ends --seconds 290
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1920 --view cockpit
             --hand-over-after 4 --take-back-after 10
             --next-aircraft-after 6 --next-aircraft-after 7 ${_slow}
-            --server 127.0.0.1 ${_relay} --server-key ${_key}
+            --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
 if(NOT EXISTS "${_shot}")

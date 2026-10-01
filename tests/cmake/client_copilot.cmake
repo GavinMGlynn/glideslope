@@ -51,15 +51,18 @@ if(NOT _rc EQUAL 0)
 endif()
 
 set(ENV{LSAN_OPTIONS} "exitcode=0")
+# The client connects once the server is flying (client.cmake says why).
+set(_ready "${WORK}/flying")
+file(REMOVE "${_ready}")
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}"
+            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 600 --view cockpit
             --copilot "fly to Manly at 3,000 ft, then orbit over Manly beach"
             --copilot-provider anthropic --copilot-model claude-haiku-4-5-20251001
             --copilot-playback "${PLAYBACK}" --copilot-after 3
-            --server 127.0.0.1 ${PORT} --server-key ${_key}
+            --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
 if(NOT EXISTS "${_shot}")
