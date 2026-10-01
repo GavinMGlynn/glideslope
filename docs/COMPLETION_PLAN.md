@@ -852,3 +852,14 @@ Found while implementing something else. Added when found, not when remembered.
       test failed three runs of three and passes three of three now; a relay
       holding the server's last words when the server goes is seen to lose
       them before the fix and pass them on after.* Done 2026-09-30.
+- [x] **The geoid came from one host, and SourceForge went down.** Its
+      download link served a page in place of the file and every platform
+      went red. *Verification: the geoid is fetched from a GitHub copy of the
+      same pinned file, with SourceForge after it, every source checked
+      against the one pin; a test shows a source serving the wrong bytes or an
+      error is passed over, and that the program and the tests fetch from the
+      same sources.* Done 2026-10-01.
+- [ ] **The aircraft models' source files come only from SourceForge**, which
+      served a page in place of every one of them on 2026-10-01; CI has them
+      only from its cache. *Verification: each is fetched from a second source
+      serving the same pinned bytes when SourceForge does not.*

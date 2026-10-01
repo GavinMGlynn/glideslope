@@ -627,6 +627,7 @@ programme endorses this project, as (d) asks.
 | | |
 | --- | --- |
 | Source | GeographicLib's geoid distribution, `egm2008-5.zip` from <https://sourceforge.net/projects/geographiclib/files/geoids-distrib/>, listed on <https://geographiclib.sourceforge.io/C++/doc/geoid.html> |
+| Fetched from | Two sources, tried in order, each checked against the one pin: first deck.gl's data repository on GitHub at commit `f0b91db87bec5db75736e62cc4ab94c88072ea55` (<https://raw.githubusercontent.com/visgl/deck.gl-data/f0b91db87bec5db75736e62cc4ab94c88072ea55/egm/egm2008-5.zip>, committed 2020-12-21 as "earth gravity model"), which holds GeographicLib's zip byte for byte - the same 16,773,259 bytes and SHA-256, checked 2026-10-01; then SourceForge's own download link. On 2026-10-01 SourceForge was in "Disaster Recovery mode" and its link served an 859-byte HTML page (SHA-256 `f188236c...`) and its mirrors redirected back to a host answering 522, which reddened the tree on every platform; the pin was kept, as the file is the same |
 | What it is | NGA's Earth Gravitational Model 2008 evaluated on a 5-arc-minute grid, 4320 by 2161 points, quantised to 3 mm; its header says "WGS84 EGM2008, 5-minute grid", dated 2009-08-29, with a maximum bilinear interpolation error of 0.478 m (RMS 0.012 m) |
 | Pinned | `tests/data/downloads/files.txt`: `egm2008-5.zip`, 16,773,259 bytes, SHA-256 `408f05e0c04a9f2e17b9ea2d27123f936e9dea60128bb3411a272f8ddbe318dd` |
 | In the repository | Nothing: fetched, as the DEM is |
