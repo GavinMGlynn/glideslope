@@ -708,8 +708,17 @@ double glide_ratio(const std::filesystem::path& root, const PublishedFigures& fi
 // calibrated airspeed reached before the stalled aircraft gathers speed again
 // - 3 knots above its lowest - so that a dive and zoom after the stall, with
 // the stick still held back, are not counted.
+//
+// **An aeroplane whose lift never breaks** - `clmax="1"` - is measured as 14
+// CFR 25.103(b) has it: the calibrated airspeed when the lift coefficient
+// is first a maximum in the same deceleration - the lift itself, which is
+// what the regulation's load-factor-corrected n W / q S stands for. The F-15C at full aft stick goes on raising its nose and
+// sinking, as its manual says, and never gathers speed to mark a lowest.
 double stall_speed(const std::filesystem::path& root, const PublishedFigures& figures,
                    const FigureSpec& spec) {
+    const bool clmax = condition_or(spec, "clmax", 0.0) != 0.0;
+    double most_cl = 0.0;
+    double at_most_cl = 0.0;
     const double entry = condition_or(spec, "entry_kcas", 70.0);
     InitialConditions ic = airborne(5000.0, entry, true);
     ic.gear = condition_or(spec, "gear", 0.0);
@@ -729,10 +738,27 @@ double stall_speed(const std::filesystem::path& root, const PublishedFigures& fi
         if (t >= 10.0) {
             const double kcas = f.aircraft.property("velocities/vc-kts");
             slowest = std::min(slowest, kcas);
+            if (clmax) {
+                // The lift, normal to the flight path: the body's normal
+                // force at sixty degrees of alpha is half drag.
+                const double cl =
+                    f.aircraft.property("forces/fwz-aero-lbs") /
+                    (f.aircraft.property("aero/qbar-psf") * f.aircraft.property("metrics/Sw-sqft"));
+                if (cl > most_cl) {
+                    most_cl = cl;
+                    at_most_cl = kcas;
+                } else if (cl < most_cl - 0.05) {
+                    // Past the first maximum, clearly: not a ripple on it.
+                    return at_most_cl;
+                }
+            }
             if (kcas > slowest + 3.0) {
                 break;
             }
         }
+    }
+    if (clmax) {
+        throw std::runtime_error("the lift coefficient never passed a maximum");
     }
     return slowest;
 }
@@ -1658,7 +1684,7 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
               "radiators_open", "gear_change_boost_drop", "manifold_inhg", "lean",
               "takeoff_pitch_deg", "mach", "throttle", "from_kcas", "to_kcas", "rate_fpm",
               "mach_to", "fuel_frozen", "altitude_to_ft", "propeller_lever",
-              "running_pitch_deg", "rotate_kcas", "keel_aft_ft", "keel_below_ft"}) {
+              "running_pitch_deg", "rotate_kcas", "keel_aft_ft", "keel_below_ft", "clmax"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }
@@ -1666,24 +1692,35 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         out.figures.push_back(std::move(spec));
     }
 
-    if (JSBSim::Element* approach = root->FindElement("approach")) {
-        if (!approach->HasAttribute("kcas") || !approach->HasAttribute("loading")) {
-            throw std::runtime_error(file.string() +
-                                     " gives an <approach> without its kcas and loading");
+    // A speed the flight manual gives outright, at a loading: `<approach>`,
+    // `<takeoff>`. At most one of each.
+    const auto speed_at = [&](const char* tag, double& kcas, std::string& loading) {
+        JSBSim::Element* e = root->FindElement(tag);
+        if (e == nullptr) {
+            return;
         }
-        out.approach_kcas = approach->GetAttributeValueAsNumber("kcas");
-        out.approach_loading = approach->GetAttributeValue("loading");
-        if (!(out.approach_kcas > 0.0)) {
-            throw std::runtime_error(file.string() + " gives an approach speed not above 0");
+        const std::string what = std::string("<") + tag + ">";
+        if (!e->HasAttribute("kcas") || !e->HasAttribute("loading")) {
+            throw std::runtime_error(file.string() + " gives an " + what +
+                                     " without its kcas and loading");
         }
-        if (out.loadings.count(out.approach_loading) == 0) {
-            throw std::runtime_error(file.string() + " gives its approach speed at loading '" +
-                                     out.approach_loading + "', which it does not have");
+        kcas = e->GetAttributeValueAsNumber("kcas");
+        loading = e->GetAttributeValue("loading");
+        if (!(kcas > 0.0)) {
+            throw std::runtime_error(file.string() + " gives an " + what +
+                                     " speed not above 0");
         }
-        if (root->FindNextElement("approach") != nullptr) {
-            throw std::runtime_error(file.string() + " gives two approach speeds");
+        if (out.loadings.count(loading) == 0) {
+            throw std::runtime_error(file.string() + " gives its " + what +
+                                     " speed at loading '" + loading +
+                                     "', which it does not have");
         }
-    }
+        if (root->FindNextElement(tag) != nullptr) {
+            throw std::runtime_error(file.string() + " gives two " + what + " speeds");
+        }
+    };
+    speed_at("approach", out.approach_kcas, out.approach_loading);
+    speed_at("takeoff", out.takeoff_kcas, out.takeoff_loading);
     return out;
 }
 
