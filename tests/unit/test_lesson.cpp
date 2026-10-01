@@ -1281,6 +1281,11 @@ struct FlareWatch {
 // How far below the path's attitude the nose may go in the flare: the sink
 // the flare's own law leaves a little room for, and no fixed attitude's six.
 constexpr double flare_dip_margin_deg = 1.5;
+// **How far the AI's own landing may rise after its wheels meet the runway**:
+// half a foot, which is the gear's stroke settling and a tyre's bounce, and
+// not a wing still flying her. The B-2A rose 1.7 ft and was airborne for a
+// second; three feet, the bounce every landing is held under, let her.
+constexpr double settled_within_ft = 0.5;
 // How far short of the attitude her tail strikes at she must touch: more
 // than the two degrees short of it the lander bounds the flare at
 // (sim/lander.cpp), so a flare that has run up to that bound - the bound
@@ -1577,8 +1582,10 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                     flown.sink_least_fps, flown.sink_most_fps, flown.sink_worst_at_s,
                     flown.sink_at_end_fps, flown.completed, flown.stages,
                     flown.trimmed ? "" : ", started untrimmed: JSBSim cannot trim it");
-        std::printf("         after touching: rolled %.1f, pitched down to %.1f, rose %.1f ft, "
-                    "%s\n",
+        std::printf("         touched sinking %.0f ft/min%s; after touching: rolled %.1f, "
+                    "pitched down to %.1f, rose %.1f ft, %s\n",
+                    flown.after.touch_sink_fpm,
+                    flown.after.wreck.empty() ? "" : (", WRECKED: " + flown.after.wreck).c_str(),
                     flown.after.worst_roll_deg, flown.after.least_pitch_deg,
                     flown.after.highest_ft, flown.stopped ? "stopped" : "NOT STOPPED");
         std::printf("         touched %.0f m beyond the threshold, %.1f m right of the "
@@ -1601,6 +1608,10 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                   " m beyond the threshold and " + std::to_string(flown.touch_across_m) +
                   " m right of the centreline, which is not within 10 m of it");
         for (const std::string& wrong : flown.after.what_went_wrong(id)) {
+            came_down_badly.push_back(wrong);
+        }
+        for (const std::string& wrong :
+             flown.after.how_the_gear_took_it(id + " (approach)", settled_within_ft)) {
             came_down_badly.push_back(wrong);
         }
         for (const std::string& wrong : flared_from_the_path(id, "approach", flown.flare)) {
@@ -4243,10 +4254,13 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                     "at %.0f kt; stopped %.0f m beyond the threshold, %.1f m right of it\n",
                     flown.touch_across_m, flown.touch_along_m, flown.touch_kts,
                     flown.stop_along_m, flown.stop_across_m);
-        std::printf("      after touching: rolled %.1f, pitched down to %.1f, rose %.1f ft\n",
+        std::printf("      touched sinking %.0f ft/min%s; after touching: rolled %.1f, pitched "
+                    "down to %.1f, rose %.1f ft\n",
+                    flown.after.touch_sink_fpm,
+                    flown.after.wreck.empty() ? "" : (", WRECKED: " + flown.after.wreck).c_str(),
                     flown.after.worst_roll_deg, flown.after.least_pitch_deg,
                     flown.after.highest_ft);
-        const auto d = glideslope::sim::departure_speeds(data(), 
+        const auto d = glideslope::sim::departure_speeds(data(),
             glideslope::sim::find_aircraft(data(), id).model);
         const auto a = glideslope::sim::approach_speeds(data(),
             glideslope::sim::find_aircraft(data(), id).model);
@@ -4281,6 +4295,10 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
               id + " flew the circuit inside the lesson's limits, and said " +
                   std::to_string(flown.debrief.size()) + " things");
         for (const std::string& wrong : flown.after.what_went_wrong(id)) {
+            came_down_badly.push_back(wrong);
+        }
+        for (const std::string& wrong :
+             flown.after.how_the_gear_took_it(id + " (circuit)", settled_within_ft)) {
             came_down_badly.push_back(wrong);
         }
         for (const std::string& wrong : flared_from_the_path(id, "circuit", flown.flare)) {

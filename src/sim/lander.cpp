@@ -78,6 +78,9 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     // knots fast with its throttles shut; it is flown down with its drag
     // rudders open (assets/figures/b2.xml says from what).
     speeds.speedbrake = figures.approach_speedbrake;
+    if (figures.touchdown_fpm > 0.0) {
+        speeds.touchdown_fpm = figures.touchdown_fpm;
+    }
     return speeds;
 }
 
@@ -104,6 +107,55 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
         most_flare_pitch_deg_ = stance.strike_pitch_deg - 2.0;
     }
     throttle_ = 0.5;
+    // Her main wheels: the lowest wheels off the centreline, as `stance`
+    // finds them - every one that low, so a bogie's rows all count.
+    const std::vector<Aircraft::ContactPoint> points = aircraft.contact_points();
+    double main_z = 1e9;
+    for (const Aircraft::ContactPoint& p : points) {
+        if (p.wheel && std::abs(p.y_in) > 1.0) {
+            main_z = std::min(main_z, p.z_in);
+        }
+    }
+    for (const Aircraft::ContactPoint& p : points) {
+        if (p.wheel && std::abs(p.y_in) > 1.0 && p.z_in < main_z + 1.0) {
+            main_wheels_.push_back({p.x_in, p.y_in, p.z_in});
+        }
+    }
+}
+
+double Lander::flare_height_ft() const {
+    // **High enough to round out in.** A quarter of a foot a knot is fifteen
+    // feet for a Cessna, but it is capped at thirty, and an F-15C coming
+    // down her glidepath at 196 knots sinks at 1,050 ft/min: from thirty
+    // feet her nose could not come up in time, and she met the runway at
+    // 978. Arresting a sink v at a tenth of a g more than her weight takes
+    // v^2 / (2 x 0.1 g) of height - 47 feet for her, 26 for a 787, five for
+    // a Cessna, whose quarter of a foot a knot is the more - so the flare
+    // begins at whichever is the higher.
+    constexpr double round_out_g = 0.1;
+    const double sink_fps = speeds_.vref_kts * 1.68781 * std::tan(glidepath_rad_);
+    return std::max(speeds_.flare_ft, sink_fps * sink_fps / (2.0 * round_out_g * 32.174));
+}
+
+double Lander::wheels_hang_ft(const AircraftState& s) const {
+    // Each wheel from her centre of gravity in body axes - forward, right,
+    // down, in feet - and how far down that is in the world at her pitch and
+    // bank: d = -x sin(theta) + y sin(phi) cos(theta) + z cos(phi) cos(theta).
+    const double cg_x = a_.property("inertia/cg-x-in");
+    const double cg_z = a_.property("inertia/cg-z-in");
+    const double theta = s.pitch_deg / degrees;
+    const double phi = s.roll_deg / degrees;
+    double lowest_ft = 0.0;
+    for (const Wheel& w : main_wheels_) {
+        const double forward_ft = -(w.x_in - cg_x) / 12.0;
+        const double right_ft = w.y_in / 12.0;
+        const double down_ft = -(w.z_in - cg_z) / 12.0;
+        const double d = -forward_ft * std::sin(theta) +
+                         right_ft * std::sin(phi) * std::cos(theta) +
+                         down_ft * std::cos(phi) * std::cos(theta);
+        lowest_ft = std::max(lowest_ft, d);
+    }
+    return lowest_ft;
 }
 
 void Lander::measure() {
@@ -151,8 +203,11 @@ bool Lander::still_landing(double throttle) const {
     // her than the fifty feet an approach crosses the threshold at - over
     // where she touched, once she has. The flare's own height is too low: a
     // 737 and a Mosquito whose pilot let the stick go in the flare floated
-    // above it with the power off, and were landing all the same.
-    constexpr double screen_ft = 50.0;
+    // above it with the power off, and were landing all the same. Nor less
+    // than where her flare begins, centre of gravity over the wheels: an
+    // F-15C's begins at 52 feet, and taken in it she was let go.
+    const double screen_ft =
+        std::max(50.0, flare_height_ft() + wheels_hang_ft(s));
     const double agl_ft = a_.property("position/h-agl-ft");
     return agl_ft - (touched_ ? touchdown_agl_ft_ : 0.0) <= screen_ft;
 }
@@ -168,6 +223,17 @@ bool Lander::notice_the_touch(const AircraftState& s) {
         touchdown_sink_fpm_ = -s.climb_rate_fpm;
         touchdown_across_m_ = across_m_;
         touchdown_along_m_ = -along_m_;
+        // **A jet's wing is unloaded at the touch, not after it.** The
+        // flare's nose-up trim, carried into the rollout, held a B-2A's
+        // elevator nose up for 0.4 s after her wheels met the runway, and
+        // her wing - in ground effect, lifting 1.19 times her weight - had
+        // her off it again by 0.3 s: she rose 1.9 ft. The trim starts again
+        // from none, and the nose's target from two degrees below where she
+        // touched (both found by the B-2A's approach item, PR #73).
+        if (jet_) {
+            pitch_trim_ = 0.0;
+            lowering_pitch_deg_ = s.pitch_deg - 2.0;
+        }
     }
     return on_ground;
 }
@@ -196,6 +262,8 @@ void Lander::resume(double throttle) {
     rudder_trim_ = 0.0;
     aileron_trim_ = 0.0;
     brake_ = 0.0;
+    // A flare flown again begins again, from how she is.
+    flare_begun_ = false;
 }
 
 void Lander::hand_mixture(double mixture) {
@@ -243,7 +311,8 @@ Controls Lander::fly_laws() {
         // airspeed, so asking the airspeed would mean it never stopped.
         stage_ = std::abs(a_.property("velocities/vg-fps")) < 1.0 ? Stage::stopped
                                                                  : Stage::rollout;
-    } else if (above_m_ * feet_per_metre <= speeds_.flare_ft && along_m_ < 400.0) {
+    } else if (above_m_ * feet_per_metre - wheels_hang_ft(s) <= flare_height_ft() &&
+               along_m_ < 400.0) {
         stage_ = Stage::flare;
     }
 
@@ -495,11 +564,27 @@ Controls Lander::fly_laws() {
         // throttles took the torque of both propellers off at once and
         // rolled her three degrees; closed over two seconds from where they
         // were, they do not.
+        const double throttle_before = last_throttle_;
+        if (!flare_begun_) {
+            flare_throttle_ = last_throttle_;
+        }
         c.throttle = std::max(0.0, last_throttle_ - 0.5 / steps_per_second);
         last_throttle_ = c.throttle;
-        const double high_ft = std::max(0.0, above_m_ * feet_per_metre);
+        // **To her wheels, not her centre of gravity.** The flare was flown
+        // to the height of her centre of gravity, and a B-2A's wheels hang
+        // eleven feet below hers, a 787's fifteen: they met the runway with
+        // a third of the flare still to fly, the 787 sinking at 708 ft/min,
+        // past the 600 her gear is judged to take (sim/crash.hpp). A
+        // Cessna's hang four feet below a fifteen-foot flare and never
+        // showed it. Both its start and its sink are now the wheels'.
+        //
+        // **And the sink they arrive at is the aeroplane's**, from its
+        // figures (`ApproachSpeeds::touchdown_fpm`): forty feet a minute
+        // for a light aeroplane held off to touch gently, two hundred for a
+        // jet, flown on to the runway rather than held off to float.
+        const double high_ft = std::max(0.0, above_m_ * feet_per_metre - wheels_hang_ft(s));
         const double want_fpm =
-            -(40.0 + 150.0 * high_ft / std::max(1.0, speeds_.flare_ft));
+            -(speeds_.touchdown_fpm + 150.0 * high_ft / std::max(1.0, flare_height_ft()));
         const double fpm_error = want_fpm - s.climb_rate_fpm;
         // **The nose comes up through the flare, and no faster than a pilot
         // would raise it.** Without the rate limit a large sink asks for a
@@ -524,8 +609,23 @@ Controls Lander::fly_laws() {
         // **From the attitude she flew the glidepath at**, never pushed
         // down from it: the bound stops the nose rising past it, and does
         // not lower one already there.
+        //
+        // **But let down again in a float.** Raised, the nose stayed raised
+        // whatever she did after, and a B-2A whose round out was done -
+        // her sink less than the flare wanted, her wing in ground effect -
+        // floated two kilometres down the runway. The handbook (chapter 9,
+        // "Floating") has the back pressure relaxed and the airplane let
+        // settle: while she sinks slower than wanted the nose may come down,
+        // two degrees a second, as far as the attitude the flare began at.
+        if (!flare_begun_) {
+            flare_begun_pitch_ = flare_pitch_;
+            flare_alpha_deg_ = a_.property("aero/alpha-deg");
+            flare_begun_ = true;
+        }
+        const double least_pitch =
+            std::max(flare_begun_pitch_, flare_pitch_ - 2.0 / steps_per_second);
         flare_pitch_ = std::max(
-            -4.0, std::max(flare_pitch_,
+            -4.0, std::max(least_pitch,
                            std::min({want_flare, flare_pitch_ + 6.0 / steps_per_second,
                                      most_flare_pitch_deg_})));
         // **And no further than the wing will carry.** A flare held on past
@@ -538,8 +638,41 @@ Controls Lander::fly_laws() {
         // than level is a balloon, and the handbook's answer is to relax the
         // back pressure or hold it, never to push: the nose is held where it
         // is and she is let settle.
-        if (a_.property("aero/alpha-deg") > 12.0 || s.climb_rate_fpm > 0.0) {
+        //
+        // **A limit, not a bar.** Twelve degrees was the limit for every
+        // aeroplane, and the F-35B flies her glidepath at 19.5: over it from
+        // the flare's first step, her nose never came up at all, and she met
+        // the runway at 883 ft/min. The limit is twelve degrees or four more
+        // than she began the flare at, whichever is the higher: a round out
+        // asks a wing for about a fifth more lift than the path, and a
+        // reference speed a third over the stall leaves the wing more than
+        // that.
+        const double most_alpha_deg = std::max(12.0, flare_alpha_deg_ + 4.0);
+        const double alpha_deg = a_.property("aero/alpha-deg");
+        if (alpha_deg > most_alpha_deg || s.climb_rate_fpm > 0.0) {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg);
+        }
+        // **The power comes off as the sink is arrested, not before.** Closed
+        // from the flare's first step while she still sank 300 ft/min faster
+        // than wanted, it took the path from under a jet whose nose was
+        // still coming up. It is held there, and closed once the sink is
+        // near what the flare wants.
+        //
+        // **And once the nose can come up no further, the path is flown on
+        // the power**, as the approach flies it on the back of the drag
+        // curve: the F-35B, her nose a degree short of her tail strike and
+        // still sinking at 800 ft/min, had nothing else to arrest it with.
+        // The power goes on from where the flare found it, by a tenth of its
+        // travel for each 25 ft/min she sinks past the margin.
+        const bool nose_out = flare_pitch_ >= most_flare_pitch_deg_ - 1.0 ||
+                              alpha_deg > most_alpha_deg;
+        if (fpm_error > 300.0) {
+            const double want_throttle =
+                nose_out ? std::clamp(flare_throttle_ + 0.004 * (fpm_error - 300.0), 0.0, 1.0)
+                         : throttle_before;
+            c.throttle = std::clamp(want_throttle, throttle_before - 0.5 / steps_per_second,
+                                    throttle_before + 0.5 / steps_per_second);
+            last_throttle_ = c.throttle;
         }
         want_pitch = flare_pitch_;
         // **A jet that has touched and come up again is not flared again.**
@@ -647,7 +780,13 @@ Controls Lander::fly_laws() {
     const double pitch_error = want_pitch - s.pitch_deg;
     const double q_degps = s.q_radps * degrees;
     pitch_trim_ = std::clamp(pitch_trim_ + 0.02 * pitch_error / steps_per_second, -0.8, 0.8);
-    c.elevator = std::clamp(0.05 * pitch_error - 0.05 * q_degps + pitch_trim_, -1.0, 1.0);
+    // **Three times as firmly in the flare.** At the flying law's gain a
+    // jet's nose lagged the flare's attitude by two to three degrees all the
+    // way down - an F-35B's rose half a degree a second - and the round
+    // out was over before the nose had done it.
+    const double gain = stage_ == Stage::flare ? 3.0 : 1.0;
+    c.elevator =
+        std::clamp(gain * (0.05 * pitch_error - 0.05 * q_degps) + pitch_trim_, -1.0, 1.0);
     return c;
 }
 

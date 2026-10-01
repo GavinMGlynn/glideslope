@@ -15,7 +15,16 @@
   every airliner certificated to it meets; Airbus publishes no climb figure.
   The tolerances are this project's.
 -->
-<published_figures aircraft="a380" flaps_full_deg="32">
+<!--
+  **touchdown_fpm** is the sink the AI's flare brings the wheels to the
+  runway at, not a published figure. A jet is flown on to the runway rather
+  than held off it to float (the FAA's Airplane Flying Handbook,
+  FAA-H-8083-3C, chapter 16): two hundred feet a minute, a third of the
+  600 the server judges any gear to take (sim/crash.hpp). Held off to the
+  forty a light aeroplane is, a B-2A in ground effect floated two
+  kilometres down the runway.
+-->
+<published_figures aircraft="a380" flaps_full_deg="32" touchdown_fpm="200">
   <source>Airbus A380 AC rev 20, 2025; EASA TCDS A.110; FAA TCDS A58NM</source>
 
   <!-- 575,000 kg, the heaviest maximum take-off weight (weight variants 008

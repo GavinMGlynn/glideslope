@@ -17,7 +17,16 @@
   engine out, which every airliner certificated to it meets. The tolerances
   are this project's.
 -->
-<published_figures aircraft="a320" flaps_full_deg="40">
+<!--
+  **touchdown_fpm** is the sink the AI's flare brings the wheels to the
+  runway at, not a published figure. A jet is flown on to the runway rather
+  than held off it to float (the FAA's Airplane Flying Handbook,
+  FAA-H-8083-3C, chapter 16): two hundred feet a minute, a third of the
+  600 the server judges any gear to take (sim/crash.hpp). Held off to the
+  forty a light aeroplane is, a B-2A in ground effect floated two
+  kilometres down the runway.
+-->
+<published_figures aircraft="a320" flaps_full_deg="40" touchdown_fpm="200">
   <source>Airbus A320 Aircraft Characteristics, 2024; FAA TCDS A28NM</source>
 
   <!-- 73,500 kg (162,040 lb), weight variant 000's maximum take-off weight:

@@ -11,6 +11,7 @@
 // aeroplanes without it.
 
 #include "sim/aircraft.hpp"
+#include "sim/crash.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -25,6 +26,13 @@ struct AfterTouch {
     double least_pitch_deg = 0.0;
     double highest_ft = 0.0;
     bool airframe_touched = false;
+    // **How she met the runway, as the server judges it** (sim/crash.hpp):
+    // the sink of her centre of gravity on the step before the touch, feet a
+    // minute, and what the server's ground rule wrecked her for, if it did -
+    // judged on every step watched, so a hard second touch after a bounce is
+    // judged as the first is.
+    double touch_sink_fpm = 0.0;
+    std::string wreck;
 
     // Called every step once she is on the approach; the first step with
     // weight on a wheel - or a hull in the water - is the touch. The height
@@ -39,11 +47,17 @@ struct AfterTouch {
     // passed or failed on a hundredth of a second of timing.
     void watch(const glideslope::sim::Aircraft& a) {
         const double agl_ft = a.property("position/h-agl-ft");
+        if (const auto what = judge_.judge(a); what && wreck.empty()) {
+            wreck = *what;
+        }
+        const double sink_before_fpm = sink_fpm_;
+        sink_fpm_ = -a.property("velocities/h-dot-fps") * 60.0;
         if (!touched) {
             if (a.property("gear/wow") <= 0.5 && !a.in_water() && !a.contact().airframe) {
                 return;
             }
             touched = true;
+            touch_sink_fpm = sink_before_fpm;
             ground_agl_ft_ = agl_ft;
             least_pitch_deg = a.property("attitude/theta-deg");
         }
@@ -93,8 +107,31 @@ struct AfterTouch {
         return out;
     }
 
+    // **The AI's own touch: within what the gear takes, and settled.** Not
+    // wrecked by the server's ground rule, and risen no more than
+    // `settle_ft` above where she touched: one that comes off the runway
+    // again after its wheels met it is floating, not landed. (The three feet
+    // above is a bounce; the AI's own landings are held to better.)
+    std::vector<std::string> how_the_gear_took_it(const std::string& id,
+                                                  double settle_ft) const {
+        std::vector<std::string> out;
+        if (!wreck.empty()) {
+            out.push_back(id + " was wrecked as it landed: " + wreck);
+        }
+        if (touched && highest_ft > settle_ft) {
+            out.push_back(id + " rose " + std::to_string(highest_ft) +
+                          " ft after its wheels met the runway, more than " +
+                          std::to_string(settle_ft));
+        }
+        return out;
+    }
+
 private:
     double ground_agl_ft_ = 0.0;
+    double sink_fpm_ = 0.0;
+    // A flying boat's hull on the water is no wreck; no landplane is put on
+    // water by these tests, so every aeroplane is judged as at home there.
+    glideslope::sim::GroundJudge judge_{true};
 };
 
 } // namespace glideslope::test
