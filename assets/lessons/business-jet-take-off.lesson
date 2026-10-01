@@ -18,16 +18,23 @@
 # at: a jet climbs out at V2 and ten, a little above its rotation speed, and
 # cleans up and accelerates above five hundred feet.
 #
-# **The bands are measured**, with room: the Learjet 35A holds 12.6 to 17.9
-# degrees in the initial climb and climbs away 45 to 54 knots above its
+# **The bands are measured**, with room: the Learjet 35A holds 8.8 to 18.5
+# degrees in the initial climb and climbs away 37 to 47 knots above its
 # rotation speed - faster than V2 and ten, because it has thrust to spare and
-# the climb law will not raise its nose past twelve degrees of alpha.
+# the climb law will not raise its nose past twelve degrees of alpha
+# (measured 2026-10-01, with her stabilizer on her maintenance manual's
+# travel; it had been 12.6 to 17.9 degrees and 45 to 54 knots).
 #
 # **The roll ends five feet above where she stood**, not fifteen above the
 # runway: the Learjet 35A gains four knots a second, and rotated early she
 # left the runway at 115 knots and was at 121 by fifteen feet - inside the
 # five knots short of her rotation speed the roll allows, so an early
-# rotation went unremarked (2026-09-26).
+# rotation went unremarked (2026-09-26). **Since 2026-10-01 she cannot be
+# rotated early at all**: with her stabilizer set for take-off where her
+# maintenance manual's travel puts it, the stick fully back from 91 knots
+# has her five feet up at 130, past her rotation speed, and this lesson's
+# early-rotation fault is flown by no aeroplane (a tail, "The Learjet cannot
+# be rotated early").
 
 name Take-off in a business jet
 teaches business-jet

@@ -162,26 +162,50 @@ FLAP_PITCH = -0.03           # at 40 degrees
 # **Why it is here.** With the pitch trim on the elevator, and no take-off
 # setting, the elevator alone had to lift the nose wheel, and could not until
 # 132 knots with the stick fully back - its rotation speed is 125 - so she
-# left the runway at 152 by the book, and pulled early no sooner. Set, she
-# leaves at 129 by the book and at 114 pulled early.
+# left the runway at 152 by the book, and pulled early no sooner. Set as the
+# AFM sets it, on the manual's travel (below), she leaves at 128.9 by the
+# book and 125.7 pulled early from 91 knots: the nose wheel comes off at
+# about 115 with the stick fully back, and she cannot be rotated early (a
+# tail; the moment budget is in docs/PROJECT_STATUS.md).
 CM_STAB = -2.11
 CL_STAB = CL_DE * CM_STAB / CM_DE
 STAB_TRAVEL_S = 16.0
-# **The rigging's neutral on the flight model's scale.** The manual measures
-# the stabilizer from its rigging neutral, and the flight model's zero - the
-# setting at which its pitching moment is TN D-7647's - is not that neutral:
-# no source ties the two. It had been taken for it, with the nose-down stop
-# the tunnel aircraft's 0.4 degrees, and in the cruise she could not be
-# trimmed - from 250 to 350 knots JSBSim's trim found no setting, and a pilot
-# flying by hand held the stick forward, a quarter of the elevator's nose-down
-# travel. Measured with its travel unbounded, the model trims from 1.81
-# degrees nose down of its zero (350 knots, her lightest loading, aftmost)
-# to 5.29 nose up (125 knots, 40 degrees of flap, the forward loading): 7.1
-# degrees, where the manual's travel is 7.04. The zero is set here 3.6
-# degrees leading edge down on the rigging's scale, which puts that whole
-# range within the travel but its last 0.14 degrees nose up, on the
-# approach, which the elevator carries. The AFM's take-off settings move with
-# it, 3.6 degrees less nose up on the model's scale than they had been.
+# **The rigging's neutral on the flight model's scale - estimated, and why
+# no source fixes it.** The manual measures the stabilizer with the aircraft
+# levelled (MM 8-10-00, by plumb bob) and a clinometer on a contour board on
+# the stabilizer (27-40-00): its neutral is level with the aircraft's own.
+# The flight model's zero is TN D-6573's tail incidence of nought - its
+# pitching moment there, 0.051 + 0.0368 x 0.4 = 0.066, is TN D-7647's - and
+# that report gives the Learjet 23's own travel, 0.4 to -7.0 degrees, as an
+# incidence without saying from what; TN D-7647 gives no stabilizer settings
+# at all (its flights' pitching moment at no incidence is one constant for
+# whatever trim they flew at). Taken as the same zero, the 35A could not be
+# trimmed in the cruise: she needs 1.81 degrees nose down of the model's zero
+# (350 knots at 10,000 ft, her light loading, aftmost at 28.8% of the chord),
+# and her stop is 1.71 nose up of it - and the AFM's take-off settings would
+# be 2.3 to 3.3 degrees nose up of her trim at V2. So the 23's pitching moment
+# does not carry to the 35A on one reference, and nothing published corrects
+# it: TN D-7647's wind-tunnel values (table II), the one other source,
+# have the pitching moment of incidence larger, -1.12 a radian against the
+# flight's -0.81, and the elevator's -1.34 against -1.036 - a stabilizer
+# scaled alike would be weaker - and either spreads her trims wider.
+#
+# **What one offset can and cannot fit**, measured with the travel unbounded
+# (each loading her figures name, flaps 40 at 1.3 times its stall, flaps 8 at
+# V2, 1.2 times its stall):
+#   - the cruise, 250 to 350 knots up to Mach 0.81: the offset at least 3.52;
+#   - the approach at its reference speed (most nose up, 5.08, the landing
+#     loading at 125 knots): at most 8.75 - 5.08 = 3.67;
+#   - the AFM's take-off setting as her trim at V2 with the gear down: 2.25 to
+#     3.29 by loading (forward to aft), or 3.45 to 4.13 at V2 and ten with it
+#     up. No one offset does this at every loading - the model's trim moves
+#     with the centre of gravity a degree more across the chart than the
+#     AFM's setting does - and at V2 none of them reaches the cruise's 3.52.
+# The offset here, 3.6, is within the cruise's and the approach's bounds; it
+# favours the cruise over the take-off, whose setting is then 0.3 to 1.4
+# degrees nose down of her trim at V2, and she cannot be rotated early (a
+# tail). The take-off anchor is not used because at any offset it gives she
+# cannot be trimmed in the cruise.
 STAB_ZERO_DEG = 3.6
 STAB_NOSE_DOWN_STOP_DEG, STAB_NOSE_UP_STOP_DEG = 1.71, 8.75  # leading edge down, rigged
 STAB_NOSE_DOWN_DEG = STAB_ZERO_DEG - STAB_NOSE_DOWN_STOP_DEG   # on the model's scale

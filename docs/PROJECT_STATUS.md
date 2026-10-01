@@ -244,11 +244,15 @@ take-off lesson finds nothing early in it. **The Learjet's early rotation is
 left out of `a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`**,
 named there with its reason, and is a tail ("The Learjet cannot be rotated
 early"); her book take-off there still leaves an empty debrief (off at 135
-knots, five feet up). No published figure (a minimum unstick speed) was
-found to change what the lesson expects. In
-`every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early`
-she still passes, near its edge: 128.9 by the book (was 125.9), 125.7 rotated
-early (was 114.3), 3.2 knots sooner where three are asked.
+knots, five feet up). The test now counts the classes whose early rotation
+was flown, six of seven, and asserts that the business jet's lesson is the
+one not flown. No published figure (a minimum unstick speed) was found to
+change what the lesson expects. **Left out too of the early half of
+`every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early`**,
+where she had passed by 0.2 knots - 125.7 rotated early against her rotation
+speed of 125.3 and 128.9 by the book (was 125.9 and 114.3): she is flown and
+printed, judged by the book, and named, and the test asserts she alone is
+left out of rotating early.
 
 **The moment budget at the rotation**, measured (a scratch probe, not
 committed): the stall-example loading (15,800 lb, 18.4% of the chord), flaps
@@ -301,26 +305,78 @@ deg 00', take-off limits 4 deg 39' to 7 deg 54' on the same scale.
 **What changed** (`tools/make_learjet35a.py`, its docstring says why). The
 stops are the manual's, the middles of its tolerances, 1.71 and 8.75 degrees,
 and the rigging's neutral is put 3.6 degrees nose up of the model's zero -
-estimated, since no source ties the two. Measured with the travel unbounded,
-the model trims from 1.81 degrees nose down of its zero (350 knots at 10,000
-ft, the light loading, aftmost at 28.8% of the chord) to 5.29 nose up (125
-knots, 40 degrees of flap, the stall-example loading at 18.4%): 7.1 degrees,
-against the manual's 7.04. At 3.6 the stops are +1.89 and -5.15 on the
-model's scale, holding all of it but the last 0.14 degrees on that approach.
+**an estimate: no source ties the two, and no one offset fits everything.**
 The take-off table is the AFM's setting less 3.6, over the nose-up half.
+
+**Tying the zero to a source, tried (the review of #72).**
+- The manual's neutral: the stabilizer measured by clinometer on a contour
+  board, the aircraft levelled by plumb bob (MM 27-40-00 Adjustment/Test, MM
+  8-10-00) - level with the aircraft's own reference.
+- The model's zero is TN D-6573's tail incidence of nought: the tunnel's
+  pitching moment at no incidence there, 0.051 + 0.0368 x 0.4, is 0.066,
+  TN D-7647's. TN D-6573 ("Tail") gives the Learjet 23's stabilizer travel,
+  0.4 to -7.0 degrees, as an incidence without its reference line; TN D-7647
+  gives no stabilizer settings (its Cm0 is one constant for whatever trim
+  its flights flew, and their thrust moment was an unknown beside it).
+- Read as one reference (offset nought), the 35A cannot cruise - she needs
+  1.81 degrees nose down of the model's zero and her stop is 1.71 nose up -
+  and the AFM's take-off settings are 2.3 to 3.3 degrees nose up of her trim
+  at V2. The Learjet 23's pitching moment does not carry to the 35A on one
+  reference. The one sourced alternative, TN D-7647 table II's wind-tunnel
+  values (Cm of incidence -1.12, of the elevator -1.34, against the flight's
+  -0.81 and -1.036), spreads her trims wider, not narrower.
+
+**What one offset can and cannot fit**, measured with the travel unbounded
+(a scratch probe; each loading her figures name; flaps 40 at its reference
+speed, 1.3 times its stall from the AFM's; flaps 8 at V2, 1.2 times its
+stall):
+
+| Condition | Model's trim, degrees (+ nose down) | Offset it allows |
+| --- | --- | --- |
+| Cruise, 350 knots at 10,000 ft, light (28.8%) - the most nose down | +1.81 | at least 3.52 |
+| Approach, flaps 40, landing loading (18.1%) at 125.4 knots - the most nose up | -5.08 | at most 3.67 |
+| AFM take-off setting trims her at V2, gear down: landing / stall-example / maximum / light | -5.00 / -4.91 / -3.06 / -1.71 | 2.25 / 2.33 / 2.88 / 3.29 |
+| The same at V2 and ten, gear up | -3.80 / -3.73 / -2.18 / -0.87 | 3.45 / 3.51 / 3.76 / 4.13 |
+
+The review's upper bound from the approach, 3.46, was flown at 125 knots at
+15,800 lb - below that loading's reference speed, 127.4, and above the
+maximum landing weight, 15,300. At the reference speeds the cruise and the
+approach leave a band, 3.52 to 3.67, and 3.6 is in it. **The take-off anchor
+is not used**: at V2 it gives 2.25 to 3.29, none of which can trim the
+cruise, and it spreads over a degree with the centre of gravity because the
+model's trim moves 3.3 degrees from the forward loading to the light one
+where the AFM's setting moves 2.25. At 3.6 the take-off setting is 0.3 to 1.4
+degrees nose down of her trim at V2, which is why she cannot be rotated
+early.
 
 **The test.** `the_learjet_35a_trims_level_from_250_to_350_knots_with_her_elevator_at_neutral`
 starts every loading her figures name (four) level at 250, 300 and 350 KCAS
-at 10,000 and 20,000 ft - 24 cases, counted and asserted; 350 knots at 20,000
-ft is Mach 0.77, inside her 0.81 - trims her with JSBSim on the pitch trim
-alone, the elevator left at neutral, then flies each thirty seconds hands off,
-wings held level: she must have trimmed, and hold her height within 100 ft
-and her speed within 3 knots. **Seen failing on the old model**: 20 of 24
-did not trim (all but 250 knots at the landing and stall-example loadings,
-which trimmed at +0.24 to +0.28 degrees against the 0.4 stop). Now all 24
-trim, the stabilizer at +0.20 to +1.81 degrees (pitch trim to 0.956 of its
-nose-down half, at 350 knots light), and hold their height within 12 ft and
-speed within 0.2 knots.
+at 10,000, 20,000, 30,000 and 40,000 ft, and at 230 KCAS at 40,000 (Mach
+0.76) so that the ceiling's height is flown - 52 cases, counted - and leaves
+out, named, the sixteen past her Mach 0.81: 350 knots at 30,000 ft and all
+three speeds at 40,000 (250 knots there is Mach 0.82). Each of the 36 is
+trimmed by JSBSim on the pitch trim alone, the elevator left at neutral,
+then flown thirty seconds hands off, wings held level: she must have trimmed
+short of the stabilizer's stop, and hold her height within 100 ft and her
+speed within 3 knots. The worst case's share of the nose-down travel is
+printed. **Seen failing on the old model** (the first 24 cases, at 10,000
+and 20,000 ft): 20 did not trim (all but 250 knots at the landing and
+stall-example loadings, which trimmed at +0.24 to +0.28 degrees against the
+0.4 stop). Now all 36 trim, the stabilizer from -0.37 (230 knots at 40,000
+ft, stall-example) to +1.81 degrees; the worst, 350 knots at 10,000 ft
+light, uses 0.956 of the nose-down travel. They hold their height within 12
+ft and speed within 0.2 knots.
+
+**Stale words put right**: the script's note of what the take-off setting
+did (it had said 129 by the book and 114 pulled early), and the business-jet
+take-off lesson's header: its bands re-measured by
+`the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief` - she holds
+8.8 to 18.5 degrees in the initial climb (was 12.6 to 17.9) and climbs away
+at 162 to 172 knots, 37 to 47 above her rotation speed (was 45 to 54), both
+inside the lesson's bands (5 to 25 degrees; rotate+5 to rotate+70), which
+are unchanged - and that she cannot now be rotated early. `docs/ASSETS.md`
+names the maintenance manual's chapters, with their SHA-256s, and no longer
+says the model takes its nose-down travel from TN D-6573.
 
 **Unchanged**: the C172P's model is untouched, and the selftest's hash is
 d36123c1eecc3e23 twice on this build. The committed model is what its script

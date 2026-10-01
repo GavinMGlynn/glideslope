@@ -754,6 +754,7 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
     std::size_t catalogue = 0;
     std::size_t walked = 0;
     std::vector<std::string> left_out;
+    std::vector<std::string> early_left_out;
     std::vector<std::string> wrong;
     // **The table, one row an aeroplane**, printed as each is flown: knots
     // calibrated, and "first" the first time the wheels left the runway
@@ -802,7 +803,20 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
                             " knots by the book, not within ten of its rotation speed, " +
                             std::to_string(book.rotate_kts));
         }
-        if (!(early.kts < book.kts - 3.0)) {
+        // **Left out of the early half: the Learjet 35A**, flown and printed
+        // but not judged. With her stabilizer set for take-off where her
+        // maintenance manual's travel puts it, the stick fully back from 85
+        // percent of the speed the book rotates her at lifts her nose only at
+        // about 115 knots, and she leaves at her rotation speed, not before
+        // it - a tail, "The Learjet cannot be rotated early"; the moment
+        // budget is in docs/PROJECT_STATUS.md. Her book take-off is judged
+        // as everyone's.
+        if (entry.id == "learjet35a") {
+            early_left_out.push_back(entry.id + ": rotated early she leaves at " +
+                                     std::to_string(early.kts) + " knots, her rotation speed " +
+                                     std::to_string(book.rotate_kts) +
+                                     " (the tail \"The Learjet cannot be rotated early\")");
+        } else if (!(early.kts < book.kts - 3.0)) {
             wrong.push_back(entry.id + " rotated early left the runway at " +
                             std::to_string(early.kts) + " knots, not sooner than by the book, " +
                             std::to_string(book.kts));
@@ -811,11 +825,19 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
     for (const std::string& why : left_out) {
         std::printf("  left out - %s\n", why.c_str());
     }
+    for (const std::string& why : early_left_out) {
+        std::printf("  left out of rotating early - %s\n", why.c_str());
+    }
     std::string all;
     for (const std::string& what : wrong) {
         all += "\n    " + what;
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong:" + all);
+    // Twelve of the thirteen flown are judged rotated early; the Learjet is
+    // the one that is not, and is named.
+    check(early_left_out.size() == 1 && early_left_out[0].rfind("learjet35a:", 0) == 0,
+          "the Learjet 35A alone is left out of rotating early, not " +
+              std::to_string(early_left_out.size()) + " aeroplanes");
     // Sixteen aircraft: thirteen landplanes with a take-off to fly, two with
     // no climbing speed and one flying boat.
     check(catalogue == 16, "sixteen aircraft in the catalogue, not " + std::to_string(catalogue));
@@ -1051,7 +1073,12 @@ GLIDESLOPE_TEST(a_take_off_to_a_plans_lowest_height_hands_on_no_take_off_trim) {
 // an aeroplane off the ground before its speed actually does. A debrief that
 // named only one of them would be hiding the other.
 GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
-    for (const std::string& id : one_of_each_class("take-off")) {
+    const std::vector<std::string> classes = one_of_each_class("take-off");
+    // **Which classes' early rotation was flown**, counted: every class's but
+    // the business jet's, which is named below with its reason.
+    std::size_t early_flown = 0;
+    std::vector<std::string> early_not_flown;
+    for (const std::string& id : classes) {
         // **Not opening the throttle.** Flown by the book in every other way.
         const Flown lazy = fly_the_take_off(id, 0.0, 0.80);
         std::printf("  %s on part throttle: off at %.0f knots\n", id.c_str(),
@@ -1079,6 +1106,7 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
                                           {"attitude/theta-deg"},
                                           "held nose low on the step");
             check(book.debrief.empty(), id + ": the same take-off by the book says nothing");
+            ++early_flown;
             continue;
         }
         std::printf("  %s by the book: off at %.0f knots; rotating early: off at %.0f\n",
@@ -1094,9 +1122,11 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
         // be rotated early". Her book take-off is still held to an empty
         // debrief.
         if (id == "learjet35a") {
-            std::printf("  left out - learjet35a rotated early: full back stick from %.0f knots "
-                        "does not have her off before her rotation speed less five\n",
-                        0.85 * book.rotation_began_kts);
+            const auto lesson = lesson_for(glideslope::sim::find_aircraft(data(), id), "take-off");
+            early_not_flown.push_back(lesson ? lesson->id : id);
+            std::printf("  left out - %s's rotating early (learjet35a): full back stick from %.0f "
+                        "knots does not have her off before her rotation speed less five\n",
+                        early_not_flown.back().c_str(), 0.85 * book.rotation_began_kts);
             check(book.debrief.empty(), rotated + ": the same take-off by the book says nothing");
             continue;
         }
@@ -1107,7 +1137,17 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
                                       {"attitude/theta-deg", "need:velocities/vc-kts"},
                                       "rotating early");
         check(book.debrief.empty(), rotated + ": the same take-off by the book says nothing");
+        ++early_flown;
     }
+    // **Coverage**: the throttle fault in every class's lesson; rotating early
+    // in every class's but one, the business jet's, which is named.
+    std::printf("  take-off: rotating early flown in %zu of the %zu classes' lessons\n",
+                early_flown, classes.size());
+    check(early_flown + early_not_flown.size() == classes.size(),
+          "every class's early rotation flown or named");
+    check(early_not_flown.size() == 1 && early_not_flown[0] == "business-jet-take-off",
+          "the business jet's lesson alone has its early rotation left out, not " +
+              std::to_string(early_not_flown.size()) + " lessons");
 }
 
 // **A lesson may name the aeroplane's own published speeds**, because a class

@@ -221,24 +221,46 @@ GLIDESLOPE_TEST(the_speedbrake_lever_moves_the_spoilers) {
 // the tunnel aircraft's setting, 0.4 degrees, which is not tied to the zero of
 // the flight model's pitching moment, and it reached a fifth of what cruise
 // needs: from 250 to 350 knots JSBSim could not trim her on it, and a pilot
-// flying by hand held the stick forward. Here every loading her figures name
-// is started level at 250, 300 and 350 knots at 10,000 and 20,000 ft (350
-// knots at 20,000 ft is Mach 0.77, inside her 0.81), trimmed by JSBSim on her
-// pitch trim alone - the elevator stays where it starts, at neutral - and
-// then flown for thirty seconds hands off: the elevator at neutral, the
-// stabilizer where the trim left it, the wings held level. She must trim, and
-// hold her height within 100 ft and her speed within 3 knots.
+// flying by hand held the stick forward.
+//
+// Here every loading her figures name is started level at 250, 300 and 350
+// KCAS at 10,000, 20,000, 30,000 and 40,000 ft, trimmed by JSBSim on her
+// pitch trim alone - the elevator stays where it starts, at neutral - and then
+// flown for thirty seconds hands off: the elevator at neutral, the stabilizer
+// where the trim left it, the wings held level. She must trim, with the
+// stabilizer inside its travel, and hold her height within 100 ft and her
+// speed within 3 knots. **Left out, and named**: each speed and height past
+// her Mach limit, 0.81 (the C-21A's cruise Mach; her figures' cruise_mach) -
+// 350 knots at 30,000 ft, and all three at 40,000, where 250 knots is Mach
+// 0.82. So that 40,000 ft is flown at all, each loading is flown there too at
+// 230 knots, Mach 0.76. The worst case's share of the stabilizer's nose-down
+// travel is printed, and must be short of all of it.
 GLIDESLOPE_TEST(the_learjet_35a_trims_level_from_250_to_350_knots_with_her_elevator_at_neutral) {
     const auto figures = glideslope::sim::read_published_figures(
         std::string(GLIDESLOPE_TEST_FIGURES_DIR) + "/learjet35a.xml");
     const double speeds_kts[] = {250.0, 300.0, 350.0};
-    const double heights_ft[] = {10000.0, 20000.0};
-    const std::size_t space = figures.loadings.size() * std::size(speeds_kts) * std::size(heights_ft);
-    std::size_t covered = 0;
+    const double heights_ft[] = {10000.0, 20000.0, 30000.0, 40000.0};
+    constexpr double mach_limit = 0.81;
+    struct Case {
+        double kts;
+        double ft;
+    };
+    std::vector<Case> cases;
+    for (const double speed : speeds_kts) {
+        for (const double height : heights_ft) {
+            cases.push_back({speed, height});
+        }
+    }
+    cases.push_back({230.0, 40000.0});
+    const std::size_t space = figures.loadings.size() * cases.size();
+    std::size_t flown = 0;
+    std::vector<std::string> left_out;
     std::vector<std::string> failed;
+    double worst_share = 0.0;
+    std::string worst_case;
     for (const auto& [name, loading] : figures.loadings) {
-        for (const double speed : speeds_kts) {
-            for (const double height : heights_ft) {
+        for (const auto& [speed, height] : cases) {
+            {
                 Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "learjet35a");
                 a.load(loading.loading);
                 InitialConditions ic;
@@ -252,7 +274,12 @@ GLIDESLOPE_TEST(the_learjet_35a_trims_level_from_250_to_350_knots_with_her_eleva
                 a.initialize(ic);
                 const std::string what = name + " at " + std::to_string(static_cast<int>(speed)) +
                                          " kt and " + std::to_string(static_cast<int>(height)) + " ft";
-                ++covered;
+                const double mach = a.property("velocities/mach");
+                if (mach > mach_limit) {
+                    left_out.push_back(what + ": Mach " + std::to_string(mach) + ", past her limit");
+                    continue;
+                }
+                ++flown;
                 const bool trimmed = a.trimmed();
                 Controls c;
                 c.gear = 0.0;
@@ -260,6 +287,13 @@ GLIDESLOPE_TEST(the_learjet_35a_trims_level_from_250_to_350_knots_with_her_eleva
                 c.throttle = a.property("fcs/throttle-cmd-norm[0]");
                 c.pitch_trim = -a.property("fcs/pitch-trim-cmd-norm");
                 const double stabilizer = a.property("fcs/stabilizer-pos-rad") * 57.29577951308232;
+                // Her share of the stabilizer's travel on the side she uses:
+                // the pitch trim's command is -1 to 1 over the whole travel.
+                const double share = std::abs(c.pitch_trim);
+                if (trimmed && share > worst_share) {
+                    worst_share = share;
+                    worst_case = what;
+                }
                 const auto start = a.state();
                 TestPilot pilot(a);
                 double worst_height = 0.0;
@@ -272,16 +306,21 @@ GLIDESLOPE_TEST(the_learjet_35a_trims_level_from_250_to_350_knots_with_her_eleva
                     worst_height = std::max(worst_height, std::abs(s.altitude_ft - start.altitude_ft));
                     worst_speed = std::max(worst_speed, std::abs(s.airspeed_kts - start.airspeed_kts));
                 }
-                std::printf("%s: %s, pitch trim %.3f, stabilizer %+.2f deg, throttle %.2f; "
+                std::printf("%s: Mach %.2f, %s, pitch trim %+.3f, stabilizer %+.2f deg, throttle %.2f; "
                             "hands off for 30 s, height within %.0f ft, speed within %.1f kt\n",
-                            what.c_str(), trimmed ? "trimmed" : "NOT TRIMMED", c.pitch_trim,
+                            what.c_str(), mach, trimmed ? "trimmed" : "NOT TRIMMED", c.pitch_trim,
                             stabilizer, c.throttle, worst_height, worst_speed);
-                if (!trimmed || worst_height >= 100.0 || worst_speed >= 3.0) {
+                if (!trimmed || share >= 1.0 || worst_height >= 100.0 || worst_speed >= 3.0) {
                     failed.push_back(what);
                 }
             }
         }
     }
+    for (const std::string& why : left_out) {
+        std::printf("left out - %s\n", why.c_str());
+    }
+    std::printf("the worst: %s, at %.3f of the stabilizer's travel nose down\n", worst_case.c_str(),
+                worst_share);
     std::string failures;
     for (const std::string& what : failed) {
         failures += "; " + what;
@@ -290,6 +329,12 @@ GLIDESLOPE_TEST(the_learjet_35a_trims_level_from_250_to_350_knots_with_her_eleva
                               " cases did not trim, or did not hold height and speed hands off" + failures);
     check(figures.loadings.size() == 4, "her figures name four loadings, not " +
                                             std::to_string(figures.loadings.size()));
-    check(covered == space && space == 24,
-          "flown " + std::to_string(covered) + " of " + std::to_string(space) + " cases, of 24");
+    // Four loadings, three speeds at four heights and 230 knots at 40,000 ft:
+    // 52. Each loading leaves out the same four, past Mach 0.81: sixteen left
+    // out, 36 flown.
+    check(space == 52 && flown + left_out.size() == space,
+          "flown " + std::to_string(flown) + " and left out " + std::to_string(left_out.size()) +
+              " of " + std::to_string(space) + " cases, of 52");
+    check(left_out.size() == 16, "sixteen cases past her Mach limit left out, not " +
+                                     std::to_string(left_out.size()));
 }
