@@ -863,20 +863,23 @@ Found while implementing something else. Added when found, not when remembered.
       handbook's tolerance of its published service ceiling.* The AI now
       leans for best power, and the Cherokee reaches its 13,000 ft. Missing:
       the other three do not, each held back by its flight model (the tails
-      below); and the near-ceiling autopilot tests are not yet settled at the
-      leaned ceilings.
+      below).
 - [ ] **The Cessna 172P's engine makes 209 hp from 160.** Its engine file
       sets a fuel consumption no petrol engine has, and the propeller was
       tuned to soak up the surplus; leaned, it climbs to 17,200 ft against
       13,000. Corrected, it still climbs to 14,900 at its sea-level climb
       speed, and needs flying at the handbook's slower climb speeds high up.
+      The learnt landing was trained on the old engine and needs retraining
+      with the fix.
       *Verification: the AI climbs it to within 10% of 13,000 ft, and its
       other figures stay within theirs.*
 - [ ] **The Cessna 182S's engine is rated at the wrong rpm, and its climb
       falls away high up.** Leaned it reaches 13,600 ft against its
       handbook's 18,100; rated at 2,400 rpm as its type certificate says,
       and with its glide drag moved to the windmilling propeller, 15,200.
-      The rest of the shortfall is not yet found. *Verification: the AI
+      The rating alone takes its climb and speeds to the edge of their
+      ranges, so other tuning compensates for it. The rest of the shortfall
+      is not yet found. *Verification: the AI
       climbs it to within 10% of 18,100 ft, and its other figures stay
       within theirs.*
 - [ ] **The light aeroplanes' engines make most power far too rich.**

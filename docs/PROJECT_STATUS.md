@@ -239,11 +239,43 @@ each light aeroplane to within its handbook's tolerance (this project's
 10%, as the climb rates' is; no handbook states one) of its service
 ceiling. Only the Cherokee does. The other three are held back by their
 flight models, and each is a tail of its own in COMPLETION_PLAN.md, with
-what was measured below. And one near-ceiling autopilot test is red on
-this branch: `a_cessna_182_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft`,
-whose two left turns at 18,801 ft hold the height within 21.1 and 20.6 ft
-against the 20 ft band, at part throttle and 28.9 degrees of bank (3,000
-ft: 10.1 and 11.0 ft).
+what was measured below.
+
+**The autopilot now holds the bank it asks for** (`src/sim/autopilot.cpp`,
+`aileron_trim_`). The one near-ceiling test left red,
+`a_cessna_182_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft`,
+had its two left turns at 18,801 ft hold the height within 21.1 and 20.6 ft
+against the 20 ft band. Traced a second at a time, the cause was not the
+height loop: asked for 25 degrees, the 182 banked 28.9 to 30 to the left and
+24.3 to 25 to the right, at 3,000 ft as at the ceiling. The bank-to-aileron
+law was proportional alone, so it settled where its error balanced the
+aeroplane's own roll - a left turn at climb power wants right aileron held,
+0.2 of the travel at 5 degrees' error - and the heading's bank integral,
+which is meant to trim that out, is clamped away with the rest of a large
+heading error. Near the ceiling, at 0.95 throttle, the extra 4-5 degrees'
+induced drag put the throttle on its stop and the turn's 3-knot energy
+allowance came out as height. An integral on the bank's own error now finds
+the aileron that holds it (0.004 a degree-second, a quarter of the travel at
+most) - **only while the bank is at its limit**, which is a limit and must
+hold, and once the bank asked for has stopped moving; otherwise it fades
+out. Two wider versions failed on the way, each seen red: integrating
+always, it chased turbulence (`the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb`'s
+climb in moderate turbulence settled in 38 s against 30), a stall's wing
+drop (the Short S.23 not recovered by an autopilot engaged in its stall)
+and an orbit's changing bank in wind (the navigator's orbit 196 m off its
+circle against 160); integrating while rolling in, it wound up on the
+command's lag and overbanked every turn by 4 degrees. Now the 182's left
+turns at 18,801 ft hold the height within 17.6 and 16.8 ft, the right
+within 9.1 and 9.3; at 3,000 ft within 9.7 and 7.2. The bank still
+overshoots to 28.5 rolling in, before the integral has found the aileron.
+**Seen to fail**: with the integral's gain at nought the law is the one
+above, red by 1.1 ft. The band and the heights are unchanged.
+
+**The Cherokee's stall recovery is named no longer.**
+`every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_more_than_its_lesson_allows_within_2_g`
+named the Cherokee for losing 328 ft against its lesson's 300; leaned, it
+loses 202 ft (with or without the bank integral), and the test asked for
+its name to be taken off, which it is.
 
 **The handbook ceilings**, each read from the handbook this time:
 - Cessna 172P: 13,000 ft (Pilot's Operating Handbook, 1981, section 1).
@@ -283,9 +315,31 @@ branch:
   the flaps' release of the hold (`holding_speed_ = false` for an aeroplane
   not clean) taken out, all three stayed at the stop for the three minutes;
   put back, green.
-- The 182's left turns above are the one red: the throttle is not at its
-  stop at 82 knots there, so the 1.1 ft is the throttle's slower answer in
-  the thin air, and is not yet looked into.
+- The 182's left turns were the one red; see the bank integral above.
+
+**The two engine ratings, tried for landing and kept out** (2026-10-01):
+- **The Cessna 172P without its `<bsfc>`**, through `make_c172p.py` (the
+  handbook, section 1: the O-320-D2J's "160 rated BHP at 2700 RPM"), and
+  its propeller retuned: with cp_factor 0.88 and ct_factor from 0.93 to 0.96
+  all nine figures are in range (at 0.96: static 2,327 rpm, take-off 906 ft,
+  climb 760 ft/min, cruise 119.7 KTAS; at 0.93 the cruise is 118.4 against
+  118 - the cruise is the figure that binds, and its source, figure 5-8's
+  121 KTAS at 8,000 ft and 2,650 rpm, is sound). The learnt-landing tests
+  were run with 0.88 and 0.95. The learnt landing's 27 starts all still land within
+  the limits, but `the_learnt_policy_touches_down_in_the_simulation_where_it_did_in_training`
+  goes red: up to 37 ft/min harder and 61 m shorter than the touch-downs
+  tools/rl/export.py recorded flying the policy on the old engine, against
+  10 ft/min and 5 m. **So the engine fix is kept out**: the policy and its
+  parity fixture were made on the 209 hp engine, and need retraining, or at
+  least re-exporting, with it. The script as tried is not committed.
+- **The Cessna 182S rated at 2,400 rpm**, through `make_c182.py` (the
+  handbook, section 1: "230 rated BHP at 2400 RPM"): all nine figures stay
+  in range, but every powered one moves away from the handbook, to the edge
+  of its range: climb 895 -> 968 ft/min (924), cruise at 6,000 ft 138.8 ->
+  142.9 KTAS (140, range to 143), top speed 144.0 -> 147.3 (145, to 148);
+  the ceiling 13,639 -> 14,578 (18,100). The old tuning compensated for the
+  missing 13 hp, so the rating alone is not a fix; kept out with the rest of
+  the 182's tail.
 
 **What holds the other three back, measured** (glideslope_cli figures with
 the ceiling flight added and a trace, in a scratch copy of the data; none of

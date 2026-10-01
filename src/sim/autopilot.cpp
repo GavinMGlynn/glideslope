@@ -62,6 +62,11 @@ constexpr double most_bank_integral_deg = 5.0;
 // fading over two seconds.
 constexpr double aileron_per_degree = 0.04;
 constexpr double aileron_per_degps = 0.02;
+// The aileron the bank needs held, found by an integral: a tenth of the
+// proportional gain a second, so it settles over about ten seconds, well
+// slower than the roll; never more than a quarter of the travel.
+constexpr double aileron_trim_per_degree = 0.004;
+constexpr double most_aileron_trim = 0.25;
 constexpr double offset_fade_s = 2.0;
 // The ball to rudder.
 constexpr double rudder_per_degree = 0.1;
@@ -430,7 +435,32 @@ Controls Autopilot::fly() {
                                  -sustained_bank_deg_, sustained_bank_deg_);
     }
     bank_command_deg_ = toward(bank_command_deg_, bank_wanted, bank_rate_degps * dt);
-    c.aileron = aileron_per_degree * (bank_command_deg_ - phi) - aileron_per_degps * p;
+    // **The bank it is asked for, not one near it**: an integral finds the
+    // aileron the bank needs held. Proportional alone, it settled where the
+    // aileron's error balanced the aeroplane's own roll: a Cessna 182 asked
+    // for 25 degrees banked 30 to the left and 25 to the right, and near its
+    // ceiling the extra bank's drag cost it the height.
+    // **Only while the bank is at its limit**, which is a limit and must
+    // hold, and once the bank asked for has stopped moving. Rolling in, the
+    // bank lags the command by design, and an integral wound up on that lag
+    // overbanked every turn by 4 degrees. Below the limit the heading loop
+    // closes round the bank, and its own integral trims the roll: this one,
+    // left on there, chased turbulence (a climb in moderate turbulence
+    // settled in 38 s against 30), a stall's wing drop (a flying boat not
+    // recovered from its stall), and an orbit's changing bank in wind (196 m
+    // off the circle against 160). Otherwise it fades out at the rate it was
+    // found.
+    if (std::abs(bank_command_deg_) >= banked_deg &&
+        std::abs(std::abs(bank_wanted) - sustained_bank_deg_) < 0.01 &&
+        std::abs(bank_wanted - bank_command_deg_) < 0.01) {
+        aileron_trim_ = std::clamp(
+            aileron_trim_ + aileron_trim_per_degree * (bank_command_deg_ - phi) * dt,
+            -most_aileron_trim, most_aileron_trim);
+    } else {
+        aileron_trim_ = toward(aileron_trim_, 0.0, most_aileron_trim / 10.0 * dt);
+    }
+    c.aileron = aileron_per_degree * (bank_command_deg_ - phi) - aileron_per_degps * p +
+                aileron_trim_;
 
     // The ball, to rudder.
     const double beta = a_.property("aero/beta-deg");
