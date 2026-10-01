@@ -226,6 +226,17 @@ bool Lander::notice_the_touch(const AircraftState& s) {
         touchdown_sink_fpm_ = -s.climb_rate_fpm;
         touchdown_across_m_ = across_m_;
         touchdown_along_m_ = -along_m_;
+        // **A jet's wing is unloaded at the touch, not after it.** The
+        // trim the flare learnt holding her nose up was carried into the
+        // nose's lowering, and held the elevator near neutral against it: an
+        // F-15C touching at 12.7 degrees and 158 knots stayed at 12.7 with
+        // her wing lifting 1.1 times her weight, and was 2.5 ft off the
+        // runway a second later. The lowering learns its own trim from none
+        // (as PR #73's investigation of the B-2A first found).
+        if (jet_) {
+            pitch_trim_ = 0.0;
+            lowering_pitch_deg_ = s.pitch_deg - 2.0;
+        }
     }
     return on_ground;
 }
@@ -697,6 +708,14 @@ Controls Lander::fly_laws() {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg - (alpha_deg - most_alpha_deg));
         }
         flare_pitch_ = std::min(flare_pitch_, most_flare_pitch_deg_);
+        // **And held, not raised, in the last feet**: a nose still coming up
+        // as the wheels meet the runway carries its rotation on to it, and an
+        // F-15C touching at 158 knots rotating at two degrees a second lifted
+        // off her gear again. Within 3.0 feet of the runway the attitude is
+        // held where it is.
+        if (high_ft < 0.2 * flare_height_ft()) {
+            flare_pitch_ = std::min(flare_pitch_, s.pitch_deg);
+        }
         // **The power comes off as the sink is arrested, not before.** Closed
         // from the flare's first step while she still sank 300 ft/min faster
         // than wanted, it took the path from under a jet whose nose was
@@ -863,7 +882,14 @@ double Lander::lower_the_nose(const AircraftState& s) {
     if (lowering_pitch_deg_ > level_deg) {
         pitch_trim_ = std::clamp(pitch_trim_ + 0.02 * error / steps_per_second, -0.8, 0.8);
     }
-    return std::clamp(0.15 * error - 0.15 * s.q_radps * degrees + pitch_trim_, -1.0, 1.0);
+    // **The rate damped is the one wanted's difference**, not the whole of
+    // it: damping the pitch rate itself fought the nose coming down at the
+    // rate asked for, and an F-15C at 158 knots, her elevator at a tenth of
+    // its travel, came down at 3.5 degrees a second against 4.4 and was
+    // off her rebounding gear by 0.7 ft.
+    const double want_q_degps = lowering_pitch_deg_ > level_deg ? -rate_degps : 0.0;
+    return std::clamp(0.15 * error - 0.15 * (s.q_radps * degrees - want_q_degps) + pitch_trim_,
+                      -1.0, 1.0);
 }
 
 } // namespace glideslope::sim

@@ -411,7 +411,6 @@ GLIDESLOPE_TEST(the_speedbrake_an_approach_is_flown_with_is_read_and_refused_out
                                            std::to_string(refused));
 }
 
-
 // **The sink a flare brings the wheels to the runway at is read from the
 // figures**, is none where they give none - and the approach autopilot's
 // forty then - and is refused where the gear could not take it, rather than
