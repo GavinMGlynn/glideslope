@@ -80,6 +80,10 @@ if(DEFINED CACHE)
     if(DROP)
         string(APPEND _case "drop")
     endif()
+    # And kept while away building, and in a pass (client_kept_while_away.cmake).
+    if(DEFINED AWAY)
+        string(APPEND _case "away${AWAY}")
+    endif()
     set(ENV{GLIDESLOPE_CESIUM_CACHE}
         "${CACHE}/cesium-${_who}${PROVIDER}${DRIVER}${AIRCRAFT}${_imagery}${VIEW}${_case}${_weather}.sqlite")
 endif()
