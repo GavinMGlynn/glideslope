@@ -266,8 +266,10 @@ are the risks the phase order is built around:
 
 **What is still missing, first**: none of CI's four failures was reproduced
 here in the processes themselves, so that this was their cause is argued
-from a unit test and the numbers, not watched; and the tail's verification
-is a month of CI runs, which starts with this change.
+from a unit test and the numbers, not watched; one loaded run with the fix
+was still put right 12.8 m, under the bound but not explained (below); and
+the tail's verification is a month of CI runs, which starts with this
+change.
 
 **The cause.** The window client's pass read the stick, sent it, and then
 flew every tick the frame was owed on it - so an input sent at the end of a
@@ -323,8 +325,24 @@ arrived when the clock is read, before the ticks, and `Online::hear` hears
 it after them. Nothing tests this half but the window tests.
 
 **Said by the client now**: "the worst while its clocks' difference was
-learnt X m, and once it was known Y m", after the corrections line, so that
-a failure on CI says which it was.
+learnt X m, and once it was known Y m", after the corrections line, and
+the on-server window tests repeat it whether they pass or fail, so that a
+run on CI says which it was.
+
+**Verified**, linux-debug, DISPLAY unset: the unit test above, and the
+prediction unit tests. The on-server window test and the held-frames one
+(`client_on_server.cmake` run by hand on ports of their own, 31811 and
+31812, so as not to meet another working copy's), ten runs of each side by
+side on four cores (taskset 4-7) shared with three busy loops: all twenty
+pass; the held-frames worst 0.32 to 1.39 m, the on-server worst 0.47 to
+1.08 m in nine and **12.8 m in one** - under 20 m, but not explained: that
+run said nothing of which half it was in, which is why the tests now say
+it. Before the fix, the same load, three of each: held-frames worst 1.4,
+2.2 and 4.0 m, the "replayed 0" corrections above; unloaded, three of each
+way, all under 2.3 m. The two CLI network checks at 100 and 200 ms failed
+once beside them, "no answer from 127.0.0.1:24781", and passed alone - the client
+of the command line is unchanged, and that port is every working copy's. Windows: the client
+and the unit tests build with MSVC (tools/windows_build.sh, windows-debug).
 
 The command-line client (`glideslope_cli connect`) flies its own way and
 counts only once the difference is known; it is not changed. The selftest

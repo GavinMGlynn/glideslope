@@ -155,6 +155,12 @@ endif()
 if(NOT _snapped EQUAL 0 OR _worst GREATER_EQUAL 20)
     message(FATAL_ERROR "its own aircraft was put right too far to hide:\n${_out}")
 endif()
+# Which the worst was - while the clocks' difference was learnt, or once it
+# was known - said whether or not it passed, for a run worth reading.
+set(_which "")
+if(_out MATCHES "(the worst while its clocks' difference was learnt [0-9.]+ m, and once it was known [0-9.]+ m)")
+    set(_which "; ${CMAKE_MATCH_1}")
+endif()
 message(STATUS "the client flew aircraft ${_mine} on the server, and drew the AI "
                "${_away} m away; ${_corrections} corrections in ${_frames} frames from "
-               "${_words} words, the worst ${_worst} m")
+               "${_words} words, the worst ${_worst} m${_which}")
