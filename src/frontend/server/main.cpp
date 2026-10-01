@@ -12,6 +12,7 @@
 #include "copilot/copilot.hpp"
 #include "frontend/server/dashboard.hpp"
 #include "frontend/server/window.hpp"
+#include "net/budget.hpp"
 #include "net/handshake.hpp"
 #include "platform/end_process.hpp"
 #include "platform/closed_pipes.hpp"
@@ -2342,7 +2343,7 @@ void refuse(glideslope::platform::UdpSocket& socket,
 void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPair& mine,
           glideslope::net::Slots& slots,
           std::map<std::string, Connection>& connections, Taken& taken,
-          const std::set<std::string>& dropped, Fleet* fleet,
+          glideslope::net::Budget& full_reads, const std::set<std::string>& dropped, Fleet* fleet,
           const glideslope::platform::Address& from,
           std::span<const std::uint8_t> datagram, double now_s, const Options& o,
           glideslope::server::Happenings& happened) {
@@ -2410,13 +2411,43 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             }
             return;
         }
-        if (slots.full()) {
+        // **A full server reads an initiation only as far as its key**, and
+        // only for a key already in: a player started again from a new port,
+        // whose old session has not been let go, is let back in at once -
+        // the new session sharing the key's slot and aircraft and taking over
+        // at the first thing sealed under it that opens (below, in `sealed`)
+        // - rather than refused until the old one's `--timeout` has run out.
+        // A stranger's key costs one X25519 operation and is refused
+        // `SERVER_FULL`, and a full server does at most
+        // `full_server_reads_per_second` of those reads a second: past that
+        // an initiation is refused unread, as every one was before.
+        // **Whatever stops it, a full server says `SERVER_FULL`**, never
+        // `BAD_HANDSHAKE`: which it said would tell a forger whether the key
+        // it claimed is a player's here.
+        const bool full = slots.full();
+        if (full && !full_reads.take(now_s)) {
             refuse(socket, from, glideslope::net::Refusal::server_full);
             return;
         }
         glideslope::net::Responder responder(mine);
+        if (full) {
+            responder.only_for([&slots](const glideslope::net::PublicKey& theirs) {
+                return slots.slot_of(key_of(theirs)).has_value();
+            });
+        }
         const auto answer = responder.answer(body);
         if (!answer) {
+            if (full) {
+                refuse(socket, from, glideslope::net::Refusal::server_full);
+                if (responder.unwanted() && o.headless) {
+                    std::printf("refused %s: the server is full, and its key read no "
+                                "further than it took to know it is no player's here "
+                                "(%d X25519)\n",
+                                who.c_str(), responder.x25519_done());
+                    std::fflush(stdout);
+                }
+                return;
+            }
             refuse(socket, from, glideslope::net::Refusal::bad_handshake);
             return;
         }
@@ -2830,6 +2861,7 @@ int run(const Options& o) {
     glideslope::net::Slots slots(static_cast<std::uint8_t>(o.players));
     std::map<std::string, Connection> connections;
     Taken taken;
+    glideslope::net::Budget full_reads(glideslope::net::full_server_reads_per_second);
     std::set<std::string> dropped;
     bool dropped_once = false;
     glideslope::server::Happenings happened;
@@ -2893,7 +2925,7 @@ int run(const Options& o) {
             bytes += one;
             now = std::chrono::steady_clock::now();
             up_s = std::chrono::duration<double>(now - began).count();
-            take(*socket, mine, slots, connections, taken, dropped, fleet ? &*fleet : nullptr,
+            take(*socket, mine, slots, connections, taken, full_reads, dropped, fleet ? &*fleet : nullptr,
                  from,
                  std::span<const std::uint8_t>(into.data(), one), up_s, o, happened);
         }

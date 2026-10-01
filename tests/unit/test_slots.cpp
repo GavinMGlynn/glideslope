@@ -1,5 +1,6 @@
 #include "harness.hpp"
 
+#include "net/budget.hpp"
 #include "net/slots.hpp"
 
 #include <algorithm>
@@ -234,4 +235,50 @@ GLIDESLOPE_TEST(the_lobby_has_a_row_for_every_slot_with_the_open_ones_named) {
         check(back.slots[i].controller == lobby.slots[i].controller, "each row's controller");
         check(back.slots[i].name == lobby.slots[i].name, "each row's name");
     }
+}
+
+// **A full server reads at most its budget of initiations a second**, and
+// past it refuses them unread. Every take in the first second is counted: the
+// budget's worth succeed and every one after fails, however many are asked
+// for; it refills at its rate and never past one second's worth.
+GLIDESLOPE_TEST(a_full_server_reads_at_most_its_budget_of_initiations_a_second) {
+    using glideslope::net::Budget;
+    const double rate = glideslope::net::full_server_reads_per_second;
+    const int per_second = static_cast<int>(rate);
+    check(per_second >= 4, "the budget lets at least four players back in at once");
+
+    Budget budget(rate);
+    const int asked = 1000;
+    int read = 0;
+    for (int i = 0; i < asked; ++i) {
+        if (budget.take(1.0)) {
+            ++read;
+        }
+    }
+    check(read == per_second, "a flood of " + std::to_string(asked) + " at once is read " +
+                                  std::to_string(per_second) + " times, not " +
+                                  std::to_string(read));
+
+    // Half a second on, half a second's worth.
+    read = 0;
+    for (int i = 0; i < asked; ++i) {
+        if (budget.take(1.5)) {
+            ++read;
+        }
+    }
+    check(read == per_second / 2, "half a second later, half the budget: " +
+                                      std::to_string(read));
+
+    // A clock that goes backwards gives nothing back.
+    check(!budget.take(0.5), "a clock gone backwards refills nothing");
+
+    // An hour idle is still one second's worth, not an hour's.
+    read = 0;
+    for (int i = 0; i < asked; ++i) {
+        if (budget.take(3601.5)) {
+            ++read;
+        }
+    }
+    check(read == per_second, "an hour idle refills one second's worth, not " +
+                                  std::to_string(read));
 }

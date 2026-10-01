@@ -2641,10 +2641,16 @@ int stay(glideslope::platform::UdpSocket& socket,
     if (heard > 0) {
         std::printf("state updates from step %lld to step %lld of the simulation\n",
                     first_step, last_step);
+        // And to `--heard`: which steps a client was told of is how a test
+        // counts, in simulated steps, the gap between two of them.
+        say_heard("state updates from step " + std::to_string(first_step) + " to step " +
+                  std::to_string(last_step));
     }
     if (fly) {
         std::printf("sent %u input frames, the server applied %u\n", sequence,
                     applied);
+        say_heard("sent " + std::to_string(sequence) + " input frames, the server applied " +
+                  std::to_string(applied));
         std::printf("my aircraft rolled to %.0f degrees\n", roll_seen_deg);
     }
     if (predicting) {
