@@ -106,6 +106,10 @@ FGADDON_SVN = "https://svn.code.sf.net/p/flightgear/fgaddon/trunk/Aircraft"
 # of FGAddon is from 2022, so a file changed since is not there. Anonymous use
 # allows 120 requests an hour, more than there are files.
 HERITAGE = "https://archive.softwareheritage.org/api/1/content/sha256:"
+# What neither of those holds, this project publishes itself, unmodified and
+# under each file's cached name, as assets on one release of its repository.
+RELEASE = ("https://github.com/GavinMGlynn/glideslope/releases/download/"
+           f"model-sources-r{FGADDON_REV}/")
 
 # Six aircraft state no licence anywhere in their own directory. FGAddon's
 # own requirement is that what it carries is GPL, and the project owner
@@ -313,16 +317,26 @@ def download_first(urls: list[str]) -> bytes:
     raise last
 
 
-def with_heritage(urls: list[str], sha: str) -> list[str]:
-    """Software Heritage second, when it holds these bytes: after the first
-    source, before the one sharing that source's host."""
+def serves(url: str, sha: str | None = None) -> bool:
+    """Whether `url` answers, and when `sha` is given, with those bytes."""
     try:
-        download(f"{HERITAGE}{sha}/")
+        data = download(url)
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            return urls
+            return False
         raise
-    return urls[:1] + [f"{HERITAGE}{sha}/raw/"] + urls[1:]
+    return sha is None or hashlib.sha256(data).hexdigest() == sha
+
+
+def with_mirrors(urls: list[str], name: str, sha: str) -> list[str]:
+    """A source off the first one's host goes second, before the one sharing
+    that host: Software Heritage when it holds these bytes, and otherwise this
+    project's release, when it holds them."""
+    if serves(f"{HERITAGE}{sha}/"):
+        return urls[:1] + [f"{HERITAGE}{sha}/raw/"] + urls[1:]
+    if urls[0].startswith(FGADDON_SVN) and serves(f"{RELEASE}{name}", sha):
+        return urls[:1] + [f"{RELEASE}{name}"] + urls[1:]
+    return urls
 
 
 def read_sources() -> dict[str, tuple[int, str, list[str]]]:
@@ -401,7 +415,7 @@ class Files:
                 raise ValueError(f"{name} is not what is pinned: {sha}, "
                                  f"not {want[1]}")
         if self.refresh:
-            urls = with_heritage(urls, sha)
+            urls = with_mirrors(urls, name, sha)
         self.used[name] = (len(data), sha, urls)
         return data
 

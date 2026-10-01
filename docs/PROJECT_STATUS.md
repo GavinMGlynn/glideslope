@@ -244,9 +244,17 @@ and `Fuselage/res/CFM56.ac`; the A380's `XML/A380.xml`; the c182's
 SourceForge's Subversion server, which serves them today, and its web view,
 which does not; if the Subversion server goes the way the web view did, the
 visual-model test fails again on a machine without them cached. The tail stays
-open in `COMPLETION_PLAN.md`. The proposed fallback is a copy this project
-publishes - a release asset on its GitHub repository, pinned by the same
-SHA-256 - which needs the owner's say-so before any release is made.
+open in `COMPLETION_PLAN.md`. The fallback, which the owner approved on
+2026-10-01, is a copy this project publishes: the fifteen, unmodified, as
+assets of a release `model-sources-r21588` of its GitHub repository, each
+under its cached name and pinned by the same SHA-256, with the three licence
+texts their directories carry. `tools/make_models.py --refresh` lists that
+release's URL second for a file Software Heritage does not hold, once the
+release serves the pinned bytes - a check made with a stand-in for the network
+over all four cases of either archive holding the file or not. The release
+is <https://github.com/GavinMGlynn/glideslope/releases/tag/model-sources-r21588>,
+made in the owner's session from the staged files after checking their
+`SHA256SUMS`.
 
 **What broke.** Every line of `assets/models/sources.txt` named one URL,
 `https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/...?format=raw`
