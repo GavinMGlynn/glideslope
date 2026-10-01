@@ -54,7 +54,7 @@ double horizontal_m(const Traffic& a, const Traffic& b) {
     return distance_m(a.latitude_deg, a.longitude_deg, b.latitude_deg, b.longitude_deg);
 }
 
-bool near(const Traffic& a, const Traffic& b) {
+bool within_guard(const Traffic& a, const Traffic& b) {
     const double d = horizontal_m(a, b);
     if (d < Separation::guard_m) {
         return true;
@@ -96,7 +96,7 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
             const Traffic& p = traffic[j];
             // Only to those it gives way to: every one that does not, and
             // every one before it that does.
-            if (j == i || (p.gives_way && j > i) || !near(g, p)) {
+            if (j == i || (p.gives_way && j > i) || !within_guard(g, p)) {
                 continue;
             }
             const Band band = band_of(p, held[j]);
