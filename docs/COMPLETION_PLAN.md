@@ -818,7 +818,7 @@ Found while implementing something else. Added when found, not when remembered.
       the server's rule** (707, 976 and 883 ft/min, past the gear's 600).
       *Verification: every aeroplane the AI lands touches down within what
       its gear takes.* Done 2026-10-01: flared to the wheels, the hardest
-      touches at 416 ft/min and none rises half a foot after.
+      touches at 469 ft/min (the F-15C) and none rises half a foot after.
 - [ ] **Nothing bounds where along the runway a jet touches down**: they
       touch 520 to 809 m past the threshold, and an F-15C at 800 m would run
       off a 6,000 ft runway. *Verification: every aeroplane the AI lands
@@ -837,15 +837,12 @@ Found while implementing something else. Added when found, not when remembered.
       from a pilot's over-pulled flare zooms to fifty feet and comes down at
       958 ft/min. *Verification: every aeroplane given back in a balloon
       lands within what its gear takes or goes around.*
-- [ ] **The B-2A cannot slow down on the approach.** Flown down with its
-      drag rudders half open, it now crosses the threshold on its reference
-      speed. **Still missing:** it floats 1.7 ft off the runway for a second
-      after it touches - it meets the runway still rounding out, its wheels
-      eleven feet below the height the flare is flown to - and a pilot flying
-      by hand cannot open the drag rudders, so the bomber lessons' bands
-      still reach twenty over. *Verification: the B-2A crosses the threshold
-      within five knots of its reference speed, and rises less than half a
-      foot after it first touches.*
+- [x] **The B-2A cannot slow down on the approach.** *Verification: the
+      B-2A crosses the threshold within five knots of its reference speed,
+      and rises less than half a foot after it first touches.* Done
+      2026-10-02: flown down with her drag rudders half open she crosses at
+      124.1 knots against 124.0, and flared to her wheels she rises 0.0 ft.
+      A pilot still cannot open them by hand (the speedbrake item below).
 - [ ] **A pilot has no control for the speedbrakes.** No stick, throttle or
       key binding moves the speedbrake lever, so by hand the B-2A cannot open
       its drag rudders and an airliner cannot use its spoilers.

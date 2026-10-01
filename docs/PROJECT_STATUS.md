@@ -234,6 +234,29 @@ are the risks the phase order is built around:
 
 ### The AI flares to its wheels and touches down within what its gear takes, 2026-10-01 — tail done
 
+**On main after #73, #80 and #82** (2026-10-02), the table below is this
+branch rebased on them. #82 gave the F-15C NASA's pitching moment: she
+flies the approach at about 10.8 degrees of incidence with her stabilator
+to spare, so the incidence test's naming of her as unable to be pulled past
+her path and four went stale (she is pulled to 20.2) and is gone. But she
+touched at 158 knots, 12.5 degrees nose up, still rotating, and rose 2.4 ft
+(approach), 2.5 (circuit) and 3.4 taken back at the touch. Found, step by
+step in the approach lesson:
+- **The flare's nose-up trim was carried into the lowering** and held her
+  elevator at neutral: her nose stayed at 12.7 degrees, her wing lifting
+  1.1 times her weight. A jet's trim now starts again from none at the
+  touch, and the lowering's target two degrees below the touch - PR #73's
+  investigation of the B-2A first found both. Alone: 1.4 ft.
+- **The lowering's damping fought the lowering**: it damped the whole pitch
+  rate, so she came down at 3.5 degrees a second against 4.4. It damps the
+  difference from the rate wanted now. With it: 0.7.
+- **She met the runway still rotating** at half a degree a second. In the
+  last fifth of the flare's height the attitude is now held, not raised.
+  With it: 0.4 (approach), 0.3 (circuit), 0.9 taken back at the touch
+  (bound 3). **Seen to fail** without the hold: 1.19 and 1.22 ft. The light
+  aeroplanes touch a little firmer for it (the C172P at 192 ft/min where
+  139, under the 300 their own test allows).
+
 **What is not done first.**
 - **Jets touch down further along the runway than they did**: the 737-300
   at 615 m past the threshold where it touched at 327, the F-15C at 809
@@ -341,20 +364,20 @@ twelve degrees of incidence and the power closed from its first step.
 
 | Approach lesson (circuit) | Touched, ft/min, before | After | Rose after the touch, ft, before | After |
 | --- | --- | --- | --- | --- |
-| 737-300 | 333 | 184 (202) | 0.0 | 0.0 (0.0) |
-| 787-8 | 708, wrecked | 311 (325) | 0.0 | 0.3 (0.0) |
-| A320 | 534 | 39 (179) | 0.1 | 0.0 (0.0) |
-| A380 | 525 | 248 (269) | 0.0 | 0.0 (0.0) |
-| B-2A | 240 | 232 (231) | 1.9 | 0.0 (0.0) |
-| C172P | 150 | 139 (139) | 0.0 | 0.0 (0.0) |
-| C182 | 140 | 170 (174) | 0.0 | 0.0 (0.0) |
-| F-15C | 978, wrecked | 416 (410) | 0.0 | 0.0 (0.0) |
-| F-35B | 883, wrecked | 92 (195) | 0.0 | 0.0 (0.0) |
-| J-3 Cub | 142 | 85 (84) | 0.0 | 0.0 (0.0) |
-| Learjet 35A | 409 | 166 (167) | 0.0 | 0.0 (0.0) |
-| Mosquito FB.VI | 364 | 109 (109) | 0.0 | 0.0 (0.0) |
-| PA-28 | 132 | 146 (145) | 0.0 | 0.0 (0.0) |
-| Short S.23 | 314 | 294 (307) | 0.0 | 0.0 (0.0) |
+| 737-300 | 333 | 134 (118) | 0.0 | 0.0 (0.0) |
+| 787-8 | 708, wrecked | 325 (345) | 0.0 | 0.0 (0.0) |
+| A320 | 534 | 104 (28) | 0.1 | 0.0 (0.0) |
+| A380 | 525 | 225 (249) | 0.0 | 0.0 (0.0) |
+| B-2A | 240 | 247 (246) | 1.9 | 0.0 (0.0) |
+| C172P | 150 | 192 (192) | 0.0 | 0.0 (0.0) |
+| C182 | 140 | 218 (211) | 0.0 | 0.0 (0.0) |
+| F-15C | 978, wrecked | 469 (438) | 0.0 | 0.4 (0.3) |
+| F-35B | 883, wrecked | 53 (135) | 0.0 | 0.0 (0.0) |
+| J-3 Cub | 142 | 132 (132) | 0.0 | 0.0 (0.0) |
+| Learjet 35A | 409 | 167 (167) | 0.0 | 0.0 (0.0) |
+| Mosquito FB.VI | 364 | 114 (112) | 0.0 | 0.1 (0.1) |
+| PA-28 | 132 | 201 (201) | 0.0 | 0.0 (0.0) |
+| Short S.23 | 314 | 294 (341) | 0.0 | 0.0 (0.0) |
 
 The sink is the centre of gravity's on the step before the touch, as the
 server's rule takes it. With PR #73's drag rudders merged in (locally, not
@@ -415,6 +438,12 @@ the 787-8 wrecked at 671 and 672 ft/min, the F-15C and F-35B risen 0.7 to
 1.0 ft, the Mosquito bounced 3.7 ft; restored, both pass.
 
 (The hang made 0 was watched before the review's changes.)
+
+**Verified again** on main after #73, #80 and #82 (linux-release): 202
+tests - the same, with #73's B-2A and speedbrake tests and #80's mixture
+tests - none failed, one skipped (Windows's own); the B-2A crosses at 124.1
+knots against 124.0 and rises 0.0 ft, so #73's item is ticked; the selftest
+hash is `d36123c1eecc3e23`.
 
 **Verified** in linux-release, rebased on main: 184 tests - every lesson,
 landing, approach, circuit, take-back, hand-over, no-step, learnt-landing,
