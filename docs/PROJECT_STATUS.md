@@ -279,6 +279,11 @@ once its aircraft fly. Every script that runs the window client against a
 server with aircraft does so: rides along (both tests), on a server (both),
 forged refusal, hands over, copilot, and joins again (both). The online-
 window test's server flies nothing and answers at once; it is left alone.
+From the review: a relay between server and client (`glideslope_impair`,
+in the forged-refusal, hand-over and joining-again scripts) counts its
+limit from its own launch, not from the flying, so those limits go from 290
+to 600 s, past the server's 300 from the flying; each still ends when the
+server's output does. (The command-line client's relay scripts keep 290.)
 
 **Reproduced, before and after**, in linux-debug with the server pinned to
 one core shared with three busy loops (`taskset -c 3`, started and killed by

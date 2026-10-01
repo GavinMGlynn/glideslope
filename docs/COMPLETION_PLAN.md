@@ -753,11 +753,9 @@ Found while implementing something else. Added when found, not when remembered.
       counted.* Tiers are in (timing tests out of the debug gate, main only
       builds, a nightly full run); no simulated frame clock will be built
       (decided 2026-09-30) - the timing tests assert 20 fps and stay where
-      it is met. 2026-10-02: of 73 runs finished on 1 October, 11 failed only
-      on flakes - six failures were window clients giving up before their
-      server was flying, now made to wait for it; five were windows-release
-      frames slowed by the tests sharing its runner, now run alone. Still missing: the month of runs
-      counted, and the prediction flake below.
+      it is met. Since 2026-10-02 window clients wait for their test
+      server to fly, and the switch tests run alone. Still missing: the
+      month of runs counted, and the prediction flake below.
 - [ ] **The window client is sometimes put right 20 to 31 m after a long
       frame**: four CI failures on 1 October, with frames of 140 to 730 ms
       (sanitized Linux, and the held-frames test on windows-release).

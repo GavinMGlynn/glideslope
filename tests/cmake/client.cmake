@@ -32,7 +32,10 @@
 # that: the client said "cannot reach" before the server said "listening", and
 # the server admitted it a moment after it had gone (runs 36850131615,
 # 36860567602, 36860901932, 36871052866; PROJECT_STATUS.md, 2026-10-02). The
-# wait is on the event, not a number of seconds.
+# wait is on the event, not a number of seconds. A relay between them
+# (glideslope_impair) ends when the server's output does; its own limit,
+# counted from its launch and not from the flying, is 600 s, past the
+# server's 300 from the flying, so that a slow build does not cut it short.
 
 # **Each test names its own Cesium cache.** Cesium Native keeps its cache in
 # one SQLite file, and `CesiumAsync::SqliteCache` alone refused a second
