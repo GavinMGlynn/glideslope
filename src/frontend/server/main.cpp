@@ -1061,6 +1061,7 @@ public:
             remember_start(flown_.back(), ic, entry.seaplane);
             flown_.back().catalogue_id = f.id;
             flown_.back().model = entry.model;
+            flown_.back().operators_course = true;
             learn_speeds(flown_.back());
             hold_course(flown_.back());
         }
@@ -1189,7 +1190,12 @@ public:
                 aircraft->initialize(ic);
                 auto controller = std::make_unique<glideslope::sim::Controller>(
                     *aircraft, glideslope::sim::Controls{});
-                controller->to_ai(plan);
+                // **Its plan flown at its own layer**, not only begun there:
+                // stacked at the start alone, every one came down to the
+                // plan's heights at its first waypoint and they flew the tour
+                // on top of one another, 37 m apart.
+                const double stack_ft = static_cast<double>(i) * ai_stack_ft;
+                controller->to_ai(stacked(plan, stack_ft));
                 flown_.push_back({plan.aircraft + " (AI " + std::to_string(i + 1) + ")",
                                   std::move(aircraft), std::move(controller),
                                   *free_number(), -1, {}});
@@ -1198,6 +1204,7 @@ public:
                 flown_.back().model = entry.model;
                 learn_speeds(flown_.back());
                 flown_.back().on_plan = true;
+                flown_.back().stack_ft = stack_ft;
                 flown_.back().ai_number = i + 1;
                 ++ai_;
             }
@@ -1780,10 +1787,13 @@ public:
             }
         }
         // **A planned aircraft whose turn to depart has come** is put on its
-        // runway, under the lowest number free.
+        // runway, under the lowest number free - into clear sky. Two due in
+        // one step are not kept from each other: told to depart together
+        // (`--ai-spacing 0`), the server puts them on their runways together.
+        const std::size_t flying_before = flown_.size();
         for (auto it = waiting_.begin(); it != waiting_.end();) {
             const std::optional<std::uint8_t> number = free_number();
-            if (it->departs_at_s > now_s || !number || !clear_to_depart(*it, happened)) {
+            if (it->departs_at_s > now_s || !number || !clear_to_depart(*it, flying_before, happened)) {
                 ++it;
                 continue;
             }
@@ -1917,6 +1927,12 @@ public:
         // is clear, said once; and the order it was made in, which is who
         // gives way to whom and what its closest approaches are kept by.
         int held_clear_of = -1;
+        // How far above the plan file's heights it flies that plan.
+        double stack_ft = 0.0;
+        // **Put on a course by the operator** (`--fly`), which it holds
+        // exactly: given way to, as a person's aircraft is, never moved off
+        // it, and not measured - it is how a test builds a collision.
+        bool operators_course = false;
         bool waits_to_depart = false;
         std::uint64_t serial = 0;
         glideslope::sim::DepartureSpeeds departure{};
@@ -2188,12 +2204,20 @@ private:
         waiting_.push_back(std::move(a));
     }
 
+    // A plan with every height `ft` higher.
+    static glideslope::sim::FlightPlan stacked(glideslope::sim::FlightPlan plan, double ft) {
+        for (glideslope::sim::Waypoint& w : plan.waypoints) {
+            w.altitude_ft += ft;
+        }
+        return plan;
+    }
+
     // **Its plan given to its AI pilot** from the beginning: its own, taking
     // off if it does, or the server's.
     void fly_plan(Aircraft& a) {
         a.progress = {};
         if (!a.own_plan) {
-            a.controller->to_ai(plan_);
+            a.controller->to_ai(stacked(plan_, a.stack_ft));
         } else if (a.own_plan->takeoff) {
             a.controller->to_ai_flying(*a.own_plan, a.departure);
             a.progress.departing = true;
@@ -2317,7 +2341,8 @@ private:
             t.east_fps = a.aircraft->property("velocities/v-east-fps");
             t.climb_fpm = s.climb_rate_fpm;
             t.ground_ft = s.terrain_elevation_ft;
-            t.gives_way = ai_flying(a) && a.controller->autopilot_flying();
+            t.gives_way =
+                ai_flying(a) && a.controller->autopilot_flying() && !a.operators_course;
             if (t.gives_way) {
                 t.held_ft = a.controller->autopilot()->modes().altitude_ft;
             }
@@ -2380,8 +2405,8 @@ private:
             for (std::size_t j = i + 1; j < flown_.size(); ++j) {
                 const Aircraft& a = flown_[i];
                 const Aircraft& b = flown_[j];
-                if (a.slot >= 0 || b.slot >= 0 || a.wrecked_at_s >= 0.0 ||
-                    b.wrecked_at_s >= 0.0) {
+                if (a.slot >= 0 || b.slot >= 0 || a.operators_course || b.operators_course ||
+                    a.wrecked_at_s >= 0.0 || b.wrecked_at_s >= 0.0) {
                     continue;
                 }
                 const bool a_first = a.serial < b.serial;
@@ -2417,8 +2442,11 @@ private:
     // **A planned aircraft takes off only into clear sky**: nothing flying
     // within the horizontal minimum of its threshold and within the vertical
     // minimum and the margin of its height. Said once while it waits.
-    bool clear_to_depart(Aircraft& a, std::vector<std::string>& happened) {
-        for (const Aircraft& b : flown_) {
+    // Only the first `flying` of the aircraft in the sky are looked at: those
+    // there before this step's departures.
+    bool clear_to_depart(Aircraft& a, std::size_t flying, std::vector<std::string>& happened) {
+        for (std::size_t k = 0; k < flying && k < flown_.size(); ++k) {
+            const Aircraft& b = flown_[k];
             if (b.wrecked_at_s >= 0.0) {
                 continue;
             }
@@ -2451,13 +2479,13 @@ public:
             char line[512];
             char within[96];
             if (ap.least_ft_within < 1e17) {
-                std::snprintf(within, sizeof within, "within 1.5 nm, at least %.0f ft apart in height",
+                std::snprintf(within, sizeof within, "within 1.5 nm at least %.0f ft apart in height",
                               ap.least_ft_within);
             } else {
                 std::snprintf(within, sizeof within, "never within 1.5 nm");
             }
             std::snprintf(line, sizeof line,
-                          "apart: %s and %s, over %lld steps, came within %.0f m; %s; "
+                          "apart: %s and %s, over %lld steps, came within %.0f m, %s, "
                           "separation lost for %.2f s",
                           ap.first.c_str(), ap.second.c_str(), static_cast<long long>(ap.steps),
                           ap.closest_m, within,

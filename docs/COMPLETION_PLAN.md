@@ -371,10 +371,13 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification: each light aircraft's policy lands within the
       autopilot's limits from the same starts, in calm air and a 10-knot
       crosswind.*
-- [ ] **AI aircraft are kept apart only on the runway and in the orbit, not
-      along the way.** Planned aircraft take off 90 s apart and orbit 500 ft
-      apart, but the second climbs through the first's orbit height, and
-      nothing keeps a planned aircraft clear of the plan file's AI aircraft.
+- [ ] **AI aircraft are kept apart along their routes; an aircraft handed
+      to the AI is not yet measured.** Since 2026-10-02 the server keeps its
+      own AI aircraft, planned and plan-file, 500 ft or 1.5 nm apart - on
+      1,000 ft layers, and held above or below one another through their
+      autopilots - measured over a 15-minute run with none lost. Aircraft
+      handed over or flying a copilot's route get the same limits, but no
+      run measures them, and nothing keeps a person's aircraft clear.
       *Verification: every AI aircraft a server runs, planned or not, stays a
       stated distance from every other along the whole of its route,
       measured over a whole run.*

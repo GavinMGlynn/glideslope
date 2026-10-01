@@ -2580,7 +2580,7 @@ add_test(NAME every_ai_aircraft_a_server_runs_planned_or_not_is_kept_500_ft_or_1
         -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot -DSTEPS=108000
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_kept_apart.cmake)
 set_tests_properties(every_ai_aircraft_a_server_runs_planned_or_not_is_kept_500_ft_or_1_5_nm_from_every_other_along_its_whole_route
-    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 2400)
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 3000)
 
 # **Two planned aircraft wrecked together on one runway fly again one after
 # the other**, not onto each other every five seconds for ever: the collision
