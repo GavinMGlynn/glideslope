@@ -2036,9 +2036,9 @@ int stay(glideslope::platform::UdpSocket& socket,
     stick.elevator = 0.2;
     glideslope::net::InputSender& sending = streams.sending;
     std::uint32_t& sequence = streams.sequence;
-    // **Stays until rolled only once an input sent in this stay has been
-    // applied** (`until_rolled`): the aircraft flown from here, now, and not
-    // by what it was sent before.
+    // The input count when this stay began: `until_applied` waits for the
+    // server to apply one sent since - flown from here, now, and not by what
+    // it was sent before.
     const std::uint32_t sequence_at_start = sequence;
     double sent_inputs_at_s = -1.0;
     std::uint32_t applied = 0;
@@ -2061,7 +2061,7 @@ int stay(glideslope::platform::UdpSocket& socket,
         // **Stay until its aircraft has rolled past 90 degrees**
         // (`--stall-once-rolled`, in the session it joins again): what a test
         // waits for to know it flew again, SECONDS only the most.
-        if (until_rolled && std::abs(roll_seen_deg) >= 90.0 && applied > sequence_at_start) {
+        if (until_rolled && std::abs(roll_seen_deg) >= 90.0) {
             break;
         }
         // **Stay until the server has applied an input sent in this stay**
