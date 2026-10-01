@@ -137,7 +137,7 @@ def main() -> None:
     rows = strips(data.decode("utf-8"))
     text = render(rows)
     if args.check:
-        if not OUT.exists() or OUT.read_text(encoding="utf-8") != text:
+        if not OUT.exists() or OUT.read_bytes() != text.encode("utf-8"):
             print(f"{OUT} is not what the runways make; run {sys.argv[0]} --runways FILE")
             sys.exit(1)
         print(f"{OUT} matches: {len(rows)} runways")

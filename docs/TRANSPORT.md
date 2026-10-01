@@ -104,7 +104,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `01`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `02`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 

@@ -357,6 +357,11 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_byte_for_byte) {
                std::to_string(glideslope::net::protocol_version) + "` |"),
           "the document gives the version as " +
               std::to_string(glideslope::net::protocol_version));
+    // And a refusal's envelope, which carries the same version.
+    check(says("A `REFUSAL` is always 7 bytes - the envelope, with this version, `0" +
+               std::to_string(glideslope::net::protocol_version) + "`"),
+          "the document gives a refusal's version as " +
+              std::to_string(glideslope::net::protocol_version));
     check(says(std::to_string(glideslope::net::envelope_size) + " bytes"),
           "and says the envelope is " + std::to_string(glideslope::net::envelope_size) +
               " bytes");

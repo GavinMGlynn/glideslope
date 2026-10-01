@@ -574,6 +574,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_runway_strips_file_is_read_and_refused_where_it_is_wrong
     the_protocol_version_moves_with_the_collision_ground
     the_collision_ground_is_the_same_whatever_order_the_runways_come_in
+    the_collision_ground_is_the_same_whichever_runway_is_asked_for_first
     the_collision_ground_under_a_runway_is_its_own_line_and_past_its_shoulder_the_dem
     reference_runways_roll_with_no_bump_beyond_a_bound
     runways_that_meet_in_a_v_a_t_end_to_end_or_side_by_side_are_made_to_meet
@@ -676,6 +677,7 @@ set_tests_properties(
 # flown down Sydney's 16R until it hands over.
 set_tests_properties(
     the_collision_ground_is_the_same_whatever_order_the_runways_come_in
+    the_collision_ground_is_the_same_whichever_runway_is_asked_for_first
     the_collision_ground_under_a_runway_is_its_own_line_and_past_its_shoulder_the_dem
     reference_runways_roll_with_no_bump_beyond_a_bound
     every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_that_can_climb_away_takes_off

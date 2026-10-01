@@ -62,7 +62,9 @@
 // each platform's own sine and cosine, so places and heights agree across
 // platforms to about a nanometre, not bit for bit, and a decision could differ
 // between two machines only for a runway within a nanometre of one of its
-// thresholds; on one machine it is the same every time. It is collision ground
+// thresholds - but one that did would move its whole group's lines, by up to
+// metres, between those two. On one machine it is the same every time, and
+// whichever runway is asked for first. It is collision ground
 // only; what is drawn is the DEM as it is, and how
 // far the two are apart is measured, as for every visual provider.
 //
