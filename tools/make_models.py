@@ -299,32 +299,53 @@ def download(url: str) -> bytes:
         return response.read()
 
 
-def download_first(urls: list[str]) -> bytes:
-    """The first URL that answers. A 404 is final, not a reason to try the
-    next: a missing file is how the model walk learns which of two paths a
-    model XML meant."""
-    last: Exception | None = None
+class FetchFailed(RuntimeError):
+    """No URL gave a file, for a reason other than its not being there - so
+    the model walk must not take it for a path that does not exist."""
+
+
+def download_first(urls: list[str], sha: str | None = None) -> bytes:
+    """The first URL that answers - with the bytes pinned as `sha`, when the
+    file is pinned already, so that a source serving anything else (an outage
+    page, say) is passed over and never reaches the cache. A 404 is final,
+    not a reason to try the next: a missing file is how the model walk learns
+    which of two paths a model XML meant."""
+    why = []
     for url in urls:
         try:
-            return download(url)
+            data = download(url)
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 raise
-            last = e
+            why.append(f"{url}: HTTP {e.code}")
+            continue
         except urllib.error.URLError as e:
-            last = e
-    assert last is not None
-    raise last
+            why.append(f"{url}: {e.reason}")
+            continue
+        got = hashlib.sha256(data).hexdigest()
+        if sha is None or got == sha:
+            return data
+        why.append(f"{url}: served SHA-256 {got}, not the pinned {sha}")
+    raise FetchFailed("no source served it:\n  " + "\n  ".join(why) +
+                      ("\n(to re-pin a file that has changed on purpose, "
+                       f"take its line out of {SOURCES.name} first)"
+                       if sha else ""))
 
 
 def serves(url: str, sha: str | None = None) -> bool:
-    """Whether `url` answers, and when `sha` is given, with those bytes."""
+    """Whether `url` answers, and when `sha` is given, with those bytes.
+
+    Only a 404 is an answer of no. Anything else - Software Heritage's 429
+    when its hourly limit is spent - stops the refresh, naming the URL, and
+    is never taken for a file that is not there."""
     try:
         data = download(url)
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return False
-        raise
+        raise FetchFailed(f"{url}: HTTP {e.code} {e.reason}") from e
+    except urllib.error.URLError as e:
+        raise FetchFailed(f"{url}: {e.reason}") from e
     return sha is None or hashlib.sha256(data).hexdigest() == sha
 
 
@@ -397,9 +418,15 @@ class Files:
                 candidates.append(trimmed)
         last = None
         for candidate in candidates:
+            # Only a file that is not there sends the walk to the next
+            # candidate; any other failure is reported as itself.
             try:
                 return self._one(key, spec, candidate)
-            except (FileNotFoundError, urllib.error.HTTPError) as e:
+            except FileNotFoundError as e:
+                last = e
+            except urllib.error.HTTPError as e:
+                if e.code != 404:
+                    raise
                 last = e
         raise last
 
@@ -410,7 +437,12 @@ class Files:
         if local.exists():
             data = local.read_bytes()
         elif self.refresh:
-            data = download_first(urls)
+            # A pinned file may also come from the mirrors pinned with it,
+            # and from any source only with its pinned bytes.
+            pin = self.pinned.get(name)
+            data = (download_first(urls + [u for u in pin[2] if u not in urls],
+                                   pin[1])
+                    if pin else download_first(urls))
             self.cache.mkdir(parents=True, exist_ok=True)
             local.write_bytes(data)
         else:

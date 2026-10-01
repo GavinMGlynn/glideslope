@@ -711,6 +711,17 @@ add_test(NAME the_committed_visual_models_are_what_their_script_writes
 set_tests_properties(the_committed_visual_models_are_what_their_script_writes
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED model_sources TIMEOUT 900)
 
+# tools/make_models.py --refresh against a stand-in network: a 429 or 503 is
+# reported as itself and never taken for a missing file, and a source serving
+# an outage page in place of a pinned file is passed over, never cached.
+add_test(NAME a_model_source_refresh_keeps_only_pinned_bytes_and_reports_a_refusal_as_one
+    COMMAND ${CMAKE_COMMAND} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/tools/model_sources_refresh.py
+        "-DARGS=${PROJECT_SOURCE_DIR}/tools/make_models.py"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_test.cmake)
+set_tests_properties(a_model_source_refresh_keeps_only_pinned_bytes_and_reports_a_refusal_as_one
+    PROPERTIES SKIP_RETURN_CODE 77)
+
 # Where each model sits on the aeroplane it draws, measured from the committed
 # meshes and the flight models. It reads only what is in the tree, so it needs
 # neither the network nor the fetched sources - but it measures the meshes, so
