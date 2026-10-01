@@ -88,9 +88,11 @@ struct Standing {
 // load was silent for more than five seconds just after it was given its
 // aircraft, and let go. So a thread of its own polls the session whenever
 // nothing else has for `kept_after_s`: the server's knocks answered, what
-// must arrive acknowledged, and every update left waiting, oldest first, to
-// be heard by the frame loop when it is back - put right from them as if it
-// had never been away. It touches the session and nothing else: the flight,
+// must arrive acknowledged, and the updates left waiting, oldest first - the
+// newest five seconds of them, which is what the session holds - to be heard
+// by the frame loop when it is back, and put right from. It touches the
+// session and nothing else, and the frame loop lets go of it while it puts
+// the flight right (`hear`), which may fetch a DEM tile: the flight,
 // and everything this class keeps of it, are the frame loop's alone
 // (sim::Aircraft is single-threaded).
 class Online {

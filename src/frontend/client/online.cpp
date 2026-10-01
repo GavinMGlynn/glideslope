@@ -81,8 +81,10 @@ void Online::keep_while_away() {
         if (now - polled_s_ < kept_after_s) {
             continue;
         }
-        // **Kept, and nothing more**: every update left waiting for the
-        // frame loop, which hears them in order when it is back.
+        // **Kept, and nothing more**: the updates left waiting for the
+        // frame loop - the newest five seconds of them, which is what the
+        // session holds (net::ClientSession::most_states_kept) - heard in
+        // order when it is back.
         session_.poll(now);
         ++times_kept_;
         longest_kept_s_ = std::max(longest_kept_s_, now - polled_s_);
@@ -167,11 +169,18 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
 }
 
 void Online::hear(double local_s, Flight& flight) {
-    const auto lock = held();
-    poll_here(local_s);
-    for (const net::StatePacket& state : session_.take_states()) {
-        heard(state, local_s, flight);
+    {
+        const auto lock = held();
+        poll_here(local_s);
+        for (const net::StatePacket& state : session_.take_states()) {
+            heard(state, local_s, flight);
+        }
     }
+    // **Put right with the session let go**: a correction replays the
+    // inputs since over the collision DEM, which may fetch a tile, and a
+    // replay in a sanitized build is long by itself. Held across them, the
+    // lock kept the keeper waiting on it, and the session silent - what the
+    // keeper is for. What follows is the frame loop's alone.
     if (!own_word_) {
         return;
     }
