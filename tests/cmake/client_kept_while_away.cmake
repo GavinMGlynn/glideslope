@@ -4,7 +4,7 @@
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope> -DIMPAIR=<glideslope_impair>
 #         -DDATA=<data> -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
-#         -DDRIVER=<gpu driver> -DAWAY=<build|pass> -P client_kept_while_away.cmake
+#         -DDRIVER=<gpu driver> -P client_kept_while_away.cmake
 #
 # **What was wrong.** The client polled its session once a pass of its frame
 # loop, and while its flight was built only from a thread that stopped when
@@ -15,21 +15,22 @@
 #
 # **The situation is built, not hoped for.** A server that lets a client go
 # after two seconds of silence (`--timeout 2`), and the client with the window
-# kept from its session past that:
+# kept from its session past that, in two cases, run one after the other:
 #
-#   - AWAY=build: it stands still six seconds after joining, before it builds
+#   - build: it stands still six seconds after joining, before it builds
 #     its flight (`--slow-start 6`), as a slow machine building it does;
-#   - AWAY=pass: every pass of its frame loop is held three seconds longer,
+#   - pass: every pass of its frame loop is held three seconds longer,
 #     a tenth of a second apart (`--slow-frames 3000`), as a machine whose
 #     frames take longer than the server's timeout.
 #
-# **What must hold**: the client says how long it was away from its session
+# **What must hold**, in each case: the client says how long it was away from its session
 # at the longest, and that is past the server's two seconds - so the rule was
 # tested, not passed by a machine too quick to need it; the server admitted
 # it once, let nobody go for silence and it once for its goodbye; the client
 # was never let go, flew the aircraft it was given, and the server says the
 # pilot has it. **The shot is at a tick**, a count of simulated steps: ten
-# seconds of flight, however long the machine takes to reach it.
+# seconds of flight, however long the machine takes to reach it. Both cases
+# must have run.
 #
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
@@ -38,21 +39,11 @@ cmake_minimum_required(VERSION 3.28)
 
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
-if(AWAY STREQUAL "build")
-    set(_away --slow-start 6)
-elseif(AWAY STREQUAL "pass")
-    set(_away --slow-frames 3000)
-else()
-    message(FATAL_ERROR "client_kept_while_away.cmake needs -DAWAY=build or -DAWAY=pass, "
-                        "not '${AWAY}'")
-endif()
-
 if(DEFINED CACHE)
     set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
 endif()
 set(_store "${WORK}/away.sqlite")
-set(_shot "${WORK}/away.bmp")
-file(REMOVE "${_store}" "${_shot}")
+file(REMOVE "${_store}")
 
 execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 0.05 --ai 0 --store "${_store}"
@@ -77,84 +68,103 @@ set(ENV{LSAN_OPTIONS} "exitcode=0")
 # heard - the server's in _err, the client's in _out.
 math(EXPR _relay "${PORT} + 1")
 set(_timeout 2)
-execute_process(
-    COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout ${_timeout} --store "${_store}"
-    COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
-            --seed 1 --until-input-ends --seconds 290
-    COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
-            --shot "${_shot}" --view cockpit --shot-at 1200 ${_away}
-            --server 127.0.0.1 ${_relay} --server-key ${_key}
-    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-list(GET _rcs -1 _rc)
+# **Both cases, one after the other**, on the same two ports: the block of
+# fixed ports has no two more side by side to give a second test.
+set(_cases build pass)
+set(_run 0)
+foreach(AWAY IN LISTS _cases)
+    if(AWAY STREQUAL "build")
+        set(_away --slow-start 6)
+    else()
+        set(_away --slow-frames 3000)
+    endif()
+    set(_shot "${WORK}/away-${AWAY}.bmp")
+    file(REMOVE "${_shot}")
+    execute_process(
+        COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
+                --data "${DATA}" --timeout ${_timeout} --store "${_store}"
+        COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
+                --seed 1 --until-input-ends --seconds 290
+        COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
+                --shot "${_shot}" --view cockpit --shot-at 1200 ${_away}
+                --server 127.0.0.1 ${_relay} --server-key ${_key}
+        RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    list(GET _rcs -1 _rc)
 
-# **A machine that cannot draw skips, before anything is judged**: the
-# client's own words only.
-if(_err MATCHES "glideslope: no GPU device")
-    message(STATUS "the client cannot draw here: ${_err}")
-    cmake_language(EXIT 77)
-endif()
-if(NOT _out MATCHES "the server gave this client aircraft [0-9]+")
-    message(FATAL_ERROR "the client was given no aircraft:\n${_out}\n${_err}")
-endif()
-glideslope_judge_leaks("${_err}")
+    # **A machine that cannot draw skips, before anything is judged**: the
+    # client's own words only.
+    if(_err MATCHES "glideslope: no GPU device")
+        message(STATUS "the client cannot draw here: ${_err}")
+        cmake_language(EXIT 77)
+    endif()
+    if(NOT _out MATCHES "the server gave this client aircraft [0-9]+")
+        message(FATAL_ERROR "the client was given no aircraft:\n${_out}\n${_err}")
+    endif()
+    glideslope_judge_leaks("${_err}")
 
-# **The rule was tested**: away longer than the server waits, where this
-# case puts it - building the flight, or flying it, before the shot (whose
-# own wait for its terrain is kept too, and is not what is tested here).
-if(NOT _out MATCHES "glideslope: built its flight; away from its session ([0-9.]+) s at the longest meanwhile")
-    message(FATAL_ERROR "the client did not say how long it was away building its "
-                        "flight:\n${_out}\n${_err}")
-endif()
-set(_building "${CMAKE_MATCH_1}")
-if(NOT _out MATCHES "glideslope: at the shot, away from its session ([0-9.]+) s at the longest since flying began")
-    message(FATAL_ERROR "the client did not say how long it was away flying:\n${_out}\n${_err}")
-endif()
-set(_flying "${CMAKE_MATCH_1}")
-if(AWAY STREQUAL "build")
-    set(_longest "${_building}")
-else()
-    set(_longest "${_flying}")
-endif()
-if(_longest LESS_EQUAL ${_timeout})
-    message(FATAL_ERROR "the client was away ${_longest} s at the longest (${AWAY}), not "
-                        "past the server's ${_timeout} s: the test tested nothing:\n${_out}")
-endif()
-if(NOT _out MATCHES "glideslope: the session was kept for the frame loop ([0-9]+) times")
-    message(FATAL_ERROR "the client did not say how often it was kept:\n${_out}\n${_err}")
-endif()
-set(_times "${CMAKE_MATCH_1}")
+    # **The rule was tested**: away longer than the server waits, where this
+    # case puts it - building the flight, or flying it, before the shot (whose
+    # own wait for its terrain is kept too, and is not what is tested here).
+    if(NOT _out MATCHES "glideslope: built its flight; away from its session ([0-9.]+) s at the longest meanwhile")
+        message(FATAL_ERROR "the client did not say how long it was away building its "
+                            "flight:\n${_out}\n${_err}")
+    endif()
+    set(_building "${CMAKE_MATCH_1}")
+    if(NOT _out MATCHES "glideslope: at the shot, away from its session ([0-9.]+) s at the longest since flying began")
+        message(FATAL_ERROR "the client did not say how long it was away flying:\n${_out}\n${_err}")
+    endif()
+    set(_flying "${CMAKE_MATCH_1}")
+    if(AWAY STREQUAL "build")
+        set(_longest "${_building}")
+    else()
+        set(_longest "${_flying}")
+    endif()
+    if(_longest LESS_EQUAL ${_timeout})
+        message(FATAL_ERROR "the client was away ${_longest} s at the longest (${AWAY}), not "
+                            "past the server's ${_timeout} s: the test tested nothing:\n${_out}")
+    endif()
+    if(NOT _out MATCHES "glideslope: the session was kept for the frame loop ([0-9]+) times")
+        message(FATAL_ERROR "the client did not say how often it was kept:\n${_out}\n${_err}")
+    endif()
+    set(_times "${CMAKE_MATCH_1}")
 
-string(REGEX MATCHALL "let go [0-9.:]+ after [0-9.]+ s of silence" _silence "${_err}")
-list(LENGTH _silence _silences)
-if(NOT _silences EQUAL 0)
-    message(FATAL_ERROR "the server let ${_silences} sessions go for silence, not none, the "
-                        "client away ${_longest} s at the longest:\n${_out}\n${_err}")
+    string(REGEX MATCHALL "let go [0-9.:]+ after [0-9.]+ s of silence" _silence "${_err}")
+    list(LENGTH _silence _silences)
+    if(NOT _silences EQUAL 0)
+        message(FATAL_ERROR "the server let ${_silences} sessions go for silence, not none, the "
+                            "client away ${_longest} s at the longest:\n${_out}\n${_err}")
+    endif()
+    if(_out MATCHES "glideslope: let go by the server")
+        message(FATAL_ERROR "the client was let go:\n${_out}\n${_err}")
+    endif()
+    string(REGEX MATCHALL "admitted [0-9a-f]+ to slot" _admitted "${_err}")
+    list(LENGTH _admitted _admissions)
+    if(NOT _admissions EQUAL 1)
+        message(FATAL_ERROR "the server admitted ${_admissions} sessions, not one:\n${_err}")
+    endif()
+    string(REGEX MATCHALL "let go [0-9.:]+ after it said it was leaving" _goodbyes "${_err}")
+    list(LENGTH _goodbyes _goodbye_count)
+    if(NOT _goodbye_count EQUAL 1)
+        message(FATAL_ERROR "the server let ${_goodbye_count} sessions go for a goodbye, not "
+                            "one:\n${_err}")
+    endif()
+    if(NOT EXISTS "${_shot}")
+        message(FATAL_ERROR "the client drew nothing:\n${_err}\n${_out}")
+    endif()
+    if(NOT _rc EQUAL 0)
+        message(FATAL_ERROR "the client exited ${_rc}:\n${_out}\n${_err}")
+    endif()
+    if(NOT _out MATCHES "glideslope: flying aircraft [0-9]+, the c172p; the server says the pilot has it")
+        message(FATAL_ERROR "the server was not flying the client's aircraft by the pilot at "
+                            "the shot:\n${_out}")
+    endif()
+    message(STATUS "away from its session ${_longest} s at the longest (${AWAY}), past the "
+                   "server's ${_timeout} s, the client with the window was kept in it "
+                   "${_times} times and never let go")
+    math(EXPR _run "${_run} + 1")
+endforeach()
+list(LENGTH _cases _count)
+if(NOT _run EQUAL _count)
+    message(FATAL_ERROR "ran ${_run} of the ${_count} cases")
 endif()
-if(_out MATCHES "glideslope: let go by the server")
-    message(FATAL_ERROR "the client was let go:\n${_out}\n${_err}")
-endif()
-string(REGEX MATCHALL "admitted [0-9a-f]+ to slot" _admitted "${_err}")
-list(LENGTH _admitted _admissions)
-if(NOT _admissions EQUAL 1)
-    message(FATAL_ERROR "the server admitted ${_admissions} sessions, not one:\n${_err}")
-endif()
-string(REGEX MATCHALL "let go [0-9.:]+ after it said it was leaving" _goodbyes "${_err}")
-list(LENGTH _goodbyes _goodbye_count)
-if(NOT _goodbye_count EQUAL 1)
-    message(FATAL_ERROR "the server let ${_goodbye_count} sessions go for a goodbye, not "
-                        "one:\n${_err}")
-endif()
-if(NOT EXISTS "${_shot}")
-    message(FATAL_ERROR "the client drew nothing:\n${_err}\n${_out}")
-endif()
-if(NOT _rc EQUAL 0)
-    message(FATAL_ERROR "the client exited ${_rc}:\n${_out}\n${_err}")
-endif()
-if(NOT _out MATCHES "glideslope: flying aircraft [0-9]+, the c172p; the server says the pilot has it")
-    message(FATAL_ERROR "the server was not flying the client's aircraft by the pilot at "
-                        "the shot:\n${_out}")
-endif()
-message(STATUS "away from its session ${_longest} s at the longest (${AWAY}), past the "
-               "server's ${_timeout} s, the client with the window was kept in it "
-               "${_times} times and never let go")
+message(STATUS "both ways of being away, ${_run} of ${_count} cases, kept in the session")

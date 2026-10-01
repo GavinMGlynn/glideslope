@@ -53,8 +53,6 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
-#include <atomic>
-#include <functional>
 #include <thread>
 #include <cmath>
 #include <map>
