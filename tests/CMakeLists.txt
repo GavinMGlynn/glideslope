@@ -1623,6 +1623,19 @@ set_tests_properties(a_client_stalled_past_the_timeout_joins_again_by_itself
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_joins_again)
 
+# **A client refused by a forger while its session is merely quiet goes back to
+# it**, and the server makes no second player. See
+# cmake/server_forged_refusal.cmake.
+add_test(NAME a_client_refused_by_a_forger_while_its_session_is_quiet_goes_back_to_it
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_forged_refusal -DPORT=24708
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_forged_refusal.cmake)
+set_tests_properties(a_client_refused_by_a_forger_while_its_session_is_quiet_goes_back_to_it
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_forged_refusal)
+
 # **A player the operator drops stays dropped**: told, not back by itself,
 # and refused DROPPED when started again. See cmake/server_drop_keeps_out.cmake.
 add_test(NAME a_player_the_operator_drops_is_told_and_kept_out_for_the_rest_of_the_run
@@ -1747,7 +1760,7 @@ endforeach()
 
 # The relay that makes the network worse, and the judge of what was drawn.
 add_executable(glideslope_impair tools/impair.cpp)
-target_link_libraries(glideslope_impair PRIVATE glideslope_platform)
+target_link_libraries(glideslope_impair PRIVATE glideslope_net glideslope_platform)
 glideslope_configure(glideslope_impair)
 add_executable(glideslope_interpolation_check tools/interpolation_check.cpp)
 glideslope_configure(glideslope_interpolation_check)
@@ -2082,6 +2095,18 @@ if("vulkan" IN_LIST GLIDESLOPE_GPU_DRIVERS)
     set_tests_properties(the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again
         PROPERTIES SKIP_RETURN_CODE 77)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_dropped)
+    # **Refused by a forger while its session is quiet, it goes back to it.**
+    # See cmake/client_forged_refusal.cmake.
+    add_test(NAME the_client_with_the_window_refused_by_a_forger_while_its_session_is_quiet_goes_back_to_it
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_forged_refusal -DPORT=24710
+            -DDRIVER=vulkan -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_forged_refusal.cmake)
+    set_tests_properties(the_client_with_the_window_refused_by_a_forger_while_its_session_is_quiet_goes_back_to_it
+        PROPERTIES SKIP_RETURN_CODE 77)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_forged_refusal)
 endif()
 
 # **A client started with --online reaches the server server.txt names.** See

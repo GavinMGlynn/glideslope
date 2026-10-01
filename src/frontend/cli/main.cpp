@@ -203,6 +203,10 @@ void print_usage(std::FILE* out) {
         "                            rolled past 90 degrees, until the server has let\n"
         "                            it go; joined again, it leaves once its new\n"
         "                            aircraft has rolled past 90 too.\n"
+        "                            --leave-once-back (with --fly), having believed a\n"
+        "                            refusal, leaves once its aircraft has rolled past\n"
+        "                            90 degrees in the session it is back in - its\n"
+        "                            old one or a new one\n"
         "                            --forge-leaving tries, as a forger would, to\n"
         "                            end sessions with goodbyes from the wrong\n"
         "                            address or keys: its own from a second session's\n"
@@ -1912,6 +1916,19 @@ bool stall_until_let_go(glideslope::platform::UdpSocket& socket,
     }
 }
 
+// **What a session carries from one stay in it to the next**: the client's
+// input frames, numbered from 1, and the reliable stream both ways. A client
+// that goes back to its old session after a refusal it believed is in the same
+// session as before, and the server's count of its inputs did not start again:
+// inputs numbered afresh from 1 were all older than the newest it had applied,
+// and every one was dropped until the count passed where it had been. A new
+// session starts them all again.
+struct SessionStreams {
+    glideslope::net::Reliable reliable;
+    glideslope::net::InputSender sending;
+    std::uint32_t sequence = 0;
+};
+
 // Stays in a session: answers the server's knocks, flies if told to, and
 // hears what the server says. **Says in `ended` how it ended**, returning
 // early when the server has let this session go - a `BAD_HANDSHAKE` from the
@@ -1928,7 +1945,7 @@ int stay(glideslope::platform::UdpSocket& socket,
          double take_back_at_s, double dive_after_s, bool watch_ai,
          double take_over_at_s, int take_over_aircraft, bool take_over_once_ai,
          bool long_frame_after_switch, bool late_update_after_take_over, bool goodbye,
-         bool stall_once_rolled, bool until_rolled, Ended& ended) {
+         bool stall_once_rolled, bool until_rolled, SessionStreams& streams, Ended& ended) {
     ended = Ended::stayed;
     // A client that predicts flies a pilot of its own (Predicting::pilot).
     std::optional<Predicting> predicting;
@@ -1941,7 +1958,7 @@ int stay(glideslope::platform::UdpSocket& socket,
     }
     // **What must arrive**: the server's reliable messages, acknowledged,
     // and what each aircraft is, said as it is heard.
-    glideslope::net::Reliable reliable;
+    glideslope::net::Reliable& reliable = streams.reliable;
     std::uint8_t mine = glideslope::net::no_aircraft;
     std::optional<double> newest_state_s;
     std::vector<std::uint8_t> before_take_over;
@@ -2016,8 +2033,12 @@ int stay(glideslope::platform::UdpSocket& socket,
     stick.throttle = 1.0;
     stick.aileron = -1.0;
     stick.elevator = 0.2;
-    glideslope::net::InputSender sending;
-    std::uint32_t sequence = 0;
+    glideslope::net::InputSender& sending = streams.sending;
+    std::uint32_t& sequence = streams.sequence;
+    // **Stays until rolled only once an input sent in this stay has been
+    // applied** (`until_rolled`): the aircraft flown from here, now, and not
+    // by what it was sent before.
+    const std::uint32_t sequence_at_start = sequence;
     double sent_inputs_at_s = -1.0;
     std::uint32_t applied = 0;
     double roll_seen_deg = 0.0;
@@ -2039,7 +2060,7 @@ int stay(glideslope::platform::UdpSocket& socket,
         // **Stay until its aircraft has rolled past 90 degrees**
         // (`--stall-once-rolled`, in the session it joins again): what a test
         // waits for to know it flew again, SECONDS only the most.
-        if (until_rolled && std::abs(roll_seen_deg) >= 90.0) {
+        if (until_rolled && std::abs(roll_seen_deg) >= 90.0 && applied > sequence_at_start) {
             break;
         }
         if (stall_once_rolled && std::abs(roll_seen_deg) >= 90.0) {
@@ -2837,7 +2858,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                bool take_over_once_ai = false, bool long_frame_after_switch = false,
                bool late_update_after_take_over = false, bool goodbye = true,
                bool forge_leaving = false, bool stall_once_rolled = false,
-               const std::string& again_from_elsewhere = "") {
+               const std::string& again_from_elsewhere = "", bool leave_once_back = false) {
     // **A test flag's work**: join a session that is already running. A
     // client that connects the instant the server does learns nothing about
     // whether the server was flying before it arrived. With `--after-ready`
@@ -3044,6 +3065,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                         }
                     }
                     Ended ended = Ended::stayed;
+                    SessionStreams streams;
                     int rc = stay(*socket, *address, sealer, unsealer, stay_s,
                                   until_exists,
                                   again ? std::span<const std::uint8_t>(first.data(),
@@ -3054,7 +3076,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                   take_back_at_s, dive_after_s, watch_ai, take_over_at_s,
                                   take_over_aircraft, take_over_once_ai,
                                   long_frame_after_switch, late_update_after_take_over,
-                                  goodbye, stall_once_rolled, false, ended);
+                                  goodbye, stall_once_rolled, false, streams, ended);
                     // **A client the server has let go joins again by
                     // itself**, for what is left of its stay, and flies as
                     // it did. What it was told to do once - hand over, take
@@ -3082,7 +3104,9 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                             return 1;
                         }
                         if (rejoined.old_session_answers) {
-                            std::printf("the old session answered; staying in it\n");
+                            std::printf("the old session answered; staying in it, its inputs "
+                                        "numbered on from %u\n",
+                                        streams.sequence);
                         } else if (rejoined.keys) {
                             std::printf("joined again: session with %s\n",
                                         rejoined.keys->theirs.text().c_str());
@@ -3092,6 +3116,7 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                 rejoined.keys->receiving);
                             sealing = owned_sealer.get();
                             opening = owned_unsealer.get();
+                            streams = SessionStreams{};
                         } else {
                             say_outcome(heard_file, "let go, and could not join again");
                             return 1;
@@ -3103,7 +3128,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                   until_flying_again, predict, track_file, -1.0, -1.0,
                                   dive_after_s, watch_ai, -1.0, -1, false,
                                   long_frame_after_switch, late_update_after_take_over,
-                                  goodbye, false, stall_once_rolled, ended);
+                                  goodbye, false, stall_once_rolled || leave_once_back,
+                                  streams, ended);
                     }
                     return rc;
                 }
@@ -3244,6 +3270,7 @@ static int run_program(int argc, char** argv) {
             bool goodbye = true;
             bool forge_leaving = false;
             bool stall_once_rolled = false;
+            bool leave_once_back = false;
             std::string done_file;
             for (std::size_t i = 3; i < args.size(); ++i) {
                 if (args[i] == "--done" && i + 1 < args.size()) {
@@ -3253,6 +3280,10 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--stall-once-rolled") {
                     stall_once_rolled = true;
+                    continue;
+                }
+                if (args[i] == "--leave-once-back") {
+                    leave_once_back = true;
                     continue;
                 }
                 if (args[i] == "--no-goodbye") {
@@ -3393,6 +3424,11 @@ static int run_program(int argc, char** argv) {
                                      "and seconds to fly for\n");
                 return 2;
             }
+            if (leave_once_back && (stay_s <= 0.0 || !fly)) {
+                std::fprintf(stderr, "glideslope_cli: --leave-once-back needs --fly "
+                                     "and seconds to fly for\n");
+                return 2;
+            }
             if ((forge_leaving || !goodbye) && stay_s <= 0.0) {
                 std::fprintf(stderr, "glideslope_cli: --forge-leaving and --no-goodbye "
                                      "need seconds to stay for\n");
@@ -3406,7 +3442,7 @@ static int run_program(int argc, char** argv) {
                                              take_over_at_s, take_over_aircraft, take_over_once_ai,
                                              long_frame_after_switch, late_update_after_take_over,
                                              goodbye, forge_leaving, stall_once_rolled,
-                                             again_from_elsewhere);
+                                             again_from_elsewhere, leave_once_back);
             // **Said when it has gone** (`--done FILE`), for another client
             // in a test to wait on with `--until-exists`.
             if (!done_file.empty()) {

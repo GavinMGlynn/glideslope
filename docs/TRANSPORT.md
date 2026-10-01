@@ -113,8 +113,8 @@ times the server has a reason to send it one - and only from the server's
 own address. **A session gone quiet** is one under which nothing has opened
 for three seconds: three of the server's `PING`s and two of the client's own
 (below) unanswered. A `BAD_HANDSHAKE` heard then says what the silence already
-did, that the server has let the session go; this project's command-line
-client then joins again by itself (see "Starting a session"). One heard while
+did, that the server has let the session go; both of this project's clients
+then join again by themselves (see "Starting a session"). One heard while
 the session is working is ignored, and so is any other reason then.
 
 ## Starting a session
@@ -221,7 +221,11 @@ the attempt; `SERVER_FULL` and `DROPPED` from the server's address end it,
 with the reason. **It goes on listening to the old session while it waits**:
 if anything opens under the old keys, the session was never gone, and the
 client goes back to it - a server that still has it drops the new initiation
-from that address without a word. A client told it was dropped does not join
+from that address without a word. **Back in it, nothing starts again**: the
+server's count of the client's inputs and both reliable streams are where the
+session left them, so the client numbers its inputs on from the last it sent
+- inputs numbered afresh would all be older than the newest the server had
+applied, and dropped. A client told it was dropped does not join
 again at all. **A client that ends while joining again says no goodbye**: it
 has no session to seal one under, and the old one's is already gone at the
 server, so there is nothing for a `LEAVING` to end. A reliable message

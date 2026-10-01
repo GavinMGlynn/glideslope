@@ -28,9 +28,24 @@
 // milliseconds once every S seconds as well: a hole in the updates a client
 // must draw across, made rather than hoped for from random loss.
 //
+// With `--forge-refusal-after N`, once N datagrams have come from the server,
+// a session is made quiet and a forger refuses it - built, not waited for.
+// Everything from the server is held, not dropped, and every datagram a
+// client sends meanwhile is answered with a `BAD_HANDSHAKE` that the server
+// never sent: from the relay's own port, which is the server's address as
+// the clients see it - what a forger who can write the server's address on a
+// datagram sends. It ends on the event a test waits for, not a time: the
+// first handshake initiation from a client - that client trying to join
+// again - which is passed on to the server, and then everything held is
+// delivered, in the order it came, and nothing more is forged. Once only. It
+// says on standard error how many it forged and held, and whether the hold
+// ended so; with the hold never ended, everything still held is let go at
+// the end as never delivered.
+//
 // It is what `tc netem` does, without needing to be root or on Linux, so that
 // the same check runs on every CI platform.
 
+#include "net/protocol.hpp"
 #include "platform/closed_pipes.hpp"
 #include "platform/socket.hpp"
 
@@ -74,7 +89,8 @@ int main(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: glideslope_impair LISTEN_PORT SERVER_HOST:PORT --delay MS "
                              "--jitter MS --loss PERCENT --seed N [--until-input-ends] "
-                             "[--seconds S] [--gap MS --every S]\n");
+                             "[--seconds S] [--gap MS --every S] "
+                             "[--forge-refusal-after N]\n");
         return 2;
     }
     const auto listen_port = static_cast<std::uint16_t>(std::atoi(argv[1]));
@@ -85,6 +101,9 @@ int main(int argc, char** argv) {
     }
     double delay_ms = 0.0, jitter_ms = 0.0, loss = 0.0, seconds = 600.0;
     double gap_ms = 0.0, gap_every_s = 0.0;
+    // How many datagrams from the server before the hold and the forging
+    // begin; 0 is never.
+    std::uint64_t forge_after = 0;
     unsigned seed = 1;
     bool until_input_ends = false;
     for (int i = 3; i < argc; i += 2) {
@@ -105,6 +124,8 @@ int main(int argc, char** argv) {
         else if (flag == "--seconds") seconds = number(argv[i + 1]);
         else if (flag == "--gap") gap_ms = number(argv[i + 1]);
         else if (flag == "--every") gap_every_s = number(argv[i + 1]);
+        else if (flag == "--forge-refusal-after")
+            forge_after = std::strtoull(argv[i + 1], nullptr, 10);
         else {
             std::fprintf(stderr, "impair: no option %s\n", flag.c_str());
             return 2;
@@ -164,6 +185,27 @@ int main(int argc, char** argv) {
     std::vector<std::uint8_t> buffer(glideslope::platform::largest_datagram);
 
     std::uint64_t gapped = 0;
+    // **The forger's hold** (`--forge-refusal-after`): what the server sent
+    // while it lasts, and what was forged.
+    enum class Forging { not_yet, holding, over };
+    Forging forging = Forging::not_yet;
+    std::uint64_t from_server = 0, forged = 0;
+    std::vector<Held> held_back;
+    std::chrono::steady_clock::time_point hold_began{};
+    double hold_lasted_s = 0.0;
+    std::vector<std::uint8_t> refusal;
+    {
+        glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::refusal);
+        w.u8(static_cast<std::uint8_t>(glideslope::net::Refusal::bad_handshake));
+        refusal = w.take();
+    }
+    const auto is_initiation = [](const std::uint8_t* data, std::size_t n) {
+        glideslope::net::Reader r(std::span<const std::uint8_t>(data, n));
+        glideslope::net::Envelope envelope;
+        glideslope::net::Refusal why{};
+        return glideslope::net::read_envelope(r, envelope, why) &&
+               envelope.type == glideslope::net::Type::handshake_initiation;
+    };
     const auto gaps_from = std::chrono::steady_clock::now();
     const auto hold = [&](bool to_server, const glideslope::platform::Address& to,
                           const std::string& client, const std::uint8_t* data, std::size_t n) {
@@ -176,6 +218,11 @@ int main(int argc, char** argv) {
                 ++gapped;
                 return;
             }
+        }
+        if (!to_server && forging == Forging::holding) {
+            held_back.push_back({std::chrono::steady_clock::now(), false, to, client,
+                                 std::vector<std::uint8_t>(data, data + n)});
+            return;
         }
         if (unit(random) < loss) {
             ++(to_server ? dropped_up : dropped_down);
@@ -241,6 +288,25 @@ int main(int argc, char** argv) {
                     std::make_unique<glideslope::platform::UdpSocket>(std::move(*socket));
                 client_of[client] = from;
             }
+            if (forging == Forging::holding) {
+                if (is_initiation(buffer.data(), got)) {
+                    // A client trying to join again: the hold is over, and
+                    // what was held goes on its way, in the order it came.
+                    forging = Forging::over;
+                    hold_lasted_s = std::chrono::duration<double>(
+                                        std::chrono::steady_clock::now() - hold_began)
+                                        .count();
+                    for (Held& h : held_back) {
+                        h.due = std::chrono::steady_clock::now();
+                        held.push_back(std::move(h));
+                    }
+                    held_back.clear();
+                } else {
+                    (void)front->send(from, std::span<const std::uint8_t>(refusal.data(),
+                                                                          refusal.size()));
+                    ++forged;
+                }
+            }
             hold(true, *server, client, buffer.data(), got);
         }
         // From the server, back towards each client.
@@ -249,6 +315,12 @@ int main(int argc, char** argv) {
                 busy = true;
                 if (ended_before_this_pass) {
                     ++taken_after_end;
+                }
+                ++from_server;
+                if (forging == Forging::not_yet && forge_after > 0 &&
+                    from_server > forge_after) {
+                    forging = Forging::holding;
+                    hold_began = std::chrono::steady_clock::now();
                 }
                 hold(false, client_of[client], client, buffer.data(), got);
             }
@@ -298,6 +370,25 @@ int main(int argc, char** argv) {
                 static_cast<unsigned long long>(dropped_up),
                 static_cast<unsigned long long>(dropped_down));
     std::printf("impair: %llu dropped in gaps\n", static_cast<unsigned long long>(gapped));
+    // **What the forger did**, on standard error, where a test reads the
+    // programs' words.
+    if (forge_after > 0) {
+        if (forging == Forging::over) {
+            std::fprintf(stderr,
+                         "impair: forged %llu refusals while holding the server's datagrams; "
+                         "the hold ended on a client's initiation after %.1f s\n",
+                         static_cast<unsigned long long>(forged), hold_lasted_s);
+        } else {
+            std::fprintf(stderr,
+                         "impair: forged %llu refusals; the hold %s, %llu from the server "
+                         "never delivered\n",
+                         static_cast<unsigned long long>(forged),
+                         forging == Forging::holding ? "never ended: no client tried to join again"
+                                                     : "never began",
+                         static_cast<unsigned long long>(held_back.size()));
+        }
+        std::fflush(stderr);
+    }
     // **Given up on, not ended**: asked to stop when its input ends, it
     // stopped for the time instead - the program before it in the pipeline
     // was still running, which that program's own exit code, once it goes,
