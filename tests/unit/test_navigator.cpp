@@ -613,7 +613,7 @@ GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_
     // approach speed, a flaps-down figure: five of the six came down to the
     // ground round this orbit, and the A320 lost 600 ft. Stated from what was
     // measured (PROJECT_STATUS.md).
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[1]), End::slowest, 300.0);
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[1]), End::slowest, 0.0, 0.05);
 }
 
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_fighter_and_bomber) {
@@ -621,7 +621,7 @@ GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_
     // this orbit at its approach speed, and the B-2 stalled turning towards
     // it; the F-22 had no approach speed to fly. Stated from what was
     // measured (PROJECT_STATUS.md).
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[2]), End::slowest, 300.0);
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[2]), End::slowest, 0.0, 0.05);
 }
 
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_warbird_and_flying_boat) {
@@ -631,12 +631,14 @@ GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_
 }
 
 // **At the fastest a plan may ask**, the height and speed are held as at the
-// slowest; the circle is held to a share of its radius, stated from what was
+// slowest. The light aeroplanes' circles are held to 60 m, as at the
+// slowest; the others' to a share of the radius, stated from what was
 // measured (PROJECT_STATUS.md) - the jets' circles of 13 to 19 km are flown
-// further off them than the light aeroplanes' are: the tail "At its fastest,
-// a jet's tightest orbit is flown well off its circle".
+// further off them, by up to 18% (the F-15C's), the Mosquito's 7.6 km by
+// 3.4%: the tail "At its fastest, a fast aircraft's tightest orbit is flown
+// well off its circle".
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_light_aeroplane) {
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[0]), End::fastest, 0.0, 0.02);
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[0]), End::fastest, 60.0);
 }
 
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_airliner_and_business_jet) {
@@ -648,7 +650,7 @@ GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_
 }
 
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_warbird_and_flying_boat) {
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[3]), End::fastest, 0.0, 0.20);
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[3]), End::fastest, 0.0, 0.05);
 }
 
 GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane) {

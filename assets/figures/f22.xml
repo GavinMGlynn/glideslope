@@ -83,7 +83,16 @@
        in a 10 kt wind, each to hold its height within 50 ft and its speed
        within 5 kt; the slowest sought up from its approach speed (or where said) in 5 kt
        steps, the fastest down from a fifth over its start speed. -->
-  <plan_speeds slowest_kcas="225" fastest_kcas="360">
-    The slowest, 225 kt, is 5 kt over the slowest that held: it publishes no stall speed, so has no approach speed, and the sweep began at 150 kt; at 215 kt it lost 46 ft and slowed to 211 kt round its 6,689 m circle, and below that came down 500 ft before reaching it; 220 kt held all four ways. The fastest, 360 kt, a fifth over its start speed, held all four ways.
+  <plan_speeds slowest_kcas="255" fastest_kcas="360">
+    The slowest, 255 kt, is 5 kt over the slowest she holds a heading at in
+    a 20 kt crosswind, which is more than the orbit asks: she publishes no
+    stall speed, so has no approach speed, and the sweep began at 150 kt;
+    at 215 kt she lost 46 ft and slowed to 211 kt round her 6,689 m
+    circle, and below that came down 500 ft before reaching it; 220 kt held
+    all four ways. But heading north on the autopilot alone in a 20 kt
+    crosswind from the west (test_autopilot.cpp, the crosswind test, flown
+    at each speed) she swung her sideslip 7.8 degrees either way at 220
+    kt, 6.0 at 230, 3.5 at 235 and 1.6 at 245, more than its degree, and
+    held it within 0.1 from 250 kt. The fastest, 360 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
 </published_figures>

@@ -262,6 +262,194 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A plan never asks an aircraft for a speed it cannot hold clean, 2026-10-02 — tail done
+
+**What a plan may ask was the approach speed to a fifth over the cruise, for
+every aircraft.** The approach speed is a flaps-down figure (1.3 times the
+landing stall, or a manual's own), and a plan is flown clean: round the
+tightest orbit a plan may ask at it, five jets came down to the ground, the
+B-2 stalled turning towards it, and the A320 lost 600 ft (#70). And a fifth
+over the Mosquito's 220 kt start speed, 264 kt, is more than she makes at
+3,000 ft. The 747-400 and the F-22 publish no stall speed, so had no
+approach speed and could not be planned at all.
+
+**Each aircraft's figures file now gives the speeds a plan may fly it at**,
+`<plan_speeds slowest_kcas fastest_kcas>`, required in every file
+(`sim::read_published_figures`, `sim::plan_speeds`), each with what it was
+measured from. They are measured, not worked out, by a new command,
+`glideslope_cli plan-speeds AIRCRAFT [FROM_KT | --every]`: the tightest
+orbit a plan may ask at each speed (`sim/orbit_trial`, the orbit tests'
+flight moved out of the test so that the tool and the tests fly the same
+thing), flown clean by the navigator and autopilot at 3,000 ft over Sydney
+from 2 km outside the circle, both ways round, in calm air and in a 10 kt
+wind, each to hold its height within 50 ft and its speed within 5 kt from
+its first quarter-turn. The slowest is sought up from the approach speed in
+5 kt steps; the fastest down from a fifth over the start speed. **The rule
+for the number written**: where the approach speed (or a fifth over the
+start speed) held all four ways, it is the number - nothing a plan was let
+fly before is taken away; where it did not, the first speed that held, with
+5 kt to spare.
+
+| aircraft | approach | slowest | how | fastest |
+|---|---|---|---|---|
+| C172P, C182, Cub, PA-28 | 60, 64, 43, 64 | the same | held at the approach | 120, 144, 72, 132 |
+| Mosquito, S.23, F-15C | 123, 86, 160 | the same | held at the approach | **229**, 156, 360 |
+| 737-300 | 137 | **172** | 162 came down 500 ft before the circle; 167 held | 300 |
+| 747-400 | none | **220** | swept from 160; 210 came down; 215 held | 300 |
+| 787-8 | 148 | **198** | 188 lost 89 ft in wind; 193 held | 300 |
+| A320 | 147 | **162** | 152 came down; 157 held | 300 |
+| A380 | 136 | **201** | 191 came down; 196 held | 300 |
+| B-2A | 124 | **195** | 154 lost 28 ft and 7 kt; 159 held - but see below | 300 |
+| F-35B | 159 | **204** | 194 lost 108 ft; 199 held | 360 |
+| Learjet 35A | 125 | **140** | 130 came down; 135 held | 300 |
+| F-22A | none | **255** | swept from 150; 215 lost 46 ft; 220 held - but see below | 360 |
+
+KCAS. The Mosquito levels at 231 kt at full throttle from 239 kt up; 234
+held within 5 kt, so 229. "Came down" is 500 ft lost on the way to the
+circle, where a sweep stops.
+
+**The B-2 and the F-22 yaw in a crosswind when slow**, which the orbit does
+not show and the crosswind test (#87) does, flown now at each aircraft's
+slowest: at 164 kt the B-2 swung its sideslip 6 degrees either way in a 20
+kt crosswind, and the F-22 at 225 kt 7. Probed with that test at each
+speed: the B-2's heading 2.1 degrees off at 185 kt, held from 190; the
+F-22's sideslip 6.0 at 230, 3.5 at 235, 1.6 at 245, held from 250. So
+their slowest is that with 5 kt to spare, 195 and 255, which is more than
+the orbit asks; the files say so. The autopilot's yaw at those speeds is not
+fixed: the tail "The B-2 and the F-22 yaw from side to side in a crosswind
+when slow".
+
+**Held to them, everywhere a plan comes from**:
+- **the planner** (`copilot/planner.cpp`): the model is told "every airspeed
+  from SLOWEST to FASTEST", and where the slowest is above the approach speed,
+  "never slower than SLOWEST: a plan is flown clean, and the approach speed
+  is for flaps down", with the least radius at the slowest and the fastest;
+  `refusal` refuses a waypoint outside them and the refusal is told back.
+  `slowest_planned_kts` never goes below the approach speed; with none given
+  (the old tests) it is the approach speed and a fifth over the cruise.
+- **the copilot's routes** (`copilot/copilot.cpp`): told the same in its
+  situation, and `change_refusal` refuses a route outside them - which is
+  the check the server makes of a `COPILOT_ROUTE` (#64/#83). Every brief is
+  filled from the figures: the server's `learn_speeds`, the CLI's
+  `fly-copilot`, the players' copilot.
+- **plan files** (`sim::refuse_speeds_it_cannot_hold`): read by the server
+  (its AI aircraft's plan), the client (`--plan`) and `glideslope_cli
+  fly-plan`, a waypoint outside its aircraft's speeds refused as it is read.
+  Both plans in the data are within them.
+- `docs/TRANSPORT.md` says the route check is now the figures file's speeds.
+
+**What is not done**: a copilot's **glide**, with the engine stopped, is
+still allowed from the approach speed to the best climb, and whether a jet
+glides round its tightest orbit clean at its approach speed is not measured
+- the F-35B's best climb, 200 kt, is below its slowest under power, 204: the
+tail "A glide may still be asked of a jet at its approach speed". And **at
+their fastest the jets wander off their circles**, up to 18% of 13 to 19
+km - the F-15C 3.3 km off its 18.8 km at 360 kt - their height and speed
+held: the tail "At its fastest, a fast
+aircraft's tightest orbit is flown well off its circle".
+
+**Every speed between, measured**: `glideslope_cli plan-speeds ID --every`
+flew each aircraft's tightest orbit all four ways every 5 kt from its
+slowest to its fastest (linux-release), 357 speeds and 1,428 orbits, and
+every one held its height within 50 ft and its speed within 5 kt:
+
+| aircraft | speeds | worst height | worst speed | worst off its circle |
+|---|---|---|---|---|
+| 737-300 | 27, 172 to 300 | 5 ft | 0 kt | 10.8%, 1,407 m at 300 kt |
+| 747-400 | 17, 220 to 300 | 14 | 1 | 11.0%, 1,429 m at 300 |
+| 787-8 | 22, 198 to 300 | 14 | 1 | 11.6%, 1,509 m at 300 |
+| A320 | 29, 162 to 300 | 3 | 0 | 10.9%, 1,425 m at 300 |
+| A380 | 21, 201 to 300 | 6 | 0 | 13.3%, 1,731 m at 300 |
+| B-2A | 22, 195 to 300 | 3 | 0 | 10.6%, 1,380 m at 300 |
+| Learjet 35A | 33, 140 to 300 | 2 | 0 | 10.9%, 1,416 m at 300 |
+| F-15C | 41, 160 to 360 | 3 | 0 | 17.8%, 3,331 m at 360 |
+| F-22A | 22, 255 to 360 | 23 | 4 | 13.8%, 2,596 m at 360 |
+| F-35B | 33, 204 to 360 | 4 | 0 | 14.1%, 2,653 m at 360 |
+| Mosquito | 23, 123 to 229 | 2 | 0 | 3.4%, 258 m at 229 |
+| Short S.23 | 15, 86 to 156 | 2 | 4 | 36 m at 86 |
+| C172P | 13, 60 to 120 | 1 | 0 | 32 m at 60 |
+| C182 | 17, 64 to 144 | 1 | 1 | 34 m at 64 |
+| J-3 Cub | 7, 43 to 72 | 2 | 1 | 44 m at 43 |
+| PA-28 | 15, 64 to 132 | 1 | 3 | 51 m at 64 |
+
+The S.23's and PA-28's worst speeds are at their fastest, 156 and 132 kt,
+which they make 4 and 3 kt short of at full throttle. The command's sweep
+stops an orbit once it has lost its height or speed, so these are orbits
+flown out; it is not a CI test - 1,428 orbits - but the two ends are,
+below.
+
+**The recorded copilot plays are unaffected**, so none was recorded again:
+all twelve recordings in `tests/data/copilot` are the Cessna 172P's, whose
+slowest is its approach speed, 60 kt, and fastest 120, a fifth over its
+100 kt cruise, so the request it is played back to is word for word the one
+recorded - the planner's and copilot's words change only where the slowest
+is above the approach speed - and the plans in them ask nothing outside
+them. **That needed one rule, found by those tests failing**: the Cessna's
+approach speed is 59.8 kt and its slowest is written 60, so the request at
+first said "at least 521 m at 60 kt" where the recording has 518, and four
+played-back tests failed ("the prompt has changed since it was recorded").
+A slowest within half a knot of the approach speed is now the approach
+speed written in whole knots (`slowest_planned_kts`, `slowest_routed_kts`),
+and the copilot test pins it: a request with a slowest of 62.4 over a 62 kt
+approach is word for word one with none. Every played-back test passes.
+
+**Tests**:
+- `every_aircraft_gives_the_speeds_a_plan_may_fly_it_at_none_beyond_what_plans_were_let_fly_before`:
+  sixteen of sixteen; slowest never below the approach speed, fastest never
+  over a fifth above the start speed; the two with no approach speed counted.
+- `a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_refused_and_none_in_the_data_does`:
+  the A320 at 147, 161 and 301 kt refused, at 162 and 300 not; the Mosquito
+  at 240 refused; both plans in the data pass.
+- `a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_refused_and_the_model_told_them`:
+  fifteen cases, planner and copilot - told, refused at 70, 79, 121, 126,
+  taken at 80 and 120; none given is the old rule; within half a knot of
+  the approach, word for word the old request; a slowest below the approach
+  is the approach.
+- `the_cli_refuses_a_plan_asking_a_speed_its_aircraft_cannot_hold_clean`:
+  `fly-plan` of `tests/data/plans/a320-at-its-approach-speed.plan` exits 1
+  saying "CBD is flown at 147 kt, outside 162 to 300 kt".
+- The orbit tests (#70), renamed for what they fly:
+  `the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_...`
+  and, new, `..._at_the_fastest_speed_...`, four groups each, **nothing left
+  out** - the 747-400, F-22 and the five jets flown with the rest. Each
+  orbit holds its height within 50 ft and speed within 5 kt; the circle
+  within 60 m for the light aeroplanes at both ends and the warbird and
+  flying boat at their slowest, 5% of the radius for the jets at their
+  slowest (the F-22 4.5%, 427 m off its 9.4 km at 255 kt, the worst), and
+  at the fastest 20% of the radius
+  for the jets and 5% for the warbird and flying boat, from the table
+  above.
+- The crosswind test for every aircraft but the light ones (#87) flies each
+  at its slowest instead of its approach speed, and leaves nothing out: 48
+  of 48 cases.
+
+**Seen to fail**, each then restored:
+- the planner's helpers back to the approach speed and a fifth over the
+  cruise: the copilot test, "the request says every airspeed from 80 to 120
+  kt";
+- the route check back to them: the copilot test, "a route at 70 kt is
+  refused";
+- the plan-file check made to pass everything: the plan-file test, "the
+  A320 at 147 kt is refused";
+- the A320's slowest put back to its approach speed, 147, in the build's
+  data: the airliners' slowest-orbit test, losing 598 to 643 ft;
+- the B-2's and F-22's slowest at 164 and 225 (the orbit's numbers): the
+  crosswind test, as above, and the fighters' slowest-orbit test, the F-22
+  slowing to 219 kt round its circle at 225.
+
+**Verified** in linux-release (ctest -j4, no display, other working
+copies' builds and sweeps running beside it): 124 tests chosen by name -
+every orbit, navigator, autopilot, plan, figures, copilot, recorded,
+planned, hand-over and crosswind test - passed but the five fixed above
+(the fighters' slowest circle, held to 300 m before it was 5%, and the four
+played-back ones), and those, with every played-back, copilot, take-over,
+take-back and planned test, 52 in all, then passed; 12 live-model tests
+skipped, needing a key and GLIDESLOPE_LIVE_MODEL. The twelve orbit,
+crosswind, speeds and selftest tests again on the final build: all passed,
+the slowest orbits 7 to 25 s each and the fastest 11 to 41 s. The selftest
+hash does not move, `d36123c1eecc3e23`: it flies a logged input, and no
+model or autopilot law changed. No platform code was touched, so no Windows
+build.
 ### The client with the window keeps its session whatever its frame loop is doing, 2026-10-02 — tail done
 
 **What is still not covered first.** The session is kept while the frame loop

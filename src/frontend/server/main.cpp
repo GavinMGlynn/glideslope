@@ -941,8 +941,10 @@ glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
     request.aircraft_name = entry.name;
     request.climb_kts = glideslope::sim::departure_speeds(data, entry.model).climb_kts;
     request.approach_kts = glideslope::sim::approach_speeds(data, entry.model).vref_kts;
-    request.slowest_kts = glideslope::sim::plan_speeds(data, entry.model).slowest_kts;
-    request.fastest_kts = glideslope::sim::plan_speeds(data, entry.model).fastest_kts;
+    const glideslope::sim::PlanSpeeds plannable_speeds =
+        glideslope::sim::plan_speeds(data, entry.model);
+    request.slowest_kts = plannable_speeds.slowest_kts;
+    request.fastest_kts = plannable_speeds.fastest_kts;
     request.cruise_kts = entry.start_airspeed_kts;
     request.airport = task.airport;
     const bool played_back = !planner.playback.empty();
@@ -2232,8 +2234,10 @@ private:
                 glideslope::copilot::Brief b;
                 b.aircraft = a.catalogue_id;
                 b.approach_kts = glideslope::sim::approach_speeds(data_, a.model).vref_kts;
-                b.slowest_kts = glideslope::sim::plan_speeds(data_, a.model).slowest_kts;
-                b.fastest_kts = glideslope::sim::plan_speeds(data_, a.model).fastest_kts;
+                const glideslope::sim::PlanSpeeds plannable_speeds =
+                    glideslope::sim::plan_speeds(data_, a.model);
+                b.slowest_kts = plannable_speeds.slowest_kts;
+                b.fastest_kts = plannable_speeds.fastest_kts;
                 b.climb_kts = glideslope::sim::departure_speeds(data_, a.model).climb_kts;
                 b.cruise_kts =
                     glideslope::sim::find_aircraft(data_, a.catalogue_id).start_airspeed_kts;

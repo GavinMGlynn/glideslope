@@ -349,11 +349,35 @@ Found while implementing something else. Added when found, not when remembered.
       assumed.* Done 2026-09-30: every light aeroplane within 60 m, Claude's
       CBD plan within 19 m; what cannot be flown is the two tails below.
 
-- [ ] **A plan may fly a jet clean at its approach speed**, a flaps-down
+- [x] **A plan may fly a jet clean at its approach speed**, a flaps-down
       figure: round their tightest orbit at it, six jets come down to the
       ground and the A320 loses 600 ft. The planner needs a clean floor for
       each aircraft. *Verification: every aircraft holds every speed a plan
-      may ask of it round its tightest orbit, measured.*
+      may ask of it round its tightest orbit, measured.* Done 2026-10-02:
+      each aircraft's slowest and fastest are measured and in its figures
+      file; plans, the copilot's routes and plan files outside them are
+      refused; all sixteen hold their height and speed round the orbit
+      every 5 kt between them.
+
+- [ ] **At its fastest, a fast aircraft's tightest orbit is flown well off
+      its circle.** Round 13 to 19 km circles at 300 to 360 kt the jets
+      hold their height and speed but wander up to 18% of the radius off the
+      circle (3.3 km, the F-15C); the light aeroplanes stay within 60 m.
+      *Verification: every aircraft at the fastest a plan may ask holds its
+      tightest circle within a stated distance, measured.*
+- [ ] **A glide may still be asked of a jet at its approach speed.** A
+      copilot's glide, with the engine stopped, is allowed from the approach
+      speed to the best climb, and whether a jet glides round its tightest
+      orbit clean at its approach speed without stalling is not measured.
+      *Verification: every aircraft glides round its tightest orbit at every
+      speed a glide may be asked at without stalling, measured.*
+- [ ] **The B-2 and the F-22 yaw from side to side in a crosswind when
+      slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
+      of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is
+      kept above 195 and 255 kt for it, but the autopilot itself is not
+      fixed. *Verification: every aircraft holds a heading in a 20 kt
+      crosswind from its approach speed up, its sideslip within a stated
+      bound.*
 
 - [x] **In wind the Cub and the Cherokee yaw from side to side.** Holding
       a heading in a 10 kt crosswind, with no plan, the autopilot's J-3 Cub
