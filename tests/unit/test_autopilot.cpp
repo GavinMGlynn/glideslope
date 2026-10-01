@@ -415,11 +415,11 @@ namespace {
 // its ceiling is handed over on it, as a pilot leaning in the climb would
 // hand it over: full rich there the engine will not fire.
 constexpr double near_the_ceiling_fpm = 50.0;
-std::map<std::string, double>& mixture_near_the_ceiling() {
-    static std::map<std::string, double> by_model;
-    return by_model;
-}
-double near_the_ceiling_ft(const CatalogueEntry& e, double climb_kts) {
+struct NearTheCeiling {
+    double ft = 0.0;
+    double mixture = 1.0; // the mixture it got there on
+};
+NearTheCeiling near_the_ceiling(const CatalogueEntry& e, double climb_kts) {
     Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
     glideslope::sim::InitialConditions ic;
     ic.latitude_deg = -33.9;
@@ -453,14 +453,13 @@ double near_the_ceiling_ft(const CatalogueEntry& e, double climb_kts) {
             // Settled first: the first two windows are the pilot finding its
             // pitch.
             if (i > 2 * window && climbed * 2.0 <= near_the_ceiling_fpm) {
-                mixture_near_the_ceiling()[e.model] = leaner ? leaner->resting() : 1.0;
-                return altitude(aircraft);
+                return {altitude(aircraft), leaner ? leaner->resting() : 1.0};
             }
             window_start_ft = altitude(aircraft);
         }
     }
     check(false, e.id + " was still climbing after an hour at full throttle");
-    return 0.0;
+    return {};
 }
 
 // **The throttle that holds an aeroplane level at `altitude_ft` and `kts`**,
@@ -473,7 +472,8 @@ double near_the_ceiling_ft(const CatalogueEntry& e, double climb_kts) {
 // the leaned ceilings, against 21 to 31 at 3,000 ft - and that sag is the
 // mismatch between the throttle handed over and the height, not anything the
 // autopilot does.
-double level_throttle(const CatalogueEntry& e, double altitude_ft, double kts) {
+double level_throttle(const CatalogueEntry& e, double altitude_ft, double kts,
+                      double mixture) {
     Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
     glideslope::sim::InitialConditions ic;
     ic.latitude_deg = -33.9;
@@ -485,7 +485,7 @@ double level_throttle(const CatalogueEntry& e, double altitude_ft, double kts) {
     glideslope::sim::TestPilot pilot(aircraft);
     glideslope::sim::Controls c;
     c.throttle = 1.0;
-    c.mixture = mixture_near_the_ceiling().at(e.model);
+    c.mixture = mixture;
     for (int i = 0; i < 120 * steps_per_second; ++i) {
         c.throttle = std::clamp(
             c.throttle + 0.02 * (kts - airspeed(aircraft)) / steps_per_second, 0.0, 1.0);
@@ -636,7 +636,8 @@ void turns_near_the_ceiling_as_at_3000_ft(const std::string& id) {
     constexpr double speed_band_kts = 5.0;
     const CatalogueEntry e = glideslope::sim::find_aircraft(data(), id);
     const double climb_kts = glideslope::sim::departure_speeds(data(), e.model).climb_kts;
-    const double ceiling_ft = near_the_ceiling_ft(e, climb_kts);
+    const NearTheCeiling ceiling = near_the_ceiling(e, climb_kts);
+    const double ceiling_ft = ceiling.ft;
     std::string failures;
     std::size_t turns = 0;
     // One flight for each height and speed: the autopilot handed the
@@ -656,8 +657,8 @@ void turns_near_the_ceiling_as_at_3000_ft(const std::string& id) {
             glideslope::sim::Controls controls;
             controls.throttle = e.start_throttle;
             if (altitude_ft == ceiling_ft) {
-                controls.mixture = mixture_near_the_ceiling().at(e.model);
-                controls.throttle = level_throttle(e, altitude_ft, kts);
+                controls.mixture = ceiling.mixture;
+                controls.throttle = level_throttle(e, altitude_ft, kts, ceiling.mixture);
             }
             Autopilot autopilot(aircraft, controls);
             AutopilotModes modes = autopilot.modes();
@@ -810,7 +811,8 @@ void gives_up_height_not_airspeed(const std::string& id) {
     constexpr double height_band_ft = 20.0;
     const CatalogueEntry e = glideslope::sim::find_aircraft(data(), id);
     const double climb_kts = glideslope::sim::departure_speeds(data(), e.model).climb_kts;
-    const double ceiling_ft = near_the_ceiling_ft(e, climb_kts);
+    const NearTheCeiling ceiling = near_the_ceiling(e, climb_kts);
+    const double ceiling_ft = ceiling.ft;
     struct Situation {
         const char* what;
         double from_ft;
@@ -842,8 +844,8 @@ void gives_up_height_not_airspeed(const std::string& id) {
             glideslope::sim::Controls controls;
             controls.throttle = s.throttle;
             if (s.from_ft == ceiling_ft) {
-                controls.mixture = mixture_near_the_ceiling().at(e.model);
-                controls.throttle = level_throttle(e, s.from_ft, kts);
+                controls.mixture = ceiling.mixture;
+                controls.throttle = level_throttle(e, s.from_ft, kts, ceiling.mixture);
             }
             Autopilot autopilot(aircraft, controls);
             AutopilotModes modes = autopilot.modes();
@@ -944,6 +946,82 @@ GLIDESLOPE_TEST(a_cherokee_asked_for_a_height_it_cannot_hold_gives_up_height_not
     gives_up_height_not_airspeed("pa28");
 }
 
+// **Every aircraft turns ninety degrees without overbanking or overshooting.**
+// The bank limit is 25 degrees, and while the bank is at it an integral finds
+// the aileron that holds it there (src/sim/autopilot.cpp, `aileron_trim_`):
+// a Cessna 182 left proportional alone banked 29-30 to the left. That
+// integral acts on every aircraft, and a heavy that rolls slowly lags its
+// command for longer; so every aircraft the data holds is turned ninety
+// degrees each way at 10,000 ft, at the airspeed and throttle it starts a
+// flight at, after a minute level, and its most bank and its overshoot of the
+// heading are reported and held to the limit's 25 degrees and 3 more for the
+// roll-in, and to 4 degrees past the heading - the Mosquito overshoots most,
+// 3.45 degrees turning left, with the integral or without it. On 2026-10-02
+// the most bank was 27.6 (the Mosquito turning left; 28.0 without the
+// integral), the airliners' 25.2-27.2 (25.1-26.2 without); an integral left
+// to run while the bank lagged its command took the 787 and the A380 to 29.8,
+// and this to red.
+GLIDESLOPE_TEST(every_aircraft_turns_ninety_degrees_without_overbanking_or_overshooting) {
+    constexpr double most_bank_deg = 28.0;
+    constexpr double most_overshoot_deg = 4.0;
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    std::string failures;
+    std::size_t turns = 0;
+    for (const CatalogueEntry& e : catalogue) {
+        for (const double by : {90.0, -90.0}) {
+            Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = -33.9;
+            ic.longitude_deg = 151.2;
+            ic.altitude_ft = 10000.0;
+            ic.heading_deg = 0.0;
+            ic.airspeed_kts = e.start_airspeed_kts;
+            ic.engine_running = true;
+            aircraft.initialize(ic);
+            glideslope::sim::Controls controls;
+            controls.throttle = e.start_throttle;
+            Autopilot autopilot(aircraft, controls);
+            AutopilotModes modes = autopilot.modes();
+            modes.heading_deg = 0.0;
+            modes.altitude_ft = 10000.0;
+            modes.airspeed_kts = e.start_airspeed_kts;
+            autopilot.set(modes);
+            for (int i = 0; i < 60 * steps_per_second; ++i) {
+                aircraft.set_controls(autopilot.fly());
+                aircraft.step();
+            }
+            modes.heading_deg = std::fmod(by + 360.0, 360.0);
+            autopilot.set(modes);
+            double bank = 0.0;
+            double overshoot = 0.0;
+            for (int i = 0; i < 120 * steps_per_second; ++i) {
+                aircraft.set_controls(autopilot.fly());
+                aircraft.step();
+                bank = std::max(bank, std::abs(aircraft.property("attitude/phi-deg")));
+                const double past = std::remainder(heading(aircraft) - by, 360.0) *
+                                    (by > 0.0 ? 1.0 : -1.0);
+                overshoot = std::max(overshoot, past);
+            }
+            ++turns;
+            char line[200];
+            std::snprintf(line, sizeof line,
+                          "%s turning %+.0f: %.1f degrees of bank at most, %.2f past the "
+                          "heading",
+                          e.id.c_str(), by, bank, overshoot);
+            std::printf("%s\n", line);
+            if (!(bank <= most_bank_deg && overshoot <= most_overshoot_deg)) {
+                failures += std::string("\n  ") + line;
+            }
+        }
+    }
+    std::printf("%zu aircraft x 2 turns = %zu turns\n", catalogue.size(), turns);
+    check(turns == 2 * catalogue.size(),
+          "every aircraft turned both ways: " + std::to_string(turns));
+    check(failures.empty(), "each turn banks no more than " + std::to_string(most_bank_deg) +
+                                " degrees and overshoots no more than " +
+                                std::to_string(most_overshoot_deg) + ":" + failures);
+}
+
 // **Which aircraft have a speed floor, and which have none, said by name.**
 // Every light aeroplane has one, its published best-climb speed, read when
 // its model loads; every other aircraft has none, and is named here with the
@@ -1023,7 +1101,8 @@ GLIDESLOPE_TEST(a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_fl
         const CatalogueEntry e = glideslope::sim::find_aircraft(data(), id);
         const double climb_kts =
             glideslope::sim::departure_speeds(data(), e.model).climb_kts;
-        const double ceiling_ft = near_the_ceiling_ft(e, climb_kts);
+        const NearTheCeiling ceiling = near_the_ceiling(e, climb_kts);
+        const double ceiling_ft = ceiling.ft;
         Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
         glideslope::sim::InitialConditions ic;
         ic.latitude_deg = -33.9;
@@ -1035,7 +1114,7 @@ GLIDESLOPE_TEST(a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_fl
         aircraft.initialize(ic);
         glideslope::sim::Controls controls;
         controls.throttle = 1.0;
-        controls.mixture = mixture_near_the_ceiling().at(e.model);
+        controls.mixture = ceiling.mixture;
         Autopilot autopilot(aircraft, controls);
         AutopilotModes modes = autopilot.modes();
         modes.heading_deg = 0.0;

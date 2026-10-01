@@ -183,6 +183,9 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
 Departure::Departure(const Aircraft& aircraft, const Runway& runway,
                      const DepartureSpeeds& speeds, double to_ft)
     : a_(aircraft), runway_(runway), speeds_(speeds), to_ft_(to_ft) {
+    if (a_.mixture_lever()) {
+        leaner_.emplace(a_, a_.property("fcs/mixture-cmd-norm[0]"));
+    }
     measure();
     standing_m_ = above_m_;
     standing_pitch_deg_ = a_.state().pitch_deg;
@@ -230,14 +233,25 @@ void Departure::measure() {
     above_m_ = (s.altitude_ft - runway_.elevation_ft) / feet_per_metre;
 }
 
+void Departure::hand_mixture(double mixture) {
+    if (leaner_) {
+        leaner_.emplace(a_, mixture);
+    }
+}
+
 Controls Departure::fly() {
+    Controls c = fly_laws();
+    c.mixture = leaner_ ? leaner_->lean(c.throttle) : 1.0;
+    return c;
+}
+
+Controls Departure::fly_laws() {
     measure();
     const AircraftState s = a_.state();
     const double kcas = s.airspeed_kts;
 
     Controls c;
     c.gear = 1.0;
-    c.mixture = 1.0;
     c.propeller = 1.0;
     c.flaps = speeds_.flap;
     // **Trimmed for take-off**, where the aeroplane's model says what that

@@ -857,13 +857,17 @@ Found while implementing something else. Added when found, not when remembered.
       for a height they lack the power to hold, at two speeds each. The test
       allows 2 knots under the best-climb speed; the worst was 1.5. Other
       classes have no such floor.
-- [ ] **The AI never leans the mixture**, so on the autopilot a light
-      aeroplane's ceiling is about 8,500 ft - the Cessna 172P's handbook gives
-      13,000. *Verification: the AI climbs each light aeroplane to within its
-      handbook's tolerance of its published service ceiling.* The AI now
-      leans for best power, and the Cherokee reaches its 13,000 ft. Missing:
-      the other three do not, each held back by its flight model (the tails
-      below).
+- [ ] **The AI leans for best power, but climbs only the Cherokee to its
+      ceiling; the 172P, 182S and Cub are held back by their models** (the
+      tails below). Unleaned, a light aeroplane's ceiling on the autopilot
+      was about 8,500 ft against the 172P handbook's 13,000. *Verification:
+      the AI climbs each light aeroplane to within its handbook's tolerance
+      of its published service ceiling.*
+- [ ] **The leaner richening an engine that stops while leaned has no
+      test.** It richens it to full rich so that, windmilling, it can fire
+      again; nothing yet stops an engine under it to show that. *Verification:
+      an engine the leaner had leaned, stopped in flight, is richened and
+      runs again.*
 - [ ] **The Cessna 172P's engine makes 209 hp from 160.** Its engine file
       sets a fuel consumption no petrol engine has, and the propeller was
       tuned to soak up the surplus; leaned, it climbs to 17,200 ft against

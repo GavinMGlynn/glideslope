@@ -50,6 +50,7 @@ Controller::Controller(const Aircraft& aircraft, const Controls& controls)
 
 void Controller::engage() {
     flying_ = Flying::ai;
+    mixture_held_ = false;
     catching_up_ = false;
     easing_in_ = false;
     autopilot_.emplace(a_, applied_);
@@ -144,6 +145,7 @@ void Controller::to_ai_take_off(const Runway& runway, const DepartureSpeeds& spe
                                 double to_ft) {
     engage();
     departure_.emplace(a_, runway, speeds, to_ft);
+    departure_->hand_mixture(applied_.mixture);
 }
 
 void Controller::to_ai_flying(FlightPlan plan, const DepartureSpeeds& speeds) {
@@ -160,6 +162,7 @@ void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& spee
                                 double glidepath_deg) {
     engage();
     lander_.emplace(a_, runway, speeds, glidepath_deg);
+    lander_->hand_mixture(applied_.mixture);
 }
 
 void Controller::to_ai_learnt_approach(const Runway& runway, const ApproachSpeeds& speeds,
@@ -176,6 +179,12 @@ void Controller::to_pilot() {
     flying_ = Flying::pilot;
     glide_kts_.reset();
     catching_up_ = true;
+    // The mixture the AI left, held as the ratio it gives (JSBSim meters the
+    // fuel as the lever over the pressure ratio) until the lever moves.
+    mixture_held_ = a_.mixture_lever();
+    held_mixture_ = applied_.mixture;
+    held_delta_ = std::max(a_.property("atmosphere/delta"), 1e-3);
+    lever_at_take_back_.reset();
     easing_in_ = false;
     autopilot_.reset();
     navigator_.reset();
@@ -250,12 +259,30 @@ Controls Controller::fly() {
             landing_.reset();
         }
     }
+    Controls wanted = pilot_;
+    if (mixture_held_) {
+        if (!lever_at_take_back_) {
+            lever_at_take_back_ = pilot_.mixture;
+        }
+        const double held = std::min(
+            held_mixture_ * a_.property("atmosphere/delta") / held_delta_, 1.0);
+        // **The lever moved, or the held ratio has reached the lever's** -
+        // within the two hundredths the leaner feels the peak by, so that a
+        // mixture the AI left at full rich, feeling, is the pilot's at once:
+        // the mixture is the pilot's again.
+        if (pilot_.mixture != *lever_at_take_back_ || held >= pilot_.mixture - 0.02) {
+            mixture_held_ = false;
+            catching_up_ = true;
+        } else {
+            wanted.mixture = held;
+        }
+    }
     if (catching_up_) {
         // Every control on its way to where the pilot has it.
-        catching_up_ = !towards(applied_, pilot_);
+        catching_up_ = !towards(applied_, wanted);
         return applied_;
     }
-    applied_ = pilot_;
+    applied_ = wanted;
     return applied_;
 }
 

@@ -85,6 +85,9 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
                const ApproachSpeeds& speeds, double glidepath_deg)
     : a_(aircraft), runway_(runway), speeds_(speeds),
       glidepath_rad_(glidepath_deg / degrees), jet_(aircraft.figures().jet) {
+    if (a_.mixture_lever()) {
+        leaner_.emplace(a_, a_.property("fcs/mixture-cmd-norm[0]"));
+    }
     measure();
     // **The flare is bounded by her tail, not by a fixed attitude.** It was
     // ten degrees for every aeroplane, and the F-35B, which flies her
@@ -195,7 +198,19 @@ void Lander::resume(double throttle) {
     brake_ = 0.0;
 }
 
+void Lander::hand_mixture(double mixture) {
+    if (leaner_) {
+        leaner_.emplace(a_, mixture);
+    }
+}
+
 Controls Lander::fly() {
+    Controls c = fly_laws();
+    c.mixture = leaner_ ? leaner_->lean(c.throttle) : 1.0;
+    return c;
+}
+
+Controls Lander::fly_laws() {
     measure();
     const AircraftState s = a_.state();
     const double kcas = s.airspeed_kts;
@@ -204,7 +219,6 @@ Controls Lander::fly() {
     c.gear = 1.0;
     c.flaps = speeds_.flap;
     c.speedbrake = speeds_.speedbrake;
-    c.mixture = 1.0;
     c.propeller = 1.0;
 
     // **On the ground is the rollout, whatever the stage said.** The wheels

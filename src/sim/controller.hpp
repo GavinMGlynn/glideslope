@@ -13,6 +13,14 @@
 // of a pilot's hand - full travel in a second - until they meet, and follow the
 // pilot's directly from then.
 //
+// **But the mixture stays where the AI left it until the pilot moves the
+// lever.** The AI leans an engine high up (sim/leaner.hpp); a pilot who never
+// touched the lever has it at full rich, and walked there high up the engine
+// runs too rich to fire. So, taken back, the mixture keeps the ratio of air
+// to fuel the AI left the engine at - richening as a descent thickens the air,
+// up to full rich - until the pilot's lever moves from where it was at the
+// take-back, and from then it is the lever's, reached at the hand's pace.
+//
 // **Taken back on a landing roll, the AI finishes the landing.** An aeroplane
 // the AI was flying an approach in, taken by the pilot and handed back while
 // she is still landing - rolling, bouncing, or in the flare - is given that
@@ -161,6 +169,12 @@ private:
     double glide_last_kts_ = 0.0;
     double glide_trend_kts_per_s_ = 0.0;
     AutopilotModes gliding(AutopilotModes modes);
+    // Taken back, the mixture the AI left and the air's pressure ratio then,
+    // held until the pilot's lever moves from where it was at the take-back.
+    bool mixture_held_ = false;
+    double held_mixture_ = 1.0;
+    double held_delta_ = 1.0;
+    std::optional<double> lever_at_take_back_;
 };
 
 } // namespace glideslope::sim

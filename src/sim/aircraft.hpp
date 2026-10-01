@@ -219,6 +219,12 @@ struct Motion {
     std::array<double, 3> pqr_radps{};       // body-axis rates relative to the Earth
 };
 
+// What an aircraft keeps from the catalogue, read once when its model loads.
+struct CatalogueFacts {
+    std::optional<double> climb_floor_kts;
+    bool mixture_lever = false;
+};
+
 // One aircraft: a JSBSim instance loaded from model files.
 //
 // JSBSim's headers stay behind this class, so nothing that includes it compiles
@@ -379,6 +385,9 @@ public:
     bool gear_retracts() const;
 
 private:
+    Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model,
+             const CatalogueFacts& catalogue);
+
     // **A property by name, found once.** JSBSim finds a property by
     // walking its path through the tree, allocating as it goes; asked for
     // by name every step - the learnt landing reads seventeen, the approach

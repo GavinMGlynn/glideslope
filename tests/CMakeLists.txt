@@ -40,6 +40,7 @@ add_executable(glideslope_tests
     unit/test_checklist_run.cpp
     unit/test_lander.cpp
     unit/test_learnt.cpp
+    unit/test_leaner.cpp
     unit/test_departure.cpp
     unit/test_fuzz.cpp
     unit/test_inputs.cpp
@@ -436,6 +437,9 @@ set(GLIDESLOPE_UNIT_TESTS
     the_f35b_climbs_at_the_rate_its_own_model_gave
     the_f35b_takes_off_in_the_ground_roll_its_own_model_gave
     the_learjet_35a_climbs_at_the_rate_its_own_model_gave
+    the_leaner_richens_an_engine_lean_of_chemically_correct_within_ten_seconds
+    the_leaner_holds_the_ratio_it_was_handed_below_four_tenths_of_the_throttle
+    the_leaner_rests_at_full_rich_at_full_throttle_low_down
     the_ai_climbs_a_cherokee_180_to_its_published_service_ceiling
     every_light_aeroplane_is_climbed_to_its_published_ceiling_or_named_with_its_reason
     every_published_figure_has_a_flight_and_every_flight_a_figure
@@ -580,6 +584,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_cessna_182_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
     a_piper_cub_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
     a_cherokee_asked_for_a_height_it_cannot_hold_gives_up_height_not_airspeed
+    every_aircraft_turns_ninety_degrees_without_overbanking_or_overshooting
     every_aircraft_the_data_holds_has_a_speed_floor_or_is_named_without_one
     a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_flies_on_its_throttle
     a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wrong

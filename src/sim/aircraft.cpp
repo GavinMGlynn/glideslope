@@ -139,40 +139,36 @@ private:
 
 namespace {
 
-// A light aeroplane's published best-climb speed, from the catalogue and the
-// figures in `data`; none for any other class, or where there is no catalogue.
-std::optional<double> climb_floor_of(const std::filesystem::path& data,
-                                     const std::string& model) {
+// What the catalogue in `data` says of the model that the aircraft keeps,
+// read once for both: a light aeroplane's published best-climb speed, from its
+// figures (none for any other class), and whether its engines have a mixture
+// lever. None of it where there is no catalogue.
+CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::string& model) {
+    CatalogueFacts found;
     if (!std::filesystem::is_directory(data / "aircraft")) {
-        return std::nullopt;
+        return found;
     }
     for (const CatalogueEntry& e : read_catalogue(data)) {
-        if (e.model == model && e.aircraft_class == AircraftClass::light_aircraft) {
-            return departure_speeds(data, model).climb_kts;
+        if (e.model != model) {
+            continue;
         }
-    }
-    return std::nullopt;
-}
-
-// Whether the catalogue in `data` gives the model a mixture lever; none where
-// there is no catalogue.
-bool mixture_lever_of(const std::filesystem::path& data, const std::string& model) {
-    if (!std::filesystem::is_directory(data / "aircraft")) {
-        return false;
-    }
-    for (const CatalogueEntry& e : read_catalogue(data)) {
-        if (e.model == model && e.mixture_lever) {
-            return true;
+        if (e.aircraft_class == AircraftClass::light_aircraft) {
+            found.climb_floor_kts = departure_speeds(data, model).climb_kts;
         }
+        found.mixture_lever = found.mixture_lever || e.mixture_lever;
     }
-    return false;
+    return found;
 }
 
 } // namespace
 
 Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model)
-    : climb_floor_kts_(climb_floor_of(jsbsim_root.parent_path(), model)),
-      mixture_lever_(mixture_lever_of(jsbsim_root.parent_path(), model)), model_(model),
+    : Aircraft(jsbsim_root, model, from_catalogue(jsbsim_root.parent_path(), model)) {}
+
+Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model,
+                   const CatalogueFacts& catalogue)
+    : climb_floor_kts_(catalogue.climb_floor_kts), mixture_lever_(catalogue.mixture_lever),
+      model_(model),
       exec_(quiet_exec()) {
     const std::u8string utf8 = jsbsim_root.u8string();
     const SGPath root = SGPath::fromUtf8(std::string(utf8.begin(), utf8.end()));
