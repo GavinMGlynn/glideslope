@@ -26,9 +26,11 @@
 // agree with.
 
 #include "sim/aircraft.hpp"
+#include "sim/leaner.hpp"
 #include "sim/plan.hpp"
 
 #include <filesystem>
+#include <optional>
 #include <string>
 
 namespace glideslope::sim {
@@ -70,6 +72,9 @@ public:
 
     // One 120 Hz step's controls. Call once a step, as the aircraft is now.
     Controls fly();
+    // The mixture it is handed, where that is not what the aircraft last
+    // had - the controls a controller hands over - to lean from.
+    void hand_mixture(double mixture);
 
     Stage stage() const { return stage_; }
     // Whether the wheels have touched the runway yet.
@@ -119,7 +124,17 @@ public:
     double touchdown_along_m() const { return touchdown_along_m_; }
 
 private:
+    // The controls, but for the mixture.
+    Controls fly_laws();
+
     const Aircraft& a_;
+    // **The mixture as the AI leans it** (sim/leaner.hpp), where the
+    // aircraft has a lever: from the mixture it was handed, holding the ratio
+    // the engine had then and leaning for best power at full throttle. Set
+    // full rich in one step, as it once was, an aeroplane handed over leaned
+    // high up had its engine stopped; JSBSim's piston engine burns nothing
+    // past eight parts of air to one of fuel.
+    std::optional<MixtureLeaner> leaner_;
     Runway runway_;
     ApproachSpeeds speeds_;
     double glidepath_rad_ = 0.0;

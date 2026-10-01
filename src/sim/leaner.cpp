@@ -32,6 +32,9 @@ constexpr double largest_answer = 0.03;
 constexpr double leanest = 0.2;
 // Petrol's chemically correct ratio of air to fuel.
 constexpr double stoichiometric = 14.7;
+// Leaner than that, or with an engine it was leaning stopped, the lever goes
+// richer at this much of its travel a second.
+constexpr double richen_per_s = 0.1;
 // **Below this throttle the peak is not felt for** - its power is too little
 // to lean by - and the ratio of air to fuel the peak was last found at is
 // held instead, the mixture moving at `hold_rate` of its travel a second for
@@ -46,7 +49,20 @@ double phase_of(long step) {
 } // namespace
 
 MixtureLeaner::MixtureLeaner(const Aircraft& aircraft, double mixture)
-    : a_(aircraft), engines_(aircraft.figures().engines), resting_(mixture) {}
+    : a_(aircraft), engines_(aircraft.figures().engines), resting_(mixture) {
+    // The ratio the engine has as it is handed over, to hold until the peak
+    // is felt for.
+    double afr = 0.0;
+    bool running = engines_ > 0;
+    for (int i = 0; i < engines_; ++i) {
+        const std::string engine = "propulsion/engine[" + std::to_string(i) + "]/";
+        running = running && a_.property(engine + "set-running") > 0.0;
+        afr = std::max(afr, a_.property(engine + "AFR"));
+    }
+    if (running && std::isfinite(afr) && afr > 0.0) {
+        best_afr_ = afr;
+    }
+}
 
 double MixtureLeaner::lean(double throttle) {
     // Each engine's power for the air it takes in - its manifold pressure
@@ -65,6 +81,22 @@ double MixtureLeaner::lean(double throttle) {
     }
     if (!running) {
         feeling_ = false;
+        // **An engine stopped while it was being leaned is richened** to full
+        // rich, so that windmilling it can fire again; one handed over
+        // stopped is the pilot's.
+        if (leaning_running_) {
+            resting_ = std::min(resting_ + richen_per_s * dt, 1.0);
+        }
+        return resting_;
+    }
+    leaning_running_ = true;
+    if (std::isfinite(afr) && afr > stoichiometric) {
+        // **Never leaner than chemically correct**: richer at a fixed pace,
+        // whatever the power says, and the peak's search starts afresh.
+        feeling_ = false;
+        // And a ratio held below the throttle is held a little rich of it.
+        best_afr_ = std::min(best_afr_, stoichiometric - 0.2);
+        resting_ = std::min(resting_ + richen_per_s * dt, 1.0);
         return resting_;
     }
     if (throttle < least_throttle) {
@@ -94,11 +126,7 @@ double MixtureLeaner::lean(double throttle) {
         std::clamp((power - slow_power_) / std::max(std::abs(slow_power_), 1e-9),
                    -largest_answer, largest_answer);
     slope_ += (answer * std::sin(phase_of(step_)) - slope_) * dt / slope_s;
-    // **Never leaner than chemically correct.** The most power is always rich
-    // of it, whatever the engine; leaner than it, the lever goes back richer
-    // whatever the power seems to say.
-    const double way = afr > stoichiometric ? std::abs(slope_) : slope_;
-    resting_ = std::clamp(resting_ + follow * way * dt, leanest, 1.0);
+    resting_ = std::clamp(resting_ + follow * slope_ * dt, leanest, 1.0);
     if (std::isfinite(afr)) {
         best_afr_ = best_afr_ > 0.0 ? best_afr_ + (afr - best_afr_) * dt / slope_s : afr;
     }

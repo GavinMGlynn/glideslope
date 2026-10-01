@@ -271,6 +271,77 @@ overshoots to 28.5 rolling in, before the integral has found the aileron.
 **Seen to fail**: with the integral's gain at nought the law is the one
 above, red by 1.1 ft. The band and the heights are unchanged.
 
+**Every AI pilot now leans, and hands the mixture over gently** (from the
+review of #80, 2026-10-02):
+- **The approach and the departure lean too** (`sim/lander.cpp`,
+  `sim/departure.cpp`). Both set the mixture full rich every step, so an
+  approach or a take-off handed to the AI from a leaned engine high up
+  stepped the mixture to full rich in one step - and at 10,000 ft a Cessna
+  172P full rich runs past the eight parts of air to one of fuel JSBSim's
+  piston engine burns, and stopped. Each now has a leaner, from the mixture
+  the controller hands over (`hand_mixture`).
+- **The leaner starts by holding the ratio it is handed**, where it once
+  held nothing until it had felt for a peak; so throttled back from the
+  start it richens on the way down from the mixture it was given.
+- **Taken back, the mixture stays where the AI left it until the pilot
+  moves the lever** (`sim/controller.cpp`). The take-back walked every
+  control to the pilot's, the mixture included, and a pilot who never
+  touched the lever has it full rich: at 10,000 ft the engine stopped. Now
+  the mixture holds the ratio the AI left (the lever over the pressure
+  ratio, as JSBSim meters it), richening as a descent thickens the air,
+  until the pilot's lever moves from where it was at the take-back, or the
+  held ratio comes within the leaner's two hundredths of it; then it is the
+  lever's, at the hand's pace.
+- **Never leaner than 14.7 to 1, as a bound** (`sim/leaner.cpp`): leaner
+  than that the lever goes richer at a tenth of its travel a second,
+  whatever the power says, and a ratio held throttled back is held at 14.5
+  at the leanest. It was a tendency: lean of 14.7 it moved richer only as
+  fast as the power's slope, and throttled back, where the answer is not
+  felt for, a ratio of 15.1 handed over was held for good.
+- **An engine stopped while being leaned is richened** to full rich at the
+  same pace, so that windmilling it can fire again; one handed over stopped
+  is left alone. This rule has no test yet - a tail.
+
+**Verified**, each seen red:
+- `handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase`
+  now also hands over three times high and leaned, a 172P on 0.6 of the
+  mixture: an approach from a cruise at 10,000 ft, a take-off from a field
+  at 9,500 ft, and a take-back from the AI's cruise at 10,000 ft by a pilot
+  whose lever is full rich. Each flown a minute: the mixture moves 0.0041,
+  0.0043 and 0.0005 at most in a step, and the engine runs throughout.
+  With the lander's, the departure's and the take-back's old mixture, each
+  in turn: a step of 0.4 and the engine stopped, the same, and the engine
+  stopped.
+- `the_leaner_richens_an_engine_lean_of_chemically_correct_within_ten_seconds`
+  (new, test_leaner.cpp): handed over at 15.1 to 1 at 6,000 ft, at full
+  throttle 9.7-13.2 from ten seconds on, and on a quarter throttle 14.5;
+  with the bound taken out, 15.1 for good on the quarter throttle.
+- `the_leaner_holds_the_ratio_it_was_handed_below_four_tenths_of_the_throttle`:
+  from 8,000 ft down to 4,759 on a quarter throttle, 10.50 handed over and
+  10.50-10.51 throughout; red with the hold taken out.
+- `the_leaner_rests_at_full_rich_at_full_throttle_low_down`: level at 2,000
+  ft at full throttle, the lever at 0.998 at the least; red with the
+  lever's way reversed.
+- `every_aircraft_turns_ninety_degrees_without_overbanking_or_overshooting`
+  (new): every aircraft, both ways, at 10,000 ft, the bank integral acting on
+  all of them: the most bank is 27.6 (the Mosquito turning left; 28.0
+  without the integral), the airliners' 25.2-27.2 (25.1-26.2 without), the
+  most overshoot of the heading 3.45 (the Mosquito, with or without). Held
+  to 28 and 4; an integral left to run while the bank lags its command took
+  the 747 to 29.6 and turned it red.
+
+**For whoever restarts engines** (the copilot's #64, not merged): on an
+aircraft with a mixture lever, `Autopilot::fly`, the lander and the
+departure now set `c.mixture` every step from the leaner, so a mixture set
+before them is overwritten; a restart that wants the mixture must hold it
+outside them, or hand it to the leaner (it starts from the mixture it is
+given, and richens an engine that stops under it).
+
+**Smaller**: the catalogue is read once per aircraft for both its climb
+floor and its mixture lever (`from_catalogue` in aircraft.cpp), and the
+near-ceiling tests take the ceiling and its mixture from one call
+(`near_the_ceiling`), not a static map.
+
 **The Cherokee's stall recovery is named no longer.**
 `every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_more_than_its_lesson_allows_within_2_g`
 named the Cherokee for losing 328 ft against its lesson's 300; leaned, it
@@ -379,8 +450,10 @@ it is committed):
   parts of air to 1 part of gasoline", the power "essentially constant"
   from 0.0725 to 0.080 fuel/air and falling "gradually at first, then more
   rapidly" richer (Aviation Maintenance Technician Handbook - Powerplant,
-  FAA-H-8083-32, volume 1, chapter 2, page 2-4). So the leaner finds 6.4%
-  more power than full rich at sea level, which the real engine has not got.
+  FAA-H-8083-32, volume 1, chapter 2, page 2-4). So the leaner finds up to
+  6.4% more power than full rich gives at sea level - at the heights where
+  leaning can reach the model's peak, above about 4,000 ft - which the real
+  engine has not got.
   A MIXTURE table drawn to the FAA's description (best power 0.0725-0.080,
   0.98 at full rich, 0.92 at 0.100, 0.80 at 0.110, nothing at 8:1) has the
   leaner sit at 13.1 to 1 and gives Cherokee 12,370 ft, Cub (carburettor

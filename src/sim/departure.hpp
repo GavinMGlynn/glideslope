@@ -20,9 +20,11 @@
 // the runway's own elevation.
 
 #include "sim/aircraft.hpp"
+#include "sim/leaner.hpp"
 #include "sim/lander.hpp"
 
 #include <filesystem>
+#include <optional>
 #include <string>
 
 namespace glideslope::sim {
@@ -82,6 +84,9 @@ public:
               const DepartureSpeeds& speeds, double to_ft = 500.0);
 
     Controls fly();
+    // The mixture it is handed, where that is not what the aircraft last
+    // had - the controls a controller hands over - to lean from.
+    void hand_mixture(double mixture);
     Stage stage() const { return stage_; }
 
     // Where the aeroplane is with respect to the runway, as the last `fly`
@@ -99,7 +104,17 @@ public:
     double rotation_began_kts() const { return rotation_began_kts_; }
 
 private:
+    // The controls, but for the mixture.
+    Controls fly_laws();
+
     const Aircraft& a_;
+    // **The mixture as the AI leans it** (sim/leaner.hpp), where the
+    // aircraft has a lever: from the mixture it was handed, holding the ratio
+    // the engine had then and leaning for best power at full throttle. Set
+    // full rich in one step, as it once was, an aeroplane handed over leaned
+    // high up had its engine stopped; JSBSim's piston engine burns nothing
+    // past eight parts of air to one of fuel.
+    std::optional<MixtureLeaner> leaner_;
     Runway runway_;
     DepartureSpeeds speeds_;
     double to_ft_ = 500.0;

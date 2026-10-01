@@ -441,9 +441,11 @@ Controls Autopilot::fly() {
     // for 25 degrees banked 30 to the left and 25 to the right, and near its
     // ceiling the extra bank's drag cost it the height.
     // **Only while the bank is at its limit**, which is a limit and must
-    // hold, and once the bank asked for has stopped moving. Rolling in, the
-    // bank lags the command by design, and an integral wound up on that lag
-    // overbanked every turn by 4 degrees. Below the limit the heading loop
+    // hold, and once the bank commanded has caught up with the bank wanted -
+    // no longer walking towards it at the roll rate. Rolling in, the bank
+    // lags the command by design, and an integral wound up on that lag
+    // overbanked every turn by 4 degrees, and the 747, 787 and A380 to 29.6
+    // to 29.8 (every_aircraft_turns_ninety_degrees_without_overbanking_or_overshooting). Below the limit the heading loop
     // closes round the bank, and its own integral trims the roll: this one,
     // left on there, chased turbulence (a climb in moderate turbulence
     // settled in 38 s against 30), a stall's wing drop (a flying boat not

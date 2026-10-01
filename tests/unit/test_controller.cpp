@@ -2,11 +2,14 @@
 
 #include "sim/aircraft.hpp"
 #include "sim/controller.hpp"
+#include "sim/departure.hpp"
+#include "sim/lander.hpp"
 #include "sim/test_pilot.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <functional>
 #include <string>
 #include <vector>
@@ -199,6 +202,94 @@ GLIDESLOPE_TEST(handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_p
                   "load factor changes by no more than 0.05 g in a step: " +
                   std::to_string(to_ai_load) + ", " + std::to_string(catching_load));
     }
+
+    // **High and leaned, the mixture steps nothing either, and the engine
+    // keeps running.** At 10,000 ft a Cessna 172P's engine full rich runs
+    // past the eight parts of air to one of fuel JSBSim's piston engine
+    // burns (FGPiston's MIXTURE table), so a mixture stepped or walked to
+    // full rich there stops it. Three hand-overs, each from a leaned engine:
+    // an approach handed to the AI from a leaned cruise at 10,000 ft; a
+    // take-off handed to it on a runway at 9,500 ft, leaned there, as the
+    // handbooks' take-offs from high fields are; and the aeroplane taken back
+    // from the AI's leaned cruise at 10,000 ft by a pilot whose lever is at
+    // full rich, never having touched it. Each flown a minute after, the
+    // mixture moving no more than 0.01 in a step and the engine running
+    // throughout. The lander and the departure once set full rich in one
+    // step, and the take-back walked the mixture to the lever's full rich.
+    const std::filesystem::path data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const glideslope::sim::Runway runway{"test", -33.9461, 151.1772, 0.0, 340.0, 2000.0};
+    std::size_t high = 0;
+    for (const std::string what : {"an approach from a leaned cruise",
+                                   "a take-off from a high field, leaned",
+                                   "taken back from the AI's leaned cruise"}) {
+        ++high;
+        Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+        glideslope::sim::Runway here = runway;
+        glideslope::sim::InitialConditions ic = airborne(10000.0, 90.0);
+        if (what == std::string("a take-off from a high field, leaned")) {
+            ic = on_the_runway;
+            ic.altitude_ft = 9500.0;
+            ic.terrain_elevation_ft = 9500.0;
+            here.elevation_ft = 9500.0;
+        } else {
+            ic.latitude_deg = -34.0;
+            ic.heading_deg = 340.0;
+        }
+        aircraft.initialize(ic);
+        TestPilot pilot(aircraft);
+        Controls hands;
+        hands.throttle = 0.75;
+        // A ratio of about 12.6 to 1, near the most power, at 10,000 ft.
+        hands.mixture = 0.6;
+        Controller controller(aircraft, hands);
+        Controls before = hands;
+        double largest_mixture_step = 0.0;
+        bool running = true;
+        const bool take_back = what == std::string("taken back from the AI's leaned cruise");
+        for (int i = 0; i < (take_back ? 120 : 60) * steps_per_second; ++i) {
+            if (i == 0) {
+                if (take_back) {
+                    controller.to_ai();
+                } else if (ic.terrain_elevation_ft > 0.0) {
+                    controller.to_ai_take_off(
+                        here, glideslope::sim::departure_speeds(data, "c172p"));
+                } else {
+                    controller.to_ai_approach(
+                        here, glideslope::sim::approach_speeds(data, "c172p"));
+                }
+            } else if (take_back && i == 60 * steps_per_second) {
+                controller.to_pilot();
+                // The pilot's hands: full rich, never touched, and holding
+                // the aeroplane level.
+                hands = Controls{};
+                hands.throttle = 0.75;
+            }
+            if (take_back && i >= 60 * steps_per_second) {
+                hands.elevator = pilot.pitch_to(pilot.pitch_for_altitude(10000.0));
+                hands.aileron = pilot.roll_to(0.0);
+                hands.rudder = pilot.coordinate();
+                hands.mixture = 1.0;
+            }
+            controller.set_pilot(hands);
+            const Controls c = controller.fly();
+            aircraft.set_controls(c);
+            aircraft.step();
+            largest_mixture_step =
+                std::max(largest_mixture_step, std::abs(c.mixture - before.mixture));
+            running = running && aircraft.property("propulsion/engine/set-running") > 0.0;
+            before = c;
+        }
+        std::fprintf(stderr,
+                     "%s: the mixture %.4f at most in a step, ending at %.3f; the engine "
+                     "%s\n",
+                     what.c_str(), largest_mixture_step, before.mixture,
+                     running ? "running throughout" : "STOPPED");
+        check(largest_mixture_step <= 0.01,
+              what + ": the mixture moves no more than 0.01 in a step: " +
+                  std::to_string(largest_mixture_step));
+        check(running, what + ": the engine runs throughout");
+    }
+    check(high == 3, "three hand-overs high and leaned: " + std::to_string(high));
 }
 
 namespace {

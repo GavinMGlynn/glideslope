@@ -32,9 +32,14 @@
 // the way the power rises; and the resting place moves that way, slowly. On
 // the lean side of the peak the power rises with the lever, so it goes
 // richer; on the rich side it falls, so it goes leaner; at the peak the two
-// cancel. Below about 4,000 ft full rich is richer than the peak is not -
-// the peak is past the lever's stop - so it rests at its stop, as a
+// cancel. Below about 4,000 ft even full rich is leaner than the peak - the
+// peak lies past the lever's rich stop - so it rests at its stop, as a
 // handbook's "full rich below 3,000 ft" has it.
+//
+// **Never leaner than chemically correct**, as a bound and not a tendency:
+// the most power is always rich of 14.7 parts of air to one of fuel,
+// whatever the engine, so leaner than that the lever goes richer at a fixed
+// pace, a tenth of its travel a second, whatever the power seems to say.
 //
 // **Not EGT.** Real pilots lean by the exhaust temperature because it is the
 // gauge they have; JSBSim's exhaust temperature peaks near the chemically
@@ -48,10 +53,16 @@
 // stop and a Cessna 182 opened up out of a stall on an engine with little to
 // give. So there the ratio of air to fuel the peak was last found at, as the
 // engine reports it, is held: the mixture richens as a descent thickens the
-// air, as a pilot's hand does on the way down.
+// air, as a pilot's hand does on the way down. **Handed an engine, it starts
+// by holding the ratio the engine has then**, so a leaner made for an
+// approach or a departure from a leaned cruise goes on from the mixture it
+// was given rather than from full rich, which high up stops the engine.
 //
-// It never touches an engine that is not running: a stopped engine gives no
-// answer to lean by, and a mixture cut off is the pilot's.
+// **An engine it was leaning that stops is richened**, at the same tenth of
+// the travel a second, to full rich, as a pilot's first answer to a lean
+// stoppage is: windmilling, JSBSim's piston engine fires again on a mixture
+// it can burn. An engine handed to it stopped it leaves alone: a stopped
+// engine gives no answer to lean by, and a mixture cut off is the pilot's.
 
 #include "sim/aircraft.hpp"
 
@@ -80,6 +91,7 @@ private:
     double best_afr_ = 0.0;  // the air to fuel the peak was last found at
     double slow_power_ = 0.0; // the power, its slow drift only
     double slope_ = 0.0;      // the power's answer times the lever's movement
+    bool leaning_running_ = false; // the engine was running when last leaned
 };
 
 } // namespace glideslope::sim
