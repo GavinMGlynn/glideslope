@@ -298,7 +298,14 @@ the old session's `--timeout` let it go.
   `only_for` the stranger answered at 5. Red with the check disabled.
 - `a_full_server_reads_at_most_its_budget_of_initiations_a_second` (unit): a
   thousand at once read 32 times, half a second later 16, a clock going
-  backwards nothing, an hour idle 32. Red with the cap on the refill removed.
+  back a second and forward again to where it was nothing, an hour idle 32.
+  Red with the cap on the refill removed, and (after review) with a refill on
+  the size of the step either way.
+- **On Windows** (`tools/windows_build.sh`, MSVC, windows-debug, at f690159):
+  the server, the CLI and the tests build, and all four tests above pass.
+  A first attempt was not a result: another session switched the shared
+  Windows working copy to its own branch mid-run, so the build held none of
+  these tests; it was run again with the copy idle.
 
 ### The AI flares to its wheels and touches down within what its gear takes, 2026-10-01 — tail done
 

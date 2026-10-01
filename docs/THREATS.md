@@ -123,10 +123,16 @@ player's but whose initiation does not complete - a forger who sealed a
 player's public key without its secret - is refused at two, `ss` and the
 payload's tag failing. **And a full server does that reading at most 32 times
 a second** (`net::Budget`, `full_server_reads_per_second`), with as many at
-once: past it an initiation is refused unread, as all were before. So what a
-flood can now make a full server do is at most 64 X25519 operations a second
-- some milliseconds of one core - however fast it sends; what it can make a
-server with a slot free do is unbounded, as below. Held by
+once: past it an initiation is refused unread, as all were before. So a
+flood can make a full server read **32 initiations a second sustained, and
+double that in a burst** (the bucket starts full and refills as it is
+spent), however fast it sends. Each read costs one X25519 operation for a
+stranger's key, two for a forged claim of a player's, and **up to five for
+a player's own key** - an honest restart, or a replay of a player's captured
+initiation from a new address, either of which is answered in full and
+given a `Connection`. At worst, all replays, that is 160 operations a second
+sustained and about 320 in a burst: a few milliseconds of one core. What a
+flood can make a server with a slot free do is unbounded, as below. Held by
 `a_full_server_reads_a_strangers_initiation_no_further_than_its_key`, which
 counts the operations each of the three kinds of initiation cost,
 `a_full_server_reads_at_most_its_budget_of_initiations_a_second`, and the
@@ -905,9 +911,12 @@ an address that has one is answered from what is already there, or dropped.
 An unauthenticated datagram costs the server one `recvfrom`, an envelope read,
 and then whatever its type asks for: a `REFUSAL` written and sent, or - if it
 says `01` and a slot is free - an X25519 operation and a handshake answer.
-On a full server an initiation costs at most two X25519 operations and a
-refusal, and only 32 a second; past that, nothing but the refusal (see
-`HANDSHAKE_INITIATION` above). **There is no other rate limit of any kind**,
+On a full server an initiation is read at most 32 times a second (double in
+a burst), and past that costs nothing but a refusal. One that is read costs
+one X25519 operation and a refusal for a stranger's key, two for a forged
+claim of a player's, and five, a handshake answer and a `Connection` for a
+player's own key - an honest restart, or a replay of a player's captured
+initiation from a new address (see `HANDSHAKE_INITIATION` above). **There is no other rate limit of any kind**,
 and the loop sleeps for two
 milliseconds only when nothing was waiting, so a sustained flood keeps a core
 busy for as long as it lasts. That is the honest cost, and it is no longer the
@@ -942,19 +951,22 @@ sent a datagram. **The server's `Connection` follows half of that rule.** It is
 made in the `handshake_initiation` arm only after `Responder::answer` succeeds
 and `Slots::admit` returns a slot, so a datagram that is not a completed
 initiation makes no entry. **But it is made per address, not per key.**
-`Slots::admit` hands a key already in the session the slot it already has, and
-the server gives each entry an aircraft of its own. So one key's handshakes
-from many addresses make one entry per address, each with its own pair of
-cipher states, each costing an X25519 operation. They go only when `--timeout`
-sweeps them. One *captured* initiation still does this: a copy is dropped
-only from the address that first sent it, and from every other address it is
-answered (see "Replay" for why it must be). The session
-being full no longer stops it - a copy of a player's initiation is a player's
-key, which a full server now reads on (see `HANDSHAKE_INITIATION` above) -
-but at most two unproven sessions on a key are kept, the oldest let go for a
-newer, and a full server reads at most 32 initiations a second. That is the unbounded
-number of peers this section's first line names, and it is a path now rather
-than a warning: bounded only by the flood rate times `--timeout`. **No
+`Slots::admit` hands a key already in the session the slot it already has,
+and every session on a key shares the key's one aircraft. So one key's
+handshakes from many addresses make one entry per address, each with its own
+pair of cipher states and its own X25519 work. One *captured* initiation
+still does this: a copy is dropped only from the address that first sent it,
+and from every other address it is answered (see "Replay" for why it must
+be), on a full server as on one with a slot free, since a copy of a player's
+initiation carries a player's key, which a full server reads on (see
+`HANDSHAKE_INITIATION` above). **The entries are bounded, per key**: at most
+two unproven sessions on a key are kept, the oldest let go for a newer, and
+the first to prove itself lets every other on the key go. So the server holds
+at most about players x (1 proven + 2 unproven) entries - twelve at four
+players - whatever the flood rate. The cost of that cap: two replays from new
+addresses arriving during an honest restart's unproven round trip can evict
+it, and that player waits out the timeout - the same as a flood spending a
+full server's budget. **No
 `Reliable` follows the rule either, because no `Reliable` exists in the server
 at all.** Getting that wrong when it is wired is how a bounded per-peer cost
 becomes an unbounded one.
@@ -1105,8 +1117,10 @@ more, described above where each belongs:
   releases a key only when no connection is left on it;
 - **the connection table is keyed by address rather than by key**, so one
   captured initiation replayed from many spoofed addresses makes an entry and
-  an X25519 operation apiece, for as long as the session has a slot free.
-  Recorded nowhere;
+  X25519 work apiece - on a full server too, since 2026-10-02, at most 32
+  reads a second there. Capped since at two unproven entries per key, the
+  oldest let go for a newer; two replays during an honest restart's unproven
+  round trip can evict it, as exhausting a full server's budget can;
 - **`SERVER_FULL` and `BAD_HANDSHAKE` are sent to senders that have not
   authenticated**, which is what this document says they must not be. Recorded
   nowhere.
