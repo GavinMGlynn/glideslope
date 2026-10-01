@@ -582,8 +582,9 @@ flight plan from where the aircraft is, and checks it against the aircraft
 as the server has it - every waypoint within 200 km, every height 500 ft
 above both the sea and the ground beneath the aircraft - the collision
 ground, as the aircraft meets it - and every airspeed
-from the aircraft's approach speed to a fifth over its cruise (none of these
-for a glide, which flies neither), every orbit wide enough for its airspeed,
+within the speeds the aircraft's figures file says it holds clean round a
+tight turn - never below its approach speed (none of these for a glide,
+which flies neither), every orbit wide enough for its airspeed,
 a glide only with the engine stopped and from the approach speed to the best
 climb, and with the engine stopped nothing but a glide. **A route that fails
 is refused, and nothing changes**: the aircraft goes on as it was. The server

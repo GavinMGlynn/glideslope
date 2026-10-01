@@ -4,6 +4,7 @@
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
+#include "sim/figures.hpp"
 #include "sim/lander.hpp"
 #include "sim/leaner.hpp"
 #include "sim/test_pilot.hpp"
@@ -1034,9 +1035,10 @@ struct NotHeld {
 };
 
 // **Every aircraft in `expected` holds a heading in a crosswind without
-// yawing.** Each is put at 3,000 ft heading north at its approach speed - the
-// slowest a plan may fly it, where the wind is the largest part of its
-// airspeed - and at the airspeed it starts a flight at, the autopilot holding
+// yawing.** Each is put at 3,000 ft heading north at the slowest a plan may
+// fly it (its figures file's `<plan_speeds>`: its approach speed, or more
+// where it cannot hold that clean), where the wind is the largest part of
+// its airspeed - and at the airspeed it starts a flight at, the autopilot holding
 // the heading, the height and the speed, in calm air and in a 20 kt wind from
 // the west arriving all at once: a sideslip of 10 to 28 degrees to settle.
 // After `settle_s` each must hold its sideslip within a degree and its heading
@@ -1068,15 +1070,14 @@ void holds_a_heading_in_a_crosswind(const std::vector<std::string>& expected,
         }
         std::vector<double> speeds;
         if (out != left_out.end()) {
-            std::printf("%s not flown at its approach speed: %s\n", e.id.c_str(),
+            std::printf("%s not flown at the slowest a plan may fly it: %s\n", e.id.c_str(),
                         out->second.reason.c_str());
             not_flown += 2;
         } else {
-            const double vref =
-                std::round(glideslope::sim::approach_speeds(data(), e.model).vref_kts);
-            check(vref != e.start_airspeed_kts,
-                  e.id + "'s approach and starting speeds differ, so no case is flown twice");
-            speeds.push_back(vref);
+            const double slowest = glideslope::sim::plan_speeds(data(), e.model).slowest_kts;
+            check(slowest != e.start_airspeed_kts,
+                  e.id + "'s slowest and starting speeds differ, so no case is flown twice");
+            speeds.push_back(slowest);
         }
         speeds.push_back(e.start_airspeed_kts);
         for (const double speed_kts : speeds) {
@@ -1182,11 +1183,10 @@ GLIDESLOPE_TEST(every_light_aeroplane_holds_a_heading_in_a_20_kt_crosswind_and_i
 // The yaw damper's one gain acts on every aircraft, so every other one is
 // flown the same way. On the old law, without the damper, the F-22 at 300 kt
 // swung 4.8 degrees either way in the crosswind and never settled; every
-// other case flown held it as it does with the damper. Five jets come down to
-// the ground clean at their approach speed - a flaps-down figure - with the
-// damper or without it, in calm air as in wind, and are left out there: the
-// tail "A plan may fly a jet clean at its approach speed". The 787-8 comes
-// down 2,750 ft at its approach speed but holds its heading, and is flown.
+// other case flown held it as it does with the damper. Five jets came down to
+// the ground clean at their approach speed - a flaps-down figure - and were
+// left out there, and the 747-400 and F-22 had no approach speed, until each
+// aircraft had the slowest a plan may fly it: now every case is flown.
 GLIDESLOPE_TEST(every_aircraft_but_the_light_aeroplanes_holds_a_heading_in_a_20_kt_crosswind_and_in_calm_air_without_yawing) {
     std::vector<std::string> others;
     for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
@@ -1197,19 +1197,8 @@ GLIDESLOPE_TEST(every_aircraft_but_the_light_aeroplanes_holds_a_heading_in_a_20_
     check(others.size() + light_aeroplanes.size() ==
               glideslope::sim::read_catalogue(data()).size(),
           "the light aeroplanes and the rest are the whole catalogue");
-    const std::string clean_at_vref =
-        "flown clean at its approach speed it comes down to the ground, with the yaw damper "
-        "or without it: the tail \"A plan may fly a jet clean at its approach speed\"";
     holds_a_heading_in_a_crosswind(
-        others, [](const CatalogueEntry& e) { return !is_light(e); },
-        {{"747-400", {false, "it publishes no stall speed, so it has no approach speed"}},
-         {"f22", {false, "it publishes no stall speed, so it has no approach speed"}},
-         {"737-300", {false, clean_at_vref}},
-         {"a380", {false, clean_at_vref}},
-         {"b2", {false, clean_at_vref}},
-         {"f35b", {false, clean_at_vref}},
-         {"learjet35a", {false, clean_at_vref}}},
-        30.0);
+        others, [](const CatalogueEntry& e) { return !is_light(e); }, {}, 30.0);
 }
 
 // **Which aircraft have a speed floor, and which have none, said by name.**

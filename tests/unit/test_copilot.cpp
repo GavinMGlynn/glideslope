@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <filesystem>
 #include <fstream>
@@ -714,4 +715,92 @@ GLIDESLOPE_TEST(a_copilot_going_away_gives_up_its_question_at_once) {
     }
     check(*seen == 1, "the request was abandoned as the copilot went, not waited out (" +
                           std::string(*seen == 2 ? "waited out" : "neither") + ")");
+}
+
+// **A plan or a route outside the speeds its aircraft holds clean is
+// refused, and the model is told them**: an aircraft whose slowest is above
+// its approach speed - a jet's approach speed is a flaps-down figure, and a
+// plan is flown clean - and whose fastest is not a fifth over its cruise
+// (sim::plan_speeds). Told to the planner and to the copilot, each saying
+// why the slowest is not the approach speed; refused below the slowest and
+// above the fastest by both, and taken at each. Where neither is given, the
+// approach speed and a fifth over the cruise, as before.
+GLIDESLOPE_TEST(a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_refused_and_the_model_told_them) {
+    // The Cessna made a jet: 62 kt on the approach, but 80 the slowest and
+    // 120, not 126, the fastest.
+    glideslope::copilot::PlanRequest request = sydney("take off and orbit the CBD");
+    request.slowest_kts = 80;
+    request.fastest_kts = 120;
+    const std::string asked = glideslope::copilot::planning_request(request);
+    const std::string radius_at_80 =
+        std::to_string(static_cast<int>(std::ceil(glideslope::sim::least_orbit_radius_m(80.0)))) +
+        " m at 80 kt";
+    for (const std::string& part : {std::string("62 kt on the approach"),
+                                    std::string("every airspeed from 80 to 120 kt"),
+                                    std::string("never slower than 80: a plan is flown clean, "
+                                                "and the approach speed is for flaps down"),
+                                    radius_at_80}) {
+        check(asked.find(part) != std::string::npos,
+              "the request says \"" + part + "\":\n" + asked);
+    }
+    const auto plan_at = [](int kts) {
+        return "aircraft c172p\nrunway 34L -33.964298 151.181000 14 348 3962\ntakeoff 800\n"
+               "waypoint CLIMB -33.92 151.19 3000 " + std::to_string(kts) + "\n";
+    };
+    std::size_t covered = 0;
+    for (const int kts : {70, 79, 121, 126}) {
+        Scripted model({plan_at(kts), plan_at(100)});
+        const auto planned = glideslope::copilot::plan_from_words(model, request);
+        check(planned.refused.size() == 1 &&
+                  planned.refused[0].find("outside 80 to 120 kt") != std::string::npos &&
+                  model.conversations.size() == 2 &&
+                  model.conversations[1][2].text.find("outside 80 to 120 kt") != std::string::npos,
+              "a plan at " + std::to_string(kts) + " kt is refused and told back: " +
+                  (planned.refused.empty() ? std::string("taken") : planned.refused[0]));
+        ++covered;
+    }
+    for (const int kts : {80, 120}) {
+        Scripted model({plan_at(kts)});
+        check(glideslope::copilot::plan_from_words(model, request).refused.empty(),
+              "a plan at " + std::to_string(kts) + " kt is taken");
+        ++covered;
+    }
+    // Neither given: the approach speed and a fifth over the cruise.
+    glideslope::copilot::PlanRequest unsaid = sydney("take off");
+    Scripted at_approach({plan_at(62)});
+    check(glideslope::copilot::plan_from_words(at_approach, unsaid).refused.empty() &&
+              glideslope::copilot::planning_request(unsaid).find("never slower") ==
+                  std::string::npos,
+          "with none given, the approach speed is taken, and nothing said of a slowest");
+    // A slowest below the approach speed is the approach speed.
+    unsaid.slowest_kts = 50;
+    Scripted below({plan_at(55), plan_at(62)});
+    check(glideslope::copilot::plan_from_words(below, unsaid).refused.size() == 1,
+          "a slowest below the approach speed lets nothing below the approach through");
+    covered += 2;
+
+    // The copilot's routes, the same way: the server checks them with the
+    // same function (frontend/server/main.cpp).
+    glideslope::copilot::Brief brief = cessna_brief();
+    brief.slowest_kts = 80;
+    brief.fastest_kts = 120;
+    const auto running = off_bondi(true);
+    const std::string told = glideslope::copilot::situation_text(brief, running);
+    check(told.find("Every airspeed from 80 to 120 kt, never slower than 80: a route is flown "
+                    "clean, and the approach speed is for flaps down") != std::string::npos &&
+              told.find(radius_at_80) != std::string::npos,
+          "the copilot is told the slowest and fastest, and why:\n" + told);
+    const auto route_at = [&](int kts) {
+        const auto change = glideslope::copilot::read_change(
+            brief, running, "waypoint MANLY -33.80 151.30 2000 " + std::to_string(kts) + "\n");
+        return glideslope::copilot::change_refusal(brief, running, change);
+    };
+    for (const int kts : {70, 79, 121, 126}) {
+        check(route_at(kts).find("outside 80 to 120 kt") != std::string::npos,
+              "a route at " + std::to_string(kts) + " kt is refused: " + route_at(kts));
+        ++covered;
+    }
+    check(route_at(80).empty() && route_at(120).empty(), "at 80 and 120 kt it is flown");
+    covered += 2;
+    check(covered == 14, "fourteen cases: " + std::to_string(covered));
 }

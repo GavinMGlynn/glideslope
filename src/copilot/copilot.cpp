@@ -94,14 +94,22 @@ std::string copilot_instructions() {
 }
 
 std::string situation_text(const Brief& b, const Situation& now) {
+    const double slowest = slowest_routed_kts(b);
     std::string out =
         "The aircraft: " + b.aircraft + ", a " + b.aircraft_name + ". Its speeds: " +
         whole(b.approach_kts) + " kt on the approach, " + whole(b.climb_kts) + " kt best climb, " +
-        whole(b.cruise_kts) + " kt cruise. Every airspeed from " + whole(b.approach_kts) + " to " +
-        whole(b.cruise_kts * 1.2) + " kt; a glide from " + whole(b.approach_kts) + " to " +
+        whole(b.cruise_kts) + " kt cruise. Every airspeed from " + whole(slowest) + " to " +
+        whole(fastest_routed_kts(b)) + " kt";
+    // **Said why, where the floor is above the approach**, as the planner
+    // says it (planner.cpp).
+    if (slowest > b.approach_kts + 0.5) {
+        out += ", never slower than " + whole(slowest) +
+               ": a route is flown clean, and the approach speed is for flaps down";
+    }
+    out += "; a glide from " + whole(b.approach_kts) + " to " +
         whole(b.climb_kts) + " kt. An orbit's radius must be at least " +
-        whole(std::ceil(sim::least_orbit_radius_m(b.approach_kts))) + " m at " +
-        whole(b.approach_kts) + " kt and " +
+        whole(std::ceil(sim::least_orbit_radius_m(slowest))) + " m at " +
+        whole(slowest) + " kt and " +
         whole(std::ceil(sim::least_orbit_radius_m(b.cruise_kts))) + " m at " +
         whole(b.cruise_kts) + " kt: the least grows with the square of the airspeed.\n\n";
     out += "The pilot asked: " + b.task + "\n\n";
@@ -233,8 +241,8 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
         return "the engine has stopped: the route must begin with `glide AIRSPEED_KT`";
     }
     const double least_ft = std::max(0.0, now.ground_ft) + least_height_ft;
-    const double slowest = b.approach_kts;
-    const double fastest = b.cruise_kts * 1.2;
+    const double slowest = slowest_routed_kts(b);
+    const double fastest = fastest_routed_kts(b);
     for (const sim::Waypoint& w : change.plan.waypoints) {
         // **A glide flies neither a waypoint's height nor its airspeed**, so
         // neither is held to anything - a glide ends low, over its field -

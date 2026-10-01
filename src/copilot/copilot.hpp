@@ -59,10 +59,28 @@ struct Brief {
     std::string aircraft;      // its catalogue id, "c172p"
     std::string aircraft_name; // "Cessna 172P Skyhawk"
     double approach_kts = 0.0;
+    // The slowest and fastest a route may fly it under power
+    // (sim::plan_speeds), measured: a route is flown clean, and the approach
+    // speed is a flaps-down figure. Where not given (0), the approach speed
+    // and a fifth over the cruise; the slowest is never below the approach.
+    double slowest_kts = 0.0;
+    double fastest_kts = 0.0;
     double climb_kts = 0.0;
     double cruise_kts = 0.0;
     std::string task; // what the pilot said, "follow the coast north to Palm Beach"
 };
+
+// The slowest a route may fly the aircraft under power: its slowest, or its
+// approach speed where that is more.
+inline double slowest_routed_kts(const Brief& b) {
+    return b.slowest_kts > b.approach_kts ? b.slowest_kts : b.approach_kts;
+}
+
+// The fastest a route may fly it: its fastest, or a fifth over its cruise
+// where none is given.
+inline double fastest_routed_kts(const Brief& b) {
+    return b.fastest_kts > 0.0 ? b.fastest_kts : b.cruise_kts * 1.2;
+}
 
 // What it is told each time it is asked: the flight as it is now.
 struct Situation {

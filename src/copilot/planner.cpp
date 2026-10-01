@@ -86,17 +86,26 @@ std::string planning_instructions() {
 }
 
 std::string planning_request(const PlanRequest& r) {
+    const double slowest = slowest_planned_kts(r);
+    const double fastest = fastest_planned_kts(r);
     std::string out = "The aircraft: " + r.aircraft + ", a " + r.aircraft_name + ". Its speeds: " +
                       whole(r.approach_kts) + " kt on the approach, " + whole(r.climb_kts) +
                       " kt best climb, " + whole(r.cruise_kts) +
-                      " kt cruise. Plan every airspeed from " + whole(r.approach_kts) + " to " +
-                      whole(r.cruise_kts * 1.2) + " kt. An orbit's radius must be at least " +
-                      whole(std::ceil(sim::least_orbit_radius_m(r.approach_kts))) + " m at " +
-                      whole(r.approach_kts) + " kt, " +
+                      " kt cruise. Plan every airspeed from " + whole(slowest) + " to " +
+                      whole(fastest) + " kt";
+    // **Said why, where the floor is above the approach**: the approach
+    // speed is flown with the flaps down, and a plan is flown clean.
+    if (slowest > r.approach_kts + 0.5) {
+        out += ", never slower than " + whole(slowest) +
+               ": a plan is flown clean, and the approach speed is for flaps down";
+    }
+    out += ". An orbit's radius must be at least " +
+                      whole(std::ceil(sim::least_orbit_radius_m(slowest))) + " m at " +
+                      whole(slowest) + " kt, " +
                       whole(std::ceil(sim::least_orbit_radius_m(r.cruise_kts))) + " m at " +
                       whole(r.cruise_kts) + " kt and " +
-                      whole(std::ceil(sim::least_orbit_radius_m(r.cruise_kts * 1.2))) + " m at " +
-                      whole(r.cruise_kts * 1.2) +
+                      whole(std::ceil(sim::least_orbit_radius_m(fastest))) + " m at " +
+                      whole(fastest) +
                       " kt: the least grows with the square of the airspeed.\n\n";
     out += "It stands at " + r.airport + ". Its runways, one line for each way of taking off:\n\n";
     for (const world::RunwayEnd& end : r.runways) {
@@ -138,8 +147,8 @@ std::string refusal(const PlanRequest& r, const sim::FlightPlan& plan) {
         return "the runway " + runway.name + " is not one of the runway lines given, exactly";
     }
     const double least_ft = runway.elevation_ft + least_height_ft;
-    const double slowest = r.approach_kts;
-    const double fastest = r.cruise_kts * 1.2;
+    const double slowest = slowest_planned_kts(r);
+    const double fastest = fastest_planned_kts(r);
     for (const sim::Waypoint& w : plan.waypoints) {
         if (w.altitude_ft < least_ft) {
             return w.name + " is at " + whole(w.altitude_ft) + " ft, below " + whole(least_ft) +

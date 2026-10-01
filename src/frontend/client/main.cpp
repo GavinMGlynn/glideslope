@@ -41,6 +41,7 @@
 #include "platform/paths.hpp"
 #include "scenes.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/figures.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/navigator.hpp"
 #include "terrain.hpp"
@@ -808,6 +809,9 @@ static int run_program(int argc, char** argv) {
                 }
                 start.plan = glideslope::sim::parse_flight_plan(
                     std::string(std::istreambuf_iterator<char>(plan_file), {}));
+                // Held to its aircraft's speeds, as a model's plan is.
+                glideslope::sim::refuse_speeds_it_cannot_hold(
+                    glideslope::platform::data_directory(), *start.plan);
                 std::printf("glideslope: flying the plan %s, %zu waypoints\n",
                             path.string().c_str(), start.plan->waypoints.size());
             }
