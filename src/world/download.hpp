@@ -169,6 +169,24 @@ std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
                                    const std::string& name, const std::string& url,
                                    const std::string& sha256, const Fetch& fetch);
 
+// **The same, from the first of several sources that serves the pinned
+// file**, tried in order: one that cannot be reached, answers with an error,
+// or serves anything but the pinned bytes - an interstitial page, a different
+// file - is passed over for the next. Nothing but the pinned file is ever
+// kept. Throws DemError naming every source and why each was passed over if
+// none serves it, or if `urls` is empty.
+std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
+                                   const std::string& name,
+                                   const std::vector<std::string>& urls,
+                                   const std::string& sha256, const Fetch& fetch);
+
+// A file pinned by SHA-256 and where it is fetched from, in the order tried.
+struct PinnedFile {
+    std::string name;
+    std::vector<std::string> urls;
+    std::string sha256;
+};
+
 // DEM tiles and their water body masks from the cache, fetched from the
 // public buckets into it when they are not there yet. A file is checked
 // against the MD5 the bucket gives as its ETag before it is kept; one that
@@ -215,6 +233,12 @@ std::vector<RunwayEnd> world_runways(const std::filesystem::path& cache, const F
 // platform::runways_source() when a test names one. Throws RunwayError if it
 // names one that weather_service_allowed refuses.
 std::string runways_host();
+
+// The EGM2008 5-minute geoid's zip, its pin and its sources: a copy in a
+// GitHub repository at a fixed commit first, GeographicLib's own SourceForge
+// distribution after. tests/data/downloads/files.txt lists the same. See
+// docs/ASSETS.md.
+PinnedFile egm2008_geoid_file();
 
 // The EGM2008 5-minute geoid, from the cache or fetched into it. See
 // docs/ASSETS.md.

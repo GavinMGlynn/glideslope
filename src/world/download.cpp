@@ -325,6 +325,30 @@ std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
     return path;
 }
 
+std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
+                                   const std::string& name,
+                                   const std::vector<std::string>& urls,
+                                   const std::string& sha256, const Fetch& fetch) {
+    if (urls.empty()) {
+        throw DemError(name + " has no source to fetch it from");
+    }
+    // **More than one source**: SourceForge, the geoid's own home, went into
+    // "Disaster Recovery mode" on 2026-10-01 and served an 859-byte page in
+    // place of every file, which reddened the tree. Each source is checked
+    // against the one pin, so a second source can only ever give the same
+    // bytes.
+    std::string passed_over;
+    for (const std::string& url : urls) {
+        try {
+            return fetch_pinned(cache, name, url, sha256, fetch);
+        } catch (const DemError& e) {
+            passed_over += "\n  " + url + ": " + e.what();
+        }
+    }
+    throw DemError("no source served " + name + " with the pinned SHA-256 " + sha256 +
+                   ":" + passed_over);
+}
+
 DownloadedTiles::DownloadedTiles(std::filesystem::path cache, Fetch fetch)
     : cache_(std::move(cache)), fetch_(std::move(fetch)) {}
 
@@ -431,12 +455,21 @@ std::vector<RunwayEnd> world_runways(const std::filesystem::path& cache, const F
     return read_runways(text);
 }
 
+PinnedFile egm2008_geoid_file() {
+    return {"egm2008-5.zip",
+            {// deck.gl's data repository holds GeographicLib's zip byte for
+             // byte, committed once in 2020; pinned here by that commit.
+             "https://raw.githubusercontent.com/visgl/deck.gl-data/"
+             "f0b91db87bec5db75736e62cc4ab94c88072ea55/egm/egm2008-5.zip",
+             "https://sourceforge.net/projects/geographiclib/files/geoids-distrib/"
+             "egm2008-5.zip/download"},
+            "408f05e0c04a9f2e17b9ea2d27123f936e9dea60128bb3411a272f8ddbe318dd"};
+}
+
 Geoid egm2008_geoid(const std::filesystem::path& cache, const Fetch& fetch) {
-    const std::filesystem::path path = fetch_pinned(
-        cache, "egm2008-5.zip",
-        "https://sourceforge.net/projects/geographiclib/files/geoids-distrib/"
-        "egm2008-5.zip/download",
-        "408f05e0c04a9f2e17b9ea2d27123f936e9dea60128bb3411a272f8ddbe318dd", fetch);
+    const PinnedFile file = egm2008_geoid_file();
+    const std::filesystem::path path =
+        fetch_pinned(cache, file.name, file.urls, file.sha256, fetch);
     try {
         return load_geoid_zip(FileSource(path));
     } catch (const std::exception& e) {

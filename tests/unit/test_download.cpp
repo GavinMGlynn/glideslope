@@ -230,6 +230,107 @@ GLIDESLOPE_TEST(a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash) {
     check(bucket.asked.size() == 2, "and not fetched again");
 }
 
+GLIDESLOPE_TEST(a_pinned_file_is_fetched_from_the_first_of_its_sources_that_serves_its_pinned_bytes) {
+    const auto cache = scratch("pinned-sources");
+    const std::vector<std::uint8_t> geoid = {'g', 'e', 'o', 'i', 'd'};
+    const std::string pin = glideslope::world::sha256_hex(geoid);
+    // What SourceForge served on 2026-10-01 in place of the geoid: a page.
+    const std::string page = "<html><head><title>SourceForge</title></head></html>";
+    const std::string interstitial = "https://example.invalid/interstitial";
+    const std::string missing = "https://example.invalid/missing";
+    const std::string serves = "https://example.invalid/serves";
+    const std::string after = "https://example.invalid/after";
+    std::vector<std::string> asked;
+    const glideslope::world::Fetch fetch = [&](const std::string& url) {
+        asked.push_back(url);
+        HttpResponse r;
+        r.status = 200;
+        if (url == interstitial) {
+            r.body.assign(page.begin(), page.end());
+        } else if (url == missing) {
+            r.status = 404;
+        } else {
+            r.body = geoid;
+        }
+        return r;
+    };
+    // Every way a source is passed over - other bytes, an error status -
+    // before the one that serves the file; the one after it is never asked.
+    const auto path = glideslope::world::fetch_pinned(
+        cache, "grid.zip", std::vector<std::string>{interstitial, missing, serves, after},
+        pin, fetch);
+    check(asked == std::vector<std::string>{interstitial, missing, serves},
+          "each source is tried in order until one serves the pinned bytes, and no "
+          "further");
+    check(std::filesystem::exists(path) && std::filesystem::file_size(path) == geoid.size(),
+          "the pinned bytes are kept");
+
+    // None serves it: refused, naming every source and why, and nothing kept.
+    std::filesystem::remove_all(cache);
+    asked.clear();
+    try {
+        glideslope::world::fetch_pinned(cache, "grid.zip",
+                                        std::vector<std::string>{interstitial, missing},
+                                        pin, fetch);
+        fail("a file no source served was accepted");
+    } catch (const DemError& e) {
+        const std::string why = e.what();
+        check(why.find(interstitial) != std::string::npos &&
+                  why.find("not the pinned") != std::string::npos,
+              "the refusal names the source that served other bytes: " + why);
+        check(why.find(missing) != std::string::npos &&
+                  why.find("status 404") != std::string::npos,
+              "and the one that answered with an error: " + why);
+    }
+    check(asked.size() == 2, "both sources were tried");
+    check(!std::filesystem::exists(cache / "grid.zip"), "and nothing is kept");
+
+    try {
+        glideslope::world::fetch_pinned(cache, "grid.zip", std::vector<std::string>{}, pin,
+                                        fetch);
+        fail("a file with no source was fetched");
+    } catch (const DemError&) {
+    }
+}
+
+// The geoid the program fetches is the one the tests fetch: the same name,
+// pin and sources, in the same order, as tests/data/downloads/files.txt
+// lists - so the sources CI proves are the ones a player's machine tries.
+GLIDESLOPE_TEST(the_geoids_sources_and_pin_are_the_ones_the_tests_fetch) {
+    const glideslope::world::PinnedFile geoid = glideslope::world::egm2008_geoid_file();
+    check(geoid.urls.size() >= 2, "the geoid has more than one source");
+    std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) / "data" /
+                     "downloads" / "files.txt");
+    check(static_cast<bool>(in), "files.txt is read");
+    std::string line;
+    int found = 0;
+    while (std::getline(in, line)) {
+        if (line.empty() || line.front() == '#') {
+            continue;
+        }
+        std::vector<std::string> fields;
+        std::size_t at = 0;
+        while (at < line.size()) {
+            const std::size_t start = line.find_first_not_of(" \r", at);
+            if (start == std::string::npos) {
+                break;
+            }
+            const std::size_t end = std::min(line.find_first_of(" \r", start), line.size());
+            fields.push_back(line.substr(start, end - start));
+            at = end;
+        }
+        if (fields.empty() || fields[0] != geoid.name) {
+            continue;
+        }
+        ++found;
+        check(fields.size() >= 4, "the geoid's line has a name, size, pin and source");
+        check(fields[2] == geoid.sha256, "files.txt pins the geoid as the program does");
+        check(std::vector<std::string>(fields.begin() + 3, fields.end()) == geoid.urls,
+              "files.txt lists the program's sources, in its order");
+    }
+    check(found == 1, "files.txt lists the geoid once");
+}
+
 namespace {
 
 // What a cached file can have become that makes it unreadable: empty or cut
