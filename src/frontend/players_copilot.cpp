@@ -44,6 +44,53 @@ constexpr double fields_within_m = 40000.0;
 
 } // namespace
 
+HandOverModel read_hand_over_model(std::string_view text) {
+    if (text == "none") {
+        return {};
+    }
+    const std::size_t colon = text.find(':');
+    HandOverModel out;
+    out.provider = std::string(text.substr(0, colon));
+    if (colon != std::string_view::npos) {
+        out.model = std::string(text.substr(colon + 1));
+        if (out.model.empty()) {
+            throw std::invalid_argument("the hand-over's model is " + std::string(text) +
+                                        ": nothing after the colon");
+        }
+    }
+    if (out.provider == "none") {
+        throw std::invalid_argument("the hand-over's model is " + std::string(text) +
+                                    ": none is no model, and takes none after a colon");
+    }
+    if (out.provider != "anthropic" && out.provider != "openai") {
+        throw std::invalid_argument("the hand-over's model is " + std::string(text) +
+                                    ": not anthropic, openai or none");
+    }
+    return out;
+}
+
+std::string hand_over_task(const std::filesystem::path& data) {
+    const std::filesystem::path file = data / "tasks" / "hand-over.words";
+    std::ifstream in(file, std::ios::binary);
+    if (!in) {
+        throw std::runtime_error("cannot read " + file.string());
+    }
+    std::string words;
+    for (std::string line; std::getline(in, line);) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (line.empty() || line.front() == '#') {
+            continue;
+        }
+        words += (words.empty() ? "" : " ") + line;
+    }
+    if (words.empty()) {
+        throw std::runtime_error(file.string() + " has no words in it");
+    }
+    return words;
+}
+
 struct PlayersCopilot::Ground {
     world::DemCoverage coverage;
     world::Fetch fetch;

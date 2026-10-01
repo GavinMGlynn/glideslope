@@ -58,13 +58,17 @@ list(LENGTH _flags _count)
 # long apart planned aircraft take off, and --steps flies a number
 # of steps as fast as they go (server_planned.cmake). --fail-engine-at stops
 # every player's first engine at a time on the simulation's clock, for a
-# player's copilot to glide from (server_copilot.cmake).
+# player's copilot to glide from (server_copilot.cmake). --hand-over-planner
+# gives an aircraft the AI is given in the air a model to plan it, and
+# --hand-over-playback and --hand-over-record play its answers back or keep
+# them (server_hand_over_planner.cmake).
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
               --until-empty --ready-file --no-take-over --test-step-ms
               --drop-once-flown --ai-planner --ai-task --ai-playback --ai-spacing
-              --steps --fail-engine-at)
+              --steps --fail-engine-at --hand-over-planner --hand-over-playback
+              --hand-over-record)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)

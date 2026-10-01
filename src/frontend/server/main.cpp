@@ -10,6 +10,7 @@
 // startup, because a client cannot begin an `IK` handshake without it.
 
 #include "copilot/copilot.hpp"
+#include "frontend/players_copilot.hpp"
 #include "frontend/server/dashboard.hpp"
 #include "frontend/server/window.hpp"
 #include "net/budget.hpp"
@@ -58,6 +59,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iterator>
 #include <memory>
 #include <map>
@@ -125,6 +127,8 @@ struct Planner {
     std::string model;    // empty: the provider's own default
     // A recording to play the answers back from instead of asking, for tests.
     std::filesystem::path playback;
+    // Or a file to keep what was asked and answered in (`--hand-over-record`).
+    std::filesystem::path record;
 };
 
 struct Options {
@@ -137,6 +141,10 @@ struct Options {
     // and the task each is given to plan.
     std::map<int, Planner> planners;
     std::filesystem::path task;
+    // **Who plans an aircraft the AI is given in the air** - one left by a
+    // player who goes (`--on-leave ai`) or by a take-over - with the
+    // server's key (`--hand-over-planner`): none unless said.
+    Planner hand_over_planner;
     // Simulated seconds between one planned AI aircraft's departure and the
     // next's.
     double ai_spacing_s = default_departure_spacing_s;
@@ -206,6 +214,18 @@ void print_usage(std::FILE* out) {
         "                     key, or 'none', the plan file. A model with no key is\n"
         "                     refused, said, and the aircraft flies the plan file.\n"
         "                     May be given once for each AI aircraft\n"
+        "  --hand-over-planner WHO[:MODEL]  an aircraft the AI is given in the\n"
+        "                     air - left by a player who goes (--on-leave ai) or\n"
+        "                     by a take-over - is planned from where it is by\n"
+        "                     WHO, 'anthropic' or 'openai', asked with the\n"
+        "                     server's own key, or 'none' (the default): it flies\n"
+        "                     the plan file, left by a player, or holds its\n"
+        "                     course, left by a take-over. A model with no key is\n"
+        "                     refused, said, and it flies as with none\n"
+        "  --hand-over-playback FILE  that model is not asked: its answers are\n"
+        "                     played back from FILE, a recording, for tests\n"
+        "  --hand-over-record FILE  what that model is asked and answers is kept\n"
+        "                     in FILE, a recording\n"
         "  --ai-task FILE     what the models are asked to plan (default\n"
         "                     tasks/sydney-cbd-orbit.task in the data)\n"
         "  --ai-playback N=FILE  AI aircraft N's model is not asked: its answers\n"
@@ -284,6 +304,19 @@ std::string wrong_with(const Options& o) {
         })) {
         return "--ai-task is what a model is asked to plan, and --ai-planner gives no AI "
                "aircraft a model";
+    }
+    if (o.hand_over_planner.provider.empty() &&
+        (!o.hand_over_planner.playback.empty() || !o.hand_over_planner.record.empty())) {
+        return "--hand-over-playback and --hand-over-record are a model's answers, and "
+               "--hand-over-planner gives none";
+    }
+    if (!o.hand_over_planner.provider.empty() && !o.hand_to_ai_on_leave && !o.take_over) {
+        return "--hand-over-planner plans an aircraft left to the AI by a player who goes "
+               "(--on-leave ai) or by a take-over, and this server allows neither";
+    }
+    if (!o.hand_over_planner.playback.empty() && !o.hand_over_planner.record.empty()) {
+        return "--hand-over-playback asks nobody, so there is nothing for --hand-over-record "
+               "to keep";
     }
     if (!std::isfinite(o.ai_spacing_s) || o.ai_spacing_s < 0.0) {
         return "--ai-spacing is " + std::to_string(o.ai_spacing_s) +
@@ -485,6 +518,23 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
                 p.provider = who == "none" ? std::string() : who;
                 p.model = colon == std::string::npos ? std::string() : what.substr(colon + 1);
             }
+        } else if (a == "--hand-over-planner") {
+            if (!next(value)) return std::nullopt;
+            try {
+                const glideslope::frontend::HandOverModel m =
+                    glideslope::frontend::read_hand_over_model(value);
+                o.hand_over_planner.provider = m.provider;
+                o.hand_over_planner.model = m.model;
+            } catch (const std::invalid_argument& e) {
+                why = std::string("--hand-over-planner: ") + e.what();
+                return std::nullopt;
+            }
+        } else if (a == "--hand-over-playback") {
+            if (!next(value)) return std::nullopt;
+            o.hand_over_planner.playback = std::filesystem::path(std::string(value));
+        } else if (a == "--hand-over-record") {
+            if (!next(value)) return std::nullopt;
+            o.hand_over_planner.record = std::filesystem::path(std::string(value));
         } else if (a == "--ai-task") {
             if (!next(value)) return std::nullopt;
             o.task = std::filesystem::path(std::string(value));
@@ -619,6 +669,14 @@ void print_settings(const Options& o, std::FILE* out) {
                      o.task.empty() ? "(the data's tasks/sydney-cbd-orbit.task)"
                                     : o.task.string().c_str());
         std::fprintf(out, "spacing   %.0f s between planned take-offs\n", o.ai_spacing_s);
+    }
+    if (!o.hand_over_planner.provider.empty()) {
+        std::fprintf(out, "hand-over planned by %s%s%s%s\n", o.hand_over_planner.provider.c_str(),
+                     o.hand_over_planner.model.empty() ? "" : ", ",
+                     o.hand_over_planner.model.c_str(),
+                     o.hand_over_planner.playback.empty()
+                         ? ", asked with the server's key"
+                         : (", played back from " + o.hand_over_planner.playback.string()).c_str());
     }
     if (o.fail_engine_at_s >= 0.0) {
         std::fprintf(out, "engines   every player's first engine stops %.0f s in\n",
@@ -921,10 +979,32 @@ glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
 // aircraft on this one thread, so nothing here shares it.
 class Fleet {
 public:
+    struct Aircraft; // below, with what it holds
+    // Every hand-over's question given up first, so that what is still
+    // running ends as soon as giving up takes, not when its model answers.
+    ~Fleet() {
+        for (Aircraft& a : flown_) {
+            if (a.hand_over_copilot) {
+                a.hand_over_copilot->give_up();
+            }
+        }
+    }
+    Fleet(const Fleet&) = delete;
+    Fleet& operator=(const Fleet&) = delete;
     Fleet(const std::filesystem::path& data, const std::vector<Flown>& fly, int ai,
           const std::filesystem::path& plan_file, const std::map<int, Planner>& planners,
-          const std::filesystem::path& task_file, double departure_spacing_s)
+          const std::filesystem::path& task_file, double departure_spacing_s,
+          const Planner& hand_over_planner = {})
         : departure_spacing_s_(departure_spacing_s),
+          hand_over_planner_(hand_over_planner),
+          hand_over_words_(hand_over_planner.provider.empty()
+                               ? std::string()
+                               : glideslope::frontend::hand_over_task(data)),
+          hand_over_playback_(hand_over_planner.playback.empty()
+                                  ? std::optional<glideslope::copilot::Post>{}
+                                  : glideslope::copilot::playback(
+                                        hand_over_planner.playback,
+                                        glideslope::copilot::Match::but_numbers)),
           coverage_(read_coverage(data)),
           fetch_(glideslope::world::http_fetch()),
           tiles_(glideslope::platform::cache_directory(), fetch_),
@@ -1187,6 +1267,7 @@ public:
                 // aircraft gone by the end.
                 std::printf("  number %d, a player's, banked as far as %.0f degrees\n",
                             static_cast<int>(it->index), it->most_roll_deg);
+                retire(std::move(it->hand_over_copilot));
                 flown_.erase(it);
                 return false;
             }
@@ -1197,6 +1278,7 @@ public:
                 *it->aircraft, glideslope::sim::Controls{});
             it->controller->to_ai(plan_);
             ++ai_;
+            plan_hand_over(*it, "left by its player", "flies the plan file");
             return true;
         }
         return false;
@@ -1288,7 +1370,13 @@ public:
         if (found == nullptr) {
             return "no player's aircraft is number " + std::to_string(index);
         }
-        Aircraft& a = *found;
+        return fly_route_on(*found, route);
+    }
+
+    // The checks and the flying, for an aircraft found: a player's, or one
+    // given to the AI in the air and planned by the server's model.
+    std::string fly_route_on(Aircraft& a, const glideslope::net::CopilotRoute& route) {
+        const std::uint8_t index = a.index;
         if (a.wrecked_at_s >= 0.0) {
             return "it is a wreck";
         }
@@ -1371,11 +1459,258 @@ public:
         return static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
     }
 
+    // **An aircraft given to the AI in the air, planned by the server's
+    // model** (`--hand-over-planner`; REQUIREMENTS.md section 5, decided
+    // 2026-10-02): asked with the server's key, off the stepping thread
+    // (copilot::Copilot), from where the aircraft is - told what it is, how
+    // it flies, the runways near it, and the data's hand-over words. What
+    // it answers is checked again here as a player's copilot's route is
+    // (fly_route_on) and flown. With no planner, or one refused for want of
+    // its key, the aircraft goes on as it was given: `as_before`, said.
+    void plan_hand_over(Aircraft& a, const std::string& because, const std::string& as_before) {
+        retire(std::move(a.hand_over_copilot));
+        a.copilot_route.clear();
+        a.planned_route_seen = 0;
+        a.handed_because = because;
+        if (hand_over_planner_.provider.empty()) {
+            std::printf("aircraft %u, %s, is planned by no model: it %s\n",
+                        static_cast<unsigned>(a.index), because.c_str(), as_before.c_str());
+            std::fflush(stdout);
+            return;
+        }
+        try {
+            if (!a.brief) {
+                throw std::runtime_error("its speeds are not known: " + a.no_brief);
+            }
+            const bool played_back = hand_over_playback_.has_value();
+            const std::string key =
+                played_back                                ? std::string()
+                : hand_over_planner_.provider == "openai" ? glideslope::platform::openai_key()
+                                                           : glideslope::platform::anthropic_key();
+            glideslope::copilot::Post post =
+                played_back ? *hand_over_playback_
+                : hand_over_planner_.record.empty()
+                    ? glideslope::copilot::http_post()
+                    : glideslope::copilot::recording(glideslope::copilot::http_post(),
+                                                     hand_over_planner_.record);
+            auto provider = glideslope::copilot::make_provider(
+                hand_over_planner_.provider, key, hand_over_planner_.model, std::move(post),
+                played_back);
+            glideslope::copilot::Brief brief = *a.brief;
+            brief.aircraft_name = glideslope::sim::find_aircraft(data_, a.catalogue_id).name;
+            brief.task = hand_over_words_;
+            const std::string who = provider->name() + ", " + provider->model() +
+                                    (played_back ? ", played back" : "");
+            a.hand_over_copilot =
+                std::make_shared<glideslope::copilot::Copilot>(std::move(provider), brief);
+            // Asked now if the world's runways have been read, or as soon as
+            // they have (hand_over_answers): the question never waits on
+            // them, so giving it up is never held up by their download.
+            a.hand_over_asked = false;
+            if (runways_ready()) {
+                ask_hand_over(a);
+            }
+            std::printf("aircraft %u, %s, is planned by %s, asked from where it is\n",
+                        static_cast<unsigned>(a.index), because.c_str(), who.c_str());
+        } catch (const glideslope::copilot::ProviderError& e) {
+            std::printf("aircraft %u, %s: %s is refused: %s; it %s instead\n",
+                        static_cast<unsigned>(a.index), because.c_str(),
+                        hand_over_planner_.provider.c_str(), e.what(), as_before.c_str());
+        } catch (const std::exception& e) {
+            std::printf("aircraft %u, %s, cannot be planned: %s; it %s instead\n",
+                        static_cast<unsigned>(a.index), because.c_str(), e.what(),
+                        as_before.c_str());
+        }
+        std::fflush(stdout);
+    }
+
+    bool runways_ready() const {
+        return runways_.valid() &&
+               runways_.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+    }
+
+    // **The hand-over's question, asked**: what it is told read here on the
+    // stepping thread - the aircraft's properties are for this thread alone -
+    // but for the runways near it, looked up on the question's own, from
+    // the world's runways, read by now.
+    void ask_hand_over(Aircraft& a) {
+        glideslope::copilot::Situation now = situation_of(a);
+        now.event = "the aircraft has been handed to you, " + a.handed_because;
+        const std::shared_future<std::shared_ptr<const std::vector<glideslope::world::RunwayEnd>>>
+            runways = runways_;
+        a.hand_over_copilot->ask([now, runways]() mutable {
+            now.fields = fields_near(*runways.get(), now.latitude_deg, now.longitude_deg);
+            return now;
+        });
+        a.hand_over_asked = true;
+    }
+
+    // **A hand-over's question let go**: given up at once, and destroyed now
+    // only if nothing of it is running - else kept in `retiring_` until it
+    // is (hand_over_answers), so that the stepping thread never waits.
+    void retire(std::shared_ptr<glideslope::copilot::Copilot> copilot) {
+        if (!copilot) {
+            return;
+        }
+        copilot->give_up();
+        if (!copilot->settled()) {
+            retiring_.push_back(std::move(copilot));
+        }
+    }
+
+    // The flight as the server has it, for a model to be told.
+    glideslope::copilot::Situation situation_of(const Aircraft& a) {
+        const glideslope::sim::Aircraft& craft = *a.aircraft;
+        glideslope::copilot::Situation now;
+        now.latitude_deg = craft.property("position/lat-geod-deg");
+        now.longitude_deg = craft.property("position/long-gc-deg");
+        now.altitude_ft = craft.property("position/h-sl-ft") -
+                          geoid_.undulation(now.latitude_deg, now.longitude_deg) * feet_per_metre;
+        now.ground_ft =
+            collision_->height_above_geoid(now.latitude_deg, now.longitude_deg) * feet_per_metre;
+        now.heading_deg = craft.property("attitude/psi-deg");
+        now.airspeed_kts = craft.property("velocities/vc-kts");
+        now.vertical_speed_fpm = craft.property("velocities/h-dot-fps") * 60.0;
+        now.engine_running = !engine_stopped(a);
+        if (a.controller) {
+            now.gliding_kts = a.controller->glide();
+        }
+        return now;
+    }
+
+    // Runway ends within 40 km that say their elevation, nearest first: at
+    // most six, as a player's copilot is told.
+    static std::vector<glideslope::world::RunwayEnd>
+    fields_near(const std::vector<glideslope::world::RunwayEnd>& runways, double lat, double lon) {
+        std::vector<std::pair<double, const glideslope::world::RunwayEnd*>> nearby;
+        for (const glideslope::world::RunwayEnd& end : runways) {
+            if (std::isnan(end.elevation_ft)) {
+                continue;
+            }
+            const double d = glideslope::sim::distance_m(lat, lon, end.latitude_deg, end.longitude_deg);
+            if (d <= 40000.0) {
+                nearby.emplace_back(d, &end);
+            }
+        }
+        std::sort(nearby.begin(), nearby.end(),
+                  [](const auto& x, const auto& y) { return x.first < y.first; });
+        std::vector<glideslope::world::RunwayEnd> out;
+        for (std::size_t i = 0; i < nearby.size() && i < 6; ++i) {
+            out.push_back(*nearby[i].second);
+        }
+        return out;
+    }
+
+    // **The answers come in**, between two steps, never waited for: each
+    // route checked again against the aircraft as it is now and flown, or
+    // refused, and said.
+    void hand_over_answers(std::vector<std::string>& happened) {
+        // Questions let go, destroyed once nothing of them runs.
+        retiring_.erase(std::remove_if(retiring_.begin(), retiring_.end(),
+                                       [](const auto& c) { return c->settled(); }),
+                        retiring_.end());
+        for (Aircraft& a : flown_) {
+            if (!a.hand_over_copilot) {
+                continue;
+            }
+            char line[512];
+            if (a.wrecked_at_s >= 0.0 || a.slot >= 0) {
+                // Wrecked, or a player's again: its question is let go.
+                retire(std::move(a.hand_over_copilot));
+                continue;
+            }
+            if (!a.hand_over_asked) {
+                if (runways_ready()) {
+                    ask_hand_over(a);
+                }
+                continue;
+            }
+            std::optional<glideslope::copilot::Change> change;
+            try {
+                change = a.hand_over_copilot->answered();
+            } catch (const std::exception& e) {
+                std::snprintf(line, sizeof line, "aircraft %u's model did not plan it: %s",
+                              static_cast<unsigned>(a.index), e.what());
+                happened.emplace_back(line);
+                retire(std::move(a.hand_over_copilot));
+                continue;
+            }
+            if (!change) {
+                continue;
+            }
+            retire(std::move(a.hand_over_copilot));
+            for (const std::string& why : change->refused) {
+                happened.push_back("aircraft " + std::to_string(a.index) +
+                                   "'s model's answer refused: " + why);
+            }
+            if (change->keep) {
+                std::snprintf(line, sizeof line, "aircraft %u's model answered keep",
+                              static_cast<unsigned>(a.index));
+                happened.emplace_back(line);
+                continue;
+            }
+            glideslope::net::CopilotRoute route;
+            route.glide_kts = change->glide_kts;
+            std::string names;
+            for (const glideslope::sim::Waypoint& w : change->plan.waypoints) {
+                glideslope::net::RouteWaypoint r;
+                r.name = w.name;
+                r.latitude_deg = w.latitude_deg;
+                r.longitude_deg = w.longitude_deg;
+                r.altitude_ft = w.altitude_ft;
+                r.airspeed_kts = w.airspeed_kts;
+                if (w.orbit) {
+                    r.orbit = glideslope::net::RouteWaypoint::Orbit{
+                        w.orbit->radius_m, static_cast<std::uint8_t>(w.orbit->turns),
+                        w.orbit->right};
+                }
+                route.waypoints.push_back(std::move(r));
+                names += " " + w.name;
+            }
+            std::string refused;
+            try {
+                refused = fly_route_on(a, route);
+            } catch (const std::exception& e) {
+                refused = std::string("it could not be checked: ") + e.what();
+            }
+            if (refused.empty()) {
+                // And how far its first waypoint is, for the half-minute
+                // lines after to be measured from.
+                const glideslope::net::RouteWaypoint& first = route.waypoints.front();
+                std::snprintf(line, sizeof line,
+                              "aircraft %u, %s, flies its model's route of %zu:%s, %.0f s in, "
+                              "%.0f m from %s",
+                              static_cast<unsigned>(a.index), a.handed_because.c_str(),
+                              route.waypoints.size(), names.c_str(), now_s(),
+                              glideslope::sim::distance_m(
+                                  a.aircraft->property("position/lat-geod-deg"),
+                                  a.aircraft->property("position/long-gc-deg"),
+                                  first.latitude_deg, first.longitude_deg),
+                              first.name.c_str());
+            } else {
+                std::snprintf(line, sizeof line, "aircraft %u: its model's route refused: %s",
+                              static_cast<unsigned>(a.index), refused.c_str());
+            }
+            happened.emplace_back(line);
+        }
+    }
+
+    // **Whether every aircraft given to the AI in the air with a model to
+    // plan it is settled**: its question answered, and a route it flies said
+    // to be under way at five half-minute lines. What `--until-empty` waits
+    // for, besides its clients, when the server has a hand-over planner.
+    bool hand_overs_settled() const {
+        return std::none_of(flown_.begin(), flown_.end(), [](const Aircraft& a) {
+            return a.hand_over_copilot ||
+                   (!a.copilot_route.empty() && a.slot < 0 && a.planned_route_seen < 5);
+        });
+    }
+
     // **Where each aircraft on a copilot's route has got to**, a line each:
     // the waypoint it is flying to, and how far off it is.
-    std::vector<std::string> copilot_progress() const {
+    std::vector<std::string> copilot_progress() {
         std::vector<std::string> out;
-        for (const Aircraft& a : flown_) {
+        for (Aircraft& a : flown_) {
             if (a.copilot_route.empty() || !a.controller || a.controller->navigator() == nullptr) {
                 continue;
             }
@@ -1399,6 +1734,7 @@ public:
                               a.aircraft->property("velocities/vc-kts"), now_s());
             }
             out.emplace_back(line);
+            ++a.planned_route_seen;
         }
         return out;
     }
@@ -1471,6 +1807,8 @@ public:
                 follow(a);
             }
         }
+        // What the hand-overs' models have answered, if they have.
+        hand_over_answers(happened);
         // Where each copilot's route has got to, every half minute.
         if (steps_ % (30 * glideslope::sim::steps_per_second) == 0) {
             for (std::string& line : copilot_progress()) {
@@ -1564,6 +1902,14 @@ public:
         std::optional<glideslope::copilot::Brief> brief{};
         std::string no_brief{};
         int engines = 1;
+        // **Planned by the server's model, given to the AI in the air**
+        // (`--hand-over-planner`): the question out, why it was given, and
+        // whether its route has been said to be flown five times - what a server
+        // waiting on its events waits for (hand_overs_settled).
+        std::shared_ptr<glideslope::copilot::Copilot> hand_over_copilot{};
+        bool hand_over_asked = false; // or waiting for the world's runways
+        std::string handed_because{};
+        int planned_route_seen = 0;
     };
 
     void fail_engines_at(double s) {
@@ -1630,6 +1976,10 @@ public:
         taken->slot = player->slot;
         taken->id = taken->catalogue_id + " (slot " + std::to_string(player->slot) + ", taken over)";
         taken->on_plan = false;
+        // A model's route it was flying, and a question out for it, are
+        // the AI's, and go with it.
+        taken->copilot_route.clear();
+        retire(std::move(taken->hand_over_copilot));
         taken->held = player->held;
         taken->controller->set_pilot(taken->held);
         taken->controller->to_pilot();
@@ -1643,6 +1993,7 @@ public:
         }
         player->controller->to_ai();
         player->index = *number;
+        plan_hand_over(*player, "left by a take-over", "holds its course");
         announced_.push_back({taken->index, glideslope::net::Controller::person, now_s});
         announced_.push_back({player->index, glideslope::net::Controller::ai, now_s});
         std::printf("aircraft %u taken over; aircraft %u, left, now the AI's\n",
@@ -2004,6 +2355,24 @@ private:
     }
 
     double departure_spacing_s_;
+    // Who plans an aircraft given to the AI in the air, and the world's
+    // runways for it to be told of - read on a thread of their own, as the
+    // server starts, only when there is such a planner.
+    Planner hand_over_planner_;
+    // **What a hand-over's model is told, and a recording to play back,
+    // read once as the server starts** - a file not had refuses the start,
+    // saying so - and never on the stepping thread at a hand-over. One
+    // recording is played through in order, hand-over after hand-over.
+    std::string hand_over_words_;
+    std::optional<glideslope::copilot::Post> hand_over_playback_;
+    std::shared_future<std::shared_ptr<const std::vector<glideslope::world::RunwayEnd>>> runways_ =
+        hand_over_planner_.provider.empty()
+            ? std::shared_future<std::shared_ptr<const std::vector<glideslope::world::RunwayEnd>>>{}
+            : std::async(std::launch::async, [] {
+                  return std::make_shared<const std::vector<glideslope::world::RunwayEnd>>(
+                      glideslope::world::world_runways(glideslope::platform::cache_directory(),
+                                                       glideslope::world::http_fetch()));
+              }).share();
     glideslope::world::DemCoverage coverage_;
     glideslope::world::Fetch fetch_;
     glideslope::world::DownloadedTiles tiles_;
@@ -2012,6 +2381,11 @@ private:
     std::shared_ptr<glideslope::sim::FunctionTerrain> ground_;
     std::filesystem::path data_;
     std::vector<Aircraft> flown_;
+    // **Hand-over questions let go and not yet finished**: given up, and
+    // kept until nothing of them is running (`Copilot::settled`), so that
+    // letting one go never waits on the stepping thread - for its model, or
+    // for the world's runways it may still be waiting on.
+    std::vector<std::shared_ptr<glideslope::copilot::Copilot>> retiring_;
     // AI aircraft planned to take off whose turn has not come: not in the sky.
     std::vector<Aircraft> waiting_;
     // Where a player joining starts, and in what.
@@ -2873,7 +3247,8 @@ int run(const Options& o) {
     // so it is not built at all when there is nothing to fly.
     std::optional<Fleet> fleet;
     if (!o.fly.empty() || o.ai > 0) {
-        fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task, o.ai_spacing_s);
+        fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task, o.ai_spacing_s,
+                      o.hand_over_planner);
         fleet->fail_engines_at(o.fail_engine_at_s);
     }
 
@@ -3132,7 +3507,10 @@ int run(const Options& o) {
         if (!connections.empty()) {
             anyone_joined = true;
         }
-        if (o.until_empty && anyone_joined && connections.empty()) {
+        // **And every aircraft given to the AI in the air is planned and
+        // seen flying it** (hand_overs_settled), when a model plans them.
+        if (o.until_empty && anyone_joined && connections.empty() &&
+            (!fleet || fleet->hand_overs_settled())) {
             std::printf("everybody who joined has gone, %.1f s in\n", up_s);
             break;
         }

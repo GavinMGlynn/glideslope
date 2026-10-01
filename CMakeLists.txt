@@ -428,7 +428,8 @@ glideslope_configure(glideslope_cli)
 # ---------------------------------------------------------------------------
 add_executable(glideslope_server
     src/frontend/server/main.cpp
-    src/frontend/server/dashboard.cpp)
+    src/frontend/server/dashboard.cpp
+    src/frontend/players_copilot.cpp)
 # The copilot plans the AI aircraft a server's owner gives a model to
 # (--ai-planner): what it answers is only ever a flight plan.
 target_link_libraries(glideslope_server PRIVATE glideslope_sim glideslope_net

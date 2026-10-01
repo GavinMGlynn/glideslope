@@ -251,6 +251,26 @@ Layered, each built on the one below:
    trusting it no further - and its own AI flies it there. The key never
    leaves the client. AI aircraft the server runs are planned with the
    operator's key, on the server.
+   **A player handing their own aircraft to the AI chooses what plans it**
+   (2026-10-01): Claude, ChatGPT or none, none by default. With a model,
+   the player's copilot is asked on the player's machine, with the player's
+   key, for a route from where the aircraft is, and sends it as any
+   copilot's route; with none the AI holds its course, as before. A model
+   with no key is refused, saying so, and the aircraft held as with none.
+   Nothing on the wire changes: the hand-over is a `CONTROLLER_SWAP` and the
+   route a `COPILOT_ROUTE`.
+   **An aircraft given to the AI in the air without its player choosing -
+   left by a player who goes (`--on-leave ai`), or left by a take-over - is
+   planned by the server's model** (the project owner, 2026-10-02): the
+   player's key has gone with them, or the aircraft is no longer theirs, so
+   it is the server's choice, one setting for every such aircraft
+   (`--hand-over-planner`, Claude, ChatGPT or none, none by default), asked
+   on the server with the operator's key from where the aircraft is, off
+   the stepping thread, and its answer checked as a player's copilot's route
+   is before it is flown. With none, or a model with no key - refused, and
+   said - it goes on as it always did: left by its player, it flies the
+   server's plan file (and, with no plan file, is taken out of the sky);
+   left by a take-over, it holds its course.
 4. **Reinforcement learning (stretch goal):** JSBSim has Python gym-style
    wrappers for training landing or aerobatic agents.
 

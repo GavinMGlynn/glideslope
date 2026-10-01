@@ -3,7 +3,8 @@
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope> -DDATA=<data>
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
-#         -DDRIVER=<gpu driver> -DPLAYBACK=<recording> -P client_copilot.cmake
+#         -DDRIVER=<gpu driver> -DPLAYBACK=<recording> [-DHAND_OVER=TRUE]
+#         -P client_copilot.cmake
 #
 # **Built, not hoped for.** A server with one AI Cessna, and the client with
 # the window joining it and flying its own aircraft. Three seconds in it asks
@@ -19,6 +20,13 @@
 # up to five minutes of the flight past it. It was drawn at a fixed 25 s at
 # first, and on CI (run 36686103327) the copilot had been asked and had not
 # yet answered by then.
+#
+# **With HAND_OVER**, nothing is asked by C: the client starts with
+# `--hand-over-model anthropic:claude-haiku-4-5-20251001` and hands its
+# aircraft to the AI three seconds in (`--hand-over-after 3`, what A does),
+# and the model chosen plans it from where it is, in the air - played back
+# from PLAYBACK, the hand-over's recording. The same must follow: a route
+# answered and sent, the AI with the aircraft, one switch under 5 m.
 #
 # It needs a GPU driver, and the DEM's tiles; without either it reports
 # itself skipped (exit 77), never passed.
@@ -50,6 +58,13 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
+if(HAND_OVER)
+    set(_asking --hand-over-model anthropic:claude-haiku-4-5-20251001 --hand-over-after 3)
+else()
+    set(_asking --copilot "fly to Manly at 3,000 ft, then orbit over Manly beach"
+                --copilot-provider anthropic --copilot-model claude-haiku-4-5-20251001
+                --copilot-after 3)
+endif()
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 # The client connects once the server is flying (client.cmake says why).
 set(_ready "${WORK}/flying")
@@ -59,9 +74,7 @@ execute_process(
             --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 600 --view cockpit
-            --copilot "fly to Manly at 3,000 ft, then orbit over Manly beach"
-            --copilot-provider anthropic --copilot-model claude-haiku-4-5-20251001
-            --copilot-playback "${PLAYBACK}" --copilot-after 3
+            ${_asking} --copilot-playback "${PLAYBACK}"
             --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
@@ -78,6 +91,31 @@ if(NOT _rc EQUAL 0)
 endif()
 if(NOT _out MATCHES "the shot drawn [0-9.]+ s past its tick; its copilot's route sent, and the server says the AI has it")
     message(FATAL_ERROR "the shot was drawn before the copilot's route was flown:\n${_out}")
+endif()
+# **Flown, not refused**: the server says nothing back of a route it refuses,
+# and the AI has the aircraft either way once it was handed over - so the
+# aircraft must have come 200 m nearer the route's first waypoint than it was
+# when the route was sent, which the shot waits for.
+# This rests on the recordings' geometry: a route refused leaves the AI
+# holding the aircraft's heading, 6 degrees, which takes it away from both
+# recordings' first waypoints - MANLY as Claude placed it, at -33.96, south
+# of the aircraft, and YSSY_RW25 to its south-west - so it never comes 200 m
+# nearer either. A recording whose first waypoint lay ahead would not tell.
+if(NOT _out MATCHES "its copilot's route: to [A-Za-z0-9_]+, ([0-9]+) m off when sent, ([0-9]+) m at the shot")
+    message(FATAL_ERROR "the client did not say how far off its route's first waypoint was:\n${_out}")
+endif()
+set(_sent_m "${CMAKE_MATCH_1}")
+set(_shot_m "${CMAKE_MATCH_2}")
+math(EXPR _nearer "${_sent_m} - ${_shot_m}")
+if(_nearer LESS 200)
+    message(FATAL_ERROR "the aircraft came ${_nearer} m nearer its route's first waypoint, not "
+                        "200: the route was not flown:\n${_out}")
+endif()
+if(HAND_OVER AND NOT _out MATCHES "glideslope: handed over, planned by anthropic, claude-haiku-4-5-20251001\n")
+    message(FATAL_ERROR "the client never said the model chosen planned the hand-over:\n${_out}")
+endif()
+if(HAND_OVER AND NOT _out MATCHES "glideslope: asked its copilot, the pilot has handed you the aircraft")
+    message(FATAL_ERROR "the client's copilot was not asked as it was handed over:\n${_out}")
 endif()
 if(NOT _out MATCHES "glideslope: its copilot answered with a route of [0-9]+:")
     message(FATAL_ERROR "the client's copilot did not answer with a route:\n${_out}")
@@ -97,5 +135,6 @@ endif()
 if(_step GREATER_EQUAL 5)
     message(FATAL_ERROR "what the client showed stepped ${_step} m at the switch, the bound 5 m:\n${_out}")
 endif()
-message(STATUS "the copilot's route went to the server, which handed the aircraft to its AI; "
-               "what was shown stepped ${_step} m at the switch")
+message(STATUS "the copilot's route went to the server, which handed the aircraft to its AI "
+               "and flew it, ${_sent_m} m from its first waypoint then ${_shot_m} m; what was "
+               "shown stepped ${_step} m at the switch")

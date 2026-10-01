@@ -1,0 +1,10 @@
+# What a player's copilot is asked when its player hands the aircraft to the
+# AI with a model chosen to plan it (glideslope --hand-over-model, and
+# glideslope_cli connect's). It is told, besides, where the aircraft is, how
+# it is flying and the runways near it, as it always is, and answers with a
+# route the server checks and flies - nothing else. Lines beginning # are
+# comments; the rest is the words.
+I have handed you the aircraft in flight while I am away from the controls.
+Keep it safe and near: from where it is now, at a safe height above the
+ground, fly to somewhere close by worth seeing and orbit over it until I take
+the aircraft back.

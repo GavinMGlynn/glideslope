@@ -171,6 +171,11 @@ struct Options {
     std::string copilot_model;
     std::string copilot_playback; // for tests: a recording, asked of nobody
     double copilot_after_s = -1.0; // for tests: as C does, S seconds after joining
+    // **The model that plans its aircraft when A hands it to the AI**
+    // (`--hand-over-model`): none by default; with one, the copilot is made
+    // with it and asked as the aircraft is handed over.
+    glideslope::frontend::HandOverModel hand_over_model;
+    bool copilot_provider_given = false;
     double take_back_after_s = -1.0;
     // On a server, stall this many seconds of flight in - send nothing and
     // answer nothing, as a stopped process - until the server lets it go.
@@ -251,6 +256,11 @@ void usage(std::FILE* out) {
         "                minute; only its route goes to the server, which checks\n"
         "                it and flies it with its AI. --copilot-provider openai|\n"
         "                anthropic, --copilot-model M\n"
+        "  --hand-over-model P  on a server, what plans your aircraft when A\n"
+        "                hands it to the AI: anthropic or openai (each with :MODEL\n"
+        "                if wanted), asked with your own key on this machine for a\n"
+        "                route from where it is, or none (the default), and the AI\n"
+        "                holds its course. It is the copilot C asks, too\n"
         "  --hand-over-after S, --take-back-after S  on a server, hand your own\n"
         "                aircraft to the AI S seconds after joining, and take it\n"
         "                back, as A does (for tests)\n"
@@ -490,8 +500,17 @@ static int run_program(int argc, char** argv) {
             o.copilot_task = std::string(args[++i]);
         } else if (a == "--copilot-provider" && has_value) {
             o.copilot_provider = std::string(args[++i]);
+            o.copilot_provider_given = true;
         } else if (a == "--copilot-model" && has_value) {
             o.copilot_model = std::string(args[++i]);
+            o.copilot_provider_given = true;
+        } else if (a == "--hand-over-model" && has_value) {
+            try {
+                o.hand_over_model = glideslope::frontend::read_hand_over_model(args[++i]);
+            } catch (const std::invalid_argument& e) {
+                std::fprintf(stderr, "glideslope: %s\n", e.what());
+                ok = false;
+            }
         } else if (a == "--copilot-playback" && has_value) {
             o.copilot_playback = std::string(args[++i]);
         } else if (a == "--copilot-after" && has_value) {
@@ -551,6 +570,18 @@ static int run_program(int argc, char** argv) {
             usage(stderr);
             return 2;
         }
+    }
+    // **One copilot**, planned by one model: the hand-over's, when one is
+    // chosen, which C asks too.
+    if (!o.hand_over_model.provider.empty() && o.copilot_provider_given) {
+        std::fputs("glideslope: --hand-over-model chooses the copilot's model: not with "
+                   "--copilot-provider or --copilot-model\n",
+                   stderr);
+        return 2;
+    }
+    if (!o.hand_over_model.provider.empty()) {
+        o.copilot_provider = o.hand_over_model.provider;
+        o.copilot_model = o.hand_over_model.model;
     }
     if (o.headless && o.shot.empty()) {
         std::fputs("glideslope: --headless needs --shot, or it has nothing to show\n",
@@ -1127,33 +1158,61 @@ static int run_program(int argc, char** argv) {
         // from then (frontend/players_copilot.hpp), and nothing it does is
         // on this thread after.
         std::unique_ptr<glideslope::frontend::PlayersCopilot> copilot;
+        std::string copilot_refused;
+        std::string hand_over_words;
+        // **Where its copilot's route was going when sent**, and how far off:
+        // a shot waits until the aircraft is nearer it - flown by the server,
+        // not refused there, which the server does not say back.
+        std::optional<glideslope::sim::Waypoint> route_to;
+        double route_sent_m = 0.0;
+        double route_now_m = 0.0;
         bool copilot_made = false;
         bool asked_the_copilot = false;
         bool copilot_route_sent = false;
         const auto make_the_copilot = [&]() {
-            if (copilot_made || o.copilot_task.empty() || !joined) {
+            const bool for_hand_over = !o.hand_over_model.provider.empty();
+            if (copilot_made || (o.copilot_task.empty() && !for_hand_over) || !joined) {
                 return;
             }
             copilot_made = true;
+            // **The hand-over's words**: the copilot's task without one of
+            // the player's, and said with the hand-over's question with one.
+            // From the installed data beside the program, as the catalogue
+            // is. Not had, that is said for what it is - not as a key refused.
+            if (for_hand_over) {
+                try {
+                    hand_over_words =
+                        glideslope::frontend::hand_over_task(glideslope::platform::data_directory());
+                } catch (const std::exception& e) {
+                    copilot_refused = std::string("its words cannot be read: ") + e.what();
+                    std::printf("glideslope: the hand-over's words cannot be read: %s\n", e.what());
+                    if (o.copilot_task.empty()) {
+                        return;
+                    }
+                }
+            }
             try {
                 glideslope::frontend::PlayersCopilotOptions c;
                 c.aircraft = joined->aircraft_id;
-                c.task = o.copilot_task;
+                c.task = o.copilot_task.empty() ? hand_over_words : o.copilot_task;
                 c.provider = o.copilot_provider;
                 c.model = o.copilot_model;
                 c.playback = o.copilot_playback;
                 c.routine_s = 60.0;
                 copilot = std::make_unique<glideslope::frontend::PlayersCopilot>(
                     glideslope::platform::data_directory(), c);
-                std::printf("glideslope: copilot %s ready: C asks it\n",
-                            copilot->provider().c_str());
+                std::printf("glideslope: copilot %s ready: %s\n", copilot->provider().c_str(),
+                            o.copilot_task.empty() ? "it plans a hand-over (A)"
+                            : for_hand_over        ? "C asks it, and it plans a hand-over (A)"
+                                                   : "C asks it");
             } catch (const std::exception& e) {
+                copilot_refused = o.copilot_provider + " was refused: " + e.what();
                 std::printf("glideslope: no copilot: %s\n", e.what());
             }
         };
         const auto ask_the_copilot = [&]() {
             make_the_copilot();
-            if (!copilot) {
+            if (!copilot || o.copilot_task.empty()) {
                 std::printf("glideslope: no copilot%s\n",
                             o.copilot_task.empty() ? ": start with --copilot TASK" : "");
                 return;
@@ -1164,6 +1223,25 @@ static int run_program(int argc, char** argv) {
             online->hand_over(to_ai);
             std::printf("glideslope: asked for aircraft %u to be handed to %s\n",
                         static_cast<unsigned>(online->mine()), to_ai ? "the AI" : "its pilot");
+            // **Planned by the model chosen for it**, asked from where the
+            // aircraft is; refused - no key - it is held, as with none.
+            // Taken back, its copilot stands by at once.
+            if (!to_ai && copilot) {
+                copilot->taken_back();
+            }
+            if (to_ai && !o.hand_over_model.provider.empty()) {
+                make_the_copilot();
+                if (copilot && (!o.copilot_task.empty() || !hand_over_words.empty())) {
+                    copilot->handed_over(o.copilot_task.empty() ? std::string() : hand_over_words);
+                    asked_the_copilot = true; // and the shot waits for its route
+                    std::printf("glideslope: handed over, planned by %s\n",
+                                copilot->provider().c_str());
+                } else {
+                    std::printf("glideslope: handed over, planned by no model (%s): the AI "
+                                "holds its course\n",
+                                copilot_refused.c_str());
+                }
+            }
         };
         struct OtherMesh {
             glideslope::gfx::MeshId id = 0;
@@ -1479,9 +1557,24 @@ static int run_program(int argc, char** argv) {
                 if (copilot && online->own_heard()) {
                     try {
                         const auto& [heard_s, own] = *online->own_heard();
+                        const glideslope::world::Geodetic at =
+                            glideslope::world::to_geodetic({own.x_m, own.y_m, own.z_m});
                         if (auto route = copilot->look(heard_s, own)) {
+                            const glideslope::net::RouteWaypoint& first = route->waypoints.front();
+                            route_to = glideslope::sim::Waypoint{};
+                            route_to->name = first.name;
+                            route_to->latitude_deg = first.latitude_deg;
+                            route_to->longitude_deg = first.longitude_deg;
+                            route_sent_m = glideslope::sim::distance_m(
+                                at.latitude_deg, at.longitude_deg, first.latitude_deg,
+                                first.longitude_deg);
                             online->send_route(std::move(*route));
                             copilot_route_sent = true;
+                        }
+                        if (route_to) {
+                            route_now_m = glideslope::sim::distance_m(
+                                at.latitude_deg, at.longitude_deg, route_to->latitude_deg,
+                                route_to->longitude_deg);
                         }
                     } catch (const std::exception& e) {
                         std::printf("glideslope: copilot: %s\n", e.what());
@@ -1649,8 +1742,12 @@ static int run_program(int argc, char** argv) {
                 // events again - the copilot's ground made and the model's
                 // answer taken, which on a slow machine is well past any
                 // tick. Five minutes of the flight past it bound it.
+                // Flown, not refused: 200 m nearer its first waypoint than
+                // when it was sent.
+                const bool route_flown = route_to && route_now_m <= route_sent_m - 200.0;
                 const bool copilot_unheard =
-                    asked_the_copilot && (!copilot_route_sent || !online->own_ai_flying());
+                    asked_the_copilot &&
+                    (!copilot_route_sent || !online->own_ai_flying() || !route_flown);
                 const bool waited_for_copilot =
                     ticks >= o.shot_at + 300 * glideslope::sim::steps_per_second;
                 if (shot_now && copilot_unheard && !waited_for_copilot) {
@@ -1664,6 +1761,11 @@ static int run_program(int argc, char** argv) {
                                     ? "its copilot's route not yet sent and flown by the AI"
                                     : "its copilot's route sent, and the server says the AI "
                                       "has it");
+                    if (route_to) {
+                        std::printf("glideslope: its copilot's route: to %s, %.0f m off when "
+                                    "sent, %.0f m at the shot\n",
+                                    route_to->name.c_str(), route_sent_m, route_now_m);
+                    }
                 }
                 if (shot_now && asked_to_stall) {
                     std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",
