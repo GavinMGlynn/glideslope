@@ -78,7 +78,9 @@ if(NOT _measured EQUAL ${STEPS})
 endif()
 
 # Each pair, by name.
-string(REGEX MATCHALL "apart: [^\n]*" _lines "${_out}")
+# Each at the start of its line: not "kept apart:", the line for them all.
+string(REGEX MATCHALL "\napart: [^\n]*" _lines "${_out}")
+list(TRANSFORM _lines STRIP)
 list(LENGTH _lines _count)
 if(NOT _count EQUAL 6)
     message(FATAL_ERROR "${_count} pairs were reported, not six:\n${_out}")

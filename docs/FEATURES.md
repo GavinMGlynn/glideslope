@@ -185,9 +185,11 @@ the controls to an AI pilot whenever you like, then take them back.
 - **AI traffic.** `WANTED`
   Other aircraft flown by AI pilots share the sky, and keep flying when every
   player has gone home.
-  *Not yet:* AI aircraft are kept apart on the runway and in their orbit but
-  not along the way, and on the Sydney route the Learjet and the Mosquito come
-  down in Botany Bay.
+  AI aircraft keep 500 ft or 1.5 nm apart, climbing or descending out of one
+  another's way.
+  *Not yet:* an aircraft you hand to the AI is given the same room but nobody
+  has measured it, nothing stops you flying into an AI aircraft, and on the
+  Sydney route the Learjet and the Mosquito come down in Botany Bay.
 
 - **A copilot you talk to.** `WANTED`
   Say "take off, climb to 3,000 ft and orbit the CBD" and the copilot turns it

@@ -28,7 +28,8 @@
 //
 // **Who gives way**: an AI aircraft whose autopilot is flying (not one taking
 // off or landing, nor a person's), to every aircraft that does not give way -
-// a person's, one taking off - and to every AI aircraft before it in the
+// a person's, one taking off, one the server holds on a course its operator
+// set - and to every AI aircraft before it in the
 // server's order, which is the order they were made or took off in. So the
 // first never moves for the second, and nothing is asked of a person.
 //
