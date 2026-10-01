@@ -8,6 +8,7 @@
 #include "world/dem.hpp"
 #include "world/download.hpp"
 #include "world/geodesy.hpp"
+#include "world/runway_ground.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -49,14 +50,21 @@ struct PlayersCopilot::Ground {
     world::DownloadedTiles tiles;
     world::Geoid geoid;
     world::Dem dem;
+    // **The ground as the aircraft meets it**: the DEM with every runway its
+    // own surface, as the server's collision ground is - so the copilot is
+    // told the ground the server will check its route against.
+    world::CollisionGround collision;
     std::vector<world::RunwayEnd> runways;
 
-    Ground(std::string_view coverage_text, const std::filesystem::path& cache)
+    Ground(std::string_view coverage_text, const std::filesystem::path& cache,
+           const std::filesystem::path& data)
         : coverage(coverage_text),
           fetch(world::http_fetch()),
           tiles(cache, fetch),
           geoid(world::egm2008_geoid(cache, fetch)),
           dem(coverage, tiles, &geoid),
+          collision(std::shared_ptr<world::Dem>(&dem, [](world::Dem*) {}),
+                    world::runway_surfaces(data)),
           runways(world::world_runways(cache, fetch)) {}
 };
 
@@ -96,9 +104,9 @@ PlayersCopilot::PlayersCopilot(const std::filesystem::path& data, PlayersCopilot
     // Its fetches given up as it goes (`going_`), so that quitting while
     // they are under way does not wait for them.
     ground_ = std::async(std::launch::async,
-                         [coverage = std::move(coverage), cache, going = &going_] {
+                         [coverage = std::move(coverage), cache, data, going = &going_] {
                              const world::FetchesGivenUp given_up(*going);
-                             return std::make_shared<Ground>(coverage, cache);
+                             return std::make_shared<Ground>(coverage, cache, data);
                          })
                   .share();
 }
@@ -133,7 +141,8 @@ copilot::Situation PlayersCopilot::situation(double simulation_s, const net::Air
     now.altitude_ft =
         (at.height_m - ground->geoid.undulation(at.latitude_deg, at.longitude_deg)) *
         feet_per_metre;
-    now.ground_ft = ground->dem.height_above_geoid(at.latitude_deg, at.longitude_deg) * feet_per_metre;
+    now.ground_ft =
+        ground->collision.height_above_geoid(at.latitude_deg, at.longitude_deg) * feet_per_metre;
     now.heading_deg = static_cast<double>(own.heading_deg);
     const double vx = static_cast<double>(own.vx_mps);
     const double vy = static_cast<double>(own.vy_mps);

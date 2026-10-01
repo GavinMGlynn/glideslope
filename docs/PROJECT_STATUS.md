@@ -343,6 +343,17 @@ server says where each copilot's route has got to every half minute.
   with the glide not flown the test is red for the glide - "67 to 72 kt, not
   within 5 kt of the 60 kt asked for" - before it is red for the recording.
 
+**Rebased onto the collision ground (2026-10-01).** The copilot's ground is
+the collision ground everywhere now - the DEM with every runway its own
+surface, as the aircraft meets it: the server's check of a route, the
+player's copilot's "ground beneath" (its own `world::CollisionGround` on its
+own DEM, on its question's thread), and `glideslope_cli fly-copilot`'s
+aircraft and figures, which had flown over the raw DEM. So the route a
+player's copilot plans is checked by the server against the same ground.
+`COPILOT_ROUTE` and the condition `02` came without the protocol's version
+moving - it is `02`, for the ground - as TRANSPORT.md's rule for layout
+changes before a first release says; the doc client reads condition `02`.
+
 **Rebased onto the learnt landing (2026-10-01).** A copilot's route that
 arrives while the learnt landing flies (`sim::Controller::to_ai_learnt_approach`)
 now lets it go, as it does a take-off or an approach: the autopilot is

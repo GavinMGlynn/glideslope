@@ -558,7 +558,9 @@ std::optional<StateUpdate> read_state(std::span<const std::uint8_t> pt) {
         if (r.u8() > 0x02) r.fail();  // a CONTROLLER this version does not know
         // Added when TRANSPORT.md added it (2026-09-24): flying or a wreck.
         const std::uint8_t condition = r.u8();
-        if (condition > 0x01) r.fail();  // a condition this version does not know
+        // 00 flying, 01 a wreck, 02 flying with an engine stopped; anything
+        // else a condition this version does not know
+        if (condition > 0x02) r.fail();
         a.wrecked = condition == 0x01;
         for (int j = 0; j < 3; ++j) static_cast<void>(r.f64());  // position
         for (int j = 0; j < 5; ++j) static_cast<void>(r.f32());  // velocity, heading, pitch
