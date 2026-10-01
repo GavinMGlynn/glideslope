@@ -16,6 +16,11 @@
   tolerances are this project's, stated with each figure, as the Cessna
   172P's are; see docs/PROJECT_STATUS.md for what the model measured.
 
+  Not flown: the service ceiling, 18,100 ft. The AI, leaning the mixture for
+  best power (src/sim/leaner.hpp), climbs this model to only about 13,600 ft
+  at the best-climb speed: its climb falls away with height far faster than
+  the handbook's, which is a tail of its own (docs/COMPLETION_PLAN.md).
+
   The handbook's speeds are "based on airplane with optional speed fairings
   which increase speeds by approximately 3 knots" (page ii); the model is the
   aircraft with them.

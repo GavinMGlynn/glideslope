@@ -251,6 +251,14 @@ public:
         return climb_floor_kts_;
     }
 
+    // **Whether its engines have a mixture lever for the autopilot to lean**
+    // for best power (sim/leaner.hpp): the catalogue's `mixture-lever`, read
+    // once when the model loads. False for a model loaded where there is no
+    // catalogue.
+    bool mixture_lever() const {
+        return mixture_lever_;
+    }
+
     // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
     // elevation, from now on. Heights, InitialConditions' altitude included,
     // are then above the WGS84 ellipsoid, which is JSBSim's sea level; the
@@ -388,6 +396,7 @@ private:
     bool meets_the_surface() const;
 
     std::optional<double> climb_floor_kts_;
+    bool mixture_lever_ = false;
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;

@@ -13,3 +13,4 @@ name Piper PA-28-180 Cherokee
 model pa28
 class light-aircraft
 start 110 0.82
+mixture-lever

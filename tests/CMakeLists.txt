@@ -436,6 +436,8 @@ set(GLIDESLOPE_UNIT_TESTS
     the_f35b_climbs_at_the_rate_its_own_model_gave
     the_f35b_takes_off_in_the_ground_roll_its_own_model_gave
     the_learjet_35a_climbs_at_the_rate_its_own_model_gave
+    the_ai_climbs_a_cherokee_180_to_its_published_service_ceiling
+    every_light_aeroplane_is_climbed_to_its_published_ceiling_or_named_with_its_reason
     every_published_figure_has_a_flight_and_every_flight_a_figure
     an_aircraft_restored_in_every_phase_of_flight_tracks_the_original
     an_aircraft_put_back_to_an_earlier_snapshot_flies_on_as_a_fresh_restore_does
