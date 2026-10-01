@@ -2518,6 +2518,29 @@ if("vulkan" IN_LIST GLIDESLOPE_GPU_DRIVERS)
     set_tests_properties(the_client_with_the_window_refused_by_a_forger_while_its_session_is_quiet_goes_back_to_it
         PROPERTIES SKIP_RETURN_CODE 77)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_forged_refusal)
+    # **Away from its session past the server's timeout - building its flight,
+    # or in a long pass - it is kept in it, not let go.** See
+    # cmake/client_kept_while_away.cmake.
+    add_test(NAME the_client_with_the_window_building_its_flight_for_longer_than_the_servers_timeout_is_not_let_go
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_away_building -DPORT=24746
+            -DDRIVER=vulkan -DIMPAIR=$<TARGET_FILE:glideslope_impair> -DAWAY=build
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_kept_while_away.cmake)
+    set_tests_properties(the_client_with_the_window_building_its_flight_for_longer_than_the_servers_timeout_is_not_let_go
+        PROPERTIES SKIP_RETURN_CODE 77)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_away_building)
+    add_test(NAME the_client_with_the_window_in_a_pass_longer_than_the_servers_timeout_is_not_let_go
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_away_in_a_pass -DPORT=24748
+            -DDRIVER=vulkan -DIMPAIR=$<TARGET_FILE:glideslope_impair> -DAWAY=pass
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_kept_while_away.cmake)
+    set_tests_properties(the_client_with_the_window_in_a_pass_longer_than_the_servers_timeout_is_not_let_go
+        PROPERTIES SKIP_RETURN_CODE 77)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_away_in_a_pass)
 endif()
 
 # **A client started with --online reaches the server server.txt names.** See
