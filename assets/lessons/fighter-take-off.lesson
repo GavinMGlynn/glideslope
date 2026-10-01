@@ -18,9 +18,11 @@
 # straight to it off the runway, where an airliner climbs out at V2 and ten
 # first.
 #
-# **The bands are measured**, with room: the F-15C and F-35B hold 11.4 to 22.1
-# degrees in the initial climb and climb away 63 to 130 knots above their
-# climbing speed. **They leave the runway in afterburner and go on
+# **The bands are measured**, with room: the F-15C and F-35B hold 7.0 to 16.8
+# degrees in the initial climb - the F-15C's least, 7.0, since her pitching
+# moment was made NASA's, and 5.0 on part throttle, where she leaves later
+# and lower, so the band begins at 3 - and climb away 34 to 82 knots above
+# their climbing speed. **They leave the runway in afterburner and go on
 # accelerating**, as a fighter does, so the band is above the climbing speed
 # rather than about it: it catches a climb-out held so nose-high that she is
 # not accelerating, and one run away past any speed a climb-out is flown at.
@@ -40,7 +42,7 @@ until position/h-agl-ft >= 15
 stage The initial climb
 do Rotate smoothly to the take-off attitude and hold it
 do Gear up once there is no runway left to land on
-hold attitude/theta-deg 5.0 30.0 Hold the climbing attitude
+hold attitude/theta-deg 3.0 30.0 Hold the climbing attitude
 until position/h-agl-ft >= 200
 
 stage Climbing away

@@ -834,17 +834,16 @@ Found while implementing something else. Added when found, not when remembered.
       2026-09-26: against a stand-in ion that never finishes sending, a run
       told to stop is gone within a second or two, one left alone ends when
       its frame is written, and either way the cache takes a write at once.
-- [ ] **A published stall speed for the F-15C**, from its flight manual. Its
-      approach is flown at the manual's speed for its weight, 160 knots, and
-      since 2026-10-01 at NASA's angle of attack, about 10 degrees, with her
-      pitching moment made NASA's; she takes off at the manual's speed too.
-      **Still missing: a stall speed to hold her to.** The manual publishes
-      none - at full aft stick the nose settles at 45 units at 100 knots or
-      less, sinking - and she now does that, her lift never breaking; her
-      stall is measured on the model (112 knots), not published. The
-      verification needs the owner's word on what stands for a published
-      stall. *Verification: the F-15C stalls near its published speed, and
-      its approach is flown at the manual's.*
+- [ ] **A published stall speed for the F-15C**, from its flight manual.
+      **Still missing: a stall speed to hold her to, and the manual's stall.**
+      The manual publishes no stall speed: at full aft stick the nose
+      settles at 45 units at 100 knots or less. Hers settles at 42 degrees
+      but at 117 knots, and her pitching moment past 24 degrees is chosen,
+      not published; her stall is measured on the model (112 knots). Done:
+      her approach is flown at the manual's 160 knots, at NASA's angle of
+      attack, about 10 degrees, with stabilator to spare, and she takes off
+      at a speed worked from the manual's. *Verification: the F-15C stalls near its
+      published speed, and its approach is flown at the manual's.*
 - [x] **The autopilot banks to its limit even when the aeroplane cannot sustain
       the turn.** *Verification: a light aeroplane near its ceiling holds its
       height through a 90-degree turn as it does at 3,000 ft.* Done

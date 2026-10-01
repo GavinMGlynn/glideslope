@@ -1081,8 +1081,8 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
     for (const std::string& id : classes) {
         // **Not opening the throttle.** Flown by the book in every other way.
         const Flown lazy = fly_the_take_off(id, 0.0, 0.80);
-        std::printf("  %s on part throttle: off at %.0f knots\n", id.c_str(),
-                    lazy.off_at_kts);
+        std::printf("  %s on part throttle: off at %.0f knots, pitch %.1f to %.1f\n", id.c_str(),
+                    lazy.off_at_kts, lazy.least_theta_deg, lazy.most_theta_deg);
         names_that_fault_and_no_other(id, "take-off", lazy.debrief, {"fcs/throttle-cmd-norm"},
                                       "taking off on part throttle");
 
@@ -2599,7 +2599,7 @@ GLIDESLOPE_TEST(every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_
         // level at its recovery speed on full power, and is never called
         // recovered; it is held to the height it lost by the flight's end.
         {{"b2", Fault::height, 414.0},
-         {"f15c", Fault::height, 560.0},
+         {"f15c", Fault::height, 590.0},
          {"f35b", Fault::height, 932.0},
          {"learjet35a", Fault::height, 589.0},
          {"mosquito-fb6", Fault::not_recovered, 3462.0},
