@@ -1,6 +1,7 @@
 #include "sim/figures.hpp"
 
 #include "sim/autopilot.hpp"
+#include "sim/crash.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
@@ -1597,6 +1598,17 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         if (!(out.approach_speedbrake >= 0.0 && out.approach_speedbrake <= 1.0)) {
             throw std::runtime_error(file.string() +
                                      " gives an approach_speedbrake outside 0 to 1");
+        }
+    }
+    // **A touchdown the gear cannot take is refused**, not flown: past
+    // what the server judges the gear to take (sim/crash.hpp), the flare
+    // would aim to wreck her.
+    if (root->HasAttribute("touchdown_fpm")) {
+        out.touchdown_fpm = root->GetAttributeValueAsNumber("touchdown_fpm");
+        if (!(out.touchdown_fpm > 0.0 && out.touchdown_fpm < gear_takes_fps * 60.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a touchdown_fpm that is not above 0 and under "
+                                     "the 600 ft/min the gear takes");
         }
     }
     if (JSBSim::Element* source = root->FindElement("source")) {

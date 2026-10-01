@@ -414,6 +414,59 @@ GLIDESLOPE_TEST(the_speedbrake_an_approach_is_flown_with_is_read_and_refused_out
 // A figure that asks for flaps of an aircraft without them - the Cub has none,
 // and its file says so with a travel of 0 - is refused, not flown with a
 // flap command divided by nothing.
+// **The sink a flare brings the wheels to the runway at is read from the
+// figures**, is none where they give none - and the approach autopilot's
+// forty then - and is refused where the gear could not take it, rather than
+// flown at: every speed and setting is data. Each file tried is the 737-300's
+// own with that one attribute changed, so a refusal is the attribute's and
+// nothing else's; a sink the gear takes, written the same way, is read back.
+GLIDESLOPE_TEST(the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_the_gear_takes) {
+    check(read_published_figures(figures_file("737-300")).touchdown_fpm == 200.0,
+          "the 737-300's flare touches down at 200 ft/min");
+    check(read_published_figures(figures_file("c172p")).touchdown_fpm == 0.0,
+          "the C172P gives none, so the approach autopilot's own is used");
+
+    std::ifstream in(figures_file("737-300"));
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    const std::string attribute = "touchdown_fpm=\"200\"";
+    const auto at = text.find(attribute);
+    if (at == std::string::npos) {
+        fail("assets/figures/737-300.xml does not give touchdown_fpm=\"200\"");
+    }
+    // A name no other run of this test, in this build or another, shares.
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_touchdown_fpm_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& value) {
+        std::string changed = text;
+        changed.replace(at, attribute.size(), "touchdown_fpm=\"" + value + "\"");
+        std::ofstream out(file);
+        out << changed;
+    };
+
+    write("599");
+    check(read_published_figures(file).touchdown_fpm == 599.0,
+          "a sink just under what the gear takes is read back as written");
+    const char* const wrong[] = {"0", "-40", "600", "900"};
+    std::size_t refused = 0;
+    for (const char* value : wrong) {
+        write(value);
+        try {
+            read_published_figures(file);
+        } catch (const std::runtime_error& e) {
+            const std::string said = e.what();
+            check(said.find("touchdown_fpm") != std::string::npos,
+                  std::string("the refusal of ") + value + " names touchdown_fpm: " + said);
+            ++refused;
+        }
+    }
+    std::filesystem::remove(file);
+    check(refused == std::size(wrong), "all four sinks outside 0 to 600 were refused, not " +
+                                           std::to_string(refused));
+}
+
 GLIDESLOPE_TEST(a_figure_asking_for_flaps_the_aircraft_does_not_have_is_refused) {
     const PublishedFigures figures = read_published_figures(figures_file("j3cub"));
     check(figures.flaps_full_deg == 0.0, "the Cub's file gives it no flaps");

@@ -32,6 +32,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace glideslope::sim {
 
@@ -47,7 +48,13 @@ struct ApproachSpeeds {
     double stall_kts = 0.0;
     double flap = 1.0;     // the landing flap setting, 0 to 1
     double speedbrake = 0.0; // the speedbrake lever down the approach, 0 to 1
-    double flare_ft = 15.0; // height above the threshold to begin the flare
+    double flare_ft = 15.0; // height of the wheels above the threshold to begin the flare
+    // **The sink the flare brings her wheels to the runway at**, feet a
+    // minute: forty, a light aeroplane held off to touch gently, unless her
+    // figures give `touchdown_fpm` - a jet's give two hundred, flown on to
+    // the runway rather than held off to float. Under the 600 her gear is
+    // judged to take (sim/crash.hpp), or refused.
+    double touchdown_fpm = 40.0;
     // **The glidepath aims past the threshold, not at it.** An approach flown
     // at the threshold puts the flare before it and the wheels on the grass;
     // aiming three hundred metres down the runway puts the aeroplane about
@@ -171,6 +178,15 @@ private:
     // from the attitude she has on the first step of the approach.
     double path_pitch_ = 0.0;
     bool path_pitch_set_ = false;
+    // Where the flare began: the attitude, the incidence and the throttle on
+    // its first step, from which its nose is let down in a float, its
+    // incidence limited and its power found.
+    bool flare_begun_ = false;
+    double flare_begun_pitch_ = 0.0;
+    double flare_alpha_deg_ = 0.0;
+    double flare_throttle_ = 0.0;
+    // The height of her wheels the flare begins at, feet.
+    double flare_height_ft() const;
     bool touched_ = false;
     double touchdown_pitch_deg_ = 0.0; // held through the rollout while she can fly
     double touchdown_above_m_ = 0.0;   // above the runway as the wheels met it
@@ -180,6 +196,16 @@ private:
     // which falls from the attitude it touched at, and its spoilers out.
     bool jet_ = false;
     double lowering_pitch_deg_ = 0.0;
+
+    // Her main wheels, where her model puts them: JSBSim's structural frame,
+    // inches, x aft, y right, z up (Aircraft::contact_points).
+    struct Wheel {
+        double x_in, y_in, z_in;
+    };
+    std::vector<Wheel> main_wheels_;
+    // How far her lowest main wheel hangs below her centre of gravity, feet,
+    // at her attitude now; 0 where her model names no main wheels.
+    double wheels_hang_ft(const AircraftState& s) const;
 
     void measure();
     // Whether she is on the ground or the water now; the first time she is,

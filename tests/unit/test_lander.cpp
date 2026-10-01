@@ -1,3 +1,4 @@
+#include "after_touch.hpp"
 #include "harness.hpp"
 
 #include "sim/aircraft.hpp"
@@ -76,6 +77,9 @@ struct Landing {
     double worst_roll_after_touch_deg = 0.0;
     double least_pitch_after_touch_deg = 0.0;
     double highest_after_touch_ft = 0.0;
+    // As the server judges the touch (sim/crash.hpp), and whether she
+    // settled: what was wrong, one line each.
+    std::vector<std::string> gear_took_it;
 };
 
 // **From five miles out, on the glidepath, down to a stop.** `crosswind_kts`
@@ -128,10 +132,12 @@ Landing land(const std::string& id, double crosswind_kts) {
 
     Lander lander(aircraft, runway, speeds);
     Landing out;
+    glideslope::test::AfterTouch after;
     double on_the_ground_agl_ft = -1.0;
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
         aircraft.set_controls(lander.fly());
         aircraft.step();
+        after.watch(aircraft);
         if (lander.touchdown_sink_fpm() != 0.0 || lander.touchdown_along_m() != 0.0) {
             const auto s = aircraft.state();
             // The height of her centre of gravity as the wheels first met
@@ -159,6 +165,9 @@ Landing land(const std::string& id, double crosswind_kts) {
             break;
         }
     }
+    // Half a foot, as the lessons hold every aeroplane the AI lands
+    // (test_lesson.cpp, `settled_within_ft`).
+    out.gear_took_it = after.how_the_gear_took_it(id, 0.5);
     out.touched = lander.touchdown_sink_fpm() != 0.0 || lander.touchdown_along_m() != 0.0;
     out.sink_fpm = lander.touchdown_sink_fpm();
     out.across_m = lander.touchdown_across_m();
@@ -193,6 +202,11 @@ void stayed_down_and_upright(const std::string& id, const Landing& l, const std:
     check(l.highest_after_touch_ft < 3.0,
           id + " went " + std::to_string(l.highest_after_touch_ft) +
               " ft back into the air after touching down" + where);
+    // **Within what her gear takes, and settled**: unwrecked by the server's
+    // rule, and risen no more than half a foot after the touch.
+    for (const std::string& wrong : l.gear_took_it) {
+        check(false, wrong + where);
+    }
 }
 
 } // namespace

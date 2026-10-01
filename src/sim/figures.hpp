@@ -59,6 +59,10 @@ struct PublishedFigures {
     // 1: 0 for all but one that has nothing else to slow it - a B-2A, with
     // no flap, lands with its drag rudders open.
     double approach_speedbrake = 0.0;
+    // The sink, feet a minute, the approach autopilot's flare brings the
+    // wheels to the runway at (`touchdown_fpm`); 0 where the file gives
+    // none, and `approach_speeds` then uses a light aeroplane's forty.
+    double touchdown_fpm = 0.0;
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;
     Loading loading;
