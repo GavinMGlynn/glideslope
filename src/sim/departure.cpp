@@ -116,12 +116,14 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
         }
     }
 
-    // A lift-off speed the flight manual gives outright, at its loading's
+    // A lift-off speed worked from the flight manual's, at its loading's
     // weight. It names no flap: the one aeroplane that gives one, the F-15C,
-    // has none in its model.
+    // has none in its model, and its figure is the manual's with flaps made
+    // flaps-up by another of the manual's charts - worked out, not
+    // published, so `rotate_is_published` says not.
     if (figures.takeoff_kcas > 0.0) {
         speeds.rotate_kts = figures.takeoff_kcas;
-        speeds.rotate_is_published = true;
+        speeds.rotate_is_published = false;
         speeds.reference_lbs = figures.loadings.at(figures.takeoff_loading).total_lbs;
         speeds.flap = 0.0;
         return speeds;

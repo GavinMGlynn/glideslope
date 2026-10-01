@@ -73,7 +73,7 @@ struct PublishedFigures {
     // file gives none; `approach_loading` names the weight it is for.
     double approach_kcas = 0.0;
     std::string approach_loading;
-    // **The lift-off speed its flight manual gives**, KCAS, where the file
+    // **The lift-off speed worked from its flight manual's**, KCAS, where the file
     // has a `<takeoff kcas="..." loading="...">`: what `departure_speeds`
     // takes off at, in place of 1.15 times a stall that, at the F-15C's 32
     // degrees of alpha, cannot be reached on a runway. 0 where it gives none.

@@ -66,42 +66,58 @@ The changes, and what each is for:
                         place against the aerodynamics - and on the ground the
                         nose wheel came off at 98 knots at 36,946 lb, 103 at
                         41,286 and 107 at 45,713, against the manual's 91, 100
-                        and 111; with NASA's pitching moment (below), 92, 96
-                        and 100.
-    The pitching moment and the stabilator's lift, NASA's
+                        and 111; with NASA's pitching moment (below), 96.6,
+                        100.9 and 105.0.
+    The pitching moment and the stabilator, NASA's
                         NASA TM-4604 (Corda, Stephenson, Burcham and Curry,
                         Dynamic Ground Effects Flight Test of an F-15
                         Aircraft, 1994, page 8) gives the derivatives of the
                         NASA Dryden F-15 simulator's database at the F-15's
-                        approach, 8 degrees of alpha: the pitching moment's
-                        slope with alpha, -0.0021 a degree, and the
-                        stabilator's lift, 0.005 a degree. The model's were
-                        -0.0098 about its centre of gravity - near five times
-                        as stable - and 0.010: every degree of alpha took
-                        nose-up stabilator, whose download took lift, so on the
-                        manual's 160-knot approach (T.O. 1F-15A-1, figure
-                        A8-1) it flew at 12 to 18 degrees with the stabilator
-                        near its stop, where TM-4604's figure 5 has the
-                        aeroplane at about 10, and it ran out of stabilator,
-                        and "stalled", at 18 degrees and 151 knots, where the
-                        manual's settles at 45 units at full aft stick. The
-                        pitching moment's table is scaled, its shape kept,
-                        until its slope at 8 degrees about the centre of
-                        gravity - the lift acting at the aerodynamic reference
-                        point 2.24 in behind it counted - is NASA's
-                        (with_nasa_pitch), by 0.146; the stabilator's lift is
-                        NASA's. Its pitching moment with the stabilator,
-                        -0.008 a degree, is the model's: TM-4604 prints
-                        -0.00072, which with its own -0.0021 would trim no
-                        more than nine degrees of alpha with all the
-                        stabilator's 26 degrees, where the manual has the nose
-                        at 45 units with full aft stick - a tenth of the
-                        model's, and taken here as a misprint of it. Now the
-                        approach is flown at 10.8 degrees with a tenth of the
-                        nose-up travel; the nose wheel comes off at 92, 96 and
-                        100 knots at the three loadings, against figure A3-6's
-                        maximum performance 91.5, 100.1 and 110.7 at military
-                        thrust.
+                        approach, 8 degrees of alpha, each a degree: the
+                        pitching moment's slope with alpha, -0.0021; the
+                        stabilator's lift, 0.005; and its pitching moment,
+                        printed -0.00072. That last has lost a zero: the two
+                        stabilator derivatives' ratio is the tail's arm in
+                        chords, and -0.00072 / 0.005 puts the stabilator 2.3
+                        ft behind the centre of gravity where the model's
+                        horizontal tail arm is 20 ft; -0.0072 puts it 23 ft.
+                        The model's were -0.0100 about the clean loading's
+                        centre of gravity across 6 to 10 degrees - five times
+                        as stable - 0.010 and -0.008: every degree of alpha
+                        took nose-up stabilator, whose download took lift, so
+                        on the manual's 160-knot approach (T.O. 1F-15A-1,
+                        figure A8-1) it flew at 12 to 18 degrees with the
+                        stabilator near its stop, where TM-4604's figure 5
+                        has the aeroplane at about 10, and full aft stick
+                        held it at 18 degrees and 151 knots.
+                        Now (with_nasa_pitch) the pitching moment's table is
+                        scaled, its shape kept, until its slope across 6 to
+                        10 degrees (APPROACH_ALPHA_DEG) about the clean
+                        loading's centre of gravity - 3.41 in ahead of the
+                        aerodynamic reference point, the pilot counted - is
+                        NASA's: by 0.118. That scale is the approach's, not
+                        the stall's: carried to high alpha it left full aft
+                        stick nothing to balance against, and the nose went
+                        on rising to 80 degrees. **Past 24 degrees**
+                        (HIGH_ALPHA_RAD), where the flow has left the wing,
+                        the table is scaled by HIGH_ALPHA_SCALE, 0.45 - no
+                        published F-15 pitching moment at high alpha was
+                        found to take instead. That is about the most of the
+                        pinned model's nose-down moment that lets full aft
+                        stick carry the nose past the lift's peak at 32
+                        degrees, as the manual's goes on past its wing rock
+                        at 30 units to 45: at 0.468 or more full aft stick
+                        balances below 24 degrees, and the script refuses
+                        it. Full aft stick now settles at 42.4 degrees, at
+                        116.6 knots - not the manual's "100 knots or less",
+                        which the model would reach only past 60 degrees,
+                        beyond the end of its lift and drag tables. The
+                        stabilator's lift and pitching moment are NASA's.
+                        On the approach she flies at 10 to 11.5 degrees with
+                        a seventh of the nose-up travel; the nose wheel comes
+                        off at 96.6, 100.9 and 105.0 knots at the three
+                        loadings, against figure A3-6's maximum performance
+                        91.5, 100.1 and 110.7 at military thrust.
     Airframe contacts scrape instead of rolling
                         The model's six contacts that never retract - its
                         wing tips, its fin tips, its radome and its belly -
@@ -199,17 +215,28 @@ SUPERSONIC_LIFT_DRAG = 0.63
 # Where the lift curve leaves its straight line, and the flow the wing.
 SEPARATION_ALPHA = 0.21
 # NASA TM-4604's derivatives for the F-15 on its approach, from the NASA
-# Dryden F-15 simulator's database: at 8 degrees of alpha, the pitching
-# moment's slope with alpha and the stabilator's lift, each a degree; and
-# the Mach the approach is flown at, whose lift curve the slope is taken on.
-NASA_ALPHA_DEG = 8.0
+# Dryden F-15 simulator's database, each a degree: the pitching moment's
+# slope with alpha, fitted across APPROACH_ALPHA_DEG; the stabilator's lift;
+# and its pitching moment, the report's -0.00072 with the zero it dropped
+# (with_nasa_pitch). The Mach the approach is flown at, whose lift curve the
+# slope is taken on, and the loading whose centre of gravity it is about.
+APPROACH_ALPHA_DEG = (6.0, 10.0)
 NASA_CM_ALPHA_PER_DEG = -0.0021
 NASA_CL_DELTA_PER_DEG = 0.005
+NASA_CM_DELTA_PER_DEG = -0.0072
 APPROACH_MACH = 0.2
-# The aerodynamic reference point, 2.24 in aft of the centre of gravity in
-# the pinned model, and kept there (over_its_wheels); the mean chord, in.
-AERORP_AFT_OF_CG_IN = -234.15 - -236.39
+APPROACH_LOADING = "clean"
+# Past the flow leaving the wing - the pitching moment table's rows from
+# HIGH_ALPHA_RAD, 24 degrees on - its table is scaled by HIGH_ALPHA_SCALE
+# instead: about the most of the pinned model's nose-down moment that still
+# lets full aft stick (STABILATOR_NOSE_UP_DEG) carry the nose past the
+# lift's peak, as the flight manual's goes on past its wing rock to 45
+# units (with_nasa_pitch, which works out the bound, 0.468).
+HIGH_ALPHA_RAD = 0.40
+HIGH_ALPHA_SCALE = 0.45
+STABILATOR_NOSE_UP_DEG = 26.0
 CHORD_IN = 15.95 * 12.0
+FIGURES = OUT.parent / "figures" / f"{MODEL}.xml"
 # The main wheels this far behind the centre of gravity, seen from the ground
 # (Raymer's tipback angle); the model's own centre of gravity, aerodynamic
 # reference point and main wheels, inches, which it is worked from.
@@ -379,44 +406,83 @@ def between(rows, x):
     raise SystemExit(f"{SCRIPT}: {x} is outside the table")
 
 
-def pitch_slope(cm_rows, lift_rows, alpha):
-    """d(Cm)/d(alpha), per radian, about the centre of gravity: the
-    pitching moment's table, which JSBSim multiplies by alpha, and the lift
-    acting at the aerodynamic reference point, AERORP_AFT_OF_CG behind it."""
-    h = 1e-4
+def x_of(text, pattern, what):
+    m = re.search(pattern + r'\s*<location unit="IN">\s*<x>\s*([-0-9.]+)\s*</x>', text)
+    if not m:
+        raise SystemExit(f"{SCRIPT}: no {what} - has the pinned model changed?")
+    return float(m.group(1))
 
-    def cm(a):
-        return a * between(cm_rows, a)
 
-    table = (cm(alpha + h) - cm(alpha - h)) / (2 * h)
-    lift = (between(lift_rows, alpha + h) - between(lift_rows, alpha - h)) / (2 * h)
-    return table - lift * AERORP_AFT_OF_CG_IN / CHORD_IN
+def aerorp_aft_of_cg_in(text):
+    """How far the aerodynamic reference point is behind the centre of
+    gravity of APPROACH_LOADING, in: the empty aeroplane's, the stores and
+    the fuel all at one point (over_its_wheels), and the pilot forward."""
+    figures = FIGURES.read_text()
+    m = re.search(rf'<loading name="{APPROACH_LOADING}" total_lbs="([0-9.]+)">(.*?)</loading>',
+                  figures, re.S)
+    if not m:
+        raise SystemExit(f"{SCRIPT}: {FIGURES} has no {APPROACH_LOADING} loading")
+    total = float(m.group(1))
+    pilot = float(re.search(r'<pointmass index="0" lbs="([0-9.]+)"/>', m.group(2)).group(1))
+    cg = float(re.search(r'<location name="CG" unit="IN">\s*<x>\s*([-0-9.]+)', text).group(1))
+    pilot_x = x_of(text, r'<pointmass name="Pilot">\s*<weight unit="LBS">[^<]*</weight>', "pilot")
+    aerorp = float(re.search(r'<location name="AERORP" unit="IN">\s*<x>\s*([-0-9.]+)', text).group(1))
+    return aerorp - (cg + pilot * (pilot_x - cg) / total)
+
+
+def cm_about_cg(cm_rows, lift_rows, arm_in, alpha):
+    """The pitching moment about the centre of gravity: the table, which
+    JSBSim multiplies by alpha, and the lift acting at the aerodynamic
+    reference point arm_in behind it."""
+    return alpha * between(cm_rows, alpha) - between(lift_rows, alpha) * arm_in / CHORD_IN
+
+
+def approach_slope(cm_rows, lift_rows, arm_in):
+    """The pitching moment's slope across APPROACH_ALPHA_DEG, a degree."""
+    low, high = APPROACH_ALPHA_DEG
+    return (cm_about_cg(cm_rows, lift_rows, arm_in, math.radians(high)) -
+            cm_about_cg(cm_rows, lift_rows, arm_in, math.radians(low))) / (high - low)
 
 
 def with_nasa_pitch(text):
-    """The pitching moment with alpha scaled, and the stabilator's lift set,
-    to NASA TM-4604's derivatives at its approach (NASA_ALPHA_DEG)."""
+    """The pitching moment with alpha scaled to NASA TM-4604's slope at the
+    approach, and past HIGH_ALPHA_RAD by HIGH_ALPHA_SCALE; the stabilator's
+    lift and pitching moment NASA's."""
     lift = table_rows(text, "Lift_due_to_alpha")
     head, *rows = lift.group(2).split("\n")
     column = head.split().index(f"{APPROACH_MACH:.2f}") + 1
     lift_rows = [(float(r.split()[0]), float(r.split()[column])) for r in rows]
+    arm = aerorp_aft_of_cg_in(text)
 
     m = table_rows(text, "Pitch_moment_due_to_alpha")
     cm_rows = [tuple(float(v) for v in r.split()) for r in m.group(2).split("\n")]
-    alpha = math.radians(NASA_ALPHA_DEG)
-    target = math.degrees(NASA_CM_ALPHA_PER_DEG)
-    lift_part = -(between(lift_rows, alpha + 1e-4) - between(lift_rows, alpha - 1e-4)) / 2e-4 \
-        * AERORP_AFT_OF_CG_IN / CHORD_IN
-    table_part = pitch_slope(cm_rows, lift_rows, alpha) - lift_part
-    scale = (target - lift_part) / table_part
-    if not 0.0 < scale < 1.0:
+    # The lift's part of the slope does not scale with the table; solve for
+    # the scale that brings the two together to NASA's.
+    lift_only = approach_slope([(a, 0.0) for a, _ in cm_rows], lift_rows, arm)
+    table_only = approach_slope(cm_rows, [(a, 0.0) for a, _ in lift_rows], arm)
+    scale = (NASA_CM_ALPHA_PER_DEG - lift_only) / table_only
+    if not 0.0 < scale < HIGH_ALPHA_SCALE:
         raise SystemExit(f"{SCRIPT}: the pitching moment would be scaled by {scale:.3f}")
-    scaled = [(a, t * scale) for a, t in cm_rows]
-    if abs(pitch_slope(scaled, lift_rows, alpha) - target) > 1e-6:
+    # Full aft stick's moment, and the scale past HIGH_ALPHA_RAD at which it
+    # would balance at that row: any more and the stick trims below it.
+    if not re.search(r"<range>\s*<min>-26</min>\s*<max>15</max>\s*</range>", text):
+        raise SystemExit(f"{SCRIPT}: the stabilator's travel has changed")
+    full_aft = NASA_CM_DELTA_PER_DEG * -STABILATOR_NOSE_UP_DEG
+    row = next(a for a, _ in cm_rows if a >= HIGH_ALPHA_RAD)
+    bound = (full_aft - between(lift_rows, row) * arm / CHORD_IN) / -(row * between(cm_rows, row))
+    if not HIGH_ALPHA_SCALE < bound:
+        raise SystemExit(f"{SCRIPT}: full aft stick would trim below {row} rad at a scale "
+                         f"over {bound:.3f}")
+    scaled = [(a, t * (HIGH_ALPHA_SCALE if a >= HIGH_ALPHA_RAD else scale)) for a, t in cm_rows]
+    if abs(approach_slope(scaled, lift_rows, arm) - NASA_CM_ALPHA_PER_DEG) > 1e-9:
         raise SystemExit(f"{SCRIPT}: the scaled pitching moment misses NASA's slope")
     indent = re.match(r"\s*", m.group(2)).group(0)
     body = "\n".join(f"{indent}{a:.4f}\t{t:.4f}" for a, t in scaled)
     text = text[:m.start(2)] + body + text[m.end(2):]
+    text = replace_once(
+        text,
+        r"(<description>Pitch_moment_due_to_elevator_deflection</description>.*?<value>)\s*-0\.4580\s*(</value>)",
+        rf"\g<1>{math.degrees(NASA_CM_DELTA_PER_DEG):.4f}\2", "the stabilator's pitching moment")
     return replace_once(
         text,
         r"(<description>Lift_due_to_Elevator_Deflection</description>.*?<value>)\s*0\.5730\s*(</value>)",
