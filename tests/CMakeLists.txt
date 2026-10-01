@@ -537,6 +537,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_plan_from_words_is_checked_and_refused_back_to_the_model_until_it_can_be_flown
     a_task_file_names_its_aircraft_airport_and_words_and_anything_else_is_refused
     a_copilots_answer_is_read_as_keep_or_a_route_and_refused_wherever_it_cannot_be_flown
+    a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_refused_and_the_model_told_them
     every_refusal_the_document_names_for_a_copilot_route_is_refused
     a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown
     the_copilot_asks_on_a_thread_of_its_own_and_the_step_never_waits_for_the_model
@@ -602,10 +603,16 @@ set(GLIDESLOPE_UNIT_TESTS
     an_orbit_and_a_take_off_are_read_from_a_plan_and_refused_where_they_are_wrong
     the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind_down_to_the_tightest_allowed
     an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_circle
-    the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_light_aeroplane
-    the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_airliner_and_business_jet_that_can_fly_it
-    the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_fighter_and_bomber_that_can_fly_it
-    the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_warbird_and_flying_boat
+    the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_light_aeroplane
+    the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_airliner_and_business_jet
+    the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_fighter_and_bomber
+    the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_warbird_and_flying_boat
+    the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_light_aeroplane
+    the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_airliner_and_business_jet
+    the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_fighter_and_bomber
+    the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_warbird_and_flying_boat
+    every_aircraft_gives_the_speeds_a_plan_may_fly_it_at_none_beyond_what_plans_were_let_fly_before
+    a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_refused_and_none_in_the_data_does
     a_runways_file_gives_each_open_runway_end_with_a_place_and_a_heading
     a_runway_strips_file_is_read_and_refused_where_it_is_wrong
     the_protocol_version_moves_with_the_collision_ground
@@ -2699,6 +2706,17 @@ add_test(NAME the_cli_reports_the_project_version
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=--version -DEXIT=0
         "-DSTDOUT_IS=glideslope_cli ${PROJECT_VERSION}"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+# **A plan file asking a speed its aircraft cannot hold clean is refused as
+# it is read**, before anything is flown or fetched: the A320 at its
+# approach speed (assets/figures/a320.xml, <plan_speeds>).
+add_test(NAME the_cli_refuses_a_plan_asking_a_speed_its_aircraft_cannot_hold_clean
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli>
+        "-DARGS=fly-plan ${CMAKE_CURRENT_SOURCE_DIR}/data/plans/a320-at-its-approach-speed.plan"
+        -DEXIT=1
+        "-DSTDERR_MATCHES=CBD is flown at 147 kt, outside 162 to 300 kt"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_a_height_asked_for_off_the_earth

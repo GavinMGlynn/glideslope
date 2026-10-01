@@ -34,6 +34,12 @@ struct PlanRequest {
     std::string aircraft;      // its catalogue id, "c172p"
     std::string aircraft_name; // "Cessna 172P Skyhawk"
     double approach_kts = 0.0; // its reference speed on the approach
+    // **The slowest and fastest a plan may fly it** (sim::plan_speeds),
+    // measured: a plan is flown clean, and the approach speed is a
+    // flaps-down figure. Where not given (0), the approach speed and a fifth
+    // over the cruise; the slowest is never below the approach speed.
+    double slowest_kts = 0.0;
+    double fastest_kts = 0.0;
     double climb_kts = 0.0;    // its best climb speed
     double cruise_kts = 0.0;   // a comfortable cruise
     std::string airport;       // where it stands, "YSSY"
@@ -41,6 +47,18 @@ struct PlanRequest {
 };
 
 inline constexpr int most_attempts = 3;
+
+// The slowest a plan may fly the aircraft: its slowest, or its approach
+// speed where that is more.
+inline double slowest_planned_kts(const PlanRequest& r) {
+    return r.slowest_kts > r.approach_kts ? r.slowest_kts : r.approach_kts;
+}
+
+// The fastest a plan may fly it: its fastest, or a fifth over its cruise
+// where none is given.
+inline double fastest_planned_kts(const PlanRequest& r) {
+    return r.fastest_kts > 0.0 ? r.fastest_kts : r.cruise_kts * 1.2;
+}
 
 struct Planned {
     std::string text; // the plan as the model wrote it, less any fences

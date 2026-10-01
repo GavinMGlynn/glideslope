@@ -1,0 +1,7 @@
+# The A320 round the CBD at 147 kt, its approach speed: a flaps-down figure.
+# Flown clean, as a plan is, she comes down 500 ft before she reaches the
+# circle, so the plan is refused as it is read (assets/figures/a320.xml,
+# <plan_speeds>).
+aircraft a320
+start -33.95 151.2093 3000 0 147
+orbit CBD -33.8688 151.2093 3200 3000 147 2 left

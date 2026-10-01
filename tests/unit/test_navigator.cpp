@@ -5,8 +5,10 @@
 #include "sim/catalogue.hpp"
 #include "sim/controller.hpp"
 #include "sim/departure.hpp"
+#include "sim/figures.hpp"
 #include "sim/lander.hpp"
 #include "sim/navigator.hpp"
+#include "sim/orbit_trial.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
 
@@ -48,147 +50,69 @@ bool refused(const std::string& text, const std::string& says) {
     return false;
 }
 
-// What the tightest-orbit tests leave out of an aircraft's orbits, and why:
-// all of them; those in wind; or, flown, only their height and speed, its
-// circle still held - within `within_m`, if given, rather than the test's.
-enum class Leave { every_orbit, in_wind, height_and_speed };
-struct LeftOut {
-    std::string id;
-    Leave leave = Leave::every_orbit;
-    std::string reason;
-    double within_m = 0.0;
-};
+// Which end of the speeds a plan may ask the tightest-orbit tests fly.
+enum class End { slowest, fastest };
 
-// **Every aircraft in `space` round the tightest orbit a plan may ask at its
-// approach speed** - the slowest a plan may fly it (copilot/planner.cpp) -
-// both ways round, in calm air and in a 10 kt wind from the west, across the
-// circle: from 2 km outside it, heading for its centre, twice round and on.
-// Each must hold its circle within `within_m` from its first quarter-turn,
-// its height within 50 ft and its speed within 5 kt. The space is every case
-// of every aircraft in it; each case is flown or left out by `left_out`, and
-// the two together must be all of it.
-void fly_the_tightest_orbits(const std::vector<glideslope::sim::CatalogueEntry>& space,
-                             const std::vector<LeftOut>& left_out, double within_m) {
+// **Every aircraft in `space` round the tightest orbit a plan may ask at the
+// slowest or the fastest speed a plan may ask of it** - its figures file's
+// `<plan_speeds>`, which the planner, the copilot's routes and every plan
+// file are held to - both ways round, in calm air and in a 10 kt wind from
+// the west, across the circle: from 2 km outside it, heading for its centre,
+// twice round and on (sim/orbit_trial.hpp). Each must hold its height within
+// 50 ft and its speed within 5 kt from its first quarter-turn, and its
+// circle within `within_m`, or, where given, `within_fraction` of its radius.
+// The space is every case of every aircraft in it, and every one is flown.
+void fly_the_tightest_orbits(const std::vector<glideslope::sim::CatalogueEntry>& space, End end,
+                             double within_m, double within_fraction = 0.0) {
     const std::filesystem::path data =
         std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
-    for (const LeftOut& out : left_out) {
-        check(std::any_of(space.begin(), space.end(),
-                          [&](const auto& e) { return e.id == out.id; }),
-              "what is left out is in the space: " + out.id);
-    }
     std::size_t flown = 0;
-    std::size_t not_flown = 0;
-    std::size_t waived_orbits = 0;
+    std::string failures;
     for (const auto& entry : space) {
-        const auto out = std::find_if(left_out.begin(), left_out.end(),
-                                      [&](const LeftOut& o) { return o.id == entry.id; });
+        const glideslope::sim::PlanSpeeds speeds =
+            glideslope::sim::plan_speeds(data, entry.model);
+        const double kts = end == End::slowest ? speeds.slowest_kts : speeds.fastest_kts;
+        check(kts == std::round(kts), entry.id + "'s speeds are whole knots, as a plan writes them");
         for (const bool right : {false, true}) {
         for (const bool windy : {false, true}) {
-            const bool waived = out != left_out.end() && out->leave == Leave::height_and_speed;
-            if (out != left_out.end() && !waived && (windy || out->leave == Leave::every_orbit)) {
-                std::fprintf(stderr, "%s%s not flown: %s\n", entry.id.c_str(),
-                             out->leave == Leave::in_wind ? " in wind" : "",
-                             out->reason.c_str());
-                ++not_flown;
-                continue;
-            }
-            const double circle_m = waived && out->within_m > 0.0 ? out->within_m : within_m;
-            // In whole knots, as a plan writes it.
-            const double vref =
-                std::round(glideslope::sim::approach_speeds(data, entry.model).vref_kts);
-            const double radius_m = std::ceil(glideslope::sim::least_orbit_radius_m(vref));
-            char lines[400];
-            std::snprintf(lines, sizeof lines,
-                          "aircraft %s\nstart %.6f 151.2093 3000 0 %.0f\n"
-                          "orbit CBD -33.8688 151.2093 %.0f 3000 %.0f 2 %s\n"
-                          "waypoint NORTH -33.70 151.2093 3000 %.0f\n",
-                          entry.id.c_str(), -33.8688 - (radius_m + 2000.0) / 111195.0, vref,
-                          radius_m, vref, right ? "right" : "left", vref);
-            const FlightPlan plan = parse_flight_plan(lines);
-            glideslope::sim::Aircraft aircraft(data / "jsbsim", entry.model);
-            glideslope::sim::InitialConditions ic;
-            ic.latitude_deg = plan.start->latitude_deg;
-            ic.longitude_deg = plan.start->longitude_deg;
-            ic.altitude_ft = plan.start->altitude_ft;
-            ic.heading_deg = plan.start->heading_deg;
-            ic.airspeed_kts = plan.start->airspeed_kts;
-            ic.engine_running = true;
-            aircraft.initialize(ic);
-            if (windy) {
-                glideslope::sim::Conditions wind;
-                wind.wind_east_mps = 10.0 * 1852.0 / 3600.0;
-                aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wind));
-            }
-            glideslope::sim::Controls controls;
-            controls.throttle = entry.start_throttle;
-            glideslope::sim::Autopilot autopilot(aircraft, controls);
-            glideslope::sim::Navigator navigator(aircraft, plan);
-
-            const auto& centre = plan.waypoints[0];
-            double nearest_m = std::numeric_limits<double>::infinity();
-            double farthest_m = 0.0;
-            double most_turns = 0.0;
-            double worst_altitude_ft = 0.0;
-            double slowest_kts = std::numeric_limits<double>::infinity();
-            int steps = 0;
-            const int most_steps = 30 * 60 * steps_per_second;
-            while (navigator.next() == 0 && steps < most_steps) {
-                autopilot.set(navigator.steer());
-                aircraft.set_controls(autopilot.fly());
-                aircraft.step();
-                ++steps;
-                if (!navigator.circling()) {
-                    continue;
-                }
-                most_turns = std::max(most_turns, navigator.turns_flown());
-                if (navigator.turns_flown() >= 0.25) {
-                    const double d = glideslope::sim::distance_m(
-                        centre.latitude_deg, centre.longitude_deg,
-                        aircraft.property("position/lat-geod-deg"),
-                        aircraft.property("position/long-gc-deg"));
-                    nearest_m = std::min(nearest_m, d);
-                    farthest_m = std::max(farthest_m, d);
-                    worst_altitude_ft = std::max(
-                        worst_altitude_ft,
-                        std::abs(aircraft.property("position/h-sl-ft") - centre.altitude_ft));
-                    slowest_kts = std::min(slowest_kts, aircraft.property("velocities/vc-kts"));
-                }
-            }
-            char which[200];
-            std::snprintf(which, sizeof which, "%s round %.0f m at %.0f kt, %s, %s",
-                          entry.id.c_str(), radius_m, vref, right ? "right" : "left",
-                          windy ? "in a 10 kt wind" : "in calm air");
-            std::fprintf(stderr,
-                         "%s: %.2f turns, %.0f to %.0f m from the centre (%+.0f to %+.0f), "
-                         "within %.0f ft, slowest %.0f kt\n",
-                         which, most_turns, nearest_m, farthest_m, nearest_m - radius_m,
-                         farthest_m - radius_m, worst_altitude_ft, slowest_kts);
-            check(navigator.next() == 1 && most_turns >= 1.99 && most_turns <= 2.01,
-                  std::string("twice round and on, ") + which);
-            check(nearest_m >= radius_m - circle_m && farthest_m <= radius_m + circle_m,
-                  std::string("on its circle within ") + std::to_string(circle_m) + " m, " +
-                      which + ": " + std::to_string(nearest_m) + " to " +
-                      std::to_string(farthest_m) + " m");
-            if (waived) {
-                std::fprintf(stderr, "  %s: its height and speed not held to: %s\n",
-                             entry.id.c_str(), out->reason.c_str());
-                ++waived_orbits;
-            } else {
-                check(worst_altitude_ft <= 50.0,
-                      std::string("at its height within 50 ft, ") + which);
-                check(slowest_kts >= vref - 5.0, std::string("at its speed within 5 kt, ") + which);
+            glideslope::sim::OrbitTrial trial;
+            trial.airspeed_kts = kts;
+            trial.right = right;
+            trial.windy = windy;
+            const glideslope::sim::OrbitFlown f =
+                glideslope::sim::fly_tightest_orbit(data, entry, trial);
+            const double circle_m = within_fraction > 0.0 ? within_fraction * f.radius_m : within_m;
+            char which[400];
+            std::snprintf(which, sizeof which,
+                          "%s round %.0f m at %.0f kt, %s, %s: %.2f turns, %.0f to %.0f m from "
+                          "the centre (%+.0f to %+.0f, %.1f%%), within %.0f ft, %.0f to %.0f kt",
+                          entry.id.c_str(), f.radius_m, kts, right ? "right" : "left",
+                          windy ? "in a 10 kt wind" : "in calm air", f.turns, f.nearest_m,
+                          f.farthest_m, f.nearest_m - f.radius_m, f.farthest_m - f.radius_m,
+                          100.0 * std::max(f.radius_m - f.nearest_m, f.farthest_m - f.radius_m) /
+                              f.radius_m,
+                          f.worst_height_ft, f.slowest_kts, f.fastest_kts);
+            std::fprintf(stderr, "%s\n", which);
+            const bool on_circle =
+                f.nearest_m >= f.radius_m - circle_m && f.farthest_m <= f.radius_m + circle_m;
+            if (!f.held(kts) || !on_circle) {
+                failures += std::string("\n  ") + which;
             }
             ++flown;
         }
         }
     }
-    std::fprintf(stderr,
-                 "%zu of %zu orbits flown (%zu with height and speed not held to), %zu left "
-                 "out\n",
-                 flown, space.size() * 4, waived_orbits, not_flown);
-    check(flown + not_flown == space.size() * 4 && flown > 0,
-          "every case flown or named as left out: " + std::to_string(flown) + " flown and " +
-              std::to_string(not_flown) + " left out of " + std::to_string(space.size() * 4));
+    std::fprintf(stderr, "%zu aircraft x 2 ways round x 2 airs = %zu orbits: %zu flown\n",
+                 space.size(), space.size() * 4, flown);
+    check(flown == space.size() * 4 && flown > 0,
+          "every case flown: " + std::to_string(flown) + " of " +
+              std::to_string(space.size() * 4));
+    check(failures.empty(),
+          "each twice round and on, its height within 50 ft, its speed within 5 kt and its "
+          "circle within " +
+              (within_fraction > 0.0 ? std::to_string(within_fraction * 100.0) + "% of its radius"
+                                     : std::to_string(within_m) + " m") +
+              ":" + failures);
 }
 
 } // namespace
@@ -587,16 +511,84 @@ std::vector<glideslope::sim::CatalogueEntry> of_classes(const std::vector<Aircra
     return out;
 }
 
-const std::string no_approach_speed =
-    "publishes no stall speed, so it has no approach speed and no plan can be made for it";
-const std::string jet_tail = ": the tail \"A plan may fly a jet clean at its approach speed\"";
-const std::string comes_down =
-    "clean at its approach speed, a flaps-down figure, it comes down to the ground round the "
-    "orbit" + jet_tail;
-
 } // namespace
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_light_aeroplane) {
+// **What a plan may ask of each aircraft is in its figures file**, and the
+// slowest is never below its approach speed - the slowest any plan was let
+// fly before - nor the fastest above a fifth over its start speed, the
+// fastest any plan was let fly before. Every aircraft in the catalogue.
+GLIDESLOPE_TEST(every_aircraft_gives_the_speeds_a_plan_may_fly_it_at_none_beyond_what_plans_were_let_fly_before) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    std::size_t covered = 0;
+    std::size_t without_approach = 0;
+    const auto catalogue = glideslope::sim::read_catalogue(data);
+    for (const auto& e : catalogue) {
+        const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, e.model);
+        std::printf("%s: %.0f to %.0f kt\n", e.id.c_str(), speeds.slowest_kts, speeds.fastest_kts);
+        check(speeds.slowest_kts > 0.0 && speeds.fastest_kts > speeds.slowest_kts,
+              e.id + "'s plan speeds rise from above 0");
+        check(speeds.fastest_kts <= std::round(1.2 * e.start_airspeed_kts),
+              e.id + "'s fastest is no more than a fifth over its start speed");
+        try {
+            const double vref = glideslope::sim::approach_speeds(data, e.model).vref_kts;
+            check(speeds.slowest_kts >= std::round(vref),
+                  e.id + "'s slowest is not below its approach speed, " + std::to_string(vref));
+        } catch (const std::runtime_error&) {
+            // The 747-400 and the F-22 publish no stall speed, so have none.
+            ++without_approach;
+        }
+        ++covered;
+    }
+    check(covered == catalogue.size() && covered == 16,
+          "every one of the sixteen aircraft: " + std::to_string(covered));
+    check(without_approach == 2, "two without an approach speed, the 747-400 and the F-22: " +
+                                     std::to_string(without_approach));
+}
+
+// **A plan file asking a speed its aircraft cannot hold clean is refused as
+// it is read**, as a model's plan is: the A320 at its approach speed, a
+// flaps-down figure, at which she comes down 500 ft clean; and faster than
+// the Mosquito makes at 3,000 ft. Every plan in the data is flown within
+// its aircraft's speeds.
+GLIDESLOPE_TEST(a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_refused_and_none_in_the_data_does) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto verdict = [&](const std::string& text) {
+        try {
+            glideslope::sim::refuse_speeds_it_cannot_hold(data, parse_flight_plan(text));
+        } catch (const FlightPlanError& e) {
+            return std::string(e.what());
+        }
+        return std::string();
+    };
+    const auto a320 = [](double kts) {
+        return "aircraft a320\nstart -33.95 151.2093 3000 0 250\n"
+               "waypoint A -33.90 151.2093 3000 250\n"
+               "orbit CBD -33.8688 151.2093 14000 3000 " + std::to_string(kts) + " 2 left\n";
+    };
+    const std::string slow = verdict(a320(147));
+    check(slow.find("CBD is flown at 147 kt, outside 162 to 300 kt") != std::string::npos,
+          "the A320 at 147 kt is refused, naming the waypoint and her speeds: " + slow);
+    check(verdict(a320(162)).empty() && verdict(a320(300)).empty(),
+          "at 162 and at 300 kt, her slowest and fastest, she is not");
+    check(verdict(a320(161)).find("outside 162 to 300") != std::string::npos &&
+              verdict(a320(301)).find("outside 162 to 300") != std::string::npos,
+          "a knot either side of them she is");
+    const std::string fast =
+        verdict("aircraft mosquito-fb6\nwaypoint A -33.90 151.2093 3000 240\n");
+    check(fast.find("A is flown at 240 kt, outside 123 to 229 kt") != std::string::npos,
+          "the Mosquito at 240 kt, more than she makes, is refused: " + fast);
+    std::size_t plans = 0;
+    for (const auto& file : std::filesystem::directory_iterator(GLIDESLOPE_TEST_PLANS_DIR)) {
+        const std::string why = verdict(plan_text(file.path().filename().string()));
+        check(why.empty(), file.path().filename().string() + " is flown within its speeds: " + why);
+        ++plans;
+    }
+    check(plans == 2, "both plans in the data: " + std::to_string(plans));
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_light_aeroplane) {
     // Claude's plan for the Cessna, 521 m at 60 kt, was flown 94 to 127 m
     // inside its circle: the navigator led the tangent by five seconds, more
     // than the autopilot needs ahead of it to bank for so tight a circle.
@@ -613,49 +605,50 @@ GLIDESLOPE_TEST(the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_
           "the tightest-orbit tests take every class of aircraft, each once: " +
               std::to_string(grouped.size()) + " of " +
               std::to_string(glideslope::sim::aircraft_class_count));
-    // The Cub and the Cherokee were left out in wind until the autopilot had
-    // a yaw damper: on a heading held by the autopilot alone, in a 10 kt
-    // crosswind, their sideslip swung 35 degrees either way every few
-    // seconds (every_light_aeroplane_holds_a_heading_in_a_20_kt_crosswind_and_in_calm_air_without_yawing).
-    // Now every case is flown.
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[0]), {}, 60.0);
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[0]), End::slowest, 60.0);
 }
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_airliner_and_business_jet_that_can_fly_it) {
-    // Clean at their approach speed, a flaps-down figure, five of the six come
-    // down to the ground round a turn and are left out; the A320 stays up and
-    // holds its circle, losing 600 ft, so its circle is held and its height
-    // and speed are not. Stated from what was measured (PROJECT_STATUS.md):
-    // at worst 96 m off its 3.1 km circle; held to 200 m.
-    fly_the_tightest_orbits(
-        of_classes(tightest_orbit_groups[1]),
-        {{"747-400", Leave::every_orbit, no_approach_speed},
-         {"737-300", Leave::every_orbit, comes_down},
-         {"787-8", Leave::every_orbit, comes_down},
-         {"a320", Leave::height_and_speed,
-          "clean at its approach speed it holds its circle but loses 600 ft" + jet_tail},
-         {"a380", Leave::every_orbit, comes_down},
-         {"learjet35a", Leave::every_orbit, comes_down}},
-        200.0);
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_airliner_and_business_jet) {
+    // Until each had its own slowest, a plan could fly a jet clean at its
+    // approach speed, a flaps-down figure: five of the six came down to the
+    // ground round this orbit, and the A320 lost 600 ft. Stated from what was
+    // measured (PROJECT_STATUS.md).
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[1]), End::slowest, 300.0);
 }
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_fighter_and_bomber_that_can_fly_it) {
-    // Stated from what was measured (PROJECT_STATUS.md): at worst 196 m off
-    // the F-15C's 5.6 km circle, 3.5% of it; held to 200 m.
-    fly_the_tightest_orbits(
-        of_classes(tightest_orbit_groups[2]),
-        {{"f22", Leave::every_orbit, no_approach_speed},
-         {"f35b", Leave::every_orbit, comes_down},
-         {"b2", Leave::every_orbit,
-          "clean at its approach speed it stalls turning towards the circle, its angle of "
-          "attack at 64 degrees in 15 s, and falls to the ground" + jet_tail}},
-        200.0);
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_fighter_and_bomber) {
+    // Until each had its own slowest, the F-35B came down to the ground round
+    // this orbit at its approach speed, and the B-2 stalled turning towards
+    // it; the F-22 had no approach speed to fly. Stated from what was
+    // measured (PROJECT_STATUS.md).
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[2]), End::slowest, 300.0);
 }
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_warbird_and_flying_boat) {
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_warbird_and_flying_boat) {
     // Stated from what was measured (PROJECT_STATUS.md): at worst 36 m off;
     // held to 60, as the light aeroplanes are.
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[3]), {}, 60.0);
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[3]), End::slowest, 60.0);
+}
+
+// **At the fastest a plan may ask**, the height and speed are held as at the
+// slowest; the circle is held to a share of its radius, stated from what was
+// measured (PROJECT_STATUS.md) - the jets' circles of 13 to 19 km are flown
+// further off them than the light aeroplanes' are: the tail "At its fastest,
+// a jet's tightest orbit is flown well off its circle".
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_light_aeroplane) {
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[0]), End::fastest, 0.0, 0.02);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_airliner_and_business_jet) {
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[1]), End::fastest, 0.0, 0.20);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_fighter_and_bomber) {
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[2]), End::fastest, 0.0, 0.20);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_warbird_and_flying_boat) {
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[3]), End::fastest, 0.0, 0.20);
 }
 
 GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane) {

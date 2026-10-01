@@ -1,6 +1,7 @@
 #include "sim/figures.hpp"
 
 #include "sim/autopilot.hpp"
+#include "sim/catalogue.hpp"
 #include "sim/crash.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/terrain.hpp"
@@ -12,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -1733,7 +1735,48 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
     };
     speed_at("approach", out.approach_kcas, out.approach_loading);
     speed_at("takeoff", out.takeoff_kcas, out.takeoff_loading);
+    // **Every file gives the speeds a plan may fly it at**, once: an
+    // aircraft without them could be planned at a speed it cannot hold.
+    JSBSim::Element* speeds = root->FindElement("plan_speeds");
+    if (speeds == nullptr || !speeds->HasAttribute("slowest_kcas") ||
+        !speeds->HasAttribute("fastest_kcas")) {
+        throw std::runtime_error(file.string() +
+                                 " gives no <plan_speeds slowest_kcas=\"...\" "
+                                 "fastest_kcas=\"...\">, the speeds a plan may fly it at");
+    }
+    out.plan_slowest_kcas = speeds->GetAttributeValueAsNumber("slowest_kcas");
+    out.plan_fastest_kcas = speeds->GetAttributeValueAsNumber("fastest_kcas");
+    if (!(out.plan_slowest_kcas > 0.0 && out.plan_fastest_kcas > out.plan_slowest_kcas)) {
+        throw std::runtime_error(file.string() +
+                                 " gives <plan_speeds> that are not above 0, the fastest above "
+                                 "the slowest");
+    }
+    if (root->FindNextElement("plan_speeds") != nullptr) {
+        throw std::runtime_error(file.string() + " gives <plan_speeds> twice");
+    }
     return out;
+}
+
+PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model) {
+    const PublishedFigures f = read_published_figures(data / "figures" / (model + ".xml"));
+    return {f.plan_slowest_kcas, f.plan_fastest_kcas};
+}
+
+void refuse_speeds_it_cannot_hold(const std::filesystem::path& data, const FlightPlan& plan) {
+    const CatalogueEntry entry = find_aircraft(data, plan.aircraft);
+    const PlanSpeeds speeds = plan_speeds(data, entry.model);
+    for (const Waypoint& w : plan.waypoints) {
+        // Half a knot, as a plan's whole knots are read (copilot/planner.cpp).
+        if (w.airspeed_kts < speeds.slowest_kts - 0.5 ||
+            w.airspeed_kts > speeds.fastest_kts + 0.5) {
+            char kts[128];
+            std::snprintf(kts, sizeof kts, "%.0f kt, outside %.0f to %.0f kt", w.airspeed_kts,
+                          speeds.slowest_kts, speeds.fastest_kts);
+            throw FlightPlanError(w.name + " is flown at " + kts + ": the " + entry.id +
+                                  " is flown clean on a plan, and cannot hold its height and "
+                                  "speed round a turn outside them");
+        }
+    }
 }
 
 FigureResult fly_figure(const std::filesystem::path& jsbsim_root,

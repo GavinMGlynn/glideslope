@@ -194,8 +194,6 @@ the controls to an AI pilot whenever you like, then take them back.
   into a plan and flies it; later it stays with you, changing the plan and the
   autopilot's settings as the flight goes, and brings the aircraft down to a
   runway. With your own key, which stays on your machine.
-  *Not yet:* a plan may ask a jet to fly clean at its landing-approach speed,
-  too slow for it to hold its height round a tight orbit.
 
 - **A different AI on each aircraft.** `WANTED`
   Choose which language model plans for each AI aircraft - Claude on one,

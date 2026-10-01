@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "sim/aircraft.hpp"
+#include "sim/plan.hpp"
 
 namespace glideslope::sim {
 
@@ -83,6 +84,16 @@ struct PublishedFigures {
     // degrees of alpha, cannot be reached on a runway. 0 where it gives none.
     double takeoff_kcas = 0.0;
     std::string takeoff_loading;
+    // **The slowest and fastest a plan may fly it**, KCAS:
+    // `<plan_speeds slowest_kcas="..." fastest_kcas="...">`, which every file
+    // gives. Measured, not worked out (`glideslope_cli plan-speeds`,
+    // sim/orbit_trial.hpp): speeds at which the autopilot holds height and
+    // speed round the tightest orbit a plan may ask, clean, both ways round,
+    // in calm air and in wind. The approach speed is a flaps-down figure and
+    // a plan is flown clean, so the slowest is the approach speed only where
+    // that is held, and never below it.
+    double plan_slowest_kcas = 0.0;
+    double plan_fastest_kcas = 0.0;
 };
 
 struct FigureResult {
@@ -93,6 +104,22 @@ struct FigureResult {
         return measured >= spec->low && measured <= spec->high;
     }
 };
+
+// The slowest and fastest a plan may fly `model`, KCAS: its figures file's
+// `<plan_speeds>`, read from `data`/figures. Throws as
+// `read_published_figures` does.
+struct PlanSpeeds {
+    double slowest_kts = 0.0;
+    double fastest_kts = 0.0;
+};
+PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model);
+
+// **A plan file is held to its aircraft's speeds as it is read**, as a
+// model's plan is (copilot/planner.cpp): throws FlightPlanError naming the
+// first waypoint `plan` asks to be flown slower or faster than its
+// aircraft's `<plan_speeds>`. Its aircraft is looked up in `data`'s
+// catalogue, and CatalogueError is thrown for one it does not hold.
+void refuse_speeds_it_cannot_hold(const std::filesystem::path& data, const FlightPlan& plan);
 
 // Reads an aircraft's figures file. Throws std::runtime_error if it cannot be
 // read, names a flight that does not exist or a loading it does not have, or

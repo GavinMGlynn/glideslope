@@ -134,4 +134,14 @@
     the speed a climb is actually flown at. Taking the peak itself would have
     taught a climb faster than the aeroplane is operated.
   </figure>
+  <!-- **The speeds a plan may fly her at**, measured by `glideslope_cli
+       plan-speeds 787-8` on 2026-10-02 (linux-release): the tightest orbit a
+       plan may ask at each speed (sim/orbit_trial.hpp), flown clean by the
+       navigator and autopilot at 3,000 ft, both ways round, in calm air and
+       in a 10 kt wind, each to hold its height within 50 ft and its speed
+       within 5 kt; the slowest sought up from its approach speed in 5 kt
+       steps, the fastest down from a fifth over its start speed. -->
+  <plan_speeds slowest_kcas="198" fastest_kcas="300">
+    The slowest, 198 kt, is 5 kt over the slowest that held: its approach speed is a flaps-down figure, and flown clean at 188 kt it held in calm air but lost 89 ft round its 5,114 m circle in wind, and below that came down 500 ft before reaching it; 193 kt held all four ways. The fastest, 300 kt, a fifth over its start speed, held all four ways.
+  </plan_speeds>
 </published_figures>
