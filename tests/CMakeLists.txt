@@ -2024,6 +2024,124 @@ foreach(_case engine:ENGINE_AT=30:24722:24724:a_players_copilot_glides_its_aircr
          ${CMAKE_CURRENT_BINARY_DIR}/server_copilot_${_what}_now)
 endforeach()
 
+# **A player's aircraft handed to the AI in the air is planned by the model
+# its player chose** - Claude or ChatGPT, from their recordings in
+# data/copilot with no key, and asked now (live) only with
+# GLIDESLOPE_LIVE_MODEL=1 - **or by none, and held**; and **a model with no
+# key is refused**, each of the two, and the aircraft held as with none. See
+# cmake/server_hand_over_model.cmake.
+foreach(_case anthropic:claude-haiku-4-5-20251001:24746:24747:claude
+              openai:gpt-5.5-2026-04-23:24748:24749:chatgpt)
+    string(REPLACE ":" ";" _case "${_case}")
+    list(GET _case 0 _provider)
+    list(GET _case 1 _model)
+    list(GET _case 2 _port)
+    list(GET _case 3 _port_now)
+    list(GET _case 4 _who)
+    set(_name a_players_aircraft_handed_to_the_ai_in_the_air_is_planned_by_${_who}_and_flown)
+    add_test(NAME ${_name}_as_recorded
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/hand_over_${_provider} -DPORT=${_port}
+            -DCHOSEN=${_provider} -DMODEL=${_model}
+            -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/hand-over-${_provider}.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_hand_over_model.cmake)
+    set_tests_properties(${_name}_as_recorded
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    add_test(NAME ${_name}_asking_${_provider}_now
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/hand_over_${_provider}_now -DPORT=${_port_now}
+            -DCHOSEN=${_provider} -DMODEL=${_model}
+            -DRECORD=${CMAKE_CURRENT_BINARY_DIR}/hand_over_${_provider}_now/hand-over-${_provider}.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_hand_over_model.cmake)
+    set_tests_properties(${_name}_asking_${_provider}_now
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads LABELS live)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hand_over_${_provider}
+         ${CMAKE_CURRENT_BINARY_DIR}/hand_over_${_provider}_now)
+endforeach()
+foreach(_case none:24750:a_players_aircraft_handed_to_the_ai_with_no_model_holds_its_course
+              refused:24751:a_hand_over_model_with_no_key_is_refused_and_the_aircraft_held)
+    string(REPLACE ":" ";" _case "${_case}")
+    list(GET _case 0 _chosen)
+    list(GET _case 1 _port)
+    list(GET _case 2 _name)
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/hand_over_${_chosen} -DPORT=${_port}
+            -DCHOSEN=${_chosen}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_hand_over_model.cmake)
+    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hand_over_${_chosen})
+endforeach()
+
+# **An aircraft the AI is given in the air by a player who leaves, or by a
+# take-over, is planned by the server's model** - Claude for one, ChatGPT for
+# the other, from their recordings in data/copilot with no key, and asked now
+# (live) only with GLIDESLOPE_LIVE_MODEL=1 - **and a model with no key is
+# refused**, both cases walked. See cmake/server_hand_over_planner.cmake.
+foreach(_case leave:anthropic:claude-haiku-4-5-20251001:24733:24734:an_aircraft_left_by_a_player_who_goes_is_planned_in_the_air_by_the_servers_claude
+              take_over:openai:gpt-5.5-2026-04-23:24739:24741:an_aircraft_left_by_a_take_over_is_planned_in_the_air_by_the_servers_chatgpt)
+    string(REPLACE ":" ";" _case "${_case}")
+    list(GET _case 0 _what)
+    list(GET _case 1 _provider)
+    list(GET _case 2 _model)
+    list(GET _case 3 _port)
+    list(GET _case 4 _port_now)
+    list(GET _case 5 _name)
+    add_test(NAME ${_name}_as_recorded
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/hand_over_planner_${_what} -DPORT=${_port}
+            -DCASE=${_what} -DCHOSEN=${_provider} -DMODEL=${_model}
+            -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/${_what}-server-${_provider}.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_hand_over_planner.cmake)
+    set_tests_properties(${_name}_as_recorded
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    add_test(NAME ${_name}_asking_${_provider}_now
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/hand_over_planner_${_what}_now -DPORT=${_port_now}
+            -DCASE=${_what} -DCHOSEN=${_provider} -DMODEL=${_model}
+            -DRECORD=${CMAKE_CURRENT_BINARY_DIR}/hand_over_planner_${_what}_now/${_what}-server-${_provider}.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_hand_over_planner.cmake)
+    set_tests_properties(${_name}_asking_${_provider}_now
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads LABELS live)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hand_over_planner_${_what}
+         ${CMAKE_CURRENT_BINARY_DIR}/hand_over_planner_${_what}_now)
+endforeach()
+add_test(NAME a_servers_hand_over_planner_with_no_key_is_refused_and_the_aircraft_goes_on_as_before
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/hand_over_planner_refused -DPORT=24743 -DCASE=refused
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_hand_over_planner.cmake)
+set_tests_properties(a_servers_hand_over_planner_with_no_key_is_refused_and_the_aircraft_goes_on_as_before
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hand_over_planner_refused)
+
+# **A player who takes their aircraft back at once is never planned past
+# it**: handed over and taken back in one breath, before any update shows
+# the AI with it, its copilot stands by and no route is sent. See
+# cmake/server_hand_over_model.cmake, CHOSEN taken_back.
+add_test(NAME a_players_aircraft_taken_back_at_once_is_not_handed_to_the_ai_again_by_its_copilot
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/hand_over_taken_back -DPORT=24723
+        -DCHOSEN=taken_back -DMODEL=claude-haiku-4-5-20251001
+        -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/hand-over-anthropic.jsonl
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_hand_over_model.cmake)
+set_tests_properties(a_players_aircraft_taken_back_at_once_is_not_handed_to_the_ai_again_by_its_copilot
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hand_over_taken_back)
+
 # **A route the server could fly is refused all the same** when it is for
 # another aircraft than the client's, for a wreck, or for an aircraft whose
 # figures give no speeds to check it against - and the server goes on.
@@ -2068,6 +2186,19 @@ add_test(NAME the_client_with_the_window_asks_its_copilot_and_the_server_flies_i
 set_tests_properties(the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_copilot)
+# **The client with the window hands its aircraft over, planned by the model
+# its player chose** (`--hand-over-model`, what A does), from the hand-over's
+# recording, with no key. See cmake/client_copilot.cmake, HAND_OVER.
+add_test(NAME the_client_with_the_window_hands_its_aircraft_over_and_the_model_chosen_plans_it
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/client_hand_over_model
+        -DPORT=24715 -DDRIVER=vulkan -DHAND_OVER=TRUE
+        -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/hand-over-anthropic.jsonl
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_copilot.cmake)
+set_tests_properties(the_client_with_the_window_hands_its_aircraft_over_and_the_model_chosen_plans_it
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_hand_over_model)
 
 # **A player's aircraft handed to the AI and back, then wrecked, flies again
 # as the player's.** See cmake/server_swap_wreck.cmake.
@@ -2472,7 +2603,13 @@ foreach(_refusal
         "the_server_refuses_a_negative_spacing_between_planned_take_offs|--ai-spacing -5 --dry-run|--ai-spacing is -5.0+, and a length of time is a number, not negative"
         "the_server_refuses_an_engine_failure_at_a_negative_time|--fail-engine-at -5 --dry-run|--fail-engine-at wants a number of seconds, not '-5'"
         "the_server_refuses_an_engine_failure_at_a_time_that_is_not_a_number|--fail-engine-at soon --dry-run|--fail-engine-at wants a number of seconds, not 'soon'"
-        "the_server_refuses_an_engine_failure_at_no_time_at_all|--fail-engine-at nan --dry-run|--fail-engine-at wants a number of seconds, not 'nan'")
+        "the_server_refuses_an_engine_failure_at_no_time_at_all|--fail-engine-at nan --dry-run|--fail-engine-at wants a number of seconds, not 'nan'"
+        "the_server_refuses_a_hand_over_planner_that_is_not_anthropic_openai_or_none|--hand-over-planner gemini --dry-run|--hand-over-planner: the hand-over's model is gemini: not anthropic, openai or none"
+        "the_server_refuses_a_hand_over_playback_with_no_hand_over_planner|--hand-over-playback answers.jsonl --dry-run|--hand-over-playback and --hand-over-record are a model's answers, and --hand-over-planner gives none"
+        "the_server_refuses_a_hand_over_recording_with_no_hand_over_planner|--hand-over-record answers.jsonl --dry-run|--hand-over-playback and --hand-over-record are a model's answers, and --hand-over-planner gives none"
+        "the_server_refuses_a_hand_over_planner_of_none_with_a_model|--hand-over-planner none:gpt --dry-run|--hand-over-planner: the hand-over's model is none:gpt: none is no model, and takes none after a colon"
+        "the_server_refuses_a_hand_over_planner_with_nothing_to_plan|--hand-over-planner openai --no-take-over --dry-run|--hand-over-planner plans an aircraft left to the AI by a player who goes .--on-leave ai. or by a take-over, and this server allows neither"
+        "the_server_refuses_a_hand_over_playback_and_recording_together|--hand-over-planner openai --hand-over-playback a.jsonl --hand-over-record b.jsonl --dry-run|--hand-over-playback asks nobody, so there is nothing for --hand-over-record to keep")
     string(REPLACE "|" ";" _refusal "${_refusal}")
     list(GET _refusal 0 _name)
     list(GET _refusal 1 _args)

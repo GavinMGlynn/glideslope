@@ -54,9 +54,31 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace glideslope::frontend {
+
+// **The model that plans an aircraft handed to the AI** (`--hand-over-model
+// P[:MODEL]`, on either client): the player chooses Claude (`anthropic`),
+// ChatGPT (`openai`) or none - none, the default, being what a hand-over
+// always did: the server's AI holds what the aircraft is doing. With a
+// model, the player's copilot is asked, with the player's key, for a route
+// from where the aircraft is, in the air, and the route goes to the server as
+// any copilot's does. Without its key it is refused - said, and the aircraft
+// handed over as with none - never faked.
+struct HandOverModel {
+    std::string provider; // "anthropic" or "openai"; empty for none
+    std::string model;    // the provider's default when empty
+};
+// Reads `none`, `anthropic` or `openai`, either of those with `:MODEL`;
+// throws std::invalid_argument, saying why, for anything else.
+HandOverModel read_hand_over_model(std::string_view text);
+
+// **What the copilot is asked on a hand-over**, from the data
+// (`tasks/hand-over.words`): words, as a player's task is - content, not
+// code. Lines beginning `#` are comments; the rest is the words.
+std::string hand_over_task(const std::filesystem::path& data);
 
 struct PlayersCopilotOptions {
     std::string aircraft; // the catalogue's id, "c172p"
@@ -82,6 +104,31 @@ public:
     void ask() {
         wanted_ = "the pilot has asked";
         engaged_ = true;
+    }
+    // **Handed to the AI by its player, with this copilot as the model that
+    // plans it**: asked at the next look, from where the aircraft is, and
+    // engaged from then, as when the player asks. `words`, when its task is
+    // the player's own (`--copilot TASK`), are the hand-over's, said with
+    // the question so that the hand-over is planned as one.
+    void handed_over(const std::string& words = {}) {
+        wanted_ = "the pilot has handed you the aircraft";
+        if (!words.empty()) {
+            *wanted_ += ", saying: " + words;
+        }
+        engaged_ = true;
+    }
+    // **Taken back by its player**, said by the client as it asks the
+    // server: it stands by at once - nothing more asked, the question out
+    // not heard, its route forgotten - rather than when an update first shows
+    // the player with it, which a take-back made before any update showed
+    // the AI with it never does.
+    void taken_back() {
+        if (engaged_) {
+            said_.push_back("its pilot has taken it back: the copilot stands by");
+        }
+        engaged_ = false;
+        wanted_.reset();
+        route_.clear();
     }
     bool engaged() const {
         return engaged_;

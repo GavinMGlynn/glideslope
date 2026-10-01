@@ -87,6 +87,25 @@ struct ConnectCopilot {
     std::string route_file; // or, sent as it is: a route the model never saw
     bool route_for_another = false; // ...for another aircraft's number
     bool route_when_wrecked = false; // ...once its own is a wreck
+    // **The model that plans its aircraft when it is handed to the AI**
+    // (`--hand-over-model P[:MODEL]`, with `--hand-over-at`): none, the
+    // default, or a copilot made - for the aircraft the server says is its
+    // own, told the data's hand-over words - and asked as it is handed
+    // over. Refused, for want of a key, it says so, and the hand-over goes
+    // ahead as with none.
+    std::optional<glideslope::frontend::HandOverModel> hand_over;
+    bool provider_given = false; // --copilot-provider or --copilot-model
+    bool hand_over_tried = false; // the copilot for it made, or refused
+    std::string hand_over_refused;
+    // Taken back (`--take-back-at`): it leaves `stay_s` of the session's
+    // clock after an update first shows its player with it again.
+    bool taken_back = false;
+    std::optional<double> back_since_s;
+    // Held by the AI with no model planning it: from when the update first
+    // shows the AI flying it, how it was flying, for what is said at the end.
+    std::optional<double> held_since_s;
+    double held_heading_deg = 0.0;
+    double held_height_ft = 0.0;
     std::unique_ptr<glideslope::frontend::PlayersCopilot> seat;
     bool asked = false;
     bool route_sent = false;
@@ -239,7 +258,13 @@ void print_usage(std::FILE* out) {
         "                            behind, and says how far its own was put right\n"
         "                            --hand-over-at S asks, S seconds in, for its own\n"
         "                            aircraft to be handed to the AI pilot, and\n"
-        "                            --take-back-at S for it back; predicting, it says\n"
+        "                            --take-back-at S for it back; with\n"
+        "                            --hand-over-model P, anthropic or openai (each\n"
+        "                            with :MODEL if wanted) or none,\n"
+        "                            the hand-over is planned by that model, asked\n"
+        "                            here with your key (--copilot-record/-playback),\n"
+        "                            or by none - the AI holds its course, and it\n"
+        "                            leaves --copilot-stay S after; predicting, it says\n"
         "                            how far what it showed of its own stepped then;\n"
         "                            with --long-frame-after-switch it draws nothing\n"
         "                            for 0.4 s after the third frame after each switch,\n"
@@ -2091,6 +2116,9 @@ int stay(glideslope::platform::UdpSocket& socket,
     // **Every aircraft's condition, as last heard**, so that a change -
     // a wreck, or a wreck flying again - is said once, when it is heard.
     std::map<std::uint8_t, glideslope::net::Condition> heard_as;
+    // **What each aircraft is**, by its number, as the server's `AIRCRAFT`
+    // messages said: the catalogue's id, for a hand-over's copilot.
+    std::map<std::uint8_t, std::string> ids_heard;
     // **A test flag's work**: send the initiation once more, now that the
     // session is up. A network that duplicates a datagram does this by
     // itself, and a server that answered it with a fresh session would leave
@@ -2245,14 +2273,72 @@ int stay(glideslope::platform::UdpSocket& socket,
             const std::vector<std::uint8_t> body = glideslope::net::write(swap);
             (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
         };
+        // **The copilot that plans it handed over** (`--hand-over-model`),
+        // made once the server has said which aircraft is its own and what
+        // it is - or refused, saying why, and the hand-over made as with
+        // none. The hand-over waits for that.
+        ConnectCopilot& hc = connect_copilot;
+        const bool hand_over_model = hc.hand_over && !hc.hand_over->provider.empty();
+        if (hand_over_model && !hc.hand_over_tried && mine != glideslope::net::no_aircraft) {
+            if (const auto id = ids_heard.find(mine); id != ids_heard.end()) {
+                hc.hand_over_tried = true;
+                glideslope::frontend::PlayersCopilotOptions o =
+                    hc.options ? *hc.options : glideslope::frontend::PlayersCopilotOptions{};
+                o.aircraft = id->second;
+                o.provider = hc.hand_over->provider;
+                o.model = hc.hand_over->model;
+                // **The hand-over's words**, the data's - the installed data
+                // beside the program, as the catalogue is read here, not
+                // `--data`. Not had, that is said for what it is, not as a
+                // key refused.
+                try {
+                    o.task = glideslope::frontend::hand_over_task(
+                        glideslope::platform::data_directory());
+                } catch (const std::exception& e) {
+                    hc.hand_over_refused = "its words cannot be read";
+                    say_heard(std::string("the hand-over's words cannot be read: ") + e.what());
+                }
+                if (hc.hand_over_refused.empty()) {
+                    try {
+                        hc.seat = std::make_unique<glideslope::frontend::PlayersCopilot>(
+                            glideslope::platform::data_directory(), o);
+                        hc.asked = true; // asked as it is handed over, not before
+                    } catch (const std::exception& e) {
+                        hc.hand_over_refused = o.provider + " was refused";
+                        say_heard("the hand-over's model, " + o.provider + ", is refused: " +
+                                  e.what());
+                    }
+                }
+            }
+        }
         if (mine != glideslope::net::no_aircraft) {
-            if (hand_over_at_s >= 0.0 && up_s >= hand_over_at_s && !asked_to_hand_over) {
+            if (hand_over_at_s >= 0.0 && up_s >= hand_over_at_s && !asked_to_hand_over &&
+                (!hand_over_model || hc.hand_over_tried)) {
                 asked_to_hand_over = true;
                 ask(glideslope::net::Controller::ai);
+                if (hc.seat && hand_over_model) {
+                    hc.seat->handed_over();
+                    say_heard("handed over, planned by " + hc.seat->provider());
+                } else if (hc.hand_over) {
+                    say_heard("handed over, planned by no model" +
+                              (hc.hand_over_refused.empty()
+                                   ? std::string()
+                                   : " (" + hc.hand_over_refused + ")") +
+                              ": the AI holds its course");
+                }
             }
             if (take_back_at_s >= 0.0 && up_s >= take_back_at_s && !asked_to_take_back) {
                 asked_to_take_back = true;
                 ask(glideslope::net::Controller::person);
+                // Its copilot stands by now, not when an update first shows
+                // the player with it.
+                if (hc.seat) {
+                    hc.seat->taken_back();
+                    for (const std::string& line : hc.seat->said()) {
+                        say_heard(line);
+                    }
+                }
+                hc.taken_back = true;
             }
             if (take_over_at_s >= 0.0 && up_s >= take_over_at_s && !asked_to_take_over &&
                 ai_to_take != glideslope::net::no_aircraft &&
@@ -2488,6 +2574,56 @@ int stay(glideslope::platform::UdpSocket& socket,
                     cc.done = true;
                 }
             }
+            // **Taken back**: from when an update first shows its player with
+            // it, `--copilot-stay` seconds of the session's clock, then it
+            // leaves - what a test of a take-back waits for.
+            if (newest_state && cc.hand_over && cc.taken_back && mine != glideslope::net::no_aircraft) {
+                const double now_s = state->simulation_time_s;
+                for (const glideslope::net::AircraftState& a : state->aircraft) {
+                    if (a.index != mine || a.controller != glideslope::net::Controller::person) {
+                        continue;
+                    }
+                    if (!cc.back_since_s) {
+                        cc.back_since_s = now_s;
+                    } else if (now_s - *cc.back_since_s >= cc.stay_s) {
+                        say_heard("flown by its pilot again for " +
+                                  std::to_string(std::llround(now_s - *cc.back_since_s)) + " s");
+                        cc.done = true;
+                    }
+                }
+            }
+            // **Handed over with no model to plan it** - none chosen, or one
+            // refused: the AI holds what the aircraft was doing. How it was
+            // flying when the update first showed the AI with it, and how it
+            // is `--copilot-stay` seconds of the session's clock later, said;
+            // then it leaves.
+            if (newest_state && cc.hand_over && !cc.seat && !cc.taken_back && asked_to_hand_over &&
+                mine != glideslope::net::no_aircraft) {
+                const double now_s = state->simulation_time_s;
+                for (const glideslope::net::AircraftState& a : state->aircraft) {
+                    if (a.index != mine || a.controller != glideslope::net::Controller::ai) {
+                        continue;
+                    }
+                    const double height_ft =
+                        glideslope::world::to_geodetic({a.x_m, a.y_m, a.z_m}).height_m *
+                        3.280839895013123;
+                    const double heading_deg = static_cast<double>(a.heading_deg);
+                    if (!cc.held_since_s) {
+                        cc.held_since_s = now_s;
+                        cc.held_heading_deg = heading_deg;
+                        cc.held_height_ft = height_ft;
+                    } else if (now_s - *cc.held_since_s >= cc.stay_s) {
+                        char line[200];
+                        std::snprintf(line, sizeof line,
+                                      "held by the AI for %.0f s: heading %.1f to %.1f, "
+                                      "height %.0f to %.0f ft",
+                                      now_s - *cc.held_since_s, cc.held_heading_deg, heading_deg,
+                                      cc.held_height_ft, height_ft);
+                        say_heard(line);
+                        cc.done = true;
+                    }
+                }
+            }
             // The AI aircraft it would take over: the one it watches, or else
             // the first the AI flies - or the one it is told, whoever's.
             if (take_over_aircraft >= 0) {
@@ -2569,6 +2705,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                 if (glideslope::net::read(
                         std::span<const std::uint8_t>(message.data(), message.size()), d)) {
                     say_heard("aircraft " + std::to_string(d.aircraft) + " is " + d.id);
+                    ids_heard[d.aircraft] = d.id;
                     // **The model is the catalogue's for that id**, never the
                     // wire's: a directory a server named would be joined to a
                     // path as it stood. An id not in the catalogue flies
@@ -3515,8 +3652,10 @@ static int run_program(int argc, char** argv) {
                         of_the_model ? *connect_copilot.options : scratch;
                     if (args[i] == "--copilot-provider") {
                         c.provider = v;
+                        connect_copilot.provider_given = true;
                     } else if (args[i] == "--copilot-model") {
                         c.model = v;
+                        connect_copilot.provider_given = true;
                     } else if (args[i] == "--copilot-record") {
                         c.record = v;
                     } else if (args[i] == "--copilot-playback") {
@@ -3566,6 +3705,19 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--hand-over-at" && i + 1 < args.size()) {
                     hand_over_at_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
+                    ++i;
+                    continue;
+                }
+                // **The model that plans it handed over**: anthropic, openai
+                // or none, either model with `:MODEL`.
+                if (args[i] == "--hand-over-model" && i + 1 < args.size()) {
+                    try {
+                        connect_copilot.hand_over =
+                            glideslope::frontend::read_hand_over_model(args[i + 1]);
+                    } catch (const std::invalid_argument& e) {
+                        std::fprintf(stderr, "glideslope_cli: %s\n", e.what());
+                        return 2;
+                    }
                     ++i;
                     continue;
                 }
@@ -3663,7 +3815,24 @@ static int run_program(int argc, char** argv) {
                                      "and there is none\n");
                 return 2;
             }
-            if (connect_copilot.options) {
+            // **A hand-over's model is the only copilot**: its aircraft is
+            // the server's to say, its words the data's, and its provider
+            // the flag's - `--copilot-record`, `--copilot-playback` and
+            // `--copilot-routine` say how it is asked.
+            if (connect_copilot.hand_over) {
+                if (hand_over_at_s < 0.0) {
+                    std::fprintf(stderr, "glideslope_cli: --hand-over-model chooses what "
+                                         "plans a hand-over, and there is no --hand-over-at\n");
+                    return 2;
+                }
+                const auto& c = connect_copilot.options;
+                if (connect_copilot.provider_given || (c && !c->aircraft.empty())) {
+                    std::fprintf(stderr, "glideslope_cli: --hand-over-model is its copilot: "
+                                         "not with --copilot, --copilot-provider or "
+                                         "--copilot-model\n");
+                    return 2;
+                }
+            } else if (connect_copilot.options) {
                 if (connect_copilot.options->aircraft.empty()) {
                     std::fprintf(stderr, "glideslope_cli: --copilot-* needs --copilot AIRCRAFT TASK\n");
                     return 2;

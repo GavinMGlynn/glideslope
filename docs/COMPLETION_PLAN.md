@@ -329,17 +329,17 @@ ends in a debrief, never a score.
       can produce only a flight plan and autopilot modes, checked by the
       build: what it sees, opens and links.* Done 2026-09-25. It was first
       "at configure time", which review showed could be got round.
-- [ ] **A different model on each AI aircraft** - Claude, ChatGPT, or none -
+- [x] **A different model on each AI aircraft** - Claude, ChatGPT, or none -
       chosen per aircraft by the server or when an aircraft is handed to the
       AI, each with its owner's key. *Verification: one scenario is planned
       and flown with each provider from its recorded answers, in CI without a
-      key; a provider without a key is refused, not faked.* **Missing: the
-      choice when an aircraft is handed to the AI** - one handed over in the
-      air still flies the server's plan or holds its course, because a plan
-      for an aircraft already flying needs a new request, and new recordings.
-      The server's choice is done: each AI aircraft may be planned by Claude,
-      ChatGPT or none, and CI flies one of each from its recording; a model
-      with no key is refused and the aircraft flies the plan file.
+      key; a provider without a key is refused, not faked.* Done 2026-10-02:
+      the server chooses for its AI aircraft and for one left to the AI by a
+      player who goes or by a take-over, with its key; a player handing their
+      own over chooses, with theirs. In CI, from recordings: a player's own
+      hand-over planned by Claude and by ChatGPT, one left by a player who
+      goes by Claude, and one left by a take-over by ChatGPT; a model with no
+      key is refused and the aircraft flies as with none.
 - [x] **Reinforcement-learning agents** (stretch goal). *Verification: an agent
       trained through JSBSim's gym-style wrappers lands within stated limits.*
       Done 2026-09-30: the Cessna 172P's learnt landing touches down within
@@ -1083,3 +1083,14 @@ Found while implementing something else. Added when found, not when remembered.
       sometimes waits two minutes before it is sent**, compressed or not; the
       next try gets through. *Verification: the cause is named, and on that
       machine twenty fetches in a row each arrive within ten seconds.*
+
+- [ ] **A model planning an aircraft left to the AI is not told the plan it
+      flies.** Left by a player who goes, it flies the server's plan file
+      until the server's model answers, and the model is told no route is
+      flown. *Verification: the model is told the plan file's waypoints still
+      to fly.*
+- [ ] **The window client's hand-over model is chosen at start**, by a flag,
+      not in flight, and its refusal for want of a key is tested only on the
+      headless client. *Verification: a key cycles the model in flight, and
+      the window client with no key says the model is refused and its
+      aircraft is held.*

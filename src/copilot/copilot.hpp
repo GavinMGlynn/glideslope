@@ -34,6 +34,7 @@
 #include "world/runways.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <functional>
 #include <future>
@@ -143,6 +144,19 @@ public:
     // taken by `answered`.
     bool asking() const {
         return pending_.valid();
+    }
+    // **Gives up the question outstanding without waiting for it**: its
+    // model's request is abandoned and no further answer asked for. What
+    // is still running is waited for by the destructor - so whoever must
+    // not wait keeps this until `settled`.
+    void give_up() {
+        given_up_ = true;
+    }
+    // Whether nothing it asked is still running: destroying it now waits
+    // for nothing.
+    bool settled() const {
+        return !pending_.valid() ||
+               pending_.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
     }
     // The answer to the question outstanding, once and only once it has
     // come; nothing while it has not. Never waits. Throws ProviderError from
