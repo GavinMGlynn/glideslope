@@ -903,9 +903,13 @@ add_test(NAME the_committed_mosquito_propeller_is_what_its_script_computes
 set_tests_properties(the_committed_mosquito_propeller_is_what_its_script_computes
     PROPERTIES SKIP_RETURN_CODE 77)
 
+# The names go in a file: given on the command line they passed Windows'
+# 32,767-character limit, and the test was not even started there.
+string(REPLACE ";" "\n" _registered "${GLIDESLOPE_UNIT_TESTS}")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/registered_unit_tests.txt "${_registered}\n")
 add_test(NAME every_compiled_unit_test_is_registered_with_ctest
     COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:glideslope_tests>
-        "-DREGISTERED=${GLIDESLOPE_UNIT_TESTS}"
+        -DREGISTERED_FILE=${CMAKE_CURRENT_BINARY_DIR}/registered_unit_tests.txt
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/registered_tests.cmake)
 
 # ---------------------------------------------------------------------------

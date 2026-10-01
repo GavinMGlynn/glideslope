@@ -1,11 +1,16 @@
 # registered_tests.cmake - every test compiled into glideslope_tests is a ctest,
 # and every ctest name given to it is a test it has.
 #
-#   cmake -DPROGRAM=<glideslope_tests> -DREGISTERED="<name;name;...>"
+#   cmake -DPROGRAM=<glideslope_tests> -DREGISTERED_FILE=<file, a name a line>
 #         -P registered_tests.cmake
 #
 # A test written and never registered never runs, and nothing would say so.
 cmake_minimum_required(VERSION 3.28)
+file(STRINGS "${REGISTERED_FILE}" REGISTERED)
+list(LENGTH REGISTERED _registered)
+if(_registered EQUAL 0)
+    message(FATAL_ERROR "no registered tests read from ${REGISTERED_FILE}")
+endif()
 execute_process(COMMAND "${PROGRAM}" --list RESULT_VARIABLE _rc OUTPUT_VARIABLE _out)
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "${PROGRAM} --list exited ${_rc}")
