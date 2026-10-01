@@ -168,6 +168,11 @@ public:
     bool flown_since_taken_over() const {
         return taken_at_ && applied_ > *taken_at_;
     }
+    // **Gone back to its old session** after a refusal it believed - forged,
+    // or a blip - and whether the server has since applied an input sent
+    // after it went back: the same session, flown on from here.
+    bool gone_back() const { return back_at_.has_value(); }
+    bool flown_since_going_back() const { return back_at_ && applied_ > *back_at_; }
 
     // Its controls at `local_s`, 100 ms behind the clock as its position is,
     // or nothing before two updates of them either side have come.
@@ -223,6 +228,10 @@ private:
     // Joined again, and not yet told which aircraft is its own.
     bool rejoining_ = false;
     int joined_again_seen_ = 0;
+    // How many times the session went back, as last noticed, and the last
+    // input sent when it was.
+    int went_back_seen_ = 0;
+    std::optional<std::uint32_t> back_at_;
     // Taken back, and not yet put where the server says it is.
     bool resuming_ = false;
     std::optional<double> reconciled_s_;

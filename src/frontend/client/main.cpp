@@ -164,6 +164,9 @@ struct Options {
     // On a server, stall this many seconds of flight in - send nothing and
     // answer nothing, as a stopped process - until the server lets it go.
     double stall_after_s = -1.0;
+    // On a server, hold the shot until it has gone back to its old session
+    // after a refusal it believed, and been flown in it by an input sent since.
+    bool shot_once_back = false;
     // On a server, ride along in the next aircraft at each of these many
     // seconds of flight in, as W does.
     std::vector<double> next_aircraft_after_s;
@@ -238,6 +241,10 @@ void usage(std::FILE* out) {
         "  --stall-after S  on a server, S seconds after joining, send and answer\n"
         "                nothing, as a stopped process, until the server has let\n"
         "                this client go; it then joins again by itself (for tests)\n"
+        "  --shot-once-back  on a server, hold the shot, up to a minute of the\n"
+        "                flight past its tick, until this client has gone back to\n"
+        "                its old session after a refusal it believed, and the\n"
+        "                server has flown it by an input sent since (for tests)\n"
         "  --next-aircraft-after S  on a server, ride along in the next aircraft\n"
         "                S seconds after joining, as W does; may be given again\n"
         "  --quit-at T   end a --shot flight at tick T, before its shot, drawing\n"
@@ -462,6 +469,8 @@ static int run_program(int argc, char** argv) {
             o.hand_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--stall-after" && has_value) {
             o.stall_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--shot-once-back") {
+            o.shot_once_back = true;
         } else if (a == "--take-back-after" && has_value) {
             o.take_back_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--next-aircraft-after" && has_value) {
@@ -1478,6 +1487,24 @@ static int run_program(int argc, char** argv) {
                     (!online->had_by_joining_again() || !online->flown_since_taken_over());
                 if (shot_now && again_unheard && !waited_long) {
                     shot_now = false;
+                }
+                // **Refused by a forger, the shot waits for it to have gone
+                // back** to its old session and been flown there by an input
+                // sent since: the same events, the same minute.
+                const bool back_in_old_unheard =
+                    o.shot_once_back &&
+                    (!online->gone_back() || !online->flown_since_going_back());
+                if (shot_now && back_in_old_unheard && !waited_long) {
+                    shot_now = false;
+                }
+                if (shot_now && o.shot_once_back) {
+                    std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",
+                                static_cast<double>(ticks - o.shot_at) /
+                                    static_cast<double>(glideslope::sim::steps_per_second),
+                                back_in_old_unheard
+                                    ? "not yet gone back to its old session and flown"
+                                    : "gone back to its old session, and flown by an input "
+                                      "sent since");
                 }
                 if (shot_now && asked_to_stall) {
                     std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",

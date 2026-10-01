@@ -313,7 +313,10 @@ the server's address with the reason `BAD_HANDSHAKE`. Even then it costs
 nothing: while the client tries to join again it keeps listening under the
 old session's keys, and the first thing that opens under them takes it back
 to that session - a server that still has the session has dropped the new
-initiation from that address without a word, so nothing else changed. A
+initiation from that address without a word, so nothing else changed - the
+client numbers its inputs on from where they were, as the server still
+counts them. Both clients are tested going back, a relay holding the
+server's datagrams for the quiet and forging the refusal (#78). A
 forged `SERVER_FULL` or `DROPPED` from the server's address during that
 attempt does end it, as either would end a first handshake (below). The
 drop itself is sealed: the server's goodbye opens only under the dropped

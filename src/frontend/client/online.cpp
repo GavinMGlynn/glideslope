@@ -119,6 +119,13 @@ void Online::hear(double local_s, Flight& flight) {
 }
 
 void Online::noticed() {
+    // **Gone back to the old session**: nothing to start again - the same
+    // keys, the same aircraft, the server's count of this client's inputs
+    // where it was - only the input sent last, for `flown_since_going_back`.
+    if (session_.went_back() != went_back_seen_) {
+        went_back_seen_ = session_.went_back();
+        back_at_ = sequence_;
+    }
     if (session_.joined_again() == joined_again_seen_) {
         return;
     }
