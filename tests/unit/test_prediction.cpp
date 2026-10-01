@@ -1,5 +1,6 @@
 #include "harness.hpp"
 
+#include "frontend/client/pass.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/prediction.hpp"
 #include "sim/terrain.hpp"
@@ -9,6 +10,7 @@
 #include <cstdio>
 #include <deque>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -775,4 +777,249 @@ GLIDESLOPE_TEST(no_more_than_four_seconds_of_unacknowledged_inputs_are_held) {
     check(client.unacknowledged() == 4 * steps_per_second,
           "held " + std::to_string(client.unacknowledged()) + " of the " +
               std::to_string(five_seconds) + " steps flown, not four seconds' 480");
+}
+
+namespace {
+
+struct Paced {
+    double worst_learning_m = 0.0; // put right before the clocks' difference was known
+    double worst_known_m = 0.0;    // and after
+    std::size_t learning = 0;
+    std::size_t known = 0;
+    std::size_t known_after_long = 0; // known, and heard after the long frame
+    std::int64_t second_sent_after_us = 0;
+    std::size_t long_frames = 0; // flown
+};
+
+// **A client paced by real time, as the window client is**, against a server
+// on its own clock. Time is in microseconds, and a step is due every 120th of
+// a second on both. The client's passes come at the frame lengths given, and
+// each is the window client's, through the same glideslope::client::
+// fly_a_pass that orders its parts there, the parts this model's: an input
+// sent if a thirtieth of a second has gone since the last (Online::fly),
+// what has arrived taken in (Online::listen), the ticks flown on what fly
+// says, the input sent flown from the next (Online::flown), and what was
+// taken in heard, the older words for the clocks' difference and the newest
+// putting it right (Online::hear). The server applies an input from its first step after it
+// arrives, and says where it is every fifth step; each way takes
+// `one_way_us`. A long frame is one of `long_us` or more.
+Paced fly_paced(const std::vector<std::int64_t>& frames_us, std::int64_t one_way_us,
+                std::int64_t long_us) {
+    constexpr std::int64_t second_us = 1000000;
+    constexpr std::int64_t inputs_every_us = second_us / 30;
+    const auto due_by = [](std::int64_t t_us) {
+        return static_cast<std::uint64_t>(t_us * steps_per_second / second_us);
+    };
+    const auto time_of_step = [](std::uint64_t n) {
+        return static_cast<std::int64_t>((n * second_us + steps_per_second - 1) /
+                                         steps_per_second);
+    };
+    Aircraft server(data() / "jsbsim", "c172p");
+    Aircraft own(data() / "jsbsim", "c172p");
+    set_up(server);
+    set_up(own);
+    Prediction client(own);
+    struct Sent {
+        std::int64_t arrives_us = 0;
+        std::uint32_t sequence = 0;
+        Controls controls;
+    };
+    struct Posted {
+        std::int64_t arrives_us = 0;
+        glideslope::sim::Motion motion;
+        std::uint32_t applied = 0;
+        std::size_t into = 0;
+        std::uint64_t server_steps = 0;
+    };
+    std::deque<Sent> up;
+    std::deque<Posted> down;
+    std::uint32_t applied = 0;
+    Controls applied_controls = flying(0);
+    std::size_t into = 0;
+    std::uint64_t server_steps = 0;
+    std::uint64_t client_steps = 0;
+    std::uint32_t sequence = 0;
+    Controls stick = flying(0);
+    std::uint32_t flown_sequence = 0;
+    Controls flown_stick = stick;
+    std::int64_t sent_at_us = 0;
+    std::int64_t now_us = 0;
+    bool long_seen = false;
+    Paced out;
+    // The server, every step due by `t_us`, whatever the client did.
+    const auto serve_until = [&](std::int64_t t_us) {
+        while (server_steps < due_by(t_us)) {
+            const std::int64_t at_us = time_of_step(server_steps + 1);
+            while (!up.empty() && up.front().arrives_us < at_us) {
+                applied = up.front().sequence;
+                applied_controls = up.front().controls;
+                into = 0;
+                up.pop_front();
+            }
+            server.set_controls(applied_controls);
+            server.step();
+            ++into;
+            ++server_steps;
+            if (server_steps % 5 == 0) {
+                down.push_back({at_us + one_way_us, server.motion(), applied, into, server_steps});
+            }
+        }
+    };
+    for (const std::int64_t frame_us : frames_us) {
+        now_us += frame_us;
+        serve_until(now_us);
+        if (frame_us >= long_us) {
+            long_seen = true;
+            ++out.long_frames;
+        }
+        const auto send = [&] {
+            sent_at_us = now_us;
+            ++sequence;
+            stick = flying(static_cast<int>(due_by(now_us)));
+            up.push_back({now_us + one_way_us, sequence, stick});
+            if (sequence == 2) {
+                out.second_sent_after_us = frame_us;
+            }
+        };
+        // The window client's own pass, its parts this model's.
+        struct Link {
+            std::function<Controls()> fly_;
+            std::function<void()> listen_;
+            std::function<void()> flown_;
+            std::function<void()> hear_;
+            Controls fly(double, const Controls&) { return fly_(); }
+            void listen(double) { listen_(); }
+            void ticks_flown() {}
+            void flown() { flown_(); }
+            void hear() { hear_(); }
+        };
+        std::vector<Posted> arrived;
+        Link link{
+            // Sent if due: the first, with nothing flown before it, flown at
+            // once (Online::fly).
+            [&] {
+                if (sequence == 0) {
+                    send();
+                    flown_sequence = sequence;
+                    flown_stick = stick;
+                } else if (now_us - sent_at_us >= inputs_every_us) {
+                    send();
+                }
+                return flown_stick;
+            },
+            // What has arrived by the time the clock was read.
+            [&] {
+                while (!down.empty() && down.front().arrives_us <= now_us) {
+                    arrived.push_back(down.front());
+                    down.pop_front();
+                }
+            },
+            [&] {
+                flown_sequence = sequence;
+                flown_stick = stick;
+            },
+            // The older words for the clocks' difference, the newest
+            // putting it right.
+            [&] {
+                for (std::size_t i = 0; i < arrived.size(); ++i) {
+                    const Posted& p = arrived[i];
+                    if (i + 1 < arrived.size()) {
+                        client.hear_clock(p.applied, p.into, p.server_steps);
+                        continue;
+                    }
+                    const bool known = client.settled();
+                    const Prediction::Correction c =
+                        client.reconcile(p.motion, p.applied, p.into, p.server_steps);
+                    if (known) {
+                        out.worst_known_m = std::max(out.worst_known_m, c.moved_m);
+                        ++out.known;
+                        if (long_seen) {
+                            ++out.known_after_long;
+                        }
+                    } else {
+                        out.worst_learning_m = std::max(out.worst_learning_m, c.moved_m);
+                        ++out.learning;
+                    }
+                }
+            }};
+        const auto due = static_cast<std::int64_t>(due_by(now_us) - client_steps);
+        glideslope::client::fly_a_pass(link, static_cast<double>(now_us) / 1e6, stick, due,
+                                       [&](const Controls& controls) {
+                                           client.step(flown_sequence, controls);
+                                           ++client_steps;
+                                       });
+    }
+    return out;
+}
+
+} // namespace
+
+// **A long frame puts the client right by little, whether or not the clocks'
+// difference is known yet** - CI's failures (PROJECT_STATUS.md, 2026-10-02):
+// the window client put right 22.6 to 31.0 m around frames of 142 to 730 ms.
+// Its passes sent the input first and then flew every step the frame was
+// owed on it, so an input sent at the end of a long frame was flown here from
+// the frame's beginning, and the server - which cannot fly an input before
+// it arrives - flew it a whole frame later: that input said the clocks
+// differ by the frame more than they do. Once the difference is known, the
+// least of two seconds' words leaves it out; but while it is being learnt it
+// can be the least heard, and when an input sent after a quick frame came the
+// difference fell by the long frame, and the aircraft was put right by the
+// way flown in it - 7.7 m at 142 ms, 25 m at 428 and 43 m at 730 here. Flown
+// on the input sent before, and the new one sent after, each input is flown
+// here from the step it was sent at, as the server flies it.
+//
+// **The space**: five long frames (CI's 142, 167, 284 and 730 ms, and 428)
+// by three places - the first and the second frame after the prediction
+// began, where the first input whose beginning is known is the one sent at
+// the long frame's end, and three seconds on, when the difference is known -
+// by two networks, 0 and 5 ms each way: thirty flights, each counted.
+GLIDESLOPE_TEST(a_long_frame_puts_a_client_right_by_little_whether_or_not_its_clocks_difference_is_known_yet) {
+    // A tenth of the snap and more: what is left is the steps a word is
+    // placed to, half a metre each at 120 knots.
+    constexpr double bound_m = 3.0;
+    constexpr std::int64_t quick_us = 16667;
+    const std::vector<std::int64_t> long_ms{142, 167, 284, 428, 730};
+    const std::vector<int> quick_before{1, 2, 3 * 60};
+    const std::vector<std::int64_t> one_way_ms{0, 5};
+    std::size_t long_frames_flown = 0;
+    for (const std::int64_t long_frame_ms : long_ms) {
+        for (const int before : quick_before) {
+            for (const std::int64_t one_way : one_way_ms) {
+                std::vector<std::int64_t> frames(static_cast<std::size_t>(before), quick_us);
+                frames.push_back(long_frame_ms * 1000);
+                frames.insert(frames.end(), 3 * 60, quick_us);
+                const Paced p = fly_paced(frames, one_way * 1000, long_frame_ms * 1000);
+                const bool learning = before < 60;
+                const std::string what = std::to_string(long_frame_ms) + " ms " +
+                                         std::to_string(before) + " frames in, " +
+                                         std::to_string(one_way) + " ms each way";
+                std::printf("  %s: put right %zu times learning the clocks' difference, the "
+                            "worst %.3f m; %zu times knowing it, the worst %.3f m\n",
+                            what.c_str(), p.learning, p.worst_learning_m, p.known,
+                            p.worst_known_m);
+                if (learning) {
+                    check(p.second_sent_after_us == long_frame_ms * 1000,
+                          what + ": the first input whose beginning is known was sent at the "
+                                 "long frame's end");
+                } else {
+                    check(p.known_after_long > 0,
+                          what + ": the clocks' difference was known before the long frame, "
+                                 "and the client was put right after it");
+                }
+                check(p.learning > 0 && p.known >= 40,
+                      what + ": put right " + std::to_string(p.learning) + " times learning and " +
+                          std::to_string(p.known) + " knowing");
+                check(p.worst_learning_m <= bound_m && p.worst_known_m <= bound_m,
+                      what + ": put right by " +
+                          std::to_string(std::max(p.worst_learning_m, p.worst_known_m)) +
+                          " m, over the " + std::to_string(bound_m) + " m bound");
+                long_frames_flown += p.long_frames;
+            }
+        }
+    }
+    const std::size_t space = long_ms.size() * quick_before.size() * one_way_ms.size();
+    check(long_frames_flown == space, "flew " + std::to_string(long_frames_flown) +
+                                          " long frames in the " + std::to_string(space) +
+                                          " flights, not one in each");
 }

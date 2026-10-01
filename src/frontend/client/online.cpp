@@ -159,22 +159,51 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
         sent_at_s_ = local_s;
         ++sequence_;
         const net::ControlList sent = net::as_sent(stick.as_list());
-        flying_ = sim::Controls::from_list(sent);
+        sent_ = sim::Controls::from_list(sent);
         sending_.add(sequence_, sent);
         const std::vector<std::uint8_t> packet = sending_.packet();
         session_.send_inputs(std::span<const std::uint8_t>(packet.data(), packet.size()));
-        flight.set_input_sequence(sequence_);
+        // The first, with nothing flown before it, is flown at once.
+        if (sequence_ == 1) {
+            flown(flight);
+        }
     }
     return flying_;
 }
 
-void Online::hear(double local_s, Flight& flight) {
+void Online::flown(Flight& flight) {
+    // Not behind the lock: `fly` calls it under it, and nothing here is the
+    // keeper's.
+    flying_ = sent_;
+    flight.set_input_sequence(sequence_);
+}
+
+void Online::listen(double local_s) {
+    const auto lock = held();
+    poll_here(local_s);
+    for (net::StatePacket& state : session_.take_states()) {
+        arrived_.push_back(std::move(state));
+    }
+    arrived_s_ = local_s;
+    arrived_in_ = session_.joined_again();
+}
+
+void Online::hear(Flight& flight) {
     {
         const auto lock = held();
-        poll_here(local_s);
-        for (const net::StatePacket& state : session_.take_states()) {
-            heard(state, local_s, flight);
+        // **Joined again while the ticks were flown** - the keeper heard it -
+        // what `listen` read is the old session's, and heard now as the new
+        // one's it would name the old aircraft as this client's own, and set
+        // the newest word's time from a restarted server's old clock, so
+        // that every word of the new one was ignored as older.
+        if (session_.joined_again() != arrived_in_) {
+            arrived_.clear();
         }
+        noticed();
+        for (const net::StatePacket& state : arrived_) {
+            heard(state, arrived_s_, flight);
+        }
+        arrived_.clear();
     }
     // **Put right with the session let go**: a correction replays the
     // inputs since over the collision DEM, which may fetch a tile, and a
@@ -190,8 +219,11 @@ void Online::hear(double local_s, Flight& flight) {
         flight.adopt(word.motion);
         return;
     }
+    const bool known = flight.clocks_known();
     const auto c =
         flight.reconcile(word.motion, word.last_applied, word.steps_into, word.server_steps);
+    double& worst = known ? worst_known_m_ : worst_learning_m_;
+    worst = std::max(worst, c.moved_m);
     ++corrections_;
     ++frames_heard_own_;
     worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);

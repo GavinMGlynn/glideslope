@@ -149,6 +149,9 @@ public:
     // (sim::Prediction::adopt). Not predicting, it is `adopt` above.
     void adopt(const sim::Motion& motion, std::uint64_t server_steps);
     bool predicting() const { return prediction_ != nullptr; }
+    // Whether the prediction knows the clocks' difference yet
+    // (sim::Prediction::settled).
+    bool clocks_known() const { return prediction_ && prediction_->settled(); }
     void set_input_sequence(std::uint32_t sequence) { sequence_ = sequence; }
     sim::Prediction::Correction reconcile(const sim::Motion& motion,
                                           std::uint32_t last_applied,
