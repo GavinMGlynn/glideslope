@@ -340,7 +340,13 @@ shot, and at the end.
   one after the other, on one file. That two programs on one cold cache could stall that
   long, where `gfx::open_cesium_cache` is said to cost only a wait, was not
   investigated further: a possible tail. The ride-along, stall, forged-refusal
-  and both command-line rejoin tests also passed there at 8568a0b.
+  and both command-line rejoin tests also passed there at
+  8568a0b. **The one test, at cab3773**: timed out once at 900 s, run beside
+  the port test, and passed run again alone in 312 s; each case run by hand
+  there, outside ctest, took about 80 s, nearly all of it the shot's wait for
+  its terrain (59 s and 61 s away at the longest). What stalled the timed-out
+  run is not known - its output dies with it - and is the same open tail.
+- After review, the targeted Linux suite (48 tests, `-j4`) passed whole.
 - Ports 24772 and 24773 (the relay at PORT + 1).
 
 - Ports 24746/24747 and 24748/24749 (the relay at PORT + 1).
