@@ -380,6 +380,16 @@ ones, the window ones and Windows's own.
 passes. The selftest hash does not move: `d36123c1eecc3e23` (it flies a
 logged input, not the autopilot).
 
+**The whole linux-release suite** was run once after the review's changes
+(753 tests, ctest -j4, no display, other working copies' tests running
+beside it): 731 passed, 17 skipped (the live-model, window and Windows
+ones), and five failed. Three server-copilot tests were refused their
+fixed ports by the other copies' tests, and pass alone. The open terrain's
+two distance tests on Vulkan timed out at 30 minutes; they draw the terrain
+at the surveyed runway ends and fly no autopilot, and were not run again.
+Rebased on main at 0903c2c, the 414 tests chosen by name again: none failed
+but two client-with-window tests refused their ports, which pass alone.
+
 ### The living documents re-read at the end of Phase 8, 2026-10-02
 
 Every numbered phase is ticked, so `COMPLETION_PLAN.md`, this file,
