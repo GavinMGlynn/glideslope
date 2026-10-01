@@ -78,30 +78,6 @@
 
 namespace {
 
-// **A session kept while nothing else keeps it**: its pings answered from a
-// thread every fiftieth of a second until this is let go, and the caller
-// takes the session back. Nothing else may touch it meanwhile.
-class KeptAlive {
-public:
-    KeptAlive(glideslope::client::Online& online, std::function<double()> clock)
-        : thread_([this, &online, clock = std::move(clock)] {
-              while (!stop_.load()) {
-                  online.keep(clock());
-                  std::this_thread::sleep_for(std::chrono::milliseconds(20));
-              }
-          }) {}
-    ~KeptAlive() {
-        stop_ = true;
-        thread_.join();
-    }
-    KeptAlive(const KeptAlive&) = delete;
-    KeptAlive& operator=(const KeptAlive&) = delete;
-
-private:
-    std::atomic<bool> stop_{false};
-    std::thread thread_;
-};
-
 struct Options {
     bool headless = false;
     std::string driver;
@@ -727,7 +703,6 @@ static int run_program(int argc, char** argv) {
         // predicted here (client/online.hpp), and every other one is drawn.
         std::optional<glideslope::net::ClientSession> session;
         std::optional<glideslope::client::Online> online;
-        std::optional<KeptAlive> kept_alive;
         std::optional<glideslope::client::Joined> joined;
         if (o.online || !o.server.empty()) {
             std::string where = o.server;
@@ -785,7 +760,7 @@ static int run_program(int argc, char** argv) {
             // simulated second. So a session with no word of an aircraft for
             // ten seconds is with a server that has nothing to fly, and this
             // flies alone and says so.
-            online.emplace(std::move(*session));
+            online.emplace(std::move(*session), [&] { return seconds_since_start(); });
             joined = online->join(10.0, [&] { return seconds_since_start(); });
             if (joined) {
                 std::printf("glideslope: the server gave this client aircraft %u, the %s\n",
@@ -794,8 +769,9 @@ static int run_program(int argc, char** argv) {
                 // **Kept in the session while it builds its flight**, which
                 // on a slow machine takes longer than a server waits for a
                 // client that says nothing: a Windows debug build was let go
-                // in its three seconds, and heard one update in all.
-                kept_alive.emplace(*online, [&] { return seconds_since_start(); });
+                // in its three seconds, and heard one update in all. Online
+                // keeps it, from a thread of its own, whenever this one is
+                // away - here, and in any pass of the frame loop.
                 if (o.slow_start_s > 0.0) {
                     std::this_thread::sleep_for(
                         std::chrono::duration<double>(o.slow_start_s));
@@ -1307,8 +1283,6 @@ static int run_program(int argc, char** argv) {
         // When --slow-frames last held a pass of the loop.
         auto held_at = std::chrono::steady_clock::now();
         bool running = true;
-        // The frame loop keeps the session from here.
-        kept_alive.reset();
         // **Where the time of a pass went**, milliseconds by part, for the
         // longest pass around a switch: the step bounds' 20 fps floor has
         // failed on windows-release in the frame a switch is drawn in, and
@@ -1344,6 +1318,17 @@ static int run_program(int argc, char** argv) {
             std::rotate(passes_before.begin(), passes_before.begin() + 1, passes_before.end());
             passes_before.back() = pass_times;
         };
+        // **How long this thread was away from its session while it was
+        // kept for it** (client::Online): building the flight, said here;
+        // flying, said at the shot; and the longest of all, said at the end.
+        double longest_away_s = 0.0;
+        bool said_away_at_shot = false;
+        if (online && joined) {
+            longest_away_s = online->longest_kept_since_asked_s();
+            std::printf("glideslope: built its flight; away from its session %.1f s at the "
+                        "longest meanwhile, and kept in it\n",
+                        longest_away_s);
+        }
         while (running) {
             pass_times = PassTimes{};
             pass_began = seconds_since_start();
@@ -1359,25 +1344,25 @@ static int run_program(int argc, char** argv) {
             // (net::ClientSession), and says so; **dropped by its operator,
             // or refused, it stops**, and says why.
             if (online) {
-                const glideslope::net::ClientSession& s = online->session();
-                if (s.let_go() > let_go_said) {
-                    let_go_said = s.let_go();
+                const glideslope::client::Standing s = online->standing();
+                if (s.let_go > let_go_said) {
+                    let_go_said = s.let_go;
                     std::printf("glideslope: let go by the server: refused BAD_HANDSHAKE after "
                                 "%.1f s of nothing; joining again\n",
-                                s.quiet_when_let_go_s());
+                                s.quiet_when_let_go_s);
                 }
-                if (s.went_back() > went_back_said) {
-                    went_back_said = s.went_back();
+                if (s.went_back > went_back_said) {
+                    went_back_said = s.went_back;
                     std::printf("glideslope: the old session answered; staying in it\n");
                 }
                 using Standing = glideslope::net::ClientSession::Standing;
-                const char* why = s.standing() == Standing::dropped
+                const char* why = s.standing == Standing::dropped
                                       ? "the server ended this session (dropped, or taken "
                                         "over by a newer session for this key); not joining "
                                         "again"
-                                  : s.standing() == Standing::refused
+                                  : s.standing == Standing::refused
                                       ? "refused by the server when joining again: it is full"
-                                  : s.standing() == Standing::gave_up
+                                  : s.standing == Standing::gave_up
                                       ? "let go, and could not join again in a minute"
                                       : nullptr;
                 if (why != nullptr) {
@@ -1530,6 +1515,14 @@ static int run_program(int argc, char** argv) {
             // The frame shot waits for every terrain tile its view needs, so
             // the same command draws the same terrain everywhere.
             bool shot_now = shooting && ticks >= o.shot_at;
+            if (shot_now && online && joined && !said_away_at_shot) {
+                said_away_at_shot = true;
+                const double away_s = online->longest_kept_since_asked_s();
+                longest_away_s = std::max(longest_away_s, away_s);
+                std::printf("glideslope: at the shot, away from its session %.1f s at the "
+                            "longest since flying began, and kept in it\n",
+                            away_s);
+            }
             // **Taken over**: the flight is the aircraft taken over now, from
             // the motion the server gave it - the same aeroplane made to be
             // where that one is, or another built as it.
@@ -1897,13 +1890,8 @@ static int run_program(int argc, char** argv) {
                 // terrain**, which on a cold cache is longer than a server
                 // waits for a client that says nothing: let go for silence,
                 // it would join again, and a test counting sessions would
-                // count one too many.
-                std::optional<KeptAlive> waiting;
-                if (shot_now && online) {
-                    waiting.emplace(*online, [&] { return seconds_since_start(); });
-                }
+                // count one too many. Online keeps it while this is away.
                 draws = terrain->update(camera, o.width, o.height, shot_now);
-                waiting.reset();
                 if (glideslope::platform::stop_requested()) {
                     break; // told to stop while it waited: no frame, and no shot
                 }
@@ -2246,11 +2234,19 @@ static int run_program(int argc, char** argv) {
                 running = false;
             }
         }
+        // **How long the session was kept while this thread was away** -
+        // building a flight, or in a long pass - for a test to read.
+        if (online) {
+            std::printf("glideslope: the session was kept for the frame loop %zu times; "
+                        "away %.1f s at the longest\n",
+                        online->times_kept(),
+                        std::max(longest_away_s, online->longest_kept_since_asked_s()));
+        }
         // **Leaving a session says goodbye**, so that the server lets this
         // client go now, not after its timeout of silence. Every other way
         // out of here says it too, as the session goes (net::ClientSession);
         // this one says so, for a test to read.
-        if (online && online->session().standing() ==
+        if (online && online->standing().standing ==
                           glideslope::net::ClientSession::Standing::joined) {
             online->leave();
             std::printf("glideslope: said goodbye to the server\n");

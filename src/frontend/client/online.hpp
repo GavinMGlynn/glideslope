@@ -23,7 +23,11 @@
 #include "sim/aircraft.hpp"
 
 #include <array>
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -69,9 +73,46 @@ struct Other {
     bool wrecked = false;
 };
 
+// **How the session stands**, as last read: what the frame loop says and
+// stops on (net::ClientSession::standing and its counts).
+struct Standing {
+    net::ClientSession::Standing standing = net::ClientSession::Standing::joined;
+    int let_go = 0;
+    double quiet_when_let_go_s = 0.0;
+    int went_back = 0;
+};
+
+// **The session is kept whatever this thread is doing.** The frame loop
+// polls it once a pass; a pass, or the building of a flight, can take longer
+// than the server waits for a client that says nothing - a debug build under
+// load was silent for more than five seconds just after it was given its
+// aircraft, and let go. So a thread of its own polls the session whenever
+// nothing else has for `kept_after_s`: the server's knocks answered, what
+// must arrive acknowledged, and every update left waiting, oldest first, to
+// be heard by the frame loop when it is back - put right from them as if it
+// had never been away. It touches the session and nothing else: the flight,
+// and everything this class keeps of it, are the frame loop's alone
+// (sim::Aircraft is single-threaded).
 class Online {
 public:
-    explicit Online(net::ClientSession session) : session_(std::move(session)) {}
+    // `local_s` reads this machine's clock, from both threads.
+    Online(net::ClientSession session, std::function<double()> local_s);
+    ~Online();
+    Online(const Online&) = delete;
+    Online& operator=(const Online&) = delete;
+    Online(Online&&) = delete;
+    Online& operator=(Online&&) = delete;
+
+    // How long the frame loop may be away before the session is kept for it:
+    // a fifth of a second, well inside the server's knock a second and any
+    // timeout worth having, and longer than a pass at a playable frame rate.
+    static constexpr double kept_after_s = 0.2;
+    // **The longest the frame loop was away while the session was kept for
+    // it, since last asked**, in seconds of this machine's clock, and how
+    // many times it was kept in all: what a test of a slow build reads, to
+    // know that what kept it was this.
+    double longest_kept_since_asked_s();
+    std::size_t times_kept() const;
 
     // **Waits to be given an aircraft**: until a state update carries this
     // client's own motion and the server has said what aeroplane it is, or
@@ -98,32 +139,18 @@ public:
 
     // **Kept in the session and nothing more**, for a client the server gave
     // no aircraft: its knocking answered, what arrives read and let go.
-    void idle(double local_s) {
-        session_.poll(local_s);
-        noticed();
-        (void)session_.take_states();
-    }
-
-    // **Kept in the session while the flight is built**: the server's pings
-    // answered and what must arrive acknowledged, and every update left
-    // waiting, to be heard in order when flying begins - as they were before
-    // there was anything to keep it, so the flight is put right from all of
-    // them and not from the newest alone.
-    void keep(double local_s) {
-        session_.poll(local_s);
-        noticed();
-    }
+    void idle(double local_s);
 
     // **Leaving the session**: goodbye said to the server, which lets this
     // client go at once. Nothing is sent or read after it. The session says
     // it by itself as it goes, if this was never called.
-    void leave() { session_.leave(); }
+    void leave();
 
     // **The session, as it stands**: let go and joined again, or ended by
     // the server's operator (net::ClientSession::standing).
-    const net::ClientSession& session() const { return session_; }
+    Standing standing() const;
     // A test's stall (`--stall-after`): net::ClientSession::stall_until_let_go.
-    void stall() { session_.stall_until_let_go(); }
+    void stall();
 
     // Every other aircraft, where it is to be drawn at `local_s`.
     std::vector<Other> others(double local_s);
@@ -220,6 +247,13 @@ public:
     double worst_correction_m() const { return worst_correction_m_; }
 
 private:
+    // **The session is behind this lock**, which the frame loop holds while
+    // it uses it and the keeper while it keeps it.
+    std::unique_lock<std::mutex> held() const { return std::unique_lock(mutex_); }
+    // Polled by the frame loop, now: the keeper counts from here.
+    void poll_here(double local_s);
+    void keep_while_away();
+    void send_watch(std::uint8_t number);
     void heard(const net::StatePacket& state, double local_s, Flight& flight);
     std::optional<Joined> joined_by(const net::StatePacket& state) const;
     // **A session joined again is a new start**: nothing it said of this
@@ -228,6 +262,18 @@ private:
     void noticed();
 
     net::ClientSession session_;
+    std::function<double()> local_s_;
+    mutable std::mutex mutex_;
+    // When the frame loop last polled the session, and for how long the
+    // keeper has kept it since; both behind the lock.
+    double polled_s_ = 0.0;
+    double longest_kept_s_ = 0.0;
+    std::size_t times_kept_ = 0;
+    std::atomic<bool> stop_{false};
+    std::condition_variable stopping_;
+    // Started at the end of the constructor, once everything it reads is
+    // made, and stopped first thing in the destructor.
+    std::thread keeper_;
     net::InputSender sending_;
     std::uint32_t sequence_ = 0;
     double sent_at_s_ = -1.0;
@@ -293,17 +339,19 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
     const double began = local_s();
     std::optional<net::StatePacket> newest;
     while (local_s() - began < give_up_after_s) {
-        session_.poll(local_s());
-        noticed();
-        for (net::StatePacket& state : session_.take_states()) {
-            if (state.yours) {
-                newest = std::move(state);
+        {
+            const auto lock = held();
+            poll_here(local_s());
+            for (net::StatePacket& state : session_.take_states()) {
+                if (state.yours) {
+                    newest = std::move(state);
+                }
             }
-        }
-        if (newest) {
-            if (auto joined = joined_by(*newest)) {
-                mine_ = joined->number;
-                return joined;
+            if (newest) {
+                if (auto joined = joined_by(*newest)) {
+                    mine_ = joined->number;
+                    return joined;
+                }
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
