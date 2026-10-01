@@ -45,6 +45,21 @@
     <tank index="1" lbs="3363.75"/>
   </loading>
 
+  <!-- **The approach speed, published.** T.O. 1F-15A-1, the F-15A/B/C/D
+       flight manual, appendix A part 8, figure A8-1, Landing Approach Speed
+       (change 4; dated 23 August 1985, data basis flight test; F100-PW-100,
+       with or without conformal tanks, all drag indexes): the speed at 21
+       units of angle of attack - on-speed, which section II flies final at -
+       by gross weight, flaps up and flaps down. Read at 36,946 lb, 160 KCAS on
+       the flaps-up line, to about a knot. The model has no flaps, and section
+       II's no-flap landing is the same approach, "slightly faster at on-speed
+       AOA"; flaps down the same chart gives 147. Its sample problem, 30,000
+       lb flaps down, 130.5, reads 131 here. This is what the approach is
+       flown at, in place of 1.3 times the stall below. -->
+  <approach kcas="160" loading="clean">
+    T.O. 1F-15A-1, figure A8-1: 160 KCAS at 36,946 lb, 21 units AOA, flaps up.
+  </approach>
+
   <figure name="maximum_mach_45000_ft" fuel_frozen="1" flight="level_mach" loading="clean" unit="Mach"
           value="2.39" tolerance="0.08" altitude_ft="45000" mach="2.0">
     Page 6, specific excess power at maximum power, clean, 36,946 lb, 1 g: the

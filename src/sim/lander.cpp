@@ -61,8 +61,10 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     }
     ApproachSpeeds speeds;
     // Vref, by the usual convention: a third above the stall in the landing
-    // configuration.
-    speeds.vref_kts = 1.3 * landing->published;
+    // configuration - or the manual's own approach speed, where it gives one.
+    speeds.stall_kts = landing->published;
+    speeds.vref_kts =
+        figures.approach_kcas > 0.0 ? figures.approach_kcas : 1.3 * landing->published;
     // A faster approach comes down faster on the same glidepath, so it needs
     // longer to round out: the flare starts a quarter of a foot up for every
     // knot of approach speed, which is fifteen feet for a Cessna and ten for

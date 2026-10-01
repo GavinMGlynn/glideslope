@@ -183,6 +183,11 @@ void load_for_the_take_off(glideslope::sim::Aircraft& aircraft, const std::strin
 void load_for_the_approach(glideslope::sim::Aircraft& aircraft, const std::string& model) {
     const auto figures =
         glideslope::sim::read_published_figures(data() / "figures" / (model + ".xml"));
+    // A manual's own approach speed is for the weight it names.
+    if (figures.approach_kcas > 0.0) {
+        aircraft.load(figures.loadings.at(figures.approach_loading).loading);
+        return;
+    }
     const glideslope::sim::FigureSpec* chosen = nullptr;
     double most_flap_deg = -1.0;
     for (const auto& spec : figures.figures) {
@@ -225,7 +230,7 @@ glideslope::sim::LessonSpeeds figures_of(const glideslope::sim::CatalogueEntry& 
     try {
         const auto approach = glideslope::sim::approach_speeds(data(), entry.model);
         speeds.vref_kts = approach.vref_kts;
-        speeds.stall_kts = approach.vref_kts / 1.3;
+        speeds.stall_kts = approach.stall_kts;
     } catch (const std::exception&) {
     }
     return speeds;
@@ -1325,6 +1330,7 @@ struct Approached {
     // The descent at the moment the approach stage ended, fifty feet up: what
     // the lesson's "arrive under control" need is set from.
     double sink_at_end_fps = 0.0;
+    double alpha_at_end_deg = 0.0; // and the angle of attack then
     bool trimmed = false; // started trimmed on the path, as asked
     // From the touch to the stop, which is further than the lesson watches:
     // it ends at thirty knots, and the Learjet's nose went through the
@@ -1401,7 +1407,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
     }
     LessonRun run(*it, glideslope::sim::LessonSpeeds{
                            rotate, climb, published.vref_kts,
-                           published.vref_kts / 1.3});
+                           published.stall_kts});
 
     glideslope::sim::Lander lander(aircraft, runway, flown_with);
     Approached out;
@@ -1420,6 +1426,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
         }
         if (which == 0 && run.stage() != 0) {
             out.sink_at_end_fps = aircraft.property("velocities/h-dot-fps");
+            out.alpha_at_end_deg = aircraft.property("aero/alpha-deg");
         }
         if (id == "f35b" && tick % (4 * steps_per_second) == 0) {
             std::printf("      %s %4.0f s  agl %5.0f  %4.0f kt  vs %6.1f fps  pitch %5.1f  "
@@ -1550,6 +1557,40 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     check(walked == 14, "fourteen aeroplanes landed, not " + std::to_string(walked));
 }
 
+// **The F-15C comes down the approach at its flight manual's speed**, not at
+// 1.3 times a stall its manual never publishes. T.O. 1F-15A-1's figure A8-1
+// gives the final approach speed by weight, at 21 units of angle of attack,
+// from flight test: 160 KCAS at the 36,946 lb its figures are flown at, on the
+// flaps-up line, since the model has no flaps (assets/figures/f15c.xml). It
+// was flown at 196 - 1.3 times the 151-knot stall measured on the model, which
+// is where its stabilator runs out, not where the aeroplane stalls. Held from
+// two miles out to fifty feet, the whole of the approach stage, within five
+// knots of the manual's - the chart is read to about a knot.
+GLIDESLOPE_TEST(the_f15c_flies_its_approach_at_its_flight_manuals_speed_for_its_weight) {
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / "f15c.xml");
+    check(figures.approach_kcas == 160.0,
+          "the F-15C's figures give the manual's 160 KCAS approach, not " +
+              std::to_string(figures.approach_kcas));
+    check(figures.loadings.at(figures.approach_loading).total_lbs == 36946.0,
+          "at the 36,946 lb it is read at");
+    const Approached flown = fly_the_approach("f15c", 0.0);
+    std::printf("  f15c vref %.1f: approach %.1f to %.1f kt, alpha %.1f at 50 ft, %zu of %zu "
+                "stages\n",
+                flown.vref_kts, flown.stage_least[0], flown.stage_most[0],
+                flown.alpha_at_end_deg, flown.completed, flown.stages);
+    check(flown.vref_kts == figures.approach_kcas,
+          "the approach is flown at the manual's speed, not " +
+              std::to_string(flown.vref_kts));
+    check(flown.stage_least[0] >= figures.approach_kcas - 5.0 &&
+              flown.stage_most[0] <= figures.approach_kcas + 5.0,
+          "the F-15C held " + std::to_string(flown.stage_least[0]) + " to " +
+              std::to_string(flown.stage_most[0]) +
+              " KCAS down the approach, not within 5 of the manual's 160");
+    check(flown.completed == flown.stages && flown.debrief.empty() && flown.stopped,
+          "and landed by the book, to a stop");
+}
+
 // **An approach flown fast is named in the debrief**, and a correct one is
 // not. The aeroplane flies a perfectly good approach - it is simply doing it
 // at a speed it has no business using.
@@ -1619,9 +1660,9 @@ InFlight airborne(const std::string& id, double agl_ft, double start_kcas = 0.0)
     try {
         const auto approach = glideslope::sim::approach_speeds(data(), entry.model);
         out.speeds.vref_kts = approach.vref_kts;
-        // The published stall is the reference speed divided by the 1.3 that
-        // made it, which is how `sim::approach_speeds` built it.
-        out.speeds.stall_kts = approach.vref_kts / 1.3;
+        // The stall the reference speed is usually 1.3 times; not the
+        // F-15C's, whose manual gives its approach speed itself.
+        out.speeds.stall_kts = approach.stall_kts;
     } catch (const std::exception&) {
     }
     out.start_agl_ft = agl_ft;
@@ -3015,7 +3056,7 @@ Demonstrated demonstrate_an_approach(const std::string& id) {
     }
     LessonRun run(*found, glideslope::sim::LessonSpeeds{rotate, climb,
                                                         published.vref_kts,
-                                                        published.vref_kts / 1.3});
+                                                        published.stall_kts});
 
     glideslope::sim::Controls flying;
     flying.throttle = 0.4;
@@ -3837,7 +3878,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     check(found.has_value(), id + " has a circuit lesson for its class");
     LessonRun run(*found, glideslope::sim::LessonSpeeds{dep.rotate_kts, dep.climb_kts,
                                                         app.vref_kts,
-                                                        app.vref_kts / 1.3});
+                                                        app.stall_kts});
 
     glideslope::sim::Controls standing;
     glideslope::sim::Controller controller(aircraft, standing);
@@ -3979,7 +4020,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
             // downwind speed, twenty knots over the reference, the C172P was
             // still at 81 knots when the turn on to final ended once the
             // approach autopilot flew its intercept by L1 guidance.
-            m.airspeed_kts = app.vref_kts * 1.4 / 1.3;
+            m.airspeed_kts = app.stall_kts * 1.4;
             controller.autopilot()->set(m);
         } else if (leg == Leg::base &&
                    across_the_runway_m(runway, aircraft) >= -(2.0 * turn_radius_m + 200.0)) {

@@ -61,6 +61,14 @@ struct PublishedFigures {
     std::map<std::string, FigureLoading> loadings; // every loading, by name
     std::string first_loading;                     // the first's name
     std::vector<FigureSpec> figures;
+    // **The final approach speed its flight manual gives**, KCAS, where the
+    // file has an `<approach kcas="..." loading="...">`: what
+    // `approach_speeds` flies the approach at in place of 1.3 times the
+    // stall. A fighter's manual gives the approach by angle of attack and
+    // weight, not as a margin over a stall it does not publish. 0 where the
+    // file gives none; `approach_loading` names the weight it is for.
+    double approach_kcas = 0.0;
+    std::string approach_loading;
 };
 
 struct FigureResult {
