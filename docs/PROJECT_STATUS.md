@@ -314,6 +314,10 @@ holds each file before listing it.
 - `fetch.cmake` with `GLIDESLOPE_REQUIRE_NETWORK=1` into an empty directory,
   for the fifteen, with both SourceForge hosts renamed to ones that do not
   resolve: all fifteen came from the release with their pinned hashes, exit 0.
+- The same for all 75, both SourceForge hosts unresolvable (run in two parts
+  over one directory, the first stopped by a time limit, the second finding
+  its 52 files present by hash): 58 came from Software Heritage, 15 from the
+  release and the c172p's 2 from its GitHub, none with a wrong hash, exit 0.
 
 ### Collision ground under a runway is the runway's own line, 2026-10-01 — one tail done, the 16R tail not
 
