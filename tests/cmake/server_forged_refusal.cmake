@@ -25,9 +25,9 @@
 # the first heard after is believed. The hold ends on the event that follows,
 # not a time: the client's new initiation, passed on to the server, after
 # which what was held is delivered and nothing more is forged. The client
-# flies full left aileron and, back in a session, leaves once its aircraft has
-# rolled past 90 degrees in it (`--leave-once-back`); the server stops when it
-# has gone (--until-empty).
+# flies full left aileron and, back in a session, leaves once the server has
+# applied an input it sent there (`--leave-once-back`) - the event, not the
+# flight's course; the server stops when it has gone (--until-empty).
 #
 # **What must hold**: the relay forged and its hold ended on the client's
 # initiation; the client believed a refusal after at least three seconds of
