@@ -383,8 +383,6 @@ the limits); the verification test with the observation's distance across
 the centreline sign-flipped (27 of 27 short, one 478 m off); the CLI test
 with the CLI handing to the approach autopilot instead.
 
-### A landing learnt by reinforcement learning is a controller, lands on the runway and is stopped on it; not yet on the centreline in a crosswind, and trained with its fuel running out, 2026-09-30 — superseded the same day, above
-
 ### The geoid is fetched from a source that serves the pinned file, 2026-10-01 — tail done; main made green
 
 **What is not done first.** The aircraft models' source files
