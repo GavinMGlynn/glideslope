@@ -270,6 +270,8 @@ std::optional<Responder::Answer> Responder::answer(
     std::vector<std::uint8_t>* theirs_payload) {
     // e (32) + sealed static (32 + 16) + sealed payload (at least 16).
     constexpr std::size_t least = key_bytes + key_bytes + tag_bytes + tag_bytes;
+    unwanted_ = false;
+    x25519_done_ = 0;
     if (!started() || initiation.size() < least) {
         return std::nullopt;
     }
@@ -284,6 +286,7 @@ std::optional<Responder::Answer> Responder::answer(
     s.mix_hash(std::span<const std::uint8_t>(their_ephemeral.bytes));
 
     Shared shared{};
+    ++x25519_done_;
     if (!agree(mine_.secret, their_ephemeral, shared)) {
         return std::nullopt;
     }
@@ -298,7 +301,14 @@ std::optional<Responder::Answer> Responder::answer(
     PublicKey their_static;
     std::copy(their_static_bytes.begin(), their_static_bytes.end(),
               their_static.bytes.begin());
+    // **No further for a key that is not wanted** (`only_for`): one X25519
+    // operation, and none of the four after it.
+    if (wanted_ && !wanted_(their_static)) {
+        unwanted_ = true;
+        return std::nullopt;
+    }
 
+    ++x25519_done_;
     if (!agree(mine_.secret, their_static, shared)) {
         return std::nullopt;
     }
@@ -314,12 +324,17 @@ std::optional<Responder::Answer> Responder::answer(
     }
 
     // And the answer.
+    if (!fixed_ephemeral_) {
+        ++x25519_done_;
+    }
     const KeyPair ephemeral = fixed_ephemeral_ ? *fixed_ephemeral_ : mint_key_pair();
     s.mix_hash(std::span<const std::uint8_t>(ephemeral.publik.bytes));
+    ++x25519_done_;
     if (!agree(ephemeral.secret, their_ephemeral, shared)) {
         return std::nullopt;
     }
     s.mix_key(shared); // ee
+    ++x25519_done_;
     if (!agree(ephemeral.secret, their_static, shared)) {
         return std::nullopt;
     }

@@ -42,9 +42,11 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace glideslope::net {
@@ -130,10 +132,36 @@ public:
                                  std::span<const std::uint8_t> payload = {},
                                  std::vector<std::uint8_t>* theirs_payload = nullptr);
 
+    // **Read no further than a key that is wanted.** IK's first message
+    // carries the initiator's static key sealed under the first of its
+    // X25519 operations, `es`. With `wanted` given, the key is asked about
+    // as soon as it is unsealed - before `ss`, and before the answer's own
+    // three (its ephemeral key, `ee`, `se`) - and an initiation whose key is
+    // not wanted goes no further: nothing is answered, and `unwanted()` says
+    // why. **The key asked about is not yet proven**: anybody can seal any
+    // key there. One that is wanted is then proven by `ss` and the payload's
+    // tag, as every initiation is. A full server asks whether the key is one
+    // of its players' (`docs/TRANSPORT.md`, "Starting a session").
+    void only_for(std::function<bool(const PublicKey&)> wanted) {
+        wanted_ = std::move(wanted);
+    }
+
+    // Whether the last `answer` stopped at a key `only_for` did not want.
+    bool unwanted() const { return unwanted_; }
+
+    // **How many X25519 operations the last `answer` did** - each agreement,
+    // and minting the answer's ephemeral key when none was fixed: what
+    // reading that initiation cost. Five for one answered; one for a key
+    // not wanted; two for a wanted key whose initiation does not complete.
+    int x25519_done() const { return x25519_done_; }
+
 private:
     KeyPair mine_;
     std::vector<std::uint8_t> prologue_;
     std::optional<KeyPair> fixed_ephemeral_;
+    std::function<bool(const PublicKey&)> wanted_;
+    bool unwanted_ = false;
+    int x25519_done_ = 0;
 };
 
 } // namespace glideslope::net

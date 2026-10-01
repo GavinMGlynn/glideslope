@@ -263,6 +263,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_change_to_an_initiation_is_refused
     every_change_to_a_handshake_answer_is_refused
     a_replayed_initiation_makes_a_session_the_replayer_cannot_read
+    a_full_server_reads_a_strangers_initiation_no_further_than_its_key
     what_is_sealed_opens_as_itself
     a_sealed_body_does_not_open_under_another_key
     a_sealed_body_that_arrives_twice_opens_once
@@ -276,6 +277,7 @@ set(GLIDESLOPE_UNIT_TESTS
     slots_are_the_same_whatever_order_the_players_connect_in
     a_players_slot_is_their_keys_rank_among_those_in_the_session
     a_session_is_full_at_its_player_count_and_the_next_is_refused
+    a_full_server_reads_at_most_its_budget_of_initiations_a_second
     admitting_the_same_key_twice_is_one_player_and_releasing_frees_it
     a_session_is_never_fewer_than_one_player_or_more_than_four
     the_lobby_has_a_row_for_every_slot_with_the_open_ones_named
@@ -1760,6 +1762,27 @@ add_test(NAME a_second_session_for_a_key_takes_over_its_players_slot_and_aircraf
 set_tests_properties(a_second_session_for_a_key_takes_over_its_players_slot_and_aircraft
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_one_key_two_addresses)
+
+# **A player started again on a full server flies again at once**, with one
+# aircraft and no ghost. See cmake/server_restart_full.cmake.
+add_test(NAME a_player_started_again_on_a_full_server_flies_again_at_once
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_restart_full -DPORT=24766
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_restart_full.cmake)
+set_tests_properties(a_player_started_again_on_a_full_server_flies_again_at_once
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_restart_full)
+
+# **A stranger on a full server is refused, its initiation read no further
+# than its key.** See cmake/server_stranger_full.cmake.
+add_test(NAME a_stranger_on_a_full_server_is_refused_after_reading_no_further_than_its_key
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli>
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stranger_full -DPORT=24768
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stranger_full.cmake)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stranger_full)
 
 # **A copy of a live player's initiation, replayed from another address and
 # resent, takes nothing from them and is sent nothing.** See cmake/server_initiation_replayed_while_live.cmake.

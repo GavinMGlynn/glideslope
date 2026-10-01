@@ -226,6 +226,73 @@ GLIDESLOPE_TEST(a_replayed_initiation_makes_a_session_the_replayer_cannot_read) 
           "both name the client the initiation really came from");
 }
 
+// **A full server reads a stranger's initiation no further than its key.**
+// `only_for` is how a full server lets a player started again from a new port
+// back in at once without doing for a stranger the work it spares them: the
+// static key is asked about after `es`, the first X25519 operation, and one
+// not wanted goes no further. Each of the three initiations a full server can
+// be sent is built here, and what reading it cost is counted, not believed.
+GLIDESLOPE_TEST(a_full_server_reads_a_strangers_initiation_no_further_than_its_key) {
+    const KeyPair server = glideslope::net::mint_key_pair();
+    const KeyPair player = glideslope::net::mint_key_pair();
+    const KeyPair stranger = glideslope::net::mint_key_pair();
+    const auto players_only = [&player](const glideslope::net::PublicKey& theirs) {
+        return theirs == player.publik;
+    };
+
+    // The stranger: one X25519 operation, no answer, and the reason given.
+    {
+        Initiator initiator(stranger, server.publik);
+        Responder responder(server);
+        responder.only_for(players_only);
+        const auto answer = responder.answer(all_of(initiator.begin()));
+        check(!answer.has_value(), "a stranger's initiation is not answered");
+        check(responder.unwanted(), "because its key was not wanted");
+        check(responder.x25519_done() == 1,
+              "and reading it cost one X25519 operation, not " +
+                  std::to_string(responder.x25519_done()));
+    }
+    // A forger claiming the player's key without its secret: `ss` and the
+    // payload's tag refuse it, at two operations.
+    {
+        KeyPair forged = glideslope::net::mint_key_pair();
+        forged.publik = player.publik;
+        Initiator initiator(forged, server.publik);
+        Responder responder(server);
+        responder.only_for(players_only);
+        const auto answer = responder.answer(all_of(initiator.begin()));
+        check(!answer.has_value(), "a forger claiming a player's key is not answered");
+        check(!responder.unwanted(), "its key was wanted; its initiation did not complete");
+        check(responder.x25519_done() == 2,
+              "and reading it cost two X25519 operations, not " +
+                  std::to_string(responder.x25519_done()));
+    }
+    // The player, started again: answered in full, five operations, and a
+    // session the player's client completes.
+    {
+        Initiator initiator(player, server.publik);
+        Responder responder(server);
+        responder.only_for(players_only);
+        const auto answer = responder.answer(all_of(initiator.begin()));
+        check(answer.has_value(), "the player's own initiation is answered");
+        check(!responder.unwanted(), "its key was wanted");
+        check(responder.x25519_done() == 5,
+              "and answering it cost five X25519 operations, not " +
+                  std::to_string(responder.x25519_done()));
+        const auto session = initiator.finish(all_of(answer->message));
+        check(session.has_value() && answer->session.theirs == player.publik,
+              "and the player's client completes the session");
+    }
+    // Without `only_for` the stranger is answered as before, at five.
+    {
+        Initiator initiator(stranger, server.publik);
+        Responder responder(server);
+        const auto answer = responder.answer(all_of(initiator.begin()));
+        check(answer.has_value() && !responder.unwanted() && responder.x25519_done() == 5,
+              "a server with a slot free answers a stranger in full");
+    }
+}
+
 namespace {
 
 std::vector<std::uint8_t> from_hex(const std::string& hex) {
