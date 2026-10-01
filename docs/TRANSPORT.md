@@ -109,9 +109,11 @@ type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
 - to a datagram whose envelope it cannot read, with the reason above;
-- **instead of a handshake answer**: `SERVER_FULL` when every slot is taken,
-  `BAD_HANDSHAKE` when the initiation does not complete, and `DROPPED` when it
-  completes from a static key the operator has dropped (see "Leaving");
+- **instead of a handshake answer**: `SERVER_FULL` when every slot is taken
+  and the initiation is not from a key already in one (see "Starting a
+  session"), `BAD_HANDSHAKE` when the initiation does not complete on a server
+  with a slot free, and `DROPPED` when it completes from a static key the
+  operator has dropped (see "Leaving");
 - to a `SEALED` datagram from an address that has no session: `BAD_HANDSHAKE`.
 
 It sends nothing back to a `HANDSHAKE_RESPONSE` or a `REFUSAL`, which a server
@@ -201,11 +203,24 @@ so one that seals nothing is let go `--timeout` after it was admitted,
 however often its initiation is resent. A key may have at most two such
 unproven sessions; a third lets the oldest go. The slot and the aircraft go
 with the key's last *proven* session, and any unproven one left on the key
-goes with them; an operator's drop lets go every session on the key. **On a
-full server** a new session for a key already in is refused `SERVER_FULL`
-like any other until the old one is let go: the server does not know whose
-initiation it is until it has done the asymmetric work it spares strangers
-when full.
+goes with them; an operator's drop lets go every session on the key.
+
+**On a full server a key already in is let in again at once**: a client
+started again from a new port, its old session not yet let go, is answered
+like any other session for that key - sharing its slot and aircraft, and
+taking over at the first datagram sealed under it that opens - rather than
+refused until the old one's `--timeout` has run out. A full server reads an
+initiation only as far as the initiator's static key, which is unsealed under
+the first of IK's X25519 operations (`es`), and goes on only if that key is
+one of its players'. Any other initiation is refused `SERVER_FULL` there,
+before the second; and so is one claiming a player's key that does not then
+complete - a full server never answers `BAD_HANDSHAKE` to an initiation, so
+that which refusal came back says nothing about whether a key is a player's
+here. **A full server reads at most 32 initiations a second**, with as many at
+once and no more; one past that is refused `SERVER_FULL` unread, as every
+initiation to a full server once was. So a player started again while
+somebody floods the server may still be refused, and waits out the timeout
+as before. Nothing on the wire changes: the same datagrams, the same answers.
 
 A client sending the same initiation again must have it answered while the
 session it made is live, which is what resending until answered does. **Not
