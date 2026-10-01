@@ -363,7 +363,12 @@ entry):
   is a multi-process test run at -j4 alongside the flights; on its own it
   passes. The committed model matches its script. The selftest hash (C172P)
   is unchanged, `d36123c1eecc3e23`.
-- **#70's orbit test on top**: see the PR.
+- **#70's orbit test on top** (`orbits-flown-on-their-circle` at 4bcdfd9,
+  merged on a scratch branch, not committed):
+  `the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_fighter_and_bomber_that_can_fly_it`
+  passes, and the F-15C, which on main's model lost 457 ft round it at 160
+  knots, holds her height within 2 ft in all four orbits, left and right, calm
+  and a 10-knot wind, 2.00 turns each, -3 to +101 m off the circle.
 - **With #77 on top** (origin/the-ai-flares-to-its-wheels at 3522308, on a
   scratch branch, not committed; measured on the first version of this
   change, before the review): her circuit landing touched at 427 ft/min,
