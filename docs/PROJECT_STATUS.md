@@ -323,16 +323,51 @@ circle at -24 to +44 m, the Cherokee its 593 m at -35 to +51, within 2 ft.
 
 **Test**:
 `every_light_aeroplane_holds_a_heading_in_a_20_kt_crosswind_and_in_calm_air_without_yawing`:
-every light aeroplane the catalogue holds (asserted to be the four), at its
+every light aeroplane the catalogue holds (compared by id with the four), at its
 approach speed and the speed it starts a flight at, in calm air and in a 20
 kt wind from the west arriving all at once, heading north at 3,000 ft on the
 autopilot alone; after 30 s its sideslip within 1 degree and its heading
 within 2 for the next 90 s. 16 of 16 flown.
 
+**Every other aircraft too**, since the damper's one gain acts on all of
+them:
+`every_aircraft_but_the_light_aeroplanes_holds_a_heading_in_a_20_kt_crosswind_and_in_calm_air_without_yawing`
+flies the other twelve the same way, 34 of 48 cases. Left out, each named
+in the test: the 747-400's and F-22's approach speeds (no published stall
+speed, so none), and the approach speeds of five jets that come down to the
+ground flown clean there, with the damper or without it and in calm air as
+in wind - the 737-300, A380, B-2A, F-35B and Learjet 35A, the tail "A plan
+may fly a jet clean at its approach speed". Every case flown holds its
+sideslip within 0.07 degree after 30 s and its heading within 1.97 (the
+787-8 at 250 kt, still drifting in); the 787-8 comes down 2,750 ft at its
+approach speed but holds its heading. On the old law every case flown held
+as well but one: **the F-22 at 300 kt swung 4.7 degrees either way in the
+crosswind** and never settled, its heading 5.4 off; with the damper, within
+0.01. So no class needs its own gain.
+
+| | old law | yaw damper |
+|---|---|---|
+| F-22, 300 kt, crosswind | -4.73 to +4.77 | within 0.01 |
+| 787-8, 148 / 250 kt, crosswind | within 0.09 / 0.03 | within 0.07 / 0.02 |
+| A320, 147 / 250 kt, crosswind | within 0.01 | within 0.01 |
+| F-15C, 160 / 300 kt, crosswind | within 0.01 | within 0.01 |
+| Mosquito, 123 / 220 kt, crosswind | within 0.05 | within 0.01 |
+| Short S.23, 86 / 130 kt, crosswind | within 0.09 | within 0.07 |
+| 737-300, A380, B-2A, F-35B, Learjet, 747-400, at cruise, crosswind | within 0.02 | within 0.01 |
+
+**The coverage is asserted**: the aircraft each test meets are compared,
+by id, with those it expects (the four light aeroplanes; the rest of the
+catalogue), each left-out is checked to be in the space, and an aircraft's
+approach and starting speeds are checked to differ, so no case is flown
+twice.
+
 **Seen to fail.** On the old law, as the table: six of the eight windy cases.
 With the damper's gain made 0 as a deliberate bug, both the new test (the
 same six) and the light-aeroplane orbit test (the Cub round 268 m in wind at
-233 to 502 m) failed; restored, both pass.
+233 to 502 m) failed, and so did the test of the rest (the F-22, as above);
+restored, all three pass. With the Cherokee dropped from the light
+aeroplanes expected, the light test failed, the catalogue giving it; and
+the test of the rest failed, the two lists no longer the whole catalogue.
 
 **Verified** in linux-release: 394 tests chosen by name - every autopilot,
 orbit, navigator, plan, lesson, landing, lander, approach, circuit,
