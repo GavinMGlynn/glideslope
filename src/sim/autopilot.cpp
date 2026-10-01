@@ -305,17 +305,43 @@ Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
     }
 }
 
+std::optional<double> Autopilot::height_flown_to_ft() const {
+    if (!modes_.altitude_ft) {
+        return std::nullopt;
+    }
+    double h = *modes_.altitude_ft;
+    if (floor_ft_) {
+        h = std::max(h, *floor_ft_);
+    }
+    if (ceiling_ft_) {
+        h = std::min(h, *ceiling_ft_);
+    }
+    return h;
+}
+
 Controls Autopilot::fly() {
     Controls c = last_;
 
     // Altitude, to the vertical speed wanted.
     const double climb_fpm = a_.property("velocities/h-dot-fps") * 60.0;
     double climb_wanted = modes_.vertical_speed_fpm;
-    if (modes_.altitude_ft) {
+    if (const std::optional<double> to_ft = height_flown_to_ft()) {
         const double rate = std::abs(modes_.vertical_speed_fpm);
-        climb_wanted = std::clamp(
-            fpm_per_foot * (*modes_.altitude_ft - a_.property("position/h-sl-ft")),
-            -rate, rate);
+        climb_wanted = std::clamp(fpm_per_foot * (*to_ft - a_.property("position/h-sl-ft")),
+                                  -rate, rate);
+    } else {
+        // A vertical speed held, no further than the limits: at either, held
+        // there as a height would be.
+        const double h = a_.property("position/h-sl-ft");
+        const double rate = std::max(std::abs(modes_.vertical_speed_fpm), 700.0);
+        if (ceiling_ft_) {
+            climb_wanted = std::min(climb_wanted,
+                                    std::clamp(fpm_per_foot * (*ceiling_ft_ - h), -rate, rate));
+        }
+        if (floor_ft_) {
+            climb_wanted = std::max(climb_wanted,
+                                    std::clamp(fpm_per_foot * (*floor_ft_ - h), -rate, rate));
+        }
     }
 
     // The airspeed and its trend, kept current whatever the modes and the
