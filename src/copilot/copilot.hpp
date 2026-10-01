@@ -58,7 +58,7 @@ inline constexpr int most_orbit_turns = 255;
 struct Brief {
     std::string aircraft;      // its catalogue id, "c172p"
     std::string aircraft_name; // "Cessna 172P Skyhawk"
-    double approach_kts = 0.0;
+    double approach_kts = 0.0; // in whole knots, as PlanRequest's (planner.hpp)
     // The slowest and fastest a route may fly it under power
     // (sim::plan_speeds), measured: a route is flown clean, and the approach
     // speed is a flaps-down figure. Where not given (0), the approach speed
@@ -73,9 +73,7 @@ struct Brief {
 // The slowest a route may fly the aircraft under power: its slowest, or its
 // approach speed where that is more.
 inline double slowest_routed_kts(const Brief& b) {
-    // Within half a knot of the approach speed, it is the approach speed
-    // written in whole knots, and the approach speed is said, as before.
-    return b.slowest_kts > b.approach_kts + 0.5 ? b.slowest_kts : b.approach_kts;
+    return b.slowest_kts > b.approach_kts ? b.slowest_kts : b.approach_kts;
 }
 
 // The fastest a route may fly it: its fastest, or a fifth over its cruise

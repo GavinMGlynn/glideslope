@@ -102,7 +102,7 @@ std::string situation_text(const Brief& b, const Situation& now) {
         whole(fastest_routed_kts(b)) + " kt";
     // **Said why, where the floor is above the approach**, as the planner
     // says it (planner.cpp).
-    if (slowest > b.approach_kts + 0.5) {
+    if (slowest > b.approach_kts) {
         out += ", never slower than " + whole(slowest) +
                ": a route is flown clean, and the approach speed is for flaps down";
     }
@@ -259,7 +259,7 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
             return w.name + " is at " + whole(w.altitude_ft) + " ft, below " + whole(least_ft) +
                    " ft, 500 ft above the sea and the ground beneath the aircraft";
         }
-        if (!change.glide_kts && (w.airspeed_kts < slowest - 0.5 || w.airspeed_kts > fastest + 0.5)) {
+        if (!change.glide_kts && !sim::within_plan_speeds({slowest, fastest}, w.airspeed_kts)) {
             return w.name + " is flown at " + whole(w.airspeed_kts) + " kt, outside " +
                    whole(slowest) + " to " + whole(fastest) + " kt";
         }

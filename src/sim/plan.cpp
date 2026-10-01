@@ -164,6 +164,10 @@ double least_orbit_radius_m(double airspeed_kts) {
     return 2.5 * v * v / (9.80665 * std::tan(most_bank_deg * radians));
 }
 
+bool within_plan_speeds(const PlanSpeeds& speeds, double kts) {
+    return kts >= speeds.slowest_kts - 0.5 && kts <= speeds.fastest_kts + 0.5;
+}
+
 double distance_m(double latitude_1, double longitude_1, double latitude_2,
                   double longitude_2) {
     const double p1 = latitude_1 * radians;

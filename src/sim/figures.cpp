@@ -1762,19 +1762,30 @@ PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& mod
     return {f.plan_slowest_kcas, f.plan_fastest_kcas};
 }
 
-void refuse_speeds_it_cannot_hold(const std::filesystem::path& data, const FlightPlan& plan) {
+void refuse_what_it_cannot_fly(const std::filesystem::path& data, const FlightPlan& plan,
+                               const std::string& flown) {
+    if (plan.aircraft != flown) {
+        throw FlightPlanError("the plan is for the " + plan.aircraft + ", and the aircraft "
+                              "flown is the " + flown);
+    }
     const CatalogueEntry entry = find_aircraft(data, plan.aircraft);
     const PlanSpeeds speeds = plan_speeds(data, entry.model);
+    const auto outside = [&](const std::string& what, double kts) {
+        char said[128];
+        std::snprintf(said, sizeof said, "%.0f kt, outside %.0f to %.0f kt", kts,
+                      speeds.slowest_kts, speeds.fastest_kts);
+        return FlightPlanError(what + said + ": the " + entry.id +
+                               " is flown clean on a plan, and cannot hold its height and "
+                               "speed round a turn outside them");
+    };
+    // **The start too**: the aircraft is put in the air at it, and the
+    // autopilot holds it until the first waypoint's.
+    if (plan.start && !within_plan_speeds(speeds, plan.start->airspeed_kts)) {
+        throw outside("the start is at ", plan.start->airspeed_kts);
+    }
     for (const Waypoint& w : plan.waypoints) {
-        // Half a knot, as a plan's whole knots are read (copilot/planner.cpp).
-        if (w.airspeed_kts < speeds.slowest_kts - 0.5 ||
-            w.airspeed_kts > speeds.fastest_kts + 0.5) {
-            char kts[128];
-            std::snprintf(kts, sizeof kts, "%.0f kt, outside %.0f to %.0f kt", w.airspeed_kts,
-                          speeds.slowest_kts, speeds.fastest_kts);
-            throw FlightPlanError(w.name + " is flown at " + kts + ": the " + entry.id +
-                                  " is flown clean on a plan, and cannot hold its height and "
-                                  "speed round a turn outside them");
+        if (!within_plan_speeds(speeds, w.airspeed_kts)) {
+            throw outside(w.name + " is flown at ", w.airspeed_kts);
         }
     }
 }

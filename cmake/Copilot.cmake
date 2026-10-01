@@ -47,7 +47,7 @@ set(GLIDESLOPE_COPILOT_VISIBLE
 set(GLIDESLOPE_COPILOT_NAMES
     sim::FlightPlan sim::FlightPlanError sim::Waypoint sim::Runway sim::AutopilotModes
     sim::parse_flight_plan sim::least_orbit_radius_m sim::distance_m sim::bearing_deg
-    sim::most_bank_deg
+    sim::most_bank_deg sim::PlanSpeeds sim::within_plan_speeds
     world::Json world::JsonError world::parse_json world::write_json
     world::RunwayEnd world::RunwayError world::read_runways world::runways_at world::as_runway
     platform::HttpRequest platform::HttpResponse platform::HttpError platform::http_get

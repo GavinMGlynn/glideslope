@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <limits>
 #include <memory>
+#include <string>
 
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
@@ -13,6 +14,54 @@
 #include "sim/weather.hpp"
 
 namespace glideslope::sim {
+
+CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
+                                        const CatalogueEntry& entry, double airspeed_kts,
+                                        bool windy, double settle_s) {
+    constexpr int steps_per_second = 120;
+    Aircraft aircraft(data / "jsbsim", entry.model);
+    InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 3000.0;
+    ic.heading_deg = 0.0;
+    ic.airspeed_kts = airspeed_kts;
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    if (windy) {
+        Conditions wind;
+        wind.wind_east_mps = 20.0 * 1852.0 / 3600.0;
+        aircraft.set_weather(std::make_shared<SteadyWeather>(wind));
+    }
+    Controls controls;
+    controls.throttle = entry.start_throttle;
+    Autopilot autopilot(aircraft, controls);
+    AutopilotModes modes = autopilot.modes();
+    modes.heading_deg = 0.0;
+    modes.altitude_ft = 3000.0;
+    modes.airspeed_kts = airspeed_kts;
+    autopilot.set(modes);
+    CrosswindFlown out;
+    out.slowest_kts = std::numeric_limits<double>::infinity();
+    const int settled = static_cast<int>(settle_s * steps_per_second);
+    for (int i = 0; i < 120 * steps_per_second; ++i) {
+        aircraft.set_controls(autopilot.fly());
+        aircraft.step();
+        const double beta = aircraft.property("aero/beta-deg");
+        out.most_sideslip_ever_deg = std::max(out.most_sideslip_ever_deg, std::abs(beta));
+        if (i >= settled) {
+            out.least_sideslip_deg = std::min(out.least_sideslip_deg, beta);
+            out.most_sideslip_deg = std::max(out.most_sideslip_deg, beta);
+            out.worst_heading_deg =
+                std::max(out.worst_heading_deg,
+                         std::abs(std::remainder(aircraft.property("attitude/psi-deg"), 360.0)));
+            out.worst_height_ft = std::max(
+                out.worst_height_ft, std::abs(aircraft.property("position/h-sl-ft") - 3000.0));
+            out.slowest_kts = std::min(out.slowest_kts, aircraft.property("velocities/vc-kts"));
+        }
+    }
+    return out;
+}
 
 OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const CatalogueEntry& entry,
                               const OrbitTrial& trial) {
@@ -88,6 +137,53 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
     }
     out.passed_on = navigator.next() == 1 && out.turns >= 1.99 && out.turns <= 2.01;
     return out;
+}
+
+bool holds_plan_speed(const std::filesystem::path& data, const CatalogueEntry& entry,
+                      double airspeed_kts, const std::function<void(const std::string&)>& said) {
+    const auto tell = [&](const std::string& line) {
+        if (said) {
+            said(line);
+        }
+    };
+    char line[300];
+    for (const bool right : {false, true}) {
+        for (const bool windy : {false, true}) {
+            OrbitTrial trial;
+            trial.airspeed_kts = airspeed_kts;
+            trial.right = right;
+            trial.windy = windy;
+            trial.stop_when_lost = true;
+            const OrbitFlown f = fly_tightest_orbit(data, entry, trial);
+            const bool held = f.held(airspeed_kts);
+            std::snprintf(line, sizeof line,
+                          "%s %.0f kt round %.0f m, %s, %s: %s (%.0f ft off, %.0f to %.0f kt, "
+                          "%.0f to %.0f m)",
+                          entry.id.c_str(), airspeed_kts, f.radius_m, right ? "right" : "left",
+                          windy ? "10 kt wind" : "calm", held ? "held" : "NOT held",
+                          f.worst_height_ft, f.slowest_kts, f.fastest_kts, f.nearest_m,
+                          f.farthest_m);
+            tell(line);
+            if (!held) {
+                return false;
+            }
+        }
+    }
+    for (const bool windy : {false, true}) {
+        const CrosswindFlown f = fly_heading_in_crosswind(data, entry, airspeed_kts, windy);
+        const bool held = f.held();
+        std::snprintf(line, sizeof line,
+                      "%s %.0f kt heading north, %s: %s (sideslip %+.2f to %+.2f, heading "
+                      "within %.2f)",
+                      entry.id.c_str(), airspeed_kts, windy ? "20 kt crosswind" : "calm",
+                      held ? "held" : "NOT held", f.least_sideslip_deg, f.most_sideslip_deg,
+                      f.worst_heading_deg);
+        tell(line);
+        if (!held) {
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace glideslope::sim

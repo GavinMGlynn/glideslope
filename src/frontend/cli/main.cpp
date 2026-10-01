@@ -379,16 +379,16 @@ int fly_figures(const std::filesystem::path& data, const std::string& model,
     return failed == 0 ? 0 : 1;
 }
 
-// **A landing handed to the AI at the gate**, the approach autopilot's or the
-// learnt one, through the controller as any hand-over is: on a runway at sea
-// level over level ground - the runway the landing tests fly to, pointing
-// 070 - so that what is shown is the landing, not the terrain.
-// **The speeds an aircraft may be planned at, measured**: the tightest orbit
-// a plan may ask, flown clean four ways (sim/orbit_trial.hpp). The slowest
-// is sought at speeds rising from FROM_KT, or its approach speed, by 5 kt
-// until every way holds its height and speed; the fastest at speeds falling
-// from a fifth over its start speed, the same way. What it prints is what an
-// aircraft's `<plan_speeds>` (assets/figures) is taken from.
+// **The speeds an aircraft may be planned at, measured**: each speed tried
+// is asked what a plan may ask of it (sim::holds_plan_speed) - the tightest
+// orbit four ways, and a heading in calm air and a crosswind. The slowest is
+// sought at speeds rising from FROM_KT, or its approach speed, by 5 kt; the
+// fastest at speeds falling from a fifth over its start speed. **What to
+// write in its `<plan_speeds>` is printed, by one rule**: where the approach
+// speed (or the fifth over the start speed) held, that - nothing a plan was
+// let fly before is taken away; where it did not, the first that held, with
+// 5 kt to spare. `--every` instead flies the speeds the file gives, every
+// 5 kt from its slowest to its fastest, and exits 1 unless every one held.
 int plan_speeds(const std::filesystem::path& data, const std::vector<std::string_view>& args) {
     const glideslope::sim::CatalogueEntry entry =
         glideslope::sim::find_aircraft(data, std::string(args[1]));
@@ -409,42 +409,20 @@ int plan_speeds(const std::filesystem::path& data, const std::vector<std::string
     } else if (!every) {
         from = std::round(glideslope::sim::approach_speeds(data, entry.model).vref_kts);
     }
-    // All four ways round at one speed; whether every one held.
-    const auto four = [&](double kts) {
-        for (const bool right : {false, true}) {
-            for (const bool windy : {false, true}) {
-                glideslope::sim::OrbitTrial trial;
-                trial.airspeed_kts = kts;
-                trial.right = right;
-                trial.windy = windy;
-                trial.stop_when_lost = true;
-                const glideslope::sim::OrbitFlown f =
-                    glideslope::sim::fly_tightest_orbit(data, entry, trial);
-                const bool held = f.held(kts);
-                std::printf("%s %.0f kt round %.0f m, %s, %s: %s (%.0f ft off, %.0f to %.0f "
-                            "kt, %.0f to %.0f m)\n",
-                            entry.id.c_str(), kts, f.radius_m, right ? "right" : "left",
-                            windy ? "10 kt wind" : "calm", held ? "held" : "NOT held",
-                            f.worst_height_ft, f.slowest_kts, f.fastest_kts, f.nearest_m,
-                            f.farthest_m);
-                std::fflush(stdout);
-                if (!held) {
-                    return false;
-                }
-            }
-        }
-        return true;
+    const auto say = [](const std::string& line) {
+        std::printf("%s\n", line.c_str());
+        std::fflush(stdout);
     };
-    // **--every**: the figures file's speeds checked rather than sought -
-    // every 5 kt from its slowest, and its fastest - and said whether all
-    // held.
+    const auto holds = [&](double kts) {
+        return glideslope::sim::holds_plan_speed(data, entry, kts, say);
+    };
     if (every) {
         const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, entry.model);
         std::size_t held = 0;
         std::size_t asked = 0;
         for (double kts = speeds.slowest_kts;; kts = std::min(kts + 5.0, speeds.fastest_kts)) {
             ++asked;
-            if (four(kts)) {
+            if (holds(kts)) {
                 ++held;
             }
             if (kts >= speeds.fastest_kts) {
@@ -456,34 +434,42 @@ int plan_speeds(const std::filesystem::path& data, const std::vector<std::string
         return held == asked ? 0 : 1;
     }
     const double top = std::round(entry.start_airspeed_kts * 1.2);
-    double slowest = 0.0;
+    double first_held = 0.0;
     for (double kts = from; kts <= top; kts += 5.0) {
-        if (four(kts)) {
-            slowest = kts;
+        if (holds(kts)) {
+            first_held = kts;
             break;
         }
     }
-    if (slowest == 0.0) {
+    if (first_held == 0.0) {
         std::printf("%s: no speed from %.0f to %.0f kt holds\n", entry.id.c_str(), from, top);
         return 1;
     }
-    std::printf("%s: slowest held %.0f kt\n", entry.id.c_str(), slowest);
-    double fastest = 0.0;
-    for (double kts = top; kts > slowest; kts -= 5.0) {
-        if (four(kts)) {
-            fastest = kts;
+    double last_held = 0.0;
+    for (double kts = top; kts > first_held; kts -= 5.0) {
+        if (holds(kts)) {
+            last_held = kts;
             break;
         }
     }
-    if (fastest == 0.0) {
+    if (last_held == 0.0) {
         std::printf("%s: no speed from %.0f down to %.0f kt holds\n", entry.id.c_str(), top,
-                    slowest);
+                    first_held);
         return 1;
     }
-    std::printf("%s: fastest held %.0f kt\n", entry.id.c_str(), fastest);
+    const double slowest = first_held == from ? first_held : first_held + 5.0;
+    const double fastest = last_held == top ? last_held : last_held - 5.0;
+    std::printf("%s: slowest held %.0f kt, fastest held %.0f kt\n", entry.id.c_str(),
+                first_held, last_held);
+    std::printf("%s: write <plan_speeds slowest_kcas=\"%.0f\" fastest_kcas=\"%.0f\">\n",
+                entry.id.c_str(), slowest, fastest);
     return 0;
 }
 
+// **A landing handed to the AI at the gate**, the approach autopilot's or the
+// learnt one, through the controller as any hand-over is: on a runway at sea
+// level over level ground - the runway the landing tests fly to, pointing
+// 070 - so that what is shown is the landing, not the terrain.
 int land(const std::filesystem::path& data, const std::vector<std::string_view>& args) {
     constexpr double degrees = 180.0 / 3.14159265358979323846;
     constexpr double feet_per_metre = 3.280839895013123;
@@ -789,7 +775,8 @@ int plan_command(const std::filesystem::path& data, const std::vector<std::strin
     request.aircraft = entry.id;
     request.aircraft_name = entry.name;
     request.climb_kts = glideslope::sim::departure_speeds(data, entry.model).climb_kts;
-    request.approach_kts = glideslope::sim::approach_speeds(data, entry.model).vref_kts;
+    request.approach_kts =
+        std::round(glideslope::sim::approach_speeds(data, entry.model).vref_kts);
     const glideslope::sim::PlanSpeeds plannable_speeds =
         glideslope::sim::plan_speeds(data, entry.model);
     request.slowest_kts = plannable_speeds.slowest_kts;
@@ -863,7 +850,7 @@ int fly_plan(const std::filesystem::path& data, const std::vector<std::string_vi
         glideslope::sim::parse_flight_plan(std::string(std::istreambuf_iterator<char>(in), {}));
     const glideslope::sim::CatalogueEntry entry = glideslope::sim::find_aircraft(data, plan.aircraft);
     // Held to its aircraft's speeds, as a model's plan is.
-    glideslope::sim::refuse_speeds_it_cannot_hold(data, plan);
+    glideslope::sim::refuse_what_it_cannot_fly(data, plan, entry.id);
 
     std::ifstream coverage_file(data / "dem" / "coverage.txt", std::ios::binary);
     if (!coverage_file) {

@@ -940,7 +940,8 @@ glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
     request.aircraft = entry.id;
     request.aircraft_name = entry.name;
     request.climb_kts = glideslope::sim::departure_speeds(data, entry.model).climb_kts;
-    request.approach_kts = glideslope::sim::approach_speeds(data, entry.model).vref_kts;
+    request.approach_kts =
+        std::round(glideslope::sim::approach_speeds(data, entry.model).vref_kts);
     const glideslope::sim::PlanSpeeds plannable_speeds =
         glideslope::sim::plan_speeds(data, entry.model);
     request.slowest_kts = plannable_speeds.slowest_kts;
@@ -1084,7 +1085,7 @@ public:
             const glideslope::sim::CatalogueEntry entry =
                 glideslope::sim::find_aircraft(data, plan.aircraft);
             // Held to its aircraft's speeds, as a model's plan is.
-            glideslope::sim::refuse_speeds_it_cannot_hold(data, plan);
+            glideslope::sim::refuse_what_it_cannot_fly(data, plan, entry.id);
             // A plan may say where to start; one that does not begins at its
             // first waypoint, heading for the next. `parse_flight_plan`
             // refuses a plan with no waypoints, so there is always one.
@@ -2233,7 +2234,8 @@ private:
             try {
                 glideslope::copilot::Brief b;
                 b.aircraft = a.catalogue_id;
-                b.approach_kts = glideslope::sim::approach_speeds(data_, a.model).vref_kts;
+                b.approach_kts =
+                    std::round(glideslope::sim::approach_speeds(data_, a.model).vref_kts);
                 const glideslope::sim::PlanSpeeds plannable_speeds =
                     glideslope::sim::plan_speeds(data_, a.model);
                 b.slowest_kts = plannable_speeds.slowest_kts;

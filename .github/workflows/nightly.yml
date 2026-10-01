@@ -106,6 +106,72 @@ jobs:
           key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
 
+  # **Every speed a plan may ask of every aircraft, flown.** The speeds each
+  # aircraft may be planned at (its figures file's <plan_speeds>) are ticked
+  # as held at every 5 kt between its slowest and fastest - round its
+  # tightest orbit four ways, and a heading in calm air and a crosswind -
+  # and pull requests fly only the two ends. This flies all of them, every
+  # night, with `glideslope_cli plan-speeds ID --every`, which exits 1 if any
+  # speed does not hold. About 360 speeds; in linux-release on a workstation,
+  # three aircraft at a time, some 40 minutes.
+  plan-speeds:
+    name: Every speed a plan may ask of every aircraft
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      CXX: g++-14
+      CC: gcc-14
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 700M
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/ubuntu-setup
+      - name: Keep vcpkg's binary cache in the workspace
+        run: |
+          mkdir -p .vcpkg-archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/.vcpkg-archives" >> "$GITHUB_ENV"
+      - name: The toolchain vcpkg's packages are built with
+        id: toolchain
+        shell: bash
+        run: |
+          if [ -n "${ImageVersion:-}" ]; then id="$ImageOS-$ImageVersion"
+          else id="$(rpm -q gcc-toolset-14-gcc-c++ 2>/dev/null || g++ --version | head -1)"; fi
+          echo "id=$(printf '%s' "$id" | tr -c 'A-Za-z0-9._-' '_')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        with:
+          path: .vcpkg-archives
+          key: vcpkg-ubuntu-${{ steps.toolchain.outputs.id }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/Vcpkg.cmake', 'cmake/triplets/*.cmake', 'ext/cesium-native/extern/vcpkg/ports/**', 'cmake/ports/**') }}
+          restore-keys: |
+            vcpkg-ubuntu-${{ steps.toolchain.outputs.id }}-
+            vcpkg-ubuntu-
+      - uses: actions/cache/restore@v6
+        with:
+          path: .ccache
+          key: ccache-ubuntu-linux-release-${{ github.sha }}
+          restore-keys: ccache-ubuntu-linux-release-
+      - name: Build the command-line tool
+        run: |
+          cmake --preset linux-release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
+          cmake --build --preset linux-release --target glideslope_cli
+      - name: Every speed of every aircraft
+        run: |
+          mkdir -p plan-speeds
+          ./build/linux-release/glideslope_cli aircraft | awk '{print $1}' > plan-speeds/ids.txt
+          test "$(wc -l < plan-speeds/ids.txt)" -eq 16
+          rc=0
+          xargs -P4 -I{} sh -c './build/linux-release/glideslope_cli plan-speeds {} --every > plan-speeds/{}.txt 2>&1 || echo {} >> plan-speeds/failed.txt' < plan-speeds/ids.txt
+          grep -h "speeds from" plan-speeds/*.txt
+          test "$(grep -l 'speeds from' plan-speeds/*.txt | wc -l)" -eq 16 || rc=1
+          if [ -s plan-speeds/failed.txt ]; then echo "not held:"; cat plan-speeds/failed.txt; rc=1; fi
+          exit $rc
+      - uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with:
+          name: plan-speeds
+          path: plan-speeds
+
   # **The network checks on macOS, over and over.** The interpolation they hold
   # to 2 m drew frames 8 m off on macOS CI, and nowhere else, once in a while
   # (COMPLETION_PLAN.md): a once-in-a-while failure is shown gone only by

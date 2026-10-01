@@ -8,6 +8,7 @@
 // in its figures file).
 
 #include <filesystem>
+#include <functional>
 #include <string>
 
 #include "sim/catalogue.hpp"
@@ -42,11 +43,46 @@ struct OrbitFlown {
     }
 };
 
+// **A heading held in a crosswind**: `entry` at 3,000 ft heading north at
+// `airspeed_kts`, the autopilot alone holding the heading, the height and
+// the speed for two minutes, in calm air or in a 20 kt wind from the west
+// arriving all at once - the crosswind test's flight (test_autopilot.cpp),
+// and one `glideslope_cli plan-speeds` asks of every speed it tries.
+struct CrosswindFlown {
+    // After `settle_s`:
+    double least_sideslip_deg = 0.0;
+    double most_sideslip_deg = 0.0;
+    double worst_heading_deg = 0.0; // off north, either way
+    double worst_height_ft = 0.0;
+    double slowest_kts = 0.0;
+    // From the start:
+    double most_sideslip_ever_deg = 0.0;
+
+    // Its sideslip within a degree and its heading within two.
+    bool held() const {
+        return -least_sideslip_deg <= 1.0 && most_sideslip_deg <= 1.0 &&
+               worst_heading_deg <= 2.0;
+    }
+};
+CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
+                                        const CatalogueEntry& entry, double airspeed_kts,
+                                        bool windy, double settle_s = 30.0);
+
 // Flies `entry` round the tightest orbit allowed at `trial.airspeed_kts`, at
 // 3,000 ft over Sydney, clean, with the throttle it starts at in the
 // catalogue. `data` is the data directory (with jsbsim/ in it). Thirty
 // minutes at most.
 OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const CatalogueEntry& entry,
                               const OrbitTrial& trial);
+
+// **Whether `entry` holds `airspeed_kts` as a plan may ask it**: round the
+// tightest orbit at it both ways, in calm air and in a 10 kt wind, its
+// height within 50 ft and its speed within 5 kt (each stopped once lost);
+// and a heading held in calm air and a 20 kt crosswind. Stops at the first
+// that does not hold. `said`, if given, is told each flight in a line.
+// What `glideslope_cli plan-speeds` asks of every speed it tries.
+bool holds_plan_speed(const std::filesystem::path& data, const CatalogueEntry& entry,
+                      double airspeed_kts,
+                      const std::function<void(const std::string&)>& said = {});
 
 } // namespace glideslope::sim

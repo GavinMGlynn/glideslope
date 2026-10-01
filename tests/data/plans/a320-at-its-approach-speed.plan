@@ -3,5 +3,5 @@
 # circle, so the plan is refused as it is read (assets/figures/a320.xml,
 # <plan_speeds>).
 aircraft a320
-start -33.95 151.2093 3000 0 147
+start -33.95 151.2093 3000 0 250
 orbit CBD -33.8688 151.2093 3200 3000 147 2 left

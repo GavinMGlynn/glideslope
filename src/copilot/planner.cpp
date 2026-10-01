@@ -95,7 +95,7 @@ std::string planning_request(const PlanRequest& r) {
                       whole(fastest) + " kt";
     // **Said why, where the floor is above the approach**: the approach
     // speed is flown with the flaps down, and a plan is flown clean.
-    if (slowest > r.approach_kts + 0.5) {
+    if (slowest > r.approach_kts) {
         out += ", never slower than " + whole(slowest) +
                ": a plan is flown clean, and the approach speed is for flaps down";
     }
@@ -154,7 +154,7 @@ std::string refusal(const PlanRequest& r, const sim::FlightPlan& plan) {
             return w.name + " is at " + whole(w.altitude_ft) + " ft, below " + whole(least_ft) +
                    " ft, 500 ft above the runway";
         }
-        if (w.airspeed_kts < slowest - 0.5 || w.airspeed_kts > fastest + 0.5) {
+        if (!sim::within_plan_speeds({slowest, fastest}, w.airspeed_kts)) {
             return w.name + " is flown at " + whole(w.airspeed_kts) + " kt, outside " +
                    whole(slowest) + " to " + whole(fastest) + " kt";
         }
