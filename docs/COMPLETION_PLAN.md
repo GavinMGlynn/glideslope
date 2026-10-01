@@ -827,10 +827,13 @@ Found while implementing something else. Added when found, not when remembered.
       aeroplane's ceiling is about 8,500 ft - the Cessna 172P's handbook gives
       13,000. *Verification: the AI climbs each light aeroplane to within its
       handbook's tolerance of its published service ceiling.*
-- [ ] **Cesium ion on Windows, where a body arrives compressed unasked.**
+- [x] **Cesium ion on Windows, where a body arrives compressed unasked.**
       *Verification: a Windows machine fetches and reads ion's layer.json, and
-      the weather still arrives.* Missing: why asking for compression times out
-      the send on Windows CI.
+      the weather still arrives.* Done 2026-10-01: Windows could not undo the
+      kind of compression the weather service picks when offered it, so
+      Windows now offers only the kind it can undo. Verified on the
+      development machine, which has a token; CI has none and skips the ion
+      test.
 - [ ] **A livery on the aeroplane, and its control surfaces moving.**
       *Verification: a shot shows a livery, and the ailerons move with the
       stick.*
@@ -929,3 +932,7 @@ Found while implementing something else. Added when found, not when remembered.
       served a page in place of every one of them on 2026-10-01; CI has them
       only from its cache. *Verification: each is fetched from a second source
       serving the same pinned bytes when SourceForge does not.*
+- [ ] **On the Windows development machine a request to the weather service
+      sometimes waits two minutes before it is sent**, compressed or not; the
+      next try gets through. *Verification: the cause is named, and on that
+      machine twenty fetches in a row each arrive within ten seconds.*
