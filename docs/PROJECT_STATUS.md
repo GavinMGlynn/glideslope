@@ -262,6 +262,75 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A long frame does not put the window client's own aircraft right too far: a cause found and fixed, 2026-10-02 — tail still open
+
+**What is still missing, first**: none of CI's four failures was reproduced
+here in the processes themselves, so that this was their cause is argued
+from a unit test and the numbers, not watched; and the tail's verification
+is a month of CI runs, which starts with this change.
+
+**The cause.** The window client's pass read the stick, sent it, and then
+flew every tick the frame was owed on it - so an input sent at the end of a
+long frame was flown here from that frame's beginning, and on the server,
+which cannot fly an input before it arrives, a whole frame later. The
+prediction takes the clocks' difference from where each input began here
+against where the server applied it (`sim::Prediction::hear_clock`), so that
+input said the clocks differ by the frame more than they do. Once the
+difference is known, the least of two seconds' words leaves such an input
+out. But while it is being learnt (the first 25 words after joining, or
+after a take-back) it can be the least heard; when an input sent
+after a quick frame came, the difference fell by the long frame, and the
+aircraft was put right by the way flown in it. The guess in the tail - the
+clock estimate thrown off by an input begun at the head of a long pass's
+catch-up ticks - was right; the input said the clocks differ by more, not
+less, which is why only the learning was hurt. A frame's length long or
+short also moved every input's word on the clocks, by the frame before it
+was sent: frames of 20 to 230 ms at random moved the known difference by
+three steps and put the client right by 1.05 m (a probe, not kept).
+
+**Built in a unit test**:
+`a_long_frame_puts_a_client_right_by_little_whether_or_not_its_clocks_difference_is_known_yet`.
+A client paced by real time against a server on its own, in microseconds,
+each pass the window client's; long frames of 142, 167, 284, 428 and 730 ms
+(CI's, and 428), each at the first and second frame after the prediction
+began - where the first input whose beginning is known is the one sent at
+the long frame's end, which the test checks - and three seconds on, when
+the difference is known, at 0 and 5 ms each way: thirty flights, counted.
+Every correction is held to 3 m, learning or known. **Seen to fail** with
+the pass as it was (sent, then flown on): "142 ms 1 frames in, 0 ms each
+way: put right by 7.709581 m, over the 3.000000 m bound"; the probe before
+it measured 7.7 m at 142 ms, 16 at 284, 25 at 428 and 43 at 730, in the
+learning, and nothing over 0.6 m once known. Reverted, it passes: the worst
+learning 2.57 m (placing a word to the step, half a metre a step at 120
+knots), the worst known 0.33 m.
+
+**Fixed** in the window client (`Online::fly`, `Online::flown`): the stick
+is still sent as the frame's clock is read, but the ticks - the frame gone
+by - are flown on the input sent before, which is what the server flew
+over the same time, and the new one from the next tick. Each input now
+begins here at the step it was sent at. The first input, with none before
+it, is flown at once. The cost is a frame's latency on the controls
+online: 17 ms at 60 frames a second.
+
+**And a second, smaller error, found on the way**: the pass read the socket
+after its ticks, so a word that came while they were flown was about a
+moment past the last of them, and the prediction was put forward to it
+with nothing to replay, and back by the next word. Printed by a debug line
+(not kept) on the held-frames test, linux-debug, on four cores shared with
+three busy loops and the other window test: corrections of 2.0 to 4.0 m
+each "replayed 0", every one of them. Now `Online::listen` reads what has
+arrived when the clock is read, before the ticks, and `Online::hear` hears
+it after them. Nothing tests this half but the window tests.
+
+**Said by the client now**: "the worst while its clocks' difference was
+learnt X m, and once it was known Y m", after the corrections line, so that
+a failure on CI says which it was.
+
+The command-line client (`glideslope_cli connect`) flies its own way and
+counts only once the difference is known; it is not changed. The selftest
+does not use the prediction; its hash is unchanged, 30ac70b84cab7d7c
+(linux-debug).
+
 ### A plan never asks an aircraft for a speed it cannot hold clean, 2026-10-02 — tail done
 
 **What a plan may ask was the approach speed to a fifth over the cruise, for

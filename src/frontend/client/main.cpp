@@ -26,6 +26,7 @@
 #include "flight.hpp"
 #include "frontend/players_copilot.hpp"
 #include "online.hpp"
+#include "pass.hpp"
 #include "shown.hpp"
 #include "platform/end_process.hpp"
 #include "platform/stop.hpp"
@@ -66,6 +67,7 @@
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <functional>
 #include <fstream>
 #include <iterator>
 #include <memory>
@@ -1471,32 +1473,49 @@ static int run_program(int argc, char** argv) {
             // before what this pass hears changes it.
             const bool predicted_before =
                 online && joined && flight && flight->predicting() && !online->own_ai_flying();
-            // On a server, what is flown is what was last sent; what the
-            // server said is heard after it is flown, below.
-            const glideslope::sim::Controls flown =
-                joined && flight ? online->fly(seconds_since_start(), controls, *flight)
-                                 : controls;
             // **Handed to the AI on a server, it is not predicted**: the
             // server flies it, and it is drawn from the updates.
-            const bool own_ai_online = online && joined && online->own_ai_flying();
-            pass_mark = seconds_since_start();
-            for (std::int64_t i = 0; i < due; ++i) {
-                if (flight && !own_ai_online) {
+            const auto tick = [&](const glideslope::sim::Controls& flown) {
+                if (flight && !(online && joined && online->own_ai_flying())) {
                     flight->step(flown);
                     if (o.trace) {
                         std::printf("%s\n", flight->trace().c_str());
                     }
                 }
                 ++ticks;
-            }
-            pass_part(pass_times.ticks);
-            // **What arrived is heard once the ticks it may be about are
-            // flown**: at the end of a long frame the newest word is about a
-            // moment past where the prediction was before them, and heard
-            // then it was put there with nothing to replay, and flown on past
-            // it (Online::hear).
+            };
             if (joined && flight) {
-                online->hear(seconds_since_start(), *flight);
+                // **On a server, a pass in the order glideslope::client::
+                // fly_a_pass gives and says why**: the stick sent, what has
+                // arrived taken in, the ticks flown on the input sent
+                // before, the new one flown from the next, and what was
+                // taken in heard.
+                struct Link {
+                    glideslope::client::Online& online;
+                    glideslope::client::Flight& flight;
+                    const std::function<void()> ticks_began;
+                    const std::function<void()> ticks_ended;
+                    glideslope::sim::Controls fly(double local_s,
+                                                  const glideslope::sim::Controls& stick) {
+                        return online.fly(local_s, stick, flight);
+                    }
+                    void listen(double local_s) {
+                        online.listen(local_s);
+                        ticks_began();
+                    }
+                    void ticks_flown() { ticks_ended(); }
+                    void flown() { online.flown(flight); }
+                    void hear() { online.hear(flight); }
+                };
+                Link link{*online, *flight, [&] { pass_mark = seconds_since_start(); },
+                          [&] { pass_part(pass_times.ticks); }};
+                glideslope::client::fly_a_pass(link, seconds_since_start(), controls, due, tick);
+            } else {
+                pass_mark = seconds_since_start();
+                for (std::int64_t i = 0; i < due; ++i) {
+                    tick(controls);
+                }
+                pass_part(pass_times.ticks);
             }
 
             pass_part(pass_times.hear);
@@ -2144,6 +2163,9 @@ static int run_program(int argc, char** argv) {
                             "%zu too large to hide\n",
                             online->corrections(), online->worst_correction_m(),
                             online->snapped());
+                std::printf("glideslope: the worst while its clocks' difference was learnt "
+                            "%.3f m, and once it was known %.3f m\n",
+                            online->worst_learning_m(), online->worst_known_m());
                 std::printf("glideslope: heard %zu words on its own aircraft over %.2f s of "
                             "the server's time, in %zu frames\n",
                             online->own_words_heard(), online->own_words_span_s(),
