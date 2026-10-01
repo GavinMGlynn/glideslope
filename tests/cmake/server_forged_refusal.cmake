@@ -70,9 +70,15 @@ endif()
 # are on standard output. The client's key's public half begins 11fc7622
 # (see server_slots.cmake).
 math(EXPR _relay "${PORT} + 1")
+# **The server's --timeout is long, 30 s**: the session must be merely quiet,
+# never let go, and the client's own three seconds are what is tested. At 5 s
+# the window client, building its flight under load in a debug build, was
+# silent long enough that the server let it go before the forger's hold had
+# ended, and the client went back to a session already gone (2026-10-01).
+# Its silence counts from what the client sends, which the relay never holds.
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}" --ready-file "${_ready}"
+            --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
             --seed 1 --until-input-ends --seconds 290 --forge-refusal-after 50
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 280 --fly --leave-once-back
