@@ -1024,32 +1024,62 @@ GLIDESLOPE_TEST(every_aircraft_turns_ninety_degrees_without_overbanking_or_overs
                                 std::to_string(most_overshoot_deg) + ":" + failures);
 }
 
-// **Every light aeroplane holds a heading in a crosswind without yawing.**
-// Each is put at 3,000 ft heading north at its approach speed - the slowest a
-// plan may fly it, where the wind is the largest part of its airspeed - and
-// at the airspeed it starts a flight at, the autopilot holding the heading,
-// the height and the speed, in calm air and in a 20 kt wind from the west
-// arriving all at once: a sideslip of 15 to 28 degrees to settle. After half
-// a minute to settle, each must hold its sideslip within a degree and its
-// heading within two for the next ninety seconds. Before the fix the Cub and
-// the Cherokee swung their sideslip 35 degrees either way every few seconds
-// in wind and never settled (PROJECT_STATUS.md); the Cessnas held it within
-// 0.1. The space is every light aeroplane, at both speeds, in both airs, and
-// every case of it is flown.
-GLIDESLOPE_TEST(every_light_aeroplane_holds_a_heading_in_a_20_kt_crosswind_and_in_calm_air_without_yawing) {
+namespace {
+
+// What a crosswind test leaves out of an aircraft, and why: its approach
+// speed's two cases, or all four.
+struct NotHeld {
+    bool every_case = false;
+    std::string reason;
+};
+
+// **Every aircraft in `expected` holds a heading in a crosswind without
+// yawing.** Each is put at 3,000 ft heading north at its approach speed - the
+// slowest a plan may fly it, where the wind is the largest part of its
+// airspeed - and at the airspeed it starts a flight at, the autopilot holding
+// the heading, the height and the speed, in calm air and in a 20 kt wind from
+// the west arriving all at once: a sideslip of 10 to 28 degrees to settle.
+// After `settle_s` each must hold its sideslip within a degree and its heading
+// within two until two minutes after the start. The space is every aircraft in
+// `expected` (the catalogue's of `in_class`, asserted to be exactly those), at
+// both speeds - asserted to differ, so no case is flown twice - in both airs;
+// each case is flown or named in `left_out` with its reason.
+void holds_a_heading_in_a_crosswind(const std::vector<std::string>& expected,
+                                    const std::function<bool(const CatalogueEntry&)>& in_class,
+                                    const std::map<std::string, NotHeld>& left_out,
+                                    double settle_s) {
     constexpr double most_sideslip_deg = 1.0;
     constexpr double most_heading_off_deg = 2.0;
     constexpr double wind_kts = 20.0;
     std::string failures;
-    std::size_t lights = 0;
+    std::vector<std::string> met;
     std::size_t flown = 0;
+    std::size_t not_flown = 0;
     for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
-        if (e.aircraft_class != glideslope::sim::AircraftClass::light_aircraft) {
+        if (!in_class(e)) {
             continue;
         }
-        ++lights;
-        const double vref = std::round(glideslope::sim::approach_speeds(data(), e.model).vref_kts);
-        for (const double speed_kts : {vref, e.start_airspeed_kts}) {
+        met.push_back(e.id);
+        const auto out = left_out.find(e.id);
+        if (out != left_out.end() && out->second.every_case) {
+            std::printf("%s not flown: %s\n", e.id.c_str(), out->second.reason.c_str());
+            not_flown += 4;
+            continue;
+        }
+        std::vector<double> speeds;
+        if (out != left_out.end()) {
+            std::printf("%s not flown at its approach speed: %s\n", e.id.c_str(),
+                        out->second.reason.c_str());
+            not_flown += 2;
+        } else {
+            const double vref =
+                std::round(glideslope::sim::approach_speeds(data(), e.model).vref_kts);
+            check(vref != e.start_airspeed_kts,
+                  e.id + "'s approach and starting speeds differ, so no case is flown twice");
+            speeds.push_back(vref);
+        }
+        speeds.push_back(e.start_airspeed_kts);
+        for (const double speed_kts : speeds) {
             for (const bool windy : {false, true}) {
                 Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
                 glideslope::sim::InitialConditions ic;
@@ -1077,25 +1107,32 @@ GLIDESLOPE_TEST(every_light_aeroplane_holds_a_heading_in_a_20_kt_crosswind_and_i
                 double most_beta = 0.0;
                 double worst_heading = 0.0;
                 double most_beta_ever = 0.0;
+                double worst_height_ft = 0.0;
+                double slowest_kts = 1e9;
                 for (int i = 0; i < 120 * steps_per_second; ++i) {
                     aircraft.set_controls(autopilot.fly());
                     aircraft.step();
                     const double beta = aircraft.property("aero/beta-deg");
                     most_beta_ever = std::max(most_beta_ever, std::abs(beta));
-                    if (i >= 30 * steps_per_second) {
+                    if (i >= static_cast<int>(settle_s) * steps_per_second) {
                         least_beta = std::min(least_beta, beta);
                         most_beta = std::max(most_beta, beta);
                         worst_heading = std::max(worst_heading, std::abs(heading(aircraft)));
+                        worst_height_ft =
+                            std::max(worst_height_ft, std::abs(altitude(aircraft) - 3000.0));
+                        slowest_kts = std::min(slowest_kts, airspeed(aircraft));
                     }
                 }
                 ++flown;
-                char line[240];
+                char line[300];
                 std::snprintf(line, sizeof line,
-                              "%s at %.0f kt %s: sideslip %+.2f to %+.2f after 30 s (%.1f at "
-                              "most), heading within %.2f",
+                              "%s at %.0f kt %s: sideslip %+.2f to %+.2f after %.0f s (%.1f at "
+                              "most), heading within %.2f (height within %.0f ft, slowest %.0f "
+                              "kt)",
                               e.id.c_str(), speed_kts,
                               windy ? "in a 20 kt crosswind" : "in calm air", least_beta,
-                              most_beta, most_beta_ever, worst_heading);
+                              most_beta, settle_s, most_beta_ever, worst_heading,
+                              worst_height_ft, slowest_kts);
                 std::printf("%s\n", line);
                 if (!(-least_beta <= most_sideslip_deg && most_beta <= most_sideslip_deg &&
                       worst_heading <= most_heading_off_deg)) {
@@ -1104,14 +1141,75 @@ GLIDESLOPE_TEST(every_light_aeroplane_holds_a_heading_in_a_20_kt_crosswind_and_i
             }
         }
     }
-    std::printf("%zu light aeroplanes x 2 speeds x 2 airs = %zu flown\n", lights, flown);
-    check(lights == light_aeroplanes.size() && flown == 4 * lights,
-          "every light aeroplane at both speeds in both airs: " + std::to_string(flown) +
-              " flown of " + std::to_string(4 * light_aeroplanes.size()));
+    std::sort(met.begin(), met.end());
+    std::vector<std::string> wanted = expected;
+    std::sort(wanted.begin(), wanted.end());
+    std::string listed;
+    for (const std::string& id : met) {
+        listed += " " + id;
+    }
+    check(met == wanted, "the aircraft flown are exactly those expected; the catalogue gives" +
+                             listed);
+    for (const auto& [id, out] : left_out) {
+        check(std::find(met.begin(), met.end(), id) != met.end(),
+              "what is left out is in the space: " + id);
+    }
+    std::printf("%zu aircraft x 2 speeds x 2 airs = %zu cases: %zu flown, %zu left out\n",
+                met.size(), 4 * met.size(), flown, not_flown);
+    check(flown + not_flown == 4 * wanted.size() && flown > 0,
+          "every case flown or named as left out: " + std::to_string(flown) + " flown and " +
+              std::to_string(not_flown) + " left out of " + std::to_string(4 * wanted.size()));
     check(failures.empty(), "each holds its sideslip within " +
                                 std::to_string(most_sideslip_deg) + " degrees and its heading "
                                 "within " + std::to_string(most_heading_off_deg) + ":" +
                                 failures);
+}
+
+bool is_light(const CatalogueEntry& e) {
+    return e.aircraft_class == glideslope::sim::AircraftClass::light_aircraft;
+}
+
+} // namespace
+
+// Before the yaw damper the Cub and the Cherokee swung their sideslip 35
+// degrees either way every few seconds in the crosswind and never settled,
+// at both speeds; the Cessnas held it at their approach speeds but swung 14
+// degrees either way at cruise (PROJECT_STATUS.md). Every case is flown.
+GLIDESLOPE_TEST(every_light_aeroplane_holds_a_heading_in_a_20_kt_crosswind_and_in_calm_air_without_yawing) {
+    holds_a_heading_in_a_crosswind(light_aeroplanes, is_light, {}, 30.0);
+}
+
+// The yaw damper's one gain acts on every aircraft, so every other one is
+// flown the same way. On the old law, without the damper, the F-22 at 300 kt
+// swung 4.8 degrees either way in the crosswind and never settled; every
+// other case flown held it as it does with the damper. Five jets come down to
+// the ground clean at their approach speed - a flaps-down figure - with the
+// damper or without it, in calm air as in wind, and are left out there: the
+// tail "A plan may fly a jet clean at its approach speed". The 787-8 comes
+// down 2,750 ft at its approach speed but holds its heading, and is flown.
+GLIDESLOPE_TEST(every_aircraft_but_the_light_aeroplanes_holds_a_heading_in_a_20_kt_crosswind_and_in_calm_air_without_yawing) {
+    std::vector<std::string> others;
+    for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
+        if (!is_light(e)) {
+            others.push_back(e.id);
+        }
+    }
+    check(others.size() + light_aeroplanes.size() ==
+              glideslope::sim::read_catalogue(data()).size(),
+          "the light aeroplanes and the rest are the whole catalogue");
+    const std::string clean_at_vref =
+        "flown clean at its approach speed it comes down to the ground, with the yaw damper "
+        "or without it: the tail \"A plan may fly a jet clean at its approach speed\"";
+    holds_a_heading_in_a_crosswind(
+        others, [](const CatalogueEntry& e) { return !is_light(e); },
+        {{"747-400", {false, "it publishes no stall speed, so it has no approach speed"}},
+         {"f22", {false, "it publishes no stall speed, so it has no approach speed"}},
+         {"737-300", {false, clean_at_vref}},
+         {"a380", {false, clean_at_vref}},
+         {"b2", {false, clean_at_vref}},
+         {"f35b", {false, clean_at_vref}},
+         {"learjet35a", {false, clean_at_vref}}},
+        30.0);
 }
 
 // **Which aircraft have a speed floor, and which have none, said by name.**
