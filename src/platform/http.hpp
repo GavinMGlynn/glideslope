@@ -65,6 +65,12 @@ struct HttpResponse {
     // already undone would be a lie, so it is taken off; a `content-length`
     // counting the compressed bytes would be another, so it is made to count
     // what `body` actually holds.
+    //
+    // **An encoding a backend could not undo stays here**, with the body as
+    // it came: the bytes are then not what they look like, and this is what
+    // says so. On Windows that is anything sent unasked but gzip - deflate or
+    // br - since WinHTTP is asked to undo gzip alone (http_winhttp.cpp says
+    // why).
     std::map<std::string, std::string> headers;
     std::vector<std::uint8_t> body;
 };

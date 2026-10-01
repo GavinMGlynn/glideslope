@@ -743,12 +743,15 @@ third try met on CI is still not known. The fix does not depend on it.
 undoes it, and takes `content-encoding` and `content-length` off - the layer
 puts back a length that counts the body handed up, as it did. A body in any
 other encoding, or any body before Windows 8.1, where the option cannot be
-set, keeps its `content-encoding`, which is what tells a caller. libcurl and
-NSURLSession are unchanged: both undo zlib-format deflate.
+set, keeps its `content-encoding`, which is what tells a caller (`http.hpp`
+says so). The Windows 8.1 case cannot arise for the client, which needs
+Windows 10 for SDL_GPU; the server and CLI are not tested on anything older
+either - CI's Windows runners are Windows Server. libcurl and NSURLSession are
+unchanged: both undo zlib-format deflate.
 
 **Tests**, in `tests/unit/test_http.cpp`:
 
-- `a_body_gzipped_unasked_arrives_as_it_was_before_it_was_gzipped` - a
+- `a_body_served_gzipped_arrives_as_it_was_before_it_was_gzipped` - a
   loopback server answers gzip whatever it was offered, as ion does: the body
   is the original, with no `content-encoding` and a `content-length` that
   counts it. No network, so CI runs it on every platform.
@@ -780,7 +783,11 @@ cannot fetch the forecast (it skips here, the network not being required; CI
 requires it, which is how it failed there); with the option not set, the
 gzip test fails ("not 105 bytes beginning with byte 31") and the ion test
 fails ("no content-encoding left on it: gzip"). Each change was reverted.
-macOS is CI's to compile and run.
+**On CI** (run 36841724447, this pull request, where the network is
+required): the weather test fetched the forecast and passed on all three
+Windows jobs - debug, release and clang-cl - as did the two loopback tests on
+every platform, macOS included; the ion test skipped everywhere, no job having
+a token.
 
 ### A take-over on a slow machine: three bugs fixed, the bounds claimed at 20 fps and asserted, 2026-09-30 — not yet seen on CI
 
