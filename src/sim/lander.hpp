@@ -39,6 +39,10 @@ namespace glideslope::sim {
 // published figures.
 struct ApproachSpeeds {
     double vref_kts = 60.0;
+    // The stall speed in the landing configuration that `vref_kts` is
+    // usually 1.3 times - not always: a manual that gives its own approach
+    // speed is flown at that (`PublishedFigures::approach_kcas`).
+    double stall_kts = 0.0;
     double flap = 1.0;     // the landing flap setting, 0 to 1
     double flare_ft = 15.0; // height above the threshold to begin the flare
     // **The glidepath aims past the threshold, not at it.** An approach flown
@@ -49,7 +53,8 @@ struct ApproachSpeeds {
 };
 
 // The speeds for an aircraft, from `data`/figures/MODEL.xml: the lowest
-// published stall speed in the landing configuration, times 1.3. Throws
+// published stall speed in the landing configuration, times 1.3 - or, where
+// the file gives the flight manual's own approach speed, that. Throws
 // std::runtime_error where the aircraft publishes no stall speed, because a
 // reference speed guessed is a reference speed that means nothing.
 ApproachSpeeds approach_speeds(const std::filesystem::path& data,

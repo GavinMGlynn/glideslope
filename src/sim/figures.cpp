@@ -1586,6 +1586,25 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         }
         out.figures.push_back(std::move(spec));
     }
+
+    if (JSBSim::Element* approach = root->FindElement("approach")) {
+        if (!approach->HasAttribute("kcas") || !approach->HasAttribute("loading")) {
+            throw std::runtime_error(file.string() +
+                                     " gives an <approach> without its kcas and loading");
+        }
+        out.approach_kcas = approach->GetAttributeValueAsNumber("kcas");
+        out.approach_loading = approach->GetAttributeValue("loading");
+        if (!(out.approach_kcas > 0.0)) {
+            throw std::runtime_error(file.string() + " gives an approach speed not above 0");
+        }
+        if (out.loadings.count(out.approach_loading) == 0) {
+            throw std::runtime_error(file.string() + " gives its approach speed at loading '" +
+                                     out.approach_loading + "', which it does not have");
+        }
+        if (root->FindNextElement("approach") != nullptr) {
+            throw std::runtime_error(file.string() + " gives two approach speeds");
+        }
+    }
     return out;
 }
 

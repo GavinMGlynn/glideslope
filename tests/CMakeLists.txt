@@ -194,6 +194,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_lesson_may_name_the_speeds_the_aeroplane_publishes
     rotating_early_is_caught_for_each_aeroplane_at_its_own_speed
     the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief
+    the_f15c_flies_its_approach_at_its_flight_manuals_speed_for_its_weight
     an_approach_flown_fast_is_named_in_the_debrief
     the_turns_lesson_flown_by_the_book_leaves_an_empty_debrief
     a_turn_that_loses_height_is_named_in_the_debrief
