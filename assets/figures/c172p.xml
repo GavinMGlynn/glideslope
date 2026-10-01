@@ -13,6 +13,11 @@
   each figure; see docs/PROJECT_STATUS.md for how the model was tuned towards
   these numbers and what each measured before and after.
 
+  Not flown: the service ceiling, 13,000 ft. The AI, leaning the mixture for
+  best power (src/sim/leaner.hpp), climbs this model to about 17,200 ft at
+  the best-climb speed: its engine and propeller keep too much of their climb
+  with height, which is a tail of its own (docs/COMPLETION_PLAN.md).
+
   The turn is the one figure not from the handbook, which publishes none: a
   coordinated level turn has to turn at g tan(bank) / true airspeed, and that
   is checked instead.

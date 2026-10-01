@@ -124,6 +124,11 @@ CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view tex
                 throw wrong("seaplane, alone");
             }
             e.seaplane = true;
+        } else if (w[0] == "mixture-lever") {
+            if (w.size() != 1) {
+                throw wrong("mixture-lever, alone");
+            }
+            e.mixture_lever = true;
         } else {
             throw wrong("no command \"" + w[0] + "\"");
         }

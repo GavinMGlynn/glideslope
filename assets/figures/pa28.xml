@@ -77,4 +77,15 @@
     Airplane Flight Manual, flaps down (40 degrees): 57 mph CAS (49.5
     knots). 2 knots either side.
   </figure>
+
+  <figure name="service_ceiling" flight="ceiling_on_the_autopilot" unit="ft"
+          value="13000" tolerance_percent="10" speed_kcas="73.9" rate_fpm="100"
+          altitude_ft="6000">
+    Section I: service ceiling 13,000 ft (absolute ceiling 15,000 ft), at
+    gross weight. Section III: "for best power mixture, lean the mixture until
+    the peak EGT is reached, then enrich". The ceiling is the height at which
+    the best climb has fallen to 100 ft/min. Flown by the autopilot, as the
+    AI climbs, at the best-climb speed of the climb figure above. The
+    tolerance is this project's, as the climb rate's is.
+  </figure>
 </published_figures>

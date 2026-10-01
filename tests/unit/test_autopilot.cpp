@@ -4,6 +4,7 @@
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
+#include "sim/leaner.hpp"
 #include "sim/test_pilot.hpp"
 #include "world/weather.hpp"
 
@@ -404,11 +405,20 @@ namespace {
 // its best rate of climb has fallen to 50 ft/min - halfway from its service
 // ceiling, where it is 100 (the FAA's Pilot's Handbook of Aeronautical
 // Knowledge, FAA-H-8083-25, chapter 11), to its absolute ceiling, where it is
-// none. It is found by flying it - full throttle, the mixture where the AI
-// leaves it, its published best-climb speed held on the elevator by the test
-// pilot - from 6,000 ft until a half-minute's climb is 50 ft/min or less, and
-// it is the height reached then.
+// none. It is found by flying it - full throttle, the mixture as the AI
+// leans it where the aeroplane has a lever (sim/leaner.hpp) and full rich
+// where it has none, its published best-climb speed held on the elevator by
+// the test pilot - from 6,000 ft until a half-minute's climb is 50 ft/min or
+// less, and it is the height reached then.
+//
+// **The mixture it got there on is kept**, and an aeroplane handed over near
+// its ceiling is handed over on it, as a pilot leaning in the climb would
+// hand it over: full rich there the engine will not fire.
 constexpr double near_the_ceiling_fpm = 50.0;
+std::map<std::string, double>& mixture_near_the_ceiling() {
+    static std::map<std::string, double> by_model;
+    return by_model;
+}
 double near_the_ceiling_ft(const CatalogueEntry& e, double climb_kts) {
     Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
     glideslope::sim::InitialConditions ic;
@@ -421,6 +431,10 @@ double near_the_ceiling_ft(const CatalogueEntry& e, double climb_kts) {
     glideslope::sim::TestPilot pilot(aircraft);
     glideslope::sim::Controls c;
     c.throttle = 1.0;
+    std::optional<glideslope::sim::MixtureLeaner> leaner;
+    if (aircraft.mixture_lever()) {
+        leaner.emplace(aircraft, c.mixture);
+    }
     constexpr int window = 30 * steps_per_second;
     double window_start_ft = altitude(aircraft);
     // An hour is far longer than any of these takes; reaching it says the
@@ -429,6 +443,9 @@ double near_the_ceiling_ft(const CatalogueEntry& e, double climb_kts) {
         c.elevator = pilot.pitch_to(pilot.pitch_for_speed(climb_kts));
         c.aileron = pilot.roll_to(0.0);
         c.rudder = pilot.coordinate();
+        if (leaner) {
+            c.mixture = leaner->lean(c.throttle);
+        }
         aircraft.set_controls(c);
         aircraft.step();
         if (i % window == 0) {
@@ -436,6 +453,7 @@ double near_the_ceiling_ft(const CatalogueEntry& e, double climb_kts) {
             // Settled first: the first two windows are the pilot finding its
             // pitch.
             if (i > 2 * window && climbed * 2.0 <= near_the_ceiling_fpm) {
+                mixture_near_the_ceiling()[e.model] = leaner ? leaner->resting() : 1.0;
                 return altitude(aircraft);
             }
             window_start_ft = altitude(aircraft);
@@ -602,6 +620,9 @@ void turns_near_the_ceiling_as_at_3000_ft(const std::string& id) {
             aircraft.initialize(ic);
             glideslope::sim::Controls controls;
             controls.throttle = e.start_throttle;
+            if (altitude_ft == ceiling_ft) {
+                controls.mixture = mixture_near_the_ceiling().at(e.model);
+            }
             Autopilot autopilot(aircraft, controls);
             AutopilotModes modes = autopilot.modes();
             modes.heading_deg = 0.0;
@@ -733,9 +754,10 @@ namespace {
 //     five minutes, and it must stay clear of the ground.
 //
 // **Not handed over above its ceiling**, which would be the plainer second
-// situation: with the mixture full rich, as the AI leaves it, the engine
-// stops a thousand feet above the ceiling - JSBSim's piston engine runs too
-// rich to fire as the air thins - and a glide is not what is being asked.
+// situation: with the mixture full rich, as the AI leaves the Cub's, which
+// has no lever, the engine stops a thousand feet above the ceiling - JSBSim's
+// piston engine runs too rich to fire as the air thins - and a glide is not
+// what is being asked.
 // The engine running throughout is checked, not assumed.
 //
 // The airspeed may never fall more than the calm-air airspeed band of
@@ -783,6 +805,9 @@ void gives_up_height_not_airspeed(const std::string& id) {
             aircraft.initialize(ic);
             glideslope::sim::Controls controls;
             controls.throttle = s.throttle;
+            if (s.from_ft == ceiling_ft) {
+                controls.mixture = mixture_near_the_ceiling().at(e.model);
+            }
             Autopilot autopilot(aircraft, controls);
             AutopilotModes modes = autopilot.modes();
             modes.heading_deg = 0.0;
@@ -972,6 +997,7 @@ GLIDESLOPE_TEST(a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_fl
         aircraft.initialize(ic);
         glideslope::sim::Controls controls;
         controls.throttle = 1.0;
+        controls.mixture = mixture_near_the_ceiling().at(e.model);
         Autopilot autopilot(aircraft, controls);
         AutopilotModes modes = autopilot.modes();
         modes.heading_deg = 0.0;

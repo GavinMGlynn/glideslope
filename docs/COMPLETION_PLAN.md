@@ -860,7 +860,24 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The AI never leans the mixture**, so on the autopilot a light
       aeroplane's ceiling is about 8,500 ft - the Cessna 172P's handbook gives
       13,000. *Verification: the AI climbs each light aeroplane to within its
-      handbook's tolerance of its published service ceiling.*
+      handbook's tolerance of its published service ceiling.* The AI now
+      leans for best power, and the Cherokee reaches its 13,000 ft. Missing:
+      the other three do not - the Cessna 172P's model climbs to 17,200 ft,
+      the Cessna 182S's to 13,600 against 18,100, and the Cub, with no lever,
+      stops at 8,600 - each a flight model tail below. And three
+      near-ceiling turn tests are red at the new, higher ceilings: the
+      hand-over there sags 42-90 ft against their 15 ft allowance.
+- [ ] **The Cessna 172P's model climbs too well high up.** Leaned for best
+      power it reaches 17,200 ft at 100 ft/min against its handbook's 13,000.
+      *Verification: the AI climbs it to within 10% of 13,000 ft, and its
+      other figures stay within theirs.*
+- [ ] **The Cessna 182S's model climbs too little high up.** Leaned for best
+      power it reaches 13,600 ft at 100 ft/min against its handbook's 18,100.
+      *Verification: the AI climbs it to within 10% of 18,100 ft, and its
+      other figures stay within theirs.*
+- [ ] **The Cub's carburettor runs too rich to climb past about 8,600 ft.**
+      It has no mixture lever, and its manual gives 14,000 ft solo.
+      *Verification: flown solo, the Cub climbs to within 10% of 14,000 ft.*
 - [x] **Cesium ion on Windows, where a body arrives compressed unasked.**
       *Verification: a Windows machine fetches and reads ion's layer.json, and
       the weather still arrives.* Done 2026-10-01: Windows could not undo the

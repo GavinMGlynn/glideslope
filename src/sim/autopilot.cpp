@@ -277,6 +277,9 @@ Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
     elevator_trim_ = controls.elevator;
     rudder_integral_ = controls.rudder;
     throttle_integral_ = controls.throttle;
+    if (a_.mixture_lever()) {
+        leaner_.emplace(a_, controls.mixture);
+    }
 }
 
 Controls Autopilot::fly() {
@@ -560,6 +563,10 @@ Controls Autopilot::fly() {
             throttle_integral_ += throttle_integral_per_knot * speed_off * dt;
         }
         c.throttle = next;
+    }
+
+    if (leaner_) {
+        c.mixture = leaner_->lean(c.throttle);
     }
 
     last_ = c;

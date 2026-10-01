@@ -154,10 +154,25 @@ std::optional<double> climb_floor_of(const std::filesystem::path& data,
     return std::nullopt;
 }
 
+// Whether the catalogue in `data` gives the model a mixture lever; none where
+// there is no catalogue.
+bool mixture_lever_of(const std::filesystem::path& data, const std::string& model) {
+    if (!std::filesystem::is_directory(data / "aircraft")) {
+        return false;
+    }
+    for (const CatalogueEntry& e : read_catalogue(data)) {
+        if (e.model == model && e.mixture_lever) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model)
-    : climb_floor_kts_(climb_floor_of(jsbsim_root.parent_path(), model)), model_(model),
+    : climb_floor_kts_(climb_floor_of(jsbsim_root.parent_path(), model)),
+      mixture_lever_(mixture_lever_of(jsbsim_root.parent_path(), model)), model_(model),
       exec_(quiet_exec()) {
     const std::u8string utf8 = jsbsim_root.u8string();
     const SGPath root = SGPath::fromUtf8(std::string(utf8.begin(), utf8.end()));

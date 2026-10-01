@@ -1,5 +1,6 @@
 #include "sim/figures.hpp"
 
+#include "sim/autopilot.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
@@ -1317,6 +1318,76 @@ double service_ceiling(const std::filesystem::path& root, const PublishedFigures
     return (low + high) / 2.0;
 }
 
+// **The service ceiling as the AI climbs to it**: the height at which the
+// best rate of climb has fallen to `rate_fpm` - 100 ft/min for a normally
+// aspirated aeroplane's service ceiling (the FAA's Pilot's Handbook of
+// Aeronautical Knowledge, FAA-H-8083-25, chapter 11).
+//
+// Flown by the autopilot as the AI flies it, not by the test pilot: handed
+// the aeroplane at `altitude_ft` at its best-climb speed `speed_kcas`, full
+// throttle and the mixture full rich, and asked for a height far above the
+// published ceiling at that speed, it climbs as far as it can, the throttle
+// at its stop and the mixture as the autopilot leans it (sim/leaner.hpp).
+// The climb is timed a minute at a time; the ceiling is the height between
+// the middles of the last two minutes at which the rate, drawn straight
+// between them, is `rate_fpm`. The first two minutes are the autopilot
+// settling into the climb, and are not counted.
+double ceiling_on_the_autopilot(const std::filesystem::path& root,
+                                const PublishedFigures& figures, const FigureSpec& spec) {
+    const double kcas = condition(spec, "speed_kcas");
+    const double rate = condition(spec, "rate_fpm");
+    const double from_ft = condition(spec, "altitude_ft");
+    Flight f(root, figures, spec, airborne(from_ft, kcas, true));
+    Controls c;
+    c.throttle = 1.0;
+    c.mixture = 1.0;
+    c.gear = f.gear;
+    Autopilot autopilot(f.aircraft, c);
+    AutopilotModes modes = autopilot.modes();
+    modes.heading_deg = on_the_runway().heading_deg;
+    modes.altitude_ft = spec.published + 10000.0;
+    // More than any light aeroplane climbs, so that the climb is the most it
+    // has at the speed.
+    modes.vertical_speed_fpm = 2000.0;
+    modes.airspeed_kts = kcas;
+    autopilot.set(modes);
+    const int minute = steps(60.0);
+    const int engines = f.aircraft.figures().engines;
+    double start_ft = f.aircraft.property("position/h-sl-ft");
+    double last_rate = 0.0;
+    double last_middle_ft = 0.0;
+    // Two hours is far longer than any of these takes; reaching it says the
+    // climb never slowed, which is a flight model fault and not a ceiling.
+    for (int i = 1; i <= 120 * minute; ++i) {
+        f.fly(autopilot.fly());
+        if (i % minute == 0) {
+            for (int e = 0; e < engines; ++e) {
+                if (f.engine(e, "set-running") <= 0.0) {
+                    throw std::runtime_error(
+                        "an engine stopped at " +
+                        std::to_string(f.aircraft.property("position/h-sl-ft")) + " ft");
+                }
+            }
+            const double now_ft = f.aircraft.property("position/h-sl-ft");
+            const double climbed = now_ft - start_ft;
+            const double middle_ft = (now_ft + start_ft) / 2.0;
+            if (i > 2 * minute && climbed <= rate) {
+                if (i == 3 * minute) {
+                    throw std::runtime_error("already climbing less than " +
+                                             std::to_string(rate) + " ft/min at " +
+                                             std::to_string(from_ft) + " ft");
+                }
+                return last_middle_ft + (middle_ft - last_middle_ft) * (last_rate - rate) /
+                                            (last_rate - climbed);
+            }
+            last_rate = climbed;
+            last_middle_ft = middle_ft;
+            start_ft = now_ft;
+        }
+    }
+    throw std::runtime_error("still climbing after two hours at full throttle");
+}
+
 // Level at the altitude at full throttle, from Mach `mach` to Mach `mach_to`:
 // the seconds it takes.
 double acceleration_time(const std::filesystem::path& root, const PublishedFigures& figures,
@@ -1424,6 +1495,7 @@ const std::vector<std::pair<std::string, FlightFn>>& flights() {
         {"sustained_turn_rate", sustained_turn_rate},
         {"max_climb_rate", max_climb_rate},
         {"service_ceiling", service_ceiling},
+        {"ceiling_on_the_autopilot", ceiling_on_the_autopilot},
         {"acceleration_time", acceleration_time},
         {"cruise_range", cruise_range},
         {"water_takeoff", water_takeoff},

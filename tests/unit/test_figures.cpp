@@ -1,8 +1,11 @@
 #include "harness.hpp"
 
+#include "sim/catalogue.hpp"
 #include "sim/figures.hpp"
 
 #include <algorithm>
+#include <filesystem>
+#include <map>
 #include <cstdio>
 #include <chrono>
 #include <filesystem>
@@ -610,6 +613,73 @@ GLIDESLOPE_TEST(the_learjet_35a_climbs_at_the_rate_its_own_model_gave) {
     expect_figure("learjet35a", "climb_rate");
 }
 
+// **The AI climbs each light aeroplane to its published service ceiling**:
+// the autopilot, handed the aeroplane at 6,000 ft full rich and asked for a
+// height it cannot reach at its best-climb speed, leans the mixture for best
+// power as it climbs (sim/leaner.hpp) and goes on climbing until its rate
+// has fallen to 100 ft/min. Full rich, as the AI used to fly it, the Cherokee
+// was held to about 7,300 ft.
+GLIDESLOPE_TEST(the_ai_climbs_a_cherokee_180_to_its_published_service_ceiling) {
+    expect_figure("pa28", "service_ceiling");
+}
+
+// **Every light aeroplane the catalogue holds is climbed to its ceiling by
+// the tests above, or named here with the reason it is not.** The light
+// aeroplanes are counted from the catalogue, so a fifth one added without a
+// ceiling, or without being named, turns this red.
+//
+// Left out, with the reason:
+//   c172p - leaned for best power, the AI climbs its model to 17,200 ft
+//     against the handbook's 13,000: the model's engine and propeller keep
+//     too much of their climb with height. A flight model tail.
+//   c182 - leaned for best power, the AI climbs its model to only 13,600 ft
+//     against the handbook's 18,100: the model's climb falls away with height
+//     far faster than the handbook's. A flight model tail.
+//   j3cub - its manual's ceiling, 14,000 ft, is solo, and its figures are
+//     flown at the gross weight; and it has no mixture lever to lean. Its
+//     model's carburettor, full rich, runs too rich to climb above about
+//     8,600 ft, which is a tail of its own in docs/COMPLETION_PLAN.md.
+GLIDESLOPE_TEST(every_light_aeroplane_is_climbed_to_its_published_ceiling_or_named_with_its_reason) {
+    const std::map<std::string, std::string> left_out = {
+        {"c172p", "its model climbs to 17,200 ft against 13,000"},
+        {"c182", "its model climbs to 13,600 ft against 18,100"},
+        {"j3cub", "a solo ceiling, and no mixture lever"},
+    };
+    const auto catalogue =
+        glideslope::sim::read_catalogue(std::filesystem::path(data_dir).parent_path());
+    std::size_t light = 0;
+    std::size_t climbed = 0;
+    std::size_t named = 0;
+    for (const auto& e : catalogue) {
+        if (e.aircraft_class != glideslope::sim::AircraftClass::light_aircraft) {
+            continue;
+        }
+        ++light;
+        const PublishedFigures figures = read_published_figures(figures_file(e.model));
+        const bool has = std::any_of(figures.figures.begin(), figures.figures.end(),
+                                     [](const auto& f) {
+                                         return f.name == "service_ceiling" &&
+                                                f.flight == "ceiling_on_the_autopilot";
+                                     });
+        if (left_out.count(e.id) != 0) {
+            check(!has, e.id + " is named as left out, and has a ceiling on the autopilot");
+            ++named;
+        } else {
+            check(has, e.id + " is a light aeroplane with no ceiling on the autopilot, "
+                              "and is not named as left out");
+            check(e.mixture_lever, e.id + " is climbed to its ceiling with no mixture "
+                                          "lever for the autopilot to lean");
+            ++climbed;
+        }
+    }
+    std::printf("%zu light aeroplanes: %zu climbed to their ceilings, %zu named\n", light,
+                climbed, named);
+    check(light == 4, "four light aeroplanes, found " + std::to_string(light));
+    check(climbed + named == light && named == left_out.size(),
+          "every light aeroplane climbed or named: " + std::to_string(climbed) + " + " +
+              std::to_string(named) + " of " + std::to_string(light));
+}
+
 GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     std::set<std::string> used;
     std::size_t figures_in_files = 0;
@@ -645,7 +715,9 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // A hundred and fourteen: the F-35B's ground roll to the speed it can
     // lift off at, measured on 2026-09-24, which gives its take-off its
     // rotation speed (its stall's cannot be flown on a runway).
-    check(figures_in_files == 114,
-          "a hundred and fourteen figures, one test each above; found " +
+    // A hundred and fifteen: the Cherokee's service ceiling, as the AI
+    // climbs to it, on 2026-09-27.
+    check(figures_in_files == 115,
+          "a hundred and fifteen figures, one test each above; found " +
               std::to_string(figures_in_files));
 }

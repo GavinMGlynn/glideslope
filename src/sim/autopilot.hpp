@@ -17,6 +17,8 @@
 //     with an integral -> elevator, damped by the pitch rate, with an
 //     integral that finds the trim;
 //   airspeed -> throttle, with an integral;
+//   and, where the aircraft has a mixture lever, the mixture leaned for best
+//     power by the engine's answer (sim/leaner.hpp);
 //
 // or, when asked to recover from a stall, airspeed -> pitch, with an
 // integral, and the throttle to its stop, until the caller lets it go.
@@ -40,6 +42,7 @@
 // steadily so a check can read one number off. This flies.
 
 #include "sim/aircraft.hpp"
+#include "sim/leaner.hpp"
 #include "sim/plan.hpp"
 
 #include <optional>
@@ -105,6 +108,8 @@ private:
     double aileron_offset_ = 0.0;
     double elevator_offset_ = 0.0;
     double rudder_offset_ = 0.0;
+    // The mixture, leaned for best power, where the aircraft has a lever to.
+    std::optional<MixtureLeaner> leaner_;
 };
 
 } // namespace glideslope::sim
