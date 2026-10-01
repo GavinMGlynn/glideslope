@@ -863,6 +863,11 @@ Found while implementing something else. Added when found, not when remembered.
       was about 8,500 ft against the 172P handbook's 13,000. *Verification:
       the AI climbs each light aeroplane to within its handbook's tolerance
       of its published service ceiling.*
+- [ ] **A copilot recording breaks when two runways swap places.** Played
+      back, a question matches its recording but for its numbers, so a
+      flight a little different that lists two runways in the other order
+      must be recorded again. *Verification: a played-back flight whose
+      runways come in another order still plays.*
 - [ ] **The leaner richening an engine that stops while leaned has no
       test.** It richens it to full rich so that, windmilling, it can fire
       again; nothing yet stops an engine under it to show that. *Verification:

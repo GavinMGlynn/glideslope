@@ -330,12 +330,22 @@ review of #80, 2026-10-02):
   to 28 and 4; an integral left to run while the bank lags its command took
   the 747 to 29.6 and turned it red.
 
-**For whoever restarts engines** (the copilot's #64, not merged): on an
+**For whoever restarts engines** (the copilot, #64, merged meanwhile): on an
 aircraft with a mixture lever, `Autopilot::fly`, the lander and the
 departure now set `c.mixture` every step from the leaner, so a mixture set
 before them is overwritten; a restart that wants the mixture must hold it
 outside them, or hand it to the leaner (it starts from the mixture it is
 given, and richens an engine that stops under it).
+
+**The copilot's coast recording is made again** (`tests/data/copilot/coast-openai.jsonl`).
+Rebased onto main with the copilot (#64), `the_copilot_follows_the_coast_as_told_by_openai_as_recorded`
+went red: played back, its fourth question no longer matched the one
+recorded. The flight flies a little differently with the leaner and the
+bank integral, and the two YSSY runways, listed by distance, came in the
+other order - the playback disregards numbers, not order. Asked of
+gpt-5.5-2026-04-23 again (`..._asking_openai_now`, GLIDESLOPE_LIVE_MODEL=1),
+it passed, and the recording it made is committed; played back, green. A
+recording that breaks when two runways swap places is fragile; a tail.
 
 **Smaller**: the catalogue is read once per aircraft for both its climb
 floor and its mixture lever (`from_catalogue` in aircraft.cpp), and the
