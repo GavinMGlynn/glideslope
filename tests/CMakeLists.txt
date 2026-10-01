@@ -288,6 +288,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aeroplane_handed_to_the_learnt_landing_at_the_gate_lands_within_5_m_of_the_centreline_with_no_step_in_its_controls
     a_policy_file_that_does_not_fit_the_simulation_is_refused
     a_learnt_landing_handed_another_aircraft_is_refused_and_the_pilot_keeps_her
+    a_copilots_route_during_a_learnt_landing_replaces_it_with_no_step_in_its_controls
     the_wind_the_learnt_landing_estimates_is_the_steady_wind_blowing
     every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_crosswind
     the_approach_speed_is_a_third_above_the_published_landing_stall
@@ -1912,7 +1913,7 @@ add_test(NAME a_players_copilot_asked_on_the_players_machine_is_flown_by_the_ser
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot
-        -DPORT=24708 -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001
+        -DPORT=24740 -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001
         -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/manly-server-anthropic.jsonl
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
 set_tests_properties(a_players_copilot_asked_on_the_players_machine_is_flown_by_the_server_as_recorded
@@ -1921,7 +1922,7 @@ add_test(NAME a_players_copilot_asked_on_the_players_machine_is_flown_by_the_ser
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_now
-        -DPORT=24710 -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001
+        -DPORT=24742 -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001
         -DRECORD=${CMAKE_CURRENT_BINARY_DIR}/server_copilot_now/manly-server-anthropic.jsonl
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_copilot.cmake)
 set_tests_properties(a_players_copilot_asked_on_the_players_machine_is_flown_by_the_server_asking_anthropic_now
@@ -1981,7 +1982,7 @@ endforeach()
 # another aircraft than the client's, for a wreck, or for an aircraft whose
 # figures give no speeds to check it against - and the server goes on.
 foreach(_case another:24716:it_is_not_this_client_s_aircraft wreck:24718:it_is_a_wreck
-              no_speeds:24720:its_speeds_are_not_known)
+              no_speeds:24738:its_speeds_are_not_known)
     string(REPLACE ":" ";" _case "${_case}")
     list(GET _case 0 _for)
     list(GET _case 1 _port)

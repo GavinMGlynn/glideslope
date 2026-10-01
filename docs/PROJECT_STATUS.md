@@ -343,6 +343,21 @@ server says where each copilot's route has got to every half minute.
   with the glide not flown the test is red for the glide - "67 to 72 kt, not
   within 5 kt of the 60 kt asked for" - before it is red for the recording.
 
+**Rebased onto the learnt landing (2026-10-01).** A copilot's route that
+arrives while the learnt landing flies (`sim::Controller::to_ai_learnt_approach`)
+now lets it go, as it does a take-off or an approach: the autopilot is
+engaged afresh from the controls it had, and every hand-over - the learnt
+landing's among them, through `engage()` - ends a glide.
+`a_copilots_route_during_a_learnt_landing_replaces_it_with_no_step_in_its_controls`:
+handed the route five seconds into the learnt approach, the landing is let
+go, no control moves more than a hand's step (0.00833 of its travel) in the
+second after, and the route is flown, 1,149 m nearer its waypoint in 30 s.
+Red with the learnt landing left flying. **No copilot thread touches a
+`sim::Aircraft`**, whose property cache is for one thread: a copilot's
+question is asked with a copy of what it is told (`copilot::Situation`), made
+on the stepping thread in `glideslope_cli fly-copilot` and the server, and
+from the state update's copy of the aircraft on a player's machine.
+
 **From the final check (2026-09-30), fixed:**
 
 - **The stand-by test could still go quiet**: a `keep` and a route not heard
