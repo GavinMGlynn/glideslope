@@ -154,16 +154,16 @@ the controls to an AI pilot whenever you like, then take them back.
   Say "take off, climb to 3,000 ft and orbit the CBD" and the copilot turns it
   into a plan and flies it; later it stays with you, changing the plan and the
   autopilot's settings as the flight goes, and brings the aircraft down to a
-  runway. With your own key. Later, after the autopilot and flight plans are
-  solid.
+  runway. With your own key, which stays on your machine.
 
 - **A different AI on each aircraft.** `WANTED`
   Choose which language model plans for each AI aircraft - Claude on one,
   ChatGPT on another, or none, flying its plan as it was given - and watch
   them decide differently: which way they go, how they handle a failure, what
   they do when told something new. The flying itself is always the
-  simulator's own AI pilot; the model only decides where to go. Each with
-  your own key.
+  simulator's own AI pilot; the model only decides where to go. Whoever
+  chooses brings the key: a server's own AI aircraft are planned with its
+  operator's, and an aircraft you hand over with yours.
 
 - **Pilots that learned to fly.** `CANDIDATE`
   AI trained to land or fly aerobatics rather than programmed to. A stretch
