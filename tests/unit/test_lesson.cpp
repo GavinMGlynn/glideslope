@@ -1388,6 +1388,11 @@ struct Approached {
     // the lesson's "arrive under control" need is set from.
     double sink_at_end_fps = 0.0;
     double alpha_at_end_deg = 0.0; // and the angle of attack then
+    // Down the approach stage: the angle of attack's least and most, and the
+    // most of the stabilator's nose-up travel used, 0 to 1.
+    double alpha_least_deg = 1e9;
+    double alpha_most_deg = -1e9;
+    double most_nose_up = 0.0;
     bool trimmed = false; // started trimmed on the path, as asked
     // From the touch to the stop, which is further than the lesson watches:
     // it ends at thirty knots, and the Learjet's nose went through the
@@ -1509,6 +1514,11 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
                 out.sink_worst_at_s = static_cast<double>(tick) / steps_per_second;
             }
             out.sink_most_fps = std::max(out.sink_most_fps, fps);
+            const double alpha = aircraft.property("aero/alpha-deg");
+            out.alpha_least_deg = std::min(out.alpha_least_deg, alpha);
+            out.alpha_most_deg = std::max(out.alpha_most_deg, alpha);
+            out.most_nose_up =
+                std::max(out.most_nose_up, -aircraft.property("fcs/elevator-pos-norm"));
         }
         out.after.watch(aircraft);
         out.flare.watch(&lander, aircraft);
@@ -1673,6 +1683,27 @@ GLIDESLOPE_TEST(the_b2a_crosses_the_threshold_within_five_knots_of_its_reference
           "the B-2A crossed the threshold at " + std::to_string(flown.threshold_kts) +
               " knots, not within five of its reference speed, " +
               std::to_string(flown.vref_kts));
+}
+
+// **On the manual's approach the F-15C flies at the angle of attack NASA
+// flew it at, with stabilator to spare.** NASA TM-4604's F-15 came down a
+// 166-knot flaps-up approach at about 10 degrees of alpha (its figure 5),
+// and takes its derivatives at 8; at the manual's 160 knots and 36,946 lb
+// she holds 8 to 13 degrees from two miles out to fifty feet, using under a
+// third of the stabilator's nose-up travel. Before her pitching moment was
+// NASA's (tools/make_f15c.py) she swung between 10.5 and 18.3 degrees with
+// the stabilator at up to 0.98 of its stop.
+GLIDESLOPE_TEST(the_f15c_flies_its_approach_near_nasas_angle_of_attack_with_stabilator_to_spare) {
+    const Approached flown = fly_the_approach("f15c", 0.0);
+    std::printf("  f15c on the approach: alpha %.1f to %.1f, nose-up stabilator at most %.2f "
+                "of its travel\n",
+                flown.alpha_least_deg, flown.alpha_most_deg, flown.most_nose_up);
+    check(flown.alpha_least_deg >= 8.0 && flown.alpha_most_deg <= 13.0,
+          "the F-15C flew the approach at " + std::to_string(flown.alpha_least_deg) + " to " +
+              std::to_string(flown.alpha_most_deg) + " degrees of alpha, not 8 to 13");
+    check(flown.most_nose_up <= 0.33,
+          "and used " + std::to_string(flown.most_nose_up) +
+              " of the stabilator's nose-up travel, not under a third");
 }
 
 // **An approach flown fast is named in the debrief**, and a correct one is
@@ -2568,6 +2599,7 @@ GLIDESLOPE_TEST(every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_
         // level at its recovery speed on full power, and is never called
         // recovered; it is held to the height it lost by the flight's end.
         {{"b2", Fault::height, 414.0},
+         {"f15c", Fault::height, 560.0},
          {"f35b", Fault::height, 932.0},
          {"learjet35a", Fault::height, 589.0},
          {"mosquito-fb6", Fault::not_recovered, 3462.0},
@@ -2580,7 +2612,6 @@ GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_with
         [](const Result& r, double) { return height_bound_ft(r); },
         {{"a320", Fault::height, 1535.0},
          {"a320", Fault::load, 2.18},
-         {"f15c", Fault::load, 1.89},
          {"mosquito-fb6", Fault::load, 2.23}});
 }
 

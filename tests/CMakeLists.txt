@@ -201,6 +201,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief
     the_f15c_flies_its_approach_at_its_flight_manuals_speed_for_its_weight
     the_b2a_crosses_the_threshold_within_five_knots_of_its_reference_speed
+    the_f15c_flies_its_approach_near_nasas_angle_of_attack_with_stabilator_to_spare
     an_approach_flown_fast_is_named_in_the_debrief
     the_turns_lesson_flown_by_the_book_leaves_an_empty_debrief
     a_turn_that_loses_height_is_named_in_the_debrief
@@ -413,6 +414,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_mosquito_drops_its_nose_at_the_stall_as_its_pilots_notes_say
     fixed_gear_stays_down_when_the_lever_is_raised
     a_failed_jet_engine_stays_failed
+    the_f15c_lifts_its_nose_wheel_near_its_flight_manuals_speed_at_each_weight
     frozen_fuel_is_not_burned
     the_speedbrake_lever_moves_the_spoilers
     the_learjet_35a_trims_level_from_250_to_350_knots_with_her_elevator_at_neutral

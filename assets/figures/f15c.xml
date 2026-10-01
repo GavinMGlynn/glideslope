@@ -60,6 +60,22 @@
     T.O. 1F-15A-1, figure A8-1: 160 KCAS at 36,946 lb, 21 units AOA, flaps up.
   </approach>
 
+  <!-- **The lift-off speed, published, less its flaps.** T.O. 1F-15A-1,
+       figure A3-6 (sheet 1, change 4; without conformal tanks, full flaps,
+       gear down, U.S. standard day), normal take-off - one-half aft stick
+       over a second from 120 knots, 10 degrees held after rotation - at
+       military thrust: nosewheel lift-off and take-off speeds 128/141 KCAS
+       at 35,000 lb and 129/142 at 40,000, so 141.4 at 36,946. That is with
+       the flaps down, and the model has none. The manual's own figure A8-1
+       gives what they are worth at one angle of attack: 160.5 knots flaps up
+       against 147.0 flaps down at this weight (the approach, below), a
+       ratio of 1.092. Taken as the same at the take-off's attitude, the
+       flaps-up take-off speed is 141.4 x 1.092 = 154.4. -->
+  <takeoff kcas="154.4" loading="clean">
+    T.O. 1F-15A-1, figure A3-6, normal take-off at military thrust, 141.4 KCAS
+    at 36,946 lb with full flaps; flaps up by figure A8-1's ratio, 154.4.
+  </takeoff>
+
   <figure name="maximum_mach_45000_ft" fuel_frozen="1" flight="level_mach" loading="clean" unit="Mach"
           value="2.39" tolerance="0.08" altitude_ft="45000" mach="2.0">
     Page 6, specific excess power at maximum power, clean, 36,946 lb, 1 g: the
@@ -103,28 +119,35 @@
   </figure>
 
   <figure name="stall_speed_landing" flight="stall_speed" from="measured"
-          loading="clean" unit="KCAS" value="151.06" tolerance="3"
-          flaps_deg="0" entry_kcas="200" gear="1">
+          loading="clean" unit="KCAS" value="112.22" tolerance="3"
+          flaps_deg="0" entry_kcas="200" gear="1" clmax="1">
     **Measured, not published.** The F-15's flight manual, T.O. 1F-15A-1,
     gives no stall speed: its section VI has the angle of attack settle at 45
-    units or more at full aft stick, at 100 knots or less, sinking. The model
-    cannot get there - its stabilator reaches full nose-up travel at 18.3
-    degrees of alpha, and that is where this stall is. This is what the
-    model itself does, flown by the same deceleration the published
-    stall speeds are measured by, on 2026-09-23. What it asserts is that the
-    model still does what it did, not that the aeroplane does it. Measured
-    from entry speeds of 160, 200 and 240 knots it varies by 1.21 of a
-    knot, so the number is the model's and not the entry's.
+    units or more at full aft stick, at 100 knots or less, sinking - the lift
+    never breaks. So this is the speed at which the model's lift coefficient
+    is first a maximum in a deceleration of a knot a second, as 14 CFR
+    25.103(b) defines a stall speed for an aeroplane that has no break: 32
+    degrees of alpha, sinking at about 5,000 ft/min, with half the
+    stabilator's nose-up travel still to give. It was 151.06 until the
+    pitching moment was made NASA's (tools/make_f15c.py), the speed where
+    the stabilator ran out at 18 degrees. Measured on 2026-10-01 from entry
+    speeds of 160, 200 and 240 knots: 112.08, 112.22 and 112.21. What it
+    asserts is that the model still does what it did, not that the
+    aeroplane does it.
   </figure>
 
   <figure name="climb_rate" from="measured" loading="clean" unit="ft/min"
           value="24569" tolerance_percent="5" speed_kcas="200">
     **Measured, not published.** Neither the Standard Aircraft
     Characteristics nor the flight manual gives a climbing speed, or a rate
-    of climb at this loading and speed. Both are the model's own, taken on 2026-09-23. The curve is still flat here, so the speed is not what the ninety-five
-    per cent test picked but the floor under it: **1.3 times the measured
-    stall speed of 151.1 knots**, the lowest speed at which it is
-    sensible to climb. A fighter has so much thrust to spare that it climbs
+    of climb at this loading and speed. Both are the model's own, taken on
+    2026-09-23, and the rate measured again, 24,561, on 2026-10-01 with the
+    pitching moment made NASA's. The curve is still flat here, so the speed
+    is not what the ninety-five per cent test picked but the floor under it
+    then: **1.3 times the stall speed measured then, 151.1 knots**. The stall
+    is now measured at 112, whose floor would be 146; the climbing speed is
+    kept at 200, where the take-off and climb lessons were measured, rather
+    than taught at a speed the flight manual never climbs at. A fighter has so much thrust to spare that it climbs
     within a few per cent of its best rate over hundreds of knots, and taking
     the peak would have taught a climb at 522 knots.
   </figure>

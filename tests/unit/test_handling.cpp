@@ -3,6 +3,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/figures.hpp"
 #include "sim/fixed_step.hpp"
+#include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
 
 #include <algorithm>
@@ -10,6 +11,8 @@
 #include <cstddef>
 #include <iterator>
 #include <cstdio>
+#include <filesystem>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -145,6 +148,60 @@ GLIDESLOPE_TEST(a_failed_jet_engine_stays_failed) {
     check(failed == 0.0 && a.property("propulsion/engine[0]/set-running") == 0.0,
           "the failed engine gives no thrust and is not running: " + std::to_string(failed));
     check(live > 5000.0, "the other still runs: " + std::to_string(live) + " lb");
+}
+
+// **The F-15C's nose wheel comes off where its flight manual's does.** T.O.
+// 1F-15A-1, figure A3-6, maximum performance take-off at military thrust,
+// stick full aft from low speed: the nose wheel off at 88, 97 and 109 knots
+// at 35,000, 40,000 and 45,000 lb, so 91.5, 100.1 and 110.7 at the 36,946,
+// 41,286 and 45,713 lb of the F-15C's three loadings. tools/make_f15c.py
+// places the centre of gravity over the main wheels by Raymer's tipback
+// angle, and the stabilator works against NASA TM-4604's pitching moment.
+// At the clean loading its other figures are flown at, within five knots. Heavier, within a tenth:
+// the manual's speed rises a fifth for a quarter more weight, twice what
+// the root of the weight gives, because the real aeroplane's centre of
+// gravity moves with its fuel and stores, and the model's carries both at
+// its centre of gravity.
+GLIDESLOPE_TEST(the_f15c_lifts_its_nose_wheel_near_its_flight_manuals_speed_at_each_weight) {
+    const auto figures = glideslope::sim::read_published_figures(
+        std::filesystem::path(GLIDESLOPE_TEST_FIGURES_DIR) / "f15c.xml");
+    const std::pair<const char*, double> manual[] = {
+        {"clean", 91.5}, {"combat", 100.1}, {"mission-i", 110.7}};
+    std::size_t flown = 0;
+    for (const auto& [loading, published] : manual) {
+        Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "f15c");
+        a.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        a.load(figures.loadings.at(loading).loading);
+        InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.airspeed_kts = 0.0;
+        ic.gear = 1.0;
+        a.initialize(ic);
+        Controls c;
+        c.throttle = 0.99; // military
+        c.elevator = 1.0;  // full aft
+        double off_kts = 0.0;
+        for (int i = 0; i < 90 * steps_per_second && off_kts == 0.0; ++i) {
+            a.set_controls(c);
+            a.step();
+            if (a.property("gear/unit[0]/WOW") == 0.0 &&
+                a.property("velocities/vc-kts") > 30.0) {
+                off_kts = a.property("velocities/vc-kts");
+            }
+        }
+        std::printf("  %-9s %6.0f lb: nose wheel off at %5.1f kt, the manual's %3.0f\n", loading,
+                    a.property("inertia/weight-lbs"), off_kts, published);
+        const double allowed =
+            std::string(loading) == "clean" ? 5.0 : 0.1 * published;
+        check(off_kts > 0.0 && std::abs(off_kts - published) <= allowed,
+              std::string(loading) + ": the nose wheel came off at " + std::to_string(off_kts) +
+                  " kt, not within " + std::to_string(allowed) + " of the manual's " +
+                  std::to_string(published));
+        ++flown;
+    }
+    check(flown == 3, "all three of the figures' loadings were flown");
 }
 
 // Fuel can be frozen for a measurement, as a flight test's weight is taken as

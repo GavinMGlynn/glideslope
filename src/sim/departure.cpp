@@ -116,6 +116,17 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
         }
     }
 
+    // A lift-off speed the flight manual gives outright, at its loading's
+    // weight. It names no flap: the one aeroplane that gives one, the F-15C,
+    // has none in its model.
+    if (figures.takeoff_kcas > 0.0) {
+        speeds.rotate_kts = figures.takeoff_kcas;
+        speeds.rotate_is_published = true;
+        speeds.reference_lbs = figures.loadings.at(figures.takeoff_loading).total_lbs;
+        speeds.flap = 0.0;
+        return speeds;
+    }
+
     // A published take-off field length names the flap it is flown with. The
     // stall at that flap, where the aeroplane has one, is what it rotates
     // from, and it climbs away at V2 and ten.
