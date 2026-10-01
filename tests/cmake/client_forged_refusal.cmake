@@ -70,7 +70,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
-            --seed 1 --until-input-ends --seconds 290 --forge-refusal-after 50
+            --seed 1 --until-input-ends --seconds 600 --forge-refusal-after 50
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --view cockpit --shot-at 1200 --shot-once-back
             --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
