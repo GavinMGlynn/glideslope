@@ -441,10 +441,17 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification: a client whose session was let go, with the server's last
       updates held until it tries to join again, joins again without going
       back, and is admitted once.*
-- [ ] **The client with the window builds its flight without reading its
+- [x] **The client with the window builds its flight without reading its
       socket**, so a slow build can outlast the server's timeout and be let
-      go. *Verification: a window client that takes longer than the server's
-      timeout to build its flight is not let go.*
+      go. Its session is now kept from a thread of its own whenever it is
+      away - building its flight, or in any long frame. *Verification: a
+      window client that takes longer than the server's timeout to build its
+      flight is not let go, nor one whose frames take longer.*
+- [ ] **Two window clients on one cold Cesium cache can stall for over
+      fifteen minutes**, where sharing one is meant to cost only a wait: seen
+      once on Linux and once on Windows, not yet explained. *Verification:
+      two window clients drawing at once from one empty cache both finish
+      in the time one does, on Linux and Windows.*
 - [ ] **The client's half of a session is written twice** - the command-line
       client's own and the shared one the window client uses - and a bug was
       found in one and not the other. *Verification: both clients use one
