@@ -12,8 +12,10 @@
 #     server reads - so no key is needed and none is sent anywhere. Each must
 #     take off, reach its orbit and fly round it as often as its plan asks
 #     (twice for one flown for ever), within 60 m of its circle and 50 ft of
-#     its height - 3,000 ft, stacked 500 ft higher for the second planned, as
-#     the server stacks its AI aircraft - its centre within 2 km of Town Hall,
+#     its height - 3,000 ft, stacked 1,000 ft higher for the first planned,
+#     which takes off first: the server stacks planned aircraft downwards in
+#     the order they go, so that none climbs through another's height
+#     (sim/separation.hpp) - its centre within 2 km of Town Hall,
 #     and nothing wrecked. Flown for STEPS steps as fast as they go: simulated
 #     time, not the machine's.
 #   - keyless, anthropic and openai: a server told to plan with that model and
@@ -66,7 +68,7 @@ if(_out MATCHES "is refused")
 endif()
 
 set(_flown 0)
-foreach(_case "1:openai:0" "2:anthropic:1")
+foreach(_case "1:openai:1" "2:anthropic:0")
     string(REPLACE ":" ";" _case "${_case}")
     list(GET _case 0 _n)
     list(GET _case 1 _provider)
@@ -116,7 +118,7 @@ foreach(_case "1:openai:0" "2:anthropic:1")
         message(FATAL_ERROR "AI ${_n} flew round ${_orbit} ${_near} to ${_far} m from its "
                             "centre, off its ${_radius} m circle by more than 60 m")
     endif()
-    math(EXPR _want_ft "${_altitude} + ${_stacked} * 500")
+    math(EXPR _want_ft "${_altitude} + ${_stacked} * 1000")
     math(EXPR _below "${_want_ft} - ${_low}")
     math(EXPR _above "${_high} - ${_want_ft}")
     if(_below GREATER 50 OR _above GREATER 50)

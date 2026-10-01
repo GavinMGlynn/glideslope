@@ -62,6 +62,20 @@ public:
         return modes_;
     }
 
+    // **A floor and a ceiling on the height it flies to**, kept apart from
+    // the modes (sim/separation.hpp): the altitude asked for is flown only
+    // between them, and with none - a vertical speed held - it climbs no
+    // higher than the ceiling and descends no lower than the floor. Nothing
+    // else changes: the rate it climbs or descends at is the one asked for.
+    // Either may be none, and setting them again replaces both.
+    void limit_height(std::optional<double> floor_ft, std::optional<double> ceiling_ft) {
+        floor_ft_ = floor_ft;
+        ceiling_ft_ = ceiling_ft;
+    }
+    // The height it is flying to, within its limits, or none when it holds
+    // a vertical speed.
+    std::optional<double> height_flown_to_ft() const;
+
     // The controls for the next step, from the aircraft's state now. Each call
     // advances the loops by one 120 Hz step, so call it once a step.
     Controls fly();
@@ -69,6 +83,8 @@ public:
 private:
     const Aircraft& a_;
     AutopilotModes modes_;
+    std::optional<double> floor_ft_;
+    std::optional<double> ceiling_ft_;
     Controls last_;
     // Holding the speed rather than the height: the most climb the altitude
     // hold may ask for, found by an integral on the airspeed, while it binds.

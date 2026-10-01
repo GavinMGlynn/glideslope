@@ -67,6 +67,7 @@ add_executable(glideslope_tests
     unit/test_crash.cpp
     unit/test_controller.cpp
     unit/test_navigator.cpp
+    unit/test_separation.cpp
     unit/test_dem.cpp
     unit/test_dem_surveyed.cpp
     unit/test_digest.cpp
@@ -599,6 +600,8 @@ set(GLIDESLOPE_UNIT_TESTS
     a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_flies_on_its_throttle
     a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wrong
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
+    the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_those_it_gives_way_to_and_no_other
+    a_cessna_climbing_through_another_or_meeting_one_head_on_is_kept_apart_by_the_monitor_and_without_it_is_not
     an_orbit_and_a_take_off_are_read_from_a_plan_and_refused_where_they_are_wrong
     the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind_down_to_the_tightest_allowed
     an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_circle
@@ -2566,6 +2569,18 @@ add_test(NAME each_ai_aircraft_is_planned_by_the_model_its_server_gives_it_and_o
 set_tests_properties(each_ai_aircraft_is_planned_by_the_model_its_server_gives_it_and_one_with_no_key_is_refused
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planned)
+
+# **Every AI aircraft a server runs, planned or not, is kept apart from every
+# other along the whole of its route**: four, two planned from the recordings
+# and two flying the plan file, never within 500 ft and 1.5 nm of each other
+# at once, every pair measured at every step. See cmake/server_kept_apart.cmake.
+add_test(NAME every_ai_aircraft_a_server_runs_planned_or_not_is_kept_500_ft_or_1_5_nm_from_every_other_along_its_whole_route
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot -DSTEPS=108000
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_kept_apart.cmake)
+set_tests_properties(every_ai_aircraft_a_server_runs_planned_or_not_is_kept_500_ft_or_1_5_nm_from_every_other_along_its_whole_route
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 2400)
 
 # **Two planned aircraft wrecked together on one runway fly again one after
 # the other**, not onto each other every five seconds for ever: the collision
