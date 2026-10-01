@@ -750,13 +750,9 @@ Found while implementing something else. Added when found, not when remembered.
       frame**: four CI failures on 1 October, with frames of 140 to 730 ms
       (sanitized Linux, and the held-frames test on windows-release).
       *Verification: the prediction tests pass on every CI run for a month,
-      with their 20 m bound unchanged.* A cause found and fixed 2026-10-02:
-      the client flew each new input over the frame before it was sent,
-      which misled its clock estimate while it was learnt (25 m at a 428 ms
-      frame in a unit test, under 3 m now). Still missing: the month of CI
-      runs; a CI failure seen to be that cause - none was reproduced here in
-      the processes themselves; and one loaded local run put right 12.8 m
-      with the fix, not yet explained.
+      with their 20 m bound unchanged.* A cause fixed 2026-10-02. Still
+      missing: the month of CI runs, a CI failure tied to that cause, and
+      an explanation of one local run put right 12.8 m since.
 - [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
       (26-28 minutes a Windows configure). *Verification: a new runner image
       costs one rebuild, saved, not one per run.* Windows restores from public

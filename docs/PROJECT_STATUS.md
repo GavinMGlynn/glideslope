@@ -299,14 +299,21 @@ began - where the first input whose beginning is known is the one sent at
 the long frame's end, which the test checks - and three seconds on, when
 the difference is known, at 0 and 5 ms each way: thirty flights, counted.
 Every correction is held to 3 m, learning or known. **Seen to fail** with
-the pass as it was (sent, then flown on): "142 ms 1 frames in, 0 ms each
-way: put right by 7.709581 m, over the 3.000000 m bound"; the probe before
-it measured 7.7 m at 142 ms, 16 at 284, 25 at 428 and 43 at 730, in the
-learning, and nothing over 0.6 m once known. Reverted, it passes: the worst
+the pass as it was (sent, then flown on), and again with that order put
+back into `fly_a_pass` itself: "142 ms 1 frames in, 0 ms each way: put
+right by 7.709581 m, over the 3.000000 m bound"; the probe before it
+measured 7.7 m at 142 ms, 16 at 284, 25 at 428 and 43 at 730, in the
+learning, and nothing over 0.6 m once known. With each deliberate bug
+reverted, it passes: the worst
 learning 2.57 m (placing a word to the step, half a metre a step at 120
-knots), the worst known 0.33 m.
+knots), the worst known 0.33 m. The model flies its passes through the
+window client's own `glideslope::client::fly_a_pass` (below), its parts the
+model's, so the order tested is main.cpp's.
 
-**Fixed** in the window client (`Online::fly`, `Online::flown`): the stick
+**Fixed** in the window client (`Online::fly`, `Online::flown`, and the
+order in `glideslope::client::fly_a_pass`, src/frontend/client/pass.hpp,
+which main.cpp's passes on a server and the unit test's both go through,
+so that putting the order back turns the test red): the stick
 is still sent as the frame's clock is read, but the ticks - the frame gone
 by - are flown on the input sent before, which is what the server flew
 over the same time, and the new one from the next tick. Each input now
@@ -322,7 +329,22 @@ with nothing to replay, and back by the next word. Printed by a debug line
 three busy loops and the other window test: corrections of 2.0 to 4.0 m
 each "replayed 0", every one of them. Now `Online::listen` reads what has
 arrived when the clock is read, before the ticks, and `Online::hear` hears
-it after them. Nothing tests this half but the window tests.
+it after them, as of the time it was read. Nothing tests this half but the
+window tests.
+
+**With the session kept by its own thread** (#88, which this follows): the
+keeper polls the session behind the lock while the frame loop is away, so
+`listen` takes the lock to read, and notes the session's count of joinings
+again; `hear` takes it again for what it hears, and if the session was
+joined again in between - the keeper heard it during the ticks - what was
+read is the old session's and is let go, not heard as the new one's: that
+would name the old aircraft as this client's own, and take the newest
+word's time from a restarted server's old clock, so that every later word
+was ignored as older. Not tested: building a join-again inside one pass's
+ticks needs the server restarted, with the same key, at a moment the
+client is mid-pass, which neither a unit test (Online needs a socket
+session) nor the window tests (which restart it between passes) can place.
+As #88 does, the lock is let go before a word puts the flight right.
 
 **Said by the client now**: "the worst while its clocks' difference was
 learnt X m, and once it was known Y m", after the corrections line, and
@@ -337,7 +359,12 @@ side on four cores (taskset 4-7) shared with three busy loops: all twenty
 pass; the held-frames worst 0.32 to 1.39 m, the on-server worst 0.47 to
 1.08 m in nine and **12.8 m in one** - under 20 m, but not explained: that
 run said nothing of which half it was in, which is why the tests now say
-it. Before the fix, the same load, three of each: held-frames worst 1.4,
+it. A candidate (from the review): the server's mirror of the cause - a
+long server pass applies an input that came early only after its owed
+steps, so that input says the clocks differ by more than they do, and
+while the difference is learnt that is a quarter of a second at 50 m/s,
+about 12.8 m. If so, the new line will say "learnt". Before the fix, the
+same load, three of each: held-frames worst 1.4,
 2.2 and 4.0 m, the "replayed 0" corrections above; unloaded, three of each
 way, all under 2.3 m. The two CLI network checks at 100 and 200 ms failed
 once beside them, "no answer from 127.0.0.1:24781", and passed alone - the client
