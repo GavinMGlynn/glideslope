@@ -13,9 +13,10 @@ this script and run it.
     python3 tools/make_models.py             write the meshes from the cache
     python3 tools/make_models.py --check     exit 1 if what is committed differs
 
-Every file read is pinned in assets/models/sources.txt by URL and SHA-256, in
-the four-field form tests/cmake/fetch.cmake reads, so the test fetches exactly
-what this script did. `--refresh` is the only mode that reaches the network:
+Every file read is pinned in assets/models/sources.txt by SHA-256 and the
+URLs that serve it, in the form tests/cmake/fetch.cmake reads - name, size,
+SHA-256, then each URL, tried in order - so the test fetches exactly what this
+script did. `--refresh` is the only mode that reaches the network:
 it walks each aircraft's model XML, discovers the files, and rewrites that
 list. The other two modes read the cache and fail if a pinned file is missing.
 
@@ -80,6 +81,7 @@ import hashlib
 import math
 import os
 import pathlib
+import posixpath
 import struct
 import sys
 import urllib.error
@@ -94,6 +96,16 @@ SOURCES = OUT / "sources.txt"
 FGADDON_REV = "21588"
 FGADDON = ("https://sourceforge.net/p/flightgear/fgaddon/"
            f"{FGADDON_REV}/tree/trunk/Aircraft")
+# The same revision from the Subversion server itself, `p` being the peg
+# revision. On 2026-10-01 SourceForge's web pages were in "Disaster Recovery
+# mode" and answered every file above with a 302 to an HTML page, while this
+# served every pinned file byte for byte.
+FGADDON_SVN = "https://svn.code.sf.net/p/flightgear/fgaddon/trunk/Aircraft"
+# Software Heritage's archive, which serves a file by its own SHA-256 and so
+# can only ever serve the pinned bytes - but only the files it holds. Its copy
+# of FGAddon is from 2022, so a file changed since is not there. Anonymous use
+# allows 120 requests an hour, more than there are files.
+HERITAGE = "https://archive.softwareheritage.org/api/1/content/sha256:"
 
 # Six aircraft state no licence anywhere in their own directory. FGAddon's
 # own requirement is that what it carries is GPL, and the project owner
@@ -261,11 +273,20 @@ def pinned_name(key: str, path: str) -> str:
     return f"fgmodel-{key}-" + path.replace("/", "_")
 
 
-def url_for(spec: dict, path: str) -> str:
+def urls_for(spec: dict, path: str) -> list[str]:
+    """Where a file is fetched from when refreshing, in the order tried.
+
+    Whoever reads sources.txt checks each against the one pin, so a later
+    one can only ever give the same bytes as an earlier.
+    """
     if "repo" in spec:
-        return (f"https://raw.githubusercontent.com/{spec['repo']}/"
-                f"{spec['commit']}/{path}")
-    return f"{FGADDON}/{spec['dir']}/{path}?format=raw"
+        return [f"https://raw.githubusercontent.com/{spec['repo']}/"
+                f"{spec['commit']}/{path}"]
+    # A model XML's path may climb ("../Models/a380.ac"); the Subversion
+    # server is given it resolved. SourceForge's pages resolved it themselves.
+    plain = posixpath.normpath(f"{spec['dir']}/{path}")
+    return [f"{FGADDON_SVN}/{plain}?p={FGADDON_REV}",
+            f"{FGADDON}/{spec['dir']}/{path}?format=raw"]
 
 
 def download(url: str) -> bytes:
@@ -274,26 +295,59 @@ def download(url: str) -> bytes:
         return response.read()
 
 
-def read_sources() -> dict[str, tuple[int, str, str]]:
+def download_first(urls: list[str]) -> bytes:
+    """The first URL that answers. A 404 is final, not a reason to try the
+    next: a missing file is how the model walk learns which of two paths a
+    model XML meant."""
+    last: Exception | None = None
+    for url in urls:
+        try:
+            return download(url)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                raise
+            last = e
+        except urllib.error.URLError as e:
+            last = e
+    assert last is not None
+    raise last
+
+
+def with_heritage(urls: list[str], sha: str) -> list[str]:
+    """Software Heritage second, when it holds these bytes: after the first
+    source, before the one sharing that source's host."""
+    try:
+        download(f"{HERITAGE}{sha}/")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return urls
+        raise
+    return urls[:1] + [f"{HERITAGE}{sha}/raw/"] + urls[1:]
+
+
+def read_sources() -> dict[str, tuple[int, str, list[str]]]:
     if not SOURCES.exists():
         return {}
     out = {}
     for line in SOURCES.read_text().splitlines():
         if not line or line.startswith("#"):
             continue
-        name, size, sha, url = line.split()
-        out[name] = (int(size), sha, url)
+        name, size, sha, *urls = line.split()
+        if not urls:
+            raise ValueError(f"{SOURCES}: {name} has no URL")
+        out[name] = (int(size), sha, urls)
     return out
 
 
-def write_sources(files: dict[str, tuple[int, str, str]]) -> None:
+def write_sources(files: dict[str, tuple[int, str, list[str]]]) -> None:
     lines = ["# The FlightGear files glideslope's visual models are made from,",
-             "# each pinned by SHA-256: name, size in bytes, SHA-256, URL.",
+             "# each pinned by SHA-256: name, size in bytes, SHA-256, then the",
+             "# URLs that serve it, tried in order, each checked against it.",
              "# Written by tools/make_models.py --refresh; see docs/ASSETS.md",
              "# for each model's source, revision and licence."]
     for name in sorted(files):
-        size, sha, url = files[name]
-        lines.append(f"{name} {size} {sha} {url}")
+        size, sha, urls = files[name]
+        lines.append(" ".join([name, str(size), sha, *urls]))
     SOURCES.parent.mkdir(parents=True, exist_ok=True)
     SOURCES.write_text("\n".join(lines) + "\n")
 
@@ -305,7 +359,7 @@ class Files:
         self.cache = cache
         self.refresh = refresh
         self.pinned = read_sources()
-        self.used: dict[str, tuple[int, str, str]] = {}
+        self.used: dict[str, tuple[int, str, list[str]]] = {}
 
     def get(self, key: str, spec: dict, path: str) -> bytes:
         # A relative path in a FlightGear model XML is resolved against the
@@ -326,12 +380,12 @@ class Files:
 
     def _one(self, key: str, spec: dict, path: str) -> bytes:
         name = pinned_name(key, path)
-        url = url_for(spec, path)
+        urls = urls_for(spec, path)
         local = self.cache / name
         if local.exists():
             data = local.read_bytes()
         elif self.refresh:
-            data = download(url)
+            data = download_first(urls)
             self.cache.mkdir(parents=True, exist_ok=True)
             local.write_bytes(data)
         else:
@@ -346,7 +400,9 @@ class Files:
             if want[1] != sha:
                 raise ValueError(f"{name} is not what is pinned: {sha}, "
                                  f"not {want[1]}")
-        self.used[name] = (len(data), sha, url)
+        if self.refresh:
+            urls = with_heritage(urls, sha)
+        self.used[name] = (len(data), sha, urls)
         return data
 
 

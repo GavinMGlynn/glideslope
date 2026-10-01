@@ -389,6 +389,36 @@ mesh's scale is worth. It takes only the height *above the mesh's own tyres*,
 a difference within one mesh, so it does not depend on the alignment above -
 which for three aircraft is out by between half a metre and two and a half.
 
+**Where the source files are fetched from.** Each of the 75 files in
+`assets/models/sources.txt` is pinned by SHA-256 and listed with every URL
+known to serve those bytes, tried in order and each checked against the one
+pin, so a later URL can only ever give the same file. For the 73 from FGAddon:
+first the Subversion server itself at the pinned revision
+(`https://svn.code.sf.net/p/flightgear/fgaddon/trunk/Aircraft/...?p=21588`);
+then, for the 58 it holds, Software Heritage's archive, which serves a file by
+its own SHA-256
+(`https://archive.softwareheritage.org/api/1/content/sha256:<pin>/raw/`;
+anonymous use allows 120 requests an hour); and last SourceForge's web view of
+the same revision, the only URL before 2026-10-01. For the c172p's two files:
+the c172p team's GitHub at its pinned commit, then Software Heritage. All 75
+were fetched from each listed source other than SourceForge's web view and
+matched their pins on 2026-10-01, when that web view was in SourceForge's
+"Disaster Recovery mode" and answered every file with a 302 to an 859-byte
+HTML page (SHA-256 `f188236c...`).
+
+**Fifteen files have no source outside SourceForge.** Software Heritage's copy
+of FGAddon is from 2022 (its later visits failed), and these changed after it;
+no git repository it archives, nor the aircraft's GitHub repositories that
+were checked (Zaretto's F-15, the IDG A320 family, the 787 family, a c182s),
+holds the
+same bytes. They are the 787-8's `787-8.ac` and `787-8.xml`; the A320's six
+(`A320-200-CFM.xml`, `A320-common.xml`, `Fuselage/a320.cfm.xml`,
+`Fuselage/fuselage.xml`, `Fuselage/res/A320-216.ac`,
+`Fuselage/res/CFM56.ac`); the A380's `XML/A380.xml`; the c182's `c182s.xml`;
+the F-15's `f15c.ac` and `f15c.xml`; and the Mosquito's `Mosquito-FB6.xml`,
+`pdiskL.xml` and `pdiskR.xml`. For those, the Subversion server and the web
+view are two services of one host.
+
 ### Visual model: c172p - FlightGear's c172p
 
 | | |

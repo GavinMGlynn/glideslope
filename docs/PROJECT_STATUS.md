@@ -232,6 +232,72 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The visual models' sources are fetched from a source that serves their pinned files, 2026-10-01 — tail partly done
+
+**What is not done first.** Fifteen of the 75 files the visual models are made
+from have no source outside SourceForge: the 787-8's `787-8.ac` and
+`787-8.xml`; the A320's `A320-200-CFM.xml`, `A320-common.xml`,
+`Fuselage/a320.cfm.xml`, `Fuselage/fuselage.xml`, `Fuselage/res/A320-216.ac`
+and `Fuselage/res/CFM56.ac`; the A380's `XML/A380.xml`; the c182's
+`c182s.xml`; the F-15's `f15c.ac` and `f15c.xml`; and the Mosquito's
+`Mosquito-FB6.xml`, `pdiskL.xml` and `pdiskR.xml`. They come from
+SourceForge's Subversion server, which serves them today, and its web view,
+which does not; if the Subversion server goes the way the web view did, the
+visual-model test fails again on a machine without them cached. The tail stays
+open in `COMPLETION_PLAN.md`. The proposed fallback is a copy this project
+publishes - a release asset on its GitHub repository, pinned by the same
+SHA-256 - which needs the owner's say-so before any release is made.
+
+**What broke.** Every line of `assets/models/sources.txt` named one URL,
+`https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/...?format=raw`
+(the c172p's two named GitHub), and on 2026-10-01 SourceForge's web pages were
+in "Disaster Recovery mode", answering each with a 302 to the same 859-byte
+HTML page. `the_files_the_visual_models_are_made_from_arrive_with_their_pinned_hashes`
+failed on any machine without them, and CI passed only from its downloads
+cache.
+
+**The sources.** FGAddon has no git mirror: FlightGear's GitLab group carries
+none, and GitHub's `FGMEMBERS/FGADDON_mirror` is empty since 2016.
+- *SourceForge's Subversion server* - `svn.code.sf.net`, a different service
+  from the web pages - serves the repository over HTTP with `p` as the peg
+  revision:
+  `https://svn.code.sf.net/p/flightgear/fgaddon/trunk/Aircraft/<path>?p=21588`.
+  All 73 FGAddon files fetched from it on 2026-10-01 matched their pins.
+  A path that climbs (`XML/../Models/a380.ac`) is given resolved.
+- *Software Heritage* serves a file by its own SHA-256 at
+  `https://archive.softwareheritage.org/api/1/content/sha256:<pin>/raw/`, so it
+  can only ever serve the pinned bytes. It holds 58 of the 73 FGAddon files and
+  both of the c172p's; all 60 fetched from it matched. Its copy of FGAddon is a
+  partial visit of 2022-02-03 and every visit since failed, which is why the
+  15 changed after it are missing. Anonymous use allows 120 requests an hour,
+  so a fetch from empty, 60 files at most, is within it.
+- The aircraft's own repositories were checked for the missing 15 by git blob
+  id: Zaretto's `fg-aircraft` (F-15), `FGDATA/IDG-A32X` and
+  `legoboyvdlp/A320-family`, `IskenderWang/787-family`, `HHS81/c182s` - none
+  holds the same bytes.
+
+**The change.** Each line of `sources.txt` now lists, in order: the
+Subversion server (or for the c172p, GitHub at its pinned commit), Software
+Heritage where it holds the file, and SourceForge's web view last. The pins
+are unchanged. `tests/cmake/fetch.cmake` already tried several URLs a line
+(the geoid's change); `tools/make_models.py` did not - it read exactly four
+fields - so it now reads and writes any number of URLs, and `--refresh`
+fetches from the first that answers and asks Software Heritage whether it
+holds each file before listing it.
+
+**Verification.**
+- `the_files_the_visual_models_are_made_from_arrive_with_their_pinned_hashes`,
+  run as `fetch.cmake` with `GLIDESLOPE_REQUIRE_NETWORK=1` into an empty
+  directory: all 75 fetched from their first URL, none failed, exit 0.
+- The same, with the Subversion host renamed to one that does not resolve, for
+  three files: the two Software Heritage holds came from it; the F-15's
+  `f15c.xml`, which it does not, fell through to SourceForge's web view, got
+  the 859-byte page and failed the run "fetched, but not what was pinned" -
+  the missing part above, seen.
+- `the_committed_visual_models_are_what_their_script_writes`
+  (`tools/make_models.py --check`) with the new `sources.txt`: the old script
+  fails, "ValueError: too many values to unpack (expected 4)"; the new passes.
+
 ### Collision ground under a runway is the runway's own line, 2026-10-01 — one tail done, the 16R tail not
 
 **What is not done first.**
