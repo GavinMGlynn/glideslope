@@ -4,8 +4,10 @@
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
+#include "sim/lander.hpp"
 #include "sim/leaner.hpp"
 #include "sim/test_pilot.hpp"
+#include "sim/weather.hpp"
 #include "world/weather.hpp"
 
 #include <algorithm>
@@ -1020,6 +1022,96 @@ GLIDESLOPE_TEST(every_aircraft_turns_ninety_degrees_without_overbanking_or_overs
     check(failures.empty(), "each turn banks no more than " + std::to_string(most_bank_deg) +
                                 " degrees and overshoots no more than " +
                                 std::to_string(most_overshoot_deg) + ":" + failures);
+}
+
+// **Every light aeroplane holds a heading in a crosswind without yawing.**
+// Each is put at 3,000 ft heading north at its approach speed - the slowest a
+// plan may fly it, where the wind is the largest part of its airspeed - and
+// at the airspeed it starts a flight at, the autopilot holding the heading,
+// the height and the speed, in calm air and in a 20 kt wind from the west
+// arriving all at once: a sideslip of 15 to 28 degrees to settle. After half
+// a minute to settle, each must hold its sideslip within a degree and its
+// heading within two for the next ninety seconds. Before the fix the Cub and
+// the Cherokee swung their sideslip 35 degrees either way every few seconds
+// in wind and never settled (PROJECT_STATUS.md); the Cessnas held it within
+// 0.1. The space is every light aeroplane, at both speeds, in both airs, and
+// every case of it is flown.
+GLIDESLOPE_TEST(every_light_aeroplane_holds_a_heading_in_a_20_kt_crosswind_and_in_calm_air_without_yawing) {
+    constexpr double most_sideslip_deg = 1.0;
+    constexpr double most_heading_off_deg = 2.0;
+    constexpr double wind_kts = 20.0;
+    std::string failures;
+    std::size_t lights = 0;
+    std::size_t flown = 0;
+    for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
+        if (e.aircraft_class != glideslope::sim::AircraftClass::light_aircraft) {
+            continue;
+        }
+        ++lights;
+        const double vref = std::round(glideslope::sim::approach_speeds(data(), e.model).vref_kts);
+        for (const double speed_kts : {vref, e.start_airspeed_kts}) {
+            for (const bool windy : {false, true}) {
+                Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+                glideslope::sim::InitialConditions ic;
+                ic.latitude_deg = -33.9;
+                ic.longitude_deg = 151.2;
+                ic.altitude_ft = 3000.0;
+                ic.heading_deg = 0.0;
+                ic.airspeed_kts = speed_kts;
+                ic.engine_running = true;
+                aircraft.initialize(ic);
+                if (windy) {
+                    glideslope::sim::Conditions wind;
+                    wind.wind_east_mps = wind_kts * 1852.0 / 3600.0;
+                    aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wind));
+                }
+                glideslope::sim::Controls controls;
+                controls.throttle = e.start_throttle;
+                Autopilot autopilot(aircraft, controls);
+                AutopilotModes modes = autopilot.modes();
+                modes.heading_deg = 0.0;
+                modes.altitude_ft = 3000.0;
+                modes.airspeed_kts = speed_kts;
+                autopilot.set(modes);
+                double least_beta = 0.0;
+                double most_beta = 0.0;
+                double worst_heading = 0.0;
+                double most_beta_ever = 0.0;
+                for (int i = 0; i < 120 * steps_per_second; ++i) {
+                    aircraft.set_controls(autopilot.fly());
+                    aircraft.step();
+                    const double beta = aircraft.property("aero/beta-deg");
+                    most_beta_ever = std::max(most_beta_ever, std::abs(beta));
+                    if (i >= 30 * steps_per_second) {
+                        least_beta = std::min(least_beta, beta);
+                        most_beta = std::max(most_beta, beta);
+                        worst_heading = std::max(worst_heading, std::abs(heading(aircraft)));
+                    }
+                }
+                ++flown;
+                char line[240];
+                std::snprintf(line, sizeof line,
+                              "%s at %.0f kt %s: sideslip %+.2f to %+.2f after 30 s (%.1f at "
+                              "most), heading within %.2f",
+                              e.id.c_str(), speed_kts,
+                              windy ? "in a 20 kt crosswind" : "in calm air", least_beta,
+                              most_beta, most_beta_ever, worst_heading);
+                std::printf("%s\n", line);
+                if (!(-least_beta <= most_sideslip_deg && most_beta <= most_sideslip_deg &&
+                      worst_heading <= most_heading_off_deg)) {
+                    failures += std::string("\n  ") + line;
+                }
+            }
+        }
+    }
+    std::printf("%zu light aeroplanes x 2 speeds x 2 airs = %zu flown\n", lights, flown);
+    check(lights == light_aeroplanes.size() && flown == 4 * lights,
+          "every light aeroplane at both speeds in both airs: " + std::to_string(flown) +
+              " flown of " + std::to_string(4 * light_aeroplanes.size()));
+    check(failures.empty(), "each holds its sideslip within " +
+                                std::to_string(most_sideslip_deg) + " degrees and its heading "
+                                "within " + std::to_string(most_heading_off_deg) + ":" +
+                                failures);
 }
 
 // **Which aircraft have a speed floor, and which have none, said by name.**

@@ -355,12 +355,13 @@ Found while implementing something else. Added when found, not when remembered.
       each aircraft. *Verification: every aircraft holds every speed a plan
       may ask of it round its tightest orbit, measured.*
 
-- [ ] **In wind the Cub and the Cherokee yaw from side to side.** Holding
+- [x] **In wind the Cub and the Cherokee yaw from side to side.** Holding
       a heading in a 10 kt crosswind, with no plan, the autopilot's J-3 Cub
       and PA-28 sideslip 35 degrees either way every few seconds; in calm air
-      they do not, and the Cessnas never do. *Verification: every light
-      aeroplane holds a heading in a 20 kt crosswind with its sideslip within
-      a stated bound.*
+      they do not. (The Cessnas did too, at cruise.) The autopilot now damps
+      yaw, and their orbits in wind are flown again. *Verification: every
+      light aeroplane holds a heading in a 20 kt crosswind with its sideslip
+      within a stated bound.*
 
 - [ ] **Offer the learnt landing in a session.** Only the CLI hands an
       aircraft to it; no client or server does. *Verification: an AI

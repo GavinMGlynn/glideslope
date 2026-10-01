@@ -71,6 +71,23 @@ constexpr double offset_fade_s = 2.0;
 // The ball to rudder.
 constexpr double rudder_per_degree = 0.1;
 constexpr double rudder_integral_rate = 0.05;
+// **And a yaw damper: the rudder against the yaw rate, washed out over a
+// second**, so a steady turn's rate asks nothing of it (the washout of
+// Stevens, Lewis and Johnson, Aircraft Control and Simulation, 3rd ed.,
+// chapter 4, the yaw damper). The sideslip alone gives the rudder no
+// damping, only stiffness, and the rudder moves no faster than a hand (below):
+// once a yaw swing asks the rudder for more than a travel a second, the
+// rudder lags the sideslip by a quarter of a cycle and feeds the swing. A
+// crosswind arriving at once, a 10 to 28 degree sideslip, set it going: in a
+// 20 kt crosswind the Cub and the Cherokee at their approach speeds swung 35
+// degrees either way every three seconds and never settled, and the Cessnas
+// at their cruise 14 (every_light_aeroplane_holds_a_heading_in_a_20_kt_crosswind_and_in_calm_air_without_yawing).
+// The Cub's rudder turns it 2.4 times as hard as the 172's, a travel for a
+// travel, and the Cherokee's 1.7 times, so for them the swing came soonest.
+// 0.03 of travel per degree a second was the least that settled all four;
+// this is 0.05, and 0.1 settles them as well.
+constexpr double rudder_per_degps_of_yaw = 0.05;
+constexpr double yaw_washout_s = 1.0;
 // Altitude to vertical speed: 3 ft/min for each foot off.
 constexpr double fpm_per_foot = 3.0;
 // Vertical speed to pitch, which moves at 3 degrees a second at most, within
@@ -281,6 +298,7 @@ Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
     pitch_integral_deg_ = pitch_command_deg_ + pitch_per_fpm * climb_fpm;
     elevator_trim_ = controls.elevator;
     rudder_integral_ = controls.rudder;
+    steady_yaw_rate_degps_ = degrees(a_.property("velocities/r-rad_sec"));
     throttle_integral_ = controls.throttle;
     if (a_.mixture_lever()) {
         leaner_.emplace(a_, controls.mixture);
@@ -468,7 +486,11 @@ Controls Autopilot::fly() {
     const double beta = a_.property("aero/beta-deg");
     rudder_integral_ =
         std::clamp(rudder_integral_ - rudder_integral_rate * beta * dt, -1.0, 1.0);
-    c.rudder = -rudder_per_degree * beta + rudder_integral_;
+    // And the yaw damper: the yaw rate, its steady part washed out.
+    const double r_degps = degrees(a_.property("velocities/r-rad_sec"));
+    steady_yaw_rate_degps_ += (r_degps - steady_yaw_rate_degps_) * dt / yaw_washout_s;
+    c.rudder = -rudder_per_degree * beta + rudder_integral_ +
+               rudder_per_degps_of_yaw * (r_degps - steady_yaw_rate_degps_);
 
     // Vertical speed, through pitch, to elevator.
     const double climb_off = climb_wanted - climb_fpm;

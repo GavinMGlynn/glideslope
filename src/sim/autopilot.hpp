@@ -12,7 +12,8 @@
 //     sustain, when its throttle has no more to give - with an integral near
 //     the heading that finds the bank it needs held -> aileron, damped by the
 //     roll rate, with an integral that finds the aileron the bank needs held;
-//   the ball -> rudder, with an integral that finds what a turn needs;
+//   the ball -> rudder, with an integral that finds what a turn needs, and
+//     a yaw damper: the yaw rate, washed out, -> rudder;
 //   altitude -> vertical speed, at most the climb rate asked for -> pitch,
 //     with an integral -> elevator, damped by the pitch rate, with an
 //     integral that finds the trim;
@@ -101,6 +102,9 @@ private:
     double elevator_trim_ = 0.0;
     double aileron_trim_ = 0.0;
     double rudder_integral_ = 0.0;
+    // The yaw rate's slow part, which the yaw damper washes out (degrees a
+    // second).
+    double steady_yaw_rate_degps_ = 0.0;
     double throttle_integral_ = 0.0;
     // Engaging steps nothing: the first step measures what the laws give
     // against the controls handed over, and that difference fades out.

@@ -613,16 +613,12 @@ GLIDESLOPE_TEST(the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_
           "the tightest-orbit tests take every class of aircraft, each once: " +
               std::to_string(grouped.size()) + " of " +
               std::to_string(glideslope::sim::aircraft_class_count));
-    // Measured on a heading held by the autopilot alone, no plan: in a 10 kt
-    // crosswind the Cub's sideslip swings from -36 to +34 degrees and the
-    // Cherokee's from -37 to +37, where the Cessnas' stays within 0.1.
-    const std::string yaws =
-        "in any wind it yaws 35 degrees either way every few seconds, on a heading held by the "
-        "autopilot alone as well as round an orbit: the tail \"In wind the Cub and the "
-        "Cherokee yaw from side to side\"";
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[0]),
-                            {{"j3cub", Leave::in_wind, yaws}, {"pa28", Leave::in_wind, yaws}},
-                            60.0);
+    // The Cub and the Cherokee were left out in wind until the autopilot had
+    // a yaw damper: on a heading held by the autopilot alone, in a 10 kt
+    // crosswind, their sideslip swung 35 degrees either way every few
+    // seconds (every_light_aeroplane_holds_a_heading_in_a_20_kt_crosswind_and_in_calm_air_without_yawing).
+    // Now every case is flown.
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[0]), {}, 60.0);
 }
 
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_airliner_and_business_jet_that_can_fly_it) {
