@@ -83,7 +83,7 @@ headless work.
 | Flight dynamics | **JSBSim** (C++) | One `FGFDMExec` instance per aircraft. Ships models from a Cessna 172 upward; includes atmosphere and Dryden turbulence. LGPL: link dynamically or keep changes open. |
 | Terrain and imagery | **Cesium Native** (C++, Apache 2.0) | Streams 3D Tiles and quantized-mesh terrain, handles LOD and caching, and yields glTF meshes. The project writes the SDL_GPU upload and draw glue. Renders all three terrain providers (section 4.1). |
 | Weather | libcurl + JSON library | METARs from aviationweather.gov; winds aloft from Open-Meteo. Fed into JSBSim's atmosphere. |
-| Networking | **SDL_net** + **libsodium** | Same pairing as gearstick. Authenticated, encrypted datagrams. |
+| Networking | **SDL_net** + **libsodium** | Same pairing as gearstick. Authenticated, encrypted datagrams. As built, the UDP sockets are this project's own (`src/platform/`), not SDL_net. |
 | Server storage | SQLite | Accounts, aircraft definitions, session config. |
 | Maths | GLM (or equivalent) | Double precision for world positions. |
 
@@ -182,8 +182,11 @@ What the roster asks of everything else:
 ### 4.3 Checklists and lessons
 
 Decided 2026-09-18: the simulator teaches flying. Every aircraft carries
-checklists for each phase of flight, as data beside its flight model, taken
-from its handbook or pilot's notes and written in this project's own words.
+checklists for each phase of flight, as data beside its flight model, written
+in this project's own words - from the aeroplane's own handbook or pilot's
+notes where one is public, and otherwise from the ordinary practice for the
+type, `ASSETS.md` saying which (narrowed by the project owner, 2026-09-23:
+ten of the sixteen have no lawfully public manual).
 An item names the state of the aircraft that shows it done - flaps set, mixture
 rich, gear down, a speed reached - so it ticks itself; one the simulation cannot
 see (a passenger briefing, a look out) is the pilot's to confirm. Lessons teach
@@ -409,7 +412,10 @@ not the session.
 
 - Reuse gearstick's transport as specified in its `docs/TRANSPORT.md`:
   `Noise_IK_25519_ChaChaPoly_BLAKE2s` over UDP, libsodium primitives, a sequence
-  number and replay window per message.
+  number and replay window per message. **As built it is
+  `Noise_IK_25519_ChaChaPoly_BLAKE2b`**: libsodium has no BLAKE2s, and
+  BLAKE2b is a hash the Noise specification defines. Taken 2026-09-22
+  without the project owner's ruling; open in section 9.
 - One suite, no negotiation. The client knows the server's static key out of
   band (`--server-key`, printed by the server at startup).
 - Same six-byte envelope shape (magic, version, type); every protocol message
@@ -682,8 +688,29 @@ The replacement:
   Blue Marble, public domain, was the other candidate: at 500 m a pixel it
   cannot show a runway.
 
+**Closed 2026-09-30:**
+
+- **A switch's smoothness is claimed at 20 fps and above, and no lockstep
+  harness is built.** How far the client with the window's aircraft steps at
+  a hand-over, a take-back or a take-over is measured against the wall clock
+  through real sockets, and at a few frames a second - a sanitized build on a
+  software renderer - a frame carries the aircraft metres and the step
+  measures the machine. A test mode stepping the client and the server in
+  lockstep would take the machine out of it, at the price of a server change
+  close to the deterministic simulation this project does not have. Instead
+  the bounds (section 8.3) are a claim about what a player sees at a playable
+  frame rate, 20 fps and above; the tests assert that frame rate around each
+  switch and fail when it is not met.
+- **The player's copilot key stays on the player's machine**: the client
+  asks the model and sends the server only the route (section 5, and
+  `COPILOT_ROUTE` in section 6.4).
+- **The stall recovery is held to two checks**, at the stall warning and left
+  thirty seconds in the stall (section 4.3).
+
 **Closed 2026-10-01:**
 
+- **A player handing their own aircraft to the AI chooses what plans it**,
+  with their own key (section 5).
 - **Runways on the DEM: collision ground is flattened under every runway.**
   Copernicus DEM is a radar-measured surface model (it includes trees and
   buildings) with a sample every 30 m and a few metres of vertical error, so
@@ -713,21 +740,19 @@ The replacement:
   `src/world/runway_ground.hpp` has the rules; `PROJECT_STATUS.md` the
   measurements.
 
-**Closed 2026-09-30:**
+**Closed 2026-10-02:**
 
-- **A switch's smoothness is claimed at 20 fps and above, and no lockstep
-  harness is built.** How far the client with the window's aircraft steps at
-  a hand-over, a take-back or a take-over is measured against the wall clock
-  through real sockets, and at a few frames a second - a sanitized build on a
-  software renderer - a frame carries the aircraft metres and the step
-  measures the machine. A test mode stepping the client and the server in
-  lockstep would take the machine out of it, at the price of a server change
-  close to the deterministic simulation this project does not have. Instead
-  the bounds (section 8.3) are a claim about what a player sees at a playable
-  frame rate, 20 fps and above; the tests assert that frame rate around each
-  switch and fail when it is not met.
+- **An aircraft given to the AI in the air without its player choosing** -
+  left by a player who goes, or by a take-over - **is planned by the
+  server's model**, one setting for every such aircraft, with the operator's
+  key (section 5).
 
 **Open:**
 
 - **Buildings:** how OpenStreetMap buildings arrive without a Cesium ion
   token.
+- **The transport's hash:** section 6.7 names BLAKE2s, and what is built is
+  BLAKE2b, because libsodium has none; taken 2026-09-22 and asked of the
+  project owner, who has not ruled. BLAKE2s would have to come from
+  somewhere other than libsodium, and every client and server would change
+  with it.

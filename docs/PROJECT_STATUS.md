@@ -19,7 +19,12 @@ anything proved elsewhere names the CI run.
 
 ---
 
-## The honest summary, 2026-09-25
+## The honest summary, 2026-10-02
+
+**Every numbered phase is ticked, 0 to 8; what is left is the tails** at the
+bottom of `COMPLETION_PLAN.md` - flight-model shortfalls, flakes and CI
+costs, and features named but not built (Phases 7 and 8, at the end of this
+summary, and the gaps below say which).
 
 **A Cessna 172P flies to its handbook over the real ground, in the real weather,
 with a HUD and flight controllers, and the ground is drawn - satellite imagery
@@ -75,7 +80,8 @@ package (CI run 35244380011, package run 35244379942); and Cesium Native
 drawing the open-data terrain, with open imagery on it (CI run 35331164089,
 package run 35328306817). Windows took three tries: MSVC's limit on a path's
 length, then a test tool's `sscanf`. What remains of the world is in tails:
-terrain beyond the cells around the start, runways and buildings.
+terrain beyond the cells around the start, and buildings. Runways are flat
+in the collision ground since 2026-10-01.
 
 **Phase 3, weather, is complete — 4 of 4 items**, proved in CI on every
 platform (run 35250647710) and fetched by every package (run 35248205205):
@@ -133,11 +139,11 @@ instructor, the AI pilot, demonstrating each and handing the controls over
 and back with no step. The AI pilot takes off, flies the pattern, lands and
 stops - on water, too, in the flying boat - every one of the fourteen
 upright on its wheels from the touch to the stop, the jets as the FAA lands
-a jet. The F-35B's circuit touches down two kilometres short of the runway
-and rolls on to it (a tail). The 747-400 and F-22A are taught
-turns alone, having no stall or climbing speed; the F-15C, F-35B and
-Learjet are not flown rotating early (a tail). See the log for 2026-09-22
-to 2026-09-24.
+a jet. The 747-400 and F-22A are taught turns alone, having no stall or
+climbing speed; the Learjet cannot be rotated early since her stabilizer
+was tied to her maintenance manual (a tail). See the log for 2026-09-22 to
+2026-09-24, and later entries for what was fixed since (the F-35B's
+circuit touching short, 2026-09-27; the fighters' rotation, 2026-09-26).
 
 **Phase 6, client and server, is complete — 17 of 17 items.** A server flies
 every aircraft, wherever on Earth, with AI aircraft of its own, and resolves
@@ -152,8 +158,29 @@ missing from multiplayer:
 - choosing an aeroplane: a player flies what the server's plan flies;
 - the lobby, the session, the weather and the terrain dataset: they are
   defined and do not yet travel;
-- handing an aircraft between a person and the AI across the network in the
-  client with the window: `glideslope_cli` does it (Phase 7).
+- any limit on how often a client sends.
+Each is a tail in `COMPLETION_PLAN.md`.
+
+**Phase 7, the user/AI controller swap across the network, is complete - 8
+of 8 items** (2026-09-25). A player hands their aircraft to the AI and takes
+it back, rides along in any AI aircraft with its controls shown, and takes
+one over, never another player's; both clients do it, and the network checks
+hold the swaps within their bounds at 100 and 200 ms with jitter and loss.
+What the client with the window shows of its own aircraft does not step at
+a switch, at 20 fps and above. Left in tails: a narrow race when A is
+pressed during a take-over, and the window client's bounds not yet seen
+passing on CI's windows-release.
+
+**Phase 8, the LLM copilot, is complete - 6 of 6 items** (2026-10-02).
+Claude and ChatGPT turn words into flight plans the autopilot flies; the
+copilot flies with a player, asked on the player's machine with the
+player's key, and the server flies only the route it is sent, checked; each
+AI aircraft, and each aircraft handed to the AI, is planned by the model
+chosen for it, or none; a build check keeps the model from any control
+surface; and a landing learnt by reinforcement learning lands the Cessna
+172P on the centreline in a crosswind. The learnt landing is offered by the
+CLI only, for one aircraft (tails). Everything a model answered is recorded,
+and CI flies it again with no key.
 
 ## Gaps
 
@@ -189,7 +216,8 @@ are the risks the phase order is built around:
   and there is sky below.
 - **The HUD's horizon line is not the horizon.** It moves a hundredth of the
   frame's height a degree of pitch, which was a choice when there was nothing
-  behind it; now the terrain is drawn, the two do not line up.
+  behind it; now the terrain is drawn, the two do not line up. A tail in
+  `COMPLETION_PLAN.md`.
 - **The weather seen is a sketch of it.** Cloud decks are flat sheets, not
   volumes, over a disc 60 km across the station, and do not drift with the
   wind; cumulonimbus is a deck 6 km deep, not a tower. A new report makes the
@@ -201,7 +229,9 @@ are the risks the phase order is built around:
   wind only: no rotor, and no lee waves trapped under a stable layer. A tail
   in `COMPLETION_PLAN.md`.
 - **Weather is one station's.** A flight flies in the weather of the airfield
-  it names, everywhere it goes; nothing picks the nearest station.
+  it names, everywhere it goes; nothing picks the nearest station. And on a
+  server the weather does not travel: each client predicts in its own. Both
+  are tails in `COMPLETION_PLAN.md`.
 - **Summits are low in the DEM.** A 30 m grid does not hold a peak: at five
   surveyed summits the DEM is 8 to 35 m below the survey. Runway ends and
   coastlines are within the dataset's stated 4 m.
@@ -219,7 +249,7 @@ are the risks the phase order is built around:
   and each aircraft held to its own figure rather than made to vanish: the
   747-400's is the worst at 2.48 m, because JSBSim's has one main leg a side
   where the aeroplane has two. The Learjet 35A has no model, because
-  FlightGear has no Learjet of any mark. See the log.
+  FlightGear has no Learjet of any mark (a tail). See the log.
 - **Only runways OurAirports places are flat.** The collision ground under a
   runway is its own straight line between its ends' elevations, for the
   14,814 runways whose ends the pinned file places; the rest, mostly small
@@ -231,6 +261,43 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### The living documents re-read at the end of Phase 8, 2026-10-02
+
+Every numbered phase is ticked, so `COMPLETION_PLAN.md`, this file,
+`REQUIREMENTS.md` and `FEATURES.md` were read in full against each other.
+Nothing in the code changed, and nothing was ticked or unticked. What the
+pass changed:
+- **Debris from merges that kept both sides**: two fragments of old plan
+  items left as loose paragraphs in the tails (the SourceForge model sources,
+  and a player's copilot told the engine stopped), and two log headings
+  with no body ("The horizon is never drawn through the HUD's text" and a
+  "tail in progress" copy of "Asked for a height it cannot hold").
+- **This log is newest first again**: 31 of its entries had landed out of
+  date order, and are moved, unchanged, to their dates (same-day entries keep
+  their order). Entries whose heading still said "not done", "in progress"
+  or "begun" for work since finished say when it was finished; three say
+  what changed under them since.
+- **Stale claims**: the honest summary (it stopped at 2026-09-25, before
+  Phases 7 and 8), and "Known risks", all four of which were answered long
+  ago, the runways on 2026-10-01; in the plan, the PA-28 named in the stall
+  tail after it was taken off the test's list (2026-10-01), and the window
+  client's windows-release failure as "a cost not yet found" after
+  2026-10-02 found it.
+- **The plan kept a summary**: 23 items of eight or more lines are cut to
+  what they are, what is missing and their verification; the detail was
+  here already.
+- **Tails named here and missing from the plan, added**: the lobby, session,
+  weather and terrain dataset not travelling; no choice of aeroplane on a
+  server; no limit on what a client sends; the HUD's horizon; one station's
+  weather; the Learjet drawn as nothing; and no test of the window client
+  joining a restarted server.
+- **`REQUIREMENTS.md`**: the checklists' sources as narrowed on 2026-09-23;
+  the transport's BLAKE2b, built, against the BLAKE2s named, now an open
+  question; SDL_net, not used; and section 9 lists the decisions of
+  2026-09-30 to 2026-10-02 that sections 4.3 and 5 hold.
+- **`FEATURES.md`**: whose key plans a server's AI aircraft (its operator's,
+  not the player's), and a "later" that is now.
 
 ### The model that plans an aircraft is chosen when it is handed to the AI, 2026-10-02 — item done
 
@@ -620,6 +687,151 @@ the old session's `--timeout` let it go.
   Windows working copy to its own branch mid-run, so the build held none of
   these tests; it was run again with the copy idle.
 
+### The F-15C's pitching moment is NASA's at the approach: she flies it at 10 degrees with stabilator to spare, 2026-10-02 — item not done
+
+**What is still missing, first.**
+- **Full aft stick does not meet the manual's speed.** T.O. 1F-15A-1,
+  section VI: "With full aft stick, AOA stabilizes at 45 units or above with
+  airspeed 100 knots or less". Her nose now settles - at 42.4 degrees - but
+  at 116.6 knots. The model's lift and drag would give 100 knots only
+  settled past 60 degrees, beyond the end of their tables at 50; the
+  manual's units are not degrees, and it gives no conversion.
+- **Her high-alpha pitching moment is not published.** No F-15 pitching
+  moment past the approach was found; past 24 degrees the pinned model's
+  table is kept at 0.45 of itself, chosen (below), not sourced.
+- **No published stall speed exists**, so the plan item's "stalls near its
+  published speed" needs the owner's word. Her stall is measured on the
+  model, 112.26 knots, where its lift table peaks.
+- One new named exception: recovered at the stall warning she loses 590 ft
+  against the fighter lesson's 500.
+
+**Why.** On #79's 160-knot approach her stabilator sat near its stop and her
+nose crept up, and #77's flare wrecked her in the circuit at 1,042 ft/min.
+NASA TM-4604 (Corda, Stephenson, Burcham and Curry, 1994, page 8) gives the
+NASA Dryden F-15 simulator's derivatives at the approach, 8 degrees of alpha
+and -5 of stabilator, each a degree: CL-alpha 0.065, CL-delta 0.005,
+Cm-alpha -0.0021, Cm-delta printed -0.00072.
+
+**The change** (`tools/make_f15c.py`, `with_nasa_pitch`, its docstring
+entry):
+- **Cm-alpha NASA's at the approach.** The table is scaled, its shape kept,
+  until its slope across 6 to 10 degrees - not at 8, which sits on the lift
+  table's 0.14-radian breakpoint - about the **clean loading's** centre of
+  gravity is NASA's. That centre of gravity is worked out from the figures
+  file and the model: the empty aeroplane's, with the stores and fuel at it,
+  and the 230-lb pilot 187 in forward, which brings it 1.17 in forward, to
+  3.41 in ahead of the aerodynamic reference point (it was taken about the
+  empty aeroplane's, 2.24 in, before the review). The model's slope there
+  was -0.0100 a degree, about five times NASA's; the scale is 0.118. The
+  model's lift slope across the same range is 0.058 a degree against NASA's
+  0.065 (0.067 below the breakpoint and 0.049 above it).
+- **Past 24 degrees the scale is 0.45, not 0.118.** Scaled whole, the table
+  left full aft stick nothing to balance against at high alpha: about a
+  degree of stabilator at 8 degrees and a flat 2 degrees from 22 to 48, and
+  the nose went on rising to 80 degrees in the stall flight - the review's
+  finding. 0.45 is about the most of the pinned table's nose-down moment
+  that still lets full aft stick carry the nose past the lift's peak at 32
+  degrees, as the manual's goes on past its wing rock at 30 units: at 0.468
+  or more full aft stick balances below 24 degrees, and the script works
+  that bound out and refuses a scale over it. The pinned table's slight
+  pitch-up between 24 and 32 degrees is kept.
+- **Cm-delta -0.0072, NASA's with the zero it dropped.** The two stabilator
+  derivatives' ratio is the tail's arm in chords: -0.00072 / 0.005 puts the
+  stabilator 2.3 ft behind the centre of gravity, where the model's
+  horizontal tail arm is 20 ft; -0.0072 puts it 23 ft. The model's was
+  -0.008.
+- **CL-delta 0.005**, NASA's, where the model's was 0.010.
+
+**Before and after.**
+
+| | Main (#79) | This branch |
+|---|---|---|
+| Approach at the manual's 160 kt, 36,946 lb: alpha | 10.5 to 18.3° | 9.9 to 11.5° (10.8 at 50 ft) |
+| Nose-up stabilator used on it | up to 0.98 | at most 0.14 |
+| Full aft stick, 200 kt at 10,000 ft, idle | stabilator stop at 18.3°, 151 kt | settles at 42.4°, 116.6 kt, sinking 7,700 ft/min (manual: 45 units, 100 kt or less) |
+| Stall (measured) | 151.06 kt, lowest speed | 112.26 kt, first CL maximum, at the lift table's 32° peak |
+| Nose wheel off, full aft, military (A3-6: 91.5 / 100.1 / 110.7) | 98 / 103 / 107 | 96.6 / 100.9 / 105.0 |
+| Lift-off speed / where she left | 1.15 × stall, 173.7 / 178.2 | 154.4 worked from A3-6 / 159.9 |
+| The six published figures | in range | in range: Mach 2.40, 15,469 and 56,925 ft/min, ceilings 47,627 and 58,232 ft, 7.80 °/s |
+| Stall recovery at the warning | 281 ft of 500, 1.70 g | 590 ft of 500, named; 1.64 g |
+| Left thirty seconds in a stall | 958 of 2,952 ft, 1.89 g, named for load | 1,493 of 3,877 ft, 1.65 g, the name off |
+
+**What had to be measured or pinned again, and how.**
+- **The stall.** In the old stall flight the speed went on falling and the
+  nose on rising, and "the lowest speed before it gathers three knots"
+  meant nothing. 14 CFR 25.103(b) defines a stall speed for an aeroplane
+  whose lift never breaks: the speed at which the lift coefficient is first
+  a maximum. `stall_speed` measures that where a figure says `clmax="1"`,
+  from the wind-axis lift (the body's normal force at sixty degrees is half
+  drag). For the F-15C that maximum is where JSBSim's f15 lift table peaks,
+  32 degrees - the table's, not a published one. From 160, 200 and 240
+  knots: 112.13, 112.26, 112.15.
+- **The take-off.** At 1.15 times a stall at 32 degrees she would rotate at
+  129 knots and cannot leave the ground there below her tail strike. Figure
+  A3-6 gives the normal take-off speed at military thrust, 141.4 at 36,946
+  lb, with full flaps; figure A8-1's ratio of flaps-up to flaps-down
+  approach speed at that weight, 160.5 to 147.0, makes it 154.4 flaps up,
+  which the model is. A figures file may give that as `<takeoff kcas
+  loading>`; `departure_speeds` takes off at it, after a flying boat's water
+  take-off and before the rest, and says it is **not** published - it is
+  worked out (the review). She leaves 4.6 to 6.0 knots past it at every
+  loading.
+- **The fighter take-off lesson's climbing attitude band starts at 3
+  degrees, not 5.** Her least attitude in the initial climb by the book is
+  now 7.0 (it was 11.4), and on part throttle, leaving later at 165 knots,
+  5.0 - which broke the "names that fault and no other" check with "Hold
+  the climbing attitude". The lesson's note gives the measured figures.
+- **The climbing speed is kept at 200 knots by decision.** The floor under
+  the climb rule chose it when her stall was 151; the floor is now 146, and
+  a climb taught at 146 knots is not one the manual flies. The rate at 200,
+  24,556 ft/min, is unchanged. Said so in the figure and in ASSETS.md.
+- The fighter stall lesson's note: its warning, stall + 8, was 5% of 151.
+
+**Verified** (linux-release):
+- New:
+  - `the_f15c_flies_its_approach_near_nasas_angle_of_attack_with_stabilator_to_spare`:
+    8 to 13 degrees down the whole approach stage, under a third of the
+    nose-up travel.
+  - `the_f15c_held_at_full_aft_stick_settles_past_the_peak_of_her_lift`:
+    over the last 20 of 90 s at full aft stick, alpha within 4 degrees and
+    past 32; the speed against the manual's 100 knots is printed, not held.
+  - `the_f15c_lifts_its_nose_wheel_near_its_flight_manuals_speed_at_each_weight`:
+    within a tenth of the manual's at each loading, and it counts the
+    loadings whose nose wheel came off. A tenth, not closer, because the
+    manual's speed rises 19 knots across the three where the root of the
+    weight gives 10 - the real aeroplane's centre of gravity moves with its
+    fuel and stores, the model's carries both at its own - so no single
+    centre of gravity meets all three. (The review found the earlier
+    tolerance had 0.37 knots to spare: fitted to the result.)
+- **Seen red**:
+  - With the model made without `with_nasa_pitch`, the approach test failed
+    at 10.3 to 18.4 degrees, the nose wheel came off at 97.9 at the clean
+    loading, and the measured stall moved.
+  - With the high-alpha scale set to the approach's, the full-aft-stick
+    test failed: alpha went through every value from -180 to 180 - she
+    tumbled. A scale over the bound is refused by the script.
+  - The nose-wheel test was red at 96.6 under the old five-knot tolerance.
+  - The take-off checks were red at 1.15 times the new stall.
+- 194 tests across take-off, figures, lessons, approach, landing, learnt
+  landing, departure, stalls, circuits, the autopilot and plans: all pass
+  but one. That one, `a_player_takes_over_an_ai_aircraft_with_no_step_at_100_ms_and_a_players_is_refused`,
+  is a multi-process test run at -j4 alongside the flights; on its own it
+  passes. The committed model matches its script. The selftest hash (C172P)
+  is unchanged, `d36123c1eecc3e23`.
+- **#70's orbit test on top** (`orbits-flown-on-their-circle` at 4bcdfd9,
+  merged on a scratch branch, not committed):
+  `the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_fighter_and_bomber_that_can_fly_it`
+  passes, and the F-15C, which on main's model lost 457 ft round it at 160
+  knots, holds her height within 2 ft in all four orbits, left and right, calm
+  and a 10-knot wind, 2.00 turns each, -3 to +101 m off the circle.
+- **With #77 on top** (origin/the-ai-flares-to-its-wheels at 3522308, on a
+  scratch branch, not committed; measured on the first version of this
+  change, before the review): her circuit landing touched at 427 ft/min,
+  not 1,042, and was not wrecked. **But she rose 2.3 ft after her wheels met
+  the runway** in the approach and circuit lessons, and 3.1 ft taken back
+  at the touch: three of #77's after-touch checks are red for her. That is
+  #77's flare and her gear, not her pitch.
+
 ### The AI flares to its wheels and touches down within what its gear takes, 2026-10-01 — tail done
 
 **On main after #73, #80 and #82** (2026-10-02), the table below is this
@@ -842,305 +1054,6 @@ review one run had
 miss its 10 m bound at 12.55 m under load, the open tail of a server behind
 real time; it passed three of three alone and in this run.)
 
-### A tight, slow orbit is flown on its circle, 2026-09-30 — tail done
-
-**Not every orbit a plan allows can be flown.** A plan may fly any aircraft
-as slowly as its approach speed, and round a circle as tight as two and a
-half times its 25-degree turn at that speed. Seven jets cannot fly that
-clean, and nothing refuses such a plan yet: the new tail "A plan may fly a
-jet clean at its approach speed". The refusal belongs in the copilot's
-planner (`copilot/planner.cpp`, which already knows each aircraft's approach
-speed): a clean floor for each aircraft, below which no plan may fly.
-
-**What is not covered first.** Of the sixteen aircraft, each left out is
-named in its test with the reason:
-- **The 747-400 and the F-22 publish no stall speed**, so they have no
-  approach speed and no plan can be made for them.
-- **Seven jets cannot fly clean at their approach speed round a turn.** The
-  approach speed is a flaps-down figure (1.3 times the landing stall), and
-  the autopilot flies a plan clean.
-  - The 737-300 stalls turning onto the circle and falls to the ground.
-  - The 787-8, A380, Learjet 35A and F-35B come down to the ground round it
-    (the Learjet slowed from 125 to 113 kt on the way).
-  - The B-2 stalls turning towards the circle: its throttle closes, its
-    angle of attack is 64 degrees within 15 s, and it falls inverted to the
-    ground 25 s after starting. That is energy, not steering: it never
-    reaches the circle.
-  - The A320 stays up and holds its circle, -6 to +96 m, but loses 600 to
-    641 ft: flown, with its circle held to 200 m and its height and speed
-    named as not held.
-- **The Cub and the Cherokee in wind.** Measured with no plan and no
-  navigator - the autopilot holding heading north in a crosswind from the
-  west - and then on a plain waypoint leg, the old drift path:
-  - J-3 Cub, 10 kt: sideslip -36 to +34 degrees holding a heading, -35 to +36
-    on the leg, its heading swinging 230 degrees while the heading asked
-    stays at 0.
-  - PA-28, 10 kt: sideslip -37 to +37 holding a heading and on the leg. The
-    same at 20 kt.
-  - C172P and C182, 10 and 20 kt: sideslip within 0.1 degree; each holds its
-    heading, and on the leg crabs a steady 9 (C172P) or 8.5 degrees at 10 kt.
-  So the yaw is the autopilot's with those two models, not this change, and
-  their orbits in wind are left out: the tail "In wind the Cub and the
-  Cherokee yaw from side to side". In calm air both are flown.
-The wind in the new tests is 10 kt, not the 20 kt of the older orbit tests:
-at 43 kt, the Cub's approach speed, 20 kt downwind needs about 25 degrees of
-bank round its tightest circle, all the autopilot has. The plan reader's least radius
-takes no account of the wind.
-
-**The cause.** Round an orbit the navigator asked for a heading along the
-circle's tangent where the aircraft would be five seconds on, turned in by 90
-degrees a kilometre. In a steady turn the autopilot banks a degree for each
-degree the heading is ahead, plus its integral near the heading, which winds
-to 5 degrees: so the lead the circle needs is its bank less five. At the
-tightest radius a plan may ask - two and a half times the 25-degree circle -
-the bank is about 11.5 degrees whatever the speed, so the lead needed is
-about 6.5 degrees. But five seconds along the tangent is v t / r, which grows
-as the speed falls: 18 degrees for the Cessna's 521 m at 60 kt, 12 for
-1,172 m at 90 kt. Turning out by 90 degrees a kilometre balanced the extra:
-124 m inside, as flown. And flown to straight at its centre, the aircraft
-crossed the circle at right angles and could not turn onto it: the PA-28 in
-wind went to 57 m from the centre of its 593 m circle.
-
-**The fix** (`sim/navigator.cpp`, `sim::heading_off_for_bank_deg` in
-`sim/autopilot`). For every aircraft that can fly its approach speed clean,
-the physics allows it: every tightest orbit wants about 11.5 degrees of bank,
-well within the autopilot's 25. So the plan reader's least radius stays, and
-no recorded plan is refused.
-- **The lead is the autopilot's own law turned round**: the heading ahead
-  that makes it bank for the circle now. Round a circle over the ground the
-  track turns at the ground speed over the radius, and the air is turned
-  through that at the airspeed: tan bank = v_air v_ground / g r. The
-  inversion assumes the autopilot's integral at its 5-degree limit, which it
-  reaches only while the heading is within 10 degrees of it - so below about
-  15 degrees of bank - as the function says.
-- **A trim** - an integral on how far off the circle, a sixtieth of the
-  turn-in each second, 15 degrees at most, counted only within 100 m of the
-  circle - for what the autopilot's bank and the aeroplane's turn do not
-  quite agree on: a propeller turns one way more readily than the other.
-- **Joined at a tangent.** Outside the circle and not yet on it, the
-  aircraft flies the line that meets the circle at a tangent, the way round
-  it is flown; it is on the circle within 100 m of it, either side, where
-  before it had to cross into it. Begun from inside, it spirals out as
-  before.
-- **The wind by the wind triangle.** Round an orbit the drift changes all the
-  way round, and five seconds' average of it lags. The wind does not change:
-  where the aircraft goes over the ground, less where the air carries it -
-  its body's air-relative velocity turned through its attitude, so its
-  sideslip and its climb through the air count. It is averaged over five
-  seconds, and taken as it is when the navigator starts or begins again
-  (`begin_here`, after a take-off), not from calm. The heading is the track
-  turned into the wind across it, at the horizontal airspeed. The legs
-  between waypoints still use the drift.
-The selftest's hash does not move: the selftest flies no plan, and the
-autopilot's loops are unchanged (the new function only reads its constants),
-which `the_selftest_prints_the_same_hash_every_run` confirms.
-
-**Verified** (linux-debug; metres off the circle from the first
-quarter-turn, the worst of calm air and a 10 kt wind from the west, left and
-right):
-
-| aircraft, radius at approach speed | before | after |
-|---|---|---|
-| Cessna 172P, 521 m at 60 kt | -152 to +92 m | -32 to +23 m |
-| Cessna 182, 593 m at 64 kt | -160 to +124 | -35 to +25 |
-| Piper Cub, 268 m at 43 kt, calm | -124 to +55 | -19 to +36 |
-| PA-28, 593 m at 64 kt, calm | -105 to +210 | -31 to +50 |
-| Mosquito FB.6, 2,189 m at 123 kt | not measured | -32 to +33 |
-| Short S.23, 1,071 m at 86 kt | not measured | -36 to +4 |
-| F-15C, 5,559 m at 196 kt | -253 to +936 (calm, left) | -88 to +196 |
-| A320, 3,127 m at 147 kt (circle only) | not measured | -6 to +96 |
-
-Four tests, splitting the catalogue by class so that none flies long on CI;
-the first checks that the four groups take each of the seven classes once.
-Each says how big its space is, and fails unless what it flew and what it
-named are all of it, or on a named aircraft its space does not hold. Each
-orbit flown must go twice round and on, hold its circle, and - unless named
-- its height within 50 ft and its speed within 5 kt.
-- `the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_light_aeroplane`:
-  12 of 16 orbits flown, the Cub's and the Cherokee's four in wind named;
-  held to 60 m, at worst 50. 99 s.
-- `..._by_every_airliner_and_business_jet_that_can_fly_it`: 4 of 24, the
-  A320's with height and speed named; the 747 and five jets left out. Held
-  to 200 m, at worst 96. 70 s.
-- `..._by_every_fighter_and_bomber_that_can_fly_it`: 4 of 16, the F-15C's;
-  the F-22, F-35B and B-2 left out. Held to 200 m - the F-15C's 5.6 km
-  circle is 196 m off at worst, 3.5% of it. 89 s.
-- `..._by_every_warbird_and_flying_boat`: 8 of 8, held to 60 m, at worst 36.
-  148 s.
-- Timings are linux-debug under a -j4 run here. On CI, before the split, the
-  one test for every aircraft but the light ones took 57 s and 67 s on two
-  runners and 425 s on a third (run 36702902558): the split is for that.
-- **Claude's CBD plan**, 521 m at 60 kt: replayed by `glideslope_cli
-  fly-plan`, 509 to 521 m (394 to 427 before); on the server, 509 to 521 m
-  (394 to 428). ChatGPT's 1,447 m: 1,448 to 1,475 m (1,451 to 1,454). The
-  hand-written `sydney-cbd-orbit.plan`, 1,500 m: 1,476 to 1,502 m.
-- **The allowances**:
-  - the replay tests and the server's planned-aircraft test come down from
-    150 m to 60;
-  - the older orbit test flown from outside, from 160 m to 80: at worst 47 m
-    now, where it was 150 m outside;
-  - the test begun from the centre, from 160 m to 110. That one is not a
-    check on this change: the old navigator flew it within 69 m (62 in
-    wind), and the new one within 88 m (+88 in a 20 kt wind, right) - its
-    trim starts from nothing where it joins from inside. The old navigator
-    passes it at 110 m, seen.
-
-**Seen to fail**, the old navigator put back, each then restored:
-- the light-aeroplane test: "on its circle within 60 m, c172p round 521 m at
-  60 kt, left, in calm air: 391 to 516 m";
-- the test for every aircraft but the light ones, before it was split:
-  "within 200 m, f15c ... 5306 to 6495 m";
-- Claude's replay: "round CBD from 394 to 427 m, off its 521 m circle by
-  more than 60 m";
-- the server's planned-aircraft test: "more than 60 m";
-- the older orbit test at 80 m: "1172 m, left, in a 20 kt wind: 1081 to
-  1322 m".
-Not seen to fail: the begun-from-centre test at 110 m, as said above.
-
-### The F-15C's pitching moment is NASA's at the approach: she flies it at 10 degrees with stabilator to spare, 2026-10-02 — item not done
-
-**What is still missing, first.**
-- **Full aft stick does not meet the manual's speed.** T.O. 1F-15A-1,
-  section VI: "With full aft stick, AOA stabilizes at 45 units or above with
-  airspeed 100 knots or less". Her nose now settles - at 42.4 degrees - but
-  at 116.6 knots. The model's lift and drag would give 100 knots only
-  settled past 60 degrees, beyond the end of their tables at 50; the
-  manual's units are not degrees, and it gives no conversion.
-- **Her high-alpha pitching moment is not published.** No F-15 pitching
-  moment past the approach was found; past 24 degrees the pinned model's
-  table is kept at 0.45 of itself, chosen (below), not sourced.
-- **No published stall speed exists**, so the plan item's "stalls near its
-  published speed" needs the owner's word. Her stall is measured on the
-  model, 112.26 knots, where its lift table peaks.
-- One new named exception: recovered at the stall warning she loses 590 ft
-  against the fighter lesson's 500.
-
-**Why.** On #79's 160-knot approach her stabilator sat near its stop and her
-nose crept up, and #77's flare wrecked her in the circuit at 1,042 ft/min.
-NASA TM-4604 (Corda, Stephenson, Burcham and Curry, 1994, page 8) gives the
-NASA Dryden F-15 simulator's derivatives at the approach, 8 degrees of alpha
-and -5 of stabilator, each a degree: CL-alpha 0.065, CL-delta 0.005,
-Cm-alpha -0.0021, Cm-delta printed -0.00072.
-
-**The change** (`tools/make_f15c.py`, `with_nasa_pitch`, its docstring
-entry):
-- **Cm-alpha NASA's at the approach.** The table is scaled, its shape kept,
-  until its slope across 6 to 10 degrees - not at 8, which sits on the lift
-  table's 0.14-radian breakpoint - about the **clean loading's** centre of
-  gravity is NASA's. That centre of gravity is worked out from the figures
-  file and the model: the empty aeroplane's, with the stores and fuel at it,
-  and the 230-lb pilot 187 in forward, which brings it 1.17 in forward, to
-  3.41 in ahead of the aerodynamic reference point (it was taken about the
-  empty aeroplane's, 2.24 in, before the review). The model's slope there
-  was -0.0100 a degree, about five times NASA's; the scale is 0.118. The
-  model's lift slope across the same range is 0.058 a degree against NASA's
-  0.065 (0.067 below the breakpoint and 0.049 above it).
-- **Past 24 degrees the scale is 0.45, not 0.118.** Scaled whole, the table
-  left full aft stick nothing to balance against at high alpha: about a
-  degree of stabilator at 8 degrees and a flat 2 degrees from 22 to 48, and
-  the nose went on rising to 80 degrees in the stall flight - the review's
-  finding. 0.45 is about the most of the pinned table's nose-down moment
-  that still lets full aft stick carry the nose past the lift's peak at 32
-  degrees, as the manual's goes on past its wing rock at 30 units: at 0.468
-  or more full aft stick balances below 24 degrees, and the script works
-  that bound out and refuses a scale over it. The pinned table's slight
-  pitch-up between 24 and 32 degrees is kept.
-- **Cm-delta -0.0072, NASA's with the zero it dropped.** The two stabilator
-  derivatives' ratio is the tail's arm in chords: -0.00072 / 0.005 puts the
-  stabilator 2.3 ft behind the centre of gravity, where the model's
-  horizontal tail arm is 20 ft; -0.0072 puts it 23 ft. The model's was
-  -0.008.
-- **CL-delta 0.005**, NASA's, where the model's was 0.010.
-
-**Before and after.**
-
-| | Main (#79) | This branch |
-|---|---|---|
-| Approach at the manual's 160 kt, 36,946 lb: alpha | 10.5 to 18.3° | 9.9 to 11.5° (10.8 at 50 ft) |
-| Nose-up stabilator used on it | up to 0.98 | at most 0.14 |
-| Full aft stick, 200 kt at 10,000 ft, idle | stabilator stop at 18.3°, 151 kt | settles at 42.4°, 116.6 kt, sinking 7,700 ft/min (manual: 45 units, 100 kt or less) |
-| Stall (measured) | 151.06 kt, lowest speed | 112.26 kt, first CL maximum, at the lift table's 32° peak |
-| Nose wheel off, full aft, military (A3-6: 91.5 / 100.1 / 110.7) | 98 / 103 / 107 | 96.6 / 100.9 / 105.0 |
-| Lift-off speed / where she left | 1.15 × stall, 173.7 / 178.2 | 154.4 worked from A3-6 / 159.9 |
-| The six published figures | in range | in range: Mach 2.40, 15,469 and 56,925 ft/min, ceilings 47,627 and 58,232 ft, 7.80 °/s |
-| Stall recovery at the warning | 281 ft of 500, 1.70 g | 590 ft of 500, named; 1.64 g |
-| Left thirty seconds in a stall | 958 of 2,952 ft, 1.89 g, named for load | 1,493 of 3,877 ft, 1.65 g, the name off |
-
-**What had to be measured or pinned again, and how.**
-- **The stall.** In the old stall flight the speed went on falling and the
-  nose on rising, and "the lowest speed before it gathers three knots"
-  meant nothing. 14 CFR 25.103(b) defines a stall speed for an aeroplane
-  whose lift never breaks: the speed at which the lift coefficient is first
-  a maximum. `stall_speed` measures that where a figure says `clmax="1"`,
-  from the wind-axis lift (the body's normal force at sixty degrees is half
-  drag). For the F-15C that maximum is where JSBSim's f15 lift table peaks,
-  32 degrees - the table's, not a published one. From 160, 200 and 240
-  knots: 112.13, 112.26, 112.15.
-- **The take-off.** At 1.15 times a stall at 32 degrees she would rotate at
-  129 knots and cannot leave the ground there below her tail strike. Figure
-  A3-6 gives the normal take-off speed at military thrust, 141.4 at 36,946
-  lb, with full flaps; figure A8-1's ratio of flaps-up to flaps-down
-  approach speed at that weight, 160.5 to 147.0, makes it 154.4 flaps up,
-  which the model is. A figures file may give that as `<takeoff kcas
-  loading>`; `departure_speeds` takes off at it, after a flying boat's water
-  take-off and before the rest, and says it is **not** published - it is
-  worked out (the review). She leaves 4.6 to 6.0 knots past it at every
-  loading.
-- **The fighter take-off lesson's climbing attitude band starts at 3
-  degrees, not 5.** Her least attitude in the initial climb by the book is
-  now 7.0 (it was 11.4), and on part throttle, leaving later at 165 knots,
-  5.0 - which broke the "names that fault and no other" check with "Hold
-  the climbing attitude". The lesson's note gives the measured figures.
-- **The climbing speed is kept at 200 knots by decision.** The floor under
-  the climb rule chose it when her stall was 151; the floor is now 146, and
-  a climb taught at 146 knots is not one the manual flies. The rate at 200,
-  24,556 ft/min, is unchanged. Said so in the figure and in ASSETS.md.
-- The fighter stall lesson's note: its warning, stall + 8, was 5% of 151.
-
-**Verified** (linux-release):
-- New:
-  - `the_f15c_flies_its_approach_near_nasas_angle_of_attack_with_stabilator_to_spare`:
-    8 to 13 degrees down the whole approach stage, under a third of the
-    nose-up travel.
-  - `the_f15c_held_at_full_aft_stick_settles_past_the_peak_of_her_lift`:
-    over the last 20 of 90 s at full aft stick, alpha within 4 degrees and
-    past 32; the speed against the manual's 100 knots is printed, not held.
-  - `the_f15c_lifts_its_nose_wheel_near_its_flight_manuals_speed_at_each_weight`:
-    within a tenth of the manual's at each loading, and it counts the
-    loadings whose nose wheel came off. A tenth, not closer, because the
-    manual's speed rises 19 knots across the three where the root of the
-    weight gives 10 - the real aeroplane's centre of gravity moves with its
-    fuel and stores, the model's carries both at its own - so no single
-    centre of gravity meets all three. (The review found the earlier
-    tolerance had 0.37 knots to spare: fitted to the result.)
-- **Seen red**:
-  - With the model made without `with_nasa_pitch`, the approach test failed
-    at 10.3 to 18.4 degrees, the nose wheel came off at 97.9 at the clean
-    loading, and the measured stall moved.
-  - With the high-alpha scale set to the approach's, the full-aft-stick
-    test failed: alpha went through every value from -180 to 180 - she
-    tumbled. A scale over the bound is refused by the script.
-  - The nose-wheel test was red at 96.6 under the old five-knot tolerance.
-  - The take-off checks were red at 1.15 times the new stall.
-- 194 tests across take-off, figures, lessons, approach, landing, learnt
-  landing, departure, stalls, circuits, the autopilot and plans: all pass
-  but one. That one, `a_player_takes_over_an_ai_aircraft_with_no_step_at_100_ms_and_a_players_is_refused`,
-  is a multi-process test run at -j4 alongside the flights; on its own it
-  passes. The committed model matches its script. The selftest hash (C172P)
-  is unchanged, `d36123c1eecc3e23`.
-- **#70's orbit test on top** (`orbits-flown-on-their-circle` at 4bcdfd9,
-  merged on a scratch branch, not committed):
-  `the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_fighter_and_bomber_that_can_fly_it`
-  passes, and the F-15C, which on main's model lost 457 ft round it at 160
-  knots, holds her height within 2 ft in all four orbits, left and right, calm
-  and a 10-knot wind, 2.00 turns each, -3 to +101 m off the circle.
-- **With #77 on top** (origin/the-ai-flares-to-its-wheels at 3522308, on a
-  scratch branch, not committed; measured on the first version of this
-  change, before the review): her circuit landing touched at 427 ft/min,
-  not 1,042, and was not wrecked. **But she rose 2.3 ft after her wheels met
-  the runway** in the approach and circuit lessons, and 3.1 ft taken back
-  at the touch: three of #77's after-touch checks are red for her. That is
-  #77's flare and her gear, not her pitch.
 ### The AI leans the mixture for best power, 2026-10-01 — tail still open
 
 **What is still missing.** The tail's verification is that the AI climbs
@@ -1403,7 +1316,7 @@ tests; linux-debug, 679 of 680 before the rebase, the one a timeout of
 `the_open_terrain_is_within_its_stated_distance_of_the_ground_flown_on_vulkan`
 at 1,800 s under another agent's suite, which passed alone in 57 s.
 
-### The B-2A slows down its approach with its drag rudders, 2026-10-01 — tail still open
+### The B-2A slows down its approach with its drag rudders, 2026-10-01 — tail done 2026-10-02, with the flare to the wheels above
 
 **What is missing first.**
 - **The B-2A still floats after it first touches**: in the approach lesson
@@ -1541,615 +1454,6 @@ collapsed. No number in the model is set from it.
   handing and F-15C tests (the multi-process and window tests aside): 189
   tests, none failed. Four were skipped: three need a language model's key,
   and one is Windows's.
-
-### The Learjet's stabilizer tied to her maintenance manual's travel: she trims in cruise, 2026-09-30 — tail done
-
-**What is missing first: she can no longer be rotated early.** Her take-off
-had been leaning on the stabilizer's mis-tied zero. With the AFM's take-off
-setting on the rigging's scale (3.6 degrees less nose up on the model's),
-the stick held fully back from 85 percent of the speed the book rotates her
-at lifts her nose wheel only at about 115 knots, and she is five feet up at
-130 - past her rotation speed less five (125.3 - 5), so the business-jet
-take-off lesson finds nothing early in it. **The Learjet's early rotation is
-left out of `a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`**,
-named there with its reason, and is a tail ("The Learjet cannot be rotated
-early"); her book take-off there still leaves an empty debrief (off at 135
-knots, five feet up). The test now counts the classes whose early rotation
-was flown, six of seven, and asserts that the business jet's lesson is the
-one not flown. No published figure (a minimum unstick speed) was found to
-change what the lesson expects. **Left out too of the early half of
-`every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early`**,
-where she had passed by 0.2 knots - 125.7 rotated early against her rotation
-speed of 125.3 and 128.9 by the book (was 125.9 and 114.3): she is flown and
-printed, judged by the book, and named, and the test asserts she alone is
-left out of rotating early.
-
-**The moment budget at the rotation**, measured (a scratch probe, not
-committed): the stall-example loading (15,800 lb, 18.4% of the chord), flaps
-8, full thrust, the take-off setting (stabilizer -3.64 degrees on the model's
-scale), the stick fully back from 90 knots. Moments about the main wheels'
-contact, ft-lb, positive nose up, when the nose wheel leaves at 114.8 knots:
-
-| Term | ft-lb |
-| --- | --- |
-| Elevator, 16 degrees up (Cmde) | +22,600 |
-| Stabilizer (Cmstab) | +10,500 |
-| Pitching moment at no incidence (Cm0) | +5,200 |
-| Incidence, flaps, pitch rate | -1,500 |
-| Lift and drag, about the wheels | +3,900 |
-| Thrust, 6,800 lb on its line | -27,200 |
-| Weight, 1.6 ft ahead of the wheels | -25,100 |
-| Acceleration, at the centre of gravity's height | +13,200 |
-
-At the old setting (-7.24 on the model's scale) the stabilizer's term was
-about +20,900 - some 10,400 more - and the nose came up as the stick did, at
-90 knots. The maximum loading (18,300 lb, 24.6%) is the same: nose off at
-114.5 knots. **The suspects, each checked against a source**:
-- The elevator's travel, 16 degrees up: TCDS A10CE, as the model has it; its
-  moment, -1.036 a radian: TN D-7647's flight identification.
-- The main wheels: FS 396.82 static (MM 6-00-03, figure 1 sheet 2, Major
-  Structural Member Locations), as the model has them (396.83, the AFM's).
-- The thrust line: the model's engines are at WL 22 (estimated). MM 6-00-03
-  puts the engine beams that carry the pylons at WL 40.00 (FS 443.23) and WL
-  39.82 (FS 473.00); the nacelles' centreline is not given. Raised to the
-  beams, the thrust's moment about the wheels would grow by about 10,000
-  ft-lb nose down: the wrong way, so not the cause. Left as it was.
-- The centre of gravity's height: the model has it at WL 0, which MM 6-00-02
-  (figure 1 sheet 2) shows is the bottom of the fuselage (the floorboards are
-  at WL 5.87). It is surely too low, but no source gives it; raised, the
-  acceleration's term grows by about 5,000 ft-lb a foot, which would help.
-  With the thrust line raised too, the two nearly cancel. Left as it was.
-- The tail in ground effect: the model has ground effect on the wing's lift
-  only (kCLge 1.168 on the roll); nothing published gives the T-tail's.
-
-**The cause of the tail.** The stabilizer's scale was the flight model's:
-zero where TN D-7647's pitching moment holds, the nose-down stop the tunnel
-aircraft's 0.4 degrees, and the AFM's take-off settings (degrees leading edge
-down from the rigging's neutral) read as if that neutral were the model's
-zero. From 250 to 350 knots JSBSim's trim found no setting on 20 of the 24
-cases below. The maintenance manual (Learjet 35/35A/36/36A MM 27-40-00,
-Adjustment/Test, and its figure 202) gives the travel: nose-down stop 1 deg
-30' to 1 deg 55' leading edge down from neutral, nose-up stop 8 deg 30' to 9
-deg 00', take-off limits 4 deg 39' to 7 deg 54' on the same scale.
-
-**What changed** (`tools/make_learjet35a.py`, its docstring says why). The
-stops are the manual's, the middles of its tolerances, 1.71 and 8.75 degrees,
-and the rigging's neutral is put 3.6 degrees nose up of the model's zero -
-**an estimate: no source ties the two, and no one offset fits everything.**
-The take-off table is the AFM's setting less 3.6, over the nose-up half.
-
-**Tying the zero to a source, tried (the review of #72).**
-- The manual's neutral: the stabilizer measured by clinometer on a contour
-  board, the aircraft levelled by plumb bob (MM 27-40-00 Adjustment/Test, MM
-  8-10-00) - level with the aircraft's own reference.
-- The model's zero is TN D-6573's tail incidence of nought: the tunnel's
-  pitching moment at no incidence there, 0.051 + 0.0368 x 0.4, is 0.066,
-  TN D-7647's. TN D-6573 ("Tail") gives the Learjet 23's stabilizer travel,
-  0.4 to -7.0 degrees, as an incidence without its reference line; TN D-7647
-  gives no stabilizer settings (its Cm0 is one constant for whatever trim
-  its flights flew, and their thrust moment was an unknown beside it).
-- Read as one reference (offset nought), the 35A cannot cruise - she needs
-  1.81 degrees nose down of the model's zero and her stop is 1.71 nose up -
-  and the AFM's take-off settings are 2.3 to 3.3 degrees nose up of her trim
-  at V2. The Learjet 23's pitching moment does not carry to the 35A on one
-  reference. The one sourced alternative, TN D-7647 table II's wind-tunnel
-  values (Cm of incidence -1.12, of the elevator -1.34, against the flight's
-  -0.81 and -1.036), spreads her trims wider, not narrower.
-
-**What one offset can and cannot fit**, measured with the travel unbounded
-(a scratch probe; each loading her figures name; flaps 40 at its reference
-speed, 1.3 times its stall from the AFM's; flaps 8 at V2, 1.2 times its
-stall):
-
-| Condition | Model's trim, degrees (+ nose down) | Offset it allows |
-| --- | --- | --- |
-| Cruise, 350 knots at 10,000 ft, light (28.8%) - the most nose down | +1.81 | at least 3.52 |
-| Approach, flaps 40, landing loading (18.1%) at 125.4 knots - the most nose up | -5.08 | at most 3.67 |
-| AFM take-off setting trims her at V2, gear down: landing / stall-example / maximum / light | -5.00 / -4.91 / -3.06 / -1.71 | 2.25 / 2.33 / 2.88 / 3.29 |
-| The same at V2 and ten, gear up | -3.80 / -3.73 / -2.18 / -0.87 | 3.45 / 3.51 / 3.76 / 4.13 |
-
-The review's upper bound from the approach, 3.46, was flown at 125 knots at
-15,800 lb - below that loading's reference speed, 127.4, and above the
-maximum landing weight, 15,300. At the reference speeds the cruise and the
-approach leave a band, 3.52 to 3.67, and 3.6 is in it. **The take-off anchor
-is not used**: at V2 it gives 2.25 to 3.29, none of which can trim the
-cruise, and it spreads over a degree with the centre of gravity because the
-model's trim moves 3.3 degrees from the forward loading to the light one
-where the AFM's setting moves 2.25. At 3.6 the take-off setting is 0.3 to 1.4
-degrees nose down of her trim at V2, which is why she cannot be rotated
-early.
-
-**The test.** `the_learjet_35a_trims_level_from_250_to_350_knots_with_her_elevator_at_neutral`
-starts every loading her figures name (four) level at 250, 300 and 350 KCAS
-at 10,000, 20,000, 30,000 and 40,000 ft, and at 230 KCAS at 40,000 (Mach
-0.76) so that the ceiling's height is flown - 52 cases, counted - and leaves
-out, named, the sixteen past her Mach 0.81: 350 knots at 30,000 ft and all
-three speeds at 40,000 (250 knots there is Mach 0.82). Each of the 36 is
-trimmed by JSBSim on the pitch trim alone, the elevator left at neutral,
-then flown thirty seconds hands off, wings held level: she must have trimmed
-short of the stabilizer's stop, and hold her height within 100 ft and her
-speed within 3 knots. The worst case's share of the nose-down travel is
-printed. **Seen failing on the old model** (the first 24 cases, at 10,000
-and 20,000 ft): 20 did not trim (all but 250 knots at the landing and
-stall-example loadings, which trimmed at +0.24 to +0.28 degrees against the
-0.4 stop). Now all 36 trim, the stabilizer from -0.37 (230 knots at 40,000
-ft, stall-example) to +1.81 degrees; the worst, 350 knots at 10,000 ft
-light, uses 0.956 of the nose-down travel. They hold their height within 12
-ft and speed within 0.2 knots.
-
-**Stale words put right**: the script's note of what the take-off setting
-did (it had said 129 by the book and 114 pulled early), and the business-jet
-take-off lesson's header: its bands re-measured by
-`the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief` - she holds
-8.8 to 18.5 degrees in the initial climb (was 12.6 to 17.9) and climbs away
-at 162 to 172 knots, 37 to 47 above her rotation speed (was 45 to 54), both
-inside the lesson's bands (5 to 25 degrees; rotate+5 to rotate+70), which
-are unchanged - and that she cannot now be rotated early. `docs/ASSETS.md`
-names the maintenance manual's chapters, with their SHA-256s, and no longer
-says the model takes its nose-down travel from TN D-6573.
-
-**Unchanged**: the C172P's model is untouched, and the selftest's hash is
-d36123c1eecc3e23 twice on this build. The committed model is what its script
-writes. Every other Learjet test passes: her figures (field length, climbs,
-ceiling, cruise Mach, stalls), the take-off, approach, circuit, landing and
-stall lessons, and the autopilot's walks of the catalogue.
-
-### The copilot flies with you, on a server: asked on the player's machine, flown by the server, 2026-09-30 — item done
-
-**What is not done**: a client predicting its own aircraft does not know its
-engine has stopped (a tail) - and that is ordinary play, not a test's alone:
-the state update's `02` is said for any engine the flight model has stopped,
-a tank run dry as much as `--fail-engine-at`. In the tests the AI is flying
-it by then, so nothing is predicted. A client older than `02` refuses every
-state update while any aircraft has an engine stopped. The
-server says nothing back of a route it refuses: the client takes the route
-it sent as the one flown. The window client's copilot is tested by one
-flight; its routine looks and its standing by are the same code as the
-headless client's, tested there.
-
-**An engine failure on a server, made true after the review** (it had been
-ticked on the command line's alone). The state update's condition byte says
-`02`, flying with an engine stopped (TRANSPORT.md); the server stops every
-player's first engine at `--fail-engine-at S`; the player's copilot, told,
-is asked at once, "the engine has stopped", and answers with a glide the
-server checks and flies.
-`a_players_copilot_glides_its_aircraft_on_a_server_when_the_engine_stops_as_recorded`:
-Claude Haiku 4.5, recorded (`tests/data/copilot/engine-server-anthropic.jsonl`),
-first flew to Manly, then, the engine stopped 30 s in, glided at 65 kt to
-Sydney's runway 25 - 8,778 m from it at 67 kt, then 7,828 m at 61 kt. Red
-with the condition never said: the client never heard its engine stop.
-
-**It flies only what its player gave it** (from the review): taken back
-with A, the copilot stands by - nothing more asked, an answer still to come
-not sent - until the player asks again.
-`a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back_as_recorded`:
-routine looks every 20 s, taken back 40 s in, and the answer that came after
-was not heard; the server handed the aircraft to the AI once. Red with the
-standing by taken out.
-
-**Nothing of it is on the thread that steps or draws** (from the review):
-its ground - a geoid, a DEM and the world's runways, which a fresh cache
-downloads - is made on a thread of its own as the copilot is made, when the
-client has an aircraft rather than at the first C; and what the copilot is
-told is worked out on the question's own thread (`copilot::Copilot::ask`
-with a function). It keeps a DEM of its own, not the client's: a
-`world::Dem` is not for two threads, and the tiles are shared on disk.
-Going away, a copilot abandons its model's request at once
-(`platform::HttpRequest::abandon`) and asks nothing more:
-`a_copilot_going_away_gives_up_its_question_at_once`, red with the request
-left to run - it was waited out. A model silent for two minutes, not five,
-is given up.
-
-**What a player's copilot is told** now includes whether the engine runs
-(above); its speed is its speed over the ground, which is what the updates
-carry. The server's own AI aircraft do not ask a model in flight: each is planned once,
-by the model its server chooses, with the operator's key ("Each AI aircraft
-is planned by the model its server chooses", below).
-
-**The key stays on the player's machine** (the project owner, 2026-09-30;
-REQUIREMENTS.md section 5 and 6.4, TRANSPORT.md, THREATS.md). The player's
-client asks the model with the player's key, and sends the server only the
-route it answered, as a new reliable message, `COPILOT_ROUTE` (`09`):
-waypoints and orbits, and a glide airspeed, at most 12 waypoints, 936 bytes at
-its limits, written byte for byte in TRANSPORT.md. **The server trusts it no
-further than a plan**: it reads it as one (`sim::parse_flight_plan`) from
-where its own aircraft is, checks it with the checks a copilot's answer is
-held to (`copilot::change_refusal`, which the server now links) against the
-aircraft as the server has it - its ground from the server's DEM, its height
-above the sea from the server's geoid - and refuses what fails, printing why
-and changing nothing. What passes is flown by the server's AI: the aircraft
-handed to it first if the player was flying it, announced as any hand-over
-is, so the client stops predicting it and draws it from the updates. The
-server says where each copilot's route has got to every half minute.
-
-- **The client with the window**: `glideslope --copilot TASK
-  [--copilot-provider P] [--copilot-model M]`; C asks, and the copilot looks
-  again a minute after each answer. **The headless client**: `glideslope_cli
-  connect ... --copilot AIRCRAFT TASK` with `--copilot-provider`,
-  `--copilot-model`, `--copilot-record`/`--copilot-playback`, `--copilot-at S`
-  on the session's clock, `--copilot-answers N` and `--copilot-stay S`; and
-  `--send-route FILE`, a route sent as it is, never checked on this side. Both
-  use `frontend::PlayersCopilot` (`src/frontend/players_copilot.hpp`): told
-  its position from the updates, its height above the sea from the geoid and
-  the ground from the DEM as the player's machine has them, its speed over
-  the ground (no update carries airspeed) and the runways near it.
-- `a_players_copilot_asked_on_the_players_machine_is_flown_by_the_server_as_recorded`:
-  the server and the headless client, played back from Claude Haiku 4.5's
-  recorded answer to "fly to Manly at 3,000 ft, then orbit over Manly beach"
-  (`tests/data/copilot/manly-server-anthropic.jsonl`), no key. The server
-  handed the aircraft to its AI and flew the route - to MANLY, 6,188 m from
-  it at 30 s and 4,579 m at 60 s. The client leaves 60 s of the session's
-  clock after sending it; the server runs until it has gone. Red with the
-  server not flying what it took.
-- `a_route_the_server_cannot_fly_is_refused_by_it_though_a_client_sent_it`:
-  a client sends a waypoint 200 ft over the sea
-  (`tests/data/copilot/route-200-ft-over-the-sea.txt`); the server says "LOW
-  is at 200 ft, below 500 ft", and neither hands the aircraft over nor flies
-  it. Red with the server's check taken out.
-- `the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route`:
-  the client with the window, headless on Vulkan, asks its copilot three
-  seconds in (`--copilot-after 3`, what C does) from the same recording; the
-  server hands its aircraft to the AI, and what the client showed of its own
-  aircraft stepped 0.180 m at the switch from predicting it to drawing it from
-  the updates - under the 5 m bound. Red with the route not sent.
-- The message is walked by every message test: it writes and reads back,
-  every truncation, trailing byte and single-byte change is refused or read,
-  its six floating-point fields refuse NaN and infinity (25 fields in all
-  now), it fits a datagram at its limits, and TRANSPORT.md and THREATS.md name
-  it; `every_message_writes_and_reads_back_what_went_into_it` was red with an
-  orbit's direction dropped on reading.
-- **A glide is checked on its own terms**: the engine-failure flight must
-  hold the glide airspeed the copilot asked for within 5 kt, not merely a
-  steady one. A played-back flight that goes another way now ends where the
-  recording runs out, says what it measured, and fails after (exit 3), so
-  with the glide not flown the test is red for the glide - "67 to 72 kt, not
-  within 5 kt of the 60 kt asked for" - before it is red for the recording.
-
-**Rebased onto the collision ground (2026-10-01).** The copilot's ground is
-the collision ground everywhere now - the DEM with every runway its own
-surface, as the aircraft meets it: the server's check of a route, the
-player's copilot's "ground beneath" (its own `world::CollisionGround` on its
-own DEM, on its question's thread), and `glideslope_cli fly-copilot`'s
-aircraft and figures, which had flown over the raw DEM. So the route a
-player's copilot plans is checked by the server against the same ground.
-`COPILOT_ROUTE` and the condition `02` came without the protocol's version
-moving - it is `02`, for the ground - as TRANSPORT.md's rule for layout
-changes before a first release says; the doc client reads condition `02`.
-
-**Rebased onto the learnt landing (2026-10-01).** A copilot's route that
-arrives while the learnt landing flies (`sim::Controller::to_ai_learnt_approach`)
-now lets it go, as it does a take-off or an approach: the autopilot is
-engaged afresh from the controls it had, and every hand-over - the learnt
-landing's among them, through `engage()` - ends a glide.
-`a_copilots_route_during_a_learnt_landing_replaces_it_with_no_step_in_its_controls`:
-handed the route five seconds into the learnt approach, the landing is let
-go, no control moves more than a hand's step (0.00833 of its travel) in the
-second after, and the route is flown, 1,149 m nearer its waypoint in 30 s.
-Red with the learnt landing left flying. **No copilot thread touches a
-`sim::Aircraft`**, whose property cache is for one thread: a copilot's
-question is asked with a copy of what it is told (`copilot::Situation`), made
-on the stepping thread in `glideslope_cli fly-copilot` and the server, and
-from the state update's copy of the aircraft on a player's machine.
-
-**From the final check (2026-09-30), fixed:**
-
-- **The stand-by test could still go quiet**: a `keep` and a route not heard
-  after a take-back were said alike, so a `keep` there passed. They are said
-  apart now, the test wants the route, fails on a `keep` played back, and
-  asked of a model now skips on one ("the model answered keep; the rule was
-  not tested") rather than passing. The hand-written answer's line says so
-  itself, in a "note" the playback does not read. Red with a route sent
-  after the take-back (handed over twice); a `keep` played back is refused.
-- **One question's situation failing no longer ends the copilot**: only its
-  ground not had as it is made does; a DEM tile not fetched for one question
-  leaves that question unanswered and asks it again, twice at most. Not
-  tested on its own.
-- `glideslope_cli connect` says a wreck flies again before anything else it
-  flies again with - an engine stopped among it.
-
-**From the re-review (2026-09-30), fixed:**
-
-- **CI failed** (run 36686103327, ubuntu linux-debug):
-  `the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route`
-  drew its shot at a fixed 25 s, and the copilot, asked, had not answered by
-  then - its answer is taken 10 s after it is asked, and now after its ground
-  is made too. The shot now waits on the events - the route sent and the
-  server saying the AI has the aircraft - up to five minutes of flight past
-  its tick. In the same run
-  `the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again`
-  failed on Rocky 9; it is not this change's: no copilot is made there, and
-  it failed on main as well (run 36674751464).
-- `every_flag_the_server_prints_in_its_usage_is_one_it_takes` failed:
-  `--fail-engine-at` was not in its list. It is, and a time that is
-  negative, not a number or NaN is refused (three tests, red with the check
-  loosened); `--dry-run` says when it will stop the engines.
-- **The stand-by test could not fail on its rule**: the answer after the
-  take-back was `keep`, which is sent by nobody. The recording's second
-  answer is now written in by hand as a route (the only answer in any
-  recording not a model's), and the test asserts that no route was sent
-  after the take-back and that the AI was given the aircraft once. Red with
-  the not-engaged answer sent: handed to the AI twice.
-- **The glide's airspeed is checked at every half-minute line from 45 s
-  after the glide was taken**, at least two of them, not the last alone -
-  the server now says the time on those lines. Red with the server not
-  flying the glide: 80 kt against the 65 asked for.
-- **An engine that stops while a question is out is asked about**: the
-  question asked with it running answers with a route the server refuses
-  ("the engine has stopped: the route must begin with glide"), which never
-  hands the aircraft to the AI; the copilot waited for that before asking
-  about the engine, so it never did. It asks as soon as it can, whoever
-  flies it, and again if the engine runs again.
-  `a_players_copilot_glides_when_the_engine_stops_while_it_is_thinking_as_recorded`
-  (Claude Haiku 4.5, recorded; the engine stopped 10 s in): the Manly route
-  refused, the glide to runway 25 flown. Red with the old wait.
-- `02` is said for any engine stopped, fuel exhaustion included; an older
-  client refuses the whole update while one is (TRANSPORT.md).
-- **Its ground failing kills its copilot once, and says so**: whatever
-  making the ground threw - a fetch, a file - ended every question after
-  without a word. Now it says "no copilot: ..." once and is gone for the
-  session. Going away, its fetches are given up (`world::FetchesGivenUp`)
-  as its model's request is abandoned, and each is waited for only as long
-  as giving up takes. Neither has a test of its own.
-- The route for another's aircraft is sent for another **player's** - a
-  second client's - which only the ownership check refuses: red with that
-  alone taken out. Speeds are kept by catalogue id; the engine count is
-  kept, not read at each update; `--copilot-routine` wants a positive
-  number, and `--route-for-another`/`--route-when-wrecked` want
-  `--send-route`.
-- Every test in the areas this touches was run - 234, by name: server,
-  client, copilot, state, message, flag, refusal, connect, take-over,
-  hand-over, ride-along and planned. 233 passed or skipped as they should;
-  `an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players`
-  failed once, in 2.8 s at the start of that run, and passed in each of three
-  runs after, alone and beside another server test. Its output was not
-  kept, so why is not known; it touches no copilot code.
-
-**From the review (2026-09-30), fixed:**
-
-- **One route could end the server.** Checking a route worked out the
-  aircraft's speeds from its published figures there and then, which throws
-  for an aircraft whose figures give none (the 747-400, the F-22), and
-  nothing caught it. The speeds are now worked out once, as an aircraft is
-  made, and kept by model; a route for an aircraft with none is refused,
-  saying why; and whatever else a check throws is a refusal.
-  `a_flyable_route_is_refused_when_its_speeds_are_not_known_and_the_server_goes_on`
-  gives the server a plan flown by a 747-400 (`tests/data/copilot/747-off-bondi.plan`):
-  refused, "747-400 publishes no stall speed", both programs ending as they
-  should. Red with the old code: the server died (exit codes 0;1).
-- **Whose aircraft**: `a_flyable_route_is_refused_when_it_is_not_this_client_s_aircraft_and_the_server_goes_on`
-  sends a flyable route for the AI's aircraft, and
-  `a_flyable_route_is_refused_when_it_is_a_wreck_and_the_server_goes_on` one
-  for the client's own once it is a wreck; each refused, nothing handed
-  over. Red with each check taken out.
-- **A waypoint's name is letters, digits and underscores**, and something,
-  or the message is refused: a newline had smuggled plan lines past the
-  12-waypoint limit, a `#` commented one out, and an escape reached the
-  operator's terminal. `every_refusal_the_document_names_for_a_copilot_route_is_refused`
-  builds all twelve refusals TRANSPORT.md names, one by one - red with the
-  names unchecked. The message at its limits is **936 bytes**, not the 925
-  first written: a text's length is two bytes.
-- **An answer that could not be sent is refused back to the model**: a name
-  over 32 bytes or not a word, more than 12 waypoints, or round an orbit
-  more than 255 times - which the client had sent anyway, for the server to
-  drop unread. The limits are the message's, asserted equal at compile
-  time.
-- A glide ends with every hand-over (`sim::Controller`, to the AI or back);
-  a copilot's route ends with its wreck and its take-back. A route replaces
-  the server's plan for an aircraft a player took over, on purpose: wrecked,
-  it flies again holding its course, as any player's aircraft the AI flies.
-- THREATS.md says the ground along a route is not checked - only 500 ft
-  above the ground beneath the aircraft as it is read.
-
-### The copilot flies with you, in `glideslope_cli fly-copilot`, 2026-09-30 — finished above
-
-**Was missing: only `glideslope_cli` flew with a copilot** - done above.
-Nothing is built or run on Windows or macOS here but by CI and
-`tools/windows_build.sh`; the code is not platform code.
-
-**What flies**: `glideslope_cli fly-copilot AIRCRAFT LAT LON FEET HEADING
-KNOTS TASK` flies an aircraft over the DEM with the AI, and a language model
-as its copilot, with the player's own key - OpenAI's or Anthropic's, refused
-without one. It is asked when engaged, when the engine stops
-(`--engine-fails-at S`), when its route has been flown, and a minute after
-each answer ("a routine look"); it is told where the aircraft is, what it is
-doing, the route left and up to six runway ends within 40 km that say their
-elevation. Its answer is flown 45 simulated seconds after it was asked
-(`--thinking`), or when it comes if later; asked of a model now, the flight is
-paced to the clock while a question is outstanding, so the model's seconds
-are the flight's, and runs as fast as it can otherwise. A question the model
-cannot answer changes nothing, and what happened is asked again, twice at
-most; played back, a question the recording does not hold ends the flight
-with an error. 45 s because GPT-5.5 asked for a whole route along a coast
-once took 38 s; one slower than the allowance is said, and its flight plays
-back otherwise than it flew.
-
-- **It follows a coast as told**: off Bondi's south end at 1,500 ft, "follow
-  the coast south to Cronulla at 1,500 ft, then orbit over Cronulla beach",
-  GPT-5.5 (`gpt-5.5-2026-04-23`) gave eleven waypoints by the beaches and
-  headlands - Bondi, Bronte, Coogee, Maroubra, Malabar, Little Bay, La
-  Perouse, across the mouth of Botany Bay to Kurnell, Boat Harbour, Greenhills,
-  Cronulla - and the AI flew them, each passed within 300 m. From its first
-  route to Cronulla the coast - land and water both, the DEM's own mask, in
-  rings 250 m apart in 16 directions - was within 1 km in 48 of 52 looks, ten
-  seconds apart, and never more than 1,500 m away. **Two smaller models did
-  not follow it**: Claude Haiku 4.5 and GPT-5.4 mini each gave Cronulla alone
-  and flew straight there, over Maroubra and the middle of Botany Bay - within
-  1 km of the coast in 73 to 78% of their looks, 2,000 to 2,250 m from it at
-  most. Claude Sonnet 5 followed it, but with the recorder's 4,096-token limit
-  it twice spent every token thinking and answered nothing; the limit is part
-  of every recorded request, so raising it means recording the CBD plans
-  again. `the_copilot_follows_the_coast_as_told_by_openai_as_recorded` flies
-  GPT-5.5's answers again and asks for 85% of looks within 1 km and the coast
-  never more than 1,750 m away; played back from Haiku's straight flight, it
-  is red ("the coast was 2000 m from it at most").
-- **It handles an engine failure**: off Bondi at 4,500 ft, told to follow the
-  coast south to Cronulla, the engine stopped 90 s in. Claude Haiku 4.5
-  (`claude-haiku-4-5-20251001`) answered with a glide at 60 kt to Sydney's
-  runway 25 and an orbit over it - its first answer refused, an orbit 518 m
-  across being too tight for 60 kt, and the second flown. The Cessna came over
-  the threshold 1,924 ft above the ground 240 s after the engine stopped,
-  circled down, and was 300 ft above the ground 247 m from it; from 45 s after
-  the glide began it held 58 to 61 kt. `the_copilot_glides_to_a_runway_when_the_engine_stops_by_anthropic_as_recorded`
-  asks for a glide, a threshold passed within 1.5 km more than 300 ft up,
-  300 ft above the ground within 3 km of one, and the glide within a 10 kt
-  band. With the glide not flown (the CLI setting none) it is red: the flight
-  goes another way, and the recording holds no answer to what it asks next.
-- **It never slows the step**: unit-tested below - the steps go on while the
-  model is held.
-- **It replays in CI without a key**: both recordings are in
-  `tests/data/copilot/`, and are played back matched but their numbers.
-  Played back on this machine, each flight is the one recorded, line for line.
-  The two tests asking now (`..._asking_{openai,anthropic}_now`, labelled
-  `live`) skip without `GLIDESLOPE_LIVE_MODEL=1`, seen to skip.
-
-The parts, each tested alone:
-
-- **`copilot::Copilot`** (`src/copilot/copilot.hpp`): told once the aircraft
-  and the pilot's task, and asked - at engagement, now and then, and when
-  something happens - where the aircraft is, what it is doing, the route left
-  and the runways nearby. It answers `keep`, or a whole new route of
-  waypoints and orbits flown from where the aircraft is, first line
-  `glide AIRSPEED_KT` when the engine has stopped. The answer is read as a
-  flight plan (`sim::parse_flight_plan`) and checked against the flight as the
-  model was told it: every waypoint within 200 km, every height 500 ft above
-  the sea and the ground beneath, every airspeed from the approach speed to a
-  fifth over the cruise, a glide only with the engine stopped and from the
-  approach speed to the best climb, and with it stopped nothing but a glide.
-  A glide flies neither its waypoints' heights nor their airspeeds - it ends
-  low over its field - so neither is held to anything, but its orbits must
-  be wide enough for the glide's airspeed. One refused is told back to the model, up to three answers, as the planner's
-  are. It is built inside the copilot's walls (`cmake/Copilot.cmake`): it
-  sees the plan and the autopilot's modes, and nothing that moves a control.
-- **It never slows the step.** A question is asked on a thread of its own
-  (`ask`), and its answer taken between two steps when it has come
-  (`answered`); neither waits, and a question outstanding is not asked again.
-- **`sim::Controller::replan`** gives the AI a new route while it flies,
-  keeping the autopilot, so nothing it holds is dropped: the largest step in
-  any control the second after a turn to a new route is 0.0017 of its travel.
-- **`sim::Controller::set_glide`** flies the route at an airspeed with the
-  engine stopped: the airspeed is held by the vertical speed asked of the
-  autopilot - 80 ft/min for each knot off it, an integral of 4 ft/min a knot a
-  second finding the glide's own sink, and 250 ft/min for each knot a second
-  of the speed's trend to damp it. **Not the autopilot's airspeed on the
-  elevator**, which is its stall recovery and keeps the wing below the
-  greatest angle of attack it has seen: a Cessna that had only cruised,
-  asked for 68 kt from 100, swung between 73 and 84 kt for a minute and a
-  half. The glide's airspeed is still asked of the autopilot, so that the
-  least speed it holds a descent to (`Aircraft::climb_floor_kts`, above the
-  Cessna's best glide) is lowered to it. Slowed from 100 kt the Cessna dips
-  to 62 and comes back to 68 without passing it; from 45 s on it holds 65.2
-  to 68.3 kt.
-- **A recording plays back but its numbers** (`copilot::Match::but_numbers`):
-  a flight flown again is not where it was to the last digit, so the requests
-  a copilot recorded are matched with every number in them disregarded - the
-  words, what the model was told and what happened, must be the recording's.
-  The vertical speed is told as a signed number for that reason, not as
-  "climbing" or "descending", which would turn on a sign.
-
-Tests, each seen red with a bug put in and taken out again:
-`a_copilots_answer_is_read_as_keep_or_a_route_and_refused_wherever_it_cannot_be_flown`
-(all 14 ways an answer is refused, counted; red with the 200 km check
-widened tenfold), `a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown`
-(red with the reason left out of what the model is told),
-`the_copilot_asks_on_a_thread_of_its_own_and_the_step_never_waits_for_the_model`
-(1,200 steps taken while a stand-in model is held, which the steps let go;
-red, after the minute the stand-in waits, with `ask` waiting for its answer),
-`a_recording_played_back_but_its_numbers_answers_a_request_whose_figures_moved_and_no_other`
-(red with every request taken as matching),
-`a_plan_changed_while_the_ai_flies_moves_no_control_at_the_change_and_is_flown`
-(red with the autopilot engaged afresh at the change) and
-`a_glide_with_the_engine_stopped_holds_its_airspeed_on_the_elevator_along_its_route`
-(red with the glide not applied).
-
-### A slow Windows configure was a new runner image, rebuilt by every pull request; now pull requests may publish, 2026-09-30 — tail still open
-
-**What is still missing, first**: the plan item's verification - every
-Windows configure whose vcpkg cache hit under 3 minutes, over a week of runs
-on main - is not yet counted; a week has not passed. No pull request's
-upload has been seen yet: this branch's runs only read (it changes
-`.github/`), and the first comes with the next new image or port change on
-a pull request allowed to write. And a new image will still cost more than
-one rebuild while it arrives: every job that lands on it before the first
-has finished and uploaded (about 22 minutes) builds too.
-
-**The cause, from the logs, not a guess.** The ~1,370 s configures were not a
-wait but a full rebuild of the 39 packages ("All requested installations
-completed successfully in: 21 min", against 2-4 s after a restore; the
-restore itself, which vcpkg times apart, was 22 s on this branch). GitHub was
-rolling out a new Windows image, windows-2025-vs2026 20260925.250.1, with
-MSVC 19.51.36260.0, beside 20260922.246.2 with 19.51.36257.0; the compiler is
-in every package's ABI, so a job on the new image found none of its packages.
-Of ci.yml's 64 Windows configures on 2026-09-30 after 03:00, every one over
-200 s is in the table below or is one of main's three at 03:35, which first
-populated the feed. Of the 40 whose logs were read, all 8 on 20260925.250.1
-before 07:10 rebuilt, both on it after 07:10 restored, and the 27 on
-20260922.246.2 after 03:35 restored (installs of 1.7-4 s):
-
-| run | branch | preset | image | configure | vcpkg |
-|---|---|---|---|---|---|
-| 36670245478 | stall-recovery-two-part | release | 250.1 | 1379 s | 22 min |
-| 36672081323 | a-model-per-ai-aircraft | clang | 250.1 | 1374 s | 21 min |
-| 36672182492 | copilot-flies-with-you | debug | 250.1 | 1360 s | 22 min |
-| 36672183998 | cached-tile-cut-short | debug | 250.1 | 1365 s | 21 min |
-| 36674576086 | slow-frames-lose-no-ticks | clang | 250.1 | 1377 s | 22 min |
-| 36676611593 | rl-landing-agent | debug | 250.1 | 840 s | cancelled |
-| 36680141695 | **main** | release | 250.1 | 1312 s | 21 min, uploaded 07:06-07:09 |
-| 36680523613 | cached-tile-cut-short | debug | 250.1 | 812 s | 12 min |
-| 36686484430 | this branch | clang | 250.1 | 96 s | 2.1 s |
-| 36686508000 | rl-landing-agent | release | 250.1 | 113 s | 2.3 s |
-
-**Why it repeated.** Only main wrote to the feed; a pull request only read,
-by analogy with the Actions cache. So each pull request's job that landed on
-the new image rebuilt and threw the result away - about one job in seven,
-from 04:46 until 07:10 - until one of main's own three jobs happened to land
-there (run 36680141695) and uploaded the new versions (abseil's, for one, at
-07:06). Every job on that image since has restored. The one of 812 s began
-while main's job was building and uploading; what it restored its log does
-not say, which is what the logging below is for.
-
-**The fix.** A pull request's Windows jobs have write access to the feed
-too, unless its diff could change how a package builds. The Actions cache's
-reason for read-only pull requests - one 10 GB for the repository, which
-pull requests' saves crowded main out of - does not hold for public
-packages, which are free and have no limit. But the ABI hash does not cover
-everything (review found this): it covers the port files, triplet, cl.exe's
-hash, toolchain file, CMake and PowerShell versions, helper scripts,
-dependencies and VCPKG_ENV_PASSTHROUGH, not vcpkg's own binary, the rest of
-the MSVC toolset and SDK, tools on PATH, or variables kept by
-VCPKG_KEEP_ENV_VARS (`_CL_=/Od`, say); and a NuGet version is written once,
-first writer wins. A port change uploads under a hash main never asks for,
-but a pull request that changed the workflow or the CMake around vcpkg could
-publish packages main would restore for ever. So ci.yml's `changes` job
-gives the three Windows builds and package.yml's Windows zip `write` - true
-on main (push, schedule), and on a pull request only when its diff against
-its base touches none of `.github/`, `cmake/`, the top-level
-`CMakeLists.txt`, `CMakePresets.json`, `vcpkg.json`,
-`vcpkg-configuration.json`, `.gitmodules` or `ext/cesium-native`; otherwise,
-or when the diff cannot be taken, false. A bad version is deleted by hand
-(the action's header says how). A fork's pull request has no `VCPKG_PAT`
-and builds from source, as before.
-
-**The guard, checked dry**: the step's script, taken from ci.yml, run
-against real commits - a pull request touching only `src/`, `tests/` and
-`tests/cmake/` (1a6c8f5..2753af1) writes; one touching the top-level
-`CMakeLists.txt` (0c39005..1a6c8f5) and this branch (`.github/`, `cmake/`)
-only read; a base that is missing or not fetched reads; a push or the
-schedule on main writes; a dispatch on another branch reads.
-
-**Now visible in every job's log.** `cmake/Vcpkg.cmake` prints vcpkg's
-summary lines - the compiler it found, what it restored and from where, each
-package it built with its time, each upload, and an upload refused ("Pushing
-NuGet to ... failed", NuGet's status code; checked with `cmake -P` on sample
-output) - not only the last line; CI
-keeps `vcpkg-install.log` from each Windows configure as the artifact
-`vcpkg-install-<preset>` (14 days); and the feed's step prints the runner
-image. On this branch's run 36686994405, windows-clang on 20260922.246.2
-printed its compiler (MSVC 14.51.36231's cl.exe), "Restored 39 package(s)
-from NuGet in 22 s", and "All requested installations completed
-successfully in: 2.3 s": the packages are public, and restore on CI with
-the feed as the only binary source. A restore prints one "Elapsed time"
-line of milliseconds per package; those are left out, and a build's, in
-seconds or minutes, kept.
 
 ### The visual models' sources are fetched from a source that serves their pinned files, 2026-10-01 — tail done
 
@@ -2806,6 +2110,828 @@ Windows jobs - debug, release and clang-cl - as did the two loopback tests on
 every platform, macOS included; the ion test skipped everywhere, no job having
 a token.
 
+### The geoid is fetched from a source that serves the pinned file, 2026-10-01 — tail done; main made green
+
+**What is not done first.** The aircraft models' source files
+(`assets/models/sources.txt`, FlightGear's fgaddon) come only from SourceForge,
+which served the same 859-byte page for every one of them on 2026-10-01:
+`the_files_the_visual_models_are_made_from_arrive_with_their_pinned_hashes`
+fails on a machine without them, and CI has them only from its downloads
+cache. That is a tail in `COMPLETION_PLAN.md`. `fetch.cmake` now takes more
+than one URL a line, so the fix is a second source per line once one serving
+the same bytes is found.
+
+**What broke.** Every test needing the EGM2008 geoid failed on every platform
+(CI run 36818460007, and main's run at 2026-10-01T05:07Z):
+`https://sourceforge.net/projects/geographiclib/files/geoids-distrib/egm2008-5.zip/download`
+"arrived with SHA-256 f188236c..., not the pinned 408f05e0...". Fetched by
+hand, it is a 302 to `https://sourceforge.net/#!/projects/...` and an 859-byte
+HTML page saying "the Sourceforge site is currently in Disaster Recovery
+mode". `downloads.sourceforge.net` answered 522; every `*.dl.sourceforge.net`
+mirror tried redirected back to it or did not resolve; the Internet Archive
+was offline too.
+
+**The source.** deck.gl's data repository on GitHub holds GeographicLib's
+`egm2008-5.zip`, committed once (`f0b91db8`, 2020-12-21). Fetched at that
+commit it is 16,773,259 bytes with SHA-256
+`408f05e0c04a9f2e17b9ea2d27123f936e9dea60128bb3411a272f8ddbe318dd` - the pinned
+file byte for byte, so the pin is unchanged. The URL names the commit, so the
+repository changing its branch does not change what is served.
+
+**More than one source.** `world::fetch_pinned` takes a list of URLs as well
+as one: each is tried in order, and one that cannot be reached, answers with an
+error or serves anything but the pinned bytes is passed over; nothing but the
+pinned file is ever kept, and when none serves it the refusal names every
+source and why. `world::egm2008_geoid_file()` gives the geoid's name, pin and
+sources - GitHub first, SourceForge second. `tests/cmake/fetch.cmake` reads any
+further URLs on a line of `files.txt` and tries them the same way, three
+attempts each, and a wrong hash still fails the run if no URL serves the
+right one. **CI's cache cannot keep a bad file**: neither the program nor
+`fetch.cmake` puts a file in place before its hash matches, and a cached file
+is checked against its pin each time it is read.
+
+**Verification.**
+- `a_pinned_file_is_fetched_from_the_first_of_its_sources_that_serves_its_pinned_bytes`:
+  a fake fetch serves an interstitial page, a 404, the file, and a fourth
+  source never asked; the first three are asked in order and the file kept.
+  With no source serving it the refusal names the page's source ("not the
+  pinned") and the 404's, and nothing is kept; no sources at all is refused.
+  Seen to fail with only the first source tried.
+- `the_geoids_sources_and_pin_are_the_ones_the_tests_fetch`: the program's
+  name, pin and sources, in order, are `files.txt`'s line for the geoid. Seen
+  to fail with one of the program's URLs changed.
+- With the real network: `the_files_the_tests_download_arrive_with_their_pinned_hashes`
+  fetches the geoid from GitHub into an empty directory, and
+  `the_egm2008_grid_gives_geographiclibs_undulations_within_its_stated_error`
+  passes on it; `glideslope_cli height -33.9461 151.1772` with an empty
+  `GLIDESLOPE_CACHE` fetched it through the program's own path (SHA-256
+  `408f05e0...`) and gave 6.234 m above the sea, the geoid 22.079 m above the
+  ellipsoid, at Sydney Airport.
+
+### A tight, slow orbit is flown on its circle, 2026-09-30 — tail done
+
+**Not every orbit a plan allows can be flown.** A plan may fly any aircraft
+as slowly as its approach speed, and round a circle as tight as two and a
+half times its 25-degree turn at that speed. Seven jets cannot fly that
+clean, and nothing refuses such a plan yet: the new tail "A plan may fly a
+jet clean at its approach speed". The refusal belongs in the copilot's
+planner (`copilot/planner.cpp`, which already knows each aircraft's approach
+speed): a clean floor for each aircraft, below which no plan may fly.
+
+**What is not covered first.** Of the sixteen aircraft, each left out is
+named in its test with the reason:
+- **The 747-400 and the F-22 publish no stall speed**, so they have no
+  approach speed and no plan can be made for them.
+- **Seven jets cannot fly clean at their approach speed round a turn.** The
+  approach speed is a flaps-down figure (1.3 times the landing stall), and
+  the autopilot flies a plan clean.
+  - The 737-300 stalls turning onto the circle and falls to the ground.
+  - The 787-8, A380, Learjet 35A and F-35B come down to the ground round it
+    (the Learjet slowed from 125 to 113 kt on the way).
+  - The B-2 stalls turning towards the circle: its throttle closes, its
+    angle of attack is 64 degrees within 15 s, and it falls inverted to the
+    ground 25 s after starting. That is energy, not steering: it never
+    reaches the circle.
+  - The A320 stays up and holds its circle, -6 to +96 m, but loses 600 to
+    641 ft: flown, with its circle held to 200 m and its height and speed
+    named as not held.
+- **The Cub and the Cherokee in wind.** Measured with no plan and no
+  navigator - the autopilot holding heading north in a crosswind from the
+  west - and then on a plain waypoint leg, the old drift path:
+  - J-3 Cub, 10 kt: sideslip -36 to +34 degrees holding a heading, -35 to +36
+    on the leg, its heading swinging 230 degrees while the heading asked
+    stays at 0.
+  - PA-28, 10 kt: sideslip -37 to +37 holding a heading and on the leg. The
+    same at 20 kt.
+  - C172P and C182, 10 and 20 kt: sideslip within 0.1 degree; each holds its
+    heading, and on the leg crabs a steady 9 (C172P) or 8.5 degrees at 10 kt.
+  So the yaw is the autopilot's with those two models, not this change, and
+  their orbits in wind are left out: the tail "In wind the Cub and the
+  Cherokee yaw from side to side". In calm air both are flown.
+The wind in the new tests is 10 kt, not the 20 kt of the older orbit tests:
+at 43 kt, the Cub's approach speed, 20 kt downwind needs about 25 degrees of
+bank round its tightest circle, all the autopilot has. The plan reader's least radius
+takes no account of the wind.
+
+**The cause.** Round an orbit the navigator asked for a heading along the
+circle's tangent where the aircraft would be five seconds on, turned in by 90
+degrees a kilometre. In a steady turn the autopilot banks a degree for each
+degree the heading is ahead, plus its integral near the heading, which winds
+to 5 degrees: so the lead the circle needs is its bank less five. At the
+tightest radius a plan may ask - two and a half times the 25-degree circle -
+the bank is about 11.5 degrees whatever the speed, so the lead needed is
+about 6.5 degrees. But five seconds along the tangent is v t / r, which grows
+as the speed falls: 18 degrees for the Cessna's 521 m at 60 kt, 12 for
+1,172 m at 90 kt. Turning out by 90 degrees a kilometre balanced the extra:
+124 m inside, as flown. And flown to straight at its centre, the aircraft
+crossed the circle at right angles and could not turn onto it: the PA-28 in
+wind went to 57 m from the centre of its 593 m circle.
+
+**The fix** (`sim/navigator.cpp`, `sim::heading_off_for_bank_deg` in
+`sim/autopilot`). For every aircraft that can fly its approach speed clean,
+the physics allows it: every tightest orbit wants about 11.5 degrees of bank,
+well within the autopilot's 25. So the plan reader's least radius stays, and
+no recorded plan is refused.
+- **The lead is the autopilot's own law turned round**: the heading ahead
+  that makes it bank for the circle now. Round a circle over the ground the
+  track turns at the ground speed over the radius, and the air is turned
+  through that at the airspeed: tan bank = v_air v_ground / g r. The
+  inversion assumes the autopilot's integral at its 5-degree limit, which it
+  reaches only while the heading is within 10 degrees of it - so below about
+  15 degrees of bank - as the function says.
+- **A trim** - an integral on how far off the circle, a sixtieth of the
+  turn-in each second, 15 degrees at most, counted only within 100 m of the
+  circle - for what the autopilot's bank and the aeroplane's turn do not
+  quite agree on: a propeller turns one way more readily than the other.
+- **Joined at a tangent.** Outside the circle and not yet on it, the
+  aircraft flies the line that meets the circle at a tangent, the way round
+  it is flown; it is on the circle within 100 m of it, either side, where
+  before it had to cross into it. Begun from inside, it spirals out as
+  before.
+- **The wind by the wind triangle.** Round an orbit the drift changes all the
+  way round, and five seconds' average of it lags. The wind does not change:
+  where the aircraft goes over the ground, less where the air carries it -
+  its body's air-relative velocity turned through its attitude, so its
+  sideslip and its climb through the air count. It is averaged over five
+  seconds, and taken as it is when the navigator starts or begins again
+  (`begin_here`, after a take-off), not from calm. The heading is the track
+  turned into the wind across it, at the horizontal airspeed. The legs
+  between waypoints still use the drift.
+The selftest's hash does not move: the selftest flies no plan, and the
+autopilot's loops are unchanged (the new function only reads its constants),
+which `the_selftest_prints_the_same_hash_every_run` confirms.
+
+**Verified** (linux-debug; metres off the circle from the first
+quarter-turn, the worst of calm air and a 10 kt wind from the west, left and
+right):
+
+| aircraft, radius at approach speed | before | after |
+|---|---|---|
+| Cessna 172P, 521 m at 60 kt | -152 to +92 m | -32 to +23 m |
+| Cessna 182, 593 m at 64 kt | -160 to +124 | -35 to +25 |
+| Piper Cub, 268 m at 43 kt, calm | -124 to +55 | -19 to +36 |
+| PA-28, 593 m at 64 kt, calm | -105 to +210 | -31 to +50 |
+| Mosquito FB.6, 2,189 m at 123 kt | not measured | -32 to +33 |
+| Short S.23, 1,071 m at 86 kt | not measured | -36 to +4 |
+| F-15C, 5,559 m at 196 kt | -253 to +936 (calm, left) | -88 to +196 |
+| A320, 3,127 m at 147 kt (circle only) | not measured | -6 to +96 |
+
+Four tests, splitting the catalogue by class so that none flies long on CI;
+the first checks that the four groups take each of the seven classes once.
+Each says how big its space is, and fails unless what it flew and what it
+named are all of it, or on a named aircraft its space does not hold. Each
+orbit flown must go twice round and on, hold its circle, and - unless named
+- its height within 50 ft and its speed within 5 kt.
+- `the_tightest_orbit_at_the_approach_speed_is_flown_on_its_circle_by_every_light_aeroplane`:
+  12 of 16 orbits flown, the Cub's and the Cherokee's four in wind named;
+  held to 60 m, at worst 50. 99 s.
+- `..._by_every_airliner_and_business_jet_that_can_fly_it`: 4 of 24, the
+  A320's with height and speed named; the 747 and five jets left out. Held
+  to 200 m, at worst 96. 70 s.
+- `..._by_every_fighter_and_bomber_that_can_fly_it`: 4 of 16, the F-15C's;
+  the F-22, F-35B and B-2 left out. Held to 200 m - the F-15C's 5.6 km
+  circle is 196 m off at worst, 3.5% of it. 89 s.
+- `..._by_every_warbird_and_flying_boat`: 8 of 8, held to 60 m, at worst 36.
+  148 s.
+- Timings are linux-debug under a -j4 run here. On CI, before the split, the
+  one test for every aircraft but the light ones took 57 s and 67 s on two
+  runners and 425 s on a third (run 36702902558): the split is for that.
+- **Claude's CBD plan**, 521 m at 60 kt: replayed by `glideslope_cli
+  fly-plan`, 509 to 521 m (394 to 427 before); on the server, 509 to 521 m
+  (394 to 428). ChatGPT's 1,447 m: 1,448 to 1,475 m (1,451 to 1,454). The
+  hand-written `sydney-cbd-orbit.plan`, 1,500 m: 1,476 to 1,502 m.
+- **The allowances**:
+  - the replay tests and the server's planned-aircraft test come down from
+    150 m to 60;
+  - the older orbit test flown from outside, from 160 m to 80: at worst 47 m
+    now, where it was 150 m outside;
+  - the test begun from the centre, from 160 m to 110. That one is not a
+    check on this change: the old navigator flew it within 69 m (62 in
+    wind), and the new one within 88 m (+88 in a 20 kt wind, right) - its
+    trim starts from nothing where it joins from inside. The old navigator
+    passes it at 110 m, seen.
+
+**Seen to fail**, the old navigator put back, each then restored:
+- the light-aeroplane test: "on its circle within 60 m, c172p round 521 m at
+  60 kt, left, in calm air: 391 to 516 m";
+- the test for every aircraft but the light ones, before it was split:
+  "within 200 m, f15c ... 5306 to 6495 m";
+- Claude's replay: "round CBD from 394 to 427 m, off its 521 m circle by
+  more than 60 m";
+- the server's planned-aircraft test: "more than 60 m";
+- the older orbit test at 80 m: "1172 m, left, in a 20 kt wind: 1081 to
+  1322 m".
+Not seen to fail: the begun-from-centre test at 110 m, as said above.
+
+### The Learjet's stabilizer tied to her maintenance manual's travel: she trims in cruise, 2026-09-30 — tail done
+
+**What is missing first: she can no longer be rotated early.** Her take-off
+had been leaning on the stabilizer's mis-tied zero. With the AFM's take-off
+setting on the rigging's scale (3.6 degrees less nose up on the model's),
+the stick held fully back from 85 percent of the speed the book rotates her
+at lifts her nose wheel only at about 115 knots, and she is five feet up at
+130 - past her rotation speed less five (125.3 - 5), so the business-jet
+take-off lesson finds nothing early in it. **The Learjet's early rotation is
+left out of `a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`**,
+named there with its reason, and is a tail ("The Learjet cannot be rotated
+early"); her book take-off there still leaves an empty debrief (off at 135
+knots, five feet up). The test now counts the classes whose early rotation
+was flown, six of seven, and asserts that the business jet's lesson is the
+one not flown. No published figure (a minimum unstick speed) was found to
+change what the lesson expects. **Left out too of the early half of
+`every_landplane_leaves_the_runway_within_ten_knots_of_its_rotation_speed_and_sooner_rotated_early`**,
+where she had passed by 0.2 knots - 125.7 rotated early against her rotation
+speed of 125.3 and 128.9 by the book (was 125.9 and 114.3): she is flown and
+printed, judged by the book, and named, and the test asserts she alone is
+left out of rotating early.
+
+**The moment budget at the rotation**, measured (a scratch probe, not
+committed): the stall-example loading (15,800 lb, 18.4% of the chord), flaps
+8, full thrust, the take-off setting (stabilizer -3.64 degrees on the model's
+scale), the stick fully back from 90 knots. Moments about the main wheels'
+contact, ft-lb, positive nose up, when the nose wheel leaves at 114.8 knots:
+
+| Term | ft-lb |
+| --- | --- |
+| Elevator, 16 degrees up (Cmde) | +22,600 |
+| Stabilizer (Cmstab) | +10,500 |
+| Pitching moment at no incidence (Cm0) | +5,200 |
+| Incidence, flaps, pitch rate | -1,500 |
+| Lift and drag, about the wheels | +3,900 |
+| Thrust, 6,800 lb on its line | -27,200 |
+| Weight, 1.6 ft ahead of the wheels | -25,100 |
+| Acceleration, at the centre of gravity's height | +13,200 |
+
+At the old setting (-7.24 on the model's scale) the stabilizer's term was
+about +20,900 - some 10,400 more - and the nose came up as the stick did, at
+90 knots. The maximum loading (18,300 lb, 24.6%) is the same: nose off at
+114.5 knots. **The suspects, each checked against a source**:
+- The elevator's travel, 16 degrees up: TCDS A10CE, as the model has it; its
+  moment, -1.036 a radian: TN D-7647's flight identification.
+- The main wheels: FS 396.82 static (MM 6-00-03, figure 1 sheet 2, Major
+  Structural Member Locations), as the model has them (396.83, the AFM's).
+- The thrust line: the model's engines are at WL 22 (estimated). MM 6-00-03
+  puts the engine beams that carry the pylons at WL 40.00 (FS 443.23) and WL
+  39.82 (FS 473.00); the nacelles' centreline is not given. Raised to the
+  beams, the thrust's moment about the wheels would grow by about 10,000
+  ft-lb nose down: the wrong way, so not the cause. Left as it was.
+- The centre of gravity's height: the model has it at WL 0, which MM 6-00-02
+  (figure 1 sheet 2) shows is the bottom of the fuselage (the floorboards are
+  at WL 5.87). It is surely too low, but no source gives it; raised, the
+  acceleration's term grows by about 5,000 ft-lb a foot, which would help.
+  With the thrust line raised too, the two nearly cancel. Left as it was.
+- The tail in ground effect: the model has ground effect on the wing's lift
+  only (kCLge 1.168 on the roll); nothing published gives the T-tail's.
+
+**The cause of the tail.** The stabilizer's scale was the flight model's:
+zero where TN D-7647's pitching moment holds, the nose-down stop the tunnel
+aircraft's 0.4 degrees, and the AFM's take-off settings (degrees leading edge
+down from the rigging's neutral) read as if that neutral were the model's
+zero. From 250 to 350 knots JSBSim's trim found no setting on 20 of the 24
+cases below. The maintenance manual (Learjet 35/35A/36/36A MM 27-40-00,
+Adjustment/Test, and its figure 202) gives the travel: nose-down stop 1 deg
+30' to 1 deg 55' leading edge down from neutral, nose-up stop 8 deg 30' to 9
+deg 00', take-off limits 4 deg 39' to 7 deg 54' on the same scale.
+
+**What changed** (`tools/make_learjet35a.py`, its docstring says why). The
+stops are the manual's, the middles of its tolerances, 1.71 and 8.75 degrees,
+and the rigging's neutral is put 3.6 degrees nose up of the model's zero -
+**an estimate: no source ties the two, and no one offset fits everything.**
+The take-off table is the AFM's setting less 3.6, over the nose-up half.
+
+**Tying the zero to a source, tried (the review of #72).**
+- The manual's neutral: the stabilizer measured by clinometer on a contour
+  board, the aircraft levelled by plumb bob (MM 27-40-00 Adjustment/Test, MM
+  8-10-00) - level with the aircraft's own reference.
+- The model's zero is TN D-6573's tail incidence of nought: the tunnel's
+  pitching moment at no incidence there, 0.051 + 0.0368 x 0.4, is 0.066,
+  TN D-7647's. TN D-6573 ("Tail") gives the Learjet 23's stabilizer travel,
+  0.4 to -7.0 degrees, as an incidence without its reference line; TN D-7647
+  gives no stabilizer settings (its Cm0 is one constant for whatever trim
+  its flights flew, and their thrust moment was an unknown beside it).
+- Read as one reference (offset nought), the 35A cannot cruise - she needs
+  1.81 degrees nose down of the model's zero and her stop is 1.71 nose up -
+  and the AFM's take-off settings are 2.3 to 3.3 degrees nose up of her trim
+  at V2. The Learjet 23's pitching moment does not carry to the 35A on one
+  reference. The one sourced alternative, TN D-7647 table II's wind-tunnel
+  values (Cm of incidence -1.12, of the elevator -1.34, against the flight's
+  -0.81 and -1.036), spreads her trims wider, not narrower.
+
+**What one offset can and cannot fit**, measured with the travel unbounded
+(a scratch probe; each loading her figures name; flaps 40 at its reference
+speed, 1.3 times its stall from the AFM's; flaps 8 at V2, 1.2 times its
+stall):
+
+| Condition | Model's trim, degrees (+ nose down) | Offset it allows |
+| --- | --- | --- |
+| Cruise, 350 knots at 10,000 ft, light (28.8%) - the most nose down | +1.81 | at least 3.52 |
+| Approach, flaps 40, landing loading (18.1%) at 125.4 knots - the most nose up | -5.08 | at most 3.67 |
+| AFM take-off setting trims her at V2, gear down: landing / stall-example / maximum / light | -5.00 / -4.91 / -3.06 / -1.71 | 2.25 / 2.33 / 2.88 / 3.29 |
+| The same at V2 and ten, gear up | -3.80 / -3.73 / -2.18 / -0.87 | 3.45 / 3.51 / 3.76 / 4.13 |
+
+The review's upper bound from the approach, 3.46, was flown at 125 knots at
+15,800 lb - below that loading's reference speed, 127.4, and above the
+maximum landing weight, 15,300. At the reference speeds the cruise and the
+approach leave a band, 3.52 to 3.67, and 3.6 is in it. **The take-off anchor
+is not used**: at V2 it gives 2.25 to 3.29, none of which can trim the
+cruise, and it spreads over a degree with the centre of gravity because the
+model's trim moves 3.3 degrees from the forward loading to the light one
+where the AFM's setting moves 2.25. At 3.6 the take-off setting is 0.3 to 1.4
+degrees nose down of her trim at V2, which is why she cannot be rotated
+early.
+
+**The test.** `the_learjet_35a_trims_level_from_250_to_350_knots_with_her_elevator_at_neutral`
+starts every loading her figures name (four) level at 250, 300 and 350 KCAS
+at 10,000, 20,000, 30,000 and 40,000 ft, and at 230 KCAS at 40,000 (Mach
+0.76) so that the ceiling's height is flown - 52 cases, counted - and leaves
+out, named, the sixteen past her Mach 0.81: 350 knots at 30,000 ft and all
+three speeds at 40,000 (250 knots there is Mach 0.82). Each of the 36 is
+trimmed by JSBSim on the pitch trim alone, the elevator left at neutral,
+then flown thirty seconds hands off, wings held level: she must have trimmed
+short of the stabilizer's stop, and hold her height within 100 ft and her
+speed within 3 knots. The worst case's share of the nose-down travel is
+printed. **Seen failing on the old model** (the first 24 cases, at 10,000
+and 20,000 ft): 20 did not trim (all but 250 knots at the landing and
+stall-example loadings, which trimmed at +0.24 to +0.28 degrees against the
+0.4 stop). Now all 36 trim, the stabilizer from -0.37 (230 knots at 40,000
+ft, stall-example) to +1.81 degrees; the worst, 350 knots at 10,000 ft
+light, uses 0.956 of the nose-down travel. They hold their height within 12
+ft and speed within 0.2 knots.
+
+**Stale words put right**: the script's note of what the take-off setting
+did (it had said 129 by the book and 114 pulled early), and the business-jet
+take-off lesson's header: its bands re-measured by
+`the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief` - she holds
+8.8 to 18.5 degrees in the initial climb (was 12.6 to 17.9) and climbs away
+at 162 to 172 knots, 37 to 47 above her rotation speed (was 45 to 54), both
+inside the lesson's bands (5 to 25 degrees; rotate+5 to rotate+70), which
+are unchanged - and that she cannot now be rotated early. `docs/ASSETS.md`
+names the maintenance manual's chapters, with their SHA-256s, and no longer
+says the model takes its nose-down travel from TN D-6573.
+
+**Unchanged**: the C172P's model is untouched, and the selftest's hash is
+d36123c1eecc3e23 twice on this build. The committed model is what its script
+writes. Every other Learjet test passes: her figures (field length, climbs,
+ceiling, cruise Mach, stalls), the take-off, approach, circuit, landing and
+stall lessons, and the autopilot's walks of the catalogue.
+
+### The copilot flies with you, on a server: asked on the player's machine, flown by the server, 2026-09-30 — item done
+
+**What is not done**: a client predicting its own aircraft does not know its
+engine has stopped (a tail) - and that is ordinary play, not a test's alone:
+the state update's `02` is said for any engine the flight model has stopped,
+a tank run dry as much as `--fail-engine-at`. In the tests the AI is flying
+it by then, so nothing is predicted. A client older than `02` refuses every
+state update while any aircraft has an engine stopped. The
+server says nothing back of a route it refuses: the client takes the route
+it sent as the one flown. The window client's copilot is tested by one
+flight; its routine looks and its standing by are the same code as the
+headless client's, tested there.
+
+**An engine failure on a server, made true after the review** (it had been
+ticked on the command line's alone). The state update's condition byte says
+`02`, flying with an engine stopped (TRANSPORT.md); the server stops every
+player's first engine at `--fail-engine-at S`; the player's copilot, told,
+is asked at once, "the engine has stopped", and answers with a glide the
+server checks and flies.
+`a_players_copilot_glides_its_aircraft_on_a_server_when_the_engine_stops_as_recorded`:
+Claude Haiku 4.5, recorded (`tests/data/copilot/engine-server-anthropic.jsonl`),
+first flew to Manly, then, the engine stopped 30 s in, glided at 65 kt to
+Sydney's runway 25 - 8,778 m from it at 67 kt, then 7,828 m at 61 kt. Red
+with the condition never said: the client never heard its engine stop.
+
+**It flies only what its player gave it** (from the review): taken back
+with A, the copilot stands by - nothing more asked, an answer still to come
+not sent - until the player asks again.
+`a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back_as_recorded`:
+routine looks every 20 s, taken back 40 s in, and the answer that came after
+was not heard; the server handed the aircraft to the AI once. Red with the
+standing by taken out.
+
+**Nothing of it is on the thread that steps or draws** (from the review):
+its ground - a geoid, a DEM and the world's runways, which a fresh cache
+downloads - is made on a thread of its own as the copilot is made, when the
+client has an aircraft rather than at the first C; and what the copilot is
+told is worked out on the question's own thread (`copilot::Copilot::ask`
+with a function). It keeps a DEM of its own, not the client's: a
+`world::Dem` is not for two threads, and the tiles are shared on disk.
+Going away, a copilot abandons its model's request at once
+(`platform::HttpRequest::abandon`) and asks nothing more:
+`a_copilot_going_away_gives_up_its_question_at_once`, red with the request
+left to run - it was waited out. A model silent for two minutes, not five,
+is given up.
+
+**What a player's copilot is told** now includes whether the engine runs
+(above); its speed is its speed over the ground, which is what the updates
+carry. The server's own AI aircraft do not ask a model in flight: each is planned once,
+by the model its server chooses, with the operator's key ("Each AI aircraft
+is planned by the model its server chooses", below).
+
+**The key stays on the player's machine** (the project owner, 2026-09-30;
+REQUIREMENTS.md section 5 and 6.4, TRANSPORT.md, THREATS.md). The player's
+client asks the model with the player's key, and sends the server only the
+route it answered, as a new reliable message, `COPILOT_ROUTE` (`09`):
+waypoints and orbits, and a glide airspeed, at most 12 waypoints, 936 bytes at
+its limits, written byte for byte in TRANSPORT.md. **The server trusts it no
+further than a plan**: it reads it as one (`sim::parse_flight_plan`) from
+where its own aircraft is, checks it with the checks a copilot's answer is
+held to (`copilot::change_refusal`, which the server now links) against the
+aircraft as the server has it - its ground from the server's DEM, its height
+above the sea from the server's geoid - and refuses what fails, printing why
+and changing nothing. What passes is flown by the server's AI: the aircraft
+handed to it first if the player was flying it, announced as any hand-over
+is, so the client stops predicting it and draws it from the updates. The
+server says where each copilot's route has got to every half minute.
+
+- **The client with the window**: `glideslope --copilot TASK
+  [--copilot-provider P] [--copilot-model M]`; C asks, and the copilot looks
+  again a minute after each answer. **The headless client**: `glideslope_cli
+  connect ... --copilot AIRCRAFT TASK` with `--copilot-provider`,
+  `--copilot-model`, `--copilot-record`/`--copilot-playback`, `--copilot-at S`
+  on the session's clock, `--copilot-answers N` and `--copilot-stay S`; and
+  `--send-route FILE`, a route sent as it is, never checked on this side. Both
+  use `frontend::PlayersCopilot` (`src/frontend/players_copilot.hpp`): told
+  its position from the updates, its height above the sea from the geoid and
+  the ground from the DEM as the player's machine has them, its speed over
+  the ground (no update carries airspeed) and the runways near it.
+- `a_players_copilot_asked_on_the_players_machine_is_flown_by_the_server_as_recorded`:
+  the server and the headless client, played back from Claude Haiku 4.5's
+  recorded answer to "fly to Manly at 3,000 ft, then orbit over Manly beach"
+  (`tests/data/copilot/manly-server-anthropic.jsonl`), no key. The server
+  handed the aircraft to its AI and flew the route - to MANLY, 6,188 m from
+  it at 30 s and 4,579 m at 60 s. The client leaves 60 s of the session's
+  clock after sending it; the server runs until it has gone. Red with the
+  server not flying what it took.
+- `a_route_the_server_cannot_fly_is_refused_by_it_though_a_client_sent_it`:
+  a client sends a waypoint 200 ft over the sea
+  (`tests/data/copilot/route-200-ft-over-the-sea.txt`); the server says "LOW
+  is at 200 ft, below 500 ft", and neither hands the aircraft over nor flies
+  it. Red with the server's check taken out.
+- `the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route`:
+  the client with the window, headless on Vulkan, asks its copilot three
+  seconds in (`--copilot-after 3`, what C does) from the same recording; the
+  server hands its aircraft to the AI, and what the client showed of its own
+  aircraft stepped 0.180 m at the switch from predicting it to drawing it from
+  the updates - under the 5 m bound. Red with the route not sent.
+- The message is walked by every message test: it writes and reads back,
+  every truncation, trailing byte and single-byte change is refused or read,
+  its six floating-point fields refuse NaN and infinity (25 fields in all
+  now), it fits a datagram at its limits, and TRANSPORT.md and THREATS.md name
+  it; `every_message_writes_and_reads_back_what_went_into_it` was red with an
+  orbit's direction dropped on reading.
+- **A glide is checked on its own terms**: the engine-failure flight must
+  hold the glide airspeed the copilot asked for within 5 kt, not merely a
+  steady one. A played-back flight that goes another way now ends where the
+  recording runs out, says what it measured, and fails after (exit 3), so
+  with the glide not flown the test is red for the glide - "67 to 72 kt, not
+  within 5 kt of the 60 kt asked for" - before it is red for the recording.
+
+**Rebased onto the collision ground (2026-10-01).** The copilot's ground is
+the collision ground everywhere now - the DEM with every runway its own
+surface, as the aircraft meets it: the server's check of a route, the
+player's copilot's "ground beneath" (its own `world::CollisionGround` on its
+own DEM, on its question's thread), and `glideslope_cli fly-copilot`'s
+aircraft and figures, which had flown over the raw DEM. So the route a
+player's copilot plans is checked by the server against the same ground.
+`COPILOT_ROUTE` and the condition `02` came without the protocol's version
+moving - it is `02`, for the ground - as TRANSPORT.md's rule for layout
+changes before a first release says; the doc client reads condition `02`.
+
+**Rebased onto the learnt landing (2026-10-01).** A copilot's route that
+arrives while the learnt landing flies (`sim::Controller::to_ai_learnt_approach`)
+now lets it go, as it does a take-off or an approach: the autopilot is
+engaged afresh from the controls it had, and every hand-over - the learnt
+landing's among them, through `engage()` - ends a glide.
+`a_copilots_route_during_a_learnt_landing_replaces_it_with_no_step_in_its_controls`:
+handed the route five seconds into the learnt approach, the landing is let
+go, no control moves more than a hand's step (0.00833 of its travel) in the
+second after, and the route is flown, 1,149 m nearer its waypoint in 30 s.
+Red with the learnt landing left flying. **No copilot thread touches a
+`sim::Aircraft`**, whose property cache is for one thread: a copilot's
+question is asked with a copy of what it is told (`copilot::Situation`), made
+on the stepping thread in `glideslope_cli fly-copilot` and the server, and
+from the state update's copy of the aircraft on a player's machine.
+
+**From the final check (2026-09-30), fixed:**
+
+- **The stand-by test could still go quiet**: a `keep` and a route not heard
+  after a take-back were said alike, so a `keep` there passed. They are said
+  apart now, the test wants the route, fails on a `keep` played back, and
+  asked of a model now skips on one ("the model answered keep; the rule was
+  not tested") rather than passing. The hand-written answer's line says so
+  itself, in a "note" the playback does not read. Red with a route sent
+  after the take-back (handed over twice); a `keep` played back is refused.
+- **One question's situation failing no longer ends the copilot**: only its
+  ground not had as it is made does; a DEM tile not fetched for one question
+  leaves that question unanswered and asks it again, twice at most. Not
+  tested on its own.
+- `glideslope_cli connect` says a wreck flies again before anything else it
+  flies again with - an engine stopped among it.
+
+**From the re-review (2026-09-30), fixed:**
+
+- **CI failed** (run 36686103327, ubuntu linux-debug):
+  `the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route`
+  drew its shot at a fixed 25 s, and the copilot, asked, had not answered by
+  then - its answer is taken 10 s after it is asked, and now after its ground
+  is made too. The shot now waits on the events - the route sent and the
+  server saying the AI has the aircraft - up to five minutes of flight past
+  its tick. In the same run
+  `the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again`
+  failed on Rocky 9; it is not this change's: no copilot is made there, and
+  it failed on main as well (run 36674751464).
+- `every_flag_the_server_prints_in_its_usage_is_one_it_takes` failed:
+  `--fail-engine-at` was not in its list. It is, and a time that is
+  negative, not a number or NaN is refused (three tests, red with the check
+  loosened); `--dry-run` says when it will stop the engines.
+- **The stand-by test could not fail on its rule**: the answer after the
+  take-back was `keep`, which is sent by nobody. The recording's second
+  answer is now written in by hand as a route (the only answer in any
+  recording not a model's), and the test asserts that no route was sent
+  after the take-back and that the AI was given the aircraft once. Red with
+  the not-engaged answer sent: handed to the AI twice.
+- **The glide's airspeed is checked at every half-minute line from 45 s
+  after the glide was taken**, at least two of them, not the last alone -
+  the server now says the time on those lines. Red with the server not
+  flying the glide: 80 kt against the 65 asked for.
+- **An engine that stops while a question is out is asked about**: the
+  question asked with it running answers with a route the server refuses
+  ("the engine has stopped: the route must begin with glide"), which never
+  hands the aircraft to the AI; the copilot waited for that before asking
+  about the engine, so it never did. It asks as soon as it can, whoever
+  flies it, and again if the engine runs again.
+  `a_players_copilot_glides_when_the_engine_stops_while_it_is_thinking_as_recorded`
+  (Claude Haiku 4.5, recorded; the engine stopped 10 s in): the Manly route
+  refused, the glide to runway 25 flown. Red with the old wait.
+- `02` is said for any engine stopped, fuel exhaustion included; an older
+  client refuses the whole update while one is (TRANSPORT.md).
+- **Its ground failing kills its copilot once, and says so**: whatever
+  making the ground threw - a fetch, a file - ended every question after
+  without a word. Now it says "no copilot: ..." once and is gone for the
+  session. Going away, its fetches are given up (`world::FetchesGivenUp`)
+  as its model's request is abandoned, and each is waited for only as long
+  as giving up takes. Neither has a test of its own.
+- The route for another's aircraft is sent for another **player's** - a
+  second client's - which only the ownership check refuses: red with that
+  alone taken out. Speeds are kept by catalogue id; the engine count is
+  kept, not read at each update; `--copilot-routine` wants a positive
+  number, and `--route-for-another`/`--route-when-wrecked` want
+  `--send-route`.
+- Every test in the areas this touches was run - 234, by name: server,
+  client, copilot, state, message, flag, refusal, connect, take-over,
+  hand-over, ride-along and planned. 233 passed or skipped as they should;
+  `an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players`
+  failed once, in 2.8 s at the start of that run, and passed in each of three
+  runs after, alone and beside another server test. Its output was not
+  kept, so why is not known; it touches no copilot code.
+
+**From the review (2026-09-30), fixed:**
+
+- **One route could end the server.** Checking a route worked out the
+  aircraft's speeds from its published figures there and then, which throws
+  for an aircraft whose figures give none (the 747-400, the F-22), and
+  nothing caught it. The speeds are now worked out once, as an aircraft is
+  made, and kept by model; a route for an aircraft with none is refused,
+  saying why; and whatever else a check throws is a refusal.
+  `a_flyable_route_is_refused_when_its_speeds_are_not_known_and_the_server_goes_on`
+  gives the server a plan flown by a 747-400 (`tests/data/copilot/747-off-bondi.plan`):
+  refused, "747-400 publishes no stall speed", both programs ending as they
+  should. Red with the old code: the server died (exit codes 0;1).
+- **Whose aircraft**: `a_flyable_route_is_refused_when_it_is_not_this_client_s_aircraft_and_the_server_goes_on`
+  sends a flyable route for the AI's aircraft, and
+  `a_flyable_route_is_refused_when_it_is_a_wreck_and_the_server_goes_on` one
+  for the client's own once it is a wreck; each refused, nothing handed
+  over. Red with each check taken out.
+- **A waypoint's name is letters, digits and underscores**, and something,
+  or the message is refused: a newline had smuggled plan lines past the
+  12-waypoint limit, a `#` commented one out, and an escape reached the
+  operator's terminal. `every_refusal_the_document_names_for_a_copilot_route_is_refused`
+  builds all twelve refusals TRANSPORT.md names, one by one - red with the
+  names unchecked. The message at its limits is **936 bytes**, not the 925
+  first written: a text's length is two bytes.
+- **An answer that could not be sent is refused back to the model**: a name
+  over 32 bytes or not a word, more than 12 waypoints, or round an orbit
+  more than 255 times - which the client had sent anyway, for the server to
+  drop unread. The limits are the message's, asserted equal at compile
+  time.
+- A glide ends with every hand-over (`sim::Controller`, to the AI or back);
+  a copilot's route ends with its wreck and its take-back. A route replaces
+  the server's plan for an aircraft a player took over, on purpose: wrecked,
+  it flies again holding its course, as any player's aircraft the AI flies.
+- THREATS.md says the ground along a route is not checked - only 500 ft
+  above the ground beneath the aircraft as it is read.
+
+### The copilot flies with you, in `glideslope_cli fly-copilot`, 2026-09-30 — finished above
+
+**Was missing: only `glideslope_cli` flew with a copilot** - done above.
+Nothing is built or run on Windows or macOS here but by CI and
+`tools/windows_build.sh`; the code is not platform code.
+
+**What flies**: `glideslope_cli fly-copilot AIRCRAFT LAT LON FEET HEADING
+KNOTS TASK` flies an aircraft over the DEM with the AI, and a language model
+as its copilot, with the player's own key - OpenAI's or Anthropic's, refused
+without one. It is asked when engaged, when the engine stops
+(`--engine-fails-at S`), when its route has been flown, and a minute after
+each answer ("a routine look"); it is told where the aircraft is, what it is
+doing, the route left and up to six runway ends within 40 km that say their
+elevation. Its answer is flown 45 simulated seconds after it was asked
+(`--thinking`), or when it comes if later; asked of a model now, the flight is
+paced to the clock while a question is outstanding, so the model's seconds
+are the flight's, and runs as fast as it can otherwise. A question the model
+cannot answer changes nothing, and what happened is asked again, twice at
+most; played back, a question the recording does not hold ends the flight
+with an error. 45 s because GPT-5.5 asked for a whole route along a coast
+once took 38 s; one slower than the allowance is said, and its flight plays
+back otherwise than it flew.
+
+- **It follows a coast as told**: off Bondi's south end at 1,500 ft, "follow
+  the coast south to Cronulla at 1,500 ft, then orbit over Cronulla beach",
+  GPT-5.5 (`gpt-5.5-2026-04-23`) gave eleven waypoints by the beaches and
+  headlands - Bondi, Bronte, Coogee, Maroubra, Malabar, Little Bay, La
+  Perouse, across the mouth of Botany Bay to Kurnell, Boat Harbour, Greenhills,
+  Cronulla - and the AI flew them, each passed within 300 m. From its first
+  route to Cronulla the coast - land and water both, the DEM's own mask, in
+  rings 250 m apart in 16 directions - was within 1 km in 48 of 52 looks, ten
+  seconds apart, and never more than 1,500 m away. **Two smaller models did
+  not follow it**: Claude Haiku 4.5 and GPT-5.4 mini each gave Cronulla alone
+  and flew straight there, over Maroubra and the middle of Botany Bay - within
+  1 km of the coast in 73 to 78% of their looks, 2,000 to 2,250 m from it at
+  most. Claude Sonnet 5 followed it, but with the recorder's 4,096-token limit
+  it twice spent every token thinking and answered nothing; the limit is part
+  of every recorded request, so raising it means recording the CBD plans
+  again. `the_copilot_follows_the_coast_as_told_by_openai_as_recorded` flies
+  GPT-5.5's answers again and asks for 85% of looks within 1 km and the coast
+  never more than 1,750 m away; played back from Haiku's straight flight, it
+  is red ("the coast was 2000 m from it at most").
+- **It handles an engine failure**: off Bondi at 4,500 ft, told to follow the
+  coast south to Cronulla, the engine stopped 90 s in. Claude Haiku 4.5
+  (`claude-haiku-4-5-20251001`) answered with a glide at 60 kt to Sydney's
+  runway 25 and an orbit over it - its first answer refused, an orbit 518 m
+  across being too tight for 60 kt, and the second flown. The Cessna came over
+  the threshold 1,924 ft above the ground 240 s after the engine stopped,
+  circled down, and was 300 ft above the ground 247 m from it; from 45 s after
+  the glide began it held 58 to 61 kt. `the_copilot_glides_to_a_runway_when_the_engine_stops_by_anthropic_as_recorded`
+  asks for a glide, a threshold passed within 1.5 km more than 300 ft up,
+  300 ft above the ground within 3 km of one, and the glide within a 10 kt
+  band. With the glide not flown (the CLI setting none) it is red: the flight
+  goes another way, and the recording holds no answer to what it asks next.
+- **It never slows the step**: unit-tested below - the steps go on while the
+  model is held.
+- **It replays in CI without a key**: both recordings are in
+  `tests/data/copilot/`, and are played back matched but their numbers.
+  Played back on this machine, each flight is the one recorded, line for line.
+  The two tests asking now (`..._asking_{openai,anthropic}_now`, labelled
+  `live`) skip without `GLIDESLOPE_LIVE_MODEL=1`, seen to skip.
+
+The parts, each tested alone:
+
+- **`copilot::Copilot`** (`src/copilot/copilot.hpp`): told once the aircraft
+  and the pilot's task, and asked - at engagement, now and then, and when
+  something happens - where the aircraft is, what it is doing, the route left
+  and the runways nearby. It answers `keep`, or a whole new route of
+  waypoints and orbits flown from where the aircraft is, first line
+  `glide AIRSPEED_KT` when the engine has stopped. The answer is read as a
+  flight plan (`sim::parse_flight_plan`) and checked against the flight as the
+  model was told it: every waypoint within 200 km, every height 500 ft above
+  the sea and the ground beneath, every airspeed from the approach speed to a
+  fifth over the cruise, a glide only with the engine stopped and from the
+  approach speed to the best climb, and with it stopped nothing but a glide.
+  A glide flies neither its waypoints' heights nor their airspeeds - it ends
+  low over its field - so neither is held to anything, but its orbits must
+  be wide enough for the glide's airspeed. One refused is told back to the model, up to three answers, as the planner's
+  are. It is built inside the copilot's walls (`cmake/Copilot.cmake`): it
+  sees the plan and the autopilot's modes, and nothing that moves a control.
+- **It never slows the step.** A question is asked on a thread of its own
+  (`ask`), and its answer taken between two steps when it has come
+  (`answered`); neither waits, and a question outstanding is not asked again.
+- **`sim::Controller::replan`** gives the AI a new route while it flies,
+  keeping the autopilot, so nothing it holds is dropped: the largest step in
+  any control the second after a turn to a new route is 0.0017 of its travel.
+- **`sim::Controller::set_glide`** flies the route at an airspeed with the
+  engine stopped: the airspeed is held by the vertical speed asked of the
+  autopilot - 80 ft/min for each knot off it, an integral of 4 ft/min a knot a
+  second finding the glide's own sink, and 250 ft/min for each knot a second
+  of the speed's trend to damp it. **Not the autopilot's airspeed on the
+  elevator**, which is its stall recovery and keeps the wing below the
+  greatest angle of attack it has seen: a Cessna that had only cruised,
+  asked for 68 kt from 100, swung between 73 and 84 kt for a minute and a
+  half. The glide's airspeed is still asked of the autopilot, so that the
+  least speed it holds a descent to (`Aircraft::climb_floor_kts`, above the
+  Cessna's best glide) is lowered to it. Slowed from 100 kt the Cessna dips
+  to 62 and comes back to 68 without passing it; from 45 s on it holds 65.2
+  to 68.3 kt.
+- **A recording plays back but its numbers** (`copilot::Match::but_numbers`):
+  a flight flown again is not where it was to the last digit, so the requests
+  a copilot recorded are matched with every number in them disregarded - the
+  words, what the model was told and what happened, must be the recording's.
+  The vertical speed is told as a signed number for that reason, not as
+  "climbing" or "descending", which would turn on a sign.
+
+Tests, each seen red with a bug put in and taken out again:
+`a_copilots_answer_is_read_as_keep_or_a_route_and_refused_wherever_it_cannot_be_flown`
+(all 14 ways an answer is refused, counted; red with the 200 km check
+widened tenfold), `a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown`
+(red with the reason left out of what the model is told),
+`the_copilot_asks_on_a_thread_of_its_own_and_the_step_never_waits_for_the_model`
+(1,200 steps taken while a stand-in model is held, which the steps let go;
+red, after the minute the stand-in waits, with `ask` waiting for its answer),
+`a_recording_played_back_but_its_numbers_answers_a_request_whose_figures_moved_and_no_other`
+(red with every request taken as matching),
+`a_plan_changed_while_the_ai_flies_moves_no_control_at_the_change_and_is_flown`
+(red with the autopilot engaged afresh at the change) and
+`a_glide_with_the_engine_stopped_holds_its_airspeed_on_the_elevator_along_its_route`
+(red with the glide not applied).
+
+### A slow Windows configure was a new runner image, rebuilt by every pull request; now pull requests may publish, 2026-09-30 — tail still open
+
+**What is still missing, first**: the plan item's verification - every
+Windows configure whose vcpkg cache hit under 3 minutes, over a week of runs
+on main - is not yet counted; a week has not passed. No pull request's
+upload has been seen yet: this branch's runs only read (it changes
+`.github/`), and the first comes with the next new image or port change on
+a pull request allowed to write. And a new image will still cost more than
+one rebuild while it arrives: every job that lands on it before the first
+has finished and uploaded (about 22 minutes) builds too.
+
+**The cause, from the logs, not a guess.** The ~1,370 s configures were not a
+wait but a full rebuild of the 39 packages ("All requested installations
+completed successfully in: 21 min", against 2-4 s after a restore; the
+restore itself, which vcpkg times apart, was 22 s on this branch). GitHub was
+rolling out a new Windows image, windows-2025-vs2026 20260925.250.1, with
+MSVC 19.51.36260.0, beside 20260922.246.2 with 19.51.36257.0; the compiler is
+in every package's ABI, so a job on the new image found none of its packages.
+Of ci.yml's 64 Windows configures on 2026-09-30 after 03:00, every one over
+200 s is in the table below or is one of main's three at 03:35, which first
+populated the feed. Of the 40 whose logs were read, all 8 on 20260925.250.1
+before 07:10 rebuilt, both on it after 07:10 restored, and the 27 on
+20260922.246.2 after 03:35 restored (installs of 1.7-4 s):
+
+| run | branch | preset | image | configure | vcpkg |
+|---|---|---|---|---|---|
+| 36670245478 | stall-recovery-two-part | release | 250.1 | 1379 s | 22 min |
+| 36672081323 | a-model-per-ai-aircraft | clang | 250.1 | 1374 s | 21 min |
+| 36672182492 | copilot-flies-with-you | debug | 250.1 | 1360 s | 22 min |
+| 36672183998 | cached-tile-cut-short | debug | 250.1 | 1365 s | 21 min |
+| 36674576086 | slow-frames-lose-no-ticks | clang | 250.1 | 1377 s | 22 min |
+| 36676611593 | rl-landing-agent | debug | 250.1 | 840 s | cancelled |
+| 36680141695 | **main** | release | 250.1 | 1312 s | 21 min, uploaded 07:06-07:09 |
+| 36680523613 | cached-tile-cut-short | debug | 250.1 | 812 s | 12 min |
+| 36686484430 | this branch | clang | 250.1 | 96 s | 2.1 s |
+| 36686508000 | rl-landing-agent | release | 250.1 | 113 s | 2.3 s |
+
+**Why it repeated.** Only main wrote to the feed; a pull request only read,
+by analogy with the Actions cache. So each pull request's job that landed on
+the new image rebuilt and threw the result away - about one job in seven,
+from 04:46 until 07:10 - until one of main's own three jobs happened to land
+there (run 36680141695) and uploaded the new versions (abseil's, for one, at
+07:06). Every job on that image since has restored. The one of 812 s began
+while main's job was building and uploading; what it restored its log does
+not say, which is what the logging below is for.
+
+**The fix.** A pull request's Windows jobs have write access to the feed
+too, unless its diff could change how a package builds. The Actions cache's
+reason for read-only pull requests - one 10 GB for the repository, which
+pull requests' saves crowded main out of - does not hold for public
+packages, which are free and have no limit. But the ABI hash does not cover
+everything (review found this): it covers the port files, triplet, cl.exe's
+hash, toolchain file, CMake and PowerShell versions, helper scripts,
+dependencies and VCPKG_ENV_PASSTHROUGH, not vcpkg's own binary, the rest of
+the MSVC toolset and SDK, tools on PATH, or variables kept by
+VCPKG_KEEP_ENV_VARS (`_CL_=/Od`, say); and a NuGet version is written once,
+first writer wins. A port change uploads under a hash main never asks for,
+but a pull request that changed the workflow or the CMake around vcpkg could
+publish packages main would restore for ever. So ci.yml's `changes` job
+gives the three Windows builds and package.yml's Windows zip `write` - true
+on main (push, schedule), and on a pull request only when its diff against
+its base touches none of `.github/`, `cmake/`, the top-level
+`CMakeLists.txt`, `CMakePresets.json`, `vcpkg.json`,
+`vcpkg-configuration.json`, `.gitmodules` or `ext/cesium-native`; otherwise,
+or when the diff cannot be taken, false. A bad version is deleted by hand
+(the action's header says how). A fork's pull request has no `VCPKG_PAT`
+and builds from source, as before.
+
+**The guard, checked dry**: the step's script, taken from ci.yml, run
+against real commits - a pull request touching only `src/`, `tests/` and
+`tests/cmake/` (1a6c8f5..2753af1) writes; one touching the top-level
+`CMakeLists.txt` (0c39005..1a6c8f5) and this branch (`.github/`, `cmake/`)
+only read; a base that is missing or not fetched reads; a push or the
+schedule on main writes; a dispatch on another branch reads.
+
+**Now visible in every job's log.** `cmake/Vcpkg.cmake` prints vcpkg's
+summary lines - the compiler it found, what it restored and from where, each
+package it built with its time, each upload, and an upload refused ("Pushing
+NuGet to ... failed", NuGet's status code; checked with `cmake -P` on sample
+output) - not only the last line; CI
+keeps `vcpkg-install.log` from each Windows configure as the artifact
+`vcpkg-install-<preset>` (14 days); and the feed's step prints the runner
+image. On this branch's run 36686994405, windows-clang on 20260922.246.2
+printed its compiler (MSVC 14.51.36231's cl.exe), "Restored 39 package(s)
+from NuGet in 22 s", and "All requested installations completed
+successfully in: 2.3 s": the packages are public, and restore on CI with
+the feed as the only binary source. A restore prints one "Elapsed time"
+line of milliseconds per package; those are left out, and a build's, in
+seconds or minutes, kept.
+
 ### A take-over on a slow machine: three bugs fixed, the bounds claimed at 20 fps and asserted, 2026-09-30 — not yet seen on CI
 
 **What is still missing, first**: this has not been seen passing on CI's
@@ -3243,65 +3369,7 @@ the limits); the verification test with the observation's distance across
 the centreline sign-flipped (27 of 27 short, one 478 m off); the CLI test
 with the CLI handing to the approach autopilot instead.
 
-### The geoid is fetched from a source that serves the pinned file, 2026-10-01 — tail done; main made green
-
-**What is not done first.** The aircraft models' source files
-(`assets/models/sources.txt`, FlightGear's fgaddon) come only from SourceForge,
-which served the same 859-byte page for every one of them on 2026-10-01:
-`the_files_the_visual_models_are_made_from_arrive_with_their_pinned_hashes`
-fails on a machine without them, and CI has them only from its downloads
-cache. That is a tail in `COMPLETION_PLAN.md`. `fetch.cmake` now takes more
-than one URL a line, so the fix is a second source per line once one serving
-the same bytes is found.
-
-**What broke.** Every test needing the EGM2008 geoid failed on every platform
-(CI run 36818460007, and main's run at 2026-10-01T05:07Z):
-`https://sourceforge.net/projects/geographiclib/files/geoids-distrib/egm2008-5.zip/download`
-"arrived with SHA-256 f188236c..., not the pinned 408f05e0...". Fetched by
-hand, it is a 302 to `https://sourceforge.net/#!/projects/...` and an 859-byte
-HTML page saying "the Sourceforge site is currently in Disaster Recovery
-mode". `downloads.sourceforge.net` answered 522; every `*.dl.sourceforge.net`
-mirror tried redirected back to it or did not resolve; the Internet Archive
-was offline too.
-
-**The source.** deck.gl's data repository on GitHub holds GeographicLib's
-`egm2008-5.zip`, committed once (`f0b91db8`, 2020-12-21). Fetched at that
-commit it is 16,773,259 bytes with SHA-256
-`408f05e0c04a9f2e17b9ea2d27123f936e9dea60128bb3411a272f8ddbe318dd` - the pinned
-file byte for byte, so the pin is unchanged. The URL names the commit, so the
-repository changing its branch does not change what is served.
-
-**More than one source.** `world::fetch_pinned` takes a list of URLs as well
-as one: each is tried in order, and one that cannot be reached, answers with an
-error or serves anything but the pinned bytes is passed over; nothing but the
-pinned file is ever kept, and when none serves it the refusal names every
-source and why. `world::egm2008_geoid_file()` gives the geoid's name, pin and
-sources - GitHub first, SourceForge second. `tests/cmake/fetch.cmake` reads any
-further URLs on a line of `files.txt` and tries them the same way, three
-attempts each, and a wrong hash still fails the run if no URL serves the
-right one. **CI's cache cannot keep a bad file**: neither the program nor
-`fetch.cmake` puts a file in place before its hash matches, and a cached file
-is checked against its pin each time it is read.
-
-**Verification.**
-- `a_pinned_file_is_fetched_from_the_first_of_its_sources_that_serves_its_pinned_bytes`:
-  a fake fetch serves an interstitial page, a 404, the file, and a fourth
-  source never asked; the first three are asked in order and the file kept.
-  With no source serving it the refusal names the page's source ("not the
-  pinned") and the 404's, and nothing is kept; no sources at all is refused.
-  Seen to fail with only the first source tried.
-- `the_geoids_sources_and_pin_are_the_ones_the_tests_fetch`: the program's
-  name, pin and sources, in order, are `files.txt`'s line for the geoid. Seen
-  to fail with one of the program's URLs changed.
-- With the real network: `the_files_the_tests_download_arrive_with_their_pinned_hashes`
-  fetches the geoid from GitHub into an empty directory, and
-  `the_egm2008_grid_gives_geographiclibs_undulations_within_its_stated_error`
-  passes on it; `glideslope_cli height -33.9461 151.1772` with an empty
-  `GLIDESLOPE_CACHE` fetched it through the program's own path (SHA-256
-  `408f05e0...`) and gave 6.234 m above the sea, the geoid 22.079 m above the
-  ellipsoid, at Sydney Airport.
-
-### A landing learnt by reinforcement learning is a controller, lands on the runway and is stopped on it; not yet on the centreline in a crosswind, and trained with its fuel running out, 2026-09-30 — item in progress
+### A landing learnt by reinforcement learning is a controller, lands on the runway and is stopped on it; not yet on the centreline in a crosswind, and trained with its fuel running out, 2026-09-30 — item done the same day, above
 
 **What is not done first.**
 - **The centreline, which is the item's verification.** From the 27
@@ -3650,7 +3718,7 @@ windows-debug and a safe 10 s for windows-release and windows-clang (CI
 measured 3-4 s before; neither is measured on CI since), to be measured
 again with `tools/ci_test_costs.py`.
 
-### Each AI aircraft is planned by the model its server chooses, 2026-09-30 — item not done
+### Each AI aircraft is planned by the model its server chooses, 2026-09-30 — item done 2026-10-02, above
 
 **What is missing first.** **Nothing chooses a model when an aircraft is
 handed to the AI.** A player's aircraft handed over (`--on-leave ai`, the
@@ -3958,6 +4026,9 @@ does not fly the autopilot, so its hash cannot have moved.
 
 ### Windows builds take vcpkg's packages from GitHub Packages, 2026-09-30 — tail still open
 
+*Since made public: every Windows job restores its 39 packages from the
+feed ("A slow Windows configure was a new runner image", above).*
+
 **What is still missing, first**: the packages are private until each is made
 public, and until then they are no use: a personal account's private packages
 have 500 MB of storage and 1 GB of transfer a month on the free plan, then are
@@ -3991,33 +4062,11 @@ access-control documentation says so). ci.yml passes its secrets to
 package.yml (`secrets: inherit`), and a change under `.github/actions/` now
 counts as one packaging must check.
 
-### Words to a flight plan: both models asked, recorded and flown, 2026-09-29 — item done
-
-Claude and ChatGPT each planned "take off, climb to 3,000 ft and orbit the
-CBD", and CI flies both plans from their recorded answers with no key. The
-detail - models, calls, cost, the navigator's orbit join, and what was seen
-to fail - is in "Words to a flight plan, 2026-09-25", below.
-
-**A live model call is made only when asked for.** The two tests that ask a
-model now, `take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_{openai,anthropic}_now_and_flown`,
-cost money, and a key on the machine is not consent to spend it. They
-report themselves skipped unless `GLIDESLOPE_LIVE_MODEL=1` is set, checked
-before anything else. They are labelled `live`, and the pre-push hook runs
-its quick tests with `-LE live` and without the variable: a skipped test
-measures as quick, so both were on its list. To ask the models and
-record them again:
-
-```sh
-GLIDESLOPE_LIVE_MODEL=1 ctest --preset linux-debug -L live
-```
-
-Each writes its recording under `build/linux-debug/tests/plans_flown/`, to be
-read by eye and copied to `tests/data/copilot/`. No other test can call a
-model: the copilot's unit tests ask a stand-in for each service.
-Seen to skip: the script run with a command and no playback, and without
-the variable, exits 77 before it reads anything else.
-
 ### CI in tiers, and vcpkg's cache keyed on the runner's toolchain, 2026-09-30 — tail still open
+
+*Since: no simulated frame clock will be built - the timing tests assert
+20 fps instead (the owner, 2026-09-30) - and Windows takes vcpkg's
+packages from GitHub Packages; both are entries above.*
 
 **What is still missing, first**: the two display-timing tests are left out of
 the pull-request gate's debug presets, not fixed. They pass or fail with the
@@ -4075,6 +4124,32 @@ are not pruned.
   hash of the ports. A new image misses once, and that run saves. Any Windows
   preset may save it now, not only windows-release, since a new image can come
   to any of them first.
+
+### Words to a flight plan: both models asked, recorded and flown, 2026-09-29 — item done
+
+Claude and ChatGPT each planned "take off, climb to 3,000 ft and orbit the
+CBD", and CI flies both plans from their recorded answers with no key. The
+detail - models, calls, cost, the navigator's orbit join, and what was seen
+to fail - is in "Words to a flight plan, 2026-09-25", below.
+
+**A live model call is made only when asked for.** The two tests that ask a
+model now, `take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_{openai,anthropic}_now_and_flown`,
+cost money, and a key on the machine is not consent to spend it. They
+report themselves skipped unless `GLIDESLOPE_LIVE_MODEL=1` is set, checked
+before anything else. They are labelled `live`, and the pre-push hook runs
+its quick tests with `-LE live` and without the variable: a skipped test
+measures as quick, so both were on its list. To ask the models and
+record them again:
+
+```sh
+GLIDESLOPE_LIVE_MODEL=1 ctest --preset linux-debug -L live
+```
+
+Each writes its recording under `build/linux-debug/tests/plans_flown/`, to be
+read by eye and copied to `tests/data/copilot/`. No other test can call a
+model: the copilot's unit tests ask a stand-in for each service.
+Seen to skip: the script run with a command and no playback, and without
+the variable, exits 77 before it reads anything else.
 
 ### CI's Windows builds keep a compiler cache, 2026-09-29 — tail still open
 
@@ -4732,7 +4807,6 @@ shard passed (12.5 minutes). It is a `RUN_SERIAL` test, alone on the runner
 whichever shard it is dealt to, so the dealing does not explain it; it is a
 tail in the plan.
 
-
 ### What the client with the window shows does not step at a switch, 2026-09-27
 
 **What is still missing first.** The hand-over tail stays open for its other
@@ -4890,6 +4964,7 @@ it with it.
   frames no longer blends from the aircraft left behind: seen in one, it
   blends from that; in none, from nothing.
 - The ride-along test beside them passes unchanged.
+
 ### Every flare begins at the attitude the glidepath was flown at, 2026-09-27 — tail done
 
 **What is missing first.** **The F-35B does not flare at all.** She flies
@@ -5031,7 +5106,7 @@ retry before the program could end: about 80 s. Found by the review of PR
 - Windows: `tools/windows_build.sh windows-debug` built `glideslope_tests`
   and `glideslope` with MSVC at c21509c, and both new tests passed there.
 
-### A command-line client the server has let go joins again by itself, and a dropped one does not, 2026-09-27 — tail still open
+### A command-line client the server has let go joins again by itself, and a dropped one does not, 2026-09-27 — tail done 2026-09-29, above
 
 *Since done for the client with the window too: see "The client with the
 window, let go, joins again by itself", 2026-09-29.*
@@ -6915,161 +6990,6 @@ built windows-debug with MSVC, ran the test (1 of 1 passed) and printed
 starting in a `\\wsl.localhost` directory, is harmless: the batch file changes
 to the Windows working copy first.
 
-### A HUD test with no weather to be had is skipped, 2026-09-25 — tail done
-
-**What is not covered first.** Only the three HUD tests fly in live weather
-(`--weather YSSY`); nothing else a test runs asks for it but the weather's own
-unit test, which fetches Sydney's weather to hold it to what it must be and
-still fails, where the network is required, when a service does not answer.
-A weather refresh that fails mid-flight was already only reported, and the
-flight flown on in the weather it had.
-
-**Found by CI**: `glideslope: could not download: https://api.open-meteo.com/...
-no response (WinHTTP error 12002)`, failing
-`the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_*` from
-`frame_hud.cmake`. **Cause.** The test did skip on "could not download" - but
-not where `GLIDESLOPE_REQUIRE_NETWORK` is set, as CI sets it, because there
-the DEM and the geoid must arrive: they are pinned and kept in `.downloads`.
-Live weather is neither; it is somebody else's service, asked afresh each run.
-
-**Now** only a service that did not answer is weather not to be had:
-nothing answered at all (`HttpError`), or a server error (5xx) to every one of
-`fetch_with_retries`' tries. `fetch_metar` and `fetch_winds_aloft` throw those
-as `world::ServiceUnavailable`, and `fetch_weather` - that alone - as "the
-weather could not be had: ...". A refusal (4xx), an answer that is not JSON,
-and JSON that is not an answer stay the faults they were, so a misspelt
-Open-Meteo variable, answered 400, fails the HUD tests rather than skipping
-them for good. `frame_hud.cmake` reports itself skipped (exit 77) on "the
-weather could not be had", whatever is required; a DEM that could not be had
-still fails where the network is required.
-
-To build these on purpose, `GLIDESLOPE_WEATHER_SERVICE` (read by
-`platform::weather_service`, used through `world::weather_host`) names a
-scheme and host asked instead of both `https://aviationweather.gov` and
-`https://api.open-meteo.com`; unset, the services' own are asked. It is read
-in every build, so it is held to an `https://` host or `http://127.0.0.1` /
-`http://localhost`, with a port or without and nothing after
-(`world::weather_service_allowed`); anything else stops the flight with the
-variable named. `THREATS.md` says what that does and does not defend.
-`fetch_weather` and the two fetches take the retry wait, 2 s by default, so a
-test can walk the failures without the 30 s each retrying takes.
-
-**Verified.**
-- `a_hud_test_with_the_{pilot_flying,ai_holding,ai_flying_its_plan}_is_skipped_when_there_is_no_weather_to_be_had_on_*`
-  (`frame_hud_no_weather.cmake`) runs `frame_hud.cmake` for each of the three
-  HUD tests' cases with the weather asked of `http://127.0.0.1:1`, where
-  nothing listens, and `GLIDESLOPE_REQUIRE_NETWORK` set, and requires exit 77
-  with the weather named.
-- `a_hud_test_whose_weather_service_answers_400_fails_rather_than_skipping_on_*`
-  runs it against `glideslope_http_stub`, a server on the loopback answering
-  every request 400, and requires a failure naming the 400 - not a pass, not a
-  skip - and that the stub was asked. One case, the pilot's: the three differ
-  only after the weather is fetched.
-- `only_a_weather_service_that_does_not_answer_is_weather_not_to_be_had`
-  walks twelve failures at each service - nothing answering, 500, 502, 503,
-  504; 400, 401, 403, 404, 429; a 200 that is not JSON, and JSON that is not
-  an answer - 24 cases, counted, the first five weather not to be had and the
-  rest faults.
-- `the_weather_may_be_asked_elsewhere_only_over_https_or_of_the_loopback`: 8
-  values allowed and 18 refused, among them `http://127.0.0.1.example.org`,
-  `http://localhost:8080@example.org` and paths.
-- The three HUD tests still pass in Sydney's weather.
-
-**Seen to fail:**
-- With `frame_hud.cmake`'s weather skip taken out, all three skip tests fail
-  with "exited 1, not 77", which is CI's failure. A first version of the
-  wrapper, which skipped itself on any "could not download" where the network
-  is not required, let that bug through as a skip. It now skips only on the
-  DEM's failure.
-- With `fetch_weather` calling every download error the weather's, as it
-  first did, the 400 test fails ("exited 77, when it should fail") and so
-  does the unit test, at aviationweather.gov's 400.
-- With any `http://` host allowed, the allowed-hosts test fails at
-  `http://example.org`.
-
-### The horizon is never drawn through the HUD's text, 2026-09-25 — tail done
-
-### The HUD's text is kept left of the horizon, which is drawn whole, 2026-09-25 — tail done
-
-
-**What is not covered first.**
-- **Frames narrower than 474 pixels.** Even the smallest text reaches into
-  the middle third there. The horizon is still drawn whole, over the text,
-  and a row it crosses reads `?` where it does.
-- **The checklist.** It is drawn down the top right, from half the width, so
-  the horizon can still cross its rows. That is a tail.
-- **Smaller text.** On a 640x480 frame, the size the HUD tests shoot, the
-  text is now one screen pixel to a font pixel, half the size it was. At
-  1280x720 it is two, where it was three.
-- **Not a GPU's frames.** The test paints the HUD's mesh on the CPU. The live
-  HUD tests still judge real shots, with the same judgement.
-
-**Cause.** The horizon runs across the middle third of the frame. At
-640x480 the HUD's 24 read columns, at two screen pixels a font pixel, reached
-from 24 to 312 pixels, past the third at 213. Pitched and banked, the line
-could cross the right-hand end of any row, and a stroke through a cell reads
-as `?`. Rows 1-6 need an exact word count, the FLYING and GEAR lines are
-compared whole, and `frame_hud.cmake` looks for `FLYING AI NAV THE HEADS`:
-a `?` a few columns after the text broke each of them.
-
-**Now** the text is kept clear of the horizon, and the horizon is not
-touched. `gfx::hud_layout` draws the text at a scale no larger than keeps the
-text block ending a pixel short of the furthest left the horizon reaches: a
-third of the width, less half the line's thickness. The block is the HUD's
-lines, each `gfx::hud_columns` (24) cells wide, two cells in. The cap applies
-up to the old scale of a pixel for every 240 of the smaller side, and never
-goes below one. `gfx::hud_text_clear_of_horizon` says whether a size manages
-it, which it does from `gfx::hud_narrowest_clear_width`, 474 pixels wide.
-`hud_lines` cuts the FLYING line at 24 characters, so a long waypoint name
-cannot carry the text past the block. The horizon is drawn whole, always.
-
-A first version of this cut the text block out of the horizon instead. That
-removed about half of a level horizon at 640x480, and nearly all of it on
-square and portrait frames. It is a flight instrument, and the review refused
-it.
-
-`glideslope_hud_check`'s judgement moved, unchanged but for reading
-`gfx::hud_columns` columns, into `tests/tools/hud_judge.hpp`, so frames built
-in a test are judged exactly as shots are.
-
-**Verified.** `the_horizon_level_with_every_hud_row_is_drawn_whole_and_the_hud_read_and_judged_whole`
-(`glideslope_hud_horizon_check`) checks two things:
-- **The layout at every size from 1x1 to 4096x4096**, 16,777,216 sizes. The
-  text is clear exactly at the 14,839,808 at least 474 wide. Where it is
-  clear, the block ends a pixel short of the horizon's reach. The scale is
-  the largest that keeps it so.
-- **23,712 frames.** Cases: the pilot flying, the AI holding, the AI flying
-  to THE_HEADS; slow and low, and with Mach and flight level; gear fixed, up
-  and down. Sizes: 640x480, 1280x720, 800x800, 600x1000, 1080x1920, 474x800
-  (the narrowest clear), and 473x600 and 360x640, which are too narrow. For
-  every row of each, the horizon meets the middle of the row's height at its
-  left end, its middle and its right end, banked 30 and 90 degrees either
-  way, and level. In every frame the horizon is whole: every pixel under its
-  centre line, on the frame and above the credits' strip, is in the HUD's
-  colour, except the last pixel at each end. Where the text is clear, the
-  horizon never comes within half its thickness of the text block, and the
-  HUD is judged whole in all 17,784 frames. Where the frame is too narrow,
-  the HUD is judged in the 4,512 frames where the horizon misses the text.
-  The 1,416 where it crosses are counted, and there must be some.
-- Each size is walked on a thread of its own: about 30 s in the sanitized
-  debug build here.
-
-`the_hud_says_who_is_flying_and_where_every_control_is_in_every_case` adds
-two long waypoint names, cut at 24 characters, one of them at a space. The
-four live HUD tests pass with the smaller text.
-
-**Seen to fail:**
-- With the scale not capped, the layout walk fails at 480x480. With that
-  walk and the geometric guard taken out, the judgement fails:
-  `800x800, ... row 1, bank -30, +1.00 along: line 12 reads "GEAR UP ??"`.
-- With half the horizon drawn: `the horizon is not whole: 211 of 422 points
-  on the frame lit`.
-- With the FLYING line not cut: `line 7 says "FLYING AI NAV NORTH HEAD
-  LOOKOUT POINT"`.
-- The first version's test was seen to fail too, but its count of rows
-  crossed held nothing that could fail. The review found that; the whole
-  horizon and the layout walk replace it.
-
 ### A copy of a handshake read after its session has gone makes no second player, 2026-09-26 — tail still open
 
 **What is not done first.** Why the fourth client's first session went quiet
@@ -7185,7 +7105,157 @@ address, and fly from there. The test asserts:
 "the key was admitted 1 times, not twice". The client never got a session from
 its own address, and the only aircraft, the copy's, banked 9 degrees.
 
+### A HUD test with no weather to be had is skipped, 2026-09-25 — tail done
 
+**What is not covered first.** Only the three HUD tests fly in live weather
+(`--weather YSSY`); nothing else a test runs asks for it but the weather's own
+unit test, which fetches Sydney's weather to hold it to what it must be and
+still fails, where the network is required, when a service does not answer.
+A weather refresh that fails mid-flight was already only reported, and the
+flight flown on in the weather it had.
+
+**Found by CI**: `glideslope: could not download: https://api.open-meteo.com/...
+no response (WinHTTP error 12002)`, failing
+`the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_*` from
+`frame_hud.cmake`. **Cause.** The test did skip on "could not download" - but
+not where `GLIDESLOPE_REQUIRE_NETWORK` is set, as CI sets it, because there
+the DEM and the geoid must arrive: they are pinned and kept in `.downloads`.
+Live weather is neither; it is somebody else's service, asked afresh each run.
+
+**Now** only a service that did not answer is weather not to be had:
+nothing answered at all (`HttpError`), or a server error (5xx) to every one of
+`fetch_with_retries`' tries. `fetch_metar` and `fetch_winds_aloft` throw those
+as `world::ServiceUnavailable`, and `fetch_weather` - that alone - as "the
+weather could not be had: ...". A refusal (4xx), an answer that is not JSON,
+and JSON that is not an answer stay the faults they were, so a misspelt
+Open-Meteo variable, answered 400, fails the HUD tests rather than skipping
+them for good. `frame_hud.cmake` reports itself skipped (exit 77) on "the
+weather could not be had", whatever is required; a DEM that could not be had
+still fails where the network is required.
+
+To build these on purpose, `GLIDESLOPE_WEATHER_SERVICE` (read by
+`platform::weather_service`, used through `world::weather_host`) names a
+scheme and host asked instead of both `https://aviationweather.gov` and
+`https://api.open-meteo.com`; unset, the services' own are asked. It is read
+in every build, so it is held to an `https://` host or `http://127.0.0.1` /
+`http://localhost`, with a port or without and nothing after
+(`world::weather_service_allowed`); anything else stops the flight with the
+variable named. `THREATS.md` says what that does and does not defend.
+`fetch_weather` and the two fetches take the retry wait, 2 s by default, so a
+test can walk the failures without the 30 s each retrying takes.
+
+**Verified.**
+- `a_hud_test_with_the_{pilot_flying,ai_holding,ai_flying_its_plan}_is_skipped_when_there_is_no_weather_to_be_had_on_*`
+  (`frame_hud_no_weather.cmake`) runs `frame_hud.cmake` for each of the three
+  HUD tests' cases with the weather asked of `http://127.0.0.1:1`, where
+  nothing listens, and `GLIDESLOPE_REQUIRE_NETWORK` set, and requires exit 77
+  with the weather named.
+- `a_hud_test_whose_weather_service_answers_400_fails_rather_than_skipping_on_*`
+  runs it against `glideslope_http_stub`, a server on the loopback answering
+  every request 400, and requires a failure naming the 400 - not a pass, not a
+  skip - and that the stub was asked. One case, the pilot's: the three differ
+  only after the weather is fetched.
+- `only_a_weather_service_that_does_not_answer_is_weather_not_to_be_had`
+  walks twelve failures at each service - nothing answering, 500, 502, 503,
+  504; 400, 401, 403, 404, 429; a 200 that is not JSON, and JSON that is not
+  an answer - 24 cases, counted, the first five weather not to be had and the
+  rest faults.
+- `the_weather_may_be_asked_elsewhere_only_over_https_or_of_the_loopback`: 8
+  values allowed and 18 refused, among them `http://127.0.0.1.example.org`,
+  `http://localhost:8080@example.org` and paths.
+- The three HUD tests still pass in Sydney's weather.
+
+**Seen to fail:**
+- With `frame_hud.cmake`'s weather skip taken out, all three skip tests fail
+  with "exited 1, not 77", which is CI's failure. A first version of the
+  wrapper, which skipped itself on any "could not download" where the network
+  is not required, let that bug through as a skip. It now skips only on the
+  DEM's failure.
+- With `fetch_weather` calling every download error the weather's, as it
+  first did, the 400 test fails ("exited 77, when it should fail") and so
+  does the unit test, at aviationweather.gov's 400.
+- With any `http://` host allowed, the allowed-hosts test fails at
+  `http://example.org`.
+
+### The HUD's text is kept left of the horizon, which is drawn whole, 2026-09-25 — tail done
+
+**What is not covered first.**
+- **Frames narrower than 474 pixels.** Even the smallest text reaches into
+  the middle third there. The horizon is still drawn whole, over the text,
+  and a row it crosses reads `?` where it does.
+- **The checklist.** It is drawn down the top right, from half the width, so
+  the horizon can still cross its rows. That is a tail.
+- **Smaller text.** On a 640x480 frame, the size the HUD tests shoot, the
+  text is now one screen pixel to a font pixel, half the size it was. At
+  1280x720 it is two, where it was three.
+- **Not a GPU's frames.** The test paints the HUD's mesh on the CPU. The live
+  HUD tests still judge real shots, with the same judgement.
+
+**Cause.** The horizon runs across the middle third of the frame. At
+640x480 the HUD's 24 read columns, at two screen pixels a font pixel, reached
+from 24 to 312 pixels, past the third at 213. Pitched and banked, the line
+could cross the right-hand end of any row, and a stroke through a cell reads
+as `?`. Rows 1-6 need an exact word count, the FLYING and GEAR lines are
+compared whole, and `frame_hud.cmake` looks for `FLYING AI NAV THE HEADS`:
+a `?` a few columns after the text broke each of them.
+
+**Now** the text is kept clear of the horizon, and the horizon is not
+touched. `gfx::hud_layout` draws the text at a scale no larger than keeps the
+text block ending a pixel short of the furthest left the horizon reaches: a
+third of the width, less half the line's thickness. The block is the HUD's
+lines, each `gfx::hud_columns` (24) cells wide, two cells in. The cap applies
+up to the old scale of a pixel for every 240 of the smaller side, and never
+goes below one. `gfx::hud_text_clear_of_horizon` says whether a size manages
+it, which it does from `gfx::hud_narrowest_clear_width`, 474 pixels wide.
+`hud_lines` cuts the FLYING line at 24 characters, so a long waypoint name
+cannot carry the text past the block. The horizon is drawn whole, always.
+
+A first version of this cut the text block out of the horizon instead. That
+removed about half of a level horizon at 640x480, and nearly all of it on
+square and portrait frames. It is a flight instrument, and the review refused
+it.
+
+`glideslope_hud_check`'s judgement moved, unchanged but for reading
+`gfx::hud_columns` columns, into `tests/tools/hud_judge.hpp`, so frames built
+in a test are judged exactly as shots are.
+
+**Verified.** `the_horizon_level_with_every_hud_row_is_drawn_whole_and_the_hud_read_and_judged_whole`
+(`glideslope_hud_horizon_check`) checks two things:
+- **The layout at every size from 1x1 to 4096x4096**, 16,777,216 sizes. The
+  text is clear exactly at the 14,839,808 at least 474 wide. Where it is
+  clear, the block ends a pixel short of the horizon's reach. The scale is
+  the largest that keeps it so.
+- **23,712 frames.** Cases: the pilot flying, the AI holding, the AI flying
+  to THE_HEADS; slow and low, and with Mach and flight level; gear fixed, up
+  and down. Sizes: 640x480, 1280x720, 800x800, 600x1000, 1080x1920, 474x800
+  (the narrowest clear), and 473x600 and 360x640, which are too narrow. For
+  every row of each, the horizon meets the middle of the row's height at its
+  left end, its middle and its right end, banked 30 and 90 degrees either
+  way, and level. In every frame the horizon is whole: every pixel under its
+  centre line, on the frame and above the credits' strip, is in the HUD's
+  colour, except the last pixel at each end. Where the text is clear, the
+  horizon never comes within half its thickness of the text block, and the
+  HUD is judged whole in all 17,784 frames. Where the frame is too narrow,
+  the HUD is judged in the 4,512 frames where the horizon misses the text.
+  The 1,416 where it crosses are counted, and there must be some.
+- Each size is walked on a thread of its own: about 30 s in the sanitized
+  debug build here.
+
+`the_hud_says_who_is_flying_and_where_every_control_is_in_every_case` adds
+two long waypoint names, cut at 24 characters, one of them at a space. The
+four live HUD tests pass with the smaller text.
+
+**Seen to fail:**
+- With the scale not capped, the layout walk fails at 480x480. With that
+  walk and the geometric guard taken out, the judgement fails:
+  `800x800, ... row 1, bank -30, +1.00 along: line 12 reads "GEAR UP ??"`.
+- With half the horizon drawn: `the horizon is not whole: 211 of 422 points
+  on the frame lit`.
+- With the FLYING line not cut: `line 7 says "FLYING AI NAV NORTH HEAD
+  LOOKOUT POINT"`.
+- The first version's test was seen to fail too, but its count of rows
+  crossed held nothing that could fail. The review found that; the whole
+  horizon and the layout walk replace it.
 
 ### The HUD check read the horizon as a line of the HUD, 2026-09-25 — tail done
 
@@ -7339,7 +7409,6 @@ of glideslope's, and was refused as "nm read nothing". Every symbol case now
 has to be refused for the reason it is there for. The line splice was at
 first never tested at all: the test's list swallowed its backslash. It now
 holds a real splice.
-
 
 ### Words to a flight plan, 2026-09-25 — item done 2026-09-29
 
@@ -7501,10 +7570,7 @@ two for an orbit flown for ever (`fly-plan --orbits 2`).
 - the navigator's old join, counting from the centre: the new unit test
   failed ("joined 0 m out"), and so did Claude's replay (164 to 492 m).
 
-### Asked for a height it cannot hold, the autopilot gives up height, 2026-09-25 — tail in progress
-
 ### Asked for a height it cannot hold, the autopilot gives up height, 2026-09-25 — tail done
-
 
 **What is still missing.** The AI still flies with the mixture full rich, so
 the ceiling it gives up height at is about 8,500 ft rather than the handbook's.
@@ -7650,8 +7716,6 @@ below the stall as it closes the throttle, as the instructor's demonstration
 already did. The autopilot, lander, departure, lesson, navigator, circuit,
 stall and controller tests, with the two added from review, pass: 65 of 65. The selftest replays a pilot's
 inputs and does not use the autopilot; its hash is unchanged.
-
-
 
 ### A weather service's bad answer is fetched again, 2026-09-25 — tail done
 
@@ -7872,7 +7936,6 @@ at 45 m. Two causes, each fixed and each seen to fail without its fix:
 
 Each was put back.
 
-
 ### Ride along in any AI aircraft, 2026-09-25 — item done
 
 **What is missing first.**
@@ -7944,7 +8007,6 @@ update, and drew its HUD with no controls: the shot's tick had come first.
 - The camera left with your own aircraft: 446.8 m from the aircraft ridden in.
 - "Fixed" read as a control: refused no longer, and red.
 
-
 ### An aircraft named by a server is looked up, never opened as a path, 2026-09-25 — tail done
 
 **Found while bringing `THREATS.md` up to date.** A client loads the model an
@@ -7963,7 +8025,6 @@ All sixteen aircraft's ids are known, each with its own model. Eight strangers
 are named by none: `../` climbing out, an absolute path, a wrong case, a
 trailing space and a name that is not there. With the lookup made to answer
 whatever it is asked, the test goes red.
-
 
 ### Who is flying, and the controls, on screen, 2026-09-25 — item done
 
@@ -8228,6 +8289,40 @@ ground (0 ft).
 
 The B-2 that cannot be recovered after half a minute of mushing is a tail.
 
+### A client follows the server's clock at the server's own rate, 2026-09-25 — tail done
+
+**Found by the network checks on CI's Windows debug runner.** Twice, the AI
+aircraft was drawn 4.7 to 7.5 m from where it was, at 100 ms of latency. The
+client kept time (its longest gap between frames was 121 ms), and nothing was
+wrecked. The fault was its clock. It took the session's time from the fastest
+update it had ever heard and counted on from there in real time. A debug
+server on a loaded runner runs slower than real time, so the client got
+further ahead of it every second. Everything it drew was then a guess carried
+past the newest update (74 such frames).
+
+**Reproduced here** by making the server's clock run at 80% of real time: the
+AI was drawn up to 190 m from where it was.
+
+**What changed.** `net::SessionClock` fits the rate as well as the offset: a
+least-squares line through the last two seconds of updates. The offset is
+then the one the fastest-arriving update of the last second gives at that
+rate. The predicting client uses it, and `TRANSPORT.md` now tells any client
+to do the same.
+
+**Verified** by `the_client_follows_the_servers_clock_at_the_servers_own_rate`:
+
+- nine sessions of a minute each: 80%, 100% and 125% of real time, each with
+  no jitter, 30 ms and 60 ms of it, over 100 ms of latency and 5% loss;
+- after two seconds the estimate is never more than 20 ms ahead of what the
+  updates could say, nor 50 ms behind. At worst it was 9.9 ms ahead and
+  28.1 ms behind;
+- the rate is fitted to within 1%.
+
+With the clock made to assume real time again, the test goes red at once
+(203 ms ahead). Against the server at 80%, the network check's worst frame
+went from 190 m to 2.0 m. That frame came in the first two seconds, while the
+rate was still being learned.
+
 ### The autopilot banks only as far as the aeroplane can sustain, 2026-09-24 — tail done
 
 **What was found first: the tail's diagnosis was wrong, and the fault was
@@ -8306,6 +8401,7 @@ without the limit, which is why the circles are in the test.
 the autopilot; its hash is unchanged. The rest of the suite - the capture
 and handover tests, the navigator, the lessons, the circuits, the server's
 AI - is green; none of them flies with the throttle at its stop in a turn.
+
 ### Every aeroplane the AI lands stays on its wheels, 2026-09-24 — tail done
 
 **The Learjet was no longer ending nose down; three jets were bouncing, and
@@ -8375,6 +8471,7 @@ of the threshold, at 165 knots, and rolls on to the runway - it did so before
 this change too, and the circuit test asks only how far across she touched;
 taking an aeroplane back on its landing roll hands it the plain autopilot,
 not the landing, and it never stops; and the B-2A cannot slow on the approach.
+
 ### Tails to agents, and a reviewer for every pull request, 2026-09-24
 
 **The owner asked for both.** Open tails now go to agents working in parallel,
@@ -8406,39 +8503,6 @@ leftovers. What it finds is fixed on the branch before the merge.
 - **The brief now.** An agent that has not committed in about an hour stops
   and reports. None uses `--no-verify` or kills by a pattern. Reviews run on a
   smaller model with a narrow brief.
-### A client follows the server's clock at the server's own rate, 2026-09-25 — tail done
-
-**Found by the network checks on CI's Windows debug runner.** Twice, the AI
-aircraft was drawn 4.7 to 7.5 m from where it was, at 100 ms of latency. The
-client kept time (its longest gap between frames was 121 ms), and nothing was
-wrecked. The fault was its clock. It took the session's time from the fastest
-update it had ever heard and counted on from there in real time. A debug
-server on a loaded runner runs slower than real time, so the client got
-further ahead of it every second. Everything it drew was then a guess carried
-past the newest update (74 such frames).
-
-**Reproduced here** by making the server's clock run at 80% of real time: the
-AI was drawn up to 190 m from where it was.
-
-**What changed.** `net::SessionClock` fits the rate as well as the offset: a
-least-squares line through the last two seconds of updates. The offset is
-then the one the fastest-arriving update of the last second gives at that
-rate. The predicting client uses it, and `TRANSPORT.md` now tells any client
-to do the same.
-
-**Verified** by `the_client_follows_the_servers_clock_at_the_servers_own_rate`:
-
-- nine sessions of a minute each: 80%, 100% and 125% of real time, each with
-  no jitter, 30 ms and 60 ms of it, over 100 ms of latency and 5% loss;
-- after two seconds the estimate is never more than 20 ms ahead of what the
-  updates could say, nor 50 ms behind. At worst it was 9.9 ms ahead and
-  28.1 ms behind;
-- the rate is fitted to within 1%.
-
-With the clock made to assume real time again, the test goes red at once
-(203 ms ahead). Against the server at 80%, the network check's worst frame
-went from 190 m to 2.0 m. That frame came in the first two seconds, while the
-rate was still being learned.
 
 ### Prediction, interpolation and the player limit through a worse network, 2026-09-24 — item done
 
@@ -8547,6 +8611,7 @@ The 20 m correction bound and the relay's loss check were not made to fail.
   of one that left sooner died of SIGPIPE when it printed. The pipeline is now
   ordered by lifetime, and the test holds every exit code (the refused client
   1, all others 0).
+
 ### Two server tests wait for what they are waiting for, 2026-09-24 — tails done
 
 Both failed on CI's slow runners, on pull requests that had not touched what
@@ -8579,6 +8644,7 @@ they test.
 `--fly` clients elsewhere now wait for their last input too. The window test's
 client, dropped by the button, stops on the server's silence (8 s, where it had
 been as long as 68 s).
+
 ### The hooks' test wrote into the repository being pushed, 2026-09-24 — tail done
 
 **What happened.** The pre-push hook runs the quick tests, and one of them,
@@ -8813,7 +8879,8 @@ which `deploy/Dockerfile` builds, has no SDL; there the window is
 compiled by hand against the project's headers and warning set, but no server-
 only build has been made - nothing here or in CI builds that configuration,
 and the Dockerfile has never been built (the Deployment item). Building the
-image is what will prove it.
+image is what will prove it. *Since proven: "Deployment: the container image
+built and serving", above.*
 
 ### Every player flies their own aircraft, whatever order they join in, 2026-09-24 — tail done
 
@@ -9358,6 +9425,7 @@ the J-3 Cub, the PA-28 and the Mosquito - fly it to an empty debrief at their
 figures' weights; the take-off and approach lessons, their faults and both
 demonstrations pass there; and the whole suite, 480 tests, passed on Linux
 debug.
+
 ### CI split into builds and test shards, and a handshake that overflowed, 2026-09-23
 
 **CI had been red since 2026-09-21**, through two sessions of pushing, and the
@@ -10787,7 +10855,6 @@ alone it would have been a small lie at every startup.
 `Session`, which is already the `SESSION` message's structure. It is
 `SessionKeys` now. The compiler caught it, as it caught `Slots` earlier.
 
-
 ### The handshake, and a decision taken without the owner, 2026-09-22
 
 **What is missing first: nothing is sealed yet.** The handshake agrees keys
@@ -10830,7 +10897,6 @@ made against the answer actually being changed.
 **The server's static key is real too**: minted, printed and read back, held
 against **RFC 7748's own X25519 vector** - a round trip of our own could never
 say the key agreement had stopped being X25519.
-
 
 ### Two things the wire believed that it should not, 2026-09-22 — two tails done
 
@@ -10898,7 +10964,6 @@ be refused"*.
 a reader must refuse, and what the reliable layer does with an
 acknowledgement; the test that holds that document to the code passes.
 
-
 ### Other aircraft, shown a little in the past, 2026-09-22 — item done
 
 **What is missing first: no snapshot has ever arrived over a network.** There
@@ -10937,7 +11002,6 @@ artefact and not interpolation error. The test now measures from the first
 moment its snapshots cover, and the startup behaviour is held by its own
 test.
 
-
 ### Every network parser fuzzed, 2026-09-22 — item done
 
 **What is missing first: nothing has ever reached these parsers over a
@@ -10973,7 +11037,6 @@ through a pipe into `tail`, got `0`, and concluded the sanitizers were not
 failing the test - which would have been a hole in the whole project's test
 build. They were: `$?` after a pipe is the last command's, not the test's.
 The flags were right all along.
-
 
 ### A client's inputs, streamed with redundancy, 2026-09-22 — item done
 
@@ -11017,7 +11080,6 @@ fails rather than being quietly left out of every flight.
 redundancy away, is told "frame 1 did not arrive but a packet carrying it did
 get through".
 
-
 ### The server's AI aircraft, 2026-09-22 — item done
 
 **What is missing first: they all fly one plan.** There is one flight plan in
@@ -11048,7 +11110,6 @@ and it ran 4".
 **A CMake list cannot hold a list.** The test's cases were written
 `"2;2" "1;1" ";4"` and flattened into six elements, so every case read one
 number and the first comparison failed. They are `"asked:want"` now.
-
 
 ### The server flies aircraft anywhere on Earth, 2026-09-22 — item done
 
@@ -11090,7 +11151,6 @@ bug makes it pass.
 port" - while the test that flies it asked for 0, so the verification skipped
 itself rather than running. A skipped verification is not one, so `--port 0`
 is now allowed and documented as what a test wants.
-
 
 ### Slots, and who gets which, 2026-09-22 — item done
 
@@ -11158,8 +11218,7 @@ every message kind the code knows is named in the document, and the count is
 held against the code's own list so a new kind cannot be added without being
 named in both.
 
-
-### The server binary and its flags, 2026-09-22 — item begun, not done
+### The server binary and its flags, 2026-09-22 — item done 2026-09-24, above
 
 **What is missing: three of its six flags drive nothing yet.** `--store`
 names a file nothing is written to, because there is no session to keep.
@@ -11198,7 +11257,6 @@ whitespace, so the whole thing arrived as one argument named
 separator too, so `--players is 0; a session is 1 to 4` became two patterns.
 Nine of the fourteen tests failed on those two until the arguments were
 separated by spaces and the server's own messages written without semicolons.
-
 
 ### The reliable messages, 2026-09-22 — item done
 
@@ -11272,7 +11330,6 @@ levels go as numbers.
 globbing them, so `cmake --build --target glideslope_net` succeeded without
 compiling `messages.cpp` at all, and only the link of the tests found it.
 
-
 ### Every visual model stands on the ground, 2026-09-22 — tail done
 
 **The alignment's height was fitted, and the fit could buy accuracy by
@@ -11304,7 +11361,6 @@ the alignment file's own rounding. **The failing case was measured rather than
 run**: with the previous alignment the same quantity was 2.15 m for the
 747-400, far outside the centimetre this holds, but the test binary was not
 run against it.
-
 
 ### The F-35A becomes the F-35B, 2026-09-22 — item done
 
@@ -11385,7 +11441,6 @@ contacts it stands on, better than most of the fleet; and it comes to rest on
 its airframe **1.4 ft above the runway** with its wheels up, which emptied the
 list of aircraft that do not. A full `ctest` run stands behind it; the
 platform-wide figures wait on the next CI run.
-
 
 ### An airframe to land on with the wheels up, 2026-09-22 — item done
 
@@ -11488,100 +11543,6 @@ and the F-15C's airframe contacts carried the old 0.2 friction on a spring of
 10,000 lb/ft and slid 2,734 m, which was fixed the same day - it now stops in
 1,029 m where the stated friction gives 1,093, and rests 2.9 ft above the
 runway instead of 0.35 ft below it.
-
-
-### Reliable delivery over an unreliable channel, 2026-09-21 — item begun, not done
-
-Phase 6's second item. **The layer is built and its verification is met; the
-messages it is for do not exist yet.**
-
-**How it works**, in four sentences. Every reliable message is numbered, from
-one, and carries its number. The sender keeps a message until it has been
-acknowledged and sends it again if it has not been, no faster than once every
-quarter of a second. The receiver hands messages up in number order, holding
-one that arrives early until its predecessors have come and throwing away one
-that arrives twice. The receiver answers with the highest number below which
-nothing is missing, which acknowledges that one and every one before it at
-once.
-
-**An endpoint with nothing to say still answers.** Without that the far end
-retransmits for ever at a receiver that already has everything - so an
-endpoint that owes an acknowledgement and has nothing of its own to send
-sends a header with message number 0, which is an acknowledgement and nothing
-else.
-
-**It is bounded at both ends.** A sender that gets 256 messages behind
-refuses rather than queueing for ever, and a receiver stuck behind one
-missing message holds 256 and no more. Neither is a window in the congestion
-sense: these messages are few, small and occasional, and the channel below is
-a game's, not a file transfer's.
-
-**Nothing here touches a socket**, which is what lets it be tested against
-every pattern of loss rather than against a network that happens to be
-working.
-
-**Verification run.** Seven tests. The item's own -
-`under_every_pattern_of_loss_every_message_arrives_exactly_once_and_in_order`
-- walks **all 4,096 patterns of loss over twelve datagrams in both
-directions**, and in every one of them all six messages arrived exactly once
-and in order. It states how many patterns there are, how many actually lost
-something (4,064: an exchange of six messages is over in seven datagrams, so
-the 32 patterns setting only bits 7 to 11 never touch anything), and what the
-worst pattern cost in datagrams, so that a change making delivery far more
-expensive shows up here rather than nowhere. Watched to fail with
-retransmission taken out: "with loss pattern 1 of 4096, 0 of 6 messages
-arrived and it never finished". 319 of 319 tests pass locally at
-`-j4`, in 1006 s.
-
-The other six hold the ordinary cases: nothing lost; a message delivered
-twice handed up once; three messages arriving before the one they follow,
-held and then handed up together; an endpoint answering with nothing to say
-and then going quiet; four kinds of rubbish off the wire handed up as
-nothing; and a sender refusing at 256.
-
-### UDP, on both kinds of system, 2026-09-21 — groundwork, no item of its own
-
-**`src/platform/` had no socket code on any platform; now it has UDP on
-both.** BSD sockets on Linux and macOS, Winsock on Windows, one header and
-two implementations, and nothing above knows which it has. Like the take-off
-autopilot this has no item in the plan - Phase 6 needs it and nothing else
-does.
-
-**Nothing blocks.** A socket is non-blocking from the moment it is made:
-`receive` answers at once with what was waiting, or with nothing. The
-simulation steps at a fixed rate and cannot wait on a datagram that may never
-come. **Nothing throws** either: a socket that cannot be made is an empty
-optional, and a send or receive that fails says so.
-
-**An address is bytes, not a name.** Nothing here resolves a host name -
-that is a blocking call into the system's resolver, and it belongs where
-waiting is allowed - so `localhost:26000` is refused as firmly as
-`256.0.0.1:1`. The parser and the printer are shared by both systems and use
-no system headers at all, so the two cannot drift.
-
-**A datagram is at most 1232 bytes.** IPv6 obliges every path to carry 1280;
-40 are its header and 8 are UDP's. Nothing this sends is fragmented, and more
-than 1232 bytes is refused rather than broken up. One that arrives too long
-for the buffer is dropped rather than cut, because half a datagram is not a
-datagram.
-
-**Winsock has to be started before it can be used**, once per process, and
-stopped as many times as it was started; a counter does that at the first
-socket and undoes it with the last, so nothing above has to know.
-
-**Verification run.** Five tests:
-`an_address_written_down_and_read_back_is_the_same_address` walks nine
-addresses of both families, each written, read back, and written again;
-`anything_that_is_not_an_address_is_refused` walks twenty-three things that
-are not one, host names among them, each with its reason in the test;
-`a_datagram_sent_to_the_loopback_arrives_whole_and_says_where_from`;
-`a_datagram_too_large_for_the_smallest_path_is_refused`; and
-`a_socket_gets_the_port_it_asks_for_and_no_two_share_one`. Watched to fail
-with the size guard taken out of `send`: "a datagram of 1233 bytes is
-refused". **The Windows implementation is written and has never been run
-here** - this machine is WSL - so CI's two Windows jobs are the first thing
-that will have compiled it. 312 of 312 tests pass locally at `-j4`,
-in 972 s.
 
 ### What GCC cannot see, now seen, 2026-09-22 — tail done
 
@@ -11693,6 +11654,99 @@ known". The next attempt starts from the send, not the read.
 verification is exactly what failed, and `tests/unit/test_weather.cpp`
 fetches Open-Meteo on the Windows jobs, so CI is real evidence for it - it is
 what produced this diagnosis. The ion half needs a token no CI job has.
+
+### Reliable delivery over an unreliable channel, 2026-09-21 — item done 2026-09-22, above
+
+Phase 6's second item. **The layer is built and its verification is met; the
+messages it is for do not exist yet.**
+
+**How it works**, in four sentences. Every reliable message is numbered, from
+one, and carries its number. The sender keeps a message until it has been
+acknowledged and sends it again if it has not been, no faster than once every
+quarter of a second. The receiver hands messages up in number order, holding
+one that arrives early until its predecessors have come and throwing away one
+that arrives twice. The receiver answers with the highest number below which
+nothing is missing, which acknowledges that one and every one before it at
+once.
+
+**An endpoint with nothing to say still answers.** Without that the far end
+retransmits for ever at a receiver that already has everything - so an
+endpoint that owes an acknowledgement and has nothing of its own to send
+sends a header with message number 0, which is an acknowledgement and nothing
+else.
+
+**It is bounded at both ends.** A sender that gets 256 messages behind
+refuses rather than queueing for ever, and a receiver stuck behind one
+missing message holds 256 and no more. Neither is a window in the congestion
+sense: these messages are few, small and occasional, and the channel below is
+a game's, not a file transfer's.
+
+**Nothing here touches a socket**, which is what lets it be tested against
+every pattern of loss rather than against a network that happens to be
+working.
+
+**Verification run.** Seven tests. The item's own -
+`under_every_pattern_of_loss_every_message_arrives_exactly_once_and_in_order`
+- walks **all 4,096 patterns of loss over twelve datagrams in both
+directions**, and in every one of them all six messages arrived exactly once
+and in order. It states how many patterns there are, how many actually lost
+something (4,064: an exchange of six messages is over in seven datagrams, so
+the 32 patterns setting only bits 7 to 11 never touch anything), and what the
+worst pattern cost in datagrams, so that a change making delivery far more
+expensive shows up here rather than nowhere. Watched to fail with
+retransmission taken out: "with loss pattern 1 of 4096, 0 of 6 messages
+arrived and it never finished". 319 of 319 tests pass locally at
+`-j4`, in 1006 s.
+
+The other six hold the ordinary cases: nothing lost; a message delivered
+twice handed up once; three messages arriving before the one they follow,
+held and then handed up together; an endpoint answering with nothing to say
+and then going quiet; four kinds of rubbish off the wire handed up as
+nothing; and a sender refusing at 256.
+
+### UDP, on both kinds of system, 2026-09-21 — groundwork, no item of its own
+
+**`src/platform/` had no socket code on any platform; now it has UDP on
+both.** BSD sockets on Linux and macOS, Winsock on Windows, one header and
+two implementations, and nothing above knows which it has. Like the take-off
+autopilot this has no item in the plan - Phase 6 needs it and nothing else
+does.
+
+**Nothing blocks.** A socket is non-blocking from the moment it is made:
+`receive` answers at once with what was waiting, or with nothing. The
+simulation steps at a fixed rate and cannot wait on a datagram that may never
+come. **Nothing throws** either: a socket that cannot be made is an empty
+optional, and a send or receive that fails says so.
+
+**An address is bytes, not a name.** Nothing here resolves a host name -
+that is a blocking call into the system's resolver, and it belongs where
+waiting is allowed - so `localhost:26000` is refused as firmly as
+`256.0.0.1:1`. The parser and the printer are shared by both systems and use
+no system headers at all, so the two cannot drift.
+
+**A datagram is at most 1232 bytes.** IPv6 obliges every path to carry 1280;
+40 are its header and 8 are UDP's. Nothing this sends is fragmented, and more
+than 1232 bytes is refused rather than broken up. One that arrives too long
+for the buffer is dropped rather than cut, because half a datagram is not a
+datagram.
+
+**Winsock has to be started before it can be used**, once per process, and
+stopped as many times as it was started; a counter does that at the first
+socket and undoes it with the last, so nothing above has to know.
+
+**Verification run.** Five tests:
+`an_address_written_down_and_read_back_is_the_same_address` walks nine
+addresses of both families, each written, read back, and written again;
+`anything_that_is_not_an_address_is_refused` walks twenty-three things that
+are not one, host names among them, each with its reason in the test;
+`a_datagram_sent_to_the_loopback_arrives_whole_and_says_where_from`;
+`a_datagram_too_large_for_the_smallest_path_is_refused`; and
+`a_socket_gets_the_port_it_asks_for_and_no_two_share_one`. Watched to fail
+with the size guard taken out of `send`: "a datagram of 1233 bytes is
+refused". **The Windows implementation is written and has never been run
+here** - this machine is WSL - so CI's two Windows jobs are the first thing
+that will have compiled it. 312 of 312 tests pass locally at `-j4`,
+in 972 s.
 
 ### The propeller and mixture levers a pilot can reach, 2026-09-21 — tail done
 
@@ -11834,7 +11888,7 @@ owner rather than taken.
 
 319 of 319 tests pass locally at `-j4`, in 991 s.
 
-### The wire format, 2026-09-21 — item begun, not done
+### The wire format, 2026-09-21 — item done 2026-09-24, above
 
 Phase 6's first item, started. **The envelope and the encoding are built,
 tested and written up byte for byte; nothing yet connects to anything.**
@@ -12131,7 +12185,7 @@ approach, landing, after landing - and there is no before-take-off among
 them. Taxi is what was flown in its place, and it is the list that holds the
 run-up.
 
-### Checklists for every aircraft, 2026-09-21 — item not done
+### Checklists for every aircraft, 2026-09-21 — item done 2026-09-23
 
 Phase 5c's first item. **All sixteen aircraft carry a checklist for each of
 the nine phases of flight - 144 checklists and 757 items - and every item
@@ -12293,7 +12347,6 @@ takes 38 s and `the_google_terrain_is_within_its_stated_distance_of_the_ground_f
 settling change is what let Phase 5b's first item be ticked as well:
 `the_ion_terrain_draws_with_its_attribution_or_says_why_not_on_vulkan` now
 takes 23 s, where waiting for a whole Earth had run past 25 minutes.
-
 
 ### The visual terrain against the terrain flown, 2026-09-21 — item done
 
@@ -12461,7 +12514,6 @@ wrong thing, was right. The two things found on the way to it and kept are
 requests that name neither, and reading ion's third answer shape
 (`externalType: 3DTILES`, a url and no token).
 
-
 ### Views of the aeroplane, 2026-09-21 — item done
 
 Phase 5's last item. **The aeroplane is drawn, and `--view` says where it is
@@ -12550,7 +12602,6 @@ outline check given the `behind` shot and the `left` view's camera reports it
 43 px out and exits 1; the cockpit exclusion removed, its two shots stop
 matching; and a deliberate extra step on the `above` view leaves the flight
 at tick 240 where every other view is at 120.
-
 
 ### A visual model put where its aeroplane is, 2026-09-21 — item done
 
@@ -12652,7 +12703,6 @@ wrong (JSBSim puts weight on three where the alignment says two), an aircraft
 given a shape contact it does not have, and a committed figure altered by
 3 mm.
 
-
 ### Cesium Native's log off the client's standard output, 2026-09-21 — a fix
 
 CI went red on Windows (run 35506857255) with
@@ -12684,7 +12734,6 @@ tail in `COMPLETION_PLAN.md`.
 
 Verified locally: the five client tests on Vulkan pass, and the HUD test fails
 with the deliberate bug in place.
-
 
 ### Visual models from FlightGear's aircraft, 2026-09-20 — item done
 
@@ -15514,15 +15563,23 @@ the project is GPL-3.0-or-later.
 
 ## Known risks
 
-- **JSBSim state set/resume.** Reconciliation needs to put an instance into a
-  full captured state and have it fly on cleanly. Proved or disproved in
-  Phase 1, before any networking is built on it.
-- **The Cesium-to-SDL_GPU glue.** The biggest rendering risk; Phase 2.
-- **Reading the Copernicus DEM directly.** Cesium Native streams only
-  quantized-mesh terrain and 3D Tiles, so the open-data provider depends on a
-  GeoTIFF reader this project writes; Phase 2.
-- **Runway surfaces.** The DEM is a surface model sampled every 30 m, so
-  runways carry bumps that are not there. Open in `REQUIREMENTS.md`.
+The four risks the phases were ordered around are all answered (re-read
+2026-10-02, at the end of Phase 8):
+
+- **JSBSim state set/resume** - answered in Phase 1, 2026-09-17: a restored
+  instance tracks the original in every phase of flight ("State capture and
+  set/resume"), and reconciliation sets the motion alone (Gaps, above).
+- **The Cesium-to-SDL_GPU glue** - answered in Phase 2, 2026-09-18: Cesium
+  Native draws the open-data terrain and imagery through SDL_GPU on every
+  backend.
+- **Reading the Copernicus DEM directly** - answered in Phase 2, 2026-09-18:
+  the GeoTIFF reader is written here and held to surveyed runway ends and
+  coastlines.
+- **Runway surfaces** - decided 2026-10-01 (`REQUIREMENTS.md` section 9) and
+  built: the collision ground under every runway OurAirports places is the
+  runway's own line. What is left is in the plan's tails: runways that meet
+  pulled off their lines, and Sydney's 16R not flat enough for every
+  aeroplane.
 
 ---
 
