@@ -41,6 +41,7 @@
 #include "sim/lander.hpp"
 #include "sim/controller.hpp"
 #include "sim/navigator.hpp"
+#include "sim/separation.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/terrain.hpp"
 #include "sim/version.hpp"
@@ -57,6 +58,7 @@
 #include <cstdio>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -103,8 +105,10 @@ constexpr int default_ai = 4;
 // The most it will run, so that a number typed wrong cannot ask for
 // thousands of flight models.
 constexpr int most_ai = 16;
-// How far apart the AI aircraft are stacked when they fly one plan, feet.
-constexpr double ai_stack_ft = 500.0;
+// How far apart the AI aircraft are stacked when they fly one plan, feet:
+// twice the vertical minimum they are kept apart by (sim/separation.hpp), so
+// that two holding their heights are nowhere near it.
+constexpr double ai_stack_ft = glideslope::sim::Separation::layer_ft;
 
 // **How far apart in time AI aircraft planned to take off go**, simulated
 // seconds, unless the server is told otherwise (`--ai-spacing`). Two planned
@@ -1157,6 +1161,20 @@ public:
                     std::fflush(stdout);
                 }
             }
+            // **Stacked downwards in the order they take off**: the first
+            // away flies its plan highest, `ai_stack_ft` above the next, so
+            // that each climbs to its own height below every one already
+            // gone and none climbs through another's on the way. Stacked
+            // upwards, the second climbed through the first's orbit.
+            for (std::size_t n = 0; n < waiting_.size(); ++n) {
+                Aircraft& a = waiting_[n];
+                const double stack_ft =
+                    static_cast<double>(waiting_.size() - 1 - n) * ai_stack_ft;
+                for (glideslope::sim::Waypoint& w : a.own_plan->waypoints) {
+                    w.altitude_ft += stack_ft;
+                }
+                fly_plan(a);
+            }
             for (int i = 0; i < ai; ++i) {
                 if (std::any_of(waiting_.begin(), waiting_.end(),
                                 [&](const Aircraft& w) { return w.ai_number == i + 1; }) ||
@@ -1773,7 +1791,7 @@ public:
         // runway, under the lowest number free.
         for (auto it = waiting_.begin(); it != waiting_.end();) {
             const std::optional<std::uint8_t> number = free_number();
-            if (it->departs_at_s > now_s || !number) {
+            if (it->departs_at_s > now_s || !number || !clear_to_depart(*it, happened)) {
                 ++it;
                 continue;
             }
@@ -1783,6 +1801,9 @@ public:
             flown_.push_back(std::move(*it));
             it = waiting_.erase(it);
         }
+        // **Every AI aircraft kept clear of the others' heights**, through
+        // its autopilot, before anything is flown this step.
+        keep_apart(happened);
         for (Aircraft& a : flown_) {
             if (a.wrecked_at_s >= 0.0) {
                 if (now_s - a.wrecked_at_s >= wreck_s && may_fly_again(a, happened)) {
@@ -1823,6 +1844,8 @@ public:
                 happened.push_back(std::move(line));
             }
         }
+        // How close every two AI aircraft have come, for the end to say.
+        measure_apart();
         // Every two still flying, closer than the mean of their wingspans.
         for (std::size_t i = 0; i < flown_.size(); ++i) {
             for (std::size_t j = i + 1; j < flown_.size(); ++j) {
@@ -1896,6 +1919,14 @@ public:
         // A wreck whose time is up, kept on the ground until its runway is
         // clear, and said so once.
         bool waits_for_runway = false;
+        // **Kept apart** (sim/separation.hpp): which aircraft it is held
+        // clear of, by number, while a limit on its height binds - said when
+        // it begins and ends; a departure held until the sky over its runway
+        // is clear, said once; and the order it was made in, which is who
+        // gives way to whom and what its closest approaches are kept by.
+        int held_clear_of = -1;
+        bool waits_to_depart = false;
+        std::uint64_t serial = 0;
         glideslope::sim::DepartureSpeeds departure{};
         // How its plan went, for the end of the run to say.
         PlanProgress progress{};
@@ -2109,17 +2140,15 @@ private:
     // what it stands on - and departing `departure_spacing_s_` after the one
     // planned before it. The plan's heights are above sea level; the
     // aircraft's are above the ellipsoid, so the geoid is added. **Stacked**
-    // as the plan file's aircraft are: the n-th planned flies its plan
-    // `ai_stack_ft` higher than the one before, so that two models' orbits
-    // of one place are not flown in one piece of sky.
+    // once every one is planned, and given its plan then (the constructor):
+    // the first away highest, so that two models' orbits of one place are
+    // not flown in one piece of sky and none climbs through another's.
     void add_planned(int i, glideslope::sim::FlightPlan plan, const std::string& provider,
                      int& departures) {
         const glideslope::sim::CatalogueEntry entry =
             glideslope::sim::find_aircraft(data_, plan.aircraft);
-        const double stack_ft = static_cast<double>(departures) * ai_stack_ft;
         for (glideslope::sim::Waypoint& w : plan.waypoints) {
-            w.altitude_ft += stack_ft +
-                             geoid_.undulation(w.latitude_deg, w.longitude_deg) * feet_per_metre;
+            w.altitude_ft += geoid_.undulation(w.latitude_deg, w.longitude_deg) * feet_per_metre;
         }
         auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data_ / "jsbsim", entry.model);
         aircraft->set_terrain(ground_);
@@ -2162,7 +2191,6 @@ private:
         a.own_plan = std::move(plan);
         a.controller =
             std::make_unique<glideslope::sim::Controller>(*a.aircraft, glideslope::sim::Controls{});
-        fly_plan(a);
         ++departures;
         ++ai_;
         waiting_.push_back(std::move(a));
@@ -2257,6 +2285,7 @@ private:
 
     void remember_start(Aircraft& a, const glideslope::sim::InitialConditions& ic,
                         bool alights_on_water) {
+        a.serial = ++made_;
         a.start = ic;
         a.span_ft = a.aircraft->figures().wingspan_ft;
         a.judge = glideslope::sim::GroundJudge(alights_on_water);
@@ -2279,6 +2308,192 @@ private:
                            ", is a wreck: " + why);
     }
 
+    // **The monitor** (sim/separation.hpp), once a step: every aircraft
+    // flying, in the order they were put in the sky, as it sees them; the
+    // limits it gives, put on the AI's autopilots; and an aircraft held off
+    // its own height said when that begins and when it ends. A person's
+    // aircraft, and one taking off or landing, is given no limit and is kept
+    // clear of by the rest.
+    void keep_apart(std::vector<std::string>& happened) {
+        std::vector<glideslope::sim::Traffic> traffic;
+        std::vector<Aircraft*> who;
+        for (Aircraft& a : flown_) {
+            if (a.wrecked_at_s >= 0.0) {
+                continue;
+            }
+            const glideslope::sim::AircraftState s = a.aircraft->state();
+            glideslope::sim::Traffic t;
+            t.latitude_deg = s.latitude_deg;
+            t.longitude_deg = s.longitude_deg;
+            t.altitude_ft = s.altitude_ft;
+            t.north_fps = a.aircraft->property("velocities/v-north-fps");
+            t.east_fps = a.aircraft->property("velocities/v-east-fps");
+            t.climb_fpm = s.climb_rate_fpm;
+            t.ground_ft = s.terrain_elevation_ft;
+            t.gives_way = ai_flying(a) && a.controller->autopilot_flying();
+            if (t.gives_way) {
+                t.held_ft = a.controller->autopilot()->modes().altitude_ft;
+            }
+            traffic.push_back(t);
+            who.push_back(&a);
+        }
+        const std::vector<glideslope::sim::HeightLimit> limits =
+            glideslope::sim::separate(traffic);
+        for (std::size_t k = 0; k < who.size(); ++k) {
+            Aircraft& a = *who[k];
+            const glideslope::sim::Traffic& t = traffic[k];
+            const glideslope::sim::HeightLimit& limit = limits[k];
+            if (a.controller) {
+                a.controller->limit_height(limit.floor_ft, limit.ceiling_ft);
+            }
+            // Whether the limit holds it off where it would go.
+            bool binds = false;
+            if (t.held_ft) {
+                const double h = std::clamp(*t.held_ft, limit.floor_ft.value_or(-1e9),
+                                            limit.ceiling_ft.value_or(1e9));
+                binds = std::abs(h - *t.held_ft) > 1.0;
+            }
+            binds = binds || (limit.ceiling_ft && t.altitude_ft > *limit.ceiling_ft) ||
+                    (limit.floor_ft && t.altitude_ft < *limit.floor_ft);
+            const int clear_of = binds && limit.clear_of
+                                     ? static_cast<int>(who[*limit.clear_of]->index)
+                                     : -1;
+            if (clear_of == a.held_clear_of) {
+                continue;
+            }
+            a.held_clear_of = clear_of;
+            char line[256];
+            if (clear_of < 0) {
+                std::snprintf(line, sizeof line, "aircraft %u, %s, flies its own height again",
+                              static_cast<unsigned>(a.index), a.id.c_str());
+            } else {
+                // Said above sea level, as plans are.
+                const double undulation_ft =
+                    geoid_.undulation(t.latitude_deg, t.longitude_deg) * feet_per_metre;
+                const bool below = limit.ceiling_ft.has_value();
+                std::snprintf(line, sizeof line,
+                              "aircraft %u, %s, is held %s %.0f ft, clear of aircraft %d",
+                              static_cast<unsigned>(a.index), a.id.c_str(),
+                              below ? "below" : "above",
+                              (below ? *limit.ceiling_ft : *limit.floor_ft) - undulation_ft,
+                              clear_of);
+            }
+            happened.emplace_back(line);
+        }
+    }
+
+    // **How close every two AI aircraft have come**, a step at a time: in a
+    // straight line, in height while within the horizontal minimum, and for
+    // how long within both minima at once - separation lost. A person's
+    // aircraft is not measured: nothing keeps a person clear.
+    void measure_apart() {
+        ++measured_steps_;
+        const double now = now_s();
+        for (std::size_t i = 0; i < flown_.size(); ++i) {
+            for (std::size_t j = i + 1; j < flown_.size(); ++j) {
+                const Aircraft& a = flown_[i];
+                const Aircraft& b = flown_[j];
+                if (a.slot >= 0 || b.slot >= 0 || a.wrecked_at_s >= 0.0 ||
+                    b.wrecked_at_s >= 0.0) {
+                    continue;
+                }
+                const bool a_first = a.serial < b.serial;
+                const Aircraft& first = a_first ? a : b;
+                const Aircraft& second = a_first ? b : a;
+                Approach& ap = approaches_[{first.serial, second.serial}];
+                if (ap.first.empty()) {
+                    ap.first = first.id;
+                    ap.second = second.id;
+                }
+                ++ap.steps;
+                const glideslope::sim::AircraftState sa = a.aircraft->state();
+                const glideslope::sim::AircraftState sb = b.aircraft->state();
+                const glideslope::world::Ecef pa = where(a);
+                const glideslope::world::Ecef pb = where(b);
+                ap.closest_m = std::min(
+                    ap.closest_m, std::hypot(pa.x - pb.x, pa.y - pb.y, pa.z - pb.z));
+                const double over_ground_m = glideslope::sim::distance_m(
+                    sa.latitude_deg, sa.longitude_deg, sb.latitude_deg, sb.longitude_deg);
+                if (over_ground_m < glideslope::sim::Separation::minimum_m) {
+                    const double height_ft = std::abs(sa.altitude_ft - sb.altitude_ft);
+                    ap.least_ft_within = std::min(ap.least_ft_within, height_ft);
+                    if (height_ft < glideslope::sim::Separation::minimum_ft) {
+                        if (ap.lost_steps++ == 0) {
+                            ap.first_lost_s = now;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // **A planned aircraft takes off only into clear sky**: nothing flying
+    // within the horizontal minimum of its threshold and within the vertical
+    // minimum and the margin of its height. Said once while it waits.
+    bool clear_to_depart(Aircraft& a, std::vector<std::string>& happened) {
+        for (const Aircraft& b : flown_) {
+            if (b.wrecked_at_s >= 0.0) {
+                continue;
+            }
+            const glideslope::sim::AircraftState s = b.aircraft->state();
+            const double over_ground_m = glideslope::sim::distance_m(
+                s.latitude_deg, s.longitude_deg, a.start.latitude_deg, a.start.longitude_deg);
+            if (over_ground_m < glideslope::sim::Separation::minimum_m &&
+                std::abs(s.altitude_ft - a.start.altitude_ft) <
+                    glideslope::sim::Separation::minimum_ft +
+                        glideslope::sim::Separation::margin_ft) {
+                if (!a.waits_to_depart) {
+                    a.waits_to_depart = true;
+                    happened.push_back(a.id + " waits to take off until aircraft " +
+                                       std::to_string(b.index) + " is clear of " +
+                                       a.own_plan->takeoff->runway.name);
+                }
+                return false;
+            }
+        }
+        return true;
+    }
+
+public:
+    // **How close every two AI aircraft came**, a line each, and a line for
+    // them all: what a run is checked by.
+    std::vector<std::string> apart_report() const {
+        std::vector<std::string> out;
+        std::int64_t lost = 0;
+        for (const auto& [serials, ap] : approaches_) {
+            char line[512];
+            char within[96];
+            if (ap.least_ft_within < 1e17) {
+                std::snprintf(within, sizeof within, "within 1.5 nm, at least %.0f ft apart in height",
+                              ap.least_ft_within);
+            } else {
+                std::snprintf(within, sizeof within, "never within 1.5 nm");
+            }
+            std::snprintf(line, sizeof line,
+                          "apart: %s and %s, over %lld steps, came within %.0f m; %s; "
+                          "separation lost for %.2f s",
+                          ap.first.c_str(), ap.second.c_str(), static_cast<long long>(ap.steps),
+                          ap.closest_m, within,
+                          static_cast<double>(ap.lost_steps) /
+                              static_cast<double>(glideslope::sim::steps_per_second));
+            if (ap.lost_steps > 0) {
+                std::snprintf(line + std::strlen(line), sizeof line - std::strlen(line),
+                              ", first at %.1f s", ap.first_lost_s);
+            }
+            out.emplace_back(line);
+            lost += ap.lost_steps;
+        }
+        char line[256];
+        std::snprintf(line, sizeof line,
+                      "kept apart: %zu pairs of AI aircraft over %lld steps, separation lost for "
+                      "%lld steps",
+                      approaches_.size(), static_cast<long long>(measured_steps_),
+                      static_cast<long long>(lost));
+        out.emplace_back(line);
+        return out;
+    }
+
+private:
     // **Whether a wreck whose time is up may fly again now.** Anything but a
     // planned aircraft that takes off may. That one starts again on its
     // runway's threshold, and two planned aircraft may well have the same
@@ -2432,6 +2647,21 @@ private:
         return std::nullopt;
     }
     int ai_ = 0;
+    // How many aircraft have been made, for each to have a serial.
+    std::uint64_t made_ = 0;
+    // **How close every two AI aircraft have come**, by their serials: what
+    // the end of a run says (apart_report).
+    struct Approach {
+        std::string first;
+        std::string second;
+        double closest_m = 1e18;      // in a straight line
+        double least_ft_within = 1e18; // in height, while within the minimum over the ground
+        std::int64_t lost_steps = 0;  // within both minima at once
+        std::int64_t steps = 0;       // measured, both flying
+        double first_lost_s = -1.0;
+    };
+    std::map<std::pair<std::uint64_t, std::uint64_t>, Approach> approaches_;
+    std::int64_t measured_steps_ = 0;
     // Swaps made and not yet told to every client.
     std::vector<glideslope::net::ControllerSwap> announced_;
 };
@@ -3623,6 +3853,9 @@ int run(const Options& o) {
                         a.id.c_str(), a.departs_at_s);
         }
         std::printf("ran %d AI aircraft\n", fleet->ai());
+        for (const std::string& line : fleet->apart_report()) {
+            std::printf("%s\n", line.c_str());
+        }
         std::printf("fetched %d terrain tile%s\n", fleet->tiles_fetched(),
                     fleet->tiles_fetched() == 1 ? "" : "s");
     }

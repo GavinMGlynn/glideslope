@@ -387,6 +387,17 @@ not the session.
   the next full state.
 - **Player disconnects:** the server either removes the aircraft or hands it to
   an AI pilot, by session setting.
+- **AI aircraft are kept apart along the whole of their routes**, by the
+  server, through their autopilots: no two closer than **500 ft vertically
+  and 1.5 nm horizontally at once**. AI aircraft flying one route are
+  stacked 1,000 ft apart, planned aircraft taking off one after another are
+  stacked downwards so that none climbs through another's height, and a
+  monitor holds an AI aircraft above or below any aircraft it gives way to
+  while they are near - a height limit the autopilot flies, never a control
+  moved, and never a turn. An AI aircraft gives way to a person's, to one
+  taking off or landing, and to every AI aircraft put in the sky before
+  it. A person's aircraft is not controlled: nothing stops a person flying
+  into an AI aircraft faster than it can climb or descend clear.
 
 ### 6.6 Server shape (following gearstick)
 
@@ -752,6 +763,14 @@ The replacement:
   BLAKE2s - and it is what every client and server already speaks; changing
   it would move the protocol's version for no gain in security. Taken
   2026-09-22 and confirmed by the project owner.
+- **AI aircraft are kept 500 ft or 1.5 nm apart** (section 6.5): the
+  minimum a US Class B controller keeps between VFR aircraft and others
+  (FAA JO 7110.65, 7-9-4), the nearest real rule for light aeroplanes
+  worked close together round one city. A horizontal minimum alone would be
+  larger than the orbits two models plan round one place; the vertical one
+  lets them be flown one above the other, 1,000 ft apart, twice the
+  minimum, so that heights held to within tens of feet are nowhere near
+  it. Like a resolution advisory it acts on heights only.
 - **An operator's drop lasts for the server's run, as designed.** A dropped
   player's key is refused until the server stops; a server started again
   has forgotten it. A ban list that outlasts a run could be a later feature.
