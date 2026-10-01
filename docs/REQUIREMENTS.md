@@ -394,7 +394,8 @@ not the session.
 - Fixed 120 Hz simulation step for all aircraft; replication at 20–30 Hz.
 - A live dashboard - connected clients, ping, traffic, what is flying, who came
   and went - in the terminal by default, or in an SDL window with `--window`,
-  which adds a drop control per player; `--headless` for neither. **The window
+  which adds a drop control per player - a dropped player is refused for the
+  rest of the server's run (section 9); `--headless` for neither. **The window
   is a choice made at start, not a default** (the project owner, 2026-09-24):
   the server is to be hosted headless in the cloud - an EC2 instance running
   Rocky Linux 10, or Fargate - so it must run where no display library is
@@ -411,11 +412,11 @@ not the session.
 ### 6.7 Transport (reuse gearstick's)
 
 - Reuse gearstick's transport as specified in its `docs/TRANSPORT.md`:
-  `Noise_IK_25519_ChaChaPoly_BLAKE2s` over UDP, libsodium primitives, a sequence
-  number and replay window per message. **As built it is
-  `Noise_IK_25519_ChaChaPoly_BLAKE2b`**: libsodium has no BLAKE2s, and
-  BLAKE2b is a hash the Noise specification defines. Taken 2026-09-22
-  without the project owner's ruling; open in section 9.
+  `Noise_IK_25519_ChaChaPoly_BLAKE2b` over UDP, libsodium primitives, a sequence
+  number and replay window per message. The brief named BLAKE2s; **the hash is
+  BLAKE2b, as built** - libsodium's own, where it has no BLAKE2s, and a hash
+  the Noise specification defines (decided by the project owner 2026-10-02;
+  section 9).
 - One suite, no negotiation. The client knows the server's static key out of
   band (`--server-key`, printed by the server at startup).
 - Same six-byte envelope shape (magic, version, type); every protocol message
@@ -746,13 +747,16 @@ The replacement:
   left by a player who goes, or by a take-over - **is planned by the
   server's model**, one setting for every such aircraft, with the operator's
   key (section 5).
+- **The transport's hash is BLAKE2b, as built** (section 6.7), where the
+  brief named BLAKE2s. It is libsodium's native hash - libsodium has no
+  BLAKE2s - and it is what every client and server already speaks; changing
+  it would move the protocol's version for no gain in security. Taken
+  2026-09-22 and confirmed by the project owner.
+- **An operator's drop lasts for the server's run, as designed.** A dropped
+  player's key is refused until the server stops; a server started again
+  has forgotten it. A ban list that outlasts a run could be a later feature.
 
 **Open:**
 
 - **Buildings:** how OpenStreetMap buildings arrive without a Cesium ion
   token.
-- **The transport's hash:** section 6.7 names BLAKE2s, and what is built is
-  BLAKE2b, because libsodium has none; taken 2026-09-22 and asked of the
-  project owner, who has not ruled. BLAKE2s would have to come from
-  somewhere other than libsodium, and every client and server would change
-  with it.

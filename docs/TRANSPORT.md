@@ -1031,9 +1031,9 @@ datagram that is not ours cannot push the window forward.
 Protocol Framework (revision 34) defines it, with an empty prologue: any
 standard Noise implementation of that suite completes it, and this project's
 matches the Noise community's `cacophony` known-answer vector for it byte for
-byte. `REQUIREMENTS.md` 6.7 names BLAKE2s; libsodium has no BLAKE2s, BLAKE2b
-is a hash the Noise specification defines, and the choice is recorded in
-`src/net/handshake.hpp` and `docs/PROJECT_STATUS.md`. The initiator must
+byte. The hash is BLAKE2b, libsodium's own, where the brief named BLAKE2s,
+which libsodium does not have; the project owner decided it on 2026-10-02
+(`REQUIREMENTS.md` 6.7 and section 9). The initiator must
 already know the responder's static public key, which the server prints at
 startup.
 

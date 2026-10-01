@@ -93,12 +93,12 @@ answers with a `HANDSHAKE_RESPONSE` and admits the key to a slot, and
 through a real socket and a real server.
 
 **The suite is `Noise_IK_25519_ChaChaPoly_BLAKE2b`, and not the `..._BLAKE2s`
-that `REQUIREMENTS.md` 6.7 names.** libsodium, which that section chooses for
-the primitives, provides BLAKE2b and no BLAKE2s at all; BLAKE2b is a hash the
+the brief named.** libsodium, which `REQUIREMENTS.md` 6.7 chooses for the
+primitives, provides BLAKE2b and no BLAKE2s at all; BLAKE2b is a hash the
 Noise specification itself defines, so this is a real suite rather than an
 invention, and the alternative was carrying hand-written cryptography in a
-project that has none. The header of `src/net/handshake.hpp` says so, and says
-the project owner has not ruled on the departure.
+project that has none. The project owner decided for BLAKE2b on 2026-10-02
+(`REQUIREMENTS.md` section 9).
 
 **What it costs is no longer hypothetical.** The server does an X25519
 operation on a datagram from an address it has never heard of, before it knows
