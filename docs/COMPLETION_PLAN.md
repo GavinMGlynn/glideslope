@@ -930,8 +930,9 @@ Found while implementing something else. Added when found, not when remembered.
       same sources.* Done 2026-10-01.
 - [x] **The aircraft models' source files came only from SourceForge**, which
       served a page in place of every one of them on 2026-10-01; CI had them
-      only from its cache. All 75 are now fetched from FlightGear's Subversion
-      server, and each also from a source outside SourceForge: Software
+      only from its cache. Now the 73 FGAddon files come from its Subversion
+      server and the c172p's 2 from GitHub, and each also from a source
+      outside SourceForge: Software
       Heritage's archive for 60, and for the other 15 a release of this
       repository holding them unmodified. *Verification: with SourceForge
       unreachable, every file is fetched from its second source with its

@@ -285,13 +285,17 @@ none, and GitHub's `FGMEMBERS/FGADDON_mirror` is empty since 2016.
   holds the same bytes.
 
 **The change.** Each line of `sources.txt` now lists, in order: the
-Subversion server (or for the c172p, GitHub at its pinned commit), Software
-Heritage where it holds the file, and SourceForge's web view last. The pins
-are unchanged. `tests/cmake/fetch.cmake` already tried several URLs a line
-(the geoid's change); `tools/make_models.py` did not - it read exactly four
-fields - so it now reads and writes any number of URLs, and `--refresh`
-fetches from the first that answers and asks Software Heritage whether it
-holds each file before listing it.
+Subversion server (or for the c172p, GitHub at its pinned commit); then
+Software Heritage where it holds the file, or this project's release for the
+fifteen it does not; and SourceForge's web view last. The pins are unchanged.
+`tests/cmake/fetch.cmake` already tried several URLs a line (the geoid's
+change); `tools/make_models.py` did not - it read exactly four fields - so it
+now reads and writes any number of URLs. `--refresh` takes a file already
+pinned only with its pinned bytes, from any of its URLs, so an outage page
+never reaches the cache; a refusal such as Software Heritage's 429 stops it,
+naming the URL, rather than being taken for a file that is not there and
+sending the model walk to another path. CI's downloads cache is keyed on
+`sources.txt` as well as `files.txt`.
 
 **Verification.**
 - `the_files_the_visual_models_are_made_from_arrive_with_their_pinned_hashes`,
@@ -318,6 +322,13 @@ holds each file before listing it.
   over one directory, the first stopped by a time limit, the second finding
   its 52 files present by hash): 58 came from Software Heritage, 15 from the
   release and the c172p's 2 from its GitHub, none with a wrong hash, exit 0.
+- `a_model_source_refresh_keeps_only_pinned_bytes_and_reports_a_refusal_as_one`
+  (`tests/tools/model_sources_refresh.py`, a stand-in network, 4 cases
+  counted): Software Heritage's 429 stops the refresh naming it; a 503 is not
+  taken for a missing path (one candidate tried, not two); with the Subversion
+  server down, the web view's outage page is passed over and the pinned bytes
+  come from the release; with no source serving them, nothing is cached.
+  Against the script before these fixes all 4 fail; skipped without Python.
 
 ### Collision ground under a runway is the runway's own line, 2026-10-01 — one tail done, the 16R tail not
 

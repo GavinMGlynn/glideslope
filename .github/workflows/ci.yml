@@ -22,7 +22,8 @@ concurrency:
 #
 # Likewise the tests that read downloaded data - DEM tiles, the geoid - skip
 # without the network, and here must not. The downloads are kept between runs
-# in .downloads, keyed on the list that pins them and the run that saved them:
+# in .downloads, keyed on the lists that pin them (tests/data/downloads/files.txt
+# and assets/models/sources.txt) and the run that saved them:
 # one copy for every platform (enableCrossOsArchive), without the Cesium tile
 # caches the tests write there, which are theirs and not pinned.
 #
@@ -218,9 +219,9 @@ jobs:
             .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           restore-keys: |
-            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
             downloads-
           enableCrossOsArchive: true
       - uses: actions/download-artifact@v8
@@ -245,7 +246,7 @@ jobs:
             .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
 
   # ---------------------------------------------------------------------------
@@ -310,9 +311,9 @@ jobs:
             .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           restore-keys: |
-            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
             downloads-
           enableCrossOsArchive: true
 
@@ -412,7 +413,7 @@ jobs:
             .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
 
   # ---------------------------------------------------------------------------
@@ -531,9 +532,9 @@ jobs:
             .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           restore-keys: |
-            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
             downloads-
           enableCrossOsArchive: true
       - uses: actions/download-artifact@v8
@@ -554,7 +555,7 @@ jobs:
             .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
 
   # ---------------------------------------------------------------------------
@@ -708,9 +709,9 @@ jobs:
             .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           restore-keys: |
-            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
             downloads-
           enableCrossOsArchive: true
       - uses: actions/download-artifact@v8
@@ -775,7 +776,7 @@ jobs:
             .downloads/*
             !.downloads/cesium-*.sqlite
             !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
 
   # ---------------------------------------------------------------------------
