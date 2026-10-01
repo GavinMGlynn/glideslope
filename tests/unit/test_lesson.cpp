@@ -2571,7 +2571,6 @@ GLIDESLOPE_TEST(every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_
          {"f35b", Fault::height, 932.0},
          {"learjet35a", Fault::height, 589.0},
          {"mosquito-fb6", Fault::not_recovered, 3462.0},
-         {"pa28", Fault::height, 328.0},
          {"short_s23", Fault::height, 329.0}});
 }
 

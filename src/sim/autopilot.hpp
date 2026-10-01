@@ -11,7 +11,7 @@
 //   heading -> bank, 25 degrees at most - and no more than the aeroplane can
 //     sustain, when its throttle has no more to give - with an integral near
 //     the heading that finds the bank it needs held -> aileron, damped by the
-//     roll rate;
+//     roll rate, with an integral that finds the aileron the bank needs held;
 //   the ball -> rudder, with an integral that finds what a turn needs;
 //   altitude -> vertical speed, at most the climb rate asked for -> pitch,
 //     with an integral -> elevator, damped by the pitch rate, with an
@@ -99,6 +99,7 @@ private:
     double stall_alpha_deg_ = 90.0;
     double lift_config_ = -1e9;
     double elevator_trim_ = 0.0;
+    double aileron_trim_ = 0.0;
     double rudder_integral_ = 0.0;
     double throttle_integral_ = 0.0;
     // Engaging steps nothing: the first step measures what the laws give
