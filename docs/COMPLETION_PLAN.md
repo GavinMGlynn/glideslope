@@ -814,11 +814,16 @@ Found while implementing something else. Added when found, not when remembered.
       4.1 ft after the AI takes her back**, against three for everything
       else. *Verification: every landplane taken back at the touch rises
       less than three feet after it.*
-- [ ] **The AI's own touchdown in the 787-8, F-15C and F-35B is a crash by
+- [x] **The AI's own touchdown in the 787-8, F-15C and F-35B is a crash by
       the server's rule**: they meet the runway sinking at 707, 976 and 883
       ft/min, past the 600 the gear is judged to take; the F-35B, over the
       flare's incidence guard all the way down, does not flare at all. *Verification: every
-      aeroplane the AI lands touches down within what its gear takes.*
+      aeroplane the AI lands touches down within what its gear takes.* Done
+      2026-10-01: the flare is flown to the wheels, and every aeroplane the
+      AI lands, in the approach and circuit lessons and the light aircraft's
+      landings, touches within what its gear takes (the hardest now 360
+      ft/min) and rises less than half a foot after; jets touch further
+      along the runway than they did, up to 773 m.
 - [ ] **The B-2A cannot slow down on the approach.** Flown down with its
       drag rudders half open, it now crosses the threshold on its reference
       speed. **Still missing:** it floats 1.7 ft off the runway for a second
