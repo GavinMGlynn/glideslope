@@ -44,6 +44,7 @@ struct ApproachSpeeds {
     // speed is flown at that (`PublishedFigures::approach_kcas`).
     double stall_kts = 0.0;
     double flap = 1.0;     // the landing flap setting, 0 to 1
+    double speedbrake = 0.0; // the speedbrake lever down the approach, 0 to 1
     double flare_ft = 15.0; // height above the threshold to begin the flare
     // **The glidepath aims past the threshold, not at it.** An approach flown
     // at the threshold puts the flare before it and the wheels on the grass;

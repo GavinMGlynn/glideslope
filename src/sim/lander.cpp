@@ -73,6 +73,11 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     speeds.flap = figures.flaps_full_deg > 0.0
                       ? std::clamp(most_flap_deg / figures.flaps_full_deg, 0.0, 1.0)
                       : 0.0;
+    // **And the drag it lands with, where it has no flap to give it.** The
+    // B-2A, with nothing else to slow it, crossed the threshold fourteen
+    // knots fast with its throttles shut; it is flown down with its drag
+    // rudders open (assets/figures/b2.xml says from what).
+    speeds.speedbrake = figures.approach_speedbrake;
     return speeds;
 }
 
@@ -198,6 +203,7 @@ Controls Lander::fly() {
     Controls c;
     c.gear = 1.0;
     c.flaps = speeds_.flap;
+    c.speedbrake = speeds_.speedbrake;
     c.mixture = 1.0;
     c.propeller = 1.0;
 

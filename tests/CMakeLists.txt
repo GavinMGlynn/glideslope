@@ -199,6 +199,7 @@ set(GLIDESLOPE_UNIT_TESTS
     rotating_early_is_caught_for_each_aeroplane_at_its_own_speed
     the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief
     the_f15c_flies_its_approach_at_its_flight_manuals_speed_for_its_weight
+    the_b2a_crosses_the_threshold_within_five_knots_of_its_reference_speed
     an_approach_flown_fast_is_named_in_the_debrief
     the_turns_lesson_flown_by_the_book_leaves_an_empty_debrief
     a_turn_that_loses_height_is_named_in_the_debrief
@@ -344,6 +345,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_piper_j3_cub_glides_near_its_published_ratio
     the_piper_j3_cub_stalls_near_its_published_speed
     a_figure_asking_for_flaps_the_aircraft_does_not_have_is_refused
+    the_speedbrake_an_approach_is_flown_with_is_read_and_refused_outside_its_travel
     the_boeing_737_300_needs_about_its_published_takeoff_runway_length_at_maximum_weight
     the_boeing_737_300_climbs_with_an_engine_out_as_far_25_demands
     the_boeing_737_300_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows

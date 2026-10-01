@@ -311,9 +311,15 @@ void Aircraft::initialize(const InitialConditions& ic) {
     // rate; while JSBSim is trimming, it reaches the command in one step
     // (FGKinemat::Run). So the initial conditions are run in trim for a start
     // that asks for flap, and in the ordinary way for one that does not.
-    const bool flapped = ic.flaps > 0.0;
+    // Speedbrakes are the same, where the model has them.
+    const bool braked =
+        ic.speedbrake > 0.0 && exec_->GetPropertyManager()->HasNode("fcs/speedbrake-cmd-norm");
+    const bool flapped = ic.flaps > 0.0 || braked;
     if (flapped) {
         exec_->SetPropertyValue("fcs/flap-cmd-norm", ic.flaps);
+        if (braked) {
+            exec_->SetPropertyValue("fcs/speedbrake-cmd-norm", ic.speedbrake);
+        }
         exec_->SetTrimStatus(true);
     }
     const bool accepted = exec_->RunIC();

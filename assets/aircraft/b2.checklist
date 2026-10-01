@@ -17,12 +17,11 @@
 #
 # with `#` beginning a comment; src/sim/checklist.hpp owns the format.
 #
-# The flying wing has no tail, and the model gives it no flap lever and no
-# speedbrake lever: its elevons do the work of elevator, aileron and flap
-# together, and its split drag rudders answer the rudder pedals rather than a
-# lever of their own. So nothing here names a flap or a speedbrake setting,
-# and what a pilot would do with them is left as the pilot's to confirm. Its
-# four F118s are unaugmented: there is no reheat to check either.
+# The flying wing has no tail and no flap: its elevons do the work of
+# elevator, aileron and flap together. Its split drag rudders answer the
+# rudder pedals, opened on one side, and the speedbrake lever, opened on
+# both - though no stick, quadrant or key moves that lever yet (a tail in
+# docs/COMPLETION_PLAN.md), so nothing here asks for it. Its four F118s are unaugmented: there is no reheat to check either.
 
 phase before-start
 confirm Walk-round done, the bay doors shut and the aeroplane clear to start

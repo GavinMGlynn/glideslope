@@ -793,13 +793,21 @@ Found while implementing something else. Added when found, not when remembered.
       ft/min, past the 600 the gear is judged to take; the F-35B, over the
       flare's incidence guard all the way down, does not flare at all. *Verification: every
       aeroplane the AI lands touches down within what its gear takes.*
-- [ ] **The B-2A cannot slow down on the approach.** With nothing to add drag
-      it crosses the threshold fourteen knots fast with its throttles shut,
-      and floats nearly two feet off the runway after it touches; its
-      circuit's final runs to fifteen over, and the bomber lessons' final
-      bands reach twenty over on its account.
-      *Verification: the B-2A crosses the threshold within five knots of its
-      reference speed.*
+- [ ] **The B-2A cannot slow down on the approach.** Flown down with its
+      drag rudders half open, it now crosses the threshold on its reference
+      speed. **Still missing:** it floats 1.7 ft off the runway for a second
+      after it touches - it meets the runway still rounding out, its wheels
+      eleven feet below the height the flare is flown to - and a pilot flying
+      by hand cannot open the drag rudders, so the bomber lessons' bands
+      still reach twenty over. *Verification: the B-2A crosses the threshold
+      within five knots of its reference speed, and rises less than half a
+      foot after it first touches.*
+- [ ] **A pilot has no control for the speedbrakes.** No stick, throttle or
+      key binding moves the speedbrake lever, so by hand the B-2A cannot open
+      its drag rudders and an airliner cannot use its spoilers.
+      *Verification: the speedbrake lever is moved from a stick, a throttle
+      quadrant and the keyboard, and the bomber lessons' bands come back to
+      what the AI flies.*
 - [x] **The Learjet's stabilizer cannot trim her in cruise.** Its nose-down
       stop is not tied to the flight model's zero, so at 250 to 350 knots she
       is held by a quarter of the elevator's nose-down travel, and a pilot

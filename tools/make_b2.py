@@ -29,6 +29,45 @@ range; and every moment's derivative, a tailless swept wing's. A flying wing
 has almost no directional stability of its own: the B-2's flight controls
 give it, the drag rudders at its tips working against sideslip and yaw, and so
 do this model's - the yaw damper and SIDESLIP_GAIN.
+
+**The drag rudders are its speedbrakes too, and it lands with them open.**
+It has no flap, and without something to add drag it could not slow down a
+three-degree glidepath: with its throttles shut it crossed the threshold
+fourteen knots over its reference speed. Each wingtip's drag rudder is split,
+an upper and a lower half - "split brake-rudders" (Sweetman, Inside the
+Stealth Bomber, 2005, p. 73, as Wikipedia's Northrop B-2 Spirit article
+gives it) - which "if used independently ... will turn the aircraft, or if
+used together ... act as speed brakes" (targetlock.org.uk, B-2 Spirit,
+Structure and Systems, an enthusiasts' page; Wikipedia's Deceleron article
+says the same, from the Department of Defense's Northrop Flying Wings, part
+1, 2021); and "at low speed flight, drag rudders are open" (Chudoba,
+Stability and Control of Conventional and Unconventional Aircraft
+Configurations, 2001, pp. 201-202, as Cross, Faber and Telles's AOE 4124 project at Virginia Tech, The B2 -
+Bomber, 2009, gives it). So this model opens them together as far as its
+speedbrake lever asks (fcs/speedbrake-cmd-norm), and the approach autopilot
+flies it down with the lever half out - assets/figures/b2.xml's
+approach_speedbrake, calibrated so that the approach is flown at its
+reference speed with about a third of its throttle on, not a published
+figure - and all the way out on the runway. Their size and drag are not
+published; each is an estimate, named below. Only their drag at the setting
+flown matters - SPEEDBRAKE_CD times the lever, since the drag is linear in
+it - so half the lever is half the drag; the area and the plate's
+coefficient that make SPEEDBRAKE_CD are not separately held to anything. Opened together, the halves are taken to cancel each other's lift and
+pitch, so they add drag and nothing else; and the drag they add is on their
+own, not shared with the yaw they give opened on one side, which CDrudders
+already has - both at once is not modelled as one surface's travel running
+out.
+
+The Air Force's report on the landing of 89-0129 at Whiteman on 14 September
+2021 (Abbreviated Accident Investigation Board, 12 January 2022, pp. 12-13)
+gives the one approach published, and it was not an ordinary one: an
+emergency landing with two hydraulic systems failed, flown fast - 143 knots,
+"slightly higher than the recommended approach speed", for forecast wind
+shear - at a light weight. It touched down at 129 knots at 3.9 degrees of
+pitch and just under 6 of alpha; its main wheels lifted off one side at a
+time and it was airborne again for a second, and its left main gear then
+collapsed. It is weak evidence of how the aeroplane floats, and nothing here
+is set from it.
 """
 
 import math
@@ -85,6 +124,15 @@ CL_DA, CN_DR = 0.12, -0.030
 # The flight controls: elevons and drag rudders, and their augmentation.
 ELEVON_DEG, RUDDER_DEG = 25.0, 45.0
 PITCH_DAMPER_GAIN, YAW_DAMPER_GAIN, SIDESLIP_GAIN = 1.0, 3.0, 4.0
+# The drag rudders opened together, as speedbrakes. Each wingtip's drag
+# rudder is taken as DRAG_RUDDER_FT2 of planform, estimated by eye from
+# published photographs of the aeroplane, against its 172 ft span; opened, its upper and lower halves each stand at RUDDER_DEG to
+# the flow, a flat plate's drag, FLAT_PLATE_CD, on the area they show it.
+DRAG_RUDDER_FT2 = 100.0
+FLAT_PLATE_CD = 1.2
+SPEEDBRAKE_CD = FLAT_PLATE_CD * 4.0 * DRAG_RUDDER_FT2 * math.sin(math.radians(RUDDER_DEG)) / AREA
+# How long they take to open fully.
+SPEEDBRAKE_SECONDS = 2.0
 
 
 def metrics():
@@ -183,6 +231,9 @@ def flight_control():
                                       "fcs/sideslip-feedback"], -rad(RUDDER_DEG), rad(RUDDER_DEG),
                            "fcs/rudder-pos-rad")
     out += written.kinematic("Gear", "gear/gear-cmd-norm", [0, 1], [0, 8], "gear/gear-pos-norm")
+    # The drag rudders as speedbrakes, opened together as far as the lever asks.
+    out += written.kinematic("Speedbrake", "fcs/speedbrake-cmd-norm", [0, 1], [0, SPEEDBRAKE_SECONDS],
+                             "fcs/speedbrake-pos-norm")
     return out + "        </channel>\n    </flight_control>\n"
 
 
@@ -226,6 +277,8 @@ def aerodynamics():
         w.coefficient("CDmach", "Drag_due_to_mach", [q, s, w.table1("velocities/mach", mach_rows, t)]),
         w.coefficient("CDgear", "Drag_due_to_gear", [q, s, "gear/gear-pos-norm", 0.006]),
         w.coefficient("CDrudders", "Drag_of_the_drag_rudders", [q, s, "fcs/mag-rudder-pos-rad", 0.02]),
+        w.coefficient("CDspeedbrake", "Drag_of_the_drag_rudders_opened_together",
+                      [q, s, "fcs/speedbrake-pos-norm", SPEEDBRAKE_CD]),
         w.coefficient("CDbeta", "Drag_due_to_sideslip", [q, s, "aero/mag-beta-rad", 0.10]),
         w.coefficient("CDde", "Drag_due_to_elevons", [q, s, "fcs/mag-elevator-pos-rad", 0.01]),
     ]

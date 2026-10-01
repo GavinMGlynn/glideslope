@@ -4,6 +4,11 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <random>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -349,6 +354,58 @@ GLIDESLOPE_TEST(the_f22_flies_at_mach_2_at_40000_ft) {
 
 GLIDESLOPE_TEST(the_f22_still_climbs_at_50000_ft) {
     expect_figure("f22", "climb_rate_50000_ft");
+}
+
+// **The speedbrake an aeroplane is flown down an approach with is read from
+// its figures**, is none where they give none, and is refused outside the
+// lever's travel rather than flown: every speed and setting is data. Each
+// file tried is the B-2A's own with that one attribute changed, so a refusal
+// is the attribute's and nothing else's - and a setting inside the travel,
+// written the same way, is read back.
+GLIDESLOPE_TEST(the_speedbrake_an_approach_is_flown_with_is_read_and_refused_outside_its_travel) {
+    check(read_published_figures(figures_file("b2")).approach_speedbrake == 0.5,
+          "the B-2A is flown down with its drag rudders half open");
+    check(read_published_figures(figures_file("737-300")).approach_speedbrake == 0.0,
+          "the 737-300 gives none, so none is used");
+
+    std::ifstream in(figures_file("b2"));
+    const std::string b2((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    const std::string attribute = "approach_speedbrake=\"0.5\"";
+    const auto at = b2.find(attribute);
+    if (at == std::string::npos) {
+        fail("assets/figures/b2.xml does not give approach_speedbrake=\"0.5\"");
+    }
+    // A name no other run of this test, in this build or another, shares.
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_approach_speedbrake_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& value) {
+        std::string text = b2;
+        text.replace(at, attribute.size(), "approach_speedbrake=\"" + value + "\"");
+        std::ofstream out(file);
+        out << text;
+    };
+
+    write("0.25");
+    check(read_published_figures(file).approach_speedbrake == 0.25,
+          "a setting inside the lever's travel is read back as written");
+    const char* const wrong[] = {"-0.1", "1.5"};
+    std::size_t refused = 0;
+    for (const char* value : wrong) {
+        write(value);
+        try {
+            read_published_figures(file);
+        } catch (const std::runtime_error& e) {
+            const std::string said = e.what();
+            check(said.find("approach_speedbrake") != std::string::npos,
+                  std::string("the refusal of ") + value + " names approach_speedbrake: " + said);
+            ++refused;
+        }
+    }
+    std::filesystem::remove(file);
+    check(refused == std::size(wrong), "both settings outside 0 to 1 were refused, not " +
+                                           std::to_string(refused));
 }
 
 // A figure that asks for flaps of an aircraft without them - the Cub has none,
