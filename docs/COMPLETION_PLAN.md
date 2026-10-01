@@ -752,7 +752,8 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification: the prediction tests pass on every CI run for a month,
       with their 20 m bound unchanged.* A cause fixed 2026-10-02. Still
       missing: the month of CI runs, a CI failure tied to that cause, and
-      an explanation of one local run put right 12.8 m since.
+      an explanation of loaded local runs put right 9 to 13 m since, once
+      the clocks' difference was known.
 - [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
       (26-28 minutes a Windows configure). *Verification: a new runner image
       costs one rebuild, saved, not one per run.* Windows restores from public

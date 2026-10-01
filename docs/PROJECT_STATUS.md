@@ -267,7 +267,9 @@ are the risks the phase order is built around:
 **What is still missing, first**: none of CI's four failures was reproduced
 here in the processes themselves, so that this was their cause is argued
 from a unit test and the numbers, not watched; one loaded run with the fix
-was still put right 12.8 m, under the bound but not explained (below); and
+was still put right 12.8 m, and after the rebase two of three 9.4 and
+11.3 m, all under the bound but not explained, and all once the clocks'
+difference was known (below); and
 the tail's verification is a month of CI runs, which starts with this
 change.
 
@@ -363,7 +365,18 @@ it. A candidate (from the review): the server's mirror of the cause - a
 long server pass applies an input that came early only after its owed
 steps, so that input says the clocks differ by more than they do, and
 while the difference is learnt that is a quarter of a second at 50 m/s,
-about 12.8 m. If so, the new line will say "learnt". Before the fix, the
+about 12.8 m. If so, the new line would say "learnt"; it did not. Rebased
+on #88, three of each again under the same load (and a Windows build
+running): held-frames worst 1.35, 3.82 and 1.30 m, on-server 9.38, 11.33
+and 1.29 m - and the 9.38 and 11.33 m came **once the difference was
+known** (learnt 0.54 and 1.84 m). So what is left is not this cause's
+learning. A guess not yet tested: a server starved of its core falls
+behind real time and catches up four steps a look, applying an input that
+came meanwhile at a step behind the clock, so that input says the clocks
+differ by less than they do, the least of the window drops, and the
+client is put right by the server's lag - the open item "A server that
+falls behind real time puts its clients' prediction off by metres". Before
+the fix, the
 same load, three of each: held-frames worst 1.4,
 2.2 and 4.0 m, the "replayed 0" corrections above; unloaded, three of each
 way, all under 2.3 m. The two CLI network checks at 100 and 200 ms failed
