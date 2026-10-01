@@ -328,14 +328,25 @@ def serves(url: str, sha: str | None = None) -> bool:
     return sha is None or hashlib.sha256(data).hexdigest() == sha
 
 
-def with_mirrors(urls: list[str], name: str, sha: str) -> list[str]:
+def with_mirrors(urls: list[str], name: str, sha: str,
+                 pinned: list[str] = ()) -> list[str]:
     """A source off the first one's host goes second, before the one sharing
     that host: Software Heritage when it holds these bytes, and otherwise this
-    project's release, when it holds them."""
-    if serves(f"{HERITAGE}{sha}/"):
-        return urls[:1] + [f"{HERITAGE}{sha}/raw/"] + urls[1:]
-    if urls[0].startswith(FGADDON_SVN) and serves(f"{RELEASE}{name}", sha):
+    project's release, which holds only what Software Heritage does not.
+
+    Software Heritage is asked only about bytes neither already answers for:
+    the pinned list having it serve them settles it, as it names them by their
+    own SHA-256 and keeps what it archives; the release holding them settles
+    it the other way. Asking about all 75 files on every refresh spends most
+    of the 120 requests an hour it allows anonymously."""
+    heritage = f"{HERITAGE}{sha}/raw/"
+    if heritage in pinned:
+        return urls[:1] + [heritage] + urls[1:]
+    fgaddon = urls[0].startswith(FGADDON_SVN)
+    if fgaddon and serves(f"{RELEASE}{name}", sha):
         return urls[:1] + [f"{RELEASE}{name}"] + urls[1:]
+    if serves(f"{HERITAGE}{sha}/"):
+        return urls[:1] + [heritage] + urls[1:]
     return urls
 
 
@@ -415,7 +426,8 @@ class Files:
                 raise ValueError(f"{name} is not what is pinned: {sha}, "
                                  f"not {want[1]}")
         if self.refresh:
-            urls = with_mirrors(urls, name, sha)
+            urls = with_mirrors(urls, name, sha,
+                                self.pinned.get(name, (0, "", []))[2])
         self.used[name] = (len(data), sha, urls)
         return data
 

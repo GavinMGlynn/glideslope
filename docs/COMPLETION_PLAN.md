@@ -928,9 +928,15 @@ Found while implementing something else. Added when found, not when remembered.
       against the one pin; a test shows a source serving the wrong bytes or an
       error is passed over, and that the program and the tests fetch from the
       same sources.* Done 2026-10-01.
-- [ ] **The aircraft models' source files come only from SourceForge**, which
-      served a page in place of every one of them on 2026-10-01; CI has them
+- [x] **The aircraft models' source files came only from SourceForge**, which
+      served a page in place of every one of them on 2026-10-01; CI had them
       only from its cache. All 75 are now fetched from FlightGear's Subversion
+      server, and each also from a source outside SourceForge: Software
+      Heritage's archive for 60, and for the other 15 a release of this
+      repository holding them unmodified. *Verification: with SourceForge
+      unreachable, every file is fetched from its second source with its
+      pinned bytes.* Done 2026-10-01.
+
       server, which still served them, and 60 also from Software Heritage's
       archive. **Not done: 15 files (from the 787, A320, A380, c182, F-15 and
       Mosquito) have no source outside SourceForge**, and need one, such as a
