@@ -2362,6 +2362,12 @@ add_test(NAME the_client_refuses_a_view_there_is_none_of
         "-DSTDERR_MATCHES=there is no view nonesuch. there is cockpit, ahead, behind, left, right, above, orbit"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
+add_test(NAME the_client_refuses_to_hold_a_shot_for_going_back_with_no_server
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope> "-DARGS=--headless --shot x.bmp --shot-once-back"
+        -DEXIT=2 "-DSTDERR_MATCHES=--shot-once-back holds a --shot flown on a server"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
 add_test(NAME the_client_will_not_have_the_ai_take_off
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope> "-DARGS=--on-ground --autopilot" -DEXIT=2

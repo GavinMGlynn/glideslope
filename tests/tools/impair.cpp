@@ -30,6 +30,8 @@
 //
 // With `--forge-refusal-after N`, once N datagrams have come from the server,
 // a session is made quiet and a forger refuses it - built, not waited for.
+// **It is for one client**: the hold is of everything the server sends, to
+// every client, and the first initiation from any of them ends it.
 // Everything from the server is held, not dropped, and every datagram a
 // client sends meanwhile is answered with a `BAD_HANDSHAKE` that the server
 // never sent: from the relay's own port, which is the server's address as
@@ -40,7 +42,9 @@
 // delivered, in the order it came, and nothing more is forged. Once only. It
 // says on standard error how many it forged and held, and whether the hold
 // ended so; with the hold never ended, everything still held is let go at
-// the end as never delivered.
+// the end as never delivered. It holds at most `most_held` datagrams; any
+// past that are dropped, counted and said, so that a hold nobody ends cannot
+// grow without bound.
 //
 // It is what `tc netem` does, without needing to be root or on Linux, so that
 // the same check runs on every CI platform.
@@ -191,6 +195,8 @@ int main(int argc, char** argv) {
     Forging forging = Forging::not_yet;
     std::uint64_t from_server = 0, forged = 0;
     std::vector<Held> held_back;
+    constexpr std::size_t most_held = 4096;
+    std::uint64_t past_the_cap = 0;
     std::chrono::steady_clock::time_point hold_began{};
     double hold_lasted_s = 0.0;
     std::vector<std::uint8_t> refusal;
@@ -220,6 +226,10 @@ int main(int argc, char** argv) {
             }
         }
         if (!to_server && forging == Forging::holding) {
+            if (held_back.size() >= most_held) {
+                ++past_the_cap;
+                return;
+            }
             held_back.push_back({std::chrono::steady_clock::now(), false, to, client,
                                  std::vector<std::uint8_t>(data, data + n)});
             return;
@@ -376,16 +386,19 @@ int main(int argc, char** argv) {
         if (forging == Forging::over) {
             std::fprintf(stderr,
                          "impair: forged %llu refusals while holding the server's datagrams; "
-                         "the hold ended on a client's initiation after %.1f s\n",
-                         static_cast<unsigned long long>(forged), hold_lasted_s);
+                         "the hold ended on a client's initiation after %.1f s; %llu dropped "
+                         "past its cap of %zu\n",
+                         static_cast<unsigned long long>(forged), hold_lasted_s,
+                         static_cast<unsigned long long>(past_the_cap), most_held);
         } else {
             std::fprintf(stderr,
                          "impair: forged %llu refusals; the hold %s, %llu from the server "
-                         "never delivered\n",
+                         "never delivered and %llu dropped past its cap\n",
                          static_cast<unsigned long long>(forged),
                          forging == Forging::holding ? "never ended: no client tried to join again"
                                                      : "never began",
-                         static_cast<unsigned long long>(held_back.size()));
+                         static_cast<unsigned long long>(held_back.size()),
+                         static_cast<unsigned long long>(past_the_cap));
         }
         std::fflush(stderr);
     }

@@ -85,7 +85,7 @@ if(NOT _out MATCHES "the server gave this client aircraft [0-9]+")
 endif()
 glideslope_judge_leaks("${_err}")
 
-set(_forger_said "impair: forged ([0-9]+) refusals while holding the server's datagrams; the hold ended on a client's initiation")
+set(_forger_said "impair: forged ([0-9]+) refusals while holding the server's datagrams; the hold ended on a client's initiation after [0-9.]+ s; 0 dropped past its cap")
 if(NOT _err MATCHES "${_forger_said}")
     string(REGEX MATCH "impair: forged[^\n]*" _forger "${_err}")
     message(FATAL_ERROR "the client never tried to join again (${_forger}):\n${_out}\n${_err}")
