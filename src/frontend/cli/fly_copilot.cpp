@@ -48,6 +48,7 @@
 #include "sim/terrain.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
+#include "world/runway_ground.hpp"
 #include "world/runways.hpp"
 
 #include <algorithm>
@@ -208,7 +209,10 @@ int fly_copilot(const std::filesystem::path& data, const std::vector<std::string
     const world::Fetch fetch = world::http_fetch();
     world::DownloadedTiles tiles(cache, fetch);
     const world::Geoid geoid = world::egm2008_geoid(cache, fetch);
+    // The ground the aircraft meets: the DEM, with every runway its own
+    // surface (world/runway_ground.hpp), as the server's.
     auto dem = std::make_shared<world::Dem>(coverage, tiles, &geoid);
+    auto collision = std::make_shared<world::CollisionGround>(dem, world::runway_surfaces(data));
     const std::vector<world::RunwayEnd> runways = world::world_runways(cache, fetch);
     const auto undulation_ft = [&](double lat, double lon) {
         return geoid.undulation(lat, lon) * feet_per_metre;
@@ -216,13 +220,15 @@ int fly_copilot(const std::filesystem::path& data, const std::vector<std::string
 
     sim::Aircraft aircraft(data / "jsbsim", entry.model);
     aircraft.set_terrain(std::make_shared<sim::FunctionTerrain>(
-        [dem](double lat, double lon) { return dem->height_above_ellipsoid(lat, lon); },
-        [dem](double lat, double lon) { return dem->water(lat, lon) != world::Water::none; }));
+        [collision](double lat, double lon) { return collision->height_above_ellipsoid(lat, lon); },
+        [collision](double lat, double lon) {
+            return collision->water(lat, lon) != world::Water::none;
+        }));
     sim::InitialConditions ic;
     ic.latitude_deg = start_lat;
     ic.longitude_deg = start_lon;
     ic.altitude_ft = start_ft + undulation_ft(start_lat, start_lon);
-    ic.terrain_elevation_ft = dem->height_above_ellipsoid(start_lat, start_lon) * feet_per_metre;
+    ic.terrain_elevation_ft = collision->height_above_ellipsoid(start_lat, start_lon) * feet_per_metre;
     ic.heading_deg = start_heading;
     ic.airspeed_kts = start_kts;
     ic.gear = 0.0;
@@ -244,7 +250,7 @@ int fly_copilot(const std::filesystem::path& data, const std::vector<std::string
         return aircraft.property("position/h-sl-ft") - undulation_ft(lat_now(), lon_now());
     };
     const auto ground_ft = [&](double lat, double lon) {
-        return dem->height_above_geoid(lat, lon) * feet_per_metre;
+        return collision->height_above_geoid(lat, lon) * feet_per_metre;
     };
 
     // The route being flown, as the model wrote it: heights above the sea.
@@ -472,7 +478,7 @@ int fly_copilot(const std::filesystem::path& data, const std::vector<std::string
                             coast_seen, coast_samples);
             } else if (routes > 0 && step % steps_of(10.0) == 0) {
                 const double d = coast_m(lat, lon, [&](double la, double lo) {
-                    return dem->water(la, lo) != world::Water::none;
+                    return collision->water(la, lo) != world::Water::none;
                 });
                 ++coast_samples;
                 coast_seen += d <= coast_within_m ? 1 : 0;

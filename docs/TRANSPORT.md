@@ -564,7 +564,8 @@ engine that has stopped. **The key is never sent.**
 client's own aircraft, and a wreck's not at all. It reads the route as a
 flight plan from where the aircraft is, and checks it against the aircraft
 as the server has it - every waypoint within 200 km, every height 500 ft
-above both the sea and the ground beneath the aircraft and every airspeed
+above both the sea and the ground beneath the aircraft - the collision
+ground, as the aircraft meets it - and every airspeed
 from the aircraft's approach speed to a fifth over its cruise (none of these
 for a glide, which flies neither), every orbit wide enough for its airspeed,
 a glide only with the engine stopped and from the approach speed to the best
@@ -904,11 +905,14 @@ asked on the player's machine, is told so, and answers with a glide
 (`COPILOT_ROUTE`). It says nothing of which engine, nor of whether it will
 start again: flown again after a wreck, an aircraft's engines run.
 
-**A client older than `02` refuses the whole state update** while any
-aircraft in it has an engine stopped, as it refuses any condition it does
-not know (below) - every aircraft's position with it, not only that one's -
-as an older client refuses `DROPPED` as an unknown reason. Such a client
-must be brought up to date to play on a server where an engine can stop.
+**A client built before the condition `02` refuses the whole state update**
+while any aircraft in it has an engine stopped, as it refuses any condition
+it does not know (below) - every aircraft's position with it, not only that
+one's - as an older client refuses `DROPPED` as an unknown reason. The
+condition `02`, like `COPILOT_ROUTE`, came without the protocol's version
+moving (it is `02` too, for the ground; "It does not keep the version with
+the layout, yet", above): such a client must be brought up to date to play
+on a server where an engine can stop.
 
 **A reader refuses**: a kind that is not `03`, fewer bytes than the fields
 need, any byte left over at the end, more than 20 aircraft, a controller or a

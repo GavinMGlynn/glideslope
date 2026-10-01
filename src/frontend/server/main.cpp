@@ -1303,7 +1303,9 @@ public:
         now.latitude_deg = lat;
         now.longitude_deg = lon;
         now.altitude_ft = craft.property("position/h-sl-ft") - undulation_ft;
-        now.ground_ft = dem_->height_above_geoid(lat, lon) * feet_per_metre;
+        // The ground as the aircraft meets it: the collision ground, every
+        // runway its own surface - what the player's copilot is told too.
+        now.ground_ft = collision_->height_above_geoid(lat, lon) * feet_per_metre;
         now.heading_deg = craft.property("attitude/psi-deg");
         now.airspeed_kts = craft.property("velocities/vc-kts");
         now.engine_running = !engine_stopped(a);
