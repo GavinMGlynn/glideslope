@@ -165,28 +165,31 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
     if (!session) {
         fail(request.url, "no WinHTTP session");
     }
-    // **WinHTTP is not asked to undo a compressed body**, and the second
-    // attempt to make it said something the first did not.
+    // **WinHTTP undoes gzip, and is offered nothing else.** A server may
+    // compress a body unasked - Cesium ion's CDN serves its layer.json with
+    // `Content-Encoding: gzip` whatever the request says - and WinHTTP hands
+    // it up still compressed unless this option is on. On, it sends its own
+    // `Accept-Encoding` for what the flags name, undoes what comes back, and
+    // takes `content-encoding` and `content-length` off the response.
     //
-    // Turning WINHTTP_OPTION_DECOMPRESSION on makes every Open-Meteo fetch
-    // fail on all three Windows jobs. The first time, the error was recorded
-    // as 2147500036, which is 0x80004004, E_ABORT - not a WinHTTP code at
-    // all, and a red herring. The second time it was **12002 at
-    // WinHttpSendRequest**: ERROR_WINHTTP_TIMEOUT, raised before a single
-    // byte of the body is read.
+    // **Not deflate**, because WinHTTP's deflate decoder reads only raw
+    // deflate (RFC 1951), and HTTP's "deflate" is the zlib format (RFC 1950)
+    // around it. Offered both, Open-Meteo prefers deflate and sends the zlib
+    // format, as the RFC has it, and every read of the body then fails with
+    // E_ABORT (0x80004004) - what the first attempt, with
+    // WINHTTP_DECOMPRESSION_FLAG_ALL, saw on every Windows job. Measured on
+    // the development machine on 2026-10-01: a zlib-format body, plain or
+    // flushed in pieces, fails so; raw deflate and gzip are read. Offered
+    // gzip alone, Open-Meteo sends gzip, which WinHTTP reads.
+    // `a_server_that_prefers_deflate_when_offered_it_is_still_read` holds it.
     //
-    // That rules out the guess it was tried on - that the read loop below,
-    // which used WinHttpQueryDataAvailable to decide a body had ended, was
-    // the cause. It was wrong for its own reasons and is fixed, and the
-    // failure happens earlier than it runs.
-    //
-    // What is left is that asking for a compressed body from this host, from
-    // these runners, times out the send. Why is still not known. Nothing
-    // asks for a compressed body otherwise, since a provider's own
-    // Accept-Encoding is not passed on, so this costs nothing until a server
-    // compresses one unasked - which Cesium ion does. That is a tail in
-    // COMPLETION_PLAN.md, and it is why Cesium ion is not yet known to work
-    // on Windows.
+    // **Where it cannot be set** - it wants Windows 8.1 - nothing is offered,
+    // and a body compressed unasked is left as it came with its
+    // `content-encoding` on it, which is what tells a caller the bytes are
+    // not what they look like. So its failure needs no handling of its own.
+    DWORD decompress = WINHTTP_DECOMPRESSION_FLAG_GZIP;
+    (void)WinHttpSetOption(session.get(), WINHTTP_OPTION_DECOMPRESSION, &decompress,
+                           sizeof decompress);
     const int connect_ms = request.connect_timeout_seconds * 1000;
     const int stall_ms = request.stall_timeout_seconds * 1000;
     WinHttpSetTimeouts(session.get(), connect_ms, connect_ms, stall_ms, stall_ms);
@@ -318,9 +321,10 @@ HttpResponse perform(const HttpRequest& request, const std::string* body) {
                             std::to_string(request.max_body) + " bytes");
         }
     }
-    // **`content-encoding` is left on the response**, because nothing here
-    // undid one. A caller that sees it knows the bytes are not what they look
-    // like. See HttpResponse.
+    // **What WinHTTP undid it took `content-encoding` off**; one it did not
+    // undo - anything but gzip, or anything at all before Windows 8.1 - is
+    // left on, so a caller that sees it knows the bytes are not what they
+    // look like. See HttpResponse.
     response.headers["content-length"] = std::to_string(response.body.size());
 
     return response;

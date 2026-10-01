@@ -1,10 +1,13 @@
 #include "harness.hpp"
 
 #include "platform/http.hpp"
+#include "platform/paths.hpp"
 #include "world/digest.hpp"
+#include "world/json.hpp"
 
 #include <atomic>
 #include <cstring>
+#include <functional>
 #include <string>
 #include <thread>
 
@@ -148,10 +151,14 @@ void close_socket(Socket s) {
 // **A server for one request**, on the loopback address: it keeps every byte
 // of the request it is sent and answers it with `answer`, then closes. What
 // the client sent can be checked byte for byte, and nothing leaves the
-// machine.
+// machine. The answer may instead be made from the request's head, as a
+// server choosing an encoding from Accept-Encoding makes it.
 class OneRequestServer {
 public:
-    explicit OneRequestServer(std::string answer) : answer_(std::move(answer)) {
+    using Answer = std::function<std::string(const std::string& head)>;
+    explicit OneRequestServer(std::string answer)
+        : OneRequestServer(Answer([answer](const std::string&) { return answer; })) {}
+    explicit OneRequestServer(Answer answer) : answer_(std::move(answer)) {
 #ifdef _WIN32
         WSADATA data;
         ::WSAStartup(MAKEWORD(2, 2), &data);
@@ -223,10 +230,11 @@ private:
         if (wanted != std::string::npos) {
             body_ = got.substr(head_.size() + 4);
         }
+        const std::string answer = answer_(head_);
         std::size_t sent = 0;
-        while (sent < answer_.size()) {
-            const auto n = ::send(client, answer_.data() + sent,
-                                  static_cast<Length>(answer_.size() - sent), 0);
+        while (sent < answer.size()) {
+            const auto n = ::send(client, answer.data() + sent,
+                                  static_cast<Length>(answer.size() - sent), 0);
             if (n <= 0) {
                 break;
             }
@@ -246,7 +254,7 @@ private:
                    : static_cast<std::size_t>(std::strtoull(lower.c_str() + at + 17, nullptr, 10));
     }
 
-    std::string answer_;
+    Answer answer_;
     Socket listening_ = no_socket;
     unsigned short port_ = 0;
     std::thread thread_;
@@ -335,4 +343,195 @@ GLIDESLOPE_TEST(a_header_holding_a_control_character_is_refused_before_anything_
         }
     }
     check(refused == 6, "three headers, each by GET and by POST: six refused");
+}
+
+namespace {
+
+// What the compressed answers below hold, before they were compressed.
+const std::string plain_body =
+    "{\"said\":\"the same bytes, however they travelled\",\"levels\":[1000,975,950,925,"
+    "900,850,800,700,600,500]}";
+
+// `plain_body` gzipped (RFC 1952), made by Python's gzip.compress(mtime=0).
+const std::uint8_t gzipped_body[] = {
+    0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x03, 0x0d, 0x88,
+    0x41, 0x0a, 0x80, 0x30, 0x0c, 0x04, 0xbf, 0x12, 0x72, 0xee, 0x21, 0x0a,
+    0xb5, 0xb5, 0x5f, 0x11, 0x0f, 0x15, 0x03, 0x0a, 0x11, 0xc1, 0x96, 0x8a,
+    0x88, 0x7f, 0x77, 0x0f, 0xc3, 0xec, 0xce, 0xcb, 0x25, 0xef, 0x2b, 0x27,
+    0xae, 0x9b, 0x52, 0xc9, 0x87, 0xd2, 0xf2, 0x54, 0x2d, 0x8e, 0xb6, 0xf3,
+    0xd6, 0xa6, 0x17, 0xa1, 0x3f, 0x54, 0xaf, 0xdc, 0xd4, 0x4c, 0x57, 0x76,
+    0x6c, 0xc8, 0x56, 0x38, 0x4d, 0x9d, 0x88, 0xb8, 0x31, 0x78, 0x37, 0x7a,
+    0xb8, 0x87, 0xf1, 0x23, 0x76, 0x84, 0x03, 0x18, 0x80, 0x17, 0x99, 0xbf,
+    0x1f, 0x05, 0x40, 0x13, 0xae, 0x65, 0x00, 0x00, 0x00};
+
+// `plain_body` as HTTP's "deflate" is defined - the zlib format, RFC 1950,
+// header and Adler-32 around the deflate data - made by Python's
+// zlib.compress at level 9. Open-Meteo sends this kind of stream.
+const std::uint8_t deflated_body[] = {
+    0x78, 0xda, 0x0d, 0x88, 0x41, 0x0a, 0x80, 0x30, 0x0c, 0x04, 0xbf, 0x12,
+    0x72, 0xee, 0x21, 0x0a, 0xb5, 0xb5, 0x5f, 0x11, 0x0f, 0x15, 0x03, 0x0a,
+    0x11, 0xc1, 0x96, 0x8a, 0x88, 0x7f, 0x77, 0x0f, 0xc3, 0xec, 0xce, 0xcb,
+    0x25, 0xef, 0x2b, 0x27, 0xae, 0x9b, 0x52, 0xc9, 0x87, 0xd2, 0xf2, 0x54,
+    0x2d, 0x8e, 0xb6, 0xf3, 0xd6, 0xa6, 0x17, 0xa1, 0x3f, 0x54, 0xaf, 0xdc,
+    0xd4, 0x4c, 0x57, 0x76, 0x6c, 0xc8, 0x56, 0x38, 0x4d, 0x9d, 0x88, 0xb8,
+    0x31, 0x78, 0x37, 0x7a, 0xb8, 0x87, 0xf1, 0x23, 0x76, 0x84, 0x03, 0x18,
+    0x80, 0x17, 0x99, 0xbf, 0x1f, 0x86, 0x7f, 0x1d, 0x60};
+
+template <std::size_t N>
+std::string answer_encoded(const char* encoding, const std::uint8_t (&body)[N]) {
+    return std::string("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                       "Content-Encoding: ") +
+           encoding + "\r\nContent-Length: " + std::to_string(N) +
+           "\r\nConnection: close\r\n\r\n" +
+           std::string(reinterpret_cast<const char*>(body), N);
+}
+
+// The value of a request header, by its name in lower case, itself lowered;
+// empty if the request has none.
+std::string request_header(const std::string& head, const std::string& name) {
+    std::string lower;
+    for (const char c : head) {
+        lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    const std::size_t at = lower.find("\r\n" + name + ":");
+    if (at == std::string::npos) {
+        return {};
+    }
+    std::size_t from = at + 2 + name.size() + 1;
+    while (from < lower.size() && lower[from] == ' ') {
+        ++from;
+    }
+    return lower.substr(from, lower.find("\r\n", from) - from);
+}
+
+void check_plain(const HttpResponse& r, const std::string& what) {
+    check(r.status == 200, what + ": status 200, not " + std::to_string(r.status));
+    check(std::string(r.body.begin(), r.body.end()) == plain_body,
+          what + ": the body as it was before it was compressed, not " +
+              std::to_string(r.body.size()) + " bytes beginning with byte " +
+              (r.body.empty() ? std::string("none")
+                              : std::to_string(static_cast<int>(r.body[0]))));
+    check(r.headers.count("content-encoding") == 0,
+          what + ": no content-encoding for what was already undone");
+    check(r.headers.count("content-length") == 1 &&
+              r.headers.at("content-length") == std::to_string(plain_body.size()),
+          what + ": a content-length that counts the body handed up");
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(a_body_gzipped_unasked_arrives_as_it_was_before_it_was_gzipped) {
+    // Cesium ion's layer.json is kept gzipped and served with
+    // `Content-Encoding: gzip` whatever the request said, so this server does
+    // the same: whatever the client offered, or did not, it gets gzip.
+    OneRequestServer server(answer_encoded("gzip", gzipped_body));
+    const HttpResponse r = http_get(get(server.url("/layer.json")));
+    std::printf("asked with Accept-Encoding \"%s\"\n",
+                request_header(server.head(), "accept-encoding").c_str());
+    check_plain(r, "gzipped unasked");
+}
+
+GLIDESLOPE_TEST(a_server_that_prefers_deflate_when_offered_it_is_still_read) {
+    // Open-Meteo's way: offered deflate, it sends deflate - the zlib format,
+    // as HTTP defines it - and gzip only when gzip is all that is offered,
+    // and nothing compressed when nothing is. Whatever a client offers it
+    // must be able to undo. WinHTTP's own deflate decoder cannot undo the
+    // zlib format, and fails the read with E_ABORT: that is what made every
+    // Open-Meteo fetch fail on Windows when decompression was first turned on.
+    OneRequestServer server(OneRequestServer::Answer([](const std::string& head) {
+        const std::string offered = request_header(head, "accept-encoding");
+        if (offered.find("deflate") != std::string::npos) {
+            return answer_encoded("deflate", deflated_body);
+        }
+        if (offered.find("gzip") != std::string::npos) {
+            return answer_encoded("gzip", gzipped_body);
+        }
+        return "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
+               std::to_string(plain_body.size()) + "\r\nConnection: close\r\n\r\n" +
+               plain_body;
+    }));
+    HttpResponse r;
+    try {
+        r = http_get(get(server.url("/v1/forecast")));
+    } catch (const HttpError& e) {
+        fail("offered \"" + request_header(server.head(), "accept-encoding") +
+             "\", the answer could not be read: " + e.what());
+    }
+    const std::string offered = request_header(server.head(), "accept-encoding");
+    std::printf("offered \"%s\"\n", offered.c_str());
+    check_plain(r, "offered \"" + offered + "\"");
+}
+
+GLIDESLOPE_TEST(cesium_ions_layer_json_is_fetched_and_read) {
+    // The real thing, with the user's token: where ion keeps Cesium World
+    // Terrain (asset 1), and its layer.json - which ion's CDN serves gzipped
+    // whether or not it was asked to - read as the JSON it is. Without a
+    // token this is skipped, never passed. Nothing below repeats a URL or an
+    // error that could hold the token.
+    const std::string token = glideslope::platform::cesium_ion_token();
+    if (token.empty()) {
+        glideslope::test::skip("no Cesium ion token (GLIDESLOPE_CESIUM_ION_TOKEN, or "
+                               "cesium-ion-token in the config directory)");
+    }
+    HttpResponse endpoint;
+    try {
+        endpoint = http_get(get(glideslope::platform::cesium_ion_api() +
+                                "/v1/assets/1/endpoint?access_token=" + token));
+    } catch (const HttpError&) {
+        if (!glideslope::test::network_required()) {
+            glideslope::test::skip("Cesium ion could not be reached");
+        }
+        fail("Cesium ion could not be reached");
+    }
+    check(endpoint.status == 200,
+          "ion said where asset 1 is: status " + std::to_string(endpoint.status));
+    const glideslope::world::Json said = glideslope::world::parse_json(
+        std::string(endpoint.body.begin(), endpoint.body.end()));
+    const glideslope::world::Json* url = said.find("url");
+    const glideslope::world::Json* access = said.find("accessToken");
+    check(url != nullptr && access != nullptr, "ion's answer has a url and a token");
+    std::string layer = url->string();
+    if (layer.empty() || layer.back() != '/') {
+        layer += '/';
+    }
+    layer += "layer.json";
+
+    HttpRequest request = get(layer);
+    request.headers = {{"Authorization", "Bearer " + access->string()}};
+    HttpResponse r;
+    try {
+        r = http_get(request);
+    } catch (const HttpError&) {
+        fail("ion's layer.json could not be fetched");
+    }
+    std::printf("fetched %zu bytes of layer.json through %s\n", r.body.size(),
+                glideslope::platform::http_client().c_str());
+    check(r.status == 200, "layer.json: status " + std::to_string(r.status));
+    check(r.headers.count("content-encoding") == 0,
+          "no content-encoding left on it: " +
+              (r.headers.count("content-encoding") != 0 ? r.headers.at("content-encoding")
+                                                        : std::string()));
+    check(!r.body.empty() && r.body[0] != 0x1f, "not gzip's magic: it was undone");
+    check(r.headers.count("content-length") == 1 &&
+              r.headers.at("content-length") == std::to_string(r.body.size()),
+          "a content-length that counts the body handed up");
+    glideslope::world::Json doc;
+    try {
+        doc = glideslope::world::parse_json(std::string(r.body.begin(), r.body.end()));
+    } catch (const glideslope::world::JsonError& e) {
+        fail(std::string("layer.json is not JSON: ") + e.what());
+    }
+    const glideslope::world::Json* format = doc.find("format");
+    check(format != nullptr && format->kind() == glideslope::world::Json::Kind::string &&
+              format->string() == "quantized-mesh-1.0",
+          "a quantized-mesh terrain's layer.json");
+    const glideslope::world::Json* tiles = doc.find("tiles");
+    check(tiles != nullptr && tiles->kind() == glideslope::world::Json::Kind::array &&
+              !tiles->array().empty(),
+          "naming where its tiles are");
+    const glideslope::world::Json* available = doc.find("available");
+    check(available != nullptr &&
+              available->kind() == glideslope::world::Json::Kind::array &&
+              available->array().size() > 10,
+          "and which are available, level by level");
 }
