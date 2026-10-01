@@ -610,10 +610,10 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The autopilot's stall recovery, held to what a stall lesson can
       ask of it** (decided 2026-09-30, REQUIREMENTS 4.3). Both checks exist,
       and the instructor's demonstration flies the recovery. Still missing:
-      the A320, Mosquito and F-15C pull out over 2 g with 10% in hand; the
+      the A320 and Mosquito pull out over 2 g with 10% in hand; the
       A320 loses more than its bound left thirty seconds; at the stall
-      warning the B-2A, Learjet, PA-28 and S.23 lose more than their lesson
-      allows, the F-35B too, and the Mosquito is never level again; the AI
+      warning the B-2A, F-15C, Learjet, PA-28 and S.23 lose more than their
+      lesson allows, the F-35B too, and the Mosquito is never level again; the AI
       pilot does not notice a stall; and nothing checks that engaging the
       recovery steps no control. *Verification: every aeroplane taught a
       stall is recovered within 2 g both handed over at its stall warning,
@@ -835,14 +835,16 @@ Found while implementing something else. Added when found, not when remembered.
       told to stop is gone within a second or two, one left alone ends when
       its frame is written, and either way the cache takes a write at once.
 - [ ] **A published stall speed for the F-15C**, from its flight manual. Its
-      approach is now flown at the manual's own speed for its weight, 160
-      knots, not 196. **Still missing: the stall.** The manual gives no stall
-      speed - at full aft stick the nose settles at 45 units at 100 knots or
-      less - and the model cannot follow it: its stabilator runs out at 18
-      degrees of alpha and 151 knots, and it flies the manual's approach at
-      12 to 18 degrees, near full nose-up stabilator, where NASA flew it at
-      about 10. Its pitching moment needs a published source to fix. *Verification: the F-15C stalls near its published
-      speed, and its approach is flown at the manual's.*
+      approach is flown at the manual's speed for its weight, 160 knots, and
+      since 2026-10-01 at NASA's angle of attack, about 10 degrees, with her
+      pitching moment made NASA's; she takes off at the manual's speed too.
+      **Still missing: a stall speed to hold her to.** The manual publishes
+      none - at full aft stick the nose settles at 45 units at 100 knots or
+      less, sinking - and she now does that, her lift never breaking; her
+      stall is measured on the model (112 knots), not published. The
+      verification needs the owner's word on what stands for a published
+      stall. *Verification: the F-15C stalls near its published speed, and
+      its approach is flown at the manual's.*
 - [x] **The autopilot banks to its limit even when the aeroplane cannot sustain
       the turn.** *Verification: a light aeroplane near its ceiling holds its
       height through a 90-degree turn as it does at 3,000 ft.* Done

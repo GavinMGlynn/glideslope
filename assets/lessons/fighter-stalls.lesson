@@ -34,10 +34,12 @@ teaches fighter
 # **The first sign of the stall is its warning**, where the autopilot's stall
 # recovery is held to recovering within this lesson's height (REQUIREMENTS.md
 # 4.3). The rules have the warning begin no less than 5 knots or 5% above the
-# stall, whichever is more (14 CFR 25.207(c)); this is that least margin, the
-# latest a warning may come: the F-15C stalls at about 151 knots and the F-35B
-# at about 122, and 5% of 151 is 7.6. It comes after this lesson's entry ends,
-# which is the approach to the stall.
+# stall, whichever is more (14 CFR 25.207(c)). Eight was that least margin,
+# the latest a warning may come, when the F-15C stalled at 151 knots: 5% of
+# 151 is 7.6. With her pitching moment NASA's she stalls at about 112 and the
+# F-35B at about 122, whose 5% is 6.1; eight is kept, a little earlier than
+# the least. It comes after this lesson's entry ends, which is the approach
+# to the stall.
 warning stall+8
 
 stage Entering the stall
