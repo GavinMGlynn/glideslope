@@ -236,21 +236,25 @@ are the risks the phase order is built around:
 
 **What is not done first.**
 - **Jets touch down further along the runway than they did**: the 737-300
-  at 602 m past the threshold where it touched at 327, the F-15C at 773
-  where 262, the A320, A380, B-2A, Learjet and F-35B at 510 to 605. Every
-  one is on the runway and stopped on it; none is measured against a
-  touchdown zone, and nothing yet says how far along a jet should touch.
-- **The F-15C balloons in her flare**: her nose, three times as firmly
-  flown, overshoots, and she climbs at about 100 ft/min at five feet before
-  settling on to the runway at 360 ft/min - the hardest of any, inside the
-  600 her gear takes.
+  at 615 m past the threshold where it touched at 327, the F-15C at 809
+  where 262, the A380, B-2A, Learjet and F-35B at 520 to 633. Every one is
+  on the runway and stopped on it; none is measured against a touchdown
+  zone, and nothing yet says how far along a jet should touch - an F-15C
+  touching at 800 m would run off a 6,000 ft runway. A tail.
+- **The F-15C balloons in her flare**: she climbs at about 100 ft/min at
+  five feet before settling on to the runway at 416 ft/min - the hardest of
+  any, inside the 600 her gear takes. A tail.
 - **The F-35B lands on her power.** Her model flies its glidepath at 19.5
   degrees of incidence and its flare's nose reaches her tail-strike bound
   with her still sinking at 800 ft/min; the flare opens the throttle to
-  arrest it, and she touches at 52 ft/min (approach lesson), 150 (circuit).
-  That is how her model, not how an F-35B, lands.
+  arrest it, and she touches at 92 ft/min (approach lesson), 195 (circuit).
+  That is how her model, not how an F-35B, lands. A tail.
 - **The touchdown sink each aeroplane is flared to is set, not published**:
-  200 ft/min for every jet, 40 otherwise (below).
+  200 ft/min for every jet, 40 otherwise (below). A tail.
+- **The AI does not go around from a balloon.** A Mosquito given back from
+  a pilot's flare pulled 0.4 of the stick harder zooms to some fifty feet on
+  the pilot's stick and comes down at 958 ft/min; she is named and not
+  judged in the hand-back test below. A tail.
 - **The selftest hash does not move** (`d36123c1eecc3e23`, linux-release):
   the selftest replays a pilot's input log and no lander flies in it.
 
@@ -297,7 +301,18 @@ twelve degrees of incidence and the power closed from its first step.
   handbook's chapter 9, "Floating"). In the trials without it the B-2A,
   flared to 200 ft/min, still floated 1.8 to 2 km.
 - **The incidence guard limits, not prevents**: twelve degrees, or four
-  more than the flare began at, whichever is higher.
+  more than the glidepath was flown at, whichever is higher - and above
+  twelve, two degrees short of the stall the reference speed implies: the
+  greatest lift is 1.3^2 = 1.69 times the path's, which a lift rising in
+  proportion from a zero-lift incidence at or below zero reaches at no less
+  than 1.69 times the path's incidence (`Lander::most_flare_alpha_deg`).
+  The path's incidence is learnt on every step before the flare, and while
+  a pilot flies her (`watch`) until her wheels first reach the flare's
+  height, and kept when she is given back (`resume`).
+- **A wing over the limit is brought back under it**: the flare's attitude
+  comes down by as much as the incidence is over, and never stays above
+  the tail-strike bound - as she can be when given back from a pilot's
+  flare.
 - **The power comes off as the sink is arrested**: held while she sinks
   more than 300 ft/min faster than the flare wants, and once the nose is
   within a degree of its bound or past the incidence guard, opened in
@@ -306,9 +321,19 @@ twelve degrees of incidence and the power closed from its first step.
 - **The flare's attitude is flown three times as firmly** as the path's: at
   the path's gain a jet's nose lagged the flare's attitude by two to three
   degrees all the way down.
-- **`still_landing`'s height** is no less than where the flare begins,
-  centre of gravity over the wheels: the F-15C's begins at 52 ft, and the
-  pilot's flare she was taken back from was let go at 50.
+- **`still_landing`'s height** is no less than ten feet over where the
+  flare begins, centre of gravity over the wheels: the F-15C's begins at
+  52 ft, and the pilot's flare she was taken back from was let go at 50.
+  The flare begins by height over the runway's elevation and this reads
+  height over the ground beneath; the ten feet are for ground under the
+  approach a little lower than the runway. Not seen to fail without them:
+  every test's ground is level with the runway.
+- **From the review**: the nose is let down in a float only while she sinks
+  slower than wanted; the flare's attitude gain comes in over a second
+  rather than stepping from one to three; the throttle closes on the
+  runway over at most a second, not in a step from the power the flare may
+  have added; the approach's near-ground throttle band is measured from the
+  wheels against twice the flare's own height.
 - Tried and not kept: PR #73's trim dropped and nose target lowered at a
   jet's touch. With the flare to the wheels nothing needs it (the B-2A rose
   0.0 ft without it, on main's model and on #73's), and taken out no test
@@ -316,25 +341,26 @@ twelve degrees of incidence and the power closed from its first step.
 
 | Approach lesson (circuit) | Touched, ft/min, before | After | Rose after the touch, ft, before | After |
 | --- | --- | --- | --- | --- |
-| 737-300 | 333 | 175 (185) | 0.0 | 0.0 (0.0) |
-| 787-8 | 708, wrecked | 250 (271) | 0.0 | 0.2 (0.0) |
-| A320 | 534 | 165 (177) | 0.1 | 0.0 (0.0) |
-| A380 | 525 | 245 (263) | 0.0 | 0.0 (0.0) |
-| B-2A | 240 | 214 (213) | 1.9 | 0.0 (0.0) |
-| C172P | 150 | 138 (137) | 0.0 | 0.0 (0.0) |
-| C182 | 140 | 171 (175) | 0.0 | 0.0 (0.0) |
-| F-15C | 978, wrecked | 360 (359) | 0.0 | 0.0 (0.0) |
-| F-35B | 883, wrecked | 52 (150) | 0.0 | 0.0 (0.0) |
-| J-3 Cub | 142 | 85 (85) | 0.0 | 0.0 (0.0) |
-| Learjet 35A | 409 | 162 (163) | 0.0 | 0.0 (0.0) |
-| Mosquito FB.VI | 364 | 96 (96) | 0.0 | 0.0 (0.0) |
-| PA-28 | 132 | 142 (141) | 0.0 | 0.0 (0.0) |
-| Short S.23 | 314 | 277 (292) | 0.0 | 0.0 (0.0) |
+| 737-300 | 333 | 184 (202) | 0.0 | 0.0 (0.0) |
+| 787-8 | 708, wrecked | 311 (325) | 0.0 | 0.3 (0.0) |
+| A320 | 534 | 39 (179) | 0.1 | 0.0 (0.0) |
+| A380 | 525 | 248 (269) | 0.0 | 0.0 (0.0) |
+| B-2A | 240 | 232 (231) | 1.9 | 0.0 (0.0) |
+| C172P | 150 | 139 (139) | 0.0 | 0.0 (0.0) |
+| C182 | 140 | 170 (174) | 0.0 | 0.0 (0.0) |
+| F-15C | 978, wrecked | 416 (410) | 0.0 | 0.0 (0.0) |
+| F-35B | 883, wrecked | 92 (195) | 0.0 | 0.0 (0.0) |
+| J-3 Cub | 142 | 85 (84) | 0.0 | 0.0 (0.0) |
+| Learjet 35A | 409 | 166 (167) | 0.0 | 0.0 (0.0) |
+| Mosquito FB.VI | 364 | 109 (109) | 0.0 | 0.0 (0.0) |
+| PA-28 | 132 | 146 (145) | 0.0 | 0.0 (0.0) |
+| Short S.23 | 314 | 294 (307) | 0.0 | 0.0 (0.0) |
 
 The sink is the centre of gravity's on the step before the touch, as the
 server's rule takes it. With PR #73's drag rudders merged in (locally, not
-pushed) the B-2A crosses the threshold at 124.1 knots against 124.0,
-touches at 232 ft/min and rises 0.0 ft, and #73's tests pass.
+pushed, before the review's changes) the B-2A crossed the threshold at
+124.1 knots against 124.0, touched at 232 ft/min and rose 0.0 ft, and #73's
+tests passed.
 
 **The check.** `test::AfterTouch` (`tests/unit/after_touch.hpp`) now judges
 every step it watches by the server's own `sim::GroundJudge`, keeps the
@@ -350,7 +376,36 @@ as left out for having no reference speed. The light aircraft's
 tests already judged the AI's touch from the take-back by the crash rule and
 are unchanged. `the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_the_gear_takes`
 (new) reads the 737-300's 200 and the C172P's none, reads 599 back, and
-refuses 0, -40, 600 and 900, each naming `touchdown_fpm`.
+refuses 0, -40, 600 and 900, each naming `touchdown_fpm`. `AfterTouch` is
+told by each test whether she alights on water (the catalogue's `seaplane`,
+as the server is), and refuses to watch until it is.
+
+Two new tests, from the review:
+- `the_flares_incidence_limit_is_the_approachs_and_a_pilots_flare_does_not_move_it`:
+  every aeroplane taught the approach (14 of 14) is flown to the flare's
+  first step, a pilot pulls the stick fully back for a second with the
+  lander watching, and gives her back. The pilot's flare takes every wing
+  past the path's incidence and four (asserted: the C172P to 21.2 degrees,
+  the F-35B to 30.8), and the limit is unmoved and is what the path gives -
+  12 for all but the F-35B, whose is 23.5. **Seen to fail** with the limit
+  taken from her incidence at `resume` (the reviewer's case): 13 of 14
+  moved, the 737-300 to 14.4, the A320 to 16.2.
+- `a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed_without_a_stall`:
+  every landplane taught the approach: on the flare's first step the pilot
+  takes her and flies the AI's own flare with the stick 0.4 further back,
+  and gives her back in the air after a second (or with her wing two
+  degrees over its limit). From the take-back her incidence goes no higher
+  than it was given back at or its limit, with a degree's overshoot; she
+  touches unwrecked, upright and settled, and stops on the runway. 12 of 13
+  judged; the Mosquito is named and not judged (above), and the flying boat
+  left out. Before the wing was brought back under its limit, and in
+  harsher forms of the test - the stick held fully or half back, or the
+  pilot's flare held for a second and a half - the AI could not recover
+  several (the 737-300, A380, B-2A, C182, F-15C and Learjet came down at
+  600 to 1,400 ft/min): it does not recover a badly botched flare, which is
+  the go-around tail. Not seen red against the limit taken at `resume`:
+  given back after a second, few wings are over twelve degrees - the test
+  above is the one that shows that.
 
 **Seen to fail.** On the old law the approach lesson failed with the 787-8,
 F-15C and F-35B wrecked at 708, 978 and 883 ft/min and the B-2A risen
@@ -359,15 +414,16 @@ to the centre of gravity again, everything else kept), both lessons failed:
 the 787-8 wrecked at 671 and 672 ft/min, the F-15C and F-35B risen 0.7 to
 1.0 ft, the Mosquito bounced 3.7 ft; restored, both pass.
 
-**Verified** in linux-release: 169 tests - every lesson, landing, approach,
-circuit, take-back, hand-over, learnt-landing, stall, autopilot, plan,
-crash, figures and selftest test, the window and live-model ones aside -
-on the final code 167 passed and one was skipped, Windows's own. One,
-`a_player_takes_over_an_ai_aircraft_with_no_step_at_200_ms_and_a_players_is_refused`,
-failed once at four tests at a time with other agents building - a
-prediction error of 12.55 m against 10, the open tail of a server behind
-real time - and passed three times of three run alone; it passed in the
-same suite on this branch's first commit.
+(The hang made 0 was watched before the review's changes.)
+
+**Verified** in linux-release, rebased on main: 184 tests - every lesson,
+landing, approach, circuit, take-back, hand-over, no-step, learnt-landing,
+stall, autopilot, plan, crash, figures and selftest test, the window and
+live-model ones aside - none failed; one skipped, Windows's own. (Before the
+review one run had
+`a_player_takes_over_an_ai_aircraft_with_no_step_at_200_ms_and_a_players_is_refused`
+miss its 10 m bound at 12.55 m under load, the open tail of a server behind
+real time; it passed three of three alone and in this run.)
 
 ### A tight, slow orbit is flown on its circle, 2026-09-30 — tail done
 

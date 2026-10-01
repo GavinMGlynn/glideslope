@@ -133,6 +133,7 @@ Landing land(const std::string& id, double crosswind_kts) {
     Lander lander(aircraft, runway, speeds);
     Landing out;
     glideslope::test::AfterTouch after;
+    after.judged_as(entry.seaplane);
     double on_the_ground_agl_ft = -1.0;
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
         aircraft.set_controls(lander.fly());

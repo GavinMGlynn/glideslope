@@ -15,6 +15,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -45,9 +47,18 @@ struct AfterTouch {
     // and lifted it again: watched from the wheels, that was seen or not by
     // whether the tip was still down when they arrived, and the circuit test
     // passed or failed on a hundredth of a second of timing.
+    // **Judged as the server judges her** (sim/crash.hpp): a flying boat's
+    // or floatplane's hull on the water is no wreck - the catalogue's
+    // `seaplane`, as the server passes it. Said before the first `watch`.
+    void judged_as(bool alights_on_water) { judge_.emplace(alights_on_water); }
+
     void watch(const glideslope::sim::Aircraft& a) {
         const double agl_ft = a.property("position/h-agl-ft");
-        if (const auto what = judge_.judge(a); what && wreck.empty()) {
+        if (!judge_) {
+            throw std::logic_error("AfterTouch watched before `judged_as` said whether she "
+                                   "alights on water");
+        }
+        if (const auto what = judge_->judge(a); what && wreck.empty()) {
             wreck = *what;
         }
         const double sink_before_fpm = sink_fpm_;
@@ -129,9 +140,7 @@ struct AfterTouch {
 private:
     double ground_agl_ft_ = 0.0;
     double sink_fpm_ = 0.0;
-    // A flying boat's hull on the water is no wreck; no landplane is put on
-    // water by these tests, so every aeroplane is judged as at home there.
-    glideslope::sim::GroundJudge judge_{true};
+    std::optional<glideslope::sim::GroundJudge> judge_;
 };
 
 } // namespace glideslope::test

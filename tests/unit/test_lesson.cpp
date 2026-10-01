@@ -1483,6 +1483,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
 
     glideslope::sim::Lander lander(aircraft, runway, flown_with);
     Approached out;
+    out.after.judged_as(entry.seaplane);
     out.vref_kts = published.vref_kts;
     out.stage_least.assign(it->stages.size(), 1e9);
     out.stage_most.assign(it->stages.size(), -1e9);
@@ -1499,18 +1500,6 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
         if (which == 0 && run.stage() != 0) {
             out.sink_at_end_fps = aircraft.property("velocities/h-dot-fps");
             out.alpha_at_end_deg = aircraft.property("aero/alpha-deg");
-        }
-        if (id == "f35b" && tick % (4 * steps_per_second) == 0) {
-            std::printf("      %s %4.0f s  agl %5.0f  %4.0f kt  vs %6.1f fps  pitch %5.1f  "
-                        "alpha %5.1f  elev %+.2f  thr %.2f  stage %zu\n",
-                        id.c_str(), static_cast<double>(tick) / steps_per_second,
-                        aircraft.property("position/h-agl-ft"),
-                        aircraft.property("velocities/vc-kts"),
-                        aircraft.property("velocities/h-dot-fps"),
-                        aircraft.property("attitude/theta-deg"),
-                        aircraft.property("aero/alpha-deg"),
-                        aircraft.property("fcs/elevator-cmd-norm"),
-                        aircraft.property("fcs/throttle-cmd-norm"), run.stage());
         }
         if (which == 0) {
             const double fps = aircraft.property("velocities/h-dot-fps");
@@ -2856,6 +2845,7 @@ Demonstrated demonstrate(const std::string& id, const std::string& exercise) {
     controller.set_pilot(pilot);
 
     Demonstrated out;
+    out.after.judged_as(entry.seaplane);
     out.stages = found->stages.size();
     const int settling = 15 * steps_per_second;
     // **Demonstrated first, then handed over**, which is the order the item
@@ -3028,6 +3018,7 @@ Demonstrated demonstrate_a_take_off(const std::string& id) {
     controller.set_pilot(pilot);
 
     Demonstrated out;
+    out.after.judged_as(entry.seaplane);
     out.stages = found->stages.size();
     int hand_over = -1;
     int take_back = -1;
@@ -3197,6 +3188,7 @@ Demonstrated demonstrate_an_approach(const std::string& id) {
     controller.set_pilot(pilot);
 
     Demonstrated out;
+    out.after.judged_as(entry.seaplane);
     out.stages = found->stages.size();
     int hand_over = -1;
     int take_back = -1;
@@ -3389,6 +3381,8 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
     glideslope::sim::Lander shadow(aircraft, runway, published);
     glideslope::sim::GroundJudge judge(entry.seaplane);
     TakenBackOnTheRoll out;
+    out.after.judged_as(entry.seaplane);
+    out.ai.judged_as(entry.seaplane);
     bool handed_over = false;
     int take_back = -1;
     glideslope::sim::Controls last = flying;
@@ -3614,6 +3608,275 @@ GLIDESLOPE_TEST(an_approach_the_pilot_puts_down_from_the_flare_and_hands_back_is
 
 namespace {
 
+// **A flare the pilot pulls hard, handed back in the air.** The AI flies the
+// approach; on the flare's first step the pilot takes her and flies the
+// flare the AI would, but with the stick 0.4 of its travel further back, and
+// hands her back a second later or once her wing is two degrees past the
+// flare's incidence limit, whichever is first, if she is still in the air.
+struct HardFlare {
+    bool handed_back = false;  // in the air
+    bool lander_given = false; // and given her landing back
+    bool stopped = false;
+    double path_alpha_deg = 0.0;  // on the approach's last step
+    double back_alpha_deg = 0.0;  // as the AI had her back
+    double back_agl_ft = 0.0;
+    double most_alpha_deg = -1e9; // from the take-back to the touch
+    double stopped_past_m = 0.0;
+    double stopped_across_m = 0.0;
+    glideslope::test::AfterTouch ai;
+};
+
+HardFlare hard_flare_handed_back(const std::string& id) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const glideslope::sim::Runway runway = a_runway();
+    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    put_on_final(aircraft, entry, runway, published);
+
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.4;
+    flying.gear = 1.0;
+    glideslope::sim::Controller controller(aircraft, flying);
+    controller.to_ai_approach(runway, published);
+    // The pilot flies the flare the AI would - a second lander alongside
+    // sees what the AI's sees - but with the stick 0.4 further back.
+    glideslope::sim::Lander shadow(aircraft, runway, published);
+
+    HardFlare out;
+    out.ai.judged_as(entry.seaplane);
+    int handed = -1;
+    int back = -1;
+    double last_alpha_deg = 0.0;
+    for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
+        const double alpha_deg = aircraft.property("aero/alpha-deg");
+        const bool down = aircraft.property("gear/wow") > 0.5;
+        glideslope::sim::Controls pilot = shadow.fly();
+        pilot.elevator = std::min(1.0, pilot.elevator + 0.4);
+        if (handed >= 0 && back < 0) {
+            controller.set_pilot(pilot);
+        }
+        if (handed < 0 && controller.lander() != nullptr &&
+            controller.lander()->stage() == glideslope::sim::Lander::Stage::flare) {
+            handed = tick;
+            out.path_alpha_deg = last_alpha_deg;
+            controller.set_pilot(pilot);
+            controller.to_pilot();
+        }
+        if (handed >= 0 && back < 0 &&
+            (tick - handed >= steps_per_second ||
+             alpha_deg >= std::max(12.0, out.path_alpha_deg + 4.0) + 2.0 || down)) {
+            back = tick;
+            out.handed_back = !down;
+            out.back_alpha_deg = alpha_deg;
+            out.back_agl_ft = aircraft.property("position/h-agl-ft");
+            controller.to_ai();
+            out.lander_given = controller.lander() != nullptr;
+        }
+        if (handed < 0) {
+            last_alpha_deg = alpha_deg;
+        }
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        if (back >= 0) {
+            out.ai.watch(aircraft);
+            if (!out.ai.touched) {
+                out.most_alpha_deg =
+                    std::max(out.most_alpha_deg, aircraft.property("aero/alpha-deg"));
+            }
+            if (std::abs(aircraft.property("velocities/vg-fps")) < 1.0) {
+                out.stopped = true;
+                break;
+            }
+        }
+    }
+    const glideslope::sim::AircraftState s = aircraft.state();
+    const double north_m = (s.latitude_deg - runway.threshold_lat_deg) *
+                           metres_per_degree_latitude(runway.threshold_lat_deg);
+    const double east_m = (s.longitude_deg - runway.threshold_lon_deg) *
+                          metres_per_degree_longitude(runway.threshold_lat_deg);
+    const double h = runway.heading_deg / degrees;
+    out.stopped_past_m = east_m * std::sin(h) + north_m * std::cos(h);
+    out.stopped_across_m = east_m * std::cos(h) - north_m * std::sin(h);
+    return out;
+}
+
+} // namespace
+
+// **Handed back in the air after the pilot's hard flare, she is landed, and
+// her wing is not stalled.** The flare's incidence limit is the approach's,
+// not the pilot's: taken from where the flare began, a pilot's flare to
+// fourteen degrees handed back would have let the AI's flare raise a C172's
+// wing to eighteen, past her stall. From the take-back to the touch the
+// incidence goes no higher than it was handed back at or the limit the
+// approach gives - twelve degrees or four over the path's - with a degree
+// for the nose's own overshoot; she touches unwrecked by the server's rule,
+// stays upright on her wheels and stops on the runway. Every landplane taught
+// the approach; the flying boat is named and left out, as on the roll.
+GLIDESLOPE_TEST(a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed_without_a_stall) {
+    const auto taught = everyone_taught("approach-and-landing");
+    // **Named and not judged**: the Mosquito, given back from that flare,
+    // is still climbing on the pilot's stick and zooms to some fifty feet
+    // with her throttles shut; the AI does not go around from a balloon, and
+    // she comes down at 958 ft/min. A tail in docs/COMPLETION_PLAN.md. She
+    // is flown and shown all the same.
+    const std::map<std::string, std::string> not_judged = {
+        {"mosquito-fb6", "zooms on the pilot's stick, and the AI does not go around from a "
+                         "balloon"}};
+    std::vector<std::string> wrong;
+    std::size_t landplanes = 0;
+    std::size_t flown = 0;
+    std::size_t named = 0;
+    for (const std::string& id : taught) {
+        if (glideslope::sim::find_aircraft(data(), id).seaplane) {
+            std::printf("  left out - %s: a flying boat, afloat, is never still\n", id.c_str());
+            continue;
+        }
+        ++landplanes;
+        const HardFlare r = hard_flare_handed_back(id);
+        if (const auto it = not_judged.find(id); it != not_judged.end()) {
+            std::printf("  named, not judged - %s: %s (touched sinking %.0f ft/min)\n",
+                        id.c_str(), it->second.c_str(), r.ai.touch_sink_fpm);
+            ++named;
+            continue;
+        }
+        const double limit_deg = std::max(12.0, r.path_alpha_deg + 4.0);
+        const double most_allowed_deg = std::max(r.back_alpha_deg, limit_deg) + 1.0;
+        std::printf("  %-13s path alpha %.1f, handed back at %.1f ft and %.1f; most after %.1f "
+                    "(allowed %.1f); touched sinking %.0f ft/min%s; %s %.0f m past, %.1f "
+                    "across\n",
+                    id.c_str(), r.path_alpha_deg, r.back_agl_ft, r.back_alpha_deg,
+                    r.most_alpha_deg, most_allowed_deg, r.ai.touch_sink_fpm,
+                    r.ai.wreck.empty() ? "" : (", WRECKED: " + r.ai.wreck).c_str(),
+                    r.stopped ? "stopped" : "NOT STOPPED", r.stopped_past_m,
+                    r.stopped_across_m);
+        const std::string where = id + " handed back from a hard flare";
+        if (!r.handed_back) {
+            wrong.push_back(where + " was on the ground before it was handed back");
+            continue;
+        }
+        if (!r.lander_given) {
+            wrong.push_back(where + " was not given her landing back");
+        }
+        if (r.most_alpha_deg > most_allowed_deg) {
+            wrong.push_back(where + " had her wing raised to " +
+                            std::to_string(r.most_alpha_deg) + " degrees, past " +
+                            std::to_string(most_allowed_deg));
+        }
+        if (!r.ai.wreck.empty()) {
+            wrong.push_back(where + " was wrecked: " + r.ai.wreck);
+        }
+        for (const std::string& said : r.ai.what_went_wrong(id)) {
+            wrong.push_back(where + ": " + said);
+        }
+        if (!r.stopped || r.stopped_past_m < 0.0 || r.stopped_past_m > a_runway().length_m ||
+            std::abs(r.stopped_across_m) > glideslope::sim::Lander::runway_half_width_m) {
+            wrong.push_back(where + " did not stop on the runway");
+        }
+        ++flown;
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) +
+                             " things went wrong after a hard flare handed back, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(landplanes + 1 == taught.size(),
+          "every aeroplane taught the approach is a landplane flown here or the one flying "
+          "boat named: " + std::to_string(landplanes) + " of " + std::to_string(taught.size()));
+    check(flown + named == landplanes && named == not_judged.size(),
+          "every landplane was handed back from a hard flare: " + std::to_string(flown) +
+              " judged and " + std::to_string(named) + " named, of " +
+              std::to_string(landplanes));
+}
+
+// **The flare's incidence limit is the approach's, and a pilot's flare given
+// back does not move it.** Every aeroplane taught the approach is flown by the
+// AI from two miles out to the flare's first step; then a pilot takes her and
+// pulls the stick fully back for a second, the AI's lander only watching, and
+// gives her back. Her wing is then past the path's incidence and four - the
+// situation, so it is asserted - and the limit is what it was before the
+// pilot touched her: twelve degrees, or the path's incidence and four, short
+// of the stall the reference speed implies (1.69 times the path's, less two).
+// Taken from the flare's first step after the hand-back, as it was, a C172
+// flared to fourteen degrees would have been allowed eighteen.
+GLIDESLOPE_TEST(the_flares_incidence_limit_is_the_approachs_and_a_pilots_flare_does_not_move_it) {
+    const auto taught = everyone_taught("approach-and-landing");
+    std::size_t tried = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        const glideslope::sim::Runway runway = a_runway();
+        const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        put_on_final(aircraft, entry, runway, published);
+        glideslope::sim::Lander lander(aircraft, runway, published);
+        double path_alpha_deg = 0.0;
+        glideslope::sim::Controls last;
+        for (int tick = 0; tick < 300 * steps_per_second &&
+                           lander.stage() != glideslope::sim::Lander::Stage::flare;
+             ++tick) {
+            const double alpha_deg = aircraft.property("aero/alpha-deg");
+            last = lander.fly();
+            if (lander.stage() == glideslope::sim::Lander::Stage::approach) {
+                path_alpha_deg = alpha_deg;
+            }
+            aircraft.set_controls(last);
+            aircraft.step();
+        }
+        const bool flared = lander.stage() == glideslope::sim::Lander::Stage::flare;
+        const double before_deg = lander.most_flare_alpha_deg();
+        glideslope::sim::Controls pilot = last;
+        pilot.elevator = 1.0;
+        pilot.throttle = 0.0;
+        double most_alpha_deg = -1e9;
+        for (int i = 0; i < steps_per_second && aircraft.property("gear/wow") < 0.5 &&
+                        !aircraft.in_water();
+             ++i) {
+            aircraft.set_controls(pilot);
+            aircraft.step();
+            lander.watch();
+            most_alpha_deg = std::max(most_alpha_deg, aircraft.property("aero/alpha-deg"));
+        }
+        lander.resume(pilot.throttle);
+        lander.fly();
+        const double after_deg = lander.most_flare_alpha_deg();
+        const double wanted_deg =
+            std::max(12.0, std::min(path_alpha_deg + 4.0, 1.69 * path_alpha_deg - 2.0));
+        std::printf("  %-13s path %.1f, limit %.1f before the pilot and %.1f after (%.1f "
+                    "wanted); the pilot took the wing to %.1f\n",
+                    id.c_str(), path_alpha_deg, before_deg, after_deg, wanted_deg,
+                    most_alpha_deg);
+        if (!flared) {
+            wrong.push_back(id + " never reached the flare");
+            continue;
+        }
+        ++tried;
+        if (!(most_alpha_deg > path_alpha_deg + 4.0)) {
+            wrong.push_back(id + ": the pilot's flare took the wing only to " +
+                            std::to_string(most_alpha_deg) + ", not past the path's " +
+                            std::to_string(path_alpha_deg) + " and four");
+        }
+        if (after_deg != before_deg) {
+            wrong.push_back(id + ": the limit moved from " + std::to_string(before_deg) +
+                            " to " + std::to_string(after_deg) + " with the pilot's flare");
+        }
+        if (std::abs(before_deg - wanted_deg) > 1e-9) {
+            wrong.push_back(id + ": the limit is " + std::to_string(before_deg) + ", not " +
+                            std::to_string(wanted_deg));
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(tried == taught.size() && tried == 14,
+          "every aeroplane taught the approach was tried: " + std::to_string(tried) + " of " +
+              std::to_string(taught.size()));
+}
+
+namespace {
+
 // **A demonstration flown in the air, through a `Controller`.** The climb and
 // the stall differ from the turns only in what the instructor asks the AI
 // pilot for, so everything else is shared: the aeroplane, the lesson
@@ -3666,6 +3929,7 @@ Demonstrated demonstrate_in_the_air(const std::string& id, const std::string& ex
     controller.set_pilot(pilot);
 
     Demonstrated out;
+    out.after.judged_as(entry.seaplane);
     out.stages = found->stages.size();
     const int settling = settling_s * steps_per_second;
     int hand_over = -1;
@@ -4049,6 +4313,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     bool sank = false;
 
     Circuit out;
+    out.after.judged_as(entry.seaplane);
     out.stages = found->stages.size();
     std::size_t stage_was = 0;
     // **The pilot's hands**, for a demonstration: throttle back and the
