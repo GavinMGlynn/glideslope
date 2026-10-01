@@ -94,8 +94,9 @@ struct HeightLimit {
 std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic);
 
 // Whether two aircraft are near enough for the one giving way to keep clear
+// (not `near`, which Windows' headers define as nothing)
 // of the other's height (`Separation`'s guard and lookahead).
-bool near(const Traffic& a, const Traffic& b);
+bool within_guard(const Traffic& a, const Traffic& b);
 
 // How far apart two aircraft are over the ground, metres.
 double horizontal_m(const Traffic& a, const Traffic& b);
