@@ -930,6 +930,14 @@ Found while implementing something else. Added when found, not when remembered.
       same sources.* Done 2026-10-01.
 - [ ] **The aircraft models' source files come only from SourceForge**, which
       served a page in place of every one of them on 2026-10-01; CI has them
+      only from its cache. All 75 are now fetched from FlightGear's Subversion
+      server, which still served them, and 60 also from Software Heritage's
+      archive. **Not done: 15 files (from the 787, A320, A380, c182, F-15 and
+      Mosquito) have no source outside SourceForge**, and need one, such as a
+      copy published by this project and pinned by hash. *Verification: each
+      is fetched from a second source serving the same pinned bytes when
+      SourceForge does not.*
+
       only from its cache. *Verification: each is fetched from a second source
       serving the same pinned bytes when SourceForge does not.*
 - [ ] **On the Windows development machine a request to the weather service
