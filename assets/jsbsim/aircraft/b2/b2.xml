@@ -341,6 +341,20 @@
                 </traverse>
                 <output>gear/gear-pos-norm</output>
             </kinematic>
+            <kinematic name="Speedbrake">
+                <input>fcs/speedbrake-cmd-norm</input>
+                <traverse>
+                    <setting>
+                        <position> 0 </position>
+                        <time> 0 </time>
+                    </setting>
+                    <setting>
+                        <position> 1 </position>
+                        <time> 2.0 </time>
+                    </setting>
+                </traverse>
+                <output>fcs/speedbrake-pos-norm</output>
+            </kinematic>
         </channel>
     </flight_control>
     <aerodynamics>
@@ -504,6 +518,15 @@
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/mag-rudder-pos-rad</property>
                     <value>0.02</value>
+                </product>
+            </function>
+            <function name="aero/coefficient/CDspeedbrake">
+                <description>Drag_of_the_drag_rudders_opened_together</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <property>fcs/speedbrake-pos-norm</property>
+                    <value>0.064912</value>
                 </product>
             </function>
             <function name="aero/coefficient/CDbeta">

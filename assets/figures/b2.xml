@@ -10,7 +10,19 @@
   src/sim/figures.cpp fly one flight per <figure> and compare what JSBSim does
   with the range given here; the tolerances are this project's.
 -->
-<published_figures aircraft="b2" flaps_full_deg="0">
+<!--
+  **It is flown down an approach with its drag rudders half open**
+  (approach_speedbrake, the speedbrake lever the approach autopilot holds).
+  It has no flap; opened together its split drag rudders are its speedbrakes,
+  and they are open in flight at low speed - tools/make_b2.py gives the
+  sources. How far is not published: 0.5 is calibrated so that the
+  approach is flown at its reference speed with about a third of its
+  throttle on, room to slow and to speed up, and is not a published figure.
+  Shut, it crossed the threshold fourteen knots fast with its throttles
+  closed. Only the drag at the setting matters, and the drag is linear in
+  the lever: half of it is half the drag the model gives them fully open.
+-->
+<published_figures aircraft="b2" flaps_full_deg="0" approach_speedbrake="0.5">
   <source>USAF B-2 Spirit fact sheet</source>
 
   <!-- 336,500 lb, the maximum take-off weight: 160,000 lb, taken as the empty

@@ -1398,6 +1398,10 @@ struct Approached {
     // threshold, and right of the centreline.
     double touch_along_m = 0.0;
     double touch_across_m = 0.0;
+    // The speed as she passed over the threshold, and whether she did - in
+    // the air or not.
+    double threshold_kts = 0.0;
+    bool crossed = false;
     FlareWatch flare;
 };
 
@@ -1443,6 +1447,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
     // Established on the approach: the flap it is flown with is already down,
     // and it is already coming down the glidepath rather than level on it.
     ic.flaps = flown_with.flap;
+    ic.speedbrake = flown_with.speedbrake;
     ic.flight_path_deg = -3.0;
     ic.trim = true;
     aircraft.initialize(ic);
@@ -1507,6 +1512,10 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
         }
         out.after.watch(aircraft);
         out.flare.watch(&lander, aircraft);
+        if (!out.crossed && lander.along_m() <= 0.0) {
+            out.crossed = true;
+            out.threshold_kts = kts;
+        }
         if (aircraft.property("position/h-agl-ft") > 5.0) {
             out.least_kts = std::min(out.least_kts, kts);
             out.most_kts = std::max(out.most_kts, kts);
@@ -1646,6 +1655,24 @@ GLIDESLOPE_TEST(the_f15c_flies_its_approach_at_its_flight_manuals_speed_for_its_
               " KCAS down the approach, not within 5 of the manual's 160");
     check(flown.completed == flown.stages && flown.debrief.empty() && flown.stopped,
           "and landed by the book, to a stop");
+}
+
+// **The B-2A crosses the threshold within five knots of its reference
+// speed.** With nothing to add drag it could not slow on the glidepath: its
+// throttles shut, it crossed fourteen knots fast and floated after touching.
+// Its drag rudders, opened together as the real one's are at low speed
+// (tools/make_b2.py), are what let it hold the speed down the path.
+GLIDESLOPE_TEST(the_b2a_crosses_the_threshold_within_five_knots_of_its_reference_speed) {
+    const Approached flown = fly_the_approach("b2", 0.0);
+    std::printf("  b2 vref %.1f: over the threshold at %.1f kt, %+.1f; rose %.1f ft after "
+                "touching\n",
+                flown.vref_kts, flown.threshold_kts, flown.threshold_kts - flown.vref_kts,
+                flown.after.highest_ft);
+    check(flown.crossed, "the B-2A reached the threshold");
+    check(std::abs(flown.threshold_kts - flown.vref_kts) <= 5.0,
+          "the B-2A crossed the threshold at " + std::to_string(flown.threshold_kts) +
+              " knots, not within five of its reference speed, " +
+              std::to_string(flown.vref_kts));
 }
 
 // **An approach flown fast is named in the debrief**, and a correct one is
@@ -3085,6 +3112,7 @@ void put_on_final(glideslope::sim::Aircraft& aircraft,
     // Established on the approach: the flap it is flown with is already down,
     // and it is already coming down the glidepath rather than level on it.
     ic.flaps = published.flap;
+    ic.speedbrake = published.speedbrake;
     ic.flight_path_deg = -3.0;
     ic.trim = true;
     aircraft.initialize(ic);

@@ -55,6 +55,10 @@ struct PublishedFigures {
     std::string model;
     std::string source;
     double flaps_full_deg = 0.0; // the flaps' travel at a command of 1; 0, none
+    // The speedbrake lever the aeroplane is flown down an approach with, 0 to
+    // 1: 0 for all but one that has nothing else to slow it - a B-2A, with
+    // no flap, lands with its drag rudders open.
+    double approach_speedbrake = 0.0;
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;
     Loading loading;

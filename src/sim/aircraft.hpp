@@ -55,6 +55,11 @@ struct InitialConditions {
     // feet to the runway in ten seconds at 31 degrees of alpha. 0, the
     // default, leaves the flaps up and every other start exactly as it was.
     double flaps = 0.0;
+    // **And the speedbrakes likewise**, 0 in and 1 fully out: a B-2A begun
+    // on its approach is begun with the drag rudders it lands with already
+    // open, which is the drag its trim on the glidepath needs. 0, the
+    // default, leaves every other start exactly as it was.
+    double speedbrake = 0.0;
     // **The flight path starts at this angle**, degrees, negative descending.
     // A flight begun on an approach is begun on the glidepath, and one
     // started level at the glidepath's height has to be pitched over into
