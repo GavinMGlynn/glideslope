@@ -862,22 +862,34 @@ Found while implementing something else. Added when found, not when remembered.
       13,000. *Verification: the AI climbs each light aeroplane to within its
       handbook's tolerance of its published service ceiling.* The AI now
       leans for best power, and the Cherokee reaches its 13,000 ft. Missing:
-      the other three do not - the Cessna 172P's model climbs to 17,200 ft,
-      the Cessna 182S's to 13,600 against 18,100, and the Cub, with no lever,
-      stops at 8,600 - each a flight model tail below. And three
-      near-ceiling turn tests are red at the new, higher ceilings: the
-      hand-over there sags 42-90 ft against their 15 ft allowance.
-- [ ] **The Cessna 172P's model climbs too well high up.** Leaned for best
-      power it reaches 17,200 ft at 100 ft/min against its handbook's 13,000.
+      the other three do not, each held back by its flight model (the tails
+      below); and the near-ceiling autopilot tests are not yet settled at the
+      leaned ceilings.
+- [ ] **The Cessna 172P's engine makes 209 hp from 160.** Its engine file
+      sets a fuel consumption no petrol engine has, and the propeller was
+      tuned to soak up the surplus; leaned, it climbs to 17,200 ft against
+      13,000. Corrected, it still climbs to 14,900 at its sea-level climb
+      speed, and needs flying at the handbook's slower climb speeds high up.
       *Verification: the AI climbs it to within 10% of 13,000 ft, and its
       other figures stay within theirs.*
-- [ ] **The Cessna 182S's model climbs too little high up.** Leaned for best
-      power it reaches 13,600 ft at 100 ft/min against its handbook's 18,100.
-      *Verification: the AI climbs it to within 10% of 18,100 ft, and its
-      other figures stay within theirs.*
-- [ ] **The Cub's carburettor runs too rich to climb past about 8,600 ft.**
-      It has no mixture lever, and its manual gives 14,000 ft solo.
-      *Verification: flown solo, the Cub climbs to within 10% of 14,000 ft.*
+- [ ] **The Cessna 182S's engine is rated at the wrong rpm, and its climb
+      falls away high up.** Leaned it reaches 13,600 ft against its
+      handbook's 18,100; rated at 2,400 rpm as its type certificate says,
+      and with its glide drag moved to the windmilling propeller, 15,200.
+      The rest of the shortfall is not yet found. *Verification: the AI
+      climbs it to within 10% of 18,100 ft, and its other figures stay
+      within theirs.*
+- [ ] **The light aeroplanes' engines make most power far too rich.**
+      JSBSim's default mixture curve peaks at 9.9 parts of air to one of
+      fuel, against the FAA's 12 to 13.8, so leaning finds a power the real
+      engine does not have. *Verification: leaned for best power, each
+      engine sits between 12 and 13.8 to 1, and every figure stays in range.*
+- [ ] **The Cub's carburettor runs too rich to climb past about 8,000 ft.**
+      It has no mixture lever, and JSBSim enriches every engine as the air
+      pressure falls, where a float carburettor enriches only as the square
+      root of the density; so modelled, it climbs to 12,300-15,600 ft solo
+      against its manual's 14,000. *Verification: flown solo, the Cub climbs
+      to within 10% of 14,000 ft.*
 - [x] **Cesium ion on Windows, where a body arrives compressed unasked.**
       *Verification: a Windows machine fetches and reads ion's layer.json, and
       the weather still arrives.* Done 2026-10-01: Windows could not undo the

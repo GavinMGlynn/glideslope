@@ -232,6 +232,127 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The AI leans the mixture for best power, 2026-10-01 — tail still open
+
+**What is still missing.** The tail's verification is that the AI climbs
+each light aeroplane to within its handbook's tolerance (this project's
+10%, as the climb rates' is; no handbook states one) of its service
+ceiling. Only the Cherokee does. The other three are held back by their
+flight models, and each is a tail of its own in COMPLETION_PLAN.md, with
+what was measured below. And one near-ceiling autopilot test is red on
+this branch: `a_cessna_182_near_its_ceiling_holds_its_height_through_a_turn_as_at_3000_ft`,
+whose two left turns at 18,801 ft hold the height within 21.1 and 20.6 ft
+against the 20 ft band, at part throttle and 28.9 degrees of bank (3,000
+ft: 10.1 and 11.0 ft).
+
+**The handbook ceilings**, each read from the handbook this time:
+- Cessna 172P: 13,000 ft (Pilot's Operating Handbook, 1981, section 1).
+  Figure 5-6's climb, standard day, falls from 700 ft/min at sea level to
+  about 150 at 12,000 ft, at 76 KIAS at sea level and 70 at 12,000.
+- Cessna 182S: 18,100 ft (Information Manual, 1997, page ii). Figure 5-7,
+  standard day: 924 ft/min at sea level, about 375 at 12,000 and 280 at
+  14,000, at 80 KIAS falling to 72.
+- Cherokee 180 E: 13,000 ft, absolute 15,000 (Owner's Handbook, section I).
+- J-3 Cub: 14,000 ft solo (assets/figures/j3cub.xml's manual).
+
+**Brought over from #35** (closed unmerged 2026-09-27 to keep pull requests
+short): the leaner (`sim/leaner.hpp`, an extremum-seeking loop on the
+engine's power per unit of air, never leaner than 14.7:1, holding the ratio
+below 0.4 throttle), the catalogue's `mixture-lever`, the
+`ceiling_on_the_autopilot` flight and the Cherokee's ceiling figure. #35's
+log entry is not repeated here; its pull request comment has it.
+
+**The Cherokee, verified.** `the_ai_climbs_a_cherokee_180_to_its_published_service_ceiling`:
+handed over at 6,000 ft full rich, the autopilot climbs it to 13,560 ft at
+100 ft/min (13,000 ± 10%); with the leaner off it stops at 7,346 ft (#35).
+
+**Near-ceiling tests at the leaned ceilings.** The near-ceiling heights the
+test pilot finds, leaning, are now 23,200 ft (172P), 18,800 (182) and
+20,200 (Cherokee). Two changes, from #35's last uncommitted state and this
+branch:
+- **Handed over at the throttle that holds level there** (`level_throttle`
+  in test_autopilot.cpp), not the throttle a flight starts at: high up, the
+  start throttle sank the aeroplane 42-90 ft while the throttle came up to
+  what the height needs - a mismatch in the hand-over, not anything the
+  autopilot does. With it the 172P, Cherokee and Cub turns are green.
+- **The flaps test descends at 1,500 ft/min.** At the default 700 the
+  Cherokee with 40 degrees of flap at 20,200 ft needs all its throttle to
+  hold 73.9 knots coming down, so the throttle stayed at its stop for that
+  reason and the test said nothing about a hold left over. Now: off the stop
+  after 18.2 s (172P), 19.1 (182), 31.6 (Cherokee). **Seen to fail**: with
+  the flaps' release of the hold (`holding_speed_ = false` for an aeroplane
+  not clean) taken out, all three stayed at the stop for the three minutes;
+  put back, green.
+- The 182's left turns above are the one red: the throttle is not at its
+  stop at 82 knots there, so the 1.1 ft is the throttle's slower answer in
+  the thin air, and is not yet looked into.
+
+**What holds the other three back, measured** (glideslope_cli figures with
+the ceiling flight added and a trace, in a scratch copy of the data; none of
+it is committed):
+- **The Cessna 172P's engine makes 209 hp from 160.** Its engine file is
+  the only light aeroplane's that sets `<bsfc>` (0.32 lb/hp/h, below what
+  any petrol engine burns at full rich); JSBSim's piston engine makes power
+  as the fuel burnt over that, so at full throttle at sea level it made
+  209 hp at 2,558 rpm, and 178 hp at 7,500 ft. `make_c172p.py`'s propeller
+  cp_factor 1.22 soaked up the surplus. Without the `<bsfc>` (JSBSim then
+  sizes it to the rated 160 hp) and with cp_factor 0.85 and ct_factor 0.90,
+  all nine figures but the cruise are in range (static 2,364 rpm, climb
+  715 ft/min) and it climbs to 16,054 ft. Flown at the handbook's 12,000 ft
+  climb speed instead of its sea-level one it reaches 13,709 ft: the model's
+  climb is very sensitive to the speed (65 KCAS: 12,361; 75.4: 14,886, both
+  with the mixture curve below), and the AI holds the sea-level best-climb
+  speed all the way up, because that is the autopilot's speed floor. A
+  climb speed falling with height, as both Cessna handbooks give it, is a
+  change to the floor and to every test that reads it.
+- **The Cessna 182S's engine is rated at 2,575 rpm**; its type certificate
+  (3A13) rates the IO-540-AB1A5 at 230 hp at 2,400, and JSBSim makes the
+  rated power at maxrpm, so at the governed 2,400 it made 217 hp. At 2,400
+  its figures stay in range (climb 962 ft/min, cruise 139.8 KTAS, top speed
+  147.3) and it climbs to 13,789 ft. Its make script's Drag_due_to_alpha
+  x1.15 stands in for a windmilling propeller's drag in the glide, and
+  charges the climb for it too: the induced drag at the climb is 180 lb
+  where a span efficiency of 0.75 gives 137. Moved to a drag term only while
+  the engine is stopped (0.010 of the wing area, for the glide's 8.9), it
+  climbs to 15,208 ft, but climbs 1,027 ft/min at sea level and runs 148.2
+  KTAS, both just out. The climb still falls 60 ft/min per 1,000 ft against
+  the handbook's 45, with the engine's power (136 hp at 14,200 ft, the
+  Gagg-Farrar lapse) and the propeller's efficiency (0.73 to 0.78) as they
+  should be; what is left is not found.
+- **JSBSim's default mixture curve makes most power at 9.9 to 1** (power is
+  the fuel burnt times its MIXTURE table, so it rises as the mixture
+  richens until the table falls), where the FAA gives "approximately 12
+  parts of air to 1 part of gasoline", the power "essentially constant"
+  from 0.0725 to 0.080 fuel/air and falling "gradually at first, then more
+  rapidly" richer (Aviation Maintenance Technician Handbook - Powerplant,
+  FAA-H-8083-32, volume 1, chapter 2, page 2-4). So the leaner finds 6.4%
+  more power than full rich at sea level, which the real engine has not got.
+  A MIXTURE table drawn to the FAA's description (best power 0.0725-0.080,
+  0.98 at full rich, 0.92 at 0.100, 0.80 at 0.110, nothing at 8:1) has the
+  leaner sit at 13.1 to 1 and gives Cherokee 12,370 ft, Cub (carburettor
+  below) 12,332, 172P (as committed) 16,083, 182 (2,400 rpm) 13,685; with it
+  the 182's cruise at 6,000 ft falls out of range (135.7 KTAS) unless rated
+  at 2,400 rpm too. It also leans at sea level - full rich is always rich of
+  best power - against the handbooks' "full rich below 3,000 ft" (172P) and
+  "under 5,000 feet" (Cherokee), so it wants a height below which the AI
+  does not lean, by aeroplane.
+- **The Cub's carburettor.** JSBSim meters fuel as the mixture lever times
+  sea-level over ambient pressure, so full rich every engine richens as the
+  pressure falls; a float carburettor's venturi meters fuel and air by the
+  same depression, so the ratio richens only as the square root of the
+  density ratio (and the FAA, page 2-3: carburettors "run richer at
+  altitude ... because of the decreased density"). A channel setting the
+  Cub's mixture position to the lever times delta over the square root of
+  sigma, flown solo (922 lb: the empty weight, a 170 lb pilot in the rear
+  seat and full fuel) at 55 mph, climbs it to 15,615 ft with JSBSim's
+  mixture curve and 12,332 with the FAA's - either side of 14,000 ± 10% by
+  about 200 ft. Full rich with JSBSim's metering, solo, it stops at 7,974.
+
+**The selftest hash**: nothing it flies is changed - it replays a pilot's
+inputs and never flies the autopilot, and no model file moved. #35 measured
+it unchanged in linux-debug (30ac70b84cab7d7c); this branch was measured only
+in linux-release, d36123c1eecc3e23, with no main build there to set beside it.
+
 ### The B-2A slows down its approach with its drag rudders, 2026-10-01 — tail still open
 
 **What is missing first.**
