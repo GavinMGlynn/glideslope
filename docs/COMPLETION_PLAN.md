@@ -372,12 +372,12 @@ Found while implementing something else. Added when found, not when remembered.
       stated distance from every other along the whole of its route,
       measured over a whole run.*
 
-- [x] **On the DEM at Sydney's 16R the runway is not flat enough to take off
-      from:** the 737-300, A320 and F-15C were wrecked on the roll.
-      *Verification: every aeroplane takes off from 16R on the DEM, and what
-      the collision ground under a runway may do is measured.* Done
-      2026-10-01: every landplane takes off, or rolls past rotation speed
-      where it publishes no climb speed (747-400, F-22A); runways stray 1 cm.
+- [ ] **On the DEM at Sydney's 16R the runway is not flat enough to take off
+      from.** Flattened 2026-10-01: every other landplane now takes off; the
+      747-400 and F-22A are rolled 2,000 m stick-neutral but not flown off,
+      having no climb speed (as their lessons). *Verification: every
+      aeroplane takes off from 16R on the DEM, and what the collision ground
+      under a runway may do is measured.*
 
 - [ ] **After the take-off hands over, the Learjet 35A and the Mosquito come
       down on Botany Bay.** Flying the sydney-cbd-orbit plan from 16R, both

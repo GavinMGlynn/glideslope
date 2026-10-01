@@ -290,6 +290,16 @@ GLIDESLOPE_TEST(the_protocol_version_moves_with_the_collision_ground) {
               glideslope::world::collision_ground_rules == 1 &&
               sha == "6c1ba3c3e6dc3bf19a6b0a402a00734b4d886b95e40c1097f1c69a301576898f",
           "the collision ground is the one protocol version 2 was moved for");
+    // **And the client written from the document speaks it**: its own
+    // version constant, which a move of the version must move too.
+    std::ifstream doc_client(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) / "doc_client" /
+                                 "doc_client.cpp",
+                             std::ios::binary);
+    const std::string client{std::istreambuf_iterator<char>(doc_client), {}};
+    const std::string constant = "constexpr std::uint8_t kVersion = 0x0" +
+                                 std::to_string(glideslope::net::protocol_version) + ";";
+    check(client.find(constant) != std::string::npos,
+          "the client written from TRANSPORT.md says " + constant);
 }
 
 GLIDESLOPE_TEST(the_collision_ground_is_the_same_whatever_order_the_runways_come_in) {
@@ -339,6 +349,54 @@ GLIDESLOPE_TEST(the_collision_ground_is_the_same_whatever_order_the_runways_come
     std::printf("compared %d places, %d of them where two runways or more reach\n", compared,
                 overlapping);
     check(overlapping > 0, "some places compared are reached by two runways or more");
+}
+
+// **The ground does not depend on which runway is asked for first.** A tied
+// group is solved whole the first time any of its runways is asked for; two
+// grounds over the same runways, one asked for them first to last and the
+// other last to first, give every runway the same line and every place the
+// same height, to the last bit - over Sydney and Boston, where groups of two
+// and four are tied.
+GLIDESLOPE_TEST(the_collision_ground_is_the_same_whichever_runway_is_asked_for_first) {
+    const Ground g = open_ground();
+    std::vector<RunwayStrip> strips;
+    for (std::size_t i = 0; i < g.runways->size(); ++i) {
+        const std::string& airport = g.runways->at(i).strip.airport;
+        if (airport == "YSSY" || airport == "KBOS") {
+            strips.push_back(g.runways->at(i).strip);
+        }
+    }
+    const auto runways = std::make_shared<const RunwaySurfaces>(strips);
+    CollisionGround forward(g.dem, runways);
+    CollisionGround backward(g.dem, runways);
+    for (std::size_t i = 0; i < runways->size(); ++i) {
+        (void)forward.surface(i);
+        (void)backward.surface(runways->size() - 1 - i);
+    }
+    std::size_t tied = 0;
+    for (std::size_t i = 0; i < runways->size(); ++i) {
+        const CollisionGround::Surface a = forward.surface(i);
+        const CollisionGround::Surface b = backward.surface(i);
+        check(a.le_m == b.le_m && a.he_m == b.he_m && a.from_file == b.from_file,
+              runways->at(i).strip.airport + " " + runways->at(i).strip.le_ident +
+                  ": the same line asked for first or last");
+        tied += runways->at(i).ties.empty() ? 0U : 1U;
+    }
+    check(tied >= 6, "tied runways among them: " + std::to_string(tied));
+    int compared = 0;
+    for (const double lat0 : {-33.95, 42.365}) {
+        const double lon0 = lat0 < 0.0 ? 151.18 : -71.01;
+        for (int a = -40; a <= 40; ++a) {
+            for (int b = -40; b <= 40; ++b) {
+                const double lat = lat0 + a * 0.0003;
+                const double lon = lon0 + b * 0.0004;
+                check(forward.height_above_geoid(lat, lon) == backward.height_above_geoid(lat, lon),
+                      "the same ground at " + std::to_string(lat) + ", " + std::to_string(lon));
+                ++compared;
+            }
+        }
+    }
+    check(compared == 2 * 81 * 81, "every place compared");
 }
 
 GLIDESLOPE_TEST(the_collision_ground_under_a_runway_is_its_own_line_and_past_its_shoulder_the_dem) {
@@ -821,7 +879,12 @@ GLIDESLOPE_TEST(no_runway_in_the_world_is_pulled_off_its_line_beyond_a_bound) {
                 moved_over_1m, runways.at(most_moved).strip.airport.c_str(),
                 runways.at(most_moved).strip.le_ident.c_str(),
                 runways.at(most_moved).strip.he_ident.c_str(), most_moved_m);
-    check(runways.size() > 11000, "the strips give most runways both elevations");
+    // Every runway with both elevations, and every one another reaches: the
+    // pinned strips' numbers, so that a measurement that walked less of the
+    // world than it says fails.
+    check(runways.size() == 11201 && reached == 3619,
+          "11,201 runways measured, 3,619 of them reached by another: " +
+              std::to_string(runways.size()) + " and " + std::to_string(reached));
     check(!pulled.empty() && pulled.front().m <= worldwide_pull_bound_m,
           "the worst pull is " + std::to_string(pulled.empty() ? 0.0 : pulled.front().m) +
               " m");

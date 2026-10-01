@@ -232,7 +232,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Collision ground under a runway is the runway's own line, 2026-10-01 — two tails done
+### Collision ground under a runway is the runway's own line, 2026-10-01 — one tail done, the 16R tail not
 
 **What is not done first.**
 - **Only runways the file places are flattened.** OurAirports places both
@@ -258,11 +258,18 @@ are the risks the phase order is built around:
 - **What is drawn is not flattened.** The open provider draws the DEM as it
   is, so under a runway what is seen and what is flown differ by what the
   DEM's bumps were; measured below.
-- **Not bit for bit across platforms.** The ground's arithmetic is floating
-  point through each platform's own sine and cosine: places and heights agree
-  to about a nanometre, and a decision - whether a place is on a shoulder, two
-  runways tied - could differ between machines only for a runway within that
-  of a threshold. On one machine it is the same every time.
+- **Not bit for bit across platforms, and a flip moves metres.** The ground's
+  arithmetic is floating point through each platform's own sine and cosine:
+  places and heights agree to about a nanometre. Its discrete decisions -
+  whether a line is the file's or the fit (an end 5 m from the fit), whether
+  a group is made from the fits (an end moved 5 m), whether two runways are
+  tied (an end within reach, a centreline within [0, 1]) - would come out
+  differently on two machines only for a value within about a nanometre of
+  its threshold, which across some 15,000 runways compared against thresholds
+  in metres is a chance of the order of one in a hundred thousand; but if
+  one flips, a whole group's lines move, by up to metres, between that
+  server and that client. On one machine every decision is the same every
+  time, whichever runway is asked for first.
 
 **The decision.** `REQUIREMENTS.md` section 9, closed 2026-10-01 by the
 project owner: flatten collision ground under runways.
@@ -398,8 +405,9 @@ sydney-cbd-orbit plan in each aircraft, before and after:
 Before, the take-off roll pitched the 737-300 to 13.2 degrees and the A320
 to 16.6 on the ground; after, 2.5 and 0.5. Rolled stick-neutral through
 16R's first 2,000 m, the 747-400 reaches 181 kt and the F-22A 334 kt with
-their noses within 0.3 and 0.5 degrees of where they stood - past any
-rotation speed either has; on the raw DEM the F-22A was wrecked 218 m in and
+their noses within 0.3 and 0.5 degrees of where they stood; the test checks
+no speed, and neither is flown off, for want of a climb speed - so the 16R
+tail stays open, naming them. On the raw DEM the F-22A was wrecked 218 m in and
 the 747-400's nose moved 2.2 degrees. The Learjet 35A and the Mosquito come
 down on the water of Botany Bay 80 to 90 s in, after the take-off has handed
 over, before and after alike: a tail.
@@ -413,6 +421,10 @@ over, before and after alike: a tail.
   Sydney's and Boston's nine runways, reversed and shuffled, give bit-for-bit
   the same height at 89,540 places every 20 m over both airports, 424 of
   them reached by two runways or more.
+- `the_collision_ground_is_the_same_whichever_runway_is_asked_for_first`:
+  two grounds over Sydney's and Boston's runways, one asked for them first
+  to last and one last to first, give the same lines and the same heights
+  at 13,122 places, to the bit.
 - `the_collision_ground_under_a_runway_is_its_own_line_and_past_its_shoulder_the_dem`:
   Sydney's 16R/34L's own line is the file's 8 ft and 14 ft to the bit, and
   Courchevel's the fit; on each reference runway, of 65 stations by three
@@ -428,7 +440,16 @@ over, before and after alike: a tail.
   across 180 degrees on the equator and one 10 km from the North Pole, on
   their lines at all 387 stations and the sea's past the shoulder.
 - `no_runway_in_the_world_is_pulled_off_its_line_beyond_a_bound`: the
-  worldwide table, held to 0.75 m.
+  worldwide table, held to 0.75 m, and to having measured all 11,201
+  runways and found the 3,619 another reaches.
+- `the_protocol_version_moves_with_the_collision_ground` also reads the
+  client written from `TRANSPORT.md` (`tests/doc_client`) for its version
+  constant, now `0x02`, which the first push of this version missed: the
+  server refused it and `server_doc_client` would have gone red on CI.
+  `the_transport_document_and_the_code_agree_byte_for_byte` now checks the
+  refusal's version byte in the document's sentence too.
+- `tools/make_runway_strips.py --check` compares the file's bytes exactly;
+  seen to fail with one byte of the committed strips changed.
 - `every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_that_can_climb_away_takes_off`:
   stood on the file's 16R end at the collision ground's height there, every
   landplane flown by the take-off autopilot until it hands over with nothing

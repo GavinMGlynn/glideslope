@@ -55,7 +55,11 @@ using Clock = std::chrono::steady_clock;
 
 constexpr std::size_t kMaxDatagram = 1232;
 constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
-constexpr std::uint8_t kVersion = 0x01;
+// Changed after the client was written, on 2026-10-01, when the document's
+// version moved to 02 with the collision ground under runways: the document
+// gives the envelope's version as `02`. A test reads this line to keep the
+// two together (the_protocol_version_moves_with_the_collision_ground).
+constexpr std::uint8_t kVersion = 0x02;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;
