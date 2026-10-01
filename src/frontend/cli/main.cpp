@@ -204,8 +204,8 @@ void print_usage(std::FILE* out) {
         "                            it go; joined again, it leaves once its new\n"
         "                            aircraft has rolled past 90 too.\n"
         "                            --leave-once-back (with --fly), having believed a\n"
-        "                            refusal, leaves once its aircraft has rolled past\n"
-        "                            90 degrees in the session it is back in - its\n"
+        "                            refusal, leaves once the server has applied an\n"
+        "                            input it sent in the session it is back in - its\n"
         "                            old one or a new one\n"
         "                            --forge-leaving tries, as a forger would, to\n"
         "                            end sessions with goodbyes from the wrong\n"
@@ -1945,7 +1945,8 @@ int stay(glideslope::platform::UdpSocket& socket,
          double take_back_at_s, double dive_after_s, bool watch_ai,
          double take_over_at_s, int take_over_aircraft, bool take_over_once_ai,
          bool long_frame_after_switch, bool late_update_after_take_over, bool goodbye,
-         bool stall_once_rolled, bool until_rolled, SessionStreams& streams, Ended& ended) {
+         bool stall_once_rolled, bool until_rolled, SessionStreams& streams, Ended& ended,
+         bool until_applied = false) {
     ended = Ended::stayed;
     // A client that predicts flies a pilot of its own (Predicting::pilot).
     std::optional<Predicting> predicting;
@@ -2061,6 +2062,12 @@ int stay(glideslope::platform::UdpSocket& socket,
         // (`--stall-once-rolled`, in the session it joins again): what a test
         // waits for to know it flew again, SECONDS only the most.
         if (until_rolled && std::abs(roll_seen_deg) >= 90.0 && applied > sequence_at_start) {
+            break;
+        }
+        // **Stay until the server has applied an input sent in this stay**
+        // (`--leave-once-back`, in the session it is back in): flown from
+        // here again, which is what a test waits for, SECONDS only the most.
+        if (until_applied && applied > sequence_at_start) {
             break;
         }
         if (stall_once_rolled && std::abs(roll_seen_deg) >= 90.0) {
@@ -3128,8 +3135,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                                   until_flying_again, predict, track_file, -1.0, -1.0,
                                   dive_after_s, watch_ai, -1.0, -1, false,
                                   long_frame_after_switch, late_update_after_take_over,
-                                  goodbye, false, stall_once_rolled || leave_once_back,
-                                  streams, ended);
+                                  goodbye, false, stall_once_rolled, streams, ended,
+                                  leave_once_back);
                     }
                     return rc;
                 }

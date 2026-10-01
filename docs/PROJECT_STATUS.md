@@ -260,10 +260,9 @@ both, and `client::Online` numbers its inputs on.
   back keeps them, joining a new session starts them again. It says so: "the
   old session answered; staying in it, its inputs numbered on from N".
   `--leave-once-back` (with `--fly`): back in a session after a refusal it
-  believed - its old one or a new one - it leaves once its aircraft has rolled
-  past 90 degrees there *and* an input sent since has been applied (that
-  condition is now also what `--stall-once-rolled`'s second session waits
-  for).
+  believed - its old one or a new one - it leaves once the server has applied
+  an input it sent there. `--stall-once-rolled`'s second session now waits for
+  that too, as well as its roll past 90 degrees.
 - **The relay forges** (`glideslope_impair --forge-refusal-after N`): once N
   datagrams have come from the server it holds - not drops - everything the
   server sends, so the session goes quiet while the server still hears the
@@ -315,6 +314,13 @@ go before the hold ended, and the client went back to the dead session on an
 update held from before ("input 2024 sent, 86 applied, 86 when it went back").
 The session in this test must be merely quiet, so the server's timeout is now
 30 s; the client's own three seconds are what is tested.
+
+**Once failed unexplained**: in the first `-j4` run of the 137 network
+tests here, the command-line test failed after 302 s - the server's whole
+`--seconds` - and that run kept no output (no `--output-on-failure`). It did
+not come back in the next `-j4` run of 139 or in six runs of the forger,
+stall, drop and relay tests together at `-j4`; on failure the test prints
+both programs' words, so a repeat will say what happened.
 
 ### A take-over on a slow machine: three bugs fixed, the bounds claimed at 20 fps and asserted, 2026-09-30 — not yet seen on CI
 
