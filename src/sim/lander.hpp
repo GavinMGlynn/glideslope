@@ -84,6 +84,12 @@ public:
     void hand_mixture(double mixture);
 
     Stage stage() const { return stage_; }
+
+    // **The most incidence the flare raises the nose to**: twelve degrees,
+    // or four over what she flew the glidepath at, short of the stall
+    // (lander.cpp says how). The path's, learnt before the flare - while a
+    // pilot flies it too - and kept when she is given back.
+    double most_flare_alpha_deg() const;
     // Whether the wheels have touched the runway yet.
     bool touched() const { return touched_; }
 
@@ -178,13 +184,22 @@ private:
     // from the attitude she has on the first step of the approach.
     double path_pitch_ = 0.0;
     bool path_pitch_set_ = false;
-    // Where the flare began: the attitude, the incidence and the throttle on
-    // its first step, from which its nose is let down in a float, its
-    // incidence limited and its power found.
+    // Where the flare began: the attitude and the throttle on its first
+    // step, from which its nose is let down in a float and its power found.
     bool flare_begun_ = false;
     double flare_begun_pitch_ = 0.0;
-    double flare_alpha_deg_ = 0.0;
     double flare_throttle_ = 0.0;
+    // The flare's attitude loop's gain over the path's, brought in over a
+    // second as it begins.
+    double flare_gain_ = 1.0;
+    // Given back by a pilot (`resume`).
+    bool resumed_ = false;
+    // The incidence she flew the glidepath at, on its last step before the
+    // flare - learnt as the pilot flies it too, and kept when she is given
+    // back.
+    double path_alpha_deg_ = 0.0;
+    bool path_alpha_known_ = false;
+
     // The height of her wheels the flare begins at, feet.
     double flare_height_ft() const;
     bool touched_ = false;

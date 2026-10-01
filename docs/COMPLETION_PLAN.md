@@ -815,15 +815,28 @@ Found while implementing something else. Added when found, not when remembered.
       else. *Verification: every landplane taken back at the touch rises
       less than three feet after it.*
 - [x] **The AI's own touchdown in the 787-8, F-15C and F-35B is a crash by
-      the server's rule**: they meet the runway sinking at 707, 976 and 883
-      ft/min, past the 600 the gear is judged to take; the F-35B, over the
-      flare's incidence guard all the way down, does not flare at all. *Verification: every
-      aeroplane the AI lands touches down within what its gear takes.* Done
-      2026-10-01: the flare is flown to the wheels, and every aeroplane the
-      AI lands, in the approach and circuit lessons and the light aircraft's
-      landings, touches within what its gear takes (the hardest now 360
-      ft/min) and rises less than half a foot after; jets touch further
-      along the runway than they did, up to 773 m.
+      the server's rule** (707, 976 and 883 ft/min, past the gear's 600).
+      *Verification: every aeroplane the AI lands touches down within what
+      its gear takes.* Done 2026-10-01: flared to the wheels, the hardest
+      touches at 416 ft/min and none rises half a foot after.
+- [ ] **Nothing bounds where along the runway a jet touches down**: they
+      touch 520 to 809 m past the threshold, and an F-15C at 800 m would run
+      off a 6,000 ft runway. *Verification: every aeroplane the AI lands
+      touches inside a touchdown zone stated for it.*
+- [ ] **The F-15C balloons in her flare**, climbing at about 100 ft/min at
+      five feet before settling. *Verification: no aeroplane the AI lands
+      climbs in its flare.*
+- [ ] **The F-35B lands on her power**: her model flies the glidepath at
+      19.5 degrees of incidence and its flare runs out of nose. *Verification:
+      the F-35B flies her approach at her published incidence and flares
+      with her throttle closing.*
+- [ ] **The touchdown sink the AI flares to is set, not published** (200
+      ft/min for jets, 40 otherwise). *Verification: each aeroplane's comes
+      from a source the figures file names.*
+- [ ] **The AI does not go around from a balloon**: a Mosquito given back
+      from a pilot's over-pulled flare zooms to fifty feet and comes down at
+      958 ft/min. *Verification: every aeroplane given back in a balloon
+      lands within what its gear takes or goes around.*
 - [ ] **The B-2A cannot slow down on the approach.** Flown down with its
       drag rudders half open, it now crosses the threshold on its reference
       speed. **Still missing:** it floats 1.7 ft off the runway for a second

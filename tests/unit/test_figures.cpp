@@ -411,9 +411,7 @@ GLIDESLOPE_TEST(the_speedbrake_an_approach_is_flown_with_is_read_and_refused_out
                                            std::to_string(refused));
 }
 
-// A figure that asks for flaps of an aircraft without them - the Cub has none,
-// and its file says so with a travel of 0 - is refused, not flown with a
-// flap command divided by nothing.
+
 // **The sink a flare brings the wheels to the runway at is read from the
 // figures**, is none where they give none - and the approach autopilot's
 // forty then - and is refused where the gear could not take it, rather than
@@ -467,6 +465,9 @@ GLIDESLOPE_TEST(the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_t
                                            std::to_string(refused));
 }
 
+// A figure that asks for flaps of an aircraft without them - the Cub has none,
+// and its file says so with a travel of 0 - is refused, not flown with a
+// flap command divided by nothing.
 GLIDESLOPE_TEST(a_figure_asking_for_flaps_the_aircraft_does_not_have_is_refused) {
     const PublishedFigures figures = read_published_figures(figures_file("j3cub"));
     check(figures.flaps_full_deg == 0.0, "the Cub's file gives it no flaps");
