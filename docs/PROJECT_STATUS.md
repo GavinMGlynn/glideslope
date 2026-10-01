@@ -402,10 +402,14 @@ it is committed):
   mixture curve and 12,332 with the FAA's - either side of 14,000 ± 10% by
   about 200 ft. Full rich with JSBSim's metering, solo, it stops at 7,974.
 
-**The selftest hash**: nothing it flies is changed - it replays a pilot's
-inputs and never flies the autopilot, and no model file moved. #35 measured
-it unchanged in linux-debug (30ac70b84cab7d7c); this branch was measured only
-in linux-release, d36123c1eecc3e23, with no main build there to set beside it.
+**The selftest hash is unchanged**: 30ac70b84cab7d7c in linux-debug on this
+branch rebased onto main (2026-10-01), as #35 measured on main. It replays a
+pilot's inputs, never flies the autopilot, and no model file moved.
+
+**Verified on this branch, rebased onto main**: linux-release, 701 of 701
+tests; linux-debug, 679 of 680 before the rebase, the one a timeout of
+`the_open_terrain_is_within_its_stated_distance_of_the_ground_flown_on_vulkan`
+at 1,800 s under another agent's suite, which passed alone in 57 s.
 
 ### The B-2A slows down its approach with its drag rudders, 2026-10-01 — tail still open
 
