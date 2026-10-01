@@ -4,6 +4,7 @@
 #include "sim/controller.hpp"
 #include "sim/lander.hpp"
 #include "sim/learnt.hpp"
+#include "sim/plan.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
 
@@ -870,4 +871,65 @@ GLIDESLOPE_TEST(a_policy_file_that_does_not_fit_the_simulation_is_refused) {
     const LearntPolicy p = LearntPolicy::read(policy_file());
     check(!p.layers.empty() && p.layers.front().inputs == 25 && p.layers.back().outputs == 4,
           "the committed policy takes 25 observations and gives 4 actions");
+}
+
+// **A copilot's route arriving during a learnt landing replaces it**, as it
+// does an approach (sim::Controller::replan): the learnt landing is let go,
+// the autopilot is engaged from the controls it had - so no control moves at
+// the switch by more than a hand moves it in a step - and the route, a climb
+// away along the runway, is flown.
+GLIDESLOPE_TEST(a_copilots_route_during_a_learnt_landing_replaces_it_with_no_step_in_its_controls) {
+    const auto policy = the_policy();
+    auto aircraft = at(*policy, Start{0.0, 0.0, 0.0});
+    glideslope::sim::Controller controller(*aircraft, glideslope::sim::Controls{});
+    controller.to_ai_learnt_approach(a_runway(), speeds(), policy);
+    Controls before;
+    for (int tick = 0; tick < 5 * steps_per_second; ++tick) {
+        before = controller.fly();
+        aircraft->set_controls(before);
+        aircraft->step();
+    }
+    check(controller.learnt() != nullptr, "the learnt landing has her before the route");
+    // Away along the runway, 5 km past its threshold, at 1,500 ft.
+    const Runway r = a_runway();
+    const double h = r.heading_deg / degrees;
+    const double lat = r.threshold_lat_deg + 5000.0 * std::cos(h) / 111195.0;
+    const double lon =
+        r.threshold_lon_deg + 5000.0 * std::sin(h) / (111195.0 * std::cos(lat / degrees));
+    char text[256];
+    std::snprintf(text, sizeof text,
+                  "aircraft c172p\nstart 0 0 0 0 1\nwaypoint AWAY %.6f %.6f 1500 75\n", lat, lon);
+    controller.replan(glideslope::sim::parse_flight_plan(text));
+    controller.set_glide(std::nullopt);
+    check(controller.learnt() == nullptr, "the learnt landing is let go");
+    check(controller.navigator() != nullptr && controller.autopilot() != nullptr,
+          "the route is flown by the navigator and the autopilot");
+    constexpr double hand = 1.0 / steps_per_second;
+    double worst_step = 0.0;
+    const double away_then = glideslope::sim::distance_m(
+        aircraft->property("position/lat-geod-deg"), aircraft->property("position/long-gc-deg"),
+        lat, lon);
+    for (int tick = 0; tick < 30 * steps_per_second; ++tick) {
+        const Controls now = controller.fly();
+        if (tick < steps_per_second) {
+            const auto a = before.as_list();
+            const auto b = now.as_list();
+            for (std::size_t k = 0; k < a.size(); ++k) {
+                worst_step = std::max(worst_step, std::abs(b[k] - a[k]));
+            }
+        }
+        before = now;
+        aircraft->set_controls(now);
+        aircraft->step();
+    }
+    const double away_now = glideslope::sim::distance_m(
+        aircraft->property("position/lat-geod-deg"), aircraft->property("position/long-gc-deg"),
+        lat, lon);
+    std::printf("  the most any control moved in a step of the second after: %.5f; %.0f m "
+                "nearer the route's waypoint in 30 s\n",
+                worst_step, away_then - away_now);
+    check(worst_step <= hand + 1e-12,
+          "no control moved more than a hand's step at the switch: " + std::to_string(worst_step));
+    check(away_then - away_now > 500.0, "and the route is flown: " +
+                                           std::to_string(away_then - away_now) + " m nearer");
 }

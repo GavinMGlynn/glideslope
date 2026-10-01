@@ -82,7 +82,9 @@ void Controller::to_ai(FlightPlan plan) {
 }
 
 void Controller::replan(FlightPlan plan) {
-    if (flying_ != Flying::ai || departure_ || lander_) {
+    // A take-off, an approach or a learnt landing let go: the autopilot is
+    // engaged afresh from the controls they had, which steps nothing.
+    if (flying_ != Flying::ai || departure_ || lander_ || learnt_) {
         to_ai(std::move(plan));
         return;
     }

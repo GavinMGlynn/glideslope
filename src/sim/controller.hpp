@@ -100,8 +100,9 @@ public:
 
     // **A new plan while the AI flies**, from where the aircraft is: the
     // navigator is replaced and the autopilot kept, so nothing it holds is
-    // dropped and the aircraft does not lurch. Flying a take-off or an
-    // approach, or not flying at all, it is `to_ai(plan)`.
+    // dropped and the aircraft does not lurch. Flying a take-off, an
+    // approach or a learnt landing, or not flying at all, it is `to_ai(plan)`:
+    // that is let go, and the autopilot engaged from the controls it had.
     void replan(FlightPlan plan);
     // **A glide**: the plan's route steered at `airspeed_kts`, held by the
     // vertical speed asked of the autopilot, its heights not flown - for an
