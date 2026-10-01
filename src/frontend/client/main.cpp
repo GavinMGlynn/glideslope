@@ -809,9 +809,11 @@ static int run_program(int argc, char** argv) {
                 }
                 start.plan = glideslope::sim::parse_flight_plan(
                     std::string(std::istreambuf_iterator<char>(plan_file), {}));
-                // Held to its aircraft's speeds, as a model's plan is.
-                glideslope::sim::refuse_speeds_it_cannot_hold(
-                    glideslope::platform::data_directory(), *start.plan);
+                // Held to the aircraft flown - `--aircraft`, not the plan's
+                // own, which the flight never reads - and to its speeds, as
+                // a model's plan is.
+                glideslope::sim::refuse_what_it_cannot_fly(
+                    glideslope::platform::data_directory(), *start.plan, o.aircraft);
                 std::printf("glideslope: flying the plan %s, %zu waypoints\n",
                             path.string().c_str(), start.plan->waypoints.size());
             }

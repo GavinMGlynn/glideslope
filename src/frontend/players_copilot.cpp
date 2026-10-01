@@ -137,7 +137,7 @@ PlayersCopilot::PlayersCopilot(const std::filesystem::path& data, PlayersCopilot
     copilot::Brief brief;
     brief.aircraft = entry.id;
     brief.aircraft_name = entry.name;
-    brief.approach_kts = sim::approach_speeds(data, entry.model).vref_kts;
+    brief.approach_kts = std::round(sim::approach_speeds(data, entry.model).vref_kts);
     const sim::PlanSpeeds plannable_speeds = sim::plan_speeds(data, entry.model);
     brief.slowest_kts = plannable_speeds.slowest_kts;
     brief.fastest_kts = plannable_speeds.fastest_kts;

@@ -774,3 +774,68 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
           "a hundred and fifteen figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
+
+// **The speeds a plan may fly an aircraft at are read, and a file without
+// them, or with them wrong, is refused** rather than planned at a speed it
+// cannot hold. Each file tried is the C172P's own with its <plan_speeds>
+// changed, so a refusal is that element's and nothing else's.
+GLIDESLOPE_TEST(the_speeds_a_plan_may_fly_an_aircraft_at_are_read_and_refused_where_they_are_wrong) {
+    const PublishedFigures c172p = read_published_figures(figures_file("c172p"));
+    check(c172p.plan_slowest_kcas == 60.0 && c172p.plan_fastest_kcas == 120.0,
+          "the C172P may be planned from 60 to 120 kt");
+
+    std::ifstream in(figures_file("c172p"));
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    const std::string element = "<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"120\">";
+    const auto at = text.find(element);
+    if (at == std::string::npos) {
+        fail("assets/figures/c172p.xml does not give " + element);
+    }
+    const auto end = text.find("</plan_speeds>", at);
+    const std::string whole = text.substr(at, end + std::string("</plan_speeds>").size() - at);
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_plan_speeds_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& in_its_place) {
+        std::string changed = text;
+        changed.replace(at, whole.size(), in_its_place);
+        std::ofstream out(file);
+        out << changed;
+    };
+
+    write("<plan_speeds slowest_kcas=\"55\" fastest_kcas=\"125\"></plan_speeds>");
+    const PublishedFigures written = read_published_figures(file);
+    check(written.plan_slowest_kcas == 55.0 && written.plan_fastest_kcas == 125.0,
+          "other speeds, written the same way, are read back as written");
+    const std::pair<const char*, const char*> wrong[] = {
+        {"", "gives no <plan_speeds"},
+        {"<plan_speeds fastest_kcas=\"120\"></plan_speeds>", "gives no <plan_speeds"},
+        {"<plan_speeds slowest_kcas=\"60\"></plan_speeds>", "gives no <plan_speeds"},
+        {"<plan_speeds slowest_kcas=\"0\" fastest_kcas=\"120\"></plan_speeds>", "not above 0"},
+        {"<plan_speeds slowest_kcas=\"120\" fastest_kcas=\"120\"></plan_speeds>",
+         "the fastest above the slowest"},
+        {"<plan_speeds slowest_kcas=\"130\" fastest_kcas=\"120\"></plan_speeds>",
+         "the fastest above the slowest"},
+        {"<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"120\"></plan_speeds>"
+         "<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"120\"></plan_speeds>",
+         "gives <plan_speeds> twice"},
+    };
+    std::string failures;
+    for (const auto& [in_its_place, says] : wrong) {
+        write(in_its_place);
+        try {
+            read_published_figures(file);
+            failures += std::string("\n  taken: ") + in_its_place;
+        } catch (const std::runtime_error& e) {
+            const std::string said = e.what();
+            if (said.find(says) == std::string::npos) {
+                failures += std::string("\n  ") + in_its_place + " refused, but not saying \"" +
+                            says + "\": " + said;
+            }
+        }
+    }
+    std::filesystem::remove(file);
+    check(failures.empty(), "every one wrong is refused, saying why:" + failures);
+}

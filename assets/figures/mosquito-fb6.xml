@@ -256,8 +256,11 @@
        plan may ask at each speed (sim/orbit_trial.hpp), flown clean by the
        navigator and autopilot at 3,000 ft, both ways round, in calm air and
        in a 10 kt wind, each to hold its height within 50 ft and its speed
-       within 5 kt; the slowest sought up from its approach speed in 5 kt
-       steps, the fastest down from a fifth over its start speed. -->
+       within 5 kt, and a heading held on the autopilot alone in calm air
+       and a 20 kt crosswind (sideslip within a degree, heading within two);
+       the slowest sought up from its approach speed in 5 kt steps,
+       the fastest down from a fifth over its start speed, and written by
+       the command's one rule (src/frontend/cli/main.cpp, plan_speeds). -->
   <plan_speeds slowest_kcas="123" fastest_kcas="229">
     The slowest, 123 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 2,189 m circle. The fastest, 229 kt, is 5 kt under the fastest that held: a fifth over its 220 kt start speed, 264 kt, is more than she makes at 3,000 ft - she levelled at 231 kt, full throttle, from 239 kt up; 234 kt held all four ways.
   </plan_speeds>

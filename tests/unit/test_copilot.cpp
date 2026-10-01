@@ -747,7 +747,6 @@ GLIDESLOPE_TEST(a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_r
         return "aircraft c172p\nrunway 34L -33.964298 151.181000 14 348 3962\ntakeoff 800\n"
                "waypoint CLIMB -33.92 151.19 3000 " + std::to_string(kts) + "\n";
     };
-    std::size_t covered = 0;
     for (const int kts : {70, 79, 121, 126}) {
         Scripted model({plan_at(kts), plan_at(100)});
         const auto planned = glideslope::copilot::plan_from_words(model, request);
@@ -757,13 +756,11 @@ GLIDESLOPE_TEST(a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_r
                   model.conversations[1][2].text.find("outside 80 to 120 kt") != std::string::npos,
               "a plan at " + std::to_string(kts) + " kt is refused and told back: " +
                   (planned.refused.empty() ? std::string("taken") : planned.refused[0]));
-        ++covered;
     }
     for (const int kts : {80, 120}) {
         Scripted model({plan_at(kts)});
         check(glideslope::copilot::plan_from_words(model, request).refused.empty(),
               "a plan at " + std::to_string(kts) + " kt is taken");
-        ++covered;
     }
     // Neither given: the approach speed and a fifth over the cruise.
     glideslope::copilot::PlanRequest unsaid = sydney("take off");
@@ -772,21 +769,30 @@ GLIDESLOPE_TEST(a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_r
               glideslope::copilot::planning_request(unsaid).find("never slower") ==
                   std::string::npos,
           "with none given, the approach speed is taken, and nothing said of a slowest");
-    // A slowest within half a knot of the approach speed is the approach
-    // speed written in whole knots: the request is word for word as before,
-    // so a recording made before still plays back to it.
-    glideslope::copilot::PlanRequest whole_knots = unsaid;
-    whole_knots.slowest_kts = 62.4;
-    check(glideslope::copilot::planning_request(whole_knots) ==
-              glideslope::copilot::planning_request(unsaid),
-          "a slowest of 62.4 kt over a 62 kt approach asks word for word as none given");
-    ++covered;
+    // **The radius the model is told is the one its plan is held to**: the
+    // approach speed is rounded to whole knots where a request is filled
+    // (frontend), so the least radius said at the slowest is the least the
+    // plan reader allows at that speed - an orbit at exactly it is taken,
+    // a metre tighter refused.
+    {
+        const double least = std::ceil(glideslope::sim::least_orbit_radius_m(80.0));
+        const auto orbit_at = [&](double radius_m) {
+            return "aircraft c172p\nrunway 34L -33.964298 151.181000 14 348 3962\ntakeoff 800\n"
+                   "orbit CBD -33.8688 151.2093 " +
+                   std::to_string(static_cast<int>(radius_m)) + " 3000 80 1 left\n";
+        };
+        Scripted told({orbit_at(least - 1), orbit_at(least)});
+        const auto planned = glideslope::copilot::plan_from_words(told, request);
+        check(planned.refused.size() == 1 &&
+                  planned.refused[0].find("too tight") != std::string::npos,
+              "an orbit a metre tighter than the radius told is refused, and one at it taken: " +
+                  (planned.refused.empty() ? std::string("none refused") : planned.refused[0]));
+    }
     // A slowest below the approach speed is the approach speed.
     unsaid.slowest_kts = 50;
     Scripted below({plan_at(55), plan_at(62)});
     check(glideslope::copilot::plan_from_words(below, unsaid).refused.size() == 1,
           "a slowest below the approach speed lets nothing below the approach through");
-    covered += 2;
 
     // The copilot's routes, the same way: the server checks them with the
     // same function (frontend/server/main.cpp).
@@ -807,9 +813,6 @@ GLIDESLOPE_TEST(a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_r
     for (const int kts : {70, 79, 121, 126}) {
         check(route_at(kts).find("outside 80 to 120 kt") != std::string::npos,
               "a route at " + std::to_string(kts) + " kt is refused: " + route_at(kts));
-        ++covered;
     }
     check(route_at(80).empty() && route_at(120).empty(), "at 80 and 120 kt it is flown");
-    covered += 2;
-    check(covered == 15, "fifteen cases: " + std::to_string(covered));
 }

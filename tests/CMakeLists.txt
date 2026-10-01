@@ -353,6 +353,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_figure_asking_for_flaps_the_aircraft_does_not_have_is_refused
     the_speedbrake_an_approach_is_flown_with_is_read_and_refused_outside_its_travel
     the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_the_gear_takes
+    the_speeds_a_plan_may_fly_an_aircraft_at_are_read_and_refused_where_they_are_wrong
     the_boeing_737_300_needs_about_its_published_takeoff_runway_length_at_maximum_weight
     the_boeing_737_300_climbs_with_an_engine_out_as_far_25_demands
     the_boeing_737_300_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows
@@ -613,6 +614,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_warbird_and_flying_boat
     every_aircraft_gives_the_speeds_a_plan_may_fly_it_at_none_beyond_what_plans_were_let_fly_before
     a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_refused_and_none_in_the_data_does
+    no_aircraft_holds_what_a_plan_asks_one_step_past_its_slowest_or_fastest
     a_runways_file_gives_each_open_runway_end_with_a_place_and_a_heading
     a_runway_strips_file_is_read_and_refused_where_it_is_wrong
     the_protocol_version_moves_with_the_collision_ground
@@ -2719,6 +2721,21 @@ add_test(NAME the_cli_refuses_a_plan_asking_a_speed_its_aircraft_cannot_hold_cle
         "-DSTDERR_MATCHES=CBD is flown at 147 kt, outside 162 to 300 kt"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
+# **plan-speeds takes a speed to start from, or --every, and nothing else.**
+foreach(_refusal
+        "the_cli_refuses_plan_speeds_from_a_speed_that_is_not_a_number|plan-speeds c172p fast|FROM_KT is a speed from 20 to 600, not 'fast'"
+        "the_cli_refuses_plan_speeds_from_a_speed_off_its_scale|plan-speeds c172p 900|FROM_KT is a speed from 20 to 600, not '900'"
+        "the_cli_refuses_plan_speeds_for_an_aircraft_it_does_not_hold|plan-speeds no-such-aircraft|no-such-aircraft")
+    string(REPLACE "|" ";" _refusal "${_refusal}")
+    list(GET _refusal 0 _name)
+    list(GET _refusal 1 _args)
+    list(GET _refusal 2 _says)
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=${_args}"
+            -DEXIT=1 "-DSTDERR_MATCHES=${_says}" -P ${GLIDESLOPE_EXPECT_RUN})
+endforeach()
+
 add_test(NAME the_cli_refuses_a_height_asked_for_off_the_earth
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=height 91 0" -DEXIT=2
@@ -2805,6 +2822,18 @@ add_test(NAME the_client_refuses_an_aircraft_the_data_does_not_hold
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope> "-DARGS=--aircraft no-such-aircraft" -DEXIT=2
         "-DSTDERR_MATCHES=the data holds no aircraft no-such-aircraft. it holds 737-300, .*c172p"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+# **A plan for another aircraft than the one flown is refused as it is
+# read**: the client flies `--aircraft`, never the plan's own, so the
+# C172P's plan flown in an A320 would hold her to the Cessna's speeds.
+# Headless, refused before anything is drawn or fetched.
+add_test(NAME the_client_refuses_a_plan_for_another_aircraft_than_the_one_it_flies
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope>
+        "-DARGS=--headless --shot ${CMAKE_CURRENT_BINARY_DIR}/refused-plan.bmp --screen flight --aircraft a320 --plan sydney-harbour"
+        -DEXIT=1
+        "-DSTDERR_MATCHES=the plan is for the c172p, and the aircraft flown is the a320"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_client_refuses_a_terrain_provider_there_is_none_of

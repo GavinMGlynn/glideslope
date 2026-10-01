@@ -144,6 +144,18 @@ FlightPlan parse_flight_plan(std::string_view text);
 // tighter than this for its speed is refused.
 double least_orbit_radius_m(double airspeed_kts);
 
+// **The slowest and fastest a plan may fly an aircraft**, KCAS: its figures
+// file's `<plan_speeds>` (sim::plan_speeds).
+struct PlanSpeeds {
+    double slowest_kts = 0.0;
+    double fastest_kts = 0.0;
+};
+
+// Whether `kts`, as a plan writes it in whole knots, is within `speeds`:
+// half a knot either side - the one rule the planner, the copilot's routes
+// and plan files are all held to.
+bool within_plan_speeds(const PlanSpeeds& speeds, double kts);
+
 // Great-circle distance and initial bearing between two places, metres and
 // degrees true.
 double distance_m(double latitude_1, double longitude_1, double latitude_2,

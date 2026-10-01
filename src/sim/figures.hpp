@@ -108,18 +108,18 @@ struct FigureResult {
 // The slowest and fastest a plan may fly `model`, KCAS: its figures file's
 // `<plan_speeds>`, read from `data`/figures. Throws as
 // `read_published_figures` does.
-struct PlanSpeeds {
-    double slowest_kts = 0.0;
-    double fastest_kts = 0.0;
-};
 PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model);
 
-// **A plan file is held to its aircraft's speeds as it is read**, as a
-// model's plan is (copilot/planner.cpp): throws FlightPlanError naming the
-// first waypoint `plan` asks to be flown slower or faster than its
-// aircraft's `<plan_speeds>`. Its aircraft is looked up in `data`'s
-// catalogue, and CatalogueError is thrown for one it does not hold.
-void refuse_speeds_it_cannot_hold(const std::filesystem::path& data, const FlightPlan& plan);
+// **A plan file is held to the aircraft it flies, and its speeds, as it is
+// read**, as a model's plan is (copilot/planner.cpp): throws FlightPlanError
+// for a plan for another aircraft than `flown` (a catalogue id) - a flight
+// flies the aircraft it was given, not the plan's - and for a start or a
+// waypoint slower or faster than its aircraft's `<plan_speeds>`, naming it.
+// Its aircraft is looked up in `data`'s catalogue, and CatalogueError is
+// thrown for one it does not hold. The server, the client and
+// `glideslope_cli fly-plan` each call it on the plan file they read.
+void refuse_what_it_cannot_fly(const std::filesystem::path& data, const FlightPlan& plan,
+                               const std::string& flown);
 
 // Reads an aircraft's figures file. Throws std::runtime_error if it cannot be
 // read, names a flight that does not exist or a loading it does not have, or

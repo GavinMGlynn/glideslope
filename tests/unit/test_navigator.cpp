@@ -546,25 +546,30 @@ GLIDESLOPE_TEST(every_aircraft_gives_the_speeds_a_plan_may_fly_it_at_none_beyond
                                      std::to_string(without_approach));
 }
 
-// **A plan file asking a speed its aircraft cannot hold clean is refused as
-// it is read**, as a model's plan is: the A320 at its approach speed, a
-// flaps-down figure, at which she comes down 500 ft clean; and faster than
-// the Mosquito makes at 3,000 ft. Every plan in the data is flown within
-// its aircraft's speeds.
+// **A plan file is held to the aircraft flown and to its speeds as it is
+// read** (sim::refuse_what_it_cannot_fly, which the server, the client and
+// `glideslope_cli fly-plan` each call), as a model's plan is: the A320 at
+// her approach speed, a flaps-down figure, at which she comes down 500 ft
+// clean, at a waypoint or at the start; faster than the Mosquito makes at
+// 3,000 ft; and the Cessna's plan flown in an A320. Every plan file in the
+// tree is walked: each is flown within its speeds, but for the one kept to
+// be refused.
 GLIDESLOPE_TEST(a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_refused_and_none_in_the_data_does) {
     const std::filesystem::path data =
         std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
-    const auto verdict = [&](const std::string& text) {
+    const auto verdict = [&](const std::string& text, const std::string& flown = "") {
         try {
-            glideslope::sim::refuse_speeds_it_cannot_hold(data, parse_flight_plan(text));
+            const FlightPlan plan = parse_flight_plan(text);
+            glideslope::sim::refuse_what_it_cannot_fly(data, plan,
+                                                       flown.empty() ? plan.aircraft : flown);
         } catch (const FlightPlanError& e) {
             return std::string(e.what());
         }
         return std::string();
     };
-    const auto a320 = [](double kts) {
-        return "aircraft a320\nstart -33.95 151.2093 3000 0 250\n"
-               "waypoint A -33.90 151.2093 3000 250\n"
+    const auto a320 = [](double kts, double start_kts = 250) {
+        return "aircraft a320\nstart -33.95 151.2093 3000 0 " + std::to_string(start_kts) +
+               "\nwaypoint A -33.90 151.2093 3000 250\n"
                "orbit CBD -33.8688 151.2093 14000 3000 " + std::to_string(kts) + " 2 left\n";
     };
     const std::string slow = verdict(a320(147));
@@ -575,17 +580,102 @@ GLIDESLOPE_TEST(a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_ref
     check(verdict(a320(161)).find("outside 162 to 300") != std::string::npos &&
               verdict(a320(301)).find("outside 162 to 300") != std::string::npos,
           "a knot either side of them she is");
+    const std::string start = verdict(a320(250, 147));
+    check(start.find("the start is at 147 kt, outside 162 to 300 kt") != std::string::npos,
+          "started at 147 kt she is refused, the start named: " + start);
     const std::string fast =
         verdict("aircraft mosquito-fb6\nwaypoint A -33.90 151.2093 3000 240\n");
     check(fast.find("A is flown at 240 kt, outside 123 to 229 kt") != std::string::npos,
           "the Mosquito at 240 kt, more than she makes, is refused: " + fast);
-    std::size_t plans = 0;
-    for (const auto& file : std::filesystem::directory_iterator(GLIDESLOPE_TEST_PLANS_DIR)) {
-        const std::string why = verdict(plan_text(file.path().filename().string()));
-        check(why.empty(), file.path().filename().string() + " is flown within its speeds: " + why);
-        ++plans;
+    const std::string other = verdict(plan_text("sydney-harbour.plan"), "a320");
+    check(other.find("the plan is for the c172p, and the aircraft flown is the a320") !=
+              std::string::npos,
+          "the Cessna's plan flown in an A320 is refused: " + other);
+    check(verdict(plan_text("sydney-harbour.plan"), "c172p").empty(),
+          "and flown in the Cessna it is not");
+
+    // Every .plan file in the tree's assets and tests. Refused, only those
+    // named here, each with why; tests/data/copilot holds recordings, not
+    // plan files, whose plans the planner checks as each plays back.
+    const std::filesystem::path project(GLIDESLOPE_TEST_PROJECT_DIR);
+    const std::vector<std::string> kept_to_be_refused = {
+        "tests/data/plans/a320-at-its-approach-speed.plan"}; // the CLI's refusal test's
+    std::vector<std::string> found;
+    for (const char* top : {"assets", "tests"}) {
+        for (const auto& file : std::filesystem::recursive_directory_iterator(project / top)) {
+            if (file.path().extension() != ".plan") {
+                continue;
+            }
+            const std::string name = file.path().lexically_relative(project).generic_string();
+            found.push_back(name);
+            std::ifstream in(file.path(), std::ios::binary);
+            const std::string why = verdict(std::string(std::istreambuf_iterator<char>(in), {}));
+            const bool kept = std::find(kept_to_be_refused.begin(), kept_to_be_refused.end(),
+                                        name) != kept_to_be_refused.end();
+            std::printf("%s: %s\n", name.c_str(), why.empty() ? "flown" : why.c_str());
+            check(kept ? !why.empty() : why.empty(),
+                  name + (kept ? " is refused, as kept to be" : " is flown within its speeds") +
+                      ": " + (why.empty() ? "it was not refused" : why));
+        }
     }
-    check(plans == 2, "both plans in the data: " + std::to_string(plans));
+    for (const std::string& name : kept_to_be_refused) {
+        check(std::find(found.begin(), found.end(), name) != found.end(),
+              "what is kept to be refused is in the tree: " + name);
+    }
+    check(std::find(found.begin(), found.end(), "assets/plans/sydney-harbour.plan") != found.end(),
+          "the walk reaches the data's plans");
+}
+
+// **A slowest or fastest written too cautiously, or by hand, is caught**:
+// `glideslope_cli plan-speeds` writes the first speed that held with 5 kt
+// to spare, so 10 kt past it is the last speed it saw not hold. Every
+// aircraft whose slowest is above its approach speed (or that has none) is
+// flown there, and every one whose fastest is below a fifth over its start
+// speed: none may hold what a plan asks (sim::holds_plan_speed - the orbit
+// four ways, a heading in calm air and a crosswind). The rest are at the
+// bound plans were held to before, which nothing is asked past.
+GLIDESLOPE_TEST(no_aircraft_holds_what_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    std::string failures;
+    std::size_t tried = 0;
+    std::size_t at_the_old_bound = 0;
+    const auto catalogue = glideslope::sim::read_catalogue(data);
+    for (const auto& e : catalogue) {
+        const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, e.model);
+        double approach = 0.0;
+        try {
+            approach = std::round(glideslope::sim::approach_speeds(data, e.model).vref_kts);
+        } catch (const std::runtime_error&) {
+            // The 747-400 and the F-22 have none: their slowest was sought.
+        }
+        const auto past = [&](double kts, const char* which) {
+            const bool held = glideslope::sim::holds_plan_speed(
+                data, e, kts, [](const std::string& line) { std::printf("  %s\n", line.c_str()); });
+            std::printf("%s 10 kt past its %s, at %.0f kt: %s\n", e.id.c_str(), which, kts,
+                        held ? "held" : "not held");
+            if (held) {
+                failures += "\n  " + e.id + " holds " + std::to_string(kts) + " kt, 10 past its " +
+                            which;
+            }
+            ++tried;
+        };
+        if (speeds.slowest_kts > approach) {
+            past(speeds.slowest_kts - 10.0, "slowest");
+        } else {
+            ++at_the_old_bound;
+        }
+        if (speeds.fastest_kts < std::round(1.2 * e.start_airspeed_kts)) {
+            past(speeds.fastest_kts + 10.0, "fastest");
+        } else {
+            ++at_the_old_bound;
+        }
+    }
+    std::printf("%zu bounds tried 10 kt past, %zu at the old bound, of %zu\n", tried,
+                at_the_old_bound, 2 * catalogue.size());
+    check(tried + at_the_old_bound == 2 * catalogue.size() && tried > 0,
+          "every aircraft's slowest and fastest tried or at the old bound");
+    check(failures.empty(), "none holds 10 kt past what its file gives:" + failures);
 }
 
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_light_aeroplane) {

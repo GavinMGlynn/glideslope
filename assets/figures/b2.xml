@@ -114,18 +114,18 @@
        plan may ask at each speed (sim/orbit_trial.hpp), flown clean by the
        navigator and autopilot at 3,000 ft, both ways round, in calm air and
        in a 10 kt wind, each to hold its height within 50 ft and its speed
-       within 5 kt; the slowest sought up from its approach speed in 5 kt
-       steps, the fastest down from a fifth over its start speed. -->
-  <plan_speeds slowest_kcas="195" fastest_kcas="300">
-    The slowest, 195 kt, is 5 kt over the slowest she holds a heading at in
-    a 20 kt crosswind, which is more than the orbit asks: her approach
+       within 5 kt, and a heading held on the autopilot alone in calm air
+       and a 20 kt crosswind (sideslip within a degree, heading within two);
+       the slowest sought up from its approach speed in 5 kt steps,
+       the fastest down from a fifth over its start speed, and written by
+       the command's one rule (src/frontend/cli/main.cpp, plan_speeds). -->
+  <plan_speeds slowest_kcas="194" fastest_kcas="300">
+    The slowest, 194 kt, is 5 kt over the first that held, 189: her approach
     speed is a flaps-down figure, and flown clean at 154 kt she lost 28 ft
     and slowed to 149 kt round her 3,432 m circle, and below that came down
-    500 ft before reaching it; 159 kt held all four ways. But heading north
-    on the autopilot alone in a 20 kt crosswind from the west
-    (test_autopilot.cpp, the crosswind test, flown at each speed) she swung
-    her sideslip 6 degrees either way at 164 kt and 1.4 at 180, and her
-    heading 2.1 degrees off at 185, more than its two; from 190 kt she held
-    both. The fastest, 300 kt, a fifth over its start speed, held all four ways.
+    500 ft before reaching it; from 159 kt she held the orbit all four ways,
+    but in the crosswind she swung her sideslip 7.3 degrees either way at
+    159 kt, 6.0 at 164, 2.5 at 174 and 1.5 at 179, and at 184 held it within
+    0.9 but her heading only within 2.15. The fastest, 300 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
 </published_figures>

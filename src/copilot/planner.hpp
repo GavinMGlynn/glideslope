@@ -33,7 +33,11 @@ struct PlanRequest {
     std::string command;       // what the pilot said
     std::string aircraft;      // its catalogue id, "c172p"
     std::string aircraft_name; // "Cessna 172P Skyhawk"
-    double approach_kts = 0.0; // its reference speed on the approach
+    // Its reference speed on the approach, in whole knots, as everything
+    // said to the model and asked of a plan is: rounded once, where the
+    // request is filled, so that the radius it is told and the one the plan
+    // reader holds it to are for the same speed.
+    double approach_kts = 0.0;
     // **The slowest and fastest a plan may fly it** (sim::plan_speeds),
     // measured: a plan is flown clean, and the approach speed is a
     // flaps-down figure. Where not given (0), the approach speed and a fifth
@@ -51,9 +55,7 @@ inline constexpr int most_attempts = 3;
 // The slowest a plan may fly the aircraft: its slowest, or its approach
 // speed where that is more.
 inline double slowest_planned_kts(const PlanRequest& r) {
-    // Within half a knot of the approach speed, it is the approach speed
-    // written in whole knots, and the approach speed is said, as before.
-    return r.slowest_kts > r.approach_kts + 0.5 ? r.slowest_kts : r.approach_kts;
+    return r.slowest_kts > r.approach_kts ? r.slowest_kts : r.approach_kts;
 }
 
 // The fastest a plan may fly it: its fastest, or a fifth over its cruise

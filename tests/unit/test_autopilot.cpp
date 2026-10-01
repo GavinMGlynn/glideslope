@@ -7,6 +7,7 @@
 #include "sim/figures.hpp"
 #include "sim/lander.hpp"
 #include "sim/leaner.hpp"
+#include "sim/orbit_trial.hpp"
 #include "sim/test_pilot.hpp"
 #include "sim/weather.hpp"
 #include "world/weather.hpp"
@@ -1052,7 +1053,6 @@ void holds_a_heading_in_a_crosswind(const std::vector<std::string>& expected,
                                     double settle_s) {
     constexpr double most_sideslip_deg = 1.0;
     constexpr double most_heading_off_deg = 2.0;
-    constexpr double wind_kts = 20.0;
     std::string failures;
     std::vector<std::string> met;
     std::size_t flown = 0;
@@ -1082,48 +1082,15 @@ void holds_a_heading_in_a_crosswind(const std::vector<std::string>& expected,
         speeds.push_back(e.start_airspeed_kts);
         for (const double speed_kts : speeds) {
             for (const bool windy : {false, true}) {
-                Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
-                glideslope::sim::InitialConditions ic;
-                ic.latitude_deg = -33.9;
-                ic.longitude_deg = 151.2;
-                ic.altitude_ft = 3000.0;
-                ic.heading_deg = 0.0;
-                ic.airspeed_kts = speed_kts;
-                ic.engine_running = true;
-                aircraft.initialize(ic);
-                if (windy) {
-                    glideslope::sim::Conditions wind;
-                    wind.wind_east_mps = wind_kts * 1852.0 / 3600.0;
-                    aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wind));
-                }
-                glideslope::sim::Controls controls;
-                controls.throttle = e.start_throttle;
-                Autopilot autopilot(aircraft, controls);
-                AutopilotModes modes = autopilot.modes();
-                modes.heading_deg = 0.0;
-                modes.altitude_ft = 3000.0;
-                modes.airspeed_kts = speed_kts;
-                autopilot.set(modes);
-                double least_beta = 0.0;
-                double most_beta = 0.0;
-                double worst_heading = 0.0;
-                double most_beta_ever = 0.0;
-                double worst_height_ft = 0.0;
-                double slowest_kts = 1e9;
-                for (int i = 0; i < 120 * steps_per_second; ++i) {
-                    aircraft.set_controls(autopilot.fly());
-                    aircraft.step();
-                    const double beta = aircraft.property("aero/beta-deg");
-                    most_beta_ever = std::max(most_beta_ever, std::abs(beta));
-                    if (i >= static_cast<int>(settle_s) * steps_per_second) {
-                        least_beta = std::min(least_beta, beta);
-                        most_beta = std::max(most_beta, beta);
-                        worst_heading = std::max(worst_heading, std::abs(heading(aircraft)));
-                        worst_height_ft =
-                            std::max(worst_height_ft, std::abs(altitude(aircraft) - 3000.0));
-                        slowest_kts = std::min(slowest_kts, airspeed(aircraft));
-                    }
-                }
+                const glideslope::sim::CrosswindFlown f =
+                    glideslope::sim::fly_heading_in_crosswind(data(), e, speed_kts, windy,
+                                                              settle_s);
+                const double least_beta = f.least_sideslip_deg;
+                const double most_beta = f.most_sideslip_deg;
+                const double worst_heading = f.worst_heading_deg;
+                const double most_beta_ever = f.most_sideslip_ever_deg;
+                const double worst_height_ft = f.worst_height_ft;
+                const double slowest_kts = f.slowest_kts;
                 ++flown;
                 char line[300];
                 std::snprintf(line, sizeof line,
@@ -1135,8 +1102,7 @@ void holds_a_heading_in_a_crosswind(const std::vector<std::string>& expected,
                               most_beta, settle_s, most_beta_ever, worst_heading,
                               worst_height_ft, slowest_kts);
                 std::printf("%s\n", line);
-                if (!(-least_beta <= most_sideslip_deg && most_beta <= most_sideslip_deg &&
-                      worst_heading <= most_heading_off_deg)) {
+                if (!f.held()) {
                     failures += std::string("\n  ") + line;
                 }
             }
