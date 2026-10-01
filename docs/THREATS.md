@@ -109,10 +109,52 @@ the server does learn which key is talking before it commits a slot to it, and
 `a_stranger_on_the_port_cannot_complete_a_session` holds that a sender using
 the wrong server key gets no session at all.
 
-**One thing bounds that cost, and it is not a rate limit.** `take()` refuses
-with `SERVER_FULL` before it constructs a `Responder`, when the session is
-full and the address is not one it already has a connection for - so a full
-server does no asymmetric work for a stranger. A server with a free slot does.
+**On a full server that cost is bounded, by a budget and by reading no
+further than the key.** A full server once refused `SERVER_FULL` before it
+constructed a `Responder`, and did no asymmetric work for anybody - so a
+player whose client was started again from a new port, the old session not
+yet let go, was refused like a stranger until the old one's `--timeout` ran
+out (2026-10-02). It now reads an initiation as far as the static key, which
+IK seals under `es`, its first X25519 operation, and asks `Slots` whether the
+key is a player's (`Responder::only_for`). A key that is no player's is
+refused `SERVER_FULL` there, at one operation, where answering costs five
+(`es`, `ss`, the answer's ephemeral key, `ee`, `se`); a key that is a
+player's but whose initiation does not complete - a forger who sealed a
+player's public key without its secret - is refused at two, `ss` and the
+payload's tag failing. **And a full server does that reading at most 32 times
+a second** (`net::Budget`, `full_server_reads_per_second`), with as many at
+once: past it an initiation is refused unread, as all were before. So what a
+flood can now make a full server do is at most 64 X25519 operations a second
+- some milliseconds of one core - however fast it sends; what it can make a
+server with a slot free do is unbounded, as below. Held by
+`a_full_server_reads_a_strangers_initiation_no_further_than_its_key`, which
+counts the operations each of the three kinds of initiation cost,
+`a_full_server_reads_at_most_its_budget_of_initiations_a_second`, and the
+end-to-end `a_stranger_on_a_full_server_is_refused_after_reading_no_further_than_its_key`;
+each seen to fail with its check broken.
+
+**What a flood or a forger can now make a full server do, besides.**
+
+- **Spend the budget**, so that a player started again during the flood is
+  refused `SERVER_FULL` unread and waits out the timeout, as every restarting
+  player did before. That is the price of the bound, and the only new thing a
+  flood buys; it cannot take a slot or a session.
+- **Learn nothing from which refusal comes back.** A full server refuses
+  every initiation it does not answer `SERVER_FULL` - never `BAD_HANDSHAKE` -
+  so a forger cannot ask it whether a key is one of its players' by the
+  refusal. **The time it takes still differs**: one X25519 operation for a key
+  that is no player's, two for one that is. A forger on a quiet path who can
+  time a refusal to tens of microseconds can tell a player's public key from
+  another, if it has the key to ask about; it gains nothing that lets it in.
+  Not defended.
+- **Replay a captured initiation of a player's** from a new address, and be
+  answered as a server with a slot free answers one: a session sharing the
+  player's slot and aircraft that cannot take them over, since it cannot seal,
+  is sent nothing but its answer, and is let go at `--timeout`, with at most
+  two such on a key (see "Replay"). A full server used to refuse it. It is the
+  same unproven session a server with room has always made for one.
+
+A server with a free slot reads every initiation in full, unbudgeted.
 **A cookie reply and a per-address handshake budget are still not built**, and
 nothing limits how many initiations one address may send per second. Either
 would do: a stateless cookie the sender must echo before the server does any
@@ -863,7 +905,10 @@ an address that has one is answered from what is already there, or dropped.
 An unauthenticated datagram costs the server one `recvfrom`, an envelope read,
 and then whatever its type asks for: a `REFUSAL` written and sent, or - if it
 says `01` and a slot is free - an X25519 operation and a handshake answer.
-**There is no rate limit of any kind**, and the loop sleeps for two
+On a full server an initiation costs at most two X25519 operations and a
+refusal, and only 32 a second; past that, nothing but the refusal (see
+`HANDSHAKE_INITIATION` above). **There is no other rate limit of any kind**,
+and the loop sleeps for two
 milliseconds only when nothing was waiting, so a sustained flood keeps a core
 busy for as long as it lasts. That is the honest cost, and it is no longer the
 floor this document once described: **the server does asymmetric work for a
@@ -904,8 +949,10 @@ cipher states, each costing an X25519 operation. They go only when `--timeout`
 sweeps them. One *captured* initiation still does this: a copy is dropped
 only from the address that first sent it, and from every other address it is
 answered (see "Replay" for why it must be). The session
-being full stops it, because a fresh address is then refused `SERVER_FULL`
-before the crypto; a session with a slot free does not. That is the unbounded
+being full no longer stops it - a copy of a player's initiation is a player's
+key, which a full server now reads on (see `HANDSHAKE_INITIATION` above) -
+but at most two unproven sessions on a key are kept, the oldest let go for a
+newer, and a full server reads at most 32 initiations a second. That is the unbounded
 number of peers this section's first line names, and it is a path now rather
 than a warning: bounded only by the flood rate times `--timeout`. **No
 `Reliable` follows the rule either, because no `Reliable` exists in the server

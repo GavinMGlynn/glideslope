@@ -503,11 +503,13 @@ Found while implementing something else. Added when found, not when remembered.
       and a test with one key on two addresses counts one aircraft.* Done
       2026-09-29: it takes over once it has sent something sealed, which a
       replayed handshake cannot, so a replay takes nothing from a live player.
-- [ ] **A player who starts again on a full server waits out the timeout**:
+- [x] **A player who starts again on a full server waits out the timeout**:
       their new session is refused as a stranger's would be, because the
       server spares a full session the work of finding out who is asking.
       *Verification: on a server of one player, the player started again from
-      a new port is flying again at once.*
+      a new port is flying again at once.* Done 2026-10-02: a full server
+      reads an initiation as far as its key, a few times a second at most, and
+      lets a player's key back in; a stranger is still refused.
 - [x] **The client with the window does not blend its own aircraft at a
       switch** - handed over (A on a server), taken back or taken over - as
       the network checks' model of a display does. *Verification: what it
