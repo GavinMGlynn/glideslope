@@ -417,10 +417,17 @@ Found while implementing something else. Added when found, not when remembered.
       join again by themselves, and neither does when the operator dropped
       it. *Verification: a client stalled past the timeout joins again by
       itself - the command-line client and the one with the window.*
-- [ ] **Nothing tests a client going back to its old session** when a forged
-      refusal made it try to join again. *Verification: a client refused by a
+- [x] **Nothing tests a client going back to its old session** when a forged
+      refusal made it try to join again. Both clients are now tested; the
+      command-line one, back in its session, numbered its inputs from 1 again
+      and the server dropped them - fixed. *Verification: a client refused by a
       forger while its session is merely quiet goes back to that session, and
-      the server makes no second player.*
+      the server makes no second player - both clients.*
+- [ ] **A client goes back to a session already let go** when an update the
+      server sent before letting it go arrives while the client joins again;
+      it is refused there and joins again three seconds later. *Verification:
+      a client whose session was let go, with the server's last updates held
+      until it tries to join again, joins again without going back.*
 - [ ] **Nothing tests the client with the window refused `DROPPED`** when every
       one of the server's goodbyes was lost. *Verification: a window client
       dropped with its goodbyes lost tries to join again, is refused, and stops

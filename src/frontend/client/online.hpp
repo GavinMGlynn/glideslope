@@ -172,6 +172,10 @@ public:
     // or a blip - and whether the server has since applied an input sent
     // after it went back: the same session, flown on from here.
     bool gone_back() const { return back_at_.has_value(); }
+    // The last input the server has said it applied, and the last sent
+    // when it went back: what a test that fails is shown.
+    std::uint32_t applied() const { return applied_; }
+    std::uint32_t back_at() const { return back_at_ ? *back_at_ : 0; }
     bool flown_since_going_back() const { return back_at_ && applied_ > *back_at_; }
 
     // Its controls at `local_s`, 100 ms behind the clock as its position is,

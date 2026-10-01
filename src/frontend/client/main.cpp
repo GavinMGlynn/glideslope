@@ -1498,13 +1498,15 @@ static int run_program(int argc, char** argv) {
                     shot_now = false;
                 }
                 if (shot_now && o.shot_once_back) {
-                    std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",
+                    std::printf("glideslope: the shot drawn %.1f s past its tick; %s (input "
+                                "%u sent, %u applied, %u when it went back)\n",
                                 static_cast<double>(ticks - o.shot_at) /
                                     static_cast<double>(glideslope::sim::steps_per_second),
                                 back_in_old_unheard
                                     ? "not yet gone back to its old session and flown"
                                     : "gone back to its old session, and flown by an input "
-                                      "sent since");
+                                      "sent since",
+                                online->sequence(), online->applied(), online->back_at());
                 }
                 if (shot_now && asked_to_stall) {
                     std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",

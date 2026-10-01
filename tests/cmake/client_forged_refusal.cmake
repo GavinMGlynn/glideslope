@@ -57,9 +57,15 @@ set(ENV{LSAN_OPTIONS} "exitcode=0")
 # The server's words reach standard error through the relay; the client's are
 # on standard output.
 math(EXPR _relay "${PORT} + 1")
+# **The server's --timeout is long, 30 s**: the session must be merely quiet,
+# never let go, and the client's own three seconds are what is tested. At 5 s
+# the window client, building its flight under load in a debug build, was
+# silent long enough that the server let it go before the forger's hold had
+# ended, and the client went back to a session already gone (2026-10-01).
+# Its silence counts from what the client sends, which the relay never holds.
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}"
+            --data "${DATA}" --timeout 30 --store "${_store}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
             --seed 1 --until-input-ends --seconds 290 --forge-refusal-after 50
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
@@ -107,7 +113,7 @@ if(NOT _rc EQUAL 0)
 endif()
 if(NOT _out MATCHES "the shot drawn [0-9.]+ s past its tick; gone back to its old session, and flown by an input sent since")
     message(FATAL_ERROR "the shot was drawn before the client had gone back and been "
-                        "flown:\n${_out}")
+                        "flown:\n${_out}\n${_err}")
 endif()
 if(NOT _out MATCHES "glideslope: flying aircraft [0-9]+, the c172p; the server says the pilot has it")
     message(FATAL_ERROR "the server was not flying the client's aircraft by the pilot at "
