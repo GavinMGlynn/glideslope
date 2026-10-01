@@ -463,6 +463,41 @@ double near_the_ceiling_ft(const CatalogueEntry& e, double climb_kts) {
     return 0.0;
 }
 
+// **The throttle that holds an aeroplane level at `altitude_ft` and `kts`**,
+// on the mixture it climbed there on, as the test pilot finds it: the height
+// held on the elevator and the speed on the throttle, by an integral, for two
+// minutes, and the throttle it has then; at its stop if the speed cannot be
+// held. **Near the ceiling an aeroplane is handed over on this, not on the
+// throttle a flight starts at.** Handed over high on the start throttle, it
+// sinks while the throttle comes up to what the height needs - 42 to 90 ft at
+// the leaned ceilings, against 21 to 31 at 3,000 ft - and that sag is the
+// mismatch between the throttle handed over and the height, not anything the
+// autopilot does.
+double level_throttle(const CatalogueEntry& e, double altitude_ft, double kts) {
+    Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = altitude_ft;
+    ic.airspeed_kts = kts;
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    glideslope::sim::TestPilot pilot(aircraft);
+    glideslope::sim::Controls c;
+    c.throttle = 1.0;
+    c.mixture = mixture_near_the_ceiling().at(e.model);
+    for (int i = 0; i < 120 * steps_per_second; ++i) {
+        c.throttle = std::clamp(
+            c.throttle + 0.02 * (kts - airspeed(aircraft)) / steps_per_second, 0.0, 1.0);
+        c.elevator = pilot.pitch_to(pilot.pitch_for_altitude(altitude_ft));
+        c.aileron = pilot.roll_to(0.0);
+        c.rudder = pilot.coordinate();
+        aircraft.set_controls(c);
+        aircraft.step();
+    }
+    return c.throttle;
+}
+
 // Level flight on the autopilot, holding its height, its speed and its
 // heading, until it has settled: what it held over the last half minute.
 struct Level {
@@ -622,6 +657,7 @@ void turns_near_the_ceiling_as_at_3000_ft(const std::string& id) {
             controls.throttle = e.start_throttle;
             if (altitude_ft == ceiling_ft) {
                 controls.mixture = mixture_near_the_ceiling().at(e.model);
+                controls.throttle = level_throttle(e, altitude_ft, kts);
             }
             Autopilot autopilot(aircraft, controls);
             AutopilotModes modes = autopilot.modes();
@@ -807,6 +843,7 @@ void gives_up_height_not_airspeed(const std::string& id) {
             controls.throttle = s.throttle;
             if (s.from_ft == ceiling_ft) {
                 controls.mixture = mixture_near_the_ceiling().at(e.model);
+                controls.throttle = level_throttle(e, s.from_ft, kts);
             }
             Autopilot autopilot(aircraft, controls);
             AutopilotModes modes = autopilot.modes();
@@ -967,10 +1004,11 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_has_a_speed_floor_or_is_named_with
 // its ceiling and asked for 3,000 ft more, a light aeroplane is held at its
 // best-climb speed by the floor with the throttle at its stop. Then the flaps
 // go out, and once they are out it is asked to come down 1,000 ft at that
-// speed: with no floor for a flapped aeroplane, the throttle is the speed's
-// again and comes off its stop - within two minutes, as the throttle's
-// integral unwinds from its stop: 40 to 67 s. A hold left over from before the flaps went out once kept the
-// throttle at its stop for good. The Cub has no flaps and fixed gear, so it
+// speed, at 1,500 ft/min: with no floor for a flapped aeroplane, the throttle
+// is the speed's again and comes off its stop - within two minutes, as the
+// throttle's integral unwinds from its stop: 18 to 32 s at the leaned
+// ceilings, 2026-10-01. A hold left over from before the flaps went out once
+// kept the throttle at its stop for good, and put back it turns this red. The Cub has no flaps and fixed gear, so it
 // is never anything but clean; it is left out for that.
 GLIDESLOPE_TEST(a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_flies_on_its_throttle) {
     const std::vector<std::string> flapped{"c172p", "c182", "pa28"};
@@ -1027,6 +1065,12 @@ GLIDESLOPE_TEST(a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_fl
             aircraft.step();
         }
         modes.altitude_ft = altitude(aircraft) - 1000.0;
+        // **Down steeply enough that full throttle is more than it needs**:
+        // at the 700 ft/min the autopilot descends at unasked, the Cherokee
+        // with its flaps out near its leaned ceiling, about 20,200 ft, needs
+        // all its throttle to hold the speed, and the throttle stays at its
+        // stop for that reason and not a hold left over.
+        modes.vertical_speed_fpm = 1500.0;
         autopilot.set(modes);
         double off_stop_s = -1.0;
         for (int i = 0; i < 180 * steps_per_second && off_stop_s < 0.0; ++i) {
