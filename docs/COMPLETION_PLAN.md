@@ -438,6 +438,10 @@ Found while implementing something else. Added when found, not when remembered.
       client's own and the shared one the window client uses - and a bug was
       found in one and not the other. *Verification: both clients use one
       session, and every rejoin and going-back test passes through it.*
+- [ ] **The client with the window can crash on Windows as it exits** after
+      refusing its arguments: a thread still running when the program ends.
+      *Verification: every argument refusal run a hundred times on Windows
+      exits 2 every time.*
 - [ ] **The command-line forger test once failed after 300 s, cause not
       known**: a flake candidate until understood. *Verification: the cause
       found, or the test repeated under load on every platform without it.*
