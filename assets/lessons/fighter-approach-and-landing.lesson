@@ -11,12 +11,13 @@
 #
 # with `#` beginning a comment; src/sim/lesson.hpp owns the format.
 #
-# **The speed is this aeroplane's own.** `vref` is 1.3 times its stall speed
-# in the landing configuration. For the aeroplanes in this class that stall
-# speed is **measured from the flight model rather than published** - no
-# flight manual for them is public - and the figure says so. `docs/ASSETS.md`
-# records which aeroplanes those are, and which are left out for having no
-# stall speed that holds still.
+# **The speed is this aeroplane's own.** `vref` is the F-15C's flight
+# manual's approach speed for its weight, 160 knots at 36,946 lb (T.O.
+# 1F-15A-1, figure A8-1); the F-35B's is 1.3 times a stall speed **measured
+# from the flight model rather than published** - no flight manual for it is
+# public - and the figure says so. `docs/ASSETS.md` records which aeroplanes
+# those are, and which are left out for having no stall speed that holds
+# still.
 #
 # **The bands are measured, not guessed**: the two fighters fly it between two under and seven over, each started with
 # its landing flap already down as an aeroplane established on the approach

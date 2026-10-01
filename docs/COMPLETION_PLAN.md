@@ -789,10 +789,15 @@ Found while implementing something else. Added when found, not when remembered.
       2026-09-26: against a stand-in ion that never finishes sending, a run
       told to stop is gone within a second or two, one left alone ends when
       its frame is written, and either way the cache takes a write at once.
-- [ ] **A published stall speed for the F-15C**, from its flight manual. The
-      fighters' approach and stall lessons fly a stall measured on the model,
-      which gives a 196-knot reference speed. *Verification: the F-15C stalls
-      near its published speed, and its approach is flown at the manual's.*
+- [ ] **A published stall speed for the F-15C**, from its flight manual. Its
+      approach is now flown at the manual's own speed for its weight, 160
+      knots, not 196. **Still missing: the stall.** The manual gives no stall
+      speed - at full aft stick the nose settles at 45 units at 100 knots or
+      less - and the model cannot follow it: its stabilator runs out at 18
+      degrees of alpha and 151 knots, and it flies the manual's approach at
+      12 to 18 degrees, near full nose-up stabilator, where NASA flew it at
+      about 10. Its pitching moment needs a published source to fix. *Verification: the F-15C stalls near its published
+      speed, and its approach is flown at the manual's.*
 - [x] **The autopilot banks to its limit even when the aeroplane cannot sustain
       the turn.** *Verification: a light aeroplane near its ceiling holds its
       height through a 90-degree turn as it does at 3,000 ft.* Done
