@@ -261,8 +261,7 @@ both, and `client::Online` numbers its inputs on.
   old session answered; staying in it, its inputs numbered on from N".
   `--leave-once-back` (with `--fly`): back in a session after a refusal it
   believed - its old one or a new one - it leaves once the server has applied
-  an input it sent there. `--stall-once-rolled`'s second session now waits for
-  that too, as well as its roll past 90 degrees.
+  an input it sent there.
 - **The relay forges** (`glideslope_impair --forge-refusal-after N`): once N
   datagrams have come from the server it holds - not drops - everything the
   server sends, so the session goes quiet while the server still hears the
@@ -314,6 +313,14 @@ go before the hold ended, and the client went back to the dead session on an
 update held from before ("input 2024 sent, 86 applied, 86 when it went back").
 The session in this test must be merely quiet, so the server's timeout is now
 30 s; the client's own three seconds are what is tested.
+
+**On Windows** (MSVC, `windows-debug`, through `tools/windows_build.sh`):
+both tests pass, the command-line one in 11 to 14 s and the window one in
+109 to 221 s. In one run of four tests at the preset's four jobs,
+`a_client_stalled_past_the_timeout_joins_again_by_itself` - not one of these -
+timed out at 900 s with no output; alone it passed in 15 s. That run's build
+had also made the stall's second session wait for an applied input before
+leaving; that was taken out again, so the stall test is as it was on `main`.
 
 **Once failed unexplained**: in the first `-j4` run of the 137 network
 tests here, the command-line test failed after 302 s - the server's whole
