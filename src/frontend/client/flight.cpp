@@ -45,7 +45,9 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     fetch_ = world::http_fetch();
     tiles_ = std::make_unique<world::DownloadedTiles>(cache, fetch_);
     geoid_ = std::make_unique<world::Geoid>(world::egm2008_geoid(cache, fetch_));
-    dem_ = std::make_shared<world::Dem>(*coverage_, *tiles_, geoid_.get());
+    collision_ = std::make_shared<world::CollisionGround>(
+        std::make_shared<world::Dem>(*coverage_, *tiles_, geoid_.get()),
+        world::runway_surfaces(data));
 
     // A plan's altitudes are above sea level; the aircraft's, the ellipsoid.
     if (start.plan) {
@@ -88,11 +90,11 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
         model_radius_ = gfx::model_radius(*model_);
         alignment_ = visual->alignment;
     }
-    const std::shared_ptr<world::Dem> dem = dem_;
+    const std::shared_ptr<world::CollisionGround> ground = collision_;
     aircraft_->set_terrain(std::make_shared<sim::FunctionTerrain>(
-        [dem](double lat, double lon) { return dem->height_above_ellipsoid(lat, lon); },
-        [dem](double lat, double lon) {
-            return dem->water(lat, lon) != world::Water::none;
+        [ground](double lat, double lon) { return ground->height_above_ellipsoid(lat, lon); },
+        [ground](double lat, double lon) {
+            return ground->water(lat, lon) != world::Water::none;
         }));
     sim::InitialConditions ic;
     ic.latitude_deg = start.latitude_deg;
@@ -105,7 +107,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     if (start.on_ground) {
         // Where the DEM's mask says water, only a seaplane can stand: it floats,
         // where a landplane would ditch as it was put there.
-        const bool water = dem_->water(start.latitude_deg, start.longitude_deg) !=
+        const bool water = collision_->water(start.latitude_deg, start.longitude_deg) !=
                            world::Water::none;
         if (water && !aircraft_entry_.seaplane) {
             throw std::runtime_error("the " + aircraft_entry_.name +
@@ -116,7 +118,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
         // Standing on the DEM, its wheels down: sim::Aircraft raises it by
         // their springs' compression.
         ic.altitude_ft =
-            dem_->height_above_ellipsoid(start.latitude_deg, start.longitude_deg) *
+            collision_->height_above_ellipsoid(start.latitude_deg, start.longitude_deg) *
             feet_per_metre;
         ic.airspeed_kts = 0.0;
         ic.gear = 1.0;
@@ -134,8 +136,8 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
         // The air rises and sinks over the same ground the aircraft meets.
         weather_ = std::make_shared<world::ReportedWeather>(
             std::move(report), geoid_.get(), weather_blend_seconds,
-            [dem](double lat, double lon) {
-                return dem->height_above_geoid(lat, lon);
+            [ground](double lat, double lon) {
+                return ground->height_above_geoid(lat, lon);
             });
         aircraft_->set_weather(weather_);
     }

@@ -899,7 +899,7 @@ static int run_program(int argc, char** argv) {
             std::size_t answered = 0;
             for (std::size_t i = 0; i < places.size(); ++i) {
                 const glideslope::world::GroundHeight flown =
-                    glideslope::client::ground_at(
+                    glideslope::client::flown_ground_at(
                         glideslope::platform::data_directory(),
                         glideslope::platform::cache_directory(),
                         places[i].latitude_deg, places[i].longitude_deg);
@@ -932,6 +932,17 @@ static int run_program(int argc, char** argv) {
                 std::printf("mismatch %s %.8f %.8f drawn %.3f flown %.3f off %+.3f\n",
                             names[i].c_str(), places[i].latitude_deg,
                             places[i].longitude_deg, *drawn[i], flown_m, off);
+                // **And against the DEM as it is**, runways and all: what
+                // the open provider draws from, so that a fault in drawing it
+                // is not hidden by the runways' flattening.
+                const glideslope::world::GroundHeight raw = glideslope::client::ground_at(
+                    glideslope::platform::data_directory(),
+                    glideslope::platform::cache_directory(), places[i].latitude_deg,
+                    places[i].longitude_deg);
+                const double raw_m = raw.above_sea_level_m + raw.geoid_m;
+                std::printf("mismatch-dem %s %.8f %.8f drawn %.3f dem %.3f off %+.3f\n",
+                            names[i].c_str(), places[i].latitude_deg,
+                            places[i].longitude_deg, *drawn[i], raw_m, *drawn[i] - raw_m);
             }
             std::printf("glideslope: %s terrain answered with a height for %zu "
                         "of %zu airfields, worst %.3f m from the ground flown\n",

@@ -259,6 +259,7 @@ add_library(glideslope_world STATIC
     src/world/sky.cpp
     src/world/byte_source.cpp
     src/world/dem.cpp
+    src/world/runway_ground.cpp
     src/world/digest.cpp
     src/world/download.cpp
     src/world/geodesy.cpp

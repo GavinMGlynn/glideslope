@@ -153,6 +153,11 @@ public:
     // handbook does not give.
     Water water(double latitude_deg, double longitude_deg);
 
+    // The geoid it was given, or null.
+    const Geoid* geoid() const {
+        return geoid_;
+    }
+
 private:
     enum class Layer { heights, water };
 

@@ -46,4 +46,11 @@ world::GroundHeight ground_at(const std::filesystem::path& data,
                               const std::filesystem::path& cache, double latitude_deg,
                               double longitude_deg);
 
+// **The ground an aircraft meets** there, as ground_at gives it: the DEM, with
+// every runway its own surface (world/runway_ground.hpp). What the drawn
+// terrain is measured against.
+world::GroundHeight flown_ground_at(const std::filesystem::path& data,
+                                    const std::filesystem::path& cache, double latitude_deg,
+                                    double longitude_deg);
+
 } // namespace glideslope::client

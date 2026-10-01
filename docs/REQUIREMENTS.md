@@ -121,7 +121,10 @@ the visual provider in settings.
   active.
 - **Collision terrain is always the open DEM**, at a fixed dataset version and
   resolution, identified by hash. The server uses it for ground contact and
-  collision; clients use the same data for predicted ground contact.
+  collision; clients use the same data for predicted ground contact. Under
+  every runway it is the runway's own surface, made from runway strips the
+  build carries (section 9, closed 2026-10-01), the same on every machine to
+  about a nanometre.
 - **The project reads Copernicus DEM's GeoTIFF files itself.** Nothing is
   converted to tiles or hosted. Cesium Native only streams quantized-mesh
   terrain and 3D Tiles, and the server and client prediction need DEM heights
@@ -642,6 +645,37 @@ The replacement:
   Blue Marble, public domain, was the other candidate: at 500 m a pixel it
   cannot show a runway.
 
+**Closed 2026-10-01:**
+
+- **Runways on the DEM: collision ground is flattened under every runway.**
+  Copernicus DEM is a radar-measured surface model (it includes trees and
+  buildings) with a sample every 30 m and a few metres of vertical error, so
+  runways come out with bumps and ramps that are not really there - at
+  Sydney's 16R enough to pitch an airliner on its take-off roll into its own
+  tail. The project owner decided to flatten them. Under each runway whose
+  ends OurAirports' pinned `runways.csv` places - open, not a helipad, not on
+  water; made into `assets/runways/strips.csv` by a script, so that the
+  ground is part of the build and nothing fetches it - the collision ground
+  is a straight line along the runway between its two ends' elevations, level
+  across it, as wide as the file says; past its edges and ends it blends
+  into the DEM over a 50 m shoulder, and beyond that it is the DEM exactly.
+  Where an end has no elevation, or one more than 5 m from a least-squares
+  fit to the DEM along the centreline, the line is that fit. Where runways
+  meet - crossing, or an end of one within reach of the other - their lines
+  are moved the least that makes them meet there, and a group of them that
+  would be moved more than 5 m is made from the fits instead; where their
+  surfaces overlap, the ground is their weighted mean. Every decision follows
+  from the same sorted strips and the pinned DEM, so the server and every
+  client's prediction make the same ground: floating point through each
+  platform's own trigonometry, it agrees across platforms to about a
+  nanometre, and a decision could differ only for a runway within a nanometre
+  of one of its thresholds. A change to the strips or the rules moves the
+  protocol's version, so that builds on different ground refuse each other
+  (`TRANSPORT.md`). The visual mesh is the DEM as it is; the disagreement
+  between what is drawn and what is flown is measured, as for every provider.
+  `src/world/runway_ground.hpp` has the rules; `PROJECT_STATUS.md` the
+  measurements.
+
 **Closed 2026-09-30:**
 
 - **A switch's smoothness is claimed at 20 fps and above, and no lockstep
@@ -658,11 +692,5 @@ The replacement:
 
 **Open:**
 
-- **Runways on the DEM** (under discussion). Copernicus DEM is a radar-measured
-  surface model (it includes trees and buildings) with a sample every 30 m and
-  a few metres of vertical error, so runways come out with bumps and ramps that
-  are not really there. Proposed: give paved runways a smooth surface that
-  follows their surveyed slope between the two thresholds, from OurAirports
-  data, and keep the DEM everywhere else.
 - **Buildings:** how OpenStreetMap buildings arrive without a Cesium ion
   token.

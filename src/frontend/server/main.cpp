@@ -43,6 +43,7 @@
 #include "world/dem.hpp"
 #include "world/geodesy.hpp"
 #include "world/download.hpp"
+#include "world/runway_ground.hpp"
 #include "world/runways.hpp"
 
 #include <algorithm>
@@ -908,14 +909,18 @@ public:
           tiles_(glideslope::platform::cache_directory(), fetch_),
           geoid_(glideslope::world::egm2008_geoid(
               glideslope::platform::cache_directory(), fetch_)),
-          dem_(std::make_shared<glideslope::world::Dem>(coverage_, tiles_, &geoid_)) {
-        const std::shared_ptr<glideslope::world::Dem> dem = dem_;
+          collision_(std::make_shared<glideslope::world::CollisionGround>(
+              std::make_shared<glideslope::world::Dem>(coverage_, tiles_, &geoid_),
+              glideslope::world::runway_surfaces(data))) {
+        // The DEM, with every runway its own surface (world/runway_ground.hpp):
+        // what every client's prediction meets too.
+        const std::shared_ptr<glideslope::world::CollisionGround> collision = collision_;
         ground_ = std::make_shared<glideslope::sim::FunctionTerrain>(
-            [dem](double lat, double lon) {
-                return dem->height_above_ellipsoid(lat, lon);
+            [collision](double lat, double lon) {
+                return collision->height_above_ellipsoid(lat, lon);
             },
-            [dem](double lat, double lon) {
-                return dem->water(lat, lon) != glideslope::world::Water::none;
+            [collision](double lat, double lon) {
+                return collision->water(lat, lon) != glideslope::world::Water::none;
             });
         const auto ground = ground_;
         data_ = data;
@@ -930,7 +935,7 @@ public:
             ic.longitude_deg = f.longitude_deg;
             // Above the ground under it, wherever on Earth that is.
             ic.terrain_elevation_ft =
-                dem->height_above_ellipsoid(f.latitude_deg, f.longitude_deg) *
+                collision->height_above_ellipsoid(f.latitude_deg, f.longitude_deg) *
                 feet_per_metre;
             ic.altitude_ft = ic.terrain_elevation_ft + 3000.0;
             ic.heading_deg = f.heading_deg;
@@ -1546,7 +1551,7 @@ private:
         if (plan.takeoff) {
             glideslope::sim::Runway& runway = plan.takeoff->runway;
             runway.elevation_ft =
-                dem_->height_above_ellipsoid(runway.threshold_lat_deg, runway.threshold_lon_deg) *
+                collision_->height_above_ellipsoid(runway.threshold_lat_deg, runway.threshold_lon_deg) *
                 feet_per_metre;
             ic.latitude_deg = runway.threshold_lat_deg;
             ic.longitude_deg = runway.threshold_lon_deg;
@@ -1757,7 +1762,7 @@ private:
     glideslope::world::Fetch fetch_;
     glideslope::world::DownloadedTiles tiles_;
     glideslope::world::Geoid geoid_;
-    std::shared_ptr<glideslope::world::Dem> dem_;
+    std::shared_ptr<glideslope::world::CollisionGround> collision_;
     std::shared_ptr<glideslope::sim::FunctionTerrain> ground_;
     std::filesystem::path data_;
     std::vector<Aircraft> flown_;

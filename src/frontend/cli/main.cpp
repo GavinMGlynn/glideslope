@@ -41,6 +41,7 @@
 #include "world/geodesy.hpp"
 #include "world/download.hpp"
 #include "world/metar.hpp"
+#include "world/runway_ground.hpp"
 #include "world/runways.hpp"
 #include "world/sky.hpp"
 #include "world/weather.hpp"
@@ -664,6 +665,10 @@ int fly_plan(const std::filesystem::path& data, const std::vector<std::string_vi
     glideslope::world::DownloadedTiles tiles(cache, fetch);
     const glideslope::world::Geoid geoid = glideslope::world::egm2008_geoid(cache, fetch);
     auto dem = std::make_shared<glideslope::world::Dem>(coverage, tiles, &geoid);
+    // The ground the aircraft meets: the DEM, with every runway its own
+    // surface (world/runway_ground.hpp).
+    auto ground = std::make_shared<glideslope::world::CollisionGround>(
+        dem, glideslope::world::runway_surfaces(data));
     constexpr double feet_per_metre = 3.280839895013123;
     const auto sea_level_ft = [&](double lat, double lon, double ellipsoid_ft) {
         return ellipsoid_ft - geoid.undulation(lat, lon) * feet_per_metre;
@@ -677,19 +682,19 @@ int fly_plan(const std::filesystem::path& data, const std::vector<std::string_vi
 
     glideslope::sim::Aircraft aircraft(data / "jsbsim", entry.model);
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
-        [dem](double lat, double lon) { return dem->height_above_ellipsoid(lat, lon); },
-        [dem](double lat, double lon) {
-            return dem->water(lat, lon) != glideslope::world::Water::none;
+        [ground](double lat, double lon) { return ground->height_above_ellipsoid(lat, lon); },
+        [ground](double lat, double lon) {
+            return ground->water(lat, lon) != glideslope::world::Water::none;
         }));
     glideslope::sim::InitialConditions ic;
     glideslope::sim::Controller controller(aircraft, glideslope::sim::Controls{});
     double runway_ft = 0.0;
     if (plan.takeoff) {
-        // **The runway is where the ground is**: its height is the DEM's at
-        // the threshold, which is what the aircraft stands on and collides
-        // with, whatever the runway file says.
+        // **The runway is where the ground is**: its height is the collision
+        // ground's at the threshold, which is what the aircraft stands on and
+        // collides with.
         glideslope::sim::Runway& runway = plan.takeoff->runway;
-        runway_ft = dem->height_above_ellipsoid(runway.threshold_lat_deg, runway.threshold_lon_deg) *
+        runway_ft = ground->height_above_ellipsoid(runway.threshold_lat_deg, runway.threshold_lon_deg) *
                     feet_per_metre;
         runway.elevation_ft = runway_ft;
         ic.latitude_deg = runway.threshold_lat_deg;
@@ -705,7 +710,7 @@ int fly_plan(const std::filesystem::path& data, const std::vector<std::string_vi
         ic.altitude_ft = plan.start->altitude_ft +
                          geoid.undulation(ic.latitude_deg, ic.longitude_deg) * feet_per_metre;
         ic.terrain_elevation_ft =
-            dem->height_above_ellipsoid(ic.latitude_deg, ic.longitude_deg) * feet_per_metre;
+            ground->height_above_ellipsoid(ic.latitude_deg, ic.longitude_deg) * feet_per_metre;
         ic.heading_deg = plan.start->heading_deg;
         ic.airspeed_kts = plan.start->airspeed_kts;
         ic.gear = 0.0;

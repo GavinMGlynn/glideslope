@@ -372,14 +372,25 @@ Found while implementing something else. Added when found, not when remembered.
       stated distance from every other along the whole of its route,
       measured over a whole run.*
 
-- [ ] **On the DEM at Sydney's 16R the runway is not flat enough to take off
-      from.** `glideslope_cli fly-plan` from 16R wrecks the 737-300 and the
-      A320 (airframe strike at 14 s) and the F-15C (9 s) on the roll, with
-      the stick still neutral: the collision ground under the runway rises
-      and falls several feet over a few cells and pitches them up by 13
-      degrees. It is on main as well. *Verification: every aeroplane takes off
-      from 16R on the DEM, and what the collision ground under a runway may
-      do is measured.*
+- [x] **On the DEM at Sydney's 16R the runway is not flat enough to take off
+      from:** the 737-300, A320 and F-15C were wrecked on the roll.
+      *Verification: every aeroplane takes off from 16R on the DEM, and what
+      the collision ground under a runway may do is measured.* Done
+      2026-10-01: every landplane takes off, or rolls past rotation speed
+      where it publishes no climb speed (747-400, F-22A); runways stray 1 cm.
+
+- [ ] **After the take-off hands over, the Learjet 35A and the Mosquito come
+      down on Botany Bay.** Flying the sydney-cbd-orbit plan from 16R, both
+      are wrecked on the water 80 to 90 s in, climbing towards the plan's
+      first waypoint; it was so before the runway was flattened.
+      *Verification: every aeroplane that takes off from 16R flies the plan
+      to its orbit with nothing wrecked.*
+
+- [ ] **Runways that meet at different slopes still pull each other's
+      surface.** Tied where they meet, their lines agree there and drift
+      apart away from it: worldwide, 38 runways are pulled more than 0.3 m
+      off their line, at worst 0.68 m (LKMB 16/34). *Verification: no
+      runway in the world pulled more than 0.1 m.*
 
 - [x] **The F-15C landed wheels-up rocks from wing tip to wing tip, and on
       Windows it now breaks up.** It rested on two points on its centreline
@@ -837,9 +848,10 @@ Found while implementing something else. Added when found, not when remembered.
 - [x] **Tests that run at once share one Cesium cache.** *Verification: the
       client tests run together and no run reports a locked database.* Done
       2026-09-21.
-- [ ] **Runways on the DEM**, which shows bumps a runway does not have.
+- [x] **Runways on the DEM**, which shows bumps a runway does not have.
       *Verification: decided in `REQUIREMENTS.md`; if smoothed, reference
-      runways roll with no bump beyond a bound.*
+      runways roll with no bump beyond a bound.* Done 2026-10-01: flattened
+      for every runway the data places; reference runways within 5 cm.
 - [ ] **Free buildings for the default scenery.** *Verification: a source
       recorded in `ASSETS.md`, and a shot of a city shows its buildings.*
 - [ ] **Signed and notarised macOS builds.** *Verification: a downloaded package

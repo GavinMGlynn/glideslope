@@ -5,6 +5,7 @@
 #include "world/dem.hpp"
 #include "world/download.hpp"
 #include "world/geoid.hpp"
+#include "world/runway_ground.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -58,6 +59,16 @@ world::GroundHeight ground_at(const std::filesystem::path& data,
                               double longitude_deg) {
     const std::shared_ptr<Ground> ground = open_ground(data, cache);
     return {ground->dem.height_above_geoid(latitude_deg, longitude_deg),
+            ground->geoid.undulation(latitude_deg, longitude_deg)};
+}
+
+world::GroundHeight flown_ground_at(const std::filesystem::path& data,
+                                    const std::filesystem::path& cache, double latitude_deg,
+                                    double longitude_deg) {
+    const std::shared_ptr<Ground> ground = open_ground(data, cache);
+    world::CollisionGround collision(std::shared_ptr<world::Dem>(ground, &ground->dem),
+                                     world::runway_surfaces(data));
+    return {collision.height_above_geoid(latitude_deg, longitude_deg),
             ground->geoid.undulation(latitude_deg, longitude_deg)};
 }
 

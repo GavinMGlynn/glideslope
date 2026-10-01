@@ -83,6 +83,7 @@ add_executable(glideslope_tests
     unit/test_ground.cpp
     unit/test_geoid.cpp
     unit/test_runways.cpp
+    unit/test_runway_ground.cpp
     unit/test_copilot.cpp
     unit/test_geotiff.cpp
     unit/test_inflate.cpp
@@ -570,6 +571,16 @@ set(GLIDESLOPE_UNIT_TESTS
     the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind_down_to_the_tightest_allowed
     an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_circle
     a_runways_file_gives_each_open_runway_end_with_a_place_and_a_heading
+    a_runway_strips_file_is_read_and_refused_where_it_is_wrong
+    the_protocol_version_moves_with_the_collision_ground
+    the_collision_ground_is_the_same_whatever_order_the_runways_come_in
+    the_collision_ground_under_a_runway_is_its_own_line_and_past_its_shoulder_the_dem
+    reference_runways_roll_with_no_bump_beyond_a_bound
+    runways_that_meet_in_a_v_a_t_end_to_end_or_side_by_side_are_made_to_meet
+    a_runway_across_the_antimeridian_or_near_a_pole_is_its_own_line
+    a_group_its_ties_would_move_too_far_is_made_from_the_fits_instead
+    no_runway_in_the_world_is_pulled_off_its_line_beyond_a_bound
+    every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_that_can_climb_away_takes_off
     a_post_sends_its_body_and_headers_byte_for_byte_and_reads_the_answer
     a_header_holding_a_control_character_is_refused_before_anything_is_sent
     a_post_follows_no_redirect_so_its_key_goes_nowhere_else
@@ -660,6 +671,24 @@ set_tests_properties(
     the_dem_holds_summits_below_their_surveyed_heights_by_its_resolution
     an_aircraft_set_down_on_the_dem_rests_on_its_surface_at_sea_level_a_high_airfield_and_a_slope
     PROPERTIES TIMEOUT 1800)
+# The collision ground under runways: the geoid and the tiles under the
+# reference runways, fetched by the first to want them; and every landplane
+# flown down Sydney's 16R until it hands over.
+set_tests_properties(
+    the_collision_ground_is_the_same_whatever_order_the_runways_come_in
+    the_collision_ground_under_a_runway_is_its_own_line_and_past_its_shoulder_the_dem
+    reference_runways_roll_with_no_bump_beyond_a_bound
+    every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_that_can_climb_away_takes_off
+    PROPERTIES FIXTURES_REQUIRED downloads TIMEOUT 1800)
+
+# The runway strips the collision ground is made from are what
+# tools/make_runway_strips.py makes of the pinned OurAirports file.
+add_test(NAME the_committed_runway_strips_are_what_their_script_makes_of_the_pinned_runways
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DRUNWAYS=${GLIDESLOPE_DOWNLOADS_DIR}/ourairports-runways.csv
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/runway_strips.cmake)
+set_tests_properties(the_committed_runway_strips_are_what_their_script_makes_of_the_pinned_runways
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
 
 # The FlightGear files the visual models are made from, fetched once and
 # checked against their pinned SHA-256, so the check below converts exactly
@@ -1147,21 +1176,31 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
     endforeach()
     # How far each provider's drawn terrain is from the ground the aircraft
-    # meets, at the twelve surveyed runway ends. The bound each is held to is
-    # the one measured and stated in docs/PROJECT_STATUS.md.
+    # meets, at the twelve surveyed runway ends, and the open provider's from
+    # the DEM it draws, runways unflattened. The bound each is held to is the
+    # one measured and stated in docs/PROJECT_STATUS.md: since the ground under
+    # a runway is the runway's own line (2026-10-01), the open provider's DEM is
+    # up to 2.47 m from it, and ion and Google 11.8 m; from the DEM itself the
+    # open provider is 0.18 m, as it was.
     # In millimetres: CMake's arithmetic is whole numbers only.
-    foreach(_measured open:250 ion:12000 google:12000)
+    foreach(_measured open:flown:3000 open:dem:250 ion:flown:13000 google:flown:13000)
         string(REPLACE ":" ";" _pair "${_measured}")
         list(GET _pair 0 _provider)
-        list(GET _pair 1 _bound_mm)
-        add_test(NAME the_${_provider}_terrain_is_within_its_stated_distance_of_the_ground_flown_on_${_driver}
+        list(GET _pair 1 _against)
+        list(GET _pair 2 _bound_mm)
+        if(_against STREQUAL "dem")
+            set(_name the_${_provider}_terrain_is_within_its_stated_distance_of_the_dem_it_draws_on_${_driver})
+        else()
+            set(_name the_${_provider}_terrain_is_within_its_stated_distance_of_the_ground_flown_on_${_driver})
+        endif()
+        add_test(NAME ${_name}
             COMMAND ${CMAKE_COMMAND}
                 -DPROGRAM=$<TARGET_FILE:glideslope> -DPROVIDER=${_provider}
                 -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
-                -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DBOUND_MM=${_bound_mm}
+                -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DBOUND_MM=${_bound_mm} -DAGAINST=${_against}
                 -DPLACES=${CMAKE_CURRENT_SOURCE_DIR}/data/dem/surveyed.txt
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/terrain_mismatch.cmake)
-        set_tests_properties(the_${_provider}_terrain_is_within_its_stated_distance_of_the_ground_flown_on_${_driver}
+        set_tests_properties(${_name}
             PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
     endforeach()
     add_test(NAME the_clients_ai_flies_a_flight_plan_past_every_waypoint_on_${_driver}
