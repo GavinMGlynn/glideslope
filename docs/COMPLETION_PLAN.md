@@ -754,8 +754,9 @@ Found while implementing something else. Added when found, not when remembered.
       the client flew each new input over the frame before it was sent,
       which misled its clock estimate while it was learnt (25 m at a 428 ms
       frame in a unit test, under 3 m now). Still missing: the month of CI
-      runs, and a CI failure seen to be that cause - none was reproduced
-      here in the processes themselves.
+      runs; a CI failure seen to be that cause - none was reproduced here in
+      the processes themselves; and one loaded local run put right 12.8 m
+      with the fix, not yet explained.
 - [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
       (26-28 minutes a Windows configure). *Verification: a new runner image
       costs one rebuild, saved, not one per run.* Windows restores from public
