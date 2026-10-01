@@ -337,6 +337,15 @@ both tests pass, the command-line one in 11 to 14 s and the window one in
 timed out at 900 s with no output; alone it passed in 15 s. That run's build
 had also made the stall's second session wait for an applied input before
 leaving; that was taken out again, so the stall test is as it was on `main`.
+After the rebase onto `main` (4c88ba3) all four pass on Windows again, with
+both relay tests. **The client with the window can crash on Windows as it
+exits after refusing its arguments**: `the_client_refuses_to_hold_a_shot_for_going_back_with_no_server`
+failed there once with exit 0xc0000409 and no output. Run by hand, the same
+arguments refused and exited 2; but `glideslope.exe --view nonesuch` - the
+long-standing view refusal - printed its refusal and then "first-chance
+exception 0xc0000005 at ntdll.dll+0x1a12d ... in thread N, started at
+KERNEL32.DLL+0x3ee90, after the program began to exit" and exited 9, and so
+did `--shot-once-back` alone. Not this branch's; a tail.
 
 **Once failed unexplained**: in the first `-j4` run of the 137 network
 tests here, the command-line test failed after 302 s - the server's whole
