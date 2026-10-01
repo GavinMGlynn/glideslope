@@ -223,17 +223,6 @@ bool Lander::notice_the_touch(const AircraftState& s) {
         touchdown_sink_fpm_ = -s.climb_rate_fpm;
         touchdown_across_m_ = across_m_;
         touchdown_along_m_ = -along_m_;
-        // **A jet's wing is unloaded at the touch, not after it.** The
-        // flare's nose-up trim, carried into the rollout, held a B-2A's
-        // elevator nose up for 0.4 s after her wheels met the runway, and
-        // her wing - in ground effect, lifting 1.19 times her weight - had
-        // her off it again by 0.3 s: she rose 1.9 ft. The trim starts again
-        // from none, and the nose's target from two degrees below where she
-        // touched (both found by the B-2A's approach item, PR #73).
-        if (jet_) {
-            pitch_trim_ = 0.0;
-            lowering_pitch_deg_ = s.pitch_deg - 2.0;
-        }
     }
     return on_ground;
 }

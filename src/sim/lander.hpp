@@ -13,8 +13,8 @@
 //   approach   down the extended centreline and a glidepath to the threshold,
 //              the flaps and gear put where the landing needs them, the speed
 //              held at the reference speed
-//   flare      from the flare height: the power closed and the nose raised to
-//              arrest the sink, so that the wheels meet the ground gently
+//   flare      from the flare height, of the wheels: the nose raised and the power closed to
+//              arrest the sink, so that the wheels meet the ground at the sink set for her
 //   rollout    on the ground: the nose held on the centreline, the brakes on
 //   stopped    still
 //
