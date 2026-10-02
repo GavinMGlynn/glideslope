@@ -1,7 +1,7 @@
 #pragma once
 
 // **AI aircraft kept apart along the whole of their routes** (REQUIREMENTS.md
-// section 5, decided 2026-10-02): what the server enforces between every two
+// section 6.5, decided 2026-10-02): what the server enforces between every two
 // aircraft it flies, and what it measures.
 //
 // **The minimum is 500 ft vertically or 1.5 nm (2,778 m) horizontally**: two
@@ -16,7 +16,9 @@
 //     twice the minimum, so that each holding its height to within tens of
 //     feet is nowhere near it; and planned aircraft that take off one after
 //     another are stacked downwards - the first away flies highest - so that
-//     none climbs through another's height on the way to its own.
+//     none climbs through another's height on the way to its own - on
+//     their first departures, in turn; one that flies again after a wreck
+//     does, and the monitor keeps it apart.
 //   - **A monitor** (`separate`), every step: an aircraft that gives way, and
 //     is near another it must give way to - within `guard_m` horizontally now,
 //     or by the straight lines both are flying within `lookahead_s` - may not
@@ -27,7 +29,7 @@
 //     the autopilot flies to, never a control moved. Nothing turns.
 //
 // **Who gives way**: an AI aircraft whose autopilot is flying (not one taking
-// off or landing, nor a person's), to every aircraft that does not give way -
+// off, landing or gliding with its engine stopped, nor a person's), to every aircraft that does not give way -
 // a person's, one taking off, one the server holds on a course its operator
 // set - and to every AI aircraft before it in the
 // server's order, which is the order they were made or took off in. So the
@@ -94,8 +96,8 @@ struct HeightLimit {
 std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic);
 
 // Whether two aircraft are near enough for the one giving way to keep clear
-// (not `near`, which Windows' headers define as nothing)
-// of the other's height (`Separation`'s guard and lookahead).
+// of the other's height (`Separation`'s guard and lookahead). Not called
+// `near`, which Windows' headers define as nothing.
 bool within_guard(const Traffic& a, const Traffic& b);
 
 // How far apart two aircraft are over the ground, metres.

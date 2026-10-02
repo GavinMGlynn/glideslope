@@ -148,9 +148,11 @@ public:
         ceiling_ft_ = ceiling_ft;
     }
     // Whether the AI's autopilot is flying it now - not a take-off, a
-    // landing or its pilot - so that a limit on its height is flown.
+    // landing, a glide or its pilot - so that a limit on its height can be
+    // flown. A glide cannot climb to a floor: it is given way to instead.
     bool autopilot_flying() const {
-        return flying_ == Flying::ai && autopilot_ && !departure_ && !lander_ && !learnt_;
+        return flying_ == Flying::ai && autopilot_ && !departure_ && !lander_ && !learnt_ &&
+               !glide_kts_;
     }
 
     // The aircraft's controls for the next step. Call it once a step.
