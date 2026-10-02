@@ -123,12 +123,23 @@ public:
     std::optional<Joined> join(double give_up_after_s, Clock local_s);
 
     // **One frame, before its ticks are flown.** Sends the stick if an input
-    // is due. Returns the controls to fly this frame: the stick as it was
-    // last sent.
+    // is due, and returns the controls to fly the ticks on: the input sent
+    // before, which the server flew over the same time - the ticks are the
+    // frame gone by, before the stick was read. The first input, with none
+    // before it, is flown at once.
     sim::Controls fly(double local_s, const sim::Controls& stick, Flight& flight);
+    // **The same frame, once its ticks are flown**: the input sent this
+    // frame is flown from the next tick - here, as on the server, from where
+    // it was sent. Flown on the ticks before it was sent, an input sent at
+    // the end of a long frame was flown here from that frame's beginning and
+    // on the server a frame later: it said the clocks differ by the frame
+    // more than they do, and while the difference was being learnt that put
+    // the aircraft right by the way flown in the frame - 22.6 to 31.0 m on
+    // CI (PROJECT_STATUS.md, 2026-10-02).
+    void flown(Flight& flight);
 
-    // **The same frame, after its ticks are flown.** Reads what has arrived,
-    // and puts `flight` right once, from the newest word on it; the older
+    // **The same frame, after its ticks are flown.** Hears what `listen`
+    // read, and puts `flight` right once, from the newest word on it; the older
     // ones give the clocks' difference alone. After the ticks and not
     // before: a word heard at the end of a long frame is about a moment its
     // ticks have not yet reached, and heard before them it put the
@@ -136,8 +147,19 @@ public:
     // to fly it on past. And once: put right from every word in turn, each
     // replaying the inputs since, a long frame made the next one longer.
     // Together, 26.8 m on CI at a frame of 1.7 s, and 33 m here at frames
-    // held 0.7 s (PROJECT_STATUS.md, 2026-09-30).
-    void hear(double local_s, Flight& flight);
+    // held 0.7 s (PROJECT_STATUS.md, 2026-09-30). Heard as of the time
+    // `listen` read it; and if the session was joined again since, by the
+    // keeper while the ticks were flown, not heard at all - it is the old
+    // session's.
+    void hear(Flight& flight);
+    // **What has arrived by the time the frame's clock was read**, kept for
+    // `hear`: read before the ticks, as they fly to that time, and heard
+    // after them. Read after them, a word that came while they were flown
+    // was about a moment past the last of them - in a sanitized build,
+    // tens of milliseconds - and the prediction was put forward to it with
+    // nothing to replay, and back again by the next (PROJECT_STATUS.md,
+    // 2026-10-02).
+    void listen(double local_s);
 
     // **Kept in the session and nothing more**, for a client the server gave
     // no aircraft: its knocking answered, what arrives read and let go.
@@ -247,6 +269,11 @@ public:
     std::size_t frames_that_heard_own() const { return frames_heard_own_; }
     std::size_t snapped() const { return snapped_; }
     double worst_correction_m() const { return worst_correction_m_; }
+    // The same, split by whether the clocks' difference was known yet
+    // (sim::Prediction::settled): a correction while it is learnt is the
+    // estimate coming down, and one after is the prediction.
+    double worst_learning_m() const { return worst_learning_m_; }
+    double worst_known_m() const { return worst_known_m_; }
 
 private:
     // **The session is behind this lock**, which the frame loop holds while
@@ -280,6 +307,8 @@ private:
     std::uint32_t sequence_ = 0;
     double sent_at_s_ = -1.0;
     sim::Controls flying_;
+    // The input sent last, flown from the end of the frame it was sent in.
+    sim::Controls sent_;
     std::uint8_t mine_ = net::no_aircraft;
     std::optional<Joined> taken_;
     // The input sent last when the take-over was heard, and the last the
@@ -312,6 +341,11 @@ private:
         bool adopt = false;
     };
     std::optional<OwnWord> own_word_;
+    // What `listen` read, for `hear`: when, and in which session - the
+    // count of joinings again it was read under.
+    std::vector<net::StatePacket> arrived_;
+    double arrived_s_ = 0.0;
+    int arrived_in_ = 0;
     net::SessionClock clock_;
     // A local frame to interpolate in: north-east-down about where this
     // client joined.
@@ -330,6 +364,8 @@ private:
     bool corrected_ = false;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;
+    double worst_learning_m_ = 0.0;
+    double worst_known_m_ = 0.0;
     std::optional<std::pair<double, net::AircraftState>> own_heard_;
 };
 
