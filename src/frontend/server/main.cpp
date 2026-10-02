@@ -11,6 +11,7 @@
 
 #include "copilot/copilot.hpp"
 #include "frontend/players_copilot.hpp"
+#include "frontend/same_air.hpp"
 #include "frontend/server/dashboard.hpp"
 #include "frontend/server/window.hpp"
 #include "net/budget.hpp"
@@ -50,6 +51,9 @@
 #include "world/download.hpp"
 #include "world/runway_ground.hpp"
 #include "world/runways.hpp"
+#include "world/metar.hpp"
+#include "world/weather.hpp"
+#include "world/winds_aloft.hpp"
 
 #include <algorithm>
 #include <array>
@@ -67,6 +71,7 @@
 #include <memory>
 #include <map>
 #include <optional>
+#include <random>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -85,6 +90,12 @@ constexpr std::uint16_t default_port = 47801;
 constexpr int default_players = 4;
 // How long a client may be silent before it is let go, seconds.
 constexpr double default_timeout_s = 10.0;
+// **How often a station's weather is fetched again, and how long a new one
+// blends in over**: the client's own, when it flies alone
+// (client/flight.hpp) - fifteen minutes, as METARs come at most twice an
+// hour, and five, so that no change in the wind is a step.
+constexpr double default_weather_refresh_s = 15 * 60.0;
+constexpr double default_weather_blend_s = 5 * 60.0;
 // A server secret is 32 bytes, written as hexadecimal.
 constexpr std::size_t key_hex_length = 64;
 
@@ -190,6 +201,18 @@ struct Options {
     double test_step_ms = 0.0;
     // Whether a player may take over an aircraft the AI is flying.
     bool take_over = true;
+    // **The weather the server flies, and sends every client** (REQUIREMENTS
+    // 6.3): a station's, fetched and fetched again (`--weather`), or a METAR
+    // given whole, observed at `--station` (`--metar`), or none - still air.
+    std::string weather_station;
+    std::string metar;
+    std::optional<std::array<double, 3>> station; // latitude, longitude, metres
+    // For a test: at `metar_then_s` on the session's clock, this METAR
+    // instead, as a fetch again would bring (`--metar-then S REPORT`).
+    double metar_then_s = -1.0;
+    std::string metar_then;
+    double weather_blend_s = default_weather_blend_s;
+    double weather_refresh_s = default_weather_refresh_s;
 };
 
 void print_usage(std::FILE* out) {
@@ -239,6 +262,17 @@ void print_usage(std::FILE* out) {
         "                     flying loses its first engine (for tests)\n"
         "  --ai-spacing S     simulated seconds between one planned AI aircraft's\n"
         "                     take-off and the next's (default 90)\n"
+        "  --weather STATION  fly the weather now at STATION, an airfield's four\n"
+        "                     letters: its METAR and the forecast above it, fetched\n"
+        "                     again every --weather-refresh seconds (default 900)\n"
+        "                     and blended in over --weather-blend (default 300).\n"
+        "                     Every client is sent it, and flies it\n"
+        "  --metar REPORT     fly the weather this METAR reports, observed on the\n"
+        "                     ground at --station LAT,LON[,METRES] (by default where\n"
+        "                     the AI's plan starts, at sea level)\n"
+        "  --metar-then S REPORT  with --metar: at S seconds on the session's clock,\n"
+        "                     this METAR instead, as a fetch again would bring\n"
+        "                     (for tests). Without --weather or --metar, still air\n"
         "  --seconds N        stop after N seconds instead of running until killed\n"
         "  --until-empty      stop once every client that joined has gone and been\n"
         "                     let go - for a test, which then waits on its clients\n"
@@ -326,6 +360,20 @@ std::string wrong_with(const Options& o) {
     if (!std::isfinite(o.ai_spacing_s) || o.ai_spacing_s < 0.0) {
         return "--ai-spacing is " + std::to_string(o.ai_spacing_s) +
                ", and a length of time is a number, not negative";
+    }
+    if (!o.weather_station.empty() && !o.metar.empty()) {
+        return "--weather fetches a station's METAR and --metar gives one; the server "
+               "flies one weather";
+    }
+    if (o.station && o.metar.empty()) {
+        return "--station says where a --metar is observed";
+    }
+    if (!o.metar_then.empty() && o.metar.empty()) {
+        return "--metar-then changes a --metar, and there is none";
+    }
+    if (o.weather_refresh_s <= 0.0 && !o.weather_station.empty()) {
+        return "--weather-refresh is how often the weather is fetched again, and it is "
+               "more than nought seconds";
     }
     if (o.steps < 0) {
         return "--steps is " + std::to_string(o.steps) + ", and a number of steps is not negative";
@@ -543,6 +591,62 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         } else if (a == "--ai-task") {
             if (!next(value)) return std::nullopt;
             o.task = std::filesystem::path(std::string(value));
+        } else if (a == "--weather") {
+            if (!next(value)) return std::nullopt;
+            o.weather_station = std::string(value);
+            if (o.weather_station.size() != 4 ||
+                !std::all_of(o.weather_station.begin(), o.weather_station.end(), [](char c) {
+                    return std::isalnum(static_cast<unsigned char>(c)) != 0;
+                })) {
+                why = "--weather wants a station's four letters, not '" + std::string(value) + "'";
+                return std::nullopt;
+            }
+        } else if (a == "--metar" || a == "--metar-then") {
+            if (a == "--metar-then") {
+                if (!next(value)) return std::nullopt;
+                const auto n = number(value);
+                if (!n || !(*n >= 0.0)) {
+                    why = "--metar-then wants a number of seconds, not '" + std::string(value) + "'";
+                    return std::nullopt;
+                }
+                o.metar_then_s = *n;
+            }
+            if (!next(value)) return std::nullopt;
+            try {
+                (void)glideslope::world::parse_metar(value);
+            } catch (const glideslope::world::MetarError& e) {
+                why = std::string(a) + " is not a METAR: " + e.what();
+                return std::nullopt;
+            }
+            (a == "--metar" ? o.metar : o.metar_then) = std::string(value);
+        } else if (a == "--station") {
+            if (!next(value)) return std::nullopt;
+            std::array<double, 3> at{0.0, 0.0, 0.0};
+            std::string rest(value);
+            std::size_t got = 0;
+            for (; got < 3 && !rest.empty(); ++got) {
+                const std::size_t comma = rest.find(',');
+                const auto n = number(rest.substr(0, comma));
+                if (!n) {
+                    got = 0;
+                    break;
+                }
+                at[got] = *n;
+                rest = comma == std::string::npos ? "" : rest.substr(comma + 1);
+            }
+            if (got < 2 || !rest.empty() || std::abs(at[0]) > 90.0 || std::abs(at[1]) > 180.0) {
+                why = "--station wants LAT,LON or LAT,LON,METRES, not '" + std::string(value) + "'";
+                return std::nullopt;
+            }
+            o.station = at;
+        } else if (a == "--weather-blend" || a == "--weather-refresh") {
+            if (!next(value)) return std::nullopt;
+            const auto n = number(value);
+            if (!n || !(*n >= 0.0) || !std::isfinite(*n)) {
+                why = std::string(a) + " wants a number of seconds, not '" + std::string(value) + "'";
+                return std::nullopt;
+            }
+            (a == "--weather-blend" ? o.weather_blend_s : o.weather_refresh_s) = *n;
         } else if (a == "--fail-engine-at") {
             if (!next(value)) return std::nullopt;
             const auto n = number(value);
@@ -776,6 +880,13 @@ struct Connection {
     // messages - and nothing but a sealed datagram that opens counts as
     // hearing from it, so it is let go `--timeout` after it was admitted.
     bool proven = false;
+    // **What this client has been told of the session** (REQUIREMENTS.md
+    // 6.3): the terrain dataset and the session, once; the lobby as last
+    // sent, sent again whenever it changes; and the newest weather it has
+    // been sent, by the fleet's count of them: -1 before any.
+    bool told_session = false;
+    std::vector<std::uint8_t> lobby_told;
+    int weathers_told = -1;
 };
 
 // **Every initiation that has made a session, remembered after the session
@@ -1049,6 +1160,9 @@ public:
             auto aircraft = std::make_unique<glideslope::sim::Aircraft>(
                 data / "jsbsim", entry.model);
             aircraft->set_terrain(ground);
+            if (session_air_) {
+                aircraft->set_weather(session_air_);
+            }
             glideslope::sim::InitialConditions ic;
             ic.latitude_deg = f.latitude_deg;
             ic.longitude_deg = f.longitude_deg;
@@ -1197,6 +1311,9 @@ public:
                 auto aircraft = std::make_unique<glideslope::sim::Aircraft>(
                     data / "jsbsim", entry.model);
                 aircraft->set_terrain(ground);
+                if (session_air_) {
+                    aircraft->set_weather(session_air_);
+                }
                 glideslope::sim::InitialConditions ic;
                 ic.latitude_deg = from.latitude_deg;
                 ic.longitude_deg = from.longitude_deg;
@@ -1258,6 +1375,9 @@ public:
         auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data_ / "jsbsim",
                                                                     player_model_);
         aircraft->set_terrain(ground_);
+        if (session_air_) {
+            aircraft->set_weather(session_air_);
+        }
         glideslope::sim::InitialConditions ic;
         ic.latitude_deg = start_.latitude_deg;
         ic.longitude_deg = start_.longitude_deg;
@@ -1503,6 +1623,54 @@ public:
     // The simulation's clock.
     double now_s() const {
         return static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
+    }
+
+    // **The weather every aircraft flies** (REQUIREMENTS.md 6.3), and every
+    // client is sent: a report, its air rising and sinking over the collision
+    // ground, on the session's clock (frontend::SessionClocked) - so that two
+    // aircraft side by side meet the same gust whenever each was made. Every
+    // aircraft flying now and every one made later flies it.
+    void fly_in(glideslope::world::WeatherReport report, double blend_s) {
+        const std::shared_ptr<glideslope::world::CollisionGround> collision = collision_;
+        air_ = std::make_shared<glideslope::world::ReportedWeather>(
+            std::move(report), &geoid_, blend_s, [collision](double lat, double lon) {
+                return collision->height_above_geoid(lat, lon);
+            });
+        session_air_ = std::make_shared<glideslope::frontend::SessionClocked>(
+            air_, [this] { return now_s(); });
+        for (std::vector<Aircraft>* each : {&flown_, &waiting_}) {
+            for (Aircraft& a : *each) {
+                a.aircraft->set_weather(session_air_);
+            }
+        }
+        weather_changed_at_s_ = now_s();
+        weather_blend_s_ = blend_s;
+        ++weathers_;
+    }
+    // **A new report, blended in from now** over the blend `fly_in` was given.
+    void weather_changes(glideslope::world::WeatherReport report) {
+        air_->update(std::move(report), now_s());
+        weather_changed_at_s_ = now_s();
+        ++weathers_;
+    }
+    // What is flown, for the clients: none is still air.
+    const glideslope::world::WeatherReport* weather() const {
+        return air_ ? &air_->report() : nullptr;
+    }
+    double weather_changed_at_s() const { return weather_changed_at_s_; }
+    double weather_blend_s() const { return weather_blend_s_; }
+    // How many weathers there have been: a client told an older count is told again.
+    int weathers() const { return weathers_; }
+    // Where the AI's plan starts, for a METAR given with no --station.
+    std::optional<std::pair<double, double>> first_place() const {
+        for (const std::vector<Aircraft>* each : {&flown_, &waiting_}) {
+            if (!each->empty()) {
+                const Aircraft& a = each->front();
+                return std::make_pair(a.aircraft->property("position/lat-geod-deg"),
+                                      a.aircraft->property("position/long-gc-deg"));
+            }
+        }
+        return std::nullopt;
     }
 
     // **An aircraft given to the AI in the air, planned by the server's
@@ -2187,6 +2355,9 @@ private:
         }
         auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data_ / "jsbsim", entry.model);
         aircraft->set_terrain(ground_);
+        if (session_air_) {
+            aircraft->set_weather(session_air_);
+        }
         glideslope::sim::InitialConditions ic;
         if (plan.takeoff) {
             glideslope::sim::Runway& runway = plan.takeoff->runway;
@@ -2660,6 +2831,12 @@ private:
     glideslope::world::DownloadedTiles tiles_;
     glideslope::world::Geoid geoid_;
     std::shared_ptr<glideslope::world::CollisionGround> collision_;
+    // The weather (`fly_in`): none until it is given, which is still air.
+    std::shared_ptr<glideslope::world::ReportedWeather> air_;
+    std::shared_ptr<glideslope::sim::Weather> session_air_;
+    double weather_changed_at_s_ = 0.0;
+    double weather_blend_s_ = 0.0;
+    int weathers_ = 0;
     std::shared_ptr<glideslope::sim::FunctionTerrain> ground_;
     std::filesystem::path data_;
     std::vector<Aircraft> flown_;
@@ -3549,6 +3726,101 @@ int run(const Options& o) {
         fleet->fail_engines_at(o.fail_engine_at_s);
     }
 
+    // **What every client is told the session is** (REQUIREMENTS.md 6.3):
+    // the ground it collides on, and the session itself - a number of its
+    // own, drawn afresh at each start, and when it began.
+    const glideslope::net::TerrainDataset dataset = glideslope::frontend::collision_dataset(
+        o.data.empty() ? glideslope::platform::data_directory() : o.data);
+    std::printf("collision ground: %s\n", glideslope::frontend::describe(dataset).c_str());
+    glideslope::net::Session session_said;
+    {
+        std::random_device random;
+        session_said.id = (static_cast<std::uint64_t>(random()) << 32) ^ random();
+        session_said.name = "glideslope_server on port " + std::to_string(socket->port());
+        session_said.began_unix_ms = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch())
+                .count());
+    }
+
+    // **The weather it flies**, and sends every client: a METAR given, or a
+    // station's fetched, or none - still air. A station that cannot be had
+    // stops the server here, saying why, rather than flying it in air its
+    // operator did not ask for.
+    const auto metar_report = [&o, &fleet](const std::string& metar) {
+        glideslope::world::WeatherReport r;
+        r.surface.metar = glideslope::world::parse_metar(metar);
+        if (o.station) {
+            r.surface.latitude_deg = (*o.station)[0];
+            r.surface.longitude_deg = (*o.station)[1];
+            r.surface.elevation_m = (*o.station)[2];
+        } else if (const auto at = fleet->first_place()) {
+            r.surface.latitude_deg = at->first;
+            r.surface.longitude_deg = at->second;
+        }
+        r.air_seed = glideslope::world::air_seed_of(r.surface.metar);
+        return glideslope::frontend::fit_to_send(std::move(r));
+    };
+    const auto say_weather = [](const glideslope::world::WeatherReport* r, double at_s) {
+        std::printf("weather at %.3f s: %s\n", at_s,
+                    r != nullptr ? r->surface.metar.raw.c_str() : "still air");
+        std::fflush(stdout);
+    };
+    std::optional<glideslope::world::WeatherFetch> weather_fetch;
+    double weather_fetched_at_s = 0.0;
+    bool metar_then_done = o.metar_then.empty();
+    if (fleet) {
+        if (!o.metar.empty()) {
+            fleet->fly_in(metar_report(o.metar), o.weather_blend_s);
+        } else if (!o.weather_station.empty()) {
+            try {
+                fleet->fly_in(glideslope::frontend::fit_to_send(glideslope::world::fetch_weather(
+                                  o.weather_station,
+                                  glideslope::world::utc_hour(std::chrono::system_clock::now()),
+                                  glideslope::world::http_fetch())),
+                              o.weather_blend_s);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "glideslope_server: the weather at %s could not be had: %s\n",
+                             o.weather_station.c_str(), e.what());
+                return 1;
+            }
+        }
+        say_weather(fleet->weather(), 0.0);
+    }
+    // **The weather changes as it is due**: the test's METAR at its time, on
+    // the session's clock, and a station's fetched again every
+    // `--weather-refresh` - off this thread, so that the steps do not wait
+    // on the network - and blended in from when it came.
+    const auto weather_due = [&]() {
+        if (!fleet) {
+            return;
+        }
+        if (!metar_then_done && fleet->now_s() >= o.metar_then_s) {
+            metar_then_done = true;
+            fleet->weather_changes(metar_report(o.metar_then));
+            say_weather(fleet->weather(), fleet->now_s());
+        }
+        if (o.weather_station.empty()) {
+            return;
+        }
+        if (weather_fetch && weather_fetch->done()) {
+            try {
+                fleet->weather_changes(glideslope::frontend::fit_to_send(weather_fetch->get()));
+                say_weather(fleet->weather(), fleet->now_s());
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "glideslope_server: the weather is not updated: %s\n",
+                             e.what());
+            }
+            weather_fetch.reset();
+            weather_fetched_at_s = fleet->now_s();
+        }
+        if (!weather_fetch && fleet->now_s() - weather_fetched_at_s >= o.weather_refresh_s) {
+            weather_fetch.emplace(o.weather_station,
+                                  glideslope::world::utc_hour(std::chrono::system_clock::now()),
+                                  glideslope::world::http_fetch());
+        }
+    };
+
     std::printf("listening on port %u\n", static_cast<unsigned>(socket->port()));
     std::fflush(stdout);
     // **Flying from here**: the terrain is built and the clock starts. A test
@@ -3664,6 +3936,7 @@ int run(const Options& o) {
                 std::chrono::duration_cast<std::chrono::nanoseconds>(now - last));
             const std::int64_t n = std::min(owed, most_steps_between_looks);
             for (std::int64_t i = 0; i < n; ++i) {
+                weather_due();
                 for (const std::string& line : fleet->step()) {
                     std::printf("%s\n", line.c_str());
                     std::fflush(stdout);
@@ -3697,10 +3970,42 @@ int run(const Options& o) {
                                      static_cast<double>(glideslope::sim::steps_per_second));
             const std::vector<glideslope::net::AircraftDefinition> who = fleet->who();
             const std::vector<glideslope::net::ControllerSwap> swaps = fleet->announced();
+            const std::vector<std::uint8_t> lobby = glideslope::net::write(slots.lobby());
             for (auto& [address, c] : connections) {
                 // Nothing to an unproven session (the pings above).
                 if (!c.proven) {
                     continue;
+                }
+                const auto send = [&c](const std::vector<std::uint8_t>& body) {
+                    (void)c.reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                };
+                // **What the session is, first** (REQUIREMENTS.md 6.3): the
+                // ground it collides on - which a client on other ground
+                // refuses, before anything is built on it - and the session.
+                if (!c.told_session) {
+                    c.told_session = true;
+                    send(glideslope::net::write(dataset));
+                    glideslope::net::Session session = session_said;
+                    session.simulation_time_s = fleet->now_s();
+                    send(glideslope::net::write(session));
+                }
+                // **The lobby**, whole, whenever it is not what was last sent.
+                if (c.lobby_told != lobby) {
+                    c.lobby_told = lobby;
+                    send(lobby);
+                }
+                // **The weather it flies**, on joining and at every change,
+                // with the forecast above it after it where there is one.
+                if (c.weathers_told != fleet->weathers()) {
+                    c.weathers_told = fleet->weathers();
+                    const glideslope::frontend::WeatherSaid said_air =
+                        glideslope::frontend::weather_said(fleet->weather(),
+                                                           fleet->weather_changed_at_s(),
+                                                           fleet->weather_blend_s());
+                    send(glideslope::net::write(said_air.weather));
+                    if (said_air.aloft) {
+                        send(glideslope::net::write(*said_air.aloft));
+                    }
                 }
                 // **Every aircraft introduced**, and again if its number has
                 // come to mean another. Numbers no longer flying are

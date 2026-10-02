@@ -34,6 +34,7 @@
 #include "net/reliable.hpp"
 #include "net/sealing.hpp"
 #include "net/state.hpp"
+#include "net/told.hpp"
 #include "platform/socket.hpp"
 
 #include <cstdint>
@@ -117,6 +118,10 @@ public:
     // messages said. An aircraft said to be somewhere before it has been
     // introduced is not in here yet.
     const std::map<std::uint8_t, AircraftDefinition>& roster() const { return roster_; }
+    // **What the server has said the session is** (net::Told): the ground
+    // it collides on, the session, the lobby and the weather it flies. A
+    // session joined again is told afresh.
+    const Told& told() const { return told_; }
     std::uint8_t your_aircraft() const { return mine_; }
     double simulation_time_s() const { return clock_s_; }
 
@@ -201,6 +206,7 @@ private:
     std::vector<StatePacket> fresh_;
     Reliable reliable_;
     std::map<std::uint8_t, AircraftDefinition> roster_;
+    Told told_;
     // **Until anything has opened under this session, it knocks**: a sealed
     // `PING` every `prove_every_s` from the first `poll()`. A server sends a
     // session nothing but its handshake answer until something sealed under

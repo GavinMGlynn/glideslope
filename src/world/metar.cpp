@@ -68,6 +68,9 @@ Metar parse_metar(std::string_view report) {
     static const std::regex obscured(R"(VV(\d{3}))");
 
     Metar m;
+    for (const std::string& w : words) {
+        m.raw += (m.raw.empty() ? "" : " ") + w;
+    }
     std::smatch match;
     if (i >= words.size() || !std::regex_match(words[i], match, station)) {
         throw MetarError("a METAR must start with its station: " + std::string(report));

@@ -262,7 +262,32 @@ void Flight::report_navigation() {
     }
 }
 
+void Flight::heard_weather(const net::Weather& weather,
+                           const std::optional<net::WeatherAloft>& aloft,
+                           std::function<double()> clock, int count) {
+    server_weathers_ = count;
+    if (!heard_air_) {
+        const std::shared_ptr<world::CollisionGround> ground = collision_;
+        heard_air_.emplace(geoid_.get(),
+                           [ground](double lat, double lon) {
+                               return ground->height_above_geoid(lat, lon);
+                           },
+                           std::move(clock));
+        // None of its own from now: what was being fetched is let go.
+        next_weather_.reset();
+    }
+    heard_air_->heard(weather, aloft);
+    weather_ = heard_air_->reported();
+    if (heard_air_->air()) {
+        aircraft_->set_weather(heard_air_->air());
+    }
+}
+
 void Flight::refresh_weather() {
+    // The server's weather is the server's to change.
+    if (heard_air_) {
+        return;
+    }
     const double now = aircraft_->state().sim_time_s;
     if (next_weather_) {
         if (!next_weather_->done()) {

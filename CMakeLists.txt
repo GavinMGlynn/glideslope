@@ -239,6 +239,7 @@ add_library(glideslope_net STATIC
     src/net/protocol.cpp
     src/net/session.cpp
     src/net/slots.cpp
+    src/net/told.cpp
     src/net/state.cpp
     src/net/reliable.cpp)
 target_include_directories(glideslope_net PUBLIC src)
@@ -404,7 +405,8 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
         src/frontend/client/scenes.cpp
         src/frontend/client/shown.cpp
         src/frontend/client/terrain.cpp
-        src/frontend/players_copilot.cpp)
+        src/frontend/players_copilot.cpp
+        src/frontend/same_air.cpp)
     target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_net glideslope_sim glideslope_world
                                              glideslope_platform glideslope_copilot)
     glideslope_configure(glideslope)
@@ -417,7 +419,8 @@ endif()
 add_executable(glideslope_cli
     src/frontend/cli/main.cpp
     src/frontend/cli/fly_copilot.cpp
-    src/frontend/players_copilot.cpp)
+    src/frontend/players_copilot.cpp
+    src/frontend/same_air.cpp)
 target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_net glideslope_world
                                              glideslope_platform glideslope_copilot)
 glideslope_configure(glideslope_cli)
@@ -431,7 +434,8 @@ glideslope_configure(glideslope_cli)
 add_executable(glideslope_server
     src/frontend/server/main.cpp
     src/frontend/server/dashboard.cpp
-    src/frontend/players_copilot.cpp)
+    src/frontend/players_copilot.cpp
+    src/frontend/same_air.cpp)
 # The copilot plans the AI aircraft a server's owner gives a model to
 # (--ai-planner): what it answers is only ever a flight plan.
 target_link_libraries(glideslope_server PRIVATE glideslope_sim glideslope_net
