@@ -139,6 +139,20 @@ public:
         return navigator_ ? &*navigator_ : nullptr;
     }
 
+    // **A floor and a ceiling on the height the AI's autopilot flies to**
+    // (sim/separation.hpp), kept until set again, through whatever plan or
+    // hold it flies; none for either is no limit. A take-off or a landing is
+    // not limited: only the autopilot is.
+    void limit_height(std::optional<double> floor_ft, std::optional<double> ceiling_ft) {
+        floor_ft_ = floor_ft;
+        ceiling_ft_ = ceiling_ft;
+    }
+    // Whether the AI's autopilot is flying it now - not a take-off, a
+    // landing or its pilot - so that a limit on its height is flown.
+    bool autopilot_flying() const {
+        return flying_ == Flying::ai && autopilot_ && !departure_ && !lander_ && !learnt_;
+    }
+
     // The aircraft's controls for the next step. Call it once a step.
     Controls fly();
 
@@ -165,6 +179,8 @@ private:
     // a take-back on the roll.
     bool easing_in_ = false;
     std::optional<double> glide_kts_;
+    std::optional<double> floor_ft_;
+    std::optional<double> ceiling_ft_;
     double glide_sink_fpm_ = 0.0;
     double glide_last_kts_ = 0.0;
     double glide_trend_kts_per_s_ = 0.0;

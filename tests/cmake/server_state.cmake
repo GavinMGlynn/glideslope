@@ -15,7 +15,7 @@
 # sign or a latitude and longitude the wrong way round all give a packet of
 # the right size full of the wrong place - so the client turns them back into
 # latitude and longitude and this holds them to the harbour the flight plan
-# starts over. The two AI aircraft are stacked 500 ft apart, and that gap is
+# starts over. The two AI aircraft are stacked 1,000 ft apart, and that gap is
 # checked too, because a height dropped on the way out would not move either
 # of them sideways.
 #
@@ -170,7 +170,7 @@ if(NOT _walked EQUAL _expected)
     message(FATAL_ERROR "only ${_walked} of ${_expected} aircraft were held to a place")
 endif()
 
-# **Stacked 500 ft apart**, which is 152 m. A height lost on the way out would
+# **Stacked 1,000 ft apart**, which is 305 m (sim/separation.hpp's layer). A height lost on the way out would
 # leave them in the same place without moving either sideways, so this is the
 # check that catches it. The first two lines are the AI aircraft - the fleet
 # is built before anybody joins, so a player's aircraft is always last.
@@ -180,9 +180,9 @@ math(EXPR _gap "${_second} - ${_first}")
 if(_gap LESS 0)
     math(EXPR _gap "0 - ${_gap}")
 endif()
-if(_gap LESS 100 OR _gap GREATER 250)
+if(_gap LESS 250 OR _gap GREATER 360)
     message(FATAL_ERROR "the two aircraft are ${_gap} m apart in height, and "
-                        "the server stacks them 500 ft - about 152 m - apart")
+                        "the server stacks them 1,000 ft - about 305 m - apart")
 endif()
 
 message(STATUS "the client heard ${_heard} state updates in three seconds - one "
