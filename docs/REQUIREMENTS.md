@@ -391,7 +391,8 @@ not the session.
   server, through their autopilots: no two closer than **500 ft vertically
   and 1.5 nm horizontally at once**. AI aircraft flying one route are
   stacked 1,000 ft apart, planned aircraft taking off one after another are
-  stacked downwards so that none climbs through another's height, and a
+  stacked downwards so that on their first departures none climbs through
+  another's height, and a
   monitor holds an AI aircraft above or below any aircraft it gives way to
   while they are near - a height limit the autopilot flies, never a control
   moved, and never a turn. An AI aircraft gives way to a person's, to one
@@ -770,7 +771,9 @@ The replacement:
   larger than the orbits two models plan round one place; the vertical one
   lets them be flown one above the other, 1,000 ft apart, twice the
   minimum, so that heights held to within tens of feet are nowhere near
-  it. Like a resolution advisory it acts on heights only.
+  it. Like a resolution advisory it acts on heights only. Taken while
+  working the tail that asked for it, as that tail's brief said to; **for
+  the project owner to confirm**.
 - **An operator's drop lasts for the server's run, as designed.** A dropped
   player's key is refused until the server stops; a server started again
   has forgotten it. A ban list that outlasts a run could be a later feature.

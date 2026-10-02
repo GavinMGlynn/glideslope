@@ -1165,8 +1165,11 @@ public:
             // **Stacked downwards in the order they take off**: the first
             // away flies its plan highest, `ai_stack_ft` above the next, so
             // that each climbs to its own height below every one already
-            // gone and none climbs through another's on the way. Stacked
-            // upwards, the second climbed through the first's orbit.
+            // gone and, on their first departures in turn, none climbs
+            // through another's on the way. Stacked upwards, the second
+            // climbed through the first's orbit. One that flies again after
+            // a wreck, or is held on the ground past the next one's turn,
+            // does climb through: then the monitor holds the others clear.
             for (std::size_t n = 0; n < waiting_.size(); ++n) {
                 Aircraft& a = waiting_[n];
                 const double stack_ft =
@@ -1309,7 +1312,9 @@ public:
             it->id = plan_.aircraft + " (AI, was slot " + std::to_string(index) + ")";
             it->controller = std::make_unique<glideslope::sim::Controller>(
                 *it->aircraft, glideslope::sim::Controls{});
-            it->controller->to_ai(plan_);
+            // On a layer of its own, above every plan-file AI aircraft's.
+            it->stack_ft = static_cast<double>(ai_) * ai_stack_ft;
+            it->controller->to_ai(stacked(plan_, it->stack_ft));
             ++ai_;
             plan_hand_over(*it, "left by its player", "flies the plan file");
             return true;
@@ -1932,8 +1937,9 @@ public:
         // **Kept apart** (sim/separation.hpp): which aircraft it is held
         // clear of, by number, while a limit on its height binds - said when
         // it begins and ends; a departure held until the sky over its runway
-        // is clear, said once; and the order it was made in, which is who
-        // gives way to whom and what its closest approaches are kept by.
+        // is clear, said once; and a serial, the order it was made in, which
+        // its closest approaches are kept by. Who gives way to whom is not
+        // this but the order in the sky, `flown_`'s.
         int held_clear_of = -1;
         // How far above the plan file's heights it flies that plan.
         double stack_ft = 0.0;
@@ -2158,7 +2164,8 @@ private:
     // aircraft's are above the ellipsoid, so the geoid is added. **Stacked**
     // once every one is planned, and given its plan then (the constructor):
     // the first away highest, so that two models' orbits of one place are
-    // not flown in one piece of sky and none climbs through another's.
+    // not flown in one piece of sky and, departing in turn, none climbs
+    // through another's.
     void add_planned(int i, glideslope::sim::FlightPlan plan, const std::string& provider,
                      int& departures) {
         const glideslope::sim::CatalogueEntry entry =
@@ -2571,6 +2578,7 @@ private:
         a.copilot_route.clear();
         a.judge.reset();
         a.wrecked_at_s = -1.0;
+        a.held_clear_of = -1;
         if (a.on_plan) {
             a.controller = std::make_unique<glideslope::sim::Controller>(
                 *a.aircraft, glideslope::sim::Controls{});
