@@ -65,6 +65,9 @@ Weather a_weather() {
     m.turbulence_severity = 3;
     m.air_seed = 0xFEEDFACECAFEBEEFull;
     m.microbursts = {{-33.9, 151.2, 1500.0, 12.0, 60.0, 900.0}};
+    m.changed_at_s = 600.0;
+    m.blend_s = 300.0;
+    m.aloft_follows = true;
     return m;
 }
 
@@ -206,6 +209,9 @@ std::vector<Kind> every_kind() {
                        if (got.elevation_m != weather.elevation_m) return false;
                        if (got.turbulence_severity != weather.turbulence_severity) return false;
                        if (got.air_seed != weather.air_seed) return false;
+                       if (got.changed_at_s != weather.changed_at_s) return false;
+                       if (got.blend_s != weather.blend_s) return false;
+                       if (got.aloft_follows != weather.aloft_follows) return false;
                        if (got.microbursts.size() != weather.microbursts.size()) return false;
                        for (std::size_t i = 0; i < got.microbursts.size(); ++i) {
                            if (got.microbursts[i].latitude_deg != weather.microbursts[i].latitude_deg) return false;
@@ -709,6 +715,7 @@ GLIDESLOPE_TEST(every_message_filled_to_its_limits_fits_in_one_datagram) {
     weather.metar = std::string(glideslope::net::most_metar_bytes, 'M');
     weather.turbulence_severity = 7;
     weather.microbursts.assign(glideslope::net::most_microbursts, Microburst{});
+    weather.aloft_follows = true;
     hold("weather", glideslope::net::write(weather));
 
     WeatherAloft aloft;
@@ -902,6 +909,8 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
     burst.start_s = next();
     burst.duration_s = next();
     weather.microbursts = {burst};
+    weather.changed_at_s = next();
+    weather.blend_s = next();
     out.push_back({"weather", glideslope::net::write(weather), fields,
                    [](std::span<const std::uint8_t> b) {
                        Weather got;
@@ -966,11 +975,11 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
 // infinite duration never ends. A number that is not one is refused exactly
 // as a bad count or a trailing byte is.
 //
-// **The space, stated.** Five kinds of message carry twenty-five
+// **The space, stated.** Five kinds of message carry twenty-seven
 // floating-point fields between them:
 //
 //   - `SESSION`, one - the simulation's clock;
-//   - `WEATHER`, three of its own and six per microburst;
+//   - `WEATHER`, five of its own and six per microburst;
 //   - `WEATHER_ALOFT`, five per pressure level and three per near-ground
 //     wind;
 //   - `CONTROLLER_SWAP`, one;
@@ -982,9 +991,9 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
 // indices, names, a hash and a number - so there is nothing in them for this
 // to walk.
 //
-// Each of the twenty-five is overwritten with six bit patterns that are not a
-// number and must be refused, and five that are numbers however extreme and
-// must still read: 150 refusals and 125 readings, each counted.
+// Each of the twenty-seven is overwritten with six bit patterns that are not
+// a number and must be refused, and five that are numbers however extreme and
+// must still read: 162 refusals and 135 readings, each counted.
 GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an_infinity) {
     // The bit patterns that are not a number. Both infinities, and NaNs
     // quiet and signalling, signed and with a payload, because a reader that
@@ -1041,14 +1050,53 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
             ++walked;
         }
     }
-    check(walked == 25, "twenty-five floating-point fields were walked, not " +
+    check(walked == 27, "twenty-seven floating-point fields were walked, not " +
                             std::to_string(walked));
-    check(refused == 25 * 6, "150 numbers that are not numbers were refused, not " +
+    check(refused == 27 * 6, "162 numbers that are not numbers were refused, not " +
                                  std::to_string(refused));
-    check(accepted == 25 * 5, "125 extreme numbers still read, not " +
+    check(accepted == 27 * 5, "135 extreme numbers still read, not " +
                                   std::to_string(accepted));
-    std::printf("  25 floating-point fields: %zu refused, %zu still read\n", refused,
+    std::printf("  27 floating-point fields: %zu refused, %zu still read\n", refused,
                 accepted);
+}
+
+// **Every refusal `docs/TRANSPORT.md` names for a `WEATHER`**, each built
+// on purpose: still air - an empty METAR - carrying a place (each of its
+// three numbers), a turbulence severity, an air seed, a microburst or a
+// forecast to follow; and a forecast flag that is neither `00` nor `01`.
+// Eight cases, each refused, and still air bare, and a full weather, read.
+GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_weather_is_refused) {
+    const auto reads = [](const std::vector<std::uint8_t>& body) {
+        Weather got;
+        return glideslope::net::read(std::span<const std::uint8_t>(body.data(), body.size()), got);
+    };
+    Weather still;
+    still.changed_at_s = 12.0;
+    still.blend_s = 300.0;
+    check(reads(glideslope::net::write(still)), "still air bare reads");
+    check(reads(glideslope::net::write(a_weather())), "a full weather reads");
+    std::vector<std::pair<std::string, std::vector<std::uint8_t>>> refused;
+    const auto with = [&](const std::string& what, const auto& change) {
+        Weather w = still;
+        change(w);
+        refused.emplace_back(what, glideslope::net::write(w));
+    };
+    with("still air with a latitude", [](Weather& w) { w.latitude_deg = 1.0; });
+    with("still air with a longitude", [](Weather& w) { w.longitude_deg = 1.0; });
+    with("still air with an elevation", [](Weather& w) { w.elevation_m = 1.0; });
+    with("still air with turbulence", [](Weather& w) { w.turbulence_severity = 0; });
+    with("still air with a seed", [](Weather& w) { w.air_seed = 1; });
+    with("still air with a microburst", [](Weather& w) { w.microbursts = {Microburst{}}; });
+    with("still air with a forecast to follow", [](Weather& w) { w.aloft_follows = true; });
+    std::vector<std::uint8_t> flag = glideslope::net::write(a_weather());
+    flag.back() = 2;
+    refused.emplace_back("a forecast flag of 02", flag);
+    std::size_t walked = 0;
+    for (const auto& [what, body] : refused) {
+        check(!reads(body), what + " must be refused");
+        ++walked;
+    }
+    check(walked == 8, "every refusal named was built: " + std::to_string(walked));
 }
 
 // **Every refusal `docs/TRANSPORT.md` names for a `COPILOT_ROUTE`**, each

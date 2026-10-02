@@ -286,10 +286,11 @@ GLIDESLOPE_TEST(the_protocol_version_moves_with_the_collision_ground) {
     std::printf("protocol version %d, ground rules %d, strips SHA-256 %s\n",
                 glideslope::net::protocol_version, glideslope::world::collision_ground_rules,
                 sha.c_str());
-    check(glideslope::net::protocol_version == 2 &&
+    check(glideslope::net::protocol_version == 3 &&
               glideslope::world::collision_ground_rules == 1 &&
               sha == "6c1ba3c3e6dc3bf19a6b0a402a00734b4d886b95e40c1097f1c69a301576898f",
-          "the collision ground is the one protocol version 2 was moved for");
+          "the collision ground is the one protocol version 2 was moved for, "
+          "and version 3 kept");
     // **And the client written from the document speaks it**: its own
     // version constant, which a move of the version must move too.
     std::ifstream doc_client(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) / "doc_client" /

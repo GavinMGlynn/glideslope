@@ -7,6 +7,8 @@
 #include "copilot/planner.hpp"
 #include "frontend/cli/fly_copilot.hpp"
 #include "frontend/players_copilot.hpp"
+#include "frontend/same_air.hpp"
+#include "net/told.hpp"
 #include "copilot/provider.hpp"
 #include "net/handshake.hpp"
 #include "platform/end_process.hpp"
@@ -114,6 +116,18 @@ struct ConnectCopilot {
     bool done = false;
 };
 ConnectCopilot connect_copilot;
+
+// **What the server says the session is** (REQUIREMENTS.md 6.3), as a
+// connecting client takes it: its own collision ground, from the data it
+// reads, to hold the server's against, and, for a test, whether its
+// prediction ignores the server's weather (`--own-air`) - flying still air
+// whatever the server flies, as a client that fetched its own would fly the
+// wrong air - to show what the server's weather is worth.
+struct ConnectAir {
+    std::filesystem::path data;
+    bool own_air = false;
+};
+ConnectAir connect_air;
 
 // A route written as a plan's `waypoint` and `orbit` lines, with `glide KT`
 // first if it glides, read as it is - checked by nothing on this side.
@@ -294,6 +308,9 @@ void print_usage(std::FILE* out) {
         "                            its controls, and with --track, writes them\n"
         "                            --dive-after S flies its own into the ground, S\n"
         "                            seconds in: full forward stick and full power\n"
+        "                            --own-air (with --predict) flies its own in\n"
+        "                            still air, whatever weather the server says it\n"
+        "                            flies, to show what the server's is worth\n"
         "                            --track FILE writes where every aircraft was\n"
         "                            heard to be, and, predicting, where each other\n"
         "                            one was drawn, to FILE\n"
@@ -1318,9 +1335,41 @@ public:
         return c;
     }
 
+    // **The server's weather** (REQUIREMENTS.md 6.3), each whole one as it is
+    // heard: its own aircraft flies it, over the collision ground, on the
+    // session's clock - the server's air, not a fetch of this client's own.
+    // The ground is built the first time a weather that is not still air is
+    // heard, `data` and the cache directory its making.
+    void weather(const glideslope::net::Weather& w,
+                 const std::optional<glideslope::net::WeatherAloft>& aloft,
+                 const std::filesystem::path& data) {
+        if (!ground_for_air_ && !w.metar.empty()) {
+            // Built for the first weather that is not still air; still air
+            // before it was no weather at all, and nothing is lost.
+            ground_for_air_ = std::make_unique<glideslope::frontend::GroundForAir>(
+                data, glideslope::platform::cache_directory());
+            air_.reset();
+        }
+        if (!air_) {
+            air_.emplace(ground_for_air_ ? ground_for_air_->geoid() : nullptr,
+                         ground_for_air_ ? ground_for_air_->ground()
+                                         : glideslope::world::GroundAt{},
+                         [this] { return session_now_s_; });
+        }
+        air_->heard(w, aloft);
+        if (aircraft_ && air_->air()) {
+            aircraft_->set_weather(air_->air());
+        }
+    }
+
     // Flies its own aircraft forward to `local_s`, on the input most recently
     // sent, which is what the server will fly too.
     void advance(double local_s, std::uint32_t sequence, const glideslope::sim::Controls& c) {
+        // The session's clock, which the air is on: as this machine's clock
+        // makes it now.
+        if (clock_.known()) {
+            session_now_s_ = clock_.now(local_s);
+        }
         const auto due = static_cast<long long>(local_s *
                                                 static_cast<double>(glideslope::sim::steps_per_second));
         if (ai_flying_) {
@@ -1872,6 +1921,10 @@ private:
         ic.engine_running = true;
         ic.gear = 0.0;
         aircraft_->initialize(ic);
+        // In the server's air, if it has said any.
+        if (air_ && air_->air()) {
+            aircraft_->set_weather(air_->air());
+        }
         aircraft_->set_motion(m);
         prediction_ = std::make_unique<glideslope::sim::Prediction>(*aircraft_);
         // From where the server said it was to where it is now: every step
@@ -1938,6 +1991,10 @@ private:
     }
 
     std::map<std::uint8_t, std::string> models_;
+    // The server's air (`weather`), and the ground it rises over.
+    std::unique_ptr<glideslope::frontend::GroundForAir> ground_for_air_;
+    std::optional<glideslope::frontend::HeardAir> air_;
+    double session_now_s_ = 0.0;
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
@@ -2226,6 +2283,11 @@ int stay(glideslope::platform::UdpSocket& socket,
     // **What each aircraft is**, by its number, as the server's `AIRCRAFT`
     // messages said: the catalogue's id, for a hand-over's copilot.
     std::map<std::uint8_t, std::string> ids_heard;
+    // **What the server says the session is** (REQUIREMENTS.md 6.3): the
+    // ground it collides on - another than this client's is refused, and it
+    // leaves - the session, the lobby and the weather it flies.
+    glideslope::net::Told told;
+    bool refused_ground = false;
     // **A test flag's work**: send the initiation once more, now that the
     // session is up. A network that duplicates a datagram does this by
     // itself, and a server that answered it with a fresh session would leave
@@ -2274,6 +2336,10 @@ int stay(glideslope::platform::UdpSocket& socket,
             std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
                 .count();
         if (until_flying_again > 0 && flown_again >= until_flying_again) {
+            break;
+        }
+        // **On other ground, it leaves**, saying goodbye below.
+        if (refused_ground) {
             break;
         }
         // **Stay until the copilot's route has been flown a while**
@@ -2808,6 +2874,61 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (!inside.empty() &&
             inside[0] == static_cast<std::uint8_t>(glideslope::net::Inside::reliable)) {
             for (const std::vector<std::uint8_t>& message : reliable.received(inside.subspan(1))) {
+                switch (told.hear(std::span<const std::uint8_t>(message.data(), message.size()))) {
+                case glideslope::net::Told::Heard::dataset: {
+                    const glideslope::net::TerrainDataset ours =
+                        glideslope::frontend::collision_dataset(connect_air.data);
+                    const std::string theirs = glideslope::frontend::describe(*told.dataset());
+                    if (glideslope::frontend::same_ground(*told.dataset(), ours)) {
+                        say_heard("told the collision ground: " + theirs + ", this client's too");
+                    } else {
+                        // **Refused, not fetched**: the ground is the data
+                        // this build carries and the tiles it names, and a
+                        // client on other ground is another build or other
+                        // data (REQUIREMENTS.md 6.3).
+                        say_heard("refused the server's collision ground: it collides on " +
+                                  theirs + ", and this client's is " +
+                                  glideslope::frontend::describe(ours));
+                        refused_ground = true;
+                    }
+                    break;
+                }
+                case glideslope::net::Told::Heard::session:
+                    say_heard("told the session: " + told.session()->name + ", " +
+                              std::to_string(told.session()->id) + ", begun at " +
+                              std::to_string(told.session()->began_unix_ms) + " ms");
+                    break;
+                case glideslope::net::Told::Heard::lobby: {
+                    std::string line = "told the lobby: " +
+                                       std::to_string(told.lobby()->players_allowed) +
+                                       " players allowed";
+                    for (const glideslope::net::Lobby::Slot& sl : told.lobby()->slots) {
+                        line += ", slot " + std::to_string(sl.index) +
+                                (sl.controller == glideslope::net::Controller::nobody
+                                     ? " open"
+                                     : sl.controller == glideslope::net::Controller::person
+                                           ? " a person's"
+                                           : " the AI's");
+                    }
+                    say_heard(line);
+                    break;
+                }
+                case glideslope::net::Told::Heard::weather: {
+                    const glideslope::net::Weather& w = *told.weather();
+                    char when[96];
+                    std::snprintf(when, sizeof(when), " (weather %d, from %.3f s over %.0f s%s)",
+                                  told.weathers(), w.changed_at_s, w.blend_s,
+                                  told.aloft() ? ", with the forecast above it" : "");
+                    say_heard("told the weather: " + (w.metar.empty() ? "still air" : w.metar) +
+                              when);
+                    if (predicting && !connect_air.own_air) {
+                        predicting->weather(w, told.aloft(), connect_air.data);
+                    }
+                    break;
+                }
+                case glideslope::net::Told::Heard::nothing:
+                    break;
+                }
                 glideslope::net::AircraftDefinition d;
                 if (glideslope::net::read(
                         std::span<const std::uint8_t>(message.data(), message.size()), d)) {
@@ -2901,6 +3022,10 @@ int stay(glideslope::platform::UdpSocket& socket,
         for (const std::string& line : predicting->report()) {
             say_heard(line);
         }
+    }
+    if (refused_ground) {
+        std::printf("left: the server collides on other ground than this client\n");
+        return 1;
     }
     return answered > 0 ? 0 : 1;
 }
@@ -3581,6 +3706,7 @@ static int run_program(int argc, char** argv) {
         } else {
             data = glideslope::platform::data_directory();
         }
+        connect_air.data = data;
 
         if (args.size() == 1 && args[0] == "--version") {
             const std::string_view v = glideslope::sim::version();
@@ -3717,6 +3843,10 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--long-frame-after-switch") {
                     long_frame_after_switch = true;
+                    continue;
+                }
+                if (args[i] == "--own-air") {
+                    connect_air.own_air = true;
                     continue;
                 }
                 if (args[i] == "--track" && i + 1 < args.size()) {

@@ -248,6 +248,14 @@ public:
     std::size_t snapped() const { return snapped_; }
     double worst_correction_m() const { return worst_correction_m_; }
 
+    // **The server's ground, if it is not this client's**: what it collides
+    // on and what this client has, as a line to say, once the server has
+    // said and they differ; empty until then, and while they agree. A client
+    // on other ground leaves (REQUIREMENTS.md 6.3).
+    std::string other_ground() const { return other_ground_; }
+    // How many of the server's weathers its flight has flown.
+    int weathers_flown() const { return weathers_flown_; }
+
 private:
     // **The session is behind this lock**, which the frame loop holds while
     // it uses it and the keeper while it keeps it.
@@ -313,6 +321,13 @@ private:
     };
     std::optional<OwnWord> own_word_;
     net::SessionClock clock_;
+    // The session's clock as of this frame (`fly`), which the server's air
+    // is on, and how much of what the server has said has been taken in:
+    // the weathers flown, and whether its ground was compared.
+    double session_now_s_ = 0.0;
+    int weathers_flown_ = 0;
+    bool ground_compared_ = false;
+    std::string other_ground_;
     // A local frame to interpolate in: north-east-down about where this
     // client joined.
     std::optional<world::Ecef> origin_;

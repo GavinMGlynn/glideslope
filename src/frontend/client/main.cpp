@@ -584,6 +584,11 @@ static int run_program(int argc, char** argv) {
                    stderr);
         return 2;
     }
+    if (!o.weather_station.empty() && (o.online || !o.server.empty())) {
+        std::fputs("glideslope: on a server the server's weather is flown, not --weather\n",
+                   stderr);
+        return 2;
+    }
     if (o.screen != "flight" && !o.weather_station.empty()) {
         std::fputs("glideslope: only the flight has --weather\n", stderr);
         return 2;
@@ -1371,6 +1376,16 @@ static int run_program(int argc, char** argv) {
                                       : nullptr;
                 if (why != nullptr) {
                     std::printf("glideslope: %s\n", why);
+                    std::fflush(stdout);
+                    status = 1;
+                    break;
+                }
+                // **On other ground than the server's, it leaves**
+                // (REQUIREMENTS.md 6.3): refused, not fetched - the ground is
+                // the data this build carries.
+                if (const std::string other = online->other_ground(); !other.empty()) {
+                    std::printf("glideslope: refused the server's collision ground: %s\n",
+                                other.c_str());
                     std::fflush(stdout);
                     status = 1;
                     break;

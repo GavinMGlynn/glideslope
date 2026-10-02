@@ -1,5 +1,8 @@
 #include "online.hpp"
 
+#include "frontend/same_air.hpp"
+#include "platform/paths.hpp"
+
 #include "sim/fixed_step.hpp"
 #include "world/geodesy.hpp"
 
@@ -153,6 +156,9 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
     // Anything the keeper heard of the session's standing - joined again -
     // is taken in before an input goes into it.
     noticed();
+    if (clock_.known()) {
+        session_now_s_ = clock_.now(local_s);
+    }
     // **What is sent is what is flown**: rounded as the wire rounds it, so
     // that this client and the server fly the same numbers.
     if (local_s - sent_at_s_ >= inputs_every_s) {
@@ -174,6 +180,37 @@ void Online::hear(double local_s, Flight& flight) {
         poll_here(local_s);
         for (const net::StatePacket& state : session_.take_states()) {
             heard(state, local_s, flight);
+        }
+        // **What the server says the session is** (REQUIREMENTS.md 6.3): the
+        // ground it collides on, held once against this client's, and each
+        // weather it flies, flown here in place of any of this client's own.
+        const net::Told& told = session_.told();
+        if (!told.dataset()) {
+            ground_compared_ = false;
+        } else if (!ground_compared_) {
+            ground_compared_ = true;
+            const net::TerrainDataset ours =
+                frontend::collision_dataset(platform::data_directory());
+            if (!frontend::same_ground(*told.dataset(), ours)) {
+                other_ground_ = "the server collides on " + frontend::describe(*told.dataset()) +
+                                ", and this client's is " + frontend::describe(ours);
+            } else {
+                std::printf("glideslope: told the collision ground: %s, this client's too\n",
+                            frontend::describe(ours).c_str());
+                std::fflush(stdout);
+            }
+        }
+        // Each flight counts its own: one made since - another aeroplane
+        // taken over - is given the newest, and a session joined again,
+        // told afresh, counts from one again.
+        if (told.weather() && told.weathers() != flight.server_weathers()) {
+            flight.heard_weather(*told.weather(), told.aloft(), [this] { return session_now_s_; },
+                                 told.weathers());
+            weathers_flown_ = told.weathers();
+            std::printf("glideslope: flying the server's weather (%d): %s\n", weathers_flown_,
+                        told.weather()->metar.empty() ? "still air"
+                                                       : told.weather()->metar.c_str());
+            std::fflush(stdout);
         }
     }
     // **Put right with the session let go**: a correction replays the
