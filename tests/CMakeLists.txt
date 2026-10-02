@@ -52,6 +52,8 @@ add_executable(glideslope_tests
     unit/test_interpolation.cpp
     unit/test_shown.cpp
     ${PROJECT_SOURCE_DIR}/src/frontend/client/shown.cpp
+    ${PROJECT_SOURCE_DIR}/src/frontend/same_air.cpp
+    unit/test_same_air.cpp
     unit/test_prediction.cpp
     unit/test_messages.cpp
     unit/test_protocol.cpp
@@ -159,6 +161,12 @@ set(GLIDESLOPE_UNIT_TESTS
     the_transport_document_and_the_code_agree_about_the_messages
     every_message_filled_to_its_limits_fits_in_one_datagram
     every_message_the_server_accepts_is_named_in_the_threats_document
+    every_refusal_the_document_names_for_a_weather_is_refused
+    the_weather_a_server_sends_is_flown_to_the_last_bit_by_its_clients
+    still_air_is_said_as_an_empty_metar_and_flown_as_no_weather
+    a_weather_is_taken_whole_or_not_at_all
+    a_metar_too_long_to_send_is_cut_to_whole_words_and_flown_as_cut
+    the_collision_ground_said_is_the_builds_coverage_strips_and_rules
     every_control_goes_on_the_wire_and_comes_back_within_one_step
     with_nothing_lost_every_input_frame_arrives_once_and_in_order
     an_input_frame_arrives_exactly_when_a_packet_carrying_it_arrives

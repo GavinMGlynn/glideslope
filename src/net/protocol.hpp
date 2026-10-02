@@ -43,8 +43,11 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // ground under runways - its rules (`world::collision_ground_rules`) or the
 // runways it is made from (`assets/runways/strips.csv`) - is a change of
 // version, and a test pins the three together. Version 2: the ground under
-// runways, rules 1, strips of 2026-10-01.
-inline constexpr std::uint8_t protocol_version = 2;
+// runways, rules 1, strips of 2026-10-01. Version 3: the same ground, and a
+// server that tells each client the session, the lobby, the ground it
+// collides on and the weather it flies (REQUIREMENTS.md 6.3) - a `WEATHER`
+// with when it changed, over how long, and whether a forecast follows.
+inline constexpr std::uint8_t protocol_version = 3;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.

@@ -30,6 +30,10 @@ struct MetarError : std::runtime_error {
 };
 
 struct Metar {
+    // **The report as it was read**, its words joined by single spaces: what
+    // a server sends its clients, who read it with these same rules
+    // (net::Weather), rather than twenty fields re-encoded.
+    std::string raw;
     std::string station;
     int day = 0;
     int hour = 0;

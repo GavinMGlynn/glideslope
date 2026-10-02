@@ -236,6 +236,9 @@ std::vector<std::uint8_t> write(const Weather& m) {
     w.u8(m.turbulence_severity ? *m.turbulence_severity : 0u);
     w.u64(m.air_seed);
     write_microbursts(w, m.microbursts);
+    w.f64(m.changed_at_s);
+    w.f64(m.blend_s);
+    w.u8(m.aloft_follows ? 1u : 0u);
     return w.take();
 }
 
@@ -262,7 +265,23 @@ bool read(std::span<const std::uint8_t> body, Weather& out) {
         got.turbulence_severity = severity;
     }
     got.air_seed = r.u64();
-    if (!read_microbursts(r, got.microbursts) || !r.done()) {
+    if (!read_microbursts(r, got.microbursts)) {
+        return false;
+    }
+    got.changed_at_s = r.f64();
+    got.blend_s = r.f64();
+    const std::uint8_t aloft = r.u8();
+    if (!r.done() || aloft > 1) {
+        return false;
+    }
+    got.aloft_follows = aloft == 1;
+    // **Still air says nothing else**: an empty METAR with a place, a seed,
+    // turbulence, a microburst or a forecast to follow is not still air, and
+    // a field nobody reads is a field that can carry anything.
+    if (got.metar.empty() &&
+        (got.latitude_deg != 0.0 || got.longitude_deg != 0.0 || got.elevation_m != 0.0 ||
+         got.turbulence_severity || got.air_seed != 0 || !got.microbursts.empty() ||
+         got.aloft_follows)) {
         return false;
     }
     out = std::move(got);
