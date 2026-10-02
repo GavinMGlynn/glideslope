@@ -364,6 +364,9 @@ planned aircraft stacked upwards, no monitor, no departure check.
   with it, at least 700 and 680 ft apart within 1.5 nm, never lost.
 - `each_ai_aircraft_is_planned_...` and `a_client_hears_where_every_aircraft_is`
   changed for the new layers (above).
+- Built on Windows (`tools/windows_build.sh windows-debug`), where both unit
+  tests pass. The first push broke CI's Windows builds: the monitor's
+  nearness test was called `near`, which Windows' headers define as nothing.
 
 **Seen to fail.** Each run and reverted:
 - the monitor taken out (`keep_apart` doing nothing), layers kept: the
