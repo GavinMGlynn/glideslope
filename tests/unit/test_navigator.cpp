@@ -732,7 +732,7 @@ GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_
 }
 
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_airliner_and_business_jet) {
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[1]), End::fastest, 0.0, 0.20);
+    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[1]), End::fastest, 0.0, 0.15);
 }
 
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_fighter_and_bomber) {
