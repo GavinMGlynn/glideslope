@@ -769,6 +769,11 @@ Found while implementing something else. Added when found, not when remembered.
       release builds now hit 791 of 792 compiles and take 4 minutes;
       clang-cl's compiles are all cacheable, but its fully warm build is not
       yet measured.
+- [ ] **CI's cost tables do not know the plan-speed tests.** The eight
+      tightest-orbit tests, renamed or new, and the one-step-past test
+      (2026-10-02) count 60 s each in tests/ci_costs until a green run is
+      measured with tools/ci_test_costs.py. *Verification: every test in
+      the tables, from a green run.*
 - [ ] **A Windows configure on CI sometimes takes 30 minutes in vcpkg**,
       even after an exact hit on its binary cache. *Verification: every
       Windows configure whose vcpkg cache hit takes under 3 minutes, over a
