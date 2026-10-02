@@ -458,8 +458,9 @@ written in as the route it was in the old recording, with the same note.
   within 60 m for the light aeroplanes at both ends and the warbird and
   flying boat at their slowest, 5% of the radius for the jets at their
   slowest (the F-22 4.5%, 427 m off its 9.4 km at 255 kt, the worst), and
-  at the fastest 20% of the radius
-  for the jets and 5% for the warbird and flying boat, from the table
+  at the fastest 15% of the radius for the airliners and business jet
+  (the A380 13.3%), 20% for the fighters and bomber (the F-15C 17.8%) and
+  5% for the warbird and flying boat, from the table
   above.
 - The crosswind test for every aircraft but the light ones (#87) flies each
   at its slowest instead of its approach speed, and leaves nothing out: 48
