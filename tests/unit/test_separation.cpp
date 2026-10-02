@@ -6,9 +6,13 @@
 #include "sim/plan.hpp"
 #include "sim/separation.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <iterator>
+#include <memory>
 #include <numbers>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -48,10 +52,9 @@ bool about(std::optional<double> x, double want) {
 } // namespace
 
 // **Every rule the monitor keeps, each built and checked** - which side an
-// aircraft is held to, when, of whom, and when not - and the test says it
-// walked all of them.
+// aircraft is held to, when, of whom, and when not: ten rules, each built in
+// a block of its own.
 GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_those_it_gives_way_to_and_no_other) {
-    int walked = 0;
     // Below another, near, flying to a height above it: held below it.
     {
         const auto l = glideslope::sim::separate(
@@ -60,7 +63,6 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
         check(about(l[1].ceiling_ft, 3000 - apart_ft) && !l[1].floor_ft &&
                   l[1].clear_of == std::size_t{0},
               "climbing through the first's height near it, the second is held below it");
-        ++walked;
     }
     // Above another, near: held above it.
     {
@@ -68,14 +70,12 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
             {at(0, 3000, 100, true, 3000), at(-1000, 4000, 100, true, 2000)});
         check(about(l[1].floor_ft, 3000 + apart_ft) && !l[1].ceiling_ft,
               "descending through the first's height near it, the second is held above it");
-        ++walked;
     }
     // Far apart, and parting: nothing.
     {
         const auto l = glideslope::sim::separate(
             {at(0, 3000, 100, true, 3000), at(-20000, 2000, -100, true, 4000)});
         check(none(l[1]), "20 km apart and parting, nothing is held");
-        ++walked;
     }
     // Far apart, but meeting head on within the lookahead: held already.
     {
@@ -83,7 +83,6 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
             {at(0, 3000, 100, true, 3000), at(12000, 2000, -100, true, 4000)});
         check(about(l[1].ceiling_ft, 3000 - apart_ft),
               "12 km apart and closing at 200 kt, the second is held below the first already");
-        ++walked;
     }
     // One that does not give way - a person's, one taking off - is given way
     // to by an AI aircraft before it in the order, and is given nothing.
@@ -93,7 +92,6 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
         check(about(l[0].ceiling_ft, 3000 - apart_ft) && l[0].clear_of == std::size_t{1},
               "an AI aircraft gives way to a person's after it in the order");
         check(none(l[1]), "a person's aircraft is given no limit");
-        ++walked;
     }
     // Level with the other: the side it is going to.
     {
@@ -104,7 +102,6 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
               "level with another and going down, it is held below");
         check(about(l[3].floor_ft, 3000 + apart_ft),
               "level with another and going up, it is held above");
-        ++walked;
     }
     // A ceiling into the ground: the floor instead.
     {
@@ -113,7 +110,6 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
         const auto l = glideslope::sim::separate(t);
         check(about(l[1].floor_ft, 1500 + apart_ft) && !l[1].ceiling_ft,
               "held below another it would be within 500 ft of the ground, so above it instead");
-        ++walked;
     }
     // Another climbing with no height to fly to: the heights it will climb
     // through in the lookahead are kept clear of too.
@@ -124,7 +120,6 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
         const auto l = glideslope::sim::separate(t);
         check(about(l[1].floor_ft, 3000 + 600.0 * Separation::lookahead_s / 60.0 + apart_ft),
               "above one climbing, it is held above where that one climbs to in 90 s");
-        ++walked;
     }
     // Between two that leave no room: the side that asks less of it.
     {
@@ -136,7 +131,6 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
         check(about(l[2].ceiling_ft, 3800 - apart_ft) && !l[2].floor_ft &&
                   l[2].clear_of == std::size_t{1},
               "squeezed between two, it is held to the side that asks less of it");
-        ++walked;
     }
     // A later one keeps clear of the height an earlier one is held to, not
     // the one it would have flown to.
@@ -147,10 +141,7 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
         check(about(l[1].ceiling_ft, 4000 - apart_ft), "the second is held below the first");
         check(about(l[2].ceiling_ft, 4000 - apart_ft - apart_ft),
               "the third keeps clear of the height the second is held to");
-        ++walked;
     }
-    std::fprintf(stderr, "walked %d of the monitor's 10 rules\n", walked);
-    check(walked == 10, "every rule was walked");
 }
 
 namespace {
@@ -268,5 +259,71 @@ GLIDESLOPE_TEST(a_cessna_climbing_through_another_or_meeting_one_head_on_is_kept
               std::string(c.name) + ": with the monitor, never within the minimum");
         ++walked;
     }
-    check(walked == 2, "both cases were flown");
+    check(walked == static_cast<int>(std::size(cases)), "every case was flown");
+}
+
+// **A limit holds a vertical speed too**: an autopilot told to climb at
+// 700 ft a minute with no height to fly to stops at its ceiling, and one told
+// to descend stops at its floor, each held there within 50 ft for the minute
+// after; with no limit, each goes on past it.
+GLIDESLOPE_TEST(an_autopilot_holding_a_climb_stops_at_its_ceiling_and_one_holding_a_descent_at_its_floor) {
+    struct Case {
+        const char* name;
+        double vs_fpm;
+        bool limited;
+    };
+    const Case cases[] = {{"climbing, a ceiling 500 ft up", 700.0, true},
+                          {"descending, a floor 500 ft down", -700.0, true},
+                          {"climbing, no ceiling", 700.0, false},
+                          {"descending, no floor", -700.0, false}};
+    int flown = 0;
+    for (const Case& c : cases) {
+        glideslope::sim::Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 3000.0;
+        ic.airspeed_kts = 90.0;
+        ic.gear = 0.0;
+        aircraft.initialize(ic);
+        glideslope::sim::Controls controls;
+        controls.throttle = 0.7;
+        glideslope::sim::Autopilot autopilot(aircraft, controls);
+        glideslope::sim::AutopilotModes m = autopilot.modes();
+        m.heading_deg = 0.0;
+        m.altitude_ft.reset();
+        m.vertical_speed_fpm = c.vs_fpm;
+        m.airspeed_kts = 90.0;
+        autopilot.set(m);
+        const double limit_ft = c.vs_fpm > 0.0 ? 3500.0 : 2500.0;
+        if (c.limited) {
+            if (c.vs_fpm > 0.0) {
+                autopilot.limit_height(std::nullopt, limit_ft);
+            } else {
+                autopilot.limit_height(limit_ft, std::nullopt);
+            }
+        }
+        double lowest = 1e18;
+        double highest = -1e18;
+        for (int step = 0; step < 180 * steps_per_second; ++step) {
+            aircraft.set_controls(autopilot.fly());
+            aircraft.step();
+            if (step >= 120 * steps_per_second) {
+                const double h = aircraft.state().altitude_ft;
+                lowest = std::min(lowest, h);
+                highest = std::max(highest, h);
+            }
+        }
+        std::fprintf(stderr, "%s: %.0f to %.0f ft in its last minute\n", c.name, lowest,
+                     highest);
+        if (c.limited) {
+            check(lowest >= limit_ft - 50.0 && highest <= limit_ft + 50.0,
+                  std::string(c.name) + ": held at its limit");
+        } else {
+            check(c.vs_fpm > 0.0 ? lowest > limit_ft + 200.0 : highest < limit_ft - 200.0,
+                  std::string(c.name) + ": goes on past where the limit would be");
+        }
+        ++flown;
+    }
+    check(flown == static_cast<int>(std::size(cases)), "every case was flown");
 }

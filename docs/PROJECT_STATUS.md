@@ -288,8 +288,18 @@ than the orbits two models plan round one place). Three things keep it
   measurement. A player given an aircraft starts above every one flying, on
   the same layers.
 - **Planned aircraft stacked downwards in the order they take off**: the
-  first away flies its plan 1,000 ft above the next, so none climbs to its
-  height through another's. **Changed figures**: in
+  first away flies its plan 1,000 ft above the next, so on their first
+  departures none climbs to its height through another's. One that flies
+  again after a wreck, or is held on the ground past the next one's turn,
+  does climb through the lower layers; then the monitor holds the others
+  clear of it. An aircraft left by its player flies the plan file on a
+  layer of its own, above the plan-file AI aircraft's.
+- **Known limits**: a departure waits for clear sky with no way out - an
+  aircraft that sits within 1.5 nm and 700 ft of a threshold (aborted on
+  the runway, or landed there) holds every later departure from it for the
+  rest of the run, said once. A glide (engine stopped) does not give way;
+  it is given way to, since it cannot climb to a floor. The 500 ft / 1.5 nm
+  minimum was taken working this tail and is for the owner to confirm. **Changed figures**: in
   `each_ai_aircraft_is_planned_...` ChatGPT's (AI 1, first away) orbit is
   now flown at 4,000 ft and Claude's (AI 2) at 3,000 ft, where they were
   3,000 and 3,500; the test expects that. And a planned aircraft takes off
@@ -362,8 +372,18 @@ planned aircraft stacked upwards, no monitor, no departure check.
   240 s. Without, each loses separation (85.8 s climbing through the height
   of one 1 km ahead, 51.5 s head on), which shows the situation is built;
   with it, at least 700 and 680 ft apart within 1.5 nm, never lost.
+- `an_autopilot_holding_a_climb_stops_at_its_ceiling_and_one_holding_a_descent_at_its_floor`:
+  a C172P told to climb, or descend, at 700 ft a minute with no height to
+  fly to stops at a ceiling 500 ft up (3,499 to 3,500 ft over the last
+  minute of three) or a floor 500 ft down (2,500 to 2,501 ft); with no
+  limit it goes on (4,345 to 5,045 ft, 935 to 1,635 ft). Seen to fail with
+  the ceiling ignored: "climbing, a ceiling 500 ft up: held at its limit".
 - `each_ai_aircraft_is_planned_...` and `a_client_hears_where_every_aircraft_is`
   changed for the new layers (above).
+- From the review: a glide no longer gives way (it was given a floor it
+  could only climb to by losing speed); an aircraft left by its player flies
+  the plan file on a layer of its own (it flew AI 1's heights); the rules
+  test's count of rules walked, which could not fail, is gone.
 - Built on Windows (`tools/windows_build.sh windows-debug`), where both unit
   tests pass. The first push broke CI's Windows builds: the monitor's
   nearness test was called `near`, which Windows' headers define as nothing.
