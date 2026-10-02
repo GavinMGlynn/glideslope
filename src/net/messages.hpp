@@ -125,8 +125,13 @@ struct Microburst {
 };
 
 // **The weather at the station**, as its source rather than its effect.
+//
+// **An empty METAR is still air**: the standard atmosphere, with no wind -
+// what a server given no weather flies - and every other field must then be
+// nought or absent. It is sent all the same, so that a client is told the
+// server flies no weather rather than left to fly its own.
 struct Weather {
-    std::string metar; // the raw report, parsed by the receiver
+    std::string metar; // the raw report, parsed by the receiver; empty, still air
     double latitude_deg = 0.0;
     double longitude_deg = 0.0;
     double elevation_m = 0.0;
@@ -135,6 +140,19 @@ struct Weather {
     // The same report and seed give the same air on every machine.
     std::uint64_t air_seed = 0;
     std::vector<Microburst> microbursts;
+    // **When it took over from the weather before it**, on the session's
+    // clock, and over how long it is blended in from that: every value moving
+    // linearly from what the old report gave to what this one gives
+    // (world::ReportedWeather). Both ends blend from the same moment, so the
+    // air they fly is the same air while it changes too. A first weather has
+    // nothing to blend from, and is flown whole from the start; a blend of
+    // nought or less is no blend, the new weather flown whole at once.
+    double changed_at_s = 0.0;
+    double blend_s = 0.0;
+    // **Whether a `WEATHER_ALOFT` follows**, which completes this one: until
+    // it has arrived the weather is not flown, so that a report is never
+    // flown for a moment without the forecast above it.
+    bool aloft_follows = false;
 };
 
 // **The forecast above the station.** Sent after a `WEATHER`, and only where

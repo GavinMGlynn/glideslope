@@ -48,6 +48,10 @@ Said first, because a transport's limits matter more than its features.
   and the strips' SHA-256 together. Version `02` is the first with runways
   flattened: rules 1, strips SHA-256
   `6c1ba3c3e6dc3bf19a6b0a402a00734b4d886b95e40c1097f1c69a301576898f`.
+  Version `03` is on the same ground, and is the first whose server tells
+  every client the session, the lobby, the ground it collides on and the
+  weather it flies (below, "What a client is told on joining"); its
+  `WEATHER` carries three fields more than `02`'s.
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -58,7 +62,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `02` |
+| 4 | 1 | version | `03` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -104,7 +108,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `02`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `03`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -458,8 +462,40 @@ wire and the receiver parses it with the same rules the sender did.
 | `f64` | its downdraught well above the outflow, metres a second |
 | `f64` | when it begins, on the simulation's clock |
 | `f64` | how long it lasts, seconds |
+| | then: |
+| `f64` | when it took over from the weather before it, on the simulation's clock |
+| `f64` | how long it blends in over from then, seconds; nought or less, none |
+| `u8` | `01` if a `WEATHER_ALOFT` follows it, `00` if none does |
 
-At its limits this is 1,062 bytes.
+At its limits this is 1,079 bytes.
+
+**Both ends blend from the same moment.** A new weather is blended in, not
+stepped to: every value moving linearly, over the blend, from what the old
+report gives to what this one gives, and the turbulence changing halfway. The
+receiver blends from when the sender says and over as long, so the air is the
+same while it changes as well as before and after. A first weather - or the
+first a client hears, joining while one blends in - has nothing to blend from
+and is flown whole.
+
+**The air is on the simulation's clock**, not on each aircraft's own: gusts,
+turbulence, a microburst's start and the blend are all of the session's time,
+so two aircraft side by side meet the same gust whichever was made first.
+
+**A weather whose forecast follows is not flown until the forecast has
+come**, so that a report is never flown for a moment without the forecast
+above it. The reliable layer delivers them in order: the forecast is the next
+of the two. A `WEATHER_ALOFT` with no such `WEATHER` before it is dropped.
+
+**An empty METAR is still air**: the standard atmosphere with no wind, which
+is what a server given no weather flies. Every other field of it must then be
+nought, or `00`, and its microbursts none; a reader refuses still air carrying
+a place, a turbulence severity, a seed, a microburst or a forecast to follow.
+It is sent all the same, so that a client is told the server flies no weather
+rather than left to fly one of its own.
+
+**A METAR longer than 256 bytes is cut by the server, whole words from its
+end**, and the server flies the report as cut: a report cut on the wire alone
+would be one its clients never heard.
 
 ### `WEATHER_ALOFT`
 
@@ -515,6 +551,52 @@ from the server for a reason no measurement would explain.
 | text | the dataset's name, at most 64 bytes |
 | text | its version, at most 64 bytes |
 | bytes | its pinned SHA-256, exactly 32 bytes |
+
+**What is hashed.** The collision ground is the Copernicus DEM as the build
+knows it - `dem/coverage.txt`, which says which tiles exist and is made from
+the two buckets' pinned tile lists - with the runway strips the ground under
+runways is made from (`runways/strips.csv`) and the rules it is made by. The
+SHA-256 is over three lines, each ending in a line feed:
+
+```
+coverage.txt <the SHA-256 of coverage.txt, 64 lowercase hex digits>
+strips.csv <the SHA-256 of strips.csv, likewise>
+ground rules <the rules' number, 1>
+```
+
+The name and version are for a person - this server sends
+`Copernicus DEM GLO-30 and GLO-90, with runway strips` and
+`coverage 24e568c5, strips 6c1ba3c3, ground rules 1`, the first eight digits of
+each file's hash - and only the hash is compared.
+
+**A client on other ground refuses it**, says so, and leaves; it does not
+fetch the server's. The ground is the data the build carries and the tiles
+it names, fetched from the open buckets by every machine alike - there is
+nothing the server could send but a hash - so a client whose hash differs is
+another build or has other data, and its remedy is the matching release.
+
+### What a client is told on joining
+
+**A server tells each client what the session is** before anything else it
+must arrive, in this order, once the session is proven (it has opened
+something sealed under it) and on the update after: `TERRAIN_DATASET`, then
+`SESSION` - its clock as it was when sent - then `LOBBY`, then `WEATHER`, and
+`WEATHER_ALOFT` after it where the weather has a forecast; then each
+`AIRCRAFT`. After that:
+
+- **the lobby again, whole, whenever it is not what was last sent** - a
+  player joining or going;
+- **the weather again whenever it changes**: a station's fetched again
+  (every fifteen minutes by default), or a test's change, each saying when it
+  took over and over how long it blends in;
+- the ground and the session never again: neither changes in a session.
+
+A client joined again after being let go is in a new session, and is told all
+of it again. **A client flies the weather it is told**, not one of its own,
+and a client on other ground than the server's refuses it and leaves.
+
+A server running no aircraft at all sends no state updates and none of these
+either.
 
 ### `CONTROLLER_SWAP`
 
@@ -1040,9 +1122,8 @@ startup.
 
 ## What is not here yet
 
-- **Five of the nine reliable messages.** `AIRCRAFT`, `CONTROLLER_SWAP`,
-  `WATCH` and `COPILOT_ROUTE` travel, inside `RELIABLE`. The lobby, the session, the weather and the
-  terrain dataset are defined and encoded, and nothing sends them yet.
+- **A session's name chosen by its operator.** `SESSION` names a server by
+  its port; nothing sets a name of anyone's choosing.
 - **Any check on what a client sends.** A client's inputs reach its aircraft
   with no range check and no rate limit: a value outside -1 to 1 cannot be
   written, because the wire is a 16-bit fraction, but nothing stops a client
@@ -1060,6 +1141,5 @@ seal and open datagrams under the keys that handshake agreed, answer the
 server's knocking so that it stays in its slot and the server can measure the
 round trip, **read where every aircraft is 25 times a second, learn what
 aeroplane each one is, and fly its own aircraft by sending inputs**, and say
-goodbye when it leaves, or be let go when it stops. What it cannot do is be
-told anything else: it never learns the lobby, the weather or the terrain
-dataset.
+goodbye when it leaves, or be let go when it stops, **and be told the
+session, the lobby, the ground it collides on and the weather it flies**.

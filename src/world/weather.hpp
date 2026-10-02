@@ -19,6 +19,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace glideslope::world {
@@ -176,6 +177,12 @@ public:
 
     // A new report, blending in from simulation time `now_s`.
     void update(WeatherReport report, double now_s);
+    // The same, over `blend_seconds` from now on: a client blends a change
+    // over what its server said it blends over (net::Weather).
+    void update(WeatherReport report, double now_s, double blend_seconds) {
+        blend_seconds_ = blend_seconds;
+        update(std::move(report), now_s);
+    }
 
     double blend_seconds() const {
         return blend_seconds_;

@@ -13,6 +13,8 @@
 #include "sim/navigator.hpp"
 #include "sim/prediction.hpp"
 #include "gfx/sky.hpp"
+#include "frontend/same_air.hpp"
+#include "net/messages.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
 #include "world/runway_ground.hpp"
@@ -22,6 +24,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -231,6 +234,15 @@ public:
     // The weather report flown in now, or null without one; and where its
     // station is, for drawing its sky.
     const world::WeatherReport* weather_report() const;
+    // **The server's weather** (REQUIREMENTS.md 6.3), each whole one as it
+    // is heard: flown and drawn in place of any of this flight's own, over
+    // the collision ground, on the session's `clock`. From the first, this
+    // flight fetches no weather of its own.
+    // `count` is the server's count of its weathers (net::Told::weathers),
+    // which `server_weathers` gives back: nought before any.
+    void heard_weather(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft,
+                       std::function<double()> clock, int count);
+    int server_weathers() const { return server_weathers_; }
     gfx::Station weather_station() const;
 
     // Simulation time, seconds.
@@ -296,6 +308,9 @@ private:
     double weather_refresh_s_ = weather_refresh_seconds;
     std::vector<world::Microburst> microbursts_;
     std::shared_ptr<world::ReportedWeather> weather_;
+    // The server's air, once it has said any (`heard_weather`).
+    std::optional<frontend::HeardAir> heard_air_;
+    int server_weathers_ = 0;
     double weather_fetched_at_s_ = 0.0;
     // Last, so that a fetch still under way is given up, and waited for,
     // before anything it could reach is destroyed.
