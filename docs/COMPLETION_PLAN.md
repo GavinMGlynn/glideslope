@@ -985,6 +985,9 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       so until the blend ends the joining client's air is not the server's.
       *Verification: a client joining mid-blend predicts within the same
       bound as one there before it.*
+- [ ] **A client's gusts are not the server's while its clocks' difference
+      settles**, a step or two out, metres in a strong gust. *Verification: a
+      client predicting in gusting air stays within the steady air's bound.*
 - [ ] **Nothing tests the client with the window in the server's weather.**
       *Verification: the window client on a server with a METAR says it flies
       it, and its prediction error is within the headless client's bound.*

@@ -1,6 +1,7 @@
 #include "harness.hpp"
 
 #include "frontend/client/pass.hpp"
+#include "frontend/same_air.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/prediction.hpp"
 #include "sim/terrain.hpp"
@@ -1022,4 +1023,64 @@ GLIDESLOPE_TEST(a_long_frame_puts_a_client_right_by_little_whether_or_not_its_cl
     check(long_frames_flown == space, "flew " + std::to_string(long_frames_flown) +
                                           " long frames in the " + std::to_string(space) +
                                           " flights, not one in each");
+}
+
+namespace {
+
+// Air that keeps the moment it was asked for, and is still.
+class MomentsAsked : public glideslope::sim::Weather {
+public:
+    glideslope::sim::Conditions at(double, double, double, double time_s) override {
+        moments.push_back(time_s);
+        return {};
+    }
+    std::vector<double> moments;
+};
+
+} // namespace
+
+// **Every step a client flies meets the air at the moment the server flies
+// it**, a step flown again in a replay as much as one flown forward: a gust
+// is of the session's time, and air read at one moment for every step of a
+// frame put a client 1.6 m out in gusts (PROJECT_STATUS.md, 2026-10-06). The
+// client flies 50 inputs of four steps each; the server's word says it
+// applied input 30 at its step 1000, so this client's step s is the server's
+// s + 884, flown at (s + 885) / 120 s. Every step of the replay that follows,
+// 84 of them, and the next one forward are held to that; before the word,
+// there is no such moment.
+GLIDESLOPE_TEST(every_step_a_client_flies_meets_the_air_at_the_moment_the_server_flies_it) {
+    Aircraft client_aircraft(data() / "jsbsim", "c172p");
+    set_up(client_aircraft);
+    Prediction client(client_aircraft);
+    const auto asked = std::make_shared<MomentsAsked>();
+    client_aircraft.set_weather(std::make_shared<glideslope::frontend::SessionClocked>(
+        asked, [&client] { return client.session_time_s().value_or(-1.0); }));
+    Controls c;
+    c.throttle = 0.7;
+    c.mixture = 1.0;
+    for (std::uint32_t s = 0; s < 200; ++s) {
+        client.step(s / 4 + 1, c);
+    }
+    check(!client.session_time_s(), "no moment before the clocks' difference is known");
+    // Input 30 began at this client's step 116, and the server applied it at
+    // its step 1000: an offset of 884.
+    asked->moments.clear();
+    const Prediction::Correction k = client.reconcile(client_aircraft.motion(), 30, 0, 1000);
+    check(k.replayed == 200 - 116, "the steps from 116 on were flown again: " +
+                                       std::to_string(k.replayed));
+    check(asked->moments.size() == k.replayed, "each asked the air once");
+    std::size_t held = 0;
+    for (std::size_t i = 0; i < asked->moments.size(); ++i) {
+        const double want = static_cast<double>(116 + i + 885) / 120.0;
+        check(asked->moments[i] == want, "replayed step " + std::to_string(116 + i) +
+                                             " met the air at " +
+                                             std::to_string(asked->moments[i]) + " s, not " +
+                                             std::to_string(want));
+        ++held;
+    }
+    asked->moments.clear();
+    client.step(51, c);
+    check(asked->moments.size() == 1 && asked->moments[0] == (200.0 + 885.0) / 120.0,
+          "and the next step forward meets it at its own moment");
+    check(held == 84, "84 replayed steps were held to their moments");
 }
