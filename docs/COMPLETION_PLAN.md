@@ -418,12 +418,14 @@ Found while implementing something else. Added when found, not when remembered.
       aeroplane takes off from 16R on the DEM, and what the collision ground
       under a runway may do is measured.*
 
-- [ ] **After the take-off hands over, the Learjet 35A and the Mosquito come
+- [x] **After the take-off hands over, the Learjet 35A and the Mosquito come
       down on Botany Bay.** Flying the sydney-cbd-orbit plan from 16R, both
       are wrecked on the water 80 to 90 s in, climbing towards the plan's
       first waypoint; it was so before the runway was flattened.
       *Verification: every aeroplane that takes off from 16R flies the plan
-      to its orbit with nothing wrecked.*
+      to its orbit with nothing wrecked.* Done 2026-10-06: the plan asked
+      both for 80 knots, below their stalls; a plan may no longer ask that,
+      and flown at speeds each may be planned at, all thirteen reach the orbit.
 
 - [ ] **Runways that meet at different slopes still pull each other's
       surface.** Tied where they meet, their lines agree there and drift
@@ -805,13 +807,21 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The Learjet cannot be rotated early.** With her stabilizer set for
       take-off where the manual's travel puts it, full back stick lifts the
       nose only at about 115 knots, past her rotation speed, so the take-off
-      lesson has no early rotation of hers to catch; her model's centre of
-      gravity height and thrust line are estimates. *Verification: the
+      lesson has no early rotation of hers to catch. Still missing: a source
+      for her centre of gravity's height - the one estimate that would help;
+      her nacelles, measured off her manual's drawing, sit higher than the
+      model has them, which would make it worse. *Verification: the
       Learjet held fully back from 85 percent of her rotation speed leaves
       the runway before it.*
 - [ ] **The Learjet has nothing behind its main wheels to strike with**, so
       the take-off cannot keep its tail off the runway and a strike goes
-      unjudged; the Cub's only tail contact is its tail wheel.
+      unjudged; the Cub's only tail contact is its tail wheel. Since
+      2026-10-06 the Learjet strikes with her ventral fin, placed from her
+      manual's drawing, and every landplane's take-off lesson names a
+      strike. Still missing: the F-15C has no tail contact, the A380
+      strikes only with her engines (34 degrees), the F-35B flies off
+      before her 22, and no strike attitude is checked against a published
+      one.
       *Verification: every nose-wheel aeroplane's tail strikes the runway
       where its airframe would, and is judged a strike.*
 - [x] **A `--terrain ion` run can hang for ever, past its own timeout.**
