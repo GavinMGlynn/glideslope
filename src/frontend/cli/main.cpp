@@ -9,6 +9,7 @@
 #include "frontend/briefs.hpp"
 #include "frontend/players_copilot.hpp"
 #include "frontend/same_air.hpp"
+#include "frontend/shown.hpp"
 #include "net/told.hpp"
 #include "copilot/provider.hpp"
 #include "net/handshake.hpp"
@@ -1609,11 +1610,7 @@ public:
     // on from where it was being drawn as another, not from where the one
     // left behind was.
     void taken_over(std::uint8_t number, std::uint32_t sequence) {
-        const auto last = last_shown_.find(number);
-        if (last != last_shown_.end() && last->second.first && last->second.second) {
-            shown_before_before_ = last->second.first;
-            shown_before_ = last->second.second;
-        }
+        display_.taken_over(number);
         // What it had of that aircraft as another carries on as its own.
         const auto was_other = others_.find(number);
         own_shown_ = was_other != others_.end() ? was_other->second
@@ -1627,7 +1624,6 @@ public:
         aircraft_.reset();
         before_.clear();
         predicted_at_.clear();
-        switching_ = true;
     }
 
     // **Its own aircraft handed to the AI pilot, or taken back**, as the
@@ -1654,7 +1650,7 @@ public:
             before_.clear();
             predicted_at_.clear();
         }
-        switching_ = true;
+        display_.switching();
     }
 
     // Shows every other aircraft at `local_s`, as a 60 Hz screen would.
@@ -1696,9 +1692,7 @@ public:
                 ++extrapolated_;
             }
             {
-                // Its last two frames, for taking it over without a step.
-                auto& last = last_shown_[index];
-                last.first = last.second;
+                // Where it is shown, for taking it over without a step.
                 // Moving as its path moves, per second of this machine's
                 // clock - not as the update reports, which a blend back from
                 // a guess differs from by up to 20 m/s - so that a take-over
@@ -1706,8 +1700,8 @@ public:
                 const std::array<double, 3> here = ecef(got.north_m, got.east_m, got.down_m);
                 const std::array<double, 3> path = shown.path_velocity();
                 const double rate = clock_.known() ? clock_.rate() : 1.0;
-                last.second = Shown{here, local_s, here,
-                                    velocity(path[0] * rate, path[1] * rate, path[2] * rate)};
+                display_.seen(index, local_s, {here[0], here[1], here[2]},
+                            velocity(path[0] * rate, path[1] * rate, path[2] * rate));
             }
             if (track_) {
                 // Where it was drawn, back in the Earth-centred frame, and the
@@ -1781,8 +1775,9 @@ public:
         // first: the frames before it are what show a blend too quick, which
         // a long frame at once would have covered - a blend of a millisecond
         // passed. Each is counted, so a test can say every switch had one.
-        if (long_frame_after_switch_ && frames_since_switch_ == 3 && shown_before_) {
-            if (local_s - shown_before_->s < 0.4) {
+        if (long_frame_after_switch_ && display_.frames_since_switch() == 3 &&
+            display_.last_frame_s()) {
+            if (local_s - *display_.last_frame_s() < 0.4) {
                 if (!building_long_frame_) {
                     building_long_frame_ = true;
                     ++long_frames_;
@@ -1795,120 +1790,20 @@ public:
             }
         }
         building_long_frame_ = false;
-        // **A blend wherever what it is shown from changes** - predicted, or
-        // drawn from the updates - and at a take-over, where the aircraft
-        // itself does.
-        const bool switched = switching_ || predicted != shown_predicted_;
-        // **Where the last frame carries it now**: shown there, moving as it
-        // was moving then - its own velocity and the blend's, both known, not
-        // guessed from the frames' positions. Guessed, a jump between two
-        // frames and a long frame after carried the aircraft 399 m. What a
-        // blend starts from, and what the step is measured against.
-        std::optional<std::array<double, 3>> carried;
-        if (shown_before_) {
-            const Shown& b = *shown_before_;
-            const double dt = local_s - b.s;
-            const double left_now = left_at(local_s, b.blend_from_s, b.blend_over_s, b.eased);
-            carried = std::array<double, 3>{};
-            for (std::size_t i = 0; i < 3; ++i) {
-                (*carried)[i] = b.source[i] + b.v[i] * dt + b.blend[i] * left_now;
-            }
-        }
-        // A switch is measured as one whether or not anything is blended
-        // across it: were the blend what marked it, taking the blend away
-        // would take the measurement with it. The first frame of all, with
-        // nothing shown before it, is not a switch.
-        if (switched && shown_before_) {
-            // One overtaken by another before its long frame came - a
-            // take-back is two, a frame or two apart, when prediction starts
-            // again - has the next one's instead, and is counted as such.
-            if (switches_ > 0 && frames_since_switch_ < 3) {
-                ++overtaken_;
-            }
-            frames_since_switch_ = 0;
-            ++switches_;
-        }
-        if ((switched || corrected_) && carried) {
-            // **From where it was going, not where it was**: a blend started
-            // from the last frame shown holds the aircraft still for a frame,
-            // a step as big as its speed times the time between frames - 5.5 m
-            // at 55 m/s and a 100 ms frame - at every switch and correction.
-            for (std::size_t i = 0; i < 3; ++i) {
-                blend_[i] = (*carried)[i] - (*at)[i];
-            }
-            blend_from_s_ = local_s;
-            blend_over_s_ = switched ? blend_s : glideslope::sim::correction_blend_s;
-            blend_eased_ = switched;
-        }
-        switching_ = false;
+        // **Shown, blended and measured by the one model of a display**
+        // (frontend/shown.hpp), which the client with the window draws by.
+        // One switch overtaken by another before its long frame came - a
+        // take-back is two, a frame or two apart, when prediction starts
+        // again - has the next one's instead, and is counted as such.
+        const std::size_t switches_before = display_.switches();
+        const int frames_before = display_.frames_since_switch();
+        (void)display_.frame(local_s, glideslope::frontend::OwnShown::Source{
+                                        {(*at)[0], (*at)[1], (*at)[2]}, v_at, predicted,
+                                        corrected_});
         corrected_ = false;
-        shown_predicted_ = predicted;
-        // **A switch eased in and out**, so that its speed changes smoothly at
-        // both ends as well; a correction, restarted with every update, is
-        // taken up at a steady rate, since easing would hold each back longer.
-        const double left = left_at(local_s, blend_from_s_, blend_over_s_, blend_eased_);
-        std::array<double, 3> shown{};
-        for (std::size_t i = 0; i < 3; ++i) {
-            shown[i] = (*at)[i] + blend_[i] * left;
+        if (display_.switches() > switches_before && switches_before > 0 && frames_before < 3) {
+            ++overtaken_;
         }
-        // **The step is measured against time, not frames**: how far what is
-        // shown is from where the last frame, moving as it was, carries it. A
-        // second difference of positions frame by frame counted uneven frames
-        // as steps - 60 m/s drawn 10 ms and then 100 ms apart is 5.4 m of it,
-        // with nothing stepping at all - and a slow Windows debug build draws
-        // unevenly (2026-09-26). It is nought at a steady speed whatever the
-        // frames' timing.
-        //
-        // **And the blend's own motion is counted too**, at the pace it went
-        // this frame over a sixtieth of a second: carried on along its own
-        // curve, a blend cancels out of the difference above, and one that
-        // crossed the whole gap in a single frame read as nought. A long frame
-        // does not make a smooth blend a step - its pace is what counts - and
-        // the pace is over the part of the frame it was going in, so that a
-        // blend over within a frame counts whole however long the frame: paced
-        // over the whole frame, a blend of a millisecond in a 100 ms one would
-        // read 1.8 m.
-        if (carried && shown_before_before_) { // from the third frame of all
-            const Shown& b = *shown_before_;
-            const double left_then = left_at(b.s, b.blend_from_s, b.blend_over_s, b.eased);
-            const double left_now = left_at(local_s, b.blend_from_s, b.blend_over_s, b.eased);
-            const double going_s =
-                std::min(local_s, b.blend_from_s + b.blend_over_s) - std::max(b.s, b.blend_from_s);
-            const double over_a_frame = going_s > 0.0 ? std::min(1.0, (1.0 / 60.0) / going_s) : 1.0;
-            double step = 0.0;
-            double strayed = 0.0; // the source from where it was carried
-            double blended = 0.0; // the blend's own motion, as counted
-            double speed = 0.0;   // the velocity it was carried at
-            for (std::size_t i = 0; i < 3; ++i) {
-                const double moved = b.blend[i] * (left_now - left_then) * over_a_frame;
-                const double d = shown[i] - (*carried)[i] + moved;
-                step += d * d;
-                strayed += (shown[i] - (*carried)[i]) * (shown[i] - (*carried)[i]);
-                blended += moved * moved;
-                speed += b.v[i] * b.v[i];
-            }
-            step = std::sqrt(step);
-            if (frames_since_switch_ <= 4) { // to the frame after a long one
-                if (step > worst_step_at_switch_m_) {
-                    // What made it, so that a failure far away says so.
-                    char what[256];
-                    std::snprintf(what, sizeof what,
-                                  "frame %d after a switch, %.0f ms long, %s: %.3f m from "
-                                  "where it was carried at %.1f m/s, the blend moving %.3f m",
-                                  frames_since_switch_, (local_s - b.s) * 1000.0,
-                                  predicted ? "predicted" : "drawn from the updates",
-                                  std::sqrt(strayed), std::sqrt(speed), std::sqrt(blended));
-                    worst_step_what_ = what;
-                }
-                worst_step_at_switch_m_ = std::max(worst_step_at_switch_m_, step);
-            } else {
-                worst_step_otherwise_m_ = std::max(worst_step_otherwise_m_, step);
-            }
-        }
-        ++frames_since_switch_;
-        shown_before_before_ = shown_before_;
-        shown_before_ = Shown{shown,         local_s,       *at,          v_at, blend_,
-                              blend_from_s_, blend_over_s_, blend_eased_};
     }
 
     // What it found, as the lines it says: a test reads them from the file
@@ -1942,18 +1837,18 @@ public:
                           "own aircraft: handed to the AI %zu times, taken back %zu and another "
                           "taken over %zu; the largest step at a switch %.3f m, and otherwise "
                           "%.3f m",
-                          handed_over_, taken_back_, taken_over_, worst_step_at_switch_m_,
-                          worst_step_otherwise_m_);
+                          handed_over_, taken_back_, taken_over_,
+                          display_.worst_step_at_switch_m(), display_.worst_step_otherwise_m());
             lines.emplace_back(line);
-            if (!worst_step_what_.empty()) {
-                lines.emplace_back("the largest step at a switch: " + worst_step_what_);
+            if (!display_.worst_step_what().empty()) {
+                lines.emplace_back("the largest step at a switch: " + display_.worst_step_what());
             }
         }
         if (long_frame_after_switch_) {
             std::snprintf(line, sizeof line,
                           "long frames: one of 0.4 s built after %zu of %zu switches, and %zu "
                           "overtaken by another before theirs",
-                          long_frames_, switches_, overtaken_);
+                          long_frames_, display_.switches(), overtaken_);
             lines.emplace_back(line);
         }
         if (taken_over_ > 0) {
@@ -2076,54 +1971,21 @@ private:
     std::map<double, glideslope::net::Watched> watched_;
     std::size_t controls_shown_ = 0;
     // Handing over and taking back (`handed`), and what is shown of its own.
-    static constexpr double blend_s = 0.5;
     bool ai_flying_ = false;
     bool resuming_ = false;
     std::uint32_t resumed_from_ = 0;
     double settled_at_s_ = 0.0;
-    bool switching_ = false;
-    bool shown_predicted_ = false;
     bool corrected_ = false;
-    double blend_over_s_ = 0.5;
     glideslope::net::Interpolated own_shown_;
-    // What was shown, and when, as its parts: the source it was shown from
-    // and how fast that moved, and the blend on it. Carried on, each part
-    // moves by its own rule - the source at its velocity, the blend as the
-    // blend goes - where one velocity for the whole missed an eased blend's
-    // curve over a long frame by metres.
-    struct Shown {
-        std::array<double, 3> at;
-        double s = 0.0;
-        std::array<double, 3> source{};
-        std::array<double, 3> v{}; // the source's velocity, m/s
-        std::array<double, 3> blend{};
-        double blend_from_s = 0.0;
-        double blend_over_s = 1.0;
-        bool eased = false;
-    };
-    // How much of a blend is left at `t`.
-    static double left_at(double t, double from_s, double over_s, bool eased) {
-        const double gone = std::clamp((t - from_s) / over_s, 0.0, 1.0);
-        return eased ? 1.0 - gone * gone * (3.0 - 2.0 * gone) : 1.0 - gone;
-    }
-    std::optional<Shown> shown_before_;
-    std::optional<Shown> shown_before_before_;
+    // What is shown of its own, blended across switches and measured.
+    glideslope::frontend::OwnShown display_;
     bool long_frame_after_switch_ = false;
     bool building_long_frame_ = false;
     std::size_t long_frames_ = 0;
-    std::size_t switches_ = 0;
     std::size_t overtaken_ = 0;
-    std::string worst_step_what_;
-    bool blend_eased_ = false;
-    std::array<double, 3> blend_{};
-    double blend_from_s_ = -1.0e9;
-    int frames_since_switch_ = 1000;
     std::size_t handed_over_ = 0;
     std::size_t taken_over_ = 0;
-    std::map<std::uint8_t, std::pair<std::optional<Shown>, std::optional<Shown>>> last_shown_;
     std::size_t taken_back_ = 0;
-    double worst_step_at_switch_m_ = 0.0;
-    double worst_step_otherwise_m_ = 0.0;
     double longest_between_frames_s_ = 0.0;
     std::optional<double> reconciled_s_;
     // Where each step of its own flying took it, and whether that counts

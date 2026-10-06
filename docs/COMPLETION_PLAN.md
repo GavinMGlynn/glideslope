@@ -597,10 +597,10 @@ Found while implementing something else. Added when found, not when remembered.
       built through the client itself, a bound on the hand-over test seen to
       fail, and the cause of the steps CI has seen with the blend in (6.2
       and 24.5 m in the hand-over test, 2.77 m at a take-over).
-- [ ] **The display model is written twice**, in the command-line client
+- [x] **The display model is written twice**, in the command-line client
       and in the client with the window. *Verification: one presentation-free
       module serves both, with a unit test that builds long frames across a
-      switch and bounds the step.*
+      switch and bounds the step.* Done 2026-10-06.
 
 - [x] **A headless client drawing thousands of frames runs the software
       Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a
