@@ -309,6 +309,15 @@ are the risks the phase order is built around:
   stay of `glideslope_cli connect` is over before it has answered one of
   the server's knocks, a minute past its time the most. With the server
   held so, the test passes. On failure it prints both clients' own words.
+  **That made a second race likelier, and CI's macOS debug found it**
+  (2026-10-07): leaving as soon as it was told, the client on the same ground
+  emptied the server, which stopped (`--until-empty`) before the client on
+  other ground's initiation was read - "no answer from 127.0.0.1:24725" after
+  a minute. **Reproduced** by starting that client two seconds late. Now the
+  client on other ground writes `--done` and the one on the same ground stays
+  until it has been told, answered a knock *and* that file has appeared
+  (`--until-told-ground` with `--until-exists` waits on both); the late start
+  passes.
 
 ### A player asks for an aeroplane as they join a server, and flies it: protocol version 04, 2026-10-06 — a tail, not yet closed
 
