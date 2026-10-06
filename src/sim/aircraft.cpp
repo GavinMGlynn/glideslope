@@ -613,14 +613,27 @@ void Aircraft::restart_engine(int engine) {
     }
 }
 
-bool Aircraft::any_engine_stopped() const {
+std::optional<int> Aircraft::first_stopped_engine() const {
     const auto propulsion = exec_->GetPropulsion();
     for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
         if (!propulsion->GetEngine(i)->GetRunning()) {
-            return true;
+            return static_cast<int>(i);
         }
     }
-    return false;
+    return std::nullopt;
+}
+
+int Aircraft::engine_count() const {
+    return static_cast<int>(exec_->GetPropulsion()->GetNumEngines());
+}
+
+bool Aircraft::engine_running(int engine) const {
+    return engine >= 0 && engine < engine_count() &&
+           exec_->GetPropulsion()->GetEngine(static_cast<unsigned>(engine))->GetRunning();
+}
+
+bool Aircraft::any_engine_stopped() const {
+    return first_stopped_engine().has_value();
 }
 
 void Aircraft::freeze_fuel(bool frozen) {

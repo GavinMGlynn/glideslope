@@ -156,13 +156,14 @@ public:
     // (sim::Prediction::settled).
     bool clocks_known() const { return prediction_ && prediction_->settled(); }
     void set_input_sequence(std::uint32_t sequence) { sequence_ = sequence; }
-    // `engine_stopped` is the server's word that one has: it is stopped here
-    // too before the inputs since are flown again (sim::Prediction).
+    // `engine_stopped` is the server's word that one has, and which: it is
+    // stopped here too before the inputs since are flown again
+    // (sim::Prediction).
     sim::Prediction::Correction reconcile(const sim::Motion& motion,
                                           std::uint32_t last_applied,
                                           std::size_t steps_into,
                                           std::uint64_t server_steps,
-                                          bool engine_stopped = false);
+                                          std::optional<int> engine_stopped = std::nullopt);
     // The clocks' difference alone, from a word not reconciled from
     // (sim::Prediction::hear_clock).
     void hear_clock(std::uint32_t last_applied, std::size_t steps_into,

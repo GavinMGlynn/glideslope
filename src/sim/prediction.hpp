@@ -136,18 +136,16 @@ public:
     // How many steps this client has flown, which numbers them.
     std::uint64_t steps() const { return steps_; }
     // **The server's word that an engine has stopped** (a state update's
-    // `engine_stopped`), heard before it is put right by that word, so that
-    // the inputs flown again are flown with it stopped. The engines are this
-    // client's own, flown on the same inputs, so a tank run dry stops here
-    // too; one stopped on the server alone - a failure - did not, and the
-    // prediction flew it on, put right correction by correction. So when the
-    // server says one has stopped and none has here, the first is stopped -
-    // which the word does not say: it is the one a failure stops
-    // (`glideslope_server --fail-engine-at`), and the port engine of a twin.
+    // `engine_stopped`, and which), heard before it is put right by that
+    // word, so that the inputs flown again are flown with it stopped. The
+    // engines are this client's own, flown on the same inputs, so a tank run
+    // dry stops here too; one stopped on the server alone - a failure - did
+    // not, and the prediction flew it on, put right correction by
+    // correction. So the engine the server names is stopped here, if it runs.
     // **And one it stopped for that word is started again** when the server
     // says none is stopped - an aircraft flown again after a wreck. Returns
     // whether it stopped one.
-    bool hear_engine_stopped(bool stopped);
+    bool hear_engine_stopped(std::optional<int> engine);
     int engines_stopped_for_the_server() const { return engines_stopped_; }
     // **When the step being flown - forward or flown again - is flown on the
     // server**, on the session's clock: this client's step `s` is the
@@ -173,7 +171,7 @@ private:
     std::map<std::uint32_t, std::uint64_t> began_;
     std::uint64_t steps_ = 0;
     int engines_stopped_ = 0;
-    bool stopped_for_the_server_ = false;
+    std::optional<int> stopped_for_the_server_;
     // The input the last step was flown on.
     std::uint32_t flying_ = 0;
     // Which of this client's steps is being flown, or was last.

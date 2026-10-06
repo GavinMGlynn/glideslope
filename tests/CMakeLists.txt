@@ -303,6 +303,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_players_slot_is_their_keys_rank_among_those_in_the_session
     a_session_is_full_at_its_player_count_and_the_next_is_refused
     a_full_server_reads_at_most_its_budget_of_initiations_a_second
+    a_session_is_held_to_its_stated_rates_on_a_clock_the_test_sets
     admitting_the_same_key_twice_is_one_player_and_releasing_frees_it
     a_session_is_never_fewer_than_one_player_or_more_than_four
     the_lobby_has_a_row_for_every_slot_with_the_open_ones_named

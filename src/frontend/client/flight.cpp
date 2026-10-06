@@ -161,7 +161,7 @@ sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
                                               std::uint32_t last_applied,
                                               std::size_t steps_into,
                                               std::uint64_t server_steps,
-                                              bool engine_stopped) {
+                                              std::optional<int> engine_stopped) {
     if (!prediction_) {
         return {};
     }

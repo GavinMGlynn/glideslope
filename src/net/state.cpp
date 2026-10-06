@@ -44,7 +44,8 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
             return std::nullopt;
         }
         if (!known_controller(static_cast<std::uint8_t>(a.controller)) ||
-            !known_condition(static_cast<std::uint8_t>(a.condition))) {
+            !known_condition(static_cast<std::uint8_t>(a.condition)) ||
+            (a.condition == Condition::engine_stopped) != (a.stopped_engine != no_engine)) {
             return std::nullopt;
         }
     }
@@ -69,6 +70,7 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         w.u8(a.index);
         w.u8(static_cast<std::uint8_t>(a.controller));
         w.u8(static_cast<std::uint8_t>(a.condition));
+        w.u8(a.stopped_engine);
         w.f64(a.x_m);
         w.f64(a.y_m);
         w.f64(a.z_m);
@@ -144,6 +146,11 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
             return std::nullopt;
         }
         a.condition = static_cast<Condition>(condition);
+        // An engine named exactly when one is said to have stopped.
+        a.stopped_engine = r.u8();
+        if ((a.condition == Condition::engine_stopped) != (a.stopped_engine != no_engine)) {
+            return std::nullopt;
+        }
         a.x_m = r.f64();
         a.y_m = r.f64();
         a.z_m = r.f64();

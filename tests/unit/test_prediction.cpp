@@ -3,6 +3,7 @@
 #include "frontend/client/pass.hpp"
 #include "frontend/same_air.hpp"
 #include "sim/aircraft.hpp"
+#include "sim/catalogue.hpp"
 #include "sim/prediction.hpp"
 #include "sim/terrain.hpp"
 
@@ -1085,33 +1086,39 @@ GLIDESLOPE_TEST(every_step_a_client_flies_meets_the_air_at_the_moment_the_server
     check(held == 84, "84 replayed steps were held to their moments");
 }
 
-// **A prediction stops its engine on the server's word that one has
-// stopped, once, and starts it again when the word says none has** - an
-// aircraft flown again after a wreck. Stopped before it is put right, so that
-// the inputs flown again are flown with it out; and only an engine it stopped
-// for that word is started again: one stopped here by itself stays stopped.
+// **A prediction stops the engine the server names, once, and starts it
+// again when the word says none has stopped** - an aircraft flown again after
+// a wreck - or names another. Stopped before it is put right, so that the
+// inputs flown again are flown with it out; and only an engine it stopped for
+// that word is started again: one stopped here by itself stays stopped. A
+// twin, so that which engine is what is tested.
 GLIDESLOPE_TEST(a_prediction_stops_its_engine_on_the_servers_word_and_starts_it_again_on_its_word) {
-    Aircraft client(data() / "jsbsim", "c172p");
-    set_up(client);
-    glideslope::sim::Prediction prediction(client);
-    check(!client.any_engine_stopped(), "the engine runs to begin with");
-    check(!prediction.hear_engine_stopped(false), "nothing is stopped for a word of none");
-    check(prediction.hear_engine_stopped(true), "the word that one has stopped stops one");
-    check(client.any_engine_stopped(), "and it is stopped");
-    check(!prediction.hear_engine_stopped(true), "said again, nothing more is stopped");
+    Aircraft twin(data() / "jsbsim", glideslope::sim::find_aircraft(data(), "mosquito-fb6").model);
+    set_up(twin);
+    check(twin.engine_count() == 2, "the Mosquito has two engines");
+    glideslope::sim::Prediction prediction(twin);
+    check(!twin.any_engine_stopped(), "both run to begin with");
+    check(!prediction.hear_engine_stopped(std::nullopt), "nothing is stopped for a word of none");
+    check(prediction.hear_engine_stopped(1), "the word that the second has stopped stops one");
+    check(twin.engine_running(0) && !twin.engine_running(1), "and it is the second");
+    check(!prediction.hear_engine_stopped(1), "said again, nothing more is stopped");
     check(prediction.engines_stopped_for_the_server() == 1, "one stopped for the word");
     for (int i = 0; i < steps_per_second; ++i) {
         prediction.step(static_cast<std::uint32_t>(i + 1), flying(i));
     }
-    check(client.any_engine_stopped(), "it stays stopped while flown, its ignition off");
-    check(!prediction.hear_engine_stopped(false), "the word of none stops nothing");
-    check(!client.any_engine_stopped(), "and starts the one it stopped again");
+    check(!twin.engine_running(1), "it stays stopped while flown, its ignition off");
+    check(prediction.hear_engine_stopped(0), "the first named instead is stopped");
+    check(!twin.engine_running(0) && twin.engine_running(1),
+          "and the second, stopped for the word before, started again");
+    check(!prediction.hear_engine_stopped(std::nullopt), "the word of none stops nothing");
+    check(!twin.any_engine_stopped(), "and starts the one it stopped again");
+    check(!prediction.hear_engine_stopped(7), "an engine it does not have is not stopped");
 
     Aircraft dry(data() / "jsbsim", "c172p");
     set_up(dry);
     glideslope::sim::Prediction own(dry);
     dry.fail_engine(0, false);
-    check(!own.hear_engine_stopped(true), "one stopped here already is not stopped again");
-    (void)own.hear_engine_stopped(false);
+    check(!own.hear_engine_stopped(0), "one stopped here already is not stopped again");
+    (void)own.hear_engine_stopped(std::nullopt);
     check(dry.any_engine_stopped(), "and one stopped here by itself is not started for the word");
 }

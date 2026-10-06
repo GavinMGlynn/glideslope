@@ -1180,6 +1180,12 @@ public:
             });
         const auto ground = ground_;
         data_ = data;
+        // **The catalogue, read once**: an aeroplane asked for at admission
+        // is looked up here, not read from the disk for every initiation.
+        for (glideslope::sim::CatalogueEntry& entry : glideslope::sim::read_catalogue(data)) {
+            std::string id = entry.id;
+            catalogue_.emplace(std::move(id), std::move(entry));
+        }
         for (const Flown& f : fly) {
             const glideslope::sim::CatalogueEntry entry =
                 glideslope::sim::find_aircraft(data, f.id);
@@ -1402,17 +1408,26 @@ public:
     // payload), if the catalogue has it - looked up among its ids, never
     // joined to a path - and the plan's otherwise, said so. Where it starts
     // is the plan's either way, at the aeroplane's own starting speed.
-    std::uint8_t give(std::uint8_t slot, const std::optional<std::string>& asked = std::nullopt) {
+    // A payload that asked for something unreadable (`unreadable`) gives the
+    // plan's, said so.
+    std::uint8_t give(std::uint8_t slot, const std::optional<std::string>& asked = std::nullopt,
+                      bool unreadable = false) {
         std::string model = player_model_;
         std::string id = player_id_;
         double airspeed_kts = player_airspeed_kts_;
         bool seaplane = player_seaplane_;
+        if (unreadable) {
+            std::printf("slot %d asked for an aeroplane in a payload that does not read: it "
+                        "flies %s\n",
+                        static_cast<int>(slot), id.c_str());
+            std::fflush(stdout);
+        }
         if (asked) {
-            if (const auto entry = glideslope::sim::known_aircraft(data_, *asked)) {
-                model = entry->model;
-                id = entry->id;
-                airspeed_kts = entry->start_airspeed_kts;
-                seaplane = entry->seaplane;
+            if (const auto entry = catalogue_.find(*asked); entry != catalogue_.end()) {
+                model = entry->second.model;
+                id = entry->second.id;
+                airspeed_kts = entry->second.start_airspeed_kts;
+                seaplane = entry->second.seaplane;
                 std::printf("slot %d asked for %s, and flies it\n", static_cast<int>(slot),
                             id.c_str());
             } else {
@@ -2934,6 +2949,9 @@ private:
     glideslope::sim::FlightPlan plan_;
     std::string player_model_;
     std::string player_id_;
+    // Every aeroplane the catalogue holds, by id, read when the fleet is
+    // made (`give`).
+    std::map<std::string, glideslope::sim::CatalogueEntry> catalogue_;
     double player_airspeed_kts_ = 0.0;
     bool player_seaplane_ = false;
     std::int64_t steps_ = 0;
@@ -3038,6 +3056,10 @@ glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s) {
         out.condition = a.wrecked_at_s >= 0.0     ? glideslope::net::Condition::wrecked
                         : Fleet::engine_stopped(a) ? glideslope::net::Condition::engine_stopped
                                                    : glideslope::net::Condition::flying;
+        if (out.condition == glideslope::net::Condition::engine_stopped) {
+            out.stopped_engine =
+                static_cast<std::uint8_t>(a.aircraft->first_stopped_engine().value_or(0));
+        }
         out.x_m = at.x;
         out.y_m = at.y;
         out.z_m = at.z;
@@ -3447,9 +3469,9 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         if (same_key != connections.end()) {
             c.aircraft = same_key->second.aircraft;
         } else if (fleet != nullptr) {
-            c.aircraft = fleet->give(
-                *slot, glideslope::net::read_asked_aircraft(
-                           std::span<const std::uint8_t>(payload.data(), payload.size())));
+            const auto asked = glideslope::net::read_asked_aircraft(
+                std::span<const std::uint8_t>(payload.data(), payload.size()));
+            c.aircraft = fleet->give(*slot, asked, !payload.empty() && !asked);
         }
 
         glideslope::net::Writer w =

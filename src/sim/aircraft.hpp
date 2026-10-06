@@ -364,6 +364,11 @@ public:
     // state update says as `engine_stopped`, and what a predicting client
     // holds its own flight model to.
     bool any_engine_stopped() const;
+    // The first engine stopped, by its number from 0, or nothing.
+    std::optional<int> first_stopped_engine() const;
+    // How many engines it has, and whether engine `engine` runs.
+    int engine_count() const;
+    bool engine_running(int engine) const;
 
     // Fuel neither burns nor moves while `frozen`: an aircraft measured at a
     // weight - a fighter's minutes in afterburner would burn half its fuel -

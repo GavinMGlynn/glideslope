@@ -67,19 +67,18 @@ Prediction::Correction Prediction::reconcile(const AircraftSnapshot& server,
     return out;
 }
 
-bool Prediction::hear_engine_stopped(bool stopped) {
-    // **Running again on the server** - flown again after a wreck - and
-    // stopped here for its word: started again.
-    if (!stopped && stopped_for_the_server_) {
-        aircraft_.restart_engine(0);
-        stopped_for_the_server_ = false;
+bool Prediction::hear_engine_stopped(std::optional<int> engine) {
+    // **Running again on the server** - flown again after a wreck - or
+    // another named, and stopped here for its word: started again.
+    if (stopped_for_the_server_ && stopped_for_the_server_ != engine) {
+        aircraft_.restart_engine(*stopped_for_the_server_);
+        stopped_for_the_server_.reset();
+    }
+    if (!engine || stopped_for_the_server_ == engine || !aircraft_.engine_running(*engine)) {
         return false;
     }
-    if (!stopped || aircraft_.any_engine_stopped()) {
-        return false;
-    }
-    aircraft_.fail_engine(0, false);
-    stopped_for_the_server_ = true;
+    aircraft_.fail_engine(*engine, false);
+    stopped_for_the_server_ = engine;
     ++engines_stopped_;
     return true;
 }

@@ -158,6 +158,13 @@ std::size_t connect_until_engine_compared = 0;
 // joining again. Empty: none asked, the server's plan's.
 std::vector<std::uint8_t> connect_asked_aircraft;
 
+// **A test flag's work (`--until-told-ground`)**: stay until the server has
+// said its collision ground and this client has answered one of its knocks -
+// the events a test of being told the ground waits for - SECONDS only the
+// most. Its stay had been five seconds, which a server slow on CI's macOS
+// outlasted before it said anything (2026-10-06).
+bool connect_until_told_ground = false;
+
 // **What the server says the session is** (REQUIREMENTS.md 6.3), as a
 // connecting client takes it: its own collision ground, from the data it
 // reads, to hold the server's against, and, for a test, whether its
@@ -1617,9 +1624,11 @@ public:
                     [&](const glideslope::net::AircraftState& a) {
                         return a.index == state.your_aircraft;
                     });
-                const bool engine_stopped =
-                    own != state.aircraft.end() &&
-                    own->condition == glideslope::net::Condition::engine_stopped;
+                std::optional<int> engine_stopped;
+                if (own != state.aircraft.end() &&
+                    own->condition == glideslope::net::Condition::engine_stopped) {
+                    engine_stopped = static_cast<int>(own->stopped_engine);
+                }
                 if (engine_stopped && !engine_stopped_at_s_) {
                     engine_stopped_at_s_ = local_s;
                 }
@@ -2362,6 +2371,7 @@ int stay(glideslope::platform::UdpSocket& socket,
     // ground it collides on - another than this client's is refused, and it
     // leaves - the session, the lobby and the weather it flies.
     glideslope::net::Told told;
+    bool told_same_ground = false;
     bool refused_ground = false;
     // **A test flag's work**: send the initiation once more, now that the
     // session is up. A network that duplicates a datagram does this by
@@ -2428,6 +2438,10 @@ int stay(glideslope::platform::UdpSocket& socket,
             predicting->compared_engine_stopped() >= connect_until_engine_compared) {
             break;
         }
+        // **Stay until told the ground** (`--until-told-ground`).
+        if (connect_until_told_ground && told_same_ground && answered > 0) {
+            break;
+        }
         // **Stay until the flood is over** (`--flood`): read and answered.
         if (connect_flood.done) {
             break;
@@ -2489,7 +2503,13 @@ int stay(glideslope::platform::UdpSocket& socket,
         constexpr double wait_for_the_last_input_s = 60.0;
         constexpr double server_gone_quiet_s = 5.0;
         const bool finishing = up_s >= seconds;
-        if (finishing &&
+        // **Nor is a stay over before it has answered one of the server's
+        // knocks** - been in the session, which is what its exit code says -
+        // a minute past its time the most: a server slow enough to say
+        // nothing for a whole stay of a few seconds was taken for one that
+        // had never answered (2026-10-06).
+        const bool been_in_it = answered > 0 || up_s >= seconds + wait_for_the_last_input_s;
+        if (finishing && been_in_it &&
             (!fly || applied >= sequence || up_s >= seconds + wait_for_the_last_input_s ||
              up_s - last_heard_s >= server_gone_quiet_s)) {
             break;
@@ -3017,6 +3037,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                     const std::string theirs = glideslope::frontend::describe(*told.dataset());
                     if (glideslope::frontend::same_ground(*told.dataset(), ours)) {
                         say_heard("told the collision ground: " + theirs + ", this client's too");
+                        told_same_ground = true;
                     } else {
                         // **Refused, not fetched**: the ground is the data
                         // this build carries and the tiles it names, and a
@@ -3973,8 +3994,24 @@ static int run_program(int argc, char** argv) {
                     leave_once_back = true;
                     continue;
                 }
+                if (args[i] == "--until-told-ground") {
+                    connect_until_told_ground = true;
+                    continue;
+                }
                 if (args[i] == "--flood") {
                     connect_flood.on = true;
+                    continue;
+                }
+                // **A test flag's work (`--asked-payload HEX`)**: the
+                // initiation's payload as given, unchecked - what a client
+                // not this project's could send.
+                if (args[i] == "--asked-payload" && i + 1 < args.size()) {
+                    const std::string hex(args[++i]);
+                    connect_asked_aircraft.clear();
+                    for (std::size_t h = 0; h + 1 < hex.size(); h += 2) {
+                        connect_asked_aircraft.push_back(static_cast<std::uint8_t>(
+                            std::stoul(hex.substr(h, 2), nullptr, 16)));
+                    }
                     continue;
                 }
                 if (args[i] == "--aircraft" && i + 1 < args.size()) {

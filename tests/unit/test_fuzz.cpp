@@ -97,6 +97,10 @@ std::vector<Parser> every_parser() {
     out.push_back({"leaving", [](std::span<const std::uint8_t> b) {
                        (void)glideslope::net::is_leaving(b);
                    }});
+    // The initiation's payload, sealed but the initiator's to write.
+    out.push_back({"asked aircraft", [](std::span<const std::uint8_t> b) {
+                       (void)glideslope::net::read_asked_aircraft(b);
+                   }});
     return out;
 }
 
@@ -225,6 +229,7 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
         return std::vector<std::uint8_t>(s.begin(), s.end());
     }());
     add("largest-datagram", std::vector<std::uint8_t>(1232, 0xA5));
+    add("asked-aircraft", glideslope::net::write_asked_aircraft("mosquito-fb6"));
     return out;
 }
 
@@ -244,9 +249,9 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
 GLIDESLOPE_TEST(the_seed_corpus_goes_through_every_network_parser_under_sanitizers) {
     const std::vector<Parser> parsers = every_parser();
     const auto corpus = seeds();
-    check(parsers.size() == 15, "fifteen parsers are fuzzed, not " +
+    check(parsers.size() == 16, "sixteen parsers are fuzzed, not " +
                                     std::to_string(parsers.size()));
-    check(corpus.size() == 20, "twenty seeds - four envelopes, eight messages, a reliable datagram, an input packet, a state packet and five things this project never writes - not " + std::to_string(corpus.size()));
+    check(corpus.size() == 21, "twenty-one seeds - four envelopes, eight messages, a reliable datagram, an input packet, a state packet, an initiation's payload and five things this project never writes - not " + std::to_string(corpus.size()));
 
     std::uint64_t calls = 0;
 
@@ -351,6 +356,6 @@ GLIDESLOPE_TEST(the_seed_corpus_is_written_where_a_fuzzer_can_take_it) {
                   static_cast<std::streamsize>(bytes.size()));
         ++written;
     }
-    check(written == 20, "every seed was written, not " + std::to_string(written));
+    check(written == 21, "every seed was written, not " + std::to_string(written));
     std::printf("  wrote %zu seeds to %s\n", written, where.string().c_str());
 }
