@@ -98,6 +98,7 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
 
     const Waypoint& centre = plan.waypoints[0];
     out.nearest_m = std::numeric_limits<double>::infinity();
+    out.join_nearest_m = std::numeric_limits<double>::infinity();
     out.slowest_kts = std::numeric_limits<double>::infinity();
     int steps = 0;
     const int most_steps = 30 * 60 * steps_per_second;
@@ -116,10 +117,12 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
             continue;
         }
         out.turns = std::max(out.turns, navigator.turns_flown());
+        const double d = distance_m(centre.latitude_deg, centre.longitude_deg,
+                                    aircraft.property("position/lat-geod-deg"),
+                                    aircraft.property("position/long-gc-deg"));
+        out.join_nearest_m = std::min(out.join_nearest_m, d);
+        out.join_farthest_m = std::max(out.join_farthest_m, d);
         if (navigator.turns_flown() >= 0.25) {
-            const double d = distance_m(centre.latitude_deg, centre.longitude_deg,
-                                        aircraft.property("position/lat-geod-deg"),
-                                        aircraft.property("position/long-gc-deg"));
             if (navigator.turns_flown() >= 0.5) {
                 out.nearest_m = std::min(out.nearest_m, d);
                 out.farthest_m = std::max(out.farthest_m, d);
@@ -160,11 +163,11 @@ bool holds_plan_speed(const std::filesystem::path& data, const CatalogueEntry& e
             const bool held = f.held(airspeed_kts);
             std::snprintf(line, sizeof line,
                           "%s %.0f kt round %.0f m, %s, %s: %s (%.0f ft off, %.0f to %.0f kt, "
-                          "%.0f to %.0f m)",
+                          "%.0f to %.0f m, joined %.0f to %.0f m)",
                           entry.id.c_str(), airspeed_kts, f.radius_m, right ? "right" : "left",
                           windy ? "10 kt wind" : "calm", held ? "held" : "NOT held",
                           f.worst_height_ft, f.slowest_kts, f.fastest_kts, f.nearest_m,
-                          f.farthest_m);
+                          f.farthest_m, f.join_nearest_m, f.join_farthest_m);
             tell(line);
             if (!held) {
                 return false;

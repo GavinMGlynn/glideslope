@@ -25,20 +25,11 @@ constexpr double least_speed_fps = 10.0;
 // the autopilot needs to bank for the circle**, atan(v_air v_ground / g r)
 // (sim::heading_off_for_bank_deg); turned in towards the circle by the angle
 // that would bring it back in twelve seconds at its airspeed, 45 degrees at
-// most; and trimmed by an integral on that, a sixtieth of it each second, 15
-// degrees at most, for what the autopilot's bank and the aeroplane's turn do
-// not quite agree on. It was led along the tangent by five seconds, which is
-// what a wide circle needs and more than a tight, slow one does: Claude's
-// 521 m orbit at 60 kt was flown 94 to 127 m inside.
-//
-// **How far it is turned in is set by time, not distance.** It was 90
-// degrees for each kilometre off whatever the speed, which is fifteen to
-// twenty seconds back at 60 to 80 kt. A jet at 360 kt was turned in by 45
-// degrees half a kilometre off, which at 25 degrees of bank, 1.4 degrees a
-// second, took it half a minute to turn back from: it swung through its
-// 18.8 km circle 3.5 km either side. Twenty seconds let a Cessna at 100 kt
-// run 67 m wide of its 1,447 m circle, and fifteen the S.23 at 86 kt in
-// wind 67 m inside its 1,071 m; twelve holds all three.
+// most; and trimmed by an integral on that, a sixtieth of it a second, 15
+// degrees at most, while it is turned in by 9 or less. Turned in by a fixed
+// 90 degrees a kilometre, a jet at 360 kt swung 3.5 km either side of its
+// 18.8 km circle; twenty seconds let a C172P at 100 kt run 67 m wide, and
+// fifteen the S.23 at 86 kt 67 m inside (PROJECT_STATUS.md).
 constexpr double orbit_closing_s = 12.0;
 constexpr double most_orbit_intercept_deg = 45.0;
 constexpr double orbit_trim_per_s = 1.0 / 60.0;
@@ -176,9 +167,6 @@ AutopilotModes Navigator::steer() {
             // Degrees turned in for each metre off the circle.
             const double in_per_metre =
                 std::atan(1.0 / (std::max(air_mps, 1.0) * orbit_closing_s)) / radians;
-            // The trim counts while it is turned in by 9 degrees or less: 100
-            // m off at 60 kt, which is where it counted before, and further
-            // the faster it flies.
             if (circling_ && std::abs(in_per_metre * off_circle_m) <= most_trimmed_in_deg) {
                 trim_deg_ = std::clamp(trim_deg_ + orbit_trim_per_s * in_per_metre *
                                                        off_circle_m * dt,
