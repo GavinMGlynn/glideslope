@@ -1987,8 +1987,30 @@ outside their limits.
   the light aeroplanes' figures, ceilings and stalls, lessons, plans and
   orbits, handing over, the committed models.
 
-**The selftest hash is unchanged**: d36123c1eecc3e23 (linux-release). It flies
-the 172P, whose model did not move.
+**From the review** (2026-10-06):
+- **A ratio found high up is not given back low down.** Below the full-rich
+  height the leaner now takes the ratio it has there as the one to hold, and
+  an engine stopped there is richened to full rich; before, an engine leaned
+  at 8,000 ft that stopped below 3,000 was walked back towards the 8,000 ft
+  ratio. `an_engine_leaned_high_up_that_stops_below_the_full_rich_height_is_given_full_rich`
+  (each Cessna leaned at 8,000 ft, brought down to 2,500, cut off, given
+  back): the lever stays at 1.000 and the engine runs; with the old rule
+  the 182S's lever went to 0.998 and its engine did not run again - red.
+- `the_leaner_holds_full_rich_below_the_catalogues_height_and_leans_above_it`
+  (each Cessna at full throttle): at 2,000 ft handed 0.8, the lever at 1.000
+  for two minutes; at 6,000 ft handed full rich, leaned to 0.915 (172P) and
+  0.695 (182S) at most. With the height's rule taken out, the 172P rested
+  at 0.867 at 2,000 ft - red.
+- The restart test now flies the 182S too, at both heights; its lever is
+  cut off 1.5 s, not 5, because its model charges a stopped engine its
+  friction (make_c182.py) and the propeller stops within five seconds.
+  172P: lever 0.880 -> 1.000 -> 0.880 at 7,000 ft, 0.725 -> 1.000 -> 0.728
+  at 12,000; 182S: 0.669 -> 0.818 -> 0.662 and 0.552 -> 0.701 -> 0.556, each
+  running again at its leaned power.
+
+**The selftest hash is unchanged**: d36123c1eecc3e23 (linux-release). It
+replays a pilot's inputs on the 172P, whose model did not move, and flies no
+autopilot or leaner (src/sim/selftest.cpp).
 
 ### The AI leans the mixture for best power, 2026-10-01 — tail still open
 

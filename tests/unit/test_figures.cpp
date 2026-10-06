@@ -743,8 +743,9 @@ GLIDESLOPE_TEST(every_light_aeroplane_is_climbed_to_its_published_ceiling_or_nam
         } else {
             check(has, e.id + " is a light aeroplane with no ceiling on the autopilot, "
                               "and is not named as left out");
-            check(e.mixture_lever || no_lever.count(e.id) != 0, e.id + " is climbed to its ceiling with no mixture "
-                                          "lever for the autopilot to lean");
+            check(e.mixture_lever || no_lever.count(e.id) != 0,
+                  e.id + " is climbed to its ceiling with no mixture lever for the "
+                         "autopilot to lean, and is not named as having none");
             ++climbed;
         }
     }

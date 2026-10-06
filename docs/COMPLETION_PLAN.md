@@ -845,37 +845,21 @@ Found while implementing something else. Added when found, not when remembered.
       flight, is richened and runs again.* Done 2026-10-06: at 7,000 and
       12,000 ft. Richened to full rich, as it was, at 12,000 ft it never ran
       again; it is now given back the mixture it was leaned to.
-- [ ] **The Cessna 172P's engine makes 209 hp from 160**: its engine file
-      sets a fuel consumption no petrol engine has, and leaned it climbs to
-      17,200 ft against 13,000. Corrected, it climbs to 14,900 and needs the
-      handbook's slower climb speeds high up, and the learnt landing must be
-      trained again on it. *Verification: the AI climbs it to within 10% of
-      13,000 ft, and its other figures stay within theirs.* Tried again
-      2026-10-06 with the FAA's mixture curve and a float carburettor: 160 hp,
-      every other figure in range, but the ceiling 15,400 ft, the autopilot's
-      climb capture in turbulence 39 s against 30, and the learnt landing's
-      fixture to be recorded again; kept out.
-- [ ] **The Cessna 182S's engine is rated at the wrong rpm, and its climb
-      falls away high up.** Now rated at 2,400 rpm (230 hp there, measured)
-      and on the FAA's mixture curve, every other figure in range; leaned it
-      still reaches only 13,600 ft against its handbook's 18,100. With its
-      glide drag moved to the windmilling propeller, 15,200; the rest of the
-      shortfall is not found. *Verification: the AI climbs it to within 10%
-      of 18,100 ft, and its other figures stay within theirs.*
-- [ ] **The light aeroplanes' engines make most power far too rich.**
-      JSBSim's default mixture curve peaks at 9.9 parts of air to one of
-      fuel, against the FAA's 12 to 13.8, so leaning finds a power the real
-      engine does not have. The 182S and the Cub have the FAA's curve
-      (2026-10-06); not yet the 172P (its own tail above) nor the Cherokee,
-      whose stall recovery at 5,000 ft on it lost 805 ft against its
-      lesson's 300. The ratio the leaner settles at is not yet
-      measured. *Verification: leaned for best power, each
-      engine sits between 12 and 13.8 to 1, and every figure stays in range.*
-      Merged in from the AI's leaning: unleaned, a light aeroplane's ceiling
-      on the autopilot was about 8,500 ft against the 172P handbook's 13,000;
-      the AI leans for best power, and climbs the Cherokee and the Cub to
-      their ceilings, the 172P and 182S being held back by their models
-      (the items here, each with its own ceiling to reach).
+- [ ] **The Cessna 172P's engine makes 209 hp from 160**, and leaned it
+      climbs to 17,200 ft against 13,000; corrected, it climbs too high still
+      and two other tests move (PROJECT_STATUS, 2026-10-06). *Verification:
+      the AI climbs it to within 10% of 13,000 ft, and its other figures stay
+      within theirs.*
+- [ ] **The Cessna 182S's climb falls away high up.** Now rated right, at
+      2,400 rpm, leaned it still reaches only 13,600 ft against its
+      handbook's 18,100. *Verification: the AI climbs it to within 10% of
+      18,100 ft, and its other figures stay within theirs.*
+- [ ] **The light aeroplanes' engines make most power far too rich**, at
+      9.9 parts of air to one of fuel against the FAA's 12 to 13.8. The 182S
+      and the Cub are on the FAA's curve; the 172P and the Cherokee are not
+      yet (PROJECT_STATUS, 2026-10-06). *Verification: leaned for best power,
+      each engine sits between 12 and 13.8 to 1, and every figure stays in
+      range.*
 - [x] **The Cub's carburettor runs too rich to climb past about 8,000 ft.**
       It has no mixture lever, and JSBSim enriches every engine as the air
       pressure falls, where a float carburettor enriches only as the square
