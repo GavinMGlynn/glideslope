@@ -71,6 +71,9 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
 
     aircraft_entry_ = sim::find_aircraft(data, start.aircraft);
     aircraft_ = std::make_unique<sim::Aircraft>(data / "jsbsim", aircraft_entry_.model);
+    if (sim::publishes_approach_speed(data, aircraft_entry_.model)) {
+        lands_with_ = sim::approach_speeds(data, aircraft_entry_.model);
+    }
 
     // Its checklists. Every aircraft in the roster ships them and a test
     // holds that, so a missing file is a fault - but not one worth ending a
@@ -187,6 +190,9 @@ void Flight::step(const sim::Controls& controls) {
     }
     if (!controller_) {
         controller_ = std::make_unique<sim::Controller>(*aircraft_, controls);
+        if (lands_with_) {
+            controller_->lands_with(*lands_with_);
+        }
         if (start_with_ai_) {
             swap_pilot();
         }

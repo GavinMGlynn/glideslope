@@ -3490,8 +3490,10 @@ namespace {
 // **Where the pilot takes her and the AI takes her back**, half a second
 // later: the moment her wheels meet the runway; when she has lost half the
 // groundspeed she touched with; and taken in the flare, before she touches,
-// and given back half a second after the pilot's own touch.
-enum class OnTheRoll { at_the_touch, half_her_speed_gone, after_the_pilots_touch };
+// and given back half a second after the pilot's own touch; and landed by
+// the pilot from the start, no approach given to the AI, and given to it half
+// a second after the touch.
+enum class OnTheRoll { at_the_touch, half_her_speed_gone, after_the_pilots_touch, landed_by_hand };
 
 const char* name_of(OnTheRoll when) {
     switch (when) {
@@ -3501,6 +3503,8 @@ const char* name_of(OnTheRoll when) {
         return "at half speed";
     case OnTheRoll::after_the_pilots_touch:
         return "from the flare";
+    case OnTheRoll::landed_by_hand:
+        return "landed by hand";
     }
     return "?";
 }
@@ -3545,7 +3549,14 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
     flying.throttle = 0.4;
     flying.gear = 1.0;
     glideslope::sim::Controller controller(aircraft, flying);
-    controller.to_ai_approach(runway, published);
+    const bool by_hand = when == OnTheRoll::landed_by_hand;
+    if (by_hand) {
+        // The pilot has her from the start, and the AI is told only how
+        // she lands, as the server tells it.
+        controller.lands_with(published);
+    } else {
+        controller.to_ai_approach(runway, published);
+    }
     glideslope::sim::Controls pilot;
     pilot.gear = 1.0;
     pilot.flaps = published.flap;
@@ -3570,7 +3581,7 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
     TakenBackOnTheRoll out;
     out.after.judged_as(entry.seaplane);
     out.ai.judged_as(entry.seaplane);
-    bool handed_over = false;
+    bool handed_over = by_hand;
     int take_back = -1;
     glideslope::sim::Controls last = flying;
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
@@ -3598,8 +3609,8 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
                 }
             }
         }
-        if (when == OnTheRoll::after_the_pilots_touch && handed_over && take_back < 0 &&
-            was_touched) {
+        const bool pilots_own = when == OnTheRoll::after_the_pilots_touch || by_hand;
+        if (pilots_own && handed_over && take_back < 0 && was_touched) {
             take_back = tick + steps_per_second / 2;
         }
         // **Taken in the flare, the pilot flies the flare, the touch and
@@ -3612,10 +3623,9 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
         // where the AI had it, a Mosquito touches at 120 knots, flying, and
         // bounces - the rollout's own tail, not this one.
         const glideslope::sim::Controls shadowed = shadow.fly();
-        if (when == OnTheRoll::after_the_pilots_touch && handed_over &&
-            (take_back < 0 || tick < take_back)) {
+        if (pilots_own && handed_over && (take_back < 0 || tick < take_back)) {
             controller.set_pilot(shadowed);
-        } else if (when == OnTheRoll::after_the_pilots_touch && handed_over) {
+        } else if (pilots_own && handed_over) {
             controller.set_pilot(pilot);
         }
         if (tick == take_back) {
@@ -3715,7 +3725,11 @@ void every_landplane_taken_back(OnTheRoll when) {
         }
         if (!r.lander_given) {
             wrong.push_back(where + " was not given her landing back");
-        } else if (std::abs(r.lander_touched_past_m - r.touched_past_m) > 5.0) {
+        } else if (when != OnTheRoll::landed_by_hand &&
+                   std::abs(r.lander_touched_past_m - r.touched_past_m) > 5.0) {
+            // (Landed by hand, no approach was given: the AI's runway is the
+            // line she rolls along from where it took her, and she touched,
+            // for it, there.)
             wrong.push_back(where + ": the AI has her touching at " +
                             std::to_string(r.lander_touched_past_m) + " m, not " +
                             std::to_string(r.touched_past_m));
@@ -3786,6 +3800,16 @@ GLIDESLOPE_TEST(an_approach_taken_back_at_half_speed_is_landed_to_a_stop) {
 // while she was still in the air.
 GLIDESLOPE_TEST(an_approach_the_pilot_puts_down_from_the_flare_and_hands_back_is_landed_to_a_stop) {
     every_landplane_taken_back(OnTheRoll::after_the_pilots_touch);
+}
+
+// **A landing the pilot flew from the start, no approach given to the AI,
+// handed to it on the roll is landed to a stop**, not given the plain
+// autopilot, which held what she was doing and never stopped her. The pilot
+// flies the approach and the flare as a lander would, touches, and half a
+// second later hands her over with the throttle closed and the stick
+// central; the AI is told only how she lands (`Controller::lands_with`).
+GLIDESLOPE_TEST(an_aeroplane_landed_by_hand_and_handed_over_on_its_roll_is_landed_to_a_stop) {
+    every_landplane_taken_back(OnTheRoll::landed_by_hand);
 }
 
 namespace {

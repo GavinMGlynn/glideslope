@@ -68,8 +68,14 @@ public:
 
     // Hands the aircraft to the AI, holding what it is doing, or flying `plan`
     // - or, on the landing roll of an approach it was given, landing her to
-    // the stop.
+    // the stop; or on a roll the pilot landed her on, with no approach given,
+    // where it has been told how she lands (`lands_with`), the same.
     void to_ai();
+    // **How she is landed**, for a landing the pilot made and the AI is
+    // given on its roll: her approach speeds, from her figures
+    // (`approach_speeds`). Without them - an aeroplane that publishes no
+    // stall speed - such a take-back is the plain autopilot.
+    void lands_with(const ApproachSpeeds& speeds) { landing_speeds_ = speeds; }
     void to_ai(FlightPlan plan);
 
     // **The AI pilot can take off and land, not only hold and navigate.**
@@ -177,6 +183,7 @@ private:
     // step she is not still landing, and when the AI is given her again, for
     // this or for anything else.
     std::optional<Lander> landing_;
+    std::optional<ApproachSpeeds> landing_speeds_;
     // The lander's controls, reached from the pilot's at a hand's pace after
     // a take-back on the roll.
     bool easing_in_ = false;

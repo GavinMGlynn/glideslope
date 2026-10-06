@@ -93,6 +93,17 @@ public:
     Lander(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
            double glidepath_deg = 3.0);
 
+    // **A landing the pilot made, taken over on its roll**: no approach was
+    // given, so there is no runway but the one she is on. Its centreline is
+    // her track through where she is, its elevation the ground beneath her;
+    // she has touched, there, at the attitude she has; and its brakes are
+    // set to autobrake 3's deceleration, with the runway's length unknown.
+    // To be `resume`d with the pilot's throttle, as a landing given back is.
+    static Lander on_its_roll(const Aircraft& aircraft, const ApproachSpeeds& speeds);
+    // Autobrake 3's deceleration on the 737, feet a second squared: what a
+    // landing taken over on its roll is braked to.
+    static constexpr double roll_autobrake_fps2 = 7.2;
+
     // One 120 Hz step's controls. Call once a step, as the aircraft is now.
     Controls fly();
     // The mixture it is handed, where that is not what the aircraft last

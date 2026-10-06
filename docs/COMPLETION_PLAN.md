@@ -767,10 +767,16 @@ Found while implementing something else. Added when found, not when remembered.
       Done 2026-09-27: every landplane, taken back at the touch, at half
       speed or after the pilot's own touch, stops on the runway upright; the
       flying boat, never still afloat, is left out.
-- [ ] **A landing the pilot flies with no approach given to the AI is
+- [x] **A landing the pilot flies with no approach given to the AI is
       still handed the plain autopilot** when the AI takes it back on the
       roll, and is never stopped. *Verification: an aeroplane landed by
-      hand and taken back on the roll is landed to a stop.*
+      hand and taken back on the roll is landed to a stop.* Done 2026-10-06:
+      every landplane so handed over stops on the runway, held to the line
+      she rolls along and braked at autobrake 3.
+- [ ] **The AI knows no runway for a landing flown by hand**: taken over on
+      the roll it holds her track and brakes at a fixed rate, not for the
+      runway left. *Verification: a landing flown by hand on a short runway
+      is stopped on it by the AI.*
 - [x] **An A320 taken at the touch by a pilot who lets the stick go rises
       4.1 ft after the AI takes her back**, against three for everything
       else. *Verification: every landplane taken back at the touch rises

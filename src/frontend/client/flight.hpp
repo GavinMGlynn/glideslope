@@ -290,6 +290,10 @@ private:
     std::unique_ptr<sim::Aircraft> aircraft_;
     // Made at the first step, from the pilot's controls then.
     std::unique_ptr<sim::Controller> controller_;
+    // How she lands, for a landing flown by hand and handed to the AI on its
+    // roll (`Controller::lands_with`); none where her figures publish no
+    // stall speed.
+    std::optional<sim::ApproachSpeeds> lands_with_;
     // On a server: the prediction, and the sequence of the inputs being flown.
     std::unique_ptr<sim::Prediction> prediction_;
     std::uint32_t sequence_ = 0;

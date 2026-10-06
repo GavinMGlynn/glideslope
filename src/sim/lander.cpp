@@ -222,6 +222,40 @@ bool Lander::still_landing(double throttle) const {
     return agl_ft - (touched_ ? touchdown_agl_ft_ : 0.0) <= screen_ft;
 }
 
+Lander Lander::on_its_roll(const Aircraft& aircraft, const ApproachSpeeds& speeds) {
+    const AircraftState s = aircraft.state();
+    const double agl_ft = aircraft.property("position/h-agl-ft");
+    // Her track over the ground, which is the runway's line under her
+    // wheels; her heading if she is barely moving.
+    const double v_north = aircraft.property("velocities/v-north-fps");
+    const double v_east = aircraft.property("velocities/v-east-fps");
+    const double track_deg = std::hypot(v_north, v_east) > 1.0
+                                 ? std::atan2(v_east, v_north) * degrees
+                                 : s.heading_deg;
+    const double vg_fps = aircraft.property("velocities/vg-fps");
+    Runway runway;
+    runway.name = "her roll";
+    runway.threshold_lat_deg = s.latitude_deg;
+    runway.threshold_lon_deg = s.longitude_deg;
+    runway.elevation_ft = s.altitude_ft - agl_ft;
+    runway.heading_deg = std::fmod(track_deg + 360.0, 360.0);
+    // As long as autobrake 3 needs to stop her, and the 300 m the brakes
+    // are set to leave: the length is what the autobrake is set from.
+    runway.length_m =
+        vg_fps * vg_fps / (2.0 * roll_autobrake_fps2) / feet_per_metre + 300.0;
+    Lander l(aircraft, runway, speeds);
+    l.touched_ = true;
+    l.stage_ = Stage::rollout;
+    l.touchdown_pitch_deg_ = s.pitch_deg;
+    l.lowering_pitch_deg_ = l.jet_ ? s.pitch_deg - 2.0 : s.pitch_deg;
+    l.touchdown_above_m_ = l.above_m_;
+    l.touchdown_agl_ft_ = agl_ft;
+    l.touchdown_along_m_ = 0.0;
+    l.touchdown_across_m_ = 0.0;
+    l.autobrake_fps2_ = roll_autobrake_fps2;
+    return l;
+}
+
 bool Lander::gone_around() const {
     return stage_ == Stage::go_around && above_m_ * feet_per_metre >= go_around_ft;
 }
