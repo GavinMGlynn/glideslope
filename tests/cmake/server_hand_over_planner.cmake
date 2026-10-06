@@ -21,7 +21,10 @@
 # Either way the server must say the aircraft so given is planned by the
 # model chosen, asked from where it is - played back from PLAYBACK with no
 # key, or asked now with the server's key and kept in RECORD - and that it
-# flies the model's route; and the last of the half-minute lines on its route
+# flies the model's route. **Left by its player** the model must be told
+# the plan file's waypoints still to fly, which it flies until the answer
+# comes; told them, Claude answers keep, and the aircraft must fly on to one
+# of them. Otherwise; and the last of the half-minute lines on its route
 # must be past its first waypoint, or nearer it than when the route was
 # taken - as the server says it then. **The
 # server waits on that**: with a hand-over planner, `--until-empty` stops only
@@ -165,6 +168,37 @@ set(_aircraft "${CMAKE_MATCH_1}")
 if(NOT CMAKE_MATCH_2 STREQUAL CHOSEN OR NOT CMAKE_MATCH_3 STREQUAL MODEL)
     message(FATAL_ERROR "planned by ${CMAKE_MATCH_2}, ${CMAKE_MATCH_3}, not the ${CHOSEN} "
                         "${MODEL} chosen")
+endif()
+# **Left by its player, the model is told the plan it flies**: the server's
+# plan file (data/plans/sydney-harbour.plan), its waypoints still to fly, up
+# to its last, AIRPORT - not that no route is flown. Played back, the
+# server's question matched the recording's but for its numbers, so the
+# recording's first question is what the server asked; recorded, it is.
+if(CASE STREQUAL "leave")
+    if(DEFINED PLAYBACK)
+        file(STRINGS "${PLAYBACK}" _asked LIMIT_COUNT 1)
+    else()
+        file(STRINGS "${RECORD}" _asked LIMIT_COUNT 1)
+    endif()
+    if(NOT _asked MATCHES "The route being flown, from the waypoint it is flying to now:"
+       OR NOT _asked MATCHES "waypoint AIRPORT -33[.]9460 151[.]1770 "
+       OR _asked MATCHES "No route is flown")
+        message(FATAL_ERROR "the model was not told the plan file's waypoints still to fly:\n"
+                            "${_asked}")
+    endif()
+    # **Told the plan, Claude keeps it** (claude-haiku-4-5, asked three times
+    # on 2026-10-06, keep each time): the aircraft must then fly on with
+    # the plan file, to one of its waypoints - not hold its course.
+    if(_served MATCHES "aircraft ${_aircraft}'s model answered keep: ([^\n]*)")
+        set(_kept "${CMAKE_MATCH_1}")
+        if(NOT _kept MATCHES "^it flies on to (THE_HEADS|BRIDGE|OLYMPIC|AIRPORT), [1-4] of 4$")
+            message(FATAL_ERROR "the model answered keep, and the aircraft did not fly on with "
+                                "the plan file: ${_kept}\n${_served}")
+        endif()
+        message(STATUS "${_because}, the server's ${CHOSEN} was told the plan file it flies, "
+                       "kept it, and ${_kept}")
+        return()
+    endif()
 endif()
 if(_served MATCHES "aircraft ${_aircraft}: its model's route refused: ([^\n]*)")
     message(FATAL_ERROR "the server refused its model's route: ${CMAKE_MATCH_1}\n${_served}")

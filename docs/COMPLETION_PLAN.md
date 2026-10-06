@@ -377,7 +377,10 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **A model cannot plan the 747-400 or the F-22, nor a copilot route
       them.** Each now has the speeds a plan may fly it at, and plan files
       may fly them, but the planner and the copilot are given an approach
-      speed and a climb speed first, which neither publishes. *Verification:
+      speed and a climb speed first, which neither publishes; and a model's
+      plan takes off, which the AI cannot fly in either without a rotation
+      and climb-away speed. Needs those speeds sourced, or a way of
+      measuring them that holds still (2026-10-06). *Verification:
       a model plans each of the sixteen aircraft and its plan is flown.*
 - [ ] **The B-2 and the F-22 yaw from side to side in a crosswind when
       slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
@@ -838,11 +841,12 @@ Found while implementing something else. Added when found, not when remembered.
       height above its ceiling gives up height, not airspeed, and never
       drops below its best-climb speed.* Done 2026-09-25, for all four light
       aeroplanes; other classes have no such floor.
-- [ ] **A copilot recording breaks when two runways swap places.** Played
+- [x] **A copilot recording breaks when two runways swap places.** Played
       back, a question matches its recording but for its numbers, so a
       flight a little different that lists two runways in the other order
       must be recorded again. *Verification: a played-back flight whose
-      runways come in another order still plays.*
+      runways come in another order still plays.* Done 2026-10-06: the
+      runways' order is disregarded with their numbers; nothing else's.
 - [x] **The leaner richening an engine that stops while leaned has no
       test.** *Verification: an engine the leaner had leaned, stopped in
       flight, is richened and runs again.* Done 2026-10-06: at 7,000 and
@@ -961,11 +965,11 @@ Found while implementing something else. Added when found, not when remembered.
       correction. *Verification: with an engine stopped under a player flying
       it, the client's corrections are as small as with it running.*
 
-- [ ] **A model planning an aircraft left to the AI is not told the plan it
+- [x] **A model planning an aircraft left to the AI is not told the plan it
       flies.** Left by a player who goes, it flies the server's plan file
       until the server's model answers, and the model is told no route is
       flown. *Verification: the model is told the plan file's waypoints still
-      to fly.*
+      to fly.* Done 2026-10-06; Claude's recording made again.
 - [ ] **The window client's hand-over model is chosen at start**, by a flag,
       not in flight, and its refusal for want of a key is tested only on the
       headless client. *Verification: a key cycles the model in flight, and

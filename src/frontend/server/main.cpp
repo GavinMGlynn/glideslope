@@ -1794,6 +1794,12 @@ public:
         now.engine_running = !engine_stopped(a);
         if (a.controller) {
             now.gliding_kts = a.controller->glide();
+            // **The route it flies, told**: an aircraft left by its player
+            // flies the server's plan file until the model answers, and the
+            // model is asked about that flight, not one holding its course.
+            if (const glideslope::sim::Navigator* navigating = a.controller->navigator()) {
+                now.route = navigating->still_to_fly();
+            }
         }
         return now;
     }
@@ -1866,7 +1872,20 @@ public:
             if (change->keep) {
                 std::snprintf(line, sizeof line, "aircraft %u's model answered keep",
                               static_cast<unsigned>(a.index));
-                happened.emplace_back(line);
+                std::string kept = line;
+                // **What it keeps, said**: the plan it was told it flies,
+                // and the waypoint it flies on to - or that it holds.
+                const glideslope::sim::Navigator* n =
+                    a.controller ? a.controller->navigator() : nullptr;
+                if (n != nullptr && !n->finished()) {
+                    std::snprintf(line, sizeof line, ": it flies on to %s, %zu of %zu",
+                                  n->plan().waypoints[n->next()].name.c_str(), n->next() + 1,
+                                  n->plan().waypoints.size());
+                    kept += line;
+                } else {
+                    kept += ": it holds its course";
+                }
+                happened.push_back(kept);
                 continue;
             }
             glideslope::net::CopilotRoute route;
