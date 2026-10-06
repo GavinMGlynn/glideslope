@@ -18,6 +18,11 @@
 //   rollout    on the ground: the nose held on the centreline, the brakes on
 //   stopped    still
 //
+// or, from a balloon in the flare, a fifth:
+//
+//   go_around  full power and the approach's incidence, climbing away, until
+//              she is `go_around_ft` over the runway and the landing is given up
+//
 // **The runway is a datum, not a database.** A threshold, an elevation, a
 // heading and a length are all it is; where those come from is the caller's.
 //
@@ -76,7 +81,14 @@ bool publishes_approach_speed(const std::filesystem::path& data, const std::stri
 
 class Lander {
 public:
-    enum class Stage { approach, flare, rollout, stopped };
+    enum class Stage { approach, flare, rollout, stopped, go_around };
+
+    // **How high a go-around climbs before the landing is given up**, feet
+    // over the runway, and whoever has her - the plain autopilot - holds
+    // what she is doing from there.
+    static constexpr double go_around_ft = 500.0;
+    // Whether a go-around has climbed to `go_around_ft`: the landing is over.
+    bool gone_around() const;
 
     Lander(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
            double glidepath_deg = 3.0);
@@ -178,6 +190,11 @@ private:
     double last_vg_fps_ = -1.0;  // the last step's groundspeed
     double decel_fps2_ = 0.0;    // how fast she is slowing, smoothed
     double flare_pitch_ = 0.0;
+    // The climb rate's last step and its trend, feet a minute a second,
+    // smoothed over a quarter of a second: the flare flies the sink a second
+    // ahead.
+    double last_climb_fpm_ = -1e9;
+    double climb_trend_fpm_s_ = 0.0;
     // The most the flare raises the nose to: two degrees short of the
     // attitude her tail strikes the runway at, or her three-point attitude
     // on a tail wheel; with nothing behind her main wheels to strike, only

@@ -1278,6 +1278,10 @@ struct FlareWatch {
     double touch_pitch_deg = 0.0;
     double last_pitch_deg = 0.0;
     bool was_flaring = false;
+    // **The most she climbed in the flare**, feet a minute, from its first
+    // step to the touch: a flare that goes up rather than level is a balloon.
+    double most_climb_fpm = -1e9;
+    double most_climb_agl_ft = 0.0;
 
     void watch(const glideslope::sim::Lander* lander, const glideslope::sim::Aircraft& a) {
         if (lander == nullptr || touched) {
@@ -1293,6 +1297,11 @@ struct FlareWatch {
         last_pitch_deg = pitch;
         if (began) {
             least_pitch_deg = std::min(least_pitch_deg, pitch);
+            const double climb_fpm = a.property("velocities/h-dot-fps") * 60.0;
+            if (climb_fpm > most_climb_fpm) {
+                most_climb_fpm = climb_fpm;
+                most_climb_agl_ft = a.property("position/h-agl-ft");
+            }
         }
         if (a.property("gear/wow") > 0.5 || a.in_water()) {
             touched = true;
@@ -1309,6 +1318,29 @@ constexpr double flare_dip_margin_deg = 1.5;
 // not a wing still flying her. The B-2A rose 1.7 ft and was airborne for a
 // second; three feet, the bounce every landing is held under, let her.
 constexpr double settled_within_ft = 0.5;
+// **The touchdown zone every aeroplane the AI lands touches inside**: the
+// first 3,000 feet of the runway from its threshold, as the FAA's
+// Pilot/Controller Glossary defines it ("TOUCHDOWN ZONE- The first 3,000 feet
+// of the runway beginning at the threshold") - the zone a landing is made in,
+// whatever the aeroplane. Short of the threshold is short of the runway, and
+// past the zone is a float: an F-15C touching 800 m along a 6,000 ft runway
+// would leave herself too little of it to stop on.
+constexpr double touchdown_zone_m = 3000.0 * 0.3048;
+std::vector<std::string> inside_the_touchdown_zone(const std::string& id,
+                                                   const std::string& where,
+                                                   double touched_along_m) {
+    std::printf("      touched %.0f m past the threshold (%s), the touchdown zone 0 to %.0f\n",
+                touched_along_m, where.c_str(), touchdown_zone_m);
+    if (touched_along_m >= 0.0 && touched_along_m <= touchdown_zone_m) {
+        return {};
+    }
+    return {id + " (" + where + ") touched " + std::to_string(touched_along_m) +
+            " m past the threshold, outside the touchdown zone's first " +
+            std::to_string(touchdown_zone_m) + " m"};
+}
+// **No aeroplane climbs in its flare**: one that goes up, not level, is a
+// balloon. A few feet a minute of the gear's own settling is not one.
+constexpr double most_flare_climb_fpm = 10.0;
 // How far short of the attitude her tail strikes at she must touch: more
 // than the two degrees short of it the lander bounds the flare at
 // (sim/lander.cpp), so a flare that has run up to that bound - the bound
@@ -1336,9 +1368,11 @@ std::vector<std::string> flared_from_the_path(const std::string& id, const std::
     const glideslope::sim::Aircraft::Stance stance = aircraft.stance();
     const bool strikes = !entry.seaplane && stance.found && !stance.tail_wheel &&
                          stance.strike_pitch_deg < 90.0;
-    std::printf("      flare (%s): path %.1f, lowest %.1f, touched at %.1f, strikes at %s\n",
+    std::printf("      flare (%s): path %.1f, lowest %.1f, touched at %.1f, strikes at %s; "
+                "climbed at most %.0f ft/min (at %.1f ft)\n",
                 where.c_str(), f.path_pitch_deg, f.least_pitch_deg, f.touch_pitch_deg,
-                strikes ? std::to_string(stance.strike_pitch_deg).c_str() : "nothing");
+                strikes ? std::to_string(stance.strike_pitch_deg).c_str() : "nothing",
+                f.most_climb_fpm, f.most_climb_agl_ft);
     std::vector<std::string> wrong;
     if (!f.began || !f.touched) {
         wrong.push_back(id + " (" + where + ") never flared and touched");
@@ -1352,6 +1386,11 @@ std::vector<std::string> flared_from_the_path(const std::string& id, const std::
     if (strikes != (no_tail_to_strike().count(id) == 0)) {
         wrong.push_back(id + (strikes ? " has a tail to strike and is named as having none"
                                       : " has no tail to strike and is not named"));
+    }
+    if (f.most_climb_fpm > most_flare_climb_fpm) {
+        wrong.push_back(id + " (" + where + ") climbed at " + std::to_string(f.most_climb_fpm) +
+                        " ft/min in its flare, at " + std::to_string(f.most_climb_agl_ft) +
+                        " ft: a balloon");
     }
     if (strikes && f.touch_pitch_deg >= stance.strike_pitch_deg - strike_margin_deg) {
         wrong.push_back(id + " (" + where + ") touched at " + std::to_string(f.touch_pitch_deg) +
@@ -1716,7 +1755,7 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                     flown.sink_at_end_fps, flown.completed, flown.stages,
                     flown.trimmed ? "" : ", started untrimmed: JSBSim cannot trim it");
         std::printf("         touched sinking %.0f ft/min%s; after touching: rolled %.1f, "
-                    "pitched down to %.1f, rose %.1f ft, %s\n",
+                    "pitched down to %.1f, rose %.2f ft, %s\n",
                     flown.after.touch_sink_fpm,
                     flown.after.wreck.empty() ? "" : (", WRECKED: " + flown.after.wreck).c_str(),
                     flown.after.worst_roll_deg, flown.after.least_pitch_deg,
@@ -1748,6 +1787,10 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
             came_down_badly.push_back(wrong);
         }
         for (const std::string& wrong : flared_from_the_path(id, "approach", flown.flare)) {
+            came_down_badly.push_back(wrong);
+        }
+        for (const std::string& wrong :
+             inside_the_touchdown_zone(id, "approach", flown.touch_along_m)) {
             came_down_badly.push_back(wrong);
         }
         ++walked;
@@ -3689,19 +3732,14 @@ void every_landplane_taken_back(OnTheRoll when) {
                             std::to_string(r.stopped_past_m) + " m past the threshold and " +
                             std::to_string(r.stopped_across_m) + " m across");
         }
-        // **Under three feet, with one bound named.** An A320 taken at the
-        // touch by a pilot whose stick goes to neutral is climbing when the
-        // AI has her back, half a second later: her rotation carried on
-        // under the pilot's hands and her spoilers deploy only with weight on
-        // a wheel. At a hand's pace the AI's nose-down stick arrests it at
-        // 4.1 ft (5.2 before `resume` started its trims afresh). A tail in
-        // docs/COMPLETION_PLAN.md; the bound is what she does, and a little.
-        const bool a320_at_the_touch = id == "a320" && when == OnTheRoll::at_the_touch;
-        const double most_rise_ft = a320_at_the_touch ? 4.5 : 3.0;
-        if (a320_at_the_touch) {
-            std::printf("      named bound - %s: may rise %.1f ft, not 3\n", where.c_str(),
-                        most_rise_ft);
-        }
+        // **Under three feet, every one.** An A320 taken at the touch by a
+        // pilot whose stick goes to neutral rose 4.1 ft after the AI had her
+        // back, when the flare was flown to her centre of gravity and not her
+        // wheels: still rotating as she touched, she was climbing when the AI
+        // had her. With the flare flown to her wheels, and to the sink a
+        // moment ahead (sim/lander.cpp), she rises 0.8 ft, and is held to the
+        // three feet the rest are.
+        constexpr double most_rise_ft = 3.0;
         if (r.rise_after_take_back_ft >= most_rise_ft) {
             wrong.push_back(where + " rose " + std::to_string(r.rise_after_take_back_ft) +
                             " ft after the take-back");
@@ -3767,6 +3805,11 @@ struct HardFlare {
     double most_alpha_deg = -1e9; // from the take-back to the touch
     double stopped_past_m = 0.0;
     double stopped_across_m = 0.0;
+    // **Or gone around**: climbed away from the balloon, never touching, to
+    // the go-around's height, where the landing is given up and the plain
+    // autopilot has her.
+    bool went_around = false;
+    double lowest_after_ft = 1e9; // from the take-back, above the ground
     glideslope::test::AfterTouch ai;
 };
 
@@ -3826,6 +3869,12 @@ HardFlare hard_flare_handed_back(const std::string& id) {
             if (!out.ai.touched) {
                 out.most_alpha_deg =
                     std::max(out.most_alpha_deg, aircraft.property("aero/alpha-deg"));
+                out.lowest_after_ft =
+                    std::min(out.lowest_after_ft, aircraft.property("position/h-agl-ft"));
+            }
+            if (!out.ai.touched && out.lander_given && controller.lander() == nullptr) {
+                out.went_around = true;
+                break;
             }
             if (std::abs(aircraft.property("velocities/vg-fps")) < 1.0) {
                 out.stopped = true;
@@ -3858,18 +3907,16 @@ HardFlare hard_flare_handed_back(const std::string& id) {
 // the approach; the flying boat is named and left out, as on the roll.
 GLIDESLOPE_TEST(a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed_without_a_stall) {
     const auto taught = everyone_taught("approach-and-landing");
-    // **Named and not judged**: the Mosquito, given back from that flare,
-    // is still climbing on the pilot's stick and zooms to some fifty feet
-    // with her throttles shut; the AI does not go around from a balloon, and
-    // she comes down at 958 ft/min. A tail in docs/COMPLETION_PLAN.md. She
-    // is flown and shown all the same.
-    const std::map<std::string, std::string> not_judged = {
-        {"mosquito-fb6", "zooms on the pilot's stick, and the AI does not go around from a "
-                         "balloon"}};
+    // **Landed, or gone around.** Given back still climbing on the pilot's
+    // stick above where her flare began - a balloon - she is gone around
+    // from (sim/lander.cpp): the Mosquito, whose throttles the pilot's flare
+    // had shut, zoomed to some fifty feet and came down at 958 ft/min before
+    // the AI went around. One that goes around never touches, keeps her wing
+    // under the same incidence bound, and climbs to the go-around's height.
+    std::size_t went_around = 0;
     std::vector<std::string> wrong;
     std::size_t landplanes = 0;
     std::size_t flown = 0;
-    std::size_t named = 0;
     for (const std::string& id : taught) {
         if (glideslope::sim::find_aircraft(data(), id).seaplane) {
             std::printf("  left out - %s: a flying boat, afloat, is never still\n", id.c_str());
@@ -3877,12 +3924,6 @@ GLIDESLOPE_TEST(a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed
         }
         ++landplanes;
         const HardFlare r = hard_flare_handed_back(id);
-        if (const auto it = not_judged.find(id); it != not_judged.end()) {
-            std::printf("  named, not judged - %s: %s (touched sinking %.0f ft/min)\n",
-                        id.c_str(), it->second.c_str(), r.ai.touch_sink_fpm);
-            ++named;
-            continue;
-        }
         const double limit_deg = std::max(12.0, r.path_alpha_deg + 4.0);
         const double most_allowed_deg = std::max(r.back_alpha_deg, limit_deg) + 1.0;
         std::printf("  %-13s path alpha %.1f, handed back at %.1f ft and %.1f; most after %.1f "
@@ -3896,6 +3937,21 @@ GLIDESLOPE_TEST(a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed
         const std::string where = id + " handed back from a hard flare";
         if (!r.handed_back) {
             wrong.push_back(where + " was on the ground before it was handed back");
+            continue;
+        }
+        if (r.went_around) {
+            std::printf("      went around: never lower than %.1f ft after the take-back\n",
+                        r.lowest_after_ft);
+            if (r.most_alpha_deg > most_allowed_deg) {
+                wrong.push_back(where + " went around with her wing raised to " +
+                                std::to_string(r.most_alpha_deg) + " degrees, past " +
+                                std::to_string(most_allowed_deg));
+            }
+            if (!r.ai.wreck.empty() || r.ai.touched) {
+                wrong.push_back(where + " touched the runway going around");
+            }
+            ++went_around;
+            ++flown;
             continue;
         }
         if (!r.lander_given) {
@@ -3927,10 +3983,13 @@ GLIDESLOPE_TEST(a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed
     check(landplanes + 1 == taught.size(),
           "every aeroplane taught the approach is a landplane flown here or the one flying "
           "boat named: " + std::to_string(landplanes) + " of " + std::to_string(taught.size()));
-    check(flown + named == landplanes && named == not_judged.size(),
-          "every landplane was handed back from a hard flare: " + std::to_string(flown) +
-              " judged and " + std::to_string(named) + " named, of " +
-              std::to_string(landplanes));
+    std::printf("  %zu of %zu went around, the rest landed\n", went_around, flown);
+    // The go-around is flown here, not only allowed: the Mosquito's balloon
+    // is one.
+    check(went_around >= 1, "some aeroplane went around from its balloon");
+    check(flown == landplanes, "every landplane was handed back from a hard flare: " +
+                                   std::to_string(flown) + " of " +
+                                   std::to_string(landplanes));
 }
 
 // **The flare's incidence limit is the approach's, and a pilot's flare given
@@ -4664,7 +4723,7 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                     flown.touch_across_m, flown.touch_along_m, flown.touch_kts,
                     flown.stop_along_m, flown.stop_across_m);
         std::printf("      touched sinking %.0f ft/min%s; after touching: rolled %.1f, pitched "
-                    "down to %.1f, rose %.1f ft\n",
+                    "down to %.1f, rose %.2f ft\n",
                     flown.after.touch_sink_fpm,
                     flown.after.wreck.empty() ? "" : (", WRECKED: " + flown.after.wreck).c_str(),
                     flown.after.worst_roll_deg, flown.after.least_pitch_deg,
@@ -4711,6 +4770,10 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
             came_down_badly.push_back(wrong);
         }
         for (const std::string& wrong : flared_from_the_path(id, "circuit", flown.flare)) {
+            came_down_badly.push_back(wrong);
+        }
+        for (const std::string& wrong :
+             inside_the_touchdown_zone(id, "circuit", flown.touch_along_m)) {
             came_down_badly.push_back(wrong);
         }
         ++walked;
