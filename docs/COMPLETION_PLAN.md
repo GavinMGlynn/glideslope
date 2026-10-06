@@ -369,9 +369,9 @@ Found while implementing something else. Added when found, not when remembered.
       rest within 60 m, on Linux and Windows; a plan's fastest now leaves 5
       kt of full-throttle speed in hand, which brought six aircraft's down.
 - [ ] **A glide may still be asked of a jet at its approach speed.** Now
-      measured, and a glide starts at the slowest a route may fly; but from
-      30,000 ft the 747-400, 787-8, A320, F-15C, F-22 and Mosquito still
-      stall gliding at their slowest, each named in its test.
+      measured, and each aircraft's slowest glide, measured, is in its
+      figures file; every aircraft glides round unstalled but the F-22,
+      which departs at every speed it may glide at, why not found.
       *Verification: every aircraft glides round its tightest orbit at every
       speed a glide may be asked at without stalling, measured.*
 - [x] **A model cannot plan the 747-400 or the F-22, nor a copilot route

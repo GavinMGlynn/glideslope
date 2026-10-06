@@ -99,12 +99,19 @@ struct GlideOrbitFlown {
     double slowest_kts = 0.0;
     double fastest_kts = 0.0;
     double lowest_ft = 0.0;
-    // Past its lift's peak by more than half a degree.
+    // Past its lift's peak by more than half a degree - or past 25 degrees of
+    // alpha whatever its lift did, for a wing whose lift goes on rising into
+    // a deep stall (the F-15C's peaked at 35.7 degrees as she settled at 43).
+    // No glide flown unstalled in the roster passes 19 (the F-35B at 204 kt).
+    static constexpr double alpha_ceiling_deg = 25.0;
     bool stalled() const {
-        return most_alpha_deg > alpha_at_most_lift_deg + 0.5;
+        return most_alpha_deg > alpha_at_most_lift_deg + 0.5 ||
+               most_alpha_deg > alpha_ceiling_deg;
     }
+    // Round once, or stopped at 1,000 ft before it was (a fast glide on a
+    // circle of 8 to 13 km) having gone at least half way round.
     bool round() const {
-        return turns >= 1.0;
+        return turns >= 1.0 || (lowest_ft <= 1000.0 && turns >= 0.5);
     }
 };
 GlideOrbitFlown glide_tightest_orbit(const std::filesystem::path& data,

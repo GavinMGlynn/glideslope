@@ -103,6 +103,15 @@
   <plan_speeds slowest_kcas="220" fastest_kcas="300">
     The slowest, 220 kt, is 5 kt over the slowest that held: it publishes no stall speed, so has no approach speed, and the sweep began at 160 kt (`plan-speeds 747-400 160`); below 215 kt it came down 500 ft before it reached its circle (at 210 kt, its 6,381 m circle); 215 kt held all four ways. The fastest, 300 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
+  <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
+       glide-speeds 747-400` on 2026-10-06 (linux-release): from the slowest a
+       route may fly it up in 5 kt steps, each glided round the tightest
+       orbit allowed from 30,000 ft, every engine stopped, clean, both ways
+       round (sim::glide_tightest_orbit), until one went round without its
+       wing passing the angle its lift peaked at, nor 25 degrees. -->
+  <glide_speeds slowest_kcas="235">
+    235 kt; from 220, the slowest a route may fly it, to 230 it stalled.
+  </glide_speeds>
   <!-- **Her take-off speeds, measured from her model, not published**: she
        publishes neither a rotation nor a climb speed. Measured by
        `glideslope_cli takeoff-speeds` on 2026-10-06 (linux-debug), the

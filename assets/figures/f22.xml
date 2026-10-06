@@ -95,6 +95,15 @@
     the crosswind she swung her sideslip 6.0 degrees either way at 230 kt,
     3.5 at 235, 2.4 at 240 and 1.6 at 245. The fastest, 360 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
+  <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
+       glide-speeds f22` on 2026-10-06 (linux-release): from the slowest a
+       route may fly it up in 5 kt steps, each glided round the tightest
+       orbit allowed from 30,000 ft, every engine stopped, clean, both ways
+       round (sim::glide_tightest_orbit), until one went round without its
+       wing passing the angle its lift peaked at, nor 25 degrees. -->
+  <glide_speeds slowest_kcas="255">
+    None was found: from 255 to 335 kt it departs, past 95 degrees of alpha, before it is a fifth of the way round - why is not found - and at 340 it is only a third of the way round at 1,000 ft. Its slowest under power is given, and the glide tests name it.
+  </glide_speeds>
   <!-- **Her take-off speeds, measured from her model, not published**: she
        publishes neither a rotation nor a climb speed. Measured by
        `glideslope_cli takeoff-speeds` on 2026-10-06 (linux-debug), the

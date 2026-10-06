@@ -94,6 +94,13 @@ struct PublishedFigures {
     // that is held, and never below it.
     double plan_slowest_kcas = 0.0;
     double plan_fastest_kcas = 0.0;
+    // **The slowest a glide may be flown at**, KCAS: `<glide_speeds
+    // slowest_kcas="...">`, which every file gives. Measured, not worked out
+    // (`glideslope_cli glide-speeds`, sim::glide_tightest_orbit): the slowest,
+    // from the slowest a route may fly it up in 5 kt steps, at which it
+    // glides round its tightest orbit from 30,000 ft, its engines stopped,
+    // both ways round, without stalling.
+    double glide_slowest_kcas = 0.0;
     // **Take-off speeds measured from its model, not published**:
     // `<takeoff_speeds rotate_kcas="..." climb_kcas="..." flaps_deg="..."
     // weight_lbs="...">`, for an aircraft whose published figures give no
@@ -119,6 +126,10 @@ struct FigureResult {
 // `<plan_speeds>`, read from `data`/figures. Throws as
 // `read_published_figures` does.
 PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model);
+
+// The slowest a glide may fly `model`, KCAS: its figures file's
+// `<glide_speeds>`. Throws as `read_published_figures` does.
+double glide_slowest_kts(const std::filesystem::path& data, const std::string& model);
 
 // **A plan file is held to the aircraft it flies, and its speeds, as it is
 // read**, as a model's plan is (copilot/planner.cpp): throws FlightPlanError

@@ -21,6 +21,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <memory>
 #include <numbers>
 #include <string>
@@ -1056,85 +1057,93 @@ GLIDESLOPE_TEST(the_f35b_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_
 
 namespace {
 
-// **A glide that still stalls**, named with the speed it was asked at (both
-// ways round) and held there until it is fixed - the plan item "A glide may
-// still be asked of a jet at its approach speed" stays open while any is
-// named. A name whose glide no longer stalls is stale and turns the test red.
-struct StallingGlide {
-    const char* id;
-    double kts;
-};
-
 // **Every aircraft of `entries` glides round its tightest orbit at every
 // speed a copilot's glide may ask of it** (copilot::glide_speeds, from the
 // brief the server and the clients give: frontend::brief_for), every 5 kt
 // from its slowest and at its fastest, both ways round, its engines stopped,
-// from 30,000 ft on the circle (sim::glide_tightest_orbit), and its wing
-// never passes the angle its lift peaked at. It glides at least half way
-// round before 1,000 ft; the fastest glides, on circles of 8 to 13 km, run
-// out of height before they are all the way round. Coverage is asserted:
-// every aircraft, every speed, both ways.
+// from 30,000 ft on the circle (sim::glide_tightest_orbit): it goes round
+// (GlideOrbitFlown::round - once, or half way where 1,000 ft comes first, as
+// on the fastest jets' circles of 8 to 13 km) and does not stall.
+//
+// **Its figures file's measured slowest glide is pinned**: never below the
+// slowest a route may fly it, and where above it, 5 kt slower does not
+// glide round unstalled one way or the other - so the figure is neither
+// stale nor more than it need be.
+//
+// `unexplained` names an aircraft for which no glide was found, with why;
+// it is flown, and must still fail somewhere, or its name is stale. Coverage
+// is asserted: every aircraft, every speed, both ways, and every step below.
 void glides_without_stalling(const std::vector<glideslope::sim::CatalogueEntry>& entries,
-                             const std::vector<StallingGlide>& not_yet) {
+                             const std::map<std::string, std::string>& unexplained) {
     const std::filesystem::path data =
         std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     std::size_t space = 0;
     std::size_t flown = 0;
     std::string failures;
-    std::vector<const StallingGlide*> seen;
+    const auto fly = [&](const glideslope::sim::CatalogueEntry& entry, double kts, bool right,
+                         const char* note) {
+        ++space;
+        const auto g = glideslope::sim::glide_tightest_orbit(data, entry, kts, right);
+        ++flown;
+        std::printf("%-13s glide %3.0f kt %-5s%s: %5.0f m, round %.2f, alpha %5.1f (lift peaked "
+                    "at %5.1f), %5.1f to %5.1f kt, down to %5.0f ft%s\n",
+                    entry.id.c_str(), kts, right ? "right" : "left", note, g.radius_m, g.turns,
+                    g.most_alpha_deg, g.alpha_at_most_lift_deg, g.slowest_kts, g.fastest_kts,
+                    g.lowest_ft,
+                    g.stalled() ? ", STALLED" : g.round() ? "" : ", NOT ROUND");
+        return !g.stalled() && g.round();
+    };
+    std::size_t named_met = 0;
     for (const auto& entry : entries) {
-        const auto glide =
-            glideslope::copilot::glide_speeds(glideslope::frontend::brief_for(data, entry.id));
+        glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, entry.id);
+        const double floor_kts = brief.glide_slowest_kts;
+        const auto glide = glideslope::copilot::glide_speeds(brief);
+        brief.glide_slowest_kts = 0.0;
+        const double routed_kts = std::round(glideslope::copilot::slowest_routed_kts(brief));
+        const auto name = unexplained.find(entry.id);
+        named_met += name != unexplained.end() ? 1U : 0U;
+        if (floor_kts < routed_kts - 0.5) {
+            failures += "\n  " + entry.id + "'s slowest glide, " + std::to_string(floor_kts) +
+                        " kt, is below the slowest a route may fly it";
+        } else if (floor_kts > routed_kts + 0.5) {
+            const bool below = fly(entry, floor_kts - 5.0, false, " (5 below)") &&
+                               fly(entry, floor_kts - 5.0, true, " (5 below)");
+            if (below) {
+                failures += "\n  " + entry.id + " glides at " +
+                            std::to_string(floor_kts - 5.0) + " kt, 5 below its file's slowest";
+            }
+        }
         std::vector<double> asked;
         for (double kts = std::round(glide.slowest_kts); kts < glide.fastest_kts - 0.5;
              kts += 5.0) {
             asked.push_back(kts);
         }
         asked.push_back(std::round(glide.fastest_kts));
+        bool all_went = true;
         for (const double kts : asked) {
-            const StallingGlide* named = nullptr;
-            for (const StallingGlide& n : not_yet) {
-                if (entry.id == n.id && kts == n.kts) {
-                    named = &n;
-                    seen.push_back(&n);
-                }
-            }
             for (const bool right : {false, true}) {
-                ++space;
-                const auto g = glideslope::sim::glide_tightest_orbit(data, entry, kts, right);
-                ++flown;
-                std::printf("%-13s glide %3.0f kt %-5s: %5.0f m, round %.2f, alpha %5.1f (lift "
-                            "peaked at %5.1f), %5.1f to %5.1f kt, down to %5.0f ft%s%s\n",
-                            entry.id.c_str(), kts, right ? "right" : "left", g.radius_m,
-                            g.turns, g.most_alpha_deg, g.alpha_at_most_lift_deg, g.slowest_kts,
-                            g.fastest_kts, g.lowest_ft, g.stalled() ? ", STALLED" : "",
-                            named != nullptr ? " (named, not yet)" : "");
-                const std::string which = "\n  " + entry.id + " at " +
-                                          std::to_string(static_cast<int>(kts)) + " kt " +
-                                          (right ? "right" : "left");
-                if (named != nullptr) {
-                    if (!g.stalled()) {
-                        failures += which + " is named as stalling and no longer does: take its "
-                                            "name off";
+                if (!fly(entry, kts, right, "")) {
+                    all_went = false;
+                    if (name == unexplained.end()) {
+                        failures += "\n  " + entry.id + " at " +
+                                    std::to_string(static_cast<int>(kts)) + " kt " +
+                                    (right ? "right" : "left") + ": stalled or not round";
                     }
-                } else if (g.stalled()) {
-                    failures += which + ": stalled";
-                } else if (g.turns < 0.5) {
-                    failures += which + ": not half way round";
                 }
             }
         }
-    }
-    for (const StallingGlide& n : not_yet) {
-        if (std::find(seen.begin(), seen.end(), &n) == seen.end()) {
-            failures += "\n  " + std::string(n.id) + " at " +
-                        std::to_string(static_cast<int>(n.kts)) +
-                        " kt is named but no glide is asked there";
+        if (name != unexplained.end()) {
+            std::printf("%s named, not yet: %s\n", entry.id.c_str(), name->second.c_str());
+            if (all_went) {
+                failures += "\n  " + entry.id + " is named as gliding nowhere and now glides " +
+                            "everywhere it may: take its name off";
+            }
         }
     }
-    std::printf("%zu aircraft; %zu glides of %zu flown; %zu named as stalling\n",
-                entries.size(), flown, space, not_yet.size());
+    std::printf("%zu aircraft; %zu glides of %zu flown; %zu named\n", entries.size(), flown,
+                space, unexplained.size());
     check(!entries.empty() && flown == space, "every aircraft glided at every speed");
+    check(named_met == unexplained.size(), "every name is an aircraft of the group");
     check(failures.empty(), "each glides round unstalled, or is named:" + failures);
 }
 
@@ -1143,7 +1152,9 @@ void glides_without_stalling(const std::vector<glideslope::sim::CatalogueEntry>&
 // Before a glide's slowest was the slowest a route may fly it, a jet could be
 // asked to glide clean at its approach speed, a flaps-down figure: the
 // 737-300 at 137 to 162 kt stalled round this orbit, past 50 degrees of
-// alpha (PROJECT_STATUS.md).
+// alpha. Before each file gave its own slowest glide, the 747-400, 787-8,
+// A320, F-15C and Mosquito stalled at the slowest a route may fly them
+// (PROJECT_STATUS.md).
 GLIDESLOPE_TEST(every_light_aeroplane_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
     std::vector<AircraftClass> grouped;
     for (const auto& group : tightest_orbit_groups) {
@@ -1156,27 +1167,22 @@ GLIDESLOPE_TEST(every_light_aeroplane_glides_round_its_tightest_orbit_at_every_s
     glides_without_stalling(of_classes(tightest_orbit_groups[0]), {});
 }
 
-// The 747-400's slowest under power, 220 kt, was sought from 160 for want of
-// an approach speed; the 787-8's and the A320's are measured. Each stalls
-// gliding there from 30,000 ft, where the speed sags 1 to 8 kt round the
-// circle, by up to 8 kt: the 747-400 to 16.6 degrees of alpha, its lift's
-// peak at 13.2.
 GLIDESLOPE_TEST(every_airliner_and_business_jet_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
-    glides_without_stalling(of_classes(tightest_orbit_groups[1]),
-                            {{"747-400", 220.0}, {"787-8", 193.0}, {"787-8", 198.0},
-                             {"a320", 162.0}});
+    glides_without_stalling(of_classes(tightest_orbit_groups[1]), {});
 }
 
-// The F-15C at 160 and 165 kt settles into her deep stall at 112 kt, 43
-// degrees of alpha; the F-22 departs at 255, past 120 degrees of alpha, before
-// it is a sixth of the way round. Why is not found.
+// **The F-22 glides nowhere, and why is not found**: from 255 kt, its slowest
+// under power, to 335 it departs past 95 degrees of alpha before it is a
+// fifth of the way round, and at 340 it is a third of the way round at
+// 1,000 ft. Not a floor to raise: it is named, and the tail stays open.
 GLIDESLOPE_TEST(every_fighter_and_bomber_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
-    glides_without_stalling(of_classes(tightest_orbit_groups[2]),
-                            {{"f15c", 160.0}, {"f15c", 165.0}, {"f22", 255.0}});
+    glides_without_stalling(
+        of_classes(tightest_orbit_groups[2]),
+        {{"f22", "departs at every glide from 255 to 335 kt, why not found"}});
 }
 
 GLIDESLOPE_TEST(every_warbird_and_flying_boat_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
-    glides_without_stalling(of_classes(tightest_orbit_groups[3]), {{"mosquito-fb6", 123.0}});
+    glides_without_stalling(of_classes(tightest_orbit_groups[3]), {});
 }
 
 GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane) {

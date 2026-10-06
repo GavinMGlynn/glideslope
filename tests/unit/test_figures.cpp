@@ -865,3 +865,57 @@ GLIDESLOPE_TEST(the_speeds_a_plan_may_fly_an_aircraft_at_are_read_and_refused_wh
     std::filesystem::remove(file);
     check(failures.empty(), "every one wrong is refused, saying why:" + failures);
 }
+
+// **The slowest a glide may fly an aircraft at is read, and a file without
+// it, or with it wrong, is refused**, as its plan speeds are: a copilot's
+// glide slower than it stalls. The C172P's own file with its <glide_speeds>
+// changed.
+GLIDESLOPE_TEST(the_slowest_a_glide_may_fly_an_aircraft_at_is_read_and_refused_where_it_is_wrong) {
+    const PublishedFigures c172p = read_published_figures(figures_file("c172p"));
+    check(c172p.glide_slowest_kcas == 60.0, "the C172P may glide from 60 kt");
+    std::ifstream in(figures_file("c172p"));
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    const auto at = text.find("<glide_speeds slowest_kcas=\"60\">");
+    if (at == std::string::npos) {
+        fail("assets/figures/c172p.xml gives no <glide_speeds slowest_kcas=\"60\">");
+    }
+    const auto end = text.find("</glide_speeds>", at);
+    const std::size_t length = end + std::string("</glide_speeds>").size() - at;
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_glide_speeds_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& in_its_place) {
+        std::string changed = text;
+        changed.replace(at, length, in_its_place);
+        std::ofstream out(file);
+        out << changed;
+    };
+    write("<glide_speeds slowest_kcas=\"65\"></glide_speeds>");
+    check(read_published_figures(file).glide_slowest_kcas == 65.0,
+          "another, written the same way, is read back as written");
+    const std::pair<const char*, const char*> wrong[] = {
+        {"", "gives no <glide_speeds"},
+        {"<glide_speeds></glide_speeds>", "gives no <glide_speeds"},
+        {"<glide_speeds slowest_kcas=\"0\"></glide_speeds>", "not above 0"},
+        {"<glide_speeds slowest_kcas=\"60\"></glide_speeds>"
+         "<glide_speeds slowest_kcas=\"60\"></glide_speeds>",
+         "gives <glide_speeds> twice"},
+    };
+    std::string failures;
+    for (const auto& [in_its_place, says] : wrong) {
+        write(in_its_place);
+        try {
+            read_published_figures(file);
+            failures += std::string("\n  taken: ") + in_its_place;
+        } catch (const std::runtime_error& e) {
+            if (std::string(e.what()).find(says) == std::string::npos) {
+                failures += std::string("\n  ") + in_its_place + " refused, but not saying \"" +
+                            says + "\": " + e.what();
+            }
+        }
+    }
+    std::filesystem::remove(file);
+    check(failures.empty(), "every one wrong is refused, saying why:" + failures);
+}
