@@ -5,7 +5,7 @@
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli> -DDATA=<data dir>
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
 #         (-DPLAYBACK=<recording> | -DRECORD=<recording>
-#          | -DROUTE=<route file> -DEXPECT=<regex> [-DFOR=another|wreck] [-DPLAN=<plan>])
+#          | -DROUTE=<route file> -DEXPECT=<regex> [-DFOR=another|wreck|no_speeds] [-DPLAN=<plan>])
 #         [-DENGINE_AT=<s>] [-DTAKE_BACK_AT=<s>]
 #         [-DPROVIDER=openai|anthropic -DMODEL=<model>]
 #         -P server_copilot.cmake
@@ -78,6 +78,28 @@ execute_process(
 if(NOT _rc EQUAL 0)
     message(STATUS "the server could not get its terrain: ${_err}")
     cmake_language(EXIT 77)
+endif()
+
+# **An aircraft whose figures give no speeds, built for it**: since
+# 2026-10-06 every aircraft in the data has them - the 747-400 and the
+# F-22A take-off speeds measured from their models - so FOR=no_speeds runs
+# both programs on a copy of the data whose 747-400 has its measured
+# `<takeoff_speeds>` taken out, as it was before.
+if(FOR STREQUAL "no_speeds")
+    set(_copy "${WORK}/no-speeds-data")
+    file(REMOVE_RECURSE "${_copy}")
+    file(COPY "${DATA}/" DESTINATION "${_copy}")
+    file(READ "${_copy}/figures/747-400.xml" _figures)
+    string(FIND "${_figures}" "<takeoff_speeds" _from)
+    string(FIND "${_figures}" "</takeoff_speeds>" _to)
+    if(_from LESS 0 OR _to LESS 0)
+        message(FATAL_ERROR "the 747-400's figures give no <takeoff_speeds> to take out")
+    endif()
+    math(EXPR _after "${_to} + 17")
+    string(SUBSTRING "${_figures}" 0 ${_from} _head)
+    string(SUBSTRING "${_figures}" ${_after} -1 _tail)
+    file(WRITE "${_copy}/figures/747-400.xml" "${_head}${_tail}")
+    set(DATA "${_copy}")
 endif()
 
 set(_plan)
