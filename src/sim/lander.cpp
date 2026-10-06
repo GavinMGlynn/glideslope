@@ -40,6 +40,14 @@ bool publishes_approach_speed(const std::filesystem::path& data, const std::stri
                        [](const FigureSpec& spec) { return spec.flight == "stall_speed"; });
 }
 
+std::optional<ApproachSpeeds> landing_speeds(const std::filesystem::path& data,
+                                             const std::string& model) {
+    if (!publishes_approach_speed(data, model)) {
+        return std::nullopt;
+    }
+    return approach_speeds(data, model);
+}
+
 ApproachSpeeds approach_speeds(const std::filesystem::path& data,
                                const std::string& model) {
     const PublishedFigures figures =

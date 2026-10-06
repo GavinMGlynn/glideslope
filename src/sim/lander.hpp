@@ -79,6 +79,13 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
 // 747-400 and the F-22A, whose measured stalls would not hold still.
 bool publishes_approach_speed(const std::filesystem::path& data, const std::string& model);
 
+// **How she is landed, for a controller to be told** (`Controller::lands_with`):
+// her approach speeds, or none where her figures publish no stall speed. The
+// server and the client both tell their controllers from this. Throws
+// std::runtime_error where her figures cannot be read.
+std::optional<ApproachSpeeds> landing_speeds(const std::filesystem::path& data,
+                                             const std::string& model);
+
 class Lander {
 public:
     enum class Stage { approach, flare, rollout, stopped, go_around };

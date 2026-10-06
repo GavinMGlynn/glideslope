@@ -2517,10 +2517,6 @@ private:
         }
     }
 
-    // **An aircraft's speeds, worked out once** as it is made, and kept by
-    // catalogue id - which names its model and its cruise both: reading them parses its figures, which is not for the stepping
-    // thread to do at every route. An aircraft whose figures give none -
-    // the 747-400 publishes no rate of climb - keeps why.
     // **A controller for an aircraft, told how she lands** (from her
     // figures, once a model): a landing a player made with no approach given
     // to the AI, handed to it on its roll, is landed to the stop rather than
@@ -2534,11 +2530,12 @@ private:
         if (it == lands_with_.end()) {
             std::optional<glideslope::sim::ApproachSpeeds> speeds;
             try {
-                if (glideslope::sim::publishes_approach_speed(data_, model)) {
-                    speeds = glideslope::sim::approach_speeds(data_, model);
-                }
-            } catch (const std::exception&) {
-                // No figures to read: nothing to tell her controller.
+                speeds = glideslope::sim::landing_speeds(data_, model);
+            } catch (const std::exception& e) {
+                // No figures to read: nothing to tell her controller, and
+                // said, not swallowed.
+                std::fprintf(stderr, "  %s: no approach speeds for a landing taken over on "
+                                     "its roll (%s)\n", model.c_str(), e.what());
             }
             it = lands_with_.emplace(model, speeds).first;
         }
@@ -2548,6 +2545,10 @@ private:
         return controller;
     }
 
+    // **An aircraft's speeds, worked out once** as it is made, and kept by
+    // catalogue id - which names its model and its cruise both: reading them parses its figures, which is not for the stepping
+    // thread to do at every route. An aircraft whose figures give none -
+    // the 747-400 publishes no rate of climb - keeps why.
     void learn_speeds(Aircraft& a) {
         auto it = speeds_.find(a.catalogue_id);
         if (it == speeds_.end()) {
