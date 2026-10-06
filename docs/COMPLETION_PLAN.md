@@ -814,7 +814,8 @@ Found while implementing something else. Added when found, not when remembered.
       fourteen aeroplanes balloon, bounce or come down hard, and the flying
       boat is lifted into a go-around; at her light loading the 737-300
       balloons, and the Mosquito at her heaviest. *Verification: every
-      aeroplane lands light, heavy and in gusts with none named.*
+      aeroplane lands light, heavy and in gusts with none named, and a
+      gust on an approach flown well makes no go-around.*
 - [ ] **A go-around ends in a straight climb**: at 500 ft the plain
       autopilot holds it, with the landing flap still down, and nothing
       flies her round to another approach. Nor does the AI go around from a
