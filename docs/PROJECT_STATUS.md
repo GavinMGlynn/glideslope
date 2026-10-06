@@ -262,10 +262,9 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### A fast aircraft's tightest orbit is flown on its circle on Linux, 2026-10-06 — tail still open (one Windows case); the B-2's and F-22's yaw still open
+### A fast aircraft's tightest orbit is flown on its circle, and its fastest leaves power in hand, 2026-10-06 — tail done; the B-2's and F-22's yaw still open
 
-**What is not done first.** On Windows the C182 at its fastest swings 150 m
-off one way round (below). The B-2 and F-22 still yaw in a crosswind when
+**What is not done first.** The B-2 and F-22 still yaw in a crosswind when
 slow (the cause is found, below; the fix is not in). The glide, F-15C stall
 and stall-recovery tails were not worked on.
 
@@ -301,14 +300,35 @@ fighters' and airliners' fastest tests red (F-15C 7.7%, 787-8 10.2%); a
 correction five times slower (sixty seconds) turned the light aeroplanes'
 (C182 163 m) and the warbirds' (Mosquito 293 m) red; the join's bound set at
 25% inside turned the fighters' red (27-30%). On Windows CI main's light-aeroplane
-fastest test failed (the C182 at 144 kt, 215 m outside from the quarter-turn).
-**It still fails on Windows on this branch** (windows-release, run by
-`tools/windows_build.sh`): the C182 at 144 kt, right, calm, swings 151 m
-inside and 145 outside from the half-turn, its speed sagging to 139 kt;
-the other fifteen cases there, and all sixteen on Linux, are within 25 m.
-The C182 makes 143 kt at full throttle, short of the 144 its file allows,
-so this is not a tolerance but a case on the edge of its power; not yet
-fixed.
+fastest test failed (the C182 at 144 kt, 215 m outside from the quarter-turn),
+and on this branch still did: right, calm, 151 m inside and 145 outside from
+the half-turn, its speed sagging to 139 kt, where Linux holds 5 m.
+
+**The fastest a plan may ask now leaves power in hand.** The C182's 144 kt
+was measured before #100 re-rated her engine; she now makes 143.7 kt level
+at full throttle, and a speed held 5 kt short counted as held. So
+`sim::holds_plan_speed` (and `plan-speeds`) now also asks that the aircraft's
+full-throttle level speed - 3,000 ft, calm, until it settles - be at least
+5 kt above the speed (`sim::full_throttle_level_kts`). `plan-speeds` re-run
+for all sixteen; six fastests came down (level speed at full throttle in
+brackets): C172P 120 to 110 (123.9), C182 144 to 129 (143.7), Cub 72 to 62
+(74.8), PA-28 132 to 117 (129.1), S.23 156 to 141 (151.9), Mosquito 229 to
+219 (231.0) - each 5 kt under the first that held, the command's rule. The
+other ten printed what their files say. New test
+`every_aircrafts_fastest_plan_speed_leaves_5_kt_in_hand_at_full_throttle`,
+every aircraft; seen to fail with the C182 put back at 144.
+
+**Twelve copilot recordings made again**, live (`GLIDESLOPE_LIVE_MODEL=1`),
+since a plan's speed range is in every prompt: all twelve light-aeroplane
+recordings in `tests/data/copilot`. Eleven passed as answered; the take-back
+one answered `keep` three times running after the take-back, which tests
+nothing, so its answer there is written in by hand as before, with its note
+(the same route, BONDI at 100 kt). OpenAI's CBD plan was asked again until it took
+off from 16R, as the runway-wreck test needs both planned aircraft to; and
+Claude's now orbits 1,447 m at 100 kt, so the server-planned test runs
+120,000 steps, not 84,000. Scanned for keys before committing: none.
+#103 also re-records `leave-server-anthropic.jsonl`; whichever lands second
+re-records it.
 
 **The B-2's and F-22's yaw: the cause.** The rudder's integral lags the
 sideslip a quarter cycle and undoes the yaw damper; a flying wing has no fin

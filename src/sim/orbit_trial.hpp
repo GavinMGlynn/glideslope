@@ -81,12 +81,27 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
 OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const CatalogueEntry& entry,
                               const OrbitTrial& trial);
 
+// **The fastest `entry` flies level at full throttle**, KCAS: at 3,000 ft
+// over Sydney in calm air, heading north, from `from_kts`, the autopilot
+// holding the height and asked for far more speed than it has, until the
+// speed settles - its average over thirty seconds moving less than 0.1 kt
+// from the thirty before - or fifteen minutes have gone.
+double full_throttle_level_kts(const std::filesystem::path& data, const CatalogueEntry& entry,
+                               double from_kts);
+
+// What a plan's speed must leave in hand at full throttle (below).
+inline constexpr double plan_speed_power_margin_kts = 5.0;
+
 // **Whether `entry` holds `airspeed_kts` as a plan may ask it**: round the
 // tightest orbit at it both ways, in calm air and in a 10 kt wind, its
 // height within 50 ft and its speed within 5 kt (each stopped once lost);
-// and a heading held in calm air and a 20 kt crosswind. Stops at the first
-// that does not hold. `said`, if given, is told each flight in a line.
-// What `glideslope_cli plan-speeds` asks of every speed it tries.
+// a heading held in calm air and a 20 kt crosswind; and **power in hand**:
+// its full-throttle level speed at least 5 kt above it. Without that margin
+// a speed held 5 kt short counted as held - the C182 at 144 kt, which makes
+// 143 at full throttle, and on Windows, its speed sagging to 139 round its
+// circle, swung 150 m either side of it. Stops at the first that does not
+// hold. `said`, if given, is told each flight in a line. What `glideslope_cli
+// plan-speeds` asks of every speed it tries.
 bool holds_plan_speed(const std::filesystem::path& data, const CatalogueEntry& entry,
                       double airspeed_kts,
                       const std::function<void(const std::string&)>& said = {});
