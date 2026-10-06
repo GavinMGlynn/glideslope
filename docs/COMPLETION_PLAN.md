@@ -368,10 +368,10 @@ Found while implementing something else. Added when found, not when remembered.
       once round the join every jet holds within 2% of the radius and the
       rest within 60 m, on Linux and Windows; a plan's fastest now leaves 5
       kt of full-throttle speed in hand, which brought six aircraft's down.
-- [ ] **A glide may still be asked of a jet at its approach speed.** A
-      copilot's glide, with the engine stopped, is allowed from the approach
-      speed to the best climb, and whether a jet glides round its tightest
-      orbit clean at its approach speed without stalling is not measured.
+- [ ] **A glide may still be asked of a jet at its approach speed.** Now
+      measured, and a glide starts at the slowest a route may fly; but from
+      30,000 ft the 747-400, 787-8, A320, F-15C, F-22 and Mosquito still
+      stall gliding at their slowest, each named in its test.
       *Verification: every aircraft glides round its tightest orbit at every
       speed a glide may be asked at without stalling, measured.*
 - [x] **A model cannot plan the 747-400 or the F-22, nor a copilot route
@@ -612,7 +612,8 @@ Found while implementing something else. Added when found, not when remembered.
       at its stall warning, within its lesson's height with no exceptions,
       and left thirty seconds in it, within a height worked out for it from
       its speed and sink.* Both checks exist and the instructor flies the
-      recovery. Still missing: the A320 and Mosquito over 2 g; the A320 past
+      recovery. Still missing: the A320 and Mosquito over 2 g (the A320's
+      is its wing's lift returning, not its pull-out); the A320 past
       its bound left thirty seconds; at the warning the B-2A, F-15C, F-35B,
       Learjet and S.23 past their lesson's height and the Mosquito never
       level again; the AI pilot noticing a stall; and a test that engaging

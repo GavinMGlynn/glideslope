@@ -3,6 +3,8 @@
 #include "sim/fixed_step.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 
 namespace glideslope::sim {
 
@@ -128,7 +130,17 @@ AutopilotModes Controller::gliding(AutopilotModes modes) {
     constexpr double fpm_per_knot_second = 4.0;
     constexpr double fpm_per_knot_a_second = 250.0; // the speed's trend, to damp it
     constexpr double trend_filter_s = 1.0;
-    constexpr double least_fpm = -2500.0;
+    // **The steepest sink asked is a flight path, not a rate**: 2,500 ft/min,
+    // or 12 degrees down where that is more. Held to 2,500 ft/min from 30,000
+    // ft, where a fighter gliding at 170 KCAS is doing some 270 knots true,
+    // the F-15C gliding round her tightest orbit at every speed from 170 to
+    // 200 kt sagged to 112 kt and settled into her deep stall at 43 degrees
+    // of alpha, and the F-35B at 204 departed (glides_without_stalling,
+    // test_navigator.cpp).
+    constexpr double steepest_glide_deg = 12.0;
+    const double least_fpm =
+        -std::max(2500.0, a_.property("velocities/vt-fps") * 60.0 *
+                              std::sin(steepest_glide_deg * std::numbers::pi / 180.0));
     constexpr double most_fpm = 500.0;
     const double dt = 1.0 / static_cast<double>(steps_per_second);
     const double kts = a_.property("velocities/vc-kts");

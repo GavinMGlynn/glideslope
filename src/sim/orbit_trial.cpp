@@ -9,6 +9,7 @@
 
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
+#include "sim/controller.hpp"
 #include "sim/navigator.hpp"
 #include "sim/plan.hpp"
 #include "sim/weather.hpp"
@@ -141,6 +142,82 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
         }
     }
     out.passed_on = navigator.next() == 1 && out.turns >= 1.99 && out.turns <= 2.01;
+    return out;
+}
+
+GlideOrbitFlown glide_tightest_orbit(const std::filesystem::path& data,
+                                     const CatalogueEntry& entry, double airspeed_kts,
+                                     bool right) {
+    constexpr int steps_per_second = 120;
+    constexpr double from_ft = 30000.0;
+    const double kts = airspeed_kts;
+    GlideOrbitFlown out;
+    out.radius_m = std::ceil(least_orbit_radius_m(kts));
+    char lines[400];
+    std::snprintf(lines, sizeof lines,
+                  "aircraft %s\nstart %.6f 151.2093 %.0f 0 %.0f\n"
+                  "orbit CBD -33.8688 151.2093 %.0f 1000 %.0f 4 %s\n",
+                  entry.id.c_str(), -33.8688 - out.radius_m / 111195.0, from_ft,
+                  kts, out.radius_m, kts, right ? "right" : "left");
+    FlightPlan plan = parse_flight_plan(lines);
+    Aircraft aircraft(data / "jsbsim", entry.model);
+    InitialConditions ic;
+    ic.latitude_deg = plan.start->latitude_deg;
+    ic.longitude_deg = plan.start->longitude_deg;
+    ic.altitude_ft = from_ft;
+    ic.heading_deg = right ? 270.0 : 90.0; // on the circle, along it
+    ic.airspeed_kts = kts;
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    for (int e = 0; e < aircraft.figures().engines; ++e) {
+        aircraft.fail_engine(e, true);
+    }
+    Controls controls;
+    controls.throttle = entry.start_throttle;
+    Controller controller(aircraft, controls);
+    controller.to_ai(std::move(plan));
+    controller.set_glide(kts);
+
+    out.slowest_kts = std::numeric_limits<double>::infinity();
+    out.lowest_ft = from_ft;
+    double most_lift = -std::numeric_limits<double>::infinity();
+    double joined_at = -1.0;
+    const double area = aircraft.property("metrics/Sw-sqft");
+    for (int step = 0; step < 30 * 60 * steps_per_second; ++step) {
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        const double feet = aircraft.property("position/h-sl-ft");
+        out.lowest_ft = std::min(out.lowest_ft, feet);
+        if (feet < 1000.0) {
+            break;
+        }
+        if (step >= 10 * steps_per_second) {
+            const double alpha = aircraft.property("aero/alpha-deg");
+            const double lift = aircraft.property("forces/fwz-aero-lbs") /
+                                std::max(aircraft.property("aero/qbar-psf") * area, 1.0);
+            out.most_alpha_deg = std::max(out.most_alpha_deg, alpha);
+            if (lift > most_lift) {
+                most_lift = lift;
+                out.alpha_at_most_lift_deg = alpha;
+            }
+        }
+        const Navigator* navigator = controller.navigator();
+        if (navigator == nullptr || !navigator->circling()) {
+            continue;
+        }
+        if (joined_at < 0.0) {
+            joined_at = navigator->turns_flown();
+        }
+        out.turns = navigator->turns_flown() - joined_at;
+        if (out.turns >= 0.25) {
+            const double v = aircraft.property("velocities/vc-kts");
+            out.slowest_kts = std::min(out.slowest_kts, v);
+            out.fastest_kts = std::max(out.fastest_kts, v);
+        }
+        if (out.turns >= 1.0) {
+            break;
+        }
+    }
     return out;
 }
 

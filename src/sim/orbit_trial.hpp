@@ -81,6 +81,36 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
 OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const CatalogueEntry& entry,
                               const OrbitTrial& trial);
 
+// **The tightest orbit glided round, every engine stopped**: begun at
+// `airspeed_kts` at 30,000 ft over Sydney, on the circle allowed at that
+// speed and flying along it, clean, every engine failed at once, and flown
+// by the controller's glide (Controller::set_glide) once round, or until
+// 1,000 ft - the flight a copilot's glide asks of it.
+// **Stalled** is the wing past the angle its lift peaked at: the most angle
+// of attack flown against the angle at the greatest lift coefficient seen,
+// which is how the autopilot itself learns where a wing stalls.
+struct GlideOrbitFlown {
+    double radius_m = 0.0;
+    double turns = 0.0; // round the circle, from first reaching it
+    // From ten seconds on, the glide begun:
+    double most_alpha_deg = 0.0;
+    double alpha_at_most_lift_deg = 0.0;
+    // Calibrated, from a quarter of the way round on:
+    double slowest_kts = 0.0;
+    double fastest_kts = 0.0;
+    double lowest_ft = 0.0;
+    // Past its lift's peak by more than half a degree.
+    bool stalled() const {
+        return most_alpha_deg > alpha_at_most_lift_deg + 0.5;
+    }
+    bool round() const {
+        return turns >= 1.0;
+    }
+};
+GlideOrbitFlown glide_tightest_orbit(const std::filesystem::path& data,
+                                     const CatalogueEntry& entry, double airspeed_kts,
+                                     bool right);
+
 // **The fastest `entry` flies level at full throttle**, KCAS: at 3,000 ft
 // over Sydney in calm air, heading north, from `from_kts`, the autopilot
 // holding the height and asked for far more speed than it has, until the
