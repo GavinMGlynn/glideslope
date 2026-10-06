@@ -108,11 +108,25 @@ int main(int argc, char** argv) {
     {
         std::ifstream in(argv[2]);
         std::string line;
-        while (std::getline(in, line)) {
-            said = said || std::sscanf(line.c_str(),
-                                       "glideslope: the HUD's horizon runs from %lf,%lf to "
-                                       "%lf,%lf",
-                                       &x0, &y0, &x1, &y1) == 4;
+        // Read with strtod, not sscanf, which MSVC refuses as unsafe.
+        const std::string prefix = "glideslope: the HUD's horizon runs from ";
+        while (!said && std::getline(in, line)) {
+            if (line.rfind(prefix, 0) != 0) {
+                continue;
+            }
+            const char* p = line.c_str() + prefix.size();
+            char* end = nullptr;
+            x0 = std::strtod(p, &end);
+            bool ok = end != p && *end == ',';
+            p = end + 1;
+            y0 = std::strtod(p, &end);
+            ok = ok && end != p && std::string(end).rfind(" to ", 0) == 0;
+            p = end + 4;
+            x1 = std::strtod(p, &end);
+            ok = ok && end != p && *end == ',';
+            p = end + 1;
+            y1 = std::strtod(p, &end);
+            said = ok && end != p;
         }
     }
     if (!said) {
