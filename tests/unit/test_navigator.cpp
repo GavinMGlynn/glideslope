@@ -1074,7 +1074,8 @@ namespace {
 // it is flown, and must still fail somewhere, or its name is stale. Coverage
 // is asserted: every aircraft, every speed, both ways, and every step below.
 void glides_without_stalling(const std::vector<glideslope::sim::CatalogueEntry>& entries,
-                             const std::map<std::string, std::string>& unexplained) {
+                             const std::map<std::string, std::string>& unexplained,
+                             const std::vector<bool>& ways = {false, true}) {
     const std::filesystem::path data =
         std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     std::size_t space = 0;
@@ -1106,8 +1107,10 @@ void glides_without_stalling(const std::vector<glideslope::sim::CatalogueEntry>&
             failures += "\n  " + entry.id + "'s slowest glide, " + std::to_string(floor_kts) +
                         " kt, is below the slowest a route may fly it";
         } else if (floor_kts > routed_kts + 0.5) {
-            const bool below = fly(entry, floor_kts - 5.0, false, " (5 below)") &&
-                               fly(entry, floor_kts - 5.0, true, " (5 below)");
+            bool below = true;
+            for (const bool right : ways) {
+                below = below && fly(entry, floor_kts - 5.0, right, " (5 below)");
+            }
             if (below) {
                 failures += "\n  " + entry.id + " glides at " +
                             std::to_string(floor_kts - 5.0) + " kt, 5 below its file's slowest";
@@ -1121,7 +1124,7 @@ void glides_without_stalling(const std::vector<glideslope::sim::CatalogueEntry>&
         asked.push_back(std::round(glide.fastest_kts));
         bool all_went = true;
         for (const double kts : asked) {
-            for (const bool right : {false, true}) {
+            for (const bool right : ways) {
                 if (!fly(entry, kts, right, "")) {
                     all_went = false;
                     if (name == unexplained.end()) {
@@ -1147,6 +1150,41 @@ void glides_without_stalling(const std::vector<glideslope::sim::CatalogueEntry>&
     check(failures.empty(), "each glides round unstalled, or is named:" + failures);
 }
 
+// **One test for each aircraft, or for each way round**, so that none flies
+// long on CI: the airliners' and business jets' together took 1,661 s in
+// linux-debug, and alone the A320 392 and the 787-8 308, which are flown
+// each way in a test of its own. Every aircraft in the catalogue is flown
+// both ways, each once, which this list and the test below it assert.
+const std::vector<std::string> glide_tested = {
+    "c172p",
+    "c182",
+    "pa28",
+    "j3cub",
+    "short_s23",
+    "mosquito-fb6",
+    "737-300",
+    "747-400",
+    "787-8 left",
+    "787-8 right",
+    "a320 left",
+    "a320 right",
+    "a380",
+    "learjet35a",
+    "b2",
+    "f15c",
+    "f22",
+    "f35b",
+};
+
+void glides_without_stalling(const std::string& id,
+                             const std::map<std::string, std::string>& unexplained = {},
+                             const std::vector<bool>& ways = {false, true}) {
+    glides_without_stalling(
+        {glideslope::sim::find_aircraft(
+            std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path(), id)},
+        unexplained, ways);
+}
+
 } // namespace
 
 // Before a glide's slowest was the slowest a route may fly it, a jet could be
@@ -1155,34 +1193,105 @@ void glides_without_stalling(const std::vector<glideslope::sim::CatalogueEntry>&
 // alpha. Before each file gave its own slowest glide, the 747-400, 787-8,
 // A320, F-15C and Mosquito stalled at the slowest a route may fly them
 // (PROJECT_STATUS.md).
-GLIDESLOPE_TEST(every_light_aeroplane_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
-    std::vector<AircraftClass> grouped;
-    for (const auto& group : tightest_orbit_groups) {
-        grouped.insert(grouped.end(), group.begin(), group.end());
+GLIDESLOPE_TEST(every_aircraft_has_its_own_test_of_its_glides_round_its_tightest_orbit) {
+    std::vector<std::string> catalogue;
+    for (const auto& e : glideslope::sim::read_catalogue(
+             std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path())) {
+        catalogue.push_back(e.id + " left");
+        catalogue.push_back(e.id + " right");
     }
-    std::sort(grouped.begin(), grouped.end());
-    check(grouped.size() == glideslope::sim::aircraft_class_count &&
-              std::adjacent_find(grouped.begin(), grouped.end()) == grouped.end(),
-          "the glide tests take every class of aircraft, each once");
-    glides_without_stalling(of_classes(tightest_orbit_groups[0]), {});
+    std::vector<std::string> tested;
+    for (const std::string& t : glide_tested) {
+        if (t.find(' ') != std::string::npos) {
+            tested.push_back(t);
+        } else {
+            tested.push_back(t + " left");
+            tested.push_back(t + " right");
+        }
+    }
+    std::sort(catalogue.begin(), catalogue.end());
+    std::sort(tested.begin(), tested.end());
+    check(tested == catalogue && std::adjacent_find(tested.begin(), tested.end()) == tested.end(),
+          "each of the " + std::to_string(catalogue.size() / 2) +
+              " aircraft is flown both ways, each once: " + std::to_string(tested.size()) +
+              " of " + std::to_string(catalogue.size()));
 }
 
-GLIDESLOPE_TEST(every_airliner_and_business_jet_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
-    glides_without_stalling(of_classes(tightest_orbit_groups[1]), {});
+GLIDESLOPE_TEST(the_cessna_172p_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("c172p");
+}
+
+GLIDESLOPE_TEST(the_cessna_182s_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("c182");
+}
+
+GLIDESLOPE_TEST(the_piper_pa28_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("pa28");
+}
+
+GLIDESLOPE_TEST(the_piper_j3_cub_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("j3cub");
+}
+
+GLIDESLOPE_TEST(the_short_s23_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("short_s23");
+}
+
+GLIDESLOPE_TEST(the_mosquito_fb6_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("mosquito-fb6");
+}
+
+GLIDESLOPE_TEST(the_boeing_737_300_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("737-300");
+}
+
+GLIDESLOPE_TEST(the_boeing_747_400_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("747-400");
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_glides_round_its_tightest_orbit_turning_left_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("787-8", {}, {false});
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_glides_round_its_tightest_orbit_turning_right_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("787-8", {}, {true});
+}
+
+GLIDESLOPE_TEST(the_airbus_a320_glides_round_its_tightest_orbit_turning_left_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("a320", {}, {false});
+}
+
+GLIDESLOPE_TEST(the_airbus_a320_glides_round_its_tightest_orbit_turning_right_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("a320", {}, {true});
+}
+
+GLIDESLOPE_TEST(the_airbus_a380_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("a380");
+}
+
+GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("learjet35a");
+}
+
+GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("b2");
+}
+
+GLIDESLOPE_TEST(the_f15c_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("f15c");
 }
 
 // **The F-22 glides nowhere, and why is not found**: from 255 kt, its slowest
 // under power, to 335 it departs past 95 degrees of alpha before it is a
 // fifth of the way round, and at 340 it is a third of the way round at
 // 1,000 ft. Not a floor to raise: it is named, and the tail stays open.
-GLIDESLOPE_TEST(every_fighter_and_bomber_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
-    glides_without_stalling(
-        of_classes(tightest_orbit_groups[2]),
-        {{"f22", "departs at every glide from 255 to 335 kt, why not found"}});
+GLIDESLOPE_TEST(the_f22a_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("f22", {{"f22", "departs at every glide from 255 to 335 kt, why not "
+                                             "found"}});
 }
 
-GLIDESLOPE_TEST(every_warbird_and_flying_boat_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
-    glides_without_stalling(of_classes(tightest_orbit_groups[3]), {});
+GLIDESLOPE_TEST(the_f35b_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling) {
+    glides_without_stalling("f35b");
 }
 
 GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane) {
