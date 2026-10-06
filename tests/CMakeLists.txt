@@ -2230,7 +2230,7 @@ foreach(_case another:24716:it_is_not_this_client_s_aircraft wreck:24718:it_is_a
     string(REPLACE "client s" "client.s" _expect "${_expect}")
     set(_extra -DFOR=${_for})
     if(_for STREQUAL "no_speeds")
-        set(_extra -DPLAN=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/747-off-bondi.plan)
+        list(APPEND _extra -DPLAN=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/747-off-bondi.plan)
     endif()
     add_test(NAME a_flyable_route_is_refused_when_${_because}_and_the_server_goes_on
         COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>

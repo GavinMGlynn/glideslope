@@ -655,6 +655,11 @@ recording changes.
   and climb lessons, the instructor's demonstration).
 - An aircraft with no climb speed is still refused: the test that showed it
   with the 747-400 now uses its figures with `<takeoff_speeds>` taken out.
+  So does the server's
+  `a_flyable_route_is_refused_when_its_speeds_are_not_known_and_the_server_goes_on`
+  (`cmake/server_copilot.cmake`, FOR=no_speeds), which ran both programs on
+  the data as it is and went red on CI once the 747-400 had speeds: it now
+  runs them on a copy of the data with them taken out.
 
 **Not done**: a model's own plan is flown end to end for the Cessna, the
 747-400 and the F-22A only; the other thirteen are planned by a stand-in
