@@ -1343,8 +1343,8 @@ public:
                 ic.engine_running = true;
                 ic.gear = 0.0;
                 aircraft->initialize(ic);
-                auto controller = std::make_unique<glideslope::sim::Controller>(
-                    *aircraft, glideslope::sim::Controls{});
+                auto controller =
+                    controller_for(*aircraft, entry.model, glideslope::sim::Controls{});
                 // **Its plan flown at its own layer**, not only begun there:
                 // stacked at the start alone, every one came down to the
                 // plan's heights at its first waypoint and they flew the tour
@@ -1457,8 +1457,8 @@ public:
             it->slot = -1;
             it->index = *number;
             it->id = plan_.aircraft + " (AI, was slot " + std::to_string(index) + ")";
-            it->controller = std::make_unique<glideslope::sim::Controller>(
-                *it->aircraft, glideslope::sim::Controls{});
+            it->controller =
+                controller_for(*it->aircraft, it->model, glideslope::sim::Controls{});
             // On a layer of its own, above every plan-file AI aircraft's.
             it->stack_ft = static_cast<double>(ai_) * ai_stack_ft;
             it->controller->to_ai(stacked(plan_, it->stack_ft));
@@ -1499,7 +1499,7 @@ public:
                 return false;
             }
             if (!a.controller) {
-                a.controller = std::make_unique<glideslope::sim::Controller>(*a.aircraft, a.held);
+                a.controller = controller_for(*a.aircraft, a.model, a.held);
             }
             a.copilot_route.clear();
             if (to_ai) {
@@ -2270,7 +2270,7 @@ public:
         player->id = player->catalogue_id + " (AI, left by a take-over)";
         if (!player->controller) {
             player->controller =
-                std::make_unique<glideslope::sim::Controller>(*player->aircraft, player->held);
+                controller_for(*player->aircraft, player->model, player->held);
         }
         player->controller->to_ai();
         player->index = *number;
@@ -2439,8 +2439,7 @@ private:
         a.departure = glideslope::sim::departure_speeds(data_, entry.model);
         a.departs_at_s = static_cast<double>(departures) * departure_spacing_s_;
         a.own_plan = std::move(plan);
-        a.controller =
-            std::make_unique<glideslope::sim::Controller>(*a.aircraft, glideslope::sim::Controls{});
+        a.controller = controller_for(*a.aircraft, a.model, glideslope::sim::Controls{});
         ++departures;
         ++ai_;
         waiting_.push_back(std::move(a));
@@ -2522,6 +2521,33 @@ private:
     // catalogue id - which names its model and its cruise both: reading them parses its figures, which is not for the stepping
     // thread to do at every route. An aircraft whose figures give none -
     // the 747-400 publishes no rate of climb - keeps why.
+    // **A controller for an aircraft, told how she lands** (from her
+    // figures, once a model): a landing a player made with no approach given
+    // to the AI, handed to it on its roll, is landed to the stop rather than
+    // held by the plain autopilot. An aeroplane that publishes no stall speed
+    // has none to tell, and keeps the plain autopilot there.
+    std::unique_ptr<glideslope::sim::Controller>
+    controller_for(const glideslope::sim::Aircraft& aircraft, const std::string& model,
+                   const glideslope::sim::Controls& controls) {
+        auto controller = std::make_unique<glideslope::sim::Controller>(aircraft, controls);
+        auto it = lands_with_.find(model);
+        if (it == lands_with_.end()) {
+            std::optional<glideslope::sim::ApproachSpeeds> speeds;
+            try {
+                if (glideslope::sim::publishes_approach_speed(data_, model)) {
+                    speeds = glideslope::sim::approach_speeds(data_, model);
+                }
+            } catch (const std::exception&) {
+                // No figures to read: nothing to tell her controller.
+            }
+            it = lands_with_.emplace(model, speeds).first;
+        }
+        if (it->second) {
+            controller->lands_with(*it->second);
+        }
+        return controller;
+    }
+
     void learn_speeds(Aircraft& a) {
         auto it = speeds_.find(a.catalogue_id);
         if (it == speeds_.end()) {
@@ -2805,8 +2831,7 @@ private:
         a.wrecked_at_s = -1.0;
         a.held_clear_of = -1;
         if (a.on_plan) {
-            a.controller = std::make_unique<glideslope::sim::Controller>(
-                *a.aircraft, glideslope::sim::Controls{});
+            a.controller = controller_for(*a.aircraft, a.model, glideslope::sim::Controls{});
             fly_plan(a);
         } else if (ai_flying(a)) {
             hold_course(a);
@@ -2821,9 +2846,8 @@ private:
 
     // **The course it started on, held by its autopilot**: heading, height and
     // speed, from `start`.
-    static void hold_course(Aircraft& a) {
-        a.controller =
-            std::make_unique<glideslope::sim::Controller>(*a.aircraft, a.held);
+    void hold_course(Aircraft& a) {
+        a.controller = controller_for(*a.aircraft, a.model, a.held);
         a.controller->to_ai();
         glideslope::sim::AutopilotModes m = a.controller->autopilot()->modes();
         m.heading_deg = a.start.heading_deg;
@@ -2896,6 +2920,8 @@ private:
         std::string why;
     };
     std::map<std::string, Speeds> speeds_;
+    // How each model lands, for its controllers (`controller_for`).
+    std::map<std::string, std::optional<glideslope::sim::ApproachSpeeds>> lands_with_;
     double fail_engines_at_s_ = -1.0;
     bool engines_failed_ = false;
     // **The number to give an aircraft nobody is flying**: the lowest from

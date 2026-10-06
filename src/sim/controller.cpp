@@ -74,6 +74,19 @@ void Controller::to_ai() {
         landing->resume(applied_.throttle);
         lander_.emplace(std::move(*landing));
         easing_in_ = true;
+        return;
+    }
+    // **And on a roll the pilot landed her on**, no approach given: rolling
+    // on her wheels with the pilot's throttle no more than half open - not a
+    // take-off - she is landed to the stop on the line she is rolling along,
+    // not handed the plain autopilot, which holds what she is doing and
+    // would never stop her.
+    if (landing_speeds_ && a_.property("gear/wow") > 0.5 && !a_.in_water() &&
+        std::abs(a_.property("velocities/vg-fps")) >= 1.0 && pilot_.throttle <= 0.5) {
+        lander_.emplace(Lander::on_its_roll(a_, *landing_speeds_));
+        lander_->resume(applied_.throttle);
+        lander_->hand_mixture(applied_.mixture);
+        easing_in_ = true;
     }
 }
 
