@@ -515,76 +515,20 @@ int takeoff_speeds(const std::filesystem::path& data,
                                      word + "'");
         }
     }
-    const glideslope::sim::PublishedFigures figures = glideslope::sim::read_published_figures(
-        data / "figures" / (entry.model + ".xml"));
-    double flaps_deg = 0.0;
-    for (const glideslope::sim::FigureSpec& spec : figures.figures) {
-        if (spec.flight == "takeoff_field_length") {
-            const auto flap = spec.conditions.find("flaps_deg");
-            flaps_deg = flap == spec.conditions.end() ? 0.0 : flap->second;
-        }
-    }
-    const auto speeds_of = [&](double rotate_kts, double climb_kts) {
-        glideslope::sim::DepartureSpeeds speeds;
-        speeds.rotate_kts = rotate_kts;
-        speeds.climb_kts = climb_kts;
-        speeds.initial_climb_kts = climb_kts;
-        speeds.flap = figures.flaps_full_deg > 0.0
-                          ? std::clamp(flaps_deg / figures.flaps_full_deg, 0.0, 1.0)
-                          : 0.0;
-        return speeds;
-    };
-    const auto trial = [&](double rotate_kts, double climb_kts) {
-        const glideslope::sim::DepartureSpeeds speeds = speeds_of(rotate_kts, climb_kts);
-        const glideslope::sim::TakeoffFlown t =
-            glideslope::sim::fly_takeoff_trial(data, entry, speeds);
-        std::printf("%s: rotate %.0f, climb %.0f kt: %s, unstuck %.0f m at %.0f kt, slowest "
-                    "%.0f kt airborne, %.0f kt at 500 ft, %.0f s, %.0f lb%s%s\n",
-                    entry.id.c_str(), rotate_kts, climb_kts,
-                    t.lifted_off(speeds) ? "lifted off" : "did not lift off", t.unstuck_m,
-                    t.unstuck_kts, t.slowest_airborne_kts, t.handed_over_kts, t.seconds,
-                    t.weight_lbs, t.wrecked.empty() ? "" : ", wrecked: ", t.wrecked.c_str());
-        std::fflush(stdout);
-        return std::make_pair(t.lifted_off(speeds), t);
-    };
-    double rotate = 0.0;
-    double weight_lbs = 0.0;
-    for (double kts = from; kts <= 300.0; kts += 5.0) {
-        const auto [lifted, t] = trial(kts, kts + 20.0);
-        if (lifted) {
-            rotate = kts;
-            weight_lbs = t.weight_lbs;
-            break;
-        }
-    }
-    if (rotate == 0.0) {
-        std::printf("%s: no rotation from %.0f to 300 kt holds\n", entry.id.c_str(), from);
+    const glideslope::sim::MeasuredTakeoff m = glideslope::sim::measure_takeoff_speeds(
+        data, entry, from, [](const std::string& line) {
+            std::printf("%s\n", line.c_str());
+            std::fflush(stdout);
+        });
+    if (!m.why_not.empty()) {
+        std::printf("%s: %s\n", entry.id.c_str(), m.why_not.c_str());
         return 1;
     }
-    const double written_rotate = rotate + 5.0;
-    // **The climb away: the slowest it climbs away at.** Asked from 10 kt
-    // over the rotation to 100 over it, each at 500 ft is at least where its
-    // nose, held no higher than the take-off autopilot holds it, lets it be:
-    // the 747-400 at about 197 kt asked anything under 195, the F-22A, at
-    // military power, at 216 asked 125. The least of them, rounded up to 5 kt.
-    double slowest_away = std::numeric_limits<double>::infinity();
-    for (double kts = written_rotate + 10.0; kts <= written_rotate + 100.0; kts += 5.0) {
-        const auto [lifted, t] = trial(written_rotate, kts);
-        if (lifted) {
-            slowest_away = std::min(slowest_away, t.handed_over_kts);
-        }
-    }
-    if (!std::isfinite(slowest_away)) {
-        std::printf("%s: rotating at %.0f kt, no take-off climbed away\n", entry.id.c_str(),
-                    written_rotate);
-        return 1;
-    }
-    const double climb = std::ceil(slowest_away / 5.0) * 5.0;
     std::printf("%s: rotation held from %.0f kt; the slowest it climbed away at, %.1f kt\n",
-                entry.id.c_str(), rotate, slowest_away);
+                entry.id.c_str(), m.rotate_kts - 5.0, m.slowest_away_kts);
     std::printf("%s: write <takeoff_speeds rotate_kcas=\"%.0f\" climb_kcas=\"%.0f\" "
                 "flaps_deg=\"%.0f\" weight_lbs=\"%.0f\">\n",
-                entry.id.c_str(), written_rotate, climb, flaps_deg, weight_lbs);
+                entry.id.c_str(), m.rotate_kts, m.climb_kts, m.flaps_deg, m.weight_lbs);
     return 0;
 }
 

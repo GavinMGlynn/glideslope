@@ -303,6 +303,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_light_aircraft_takes_itself_off_and_climbs_away
     the_take_off_speeds_come_from_each_aircrafts_published_figures
     the_747_and_the_f22_take_off_at_the_speeds_measured_from_their_models
+    the_measured_take_off_speeds_in_the_747_and_f22_figures_are_what_the_measurement_makes
     every_light_aircraft_is_flown_down_a_glidepath_and_lands_in_calm_air
     the_learnt_landing_sees_and_acts_in_the_simulation_as_it_did_in_training
     the_learnt_policy_touches_down_in_the_simulation_where_it_did_in_training
@@ -2447,6 +2448,35 @@ foreach(_pair openai:gpt-5.4-mini-2026-03-17 anthropic:claude-haiku-4-5-20251001
     set_tests_properties(take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_by_${_provider}_as_recorded_and_flown
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider}-recorded)
+endforeach()
+# **And the two with no approach speed and measured take-off speeds**, the
+# 747-400 and the F-22A (2026-10-06): planned by Claude as the Cessna is, the
+# plan taken off Sydney and flown round its orbit by glideslope_cli fly-plan -
+# held within 500 m of its circle, not 60: each swung about 460 m off it
+# (PROJECT_STATUS, 2026-10-06; a tail in COMPLETION_PLAN.md).
+foreach(_aircraft 747-400 f22)
+    add_test(NAME take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_for_the_${_aircraft}_by_anthropic_now_and_flown
+        COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_aircraft}
+            "-DCOMMAND=take off, climb to 3,000 ft and orbit the CBD" -DPROVIDER=anthropic
+            -DMODEL=claude-haiku-4-5-20251001 -DAIRCRAFT=${_aircraft} -DCIRCLE_M=500
+            -DRECORD=${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_aircraft}/cbd-orbit-${_aircraft}-anthropic.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli_plan_flown.cmake)
+    set_tests_properties(take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_for_the_${_aircraft}_by_anthropic_now_and_flown
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads LABELS live)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_aircraft})
+    add_test(NAME take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_for_the_${_aircraft}_by_anthropic_as_recorded_and_flown
+        COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_aircraft}-recorded
+            "-DCOMMAND=take off, climb to 3,000 ft and orbit the CBD" -DPROVIDER=anthropic
+            -DMODEL=claude-haiku-4-5-20251001 -DAIRCRAFT=${_aircraft} -DCIRCLE_M=500
+            -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/cbd-orbit-${_aircraft}-anthropic.jsonl
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli_plan_flown.cmake)
+    set_tests_properties(take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_for_the_${_aircraft}_by_anthropic_as_recorded_and_flown
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_aircraft}-recorded)
 endforeach()
 
 # **The copilot flies with you**: a Cessna flown by the AI over the DEM, a

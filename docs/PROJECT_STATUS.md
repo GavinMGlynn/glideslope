@@ -623,7 +623,30 @@ recording changes.
   speed, and with the engine stopped a glide at the middle of its glide
   speeds; none is told "0 kt"; the 747-400 and F-22A are the two with no
   approach speed. Coverage asserted (16 of 16). Red with the approach speed
-  asked of every aircraft ("747-400 publishes no stall speed").
+  asked of every aircraft ("747-400 publishes no stall speed"). **The jets'
+  glides are accepted, not flown**: a glide between the 747-400's and the
+  F-22A's climb-away and slowest plan speeds (190 to 220, 220 to 255 kt) is
+  taken by the check, but whether either glides round its tightest orbit
+  there is not measured - the open tail "A glide may still be asked of a
+  jet at its approach speed" covers it.
+- `the_measured_take_off_speeds_in_the_747_and_f22_figures_are_what_the_measurement_makes`:
+  the measurement moved into the simulation (`sim::measure_takeoff_speeds`,
+  which `takeoff-speeds` prints) is run again for each, and must give its
+  file's rotation and climb within the 5 kt they are rounded to, its flap
+  and its weight to the pound. Red with the F-22A's climb hand-edited to 230.
+- **A model's own plan flown, end to end**:
+  `take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_for_the_747-400_by_anthropic_as_recorded_and_flown`
+  and `..._for_the_f22_...`, as the Cessna's: Claude (claude-haiku-4-5)
+  asked live with the owner's key, recorded (`tests/data/copilot/cbd-orbit-747-400-anthropic.jsonl`,
+  `cbd-orbit-f22-anthropic.jsonl`; scanned, no keys), and played back
+  `glideslope_cli plan` then `fly-plan` over the DEM. The 747-400's first
+  plan was refused (its orbit at 190 kt, under its 220 floor) and the second
+  taken; the F-22A's first. Each took off 16R, handed over at 1,001 ft above
+  the runway, and flew two turns of its 7.0 and 9.4 km circle at 2,983 to
+  3,019 ft - **but 460 m off its circle at worst** (6,904 to 7,467 m; 9,229
+  to 9,850 m), against the 60 m a Cessna is held to, so they are held to
+  500 m (`CIRCLE_M`) and that is a tail. Played back with the request's
+  words changed, red ("it must be recorded again").
 - `the_airliners_roll_down_sydneys_16r_on_the_dem_and_those_that_can_climb_away_fly_their_plan_to_its_orbit`
   and `the_military_jets_...` (main's five groups, rebased onto) now take
   the 747-400 and F-22A off 16R too and fly the CBD orbit plan to its
@@ -633,11 +656,11 @@ recording changes.
 - An aircraft with no climb speed is still refused: the test that showed it
   with the 747-400 now uses its figures with `<takeoff_speeds>` taken out.
 
-**Not done**: no live model has been asked to plan the 747-400 or the
-F-22A, and no single run flies a model's own plan for each of the sixteen
-end to end - the planning is checked with a stand-in model, and the flying
-by every landplane's take-off from 16R to the CBD orbit plan's orbit and
-the orbit tests at each one's plan speeds.
+**Not done**: a model's own plan is flown end to end for the Cessna, the
+747-400 and the F-22A only; the other thirteen are planned by a stand-in
+model and flown by the take-off from 16R to the CBD orbit plan's orbit and
+the orbit tests at their plan speeds. The jets' orbits entered from a
+waypoint swing 460 m off their circles.
 
 ### A model planning an aircraft left by its player is told the plan it flies, 2026-10-06 — tail done
 
@@ -654,6 +677,14 @@ An aircraft left by a take-over holds its course and has none, as before.
 route it had given one. So the server now says what a keep keeps:
 "aircraft N's model answered keep: it flies on to THE_HEADS, 1 of 4" - or
 "it holds its course" with no plan.
+
+**Why the recording went from two exchanges to one.** The old one held a
+refusal and a retry: told no route was flown, Claude first answered a glide
+to Sydney airport with the engine running, which `change_refusal` refused
+("a glide is only for an engine that has stopped"), and its second answer,
+a route to orbit the airport, was flown. Told the plan, it answered keep at
+once, which needs no checking against a route and is taken on the first
+answer - so one exchange.
 
 **The recording is made again**: `tests/data/copilot/leave-server-anthropic.jsonl`,
 asked of Claude by `..._asking_anthropic_now` with GLIDESLOPE_LIVE_MODEL=1,

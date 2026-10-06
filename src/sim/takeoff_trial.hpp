@@ -9,6 +9,7 @@
 // as `plan-speeds` sweeps the tightest orbit (sim/orbit_trial.hpp).
 
 #include <filesystem>
+#include <functional>
 #include <string>
 
 #include "sim/catalogue.hpp"
@@ -41,5 +42,26 @@ struct TakeoffFlown {
 
 TakeoffFlown fly_takeoff_trial(const std::filesystem::path& data, const CatalogueEntry& entry,
                                const DepartureSpeeds& speeds);
+
+// **The take-off speeds of an aircraft that publishes none, measured** -
+// what `glideslope_cli takeoff-speeds` prints and `<takeoff_speeds>` holds -
+// at its take-off field length's flap, or none, and the weight its model
+// flies a plan at. The rotation is sought at speeds rising from `from_kts`
+// by 5 kt, each climbing away at 20 more, until one lifts off by its
+// rotation (TakeoffFlown::lifted_off), and written with 5 kt to spare,
+// plan-speeds' rule; the climb away is the slowest speed at 500 ft of any
+// asked from 10 to 100 kt over that, rounded up to 5 kt. Each trial is told
+// to `say`, a line.
+struct MeasuredTakeoff {
+    double rotate_kts = 0.0;       // to write: the first that held, and 5
+    double climb_kts = 0.0;        // to write: the slowest away, rounded up
+    double slowest_away_kts = 0.0; // as flown
+    double flaps_deg = 0.0;
+    double weight_lbs = 0.0;
+    std::string why_not;           // empty where both were found
+};
+MeasuredTakeoff measure_takeoff_speeds(const std::filesystem::path& data,
+                                       const CatalogueEntry& entry, double from_kts,
+                                       const std::function<void(const std::string&)>& say);
 
 } // namespace glideslope::sim
