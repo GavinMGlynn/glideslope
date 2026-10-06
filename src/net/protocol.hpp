@@ -47,7 +47,11 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // server that tells each client the session, the lobby, the ground it
 // collides on and the weather it flies (REQUIREMENTS.md 6.3) - a `WEATHER`
 // with when it changed, over how long, and whether a forecast follows.
-inline constexpr std::uint8_t protocol_version = 4;
+// Version 4: the same ground, rules 1, and the aeroplane a player asks for
+// and the engine stopped named. Version 5: the same strips, rules 2 - where
+// runways overlap the nearest wins, so that one's shoulder no longer pulls
+// another's pavement.
+inline constexpr std::uint8_t protocol_version = 5;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.

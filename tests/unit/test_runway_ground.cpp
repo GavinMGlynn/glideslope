@@ -44,8 +44,14 @@ namespace {
 
 constexpr double feet_per_metre = 3.280839895013123;
 // The most one runway may pull another's surface off its line, anywhere in
-// the world, by the measurement below.
-constexpr double worldwide_pull_bound_m = 0.75;
+// the world, by the measurement below, and how many may be pulled more than
+// 0.3 m and 0.1 m: under rules 2, 0.61 m, 12 and 262; under rules 1 they were
+// 0.68 m, 38 and 572. What remains is where two pavements overlap - a
+// crossing, or the first metres of a V - where their two lines cannot agree
+// over an area and the mean of the two pulls each by half their difference.
+constexpr double worldwide_pull_bound_m = 0.62;
+constexpr std::ptrdiff_t worldwide_over_0_3_m = 12;
+constexpr std::ptrdiff_t worldwide_over_0_1_m = 270;
 
 std::filesystem::path data() {
     return std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
@@ -290,11 +296,11 @@ GLIDESLOPE_TEST(the_protocol_version_moves_with_the_collision_ground) {
     std::printf("protocol version %d, ground rules %d, strips SHA-256 %s\n",
                 glideslope::net::protocol_version, glideslope::world::collision_ground_rules,
                 sha.c_str());
-    check(glideslope::net::protocol_version == 4 &&
-              glideslope::world::collision_ground_rules == 1 &&
+    check(glideslope::net::protocol_version == 5 &&
+              glideslope::world::collision_ground_rules == 2 &&
               sha == "6c1ba3c3e6dc3bf19a6b0a402a00734b4d886b95e40c1097f1c69a301576898f",
-          "the collision ground is the one protocol version 2 was moved for, "
-          "and versions 3 and 4 kept");
+          "the collision ground is the one protocol version 5 was moved for: "
+          "rules 2 on the strips of 2026-10-01");
     // **And the client written from the document speaks it**: its own
     // version constant, which a move of the version must move too.
     std::ifstream doc_client(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) / "doc_client" /
@@ -911,6 +917,38 @@ GLIDESLOPE_TEST(runways_that_meet_in_a_v_a_t_end_to_end_or_side_by_side_are_made
     }
 }
 
+// **One runway's shoulder does not pull another's pavement** (rules 2,
+// 2026-10-06). On the sea, 45 m wide: A east for 2,000 m from 10 ft to 40 ft,
+// and B from 80 m north of A's first end, 5 degrees north of east, for 1,500 m
+// from 30 ft down to 0 - tied at B's first end, which is within reach of A,
+// and parting from A's line away from it. Their pavements are 35 m apart
+// there, so B's shoulder lies over A's pavement and A's over B's for the
+// first hundred metres or so, where their lines part. Under rules 1 each
+// shoulder pulled the other's pavement, A's by 0.027 m at worst; now,
+// on a runway's pavement, a runway's surface further than
+// `runway_overlap_band_m` from its own rectangle weighs nothing, and each is
+// exactly its own line.
+GLIDESLOPE_TEST(a_runways_shoulder_does_not_pull_the_pavement_of_another_beside_it) {
+    const auto [b_lat, b_lon] = offset(0.5, -150.0, 0.0, 80.0);
+    const std::vector<RunwayStrip> strips{laid("A", 0.5, -150.0, 90.0, 2000.0, 10.0, 40.0),
+                                          laid("B", b_lat, b_lon, 85.0, 1500.0, 30.0, 0.0)};
+    CollisionGround ground(sea(), std::make_shared<const RunwaySurfaces>(strips),
+                           std::numeric_limits<double>::infinity());
+    const RunwaySurfaces& runways = ground.runways();
+    check(runways.size() == 2 && !runways.at(0).ties.empty(), "two runways, tied");
+    for (std::size_t i = 0; i < 2; ++i) {
+        const Pull p = pull_on(ground, i, 1.0);
+        std::printf("runway %s: pulled %.6f m at worst (%.0f%% along), at %d places the other's "
+                    "shoulder reaches\n",
+                    runways.at(i).strip.airport.c_str(), p.worst_m, p.where_t * 100.0, p.reached);
+        check(p.reached >= 100, runways.at(i).strip.airport +
+                                    ": the other's shoulder reaches its pavement at 100 places "
+                                    "or more: " + std::to_string(p.reached));
+        check(p.worst_m <= 1e-6, runways.at(i).strip.airport + ": pulled " +
+                                     std::to_string(p.worst_m) + " m off its line");
+    }
+}
+
 // **Where longitude wraps and near a pole** the ground is the same: a runway
 // across the antimeridian on the equator, and one 10 km from the North Pole,
 // each on its line along its length, either side of 180 degrees, and the sea's
@@ -1015,6 +1053,9 @@ GLIDESLOPE_TEST(no_runway_in_the_world_is_pulled_off_its_line_beyond_a_bound) {
     check(runways.size() == 11201 && reached == 3619,
           "11,201 runways measured, 3,619 of them reached by another: " +
               std::to_string(runways.size()) + " and " + std::to_string(reached));
+    check(over(0.3) <= worldwide_over_0_3_m && over(0.1) <= worldwide_over_0_1_m,
+          "pulled more than 0.3 m: " + std::to_string(over(0.3)) + ", more than 0.1 m: " +
+              std::to_string(over(0.1)));
     check(!pulled.empty() && pulled.front().m <= worldwide_pull_bound_m,
           "the worst pull is " + std::to_string(pulled.empty() ? 0.0 : pulled.front().m) +
               " m");

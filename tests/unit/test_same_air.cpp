@@ -245,7 +245,7 @@ GLIDESLOPE_TEST(the_collision_ground_said_is_the_builds_coverage_strips_and_rule
     };
     const std::string lines = "coverage.txt " + file_hash(data() / "dem" / "coverage.txt") +
                               "\nstrips.csv " + file_hash(data() / "runways" / "strips.csv") +
-                              "\nground rules 1\n";
+                              "\nground rules 2\n";
     check(glideslope::frontend::hash_hex(ours) ==
               glideslope::world::sha256_hex(std::span<const std::uint8_t>(
                   reinterpret_cast<const std::uint8_t*>(lines.data()), lines.size())),

@@ -780,6 +780,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_collision_ground_under_a_runway_is_its_own_line_and_past_its_shoulder_the_dem
     reference_runways_roll_with_no_bump_beyond_a_bound
     runways_that_meet_in_a_v_a_t_end_to_end_or_side_by_side_are_made_to_meet
+    a_runways_shoulder_does_not_pull_the_pavement_of_another_beside_it
     a_runway_across_the_antimeridian_or_near_a_pole_is_its_own_line
     a_group_its_ties_would_move_too_far_is_made_from_the_fits_instead
     no_runway_in_the_world_is_pulled_off_its_line_beyond_a_bound
