@@ -1336,25 +1336,25 @@ public:
     }
 
     // **The server's weather** (REQUIREMENTS.md 6.3), each whole one as it is
-    // heard: its own aircraft flies it, over the collision ground, on the
-    // session's clock - the server's air, not a fetch of this client's own.
-    // The ground is built the first time a weather that is not still air is
-    // heard, `data` and the cache directory its making.
+    // heard: its own aircraft flies it, on the session's clock - the server's
+    // air, not a fetch of this client's own - with the geoid built the first
+    // time a weather that is not still air is heard, from the cache.
     void weather(const glideslope::net::Weather& w,
-                 const std::optional<glideslope::net::WeatherAloft>& aloft,
-                 const std::filesystem::path& data) {
-        if (!ground_for_air_ && !w.metar.empty()) {
+                 const std::optional<glideslope::net::WeatherAloft>& aloft) {
+        if (!geoid_for_air_ && !w.metar.empty()) {
             // Built for the first weather that is not still air; still air
             // before it was no weather at all, and nothing is lost.
-            ground_for_air_ = std::make_unique<glideslope::frontend::GroundForAir>(
-                data, glideslope::platform::cache_directory());
+            geoid_for_air_ = std::make_unique<glideslope::world::Geoid>(
+                glideslope::world::egm2008_geoid(glideslope::platform::cache_directory(),
+                                                 glideslope::world::http_fetch()));
             air_.reset();
         }
         if (!air_) {
-            air_.emplace(ground_for_air_ ? ground_for_air_->geoid() : nullptr,
-                         ground_for_air_ ? ground_for_air_->ground()
-                                         : glideslope::world::GroundAt{},
-                         [this] { return session_now_s_; });
+            // **Over no ground**, as the server's is (glideslope_server's
+            // Fleet::fly_in says why). The geoid is kept: the wind's profile
+            // is in height above the sea.
+            air_.emplace(geoid_for_air_.get(),
+                         glideslope::world::GroundAt{}, [this] { return session_now_s_; });
         }
         air_->heard(w, aloft);
         if (aircraft_ && air_->air()) {
@@ -1991,8 +1991,8 @@ private:
     }
 
     std::map<std::uint8_t, std::string> models_;
-    // The server's air (`weather`), and the ground it rises over.
-    std::unique_ptr<glideslope::frontend::GroundForAir> ground_for_air_;
+    // The server's air (`weather`), and the geoid its heights are over.
+    std::unique_ptr<glideslope::world::Geoid> geoid_for_air_;
     std::optional<glideslope::frontend::HeardAir> air_;
     double session_now_s_ = 0.0;
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
@@ -2922,7 +2922,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                     say_heard("told the weather: " + (w.metar.empty() ? "still air" : w.metar) +
                               when);
                     if (predicting && !connect_air.own_air) {
-                        predicting->weather(w, told.aloft(), connect_air.data);
+                        predicting->weather(w, told.aloft());
                     }
                     break;
                 }

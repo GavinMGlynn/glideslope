@@ -1,0 +1,81 @@
+# server_ground.cmake - a client told the server's collision ground refuses
+# other ground than its own and leaves; a client on the same ground stays.
+#
+#   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli>
+#         -DDATA=<data dir> -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
+#         -P server_ground.cmake
+#
+# **Other ground.** A client whose data says the collision ground is
+# other than the server's - its runway strips a line longer - is told the
+# server's, says it refuses it, naming both, and leaves with exit 1; a client
+# on the same ground is told it and stays.
+#
+# It needs the DEM's tiles, so without the network it reports itself skipped
+# (exit 77), never passed.
+cmake_minimum_required(VERSION 3.28)
+
+if(DEFINED CACHE)
+    set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
+endif()
+set(_store "${WORK}/weather.sqlite")
+file(REMOVE "${_store}")
+
+execute_process(
+    COMMAND "${SERVER}" --port 0 --seconds 0.05 --ai 0 --store "${_store}"
+    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+if(NOT _out MATCHES "server key ([0-9a-f][0-9a-f]+)\n")
+    message(FATAL_ERROR "the server did not print a key:\n${_out}${_err}")
+endif()
+set(_key "${CMAKE_MATCH_1}")
+
+execute_process(
+    COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}"
+    RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
+if(NOT _rc EQUAL 0)
+    message(STATUS "the server could not get its terrain: ${_err}")
+    cmake_language(EXIT 77)
+endif()
+
+# Sydney Airport, where the AI's plan flies.
+
+# Other ground: this build's coverage and a runway strips file a line
+# longer - all the client reads to know its ground.
+set(_other "${WORK}/other-data")
+file(REMOVE_RECURSE "${_other}")
+file(MAKE_DIRECTORY "${_other}/dem" "${_other}/runways")
+file(COPY "${DATA}/dem/coverage.txt" DESTINATION "${_other}/dem")
+file(READ "${DATA}/runways/strips.csv" _strips)
+file(WRITE "${_other}/runways/strips.csv" "${_strips}\n")
+set(_refused "${WORK}/refused.txt")
+set(_kept "${WORK}/kept.txt")
+file(REMOVE "${_refused}" "${_kept}")
+execute_process(
+    COMMAND "${CLIENT}" --data "${_other}" connect "127.0.0.1:${PORT}" "${_key}" 20
+            --after 1 --heard "${_refused}"
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 3 --after 1 --heard "${_kept}"
+    COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
+            --players 2 --data "${DATA}" --timeout 5 --store "${_store}"
+    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+if(NOT _rcs STREQUAL "1;0;0")
+    message(FATAL_ERROR "the exit codes were ${_rcs}, not 1 for the client on other "
+                        "ground and 0 for the rest:\n${_out}\n${_err}")
+endif()
+file(READ "${_refused}" _said)
+if(NOT _said MATCHES "refused the server's collision ground: it collides on ([^\n]*), and this client's is ([^\n]*)\n")
+    message(FATAL_ERROR "the client on other ground did not refuse it:\n${_said}")
+endif()
+set(_theirs "${CMAKE_MATCH_1}")
+set(_ours "${CMAKE_MATCH_2}")
+if(NOT _out MATCHES "collision ground: ([^\n]*)\n" OR NOT CMAKE_MATCH_1 STREQUAL _theirs)
+    message(FATAL_ERROR "what the client was told is not the server's ground:\n${_out}")
+endif()
+if(_ours STREQUAL _theirs)
+    message(FATAL_ERROR "the client's ground was said to be the server's: ${_ours}")
+endif()
+# It left: its exit code was 1, above, long before its 20 s were up -
+# the server stopped once both clients had gone (--until-empty).
+file(READ "${_kept}" _said)
+if(NOT _said MATCHES "told the collision ground: [^\n]*, this client's too\n" OR
+   _said MATCHES "refused")
+    message(FATAL_ERROR "the client on the same ground was not told it:\n${_said}")
+endif()

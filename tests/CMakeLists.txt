@@ -1913,6 +1913,29 @@ foreach(_net IN ITEMS "100;30;5;21;24790;8" "200;60;10;22;24792;10")
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/take_over_${_delay})
 endforeach()
 
+# **A client flies the server's weather, not its own, and is told each change
+# of it** (REQUIREMENTS.md 6.3). See cmake/server_weather.cmake.
+add_test(NAME a_client_flies_the_servers_weather_and_every_change_of_it_not_its_own
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_weather -DPORT=24713 -DSAME_M=1 -DOWN_M=1.5
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_weather.cmake)
+set_tests_properties(a_client_flies_the_servers_weather_and_every_change_of_it_not_its_own
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_weather)
+# **A client told the server's collision ground refuses other ground and
+# leaves** (REQUIREMENTS.md 6.3). See cmake/server_ground.cmake.
+add_test(NAME a_client_told_the_servers_collision_ground_refuses_other_ground_and_leaves
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_ground -DPORT=24725
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ground.cmake)
+set_tests_properties(a_client_told_the_servers_collision_ground_refuses_other_ground_and_leaves
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_ground)
+
 # The relay that makes the network worse, and the judge of what was drawn.
 add_executable(glideslope_impair tools/impair.cpp)
 target_link_libraries(glideslope_impair PRIVATE glideslope_net glideslope_platform)

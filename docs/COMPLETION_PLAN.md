@@ -970,11 +970,19 @@ Found while implementing something else. Added when found, not when remembered.
 Found re-reading the living documents at the end of Phase 8, 2026-10-02:
 each was named in `PROJECT_STATUS.md` as not done, with no item here.
 
-- [ ] **The lobby, the session, the weather and the terrain dataset do not
-      travel.** They are defined and nothing sends them, so a client is never
-      told the server's weather (REQUIREMENTS 6.3) and predicts in its own.
+- [x] **The lobby, the session, the weather and the terrain dataset
+      travel.** A joining client is told each, and every change of the
+      weather; it flies the server's weather, and refuses other ground.
       *Verification: a client joining a server is told each, and its
-      prediction flies in the server's weather.*
+      prediction flies in the server's weather.* Done 2026-10-06.
+- [ ] **On a server the air has no ground's lift**: the server and its
+      clients fly the weather over no ground, because the lift is too costly
+      for a predicting client. *Verification: a client predicting over hills
+      in a strong wind is within the same bound as over the sea, the lift
+      flown on both ends.*
+- [ ] **Nothing tests the client with the window in the server's weather.**
+      *Verification: the window client on a server with a METAR says it flies
+      it, and its prediction error is within the headless client's bound.*
 - [ ] **A player cannot choose an aeroplane on a server**: a player flies
       what the server's plan flies. *Verification: a player asks for an
       aeroplane when joining and flies it, and every other client draws it
