@@ -105,6 +105,8 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     ic.airspeed_kts = start.airspeed_kts.value_or(aircraft_entry_.start_airspeed_kts);
     ic.engine_running = true;
     ic.gear = 0.0; // begun in the air, with its wheels up
+    ic.pitch_deg = start.pitch_deg;
+    ic.roll_deg = start.roll_deg;
     if (start.on_ground) {
         // Where the DEM's mask says water, only a seaplane can stand: it floats,
         // where a landplane would ditch as it was put there.

@@ -76,6 +76,12 @@ struct InitialConditions {
     // seconds, before the autopilot's elevator had caught it. False, the
     // default, leaves every other start exactly as it was.
     bool trim = false;
+    // **The attitude it starts at**, degrees: the nose above the horizon and
+    // the right wing down. 0 and 0, the defaults, start it level, as every
+    // start did before these were given (a test's, to shoot a frame at a
+    // stated attitude).
+    double pitch_deg = 0.0;
+    double roll_deg = 0.0;
 };
 
 // What the pilot is doing, each in JSBSim's normalised command range.

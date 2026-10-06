@@ -299,8 +299,8 @@ void Aircraft::initialize(const InitialConditions& ic) {
     fgic->SetTerrainElevationFtIC(ic.terrain_elevation_ft);
     fgic->SetAltitudeASLFtIC(ic.altitude_ft);
     fgic->SetPsiDegIC(ic.heading_deg);
-    fgic->SetThetaDegIC(0.0);
-    fgic->SetPhiDegIC(0.0);
+    fgic->SetThetaDegIC(ic.pitch_deg);
+    fgic->SetPhiDegIC(ic.roll_deg);
     fgic->SetVcalibratedKtsIC(ic.airspeed_kts);
     if (ic.flight_path_deg != 0.0) {
         fgic->SetFlightPathAngleDegIC(ic.flight_path_deg);

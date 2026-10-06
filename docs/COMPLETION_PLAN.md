@@ -1046,11 +1046,13 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       client sending faster than a stated rate is held to it, and
       `THREATS.md` states the rate.* Done 2026-10-06: 240 datagrams and 8
       requests a second per session.
-- [ ] **The HUD's horizon line is not the horizon**: it moves a hundredth of
+- [x] **The HUD's horizon line is not the horizon**: it moves a hundredth of
       the frame a degree of pitch, and the drawn terrain does not line up
       with it. *Verification: over level ground the HUD's horizon lies on the
       drawn one within a stated number of pixels, at every pitch and bank
-      walked.*
+      walked.* Done 2026-10-06: the line is the camera's own horizon; over
+      the Nullarbor, at pitches of -15, 0 and 15 by banks from -60 to 60, it
+      lies within 4 pixels of the horizon drawn (the Earth's curve is 1.8).
 - [x] **Nothing tests the client with the window joining a server that has
       started again** with its key from `--store`. *Verification: the window
       client, its server restarted under it, joins again and flies an
