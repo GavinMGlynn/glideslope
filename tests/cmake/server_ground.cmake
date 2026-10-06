@@ -49,20 +49,27 @@ file(WRITE "${_other}/runways/strips.csv" "${_strips}\n")
 set(_refused "${WORK}/refused.txt")
 set(_kept "${WORK}/kept.txt")
 set(_ready "${WORK}/ready.txt")
-file(REMOVE "${_refused}" "${_kept}" "${_ready}")
+set(_done "${WORK}/done.txt")
+file(REMOVE "${_refused}" "${_kept}" "${_ready}" "${_done}")
 execute_process(
     # Each joins once the server is flying (--ready-file), not a second after
     # it was started: a debug server on CI's macOS was not yet answering, and
     # the client on the same ground, staying three seconds, left unanswered.
     COMMAND "${CLIENT}" --data "${_other}" connect "127.0.0.1:${PORT}" "${_key}" 60
-            --after 0 --after-ready "${_ready}" --heard "${_refused}"
+            --after 0 --after-ready "${_ready}" --heard "${_refused}" --done "${_done}"
     # **And the one on the same ground stays until it has been told the ground
     # and answered a knock** (`--until-told-ground`), not five seconds: a
     # server slow on CI's macOS had said nothing by then, and the client left
     # untold, or having answered nothing, exit 1 (reproduced with the server
-    # held to three seconds a step, `--test-step-ms 3000`).
+    # held to three seconds a step, `--test-step-ms 3000`). **And until the
+    # client on other ground is done** (`--until-exists`): leaving as soon as
+    # it was told, it emptied the server, which stopped (--until-empty)
+    # before the other's initiation was read - "no answer from" on CI's
+    # macOS debug (2026-10-07), reproduced by starting that client two
+    # seconds late.
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 280 --after 0
             --after-ready "${_ready}" --heard "${_kept}" --until-told-ground
+            --until-exists "${_done}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --ready-file "${_ready}"
             --players 2 --data "${DATA}" --timeout 5 --store "${_store}"

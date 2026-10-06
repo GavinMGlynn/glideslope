@@ -160,7 +160,8 @@ std::vector<std::uint8_t> connect_asked_aircraft;
 
 // **A test flag's work (`--until-told-ground`)**: stay until the server has
 // said its collision ground and this client has answered one of its knocks -
-// the events a test of being told the ground waits for - SECONDS only the
+// the events a test of being told the ground waits for - and, with
+// `--until-exists FILE`, until FILE has appeared as well; SECONDS only the
 // most. Its stay had been five seconds, which a server slow on CI's macOS
 // outlasted before it said anything (2026-10-06).
 bool connect_until_told_ground = false;
@@ -2438,8 +2439,10 @@ int stay(glideslope::platform::UdpSocket& socket,
             predicting->compared_engine_stopped() >= connect_until_engine_compared) {
             break;
         }
-        // **Stay until told the ground** (`--until-told-ground`).
-        if (connect_until_told_ground && told_same_ground && answered > 0) {
+        // **Stay until told the ground** (`--until-told-ground`) - and, with
+        // `--until-exists`, until that file has appeared too: both events.
+        const bool told_and_in = told_same_ground && answered > 0;
+        if (connect_until_told_ground && told_and_in && until_exists.empty()) {
             break;
         }
         // **Stay until the flood is over** (`--flood`): read and answered.
@@ -2489,7 +2492,8 @@ int stay(glideslope::platform::UdpSocket& socket,
         // for that thing to say it is done, with SECONDS only the most.
         if (!until_exists.empty() && up_s - looked_for_file_at_s >= 0.1) {
             looked_for_file_at_s = up_s;
-            if (std::filesystem::exists(until_exists)) {
+            if (std::filesystem::exists(until_exists) &&
+                (!connect_until_told_ground || told_and_in)) {
                 break;
             }
         }
