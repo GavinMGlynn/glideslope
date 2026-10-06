@@ -563,4 +563,32 @@ bool read(std::span<const std::uint8_t> body, CopilotRoute& out) {
     return true;
 }
 
+namespace {
+
+bool an_id_byte(std::uint8_t c) {
+    return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_';
+}
+
+} // namespace
+
+std::vector<std::uint8_t> write_asked_aircraft(const std::string& id) {
+    if (id.empty() || id.size() > most_asked_aircraft_bytes ||
+        !std::all_of(id.begin(), id.end(),
+                     [](char c) { return an_id_byte(static_cast<std::uint8_t>(c)); })) {
+        return {};
+    }
+    std::vector<std::uint8_t> out{static_cast<std::uint8_t>(id.size())};
+    out.insert(out.end(), id.begin(), id.end());
+    return out;
+}
+
+std::optional<std::string> read_asked_aircraft(std::span<const std::uint8_t> payload) {
+    if (payload.empty() || payload[0] == 0 || payload[0] > most_asked_aircraft_bytes ||
+        payload.size() != 1u + payload[0] ||
+        !std::all_of(payload.begin() + 1, payload.end(), an_id_byte)) {
+        return std::nullopt;
+    }
+    return std::string(payload.begin() + 1, payload.end());
+}
+
 } // namespace glideslope::net

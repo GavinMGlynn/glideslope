@@ -153,6 +153,11 @@ ConnectFlood connect_flood;
 // waits for, not a time.
 std::size_t connect_until_engine_compared = 0;
 
+// **The aeroplane asked for** (`connect --aircraft ID`), by its catalogue id,
+// in the initiation's payload (net::write_asked_aircraft) - the first and any
+// joining again. Empty: none asked, the server's plan's.
+std::vector<std::uint8_t> connect_asked_aircraft;
+
 // **What the server says the session is** (REQUIREMENTS.md 6.3), as a
 // connecting client takes it: its own collision ground, from the data it
 // reads, to hold the server's against, and, for a test, whether its
@@ -375,6 +380,8 @@ void print_usage(std::FILE* out) {
         "                            refusal, leaves once the server has applied an\n"
         "                            input it sent in the session it is back in - its\n"
         "                            old one or a new one\n"
+        "                            --aircraft ID asks the server for this aeroplane,\n"
+        "                            by its catalogue id, as it joins\n"
         "                            --until-engine-compared N (with --predict) stays\n"
         "                            until N updates are compared after the server\n"
         "                            says its engine has stopped\n"
@@ -3367,7 +3374,9 @@ Rejoined join_again(glideslope::platform::UdpSocket& socket,
                     const glideslope::net::KeyPair& mine, const glideslope::net::PublicKey& theirs,
                     glideslope::net::Sealer& old_sealing, glideslope::net::Unsealer& old_opening) {
     Rejoined out;
-    glideslope::net::Rejoin rejoin(mine, theirs, old_sealing, old_opening);
+    glideslope::net::Rejoin rejoin(mine, theirs, old_sealing, old_opening,
+                                   std::span<const std::uint8_t>(connect_asked_aircraft.data(),
+                                                                 connect_asked_aircraft.size()));
     std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
     const auto began = std::chrono::steady_clock::now();
     for (;;) {
@@ -3581,7 +3590,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
     glideslope::net::Initiator initiator(mine, *theirs);
     glideslope::net::Writer w =
         glideslope::net::begin(glideslope::net::Type::handshake_initiation);
-    w.bytes(initiator.begin());
+    w.bytes(initiator.begin(std::span<const std::uint8_t>(connect_asked_aircraft.data(),
+                                                          connect_asked_aircraft.size())));
     const std::vector<std::uint8_t> first = w.take();
 
     // **A test flag's work (`--first-from-elsewhere`)**: a copy of this
@@ -3965,6 +3975,18 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--flood") {
                     connect_flood.on = true;
+                    continue;
+                }
+                if (args[i] == "--aircraft" && i + 1 < args.size()) {
+                    const std::string id(args[++i]);
+                    connect_asked_aircraft = glideslope::net::write_asked_aircraft(id);
+                    if (connect_asked_aircraft.empty()) {
+                        std::fprintf(stderr, "glideslope_cli: --aircraft wants a catalogue id: "
+                                             "lower-case letters, digits, - and _, at most "
+                                             "%zu\n",
+                                     glideslope::net::most_asked_aircraft_bytes);
+                        return 2;
+                    }
                     continue;
                 }
                 if (args[i] == "--until-engine-compared" && i + 1 < args.size()) {

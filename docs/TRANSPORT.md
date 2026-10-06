@@ -51,7 +51,9 @@ Said first, because a transport's limits matter more than its features.
   Version `03` is on the same ground, and is the first whose server tells
   every client the session, the lobby, the ground it collides on and the
   weather it flies (below, "What a client is told on joining"); its
-  `WEATHER` carries three fields more than `02`'s.
+  `WEATHER` carries three fields more than `02`'s. Version `04` is on the
+  same ground, and is the first whose initiation's payload is read: the
+  aeroplane a player asks for (below, "Starting a session").
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -62,7 +64,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `03` |
+| 4 | 1 | version | `04` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -108,7 +110,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `03`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `04`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -150,8 +152,26 @@ each is exactly one Noise message (see "Sealing" for the suite).
 | `HANDSHAKE_INITIATION`, client to server | Noise message one: the client's ephemeral key (32), its static key sealed (32 + 16), the payload sealed (n + 16) | 96, so a 102-byte datagram |
 | `HANDSHAKE_RESPONSE`, server to client | Noise message two: the server's ephemeral key (32), the payload sealed (n + 16) | 48, so a 54-byte datagram |
 
-**The payloads are empty.** The server ignores whatever the initiation's
-payload holds and sends an empty one back. **The answer is the admission**:
+**The initiation's payload is the aeroplane asked for** (version `04`,
+2026-10-06), sealed with the initiation - no message of its own, because a
+server gives a player an aircraft as it admits them:
+
+| field | bytes | |
+|---|---|---|
+| length | 1 | 1 to 32 |
+| id | length | a catalogue id: `a`-`z`, `0`-`9`, `-` and `_` |
+
+and nothing after. **An empty payload asks for nothing**: the player flies the
+server's plan's aeroplane. A payload that does not read so - a length of 0 or
+over 32, a byte outside those, anything trailing - is read as none, and so is
+an id the server's catalogue does not hold, which it says on its standard
+output; either way the player is admitted, flying the plan's. The id is
+looked up among the catalogue's ids, never joined to a path. The aeroplane
+starts where the plan's starts, at its own starting speed; every client is
+told what it is by its `AIRCRAFT` message, as any aircraft is. A second
+session for a key already in shares the key's aircraft, whatever it asks for;
+a client joining again asks again, in its new initiation. The answer's
+payload is empty. **The answer is the admission**:
 a client that gets a `HANDSHAKE_RESPONSE` has a slot, and one that gets
 `SERVER_FULL` has not. The client is not told which slot; the lobby that
 would say so is one of the reliable messages, which do not travel yet.
@@ -1157,9 +1177,8 @@ startup.
 - **Any check on what a client's inputs say.** They reach its aircraft with
   no range check: a value outside -1 to 1 cannot be written, because the wire
   is a 16-bit fraction. How often it sends is held (below, "Rates").
-- **Choosing an aeroplane.** A player flies whatever the server's flight plan
-  flies, and starts where it starts. `REQUIREMENTS.md` asks for the player to
-  pick, and that is a session setting nobody has written.
+- **Choosing where to start.** A player may ask for an aeroplane (the
+  initiation's payload, above), and starts where the server's plan starts.
 - **Rate limiting before a session, and the cookie an overloaded server
   would demand.** A server does an X25519 operation for any stranger that
   sends it an initiation. `docs/THREATS.md` says what that costs and what would bound it.

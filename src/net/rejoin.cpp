@@ -22,10 +22,10 @@ std::optional<Refusal> refusal_from(const platform::Address& server,
 }
 
 Rejoin::Rejoin(const KeyPair& mine, const PublicKey& theirs, Sealer& old_sealing,
-               Unsealer& old_opening)
+               Unsealer& old_opening, std::span<const std::uint8_t> payload)
     : initiator_(mine, theirs), old_sealing_(old_sealing), old_opening_(old_opening) {
     Writer w = begin(Type::handshake_initiation);
-    w.bytes(initiator_.begin());
+    w.bytes(initiator_.begin(payload));
     initiation_ = w.take();
     // **A token nothing sent before can have carried**: random, so that a
     // `PONG` held from an earlier attempt to join again is not this one's.

@@ -7,7 +7,9 @@
 #
 # **Built, not hoped for.** A server with one AI Cessna, and the client with
 # the window joining it and taking a shot ten seconds in (`--shot-at 1200`)
-# from behind - asking for an F-15C, which the server's word overrides. The client must say it was given an aircraft - a Cessna, as the
+# from behind - asking for an F-15C, which the server gives it (the
+# initiation's payload, 2026-10-06). The client must say it was given an
+# aircraft - the F-15C, as the
 # server's `AIRCRAFT` said - that it drew the AI, a Cessna, under a different
 # number, and how its own aircraft's prediction went: put right all through,
 # never too far to hide - under the 20 m that is.
@@ -87,15 +89,15 @@ if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the client exited ${_rc}:\n${_out}\n${_err}")
 endif()
 
-if(NOT _out MATCHES "the server gave this client aircraft ([0-9]+), the c172p")
-    message(FATAL_ERROR "the client was not given the server's Cessna:\n${_out}")
+if(NOT _out MATCHES "the server gave this client aircraft ([0-9]+), the f15c")
+    message(FATAL_ERROR "the client was not given the F-15C it asked for:\n${_out}")
 endif()
 set(_mine "${CMAKE_MATCH_1}")
-# **The server's word wins**: asked for an F-15C, the client flies the Cessna
-# the server gave it. (A client that took its own `--aircraft` flew one model
-# and was put right by another's motion.)
-if(NOT _out MATCHES "flying the [^\n]* \\(c172p\\)")
-    message(FATAL_ERROR "the client did not fly the server's Cessna:\n${_out}")
+# **The server's word is what it flies**: the F-15C the server gave it for
+# asking. (A client that took its own `--aircraft` over the server's word
+# flew one model and was put right by another's motion.)
+if(NOT _out MATCHES "flying the [^\n]* \\(f15c\\)")
+    message(FATAL_ERROR "the client did not fly the server's F-15C:\n${_out}")
 endif()
 
 string(REGEX MATCHALL "drew aircraft [0-9]+, the [a-z0-9_-]+, [0-9]+ m away" _drew "${_out}")

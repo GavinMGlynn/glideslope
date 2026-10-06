@@ -60,7 +60,7 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // 2026-10-06 to 03, when the server began telling each client the session and
 // its weather: the document gives the envelope's version as `03`. A test reads this line to keep the
 // two together (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x03;
+constexpr std::uint8_t kVersion = 0x04;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;

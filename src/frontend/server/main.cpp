@@ -1397,9 +1397,32 @@ public:
     // Nothing chooses the aeroplane yet: a player flies whatever the plan
     // flies. `REQUIREMENTS.md` asks for an aircraft the player picks, and
     // that is a session setting nobody has written.
-    std::uint8_t give(std::uint8_t slot) {
-        auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data_ / "jsbsim",
-                                                                    player_model_);
+    //
+    // **The aeroplane the player asked for** (`asked`, the initiation's
+    // payload), if the catalogue has it - looked up among its ids, never
+    // joined to a path - and the plan's otherwise, said so. Where it starts
+    // is the plan's either way, at the aeroplane's own starting speed.
+    std::uint8_t give(std::uint8_t slot, const std::optional<std::string>& asked = std::nullopt) {
+        std::string model = player_model_;
+        std::string id = player_id_;
+        double airspeed_kts = player_airspeed_kts_;
+        bool seaplane = player_seaplane_;
+        if (asked) {
+            if (const auto entry = glideslope::sim::known_aircraft(data_, *asked)) {
+                model = entry->model;
+                id = entry->id;
+                airspeed_kts = entry->start_airspeed_kts;
+                seaplane = entry->seaplane;
+                std::printf("slot %d asked for %s, and flies it\n", static_cast<int>(slot),
+                            id.c_str());
+            } else {
+                std::printf("slot %d asked for %s, which this server does not have: it "
+                            "flies %s\n",
+                            static_cast<int>(slot), asked->c_str(), id.c_str());
+            }
+            std::fflush(stdout);
+        }
+        auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data_ / "jsbsim", model);
         aircraft->set_terrain(ground_);
         if (session_air_) {
             aircraft->set_weather(session_air_);
@@ -1412,7 +1435,7 @@ public:
         ic.altitude_ft = start_.altitude_ft +
                          static_cast<double>(flown_.size() + 1) * ai_stack_ft;
         ic.heading_deg = start_.heading_deg;
-        ic.airspeed_kts = player_airspeed_kts_;
+        ic.airspeed_kts = airspeed_kts;
         ic.engine_running = true;
         ic.gear = 0.0;
         aircraft->initialize(ic);
@@ -1427,12 +1450,12 @@ public:
         // gliding before they had touched anything.
         glideslope::sim::Controls idling;
         idling.throttle = 0.6;
-        flown_.push_back({player_id_ + " (slot " + std::to_string(slot) + ")",
+        flown_.push_back({id + " (slot " + std::to_string(slot) + ")",
                           std::move(aircraft), nullptr, index, static_cast<int>(slot),
                           idling});
-        remember_start(flown_.back(), ic, player_seaplane_);
-        flown_.back().catalogue_id = player_id_;
-        flown_.back().model = player_model_;
+        remember_start(flown_.back(), ic, seaplane);
+        flown_.back().catalogue_id = id;
+        flown_.back().model = model;
         learn_speeds(flown_.back());
         return index;
     }
@@ -3359,7 +3382,10 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                 return slots.slot_of(key_of(theirs)).has_value();
             });
         }
-        const auto answer = responder.answer(body);
+        // **The payload is the aeroplane asked for** (net::read_asked_aircraft),
+        // or nothing.
+        std::vector<std::uint8_t> payload;
+        const auto answer = responder.answer(body, {}, &payload);
         if (!answer) {
             if (full) {
                 refuse(socket, from, glideslope::net::Refusal::server_full);
@@ -3421,7 +3447,9 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         if (same_key != connections.end()) {
             c.aircraft = same_key->second.aircraft;
         } else if (fleet != nullptr) {
-            c.aircraft = fleet->give(*slot);
+            c.aircraft = fleet->give(
+                *slot, glideslope::net::read_asked_aircraft(
+                           std::span<const std::uint8_t>(payload.data(), payload.size())));
         }
 
         glideslope::net::Writer w =

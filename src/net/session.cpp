@@ -18,7 +18,8 @@ std::span<const std::uint8_t> all_of(const std::vector<std::uint8_t>& v) {
 std::optional<ClientSession> ClientSession::connect(const std::string& where,
                                                     const std::string& key_hex,
                                                     double give_up_after_s,
-                                                    double resend_every_s) {
+                                                    double resend_every_s,
+                                                    const std::string& aircraft) {
     const auto address = platform::address_of(where);
     if (!address) {
         return std::nullopt;
@@ -35,7 +36,12 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
     const KeyPair mine = mint_key_pair();
     Initiator initiator(mine, *theirs);
     Writer w = begin(Type::handshake_initiation);
-    w.bytes(initiator.begin());
+    const std::vector<std::uint8_t> asked =
+        aircraft.empty() ? std::vector<std::uint8_t>{} : write_asked_aircraft(aircraft);
+    if (!aircraft.empty() && asked.empty()) {
+        return std::nullopt; // not an aircraft's id
+    }
+    w.bytes(initiator.begin(all_of(asked)));
     const std::vector<std::uint8_t> first = w.take();
     if (!socket->send(*address, all_of(first))) {
         return std::nullopt;
@@ -74,6 +80,7 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
                     out.opening_ = std::make_unique<Unsealer>(session->receiving);
                     out.initiation_ = first;
                     out.mine_key_ = mine;
+                    out.asked_ = asked;
                     out.prove_at_once();
                     return out;
                 }
@@ -232,7 +239,8 @@ void ClientSession::let_go_at(double now_s) {
     standing_ = Standing::joining_again;
     old_sealing_ = std::move(sealing_);
     old_opening_ = std::move(opening_);
-    rejoin_ = std::make_unique<Rejoin>(mine_key_, theirs_, *old_sealing_, *old_opening_);
+    rejoin_ = std::make_unique<Rejoin>(mine_key_, theirs_, *old_sealing_, *old_opening_,
+                                       all_of(asked_));
     again_began_s_ = now_s;
 }
 

@@ -825,6 +825,12 @@ The replacement:
   goodbye is never dropped. Nothing tells the client: this project's clients
   send nowhere near either. A rate before a session, per address, is still
   open (THREATS.md).
+- **A player asks for an aeroplane in the handshake**, by its catalogue id in
+  the initiation's payload, not in a message after it: a server gives a
+  player an aircraft as it admits them, so asking later would mean building
+  one and throwing it away. An id the server's catalogue lacks gives the
+  plan's aeroplane rather than a refusal; it starts where the plan starts.
+  The protocol's version moved to `04` for it.
 
 **Open:**
 

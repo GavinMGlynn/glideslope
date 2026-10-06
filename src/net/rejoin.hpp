@@ -47,8 +47,10 @@ std::optional<Refusal> refusal_from(const platform::Address& server,
 class Rejoin {
 public:
     // The old session's keys are the caller's, and must outlive this.
+    // `payload` goes in the initiation, as the first one's did: the
+    // aeroplane asked for (net::write_asked_aircraft), or nothing.
     Rejoin(const KeyPair& mine, const PublicKey& theirs, Sealer& old_sealing,
-           Unsealer& old_opening);
+           Unsealer& old_opening, std::span<const std::uint8_t> payload = {});
 
     // **What to send now**: the initiation and a knock under the old session,
     // every `every_s` from the first call. Nothing between.

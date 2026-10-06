@@ -300,4 +300,16 @@ bool read(std::span<const std::uint8_t> body, ControllerSwap& out);
 bool read(std::span<const std::uint8_t> body, Watch& out);
 bool read(std::span<const std::uint8_t> body, CopilotRoute& out);
 
+// **The aeroplane a player asks for when joining** (REQUIREMENTS 4.2, decided
+// 2026-10-06): the handshake initiation's payload, sealed with it - no
+// message of its own, because a server gives a player an aircraft as it
+// admits them. Empty: none asked, the server's plan's. Otherwise a `u8`
+// length, 1 to `most_asked_aircraft_bytes`, and that many bytes of a
+// catalogue id - lower-case letters, digits, `-` and `_` - and nothing after.
+inline constexpr std::size_t most_asked_aircraft_bytes = 32;
+// Empty for an id that is not one.
+std::vector<std::uint8_t> write_asked_aircraft(const std::string& id);
+// The id asked for; nothing for an empty payload or one that does not read.
+std::optional<std::string> read_asked_aircraft(std::span<const std::uint8_t> payload);
+
 } // namespace glideslope::net
