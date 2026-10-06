@@ -13,9 +13,11 @@
 //                                business-jet, airliner, fighter, bomber
 //   seaplane                     it stands on water, and takes off from and
 //                                alights on it, as a flying boat does
-//   mixture-lever                its engines have a mixture lever the pilot
+//   mixture-lever FULL_RICH_BELOW_FT
+//                                its engines have a mixture lever the pilot
 //                                leans, and the autopilot leans it for best
-//                                power (sim/leaner.hpp)
+//                                power (sim/leaner.hpp) - but full rich below
+//                                the pressure altitude, as its handbook says
 //
 // with `#` beginning a comment. Its published figures, if it has them, are
 // data/figures/MODEL.xml, and its selftest's log data/selftest/MODEL.log.
@@ -62,6 +64,7 @@ struct CatalogueEntry {
     double start_throttle = 0.0;
     bool seaplane = false;
     bool mixture_lever = false;
+    double full_rich_below_ft = 0.0; // with a mixture lever
     AircraftClass aircraft_class = AircraftClass::light_aircraft;
 };
 

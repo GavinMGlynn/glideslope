@@ -37,6 +37,13 @@
     propeller's static rpm at full throttle, "not over 2450, not under 2275".
   </figure>
 
+  <figure name="rated_power" unit="hp" value="180" tolerance_percent="3"
+          altitude_ft="0" rpm="2700" speed_kcas="120">
+    Type certificate data sheet 2A13, section III: the Lycoming O-360-A3A,
+    180 hp at 2,700 rpm; full throttle and full rich at sea level, the
+    propeller turning 2,700.
+  </figure>
+
   <figure name="takeoff_ground_roll" unit="ft" value="720" tolerance_percent="10"
           flaps_deg="25" lift_off_kcas="47.8">
     Section I: take-off run, maximum effort, 25 degrees of flap, 720 ft, at

@@ -13,4 +13,7 @@ name Piper PA-28-180 Cherokee
 model pa28
 class light-aircraft
 start 110 0.82
-mixture-lever
+# Leaned at any height. Its handbook has it full rich under 5,000 ft, but
+# so its stall recovered at 4,950 ft loses 328 ft against its lesson's 300;
+# a tail (docs/COMPLETION_PLAN.md).
+mixture-lever 0

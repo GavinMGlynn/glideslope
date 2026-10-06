@@ -32,9 +32,11 @@
 // the way the power rises; and the resting place moves that way, slowly. On
 // the lean side of the peak the power rises with the lever, so it goes
 // richer; on the rich side it falls, so it goes leaner; at the peak the two
-// cancel. Below about 4,000 ft even full rich is leaner than the peak - the
-// peak lies past the lever's rich stop - so it rests at its stop, as a
-// handbook's "full rich below 3,000 ft" has it.
+// cancel. On JSBSim's own mixture curve, below about 4,000 ft even full rich
+// is leaner than the peak - the peak lies past the lever's rich stop - so it
+// rests at its stop; on the FAA's (tools/piston_mixture.py) full rich is
+// always rich of the peak, and the height below which it is not leaned is
+// the catalogue's.
 //
 // **Never leaner than chemically correct**, as a bound and not a tendency:
 // the most power is always rich of 14.7 parts of air to one of fuel,
@@ -58,11 +60,18 @@
 // approach or a departure from a leaned cruise goes on from the mixture it
 // was given rather than from full rich, which high up stops the engine.
 //
-// **An engine it was leaning that stops is richened**, at the same tenth of
-// the travel a second, to full rich, as a pilot's first answer to a lean
-// stoppage is: windmilling, JSBSim's piston engine fires again on a mixture
-// it can burn. An engine handed to it stopped it leaves alone: a stopped
-// engine gives no answer to lean by, and a mixture cut off is the pilot's.
+// **An engine it was leaning that stops is given back the ratio it was
+// leaned to**: richened at the same tenth of the travel a second while it
+// has no fuel to report a ratio by, then the ratio last found held, so that
+// turning, JSBSim's piston engine fires again on a mixture it can burn. Not
+// full rich: above about 9,500 ft that is richer than 8 to 1, and an engine
+// richened to it there never ran again. An engine handed to it stopped it
+// leaves alone: a stopped engine gives no answer to lean by, and a mixture
+// cut off is the pilot's.
+//
+// **Full rich below its handbook's height**: below the pressure altitude the
+// catalogue's `mixture-lever` gives, the lever is richened to its stop at
+// the same pace and not leaned.
 
 #include "sim/aircraft.hpp"
 

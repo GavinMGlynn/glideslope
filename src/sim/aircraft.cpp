@@ -155,7 +155,10 @@ CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::stri
         if (e.aircraft_class == AircraftClass::light_aircraft) {
             found.climb_floor_kts = departure_speeds(data, model).climb_kts;
         }
-        found.mixture_lever = found.mixture_lever || e.mixture_lever;
+        if (e.mixture_lever) {
+            found.mixture_lever = true;
+            found.full_rich_below_ft = e.full_rich_below_ft;
+        }
     }
     return found;
 }
@@ -168,6 +171,7 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
 Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model,
                    const CatalogueFacts& catalogue)
     : climb_floor_kts_(catalogue.climb_floor_kts), mixture_lever_(catalogue.mixture_lever),
+      full_rich_below_ft_(catalogue.full_rich_below_ft),
       model_(model),
       exec_(quiet_exec()) {
     const std::u8string utf8 = jsbsim_root.u8string();

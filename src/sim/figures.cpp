@@ -309,6 +309,62 @@ double draught(const std::filesystem::path& root, const PublishedFigures& figure
     return -keel_ft;
 }
 
+// **The engine's power at its rated rpm**: full throttle, full rich, flaps up,
+// the propeller held at the `rpm` - a constant-speed one by its lever, a fixed
+// one by the airspeed, which is moved until the propeller turns at it - and
+// the power the engine reports, in horsepower, averaged over the last twenty
+// seconds of ninety. Holding a speed, not a height, the aeroplane climbs or
+// descends, so the flight is flown again started that much lower or higher,
+// until the twenty seconds are about the altitude; the rpm or the height not
+// held to within 10 rpm and 300 ft over them is an error, not a figure.
+double rated_power(const std::filesystem::path& root, const PublishedFigures& figures,
+                   const FigureSpec& spec) {
+    const double rpm = condition(spec, "rpm");
+    const double altitude = condition_or(spec, "altitude_ft", 0.0);
+    double start_ft = altitude;
+    double hp = 0.0;
+    double turned = 0.0;
+    double height = 0.0;
+    for (int tries = 0; tries < 4; ++tries) {
+        double kcas = condition(spec, "speed_kcas");
+        Flight f(root, figures, spec, airborne(start_ft, kcas, true));
+        // A boost no engine reaches, so that the throttle is opened fully.
+        Power power(100.0, rpm, 0);
+        Controls c;
+        c.mixture = 1.0;
+        const int total = steps(90);
+        const int measured = steps(20);
+        hp = turned = height = 0.0;
+        for (int i = 0; i < total; ++i) {
+            power.set(f, c);
+            // A fixed propeller turns faster as the aeroplane goes faster.
+            kcas = std::clamp(kcas + 0.02 * (rpm - f.engine(0, "engine-rpm")) * dt, 30.0, 250.0);
+            c.elevator = f.pilot.pitch_to(f.pilot.pitch_for_speed(kcas));
+            c.aileron = f.pilot.roll_to(0.0);
+            c.rudder = f.pilot.coordinate();
+            f.fly(c);
+            if (i >= total - measured) {
+                hp += f.engine(0, "power-hp");
+                turned += f.engine(0, "engine-rpm");
+                height += f.aircraft.property("position/h-sl-ft");
+            }
+        }
+        hp /= measured;
+        turned /= measured;
+        height /= measured;
+        if (std::abs(height - altitude) <= 100.0) {
+            break;
+        }
+        start_ft += altitude - height;
+    }
+    if (std::abs(turned - rpm) > 10.0 || std::abs(height - altitude) > 300.0) {
+        throw std::runtime_error("could not hold " + std::to_string(rpm) + " rpm at " +
+                                 std::to_string(altitude) + " ft: " + std::to_string(turned) +
+                                 " rpm at " + std::to_string(height) + " ft");
+    }
+    return hp;
+}
+
 // Brakes on, full throttle, mixture leaned in steps of 0.05; the highest RPM any
 // mixture reaches after fifteen seconds.
 double static_rpm(const std::filesystem::path& root, const PublishedFigures& figures,
@@ -1504,6 +1560,7 @@ using FlightFn = std::function<double(const std::filesystem::path&,
 const std::vector<std::pair<std::string, FlightFn>>& flights() {
     static const std::vector<std::pair<std::string, FlightFn>> all = {
         {"static_rpm", static_rpm},
+        {"rated_power", rated_power},
         {"takeoff_ground_roll", takeoff_ground_roll},
         {"takeoff_distance", takeoff_distance},
         {"takeoff_swing", takeoff_swing},

@@ -56,6 +56,18 @@ The changes, and what each is for:
                         (65 hp)" (A-691, item 311C(1)). JSBSim's piston engine
                         makes its rated power at maxrpm, so the model's made
                         its 65 hp only at 500 rpm past the Cub's limit.
+    MIXTURE table       The FAA's shape of a petrol engine's power against its
+                        mixture, for JSBSim's own, which made most power at
+                        9.9 to 1; see tools/piston_mixture.py. Its rated 65 hp
+                        at 2,300 rpm, full rich at sea level, is unchanged
+                        (64.4 hp, against 64.5).
+  Float carburettor (aircraft/j3cub/j3cub.xml)
+                        A channel meters the mixture as a float carburettor
+                        does, richening as the square root of the density
+                        rather than as the pressure (tools/piston_mixture.py).
+                        With JSBSim's metering the Cub, which has no mixture
+                        lever, flown solo stopped climbing at 8,016 ft
+                        against its manual's 14,000; with it, 13,637.
 
   Propeller (engine/prop_j3cub_74in.xml)
     Diameter 75 -> 74 in The McCauley 1A90CF or 1B90CM, A-691's propeller item 2,
@@ -78,6 +90,8 @@ The changes, and what each is for:
 import pathlib
 import re
 import sys
+
+from piston_mixture import with_best_power_mixture, with_float_carburettor
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = ROOT / "ext" / "jsbsim"
@@ -168,7 +182,10 @@ def airframe():
         rf"\g<1> {INDUCED_DRAG} \2", "the induced drag")
     text = replace_once(text, r"<system file=\"Conventional Controls\.xml\"/>",
                         f"<system file=\"{SYSTEM}.xml\"/>", "the flight controls")
-    return text
+    text = replace_once(text, r"(<flight_control name=\"FCS: J3Cub\">\n)\n( </flight_control>)",
+                        r"\1\2", "the empty flight controls")
+    return with_float_carburettor(text, "make_j3cub")
+
 
 
 def engine():
@@ -177,8 +194,9 @@ def engine():
                         r"\1\n  <!-- glideslope: JSBSim's J3Cub engine with the changes listed in\n"
                         r"       tools/make_j3cub.py, which made it. Do not edit it by hand. -->",
                         "the engine's name")
-    return replace_once(text, r"<maxrpm>\s*2800\.0 </maxrpm>", "<maxrpm>      2300.0 </maxrpm>",
+    text = replace_once(text, r"<maxrpm>\s*2800\.0 </maxrpm>", "<maxrpm>      2300.0 </maxrpm>",
                         "the engine's rpm")
+    return with_best_power_mixture(text, "make_j3cub")
 
 
 def propeller():

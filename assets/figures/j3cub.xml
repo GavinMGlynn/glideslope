@@ -22,8 +22,7 @@
   Not flown: the take-off - the manual gives only that the loaded aircraft
   "will become airborne at approximately 39 M.P.H.", no distance; the top
   speed - the booklet's "design level flight speed", 90 mph, is the type
-  certificate's limit, not a speed measured; and the ceiling, 14,000 ft solo,
-  which no flight here measures.
+  certificate's limit, not a speed measured.
 -->
 <published_figures aircraft="j3cub" flaps_full_deg="0">
   <source>Piper J3C-65 Owner's Manual; Piper, How to Fly a Piper Cub, 1945</source>
@@ -46,16 +45,41 @@
     <tank index="0" lbs="72"/>
   </loading>
 
+  <!-- 922 lb, solo, as the Cub is flown alone: from the rear seat, a 170 lb
+       pilot, and the tank full. -->
+  <loading name="solo" total_lbs="922">
+    <pointmass index="0" lbs="170"/>
+    <tank index="0" lbs="72"/>
+  </loading>
+
   <figure name="static_rpm" unit="RPM" min="1950" max="2250">
     Aircraft Specification A-691, propeller item 2, the McCauley 1A90CF or
     1B90CM: static rpm at full throttle, landplane, "not over 2250, not under
     1950".
   </figure>
 
+  <figure name="rated_power" unit="hp" value="65" tolerance_percent="3"
+          altitude_ft="0" rpm="2300" speed_kcas="75">
+    Aircraft Specification A-691, item 311C(1): the Continental A-65-8, "all
+    operations, 2300 r.p.m. (65 hp)"; full throttle at sea level, the
+    propeller turning 2,300.
+  </figure>
+
   <figure name="climb_rate" unit="ft/min" value="450" tolerance_percent="10"
           speed_kcas="47.8">
     Booklet, page 12: rate of climb (full load) 450 ft; manual, page 41:
     "best climb speed is at an indicated 55 M.P.H." (47.8 knots).
+  </figure>
+
+  <figure name="service_ceiling" flight="ceiling_on_the_autopilot" unit="ft"
+          value="14000" tolerance_percent="10" speed_kcas="47.8" rate_fpm="100"
+          altitude_ft="3000" loading="solo">
+    The manual's ceiling, 14,000 ft, solo. The ceiling is the height at
+    which the best climb has fallen to 100 ft/min. Flown by the autopilot,
+    as the AI climbs, at the best-climb speed of the climb figure above;
+    the Cub has no mixture lever, and its carburettor meters the mixture
+    (tools/make_j3cub.py). The tolerance is this project's, as the climb
+    rate's is.
   </figure>
 
   <figure name="cruise_speed" unit="KTAS" value="63.4" tolerance="3"

@@ -73,12 +73,26 @@ The changes, and what each is for:
                          (advance ratio about 0.5) gains 4%; cruise and top
                          speed run above 0.85 and are untouched.
 
-The engine file (engine/engIO540AB1A5.xml) is copied unchanged.
+  Engine (engine/engIO540AB1A5.xml)
+    maxrpm 2575 -> 2400  The handbook's (section 1) and type certificate data
+                         sheet 3A13's rating, "230 rated BHP at 2400 RPM".
+                         JSBSim's piston engine makes its rated power at
+                         maxrpm, so at the governed 2,400 it made 222 hp; now
+                         233.6.
+    MIXTURE table        The FAA's shape of a petrol engine's power against
+                         its mixture, for JSBSim's own, which made most power
+                         at 9.9 to 1 - 6.6% more than full rich at sea level,
+                         found by leaning high up; see tools/piston_mixture.py.
+                         Every figure stays in range with both; the ceiling on
+                         the autopilot, leaned, is 13,612 ft against the
+                         handbook's 18,100, which is still a tail.
 """
 
 import pathlib
 import re
 import sys
+
+from piston_mixture import with_best_power_mixture
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = ROOT / "ext" / "jsbsim"
@@ -277,10 +291,17 @@ def propeller():
     return text
 
 
+def engine():
+    text = (PINNED / "engine" / "engIO540AB1A5.xml").read_text()
+    text = replace_once(text, r"<maxrpm>\s*2575\.0 </maxrpm>", "<maxrpm>      2400.0 </maxrpm>",
+                        "the engine's rpm")
+    return with_best_power_mixture(text, "make_c182")
+
+
 def outputs():
     return {
         OUT / "aircraft" / "c182" / "c182.xml": airframe(),
-        OUT / "engine" / "engIO540AB1A5.xml": (PINNED / "engine" / "engIO540AB1A5.xml").read_text(),
+        OUT / "engine" / "engIO540AB1A5.xml": engine(),
         OUT / "engine" / "prop_81in2v.xml": propeller(),
     }
 

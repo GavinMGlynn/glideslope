@@ -125,10 +125,11 @@ CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view tex
             }
             e.seaplane = true;
         } else if (w[0] == "mixture-lever") {
-            if (w.size() != 1) {
-                throw wrong("mixture-lever, alone");
+            if (w.size() != 2) {
+                throw wrong("mixture-lever FULL_RICH_BELOW_FT");
             }
             e.mixture_lever = true;
+            e.full_rich_below_ft = number(w[1], "the height", 0.0, 20000.0);
         } else {
             throw wrong("no command \"" + w[0] + "\"");
         }
