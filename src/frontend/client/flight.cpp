@@ -267,12 +267,8 @@ void Flight::heard_weather(const net::Weather& weather,
                            std::function<double()> clock, int count) {
     server_weathers_ = count;
     if (!heard_air_) {
-        const std::shared_ptr<world::CollisionGround> ground = collision_;
-        heard_air_.emplace(geoid_.get(),
-                           [ground](double lat, double lon) {
-                               return ground->height_above_geoid(lat, lon);
-                           },
-                           std::move(clock));
+        // Over no ground, as the server's is (glideslope_server's Fleet::fly_in).
+        heard_air_.emplace(geoid_.get(), world::GroundAt{}, std::move(clock));
         // None of its own from now: what was being fetched is let go.
         next_weather_.reset();
     }

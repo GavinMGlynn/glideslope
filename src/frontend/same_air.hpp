@@ -82,27 +82,9 @@ private:
     std::function<double()> clock_;
 };
 
-// **The collision ground, for the air over it**: what a client that does not
-// otherwise build it - `glideslope_cli connect --predict`, whose aircraft
-// meets flat ground - builds so that the air rising over hills and the wind
-// near the ground are the server's. Its tiles are fetched as they are asked
-// for, into `cache`.
-class GroundForAir {
-public:
-    GroundForAir(const std::filesystem::path& data, const std::filesystem::path& cache);
-    world::GroundAt ground() const;
-    const world::Geoid* geoid() const { return geoid_.get(); }
-
-private:
-    std::unique_ptr<world::DemCoverage> coverage_;
-    world::Fetch fetch_;
-    std::unique_ptr<world::DownloadedTiles> tiles_;
-    std::unique_ptr<world::Geoid> geoid_;
-    std::shared_ptr<world::CollisionGround> collision_;
-};
-
 // **A client's copy of the server's air**: each whole weather heard
-// (net::Told), made into the air a predicted aircraft flies - over `ground`,
+// (net::Told), made into the air a predicted aircraft flies - over `ground`
+// (none, as on the server: glideslope_server's Fleet::fly_in),
 // on the session's `clock`, blended from when the server blended it and over
 // as long - so that the client flies the server's weather and not a fetch of
 // its own. Still air from the start is no weather at all, as on a server given

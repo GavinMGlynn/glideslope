@@ -107,24 +107,6 @@ std::optional<world::WeatherReport> weather_heard(const net::Weather& weather,
     return r;
 }
 
-GroundForAir::GroundForAir(const std::filesystem::path& data, const std::filesystem::path& cache) {
-    std::ifstream in(data / "dem" / "coverage.txt", std::ios::binary);
-    if (!in) {
-        throw std::runtime_error("cannot read " + (data / "dem" / "coverage.txt").string());
-    }
-    coverage_ = std::make_unique<world::DemCoverage>(std::string(std::istreambuf_iterator<char>(in), {}));
-    fetch_ = world::http_fetch();
-    tiles_ = std::make_unique<world::DownloadedTiles>(cache, fetch_);
-    geoid_ = std::make_unique<world::Geoid>(world::egm2008_geoid(cache, fetch_));
-    collision_ = std::make_shared<world::CollisionGround>(
-        std::make_shared<world::Dem>(*coverage_, *tiles_, geoid_.get()), world::runway_surfaces(data));
-}
-
-world::GroundAt GroundForAir::ground() const {
-    const std::shared_ptr<world::CollisionGround> collision = collision_;
-    return [collision](double lat, double lon) { return collision->height_above_geoid(lat, lon); };
-}
-
 void HeardAir::heard(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft) {
     std::optional<world::WeatherReport> report = weather_heard(weather, aloft);
     if (!report) {

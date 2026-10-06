@@ -229,9 +229,9 @@ are the risks the phase order is built around:
   wind only: no rotor, and no lee waves trapped under a stable layer. A tail
   in `COMPLETION_PLAN.md`.
 - **Weather is one station's.** A flight flies in the weather of the airfield
-  it names, everywhere it goes; nothing picks the nearest station. And on a
-  server the weather does not travel: each client predicts in its own. Both
-  are tails in `COMPLETION_PLAN.md`.
+  it names, everywhere it goes; nothing picks the nearest station - a tail in
+  `COMPLETION_PLAN.md`. On a server the server's weather travels and every
+  client flies it, but over no ground: no ridge or wave lift there, a tail.
 - **Summits are low in the DEM.** A 30 m grid does not hold a peak: at five
   surveyed summits the DEM is 8 to 35 m below the survey. Runway ends and
   coastlines are within the dataset's stated 4 m.
@@ -261,6 +261,52 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### The server sends its session, its weather and its ground; clients fly its weather, 2026-10-06 — tail done
+
+What was missing first: the server's air has **no ground's lift** (ridge and
+wave lift, thermals over the terrain) - on the server and every client - and
+**no test flies the window client in the server's weather**. Both are tails.
+
+- **The server flies a weather** (`--weather STATION`, fetched again every
+  `--weather-refresh`, default 900 s; or `--metar REPORT --station
+  LAT,LON[,M]`; `--metar-then S REPORT` for tests; `--weather-blend`, default
+  300 s), on the session's clock (`frontend::SessionClocked`), for every
+  aircraft it makes. None is still air, as before.
+- **Each client is told**, once proven: `TERRAIN_DATASET`, `SESSION`,
+  `LOBBY` (again whenever it changes), `WEATHER` and `WEATHER_ALOFT` (again
+  at each change). `net::Told` takes them in both clients;
+  `frontend/same_air` turns a report into messages and back, and hashes the
+  ground (coverage, strips, rules). Protocol version 3: `WEATHER` gained when
+  it changed, its blend and whether a forecast follows; `docs/TRANSPORT.md`
+  says it byte for byte.
+- **Clients fly it**: `glideslope_cli connect --predict` and the window
+  client (`Flight::heard_weather`, which then fetches none of its own; a
+  window client on a server is refused `--weather`). `--own-air` is the
+  test's client that ignores it.
+- **The ground's lift is off on a server**: 256 DEM heights and a 512-point
+  transform per step made the predicting client fall 4.7 s behind in a
+  sanitized build, and without it a client was 6 m out from a server with it.
+  With neither end flying it the error was 0.03 m (REQUIREMENTS 9, 2026-10-06).
+- **A METAR keeps its raw words** (`Metar::raw`), cut to 256 bytes by whole
+  words before the server flies it.
+
+Verification: `a_client_flies_the_servers_weather_and_every_change_of_it_not_its_own`
+(35 kt west, then 40 kt south-west at 12 s over 5 s; two predicting clients
+behind 250 ms relays: told the ground, session, lobby and both weathers; the
+one flying the server's weather worst 0.57 m, the one flying still air
+2.7 m; bounds 1 and 1.5 m);
+`a_client_told_the_servers_collision_ground_refuses_other_ground_and_leaves`;
+unit tests `the_weather_a_server_sends_is_flown_to_the_last_bit_by_its_clients`
+(144 points, bit for bit, through a change),
+`still_air_is_said_as_an_empty_metar_and_flown_as_no_weather`,
+`a_weather_is_taken_whole_or_not_at_all`,
+`a_metar_too_long_to_send_is_cut_to_whole_words_and_flown_as_cut`,
+`the_collision_ground_said_is_the_builds_coverage_strips_and_rules`,
+`every_refusal_the_document_names_for_a_weather_is_refused`; the message,
+NaN (27 fields) and limit tests extended. Seen to fail: the conversion
+dropping the turbulence severity, the server not resending a changed
+weather, and every ground compared equal each turned their test red.
 
 ### The Learjet's tail strikes and a take-off lesson says so; every aeroplane off 16R flies its plan to its orbit, 2026-10-06 — one tail done, two still open
 

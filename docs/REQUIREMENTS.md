@@ -778,6 +778,29 @@ The replacement:
   player's key is refused until the server stops; a server started again
   has forgotten it. A ban list that outlasts a run could be a later feature.
 
+**Closed 2026-10-06** (section 6.3, decided in building it):
+
+- **A client on other collision ground refuses it and leaves; it does not
+  fetch the server's.** The ground is the data the build carries
+  (`dem/coverage.txt`, `runways/strips.csv`, the ground rules) and the tiles
+  it names, fetched from the open buckets by every machine alike, so there is
+  nothing for a server to send but its hash; a client whose hash differs is
+  another build or has other data, and its remedy is the matching release.
+- **The air is on the session's clock**, not each aircraft's: gusts, a
+  microburst and a change's blend are of the session's time, so aircraft side
+  by side meet the same gust whichever was made first, and a client blends a
+  change from when, and over as long as, the server says.
+- **The air has no ground's lift on a server, for now.** The ground's lift is
+  256 DEM heights and a transform at every step; a predicting client flies
+  every step again at each update and could not keep up, and a client without
+  it was out by metres from a server with it. So the server and its clients
+  fly the air over no ground - thermals on the station's elevation, no ridge
+  or wave lift - until it is cheap enough for all (a tail). A flight alone
+  keeps it.
+- **A server with no weather sends still air** (an empty METAR), so a client
+  is never left to fly a weather of its own; a client on a server may not be
+  given `--weather`.
+
 **Open:**
 
 - **Buildings:** how OpenStreetMap buildings arrive without a Cesium ion

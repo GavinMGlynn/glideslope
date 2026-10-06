@@ -109,8 +109,6 @@ the controls to an AI pilot whenever you like, then take them back.
 - **The ground is the same for everyone.** `CORE`
   In a shared session, every player's aircraft touches down on the same ground,
   wherever each player's scenery comes from.
-  *Not yet:* a server does not tell a joining player which ground it flies on,
-  so a player whose copy differs is not told so.
 
 - **Runways you can roll on.** `CORE`
   Every runway the open airport data places, anywhere in the world, is as
@@ -226,8 +224,8 @@ the controls to an AI pilot whenever you like, then take them back.
 - **The same air for everyone.** `CORE`
   In a shared session everyone flies through the same wind, gusts and shear: a
   gust that lifts one aircraft's wing lifts the aircraft alongside it too.
-  *Not yet:* a server does not send its weather, so each player flies through
-  their own.
+  *Not yet:* on a server the air does not rise over hills and ridges, as it
+  does when you fly alone.
 
 - **Controls that answer immediately.** `CORE`
   Your aircraft responds on the frame you move the stick, even with the server
