@@ -682,6 +682,80 @@ GLIDESLOPE_TEST(a_recording_played_back_but_its_numbers_answers_a_request_whose_
     check(refused == 2, "moved figures played back exactly, and other words: both refused");
 }
 
+// **Runways nearby come nearest first**, and two at nearly the same distance
+// swap places in a flight flown a little differently: the coast recording
+// broke so (PROJECT_STATUS, 2026-10-02). Played back but its numbers, the
+// same runways in the other order are the same question; another runway,
+// or the route's waypoints in another order, are not.
+GLIDESLOPE_TEST(a_recording_played_back_but_its_numbers_answers_the_same_runways_listed_in_another_order) {
+    const auto brief = cessna_brief();
+    const auto end = [](const std::string& airport, const std::string& ident, double lat,
+                        double lon) {
+        glideslope::world::RunwayEnd e;
+        e.airport = airport;
+        e.ident = ident;
+        e.latitude_deg = lat;
+        e.longitude_deg = lon;
+        e.elevation_ft = 21;
+        e.heading_deg = 154;
+        e.length_m = 3962;
+        return e;
+    };
+    const auto runway_34l = end("YSSY", "34L", -33.9615, 151.1797);
+    const auto runway_16r = end("YSSY", "16R", -33.9310, 151.1690);
+    const auto runway_29 = end("YSBK", "29", -33.9200, 150.9970);
+    const auto waypoint = [](const std::string& name, double lat) {
+        glideslope::sim::Waypoint w;
+        w.name = name;
+        w.latitude_deg = lat;
+        w.longitude_deg = 151.28;
+        w.altitude_ft = 2000;
+        w.airspeed_kts = 100;
+        return w;
+    };
+    const auto told = [&](std::vector<glideslope::world::RunwayEnd> fields,
+                          std::vector<glideslope::sim::Waypoint> route) {
+        auto now = off_bondi(true);
+        now.fields = std::move(fields);
+        now.route = std::move(route);
+        // As a provider sends it: the situation, a string in a JSON body.
+        return glideslope::world::write_json(Json::make_object(
+            {{"input", Json::make_string(glideslope::copilot::situation_text(brief, now))}}));
+    };
+    const auto route = std::vector{waypoint("BONDI", -33.89), waypoint("MANLY", -33.80)};
+    const auto file = scratch("copilot-runway-order.jsonl");
+    std::vector<Sent> sent;
+    glideslope::platform::HttpRequest request;
+    request.url = "https://api.example/v1";
+    (void)glideslope::copilot::recording(stand_in(sent, {answered(200, "keep")}), file)(
+        request, told({runway_34l, runway_16r, runway_29}, route));
+    const auto played = [&] {
+        return glideslope::copilot::playback(file, glideslope::copilot::Match::but_numbers);
+    };
+
+    const auto swapped = told({runway_16r, runway_34l, runway_29}, route);
+    const auto reply = played()(request, swapped);
+    check(std::string(reply.body.begin(), reply.body.end()) == "keep",
+          "the same runways in another order: answered");
+    std::size_t refused = 0;
+    const std::vector<std::pair<std::string, std::string>> others = {
+        {"played back exactly", swapped},
+        {"another runway in one's place", told({runway_16r, runway_29, runway_29}, route)},
+        {"the route's waypoints in another order",
+         told({runway_34l, runway_16r, runway_29}, {route[1], route[0]})}};
+    for (const auto& [what, body] : others) {
+        try {
+            (void)(what == "played back exactly" ? glideslope::copilot::playback(file)
+                                                 : played())(request, body);
+            fail(what + ": answered");
+        } catch (const ProviderError&) {
+            ++refused;
+        }
+    }
+    check(refused == others.size(), "each other question refused: " + std::to_string(refused) +
+                                        " of " + std::to_string(others.size()));
+}
+
 // **A copilot going away gives up its question at once**: the model's
 // request is abandoned (platform::HttpRequest::abandon) rather than waited
 // out, so quitting is not held up by a model thinking. The stand-in service

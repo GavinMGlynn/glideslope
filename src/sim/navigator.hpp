@@ -19,6 +19,7 @@
 #include "sim/autopilot.hpp"
 #include "sim/plan.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
 #include <stdexcept>
@@ -62,6 +63,13 @@ public:
     }
     const FlightPlan& plan() const {
         return plan_;
+    }
+    // The waypoints still to fly: the one being flown to, or round, and
+    // those after it - none once all are passed.
+    std::vector<Waypoint> still_to_fly() const {
+        return {plan_.waypoints.begin() +
+                    static_cast<std::ptrdiff_t>(std::min(next_, plan_.waypoints.size())),
+                plan_.waypoints.end()};
     }
 
 private:

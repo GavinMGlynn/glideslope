@@ -555,6 +555,76 @@ a band of 0 red with "never reached its height"; a first-turn limit of 0.4 red
 with "not level until 0.52 turns". The kept-apart, separation and leaner tests
 (35) pass.
 
+### Why the 747-400 and the F-22 are still not planned by a model, 2026-10-06 — tail still open
+
+Looked at with the copilot tails, and left open: **a model's plan takes
+off** (`copilot/planner.cpp` refuses one that does not, the aircraft
+standing on the ground), and the AI cannot take either off. A take-off is
+flown from `sim::departure_speeds`: a rotation speed and a speed to climb
+away at, each from a published figure - a take-off roll's lift-off speed, a
+stall at the take-off flap, a rate of climb at its speed - and the 747-400
+publishes only a field length and an engine-out gradient, the F-22 only a
+ceiling climb with no speed. Their measured stalls moved 14 and 21 kt with
+the entry speed ("A measurement that moves with how you approach it",
+below), so no speed hangs from them either. The server's
+plan files fly them only from a `start` in the air (`747-off-bondi.plan`).
+Planning them needs either a sourced rotation and climb-away speed for
+each, or a measurement of them that holds still - the owner's call. A
+copilot's route in the air needs no take-off, and could be briefed from
+their plan speeds alone, with no glide (no glide speeds either); that half
+was not done separately, the item not being split.
+
+### A model planning an aircraft left by its player is told the plan it flies, 2026-10-06 — tail done
+
+**Left by a player who goes** (`--on-leave ai`), an aircraft flies the
+server's plan file until the server's model answers - and the model was told
+"no route is flown: the autopilot holds what the aircraft is doing". The
+server's situation for a hand-over (`situation_of`) now gives the route the
+aircraft's navigator is flying: its waypoints still to fly, from the one it
+is flying to (`sim::Navigator::still_to_fly`), as heights stacked for it.
+An aircraft left by a take-over holds its course and has none, as before.
+
+**Told the plan, Claude keeps it.** Asked live three times
+(claude-haiku-4-5-20251001), it answered keep each time, where told no
+route it had given one. So the server now says what a keep keeps:
+"aircraft N's model answered keep: it flies on to THE_HEADS, 1 of 4" - or
+"it holds its course" with no plan.
+
+**The recording is made again**: `tests/data/copilot/leave-server-anthropic.jsonl`,
+asked of Claude by `..._asking_anthropic_now` with GLIDESLOPE_LIVE_MODEL=1,
+scanned for keys (none). `cmake/server_hand_over_planner.cmake`, case leave,
+now requires the recording's question - which the server's matched, but for
+its numbers - to hold "The route being flown" with the plan file's last
+waypoint, AIRPORT, and not "No route is flown"; and, the answer being keep,
+that the aircraft flies on to one of the plan file's four waypoints. A route
+answered instead would still be checked as before. Verified:
+`an_aircraft_left_by_a_player_who_goes_is_planned_in_the_air_by_the_servers_claude_as_recorded`
+green, and red with the route taken out of the situation again ("exchange 1
+was recorded for another request"); the take-over and no-key cases green
+and unchanged.
+
+### A copilot recording plays back with its runways in another order, 2026-10-06 — tail done
+
+**Runways nearby are listed nearest first**, and two at nearly the same
+distance swap places in a flight flown a little differently: the coast
+recording broke so on 2026-10-02 and had to be asked again (see below,
+"For whoever restarts engines"). Their order is
+their distances', so playing back but its numbers (`copilot::Match::but_numbers`)
+now disregards it too: each run of consecutive lines naming a runway
+(`runway` the line's first word, as the planner gives one, or its second,
+after the airport, as the copilot does) is sorted on both sides before they
+are compared (`runway_order_disregarded`, `copilot/provider.cpp`). Nothing
+else is reordered - a route's waypoints must come in the recording's order.
+No recording changes: sorted the same on both sides, every one plays as it
+did.
+
+`a_recording_played_back_but_its_numbers_answers_the_same_runways_listed_in_another_order`
+records a copilot's situation, as a JSON body, with YSSY 34L, YSSY 16R and
+YSBK 29 nearby; played back with 34L and 16R swapped it is answered, and
+three others are refused: the swap played back exactly, another runway in
+one's place, and the route's two waypoints in the other order. Red with the
+old matcher ("exchange 1 was recorded for another request").
+
 ### The take-off test counts the J-3 Cub's solo loading: 49, not 48, 2026-10-06 — fix
 
 The engines work (#100) gave the Cub a "solo" loading, and
@@ -1446,10 +1516,10 @@ pass changed:
 ### The model that plans an aircraft is chosen when it is handed to the AI, 2026-10-02 — item done
 
 **What is not done** (tails in COMPLETION_PLAN.md):
-- **A model planning an aircraft left by a player who goes is not told the
+- **A model planning an aircraft left by a player who goes was not told the
   plan it flies**: until its answer comes it flies the server's plan file,
   and the model is told "no route is flown: the autopilot holds what the
-  aircraft is doing".
+  aircraft is doing". (Done 2026-10-06: it is told the plan's waypoints.)
 - **The window client's hand-over model is chosen at start**, by a flag,
   not by a key in flight; and its refusal for want of a key is tested on
   the headless client only - the window client's path is the same
@@ -2426,7 +2496,8 @@ bank integral, and the two YSSY runways, listed by distance, came in the
 other order - the playback disregards numbers, not order. Asked of
 gpt-5.5-2026-04-23 again (`..._asking_openai_now`, GLIDESLOPE_LIVE_MODEL=1),
 it passed, and the recording it made is committed; played back, green. A
-recording that breaks when two runways swap places is fragile; a tail.
+recording that breaks when two runways swap places is fragile; a tail (done
+2026-10-06).
 
 **Smaller**: the catalogue is read once per aircraft for both its climb
 floor and its mixture lever (`from_catalogue` in aircraft.cpp), and the

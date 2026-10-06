@@ -2,10 +2,12 @@
 
 #include "world/json.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <iterator>
 #include <memory>
 #include <mutex>
+#include <vector>
 
 namespace glideslope::copilot {
 
@@ -235,6 +237,54 @@ std::string numbers_disregarded(const std::string& text) {
     return out;
 }
 
+// Whether `line` names a runway: `runway` its first word, as the planner
+// gives one, or its second, after the airport, as the copilot does.
+bool names_a_runway(const std::string& line) {
+    const auto first = line.find_first_not_of(' ');
+    if (first == std::string::npos) {
+        return false;
+    }
+    if (line.compare(first, 7, "runway ") == 0) {
+        return true;
+    }
+    const auto space = line.find(' ', first);
+    return space != std::string::npos && line.compare(space + 1, 7, "runway ") == 0;
+}
+
+// **The order of the runways nearby is a number's too.** The copilot lists
+// them nearest first, and two at nearly the same distance swap places in a
+// flight flown a little differently - which is what `but_numbers` is for.
+// Each run of consecutive lines naming a runway is sorted, so that the same
+// runways in another order match and other runways do not. The body is
+// JSON, so its text's lines are parted by `\n` escaped. Nothing else is
+// reordered: a route's waypoints, whose order is what the model is told,
+// must come in the recording's.
+std::string runway_order_disregarded(const std::string& text) {
+    static const std::string parting = "\\n";
+    std::vector<std::string> lines;
+    for (std::size_t from = 0;;) {
+        const auto at = text.find(parting, from);
+        lines.push_back(text.substr(from, at == std::string::npos ? std::string::npos : at - from));
+        if (at == std::string::npos) {
+            break;
+        }
+        from = at + parting.size();
+    }
+    for (auto run = lines.begin(); run != lines.end();) {
+        auto end = run;
+        while (end != lines.end() && names_a_runway(*end)) {
+            ++end;
+        }
+        std::sort(run, end);
+        run = end == run ? end + 1 : end;
+    }
+    std::string out;
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        out += (i == 0 ? std::string() : parting) + lines[i];
+    }
+    return out;
+}
+
 } // namespace
 
 Post playback(const std::filesystem::path& file, Match match) {
@@ -269,7 +319,8 @@ Post playback(const std::filesystem::path& file, Match match) {
         const Recorded& r = (*recorded)[(*next)++];
         const bool same = match == Match::exactly
                               ? r.request == body
-                              : numbers_disregarded(r.request) == numbers_disregarded(body);
+                              : runway_order_disregarded(numbers_disregarded(r.request)) ==
+                                    runway_order_disregarded(numbers_disregarded(body));
         if (r.url != request.url || !same) {
             throw ProviderError(file.string() + ": exchange " + std::to_string(*next) +
                                 " was recorded for another request; the prompt has changed "

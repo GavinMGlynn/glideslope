@@ -50,7 +50,8 @@ Post recording(Post post, std::filesystem::path file);
 // one, a step later - is not where it was to the last digit. `but_numbers`
 // matches a request with every number in it disregarded: its words - what
 // the model is told and what happened - must be the recording's, and its
-// figures need not; nor, it follows, the digits of the model's name.
+// figures need not; nor, it follows, the digits of the model's name; nor
+// the order of the runways nearby, which is their distances' (provider.cpp).
 enum class Match { exactly, but_numbers };
 Post playback(const std::filesystem::path& file, Match match = Match::exactly);
 
