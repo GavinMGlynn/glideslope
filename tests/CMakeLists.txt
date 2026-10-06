@@ -638,6 +638,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_aircraft_gives_the_speeds_a_plan_may_fly_it_at_none_beyond_what_plans_were_let_fly_before
     a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_refused_and_none_in_the_data_does
     no_aircraft_holds_what_a_plan_asks_one_step_past_its_slowest_or_fastest
+    every_aircrafts_fastest_plan_speed_leaves_5_kt_in_hand_at_full_throttle
     a_runways_file_gives_each_open_runway_end_with_a_place_and_a_heading
     a_runway_strips_file_is_read_and_refused_where_it_is_wrong
     the_protocol_version_moves_with_the_collision_ground
@@ -2634,14 +2635,15 @@ set_tests_properties(the_server_runs_the_number_of_ai_aircraft_it_is_given_and_f
 
 # **Each AI aircraft is planned by the model its server gives it**: two AI
 # aircraft, one planned by each provider from its recording, take off and
-# orbit the CBD, flown in simulated time as fast as it goes; and a model with
+# orbit the CBD, flown in simulated time as fast as it goes (1,000 s: Claude
+# now orbits 1,447 m at 100 kt, three minutes a turn); and a model with
 # no key is refused, and the aircraft flies the plan file. No key is needed
 # and none is found: no model is called. See cmake/server_planned.cmake.
 add_test(NAME each_ai_aircraft_is_planned_by_the_model_its_server_gives_it_and_one_with_no_key_is_refused
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_planned
-        -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot -DSTEPS=84000
+        -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot -DSTEPS=120000
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_planned.cmake)
 set_tests_properties(each_ai_aircraft_is_planned_by_the_model_its_server_gives_it_and_one_with_no_key_is_refused
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)

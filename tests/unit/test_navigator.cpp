@@ -600,7 +600,7 @@ GLIDESLOPE_TEST(a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_ref
           "started at 147 kt she is refused, the start named: " + start);
     const std::string fast =
         verdict("aircraft mosquito-fb6\nwaypoint A -33.90 151.2093 3000 240\n");
-    check(fast.find("A is flown at 240 kt, outside 123 to 229 kt") != std::string::npos,
+    check(fast.find("A is flown at 240 kt, outside 123 to 219 kt") != std::string::npos,
           "the Mosquito at 240 kt, more than she makes, is refused: " + fast);
     const std::string other = verdict(plan_text("sydney-harbour.plan"), "a320");
     check(other.find("the plan is for the c172p, and the aircraft flown is the a320") !=
@@ -691,6 +691,33 @@ GLIDESLOPE_TEST(no_aircraft_holds_what_a_plan_asks_one_step_past_its_slowest_or_
     check(tried + at_the_old_bound == 2 * catalogue.size() && tried > 0,
           "every aircraft's slowest and fastest tried or at the old bound");
     check(failures.empty(), "none holds 10 kt past what its file gives:" + failures);
+}
+
+// **The fastest a plan may ask leaves power in hand**: every aircraft flies
+// level at full throttle at least 5 kt faster than its figures file's
+// fastest (sim::holds_plan_speed). The C182's 144 kt, written before her
+// engine was rated at 2,400 rpm, was 0.3 kt short of what she makes, and on
+// Windows she swung 150 m off her circle there. Every aircraft is flown.
+GLIDESLOPE_TEST(every_aircrafts_fastest_plan_speed_leaves_5_kt_in_hand_at_full_throttle) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto catalogue = glideslope::sim::read_catalogue(data);
+    std::size_t flown = 0;
+    std::string failures;
+    for (const auto& e : catalogue) {
+        const double fastest = glideslope::sim::plan_speeds(data, e.model).fastest_kts;
+        const double level = glideslope::sim::full_throttle_level_kts(data, e, fastest);
+        std::printf("%s: fastest %.0f kt, level at full throttle %.1f kt\n", e.id.c_str(),
+                    fastest, level);
+        if (level < fastest + glideslope::sim::plan_speed_power_margin_kts) {
+            failures += "\n  " + e.id + ": " + std::to_string(level) + " kt at full throttle, " +
+                        std::to_string(fastest) + " asked";
+        }
+        ++flown;
+    }
+    std::printf("%zu aircraft: %zu flown\n", catalogue.size(), flown);
+    check(flown == catalogue.size() && flown > 0, "every aircraft flown");
+    check(failures.empty(), "each leaves 5 kt in hand:" + failures);
 }
 
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_light_aeroplane) {

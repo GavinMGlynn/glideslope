@@ -118,7 +118,7 @@
        the slowest sought up from its approach speed in 5 kt steps,
        the fastest down from a fifth over its start speed, and written by
        the command's one rule (src/frontend/cli/main.cpp, plan_speeds). -->
-  <plan_speeds slowest_kcas="86" fastest_kcas="156">
-    The slowest, 86 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 1,071 m circle. The fastest, 156 kt, a fifth over its start speed, held all four ways.
+  <plan_speeds slowest_kcas="86" fastest_kcas="141">
+    The slowest, 86 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 1,071 m circle. The fastest, 141 kt, is 5 kt under the fastest that held with 5 kt of power in hand: she flies level at 152 kt at full throttle at 3,000 ft, so 146 kt is the most a plan may ask that leaves her that (sim::holds_plan_speed, 2026-10-06; it was 156).
   </plan_speeds>
 </published_figures>

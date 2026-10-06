@@ -359,15 +359,15 @@ Found while implementing something else. Added when found, not when remembered.
       refused; all sixteen hold their height and speed round the orbit
       every 5 kt between them.
 
-- [ ] **At its fastest, a fast aircraft's tightest orbit is flown well off
+- [x] **At its fastest, a fast aircraft's tightest orbit is flown well off
       its circle.** Round 13 to 19 km circles at 300 to 360 kt the jets
       hold their height and speed but wander up to 18% of the radius off the
       circle (3.3 km, the F-15C); the light aeroplanes stay within 60 m.
       *Verification: every aircraft at the fastest a plan may ask holds its
-      tightest circle within a stated distance, measured.* Once round the
-      join every jet now holds within 2% of the radius and the rest within
-      60 m on Linux; still missing: on Windows the C182 at 144 kt, faster
-      than it flies at full throttle, swings 150 m off one way round.
+      tightest circle within a stated distance, measured.* Done 2026-10-06:
+      once round the join every jet holds within 2% of the radius and the
+      rest within 60 m, on Linux and Windows; a plan's fastest now leaves 5
+      kt of full-throttle speed in hand, which brought six aircraft's down.
 - [ ] **A glide may still be asked of a jet at its approach speed.** A
       copilot's glide, with the engine stopped, is allowed from the approach
       speed to the best climb, and whether a jet glides round its tightest

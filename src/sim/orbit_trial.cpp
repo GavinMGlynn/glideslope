@@ -144,6 +144,45 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
     return out;
 }
 
+double full_throttle_level_kts(const std::filesystem::path& data, const CatalogueEntry& entry,
+                               double from_kts) {
+    constexpr int steps_per_second = 120;
+    Aircraft aircraft(data / "jsbsim", entry.model);
+    InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 3000.0;
+    ic.heading_deg = 0.0;
+    ic.airspeed_kts = from_kts;
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    Controls controls;
+    controls.throttle = entry.start_throttle;
+    Autopilot autopilot(aircraft, controls);
+    AutopilotModes modes = autopilot.modes();
+    modes.heading_deg = 0.0;
+    modes.altitude_ft = 3000.0;
+    modes.airspeed_kts = from_kts + 200.0;
+    autopilot.set(modes);
+    const int window = 30 * steps_per_second;
+    double sum = 0.0;
+    double last_average = -1.0;
+    for (int i = 1; i <= 15 * 60 * steps_per_second; ++i) {
+        aircraft.set_controls(autopilot.fly());
+        aircraft.step();
+        sum += aircraft.property("velocities/vc-kts");
+        if (i % window == 0) {
+            const double average = sum / window;
+            sum = 0.0;
+            if (last_average >= 0.0 && std::abs(average - last_average) < 0.1) {
+                return average;
+            }
+            last_average = average;
+        }
+    }
+    return last_average;
+}
+
 bool holds_plan_speed(const std::filesystem::path& data, const CatalogueEntry& entry,
                       double airspeed_kts, const std::function<void(const std::string&)>& said) {
     const auto tell = [&](const std::string& line) {
@@ -188,7 +227,13 @@ bool holds_plan_speed(const std::filesystem::path& data, const CatalogueEntry& e
             return false;
         }
     }
-    return true;
+    const double level_kts = full_throttle_level_kts(data, entry, airspeed_kts);
+    const bool in_hand = level_kts >= airspeed_kts + plan_speed_power_margin_kts;
+    std::snprintf(line, sizeof line, "%s %.0f kt: %s (%.1f kt level at full throttle)",
+                  entry.id.c_str(), airspeed_kts,
+                  in_hand ? "power in hand" : "NOT 5 kt in hand", level_kts);
+    tell(line);
+    return in_hand;
 }
 
 } // namespace glideslope::sim

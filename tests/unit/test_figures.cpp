@@ -807,13 +807,13 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
 // changed, so a refusal is that element's and nothing else's.
 GLIDESLOPE_TEST(the_speeds_a_plan_may_fly_an_aircraft_at_are_read_and_refused_where_they_are_wrong) {
     const PublishedFigures c172p = read_published_figures(figures_file("c172p"));
-    check(c172p.plan_slowest_kcas == 60.0 && c172p.plan_fastest_kcas == 120.0,
-          "the C172P may be planned from 60 to 120 kt");
+    check(c172p.plan_slowest_kcas == 60.0 && c172p.plan_fastest_kcas == 110.0,
+          "the C172P may be planned from 60 to 110 kt");
 
     std::ifstream in(figures_file("c172p"));
     const std::string text((std::istreambuf_iterator<char>(in)),
                            std::istreambuf_iterator<char>());
-    const std::string element = "<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"120\">";
+    const std::string element = "<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"110\">";
     const auto at = text.find(element);
     if (at == std::string::npos) {
         fail("assets/figures/c172p.xml does not give " + element);
