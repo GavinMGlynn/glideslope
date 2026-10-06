@@ -262,6 +262,14 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The take-off test counts the J-3 Cub's solo loading: 49, not 48, 2026-10-06 — fix
+
+The engines work (#100) gave the Cub a "solo" loading, and
+`every_landplane_takes_off_at_every_loading_within_ten_knots_of_its_speed_for_its_weight_and_unhurt`
+still asserted 48 loadings, so main went red: #100 was merged after its rebase
+without a fresh CI run. The count is now 49; the test passes in linux-debug.
+Found by the Learjet batch (#99), which carried the same change.
+
 ### AI aircraft are kept 500 ft or 1.5 nm apart along their routes, 2026-10-02 — tail still open
 
 **What is missing first.** **No run measures an aircraft handed to the AI**
