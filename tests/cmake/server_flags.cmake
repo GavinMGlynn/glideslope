@@ -61,14 +61,18 @@ list(LENGTH _flags _count)
 # player's copilot to glide from (server_copilot.cmake). --hand-over-planner
 # gives an aircraft the AI is given in the air a model to plan it, and
 # --hand-over-playback and --hand-over-record play its answers back or keep
-# them (server_hand_over_planner.cmake).
+# them (server_hand_over_planner.cmake). --weather flies a station's weather,
+# fetched again every --weather-refresh; --metar a METAR given, observed at
+# --station, and --metar-then another at a time, each blended in over
+# --weather-blend - the weather every client is sent (server_weather.cmake).
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
               --until-empty --ready-file --no-take-over --test-step-ms
               --drop-once-flown --ai-planner --ai-task --ai-playback --ai-spacing
               --steps --fail-engine-at --hand-over-planner --hand-over-playback
-              --hand-over-record)
+              --hand-over-record --weather --metar --station --metar-then
+              --weather-blend --weather-refresh)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)

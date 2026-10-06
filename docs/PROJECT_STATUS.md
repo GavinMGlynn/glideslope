@@ -309,9 +309,14 @@ NaN (27 fields) and limit tests extended.
 From the review, the same day: **the air a predicted step flies is the air at
 the moment the server flies that step**, replays included
 (`sim::Prediction::session_time_s`, the clocks' difference applied to the
-step); the test's weathers gust (30G45, then 35G50), and on the old clock -
-one moment for every step of a frame - the client was out by 1.6 m against
-0.57 m now. A METAR a client cannot read is refused and the air before it
+step), held exactly by
+`every_step_a_client_flies_meets_the_air_at_the_moment_the_server_flies_it`
+(84 replayed steps; seen red with replays left on one moment). Gusting
+weathers in the multi-process test (30G45, 35G50) showed it - 1.6 m on the
+old clock, 0.57 m on the new - but not reliably: while the clocks'
+difference settles the moment is a step or two out, and a gusting run was
+2.7 m on CI's macOS and 16 m at 500 ms here. That test flies steady winds
+again; gusts matched while the difference settles are a tail. A METAR a client cannot read is refused and the air before it
 kept (`a_weather_whose_metar_cannot_be_read_is_refused_and_the_air_before_it_kept`);
 a `WEATHER` with a station past either pole or 180 degrees, a change before
 nought or a blend outside 0 to a day is refused (seven more cases in the

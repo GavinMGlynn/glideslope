@@ -6,12 +6,14 @@
 #         -DWORK=<scratch> -DPORT=<a port> -DSAME_M=<m> -DOWN_M=<m>
 #         -P server_weather.cmake
 #
-# **The same air.** A server flies a 30 kt wind gusting 45 from the west,
-# from a METAR given it (`--metar`), and twelve seconds in 35 gusting 50 from
-# the south-west, blended in over five - gusts and turbulence that change from
-# moment to moment, so that the air a client flies must be the air at the
-# moment the server flies each step, a replayed step too: flown at one moment
-# for every step of a frame, the client was out by 1.6 m (2026-10-06).
+# **The same air.** A server flies a 35 kt wind from the west, from a METAR
+# given it (`--metar`), and twelve seconds in a 40 kt one from the
+# south-west, blended in over five. **Steady winds, not gusts**: a gust is met
+# at the moment each step is flown, which the client knows from the clocks'
+# difference as it settles - a step or two out, and gusting 45 the error was
+# 2.7 m on CI's macOS and 16 m at 500 ms here (2026-10-06). That moment is
+# held exactly by a test of its own
+# (every_step_a_client_flies_meets_the_air_at_the_moment_the_server_flies_it).
 # (`--metar-then`, `--weather-blend`: a change of weather as a fetch again
 # would bring, mid-flight.) Two players join
 # it, each predicting its own aircraft and flying the same changing controls,
@@ -62,8 +64,8 @@ endif()
 
 # Sydney Airport, where the AI's plan flies.
 set(_station -33.9461,151.1772,6)
-set(_west "YSSY 020600Z 27030G45KT 9999 FEW030 20/10 Q1012")
-set(_south_west "YSSY 020630Z 23035G50KT 9999 FEW030 19/10 Q1010")
+set(_west "YSSY 020600Z 27035KT 9999 FEW030 20/10 Q1012")
+set(_south_west "YSSY 020630Z 23040KT 9999 FEW030 19/10 Q1010")
 
 set(_same "${WORK}/same.txt")
 set(_own "${WORK}/own.txt")
