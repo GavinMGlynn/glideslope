@@ -851,6 +851,23 @@ or whose session a newer one took over (see "Leaving"), and ignores a
 `STATE` from a client. What the server does with a client's `RELIABLE` is
 under "Reliable messages" above.
 
+### Rates
+
+**A server holds each session to two rates**, each with a second's worth at
+once and no more (a token bucket):
+
+- **240 sealed datagrams a second**, of any kind but `LEAVING`. One past it
+  is opened - so that a datagram forged from the client's address spends
+  nothing - and then dropped unread: no input applied, no `PONG`, no
+  acknowledgement. A `LEAVING` is never dropped for it.
+- **8 requests a second**: reliable messages from the client. One past it is
+  acknowledged, as every reliable message is, and ignored - a swap not made,
+  a route not read, a watch not changed.
+
+Nothing is sent to say so; a client that sends this fast is not one of this
+project's (inputs go 30 times a second) and gets nothing for it. Nothing on
+the wire changed with them (2026-10-06).
+
 ### Leaving: `LEAVING`
 
 **A client that is leaving says so**, and the server lets its session go at
@@ -1137,16 +1154,15 @@ startup.
 
 - **A session's name chosen by its operator.** `SESSION` names a server by
   its port; nothing sets a name of anyone's choosing.
-- **Any check on what a client sends.** A client's inputs reach its aircraft
-  with no range check and no rate limit: a value outside -1 to 1 cannot be
-  written, because the wire is a 16-bit fraction, but nothing stops a client
-  sending as fast as it likes. `docs/THREATS.md` says what that costs.
+- **Any check on what a client's inputs say.** They reach its aircraft with
+  no range check: a value outside -1 to 1 cannot be written, because the wire
+  is a 16-bit fraction. How often it sends is held (below, "Rates").
 - **Choosing an aeroplane.** A player flies whatever the server's flight plan
   flies, and starts where it starts. `REQUIREMENTS.md` asks for the player to
   pick, and that is a session setting nobody has written.
-- **Rate limiting, and the cookie an overloaded server would demand.** A
-  server does an X25519 operation for any stranger that sends it an
-  initiation. `docs/THREATS.md` says what that costs and what would bound it.
+- **Rate limiting before a session, and the cookie an overloaded server
+  would demand.** A server does an X25519 operation for any stranger that
+  sends it an initiation. `docs/THREATS.md` says what that costs and what would bound it.
 
 What a client written from this document **can** do today: complete the
 handshake with a server whose public key it was given, be admitted to a slot,

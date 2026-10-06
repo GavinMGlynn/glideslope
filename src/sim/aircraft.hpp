@@ -357,6 +357,13 @@ public:
     // Stops engine `engine` - 0 the first, the port engine of a twin - as a
     // failure does, and feathers its propeller if `feather`.
     void fail_engine(int engine, bool feather);
+    // Undoes `fail_engine`: ignition on (both magnetos) or fuel on, running,
+    // and unfeathered.
+    void restart_engine(int engine);
+    // **Whether any of its engines has stopped** - failed, or run dry: what a
+    // state update says as `engine_stopped`, and what a predicting client
+    // holds its own flight model to.
+    bool any_engine_stopped() const;
 
     // Fuel neither burns nor moves while `frozen`: an aircraft measured at a
     // weight - a fighter's minutes in afterburner would burn half its fuel -

@@ -67,6 +67,23 @@ Prediction::Correction Prediction::reconcile(const AircraftSnapshot& server,
     return out;
 }
 
+bool Prediction::hear_engine_stopped(bool stopped) {
+    // **Running again on the server** - flown again after a wreck - and
+    // stopped here for its word: started again.
+    if (!stopped && stopped_for_the_server_) {
+        aircraft_.restart_engine(0);
+        stopped_for_the_server_ = false;
+        return false;
+    }
+    if (!stopped || aircraft_.any_engine_stopped()) {
+        return false;
+    }
+    aircraft_.fail_engine(0, false);
+    stopped_for_the_server_ = true;
+    ++engines_stopped_;
+    return true;
+}
+
 Prediction::Correction Prediction::reconcile(const Motion& server,
                                              std::uint32_t last_applied,
                                              std::size_t steps_into,

@@ -51,4 +51,24 @@ private:
 // starting again need - there are at most four of them.
 inline constexpr double full_server_reads_per_second = 32.0;
 
+// **How often a client may send, within its session** (REQUIREMENTS 6.2,
+// THREATS.md). Each is a budget of its own per session, with as many at once
+// as a second's worth and no more.
+//
+// - **Sealed datagrams: 240 a second.** This project's clients send inputs
+//   30 times a second, a knock a second or four while proving a session, and
+//   acknowledgements of what must arrive - a burst of them as a session
+//   begins and every aircraft is introduced. Eight times the input rate is
+//   room for all of that. One past it has opened, so it is the client's own,
+//   and is dropped unread: no input applied, nothing answered. It is opened
+//   first because a forger writing the client's address on garbage must not
+//   spend the client's budget.
+// - **Requests: 8 a second** - a reliable message of the client's: a
+//   controller swap, a take-over, a route, a watch. Each costs the server a
+//   controller change and a message to every client, or a plan read; a
+//   player pressing keys asks a few a second at most. One past it is
+//   acknowledged, as the reliable stream needs, and ignored.
+inline constexpr double session_datagrams_per_second = 240.0;
+inline constexpr double session_requests_per_second = 8.0;
+
 } // namespace glideslope::net

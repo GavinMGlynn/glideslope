@@ -120,6 +120,39 @@ struct ConnectCopilot {
 };
 ConnectCopilot connect_copilot;
 
+// **A test flag's work (`--flood`)**: a client sending faster than the
+// server's stated rates (net/budget.hpp), to be held to them. Once the server
+// has applied an input of its own - it is in a session, flying - it sends
+// `pings` sealed `PING`s at `pings_per_second`, then `requests` requests at
+// once (`WATCH`, the cheapest), then knocks with one more token every
+// quarter of a second until that is answered - the server has read
+// everything before it - and its requests are all acknowledged; then it
+// leaves. It says how many of the pings were answered, and over how long
+// they went.
+struct ConnectFlood {
+    bool on = false;
+    static constexpr int pings = 1000;
+    static constexpr double pings_per_second = 1000.0;
+    static constexpr int requests = 50;
+    static constexpr std::uint64_t first_token = 1ull << 40;
+    static constexpr std::uint64_t last_token = (1ull << 40) + 1000000;
+    std::optional<double> began_s;
+    int sent = 0;
+    double took_s = 0.0;
+    int answered = 0;
+    bool asked = false;
+    double knocked_s = -1.0;
+    bool last_answered = false;
+    bool done = false;
+};
+ConnectFlood connect_flood;
+
+// **A test flag's work (`--until-engine-compared N`)**: with `--predict`, stay
+// until N updates have been compared since the server said this client's
+// engine had stopped - the event a test of predicting a stopped engine
+// waits for, not a time.
+std::size_t connect_until_engine_compared = 0;
+
 // **What the server says the session is** (REQUIREMENTS.md 6.3), as a
 // connecting client takes it: its own collision ground, from the data it
 // reads, to hold the server's against, and, for a test, whether its
@@ -342,6 +375,12 @@ void print_usage(std::FILE* out) {
         "                            refusal, leaves once the server has applied an\n"
         "                            input it sent in the session it is back in - its\n"
         "                            old one or a new one\n"
+        "                            --until-engine-compared N (with --predict) stays\n"
+        "                            until N updates are compared after the server\n"
+        "                            says its engine has stopped\n"
+        "                            --flood (with --fly), once flown, sends 1,000\n"
+        "                            pings at 1,000 a second and 50 requests at once,\n"
+        "                            says how many pings were answered, and leaves\n"
         "                            --forge-leaving tries, as a forger would, to\n"
         "                            end sessions with goodbyes from the wrong\n"
         "                            address or keys: its own from a second session's\n"
@@ -1564,6 +1603,20 @@ public:
                 // Put right first, which places the server's word on this
                 // client's clock (sim::Prediction), and then held against
                 // where this client had flown it to by that step.
+                // **An engine the server has stopped**, stopped here before
+                // the inputs since are flown again (sim::Prediction).
+                const auto own = std::find_if(
+                    state.aircraft.begin(), state.aircraft.end(),
+                    [&](const glideslope::net::AircraftState& a) {
+                        return a.index == state.your_aircraft;
+                    });
+                const bool engine_stopped =
+                    own != state.aircraft.end() &&
+                    own->condition == glideslope::net::Condition::engine_stopped;
+                if (engine_stopped && !engine_stopped_at_s_) {
+                    engine_stopped_at_s_ = local_s;
+                }
+                (void)prediction_->hear_engine_stopped(engine_stopped);
                 const std::uint32_t applied = state.last_input_applied;
                 const auto c = prediction_->reconcile(
                     m, applied, state.yours->steps_into_input,
@@ -1587,6 +1640,17 @@ public:
                     }
                     ++compared_;
                     errors_m_.push_back(error);
+                    // **Before and after an engine stopped**, apart.
+                    if (engine_stopped_at_s_) {
+                        worst_error_engine_stopped_m_ =
+                            std::max(worst_error_engine_stopped_m_, error);
+                        ++compared_engine_stopped_;
+                        errors_engine_stopped_m_.push_back(error);
+                    } else {
+                        worst_error_engine_running_m_ =
+                            std::max(worst_error_engine_running_m_, error);
+                        errors_engine_running_m_.push_back(error);
+                    }
                     // **After a take-over, apart**: updates the server can
                     // only have sent if it is flying the aircraft taken over
                     // by this client's inputs.
@@ -1611,6 +1675,13 @@ public:
                 }
                 ++corrections_;
                 worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
+                if (engine_stopped_at_s_) {
+                    worst_correction_engine_stopped_m_ =
+                        std::max(worst_correction_engine_stopped_m_, c.moved_m);
+                } else {
+                    worst_correction_engine_running_m_ =
+                        std::max(worst_correction_engine_running_m_, c.moved_m);
+                }
                 if (c.snapped) {
                     ++snapped_;
                     if (taken_over_ > 0) {
@@ -1847,6 +1918,10 @@ public:
 
     // What it found, as the lines it says: a test reads them from the file
     // it was given (`--heard`).
+    // How many updates have been compared since the server said its engine
+    // had stopped (`--until-engine-compared`).
+    std::size_t compared_engine_stopped() const { return compared_engine_stopped_; }
+
     std::vector<std::string> report() const {
         std::vector<std::string> lines;
         char line[256];
@@ -1869,6 +1944,33 @@ public:
             std::nth_element(sorted.begin(), middle, sorted.end());
             std::snprintf(line, sizeof line, "prediction error median: %.3f m over %zu updates",
                           *middle, sorted.size());
+            lines.emplace_back(line);
+        }
+        if (engine_stopped_at_s_) {
+            std::snprintf(line, sizeof line,
+                          "engine stopped for the server's word (%d stopped here): %zu updates "
+                          "compared after, the worst error %.3f m and correction %.3f m; "
+                          "before, %.3f m and %.3f m",
+                          prediction_ ? prediction_->engines_stopped_for_the_server() : 0,
+                          compared_engine_stopped_, worst_error_engine_stopped_m_,
+                          worst_correction_engine_stopped_m_, worst_error_engine_running_m_,
+                          worst_correction_engine_running_m_);
+            lines.emplace_back(line);
+            // **And the medians**, which the worst is not: half a second at a
+            // time, every few seconds, a prediction is put right by a metre
+            // or more whether an engine has stopped or not (PROJECT_STATUS.md,
+            // 2026-10-06), and the worst is what that made it.
+            const auto median = [](std::vector<double> v) {
+                if (v.empty()) {
+                    return 0.0;
+                }
+                const auto middle = v.begin() + static_cast<std::ptrdiff_t>(v.size() / 2);
+                std::nth_element(v.begin(), middle, v.end());
+                return *middle;
+            };
+            std::snprintf(line, sizeof line,
+                          "engine stopped: the median error after %.3f m, before %.3f m",
+                          median(errors_engine_stopped_m_), median(errors_engine_running_m_));
             lines.emplace_back(line);
         }
         if (handed_over_ + taken_back_ + taken_over_ > 0) {
@@ -2042,6 +2144,16 @@ private:
     std::size_t compared_since_ = 0;
     std::size_t snapped_since_ = 0;
     double worst_error_since_m_ = 0.0;
+    // **When the server's word first said its engine had stopped**, and the
+    // worst error and correction before and after it.
+    std::optional<double> engine_stopped_at_s_;
+    std::size_t compared_engine_stopped_ = 0;
+    double worst_error_engine_stopped_m_ = 0.0;
+    std::vector<double> errors_engine_stopped_m_;
+    std::vector<double> errors_engine_running_m_;
+    double worst_error_engine_running_m_ = 0.0;
+    double worst_correction_engine_stopped_m_ = 0.0;
+    double worst_correction_engine_running_m_ = 0.0;
     std::vector<std::uint32_t> joining_;
     bool answered_ = false;
     double worst_error_m_ = 0.0;
@@ -2303,6 +2415,16 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (connect_copilot.done) {
             break;
         }
+        // **Stay until enough updates have been compared with the engine
+        // stopped** (`--until-engine-compared`).
+        if (connect_until_engine_compared > 0 && predicting &&
+            predicting->compared_engine_stopped() >= connect_until_engine_compared) {
+            break;
+        }
+        // **Stay until the flood is over** (`--flood`): read and answered.
+        if (connect_flood.done) {
+            break;
+        }
         // **Stay until its aircraft has rolled past 90 degrees**
         // (`--stall-once-rolled`, in the session it joins again): what a test
         // waits for to know it flew again, SECONDS only the most.
@@ -2485,6 +2607,52 @@ int stay(glideslope::platform::UdpSocket& socket,
                 (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
                 say_heard("asked to take over aircraft " + std::to_string(ai_to_take));
             }
+        }
+        // **The flood** (`--flood`, ConnectFlood), once flying.
+        ConnectFlood& flood = connect_flood;
+        const auto knock_with = [&](std::uint64_t token) {
+            const std::vector<std::uint8_t> ping =
+                glideslope::net::knock(glideslope::net::Inside::ping, token);
+            glideslope::net::Writer fw = glideslope::net::begin(glideslope::net::Type::sealed);
+            fw.bytes(sealer.seal(std::span<const std::uint8_t>(ping.data(), ping.size())));
+            const std::vector<std::uint8_t> out = fw.take();
+            (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
+        };
+        if (flood.on && !flood.done && !flood.began_s && applied > 0) {
+            flood.began_s = up_s;
+        }
+        if (flood.began_s && flood.sent < ConnectFlood::pings) {
+            const int due = std::min(
+                ConnectFlood::pings,
+                1 + static_cast<int>((up_s - *flood.began_s) * ConnectFlood::pings_per_second));
+            for (; flood.sent < due; ++flood.sent) {
+                knock_with(ConnectFlood::first_token + static_cast<std::uint64_t>(flood.sent));
+            }
+            flood.took_s = up_s - *flood.began_s;
+        }
+        if (flood.began_s && flood.sent == ConnectFlood::pings && !flood.asked) {
+            flood.asked = true;
+            for (int i = 0; i < ConnectFlood::requests; ++i) {
+                glideslope::net::Watch watch;
+                watch.aircraft = i % 2 == 0 ? mine : glideslope::net::no_aircraft;
+                const std::vector<std::uint8_t> body = glideslope::net::write(watch);
+                (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+            }
+        }
+        if (flood.asked && !flood.last_answered && up_s - flood.knocked_s >= 0.25) {
+            flood.knocked_s = up_s;
+            knock_with(ConnectFlood::last_token);
+        }
+        if (flood.asked && flood.last_answered && reliable.in_flight() == 0 && !flood.done) {
+            flood.done = true;
+            // On standard error, which a test reads whatever order its
+            // pipeline is in.
+            std::fprintf(stderr,
+                         "flood: %d sealed pings over %.3f s, %d answered; %d requests, all "
+                         "acknowledged\n",
+                         ConnectFlood::pings, flood.took_s, flood.answered,
+                         ConnectFlood::requests);
+            std::fflush(stderr);
         }
         // Acknowledgements of what must arrive, when any are owed.
         for (const std::vector<std::uint8_t>& datagram : reliable.to_send(up_s)) {
@@ -2932,6 +3100,17 @@ int stay(glideslope::platform::UdpSocket& socket,
             std::fflush(stdout);
             ended = Ended::dropped;
             return 1;
+        }
+        // The server's answers to the flood's knocks (`--flood`).
+        if (const auto pong = glideslope::net::knock_token(glideslope::net::Inside::pong, inside);
+            pong && connect_flood.on) {
+            if (*pong == ConnectFlood::last_token) {
+                connect_flood.last_answered = true;
+            } else if (*pong >= ConnectFlood::first_token &&
+                       *pong < ConnectFlood::first_token + ConnectFlood::pings) {
+                ++connect_flood.answered;
+            }
+            continue;
         }
         const auto token =
             glideslope::net::knock_token(glideslope::net::Inside::ping, inside);
@@ -3784,6 +3963,15 @@ static int run_program(int argc, char** argv) {
                     leave_once_back = true;
                     continue;
                 }
+                if (args[i] == "--flood") {
+                    connect_flood.on = true;
+                    continue;
+                }
+                if (args[i] == "--until-engine-compared" && i + 1 < args.size()) {
+                    connect_until_engine_compared =
+                        static_cast<std::size_t>(std::stoul(std::string(args[++i])));
+                    continue;
+                }
                 if (args[i] == "--no-goodbye") {
                     goodbye = false;
                     continue;
@@ -4051,6 +4239,11 @@ static int run_program(int argc, char** argv) {
             if (stall_once_rolled && (stay_s <= 0.0 || !fly)) {
                 std::fprintf(stderr, "glideslope_cli: --stall-once-rolled needs --fly "
                                      "and seconds to fly for\n");
+                return 2;
+            }
+            if (connect_flood.on && (stay_s <= 0.0 || !fly)) {
+                std::fprintf(stderr, "glideslope_cli: --flood needs --fly and seconds to "
+                                     "fly for\n");
                 return 2;
             }
             if (leave_once_back && (stay_s <= 0.0 || !fly)) {

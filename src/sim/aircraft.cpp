@@ -598,6 +598,31 @@ void Aircraft::fail_engine(int engine, bool feather) {
     }
 }
 
+void Aircraft::restart_engine(int engine) {
+    const std::string n = "[" + std::to_string(engine) + "]";
+    const auto e = exec_->GetPropulsion()->GetEngine(static_cast<unsigned>(engine));
+    if (const auto piston = std::dynamic_pointer_cast<JSBSim::FGPiston>(e)) {
+        piston->SetMagnetos(3);
+    }
+    if (const auto turbine = std::dynamic_pointer_cast<JSBSim::FGTurbine>(e)) {
+        turbine->SetCutoff(false);
+    }
+    e->SetRunning(true);
+    if (has_property("fcs/feather-cmd-norm" + n)) {
+        exec_->SetPropertyValue("fcs/feather-cmd-norm" + n, 0.0);
+    }
+}
+
+bool Aircraft::any_engine_stopped() const {
+    const auto propulsion = exec_->GetPropulsion();
+    for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
+        if (!propulsion->GetEngine(i)->GetRunning()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Aircraft::freeze_fuel(bool frozen) {
     exec_->GetPropulsion()->SetFuelFreeze(frozen);
 }

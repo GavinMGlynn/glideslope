@@ -160,10 +160,12 @@ void Flight::adopt(const sim::Motion& motion, std::uint64_t server_steps) {
 sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
                                               std::uint32_t last_applied,
                                               std::size_t steps_into,
-                                              std::uint64_t server_steps) {
+                                              std::uint64_t server_steps,
+                                              bool engine_stopped) {
     if (!prediction_) {
         return {};
     }
+    (void)prediction_->hear_engine_stopped(engine_stopped);
     return prediction_->reconcile(motion, last_applied, steps_into, server_steps);
 }
 

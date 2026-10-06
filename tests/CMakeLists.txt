@@ -197,6 +197,7 @@ set(GLIDESLOPE_UNIT_TESTS
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
     prediction_reconciled_from_motion_alone_stays_within_its_bound_at_100_and_200_ms
     a_client_put_right_from_as_far_into_its_input_as_the_server_had_flown_is_off_by_centimetres
+    a_prediction_stops_its_engine_on_the_servers_word_and_starts_it_again_on_its_word
     a_prediction_begun_part_way_through_an_input_is_not_put_off_by_it
     a_client_that_flew_different_inputs_is_put_back_where_the_server_says
     a_client_that_flew_different_inputs_is_put_back_by_the_servers_motion_alone
@@ -1920,6 +1921,31 @@ add_test(NAME a_client_let_go_with_its_last_updates_held_joins_again_without_goi
 set_tests_properties(a_client_let_go_with_its_last_updates_held_joins_again_without_going_back
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stale_rejoin)
+
+# **A client sending faster than the stated rates is held to them.** See
+# cmake/server_rate_limits.cmake.
+add_test(NAME a_client_sending_faster_than_its_stated_rates_is_held_to_them
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DBUDGET=${PROJECT_SOURCE_DIR}/src/net/budget.hpp
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_rate_limits -DPORT=24802
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_rate_limits.cmake)
+set_tests_properties(a_client_sending_faster_than_its_stated_rates_is_held_to_them
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_rate_limits)
+
+# **A client predicting its own aircraft is put right no more after its
+# engine stops on the server than before.** See cmake/server_engine_prediction.cmake.
+add_test(NAME a_client_predicting_its_aircraft_stops_its_engine_when_the_server_says_and_is_put_right_no_more
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction -DPORT=24803
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_engine_prediction.cmake)
+set_tests_properties(a_client_predicting_its_aircraft_stops_its_engine_when_the_server_says_and_is_put_right_no_more
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction)
 
 # **A player the operator drops stays dropped**: told, not back by itself,
 # and refused DROPPED when started again. See cmake/server_drop_keeps_out.cmake.
