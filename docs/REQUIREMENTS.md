@@ -810,6 +810,15 @@ The replacement:
   is never left to fly a weather of its own; a client on a server may not be
   given `--weather`.
 
+**Closed 2026-10-06** (section 6.7, the network tails):
+
+- **A client joining again goes back to its old session only on that
+  session's answer to a knock of the attempt's own**, never on anything else
+  that opens under the old keys: an update held on the way from before the
+  let-go opens as well as a live one, and going back on it left a ghost
+  session on the server. The knock costs one sealed `PING` a quarter of a
+  second while joining again.
+
 **Open:**
 
 - **Buildings:** how OpenStreetMap buildings arrive without a Cesium ion

@@ -46,6 +46,21 @@
 // past that are dropped, counted and said, so that a hold nobody ends cannot
 // grow without bound.
 //
+// With `--hold-until-let-go-after N`, the same hold begins after N datagrams
+// from the server, and nothing is forged: **the server lets the session go
+// for real, with its last updates held on the way.** While the hold lasts
+// everything a client sends is dropped, so the server hears nothing - except
+// that the relay sends it, every quarter of a second, the last sealed
+// datagram the client sent before the hold, which the server has already
+// opened: a replay, which it drops in silence while it has the session, and
+// refuses `BAD_HANDSHAKE` once it has let it go. **That refusal is the event**:
+// from it, the server's refusals are passed on and what the client sends goes
+// through again, so the client hears the server's own refusals and believes
+// one. Its initiation ends the hold as above, and what was held - updates
+// sealed before the session was let go - is delivered after it. It says on
+// standard error whether the server let the session go during the hold, how
+// many it dropped from the client meanwhile and how many it held.
+//
 // It is what `tc netem` does, without needing to be root or on Linux, so that
 // the same check runs on every CI platform.
 
@@ -94,7 +109,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "usage: glideslope_impair LISTEN_PORT SERVER_HOST:PORT --delay MS "
                              "--jitter MS --loss PERCENT --seed N [--until-input-ends] "
                              "[--seconds S] [--gap MS --every S] "
-                             "[--forge-refusal-after N]\n");
+                             "[--forge-refusal-after N | --hold-until-let-go-after N]\n");
         return 2;
     }
     const auto listen_port = static_cast<std::uint16_t>(std::atoi(argv[1]));
@@ -108,6 +123,8 @@ int main(int argc, char** argv) {
     // How many datagrams from the server before the hold and the forging
     // begin; 0 is never.
     std::uint64_t forge_after = 0;
+    // `--hold-until-let-go-after`: the same hold, forging nothing (above).
+    bool until_let_go = false;
     unsigned seed = 1;
     bool until_input_ends = false;
     for (int i = 3; i < argc; i += 2) {
@@ -130,7 +147,10 @@ int main(int argc, char** argv) {
         else if (flag == "--every") gap_every_s = number(argv[i + 1]);
         else if (flag == "--forge-refusal-after")
             forge_after = std::strtoull(argv[i + 1], nullptr, 10);
-        else {
+        else if (flag == "--hold-until-let-go-after") {
+            forge_after = std::strtoull(argv[i + 1], nullptr, 10);
+            until_let_go = true;
+        } else {
             std::fprintf(stderr, "impair: no option %s\n", flag.c_str());
             return 2;
         }
@@ -205,13 +225,24 @@ int main(int argc, char** argv) {
         w.u8(static_cast<std::uint8_t>(glideslope::net::Refusal::bad_handshake));
         refusal = w.take();
     }
-    const auto is_initiation = [](const std::uint8_t* data, std::size_t n) {
+    const auto is_a = [](glideslope::net::Type type, const std::uint8_t* data, std::size_t n) {
         glideslope::net::Reader r(std::span<const std::uint8_t>(data, n));
         glideslope::net::Envelope envelope;
         glideslope::net::Refusal why{};
-        return glideslope::net::read_envelope(r, envelope, why) &&
-               envelope.type == glideslope::net::Type::handshake_initiation;
+        return glideslope::net::read_envelope(r, envelope, why) && envelope.type == type;
     };
+    const auto is_initiation = [&is_a](const std::uint8_t* data, std::size_t n) {
+        return is_a(glideslope::net::Type::handshake_initiation, data, n);
+    };
+    // **Held until the server lets go** (`--hold-until-let-go-after`): the
+    // replay that asks the server whether it still has the session, whose
+    // client it is, when it last went and how often; whether the server has
+    // refused it; and how many of the client's datagrams were dropped first.
+    std::vector<std::uint8_t> probe;
+    std::string probe_client;
+    auto probed_at = std::chrono::steady_clock::now();
+    std::uint64_t probes = 0, dropped_holding = 0, released = 0;
+    bool let_go_seen = false;
     const auto gaps_from = std::chrono::steady_clock::now();
     const auto hold = [&](bool to_server, const glideslope::platform::Address& to,
                           const std::string& client, const std::uint8_t* data, std::size_t n) {
@@ -225,7 +256,14 @@ int main(int argc, char** argv) {
                 return;
             }
         }
-        if (!to_server && forging == Forging::holding) {
+        // The server's refusal, while held until it lets go, is the let-go
+        // itself: passed on, not held.
+        const bool refusal_passed =
+            until_let_go && is_a(glideslope::net::Type::refusal, data, n);
+        if (!to_server && forging == Forging::holding && refusal_passed) {
+            let_go_seen = true;
+        }
+        if (!to_server && forging == Forging::holding && !refusal_passed) {
             if (held_back.size() >= most_held) {
                 ++past_the_cap;
                 return;
@@ -310,14 +348,35 @@ int main(int argc, char** argv) {
                         h.due = std::chrono::steady_clock::now();
                         held.push_back(std::move(h));
                     }
+                    released = held_back.size();
                     held_back.clear();
+                } else if (until_let_go) {
+                    // Until the server has let the session go, it hears
+                    // nothing from the client; after, everything.
+                    if (!let_go_seen) {
+                        ++dropped_holding;
+                        continue;
+                    }
                 } else {
                     (void)front->send(from, std::span<const std::uint8_t>(refusal.data(),
                                                                           refusal.size()));
                     ++forged;
                 }
             }
+            if (until_let_go && forging == Forging::not_yet &&
+                is_a(glideslope::net::Type::sealed, buffer.data(), got)) {
+                probe.assign(buffer.data(), buffer.data() + got);
+                probe_client = client;
+            }
             hold(true, *server, client, buffer.data(), got);
+        }
+        // The replay that asks whether the server still has the session.
+        if (until_let_go && forging == Forging::holding && !let_go_seen && !probe.empty() &&
+            now - probed_at >= std::chrono::milliseconds(250)) {
+            probed_at = now;
+            (void)upstream[probe_client]->send(
+                *server, std::span<const std::uint8_t>(probe.data(), probe.size()));
+            ++probes;
         }
         // From the server, back towards each client.
         for (auto& [client, socket] : upstream) {
@@ -382,7 +441,21 @@ int main(int argc, char** argv) {
     std::printf("impair: %llu dropped in gaps\n", static_cast<unsigned long long>(gapped));
     // **What the forger did**, on standard error, where a test reads the
     // programs' words.
-    if (forge_after > 0) {
+    if (forge_after > 0 && until_let_go) {
+        std::fprintf(stderr,
+                     "impair: held the server's datagrams; the server %s after %llu replays; "
+                     "%llu dropped from the client meanwhile; the hold %s; %llu held delivered "
+                     "after it, %llu dropped past its cap\n",
+                     let_go_seen ? "let the session go" : "never let the session go",
+                     static_cast<unsigned long long>(probes),
+                     static_cast<unsigned long long>(dropped_holding),
+                     forging == Forging::over    ? "ended on a client's initiation"
+                     : forging == Forging::holding ? "never ended"
+                                                   : "never began",
+                     static_cast<unsigned long long>(released),
+                     static_cast<unsigned long long>(past_the_cap));
+        std::fflush(stderr);
+    } else if (forge_after > 0) {
         if (forging == Forging::over) {
             std::fprintf(stderr,
                          "impair: forged %llu refusals while holding the server's datagrams; "

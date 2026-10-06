@@ -238,6 +238,7 @@ add_library(glideslope_net STATIC
     src/net/interpolation.cpp
     src/net/messages.cpp
     src/net/protocol.cpp
+    src/net/rejoin.cpp
     src/net/session.cpp
     src/net/slots.cpp
     src/net/told.cpp

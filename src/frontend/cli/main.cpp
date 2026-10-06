@@ -2063,22 +2063,8 @@ constexpr double quiet_before_believing_s = 3.0;
 enum class Ended { stayed, let_go, dropped };
 
 // **Whether a datagram is the server's refusal, and for what**: only from
-// the server's own address. Anything else is nothing.
-std::optional<glideslope::net::Refusal> refusal_from(
-    const glideslope::platform::Address& server, const glideslope::platform::Address& from,
-    std::span<const std::uint8_t> datagram) {
-    if (!(from == server) || datagram.size() != glideslope::net::envelope_size + 1) {
-        return std::nullopt;
-    }
-    glideslope::net::Reader r(datagram);
-    glideslope::net::Envelope envelope;
-    glideslope::net::Refusal why{};
-    if (!glideslope::net::read_envelope(r, envelope, why) ||
-        envelope.type != glideslope::net::Type::refusal) {
-        return std::nullopt;
-    }
-    return static_cast<glideslope::net::Refusal>(datagram[glideslope::net::envelope_size]);
-}
+// the server's own address (net/rejoin.hpp).
+using glideslope::net::refusal_from;
 
 // A sealed `PING` of this client's own, `token`, to the server.
 void knock_on(glideslope::platform::UdpSocket& socket,
@@ -2326,7 +2312,12 @@ int stay(glideslope::platform::UdpSocket& socket,
         // **Stay until the server has applied an input sent in this stay**
         // (`--leave-once-back`, in the session it is back in): flown from
         // here again, which is what a test waits for, SECONDS only the most.
-        if (until_applied && applied > sequence_at_start) {
+        // **And has answered one of the server's knocks there**, which is
+        // what a stay counts as having been in a session: back in the old
+        // one, the updates held from before are its answer's to drop now
+        // (net::Rejoin), and the first update after it could already carry
+        // an input applied.
+        if (until_applied && applied > sequence_at_start && answered > 0) {
             break;
         }
         if (stall_once_rolled && std::abs(roll_seen_deg) >= 90.0) {
@@ -3172,53 +3163,43 @@ void say_outcome(const std::string& heard_file, const std::string& line) {
     }
 }
 
-// **How joining again came out**: a new session; the old one after all -
-// something opened under it, so it was never gone; refused, and why; or no
-// answer in a minute.
+// **How joining again came out**: a new session; the old one after all - it
+// answered a knock, so it was never gone; refused, and why; or no answer in a
+// minute. And how many datagrams opened under the old session that were not
+// its answer, and were not gone back for.
 struct Rejoined {
     std::optional<glideslope::net::SessionKeys> keys;
     bool old_session_answers = false;
     std::optional<glideslope::net::Refusal> refused;
+    int stale = 0;
 };
 
 // **Joins again, as a client the server has let go** (`stay()`'s
-// `Ended::let_go`): a new initiation - a new ephemeral key, so not a copy of
-// the one the server has taken from this address - with the same static key,
-// resent every quarter of a second until it is answered, a minute the most.
-//
-// **The old session is kept listening to meanwhile.** If anything opens
-// under it, the session was not gone - the refusal that ended it was forged,
-// or a blip - and the client goes back to it: a server that still has it
-// drops the new initiation from this address without a word. So a forged
-// refusal costs a client nothing.
-//
-// **Refusals from the server's address**: `SERVER_FULL` and `DROPPED` end
-// it, with the reason, as they would a first handshake. `BAD_HANDSHAKE` does
-// not: sealed datagrams sent under the old session may still be on their way
-// to be refused.
+// `Ended::let_go`), by `net::Rejoin` - the same piece the client with the
+// window joins again by: a new initiation with the same static key, resent
+// every quarter of a second until it is answered, a minute the most, and the
+// old session knocked on meanwhile. **Back to the old session only on its
+// answer to that knock**: anything else that opens under it may have been
+// sealed before the server let it go, and going back on it left a ghost
+// session on the server and this client lost for its timeout.
+// `SERVER_FULL` and `DROPPED` end it, with the reason.
 Rejoined join_again(glideslope::platform::UdpSocket& socket,
                     const glideslope::platform::Address& server,
                     const glideslope::net::KeyPair& mine, const glideslope::net::PublicKey& theirs,
-                    glideslope::net::Unsealer& old_session) {
+                    glideslope::net::Sealer& old_sealing, glideslope::net::Unsealer& old_opening) {
     Rejoined out;
-    glideslope::net::Initiator initiator(mine, theirs);
-    glideslope::net::Writer w =
-        glideslope::net::begin(glideslope::net::Type::handshake_initiation);
-    w.bytes(initiator.begin());
-    const std::vector<std::uint8_t> initiation = w.take();
+    glideslope::net::Rejoin rejoin(mine, theirs, old_sealing, old_opening);
     std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
     const auto began = std::chrono::steady_clock::now();
-    double sent_at_s = -1.0;
     for (;;) {
         const double waited =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
         if (waited > 60.0) {
             return out;
         }
-        if (waited - sent_at_s >= 0.25) {
-            (void)socket.send(server, std::span<const std::uint8_t>(initiation.data(),
-                                                                    initiation.size()));
-            sent_at_s = waited;
+        for (const std::vector<std::uint8_t>& datagram : rejoin.due(waited)) {
+            (void)socket.send(server,
+                              std::span<const std::uint8_t>(datagram.data(), datagram.size()));
         }
         glideslope::platform::Address from;
         const std::size_t got = socket.receive(into, from);
@@ -3226,30 +3207,25 @@ Rejoined join_again(glideslope::platform::UdpSocket& socket,
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             continue;
         }
-        const std::span<const std::uint8_t> datagram(into.data(), got);
-        const std::span<const std::uint8_t> body = datagram.subspan(glideslope::net::envelope_size);
-        const auto refused = refusal_from(server, from, datagram);
-        if (refused == glideslope::net::Refusal::server_full ||
-            refused == glideslope::net::Refusal::dropped) {
-            out.refused = refused;
+        using Heard = glideslope::net::Rejoin::Heard;
+        const Heard heard =
+            rejoin.hear(server, from, std::span<const std::uint8_t>(into.data(), got));
+        out.stale = rejoin.stale();
+        switch (heard) {
+        case Heard::server_full:
+            out.refused = glideslope::net::Refusal::server_full;
             return out;
-        }
-        const std::uint8_t type = into[glideslope::net::envelope_size - 1];
-        if (type == static_cast<std::uint8_t>(glideslope::net::Type::sealed) &&
-            old_session.open(body)) {
+        case Heard::dropped:
+            out.refused = glideslope::net::Refusal::dropped;
+            return out;
+        case Heard::old_session_answers:
             out.old_session_answers = true;
             return out;
-        }
-        if (type == static_cast<std::uint8_t>(glideslope::net::Type::handshake_response)) {
-            glideslope::net::Reader r(datagram);
-            glideslope::net::Envelope envelope;
-            glideslope::net::Refusal why{};
-            if (glideslope::net::read_envelope(r, envelope, why)) {
-                if (auto session = initiator.finish(body)) {
-                    out.keys = std::move(session);
-                    return out;
-                }
-            }
+        case Heard::joined:
+            out.keys = rejoin.keys();
+            return out;
+        case Heard::nothing:
+            break;
         }
     }
 }
@@ -3609,7 +3585,14 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                             break;
                         }
                         const Rejoined rejoined =
-                            join_again(*socket, *address, mine, *theirs, *opening);
+                            join_again(*socket, *address, mine, *theirs, *sealing, *opening);
+                        // **What opened under the old session and was not
+                        // gone back for**, said so that a test can tell a
+                        // join made with stale updates arriving from one
+                        // made without.
+                        std::printf("while joining again, %d opened under the old session "
+                                    "that were not its answer\n",
+                                    rejoined.stale);
                         if (rejoined.refused) {
                             say_outcome(heard_file,
                                         "let go, and refused when joining again, reason " +

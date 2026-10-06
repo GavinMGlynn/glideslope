@@ -395,12 +395,17 @@ GLIDESLOPE_TEST(a_session_joined_again_hands_up_nothing_of_the_one_let_go) {
     // **The session joined again proves itself as a first one does**: its
     // first sealed datagram is lost - read here and thrown away - and it
     // knocks every quarter of a second of its own clock until one opens.
+    // The knock on the old session that went with the initiation (net::Rejoin)
+    // may come first; it opens under nothing the new session has.
     Address whence;
-    const std::vector<std::uint8_t> lost = wait_for(server.socket, whence);
-    check(lost.size() > glideslope::net::envelope_size &&
-              server.opening->open(std::span<const std::uint8_t>(lost).subspan(
-                  glideslope::net::envelope_size)),
-          "the new session sealed something at once");
+    bool sealed_at_once = false;
+    for (int read = 0; read < 4 && !sealed_at_once; ++read) {
+        const std::vector<std::uint8_t> lost = wait_for(server.socket, whence);
+        sealed_at_once = lost.size() > glideslope::net::envelope_size &&
+                         server.opening->open(std::span<const std::uint8_t>(lost).subspan(
+                             glideslope::net::envelope_size));
+    }
+    check(sealed_at_once, "the new session sealed something at once");
     bool proved = false;
     for (double now_s = 10.0; now_s < 10.9 && !proved; now_s += 0.01) {
         session->poll(now_s);

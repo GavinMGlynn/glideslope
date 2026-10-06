@@ -248,10 +248,17 @@ slot, and a new aircraft, the old one having gone as `--on-leave` said. A
 `BAD_HANDSHAKE` while it waits is not an answer - sealed datagrams sent under
 the old session may still be on their way to be refused - and does not end
 the attempt; `SERVER_FULL` and `DROPPED` from the server's address end it,
-with the reason. **It goes on listening to the old session while it waits**:
-if anything opens under the old keys, the session was never gone, and the
+with the reason. **It knocks on the old session while it waits**: with
+each initiation it sends, it sends a sealed `PING` under the old session's
+keys, carrying a token chosen at random for this attempt. If the `PONG` to
+that token opens under the old keys, the session was never gone, and the
 client goes back to it - a server that still has it drops the new initiation
-from that address without a word. **Back in it, nothing starts again**: the
+from that address without a word. **Nothing else that opens under the old
+keys is a reason to go back**: an update the server sealed before it let the
+session go, held on the way, opens as well as a live one, and is dropped. A
+server that has let the session go answers the knock with nothing - refused
+`BAD_HANDSHAKE` before the new initiation arrives, opening under nothing
+after - so the client takes the new session. **Back in it, nothing starts again**: the
 server's count of the client's inputs and both reliable streams are where the
 session left them, so the client numbers its inputs on from the last it sent
 - inputs numbered afresh would all be older than the newest the server had
