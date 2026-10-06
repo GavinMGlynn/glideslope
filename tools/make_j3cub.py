@@ -187,7 +187,6 @@ def airframe():
     return with_float_carburettor(text, "make_j3cub")
 
 
-
 def engine():
     text = (PINNED_CUB / "Engines" / "Continental A-65-8.xml").read_text()
     text = replace_once(text, r"(<piston_engine name=\"[^\"]*\">)",

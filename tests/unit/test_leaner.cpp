@@ -141,73 +141,201 @@ GLIDESLOPE_TEST(the_leaner_rests_at_full_rich_at_full_throttle_low_down) {
           "the lever rests within a hundredth of full rich: " + std::to_string(f.least_resting));
 }
 
-// **An engine the leaner was leaning that stops is given its mixture back,
-// and runs again.** The 172P level at full throttle, leaned for a minute and
-// a half; then its mixture lever pulled to cut-off for five seconds - the
-// leaner still asked each step, its answer not used - and the engine stops;
-// then the leaner's answer used again. While the engine is stopped the
-// leaner richens its lever, and given it back the engine fires, windmilling,
-// and makes nine tenths of its power again within thirty seconds. Twice:
-// at 7,000 ft, where full rich burns, and at 12,000 ft, where it is richer
-// than 8 to 1 and does not - there, richened to full rich, it never ran
-// again.
-GLIDESLOPE_TEST(an_engine_the_leaner_was_leaning_that_stops_is_richened_and_runs_again) {
-    std::size_t flown = 0;
-    for (const double altitude_ft : {7000.0, 12000.0}) {
-        ++flown;
-        Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+namespace {
+
+// The aircraft whose catalogue gives them a mixture lever below a height -
+// the two Cessnas; the Cherokee is leaned at every height (its catalogue).
+const char* const lever_aircraft[] = {"c172p", "c182"};
+constexpr std::size_t lever_aircraft_count = 2;
+
+// How long the lever is cut off: long enough to stop the engine, short
+// enough that its propeller still turns. The 182S's model charges a
+// stopped engine its friction (tools/make_c182.py), which stops its
+// propeller within five seconds; the 172P's turns on for longer.
+double cut_off_s(const std::string& model) {
+    return model == "c182" ? 1.5 : 5.0;
+}
+
+// One of them, its engine on `mixture`, the leaner on the mixture from the
+// first step, flown by the test pilot level at `altitude_ft` at full throttle
+// or, `descend`ing, at 100 kt on a fifth of it. Its lever can be cut off.
+struct LeverFlight {
+    Aircraft aircraft;
+    TestPilot pilot;
+    Controls c;
+    MixtureLeaner leaner;
+    double altitude_ft;
+
+    LeverFlight(const std::string& model, double altitude, double kts, double mixture)
+        : aircraft(GLIDESLOPE_TEST_DATA_DIR, model), pilot(aircraft),
+          leaner((start(aircraft, altitude, kts), aircraft), mixture), altitude_ft(altitude) {
+        c.throttle = 1.0;
+        c.mixture = mixture;
+    }
+
+    static void start(Aircraft& a, double altitude, double kts) {
         glideslope::sim::InitialConditions ic;
         ic.latitude_deg = -33.9;
         ic.longitude_deg = 151.2;
-        ic.altitude_ft = altitude_ft;
-        ic.airspeed_kts = 90.0;
+        ic.altitude_ft = altitude;
+        ic.airspeed_kts = kts;
         ic.engine_running = true;
-        aircraft.initialize(ic);
-        TestPilot pilot(aircraft);
-        Controls c;
-        c.throttle = 1.0;
-        // Handed over on a mixture it burns at both heights.
-        c.mixture = 0.7;
-        MixtureLeaner leaner(aircraft, c.mixture);
-        const auto fly_for = [&](double seconds, bool cut_off) {
-            for (int i = 0; i < static_cast<int>(seconds * steps_per_second); ++i) {
-                c.elevator = pilot.pitch_to(pilot.pitch_for_altitude(altitude_ft));
-                c.aileron = pilot.roll_to(0.0);
-                c.rudder = pilot.coordinate();
-                const double mixture = leaner.lean(c.throttle);
-                c.mixture = cut_off ? 0.0 : mixture;
-                aircraft.set_controls(c);
-                aircraft.step();
-            }
-        };
-        const auto running = [&] {
-            return aircraft.property("propulsion/engine/set-running") > 0.0;
-        };
-        fly_for(90.0, false);
-        const double leaned_hp = aircraft.property("propulsion/engine/power-hp");
-        const double leaned_lever = leaner.resting();
-        const bool ran_leaned = running();
-        fly_for(5.0, true);
-        const bool stopped = !running();
-        const double stopped_lever = leaner.resting();
-        const double stopped_rpm = aircraft.property("propulsion/engine/engine-rpm");
-        fly_for(30.0, false);
-        const double hp = aircraft.property("propulsion/engine/power-hp");
-        std::printf("at %.0f ft: leaned, the lever at %.3f and %.1f hp; cut off five seconds, "
-                    "the engine %s at %.0f rpm and the lever at %.3f; given back, %s at %.1f hp, the lever "
-                    "at %.3f\n",
-                    altitude_ft, leaned_lever, leaned_hp, stopped ? "stopped" : "RUNNING", stopped_rpm,
-                    stopped_lever, running() ? "running" : "STOPPED", hp, leaner.resting());
-        const std::string at = "at " + std::to_string(altitude_ft) + " ft: ";
-        check(ran_leaned && leaned_lever < 0.95,
-              at + "the engine ran, leaned: the lever at " + std::to_string(leaned_lever));
-        check(stopped, at + "the engine stopped with its mixture cut off");
-        check(stopped_lever > leaned_lever + 0.05,
-              at + "the leaner richened the stopped engine: " + std::to_string(leaned_lever) +
-                  " to " + std::to_string(stopped_lever));
-        check(running() && hp >= 0.9 * leaned_hp,
-              at + "given its mixture back the engine runs at nine tenths of its power: " +
-                  std::to_string(hp) + " hp against " + std::to_string(leaned_hp));
+        a.initialize(ic);
     }
-    check(flown == 2, "both heights flown: " + std::to_string(flown));
+
+    void step(bool cut_off, bool descend) {
+        c.throttle = descend ? 0.2 : 1.0;
+        c.elevator = pilot.pitch_to(descend ? pilot.pitch_for_speed(100.0)
+                                            : pilot.pitch_for_altitude(altitude_ft));
+        c.aileron = pilot.roll_to(0.0);
+        c.rudder = pilot.coordinate();
+        const double mixture = leaner.lean(c.throttle);
+        c.mixture = cut_off ? 0.0 : mixture;
+        aircraft.set_controls(c);
+        aircraft.step();
+    }
+
+    void fly(double seconds, bool cut_off = false) {
+        for (int i = 0; i < static_cast<int>(seconds * steps_per_second); ++i) {
+            step(cut_off, false);
+        }
+    }
+
+    bool running() const {
+        return aircraft.property("propulsion/engine/set-running") > 0.0;
+    }
+
+    double hp() const {
+        return aircraft.property("propulsion/engine/power-hp");
+    }
+
+    double height() const {
+        return aircraft.property("position/h-sl-ft");
+    }
+};
+
+} // namespace
+
+// **An engine the leaner was leaning that stops is given its mixture back,
+// and runs again.** Each aeroplane with a mixture lever level at full
+// throttle, leaned for a minute and a half; then its lever pulled to cut-off
+// for five seconds - the leaner still asked each step, its answer not used -
+// and the engine stops; then the leaner's answer used again. While the
+// engine is stopped the leaner richens its lever, and given it back the
+// engine fires and makes nine tenths of its power again within thirty
+// seconds. At 7,000 ft, where full rich burns, and at 12,000 ft, where it is
+// richer than 8 to 1 and does not - there, richened to full rich, the 172P
+// never ran again.
+GLIDESLOPE_TEST(an_engine_the_leaner_was_leaning_that_stops_is_richened_and_runs_again) {
+    std::size_t flown = 0;
+    for (const char* model : lever_aircraft) {
+        for (const double altitude_ft : {7000.0, 12000.0}) {
+            ++flown;
+            // Handed over on a mixture it burns at both heights.
+            LeverFlight f(model, altitude_ft, 90.0, 0.7);
+            f.fly(90.0);
+            const double leaned_hp = f.hp();
+            const double leaned_lever = f.leaner.resting();
+            const bool ran_leaned = f.running();
+            f.fly(cut_off_s(model), true);
+            const bool stopped = !f.running();
+            const double stopped_lever = f.leaner.resting();
+            f.fly(30.0);
+            std::printf("%s at %.0f ft: leaned, the lever at %.3f and %.1f hp; cut off %.1f "
+                        "seconds, the engine %s and the lever at %.3f; given back, %s at %.1f "
+                        "hp, the lever at %.3f\n",
+                        model, altitude_ft, leaned_lever, leaned_hp, cut_off_s(model),
+                        stopped ? "stopped" : "RUNNING", stopped_lever,
+                        f.running() ? "running" : "STOPPED", f.hp(), f.leaner.resting());
+            const std::string at = std::string(model) + " at " + std::to_string(altitude_ft) +
+                                   " ft: ";
+            check(ran_leaned && leaned_lever < 0.95,
+                  at + "the engine ran, leaned: the lever at " + std::to_string(leaned_lever));
+            check(stopped, at + "the engine stopped with its mixture cut off");
+            check(stopped_lever > leaned_lever + 0.05,
+                  at + "the leaner richened the stopped engine: " +
+                      std::to_string(leaned_lever) + " to " + std::to_string(stopped_lever));
+            check(f.running() && f.hp() >= 0.9 * leaned_hp,
+                  at + "given its mixture back the engine runs at nine tenths of its power: " +
+                      std::to_string(f.hp()) + " hp against " + std::to_string(leaned_hp));
+        }
+    }
+    check(flown == 2 * lever_aircraft_count,
+          "both heights of every lever aircraft flown: " + std::to_string(flown));
+}
+
+// **Full rich below the catalogue's height, leaned above it.** Each
+// aeroplane whose catalogue has it full rich below 3,000 ft, at full
+// throttle: level at 2,000 ft, handed over on 0.8 of the lever, it is
+// richened to its stop within ten seconds and held there for two minutes;
+// level at 6,000 ft, handed over full rich, it is leaned within ninety
+// seconds and stays leaned. With the height at 0 the 182S, whose engine is
+// on the FAA's curve and always rich of best power full rich, is leaned at
+// 2,000 ft.
+GLIDESLOPE_TEST(the_leaner_holds_full_rich_below_the_catalogues_height_and_leans_above_it) {
+    std::size_t flown = 0;
+    for (const char* model : lever_aircraft) {
+        ++flown;
+        LeverFlight low(model, 2000.0, 100.0, 0.8);
+        check(low.aircraft.full_rich_below_ft() == 3000.0,
+              std::string(model) + "'s catalogue has it full rich below 3,000 ft");
+        low.fly(10.0);
+        double least = 1.0;
+        for (int i = 0; i < 120 * steps_per_second; ++i) {
+            low.step(false, false);
+            least = std::min(least, low.leaner.resting());
+        }
+        LeverFlight high(model, 6000.0, 100.0, 1.0);
+        high.fly(90.0);
+        double most = 0.0;
+        for (int i = 0; i < 60 * steps_per_second; ++i) {
+            high.step(false, false);
+            most = std::max(most, high.leaner.resting());
+        }
+        std::printf("%s: at %.0f ft the lever rested at %.3f at the least; at %.0f ft at "
+                    "%.3f at the most\n",
+                    model, low.height(), least, high.height(), most);
+        check(low.height() < 3000.0 && least >= 0.999,
+              std::string(model) + " below 3,000 ft is full rich: " + std::to_string(least));
+        check(high.height() > 3000.0 && most < 0.95,
+              std::string(model) + " above 3,000 ft is leaned: " + std::to_string(most));
+    }
+    check(flown == lever_aircraft_count, "every lever aircraft flown: " + std::to_string(flown));
+}
+
+// **An engine leaned high up that stops low down is given full rich**, not
+// the ratio it was leaned to up there. Each Cessna leaned at 8,000 ft for a
+// minute and a half, then brought down on a fifth of the throttle to below
+// 2,500 ft, where the leaner richens it to its stop; then its lever cut off
+// five seconds, and given back: it runs, and the lever stays at full rich.
+// Holding the ratio last found at 8,000 ft, the leaner walked it lean again.
+GLIDESLOPE_TEST(an_engine_leaned_high_up_that_stops_below_the_full_rich_height_is_given_full_rich) {
+    std::size_t flown = 0;
+    for (const char* model : lever_aircraft) {
+        ++flown;
+        LeverFlight f(model, 8000.0, 90.0, 1.0);
+        f.fly(90.0);
+        const double leaned = f.leaner.resting();
+        for (int i = 0; i < 900 * steps_per_second && f.height() > 2500.0; ++i) {
+            f.step(false, true);
+        }
+        const double low_ft = f.height();
+        f.altitude_ft = low_ft;
+        f.fly(15.0);
+        f.fly(cut_off_s(model), true);
+        double least = 1.0;
+        for (int i = 0; i < 30 * steps_per_second; ++i) {
+            f.step(false, false);
+            least = std::min(least, f.leaner.resting());
+        }
+        std::printf("%s: leaned at 8,000 ft to %.3f; down to %.0f ft; cut off and given back, "
+                    "the lever at %.3f at the least, the engine %s\n",
+                    model, leaned, low_ft, least, f.running() ? "running" : "STOPPED");
+        const std::string m(model);
+        check(leaned < 0.95, m + " was leaned at 8,000 ft: " + std::to_string(leaned));
+        check(low_ft < 2500.0, m + " came down below 2,500 ft: " + std::to_string(low_ft));
+        check(least >= 0.999 && f.running(),
+              m + " given back below the height runs full rich: " + std::to_string(least));
+    }
+    check(flown == lever_aircraft_count, "every lever aircraft flown: " + std::to_string(flown));
 }

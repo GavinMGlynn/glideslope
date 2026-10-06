@@ -88,8 +88,10 @@ double MixtureLeaner::lean(double throttle) {
         // burn - above about 9,500 ft it is richer than 8 to 1 - so the
         // ratio, not the stop, is what it is richened to. One handed over
         // stopped is the pilot's.
+        // Below the height it is held full rich at, full rich.
+        const bool low = a_.property("atmosphere/pressure-altitude") < a_.full_rich_below_ft();
         if (leaning_running_) {
-            if (best_afr_ > 0.0 && std::isfinite(afr) && afr > 0.0) {
+            if (!low && best_afr_ > 0.0 && std::isfinite(afr) && afr > 0.0) {
                 resting_ = std::clamp(resting_ + hold_rate * (afr - best_afr_) / best_afr_ * dt,
                                       leanest, 1.0);
             } else {
@@ -103,7 +105,12 @@ double MixtureLeaner::lean(double throttle) {
         // **Full rich below the height its handbook leans above**, richened
         // at the same pace: low down the engine is rated full rich, and its
         // handbook has it so.
+        // The ratio held throttled back, or given back to an engine that
+        // stops, is the one it has here, not one found higher up.
         feeling_ = false;
+        if (std::isfinite(afr) && afr > 0.0) {
+            best_afr_ = afr;
+        }
         resting_ = std::min(resting_ + richen_per_s * dt, 1.0);
         return resting_;
     }
