@@ -51,7 +51,7 @@ add_executable(glideslope_tests
     unit/test_session_over_a_socket.cpp
     unit/test_interpolation.cpp
     unit/test_shown.cpp
-    ${PROJECT_SOURCE_DIR}/src/frontend/client/shown.cpp
+    ${PROJECT_SOURCE_DIR}/src/frontend/shown.cpp
     ${PROJECT_SOURCE_DIR}/src/frontend/same_air.cpp
     unit/test_same_air.cpp
     unit/test_prediction.cpp
@@ -2280,6 +2280,28 @@ add_test(NAME the_client_with_the_window_hands_its_aircraft_over_and_the_model_c
 set_tests_properties(the_client_with_the_window_hands_its_aircraft_over_and_the_model_chosen_plans_it
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_hand_over_model)
+# **The client with the window chooses its hand-over model in flight**, with
+# M - Claude, ChatGPT, none and round again - and with no key for the one
+# chosen is refused, says so, and its aircraft is held. One press, two and
+# three: every choice. See cmake/client_model_chosen_in_flight.cmake.
+foreach(_case 1:24729:claude_and_with_no_key_is_refused_and_its_aircraft_held
+              2:24761:chatgpt_and_with_no_key_is_refused_and_its_aircraft_held
+              3:24767:none_again_and_asks_no_model)
+    string(REPLACE ":" ";" _case "${_case}")
+    list(GET _case 0 _presses)
+    list(GET _case 1 _port)
+    list(GET _case 2 _what)
+    set(_name the_client_with_the_window_pressing_m_${_presses}_times_in_flight_chooses_${_what})
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/model_chosen_${_presses} -DPORT=${_port}
+            -DDRIVER=vulkan -DPRESSES=${_presses}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_model_chosen_in_flight.cmake)
+    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/model_chosen_${_presses})
+endforeach()
 
 # **A player's aircraft handed to the AI and back, then wrecked, flies again
 # as the player's.** See cmake/server_swap_wreck.cmake.
@@ -2610,6 +2632,31 @@ if("vulkan" IN_LIST GLIDESLOPE_GPU_DRIVERS)
     set_tests_properties(the_client_with_the_window_dropped_by_the_operator_says_so_and_does_not_join_again
         PROPERTIES SKIP_RETURN_CODE 77)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_dropped)
+    # **Dropped with every goodbye lost, it finds out by trying**: let go,
+    # it joins again, is refused DROPPED, and says it was dropped. See
+    # cmake/client_server_gone.cmake, as for the next.
+    add_test(NAME the_client_with_the_window_dropped_with_its_goodbyes_lost_is_refused_joining_again_and_says_so
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DKEEPER=$<TARGET_FILE:glideslope_cli>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_dropped_unsaid -DPORT=24707
+            -DDRIVER=vulkan -DMODE=lost
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_server_gone.cmake)
+    set_tests_properties(the_client_with_the_window_dropped_with_its_goodbyes_lost_is_refused_joining_again_and_says_so
+        PROPERTIES SKIP_RETURN_CODE 77)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_dropped_unsaid)
+    # **Its server started again under it, with its key, it joins the new
+    # one** and flies the aircraft it is given there.
+    add_test(NAME the_client_with_the_window_joins_its_server_started_again_and_flies_the_aircraft_it_gives
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_server_again -DPORT=24736
+            -DDRIVER=vulkan -DMODE=restart
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_server_gone.cmake)
+    set_tests_properties(the_client_with_the_window_joins_its_server_started_again_and_flies_the_aircraft_it_gives
+        PROPERTIES SKIP_RETURN_CODE 77)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_server_again)
     # **Refused by a forger while its session is quiet, it goes back to it.**
     # See cmake/client_forged_refusal.cmake.
     add_test(NAME the_client_with_the_window_refused_by_a_forger_while_its_session_is_quiet_goes_back_to_it

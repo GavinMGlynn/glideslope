@@ -195,7 +195,7 @@ endfunction()
 set(GLIDESLOPE_PLAYABLE_FRAME_MS 50)
 
 # **A bound is believed only at that frame rate**, from what the client says
-# of its own frames (client/shown.hpp): the longest of those around each
+# of its own frames (frontend/shown.hpp): the longest of those around each
 # switch, and with OTHERWISE, the one the largest step away from a switch
 # came in, when the test bounds that too. Slower, the test fails - it neither
 # passes nor skips, since a green tick then would say nothing, as the "too

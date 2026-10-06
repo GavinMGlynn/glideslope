@@ -203,9 +203,9 @@ the controls to an AI pilot whenever you like, then take them back.
   simulator's own AI pilot; the model only decides where to go. Whoever
   chooses brings the key: a server's own AI aircraft are planned with its
   operator's, and an aircraft you hand over with yours.
-  *Not yet:* in the windowed client the model for a hand-over is chosen when
-  it starts, not in flight; and a model given an aircraft a player has just
-  left is not told the route it is already flying.
+  In the windowed client, M chooses the model for your hand-over in flight.
+  *Not yet:* a model given an aircraft a player has just left is not told
+  the route it is already flying.
 
 - **Pilots that learned to fly.** `CANDIDATE`
   AI trained to land or fly aerobatics rather than programmed to. A stretch

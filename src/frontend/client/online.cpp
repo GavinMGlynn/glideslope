@@ -210,6 +210,17 @@ void Online::hear(Flight& flight) {
             heard(state, arrived_s_, flight);
         }
         arrived_.clear();
+        // **For a test: the last update from before a take-over, heard again
+        // just after it**, as the network reorders them - built, not waited
+        // for (`--late-update-after-take-over`, as the command-line client's).
+        if (hear_again_) {
+            const net::StatePacket late = std::move(*hear_again_);
+            hear_again_.reset();
+            std::printf("glideslope: an update from before the take-over is heard again "
+                        "after it\n");
+            std::fflush(stdout);
+            heard(late, arrived_s_, flight);
+        }
         // **What the server says the session is** (REQUIREMENTS.md 6.3): the
         // ground it collides on, held once against this client's, and each
         // weather it flies, flown here in place of any of this client's own.
@@ -314,6 +325,8 @@ void Online::noticed() {
     // from nought. Nothing old is kept to compare with - no update of the
     // old session can open under the new one's keys to be reordered past
     // it - so the clock, the newest word and everything drawn start afresh.
+    old_session_s_ = newest_heard_s_;
+    newest_heard_s_.reset();
     reconciled_s_.reset();
     own_word_.reset();
     clock_ = net::SessionClock{};
@@ -324,7 +337,17 @@ void Online::noticed() {
 }
 
 void Online::heard(const net::StatePacket& state, double local_s, Flight& flight) {
+    // The last update naming the aircraft that is its own, kept for a test
+    // that hears it again after a take-over.
+    if (late_after_take_over_ && state.yours && mine_ != net::no_aircraft &&
+        state.your_aircraft == mine_ &&
+        (!reconciled_s_ || state.simulation_time_s > *reconciled_s_)) {
+        before_take_over_ = state;
+    }
     clock_.heard(state.simulation_time_s, local_s);
+    if (!newest_heard_s_ || state.simulation_time_s > *newest_heard_s_) {
+        newest_heard_s_ = state.simulation_time_s;
+    }
     // Its own aircraft as this update has it, for its copilot to be told.
     if (!own_heard_ || state.simulation_time_s > own_heard_->first) {
         for (const net::AircraftState& a : state.aircraft) {
@@ -383,6 +406,10 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             reconciled_s_ = state.simulation_time_s;
             own_word_.reset();
             send_watch(net::no_aircraft);
+            if (late_after_take_over_ && before_take_over_) {
+                hear_again_ = std::move(before_take_over_);
+                before_take_over_.reset();
+            }
             for (const net::AircraftState& a : state.aircraft) {
                 if (a.index == mine_) {
                     own_ai_flying_ = a.controller == net::Controller::ai;

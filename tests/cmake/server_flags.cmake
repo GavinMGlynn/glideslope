@@ -52,8 +52,11 @@ list(LENGTH _flags _count)
 # --test-step-ms makes every step take at least that long, to put a server
 # behind real time on any machine (server_behind.cmake). --drop-once-flown
 # drops the first player it has flown, as the drop button would, headless
-# (server_drop_keeps_out.cmake). --ai-planner and --ai-task give an AI
-# aircraft a model to plan its flight and the task it is asked, --ai-playback
+# (server_drop_keeps_out.cmake), and --lose-goodbyes sends it no goodbye, as
+# though every copy were lost (client_server_gone.cmake); --stop-once-flown
+# stops the server, telling nobody, once a player is flown and that long has
+# gone, for a test that starts it again under its client (the same script).
+# --ai-planner and --ai-task give an AI aircraft a model to plan its flight and the task it is asked, --ai-playback
 # plays that model's answers back from a recording, --ai-spacing sets how
 # long apart planned aircraft take off, and --steps flies a number
 # of steps as fast as they go (server_planned.cmake). --fail-engine-at stops
@@ -69,7 +72,8 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
               --until-empty --ready-file --no-take-over --test-step-ms
-              --drop-once-flown --ai-planner --ai-task --ai-playback --ai-spacing
+              --drop-once-flown --lose-goodbyes --stop-once-flown
+              --ai-planner --ai-task --ai-playback --ai-spacing
               --steps --fail-engine-at --hand-over-planner --hand-over-playback
               --hand-over-record --weather --metar --station --metar-then
               --weather-blend --weather-refresh)

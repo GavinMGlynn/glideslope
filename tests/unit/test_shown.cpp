@@ -1,6 +1,6 @@
 #include "harness.hpp"
 
-#include "frontend/client/shown.hpp"
+#include "frontend/shown.hpp"
 #include "sim/prediction.hpp"
 
 #include <array>
@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <string>
 
-using glideslope::client::OwnShown;
+using glideslope::frontend::OwnShown;
 using glideslope::test::check;
 using glideslope::test::fail;
 

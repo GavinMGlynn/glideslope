@@ -195,6 +195,13 @@ struct Options {
     // A test's operator (`--drop-once-flown`): drops the first player whose
     // input it has flown, as the window's drop button would.
     bool drop_once_flown = false;
+    // For a test: the operator's drop sends no goodbye, as though every copy
+    // of it were lost on the way.
+    bool lose_goodbyes = false;
+    // For a test: stop, telling nobody, once a player's input has been
+    // flown and the clock is this far on - a server that falls over or is
+    // restarted under its players; below nought, never.
+    double stop_once_flown_s = -1.0;
     // What becomes of an aircraft when the person flying it goes.
     bool hand_to_ai_on_leave = false;
     // For a test: the least wall time each step takes, so that a server can
@@ -301,6 +308,11 @@ void print_usage(std::FILE* out) {
         "                     first time it is drawn, for tests\n"
         "  --drop-once-flown  drop the first player whose input has been flown, as\n"
         "                     the drop button would, for tests\n"
+        "  --lose-goodbyes    send no goodbye at a drop, as though every copy were\n"
+        "                     lost on the way, for tests\n"
+        "  --stop-once-flown S  stop, telling nobody, once a player's input has\n"
+        "                     been flown and S seconds of the simulation have gone,\n"
+        "                     as a server restarted under its players, for tests\n"
         "  --steps N          take N steps as fast as they go, with nobody joining,\n"
         "                     then stop - simulated time, for a test\n"
         "  --test-step-ms MS  make every step take at least MS milliseconds, so\n"
@@ -469,6 +481,17 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.headless = true;
         } else if (a == "--drop-once-flown") {
             o.drop_once_flown = true;
+        } else if (a == "--lose-goodbyes") {
+            o.lose_goodbyes = true;
+        } else if (a == "--stop-once-flown") {
+            if (!next(value)) return std::nullopt;
+            const auto n = number(value);
+            if (!n || !(*n >= 0.0)) {
+                why = "--stop-once-flown wants a number of seconds, not '" + std::string(value) +
+                      "'";
+                return std::nullopt;
+            }
+            o.stop_once_flown_s = *n;
         } else if (a == "--window") {
             o.window = true;
         } else if (a == "--until-empty") {
@@ -3163,7 +3186,9 @@ void drop(glideslope::platform::UdpSocket& socket,
     for (auto each = connections.begin(); each != connections.end();) {
         if (each->second.who == key) {
             std::printf("let go %s: its key was dropped\n", each->first.c_str());
-            tell_leaving(socket, each->first, each->second);
+            if (!o.lose_goodbyes) {
+                tell_leaving(socket, each->first, each->second);
+            }
             each = let_go(connections, each, slots, fleet, o);
         } else {
             ++each;
@@ -3918,6 +3943,21 @@ int run(const Options& o) {
                     break;
                 }
             }
+        }
+
+        // **A test's restart** (`--stop-once-flown`): once a player's input
+        // has been flown, the server stops where it is, saying nothing to
+        // anybody, as one that falls over or is restarted under its players
+        // does - once its clock is as far on as asked, so that one started
+        // again is behind where it was.
+        if (o.stop_once_flown_s >= 0.0 && fleet && fleet->now_s() >= o.stop_once_flown_s &&
+            std::any_of(connections.begin(), connections.end(),
+                        [](const auto& each) { return each.second.last_input_applied > 0; })) {
+            std::printf("stopped once a player was flown, telling nobody, %.1f s in, at %.1f s "
+                        "on its clock\n",
+                        up_s, fleet->now_s());
+            std::fflush(stdout);
+            break;
         }
 
         // **A client that has gone quiet is let go**, which is what

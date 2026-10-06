@@ -27,7 +27,7 @@
 #include "frontend/players_copilot.hpp"
 #include "online.hpp"
 #include "pass.hpp"
-#include "shown.hpp"
+#include "frontend/shown.hpp"
 #include "platform/end_process.hpp"
 #include "platform/stop.hpp"
 #include "platform/closed_pipes.hpp"
@@ -129,6 +129,8 @@ struct Options {
     // For tests: on a server, connect only once this file exists - the
     // server's --ready-file, written once its aircraft are flying.
     std::string after_ready;
+    // For a test: written when the program has gone, however it went.
+    std::string done;
     // For tests: every pass of the frame loop held this many milliseconds
     // longer, as a slow machine's frames are - CI's sanitized software
     // Vulkan draws one in 250 ms and more.
@@ -138,6 +140,9 @@ struct Options {
     bool weather_refresh_given = false;
     // And take it over this many seconds of flight in; below nought, never.
     double take_over_after_s = -1.0;
+    // For a test: the last update from before a take-over heard again just
+    // after it, as the network reorders them.
+    bool late_update_after_take_over = false;
     // On a server, hand its own aircraft to the AI this many seconds of
     // flight in, and take it back this many in, as A does; below nought, never.
     double hand_over_after_s = -1.0;
@@ -160,9 +165,15 @@ struct Options {
     // On a server, hold the shot until it has gone back to its old session
     // after a refusal it believed, and been flown in it by an input sent since.
     bool shot_once_back = false;
+    // On a server, hold the shot until it has joined again - let go, or its
+    // server restarted under it - and been flown by an input sent since.
+    bool shot_once_joined_again = false;
     // On a server, ride along in the next aircraft at each of these many
     // seconds of flight in, as W does.
     std::vector<double> next_aircraft_after_s;
+    // On a server, choose the next hand-over model at each of these many
+    // seconds of flight in, as M does.
+    std::vector<double> next_model_after_s;
     bool on_ground = false;
 };
 
@@ -228,6 +239,9 @@ void usage(std::FILE* out) {
         "                over the one ridden in, if the AI flies it\n"
         "  --take-over-after S  riding along, take it over S seconds after\n"
         "                joining\n"
+        "  --late-update-after-take-over  for a test: hear the last update from\n"
+        "                before a take-over again just after it, as a network\n"
+        "                reordering them would\n"
         "  --copilot TASK  on a server, C asks a language model - with your own\n"
         "                key, on this machine - to fly TASK, and then again each\n"
         "                minute; only its route goes to the server, which checks\n"
@@ -248,8 +262,15 @@ void usage(std::FILE* out) {
         "                flight past its tick, until this client has gone back to\n"
         "                its old session after a refusal it believed, and the\n"
         "                server has flown it by an input sent since (for tests)\n"
+        "  --shot-once-joined-again  on a server, hold the shot, up to a minute of\n"
+        "                the flight past its tick, until this client has joined\n"
+        "                again and the server has flown its new aircraft by an\n"
+        "                input sent since (for tests)\n"
         "  --next-aircraft-after S  on a server, ride along in the next aircraft\n"
         "                S seconds after joining, as W does; may be given again\n"
+        "  --next-model-after S  on a server, choose the next model to plan a\n"
+        "                hand-over S seconds after joining, as M does; may be\n"
+        "                given again (for tests)\n"
         "  --quit-at T   end a --shot flight at tick T, before its shot, drawing\n"
         "                nothing more and waiting for nothing (for tests)\n"
         "  --weather-refresh S  fetch --weather again every S seconds of the flight\n"
@@ -257,6 +278,8 @@ void usage(std::FILE* out) {
         "  --after-ready FILE  on a server, connect only once FILE exists - the\n"
         "                server's --ready-file - waiting up to five minutes (for\n"
         "                tests)\n"
+        "  --done FILE   write FILE as the program ends, however it ends - for a\n"
+        "                test's other clients to wait on (for tests)\n"
         "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
         "                slow machine building its flight does (for tests)\n"
         "  --slow-frames MS  hold every pass of the frame loop MS milliseconds\n"
@@ -450,6 +473,8 @@ static int run_program(int argc, char** argv) {
             o.weather_refresh_s = std::strtod(text.c_str(), &end);
             o.weather_refresh_given = true;
             ok = end != text.c_str() && *end == '\0' && o.weather_refresh_s >= 1.0;
+        } else if (a == "--done" && has_value) {
+            o.done = std::string(args[++i]);
         } else if (a == "--after-ready" && has_value) {
             o.after_ready = std::string(args[++i]);
         } else if (a == "--slow-start" && has_value) {
@@ -471,6 +496,8 @@ static int run_program(int argc, char** argv) {
             }
         } else if (a == "--ride-along") {
             o.ride_along = true;
+        } else if (a == "--late-update-after-take-over") {
+            o.late_update_after_take_over = true;
         } else if (a == "--take-over-after" && has_value) {
             o.take_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--copilot" && has_value) {
@@ -496,10 +523,15 @@ static int run_program(int argc, char** argv) {
             o.hand_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--stall-after" && has_value) {
             o.stall_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--shot-once-joined-again") {
+            o.shot_once_joined_again = true;
         } else if (a == "--shot-once-back") {
             o.shot_once_back = true;
         } else if (a == "--take-back-after" && has_value) {
             o.take_back_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--next-model-after" && has_value) {
+            o.next_model_after_s.push_back(
+                std::strtod(std::string(args[++i]).c_str(), nullptr));
         } else if (a == "--next-aircraft-after" && has_value) {
             o.next_aircraft_after_s.push_back(
                 std::strtod(std::string(args[++i]).c_str(), nullptr));
@@ -556,6 +588,10 @@ static int run_program(int argc, char** argv) {
                    stderr);
         return 2;
     }
+    // The copilot's own model, which C asks when no hand-over model is
+    // chosen - with M, in flight, as well as at start.
+    const std::string own_copilot_provider = o.copilot_provider;
+    const std::string own_copilot_model = o.copilot_model;
     if (!o.hand_over_model.provider.empty()) {
         o.copilot_provider = o.hand_over_model.provider;
         o.copilot_model = o.hand_over_model.model;
@@ -565,12 +601,27 @@ static int run_program(int argc, char** argv) {
                    stderr);
         return 2;
     }
+    // **Written as the program ends** (`--done`), after everything else in
+    // it has gone - the goodbye said - whichever way it returns.
+    struct DoneWhenGone {
+        std::string path;
+        ~DoneWhenGone() {
+            if (!path.empty()) {
+                std::ofstream(path) << "gone\n";
+            }
+        }
+    } const done_when_gone{o.done};
     if (o.shot_frame > 0 && (o.shot.empty() || o.online || !o.server.empty())) {
         std::fputs("glideslope: --shot-frame is a frame of a --shot flown alone\n", stderr);
         return 2;
     }
     if (o.shot_once_back && (o.shot.empty() || (o.server.empty() && !o.online))) {
         std::fputs("glideslope: --shot-once-back holds a --shot flown on a server\n", stderr);
+        return 2;
+    }
+    if (o.shot_once_joined_again && (o.shot.empty() || (o.server.empty() && !o.online))) {
+        std::fputs("glideslope: --shot-once-joined-again holds a --shot flown on a server\n",
+                   stderr);
         return 2;
     }
     if (!o.microbursts.empty() && o.weather_station.empty()) {
@@ -767,6 +818,9 @@ static int run_program(int argc, char** argv) {
             // ten seconds is with a server that has nothing to fly, and this
             // flies alone and says so.
             online.emplace(std::move(*session), [&] { return seconds_since_start(); });
+            if (o.late_update_after_take_over) {
+                online->hear_late_update_after_take_over();
+            }
             joined = online->join(10.0, [&] { return seconds_since_start(); });
             if (joined) {
                 std::printf("glideslope: the server gave this client aircraft %u, the %s\n",
@@ -1127,10 +1181,11 @@ static int run_program(int argc, char** argv) {
         int let_go_said = 0;
         int went_back_said = 0;
         std::size_t rode_next = 0;
+        std::size_t models_next = 0;
         bool said_the_view = false;
         // **What is shown of its own on a server**, blended across a switch
-        // (client/shown.hpp), and when it was last worked out.
-        glideslope::client::OwnShown own_shown;
+        // (frontend/shown.hpp), and when it was last worked out.
+        glideslope::frontend::OwnShown own_shown;
         double own_framed_s = -1.0;
         // **Its own aircraft handed over, or taken back**: asked of the
         // server, which decides; what it says comes back in the updates.
@@ -1196,6 +1251,36 @@ static int run_program(int argc, char** argv) {
                 copilot_refused = o.copilot_provider + " was refused: " + e.what();
                 std::printf("glideslope: no copilot: %s\n", e.what());
             }
+        };
+        // **The next model to plan a hand-over** (M): none, Claude, ChatGPT,
+        // and round again - chosen in flight, not only at start. The copilot
+        // is made again with it when next asked; one chosen by
+        // --copilot-provider stays that.
+        const auto next_model = [&]() {
+            if (o.copilot_provider_given) {
+                std::printf("glideslope: the copilot's model is --copilot-provider's; M "
+                            "does not change it\n");
+                return;
+            }
+            static constexpr std::array<const char*, 3> choices{"", "anthropic", "openai"};
+            std::size_t now = 0;
+            while (now < choices.size() && o.hand_over_model.provider != choices[now]) {
+                ++now;
+            }
+            o.hand_over_model = {choices[(now + 1) % choices.size()], ""};
+            o.copilot_provider = o.hand_over_model.provider.empty()
+                                     ? own_copilot_provider
+                                     : o.hand_over_model.provider;
+            o.copilot_model =
+                o.hand_over_model.provider.empty() ? own_copilot_model : std::string();
+            copilot.reset();
+            copilot_made = false;
+            copilot_refused.clear();
+            hand_over_words.clear();
+            std::printf("glideslope: a hand-over is planned by %s (M chooses)\n",
+                        o.hand_over_model.provider.empty()
+                            ? "no model: the AI holds its course"
+                            : o.hand_over_model.provider.c_str());
         };
         const auto ask_the_copilot = [&]() {
             make_the_copilot();
@@ -1407,6 +1492,9 @@ static int run_program(int argc, char** argv) {
                     } else {
                         flight->swap_pilot();
                     }
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == SDL_SCANCODE_M && online && joined) {
+                    next_model();
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_C && online && joined) {
                     ask_the_copilot();
@@ -1631,6 +1719,11 @@ static int run_program(int argc, char** argv) {
                     asked_to_take_back = true;
                     hand_over(false);
                 }
+                if (models_next < o.next_model_after_s.size() &&
+                    joined_s >= o.next_model_after_s[models_next]) {
+                    ++models_next;
+                    next_model();
+                }
                 if (rode_next < o.next_aircraft_after_s.size() &&
                     joined_s >= o.next_aircraft_after_s[rode_next]) {
                     ++rode_next;
@@ -1682,6 +1775,16 @@ static int run_program(int argc, char** argv) {
                                     : "glideslope: took over aircraft %u, the %s\n",
                                 static_cast<unsigned>(taken->number),
                                 taken->aircraft_id.c_str());
+                    // **And on what clock**: the new session's, from the
+                    // update that gave it, beside the old one's newest - a
+                    // server started again counts from nought.
+                    if (taken->again && online->old_session_s()) {
+                        std::printf("glideslope: joined again at %.1f s on the server's clock, "
+                                    "the old session's newest word at %.1f s\n",
+                                    static_cast<double>(taken->server_steps) /
+                                        static_cast<double>(glideslope::sim::steps_per_second),
+                                    *online->old_session_s());
+                    }
                 }
             }
             // **Who flies its own, as the server said**: at a switch a frame
@@ -1742,8 +1845,9 @@ static int run_program(int argc, char** argv) {
                 // **Stalled, the shot waits for it to have joined again** and
                 // for the server to have flown its new aircraft by an input
                 // sent since: the same events, the same minute.
+                const bool await_again = asked_to_stall || o.shot_once_joined_again;
                 const bool again_unheard =
-                    asked_to_stall &&
+                    await_again &&
                     (!online->had_by_joining_again() || !online->flown_since_taken_over());
                 if (shot_now && again_unheard && !waited_long) {
                     shot_now = false;
@@ -1755,6 +1859,13 @@ static int run_program(int argc, char** argv) {
                     o.shot_once_back &&
                     (!online->gone_back() || !online->flown_since_going_back());
                 if (shot_now && back_in_old_unheard && !waited_long) {
+                    shot_now = false;
+                }
+                // **Handed over and not taken back, the shot waits for the
+                // server to have said the AI has it**: the same minute.
+                const bool handed_unheard = asked_to_hand_over && !asked_to_take_back &&
+                                            !online->own_ai_flying();
+                if (shot_now && handed_unheard && !waited_long) {
                     shot_now = false;
                 }
                 if (shot_now && o.shot_once_back) {
@@ -1798,7 +1909,7 @@ static int run_program(int argc, char** argv) {
                                     route_to->name.c_str(), route_sent_m, route_now_m);
                     }
                 }
-                if (shot_now && asked_to_stall) {
+                if (shot_now && await_again) {
                     std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",
                                 static_cast<double>(ticks - o.shot_at) /
                                     static_cast<double>(glideslope::sim::steps_per_second),
@@ -1854,17 +1965,17 @@ static int run_program(int argc, char** argv) {
                             own_shown.seen(other.number, local_s, other.centre, other.path_mps);
                         }
                     }
-                    std::optional<glideslope::client::OwnShown::Source> source;
+                    std::optional<glideslope::frontend::OwnShown::Source> source;
                     // Asked every frame, so that one heard while the AI flew
                     // it is not taken up after a take-back.
                     const bool corrected = online->corrected();
                     if (online->own_ai_flying()) {
                         if (own_other != nullptr) {
-                            source = glideslope::client::OwnShown::Source{
+                            source = glideslope::frontend::OwnShown::Source{
                                 own_other->centre, own_other->path_mps, false, false};
                         }
                     } else if (flight->predicting()) {
-                        source = glideslope::client::OwnShown::Source{
+                        source = glideslope::frontend::OwnShown::Source{
                             flight->centre(), flight->velocity_ecef_mps(), true, corrected};
                     }
                     if (source) {
@@ -2186,7 +2297,7 @@ static int run_program(int argc, char** argv) {
                             online->own_words_heard(), online->own_words_span_s(),
                             online->frames_that_heard_own());
                 // **How far what it showed of its own stepped**, measured as
-                // glideslope_cli measures it (client/shown.hpp).
+                // glideslope_cli measures it (frontend/shown.hpp).
                 std::printf("glideslope: own aircraft: %zu switches; the largest step at a "
                             "switch %.3f m, and otherwise %.3f m\n",
                             own_shown.switches(), own_shown.worst_step_at_switch_m(),
