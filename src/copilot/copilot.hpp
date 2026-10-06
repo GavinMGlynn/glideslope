@@ -85,21 +85,23 @@ inline double fastest_routed_kts(const Brief& b) {
     return b.fastest_kts > 0.0 ? b.fastest_kts : b.cruise_kts * 1.2;
 }
 
-// **The airspeeds a glide may be flown at**: from its approach speed to its
-// best climb; with no approach speed, between its climb speed and the
-// slowest a route may fly it - clean, between the slowest it climbs away at
-// and the slowest it holds a level orbit at.
+// **The airspeeds a glide may be flown at**: from the slowest a route may fly
+// it - its approach speed, or the slowest it holds its tightest orbit at
+// clean where that is more - to its best climb, or that slowest where the
+// best climb is less. A glide is flown clean, and a jet's approach speed is a
+// flaps-down figure: glided round its tightest orbit clean at it from 15,000
+// ft, the 737-300 at 137 kt went past its lift's peak to 59 degrees of alpha,
+// and stalled at every speed up to 162; at 167, and at its slowest under
+// power, 172, it did not. **That floor is not yet high enough everywhere**: from
+// 30,000 ft the 747-400, 787-8, A320, F-15C, F-22 and Mosquito still stall
+// gliding at their slowest, which the glide tests name (test_navigator.cpp).
 struct GlideSpeeds {
     double slowest_kts = 0.0;
     double fastest_kts = 0.0;
 };
 inline GlideSpeeds glide_speeds(const Brief& b) {
-    if (b.approach_kts > 0.0) {
-        return {b.approach_kts, b.climb_kts};
-    }
     const double slowest = slowest_routed_kts(b);
-    return {b.climb_kts < slowest ? b.climb_kts : slowest,
-            b.climb_kts > slowest ? b.climb_kts : slowest};
+    return {slowest, b.climb_kts > slowest ? b.climb_kts : slowest};
 }
 
 // What it is told each time it is asked: the flight as it is now.
