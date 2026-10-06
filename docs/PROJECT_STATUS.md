@@ -307,8 +307,7 @@ saw explained; and the slow-frames bound.
   holds X < Y: the new aircraft taken from a clock started again, not waited
   out. **Seen to fail** with `reconciled_s_` not reset on joining again:
   "joined again at 20.0 s ... not before the old one's 20.0 s"; reverted.
-  Without the 20 s the first server stopped about 3 s in, and the bug
-  passed - the reason for the flag's value.
+  (Without the 20 s the bug passed: the first server stopped 3 s in.)
 - **M chooses the hand-over model in flight**: none, Claude (`anthropic`),
   ChatGPT (`openai`) and round, each said ("a hand-over is planned by ...
   (M chooses)"); the copilot is made again with it, and a model with no key
@@ -330,9 +329,9 @@ saw explained; and the slow-frames bound.
   its own aircraft through it, in place of its own copy: `seen()` for every
   other aircraft drawn, `taken_over()`, `switching()` at a hand-over or a
   take-back (new: a switch before the source changes - a take-back is two),
-  `frame()` with the correction flag, and its counts and words for the
-  report; `last_frame_s()` (new) for `--long-frame-after-switch`. One
-  difference in behaviour, the window client's: a take-over of an aircraft
+  `frame()`, and its counts for the report; `last_frame_s()` (new) for
+  `--long-frame-after-switch`. One difference in behaviour, the window
+  client's: a take-over of an aircraft
   never drawn as another blends from nothing, where the command-line copy
   blended from the aircraft left behind. `a_switch_through_long_frames_is_blended_without_a_step`
   (`tests/unit/test_shown.cpp`): a hand-over, a take-back and a take-over,
@@ -347,7 +346,14 @@ saw explained; and the slow-frames bound.
 - `every_fixed_test_port_...` passes with the new ports (24707, 24736,
   24729, 24761, 24767 - the block has no free pair left, so these tests use
   no relay); `every_flag_the_server_prints_in_its_usage_is_one_it_takes`
-  knows the two new server flags.
+  knows the two new server flags, and `--lose-goodbyes` without
+  `--drop-once-flown` is refused (`the_server_refuses_lost_goodbyes_without_a_drop`,
+  seen to fail with the refusal taken out).
+- **On Windows**: `tools/windows_build.sh` built the branch (windows-debug,
+  MSVC) and ran
+  `the_client_with_the_window_dropped_with_its_goodbyes_lost_is_refused_joining_again_and_says_so`
+  there: passed.
+
 ### A fast aircraft's tightest orbit is flown on its circle, and its fastest leaves power in hand, 2026-10-06 — tail done; the B-2's and F-22's yaw still open
 
 **What is not done first.** The B-2 and F-22 still yaw in a crosswind when

@@ -403,6 +403,10 @@ std::string wrong_with(const Options& o) {
         return "--plain is how the terminal's dashboard is drawn, and --window draws "
                "it in a window instead";
     }
+    if (o.lose_goodbyes && !o.drop_once_flown) {
+        return "--lose-goodbyes loses the goodbyes of --drop-once-flown's drop, and there is "
+               "none without it";
+    }
     if (!o.window && (o.window_dump || !o.window_shot.empty() || !o.window_press.empty())) {
         return "--window-dump, --window-shot and --window-press are about the window, "
                "and there is none without --window";
