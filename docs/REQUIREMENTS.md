@@ -772,8 +772,8 @@ The replacement:
   lets them be flown one above the other, 1,000 ft apart, twice the
   minimum, so that heights held to within tens of feet are nowhere near
   it. Like a resolution advisory it acts on heights only. Taken while
-  working the tail that asked for it, as that tail's brief said to; **for
-  the project owner to confirm**.
+  working the tail that asked for it, and confirmed by the project owner on
+  2026-10-02.
 - **An operator's drop lasts for the server's run, as designed.** A dropped
   player's key is refused until the server stops; a server started again
   has forgotten it. A ban list that outlasts a run could be a later feature.

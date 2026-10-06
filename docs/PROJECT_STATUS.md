@@ -299,7 +299,7 @@ than the orbits two models plan round one place). Three things keep it
   the runway, or landed there) holds every later departure from it for the
   rest of the run, said once. A glide (engine stopped) does not give way;
   it is given way to, since it cannot climb to a floor. The 500 ft / 1.5 nm
-  minimum was taken working this tail and is for the owner to confirm. **Changed figures**: in
+  minimum was taken working this tail and confirmed by the owner on 2026-10-02. **Changed figures**: in
   `each_ai_aircraft_is_planned_...` ChatGPT's (AI 1, first away) orbit is
   now flown at 4,000 ft and Claude's (AI 2) at 3,000 ft, where they were
   3,000 and 3,500; the test expects that. And a planned aircraft takes off
