@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <string>
 
@@ -140,4 +141,126 @@ GLIDESLOPE_TEST(every_correction_small_enough_to_hide_is_taken_up_without_a_step
         fail("what was shown stepped " + std::to_string(worst) + " m at a correction, the bound " +
              std::to_string(bound_m) + " m: " + worst_what);
     }
+}
+
+namespace {
+
+// **A switch through long frames**: the aircraft flown straight and level at
+// 60 m/s, shown at 60 Hz, and from just before the switch to four frames
+// after it every frame a chosen length - the frames a switch's step is
+// measured in, as a stalling machine draws them. Drawn from the updates it
+// is 100 ms behind where it is predicted, the network checks' own lag, so
+// that unblended each switch steps 6 m.
+enum class Switch { hand_over, take_back, take_over };
+constexpr std::array<Switch, 3> switch_kinds{Switch::hand_over, Switch::take_back,
+                                             Switch::take_over};
+constexpr std::array<double, 4> long_frames_s{1.0 / 60.0, 0.1, 0.25, 0.4};
+constexpr double lag_s = 0.1;
+
+struct Switched {
+    double worst_m = 0.0;
+    double longest_ms = 0.0;
+    std::size_t switches = 0;
+    std::string what;
+};
+
+Switched switch_through(Switch kind, double long_s) {
+    OwnShown shown;
+    const std::array<double, 3> v{speed_mps * 0.6, speed_mps * 0.8, 0.0};
+    // Its own, and - for a take-over - the AI's it takes, 300 m off.
+    const std::array<double, 3> own0{-4648676.0, 2546609.0, -3538006.0};
+    const std::array<double, 3> other0{own0[0] + 300.0, own0[1], own0[2]};
+    const auto along = [&](const std::array<double, 3>& from, double t) {
+        return glideslope::world::Ecef{from[0] + v[0] * t, from[1] + v[1] * t,
+                                       from[2] + v[2] * t};
+    };
+    const double switch_at_s = 2.0;
+    const std::uint8_t taken = 3;
+    bool switched = false;
+    int frames_after = -1;
+    double t = 0.0;
+    while (t < 4.0) {
+        const bool long_now = t >= switch_at_s - long_s && frames_after < 4;
+        // Before the switch: predicted (a hand-over, a take-over) or drawn
+        // (a take-back). After: the other - a take-back's prediction starting
+        // again two frames after the server said it was taken back.
+        if (!switched && t >= switch_at_s) {
+            switched = true;
+            frames_after = 0;
+            if (kind == Switch::take_back) {
+                shown.switching();
+            } else if (kind == Switch::take_over) {
+                shown.taken_over(taken);
+            }
+        }
+        bool predicted = kind != Switch::take_back;
+        std::array<double, 3> from = own0;
+        if (switched) {
+            predicted = kind == Switch::hand_over   ? false
+                        : kind == Switch::take_back ? frames_after >= 2
+                                                    : true;
+            if (kind == Switch::take_over) {
+                from = other0;
+            }
+        }
+        const glideslope::world::Ecef at = along(from, predicted ? t : t - lag_s);
+        shown.frame(t, {at, v, predicted, false});
+        if (kind == Switch::take_over && !switched) {
+            shown.seen(taken, t, along(other0, t - lag_s), v);
+        }
+        if (frames_after >= 0) {
+            ++frames_after;
+        }
+        t += long_now ? long_s : 1.0 / 60.0;
+    }
+    Switched out;
+    out.worst_m = shown.worst_step_at_switch_m();
+    out.longest_ms = shown.longest_frame_at_switch_ms();
+    out.switches = shown.switches();
+    out.what = shown.worst_step_what();
+    return out;
+}
+
+} // namespace
+
+// **A switch through long frames is blended without a step**: each of a
+// hand-over, a take-back and a take-over, at frames of a sixtieth of a
+// second to 0.4 s around it. Unblended each steps 6 m, past the network
+// checks' bounds - 5 m at a hand-over and a take-back, 2.5 m at a take-over
+// - so every case tests the rule. This is the one model of a display both
+// clients use (frontend/shown.hpp).
+GLIDESLOPE_TEST(a_switch_through_long_frames_is_blended_without_a_step) {
+    const std::size_t space = switch_kinds.size() * long_frames_s.size();
+    std::size_t covered = 0;
+    double worst_ratio = 0.0;
+    std::string worst_what;
+    for (const Switch kind : switch_kinds) {
+        const double bound = kind == Switch::take_over ? 2.5 : 5.0;
+        check(speed_mps * lag_s > bound, "unblended, every switch steps past its bound");
+        for (const double long_s : long_frames_s) {
+            const Switched s = switch_through(kind, long_s);
+            ++covered;
+            const char* name = kind == Switch::hand_over   ? "a hand-over"
+                               : kind == Switch::take_back ? "a take-back"
+                                                           : "a take-over";
+            check(s.switches == (kind == Switch::take_back ? 2u : 1u),
+                  "each switch was measured as one - a take-back as two");
+            check(s.longest_ms >= long_s * 1000.0 - 1e-6,
+                  "the frames around the switch were as long as the case says");
+            char what[320];
+            std::snprintf(what, sizeof what, "%s at %.0f ms frames: %.3f m (%s)", name,
+                          long_s * 1000.0, s.worst_m, s.what.c_str());
+            if (s.worst_m / bound > worst_ratio) {
+                worst_ratio = s.worst_m / bound;
+                worst_what = what;
+            }
+            if (s.worst_m >= bound) {
+                fail(std::string("what was shown stepped past its bound of ") +
+                     std::to_string(bound) + " m: " + what);
+            }
+        }
+    }
+    std::printf("%zu of %zu cases; the nearest its bound: %s\n", covered, space,
+                worst_what.c_str());
+    check(covered == space, "every case was flown");
 }

@@ -262,15 +262,14 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The window client tested reordered, dropped unheard and restarted under; M chooses its hand-over model in flight, 2026-10-06 — four tails done
+### The window client tested reordered, dropped unheard and restarted under; M chooses its hand-over model in flight; one model of a display, 2026-10-06 — five tails done
 
 **What is not done** (still open in the plan): A pressed during a
 take-over's round trip can still hand over the aircraft just left (the
 server says nothing of a take-over it refuses, so the client cannot tell a
 take-over pending from one refused); the window client's corrections are not
 shown to stay bounded when built through the client itself, nor the steps CI
-saw explained; the slow-frames bound; and the display model is still written
-twice (`client::OwnShown` and `glideslope_cli`'s `Predicting`).
+saw explained; and the slow-frames bound.
 
 - **Reordered across a take-over.** `--late-update-after-take-over` on the
   window client, as on the command-line one: the last update naming the
@@ -325,6 +324,26 @@ twice (`client::OwnShown` and `glideslope_cli`'s `Predicting`).
   again asks nothing. **Seen to fail** with the copilot not made again after
   a choice (`copilot_made` left set): two presses, "openai with no key was
   not refused"; reverted.
+- **One model of a display.** `OwnShown` moved to `src/frontend/shown.hpp`
+  (namespace `glideslope::frontend`, presentation-free: positions and
+  times) and `glideslope_cli`'s `Predicting` now shows, blends and measures
+  its own aircraft through it, in place of its own copy: `seen()` for every
+  other aircraft drawn, `taken_over()`, `switching()` at a hand-over or a
+  take-back (new: a switch before the source changes - a take-back is two),
+  `frame()` with the correction flag, and its counts and words for the
+  report; `last_frame_s()` (new) for `--long-frame-after-switch`. One
+  difference in behaviour, the window client's: a take-over of an aircraft
+  never drawn as another blends from nothing, where the command-line copy
+  blended from the aircraft left behind. `a_switch_through_long_frames_is_blended_without_a_step`
+  (`tests/unit/test_shown.cpp`): a hand-over, a take-back and a take-over,
+  each at frames of 1/60 s, 0.1, 0.25 and 0.4 s around it, 12 of 12 cases,
+  each switch counted (a take-back as two) and its frames as long as said;
+  unblended each steps 6 m, past 5 m (2.5 m at a take-over); the nearest
+  its bound 0.296 m. **Seen to fail** with the blend not started at a
+  switch: "a hand-over at 17 ms frames: 6.000 m"; reverted. The network
+  checks that read the command-line client's display - the take-over at 100
+  and 200 ms and `prediction_interpolation_and_the_player_limit_hold_*` -
+  pass through it.
 - `every_fixed_test_port_...` passes with the new ports (24707, 24736,
   24729, 24761, 24767 - the block has no free pair left, so these tests use
   no relay); `every_flag_the_server_prints_in_its_usage_is_one_it_takes`

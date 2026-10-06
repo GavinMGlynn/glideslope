@@ -127,6 +127,7 @@ glideslope_configure(glideslope_tests)
 
 set(GLIDESLOPE_UNIT_TESTS
     every_correction_small_enough_to_hide_is_taken_up_without_a_step
+    a_switch_through_long_frames_is_blended_without_a_step
     every_aircraft_put_down_with_its_wheels_up_rests_on_its_airframe
     every_landplane_dropped_harder_than_its_gear_takes_is_wrecked_and_set_down_gently_is_not
     an_aircraft_that_comes_down_on_its_airframe_is_wrecked
