@@ -312,6 +312,9 @@ every start was). The selftest is untouched.
   pass on the new projection, through `hud_pitch_for`.
 - The HUD's frame tests (`the_hud_shows_*`, `the_hud_says_*`, the weather
   skips) pass unchanged.
+- **Built on Windows** (`tools/windows_build.sh windows-debug`): the first
+  build refused the check's `sscanf` as unsafe (C4996, an error), as a test
+  tool's had once before; it reads the line with `strtod` now.
 
 ### The nearest runway wins where runways overlap: a shoulder no longer pulls a neighbour's pavement; 16R closed, 2026-10-06 — one tail done, one still open
 
