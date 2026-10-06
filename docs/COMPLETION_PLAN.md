@@ -447,12 +447,6 @@ Found while implementing something else. Added when found, not when remembered.
       never kept. A service that refuses the request, or an answer that
       can't be read, still fails there, and so does a missing DEM.
 
-- [ ] **The four-player test once counted five players' aircraft** (six on
-      Linux debug). Both causes are found and fixed - a copy of a handshake
-      read after its session had gone, and a server behind real time reading
-      one datagram a pass. Still open: the hundred Windows debug runs.
-      *Verification: the cause found, and the test run a hundred times on
-      Windows debug without it.*
 - [x] **A client the server has let go cannot come back.** Both clients now
       join again by themselves, and neither does when the operator dropped
       it. *Verification: a client stalled past the timeout joins again by
@@ -476,22 +470,10 @@ Found while implementing something else. Added when found, not when remembered.
       away - building its flight, or in any long frame. *Verification: a
       window client that takes longer than the server's timeout to build its
       flight is not let go, nor one whose frames take longer.*
-- [ ] **Two window clients on one cold Cesium cache can stall for over
-      fifteen minutes**, where sharing one is meant to cost only a wait: seen
-      once on Linux and once on Windows, not yet explained. *Verification:
-      two window clients drawing at once from one empty cache both finish
-      in the time one does, on Linux and Windows.*
 - [ ] **The client's half of a session is written twice** - the command-line
       client's own and the shared one the window client uses - and a bug was
       found in one and not the other. *Verification: both clients use one
       session, and every rejoin and going-back test passes through it.*
-- [ ] **The client with the window can crash on Windows as it exits** after
-      refusing its arguments: a thread still running when the program ends.
-      *Verification: every argument refusal run a hundred times on Windows
-      exits 2 every time.*
-- [ ] **The command-line forger test once failed after 300 s, cause not
-      known**: a flake candidate until understood. *Verification: the cause
-      found, or the test repeated under load on every platform without it.*
 - [ ] **Nothing tests the client with the window refused `DROPPED`** when every
       one of the server's goodbyes was lost. *Verification: a window client
       dropped with its goodbyes lost tries to join again, is refused, and stops
@@ -528,14 +510,6 @@ Found while implementing something else. Added when found, not when remembered.
       switch, steps less than 5 m at a hand-over and a take-back, and less
       than 2.5 m at a take-over, where unblended it is about 5 m - each past
       its bound with the blend taken out.* Done 2026-09-27: 1.1 m at worst.
-- [ ] **The client with the window steps more than 2.5 m at a take-over on
-      a slow machine** (CI's sanitized linux-debug: 3.5 m). Three causes are
-      fixed, and the bounds are claimed at 20 fps and above (decided
-      2026-09-30). *Verification: the bound holds at 20 fps and above, with
-      the frame rate asserted - the take-over and hand-over tests fail, not
-      pass, when frames around a switch are slower.* Still missing: seeing
-      it pass on windows-release, which failed the frame floor while sharing
-      its cores; since 2026-10-02 both tests run alone there.
 - [ ] **A client whose every frame is slow is not shown to stay under the
       20 m correction bound** (the window client beside other tests in a
       sanitized build, every frame 0.8 s and more: 21.4 m once; CI run
@@ -591,14 +565,6 @@ Found while implementing something else. Added when found, not when remembered.
 - [x] **A client opened the model a server named as a path.** *Verification:
       every aircraft's id is known by the catalogue and eight hostile ones are
       not.* Done 2026-09-25.
-
-- [ ] **Windows debug test programs crash on their way out on the development
-      machine**, in a thread Windows starts after exit - about one run in five
-      of the message tests, on `main` as well (2026-09-25); or hang there
-      until their timeout, a test that passes alone in five seconds. CI's Windows
-      runners have not shown it since it was fixed there. *Verification: the
-      message tests run a hundred times on the development machine without a
-      crash.*
 
 - [ ] **The client with the window does not hand over on a server**: pressing A
       online does nothing. *Verification: the client with the window hands its
@@ -675,6 +641,11 @@ Found while implementing something else. Added when found, not when remembered.
       while its server ran at under half speed (2026-09-27). *Verification: a
       server slowed on purpose keeps a predicting client's error under a metre.*
       Part of it is the client's clock estimate lagging the server's catch-up.
+      Merged in from the window client being put right 20 to 31 m after a
+      long frame (frames of 140 to 730 ms; its cause fixed 2026-10-02). Still
+      missing: an explanation of loaded local runs put right 9 to 13 m since,
+      and the prediction tests' 20 m bound unchanged (the month of CI runs is
+      counted under the nightly item below).
 - [x] **Two server tests counted wall-clock seconds on slow runners**: one
       counted inputs still in flight, and a late client arrived before a slow
       server was flying. *Verification: the client waits for its last input to
@@ -739,21 +710,6 @@ Found while implementing something else. Added when found, not when remembered.
       down at 30 ft and touches down flat and fast. *Verification: every
       aeroplane's flare begins at the attitude it flew the glidepath at, and
       its touchdown pitch is below its tail-strike attitude.* Done 2026-09-27.
-- [ ] **CI fails more often than it passes, on tests that time the machine**:
-      17 of 29 runs. *Verification: the pull-request gate's tests pass or fail
-      by the code alone, and a month of runs is counted.* Tiers are in, the
-      timing tests assert 20 fps (no simulated frame clock, decided
-      2026-09-30), and since 2026-10-02 window clients wait for their server
-      and the switch tests run alone. Still missing: the month of runs
-      counted, and the prediction flake below.
-- [ ] **The window client is sometimes put right 20 to 31 m after a long
-      frame**: four CI failures on 1 October, with frames of 140 to 730 ms
-      (sanitized Linux, and the held-frames test on windows-release).
-      *Verification: the prediction tests pass on every CI run for a month,
-      with their 20 m bound unchanged.* A cause fixed 2026-10-02. Still
-      missing: the month of CI runs, a CI failure tied to that cause, and
-      an explanation of loaded local runs put right 9 to 13 m since, once
-      the clocks' difference was known.
 - [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
       (26-28 minutes a Windows configure). *Verification: a new runner image
       costs one rebuild, saved, not one per run.* Windows restores from public
@@ -790,10 +746,6 @@ Found while implementing something else. Added when found, not when remembered.
       measured cost, a fixture with its tests, and a test checks every shard
       between them runs every test once; the worst shard on CI took 17.7 of
       30 minutes, macOS debug's 11.8.
-- [ ] **Taking over an AI aircraft at 100 ms was not refused once** for a
-      player's aircraft, on Windows clang in CI (2026-09-29), and passed when
-      run again. *Verification: the take-over tests pass on every platform on
-      repeated nightly runs.*
 - [x] **Taking an aeroplane back on its landing roll does not finish the
       landing**: it is handed the plain autopilot, which never stops it.
       *Verification: an approach taken back on the roll is landed to a stop.*
@@ -880,12 +832,6 @@ Found while implementing something else. Added when found, not when remembered.
       height above its ceiling gives up height, not airspeed, and never
       drops below its best-climb speed.* Done 2026-09-25, for all four light
       aeroplanes; other classes have no such floor.
-- [ ] **The AI leans for best power, but climbs only the Cherokee to its
-      ceiling; the 172P, 182S and Cub are held back by their models** (the
-      tails below). Unleaned, a light aeroplane's ceiling on the autopilot
-      was about 8,500 ft against the 172P handbook's 13,000. *Verification:
-      the AI climbs each light aeroplane to within its handbook's tolerance
-      of its published service ceiling.*
 - [ ] **A copilot recording breaks when two runways swap places.** Played
       back, a question matches its recording but for its numbers, so a
       flight a little different that lists two runways in the other order
@@ -913,6 +859,11 @@ Found while implementing something else. Added when found, not when remembered.
       fuel, against the FAA's 12 to 13.8, so leaning finds a power the real
       engine does not have. *Verification: leaned for best power, each
       engine sits between 12 and 13.8 to 1, and every figure stays in range.*
+      Merged in from the AI's leaning: unleaned, a light aeroplane's ceiling
+      on the autopilot was about 8,500 ft against the 172P handbook's 13,000;
+      the AI leans for best power, and climbs only the Cherokee to its
+      ceiling, the 172P, 182S and Cub being held back by their models (the
+      items here, each with its own ceiling to reach).
 - [ ] **The Cub's carburettor runs too rich to climb past about 8,000 ft.**
       It has no mixture lever, and JSBSim enriches every engine as the air
       pressure falls, where a float carburettor enriches only as the square
@@ -926,11 +877,6 @@ Found while implementing something else. Added when found, not when remembered.
       Windows now offers only the kind it can undo. Verified on the
       development machine, which has a token; CI has none and skips the ion
       test.
-- [ ] **A livery on the aeroplane, and its control surfaces moving.**
-      *Verification: a shot shows a livery, and the ailerons move with the
-      stick.*
-- [ ] **The aeroplane is lit by a light baked into its mesh.** *Verification:
-      its lighting follows a roll with no mesh remade.*
 - [x] **A checklist item's band is not held against what the aeroplane can
       reach.** *Verification: every band is shown reachable, and one outside its
       lever's travel turns the test red.* Done 2026-09-21.
@@ -947,23 +893,6 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification: decided in `REQUIREMENTS.md`; if smoothed, reference
       runways roll with no bump beyond a bound.* Done 2026-10-01: flattened
       for every runway the data places; reference runways within 5 cm.
-- [ ] **Free buildings for the default scenery.** *Verification: a source
-      recorded in `ASSETS.md`, and a shot of a city shows its buildings.*
-- [ ] **Signed and notarised macOS builds.** *Verification: a downloaded package
-      opens with no Gatekeeper warning.*
-- [ ] **One Linux download for every distribution** — an AppImage or Flatpak.
-      *Verification: one file runs on a fresh Ubuntu and a fresh Rocky.*
-- [ ] **A hosted public server**, if one is needed. *Verification: `server.txt`
-      names a running server a client reaches with `--online`.*
-- [ ] **Terrain over the whole Earth, streamed as an aircraft flies.**
-      *Verification: a Sydney-to-Melbourne flight draws terrain the whole way,
-      with tiles in memory under a bound.*
-- [ ] **Thermals from the ground beneath them, and lee waves trapped under a
-      stable layer.** *Verification: no thermal over open water on a convective
-      day, and trapped lee waves at the two-layer wavelength.*
-- [ ] **Weather seen as it is** — cloud that drifts and has depth, towering
-      cumulonimbus, a sky that blends between reports, lit haze, rain out to the
-      visibility. *Verification: each shown in shots within stated tolerances.*
 - [x] **Every aircraft's airframe meets the ground with its wheels up.**
       *Verification: every aircraft landed wheels up rests on its airframe
       within the stated friction's distance.* Done 2026-09-22.
@@ -979,14 +908,6 @@ Found while implementing something else. Added when found, not when remembered.
 - [x] **The F-35A becomes the F-35B.** *Verification: it flies its published
       Mach and range, its model sits on its flight model, and it rests on its
       airframe wheels up.* Done 2026-09-22.
-- [ ] **The F-35B cannot hover, land vertically or take off short**: its lift
-      fan is not modelled. *Verification: it hovers at its published thrust,
-      lands vertically, and takes off in its published short distance.*
-- [ ] **The Cesium cache still locks when the rendering tests run together.**
-      Programs can now share one cache and each stores everything; one run
-      with no locked cache is done, and nine of the ten are still to do.
-      *Verification: the whole suite at `-j4` reports no locked cache, ten
-      times over.*
 - [x] **The reliable layer believes an acknowledgement it is told.**
       *Verification: a forged acknowledgement lets go of nothing not yet
       acknowledged.* Done 2026-09-22.
@@ -1036,11 +957,6 @@ Found while implementing something else. Added when found, not when remembered.
       correction. *Verification: with an engine stopped under a player flying
       it, the client's corrections are as small as with it running.*
 
-- [ ] **On the Windows development machine a request to the weather service
-      sometimes waits two minutes before it is sent**, compressed or not; the
-      next try gets through. *Verification: the cause is named, and on that
-      machine twenty fetches in a row each arrive within ten seconds.*
-
 - [ ] **A model planning an aircraft left to the AI is not told the plan it
       flies.** Left by a player who goes, it flies the server's plan file
       until the server's model answers, and the model is told no route is
@@ -1073,14 +989,64 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       with it. *Verification: over level ground the HUD's horizon lies on the
       drawn one within a stated number of pixels, at every pitch and bank
       walked.*
-- [ ] **A flight flies one station's weather wherever it goes**: nothing
-      picks the nearest station. *Verification: a flight from one station to
-      another flies the nearer's weather, changing between them with no step
-      in the wind.*
-- [ ] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
-      model. *Verification: a model whose source and licence are in
-      `ASSETS.md` is held to the Learjet's size and drawn in a shot.*
 - [ ] **Nothing tests the client with the window joining a server that has
       started again** with its key from `--store`. *Verification: the window
       client, its server restarted under it, joins again and flies an
       aircraft the new server gives it.*
+
+- [ ] **A month of clean nightly runs.** Each of these needs only runs
+      watched or counted, no code, and each is owed the count named; one that
+      fails in the month has its cause found and fixed under its own item:
+      - The four-player test once counted five players' aircraft (owed: the hundred Windows debug runs)
+      - The command-line forger test once failing after 300 s (owed: the cause found, or the test repeated under load on every platform)
+      - A take-over at 100 ms not refused once (owed: repeated nightly runs on every platform)
+      - The window client stepping over 2.5 m at a take-over on a slow machine (owed: a pass on windows-release)
+      - Windows debug test programs crash on their way out on the development machine (owed: a hundred runs on the development machine)
+      - The client with the window can crash on Windows as it exits (owed: a hundred argument refusals on Windows)
+      - The Cesium cache still locks when the rendering tests run together (owed: nine of ten suite runs at -j4)
+      - A weather request on the Windows development machine sometimes waits two minutes (owed: twenty fetches in a row within ten seconds)
+      - Two window clients on one cold Cesium cache can stall for over fifteen minutes (owed: both finishing in the time of one, Linux and Windows)
+      - CI fails more often than it passes, on tests that time the machine (owed: a month of runs counted)
+      - The window client put right 20 to 31 m after a long frame (owed: a month of CI runs, 20 m bound unchanged)
+      *Verification: 30 consecutive nightly runs with none of these failing,
+      or each failure's cause found and fixed under its own item.*
+
+---
+
+## Later - not part of the current goal
+
+Moved here by the owner's decision of 2026-10-06: each needs a decision, an
+outside resource or a larger project.
+
+- [ ] **Terrain over the whole Earth, streamed as an aircraft flies.**
+      *Verification: a Sydney-to-Melbourne flight draws terrain the whole way,
+      with tiles in memory under a bound.*
+- [ ] **Weather seen as it is** — cloud that drifts and has depth, towering
+      cumulonimbus, a sky that blends between reports, lit haze, rain out to the
+      visibility. *Verification: each shown in shots within stated tolerances.*
+- [ ] **Thermals from the ground beneath them, and lee waves trapped under a
+      stable layer.** *Verification: no thermal over open water on a convective
+      day, and trapped lee waves at the two-layer wavelength.*
+- [ ] **The F-35B cannot hover, land vertically or take off short**: its lift
+      fan is not modelled. *Verification: it hovers at its published thrust,
+      lands vertically, and takes off in its published short distance.*
+- [ ] **Signed and notarised macOS builds.** *Verification: a downloaded package
+      opens with no Gatekeeper warning.*
+- [ ] **One Linux download for every distribution** — an AppImage or Flatpak.
+      *Verification: one file runs on a fresh Ubuntu and a fresh Rocky.*
+- [ ] **A hosted public server**, if one is needed. *Verification: `server.txt`
+      names a running server a client reaches with `--online`.*
+- [ ] **Free buildings for the default scenery.** *Verification: a source
+      recorded in `ASSETS.md`, and a shot of a city shows its buildings.*
+- [ ] **A livery on the aeroplane, and its control surfaces moving.**
+      *Verification: a shot shows a livery, and the ailerons move with the
+      stick.*
+- [ ] **The aeroplane is lit by a light baked into its mesh.** *Verification:
+      its lighting follows a roll with no mesh remade.*
+- [ ] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
+      model. *Verification: a model whose source and licence are in
+      `ASSETS.md` is held to the Learjet's size and drawn in a shot.*
+- [ ] **A flight flies one station's weather wherever it goes**: nothing
+      picks the nearest station. *Verification: a flight from one station to
+      another flies the nearer's weather, changing between them with no step
+      in the wind.*
