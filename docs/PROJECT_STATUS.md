@@ -555,24 +555,89 @@ a band of 0 red with "never reached its height"; a first-turn limit of 0.4 red
 with "not level until 0.52 turns". The kept-apart, separation and leaner tests
 (35) pass.
 
-### Why the 747-400 and the F-22 are still not planned by a model, 2026-10-06 — tail still open
+### The 747-400 and the F-22A are planned by a model and routed by a copilot: their take-off speeds measured, 2026-10-06 — tail done
 
-Looked at with the copilot tails, and left open: **a model's plan takes
-off** (`copilot/planner.cpp` refuses one that does not, the aircraft
-standing on the ground), and the AI cannot take either off. A take-off is
-flown from `sim::departure_speeds`: a rotation speed and a speed to climb
-away at, each from a published figure - a take-off roll's lift-off speed, a
-stall at the take-off flap, a rate of climb at its speed - and the 747-400
-publishes only a field length and an engine-out gradient, the F-22 only a
-ceiling climb with no speed. Their measured stalls moved 14 and 21 kt with
-the entry speed ("A measurement that moves with how you approach it",
-below), so no speed hangs from them either. The server's
-plan files fly them only from a `start` in the air (`747-off-bondi.plan`).
-Planning them needs either a sourced rotation and climb-away speed for
-each, or a measurement of them that holds still - the owner's call. A
-copilot's route in the air needs no take-off, and could be briefed from
-their plan speeds alone, with no glide (no glide speeds either); that half
-was not done separately, the item not being split.
+**Why they could not be.** A model's plan takes off (`copilot/planner.cpp`
+refuses one that does not), and a take-off is flown from
+`sim::departure_speeds`: a rotation and a climb-away speed, each from a
+published figure. The 747-400 publishes only a field length and an
+engine-out gradient, the F-22A only a ceiling climb with no speed, and their
+measured stalls moved 14 and 21 kt with the entry speed ("A measurement that
+moves with how you approach it", below). The planner and the copilot were
+also given an approach speed, which neither has.
+
+**The owner's decision** (REQUIREMENTS.md section 9): measure them in the
+sim, as the plan speeds were. `glideslope_cli takeoff-speeds AIRCRAFT
+[FROM_KT]` (`sim/takeoff_trial.hpp`) takes the aircraft off a level 3,500 m
+runway at sea level in calm air, at the weight its model flies a plan at,
+with the take-off autopilot to 500 ft, at its take-off field length's flap
+or none:
+- **the rotation**, sought up from 100 kt by 5 kt, each climbing away at 20
+  more: the first that *lifts off* - handed over unwrecked, off the ground
+  inside the runway and within 15 kt of the rotation (lifted by it, not by
+  the speed it ran on to), never 5 kt slower once off. Written with 5 kt to
+  spare, plan-speeds' rule.
+- **the climb away**, asked from 10 to 100 kt over that: the slowest speed
+  it was at at 500 ft, rounded up to 5. Neither can be held slower than its
+  own - the take-off autopilot's nose limit: the 747-400 was at 187 to
+  203 kt whatever under 195 was asked, the F-22A at military power 216 kt
+  asked 125 and faster the faster asked.
+
+Measured on linux-debug, written in `<takeoff_speeds>` in each figures file,
+labelled measured, with what was flown:
+- 747-400: rotation held from 155 kt (100 to 150 ran on and lifted at about
+  167), written 160; climbs away at 187.1, written 190; flaps 20, 754,313 lb.
+- F-22A: rotation held from 100 kt (it leaves the ground at 112), written
+  105; climbs away at 216.3, written 220; no flap, 61,570 lb.
+
+`sim::departure_speeds` uses them where no climb figure is published
+(`DepartureSpeeds::measured_from_model`); `rotate_is_published` is false.
+They still have no approach speed and are not landed by the AI. **The
+lessons and the take-off-at-every-loading tests leave them out as before**,
+named with the reason (`book_departure_speeds` in test_lesson.cpp): the
+speeds are measured at one weight for a plan, and a lesson teaches the book
+at every loading it names - rotated at 120.8 kt, scaled to its light
+loading, the 747-400 left at 132, 11 past.
+
+**Planned and routed without an approach speed.** The briefs the client,
+the server and glideslope_cli give the copilot and the planner are now made
+in one place, `frontend::brief_for` and `plan_request_for`
+(`src/frontend/briefs.cpp` - the copilot library sees no figures file):
+an approach speed only where the aircraft publishes a stall. With none,
+the model is told "N kt climbing away" in place of "A kt on the approach, N
+kt best climb", is not told the clean-flight floor reason, and a glide is
+allowed between its climb-away speed and its slowest plan speed
+(`copilot::glide_speeds`) - for the 747-400 190 to 220 kt, the F-22A 220 to
+255. Every aircraft that has one is told exactly what it was, so no
+recording changes.
+
+**Verified** (linux-debug):
+- `the_747_and_the_f22_take_off_at_the_speeds_measured_from_their_models`:
+  every landplane whose speeds are measured is walked and they must be those
+  two; each flown at its file's speeds holds (`TakeoffFlown::held`). Red
+  with the 747-400's rotation made 140 ("1 of 2": off at 168 kt).
+- `every_aircraft_is_planned_and_routed_from_its_own_speeds_with_or_without_an_approach_speed`:
+  all 16 aircraft briefed from the data; for each a stand-in model's plan
+  off Sydney's 34L at its slowest planned speed, to a waypoint and its
+  tightest orbit, is taken first time; its copilot takes a route at that
+  speed, and with the engine stopped a glide at the middle of its glide
+  speeds; none is told "0 kt"; the 747-400 and F-22A are the two with no
+  approach speed. Coverage asserted (16 of 16). Red with the approach speed
+  asked of every aircraft ("747-400 publishes no stall speed").
+- `the_airliners_roll_down_sydneys_16r_on_the_dem_and_those_that_can_climb_away_fly_their_plan_to_its_orbit`
+  and `the_military_jets_...` (main's five groups, rebased onto) now take
+  the 747-400 and F-22A off 16R too and fly the CBD orbit plan to its
+  orbit - none is only rolled. Green, with the stall, orbit and take-off
+  lesson tests (`every_landplane_takes_off_at_every_loading_...`, the take-off
+  and climb lessons, the instructor's demonstration).
+- An aircraft with no climb speed is still refused: the test that showed it
+  with the 747-400 now uses its figures with `<takeoff_speeds>` taken out.
+
+**Not done**: no live model has been asked to plan the 747-400 or the
+F-22A, and no single run flies a model's own plan for each of the sixteen
+end to end - the planning is checked with a stand-in model, and the flying
+by every landplane's take-off from 16R to the CBD orbit plan's orbit and
+the orbit tests at each one's plan speeds.
 
 ### A model planning an aircraft left by its player is told the plan it flies, 2026-10-06 — tail done
 
@@ -1043,7 +1108,7 @@ when slow".
 - `docs/TRANSPORT.md` says the route check is now the figures file's speeds.
 
 **What is not done**: **the 747-400 and the F-22 can be flown on a plan
-file but not planned by a model nor routed by a copilot** - their speeds
+file but not planned by a model nor routed by a copilot** (done 2026-10-06, their take-off speeds measured) - their speeds
 are in their files, but the planner and the copilot are given an approach
 speed and a best-climb speed first (`sim::approach_speeds`,
 `sim::departure_speeds`), which neither publishes, so the server gives

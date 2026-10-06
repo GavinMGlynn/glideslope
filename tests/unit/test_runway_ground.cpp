@@ -550,12 +550,13 @@ GLIDESLOPE_TEST(reference_runways_roll_with_no_bump_beyond_a_bound) {
 // as OurAirports places it, at the collision ground's height there, and flown
 // by the take-off autopilot as `glideslope_cli fly-plan` flies it, until it
 // hands over - with nothing wrecked on the way. Every landplane the data holds.
-// **Two cannot be taken off**, publishing no rate of climb and so no speed to
-// climb away at: the 747-400 and F-22A are rolled instead, as the take-off
-// autopilot rolls - full power, held on the centreline, the stick where it
-// sits - through 16R's first 2,000 m, past every bump the DEM had there, with
-// nothing wrecked and the nose within 1.5 degrees of where it stood. Left out,
-// and named: a flying boat, which has no wheels to roll on.
+// **One that could not be taken off would be rolled instead**, as the
+// take-off autopilot rolls - full power, held on the centreline, the stick
+// where it sits - through 16R's first 2,000 m, with nothing wrecked and the
+// nose within 1.5 degrees of where it stood: the 747-400 and F-22A were, until
+// they were given take-off speeds measured from their models (2026-10-06).
+// None is now. Left out, and named: a flying boat, which has no wheels to
+// roll on.
 //
 // **Flown in five groups**, one test each, so that no CI shard waits on all of
 // them: flown to the orbit, the light aeroplanes take eight to ten minutes of
@@ -599,12 +600,9 @@ void off_16r_to_the_orbit(const std::string& group) {
     std::string failures;
     // Rolled and not taken off, each with its reason; the test fails if any
     // other cannot be flown, or if one of these can.
-    const std::map<std::string, std::string> cannot_be_flown{
-        {"747-400", "it publishes no rate of climb, so the take-off autopilot has no speed "
-                    "to climb away at"},
-        {"f22", "it publishes no rate of climb, so the take-off autopilot has no speed to "
-                "climb away at"},
-    };
+    // None since 2026-10-06, when the 747-400 and the F-22A were given
+    // take-off speeds measured from their models (`<takeoff_speeds>`).
+    const std::map<std::string, std::string> cannot_be_flown{};
     const glideslope::sim::FlightPlan cbd_orbit = [] {
         std::ifstream in(data() / "plans" / "sydney-cbd-orbit.plan", std::ios::binary);
         check(static_cast<bool>(in), "the data has the sydney-cbd-orbit plan");

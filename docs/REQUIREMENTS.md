@@ -777,6 +777,15 @@ The replacement:
 - **An operator's drop lasts for the server's run, as designed.** A dropped
   player's key is refused until the server stops; a server started again
   has forgotten it. A ban list that outlasts a run could be a later feature.
+- **An aircraft that publishes no take-off speeds has them measured from
+  its model** (the project owner, 2026-10-06). The 747-400 and the F-22A
+  publish neither a rotation nor a climb speed, and their measured stalls
+  do not hold still, so a model could not plan them: a plan takes off. A
+  tool flies each one's take-off at the weight its model flies a plan at and
+  finds the rotation and climb-away speeds that hold, as the plan speeds
+  were measured; they are written in its figures file labelled measured,
+  not published, and a test pins them. They still have no approach speed,
+  and are planned and routed without one.
 
 **Closed 2026-10-06** (section 6.3, decided in building it):
 

@@ -204,6 +204,21 @@ void load_for_the_approach(glideslope::sim::Aircraft& aircraft, const std::strin
     load_as_measured(aircraft, figures, chosen);
 }
 
+// **The take-off speeds its book gives** (sim::departure_speeds), and none
+// for an aeroplane whose speeds are measured from its model: the 747-400's
+// and the F-22A's (`<takeoff_speeds>`, 2026-10-06) are for a plan's take-off,
+// at the one weight its model flies a plan at, and a lesson teaches the book
+// - at every loading it names. Throws as departure_speeds does, and for those.
+glideslope::sim::DepartureSpeeds book_departure_speeds(const std::filesystem::path& from,
+                                                      const std::string& model) {
+    glideslope::sim::DepartureSpeeds speeds = glideslope::sim::departure_speeds(from, model);
+    if (speeds.measured_from_model) {
+        throw std::runtime_error(model + "'s take-off speeds are measured from its model at "
+                                         "one weight, for a plan, not taken from a book");
+    }
+    return speeds;
+}
+
 // **Where this aeroplane practises a stall.** A light aeroplane decelerates
 // to the stall in a few hundred feet; a clean jet at idle descends a long way
 // while it slows, and doing that from five thousand feet puts it in the
@@ -222,7 +237,7 @@ double stalls_are_practised_at(const glideslope::sim::CatalogueEntry& entry) {
 glideslope::sim::LessonSpeeds figures_of(const glideslope::sim::CatalogueEntry& entry) {
     glideslope::sim::LessonSpeeds speeds;
     try {
-        const auto departure = glideslope::sim::departure_speeds(data(), entry.model);
+        const auto departure = book_departure_speeds(data(), entry.model);
         speeds.rotate_kts = departure.rotate_kts;
         speeds.climb_kts = departure.climb_kts;
     } catch (const std::exception&) {
@@ -510,7 +525,7 @@ Flown fly_the_take_off(const std::string& id, double early_from_kts,
                        double throttle_cap) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     const glideslope::sim::Runway runway = a_runway();
-    auto speeds = glideslope::sim::departure_speeds(data(), entry.model);
+    auto speeds = book_departure_speeds(data(), entry.model);
     // **Rotating early is the one thing different** (below): the take-off is
     // the same take-off in every other way - the autopilot still keeps her
     // straight and still climbs her away.
@@ -772,7 +787,7 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
         }
         glideslope::sim::DepartureSpeeds speeds;
         try {
-            speeds = glideslope::sim::departure_speeds(data(), entry.model);
+            speeds = book_departure_speeds(data(), entry.model);
         } catch (const std::runtime_error& e) {
             // No climbing speed, and so no take-off to fly.
             left_out.push_back(entry.id + ": " + e.what());
@@ -876,7 +891,7 @@ GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_i
         }
         glideslope::sim::DepartureSpeeds speeds;
         try {
-            speeds = glideslope::sim::departure_speeds(data(), entry.model);
+            speeds = book_departure_speeds(data(), entry.model);
         } catch (const std::runtime_error& e) {
             left_out.push_back(entry.id + ": " + e.what());
             continue;
@@ -1005,7 +1020,7 @@ GLIDESLOPE_TEST(a_take_off_to_a_plans_lowest_height_hands_on_no_take_off_trim) {
         }
         glideslope::sim::DepartureSpeeds speeds;
         try {
-            speeds = glideslope::sim::departure_speeds(data(), entry.model);
+            speeds = book_departure_speeds(data(), entry.model);
         } catch (const std::runtime_error& e) {
             left_out.push_back(entry.id + ": " + e.what());
             continue;
@@ -1479,7 +1494,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts) {
     double rotate = 0.0;
     double climb = 0.0;
     try {
-        const auto departure = glideslope::sim::departure_speeds(data(), entry.model);
+        const auto departure = book_departure_speeds(data(), entry.model);
         rotate = departure.rotate_kts;
         climb = departure.climb_kts;
     } catch (const std::exception&) {
@@ -1896,7 +1911,7 @@ InFlight airborne(const std::string& id, double agl_ft, double start_kcas = 0.0)
     // does, is flown all the same; one that names them would fail to resolve
     // and a test would catch it.
     try {
-        const auto departure = glideslope::sim::departure_speeds(data(), entry.model);
+        const auto departure = book_departure_speeds(data(), entry.model);
         out.speeds.rotate_kts = departure.rotate_kts;
         out.speeds.climb_kts = departure.climb_kts;
     } catch (const std::exception&) {
@@ -2037,7 +2052,7 @@ Result fly_a_climb_and_descent(const std::string& id, double fast_by_kts) {
     // long way from the speed it cruises at.
     double climb_kcas = 0.0;
     try {
-        climb_kcas = glideslope::sim::departure_speeds(
+        climb_kcas = book_departure_speeds(
                          data(), glideslope::sim::find_aircraft(data(), id).model)
                          .climb_kts;
     } catch (const std::exception&) {
@@ -3110,7 +3125,7 @@ namespace {
 Demonstrated demonstrate_a_take_off(const std::string& id) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     const glideslope::sim::Runway runway = a_runway();
-    const auto speeds = glideslope::sim::departure_speeds(data(), entry.model);
+    const auto speeds = book_departure_speeds(data(), entry.model);
 
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
@@ -3295,7 +3310,7 @@ Demonstrated demonstrate_an_approach(const std::string& id) {
     double rotate = 0.0;
     double climb = 0.0;
     try {
-        const auto d = glideslope::sim::departure_speeds(data(), entry.model);
+        const auto d = book_departure_speeds(data(), entry.model);
         rotate = d.rotate_kts;
         climb = d.climb_kts;
     } catch (const std::exception&) {
@@ -4364,7 +4379,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
                       Demonstrated* demo = nullptr) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     const glideslope::sim::Runway runway = a_runway();
-    const auto dep = glideslope::sim::departure_speeds(data(), entry.model);
+    const auto dep = book_departure_speeds(data(), entry.model);
     const auto app = glideslope::sim::approach_speeds(data(), entry.model);
 
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
@@ -4654,7 +4669,7 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
                     flown.after.wreck.empty() ? "" : (", WRECKED: " + flown.after.wreck).c_str(),
                     flown.after.worst_roll_deg, flown.after.least_pitch_deg,
                     flown.after.highest_ft);
-        const auto d = glideslope::sim::departure_speeds(data(),
+        const auto d = book_departure_speeds(data(),
             glideslope::sim::find_aircraft(data(), id).model);
         const auto a = glideslope::sim::approach_speeds(data(),
             glideslope::sim::find_aircraft(data(), id).model);

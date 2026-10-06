@@ -374,14 +374,12 @@ Found while implementing something else. Added when found, not when remembered.
       orbit clean at its approach speed without stalling is not measured.
       *Verification: every aircraft glides round its tightest orbit at every
       speed a glide may be asked at without stalling, measured.*
-- [ ] **A model cannot plan the 747-400 or the F-22, nor a copilot route
-      them.** Each now has the speeds a plan may fly it at, and plan files
-      may fly them, but the planner and the copilot are given an approach
-      speed and a climb speed first, which neither publishes; and a model's
-      plan takes off, which the AI cannot fly in either without a rotation
-      and climb-away speed. Needs those speeds sourced, or a way of
-      measuring them that holds still (2026-10-06). *Verification:
-      a model plans each of the sixteen aircraft and its plan is flown.*
+- [x] **A model cannot plan the 747-400 or the F-22, nor a copilot route
+      them.** Neither publishes an approach or a take-off speed, and a
+      model's plan takes off. *Verification: a model plans each of the
+      sixteen aircraft and its plan is flown.* Done 2026-10-06: their take-off
+      speeds are measured from their models (the owner's decision); each of
+      the sixteen is planned and routed from its own speeds, and takes off.
 - [ ] **The B-2 and the F-22 yaw from side to side in a crosswind when
       slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
       of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is

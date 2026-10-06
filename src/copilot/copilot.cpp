@@ -95,19 +95,24 @@ std::string copilot_instructions() {
 
 std::string situation_text(const Brief& b, const Situation& now) {
     const double slowest = slowest_routed_kts(b);
+    // **An aircraft with no approach speed is told none**, and its climb
+    // speed is the slowest it climbs away at, measured (sim::departure_speeds).
+    const GlideSpeeds glide = glide_speeds(b);
     std::string out =
         "The aircraft: " + b.aircraft + ", a " + b.aircraft_name + ". Its speeds: " +
-        whole(b.approach_kts) + " kt on the approach, " + whole(b.climb_kts) + " kt best climb, " +
+        (b.approach_kts > 0.0 ? whole(b.approach_kts) + " kt on the approach, " +
+                                    whole(b.climb_kts) + " kt best climb, "
+                              : whole(b.climb_kts) + " kt climbing away, ") +
         whole(b.cruise_kts) + " kt cruise. Every airspeed from " + whole(slowest) + " to " +
         whole(fastest_routed_kts(b)) + " kt";
     // **Said why, where the floor is above the approach**, as the planner
     // says it (planner.cpp).
-    if (slowest > b.approach_kts) {
+    if (b.approach_kts > 0.0 && slowest > b.approach_kts) {
         out += ", never slower than " + whole(slowest) +
                ": a route is flown clean, and the approach speed is for flaps down";
     }
-    out += "; a glide from " + whole(b.approach_kts) + " to " +
-        whole(b.climb_kts) + " kt. An orbit's radius must be at least " +
+    out += "; a glide from " + whole(glide.slowest_kts) + " to " +
+        whole(glide.fastest_kts) + " kt. An orbit's radius must be at least " +
         whole(std::ceil(sim::least_orbit_radius_m(slowest))) + " m at " +
         whole(slowest) + " kt and " +
         whole(std::ceil(sim::least_orbit_radius_m(b.cruise_kts))) + " m at " +
@@ -233,9 +238,11 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
         if (now.engine_running) {
             return "the engine is running: a glide is only for an engine that has stopped";
         }
-        if (*change.glide_kts < b.approach_kts - 0.5 || *change.glide_kts > b.climb_kts + 0.5) {
+        const GlideSpeeds glide = glide_speeds(b);
+        if (*change.glide_kts < glide.slowest_kts - 0.5 ||
+            *change.glide_kts > glide.fastest_kts + 0.5) {
             return "a glide at " + whole(*change.glide_kts) + " kt, outside " +
-                   whole(b.approach_kts) + " to " + whole(b.climb_kts) + " kt";
+                   whole(glide.slowest_kts) + " to " + whole(glide.fastest_kts) + " kt";
         }
     } else if (!now.engine_running) {
         return "the engine has stopped: the route must begin with `glide AIRSPEED_KT`";

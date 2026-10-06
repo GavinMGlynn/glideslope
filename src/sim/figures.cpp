@@ -1811,6 +1811,30 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
     if (root->FindNextElement("plan_speeds") != nullptr) {
         throw std::runtime_error(file.string() + " gives <plan_speeds> twice");
     }
+    // **Take-off speeds measured from the model**, where nothing published
+    // gives any (`glideslope_cli takeoff-speeds`): at most once, each above 0.
+    if (JSBSim::Element* t = root->FindElement("takeoff_speeds"); t != nullptr) {
+        for (const char* key : {"rotate_kcas", "climb_kcas", "flaps_deg", "weight_lbs"}) {
+            if (!t->HasAttribute(key)) {
+                throw std::runtime_error(file.string() + " gives <takeoff_speeds> without " +
+                                         key);
+            }
+        }
+        out.measured_rotate_kcas = t->GetAttributeValueAsNumber("rotate_kcas");
+        out.measured_climb_kcas = t->GetAttributeValueAsNumber("climb_kcas");
+        out.measured_takeoff_flaps_deg = t->GetAttributeValueAsNumber("flaps_deg");
+        out.measured_takeoff_lbs = t->GetAttributeValueAsNumber("weight_lbs");
+        if (!(out.measured_rotate_kcas > 0.0 &&
+              out.measured_climb_kcas > out.measured_rotate_kcas &&
+              out.measured_takeoff_flaps_deg >= 0.0 && out.measured_takeoff_lbs > 0.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives <takeoff_speeds> that are not above 0, its climb "
+                                     "above its rotation");
+        }
+        if (root->FindNextElement("takeoff_speeds") != nullptr) {
+            throw std::runtime_error(file.string() + " gives <takeoff_speeds> twice");
+        }
+    }
     return out;
 }
 

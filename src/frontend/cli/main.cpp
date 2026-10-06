@@ -6,6 +6,7 @@
 
 #include "copilot/planner.hpp"
 #include "frontend/cli/fly_copilot.hpp"
+#include "frontend/briefs.hpp"
 #include "frontend/players_copilot.hpp"
 #include "frontend/same_air.hpp"
 #include "net/told.hpp"
@@ -39,6 +40,7 @@
 #include "sim/lander.hpp"
 #include "sim/learnt.hpp"
 #include "sim/orbit_trial.hpp"
+#include "sim/takeoff_trial.hpp"
 #include "sim/weather.hpp"
 #include "sim/selftest.hpp"
 #include "sim/version.hpp"
@@ -207,6 +209,11 @@ void print_usage(std::FILE* out) {
         "                            learning (data/rl/AIRCRAFT-landing.txt), rolled\n"
         "                            out by the autopilot; exits 1 unless it touched\n"
         "                            and stopped on the runway\n"
+        "  takeoff-speeds AIRCRAFT [FROM_KT]\n"
+        "                            measure the rotation and climb-away speeds of\n"
+        "                            an aircraft that publishes none (its figures\n"
+        "                            file's <takeoff_speeds>): taken off a level\n"
+        "                            3,500 m runway at the weight it flies a plan at\n"
         "  plan-speeds AIRCRAFT [FROM_KT | --every]\n"
         "                            measure the speeds AIRCRAFT may be planned at\n"
         "                            (its figures file's <plan_speeds>): round the\n"
@@ -480,6 +487,104 @@ int plan_speeds(const std::filesystem::path& data, const std::vector<std::string
                 first_held, last_held);
     std::printf("%s: write <plan_speeds slowest_kcas=\"%.0f\" fastest_kcas=\"%.0f\">\n",
                 entry.id.c_str(), slowest, fastest);
+    return 0;
+}
+
+// **The speeds an aircraft that publishes none takes off at, measured**
+// (sim/takeoff_trial.hpp): at its take-off field length's flap, or none, and
+// the weight its model flies a plan at. The rotation is sought at speeds
+// rising from FROM_KT (100 by default) by 5 kt, each climbing away at 20
+// more, until one lifts off by its rotation (sim::TakeoffFlown::lifted_off);
+// then the climb away, the slowest speed at 500 ft of any asked. **What to write in its `<takeoff_speeds>` is printed by
+// plan-speeds' rule**: the first rotation that held, with 5 kt to spare.
+int takeoff_speeds(const std::filesystem::path& data,
+                   const std::vector<std::string_view>& args) {
+    const glideslope::sim::CatalogueEntry entry =
+        glideslope::sim::find_aircraft(data, std::string(args[1]));
+    double from = 100.0;
+    if (args.size() >= 3) {
+        const std::string word(args[2]);
+        std::size_t used = 0;
+        try {
+            from = std::stod(word, &used);
+        } catch (const std::exception&) {
+            used = 0;
+        }
+        if (used != word.size() || !(from >= 20.0 && from <= 400.0)) {
+            throw std::runtime_error("takeoff-speeds: FROM_KT is a speed from 20 to 400, not '" +
+                                     word + "'");
+        }
+    }
+    const glideslope::sim::PublishedFigures figures = glideslope::sim::read_published_figures(
+        data / "figures" / (entry.model + ".xml"));
+    double flaps_deg = 0.0;
+    for (const glideslope::sim::FigureSpec& spec : figures.figures) {
+        if (spec.flight == "takeoff_field_length") {
+            const auto flap = spec.conditions.find("flaps_deg");
+            flaps_deg = flap == spec.conditions.end() ? 0.0 : flap->second;
+        }
+    }
+    const auto speeds_of = [&](double rotate_kts, double climb_kts) {
+        glideslope::sim::DepartureSpeeds speeds;
+        speeds.rotate_kts = rotate_kts;
+        speeds.climb_kts = climb_kts;
+        speeds.initial_climb_kts = climb_kts;
+        speeds.flap = figures.flaps_full_deg > 0.0
+                          ? std::clamp(flaps_deg / figures.flaps_full_deg, 0.0, 1.0)
+                          : 0.0;
+        return speeds;
+    };
+    const auto trial = [&](double rotate_kts, double climb_kts) {
+        const glideslope::sim::DepartureSpeeds speeds = speeds_of(rotate_kts, climb_kts);
+        const glideslope::sim::TakeoffFlown t =
+            glideslope::sim::fly_takeoff_trial(data, entry, speeds);
+        std::printf("%s: rotate %.0f, climb %.0f kt: %s, unstuck %.0f m at %.0f kt, slowest "
+                    "%.0f kt airborne, %.0f kt at 500 ft, %.0f s, %.0f lb%s%s\n",
+                    entry.id.c_str(), rotate_kts, climb_kts,
+                    t.lifted_off(speeds) ? "lifted off" : "did not lift off", t.unstuck_m,
+                    t.unstuck_kts, t.slowest_airborne_kts, t.handed_over_kts, t.seconds,
+                    t.weight_lbs, t.wrecked.empty() ? "" : ", wrecked: ", t.wrecked.c_str());
+        std::fflush(stdout);
+        return std::make_pair(t.lifted_off(speeds), t);
+    };
+    double rotate = 0.0;
+    double weight_lbs = 0.0;
+    for (double kts = from; kts <= 300.0; kts += 5.0) {
+        const auto [lifted, t] = trial(kts, kts + 20.0);
+        if (lifted) {
+            rotate = kts;
+            weight_lbs = t.weight_lbs;
+            break;
+        }
+    }
+    if (rotate == 0.0) {
+        std::printf("%s: no rotation from %.0f to 300 kt holds\n", entry.id.c_str(), from);
+        return 1;
+    }
+    const double written_rotate = rotate + 5.0;
+    // **The climb away: the slowest it climbs away at.** Asked from 10 kt
+    // over the rotation to 100 over it, each at 500 ft is at least where its
+    // nose, held no higher than the take-off autopilot holds it, lets it be:
+    // the 747-400 at about 197 kt asked anything under 195, the F-22A, at
+    // military power, at 216 asked 125. The least of them, rounded up to 5 kt.
+    double slowest_away = std::numeric_limits<double>::infinity();
+    for (double kts = written_rotate + 10.0; kts <= written_rotate + 100.0; kts += 5.0) {
+        const auto [lifted, t] = trial(written_rotate, kts);
+        if (lifted) {
+            slowest_away = std::min(slowest_away, t.handed_over_kts);
+        }
+    }
+    if (!std::isfinite(slowest_away)) {
+        std::printf("%s: rotating at %.0f kt, no take-off climbed away\n", entry.id.c_str(),
+                    written_rotate);
+        return 1;
+    }
+    const double climb = std::ceil(slowest_away / 5.0) * 5.0;
+    std::printf("%s: rotation held from %.0f kt; the slowest it climbed away at, %.1f kt\n",
+                entry.id.c_str(), rotate, slowest_away);
+    std::printf("%s: write <takeoff_speeds rotate_kcas=\"%.0f\" climb_kcas=\"%.0f\" "
+                "flaps_deg=\"%.0f\" weight_lbs=\"%.0f\">\n",
+                entry.id.c_str(), written_rotate, climb, flaps_deg, weight_lbs);
     return 0;
 }
 
@@ -787,18 +892,9 @@ int plan_command(const std::filesystem::path& data, const std::vector<std::strin
         return 2;
     }
     const glideslope::sim::CatalogueEntry entry = glideslope::sim::find_aircraft(data, aircraft);
-    glideslope::copilot::PlanRequest request;
+    glideslope::copilot::PlanRequest request =
+        glideslope::frontend::plan_request_for(data, entry.id);
     request.command = command;
-    request.aircraft = entry.id;
-    request.aircraft_name = entry.name;
-    request.climb_kts = glideslope::sim::departure_speeds(data, entry.model).climb_kts;
-    request.approach_kts =
-        std::round(glideslope::sim::approach_speeds(data, entry.model).vref_kts);
-    const glideslope::sim::PlanSpeeds plannable_speeds =
-        glideslope::sim::plan_speeds(data, entry.model);
-    request.slowest_kts = plannable_speeds.slowest_kts;
-    request.fastest_kts = plannable_speeds.fastest_kts;
-    request.cruise_kts = entry.start_airspeed_kts;
     request.airport = airport;
     request.runways = glideslope::world::runways_at(
         glideslope::world::world_runways(glideslope::platform::cache_directory(),
@@ -4169,6 +4265,9 @@ static int run_program(int argc, char** argv) {
         }
         if ((args.size() == 2 || args.size() == 3) && args[0] == "plan-speeds") {
             return plan_speeds(data, args);
+        }
+        if ((args.size() == 2 || args.size() == 3) && args[0] == "takeoff-speeds") {
+            return takeoff_speeds(data, args);
         }
         if (args.size() >= 2 && args[0] == "fly-plan") {
             return fly_plan(data, args);

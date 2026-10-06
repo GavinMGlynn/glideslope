@@ -4,11 +4,14 @@
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
+#include "sim/takeoff_trial.hpp"
 #include "sim/terrain.hpp"
 
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <vector>
@@ -175,15 +178,68 @@ GLIDESLOPE_TEST(the_take_off_speeds_come_from_each_aircrafts_published_figures) 
                                std::to_string(worked_out));
 
     // An aircraft with no climb speed at all has nothing to climb at.
-    // **This was the B-2A until 2026-09-23**, when it got a climbing speed
-    // measured from its own model (docs/ASSETS.md). The 747-400 is the
-    // example now: its stall speed will not hold still, so it has no measured
-    // figures either, and an aeroplane's reference speeds hang together.
+    // **This was the B-2A until 2026-09-23**, and the 747-400 and F-22A until
+    // 2026-10-06, when they were given take-off speeds measured from their
+    // models. None in the data is without one now, so the example is the
+    // 747-400's figures with its measured speeds taken out.
+    const auto scratch = std::filesystem::path(GLIDESLOPE_TEST_DOWNLOADS_DIR) / "test-scratch" /
+                         "no-climb-speed";
+    std::filesystem::create_directories(scratch / "figures");
+    {
+        std::ifstream in(data() / "figures" / "747-400.xml", std::ios::binary);
+        std::string text(std::istreambuf_iterator<char>(in), {});
+        const auto from = text.find("<takeoff_speeds");
+        const auto to = text.find("</takeoff_speeds>");
+        check(from != std::string::npos && to != std::string::npos,
+              "the 747-400's figures give its measured take-off speeds");
+        text.erase(from, to + std::string("</takeoff_speeds>").size() - from);
+        std::ofstream(scratch / "figures" / "747-400.xml", std::ios::binary) << text;
+    }
     bool refused = false;
     try {
-        (void)glideslope::sim::departure_speeds(data(), "747-400");
+        (void)glideslope::sim::departure_speeds(scratch, "747-400");
     } catch (const std::runtime_error&) {
         refused = true;
     }
     check(refused, "an aircraft with no climb speed at all is refused");
+}
+
+// **The 747-400 and the F-22A take off at speeds measured from their own
+// models** (`<takeoff_speeds>`, glideslope_cli takeoff-speeds; the owner's
+// decision of 2026-10-06), and say so: flown at them, the take-off holds -
+// lifted off by its rotation within 15 kt of it, inside the runway, never
+// 5 kt slower once off, unwrecked, and at 500 ft no slower than 10 kt under
+// its climb-away speed (sim::TakeoffFlown::held). Every aircraft whose speeds
+// are measured is walked, and they must be those two.
+GLIDESLOPE_TEST(the_747_and_the_f22_take_off_at_the_speeds_measured_from_their_models) {
+    std::vector<std::string> measured;
+    std::size_t held = 0;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        if (entry.seaplane) {
+            continue; // a flying boat's take-off is its published water take-off
+        }
+        const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), entry.model);
+        if (!speeds.measured_from_model) {
+            continue;
+        }
+        measured.push_back(entry.id);
+        check(!speeds.rotate_is_published, entry.id + "'s measured rotation is called published");
+        const glideslope::sim::TakeoffFlown t =
+            glideslope::sim::fly_takeoff_trial(data(), entry, speeds);
+        std::printf("  %s: rotate %.0f, climb %.0f kt: unstuck %.0f m at %.0f kt, slowest %.0f "
+                    "airborne, %.0f kt at 500 ft%s%s\n",
+                    entry.id.c_str(), speeds.rotate_kts, speeds.climb_kts, t.unstuck_m,
+                    t.unstuck_kts, t.slowest_airborne_kts, t.handed_over_kts,
+                    t.wrecked.empty() ? "" : ", wrecked: ", t.wrecked.c_str());
+        std::fflush(stdout);
+        if (t.held(speeds)) {
+            ++held;
+        }
+    }
+    check(measured == std::vector<std::string>{"747-400", "f22"},
+          "the aircraft with measured take-off speeds are the 747-400 and the F-22A, not " +
+              std::to_string(measured.size()) + " others");
+    check(held == measured.size(), "each took off at its measured speeds: " +
+                                       std::to_string(held) + " of " +
+                                       std::to_string(measured.size()));
 }

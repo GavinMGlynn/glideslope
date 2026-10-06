@@ -33,6 +33,13 @@ double metres_per_degree_longitude(double latitude_deg) {
 
 } // namespace
 
+bool publishes_approach_speed(const std::filesystem::path& data, const std::string& model) {
+    const PublishedFigures figures =
+        read_published_figures(data / "figures" / (model + ".xml"));
+    return std::any_of(figures.figures.begin(), figures.figures.end(),
+                       [](const FigureSpec& spec) { return spec.flight == "stall_speed"; });
+}
+
 ApproachSpeeds approach_speeds(const std::filesystem::path& data,
                                const std::string& model) {
     const PublishedFigures figures =

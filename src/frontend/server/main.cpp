@@ -10,6 +10,7 @@
 // startup, because a client cannot begin an `IK` handshake without it.
 
 #include "copilot/copilot.hpp"
+#include "frontend/briefs.hpp"
 #include "frontend/players_copilot.hpp"
 #include "frontend/same_air.hpp"
 #include "frontend/server/dashboard.hpp"
@@ -1058,18 +1059,9 @@ glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
                                            std::string& said_by) {
     const glideslope::sim::CatalogueEntry entry =
         glideslope::sim::find_aircraft(data, task.aircraft);
-    glideslope::copilot::PlanRequest request;
+    glideslope::copilot::PlanRequest request =
+        glideslope::frontend::plan_request_for(data, entry.id);
     request.command = task.command;
-    request.aircraft = entry.id;
-    request.aircraft_name = entry.name;
-    request.climb_kts = glideslope::sim::departure_speeds(data, entry.model).climb_kts;
-    request.approach_kts =
-        std::round(glideslope::sim::approach_speeds(data, entry.model).vref_kts);
-    const glideslope::sim::PlanSpeeds plannable_speeds =
-        glideslope::sim::plan_speeds(data, entry.model);
-    request.slowest_kts = plannable_speeds.slowest_kts;
-    request.fastest_kts = plannable_speeds.fastest_kts;
-    request.cruise_kts = entry.start_airspeed_kts;
     request.airport = task.airport;
     const bool played_back = !planner.playback.empty();
     const std::string key = played_back                    ? std::string()
@@ -2508,18 +2500,7 @@ private:
         if (it == speeds_.end()) {
             Speeds learnt;
             try {
-                glideslope::copilot::Brief b;
-                b.aircraft = a.catalogue_id;
-                b.approach_kts =
-                    std::round(glideslope::sim::approach_speeds(data_, a.model).vref_kts);
-                const glideslope::sim::PlanSpeeds plannable_speeds =
-                    glideslope::sim::plan_speeds(data_, a.model);
-                b.slowest_kts = plannable_speeds.slowest_kts;
-                b.fastest_kts = plannable_speeds.fastest_kts;
-                b.climb_kts = glideslope::sim::departure_speeds(data_, a.model).climb_kts;
-                b.cruise_kts =
-                    glideslope::sim::find_aircraft(data_, a.catalogue_id).start_airspeed_kts;
-                learnt.brief = b;
+                learnt.brief = glideslope::frontend::brief_for(data_, a.catalogue_id);
             } catch (const std::exception& e) {
                 learnt.why = e.what();
             }

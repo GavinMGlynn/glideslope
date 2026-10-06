@@ -95,4 +95,13 @@
     the crosswind she swung her sideslip 6.0 degrees either way at 230 kt,
     3.5 at 235, 2.4 at 240 and 1.6 at 245. The fastest, 360 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
+  <!-- **Her take-off speeds, measured from her model, not published**: she
+       publishes neither a rotation nor a climb speed. Measured by
+       `glideslope_cli takeoff-speeds` on 2026-10-06 (linux-debug), the
+       project owner's decision of that day (REQUIREMENTS.md section 9):
+       taken off a level 3,500 m runway at sea level in calm air by the
+       take-off autopilot (sim/takeoff_trial.hpp). -->
+  <takeoff_speeds rotate_kcas="105" climb_kcas="220" flaps_deg="0" weight_lbs="61570">
+    Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 100 kt; 105 is written, 5 kt to spare, and she leaves the ground at about 115. The climb away: asked 115 to 205 kt, at military power she was at 500 ft never slower than 216.3 kt, and faster the faster asked - she cannot be held slower - which is written rounded up. With no flap, at 61,570 lb, the weight her model flies a plan at.
+  </takeoff_speeds>
 </published_figures>

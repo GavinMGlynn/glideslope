@@ -3,6 +3,8 @@
 #include "copilot/copilot.hpp"
 #include "copilot/planner.hpp"
 #include "copilot/provider.hpp"
+#include "frontend/briefs.hpp"
+#include "sim/catalogue.hpp"
 #include "world/json.hpp"
 
 #include <atomic>
@@ -889,4 +891,89 @@ GLIDESLOPE_TEST(a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_r
               "a route at " + std::to_string(kts) + " kt is refused: " + route_at(kts));
     }
     check(route_at(80).empty() && route_at(120).empty(), "at 80 and 120 kt it is flown");
+}
+
+// **Every aircraft can be planned by a model and routed by a copilot**: each
+// the catalogue holds is briefed from the data as the client, the server and
+// glideslope_cli brief it (frontend::brief_for, plan_request_for) - the
+// 747-400 and the F-22A, which publish no stall speed, with no approach speed
+// and their climb-away speeds measured from their models (2026-10-06) - and
+// for each a plan taking off from Sydney's 34L at its slowest planned speed,
+// to a waypoint and round its tightest orbit, is taken first time; a route at
+// that speed is taken by its copilot; and with the engine stopped, a glide
+// at the middle of the speeds it may glide at. Nothing is told "0 kt".
+GLIDESLOPE_TEST(every_aircraft_is_planned_and_routed_from_its_own_speeds_with_or_without_an_approach_speed) {
+    const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto catalogue = glideslope::sim::read_catalogue(data);
+    std::size_t planned = 0;
+    std::size_t routed = 0;
+    std::size_t glided = 0;
+    std::vector<std::string> without_approach;
+    for (const auto& entry : catalogue) {
+        glideslope::copilot::PlanRequest request =
+            glideslope::frontend::plan_request_for(data, entry.id);
+        const glideslope::copilot::PlanRequest at_sydney = sydney("orbit the CBD");
+        request.command = at_sydney.command;
+        request.airport = at_sydney.airport;
+        request.runways = at_sydney.runways;
+        if (request.approach_kts <= 0.0) {
+            without_approach.push_back(entry.id);
+        }
+        const double kts = glideslope::copilot::slowest_planned_kts(request);
+        const double radius_m = std::ceil(glideslope::sim::least_orbit_radius_m(kts)) + 10.0;
+        char plan[400];
+        std::snprintf(plan, sizeof plan,
+                      "aircraft %s\nrunway 34L -33.964298 151.181000 14 348 3962\ntakeoff 800\n"
+                      "waypoint A -33.92 151.19 3000 %.0f\n"
+                      "orbit B -33.8688 151.2093 %.0f 3000 %.0f 1 left\n",
+                      entry.id.c_str(), kts, radius_m, kts);
+        Scripted model({plan});
+        const auto taken = glideslope::copilot::plan_from_words(model, request);
+        const std::string& asked = model.conversations.at(0).at(0).text;
+        const bool told_right =
+            asked.find(" 0 kt") == std::string::npos &&
+            asked.find(request.approach_kts > 0.0 ? "kt on the approach" : "kt climbing away") !=
+                std::string::npos;
+        check(told_right, entry.id + "'s request:\n" + asked);
+        if (taken.attempts == 1 && taken.refused.empty() && told_right) {
+            ++planned;
+        } else {
+            fail(entry.id + "'s plan was refused: " +
+                 (taken.refused.empty() ? std::string("?") : taken.refused[0]));
+        }
+
+        glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, entry.id);
+        brief.task = "orbit the CBD";
+        const auto running = off_bondi(true);
+        const std::string told = glideslope::copilot::situation_text(brief, running);
+        check(told.find(" 0 kt") == std::string::npos, entry.id + " is told 0 kt:\n" + told);
+        char route[200];
+        std::snprintf(route, sizeof route, "orbit B -33.8688 151.2093 %.0f 3000 %.0f 1 left\n",
+                      radius_m, kts);
+        const auto change = glideslope::copilot::read_change(brief, running, route);
+        const std::string why = glideslope::copilot::change_refusal(brief, running, change);
+        check(why.empty(), entry.id + "'s route refused: " + why);
+        routed += why.empty() ? 1U : 0U;
+
+        const auto stopped = off_bondi(false);
+        const auto glide = glideslope::copilot::glide_speeds(brief);
+        const double glide_kts = std::round((glide.slowest_kts + glide.fastest_kts) / 2.0);
+        char glide_route[200];
+        std::snprintf(glide_route, sizeof glide_route,
+                      "glide %.0f\norbit B -33.8688 151.2093 %.0f 21 %.0f 0 left\n", glide_kts,
+                      std::ceil(glideslope::sim::least_orbit_radius_m(glide_kts)) + 10.0,
+                      glide_kts);
+        const auto gliding = glideslope::copilot::read_change(brief, stopped, glide_route);
+        const std::string glide_why = glideslope::copilot::change_refusal(brief, stopped, gliding);
+        check(glide_why.empty() && glide.slowest_kts > 0.0,
+              entry.id + "'s glide at " + std::to_string(glide_kts) + " kt refused: " + glide_why);
+        glided += glide_why.empty() ? 1U : 0U;
+    }
+    check(without_approach == std::vector<std::string>{"747-400", "f22"},
+          "the 747-400 and the F-22A are the two with no approach speed");
+    check(planned == catalogue.size() && routed == catalogue.size() &&
+              glided == catalogue.size() && catalogue.size() == 16,
+          "every aircraft of the 16 planned, routed and glided: " + std::to_string(planned) +
+              ", " + std::to_string(routed) + ", " + std::to_string(glided) + " of " +
+              std::to_string(catalogue.size()));
 }

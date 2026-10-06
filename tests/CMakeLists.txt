@@ -96,7 +96,8 @@ add_executable(glideslope_tests
     unit/test_sky.cpp
     unit/test_model.cpp
     unit/test_imagery.cpp
-    unit/test_process_end.cpp)
+    unit/test_process_end.cpp
+    ${PROJECT_SOURCE_DIR}/src/frontend/briefs.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform
                                                glideslope_copilot
                                                glideslope_input glideslope_model CesiumImage)
@@ -301,6 +302,7 @@ set(GLIDESLOPE_UNIT_TESTS
     no_single_byte_changed_anywhere_in_a_datagram_can_break_the_reader
     every_light_aircraft_takes_itself_off_and_climbs_away
     the_take_off_speeds_come_from_each_aircrafts_published_figures
+    the_747_and_the_f22_take_off_at_the_speeds_measured_from_their_models
     every_light_aircraft_is_flown_down_a_glidepath_and_lands_in_calm_air
     the_learnt_landing_sees_and_acts_in_the_simulation_as_it_did_in_training
     the_learnt_policy_touches_down_in_the_simulation_where_it_did_in_training
@@ -565,6 +567,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_copilot_going_away_gives_up_its_question_at_once
     a_recording_played_back_but_its_numbers_answers_a_request_whose_figures_moved_and_no_other
     a_recording_played_back_but_its_numbers_answers_the_same_runways_listed_in_another_order
+    every_aircraft_is_planned_and_routed_from_its_own_speeds_with_or_without_an_approach_speed
     a_plan_changed_while_the_ai_flies_moves_no_control_at_the_change_and_is_flown
     a_glide_with_the_engine_stopped_holds_its_airspeed_on_the_elevator_along_its_route
     every_recorded_metar_is_read_as_aviationweather_decodes_it

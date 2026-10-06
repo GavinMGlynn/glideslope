@@ -35,6 +35,7 @@
 // engine has stopped and it is 300 ft above the ground.
 
 #include "copilot/copilot.hpp"
+#include "frontend/briefs.hpp"
 #include "copilot/provider.hpp"
 #include "platform/paths.hpp"
 #include "sim/aircraft.hpp"
@@ -191,15 +192,7 @@ int fly_copilot(const std::filesystem::path& data, const std::vector<std::string
     const std::string provider_said = provider->name() + ", " + provider->model();
 
     const sim::CatalogueEntry entry = sim::find_aircraft(data, aircraft_id);
-    copilot::Brief brief;
-    brief.aircraft = entry.id;
-    brief.aircraft_name = entry.name;
-    brief.approach_kts = std::round(sim::approach_speeds(data, entry.model).vref_kts);
-    const sim::PlanSpeeds plannable_speeds = sim::plan_speeds(data, entry.model);
-    brief.slowest_kts = plannable_speeds.slowest_kts;
-    brief.fastest_kts = plannable_speeds.fastest_kts;
-    brief.climb_kts = sim::departure_speeds(data, entry.model).climb_kts;
-    brief.cruise_kts = entry.start_airspeed_kts;
+    copilot::Brief brief = glideslope::frontend::brief_for(data, entry.id);
     brief.task = task;
     copilot::Copilot helper(std::move(provider), brief);
 
