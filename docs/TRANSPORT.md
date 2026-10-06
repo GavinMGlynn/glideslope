@@ -53,7 +53,8 @@ Said first, because a transport's limits matter more than its features.
   weather it flies (below, "What a client is told on joining"); its
   `WEATHER` carries three fields more than `02`'s. Version `04` is on the
   same ground, and is the first whose initiation's payload is read: the
-  aeroplane a player asks for (below, "Starting a session").
+  aeroplane a player asks for (below, "Starting a session"); and the first
+  whose state update names the engine stopped (below, "State updates").
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -970,6 +971,7 @@ Then, for each aircraft:
 | `u8` | the server's number for this aircraft, steady for as long as it flies |
 | `u8` | who is flying it, a `CONTROLLER` |
 | `u8` | whether it is flying or a wreck: `00` flying, `01` wrecked, `02` flying with an engine stopped |
+| `u8` | which engine has stopped, the first by its number from `00`, when the condition is `02`; `FF` exactly when it is not (version `04`). Anything else is refused |
 | `f64` | its position, Earth-centred and Earth-fixed, metres, x |
 | `f64` | the same, y |
 | `f64` | the same, z |
@@ -1031,7 +1033,7 @@ the server's to hand out.
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
 full, with the client's own motion and a watched aircraft's controls, is
-1,116 bytes, and 1,146 with the
+1,136 bytes, and 1,166 with the
 envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 
@@ -1051,8 +1053,10 @@ least one of its engines not running, for whatever reason the flight model
 has: a failure the server was told to give it (`--fail-engine-at`, a
 test's), and as much its fuel run out, in any flight. A player's copilot,
 asked on the player's machine, is told so, and answers with a glide
-(`COPILOT_ROUTE`). It says nothing of which engine, nor of whether it will
-start again: flown again after a wreck, an aircraft's engines run.
+(`COPILOT_ROUTE`). Since version `04` it says which engine - the first
+stopped - so that a client predicting its own aircraft stops the same one;
+not whether it will start again: flown again after a wreck, an aircraft's
+engines run, and the condition goes back to `00`.
 
 **A client built before the condition `02` refuses the whole state update**
 while any aircraft in it has an engine stopped, as it refuses any condition

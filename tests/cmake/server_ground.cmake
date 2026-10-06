@@ -56,15 +56,25 @@ execute_process(
     # the client on the same ground, staying three seconds, left unanswered.
     COMMAND "${CLIENT}" --data "${_other}" connect "127.0.0.1:${PORT}" "${_key}" 60
             --after 0 --after-ready "${_ready}" --heard "${_refused}"
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 5 --after 0
-            --after-ready "${_ready}" --heard "${_kept}"
+    # **And the one on the same ground stays until it has been told the ground
+    # and answered a knock** (`--until-told-ground`), not five seconds: a
+    # server slow on CI's macOS had said nothing by then, and the client left
+    # untold, or having answered nothing, exit 1 (reproduced with the server
+    # held to three seconds a step, `--test-step-ms 3000`).
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 280 --after 0
+            --after-ready "${_ready}" --heard "${_kept}" --until-told-ground
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --ready-file "${_ready}"
             --players 2 --data "${DATA}" --timeout 5 --store "${_store}"
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rcs STREQUAL "1;0;0")
+    # Each client's own words with it, which its exit code alone does not say.
+    file(READ "${_refused}" _refused_said)
+    file(READ "${_kept}" _kept_said)
     message(FATAL_ERROR "the exit codes were ${_rcs}, not 1 for the client on other "
-                        "ground and 0 for the rest:\n${_out}\n${_err}")
+                        "ground and 0 for the rest:\n${_out}\n${_err}\n"
+                        "the client on other ground said:\n${_refused_said}\n"
+                        "the client on the same ground said:\n${_kept_said}")
 endif()
 file(READ "${_refused}" _said)
 if(NOT _said MATCHES "refused the server's collision ground: it collides on ([^\n]*), and this client's is ([^\n]*)\n")

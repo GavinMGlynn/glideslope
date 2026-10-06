@@ -354,8 +354,8 @@ private:
         // Where it is, not a correction: the first word since joining, or
         // since it was taken back from the AI.
         bool adopt = false;
-        // The server's word that one of its engines has stopped.
-        bool engine_stopped = false;
+        // The server's word that one of its engines has stopped, and which.
+        std::optional<int> engine_stopped;
     };
     std::optional<OwnWord> own_word_;
     // What `listen` read, for `hear`: when, and in which session - the

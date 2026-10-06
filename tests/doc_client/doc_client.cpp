@@ -58,7 +58,9 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // Changed after the client was written, on 2026-10-01, when the document's
 // version moved to 02 with the collision ground under runways, and on
 // 2026-10-06 to 03, when the server began telling each client the session and
-// its weather: the document gives the envelope's version as `03`. A test reads this line to keep the
+// its weather, and the same day to 04, when the initiation's payload became the
+// aeroplane asked for and a state update began naming the engine stopped: the
+// document gives the envelope's version as `04`. A test reads this line to keep the
 // two together (the_protocol_version_moves_with_the_collision_ground).
 constexpr std::uint8_t kVersion = 0x04;
 
@@ -563,6 +565,10 @@ std::optional<StateUpdate> read_state(std::span<const std::uint8_t> pt) {
         // else a condition this version does not know
         if (condition > 0x02) r.fail();
         a.wrecked = condition == 0x01;
+        // Version 04: the engine stopped, from 0, exactly when the condition
+        // is 02, and FF otherwise.
+        const std::uint8_t engine = r.u8();
+        if ((condition == 0x02) != (engine != 0xFF)) r.fail();
         for (int j = 0; j < 3; ++j) static_cast<void>(r.f64());  // position
         for (int j = 0; j < 5; ++j) static_cast<void>(r.f32());  // velocity, heading, pitch
         a.roll = r.f32();

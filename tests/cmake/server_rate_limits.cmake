@@ -17,11 +17,12 @@
 # answered - it has read everything before - and leaves when its requests are
 # all acknowledged. The events, not a time.
 #
-# **What must hold**: the client had no more of its pings answered than the
-# datagram budget allows over the time it sent them - a second's worth plus
-# the rate times that time - and the server said it held the session to its
-# rates, dropping some datagrams and ignoring all but a second's worth of the
-# requests (one more for what refills while they are read).
+# **What must hold**: some of the client's pings went unanswered, and the
+# server said it held the session to its rates, dropping some datagrams and
+# taking a second's worth of the requests (one more for what refills while
+# they are read). The rates themselves are pinned exactly by a unit test on a
+# clock it sets: here the server's reading lags its sending by however long a
+# loaded machine takes, and a bound on the client's own time flaked.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
@@ -77,23 +78,17 @@ set(_pings "${CMAKE_MATCH_1}")
 math(EXPR _took_ms "${CMAKE_MATCH_2} * 1000 + ${CMAKE_MATCH_3}")
 set(_answered "${CMAKE_MATCH_4}")
 set(_requests "${CMAKE_MATCH_5}")
-# A second's worth at once, the rate over the time they went, and one for
-# the millisecond the time was rounded to.
-math(EXPR _most "${_datagrams_per_s} + (${_datagrams_per_s} * ${_took_ms}) / 1000 + 1")
-if(_answered GREATER _most)
-    message(FATAL_ERROR "${_answered} of ${_pings} pings sent over ${_took_ms} ms were "
-                        "answered, more than the ${_most} its rate of ${_datagrams_per_s} a "
-                        "second allows:\n${_out}\n${_err}")
+# **Only what a slow machine cannot change is held here**: some pings went
+# unanswered and the server dropped some. How many depends on how late the
+# server read them, which the rates' own unit test
+# (a_session_is_held_to_its_stated_rates_on_a_clock_the_test_sets) does not.
+if(NOT _answered LESS _pings)
+    message(FATAL_ERROR "all ${_answered} of ${_pings} pings sent over ${_took_ms} ms were "
+                        "answered, at ${_datagrams_per_s} a second allowed:\n${_out}\n${_err}")
 endif()
 if(_answered LESS 1)
     message(FATAL_ERROR "none of the pings was answered:\n${_out}\n${_err}")
 endif()
-math(EXPR _over "${_pings} - ${_most}")
-if(_over LESS 1)
-    message(FATAL_ERROR "the client sent no faster than its rate (${_pings} over "
-                        "${_took_ms} ms), so nothing was tested:\n${_out}")
-endif()
-
 if(NOT _out MATCHES "was held to its rates: ([0-9]+) of ([0-9]+) sealed datagrams dropped past ([0-9]+) a second, ([0-9]+) of ([0-9]+) requests ignored past ([0-9]+) a second")
     message(FATAL_ERROR "the server did not say it held the client to its rates:\n${_out}")
 endif()
@@ -112,9 +107,9 @@ if(NOT _asked EQUAL _requests)
 endif()
 math(EXPR _taken "${_asked} - ${_ignored}")
 math(EXPR _most_taken "${_requests_per_s} + 1")
-if(_taken GREATER _most_taken)
-    message(FATAL_ERROR "the server took ${_taken} of ${_asked} requests sent at once, more "
-                        "than ${_most_taken}:\n${_err}")
+if(_taken GREATER _most_taken OR _taken LESS _requests_per_s)
+    message(FATAL_ERROR "the server took ${_taken} of ${_asked} requests sent at once, not "
+                        "${_requests_per_s} or ${_most_taken}:\n${_out}")
 endif()
 list(GET _rcs 1 _server_rc)
 list(GET _rcs 0 _client_rc)

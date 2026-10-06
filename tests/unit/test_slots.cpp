@@ -294,3 +294,40 @@ GLIDESLOPE_TEST(a_full_server_reads_at_most_its_budget_of_initiations_a_second) 
     check(read == per_second, "an hour idle refills one second's worth, not " +
                                   std::to_string(read));
 }
+
+// **A session is held to its stated rates, on a clock the test sets**: 240
+// sealed datagrams and 8 requests a second, with a second's worth at once and
+// no more however long it has been quiet. The socket test cannot pin the
+// numbers exactly - the server reads late on a slow machine - so they are
+// pinned here.
+GLIDESLOPE_TEST(a_session_is_held_to_its_stated_rates_on_a_clock_the_test_sets) {
+    using glideslope::net::Budget;
+    check(glideslope::net::session_datagrams_per_second == 240.0 &&
+              glideslope::net::session_requests_per_second == 8.0,
+          "the stated rates are 240 datagrams and 8 requests a second");
+    for (const double rate : {glideslope::net::session_datagrams_per_second,
+                              glideslope::net::session_requests_per_second}) {
+        const int per_second = static_cast<int>(rate);
+        Budget budget(rate);
+        const auto taken_at = [&](double now_s) {
+            int taken = 0;
+            while (budget.take(now_s)) {
+                ++taken;
+            }
+            return taken;
+        };
+        check(taken_at(0.0) == per_second, "a second's worth at once");
+        check(taken_at(0.0) == 0, "and none more at the same moment");
+        check(taken_at(0.5) == per_second / 2, "half a second later, half a second's worth");
+        check(taken_at(100.0) == per_second,
+              "after a long quiet, a second's worth and no more");
+        // At the rate exactly, every one is taken, for a minute of them.
+        int refused = 0;
+        for (int i = 1; i <= 60 * per_second; ++i) {
+            if (!budget.take(100.0 + (static_cast<double>(i) + 0.001) / rate)) {
+                ++refused;
+            }
+        }
+        check(refused == 0, "sent at the rate, none is refused");
+    }
+}

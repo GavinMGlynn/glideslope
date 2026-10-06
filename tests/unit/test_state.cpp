@@ -247,8 +247,9 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
             if (field == 0) {
                 at = 1;
             } else if (field <= 9) {
-                // The second aircraft, past its index, controller and condition.
-                at = header + per + 3;
+                // The second aircraft, past its index, controller, condition
+                // and engine stopped.
+                at = header + per + 4;
                 if (field <= 3) {
                     at += (field - 1) * 8;
                 } else {
@@ -436,9 +437,13 @@ GLIDESLOPE_TEST(a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_n
     check(heard.has_value() && *heard == wreck, "and read back the same, the wreck a wreck");
     StatePacket stopped = a_packet(2);
     stopped.aircraft[0].condition = glideslope::net::Condition::engine_stopped;
+    stopped.aircraft[0].stopped_engine = 1;
     const auto stopped_heard = read_state(*write_state(stopped));
     check(stopped_heard.has_value() && *stopped_heard == stopped,
-          "and an engine stopped is read back as one");
+          "and an engine stopped is read back as one, and which");
+    StatePacket unnamed = a_packet(2);
+    unnamed.aircraft[0].condition = glideslope::net::Condition::engine_stopped;
+    check(!write_state(unnamed), "an engine stopped is not written without which");
 
     const std::size_t at = glideslope::net::state_header_bytes + 2; // the first aircraft's
     std::size_t taken = 0;
@@ -446,6 +451,8 @@ GLIDESLOPE_TEST(a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_n
     for (int value = 0; value < 256; ++value) {
         auto bytes = *write_state(a_packet(1));
         bytes[at] = static_cast<std::uint8_t>(value);
+        // The engine stopped named for `02`, and none for any other.
+        bytes[at + 1] = value == 2 ? 0 : glideslope::net::no_engine;
         if (read_state(bytes)) {
             ++taken;
         } else {
@@ -455,6 +462,24 @@ GLIDESLOPE_TEST(a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_n
     check(taken == 3, "three bytes are conditions, not " + std::to_string(taken));
     check(refused == 253, "and 253 are not, not " + std::to_string(refused));
     check(taken + refused == 256, "every byte was tried");
+
+    // **Every byte the engine stopped could be, under each condition**: any
+    // but `FF` names one under `02`, and only `FF` is read under the others.
+    std::size_t engines_read = 0;
+    for (int condition = 0; condition < 3; ++condition) {
+        for (int value = 0; value < 256; ++value) {
+            auto bytes = *write_state(a_packet(1));
+            bytes[at] = static_cast<std::uint8_t>(condition);
+            bytes[at + 1] = static_cast<std::uint8_t>(value);
+            const bool read = read_state(bytes).has_value();
+            const bool should = condition == 2 ? value != glideslope::net::no_engine
+                                               : value == glideslope::net::no_engine;
+            check(read == should, "condition " + std::to_string(condition) + ", engine " +
+                                      std::to_string(value) + " read as it should be");
+            ++engines_read;
+        }
+    }
+    check(engines_read == 3 * 256, "every engine byte under every condition was tried");
 }
 
 // **The document and the code agree about the state packet**, field for

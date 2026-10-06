@@ -994,8 +994,8 @@ Found while implementing something else. Added when found, not when remembered.
       still run by the client's prediction, and put right correction by
       correction. *Verification: with an engine stopped under a player flying
       it, the client's corrections are as small as with it running.* Done
-      2026-10-06, by the median error (14 mm after, 42 mm before); which
-      engine stopped is not on the wire, so the first is stopped.
+      2026-10-06, by the median error (14 mm after, 42 mm before); the
+      update names which engine stopped (protocol version 04).
 
 - [x] **A model planning an aircraft left to the AI is not told the plan it
       flies.** Left by a player who goes, it flies the server's plan file

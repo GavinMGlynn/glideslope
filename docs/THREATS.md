@@ -92,7 +92,15 @@ wired**: `Responder::answer` in `src/net/handshake.cpp` reads it, the server
 answers with a `HANDSHAKE_RESPONSE` and admits the key to a slot, and
 `a_client_and_a_server_complete_a_session_over_a_socket` and the end-to-end
 `a_server_lets_go_a_client_it_has_not_heard_from_for_its_timeout` hold it
-through a real socket and a real server.
+through a real socket and a real server. **Its payload is the aeroplane asked
+for** (version `04`), so **a stranger's choice of aeroplane sets what its
+admission costs the server**: the JSBSim model built and initialised for it -
+the heaviest in the catalogue is several times the Cessna's - on top of the
+X25519 operations, for anybody a server with a free slot admits. The id is
+looked up in the catalogue read once when the fleet is made, never on the
+disk per initiation and never joined to a path, so the choice is only among
+the aeroplanes the server ships; an unreadable payload or an unknown id costs
+the plan's aeroplane. What bounds it is what bounds admissions: the slots.
 
 **The suite is `Noise_IK_25519_ChaChaPoly_BLAKE2b`, and not the `..._BLAKE2s`
 the brief named.** libsodium, which `REQUIREMENTS.md` 6.7 chooses for the

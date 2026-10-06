@@ -44,10 +44,14 @@ inline constexpr std::size_t most_aircraft_in_a_state = 20;
 inline constexpr std::uint8_t no_aircraft = 255;
 
 // The kind byte, the clock, the input sequence, this client's own aircraft
-// and the count; then an index, a controller, a condition, three doubles and
-// six floats per aircraft. Named so that nothing has to count bytes twice.
+// and the count; then an index, a controller, a condition, the engine
+// stopped, three doubles and six floats per aircraft. Named so that nothing
+// has to count bytes twice.
 inline constexpr std::size_t state_header_bytes = 1 + 8 + 4 + 1 + 1;
-inline constexpr std::size_t state_per_aircraft_bytes = 1 + 1 + 1 + 3 * 8 + 6 * 4;
+inline constexpr std::size_t state_per_aircraft_bytes = 1 + 1 + 1 + 1 + 3 * 8 + 6 * 4;
+
+// What `stopped_engine` holds when no engine has stopped.
+inline constexpr std::uint8_t no_engine = 255;
 
 // **Whether an aircraft is flying or a wreck.** Collisions are the server's
 // to decide (sim/crash.hpp), and every client is told: a wreck stays where it
@@ -68,6 +72,11 @@ struct AircraftState {
     std::uint8_t index = 0;
     Controller controller = Controller::nobody;
     Condition condition = Condition::flying;
+    // **Which engine has stopped** (version 04): the first, by its number
+    // from 0, when `condition` is `engine_stopped`, and `no_engine` exactly
+    // when it is not - so that a predicting client stops the one the server
+    // did, not a guess.
+    std::uint8_t stopped_engine = no_engine;
     // Earth-centred, Earth-fixed, metres.
     double x_m = 0.0;
     double y_m = 0.0;
