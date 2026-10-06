@@ -37,6 +37,11 @@
 // read the same at either end - and the leg has to end somewhere for the base
 // turn to be a stage of its own.
 //
+// **`lesson/airframe-down` is its third**: 1 while any part of the airframe
+// that is not a wheel touches the ground - a tail struck on the runway by
+// rotating too far, a wing tip - and 0 otherwise. A take-off holds it at
+// nought, so an over-rotation is named in the debrief and not only wrecks her.
+//
 // This is the simulation's own: it reads the aircraft and keeps a state, and
 // draws nothing.
 

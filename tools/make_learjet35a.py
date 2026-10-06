@@ -73,6 +73,11 @@ Where each number comes from:
   USAF C-21A fact sheet
     Mach 0.81, 461 knots, at 41,000 ft.
 
+  Learjet 35/35A/36/36A Maintenance Manual, 6-00-00, figure 1 sheet 2
+    The side view, by which the ventral fin's lower aft edge - what her tail
+    strikes the runway with, pivoting on the main wheels - is placed (below,
+    TAIL_AFT_IN); the model had nothing behind its main wheels to strike.
+
 Estimated, as no source gives them, each named below with its number: the
 empty aircraft's centre of gravity, its inertias, the positions of the
 engines and the payload, the damping in roll and yaw and the side force, the
@@ -222,6 +227,18 @@ CY_BETA, CY_DR, CL_DR = -0.76, 0.14, 0.020
 CL_P, CL_R, CN_P, CN_R = -0.50, 0.10, -0.03, -0.18
 YAW_DAMPER_GAIN = 1.0
 BRAKING_FRICTION = "0.50"
+# **What her tail strikes with: the ventral fin's lower aft edge**, measured
+# off MM 6-00-00's side view (Aircraft Dimensions, figure 1 sheet 2), scaled
+# by its own dimensions - 48 ft 7 in overall and 20 ft 2 in between the
+# wheels, which agree to 0.3% (2.187 and 2.180 pixels an inch at 200 dpi).
+# Of the airframe's lower outline behind the main wheels, the point the
+# least angle reaches from where the main wheel meets the ground is on the
+# ventral fin, 199.4 in aft of it and 47.3 in above (13.4 degrees, standing
+# at rest as drawn); the fin's whole lower edge is within half a degree of
+# it. The drawing's 12 ft 3 in height reads 3% short on the same scale, so
+# the height is good to about 1.5 in, a third of a degree. On the model's
+# struts, extended as they are when she rotates, she strikes at 14.0.
+TAIL_AFT_IN, TAIL_UP_IN = 199.4, 47.3
 
 
 def metrics():
@@ -271,6 +288,10 @@ def ground_reactions():
                              0, side, BRAKING_FRICTION)
     for name, y in (("LEFT_TIP_TANK", -SPAN_FT * 6.0), ("RIGHT_TIP_TANK", SPAN_FT * 6.0)):
         out += written.structure(name, 385.6, y, -8.0, weight, weight / 5.0)
+    # The ventral fin, what her tail strikes the runway with (MM 6-00-00,
+    # figure 1 sheet 2; the docstring says how it was measured).
+    out += written.structure("VENTRAL_FIN", 396.83 + TAIL_AFT_IN, 0.0,
+                             -16.72 - 9.0 + TAIL_UP_IN, weight, weight / 5.0)
     return out + "    </ground_reactions>\n"
 
 

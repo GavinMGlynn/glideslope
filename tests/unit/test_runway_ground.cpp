@@ -3,7 +3,11 @@
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/crash.hpp"
+#include "sim/controller.hpp"
 #include "sim/departure.hpp"
+#include "sim/figures.hpp"
+#include "sim/navigator.hpp"
+#include "sim/plan.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/terrain.hpp"
 #include "net/protocol.hpp"
@@ -551,7 +555,7 @@ GLIDESLOPE_TEST(reference_runways_roll_with_no_bump_beyond_a_bound) {
 // sits - through 16R's first 2,000 m, past every bump the DEM had there, with
 // nothing wrecked and the nose within 1.5 degrees of where it stood. Left out,
 // and named: a flying boat, which has no wheels to roll on.
-GLIDESLOPE_TEST(every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_that_can_climb_away_takes_off) {
+GLIDESLOPE_TEST(every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_that_can_climb_away_flies_its_plan_to_its_orbit) {
     const Ground g = open_ground();
     const std::vector<glideslope::world::RunwayEnd> ends = glideslope::world::runways_at(
         glideslope::world::world_runways(GLIDESLOPE_TEST_DOWNLOADS_DIR,
@@ -580,6 +584,12 @@ GLIDESLOPE_TEST(every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_
         {"f22", "it publishes no rate of climb, so the take-off autopilot has no speed to "
                 "climb away at"},
     };
+    const glideslope::sim::FlightPlan cbd_orbit = [] {
+        std::ifstream in(data() / "plans" / "sydney-cbd-orbit.plan", std::ios::binary);
+        check(static_cast<bool>(in), "the data has the sydney-cbd-orbit plan");
+        return glideslope::sim::parse_flight_plan(
+            std::string(std::istreambuf_iterator<char>(in), {}));
+    }();
     for (const glideslope::sim::CatalogueEntry& e : catalogue) {
         if (e.seaplane) {
             left_out.push_back(e.id + " (a flying boat: no wheels to roll on)");
@@ -615,30 +625,24 @@ GLIDESLOPE_TEST(every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_
         ic.engine_running = true;
         ic.gear = 1.0;
         aircraft.initialize(ic);
-        glideslope::sim::Departure departure(aircraft, runway, *speeds);
         glideslope::sim::GroundJudge judge(false);
         std::optional<std::string> wrecked;
         double worst_pitch_on_the_ground_deg = 0.0;
         const double standing_pitch_deg = aircraft.state().pitch_deg;
         double worst_nose_change_deg = 0.0;
-        std::int64_t step = 0;
-        constexpr std::int64_t most_steps = 300 * glideslope::sim::steps_per_second;
-        for (; step < most_steps && departure.stage() != glideslope::sim::Departure::Stage::done &&
-               !(roll_only && departure.along_m() >= 2000.0);
-             ++step) {
-            aircraft.set_controls(departure.fly());
-            aircraft.step();
-            if ((wrecked = judge.judge(aircraft))) {
-                break;
-            }
-            if (departure.stage() == glideslope::sim::Departure::Stage::roll) {
-                worst_pitch_on_the_ground_deg =
-                    std::max(worst_pitch_on_the_ground_deg, std::abs(aircraft.state().pitch_deg));
+        if (roll_only) {
+            glideslope::sim::Departure departure(aircraft, runway, *speeds);
+            for (std::int64_t step = 0; step < 300 * glideslope::sim::steps_per_second &&
+                                        departure.along_m() < 2000.0;
+                 ++step) {
+                aircraft.set_controls(departure.fly());
+                aircraft.step();
+                if ((wrecked = judge.judge(aircraft))) {
+                    break;
+                }
                 worst_nose_change_deg = std::max(
                     worst_nose_change_deg, std::abs(aircraft.state().pitch_deg - standing_pitch_deg));
             }
-        }
-        if (roll_only) {
             const double kts = aircraft.state().airspeed_kts;
             std::printf("%s: rolled %.0f m to %.0f kt, %s, the nose within %.1f degrees of "
                         "where it stood\n",
@@ -653,18 +657,84 @@ GLIDESLOPE_TEST(every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_
             ++rolled;
             continue;
         }
-        const double seconds = static_cast<double>(step) / static_cast<double>(glideslope::sim::steps_per_second);
-        std::printf("%s: %s %.0f s in, unstuck %.0f m along, pitched at most %.1f degrees on "
-                    "its roll\n",
-                    e.id.c_str(),
-                    wrecked ? ("wrecked: " + *wrecked).c_str()
-                    : departure.stage() == glideslope::sim::Departure::Stage::done
-                        ? "handed over"
-                        : "still taking off",
-                    seconds, departure.unstuck_along_m(), worst_pitch_on_the_ground_deg);
+        // **Taken off, then flown on by the plan to its orbit** - the
+        // sydney-cbd-orbit plan, written for the C172P, made this aircraft's:
+        // its speeds brought within the ones a plan may fly it at, and its
+        // orbit widened to the tightest it may fly at that speed, as a plan
+        // for it would have to be (sim::refuse_what_it_cannot_fly). Flown at
+        // the plan's 80 and 90 knots, before plans were held to their
+        // aircraft's speeds, the Learjet 35A and the Mosquito stalled 80 to
+        // 90 s in, climbing towards CLIMB, and came down in Botany Bay.
+        glideslope::sim::FlightPlan plan = cbd_orbit;
+        plan.aircraft = e.id;
+        plan.takeoff->runway = runway;
+        const glideslope::sim::PlanSpeeds may = glideslope::sim::plan_speeds(data(), e.model);
+        for (glideslope::sim::Waypoint& w : plan.waypoints) {
+            w.airspeed_kts = std::clamp(w.airspeed_kts, std::ceil(may.slowest_kts),
+                                        std::floor(may.fastest_kts));
+            if (w.orbit) {
+                w.orbit->radius_m = std::max(
+                    w.orbit->radius_m, std::ceil(glideslope::sim::least_orbit_radius_m(w.airspeed_kts)));
+            }
+        }
+        glideslope::sim::refuse_what_it_cannot_fly(data(), plan, e.id);
+        for (glideslope::sim::Waypoint& w : plan.waypoints) {
+            w.altitude_ft += g.geoid->undulation(w.latitude_deg, w.longitude_deg) * feet_per_metre;
+        }
+        const glideslope::sim::Waypoint orbit = plan.waypoints.back();
+        glideslope::sim::Controller controller(aircraft, glideslope::sim::Controls{});
+        controller.to_ai_flying(plan, *speeds);
+        double unstuck_along_m = 0.0;
+        double handed_over_s = -1.0;
+        double at_orbit_s = -1.0;
+        const auto seconds = [](std::int64_t steps) {
+            return static_cast<double>(steps) / static_cast<double>(glideslope::sim::steps_per_second);
+        };
+        // At most twenty minutes, which the slowest, the J-3 Cub, needs not
+        // half of.
+        for (std::int64_t step = 0; step < 1200 * glideslope::sim::steps_per_second; ++step) {
+            aircraft.set_controls(controller.fly());
+            aircraft.step();
+            if ((wrecked = judge.judge(aircraft))) {
+                break;
+            }
+            if (const glideslope::sim::Departure* d = controller.departure()) {
+                unstuck_along_m = d->unstuck_along_m();
+                if (d->stage() == glideslope::sim::Departure::Stage::roll) {
+                    worst_pitch_on_the_ground_deg = std::max(worst_pitch_on_the_ground_deg,
+                                                             std::abs(aircraft.state().pitch_deg));
+                }
+                continue;
+            }
+            if (handed_over_s < 0.0) {
+                handed_over_s = seconds(step);
+            }
+            // **At its orbit**: on the orbit's leg, and within a tenth of
+            // its radius of its circle.
+            const glideslope::sim::Navigator* navigator = controller.navigator();
+            if (navigator != nullptr && navigator->next() + 1 == plan.waypoints.size()) {
+                const double from_centre_m = glideslope::sim::distance_m(
+                    aircraft.property("position/lat-geod-deg"),
+                    aircraft.property("position/long-gc-deg"), orbit.latitude_deg,
+                    orbit.longitude_deg);
+                if (std::abs(from_centre_m - orbit.orbit->radius_m) < 0.1 * orbit.orbit->radius_m) {
+                    at_orbit_s = seconds(step);
+                    break;
+                }
+            }
+        }
+        std::printf("%s: %s; unstuck %.0f m along, pitched at most %.1f degrees on its roll; "
+                    "handed over %.0f s in; at its orbit, %.0f m round at %.0f kt, %.0f s in\n",
+                    e.id.c_str(), wrecked ? ("wrecked: " + *wrecked).c_str() : "nothing wrecked",
+                    unstuck_along_m, worst_pitch_on_the_ground_deg, handed_over_s,
+                    orbit.orbit->radius_m, orbit.airspeed_kts, at_orbit_s);
         std::fflush(stdout);
-        if (wrecked || departure.stage() != glideslope::sim::Departure::Stage::done) {
-            failures += "\n  " + e.id + (wrecked ? " was wrecked: " + *wrecked : " did not take off");
+        if (wrecked) {
+            failures += "\n  " + e.id + " was wrecked: " + *wrecked;
+        } else if (handed_over_s < 0.0) {
+            failures += "\n  " + e.id + " did not take off";
+        } else if (at_orbit_s < 0.0) {
+            failures += "\n  " + e.id + " did not reach its orbit";
         }
         ++flown;
     }
@@ -677,7 +747,7 @@ GLIDESLOPE_TEST(every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_
               " flown, " + std::to_string(rolled) + " rolled, " +
               std::to_string(left_out.size() - rolled) + " left out, of " +
               std::to_string(catalogue.size()));
-    check(failures.empty(), "every aeroplane took off from 16R:" + failures);
+    check(failures.empty(), "every aeroplane took off from 16R and flew its plan to its orbit:" + failures);
 }
 
 namespace {

@@ -116,6 +116,10 @@ bool LessonRun::read(const Aircraft& aircraft, const std::string& property,
         out = the_short_way(heading_at_start_deg_, heading);
         return true;
     }
+    if (property == "lesson/airframe-down") {
+        out = aircraft.contact().airframe ? 1.0 : 0.0;
+        return true;
+    }
     return value_of(aircraft, property, out);
 }
 
