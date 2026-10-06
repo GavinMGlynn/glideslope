@@ -29,9 +29,14 @@ struct OrbitFlown {
     double radius_m = 0.0;      // the tightest the plan reader allows at the speed
     double turns = 0.0;         // the most turns the navigator counted
     bool passed_on = false;     // round twice and on to the next waypoint
-    // From the first quarter-turn on:
+    // From the first half-turn on: the join is flown from 2 km outside the
+    // circle heading for its centre, and a jet at 360 kt, turning on a radius
+    // of 7.9 km at 25 degrees of bank, cannot come round onto an 18.8 km
+    // circle from there without going 5 km inside it; it is back on it
+    // within half a turn.
     double nearest_m = 0.0;     // from the centre
     double farthest_m = 0.0;
+    // From the first quarter-turn on:
     double worst_height_ft = 0.0; // off the orbit's height, either way
     double slowest_kts = 0.0;     // calibrated
     double fastest_kts = 0.0;

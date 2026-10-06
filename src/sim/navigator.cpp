@@ -23,17 +23,27 @@ constexpr double drift_average_s = 5.0;
 constexpr double least_speed_fps = 10.0;
 // **Round an orbit the heading asked for is kept ahead of the tangent by what
 // the autopilot needs to bank for the circle**, atan(v_air v_ground / g r)
-// (sim::heading_off_for_bank_deg); turned in towards the circle
-// by 90 degrees for each kilometre off it, 45 at most; and trimmed by an
-// integral on how far off it is, a sixtieth of that each second, 15 degrees at
-// most, for what the autopilot's bank and the aeroplane's turn do not quite
-// agree on. It was led along the tangent by five seconds, which is what a
-// wide circle needs and more than a tight, slow one does: Claude's 521 m
-// orbit at 60 kt was flown 94 to 127 m inside.
-constexpr double orbit_intercept_per_metre = 90.0 / 1000.0;
+// (sim::heading_off_for_bank_deg); turned in towards the circle by the angle
+// that would bring it back in twelve seconds at its airspeed, 45 degrees at
+// most; and trimmed by an integral on that, a sixtieth of it each second, 15
+// degrees at most, for what the autopilot's bank and the aeroplane's turn do
+// not quite agree on. It was led along the tangent by five seconds, which is
+// what a wide circle needs and more than a tight, slow one does: Claude's
+// 521 m orbit at 60 kt was flown 94 to 127 m inside.
+//
+// **How far it is turned in is set by time, not distance.** It was 90
+// degrees for each kilometre off whatever the speed, which is fifteen to
+// twenty seconds back at 60 to 80 kt. A jet at 360 kt was turned in by 45
+// degrees half a kilometre off, which at 25 degrees of bank, 1.4 degrees a
+// second, took it half a minute to turn back from: it swung through its
+// 18.8 km circle 3.5 km either side. Twenty seconds let a Cessna at 100 kt
+// run 67 m wide of its 1,447 m circle, and fifteen the S.23 at 86 kt in
+// wind 67 m inside its 1,071 m; twelve holds all three.
+constexpr double orbit_closing_s = 12.0;
 constexpr double most_orbit_intercept_deg = 45.0;
-constexpr double orbit_trim_per_metre_s = orbit_intercept_per_metre / 60.0;
+constexpr double orbit_trim_per_s = 1.0 / 60.0;
 constexpr double most_orbit_trim_deg = 15.0;
+constexpr double most_trimmed_in_deg = 9.0;
 constexpr double gravity_mps2 = 9.80665;
 // On an orbit's circle, and counting the turns round it: within this of it,
 // either side. From outside it is flown to along the line that meets it at a
@@ -162,8 +172,16 @@ AutopilotModes Navigator::steer() {
                 modes.airspeed_kts = to.airspeed_kts;
                 break;
             }
-            if (circling_ && std::abs(off_circle_m) <= orbit_joined_m) {
-                trim_deg_ = std::clamp(trim_deg_ + orbit_trim_per_metre_s * off_circle_m * dt,
+            const double air_mps = air_fps * 0.3048;
+            // Degrees turned in for each metre off the circle.
+            const double in_per_metre =
+                std::atan(1.0 / (std::max(air_mps, 1.0) * orbit_closing_s)) / radians;
+            // The trim counts while it is turned in by 9 degrees or less: 100
+            // m off at 60 kt, which is where it counted before, and further
+            // the faster it flies.
+            if (circling_ && std::abs(in_per_metre * off_circle_m) <= most_trimmed_in_deg) {
+                trim_deg_ = std::clamp(trim_deg_ + orbit_trim_per_s * in_per_metre *
+                                                       off_circle_m * dt,
                                        -most_orbit_trim_deg, most_orbit_trim_deg);
             }
             // Along the tangent, ahead of it by the heading the autopilot needs
@@ -173,11 +191,10 @@ AutopilotModes Navigator::steer() {
             // over the radius, and the air is turned through that at the
             // airspeed: tan bank = v_air v_ground / g r.
             const double ground_mps = std::hypot(north, east) * 0.3048;
-            const double air_mps = air_fps * 0.3048;
             const double bank_deg =
                 std::atan(air_mps * ground_mps / (gravity_mps2 * r)) / radians;
             const double lead_deg = heading_off_for_bank_deg(bank_deg);
-            const double in = std::clamp(orbit_intercept_per_metre * off_circle_m,
+            const double in = std::clamp(in_per_metre * off_circle_m,
                                          -most_orbit_intercept_deg, most_orbit_intercept_deg);
             const double turned_in = lead_deg + in + trim_deg_;
             track = to.orbit->right ? around + 90.0 + turned_in : around - 90.0 - turned_in;
