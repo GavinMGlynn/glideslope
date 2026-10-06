@@ -989,11 +989,13 @@ Found while implementing something else. Added when found, not when remembered.
       not glide. *Verification: an engine stopped on a server is said to the
       player's copilot, which answers with a glide the server flies.* Done
       2026-09-30, with Phase 8's "The copilot flies with you".
-- [ ] **A client predicting its own aircraft does not know its engine has
+- [x] **A client predicting its own aircraft does not know its engine has
       stopped.** An engine that stops on the server while the player flies is
       still run by the client's prediction, and put right correction by
       correction. *Verification: with an engine stopped under a player flying
-      it, the client's corrections are as small as with it running.*
+      it, the client's corrections are as small as with it running.* Done
+      2026-10-06, by the median error (14 mm after, 42 mm before); which
+      engine stopped is not on the wire, so the first is stopped.
 
 - [x] **A model planning an aircraft left to the AI is not told the plan it
       flies.** Left by a player who goes, it flies the server's plan file
@@ -1034,10 +1036,11 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       what the server's plan flies. *Verification: a player asks for an
       aeroplane when joining and flies it, and every other client draws it
       as that aeroplane.*
-- [ ] **Nothing limits how often a client sends**, where REQUIREMENTS 6.2
+- [x] **Nothing limits how often a client sends**, where REQUIREMENTS 6.2
       asks for rate limits on its inputs and requests. *Verification: a
       client sending faster than a stated rate is held to it, and
-      `THREATS.md` states the rate.*
+      `THREATS.md` states the rate.* Done 2026-10-06: 240 datagrams and 8
+      requests a second per session.
 - [ ] **The HUD's horizon line is not the horizon**: it moves a hundredth of
       the frame a degree of pitch, and the drawn terrain does not line up
       with it. *Verification: over level ground the HUD's horizon lies on the

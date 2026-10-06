@@ -32,8 +32,10 @@ the replay window and the per-peer connection table are **built** and wired:
 `src/frontend/server/main.cpp` runs all of them on every datagram. The seven
 message readers are **unwired** - they are exercised by
 `tests/unit/test_messages.cpp` and by the fuzzing seeds, and the server does
-not yet carry a message inside a sealed body. Rate limiting, the cookie reply
-under load, and every input range and rate check are **not built**.
+not yet carry a message inside a sealed body. A session's rates are built
+(2026-10-06: 240 sealed datagrams and 8 requests a second, below); a rate per
+address before a session, the cookie reply under load, and refusing an input
+sequence far ahead of the server's are **not built**.
 
 ## What is deliberately not defended
 
@@ -609,12 +611,16 @@ to the AI under a new number. It is refused for a player's aircraft, one the
 AI is not flying, or a wreck, so no client can take another player's aircraft
 or be moved by anybody else's request; and a server started with
 `--no-take-over` refuses it outright. What it costs a server is one aircraft
-renumbered and two announcements; like a swap, nothing limits how often it is
-asked for. `at_simulation_time_s` is refused if it is a NaN or an infinity; from a
+renumbered and two announcements; like a swap, it is a request, held to
+eight a second (below). `at_simulation_time_s` is refused if it is a NaN or an infinity; from a
 client it is ignored, and the time the server announces is its own clock's.
-Nothing limits how often a client may ask: each swap is a controller change
-and a reliable message to every client, so a client asking a hundred times a
-second costs the server that. A rate limit is owed (below).
+**How often a client may ask is limited** (2026-10-06, `net/budget.hpp`):
+every reliable message a client sends - a swap, a take-over, a route, a
+watch - is a request, and a session may make **8 a second, with 8 at once**.
+One past that is acknowledged, as the reliable stream needs, and ignored; the
+server says how many when it lets the session go. So a client asking a
+hundred times a second costs the server eight controller changes and their
+announcements a second, not a hundred.
 
 #### `COPILOT_ROUTE`
 
@@ -636,8 +642,8 @@ over rising ground is taken and flown into it - as the server's own plans
 and a player's hands can be. What it cannot stop is a route that is flyable
 and foolish - over
 the sea until the fuel runs out, say - which is no more than a player
-flying their own aircraft badly. Rate limiting is owed here as for
-`CONTROLLER_SWAP`: each route read costs the server a plan parsed.
+flying their own aircraft badly. It is a request, held to eight a second as
+`CONTROLLER_SWAP` is: each route read costs the server a plan parsed.
 
 #### `WATCH`
 
@@ -665,7 +671,7 @@ controller byte is not `NOBODY`, `PERSON` or `AI`; and nothing trailing.
   The server owns the clock; a swap timed by a client is a client telling the
   server when to act.
 - A swap rate limit, because a swap is cheap to ask for and a controller
-  change is not free.
+  change is not free. Built 2026-10-06: eight requests a second.
 
 ### Inputs and state updates
 
@@ -918,7 +924,14 @@ a burst), and past that costs nothing but a refusal. One that is read costs
 one X25519 operation and a refusal for a stranger's key, two for a forged
 claim of a player's, and five, a handshake answer and a `Connection` for a
 player's own key - an honest restart, or a replay of a player's captured
-initiation from a new address (see `HANDSHAKE_INITIATION` above). **There is no other rate limit of any kind**,
+initiation from a new address (see `HANDSHAKE_INITIATION` above). **Inside a
+session, a client is held to 240 sealed datagrams a second** (with 240 at
+once): one past that has opened - the client's own, so a forger writing its
+address on garbage spends nothing of its budget - and is dropped unread, so
+that what a session's flood costs is an AEAD open a datagram, not an input
+applied or a `PONG` sent. A goodbye is never dropped for it. 240 is eight
+times this project's clients' input rate of 30 a second, room for their
+knocks and acknowledgements. **There is no rate limit before a session**,
 and the loop sleeps for two
 milliseconds only when nothing was waiting, so a sustained flood keeps a core
 busy for as long as it lasts. That is the honest cost, and it is no longer the
@@ -1164,10 +1177,11 @@ defence becomes possible, not a wish list.
 8. **Direction, on every message.** Done 2026-09-25: the server acts on a
    client's `CONTROLLER_SWAP` and `WATCH` and on nothing else.
 9. **A rate limit on `CONTROLLER_SWAP` and `WATCH`.** The sender's own
-   aircraft is checked and the server's clock used (2026-09-25); how often a
-   client may ask is not limited.
-10. **Input ranges and rates.** The range is the wire format's already; what is
-    owed is the rate limit and refusing a sequence far ahead of the server's.
+   aircraft is checked and the server's clock used (2026-09-25); done
+   2026-10-06: eight requests a second.
+10. **Input ranges and rates.** The range is the wire format's already, and
+    the rate is held (240 sealed datagrams a second, 2026-10-06); what is
+    owed is refusing a sequence far ahead of the server's.
 11. **The terrain dataset hash checked before use**, and the dataset name
     looked up rather than joined to a path.
 12. **Fuzzing the three readers the corpus misses** - the handshake, the

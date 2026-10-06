@@ -1084,3 +1084,34 @@ GLIDESLOPE_TEST(every_step_a_client_flies_meets_the_air_at_the_moment_the_server
           "and the next step forward meets it at its own moment");
     check(held == 84, "84 replayed steps were held to their moments");
 }
+
+// **A prediction stops its engine on the server's word that one has
+// stopped, once, and starts it again when the word says none has** - an
+// aircraft flown again after a wreck. Stopped before it is put right, so that
+// the inputs flown again are flown with it out; and only an engine it stopped
+// for that word is started again: one stopped here by itself stays stopped.
+GLIDESLOPE_TEST(a_prediction_stops_its_engine_on_the_servers_word_and_starts_it_again_on_its_word) {
+    Aircraft client(data() / "jsbsim", "c172p");
+    set_up(client);
+    glideslope::sim::Prediction prediction(client);
+    check(!client.any_engine_stopped(), "the engine runs to begin with");
+    check(!prediction.hear_engine_stopped(false), "nothing is stopped for a word of none");
+    check(prediction.hear_engine_stopped(true), "the word that one has stopped stops one");
+    check(client.any_engine_stopped(), "and it is stopped");
+    check(!prediction.hear_engine_stopped(true), "said again, nothing more is stopped");
+    check(prediction.engines_stopped_for_the_server() == 1, "one stopped for the word");
+    for (int i = 0; i < steps_per_second; ++i) {
+        prediction.step(static_cast<std::uint32_t>(i + 1), flying(i));
+    }
+    check(client.any_engine_stopped(), "it stays stopped while flown, its ignition off");
+    check(!prediction.hear_engine_stopped(false), "the word of none stops nothing");
+    check(!client.any_engine_stopped(), "and starts the one it stopped again");
+
+    Aircraft dry(data() / "jsbsim", "c172p");
+    set_up(dry);
+    glideslope::sim::Prediction own(dry);
+    dry.fail_engine(0, false);
+    check(!own.hear_engine_stopped(true), "one stopped here already is not stopped again");
+    (void)own.hear_engine_stopped(false);
+    check(dry.any_engine_stopped(), "and one stopped here by itself is not started for the word");
+}

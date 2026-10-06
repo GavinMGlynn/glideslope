@@ -848,6 +848,13 @@ struct Connection {
     // from.
     double admitted_s = 0.0;
     std::uint64_t datagrams = 0;
+    // **How often it may send** (net/budget.hpp), and how much past it was
+    // dropped or ignored - said when the session is let go.
+    glideslope::net::Budget datagram_budget{glideslope::net::session_datagrams_per_second};
+    glideslope::net::Budget request_budget{glideslope::net::session_requests_per_second};
+    std::uint64_t datagrams_past_budget = 0;
+    std::uint64_t requests_past_budget = 0;
+    std::uint64_t requests = 0;
     // What the dashboard shows. Bytes are whole datagrams, envelope and all,
     // because that is what the link carries.
     std::uint64_t bytes_in = 0;
@@ -2182,7 +2189,6 @@ public:
         // stall speed or climb rate, whose routes are all refused.
         std::optional<glideslope::copilot::Brief> brief{};
         std::string no_brief{};
-        int engines = 1;
         // **Planned by the server's model, given to the AI in the air**
         // (`--hand-over-planner`): the question out, why it was given, and
         // whether its route has been said to be flown five times - what a server
@@ -2199,13 +2205,7 @@ public:
     // **Whether any of its engines has stopped**, as the state update says
     // (`net::Condition::engine_stopped`).
     static bool engine_stopped(const Aircraft& a) {
-        for (int i = 0; i < a.engines; ++i) {
-            const std::string running = "propulsion/engine[" + std::to_string(i) + "]/set-running";
-            if (a.aircraft->has_property(running) && a.aircraft->property(running) < 0.5) {
-                return true;
-            }
-        }
-        return false;
+        return a.aircraft->any_engine_stopped();
     }
     // Whether an AI pilot has it, rather than a person - a controller of its
     // own is not enough to say: a player's aircraft given back keeps one.
@@ -2562,8 +2562,6 @@ private:
         }
         a.brief = it->second.brief;
         a.no_brief = it->second.why;
-        // And how many engines it has, for every state update to ask.
-        a.engines = std::max(1, a.aircraft->figures().engines);
     }
 
     void remember_start(Aircraft& a, const glideslope::sim::InitialConditions& ic,
@@ -3139,6 +3137,19 @@ std::map<std::string, Connection>::iterator let_go(
     // - **An unproven session goes and others remain**: nothing more goes.
     // - **It was the key's only session**: the aircraft and slot go.
     const glideslope::net::PublicKey going = it->second.who;
+    // **What it sent past its rates**, said when there was any.
+    if (it->second.datagrams_past_budget > 0 || it->second.requests_past_budget > 0) {
+        std::printf("%s was held to its rates: %llu of %llu sealed datagrams dropped past %.0f "
+                    "a second, %llu of %llu requests ignored past %.0f a second\n",
+                    it->first.c_str(),
+                    static_cast<unsigned long long>(it->second.datagrams_past_budget),
+                    static_cast<unsigned long long>(it->second.datagrams),
+                    glideslope::net::session_datagrams_per_second,
+                    static_cast<unsigned long long>(it->second.requests_past_budget),
+                    static_cast<unsigned long long>(it->second.requests),
+                    glideslope::net::session_requests_per_second);
+        std::fflush(stdout);
+    }
     const std::uint8_t aircraft = it->second.aircraft;
     const bool was_proven = it->second.proven;
     const std::string address = it->first;
@@ -3505,6 +3516,14 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             return;
         }
         const std::span<const std::uint8_t> inside(opened->data(), opened->size());
+        // **Held to its rate** (net/budget.hpp): past
+        // `session_datagrams_per_second`, what opened is dropped unread. A
+        // goodbye is not: it ends the session, which is what a client
+        // sending too much should do.
+        if (!glideslope::net::is_leaving(inside) && !c.datagram_budget.take(now_s)) {
+            ++c.datagrams_past_budget;
+            return;
+        }
         switch (static_cast<glideslope::net::Inside>((*opened)[0])) {
         case glideslope::net::Inside::ping: {
             // Sent straight back, so that the other end can measure the trip.
@@ -3557,6 +3576,14 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             // else is acknowledged and let go: a client flies its own
             // aircraft, or one the AI was flying, and no player's.
             for (const std::vector<std::uint8_t>& message : c.reliable.received(inside.subspan(1))) {
+                // **Held to its rate** (net/budget.hpp): past
+                // `session_requests_per_second`, a request is acknowledged -
+                // the stream needs it - and ignored.
+                ++c.requests;
+                if (!c.request_budget.take(now_s)) {
+                    ++c.requests_past_budget;
+                    continue;
+                }
                 // Which aircraft it rides along in: any, or none. It changes
                 // only what this client is told.
                 glideslope::net::Watch watch;

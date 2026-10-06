@@ -818,6 +818,13 @@ The replacement:
   let-go opens as well as a live one, and going back on it left a ghost
   session on the server. The knock costs one sealed `PING` a quarter of a
   second while joining again.
+- **A session may send 240 sealed datagrams and 8 requests a second** (6.2's
+  rate limits), each with a second's worth at once. Past them a datagram is
+  dropped after it opens - so a forger at the client's address spends
+  nothing of its budget - and a request is acknowledged and ignored; a
+  goodbye is never dropped. Nothing tells the client: this project's clients
+  send nowhere near either. A rate before a session, per address, is still
+  open (THREATS.md).
 
 **Open:**
 

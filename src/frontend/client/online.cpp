@@ -285,7 +285,8 @@ void Online::hear(Flight& flight) {
     }
     const bool known = flight.clocks_known();
     const auto c =
-        flight.reconcile(word.motion, word.last_applied, word.steps_into, word.server_steps);
+        flight.reconcile(word.motion, word.last_applied, word.steps_into, word.server_steps,
+                         word.engine_stopped);
     double& worst = known ? worst_known_m_ : worst_learning_m_;
     worst = std::max(worst, c.moved_m);
     ++corrections_;
@@ -492,8 +493,13 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
                 flight.hear_clock(own_word_->last_applied, own_word_->steps_into,
                                   own_word_->server_steps);
             }
+            const auto own = std::find_if(
+                state.aircraft.begin(), state.aircraft.end(),
+                [&](const net::AircraftState& a) { return a.index == state.your_aircraft; });
             own_word_ = OwnWord{motion_of(*state.yours), state.last_input_applied,
-                                state.yours->steps_into_input, server_steps};
+                                state.yours->steps_into_input, server_steps, false,
+                                own != state.aircraft.end() &&
+                                    own->condition == net::Condition::engine_stopped};
             if (own_words_ == 0) {
                 first_own_word_s_ = state.simulation_time_s;
             }
