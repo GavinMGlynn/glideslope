@@ -359,12 +359,14 @@ Found while implementing something else. Added when found, not when remembered.
       refused; all sixteen hold their height and speed round the orbit
       every 5 kt between them.
 
-- [ ] **At its fastest, a fast aircraft's tightest orbit is flown well off
+- [x] **At its fastest, a fast aircraft's tightest orbit is flown well off
       its circle.** Round 13 to 19 km circles at 300 to 360 kt the jets
       hold their height and speed but wander up to 18% of the radius off the
       circle (3.3 km, the F-15C); the light aeroplanes stay within 60 m.
       *Verification: every aircraft at the fastest a plan may ask holds its
-      tightest circle within a stated distance, measured.*
+      tightest circle within a stated distance, measured.* Done 2026-10-06:
+      once round the join, every jet holds within 2% of the radius and the
+      rest within 60 m; the 787-8's slowest came down from 198 kt to 193.
 - [ ] **A glide may still be asked of a jet at its approach speed.** A
       copilot's glide, with the engine stopped, is allowed from the approach
       speed to the best climb, and whether a jet glides round its tightest
@@ -380,9 +382,11 @@ Found while implementing something else. Added when found, not when remembered.
       slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
       of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is
       kept above 194 and 255 kt for it, but the autopilot itself is not
-      fixed. *Verification: every aircraft holds a heading in a 20 kt
-      crosswind from its approach speed up, its sideslip within a stated
-      bound.*
+      fixed. The cause is found - the rudder's integral, which feeds the
+      swing - but a slower one that held the B-2 at 159 kt sent the S.23
+      into a spin in its stall lesson, so it is not in. *Verification:
+      every aircraft holds a heading in a 20 kt crosswind from its approach
+      speed up, its sideslip within a stated bound.*
 
 - [x] **In wind the Cub and the Cherokee yaw from side to side.** Holding
       a heading in a 10 kt crosswind, with no plan, the autopilot's J-3 Cub

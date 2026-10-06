@@ -1014,8 +1014,9 @@ int fly_plan(const std::filesystem::path& data, const std::vector<std::string_vi
             }
             continue;
         }
-        // Round an orbit, once on its circle: after the quarter turn joining it.
-        if (navigator->circling() && navigator->turns_flown() >= 0.25) {
+        // Round an orbit, once on its circle: after the half turn joining it
+        // (sim::OrbitFlown says why).
+        if (navigator->circling() && navigator->turns_flown() >= 0.5) {
             turns = navigator->turns_flown();
             nearest_m = std::min(nearest_m, d);
             farthest_m = std::max(farthest_m, d);

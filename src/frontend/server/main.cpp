@@ -2432,7 +2432,8 @@ private:
 
     // **How its plan is going**, a step at a time: when the take-off
     // autopilot hands over, and how round an orbit is flown once on its
-    // circle - after the quarter turn joining it.
+    // circle: its height from the quarter turn, once level at it, and its
+    // circle from the half turn joining it (sim::OrbitFlown says why).
     void follow(Aircraft& a) {
         PlanProgress& p = a.progress;
         const glideslope::sim::AircraftState s = a.aircraft->state();
@@ -2465,8 +2466,10 @@ private:
         const double ft =
             s.altitude_ft - geoid_.undulation(s.latitude_deg, s.longitude_deg) * feet_per_metre;
         p.turns = navigator->turns_flown();
-        p.nearest_m = std::min(p.nearest_m, d);
-        p.farthest_m = std::max(p.farthest_m, d);
+        if (p.turns >= 0.5) {
+            p.nearest_m = std::min(p.nearest_m, d);
+            p.farthest_m = std::max(p.farthest_m, d);
+        }
         if (p.level_from_turns < 0.0 &&
             std::abs(s.altitude_ft - to.altitude_ft) <= PlanProgress::level_ft) {
             p.level_from_turns = p.turns;

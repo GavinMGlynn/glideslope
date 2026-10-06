@@ -120,8 +120,10 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
             const double d = distance_m(centre.latitude_deg, centre.longitude_deg,
                                         aircraft.property("position/lat-geod-deg"),
                                         aircraft.property("position/long-gc-deg"));
-            out.nearest_m = std::min(out.nearest_m, d);
-            out.farthest_m = std::max(out.farthest_m, d);
+            if (navigator.turns_flown() >= 0.5) {
+                out.nearest_m = std::min(out.nearest_m, d);
+                out.farthest_m = std::max(out.farthest_m, d);
+            }
             out.worst_height_ft =
                 std::max(out.worst_height_ft,
                          std::abs(aircraft.property("position/h-sl-ft") - centre.altitude_ft));
