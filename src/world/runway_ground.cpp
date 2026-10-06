@@ -293,6 +293,7 @@ RunwaySurfaces::Placed RunwaySurfaces::place(std::size_t i, double latitude_deg,
     const double outside = std::hypot(beyond_end, beyond_side);
     Placed out;
     out.t = std::clamp(along / r.length_m, 0.0, 1.0);
+    out.outside_m = outside;
     out.weight = outside == 0.0 ? 1.0 : smoothstep(1.0 - outside / runway_shoulder_m);
     return out;
 }
@@ -568,14 +569,30 @@ const CollisionGround::Surface& CollisionGround::surface(std::size_t runway) {
 }
 
 double CollisionGround::height_above_geoid(double latitude_deg, double longitude_deg) {
-    double weights = 0.0;
-    double weighted = 0.0;
-    for (const std::uint32_t i : runways_->reaching(latitude_deg, longitude_deg)) {
+    const std::span<const std::uint32_t> reaching =
+        runways_->reaching(latitude_deg, longitude_deg);
+    // The runways that reach the place, and how far outside the nearest's
+    // rectangle it is.
+    placed_.clear();
+    double nearest_m = std::numeric_limits<double>::infinity();
+    for (const std::uint32_t i : reaching) {
         const RunwaySurfaces::Placed p = runways_->place(i, latitude_deg, longitude_deg);
         if (p.weight > 0.0) {
+            placed_.emplace_back(i, p);
+            nearest_m = std::min(nearest_m, p.outside_m);
+        }
+    }
+    double weights = 0.0;
+    double weighted = 0.0;
+    for (const auto& [i, p] : placed_) {
+        const double further_m = p.outside_m - nearest_m;
+        const double weight =
+            further_m == 0.0 ? p.weight
+                             : p.weight * smoothstep(1.0 - further_m / runway_overlap_band_m);
+        if (weight > 0.0) {
             const Surface& s = surface(i);
-            weights += p.weight;
-            weighted += p.weight * (s.le_m + p.t * (s.he_m - s.le_m));
+            weights += weight;
+            weighted += weight * (s.le_m + p.t * (s.he_m - s.le_m));
         }
     }
     if (weights == 0.0) {

@@ -52,8 +52,17 @@
 // do - is made from every member's fit to the DEM instead, and tied again.
 //
 // **Where runways overlap** - at a crossing, or one's shoulder over another -
-// the ground is the mean of their surfaces weighted by each one's blend, and
-// the DEM fills whatever weight they leave below one: continuous everywhere.
+// the nearest runway wins: each surface is weighted by its blend, and that
+// weight falls by a smoothstep to nothing as the place is
+// `runway_overlap_band_m` further outside its rectangle than it is outside the
+// nearest runway's. So on a runway's rectangle another's shoulder does not
+// reach it - only the first metres of the other's own edge, as it gives way -
+// and where two rectangles overlap the ground is the mean of their lines,
+// which no rule can do better at: there each runway is pulled off its line by
+// half their difference. The DEM fills whatever weight they leave below one:
+// continuous everywhere. (Rules 1, before 2026-10-06, weighted every surface
+// by its blend alone, and a runway's shoulder pulled its neighbour's pavement
+// by up to 0.68 m.)
 //
 // **The same everywhere.** Every decision - which runways reach a place, which
 // are tied, whether a line is the file's or the fit - follows from the same
@@ -85,12 +94,16 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace glideslope::world {
 
-inline constexpr int collision_ground_rules = 1;
+inline constexpr int collision_ground_rules = 2;
 inline constexpr double runway_shoulder_m = 50.0;
+// Where runways overlap, how much further from its rectangle than the nearest
+// runway's one may be and still be blended in (rules 2, 2026-10-06).
+inline constexpr double runway_overlap_band_m = 5.0;
 inline constexpr double default_runway_width_m = 30.0;
 inline constexpr double elevation_tolerance_m = 5.0;
 inline constexpr double fit_spacing_m = 10.0;
@@ -166,6 +179,7 @@ public:
     struct Placed {
         double t = 0.0;
         double weight = 0.0;
+        double outside_m = 0.0; // how far outside the rectangle: 0 on it
     };
     Placed place(std::size_t i, double latitude_deg, double longitude_deg) const;
 
@@ -223,6 +237,9 @@ private:
     std::shared_ptr<const RunwaySurfaces> runways_;
     double tolerance_m_;
     std::unordered_map<std::size_t, Surface> surfaces_;
+    // The runways reaching the place being asked about: kept to save making
+    // it again every call.
+    std::vector<std::pair<std::uint32_t, RunwaySurfaces::Placed>> placed_;
 };
 
 } // namespace glideslope::world

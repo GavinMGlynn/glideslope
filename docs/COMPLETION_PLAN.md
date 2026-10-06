@@ -423,12 +423,12 @@ Found while implementing something else. Added when found, not when remembered.
       stated distance from every other along the whole of its route,
       measured over a whole run.*
 
-- [ ] **On the DEM at Sydney's 16R the runway is not flat enough to take off
-      from.** Flattened 2026-10-01: every other landplane now takes off; the
-      747-400 and F-22A are rolled 2,000 m stick-neutral but not flown off,
-      having no climb speed (as their lessons). *Verification: every
-      aeroplane takes off from 16R on the DEM, and what the collision ground
-      under a runway may do is measured.*
+- [x] **On the DEM at Sydney's 16R the runway is not flat enough to take off
+      from.** *Verification: every aeroplane takes off from 16R on the DEM,
+      and what the collision ground under a runway may do is measured.* Done
+      2026-10-06: flattened 2026-10-01, and with the 747-400 and F-22A given
+      take-off speeds, all fifteen landplanes take off from 16R and fly on to
+      the orbit; the ground under seven reference runways is measured and held.
 
 - [x] **After the take-off hands over, the Learjet 35A and the Mosquito come
       down on Botany Bay.** *Verification: every aeroplane that takes off
@@ -438,10 +438,13 @@ Found while implementing something else. Added when found, not when remembered.
       at speeds it may be planned at, and all thirteen reach the orbit.
 
 - [ ] **Runways that meet at different slopes still pull each other's
-      surface.** Tied where they meet, their lines agree there and drift
-      apart away from it: worldwide, 38 runways are pulled more than 0.3 m
-      off their line, at worst 0.68 m (LKMB 16/34). *Verification: no
-      runway in the world pulled more than 0.1 m.*
+      surface.** Since 2026-10-06 one runway's shoulder no longer pulls
+      another's pavement: 262 runways are pulled more than 0.1 m (was 572),
+      12 more than 0.3 m (was 38), at worst 0.61 m (LKMB 04/22). **Missing**:
+      where two pavements overlap, two sloping lines cannot agree over an
+      area, and 0.1 m there needs a new rule for the overlap - the owner's
+      to choose. *Verification: no runway in the world pulled more than
+      0.1 m.*
 
 - [x] **The F-15C landed wheels-up rocks from wing tip to wing tip, and on
       Windows it now breaks up.** *Verification: the F-15C rests on its
