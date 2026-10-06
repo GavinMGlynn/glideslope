@@ -11,8 +11,9 @@
 #     of "take off, climb to 3,000 ft and orbit the CBD" - the task file the
 #     server reads - so no key is needed and none is sent anywhere. Each must
 #     take off, reach its orbit and fly round it as often as its plan asks
-#     (twice for one flown for ever), within 60 m of its circle and 50 ft of
-#     its height - 3,000 ft, stacked 1,000 ft higher for the first planned,
+#     (twice for one flown for ever), within 60 m of its circle, level at its
+#     height within its first turn and within 50 ft of it from then on -
+#     3,000 ft, stacked 1,000 ft higher for the first planned,
 #     which takes off first: the server stacks planned aircraft downwards in
 #     the order they go, so that none climbs through another's height
 #     (sim/separation.hpp) - its centre within 2 km of Town Hall,
@@ -87,15 +88,27 @@ foreach(_case "1:openai:1" "2:anthropic:0")
     set(_altitude "${CMAKE_MATCH_5}")
     set(_planned_turns "${CMAKE_MATCH_6}")
     # And as flown: the line the server ends with for that aircraft.
-    if(NOT _out MATCHES "planned by ${_provider}; took off from [^,]+, handed over ([0-9]+) ft above it; round ${_orbit} ([0-9.]+) turns, ([0-9]+) to ([0-9]+) m from its centre, at ([-0-9]+) to ([-0-9]+) ft")
+    if(_out MATCHES "planned by ${_provider};[^\n]* never level at its height")
+        message(FATAL_ERROR "AI ${_n} flew round ${_orbit} and never reached its height:\n${_out}")
+    endif()
+    if(NOT _out MATCHES "planned by ${_provider}; took off from [^,]+, handed over ([0-9]+) ft above it; round ${_orbit} ([0-9.]+) turns, ([0-9]+) to ([0-9]+) m from its centre, level from ([0-9.]+) turns at ([-0-9]+) to ([-0-9]+) ft")
         message(FATAL_ERROR "AI ${_n} did not take off and fly round ${_orbit}:\n${_out}")
     endif()
     set(_handed "${CMAKE_MATCH_1}")
     set(_turns "${CMAKE_MATCH_2}")
     set(_near "${CMAKE_MATCH_3}")
     set(_far "${CMAKE_MATCH_4}")
-    set(_low "${CMAKE_MATCH_5}")
-    set(_high "${CMAKE_MATCH_6}")
+    set(_level_from "${CMAKE_MATCH_5}")
+    set(_low "${CMAKE_MATCH_6}")
+    set(_high "${CMAKE_MATCH_7}")
+    # Level at its height within its first turn: the first, stacked 1,000 ft
+    # up, joins its orbit still climbing - some 600 ft short - and at the
+    # autopilot's 700 ft a minute a turn of its 1,450 m circle, over three
+    # minutes, is ample to finish the climb in.
+    if(_level_from GREATER 1.0)
+        message(FATAL_ERROR "AI ${_n} was not level at its height round ${_orbit} until "
+                            "${_level_from} turns:\n${_out}")
+    endif()
     if(_handed LESS 400)
         message(FATAL_ERROR "AI ${_n}'s take-off handed over only ${_handed} ft above the runway")
     endif()
@@ -148,7 +161,7 @@ foreach(_case "1:openai:1" "2:anthropic:0")
     endif()
     message(STATUS "AI ${_n}, planned by ${_provider}: took off, handed over ${_handed} ft up, "
                    "round ${_orbit} ${_turns} times at ${_near} to ${_far} m (${_radius} asked) "
-                   "and ${_low} to ${_high} ft (${_want_ft} asked)")
+                   "and, level from ${_level_from} turns, ${_low} to ${_high} ft (${_want_ft} asked)")
     math(EXPR _flown "${_flown} + 1")
 endforeach()
 if(NOT _flown EQUAL 2)

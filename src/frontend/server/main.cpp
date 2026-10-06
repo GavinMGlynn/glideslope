@@ -908,7 +908,14 @@ constexpr double feet_per_metre = 3.280839895013123;
 
 // **How a model's plan went**, for the end of the run to say: the take-off
 // handed over, and the orbit it last flew, how often round and how close.
+// **Its height round the orbit is the height it holds there**, from the turn
+// it first comes within `level_ft` of it: an aircraft whose layer is higher
+// than it could climb to on the way joins the orbit still climbing - a
+// layer's 1,000 ft at the autopilot's 700 ft a minute is most of a minute and
+// a half - and climbs on in it, as a pilot does; how far round it was by then
+// is said, so that one that never gets there is seen.
 struct PlanProgress {
+    static constexpr double level_ft = 10.0;
     bool departing = false;
     double handed_over_ft = -1.0; // above the runway; below nought: not yet
     std::size_t leg = 0;
@@ -916,6 +923,7 @@ struct PlanProgress {
     double turns = 0.0;
     double nearest_m = 1e18;
     double farthest_m = 0.0;
+    double level_from_turns = -1.0; // below nought: not yet at its height
     double lowest_ft = 1e18;
     double highest_ft = -1e18;
 };
@@ -2145,11 +2153,15 @@ public:
             out += line;
         }
         if (!p.orbit.empty() && p.farthest_m > 0.0) {
-            std::snprintf(line, sizeof line,
-                          "; round %s %.2f turns, %.0f to %.0f m from its centre, at %.0f to "
-                          "%.0f ft",
-                          p.orbit.c_str(), p.turns, p.nearest_m, p.farthest_m, p.lowest_ft,
-                          p.highest_ft);
+            std::snprintf(line, sizeof line, "; round %s %.2f turns, %.0f to %.0f m from its centre",
+                          p.orbit.c_str(), p.turns, p.nearest_m, p.farthest_m);
+            out += line;
+            if (p.level_from_turns >= 0.0) {
+                std::snprintf(line, sizeof line, ", level from %.2f turns at %.0f to %.0f ft",
+                              p.level_from_turns, p.lowest_ft, p.highest_ft);
+            } else {
+                std::snprintf(line, sizeof line, ", never level at its height");
+            }
             out += line;
         }
         return out;
@@ -2278,8 +2290,14 @@ private:
         p.turns = navigator->turns_flown();
         p.nearest_m = std::min(p.nearest_m, d);
         p.farthest_m = std::max(p.farthest_m, d);
-        p.lowest_ft = std::min(p.lowest_ft, ft);
-        p.highest_ft = std::max(p.highest_ft, ft);
+        if (p.level_from_turns < 0.0 &&
+            std::abs(s.altitude_ft - to.altitude_ft) <= PlanProgress::level_ft) {
+            p.level_from_turns = p.turns;
+        }
+        if (p.level_from_turns >= 0.0) {
+            p.lowest_ft = std::min(p.lowest_ft, ft);
+            p.highest_ft = std::max(p.highest_ft, ft);
+        }
     }
 
     // **An aircraft's speeds, worked out once** as it is made, and kept by
