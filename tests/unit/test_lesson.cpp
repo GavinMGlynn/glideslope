@@ -1658,7 +1658,7 @@ GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_s
                             std::to_string(stance.strike_pitch_deg));
         }
         const bool said_so = std::any_of(debrief.begin(), debrief.end(), [](const std::string& s) {
-            return s.find("Keep her tail off the runway") != std::string::npos;
+            return s.find("Keep the airframe off the runway") != std::string::npos;
         });
         if (!said_so) {
             wrong.push_back(entry.id + "'s debrief does not name the strike");

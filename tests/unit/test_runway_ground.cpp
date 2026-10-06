@@ -555,7 +555,27 @@ GLIDESLOPE_TEST(reference_runways_roll_with_no_bump_beyond_a_bound) {
 // sits - through 16R's first 2,000 m, past every bump the DEM had there, with
 // nothing wrecked and the nose within 1.5 degrees of where it stood. Left out,
 // and named: a flying boat, which has no wheels to roll on.
-GLIDESLOPE_TEST(every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_that_can_climb_away_flies_its_plan_to_its_orbit) {
+//
+// **Flown in five groups**, one test each, so that no CI shard waits on all of
+// them: flown to the orbit, the light aeroplanes take eight to ten minutes of
+// simulated time each, and the thirteen together took 333 s in linux-debug.
+// Every group checks that the groups and the flying boat are the catalogue,
+// each aircraft once.
+namespace {
+
+const std::map<std::string, std::vector<std::string>>& off_16r_groups() {
+    static const std::map<std::string, std::vector<std::string>> groups{
+        {"airliners", {"737-300", "747-400", "787-8", "a320", "a380"}},
+        {"military", {"b2", "f15c", "f22", "f35b"}},
+        {"learjet and mosquito", {"learjet35a", "mosquito-fb6"}},
+        {"cessnas", {"c172p", "c182"}},
+        {"cub and cherokee", {"j3cub", "pa28"}},
+    };
+    return groups;
+}
+
+void off_16r_to_the_orbit(const std::string& group) {
+    const std::vector<std::string>& ids = off_16r_groups().at(group);
     const Ground g = open_ground();
     const std::vector<glideslope::world::RunwayEnd> ends = glideslope::world::runways_at(
         glideslope::world::world_runways(GLIDESLOPE_TEST_DOWNLOADS_DIR,
@@ -590,9 +610,27 @@ GLIDESLOPE_TEST(every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_
         return glideslope::sim::parse_flight_plan(
             std::string(std::istreambuf_iterator<char>(in), {}));
     }();
+    // **The groups are the catalogue**: every landplane in exactly one, and
+    // the flying boats in none.
+    std::map<std::string, int> grouped;
+    for (const auto& [name, members] : off_16r_groups()) {
+        for (const std::string& id : members) {
+            ++grouped[id];
+        }
+    }
+    std::size_t landplanes = 0;
     for (const glideslope::sim::CatalogueEntry& e : catalogue) {
         if (e.seaplane) {
-            left_out.push_back(e.id + " (a flying boat: no wheels to roll on)");
+            check(grouped.count(e.id) == 0, e.id + " is a flying boat, and in a 16R group");
+            continue;
+        }
+        ++landplanes;
+        check(grouped.count(e.id) != 0 && grouped.at(e.id) == 1,
+              e.id + " is in one 16R group, and only one");
+    }
+    check(grouped.size() == landplanes, "every aircraft in a 16R group is in the catalogue");
+    for (const glideslope::sim::CatalogueEntry& e : catalogue) {
+        if (std::find(ids.begin(), ids.end(), e.id) == ids.end()) {
             continue;
         }
         std::optional<glideslope::sim::DepartureSpeeds> speeds;
@@ -661,10 +699,13 @@ GLIDESLOPE_TEST(every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_
         // sydney-cbd-orbit plan, written for the C172P, made this aircraft's:
         // its speeds brought within the ones a plan may fly it at, and its
         // orbit widened to the tightest it may fly at that speed, as a plan
-        // for it would have to be (sim::refuse_what_it_cannot_fly). Flown at
-        // the plan's 80 and 90 knots, before plans were held to their
-        // aircraft's speeds, the Learjet 35A and the Mosquito stalled 80 to
-        // 90 s in, climbing towards CLIMB, and came down in Botany Bay.
+        // for it would have to be. No function of the product makes a plan
+        // another aircraft's, so this reads the floor and ceiling from
+        // `sim::plan_speeds` and the radius from `sim::least_orbit_radius_m`,
+        // and `sim::refuse_what_it_cannot_fly` - what refuses a plan file -
+        // checks the result. Flown at the plan's 80 and 90 knots, as it was
+        // before 2026-10-02's refusal of such plans, the Learjet 35A and the
+        // Mosquito stalled 80 to 90 s in and came down in Botany Bay.
         glideslope::sim::FlightPlan plan = cbd_orbit;
         plan.aircraft = e.id;
         plan.takeoff->runway = runway;
@@ -741,13 +782,33 @@ GLIDESLOPE_TEST(every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_
     for (const std::string& why : left_out) {
         std::printf("left out: %s\n", why.c_str());
     }
-    check(flown + left_out.size() == catalogue.size() && flown > 0 &&
-              rolled == cannot_be_flown.size(),
-          "every aircraft the data holds flown, rolled or named: " + std::to_string(flown) +
-              " flown, " + std::to_string(rolled) + " rolled, " +
-              std::to_string(left_out.size() - rolled) + " left out, of " +
-              std::to_string(catalogue.size()));
+    check(flown + rolled == ids.size() && left_out.size() == rolled,
+          "every aircraft of the " + group + " flown or rolled: " + std::to_string(flown) +
+              " flown, " + std::to_string(rolled) + " rolled, of " +
+              std::to_string(ids.size()));
     check(failures.empty(), "every aeroplane took off from 16R and flew its plan to its orbit:" + failures);
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(the_airliners_roll_down_sydneys_16r_on_the_dem_and_those_that_can_climb_away_fly_their_plan_to_its_orbit) {
+    off_16r_to_the_orbit("airliners");
+}
+
+GLIDESLOPE_TEST(the_military_jets_roll_down_sydneys_16r_on_the_dem_and_those_that_can_climb_away_fly_their_plan_to_its_orbit) {
+    off_16r_to_the_orbit("military");
+}
+
+GLIDESLOPE_TEST(the_learjet_and_the_mosquito_take_off_from_sydneys_16r_on_the_dem_and_fly_their_plan_to_its_orbit) {
+    off_16r_to_the_orbit("learjet and mosquito");
+}
+
+GLIDESLOPE_TEST(the_cessnas_take_off_from_sydneys_16r_on_the_dem_and_fly_their_plan_to_its_orbit) {
+    off_16r_to_the_orbit("cessnas");
+}
+
+GLIDESLOPE_TEST(the_cub_and_the_cherokee_take_off_from_sydneys_16r_on_the_dem_and_fly_their_plan_to_its_orbit) {
+    off_16r_to_the_orbit("cub and cherokee");
 }
 
 namespace {

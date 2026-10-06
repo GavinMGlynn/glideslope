@@ -293,8 +293,9 @@ her pass unchanged.
 property of its own: 1 while anything not a wheel touches the ground. The
 take-off lessons of every landplane class (airliner, business jet, bomber,
 fighter, light aircraft, Second World War) hold it at nought on the roll and
-in the initial climb: "Keep her tail off the runway: do not rotate past the
-take-off attitude". Before, a tail dragged on the runway went unjudged:
+in the initial climb: "Keep the airframe off the runway: something other
+than the wheels struck it" - the airframe, not the tail, for a wing tip, a
+tip tank or an engine pod is struck the same way. Before, a tail dragged on the runway went unjudged:
 **the 737-300's early rotation in the one-fault test had been dragging her
 tail** at 12.9 degrees, leaving at 143 knots; her debrief now names the
 strike. Held two degrees short of the strike instead she left at 161,
@@ -321,15 +322,24 @@ comment says why).
   does not name the strike".
 - The approach test's strike check is now put to thirteen aeroplanes, not
   twelve; the Learjet is no longer named as having no tail.
-- `every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_that_can_climb_away_flies_its_plan_to_its_orbit`
-  (was `..._takes_off`): each of the thirteen that takes off now flies the
-  sydney-cbd-orbit plan on from the hand-over, made its own - its speeds
-  brought within its `<plan_speeds>` and the orbit widened to the tightest
-  at that speed, then passed by `refuse_what_it_cannot_fly` - until it is
-  on the orbit's leg within a tenth of its radius of the circle. All
-  thirteen get there with nothing wrecked, 218 s (F-35B) to 602 s (J-3 Cub)
-  in; the Learjet at 140 knots, 303 s, the Mosquito at 123, 332 s. 333 s of
-  wall time in linux-debug (was 43).
+- The 16R test (was `every_landplane_rolls_down_sydneys_16r_on_the_dem_and_every_one_that_can_climb_away_takes_off`)
+  now flies each of the thirteen that take off on through the
+  sydney-cbd-orbit plan from the hand-over, made its own: its speeds
+  brought within its `<plan_speeds>` and the orbit widened to
+  `least_orbit_radius_m` at that speed (no function of the product makes a
+  plan another aircraft's), then passed by `refuse_what_it_cannot_fly` -
+  until it is on the orbit's leg within a tenth of its radius of the
+  circle. All thirteen get there with nothing wrecked, 218 s (F-35B) to
+  602 s (J-3 Cub) in; the Learjet at 140 knots, 303 s, the Mosquito at 123,
+  332 s. **Split in five** (from the review), as it took 333 s in
+  linux-debug against 43: `the_airliners_...`, `the_military_jets_...`,
+  `the_learjet_and_the_mosquito_...`, `the_cessnas_...` and
+  `the_cub_and_the_cherokee_...`, each checking that the five groups and
+  the flying boat are the catalogue, each aircraft once. 95 to 149 s each
+  in linux-debug, four at once. **`tests/ci_costs/` is estimated, not
+  measured** (no green CI run yet): the debug presets take those local
+  times, and the release presets a third of them, as the old test's 60 and
+  20 stood; the over-rotation test 40 and 13.
 
 **The Botany Bay tail's cause.** The plan was written for the C172P: CLIMB
 at 80 knots and the orbit at 90. The 2026-10-01 run flew it as written in
