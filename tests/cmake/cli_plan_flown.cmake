@@ -5,6 +5,7 @@
 #         -DWORK=<scratch> [-DPLAN=<plan file>]
 #         [-DCOMMAND=<words> -DPROVIDER=openai|anthropic [-DMODEL=<model>]
 #          [-DPLAYBACK=<recording> | -DRECORD=<recording>]]
+#         [-DAIRCRAFT=<catalogue id, c172p by default>] [-DCIRCLE_M=<m off its circle, 60>]
 #         [-DCENTRE_LAT=<deg> -DCENTRE_LON=<deg> -DALTITUDE_FT=<ft>]
 #         -P cli_plan_flown.cmake
 #
@@ -47,6 +48,9 @@ if(NOT DEFINED CENTRE_LAT)
     set(CENTRE_LAT -33.8732)
     set(CENTRE_LON 151.2066)
 endif()
+if(NOT DEFINED AIRCRAFT)
+    set(AIRCRAFT c172p)
+endif()
 if(NOT DEFINED ALTITUDE_FT)
     set(ALTITUDE_FT 3000)
 endif()
@@ -64,7 +68,7 @@ if(DEFINED COMMAND)
         list(APPEND _how --model "${MODEL}")
     endif()
     execute_process(
-        COMMAND "${CLI}" --data "${DATA}" plan c172p YSSY "${COMMAND}" --provider ${PROVIDER}
+        COMMAND "${CLI}" --data "${DATA}" plan ${AIRCRAFT} YSSY "${COMMAND}" --provider ${PROVIDER}
                 ${_how} --out "${PLAN}"
         RESULT_VARIABLE _rc OUTPUT_VARIABLE _planned ERROR_VARIABLE _err)
     if(NOT _rc EQUAL 0)
@@ -133,9 +137,12 @@ else()
     set(_inside 0)
 endif()
 math(EXPR _outside "${_far} - ${_radius}")
-if(_inside GREATER 60 OR _outside GREATER 60)
+if(NOT DEFINED CIRCLE_M)
+    set(CIRCLE_M 60)
+endif()
+if(_inside GREATER CIRCLE_M OR _outside GREATER CIRCLE_M)
     message(FATAL_ERROR "round ${_orbit} from ${_near} to ${_far} m, off its ${_radius} m circle "
-                        "by more than 60 m:\n${_out}")
+                        "by more than ${CIRCLE_M} m:\n${_out}")
 endif()
 math(EXPR _below "${ALTITUDE_FT} - ${_low}")
 math(EXPR _above "${_high} - ${ALTITUDE_FT}")

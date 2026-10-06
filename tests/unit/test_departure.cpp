@@ -204,6 +204,47 @@ GLIDESLOPE_TEST(the_take_off_speeds_come_from_each_aircrafts_published_figures) 
     check(refused, "an aircraft with no climb speed at all is refused");
 }
 
+// **Their `<takeoff_speeds>` are what the measurement makes**: the
+// measurement `glideslope_cli takeoff-speeds` prints (sim::
+// measure_takeoff_speeds, sought from 100 kt as the files say), run again for
+// each aircraft whose speeds are measured, gives its file's rotation and
+// climb within the 5 kt they are rounded to, its flap and its weight to the
+// pound. A file edited by hand, or a model that has moved, fails here.
+GLIDESLOPE_TEST(the_measured_take_off_speeds_in_the_747_and_f22_figures_are_what_the_measurement_makes) {
+    std::size_t walked = 0;
+    std::size_t matched = 0;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        if (entry.seaplane) {
+            continue; // a flying boat's take-off is its published water take-off
+        }
+        const auto file = glideslope::sim::read_published_figures(data() / "figures" /
+                                                                  (entry.model + ".xml"));
+        if (file.measured_rotate_kcas <= 0.0) {
+            continue;
+        }
+        ++walked;
+        const glideslope::sim::MeasuredTakeoff m = glideslope::sim::measure_takeoff_speeds(
+            data(), entry, 100.0, [](const std::string&) {});
+        std::printf("  %s: measured rotate %.0f, climb %.0f (%.1f), flaps %.0f, %.0f lb; the "
+                    "file %.0f, %.0f, %.0f, %.0f lb%s\n",
+                    entry.id.c_str(), m.rotate_kts, m.climb_kts, m.slowest_away_kts, m.flaps_deg,
+                    m.weight_lbs, file.measured_rotate_kcas, file.measured_climb_kcas,
+                    file.measured_takeoff_flaps_deg, file.measured_takeoff_lbs,
+                    m.why_not.empty() ? "" : (", " + m.why_not).c_str());
+        std::fflush(stdout);
+        const bool same = m.why_not.empty() &&
+                          std::abs(m.rotate_kts - file.measured_rotate_kcas) < 5.0 &&
+                          std::abs(m.climb_kts - file.measured_climb_kcas) < 5.0 &&
+                          m.flaps_deg == file.measured_takeoff_flaps_deg &&
+                          std::abs(m.weight_lbs - file.measured_takeoff_lbs) <= 1.0;
+        check(same, entry.id + "'s <takeoff_speeds> are not what the measurement makes");
+        matched += same ? 1U : 0U;
+    }
+    check(walked == 2 && matched == walked,
+          "the 747-400's and the F-22A's measured, and each as its file says: " +
+              std::to_string(matched) + " of " + std::to_string(walked));
+}
+
 // **The 747-400 and the F-22A take off at speeds measured from their own
 // models** (`<takeoff_speeds>`, glideslope_cli takeoff-speeds; the owner's
 // decision of 2026-10-06), and say so: flown at them, the take-off holds -
