@@ -223,6 +223,7 @@ struct Motion {
 struct CatalogueFacts {
     std::optional<double> climb_floor_kts;
     bool mixture_lever = false;
+    double full_rich_below_ft = 0.0;
 };
 
 // One aircraft: a JSBSim instance loaded from model files.
@@ -263,6 +264,13 @@ public:
     // catalogue.
     bool mixture_lever() const {
         return mixture_lever_;
+    }
+
+    // The pressure altitude below which its handbook has the mixture full
+    // rich, and the autopilot does not lean it: the catalogue's
+    // `mixture-lever FULL_RICH_BELOW_FT`.
+    double full_rich_below_ft() const {
+        return full_rich_below_ft_;
     }
 
     // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
@@ -406,6 +414,7 @@ private:
 
     std::optional<double> climb_floor_kts_;
     bool mixture_lever_ = false;
+    double full_rich_below_ft_ = 0.0;
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;

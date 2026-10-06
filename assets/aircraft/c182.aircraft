@@ -13,4 +13,6 @@ name Cessna 182S Skylane
 model c182
 class light-aircraft
 start 120 0.65
-mixture-lever
+# Leaned above 3,000 ft, as Cessna's 172P handbook has it (figure 5-6); the
+# 182S's own gives its climb mixture as a placard of fuel flows by height.
+mixture-lever 3000

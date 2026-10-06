@@ -81,15 +81,32 @@ double MixtureLeaner::lean(double throttle) {
     }
     if (!running) {
         feeling_ = false;
-        // **An engine stopped while it was being leaned is richened** to full
-        // rich, so that windmilling it can fire again; one handed over
+        // **An engine stopped while it was being leaned is given back the
+        // ratio it was leaned to**, so that windmilling it can fire again:
+        // richened while it has no fuel to report a ratio by, and then the
+        // ratio last found held. Full rich is not always a mixture it can
+        // burn - above about 9,500 ft it is richer than 8 to 1 - so the
+        // ratio, not the stop, is what it is richened to. One handed over
         // stopped is the pilot's.
         if (leaning_running_) {
-            resting_ = std::min(resting_ + richen_per_s * dt, 1.0);
+            if (best_afr_ > 0.0 && std::isfinite(afr) && afr > 0.0) {
+                resting_ = std::clamp(resting_ + hold_rate * (afr - best_afr_) / best_afr_ * dt,
+                                      leanest, 1.0);
+            } else {
+                resting_ = std::min(resting_ + richen_per_s * dt, 1.0);
+            }
         }
         return resting_;
     }
     leaning_running_ = true;
+    if (a_.property("atmosphere/pressure-altitude") < a_.full_rich_below_ft()) {
+        // **Full rich below the height its handbook leans above**, richened
+        // at the same pace: low down the engine is rated full rich, and its
+        // handbook has it so.
+        feeling_ = false;
+        resting_ = std::min(resting_ + richen_per_s * dt, 1.0);
+        return resting_;
+    }
     if (std::isfinite(afr) && afr > stoichiometric) {
         // **Never leaner than chemically correct**: richer at a fixed pace,
         // whatever the power says, and the peak's search starts afresh.

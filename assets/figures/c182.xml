@@ -49,6 +49,13 @@
     for that.
   </figure>
 
+  <figure name="rated_power" unit="hp" value="230" tolerance_percent="3"
+          altitude_ft="0" rpm="2400" speed_kcas="120">
+    Section 1, engine: the Textron Lycoming IO-540-AB1A5, "230 rated BHP at
+    2400 RPM", as type certificate data sheet 3A13 rates it; full throttle
+    and full rich at sea level, the governor holding 2,400.
+  </figure>
+
   <figure name="takeoff_ground_roll" unit="ft" value="795" tolerance_percent="10"
           flaps_deg="20" lift_off_kcas="57.5">
     Page ii, performance specifications: take-off ground roll 795 ft at sea

@@ -676,6 +676,30 @@ GLIDESLOPE_TEST(the_ai_climbs_a_cherokee_180_to_its_published_service_ceiling) {
     expect_figure("pa28", "service_ceiling");
 }
 
+// **The Cub, flown solo, climbs to its manual's ceiling** on its float
+// carburettor, which richens its mixture only as the square root of the
+// density (tools/piston_mixture.py); with JSBSim's metering, which richens it
+// as the pressure, it stopped climbing at about 8,000 ft.
+GLIDESLOPE_TEST(the_ai_climbs_a_cub_flown_solo_to_its_published_service_ceiling) {
+    expect_figure("j3cub", "service_ceiling");
+}
+
+// **Each light aeroplane's engine makes its rated power at its rated rpm**,
+// full throttle and full rich at sea level, as its handbook or type
+// certificate rates it. Not the Cessna 172P's: its engine makes 209 hp, and
+// what fixing it moves is a tail of its own (docs/COMPLETION_PLAN.md).
+GLIDESLOPE_TEST(the_cessna_182ss_engine_makes_230_hp_at_2400_rpm) {
+    expect_figure("c182", "rated_power");
+}
+
+GLIDESLOPE_TEST(the_cherokee_180s_engine_makes_180_hp_at_2700_rpm) {
+    expect_figure("pa28", "rated_power");
+}
+
+GLIDESLOPE_TEST(the_cubs_engine_makes_65_hp_at_2300_rpm) {
+    expect_figure("j3cub", "rated_power");
+}
+
 // **Every light aeroplane the catalogue holds is climbed to its ceiling by
 // the tests above, or named here with the reason it is not.** The light
 // aeroplanes are counted from the catalogue, so a fifth one added without a
@@ -685,19 +709,18 @@ GLIDESLOPE_TEST(the_ai_climbs_a_cherokee_180_to_its_published_service_ceiling) {
 //   c172p - leaned for best power, the AI climbs its model to 17,200 ft
 //     against the handbook's 13,000: the model's engine and propeller keep
 //     too much of their climb with height. A flight model tail.
-//   c182 - leaned for best power, the AI climbs its model to only 13,600 ft
-//     against the handbook's 18,100: the model's climb falls away with height
-//     far faster than the handbook's. A flight model tail.
-//   j3cub - its manual's ceiling, 14,000 ft, is solo, and its figures are
-//     flown at the gross weight; and it has no mixture lever to lean. Its
-//     model's carburettor, full rich, runs too rich to climb above about
-//     8,600 ft, which is a tail of its own in docs/COMPLETION_PLAN.md.
+//   c182 - rated at its 2,400 rpm and on the FAA's mixture curve, the AI
+//     climbs its model to only 13,600 ft against the handbook's 18,100: its
+//     climb falls away with height faster than the handbook's. A tail.
+//
+// The Cub is climbed with no mixture lever: its carburettor meters its
+// mixture (tools/piston_mixture.py), and is the one named in `no_lever`.
 GLIDESLOPE_TEST(every_light_aeroplane_is_climbed_to_its_published_ceiling_or_named_with_its_reason) {
     const std::map<std::string, std::string> left_out = {
         {"c172p", "its model climbs to 17,200 ft against 13,000"},
         {"c182", "its model climbs to 13,600 ft against 18,100"},
-        {"j3cub", "a solo ceiling, and no mixture lever"},
     };
+    const std::set<std::string> no_lever = {"j3cub"};
     const auto catalogue =
         glideslope::sim::read_catalogue(std::filesystem::path(data_dir).parent_path());
     std::size_t light = 0;
@@ -720,7 +743,7 @@ GLIDESLOPE_TEST(every_light_aeroplane_is_climbed_to_its_published_ceiling_or_nam
         } else {
             check(has, e.id + " is a light aeroplane with no ceiling on the autopilot, "
                               "and is not named as left out");
-            check(e.mixture_lever, e.id + " is climbed to its ceiling with no mixture "
+            check(e.mixture_lever || no_lever.count(e.id) != 0, e.id + " is climbed to its ceiling with no mixture "
                                           "lever for the autopilot to lean");
             ++climbed;
         }
@@ -770,8 +793,10 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // rotation speed (its stall's cannot be flown on a runway).
     // A hundred and fifteen: the Cherokee's service ceiling, as the AI
     // climbs to it, on 2026-09-27.
-    check(figures_in_files == 115,
-          "a hundred and fifteen figures, one test each above; found " +
+    // A hundred and nineteen: the Cessna 182S's, the Cherokee's and the Cub's
+    // rated power at their rated rpm, and the Cub's ceiling, on 2026-10-06.
+    check(figures_in_files == 119,
+          "a hundred and nineteen figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 

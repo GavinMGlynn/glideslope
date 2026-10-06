@@ -5,8 +5,10 @@
 #   model NAME                   its JSBSim model, in data/jsbsim/aircraft
 #   start AIRSPEED_KT THROTTLE   a flight begun in the air: its calibrated
 #                                airspeed, and the throttle that holds it
-#   mixture-lever                its engine has a mixture lever, which the
-#                                autopilot leans for best power
+#   mixture-lever FULL_RICH_BELOW_FT
+#                                its engine has a mixture lever, which the
+#                                autopilot leans for best power - but full
+#                                rich below the pressure altitude
 #
 # Its published figures, if it has them, are data/figures/MODEL.xml, and its
 # selftest's log data/selftest/MODEL.log (src/sim/catalogue.hpp).
@@ -15,4 +17,6 @@ name Cessna 172P Skyhawk
 model c172p
 class light-aircraft
 start 100 0.7
-mixture-lever
+# The handbook's maximum rate of climb, figure 5-6: "mixture leaned above
+# 3000 feet for maximum RPM".
+mixture-lever 3000

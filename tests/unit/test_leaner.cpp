@@ -140,3 +140,74 @@ GLIDESLOPE_TEST(the_leaner_rests_at_full_rich_at_full_throttle_low_down) {
     check(f.least_resting >= 0.99,
           "the lever rests within a hundredth of full rich: " + std::to_string(f.least_resting));
 }
+
+// **An engine the leaner was leaning that stops is given its mixture back,
+// and runs again.** The 172P level at full throttle, leaned for a minute and
+// a half; then its mixture lever pulled to cut-off for five seconds - the
+// leaner still asked each step, its answer not used - and the engine stops;
+// then the leaner's answer used again. While the engine is stopped the
+// leaner richens its lever, and given it back the engine fires, windmilling,
+// and makes nine tenths of its power again within thirty seconds. Twice:
+// at 7,000 ft, where full rich burns, and at 12,000 ft, where it is richer
+// than 8 to 1 and does not - there, richened to full rich, it never ran
+// again.
+GLIDESLOPE_TEST(an_engine_the_leaner_was_leaning_that_stops_is_richened_and_runs_again) {
+    std::size_t flown = 0;
+    for (const double altitude_ft : {7000.0, 12000.0}) {
+        ++flown;
+        Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = altitude_ft;
+        ic.airspeed_kts = 90.0;
+        ic.engine_running = true;
+        aircraft.initialize(ic);
+        TestPilot pilot(aircraft);
+        Controls c;
+        c.throttle = 1.0;
+        // Handed over on a mixture it burns at both heights.
+        c.mixture = 0.7;
+        MixtureLeaner leaner(aircraft, c.mixture);
+        const auto fly_for = [&](double seconds, bool cut_off) {
+            for (int i = 0; i < static_cast<int>(seconds * steps_per_second); ++i) {
+                c.elevator = pilot.pitch_to(pilot.pitch_for_altitude(altitude_ft));
+                c.aileron = pilot.roll_to(0.0);
+                c.rudder = pilot.coordinate();
+                const double mixture = leaner.lean(c.throttle);
+                c.mixture = cut_off ? 0.0 : mixture;
+                aircraft.set_controls(c);
+                aircraft.step();
+            }
+        };
+        const auto running = [&] {
+            return aircraft.property("propulsion/engine/set-running") > 0.0;
+        };
+        fly_for(90.0, false);
+        const double leaned_hp = aircraft.property("propulsion/engine/power-hp");
+        const double leaned_lever = leaner.resting();
+        const bool ran_leaned = running();
+        fly_for(5.0, true);
+        const bool stopped = !running();
+        const double stopped_lever = leaner.resting();
+        const double stopped_rpm = aircraft.property("propulsion/engine/engine-rpm");
+        fly_for(30.0, false);
+        const double hp = aircraft.property("propulsion/engine/power-hp");
+        std::printf("at %.0f ft: leaned, the lever at %.3f and %.1f hp; cut off five seconds, "
+                    "the engine %s at %.0f rpm and the lever at %.3f; given back, %s at %.1f hp, the lever "
+                    "at %.3f\n",
+                    altitude_ft, leaned_lever, leaned_hp, stopped ? "stopped" : "RUNNING", stopped_rpm,
+                    stopped_lever, running() ? "running" : "STOPPED", hp, leaner.resting());
+        const std::string at = "at " + std::to_string(altitude_ft) + " ft: ";
+        check(ran_leaned && leaned_lever < 0.95,
+              at + "the engine ran, leaned: the lever at " + std::to_string(leaned_lever));
+        check(stopped, at + "the engine stopped with its mixture cut off");
+        check(stopped_lever > leaned_lever + 0.05,
+              at + "the leaner richened the stopped engine: " + std::to_string(leaned_lever) +
+                  " to " + std::to_string(stopped_lever));
+        check(running() && hp >= 0.9 * leaned_hp,
+              at + "given its mixture back the engine runs at nine tenths of its power: " +
+                  std::to_string(hp) + " hp against " + std::to_string(leaned_hp));
+    }
+    check(flown == 2, "both heights flown: " + std::to_string(flown));
+}
