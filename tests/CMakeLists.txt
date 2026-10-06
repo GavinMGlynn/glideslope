@@ -1534,6 +1534,11 @@ add_test(NAME the_server_refuses_a_window_drawn_as_plain_text
         -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--window --plain --dry-run"
         -DEXIT=2 "-DSTDERR_MATCHES=--plain is how the terminal's dashboard is drawn"
         -P ${GLIDESLOPE_EXPECT_RUN})
+add_test(NAME the_server_refuses_lost_goodbyes_without_a_drop
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--lose-goodbyes --dry-run"
+        -DEXIT=2 "-DSTDERR_MATCHES=--lose-goodbyes loses the goodbyes of --drop-once-flown's drop"
+        -P ${GLIDESLOPE_EXPECT_RUN})
 add_test(NAME the_server_refuses_the_windows_test_flags_without_a_window
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_server> "-DARGS=--window-dump --dry-run"

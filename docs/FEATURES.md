@@ -154,7 +154,11 @@ the controls to an AI pilot whenever you like, then take them back.
 ## AI pilots
 
 - **Hand over the controls, and take them back.** `CORE`
-  Any aircraft, at any moment, in either direction, without a jolt.
+  Any aircraft, at any moment, in either direction, without a jolt. In the
+  windowed client, M chooses what plans your aircraft once you hand it over
+  - no model, Claude or ChatGPT - at any time in flight; a model you have no
+  key for is refused, said on the spot, and the AI simply holds your
+  aircraft's course.
   *Not yet:* an aircraft landed by hand and taken back on its landing roll is
   never brought to a stop, and in the windowed client a hand-over pressed
   during a take-over can go to the wrong aircraft.
