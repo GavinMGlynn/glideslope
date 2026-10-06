@@ -741,7 +741,8 @@ The replacement:
   meet - crossing, or an end of one within reach of the other - their lines
   are moved the least that makes them meet there, and a group of them that
   would be moved more than 5 m is made from the fits instead; where their
-  surfaces overlap, the ground is their weighted mean. Every decision follows
+  surfaces overlap, the nearest runway wins, and where their pavements
+  overlap the ground is their mean (2026-10-07, below). Every decision follows
   from the same sorted strips and the pinned DEM, so the server and every
   client's prediction make the same ground: floating point through each
   platform's own trigonometry, it agrees across platforms to about a
@@ -831,6 +832,21 @@ The replacement:
   one and throwing it away. An id the server's catalogue lacks gives the
   plan's aeroplane rather than a refusal; it starts where the plan starts.
   The protocol's version moved to `04` for it.
+
+**Closed 2026-10-07:**
+
+- **Where runways overlap, the nearest wins, and the overlaps are measured.**
+  The project owner decided to keep the rule that where runways' surfaces
+  overlap, each weighs less the further the place is outside its pavement
+  than outside the nearest runway's, falling to nothing 5 m further
+  (collision ground rules 2). So one runway's shoulder no longer pulls
+  another's pavement. Where two pavements overlap - and the 5 m round one -
+  two runways sloping differently cannot both keep their lines, and the
+  ground is their mean: that is accepted, measured and stated rather than
+  held to a bound it cannot meet. Off the overlaps no runway is pulled more
+  than 0.1 m off its line; on them, the worst, 0.61 m (LKMB 04/22), and how
+  many runways are pulled more than 0.1 m and 0.3 m are measured and held
+  (`PROJECT_STATUS.md`).
 
 **Open:**
 

@@ -437,14 +437,12 @@ Found while implementing something else. Added when found, not when remembered.
       fix is the 2026-10-02 refusal of such plans; the test now flies each
       at speeds it may be planned at, and all thirteen reach the orbit.
 
-- [ ] **Runways that meet at different slopes still pull each other's
-      surface.** Since 2026-10-06 one runway's shoulder no longer pulls
-      another's pavement: 262 runways are pulled more than 0.1 m (was 572),
-      12 more than 0.3 m (was 38), at worst 0.61 m (LKMB 04/22). **Missing**:
-      where two pavements overlap, two sloping lines cannot agree over an
-      area, and 0.1 m there needs a new rule for the overlap - the owner's
-      to choose. *Verification: no runway in the world pulled more than
-      0.1 m.*
+- [x] **Runways that meet at different slopes still pull each other's
+      surface.** *Verification (the owner's, 2026-10-07): no runway in the
+      world pulled more than 0.1 m off where pavements overlap, and the
+      overlaps' worst measured and stated.* Done 2026-10-07: the nearest
+      runway now wins; off the overlaps none is pulled more than a
+      millimetre; on them the worst is 0.61 m (LKMB 04/22), 262 over 0.1 m.
 
 - [x] **The F-15C landed wheels-up rocks from wing tip to wing tip, and on
       Windows it now breaks up.** *Verification: the F-15C rests on its
