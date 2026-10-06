@@ -264,57 +264,54 @@ are the risks the phase order is built around:
 
 ### A fast aircraft's tightest orbit is flown on its circle, 2026-10-06 — tail done; the B-2's and F-22's yaw still open
 
-**What is not done first.** Of the stall and AI-flight tails worked on this
-branch, one is done. **The B-2 and the F-22 still yaw from side to side in
-a crosswind when slow** (below: the cause is found, the fix is not in).
-**A glide may still be asked of a jet at its approach speed**, **the
-F-15C's stall** and **the autopilot's stall recovery** were not worked on:
-each stays as the plan says.
+**What is not done first.** The B-2 and F-22 still yaw in a crosswind when
+slow (the cause is found, below; the fix is not in). The glide, F-15C stall
+and stall-recovery tails were not worked on.
 
-**The orbit.** At its fastest a jet swung through its tightest circle -
-13 to 19 km at 300 to 360 kt - by up to 18% of the radius, its height and
-speed held (the F-15C 3.3 km off its 18.8 km at 360 kt). Traced every five
-seconds: the navigator turned in towards the circle by 90 degrees for each
-kilometre off it whatever the speed, so half a kilometre off it asked a jet
-for 45 degrees, which at 25 degrees of bank, 1.4 degrees a second at 360 kt,
-took half a minute to turn back from; it never settled.
+**The cause.** The navigator turned in towards the circle by 90 degrees a
+kilometre whatever the speed: half a kilometre off, a jet at 360 kt was asked
+for 45 degrees, which at 1.4 degrees a second it took half a minute to turn
+back from. The F-15C swung 3.5 km either side of its 18.8 km circle.
 
-**The fix** (`sim/navigator.cpp`). It turns in by the angle that would bring
-it back to the circle in twelve seconds at its airspeed - the old 90 degrees
-a kilometre is twenty seconds at 60 kt and fifteen at 80 - and the trim on
-that counts while it is turned in by 9 degrees or less (100 m off at 60 kt,
-as before, and further when faster). Twenty seconds let the C172P of the
-recorded OpenAI plan, at 100 kt, run 67 m wide of its 1,447 m circle, and
-fifteen the S.23 at 86 kt in wind 67 m inside its 1,071 m; twelve holds
-them within 10 and 23 m, and the F-15C at 360 kt within 168 m.
+**The fix** (`sim/navigator.cpp`): it turns in by the angle that would bring
+it back in twelve seconds at its airspeed (the old law is twenty seconds at 60
+kt), and its trim counts while that is 9 degrees or less. Twenty seconds let
+the C172P of the recorded OpenAI plan run 67 m wide at 100 kt; fifteen, the
+S.23 at 86 kt in wind 67 m inside.
 
-**The join is measured as the join.** Begun 2 km outside the circle heading
-for its centre, a jet at 360 kt, turning on 7.9 km at 25 degrees of bank,
-cannot come round onto an 18.8 km circle without crossing 5 km into it; from
-the quarter-turn the F-15C was still 1.8 km off, and from the half-turn
-within 168 m. So the circle is held from the first half-turn - in the orbit
-trial (`sim::OrbitFlown`), `glideslope_cli fly-plan` and the server's line
-for an AI aircraft's orbit - and the height and speed, in the trial, still
-from the quarter-turn, so what `plan-speeds` measures is unchanged. In the
-server's run of the recorded plans, the C172P stacked 1,000 ft up was still
-climbing to it at the quarter-turn on the faster join (3,854 ft of 4,000);
-from the half-turn it is level.
+**The join is measured apart.** From 2 km outside heading for the centre, a
+jet at 360 kt (turning on 7.9 km) cannot help going 30% of the radius inside
+before it is round. So the circle is held from the half-turn - in the orbit
+trial, `fly-plan` and the server's orbit line (whose height #104 counts from
+when the aircraft is level, from the quarter-turn) - and the join, from first
+reaching the circle, to 35% inside and 20% outside (150 m either way at
+least: the Cub's join is 100 m outside its 268 m). Measured (release): jets
+27-30% inside, 12-15% outside; the Mosquito 18/5%; the C182 1/3%.
 
-**Verified** (linux-debug and the release `plan-speeds`): the tightest-orbit
-tests at the fastest now hold every jet to 2% of the radius (worst 1.3%,
-the A380's 172 m of 13 km at 300 kt; the 787-8 153 m, the F-22 150 m of
-18.8 km at 360 kt, the F-15C 168 m), and the light aeroplanes, the Mosquito
-and the S.23 to 60 m, as at the slowest - where they were 15%, 20% and 5%.
-At their slowest the jets are within 21 m, under 0.5%. The slowest tests, the
-recorded plans flown by the CLI and the server, and the one-step-past test
-pass. **Seen to fail**: with the old 90 degrees a kilometre put back, the
-fighters' test at the fastest failed (the F-15C 7.7% off its circle from the half-turn, 991 m inside and 1,452 outside); put right, it passed.
+**Verified** (linux-debug, all four ways at each end - both ways round, calm
+and a 10 kt wind - for every aircraft at its slowest and fastest): every jet's
+circle at its fastest within 2% (worst 1.3%, the A380's 172 m at 300 kt; was
+up to 18%), the others within 60 m; at the slowest every jet within 0.5%.
+`plan-speeds` re-run (release) for the nine with a measured slowest: only the
+787-8 moved, 198 to 193 kt (188 now holds; the one-step-past test found it).
+Recorded plans by CLI and server, separation and selftest tests pass.
+**Seen to fail**, each put back: the old 90 degrees a kilometre turned the
+fighters' and airliners' fastest tests red (F-15C 7.7%, 787-8 10.2%); a
+correction five times slower (sixty seconds) turned the light aeroplanes'
+(C182 163 m) and the warbirds' (Mosquito 293 m) red; the join's bound set at
+25% inside turned the fighters' red (27-30%). On Windows CI main's light-aeroplane
+fastest test failed (the C182 at 144 kt, 215 m outside from the quarter-turn,
+on the join); see the PR for its run on this branch.
 
-**Every plan speed measured again** (`glideslope_cli plan-speeds`, release,
-for the nine whose slowest was sought above their approach speed): only the
-787-8 moved. Flown clean at 188 kt it now holds all four ways within 35 ft
-(it had lost 89 ft in wind), so its slowest is **193**, from 198; the
-one-step-past test found it. The others print what their files say.
+**The B-2's and F-22's yaw: the cause.** The rudder's integral lags the
+sideslip a quarter cycle and undoes the yaw damper; a flying wing has no fin
+to hide it (B-2 at 164 kt: 6 degrees either way every 7 s; with no integral,
+within 0.1 at 159). A third the rate, counted within 2 degrees of the ball,
+held the B-2 at 159 and the F-22 at 185 (it still swings in calm air below
+170) - but spun the S.23 left thirty seconds in her stall lesson, so it is
+not in.
+
+The selftest's hash does not move, 30ac70b84cab7d7c.
 
 **The B-2's and F-22's yaw: the cause.** Traced at 164 kt in the 20 kt
 crosswind, the B-2 swings its sideslip 6 degrees either way every 7 seconds

@@ -61,7 +61,15 @@ enum class End { slowest, fastest };
 // twice round and on (sim/orbit_trial.hpp). Each must hold its height within
 // 50 ft and its speed within 5 kt from its first quarter-turn, and its
 // circle from its first half-turn (the join: OrbitFlown) within `within_m`,
-// or, where given, `within_fraction` of its radius.
+// or, where given, `within_fraction` of its radius. **The join is held too,
+// more loosely**, from first reaching the circle: no more than 35% of the
+// radius inside it nor 20% outside, or 150 m either way where that is more:
+// it is on its circle within 100 m of it. A jet at 360 kt goes 30% inside
+// and 15% outside, turning onto its circle from 2 km out heading for its
+// centre; the Cub 100 m outside its 268 m.
+constexpr double join_inside = 0.35;
+constexpr double join_outside = 0.20;
+constexpr double join_least_m = 150.0;
 // The space is every case of every aircraft in it, and every one is flown.
 void fly_the_tightest_orbits(const std::vector<glideslope::sim::CatalogueEntry>& space, End end,
                              double within_m, double within_fraction = 0.0) {
@@ -83,20 +91,26 @@ void fly_the_tightest_orbits(const std::vector<glideslope::sim::CatalogueEntry>&
             const glideslope::sim::OrbitFlown f =
                 glideslope::sim::fly_tightest_orbit(data, entry, trial);
             const double circle_m = within_fraction > 0.0 ? within_fraction * f.radius_m : within_m;
-            char which[400];
+            char which[500];
             std::snprintf(which, sizeof which,
                           "%s round %.0f m at %.0f kt, %s, %s: %.2f turns, %.0f to %.0f m from "
-                          "the centre (%+.0f to %+.0f, %.1f%%), within %.0f ft, %.0f to %.0f kt",
+                          "the centre (%+.0f to %+.0f, %.1f%%), joined %.0f%% inside to %.0f%% "
+                          "outside, within %.0f ft, %.0f to %.0f kt",
                           entry.id.c_str(), f.radius_m, kts, right ? "right" : "left",
                           windy ? "in a 10 kt wind" : "in calm air", f.turns, f.nearest_m,
                           f.farthest_m, f.nearest_m - f.radius_m, f.farthest_m - f.radius_m,
                           100.0 * std::max(f.radius_m - f.nearest_m, f.farthest_m - f.radius_m) /
                               f.radius_m,
+                          100.0 * (f.radius_m - f.join_nearest_m) / f.radius_m,
+                          100.0 * (f.join_farthest_m - f.radius_m) / f.radius_m,
                           f.worst_height_ft, f.slowest_kts, f.fastest_kts);
             std::fprintf(stderr, "%s\n", which);
             const bool on_circle =
                 f.nearest_m >= f.radius_m - circle_m && f.farthest_m <= f.radius_m + circle_m;
-            if (!f.held(kts) || !on_circle) {
+            const bool joined =
+                f.join_nearest_m >= f.radius_m - std::max(join_inside * f.radius_m, join_least_m) &&
+                f.join_farthest_m <= f.radius_m + std::max(join_outside * f.radius_m, join_least_m);
+            if (!f.held(kts) || !on_circle || !joined) {
                 failures += std::string("\n  ") + which;
             }
             ++flown;
