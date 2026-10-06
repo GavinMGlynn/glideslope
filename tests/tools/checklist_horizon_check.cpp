@@ -234,7 +234,7 @@ void check_nothing_dimmed(const std::vector<DimCase>& cases,
         r.heading_deg = 164.2;
         r.vertical_speed_fpm = -120.3;
         // The horizon off the bottom of the frame.
-        r.pitch_deg = 200.0;
+        r.pitch_deg = 89.0;
         // A FLYING line cut at the HUD's 24 columns, its last letter at the
         // block's right-hand end.
         r.ai_flying = true;
@@ -333,10 +333,10 @@ int run() {
         {true, "Lift the nose wheel at 55 knots"},
         {false, "Climb at 70 to 80 knots"},
         {false, "Flaps up"}};
-    check_nothing_dimmed({{312, 240, 1020, 16, 12},
-                          {316, 200, 1020, 5, 12},
-                          {360, 200, 1020, 0, 12},
-                          {640, 240, 1020, 0, 12}},
+    check_nothing_dimmed({{312, 240, 1000, 16, 12},
+                          {316, 200, 1000, 5, 12},
+                          {360, 200, 1000, 0, 12},
+                          {640, 240, 1000, 0, 12}},
                          showing);
 
     const std::vector<std::string> credits{glideslope::world::copernicus_dem_notice,
@@ -426,7 +426,7 @@ int run() {
                     const double s = (x - cx) / (half * cosb);
                     const double centre_y = y + s * half * sinb;
                     r.roll_deg = bank;
-                    r.pitch_deg = (centre_y - height / 2.0) * 100.0 / height;
+                    r.pitch_deg = glideslope::gfx::hud_pitch_for(centre_y, bank, height);
 
                     const Frame& frame = canvas.paint(glideslope::gfx::hud_mesh(r, width, height));
 

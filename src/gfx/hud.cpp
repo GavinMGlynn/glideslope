@@ -425,14 +425,51 @@ PixelBox hud_text_block(const HudReadings& readings, int width, int height) {
 }
 
 HorizonLine hud_horizon(const HudReadings& readings, int width, int height) {
-    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    // The sky in the camera's axes - right, up, back.
+    std::array<double, 3> n{};
+    if (readings.sky_in_camera) {
+        n = *readings.sky_in_camera;
+    } else {
+        // The cockpit's: the camera's right, up and back are the body's
+        // right, up and aft, and the sky in the body's axes - forward, right,
+        // down - is (sin pitch, -sin roll cos pitch, -cos roll cos pitch).
+        const double pitch = readings.pitch_deg * radians;
+        const double roll = readings.roll_deg * radians;
+        n = {-std::sin(roll) * std::cos(pitch), std::cos(roll) * std::cos(pitch),
+             -std::sin(pitch)};
+    }
+    // A pixel u right and v up of the middle looks along (u, v, -f), and is
+    // on the horizon where that is level: n[0] u + n[1] v = n[2] f. The line
+    // drawn is centred where that crosses the frame's middle column, u = 0.
+    const double f = (height / 2.0) / std::tan(readings.vertical_fov_rad / 2.0);
+    const double r = std::hypot(n[0], n[1]);
+    const double far = 4.0 * height;
+    double v = 0.0;
+    if (r < 1e-12) {
+        // Looking straight up or down: no horizon in any direction ahead.
+        v = n[2] < 0.0 ? -far : far;
+    } else if (std::abs(n[1]) * far > std::abs(n[2]) * f) {
+        v = n[2] * f / n[1];
+    } else if (std::abs(n[2]) * f > 1e-9 * r) {
+        // Banked on its side and the horizon not through the middle column:
+        // the middle of the line is off the frame.
+        v = (n[2] < 0.0) == (n[1] < 0.0) ? far : -far;
+    }
+    const double ux = r < 1e-12 ? 1.0 : n[1] / r;
+    const double uy = r < 1e-12 ? 0.0 : n[0] / r;
+    // In screen pixels, y down the frame; along the line, (n[1], n[0]) / r.
     const double cx = width / 2.0;
-    const double cy = height / 2.0 + readings.pitch_deg * height / 100.0;
+    const double cy = height / 2.0 - std::clamp(v, -far, far);
     const double half = width / 6.0;
-    const double angle = readings.roll_deg / degrees;
-    return {cx - half * std::cos(angle), cy + half * std::sin(angle),
-            cx + half * std::cos(angle), cy - half * std::sin(angle),
+    return {cx - half * ux, cy - half * uy, cx + half * ux, cy + half * uy,
             std::max(2.0, hud_layout(width, height).scale * 1.0)};
+}
+
+double hud_pitch_for(double centre_y, double roll_deg, int height, double vertical_fov_rad) {
+    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    const double f = (height / 2.0) / std::tan(vertical_fov_rad / 2.0);
+    return std::atan((centre_y - height / 2.0) * std::cos(roll_deg / degrees) / f) * degrees;
 }
 
 Mesh hud_mesh(const HudReadings& readings, int width, int height) {

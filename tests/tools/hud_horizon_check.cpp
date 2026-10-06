@@ -283,7 +283,7 @@ int run() {
                                 const double half = width / 6.0;
                                 const double cy = y + s * half * std::sin(bank / degrees);
                                 r.roll_deg = bank;
-                                r.pitch_deg = (cy - height / 2.0) * 100.0 / height;
+                                r.pitch_deg = glideslope::gfx::hud_pitch_for(cy, bank, height);
 
                                 const Frame& frame =
                                     canvas.paint(glideslope::gfx::hud_mesh(r, width, height));

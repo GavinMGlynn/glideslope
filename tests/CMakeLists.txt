@@ -1166,6 +1166,9 @@ glideslope_configure(glideslope_sky_check)
 add_executable(glideslope_view_check tools/view_check.cpp)
 target_link_libraries(glideslope_view_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_view_check)
+add_executable(glideslope_horizon_check tools/horizon_check.cpp)
+target_link_libraries(glideslope_horizon_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_horizon_check)
 add_executable(glideslope_terrain_check tools/terrain_check.cpp)
 # Cesium Native's image decoder reads the imagery's JPEG tiles.
 target_link_libraries(glideslope_terrain_check PRIVATE glideslope_gfx CesiumImage)
@@ -1364,6 +1367,20 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
                 PROPERTIES SKIP_RETURN_CODE 77
                            FIXTURES_REQUIRED "downloads;cockpit_view_${_driver}")
         endif()
+    endforeach()
+    # **The HUD's horizon on the horizon drawn**, a test a bank, each walking
+    # its pitches (cmake/frame_horizon.cmake says what is walked and what is
+    # left out).
+    foreach(_bank -60 -30 0 30 60)
+        string(REPLACE "-" "minus_" _bank_name "${_bank}")
+        add_test(NAME the_huds_horizon_lies_on_the_horizon_drawn_banked_${_bank_name}_on_${_driver}
+            COMMAND ${CMAKE_COMMAND}
+                -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_horizon_check>
+                -DDRIVER=${_driver} -DBANK=${_bank} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+                -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_horizon.cmake)
+        set_tests_properties(the_huds_horizon_lies_on_the_horizon_drawn_banked_${_bank_name}_on_${_driver}
+            PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     endforeach()
     # The open provider and Cesium ion, each in both its states: with the
     # user's key and without one. A provider whose key this machine has not

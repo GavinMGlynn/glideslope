@@ -47,6 +47,9 @@ struct FlightStart {
     // Standing on the ground at the latitude and longitude, its wheels down,
     // rather than flying - the height is then the ground's.
     bool on_ground = false;
+    // The attitude it starts at in the air, degrees: level by default.
+    double pitch_deg = 0.0;
+    double roll_deg = 0.0;
     // The airfield - its ICAO code - whose reported weather the flight is flown
     // in; empty for the standard atmosphere with no wind.
     std::string weather_station;

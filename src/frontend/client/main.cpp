@@ -178,6 +178,9 @@ struct Options {
     // seconds of flight in, as M does.
     std::vector<double> next_model_after_s;
     bool on_ground = false;
+    // The attitude the flight starts at in the air: pitch, bank and heading,
+    // degrees (for tests).
+    std::optional<std::array<double, 3>> attitude;
 };
 
 void usage(std::FILE* out) {
@@ -191,6 +194,7 @@ void usage(std::FILE* out) {
         "                  [--weather STATION [--microburst LAT,LON]...]\n"
         "                  [--metar REPORT [--station LAT,LON]]\n"
         "                  [--aircraft ID] [--on-ground] [--autopilot] [--plan PLAN]\n"
+        "                  [--attitude PITCH,BANK,HEADING]\n"
         "                  [--view cockpit|ahead|behind|left|right|above|orbit]\n"
         "                  [--draw-aircraft on|off]\n"
         "                  [--shot FILE] [--shot-at TICK | --shot-frame N] [--trace]\n"
@@ -233,6 +237,8 @@ void usage(std::FILE* out) {
         "                ground, the engines idling and the brakes on until B is\n"
         "                pressed, rather than flying - or, a seaplane, afloat on\n"
         "                water there\n"
+        "  --attitude    start the flight in the air at this pitch, bank and\n"
+        "                heading, in degrees, rather than level (for tests)\n"
         "  --view        where it is seen from: the cockpit, by default, or outside\n"
         "                it from ahead, behind, left, right or above, or an orbit\n"
         "                around it; V steps through them\n"
@@ -541,6 +547,13 @@ static int run_program(int argc, char** argv) {
                 std::strtod(std::string(args[++i]).c_str(), nullptr));
         } else if (a == "--on-ground") {
             o.on_ground = true;
+        } else if (a == "--attitude" && has_value) {
+            const auto g = parse_triple(args[++i]);
+            ok = g && std::abs((*g)[0]) < 90.0 && std::abs((*g)[1]) <= 180.0 &&
+                 (*g)[2] >= 0.0 && (*g)[2] < 360.0;
+            if (ok) {
+                o.attitude = *g;
+            }
         } else if (a == "--autopilot") {
             o.autopilot = true;
         } else if (a == "--plan" && has_value) {
@@ -688,6 +701,11 @@ static int run_program(int argc, char** argv) {
         std::fprintf(stderr,
                      "glideslope: there is no phase of flight %s; there is %s\n",
                      o.checklist.c_str(), phases.c_str());
+        return 2;
+    }
+    if (o.attitude && (o.screen != "flight" || o.on_ground || !o.plan.empty())) {
+        std::fputs("glideslope: --attitude is a flight's begun in the air, without a plan\n",
+                   stderr);
         return 2;
     }
     if (o.on_ground && (o.autopilot || !o.plan.empty())) {
@@ -856,6 +874,11 @@ static int run_program(int argc, char** argv) {
             }
             start.aircraft = o.aircraft;
             start.on_ground = o.on_ground;
+            if (o.attitude) {
+                start.pitch_deg = (*o.attitude)[0];
+                start.roll_deg = (*o.attitude)[1];
+                start.heading_deg = (*o.attitude)[2];
+            }
             start.weather_station = o.weather_station;
             start.microbursts = o.microbursts;
             start.weather_refresh_s = o.weather_refresh_s;
@@ -2253,6 +2276,31 @@ static int run_program(int argc, char** argv) {
                 }
                 readings.credits.insert(readings.credits.begin(), credits.begin(),
                                         credits.end());
+                {
+                    // **The horizon line on the horizon drawn**: the sky - up
+                    // from the ellipsoid under the eye - in the axes of the
+                    // camera the frame is drawn from, in every view.
+                    const glideslope::world::Geodetic eye =
+                        glideslope::world::to_geodetic(camera.position);
+                    constexpr double radians = 3.14159265358979323846 / 180.0;
+                    const glideslope::world::Ecef up_there{
+                        std::cos(eye.latitude_deg * radians) * std::cos(eye.longitude_deg * radians),
+                        std::cos(eye.latitude_deg * radians) * std::sin(eye.longitude_deg * radians),
+                        std::sin(eye.latitude_deg * radians)};
+                    const glideslope::world::Ecef in_camera =
+                        glideslope::gfx::transpose(camera.world_from_camera) * up_there;
+                    readings.sky_in_camera = std::array<double, 3>{in_camera.x, in_camera.y,
+                                                                   in_camera.z};
+                    readings.vertical_fov_rad = camera.vertical_fov_rad;
+                }
+                const glideslope::gfx::HorizonLine drawn_horizon =
+                    glideslope::gfx::hud_horizon(readings, o.width, o.height);
+                if (shot_now) {
+                    std::printf("glideslope: the HUD's horizon runs from %.3f,%.3f to "
+                                "%.3f,%.3f\n",
+                                drawn_horizon.x0, drawn_horizon.y0, drawn_horizon.x1,
+                                drawn_horizon.y1);
+                }
                 const glideslope::gfx::Mesh hud =
                     glideslope::gfx::hud_mesh(readings, o.width, o.height);
                 pass_part(pass_times.hud);

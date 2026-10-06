@@ -65,6 +65,13 @@ struct HudReadings {
     std::vector<std::string> credits;
     // The checklist being worked through, if one is showing.
     ChecklistOnScreen checklist;
+    // **Where the horizon is, for the line drawn on it**: the sky's direction
+    // - straight up from the Earth's surface under the eye - in the camera's
+    // axes (right, up, back), and the camera's vertical field of view. With
+    // no sky given, the cockpit's: the camera on the aircraft's own axes,
+    // from `pitch_deg` and `roll_deg`.
+    std::optional<std::array<double, 3>> sky_in_camera;
+    double vertical_fov_rad = 1.0471975511965976; // 60 degrees, as gfx::Camera's
 };
 
 // The HUD's lines, top to bottom:
@@ -195,10 +202,18 @@ inline constexpr std::size_t hud_columns = 24;
 PixelBox hud_text_block(const HudReadings& readings, int width, int height);
 
 // **The horizon line**: its centre from (x0, y0) to (x1, y1), in screen
-// pixels, `thickness` across. Across the middle third of the frame, moved
-// down the screen as the nose rises - a degree of pitch a hundredth of the
-// height - and turned against the bank. It is drawn whole, always: it is the
-// instrument.
+// pixels, `thickness` across. On the horizon as the camera projects it - the
+// directions level with the Earth's surface under the eye, through the
+// camera's own perspective - so that over level ground it lies on the horizon
+// drawn: a degree of pitch moves it (height / 2) / tan(fov / 2) * pi / 180
+// pixels near the middle, 1.5% of the height at 60 degrees, and it is turned
+// against the bank. It is the part of that line across the middle third of
+// the frame, centred where the line crosses the frame's middle column - so
+// the HUD's text, left of the middle third, stays clear of it. Where that
+// crossing is off the frame - the nose far above or below the horizon, or
+// banked near 90 degrees with the horizon to one side - so is the line, held
+// no further than four frames' heights away. It is drawn whole, always: it is
+// the instrument.
 struct HorizonLine {
     double x0 = 0.0;
     double y0 = 0.0;
@@ -207,6 +222,12 @@ struct HorizonLine {
     double thickness = 0.0;
 };
 HorizonLine hud_horizon(const HudReadings& readings, int width, int height);
+
+// The pitch, in degrees, that puts the cockpit's horizon line's centre at
+// `centre_y` pixels down a frame `height` tall, banked `roll_deg`: what a test
+// that lays the line across a stated row sets.
+double hud_pitch_for(double centre_y, double roll_deg, int height,
+                     double vertical_fov_rad = 1.0471975511965976);
 
 // **Whether the HUD's text is clear of the horizon on a frame this size**:
 // whether the text block ends, with a pixel to spare, left of the furthest
