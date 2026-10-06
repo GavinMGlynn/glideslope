@@ -147,4 +147,13 @@
   <plan_speeds slowest_kcas="193" fastest_kcas="300">
     The slowest, 193 kt, is 5 kt over the slowest that held: its approach speed is a flaps-down figure, and flown clean at 183 kt and below it came down 500 ft before reaching its circle; 188 kt held all four ways, within 35 ft, and the crosswind. (It was 198 until the navigator turned in by time rather than distance, 2026-10-06: at 188 kt it had lost 89 ft round its 5,114 m circle in wind.) The fastest, 300 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
+  <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
+       glide-speeds 787-8` on 2026-10-06 (linux-release): from the slowest a
+       route may fly it up in 5 kt steps, each glided round the tightest
+       orbit allowed from 30,000 ft, every engine stopped, clean, both ways
+       round (sim::glide_tightest_orbit), until one went round without its
+       wing passing the angle its lift peaked at, nor 25 degrees. -->
+  <glide_speeds slowest_kcas="203">
+    203 kt; from 193, the slowest a route may fly it, to 198 it stalled.
+  </glide_speeds>
 </published_figures>

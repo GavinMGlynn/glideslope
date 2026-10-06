@@ -376,6 +376,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_speedbrake_an_approach_is_flown_with_is_read_and_refused_outside_its_travel
     the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_the_gear_takes
     the_speeds_a_plan_may_fly_an_aircraft_at_are_read_and_refused_where_they_are_wrong
+    the_slowest_a_glide_may_fly_an_aircraft_at_is_read_and_refused_where_it_is_wrong
     the_boeing_737_300_needs_about_its_published_takeoff_runway_length_at_maximum_weight
     the_boeing_737_300_climbs_with_an_engine_out_as_far_25_demands
     the_boeing_737_300_reaches_its_cruise_mach_and_no_further_than_its_drag_rise_allows
@@ -743,6 +744,11 @@ foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
 endforeach()
+# The longest of the glide tests: 92 s in linux-release, about 290 estimated
+# in linux-debug and 230 in windows-debug (tests/ci_costs/), given six times that.
+set_tests_properties(
+    every_airliner_and_business_jet_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling
+    PROPERTIES TIMEOUT 1800)
 
 # **A program that has ended can still allocate until its last thread is gone**
 # (tests/unit/test_process_end.cpp, src/platform/end_process.hpp). What it

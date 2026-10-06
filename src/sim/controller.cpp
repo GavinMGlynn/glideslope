@@ -136,7 +136,9 @@ AutopilotModes Controller::gliding(AutopilotModes modes) {
     // the F-15C gliding round her tightest orbit at every speed from 170 to
     // 200 kt sagged to 112 kt and settled into her deep stall at 43 degrees
     // of alpha, and the F-35B at 204 departed (glides_without_stalling,
-    // test_navigator.cpp).
+    // test_navigator.cpp). **Nothing here knows where the ground is**: the
+    // glide trial stops at 1,000 ft, which is that trial's protection only;
+    // a copilot's glide is kept off the ground by its route, as before.
     constexpr double steepest_glide_deg = 12.0;
     const double least_fpm =
         -std::max(2500.0, a_.property("velocities/vt-fps") * 60.0 *

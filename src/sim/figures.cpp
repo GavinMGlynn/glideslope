@@ -1811,6 +1811,21 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
     if (root->FindNextElement("plan_speeds") != nullptr) {
         throw std::runtime_error(file.string() + " gives <plan_speeds> twice");
     }
+    // **And the slowest a glide may be flown at**, once, measured
+    // (`glideslope_cli glide-speeds`): a copilot's glide slower stalls.
+    JSBSim::Element* glide = root->FindElement("glide_speeds");
+    if (glide == nullptr || !glide->HasAttribute("slowest_kcas")) {
+        throw std::runtime_error(file.string() +
+                                 " gives no <glide_speeds slowest_kcas=\"...\">, the slowest "
+                                 "a glide may fly it at");
+    }
+    out.glide_slowest_kcas = glide->GetAttributeValueAsNumber("slowest_kcas");
+    if (!(out.glide_slowest_kcas > 0.0)) {
+        throw std::runtime_error(file.string() + " gives a <glide_speeds> not above 0");
+    }
+    if (root->FindNextElement("glide_speeds") != nullptr) {
+        throw std::runtime_error(file.string() + " gives <glide_speeds> twice");
+    }
     // **Take-off speeds measured from the model**, where nothing published
     // gives any (`glideslope_cli takeoff-speeds`): at most once, each above 0.
     if (JSBSim::Element* t = root->FindElement("takeoff_speeds"); t != nullptr) {
@@ -1841,6 +1856,10 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
 PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model) {
     const PublishedFigures f = read_published_figures(data / "figures" / (model + ".xml"));
     return {f.plan_slowest_kcas, f.plan_fastest_kcas};
+}
+
+double glide_slowest_kts(const std::filesystem::path& data, const std::string& model) {
+    return read_published_figures(data / "figures" / (model + ".xml")).glide_slowest_kcas;
 }
 
 void refuse_what_it_cannot_fly(const std::filesystem::path& data, const FlightPlan& plan,

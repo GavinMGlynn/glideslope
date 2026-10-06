@@ -295,48 +295,70 @@ s - and every other preset's are those scaled by its median ratio to
 linux-release over its tests of 30 s or more, against linux-debug's 3.18.
 Estimates until CI measures them.
 
-### A glide is measured round every aircraft's tightest orbit, its slowest raised to what a route may fly, its steepest a flight path, 2026-10-06 — tail not done; six aircraft still stall gliding at their slowest
+### Every aircraft's glide measured round its tightest orbit, each figures file giving its slowest glide, 2026-10-06 — tail not done; the F-22 glides nowhere, why not found
 
-**What is missing, first.** Gliding round its tightest orbit from 30,000 ft
-at the slowest a glide may now be asked, the **747-400 (220 kt), 787-8 (193
-and 198), A320 (162), F-15C (160 and 165), F-22 (255) and Mosquito (123)
-still stall** - their wing past the angle its lift peaked at, the speed
-sagging up to 8 kt below what was asked (the F-15C settles into her deep
-stall at 112 kt, 43 degrees of alpha; the F-22 departs past 120 degrees, why
-not found). Each is named in its group's test, so the tail "A glide may
-still be asked of a jet at its approach speed" stays open.
+**What is missing, first.** **The F-22 glides at no speed**: from 255 kt, its
+slowest under power, to 335 it departs past 95 degrees of alpha before it
+is a fifth of the way round, and at 340 it is a third of the way round when
+it reaches 1,000 ft. It is not a floor to raise; why is not found. Its
+`<glide_speeds>` is its slowest under power, and its test names it, so the
+tail "A glide may still be asked of a jet at its approach speed" stays open.
 
 **Measured** (`sim::glide_tightest_orbit`, src/sim/orbit_trial.cpp): begun
 on the circle allowed at the speed, flying along it, clean, at 30,000 ft,
-every engine failed at once, flown by the controller's glide once round or
+every engine failed at once, flown by the controller's glide once round, or
 to 1,000 ft. **Stalled** is the most angle of attack flown more than half a
-degree past the angle at the greatest lift coefficient seen, which is how
-the autopilot learns where a wing stalls.
+degree past the angle at the greatest lift coefficient seen (how the
+autopilot learns where a wing stalls), or past 25 degrees whatever the lift
+did - for a wing whose lift goes on rising into a deep stall, as the
+F-15C's peaked at 35.7 as she settled at 43; no glide flown unstalled
+passes 19 (the F-35B at 204 kt). **Round** is once round, or half way where
+1,000 ft comes first (the fastest jets' circles of 8 to 13 km).
 
 **Changed:**
-- **A glide's slowest is the slowest a route may fly it**
-  (`copilot::glide_speeds`): its approach speed, or its slowest under power
-  where that is more, to its best climb or that slowest. It was the approach
-  speed, a flaps-down figure flown clean: from 15,000 ft the 737-300 stalled
-  at every glide from 137 to 162 kt, past 50 degrees of alpha. The light
-  aeroplanes' ranges do not move (the C172's 60 to 75 kt, which every
-  recorded copilot conversation was told, is the same).
+- **Every figures file gives the slowest it may glide at**,
+  `<glide_speeds slowest_kcas>`, read by `read_published_figures` (refused
+  missing, not above 0, or twice) and given in every brief
+  (`Brief::glide_slowest_kts`, frontend::brief_for). Measured by
+  **`glideslope_cli glide-speeds AIRCRAFT`**: from the slowest a route may
+  fly it up by 5 kt to the fastest a plan may, the first that goes round
+  both ways unstalled. Raised above the slowest a route may fly: 747-400
+  220 -> 235, 787-8 193 -> 203, A320 162 -> 167, F-15C 160 -> 170 (at 160
+  and 165 she settles into her deep stall at 112 kt and 43 degrees),
+  Mosquito 123 -> 128. The other ten glide at their slowest routed speed.
+- **A glide's slowest is that, or the slowest a route may fly it where that
+  is more** (`copilot::glide_speeds`), to its best climb or that slowest. It
+  was the approach speed, a flaps-down figure flown clean: from 15,000 ft
+  the 737-300 stalled at every glide from 137 to 162 kt, past 50 degrees of
+  alpha. The light aeroplanes' ranges do not move (the C172's 60 to 75 kt,
+  which every recorded copilot conversation was told).
 - **A glide's steepest sink is 12 degrees of flight path, or 2,500 ft/min
   where that is more** (`Controller::gliding`). Held to 2,500 ft/min, at
   30,000 ft the F-15C at every glide from 170 to 200 kt sagged to 112 kt
   into her deep stall, and the F-35B at 204 departed. No light aeroplane
-  glides fast enough for the flight path to bind.
+  glides fast enough for the flight path to bind. The controller does not
+  know where the ground is: the trial's stop at 1,000 ft is the trial's
+  protection only, and a copilot's glide is kept off the ground by its
+  route, as before.
 
 **Verified**: `every_light_aeroplane_`, `every_airliner_and_business_jet_`,
 `every_fighter_and_bomber_` and `every_warbird_and_flying_boat_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling`
 (test_navigator.cpp, split by the tightest-orbit groups, every class once):
 every aircraft, every 5 kt from its slowest glide and at its fastest, both
-ways, 304 glides; at least half way round before 1,000 ft (the fastest
-jets' 8 to 13 km circles run out of height before they are all the way
-round). A named glide that no longer stalls turns its test red. 4, 72, 13
-and 11 s (linux-release). Each change seen red: the approach speed put back
-as the slowest, the 737-300 stalls at 137 to 162 kt; the sink put back to
-2,500 ft/min, the F-15C at 170 to 200 and the F-35B at 204 stall.
+ways, round and unstalled; and each file's slowest glide pinned - never
+below the slowest a route may fly, and where above it, 5 kt slower does not
+glide round unstalled. The F-22 is named, and its name turns the test red
+once it glides everywhere it may. 5, 92, 16 and 13 s (linux-release); their
+CI costs in tests/ci_costs/ are those times scaled by the median ratio of
+each preset to linux-release over the tests of 30 s or more there - an
+estimate until CI measures them - and the airliners' has a TIMEOUT of
+1,800 s. `the_slowest_a_glide_may_fly_an_aircraft_at_is_read_and_refused_where_it_is_wrong`
+(test_figures.cpp). Each seen red: the approach speed put back as the
+slowest, the 737-300 stalls at 137 to 162 kt; the sink put back to 2,500
+ft/min, the F-15C at 170 to 200 and the F-35B at 204 stall; the alpha
+ceiling put at 15, the F-35B at 204 is called stalled; the trial stopped at
+0.6 of a turn, the Mosquito at 128 is not round; the Mosquito's file put at
+133, it glides at 128, 5 below.
 
 **The stall recovery's load, looked at and not changed.** Traced left thirty
 seconds in its stall: the **A320's 2.18 g comes while the nose is still

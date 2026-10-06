@@ -22,6 +22,7 @@ copilot::Brief brief_for(const std::filesystem::path& data, const std::string& c
     b.fastest_kts = plannable.fastest_kts;
     b.climb_kts = sim::departure_speeds(data, entry.model).climb_kts;
     b.cruise_kts = entry.start_airspeed_kts;
+    b.glide_slowest_kts = sim::glide_slowest_kts(data, entry.model);
     return b;
 }
 

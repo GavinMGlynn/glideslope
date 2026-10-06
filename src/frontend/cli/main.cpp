@@ -215,6 +215,11 @@ void print_usage(std::FILE* out) {
         "                            an aircraft that publishes none (its figures\n"
         "                            file's <takeoff_speeds>): taken off a level\n"
         "                            3,500 m runway at the weight it flies a plan at\n"
+        "  glide-speeds AIRCRAFT       measure the slowest AIRCRAFT may glide at (its\n"
+        "                            figures file's <glide_speeds>): round the\n"
+        "                            tightest orbit from 30,000 ft, engines stopped,\n"
+        "                            both ways, not stalling, from its slowest\n"
+        "                            routed speed up by 5 kt\n"
         "  plan-speeds AIRCRAFT [FROM_KT | --every]\n"
         "                            measure the speeds AIRCRAFT may be planned at\n"
         "                            (its figures file's <plan_speeds>): round the\n"
@@ -489,6 +494,40 @@ int plan_speeds(const std::filesystem::path& data, const std::vector<std::string
     std::printf("%s: write <plan_speeds slowest_kcas=\"%.0f\" fastest_kcas=\"%.0f\">\n",
                 entry.id.c_str(), slowest, fastest);
     return 0;
+}
+
+// **The slowest a glide may fly an aircraft, measured**
+// (sim::glide_tightest_orbit): from the slowest a route may fly it up in 5 kt
+// steps, as far as the fastest a plan may, each glided round its tightest
+// orbit from 30,000 ft both ways round with its engines stopped, until one
+// goes round (sim::GlideOrbitFlown::round) and stalls neither way. What to write in its figures file's `<glide_speeds>` is
+// printed.
+int glide_speeds(const std::filesystem::path& data, const std::vector<std::string_view>& args) {
+    const glideslope::sim::CatalogueEntry entry =
+        glideslope::sim::find_aircraft(data, std::string(args[1]));
+    glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, entry.id);
+    brief.glide_slowest_kts = 0.0;
+    const double from = std::round(glideslope::copilot::slowest_routed_kts(brief));
+    const double top = glideslope::sim::plan_speeds(data, entry.model).fastest_kts;
+    for (double kts = from; kts <= top; kts += 5.0) {
+        bool stalled = false;
+        for (const bool right : {false, true}) {
+            const auto g = glideslope::sim::glide_tightest_orbit(data, entry, kts, right);
+            std::printf("%s glide %.0f kt %s: alpha %.1f (lift peaked at %.1f), round %.2f%s\n",
+                        entry.id.c_str(), kts, right ? "right" : "left", g.most_alpha_deg,
+                        g.alpha_at_most_lift_deg, g.turns, g.stalled() ? ", STALLED" : "");
+            std::fflush(stdout);
+            stalled = stalled || g.stalled() || !g.round();
+        }
+        if (!stalled) {
+            std::printf("%s: write <glide_speeds slowest_kcas=\"%.0f\">\n", entry.id.c_str(),
+                        kts);
+            return 0;
+        }
+    }
+    std::printf("%s: no glide from %.0f to %.0f kt goes round without stalling\n",
+                entry.id.c_str(), from, top);
+    return 1;
 }
 
 // **The speeds an aircraft that publishes none takes off at, measured**
@@ -4071,6 +4110,9 @@ static int run_program(int argc, char** argv) {
         }
         if ((args.size() == 2 || args.size() == 3) && args[0] == "plan-speeds") {
             return plan_speeds(data, args);
+        }
+        if (args.size() == 2 && args[0] == "glide-speeds") {
+            return glide_speeds(data, args);
         }
         if ((args.size() == 2 || args.size() == 3) && args[0] == "takeoff-speeds") {
             return takeoff_speeds(data, args);

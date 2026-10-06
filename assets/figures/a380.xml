@@ -136,4 +136,13 @@
   <plan_speeds slowest_kcas="201" fastest_kcas="300">
     The slowest, 201 kt, is 5 kt over the slowest that held: its approach speed is a flaps-down figure, and flown clean below 196 kt it came down 500 ft before it reached its circle (at 191 kt, its 5,279 m circle); 196 kt held all four ways. The fastest, 300 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
+  <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
+       glide-speeds a380` on 2026-10-06 (linux-release): from the slowest a
+       route may fly it up in 5 kt steps, each glided round the tightest
+       orbit allowed from 30,000 ft, every engine stopped, clean, both ways
+       round (sim::glide_tightest_orbit), until one went round without its
+       wing passing the angle its lift peaked at, nor 25 degrees. -->
+  <glide_speeds slowest_kcas="201">
+    201 kt, the slowest a route may fly it, went round unstalled.
+  </glide_speeds>
 </published_figures>

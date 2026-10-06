@@ -70,6 +70,9 @@ struct Brief {
     double fastest_kts = 0.0;
     double climb_kts = 0.0;
     double cruise_kts = 0.0;
+    // The slowest a glide may fly it (sim::glide_slowest_kts), measured; 0
+    // where not given.
+    double glide_slowest_kts = 0.0;
     std::string task; // what the pilot said, "follow the coast north to Palm Beach"
 };
 
@@ -87,20 +90,22 @@ inline double fastest_routed_kts(const Brief& b) {
 
 // **The airspeeds a glide may be flown at**: from the slowest a route may fly
 // it - its approach speed, or the slowest it holds its tightest orbit at
-// clean where that is more - to its best climb, or that slowest where the
+// clean where that is more - or the slowest it glides at without stalling
+// where that is more still, to its best climb, or that slowest where the
 // best climb is less. A glide is flown clean, and a jet's approach speed is a
 // flaps-down figure: glided round its tightest orbit clean at it from 15,000
 // ft, the 737-300 at 137 kt went past its lift's peak to 59 degrees of alpha,
-// and stalled at every speed up to 162; at 167, and at its slowest under
-// power, 172, it did not. **That floor is not yet high enough everywhere**: from
-// 30,000 ft the 747-400, 787-8, A320, F-15C, F-22 and Mosquito still stall
-// gliding at their slowest, which the glide tests name (test_navigator.cpp).
+// and stalled at every speed up to 162. Nor is the slowest a route may fly
+// always enough: from 30,000 ft, engines stopped, the 747-400, 787-8, A320,
+// F-15C and Mosquito stalled gliding there, and each figures file gives the
+// slowest it glides at, measured (`glideslope_cli glide-speeds`).
 struct GlideSpeeds {
     double slowest_kts = 0.0;
     double fastest_kts = 0.0;
 };
 inline GlideSpeeds glide_speeds(const Brief& b) {
-    const double slowest = slowest_routed_kts(b);
+    const double routed = slowest_routed_kts(b);
+    const double slowest = b.glide_slowest_kts > routed ? b.glide_slowest_kts : routed;
     return {slowest, b.climb_kts > slowest ? b.climb_kts : slowest};
 }
 
