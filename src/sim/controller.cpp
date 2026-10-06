@@ -231,7 +231,7 @@ Controls Controller::fly() {
             autopilot_.emplace(a_, applied_);
         }
         if (lander_) {
-            if (lander_->stage() != Lander::Stage::stopped) {
+            if (lander_->stage() != Lander::Stage::stopped && !lander_->gone_around()) {
                 const Controls landing = lander_->fly();
                 if (easing_in_) {
                     easing_in_ = !towards(applied_, landing);

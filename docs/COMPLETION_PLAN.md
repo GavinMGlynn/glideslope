@@ -771,22 +771,27 @@ Found while implementing something else. Added when found, not when remembered.
       still handed the plain autopilot** when the AI takes it back on the
       roll, and is never stopped. *Verification: an aeroplane landed by
       hand and taken back on the roll is landed to a stop.*
-- [ ] **An A320 taken at the touch by a pilot who lets the stick go rises
+- [x] **An A320 taken at the touch by a pilot who lets the stick go rises
       4.1 ft after the AI takes her back**, against three for everything
       else. *Verification: every landplane taken back at the touch rises
-      less than three feet after it.*
+      less than three feet after it.* Done 2026-10-06: she rises 0.8 ft,
+      and her named bound is gone.
 - [x] **The AI's own touchdown in the 787-8, F-15C and F-35B is a crash by
       the server's rule** (707, 976 and 883 ft/min, past the gear's 600).
       *Verification: every aeroplane the AI lands touches down within what
       its gear takes.* Done 2026-10-01: flared to the wheels, the hardest
       touches at 469 ft/min (the F-15C) and none rises half a foot after.
-- [ ] **Nothing bounds where along the runway a jet touches down**: they
+- [x] **Nothing bounds where along the runway a jet touches down**: they
       touch 520 to 809 m past the threshold, and an F-15C at 800 m would run
       off a 6,000 ft runway. *Verification: every aeroplane the AI lands
-      touches inside a touchdown zone stated for it.*
-- [ ] **The F-15C balloons in her flare**, climbing at about 100 ft/min at
+      touches inside a touchdown zone stated for it.* Done 2026-10-06: every
+      one in both lessons touches inside the FAA's touchdown zone, the first
+      3,000 ft, at 246 to 725 m.
+- [x] **The F-15C balloons in her flare**, climbing at about 100 ft/min at
       five feet before settling. *Verification: no aeroplane the AI lands
-      climbs in its flare.*
+      climbs in its flare.* Done 2026-10-06: the F-15C no longer did, but the
+      737-300, A380 and Mosquito did; the flare now judges the sink a moment
+      ahead, and none climbs in either lesson.
 - [ ] **The F-35B lands on her power**: her model flies the glidepath at
       19.5 degrees of incidence and its flare runs out of nose. *Verification:
       the F-35B flies her approach at her published incidence and flares
@@ -794,10 +799,16 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The touchdown sink the AI flares to is set, not published** (200
       ft/min for jets, 40 otherwise). *Verification: each aeroplane's comes
       from a source the figures file names.*
-- [ ] **The AI does not go around from a balloon**: a Mosquito given back
+- [x] **The AI does not go around from a balloon**: a Mosquito given back
       from a pilot's over-pulled flare zooms to fifty feet and comes down at
       958 ft/min. *Verification: every aeroplane given back in a balloon
-      lands within what its gear takes or goes around.*
+      lands within what its gear takes or goes around.* Done 2026-10-06: the
+      Mosquito goes around to 500 ft and the other twelve land.
+- [ ] **A go-around ends in a straight climb**: at 500 ft the plain
+      autopilot holds it, with the landing flap still down, and nothing
+      flies her round to another approach. Nor does the AI go around from a
+      landing that is only long or fast. *Verification: an aeroplane that
+      goes around is flown round and landed.*
 - [x] **The B-2A cannot slow down on the approach.** *Verification: the
       B-2A crosses the threshold within five knots of its reference speed,
       and rises less than half a foot after it first touches.* Done

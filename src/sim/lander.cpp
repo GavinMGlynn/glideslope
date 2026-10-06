@@ -182,7 +182,7 @@ void Lander::measure() {
 bool Lander::still_landing(double throttle) const {
     const AircraftState s = a_.state();
     // Stopped is over the ground, as `fly` has it.
-    if (std::abs(a_.property("velocities/vg-fps")) < 1.0) {
+    if (std::abs(a_.property("velocities/vg-fps")) < 1.0 || stage_ == Stage::go_around) {
         return false;
     }
     // On this runway: along it, across it and pointing down it.
@@ -220,6 +220,10 @@ bool Lander::still_landing(double throttle) const {
         std::max(50.0, flare_height_ft() + wheels_hang_ft(s) + 10.0);
     const double agl_ft = a_.property("position/h-agl-ft");
     return agl_ft - (touched_ ? touchdown_agl_ft_ : 0.0) <= screen_ft;
+}
+
+bool Lander::gone_around() const {
+    return stage_ == Stage::go_around && above_m_ * feet_per_metre >= go_around_ft;
 }
 
 bool Lander::notice_the_touch(const AircraftState& s) {
@@ -303,6 +307,8 @@ void Lander::resume(double throttle) {
     kcas_rate_ = 0.0;
     last_vg_fps_ = -1.0;
     decel_fps2_ = 0.0;
+    last_climb_fpm_ = -1e9;
+    climb_trend_fpm_s_ = 0.0;
     // The pilot's throttle and attitude are where the loops begin: the
     // flare closes the throttle from where it is, and raises the nose from
     // where it is.
@@ -360,7 +366,9 @@ Controls Lander::fly_laws() {
     // to its back.
     const bool bounced =
         touched_ && !on_ground && above_m_ > touchdown_above_m_ + 1.0 / feet_per_metre;
-    if (bounced) {
+    if (stage_ == Stage::go_around) {
+        // Gone around is gone around: the landing is not taken up again.
+    } else if (bounced) {
         stage_ = Stage::flare;
     } else if (touched_) {
         // **Stopped is over the ground, not through the air.** An aeroplane
@@ -371,6 +379,18 @@ Controls Lander::fly_laws() {
     } else if (above_m_ * feet_per_metre - wheels_hang_ft(s) <= flare_height_ft() &&
                along_m_ < 400.0) {
         stage_ = Stage::flare;
+    }
+    // **A balloon above the flare is gone around from, not landed.** The
+    // FAA's Airplane Flying Handbook (FAA-H-8083-3C, chapter 9, "Ballooning"
+    // and "Bouncing During Touchdown"): when ballooning is excessive it is
+    // best to go around at once and not try to salvage the landing, and so
+    // after a severe bounce. Climbing, with her wheels higher than the flare
+    // began - as she can be given back from a pilot's flare pulled too hard
+    // - is that: a Mosquito given back so zoomed on to fifty feet with her
+    // throttles shut and came down at 958 ft/min.
+    if (stage_ == Stage::flare && !on_ground && s.climb_rate_fpm > 0.0 &&
+        above_m_ * feet_per_metre - wheels_hang_ft(s) > flare_height_ft()) {
+        stage_ = Stage::go_around;
     }
 
     // --- where the nose points -------------------------------------------
@@ -612,7 +632,27 @@ Controls Lander::fly_laws() {
 
     // --- the path, on the elevator ----------------------------------------
     double want_pitch = 0.0;
-    if (stage_ == Stage::flare) {
+    if (stage_ == Stage::go_around) {
+        // **Full power, and the wing at the approach's incidence**: the
+        // handbook's go-around is power first, then the attitude that stops
+        // the descent and climbs. Flown at the incidence she held down the
+        // glidepath - at her reference speed, 1.3 times the stall - the
+        // power makes the climb and the wing is never near the stall, however
+        // slow the balloon left her: a slow wing at that incidence has its
+        // nose let down until the speed comes back. The power comes on over
+        // a second, the flap and the gear stay as they are (a climb at the
+        // landing flap, not a retraction near the ground), the speedbrake in.
+        c.throttle = std::min(1.0, last_throttle_ + 1.0 / steps_per_second);
+        last_throttle_ = c.throttle;
+        c.speedbrake = 0.0;
+        const double alpha_deg = a_.property("aero/alpha-deg");
+        const double want_alpha_deg = path_alpha_known_ ? path_alpha_deg_ : 8.0;
+        const double toward = s.pitch_deg + (want_alpha_deg - alpha_deg);
+        flare_pitch_ = std::clamp(toward, flare_pitch_ - 3.0 / steps_per_second,
+                                  flare_pitch_ + 3.0 / steps_per_second);
+        flare_pitch_ = std::min(flare_pitch_, most_flare_pitch_deg_);
+        want_pitch = flare_pitch_;
+    } else if (stage_ == Stage::flare) {
         // **The flare is a sink that decays with height**, not a fixed
         // attitude: the wheels should be going down at forty feet a minute as
         // they arrive, whatever the aeroplane weighs and however fast its
@@ -647,6 +687,26 @@ Controls Lander::fly_laws() {
         const double want_fpm =
             -(speeds_.touchdown_fpm + 150.0 * high_ft / std::max(1.0, flare_height_ft()));
         const double fpm_error = want_fpm - s.climb_rate_fpm;
+        // **Where the sink is going, not only where it is.** The path follows
+        // the nose a second or so behind it, so a nose raised until the sink
+        // was arrested went on arresting it: a Mosquito whose sink was
+        // already falling at 350 ft/min a second, the nose still rising at
+        // two degrees a second, went from 650 ft/min down to a climb of 70 at
+        // twelve feet, and a 737 climbed at 25 at five - balloons. The sink
+        // the nose is flown to is the one three tenths of a second ahead, as
+        // a pilot judges the round out by how fast the ground is still coming
+        // up. From a quarter to four tenths of a second nothing balloons and
+        // nothing bounces; from six tenths the nose came up too little, and
+        // the Mosquito met the runway flat and fast and bounced three to six
+        // feet.
+        if (last_climb_fpm_ > -1e8) {
+            const double rate = (s.climb_rate_fpm - last_climb_fpm_) * steps_per_second;
+            climb_trend_fpm_s_ += (rate - climb_trend_fpm_s_) / (0.25 * steps_per_second);
+        }
+        last_climb_fpm_ = s.climb_rate_fpm;
+        constexpr double lead_s = 0.3;
+        const double ahead_error =
+            want_fpm - (s.climb_rate_fpm + lead_s * climb_trend_fpm_s_);
         // **The nose comes up through the flare, and no faster than a pilot
         // would raise it.** Without the rate limit a large sink asks for a
         // large attitude at once, and the aeroplane is flown off the end of
@@ -666,7 +726,7 @@ Controls Lander::fly_laws() {
         // proportional to the rate of closure with the ground.
         const double path_fpm = std::max(1.0, kcas) * 101.269;
         const double want_flare =
-            s.pitch_deg + 1.5 * std::atan(fpm_error / path_fpm) * degrees;
+            s.pitch_deg + 1.5 * std::atan(ahead_error / path_fpm) * degrees;
         // **From the attitude she flew the glidepath at**, never pushed
         // down from it: the bound stops the nose rising past it, and does
         // not lower one already there.
@@ -683,7 +743,7 @@ Controls Lander::fly_laws() {
             flare_begun_ = true;
         }
         const double least_pitch =
-            fpm_error < 0.0
+            ahead_error < 0.0
                 ? std::max(flare_begun_pitch_, flare_pitch_ - 2.0 / steps_per_second)
                 : flare_pitch_;
         flare_pitch_ = std::max(
@@ -718,9 +778,14 @@ Controls Lander::fly_laws() {
         // **And held, not raised, in the last feet**: a nose still coming up
         // as the wheels meet the runway carries its rotation on to it, and an
         // F-15C touching at 158 knots rotating at two degrees a second lifted
-        // off her gear again. Within 3.0 feet of the runway the attitude is
-        // held where it is.
-        if (high_ft < 0.2 * flare_height_ft()) {
+        // off her gear again. In the last fifth of the flare's height a jet's
+        // attitude is held where it is. **A jet's alone**: a propeller
+        // aeroplane is held off and its nose raised to the end, as the FAA's
+        // Airplane Flying Handbook (FAA-H-8083-3C, chapter 9) rounds it out
+        // to the touch; with her flare no longer ballooning (above), the
+        // Mosquito held there met the runway flat and fast - at 107 knots,
+        // sinking 120 ft/min against the 40 wanted - and bounced four feet.
+        if (jet_ && high_ft < 0.2 * flare_height_ft()) {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg);
         }
         // **The power comes off as the sink is arrested, not before.** Closed
