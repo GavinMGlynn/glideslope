@@ -48,12 +48,18 @@ file(READ "${DATA}/runways/strips.csv" _strips)
 file(WRITE "${_other}/runways/strips.csv" "${_strips}\n")
 set(_refused "${WORK}/refused.txt")
 set(_kept "${WORK}/kept.txt")
-file(REMOVE "${_refused}" "${_kept}")
+set(_ready "${WORK}/ready.txt")
+file(REMOVE "${_refused}" "${_kept}" "${_ready}")
 execute_process(
-    COMMAND "${CLIENT}" --data "${_other}" connect "127.0.0.1:${PORT}" "${_key}" 20
-            --after 1 --heard "${_refused}"
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 3 --after 1 --heard "${_kept}"
+    # Each joins once the server is flying (--ready-file), not a second after
+    # it was started: a debug server on CI's macOS was not yet answering, and
+    # the client on the same ground, staying three seconds, left unanswered.
+    COMMAND "${CLIENT}" --data "${_other}" connect "127.0.0.1:${PORT}" "${_key}" 60
+            --after 0 --after-ready "${_ready}" --heard "${_refused}"
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 5 --after 0
+            --after-ready "${_ready}" --heard "${_kept}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
+            --ready-file "${_ready}"
             --players 2 --data "${DATA}" --timeout 5 --store "${_store}"
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rcs STREQUAL "1;0;0")

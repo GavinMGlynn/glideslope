@@ -1922,7 +1922,7 @@ add_test(NAME a_client_flies_the_servers_weather_and_every_change_of_it_not_its_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_weather -DPORT=24713 -DSAME_M=1 -DOWN_M=1.2
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_weather -DPORT=24713 -DSAME_M=0.25 -DOWN_M=0.4
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_weather.cmake)
 set_tests_properties(a_client_flies_the_servers_weather_and_every_change_of_it_not_its_own
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)

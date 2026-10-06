@@ -1506,6 +1506,7 @@ public:
                         worst_error_at_s_ = local_s;
                     }
                     ++compared_;
+                    errors_m_.push_back(error);
                     // **After a take-over, apart**: updates the server can
                     // only have sent if it is flying the aircraft taken over
                     // by this client's inputs.
@@ -1886,6 +1887,16 @@ public:
                       "%.1f s in",
                       compared_, worst_error_m_, joining_.size(), worst_error_at_s_);
         lines.emplace_back(line);
+        // **And the median**: what the error is in the run of updates, where
+        // the worst is what one slow frame made it (server_weather.cmake).
+        if (!errors_m_.empty()) {
+            std::vector<double> sorted = errors_m_;
+            const auto middle = sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2);
+            std::nth_element(sorted.begin(), middle, sorted.end());
+            std::snprintf(line, sizeof line, "prediction error median: %.3f m over %zu updates",
+                          *middle, sorted.size());
+            lines.emplace_back(line);
+        }
         if (handed_over_ + taken_back_ + taken_over_ > 0) {
             std::snprintf(line, sizeof line,
                           "own aircraft: handed to the AI %zu times, taken back %zu and another "
@@ -2084,6 +2095,9 @@ private:
     };
     std::deque<Predicted> predicted_at_;
     std::size_t compared_ = 0;
+    // Every error compared, for its median: a wrong wind is in every update,
+    // where a slow frame is in a few (`report`).
+    std::vector<double> errors_m_;
     std::size_t compared_since_ = 0;
     std::size_t snapped_since_ = 0;
     double worst_error_since_m_ = 0.0;

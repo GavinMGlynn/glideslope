@@ -29,6 +29,13 @@
 #   weather twice - the 35 kt on joining and the 40 kt at its change, from
 #   twelve seconds on the session's clock over five - so the change reached
 #   every client;
+# **The medians are held, not the worst.** A wrong wind is in every update; a
+# slow frame or a server behind real time is in a few, and puts any client
+# out, in still air too: with the server held 9 ms a step, both clients'
+# medians were 7.6 m in still air with no weather at all, and on CI's
+# macOS-debug the worst of the client flying the server's weather was 1.6
+# and 2.6 m against 0.08 m here (2026-10-06). Here the medians were 0.04 m
+# flying the server's weather and 0.78 m flying still air.
 # - the first's prediction error, where the server says its aircraft was
 #   against where it had flown it, is within SAME_M over every update after the
 #   first second of its own;
@@ -109,21 +116,26 @@ foreach(_who IN ITEMS same own)
     endif()
     set(_compared_${_who} ${CMAKE_MATCH_1})
     set(_worst_${_who} ${CMAKE_MATCH_2})
+    if(NOT _said MATCHES "prediction error median: ([0-9.]+) m")
+        message(FATAL_ERROR "the ${_who} client did not say its median error:\n${_said}")
+    endif()
+    set(_median_${_who} ${CMAKE_MATCH_1})
     if(_compared_${_who} LESS 300)
         message(FATAL_ERROR "the ${_who} client compared ${_compared_${_who}} updates, "
                             "fewer than the 300 a flight of 20 s gives:\n${_said}")
     endif()
 endforeach()
-message(STATUS "flying the server's weather, the worst prediction error was ${_worst_same} m "
-               "over ${_compared_same} updates; flying its own, ${_worst_own} m over "
+message(STATUS "flying the server's weather, the prediction error's median was "
+               "${_median_same} m and its worst ${_worst_same} m over ${_compared_same} "
+               "updates; flying its own, ${_median_own} m and ${_worst_own} m over "
                "${_compared_own}")
-if(_worst_same GREATER SAME_M)
-    message(FATAL_ERROR "flying the server's weather, the prediction was out by "
-                        "${_worst_same} m, more than ${SAME_M}")
+if(_median_same GREATER SAME_M)
+    message(FATAL_ERROR "flying the server's weather, the prediction's median error was "
+                        "${_median_same} m, more than ${SAME_M}")
 endif()
-if(NOT _worst_own GREATER OWN_M)
-    message(FATAL_ERROR "flying its own still air in the server's ${_west}, the prediction "
-                        "was out by only ${_worst_own} m, not more than ${OWN_M}: the wind "
-                        "does not show, and the bound above means nothing")
+if(NOT _median_own GREATER OWN_M)
+    message(FATAL_ERROR "flying its own still air in the server's ${_west}, the prediction's "
+                        "median error was only ${_median_own} m, not more than ${OWN_M}: the "
+                        "wind does not show, and the bound above means nothing")
 endif()
 
