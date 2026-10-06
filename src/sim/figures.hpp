@@ -94,6 +94,16 @@ struct PublishedFigures {
     // that is held, and never below it.
     double plan_slowest_kcas = 0.0;
     double plan_fastest_kcas = 0.0;
+    // **Take-off speeds measured from its model, not published**:
+    // `<takeoff_speeds rotate_kcas="..." climb_kcas="..." flaps_deg="..."
+    // weight_lbs="...">`, for an aircraft whose published figures give no
+    // speed to rotate or climb away at (the 747-400, the F-22A). Found by
+    // `glideslope_cli takeoff-speeds` (sim/takeoff_trial.hpp) at the weight
+    // its model flies a plan at; 0 where the file gives none.
+    double measured_rotate_kcas = 0.0;
+    double measured_climb_kcas = 0.0;
+    double measured_takeoff_flaps_deg = 0.0;
+    double measured_takeoff_lbs = 0.0;
 };
 
 struct FigureResult {

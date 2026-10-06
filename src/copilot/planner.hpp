@@ -33,7 +33,8 @@ struct PlanRequest {
     std::string command;       // what the pilot said
     std::string aircraft;      // its catalogue id, "c172p"
     std::string aircraft_name; // "Cessna 172P Skyhawk"
-    // Its reference speed on the approach, in whole knots, as everything
+    // Its reference speed on the approach, in whole knots - 0 for one that
+    // has none, which is told none - as everything
     // said to the model and asked of a plan is: rounded once, where the
     // request is filled, so that the radius it is told and the one the plan
     // reader holds it to are for the same speed.

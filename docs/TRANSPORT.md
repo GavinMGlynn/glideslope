@@ -673,7 +673,8 @@ within the speeds the aircraft's figures file says it holds clean round a
 tight turn - never below its approach speed (none of these for a glide,
 which flies neither), every orbit wide enough for its airspeed,
 a glide only with the engine stopped and from the approach speed to the best
-climb, and with the engine stopped nothing but a glide. **A route that fails
+climb (with no approach speed, between its climb-away speed and its slowest
+plan speed), and with the engine stopped nothing but a glide. **A route that fails
 is refused, and nothing changes**: the aircraft goes on as it was. The server
 says nothing back; a client learns what its aircraft does from the state
 updates, like any other. A route that passes is flown by the server's AI

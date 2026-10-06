@@ -85,6 +85,22 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
 
     DepartureSpeeds speeds;
     const FigureSpec* climb = by_flight(figures, "climb_rate");
+    // **Measured, where nothing published gives them** (the 747-400, the
+    // F-22A: `<takeoff_speeds>`, glideslope_cli takeoff-speeds): the
+    // rotation and the climb away, at the flap and weight they were found at.
+    if (climb == nullptr && figures.measured_rotate_kcas > 0.0) {
+        speeds.rotate_kts = figures.measured_rotate_kcas;
+        speeds.climb_kts = figures.measured_climb_kcas;
+        speeds.initial_climb_kts = figures.measured_climb_kcas;
+        speeds.flap = figures.flaps_full_deg > 0.0
+                          ? std::clamp(figures.measured_takeoff_flaps_deg / figures.flaps_full_deg,
+                                       0.0, 1.0)
+                          : 0.0;
+        speeds.reference_lbs = figures.measured_takeoff_lbs;
+        speeds.rotate_is_published = false;
+        speeds.measured_from_model = true;
+        return speeds;
+    }
     if (climb == nullptr) {
         throw std::runtime_error(model +
                                  " publishes no rate of climb, so there is no "

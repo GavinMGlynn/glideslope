@@ -58,7 +58,10 @@ inline constexpr int most_orbit_turns = 255;
 struct Brief {
     std::string aircraft;      // its catalogue id, "c172p"
     std::string aircraft_name; // "Cessna 172P Skyhawk"
-    double approach_kts = 0.0; // in whole knots, as PlanRequest's (planner.hpp)
+    // In whole knots, as PlanRequest's (planner.hpp); 0 for an aircraft that
+    // has none - the 747-400 and the F-22A publish no stall speed - and is
+    // then told none.
+    double approach_kts = 0.0;
     // The slowest and fastest a route may fly it under power
     // (sim::plan_speeds), measured: a route is flown clean, and the approach
     // speed is a flaps-down figure. Where not given (0), the approach speed
@@ -80,6 +83,23 @@ inline double slowest_routed_kts(const Brief& b) {
 // where none is given.
 inline double fastest_routed_kts(const Brief& b) {
     return b.fastest_kts > 0.0 ? b.fastest_kts : b.cruise_kts * 1.2;
+}
+
+// **The airspeeds a glide may be flown at**: from its approach speed to its
+// best climb; with no approach speed, between its climb speed and the
+// slowest a route may fly it - clean, between the slowest it climbs away at
+// and the slowest it holds a level orbit at.
+struct GlideSpeeds {
+    double slowest_kts = 0.0;
+    double fastest_kts = 0.0;
+};
+inline GlideSpeeds glide_speeds(const Brief& b) {
+    if (b.approach_kts > 0.0) {
+        return {b.approach_kts, b.climb_kts};
+    }
+    const double slowest = slowest_routed_kts(b);
+    return {b.climb_kts < slowest ? b.climb_kts : slowest,
+            b.climb_kts > slowest ? b.climb_kts : slowest};
 }
 
 // What it is told each time it is asked: the flight as it is now.

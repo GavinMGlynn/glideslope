@@ -1,3 +1,4 @@
+#include "frontend/briefs.hpp"
 #include "frontend/players_copilot.hpp"
 
 #include "copilot/provider.hpp"
@@ -134,15 +135,7 @@ PlayersCopilot::PlayersCopilot(const std::filesystem::path& data, PlayersCopilot
     provider_ = provider->name() + ", " + provider->model();
 
     const sim::CatalogueEntry entry = sim::find_aircraft(data, o_.aircraft);
-    copilot::Brief brief;
-    brief.aircraft = entry.id;
-    brief.aircraft_name = entry.name;
-    brief.approach_kts = std::round(sim::approach_speeds(data, entry.model).vref_kts);
-    const sim::PlanSpeeds plannable_speeds = sim::plan_speeds(data, entry.model);
-    brief.slowest_kts = plannable_speeds.slowest_kts;
-    brief.fastest_kts = plannable_speeds.fastest_kts;
-    brief.climb_kts = sim::departure_speeds(data, entry.model).climb_kts;
-    brief.cruise_kts = entry.start_airspeed_kts;
+    copilot::Brief brief = brief_for(data, entry.id);
     brief.task = o_.task;
     helper_ = std::make_unique<copilot::Copilot>(std::move(provider), brief);
 

@@ -70,6 +70,10 @@ struct ApproachSpeeds {
 ApproachSpeeds approach_speeds(const std::filesystem::path& data,
                                const std::string& model);
 
+// Whether `approach_speeds` has a stall speed to work from: false for the
+// 747-400 and the F-22A, whose measured stalls would not hold still.
+bool publishes_approach_speed(const std::filesystem::path& data, const std::string& model);
+
 class Lander {
 public:
     enum class Stage { approach, flare, rollout, stopped };

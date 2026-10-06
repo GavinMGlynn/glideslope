@@ -88,14 +88,18 @@ std::string planning_instructions() {
 std::string planning_request(const PlanRequest& r) {
     const double slowest = slowest_planned_kts(r);
     const double fastest = fastest_planned_kts(r);
+    // **An aircraft with no approach speed is told none**, and its climb
+    // speed is the slowest it climbs away at, measured (sim::departure_speeds).
     std::string out = "The aircraft: " + r.aircraft + ", a " + r.aircraft_name + ". Its speeds: " +
-                      whole(r.approach_kts) + " kt on the approach, " + whole(r.climb_kts) +
-                      " kt best climb, " + whole(r.cruise_kts) +
+                      (r.approach_kts > 0.0 ? whole(r.approach_kts) + " kt on the approach, " +
+                                                  whole(r.climb_kts) + " kt best climb, "
+                                            : whole(r.climb_kts) + " kt climbing away, ") +
+                      whole(r.cruise_kts) +
                       " kt cruise. Plan every airspeed from " + whole(slowest) + " to " +
                       whole(fastest) + " kt";
     // **Said why, where the floor is above the approach**: the approach
     // speed is flown with the flaps down, and a plan is flown clean.
-    if (slowest > r.approach_kts) {
+    if (r.approach_kts > 0.0 && slowest > r.approach_kts) {
         out += ", never slower than " + whole(slowest) +
                ": a plan is flown clean, and the approach speed is for flaps down";
     }

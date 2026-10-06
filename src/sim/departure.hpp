@@ -50,6 +50,9 @@ struct DepartureSpeeds {
     // was worked from its stall or measured from its model. The caller may
     // want to say so.
     bool rotate_is_published = false;
+    // Whether both speeds were measured from the model, with nothing
+    // published to give them (`<takeoff_speeds>` in its figures file).
+    bool measured_from_model = false;
     // **The weight these speeds are for**, lb: the loading of the figure
     // they were taken from. A take-off at another weight flies them scaled
     // by the square root of the ratio. 0 where no figure names one.
