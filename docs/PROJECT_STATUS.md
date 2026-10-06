@@ -262,9 +262,10 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### A fast aircraft's tightest orbit is flown on its circle, 2026-10-06 — tail done; the B-2's and F-22's yaw still open
+### A fast aircraft's tightest orbit is flown on its circle on Linux, 2026-10-06 — tail still open (one Windows case); the B-2's and F-22's yaw still open
 
-**What is not done first.** The B-2 and F-22 still yaw in a crosswind when
+**What is not done first.** On Windows the C182 at its fastest swings 150 m
+off one way round (below). The B-2 and F-22 still yaw in a crosswind when
 slow (the cause is found, below; the fix is not in). The glide, F-15C stall
 and stall-recovery tails were not worked on.
 
@@ -300,8 +301,14 @@ fighters' and airliners' fastest tests red (F-15C 7.7%, 787-8 10.2%); a
 correction five times slower (sixty seconds) turned the light aeroplanes'
 (C182 163 m) and the warbirds' (Mosquito 293 m) red; the join's bound set at
 25% inside turned the fighters' red (27-30%). On Windows CI main's light-aeroplane
-fastest test failed (the C182 at 144 kt, 215 m outside from the quarter-turn,
-on the join); see the PR for its run on this branch.
+fastest test failed (the C182 at 144 kt, 215 m outside from the quarter-turn).
+**It still fails on Windows on this branch** (windows-release, run by
+`tools/windows_build.sh`): the C182 at 144 kt, right, calm, swings 151 m
+inside and 145 outside from the half-turn, its speed sagging to 139 kt;
+the other fifteen cases there, and all sixteen on Linux, are within 25 m.
+The C182 makes 143 kt at full throttle, short of the 144 its file allows,
+so this is not a tolerance but a case on the edge of its power; not yet
+fixed.
 
 **The B-2's and F-22's yaw: the cause.** The rudder's integral lags the
 sideslip a quarter cycle and undoes the yaw damper; a flying wing has no fin
