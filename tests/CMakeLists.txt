@@ -704,6 +704,12 @@ if(WIN32)
         PROPERTIES TIMEOUT 120)
 endif()
 
+# **Every aircraft's tightest orbit one step past its slowest and fastest**:
+# 232 s in a local linux-debug, about 880 on CI's by the ratio of the tests
+# measured on both - timed out once at the default. Twice that, generously.
+set_tests_properties(no_aircraft_holds_what_a_plan_asks_one_step_past_its_slowest_or_fastest
+    PROPERTIES TIMEOUT 1800)
+
 # The files the tests download - DEM tiles, the geoid - fetched once, before the
 # tests that read them, and checked against their pinned SHA-256.
 add_test(NAME the_files_the_tests_download_arrive_with_their_pinned_hashes

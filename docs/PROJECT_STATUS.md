@@ -660,6 +660,11 @@ recording changes.
   (`cmake/server_copilot.cmake`, FOR=no_speeds), which ran both programs on
   the data as it is and went red on CI once the 747-400 had speeds: it now
   runs them on a copy of the data with them taken out.
+- `no_aircraft_holds_what_a_plan_asks_one_step_past_its_slowest_or_fastest`,
+  which timed out once on CI, has a 1,800 s TIMEOUT and an entry in every
+  `tests/ci_costs/*.txt` - **estimates**, scaled from its 232 s in a local
+  linux-debug by the ratios of tests measured both places, until
+  `tools/ci_test_costs.py` measures it.
 
 **Not done**: a model's own plan is flown end to end for the Cessna, the
 747-400 and the F-22A only; the other thirteen are planned by a stand-in
