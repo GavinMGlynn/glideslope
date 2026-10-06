@@ -1,7 +1,10 @@
 #pragma once
 
-// **What the client with the window shows of its own aircraft on a server**,
-// and how far it steps.
+// **What a client shows of its own aircraft on a server**, and how far it
+// steps: one model of a display, for the client with the window, which
+// draws it, and glideslope_cli, whose network checks measure it as a 60 Hz
+// screen would. Presentation-free - it is arithmetic on positions and times -
+// so that the command-line client links it without a window.
 //
 // Its own aircraft is shown from one of two sources: the flight here,
 // predicted, while this client flies it; or the server's updates, drawn 100 ms
@@ -13,9 +16,8 @@
 //
 // **It blends across every switch** instead, eased over half a second: what is
 // shown is its source plus a blend, begun as where the frame before it, carried
-// on, would have put it, less the source, and taken down to nothing. This is
-// the network checks' model of a display (glideslope_cli's Predicting), and it
-// measures the step the same way: how far what is shown is from where the
+// on, would have put it, less the source, and taken down to nothing. It
+// measures the step how far what is shown is from where the
 // frame before it, carried on part by part - its source at its own velocity,
 // and its blend as the blend goes - puts it, and the blend's own pace. The
 // lessons it keeps, each of which cost a regression there: a blend starts from
@@ -33,7 +35,7 @@
 #include <string>
 #include <utility>
 
-namespace glideslope::client {
+namespace glideslope::frontend {
 
 class OwnShown {
 public:
@@ -59,6 +61,11 @@ public:
     // it was last shown as another (`seen`), not from the aircraft left
     // behind.
     void taken_over(std::uint8_t number);
+
+    // **A switch here**, though what it is shown from may not have changed
+    // yet: handed over or taken back, as the server said - a take-back is
+    // two, this and the prediction starting again a frame or two after.
+    void switching() { switching_ = true; }
 
     // **One frame at `local_s`**: where its own is shown - its source moved by
     // what is left of any blend. The step it made is measured here.
@@ -92,6 +99,10 @@ public:
     double longest_frame_ms() const { return longest_ms_; }
     // How many frames since the last switch: nought in its own.
     int frames_since_switch() const { return frames_since_switch_; }
+    // When the last frame was, on this machine's clock, if there was one.
+    std::optional<double> last_frame_s() const {
+        return before_ ? std::optional<double>(before_->s) : std::nullopt;
+    }
 
 private:
     // What was shown, and when, as its parts: the source it was shown from
@@ -135,4 +146,4 @@ private:
     std::map<std::uint8_t, std::pair<std::optional<Shown>, std::optional<Shown>>> others_;
 };
 
-} // namespace glideslope::client
+} // namespace glideslope::frontend

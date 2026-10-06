@@ -22,11 +22,14 @@
 # With TAKE_OVER, the client takes the AI's Cessna over four seconds in, with
 # `--take-over-after 4`, and by the shot must say it took it over and is
 # flying it, the server saying the pilot has it and having flown it by inputs
-# sent since, and the HUD saying the pilot has it: what taking over is. (What
+# sent since, and the HUD saying the pilot has it: what taking over is. The
+# last update from before the take-over is heard again after it
+# (`--late-update-after-take-over`), as a network reorders them, and must take
+# nothing over again: it is taken over once. (What
 # the server says of it, which goes down the pipe here, server_take_over.cmake
 # checks.) And what it shows must not step at the take-over: the client says,
 # at the shot, how many switches of its own aircraft it measured - the one -
-# and the largest step at one (client/shown.hpp), which must be under 2.5 m.
+# and the largest step at one (frontend/shown.hpp), which must be under 2.5 m.
 # **Half the network checks' 5 m, so that the test sees the blend gone**:
 # taken over, the aircraft goes from being drawn 100 ms behind the clock to
 # being predicted from the update that gave it, and nothing blended that is a
@@ -65,7 +68,7 @@ endif()
 
 set(_take_over)
 if(TAKE_OVER)
-    set(_take_over --take-over-after 4)
+    set(_take_over --take-over-after 4 --late-update-after-take-over)
 endif()
 set(_slow)
 if(DEFINED SLOW_FRAMES)
@@ -103,6 +106,20 @@ if(TAKE_OVER)
         message(FATAL_ERROR "the client did not take the AI's Cessna over:\n${_out}")
     endif()
     set(_taken "${CMAKE_MATCH_1}")
+    # **Reordered across the take-over**: the last update from before it,
+    # naming the aircraft given up as its own, is heard again after it
+    # (`--late-update-after-take-over`), as the network reorders them. Only
+    # the newest word may change which aircraft is its own, so it must take
+    # nothing over again.
+    if(NOT _out MATCHES "an update from before the take-over is heard again after it")
+        message(FATAL_ERROR "no update from before the take-over was heard after it:\n${_out}")
+    endif()
+    string(REGEX MATCHALL "took over aircraft [0-9]+" _takings "${_out}")
+    list(LENGTH _takings _taking_count)
+    if(NOT _taking_count EQUAL 1)
+        message(FATAL_ERROR "the client took over ${_taking_count} times, not once - an update "
+                            "from before the take-over took the aircraft given up back:\n${_out}")
+    endif()
     # What the server decides, not what the client thinks: that the pilot
     # has it, and that it has flown it by inputs sent since.
     if(NOT _out MATCHES "flying aircraft ${_taken}, the c172p; the server says the pilot has it, and has flown it by inputs sent since it was taken over")

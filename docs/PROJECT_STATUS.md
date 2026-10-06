@@ -262,6 +262,73 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The window client tested reordered, dropped unheard and restarted under; M chooses its hand-over model in flight, 2026-10-06 — four tails done
+
+**What is not done** (still open in the plan): A pressed during a
+take-over's round trip can still hand over the aircraft just left (the
+server says nothing of a take-over it refuses, so the client cannot tell a
+take-over pending from one refused); the window client's corrections are not
+shown to stay bounded when built through the client itself, nor the steps CI
+saw explained; the slow-frames bound; and the display model is still written
+twice (`client::OwnShown` and `glideslope_cli`'s `Predicting`).
+
+- **Reordered across a take-over.** `--late-update-after-take-over` on the
+  window client, as on the command-line one: the last update naming the
+  aircraft given up is kept (`Online::heard`) and heard again in the same
+  `hear()` as the take-over, after it. The take-over test
+  (`the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in`)
+  passes it and holds that the client says the late update was heard and
+  took over exactly once. **Seen to fail** with the newest-word guard taken
+  out of the take-over branch: "took over aircraft 0", then "4" - "the
+  client took over 2 times, not once"; reverted.
+- **Dropped with every goodbye lost.** Server test flag `--lose-goodbyes`:
+  the operator's drop sends no `LEAVING`, as though every copy were lost.
+  `the_client_with_the_window_dropped_with_its_goodbyes_lost_is_refused_joining_again_and_says_so`
+  (`tests/cmake/client_server_gone.cmake`, MODE lost): the client hears
+  nothing, believes the server's `BAD_HANDSHAKE` after 3 s, joins again, is
+  refused `DROPPED`, says "the server ended this session ...; not joining
+  again", never says it joined again, exits 1, admitted once. A keeper
+  (`glideslope_cli connect`, not flying) holds the `--until-empty` server
+  open until the window client's new `--done FILE` exists - written as the
+  program ends, however it ends. **Seen to fail** with `DROPPED` not ended
+  on in `ClientSession::join_again` ("did not say it was dropped"; the client
+  knocked for a minute); reverted.
+- **Its server started again under it.** Server test flag
+  `--stop-once-flown S`: stop, telling nobody, once a player's input has
+  been flown and S simulated seconds have gone.
+  `tests/cmake/server_started_again.cmake` runs one server with
+  `--stop-once-flown 20` and then the same one again on its port with its
+  key from `--store`, `--until-empty`, saying what both said on standard
+  error. `the_client_with_the_window_joins_its_server_started_again_and_flies_the_aircraft_it_gives`
+  (MODE restart, client `--shot-once-joined-again`, which holds the shot as
+  `--stall-after` does until it has joined again and been flown): let go,
+  joined the new server, flown by its inputs at the shot, admitted twice.
+  The client now says the clock it joined again on - "joined again at X s on
+  the server's clock, the old session's newest word at Y s" - and the test
+  holds X < Y: the new aircraft taken from a clock started again, not waited
+  out. **Seen to fail** with `reconciled_s_` not reset on joining again:
+  "joined again at 20.0 s ... not before the old one's 20.0 s"; reverted.
+  Without the 20 s the first server stopped about 3 s in, and the bug
+  passed - the reason for the flag's value.
+- **M chooses the hand-over model in flight**: none, Claude (`anthropic`),
+  ChatGPT (`openai`) and round, each said ("a hand-over is planned by ...
+  (M chooses)"); the copilot is made again with it, and a model with no key
+  is refused at once, said. With `--copilot-provider` given, M says that
+  chooses the model and changes nothing. Test flag `--next-model-after S`
+  (what M does; may be given again). A shot after `--hand-over-after`, not
+  taken back, now waits (the usual minute) for the server to say the AI has
+  it. `the_client_with_the_window_pressing_m_{1,2,3}_times_in_flight_chooses_...`
+  (`tests/cmake/client_model_chosen_in_flight.cmake`), with no key anywhere:
+  each press's choice in turn, the whole cycle over the three; Claude and
+  ChatGPT refused for want of a key, "planned by no model (X was refused:
+  ...): the AI holds its course", and the server says the AI has it; none
+  again asks nothing. **Seen to fail** with the copilot not made again after
+  a choice (`copilot_made` left set): two presses, "openai with no key was
+  not refused"; reverted.
+- `every_fixed_test_port_...` passes with the new ports (24707, 24736,
+  24729, 24761, 24767 - the block has no free pair left, so these tests use
+  no relay); `every_flag_the_server_prints_in_its_usage_is_one_it_takes`
+  knows the two new server flags.
 ### A fast aircraft's tightest orbit is flown on its circle, and its fastest leaves power in hand, 2026-10-06 — tail done; the B-2's and F-22's yaw still open
 
 **What is not done first.** The B-2 and F-22 still yaw in a crosswind when

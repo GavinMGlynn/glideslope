@@ -6,7 +6,7 @@
 #include <cmath>
 #include <cstdio>
 
-namespace glideslope::client {
+namespace glideslope::frontend {
 
 double OwnShown::left_at(double t, double from_s, double over_s, bool eased) {
     const double gone = std::clamp((t - from_s) / over_s, 0.0, 1.0);
@@ -143,4 +143,4 @@ world::Ecef OwnShown::frame(double local_s, const Source& source) {
     return {shown[0], shown[1], shown[2]};
 }
 
-} // namespace glideslope::client
+} // namespace glideslope::frontend

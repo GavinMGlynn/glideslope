@@ -31,7 +31,7 @@
 #
 # **What it shows does not step at either switch**: the client says, at the
 # shot, how many switches of its own aircraft it measured and the largest step
-# what it showed made at one (client/shown.hpp) - measured as glideslope_cli
+# what it showed made at one (frontend/shown.hpp) - measured as glideslope_cli
 # measures it, worked out sixty times a second whether or not a frame is
 # drawn. It must have measured both, the hand-over and the take-back, and the
 # largest step must be under 5 m, the bound the network checks hold

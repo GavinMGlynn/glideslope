@@ -175,6 +175,13 @@ public:
     Standing standing() const;
     // A test's stall (`--stall-after`): net::ClientSession::stall_until_let_go.
     void stall();
+    // **For a test, the network's reordering built**
+    // (`--late-update-after-take-over`): the last update naming the aircraft
+    // given up at a take-over is heard again just after it.
+    void hear_late_update_after_take_over() { late_after_take_over_ = true; }
+    // **Joined again, the newest word the old session had**, on its clock:
+    // a server started again counts from nought, under it.
+    std::optional<double> old_session_s() const { return old_session_s_; }
 
     // Every other aircraft, where it is to be drawn at `local_s`.
     std::vector<Other> others(double local_s);
@@ -384,6 +391,13 @@ private:
     double worst_learning_m_ = 0.0;
     double worst_known_m_ = 0.0;
     std::optional<std::pair<double, net::AircraftState>> own_heard_;
+    bool late_after_take_over_ = false;
+    // The newest update's time on the session's clock, and the old
+    // session's newest when it joined again.
+    std::optional<double> newest_heard_s_;
+    std::optional<double> old_session_s_;
+    std::optional<net::StatePacket> before_take_over_;
+    std::optional<net::StatePacket> hear_again_;
 };
 
 // A state update's own motion, as the simulation takes it.

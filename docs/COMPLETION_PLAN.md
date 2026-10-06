@@ -489,10 +489,10 @@ Found while implementing something else. Added when found, not when remembered.
       client's own and the shared one the window client uses - and a bug was
       found in one and not the other. *Verification: both clients use one
       session, and every rejoin and going-back test passes through it.*
-- [ ] **Nothing tests the client with the window refused `DROPPED`** when every
+- [x] **Nothing tests the client with the window refused `DROPPED`** when every
       one of the server's goodbyes was lost. *Verification: a window client
       dropped with its goodbyes lost tries to join again, is refused, and stops
-      saying it was dropped.*
+      saying it was dropped.* Done 2026-10-06.
 - [x] **The tests' fixed ports lay in Linux's ephemeral range** (478xx, where
       it hands out 32768 to 60999), so a client's socket could take one before
       its test's server listened: "cannot listen on port 47853" on CI,
@@ -532,10 +532,10 @@ Found while implementing something else. Added when found, not when remembered.
       29.491 m). The plain on-server window test on the debug presets is in
       the same regime. *Verification: the
       on-server window test with every frame held a second stays under 20 m.*
-- [ ] **The client with the window is not tested with its updates
+- [x] **The client with the window is not tested with its updates
       reordered across a take-over**; it has the guard the command-line client
       needed. *Verification: an update from before the take-over, heard after
-      it, leaves the client flying the aircraft it took.*
+      it, leaves the client flying the aircraft it took.* Done 2026-10-06.
 - [x] **The HUD check read the horizon, crossing the rows below the HUD, as a
       line of the HUD.** *Verification: a line that does not begin at the
       HUD's margin is not judged, and an extra HUD line still is.* Done
@@ -974,11 +974,11 @@ Found while implementing something else. Added when found, not when remembered.
       until the server's model answers, and the model is told no route is
       flown. *Verification: the model is told the plan file's waypoints still
       to fly.* Done 2026-10-06; Claude's recording made again.
-- [ ] **The window client's hand-over model is chosen at start**, by a flag,
+- [x] **The window client's hand-over model is chosen at start**, by a flag,
       not in flight, and its refusal for want of a key is tested only on the
       headless client. *Verification: a key cycles the model in flight, and
       the window client with no key says the model is refused and its
-      aircraft is held.*
+      aircraft is held.* Done 2026-10-06: M.
 
 Found re-reading the living documents at the end of Phase 8, 2026-10-02:
 each was named in `PROJECT_STATUS.md` as not done, with no item here.
@@ -1017,10 +1017,10 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       with it. *Verification: over level ground the HUD's horizon lies on the
       drawn one within a stated number of pixels, at every pitch and bank
       walked.*
-- [ ] **Nothing tests the client with the window joining a server that has
+- [x] **Nothing tests the client with the window joining a server that has
       started again** with its key from `--store`. *Verification: the window
       client, its server restarted under it, joins again and flies an
-      aircraft the new server gives it.*
+      aircraft the new server gives it.* Done 2026-10-06.
 
 - [ ] **A month of clean nightly runs.** Each of these needs only runs
       watched or counted, no code, and each is owed the count named; one that
