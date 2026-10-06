@@ -1339,8 +1339,9 @@ public:
     // heard: its own aircraft flies it, on the session's clock - the server's
     // air, not a fetch of this client's own - with the geoid built the first
     // time a weather that is not still air is heard, from the cache.
-    void weather(const glideslope::net::Weather& w,
-                 const std::optional<glideslope::net::WeatherAloft>& aloft) {
+    // False, with why, for a weather refused (frontend::HeardAir::heard).
+    bool weather(const glideslope::net::Weather& w,
+                 const std::optional<glideslope::net::WeatherAloft>& aloft, std::string& why) {
         if (!geoid_for_air_ && !w.metar.empty()) {
             // Built for the first weather that is not still air; still air
             // before it was no weather at all, and nothing is lost.
@@ -1353,13 +1354,26 @@ public:
             // **Over no ground**, as the server's is (glideslope_server's
             // Fleet::fly_in says why). The geoid is kept: the wind's profile
             // is in height above the sea.
-            air_.emplace(geoid_for_air_.get(),
-                         glideslope::world::GroundAt{}, [this] { return session_now_s_; });
+            // **On the clock of the step being flown** - forward or again,
+            // in a replay - as the server will fly it (sim::Prediction::
+            // session_time_s), and this machine's estimate of the session's
+            // clock before that is known.
+            air_.emplace(geoid_for_air_.get(), glideslope::world::GroundAt{}, [this] {
+                if (prediction_) {
+                    if (const auto t = prediction_->session_time_s()) {
+                        return *t;
+                    }
+                }
+                return session_now_s_;
+            });
         }
-        air_->heard(w, aloft);
+        if (!air_->heard(w, aloft, &why)) {
+            return false;
+        }
         if (aircraft_ && air_->air()) {
             aircraft_->set_weather(air_->air());
         }
+        return true;
     }
 
     // Flies its own aircraft forward to `local_s`, on the input most recently
@@ -2921,8 +2935,10 @@ int stay(glideslope::platform::UdpSocket& socket,
                                   told.aloft() ? ", with the forecast above it" : "");
                     say_heard("told the weather: " + (w.metar.empty() ? "still air" : w.metar) +
                               when);
-                    if (predicting && !connect_air.own_air) {
-                        predicting->weather(w, told.aloft());
+                    std::string why;
+                    if (predicting && !connect_air.own_air &&
+                        !predicting->weather(w, told.aloft(), why)) {
+                        say_heard("refused the server's weather, and flies the last: " + why);
                     }
                     break;
                 }

@@ -262,21 +262,35 @@ void Flight::report_navigation() {
     }
 }
 
-void Flight::heard_weather(const net::Weather& weather,
+bool Flight::heard_weather(const net::Weather& weather,
                            const std::optional<net::WeatherAloft>& aloft,
-                           std::function<double()> clock, int count) {
+                           std::function<double()> clock, std::int64_t count, std::string& why) {
     server_weathers_ = count;
     if (!heard_air_) {
         // Over no ground, as the server's is (glideslope_server's Fleet::fly_in).
-        heard_air_.emplace(geoid_.get(), world::GroundAt{}, std::move(clock));
+        // On the clock of the step being flown, forward or again in a replay,
+        // as the server will fly it (sim::Prediction::session_time_s); before
+        // that is known, `clock`, this machine's estimate of the session's.
+        heard_air_.emplace(geoid_.get(), world::GroundAt{},
+                           [this, frame = std::move(clock)] {
+                               if (prediction_) {
+                                   if (const auto t = prediction_->session_time_s()) {
+                                       return *t;
+                                   }
+                               }
+                               return frame();
+                           });
         // None of its own from now: what was being fetched is let go.
         next_weather_.reset();
     }
-    heard_air_->heard(weather, aloft);
+    if (!heard_air_->heard(weather, aloft, &why)) {
+        return false;
+    }
     weather_ = heard_air_->reported();
     if (heard_air_->air()) {
         aircraft_->set_weather(heard_air_->air());
     }
+    return true;
 }
 
 void Flight::refresh_weather() {

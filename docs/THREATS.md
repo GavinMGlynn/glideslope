@@ -548,7 +548,7 @@ What is checked: the METAR against `most_metar_bytes` (256); the microbursts
 against `most_microbursts` (16); the turbulence flag against 0 or 1 exactly;
 the severity against 7; and **the severity byte held to `00` when the flag
 says there is none**, so that a byte nobody reads cannot carry anything. At
-its limits the whole message is 1,062 bytes of the 1,218 a datagram leaves.
+its limits the whole message is 1,079 bytes of the 1,218 a datagram leaves.
 
 #### `WEATHER_ALOFT`
 
@@ -721,7 +721,7 @@ which is why `SERVER_FULL` and `BAD_HANDSHAKE` should wait for a completed
 handshake - **and do not** - and why the opening burst of `LOBBY`, `SESSION`,
 `WEATHER`, `WEATHER_ALOFT`, `AIRCRAFT` and `TERRAIN_DATASET` must. That burst
 is the amplifier worth caring about: several datagrams and, in the weather
-alone, 2,155 bytes across two messages at their limits - 1,062 and 1,093,
+alone, 2,172 bytes across two messages at their limits - 1,079 and 1,093,
 measured by `every_message_filled_to_its_limits_fits_in_one_datagram` -
 provoked by one handshake. **It is not built**, and when it is it must never be
 sent to an address that has not proved it can receive at that address.

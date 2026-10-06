@@ -361,6 +361,8 @@ private:
     double session_now_s_ = 0.0;
     int weathers_flown_ = 0;
     bool ground_compared_ = false;
+    // Which session what it was told came in: net::ClientSession::joined_again.
+    int told_in_ = 0;
     std::string other_ground_;
     // A local frame to interpolate in: north-east-down about where this
     // client joined.

@@ -146,7 +146,9 @@ struct Weather {
     // (world::ReportedWeather). Both ends blend from the same moment, so the
     // air they fly is the same air while it changes too. A first weather has
     // nothing to blend from, and is flown whole from the start; a blend of
-    // nought or less is no blend, the new weather flown whole at once.
+    // nought is no blend, the new weather flown whole at once. A blend below
+    // nought or over `most_blend_s`, or a change before the session began, is
+    // refused.
     double changed_at_s = 0.0;
     double blend_s = 0.0;
     // **Whether a `WEATHER_ALOFT` follows**, which completes this one: until
@@ -248,6 +250,8 @@ inline constexpr std::size_t most_name_bytes = 64;
 inline constexpr std::size_t most_time_bytes = 32;
 inline constexpr std::size_t sha256_bytes = 32;
 inline constexpr std::size_t most_route_waypoints = 12;
+// The longest a weather may blend in over, seconds: a day.
+inline constexpr double most_blend_s = 86400.0;
 inline constexpr std::size_t most_waypoint_name_bytes = 32;
 
 // **The most a message body may be**: a datagram, less the envelope in front

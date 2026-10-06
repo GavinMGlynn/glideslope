@@ -274,6 +274,13 @@ bool read(std::span<const std::uint8_t> body, Weather& out) {
     if (!r.done() || aloft > 1) {
         return false;
     }
+    // **A place on the Earth, a moment in the session and a blend of at most
+    // a day**: a station past the pole, a change before the session began
+    // or a blend that never ends is not a weather.
+    if (std::abs(got.latitude_deg) > 90.0 || std::abs(got.longitude_deg) > 180.0 ||
+        got.changed_at_s < 0.0 || got.blend_s < 0.0 || got.blend_s > most_blend_s) {
+        return false;
+    }
     got.aloft_follows = aloft == 1;
     // **Still air says nothing else**: an empty METAR with a place, a seed,
     // turbulence, a microburst or a forecast to follow is not still air, and

@@ -463,8 +463,8 @@ wire and the receiver parses it with the same rules the sender did.
 | `f64` | when it begins, on the simulation's clock |
 | `f64` | how long it lasts, seconds |
 | | then: |
-| `f64` | when it took over from the weather before it, on the simulation's clock |
-| `f64` | how long it blends in over from then, seconds; nought or less, none |
+| `f64` | when it took over from the weather before it, on the simulation's clock, not below nought |
+| `f64` | how long it blends in over from then, seconds, 0 to 86,400; nought, none |
 | `u8` | `01` if a `WEATHER_ALOFT` follows it, `00` if none does |
 
 At its limits this is 1,079 bytes.
@@ -492,6 +492,11 @@ nought, or `00`, and its microbursts none; a reader refuses still air carrying
 a place, a turbulence severity, a seed, a microburst or a forecast to follow.
 It is sent all the same, so that a client is told the server flies no weather
 rather than left to fly one of its own.
+
+**A reader refuses a station past the pole** - a latitude beyond 90 degrees
+either way or a longitude beyond 180 - a change before nought or a blend
+below nought or over a day (86,400 s). A METAR the receiver cannot read is
+refused too: the weather flown before it is kept, and the client says so.
 
 **A METAR longer than 256 bytes is cut by the server, whole words from its
 end**, and the server flies the report as cut: a report cut on the wire alone

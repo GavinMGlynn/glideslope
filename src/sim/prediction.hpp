@@ -135,6 +135,14 @@ public:
     bool settled() const { return offsets_.size() >= offset_settled; }
     // How many steps this client has flown, which numbers them.
     std::uint64_t steps() const { return steps_; }
+    // **When the step being flown - forward or flown again - is flown on the
+    // server**, on the session's clock: this client's step `s` is the
+    // server's step `s + offset`, flown at `(s + offset + 1) / 120` seconds
+    // (the server counts a step before it flies it). Nothing until the
+    // clocks' difference is known. What the air a prediction flies is on, so
+    // that a gust is met at the same moment of it on both machines, a replay
+    // included (frontend::SessionClocked).
+    std::optional<double> session_time_s() const;
     std::uint32_t newest() const { return held_.empty() ? 0 : held_.back().sequence; }
 
 private:
@@ -152,6 +160,8 @@ private:
     std::uint64_t steps_ = 0;
     // The input the last step was flown on.
     std::uint32_t flying_ = 0;
+    // Which of this client's steps is being flown, or was last.
+    std::uint64_t flying_step_ = 0;
     // The clocks' difference each recent word implied, newest last.
     std::deque<std::int64_t> offsets_;
 };

@@ -107,14 +107,23 @@ std::optional<world::WeatherReport> weather_heard(const net::Weather& weather,
     return r;
 }
 
-void HeardAir::heard(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft) {
-    std::optional<world::WeatherReport> report = weather_heard(weather, aloft);
+bool HeardAir::heard(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft,
+                     std::string* why) {
+    std::optional<world::WeatherReport> report;
+    try {
+        report = weather_heard(weather, aloft);
+    } catch (const world::MetarError& e) {
+        if (why != nullptr) {
+            *why = e.what();
+        }
+        return false;
+    }
     if (!report) {
         if (air_) {
             air_ = std::make_shared<sim::SteadyWeather>(sim::Conditions{});
         }
         still_ = true;
-        return;
+        return true;
     }
     if (!reported_ || still_) {
         reported_ = std::make_shared<world::ReportedWeather>(std::move(*report), geoid_,
@@ -124,6 +133,7 @@ void HeardAir::heard(const net::Weather& weather, const std::optional<net::Weath
     }
     still_ = false;
     air_ = std::make_shared<SessionClocked>(reported_, clock_);
+    return true;
 }
 
 namespace {

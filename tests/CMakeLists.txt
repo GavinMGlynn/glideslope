@@ -167,6 +167,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_weather_is_taken_whole_or_not_at_all
     a_metar_too_long_to_send_is_cut_to_whole_words_and_flown_as_cut
     the_collision_ground_said_is_the_builds_coverage_strips_and_rules
+    a_weather_whose_metar_cannot_be_read_is_refused_and_the_air_before_it_kept
     every_control_goes_on_the_wire_and_comes_back_within_one_step
     with_nothing_lost_every_input_frame_arrives_once_and_in_order
     an_input_frame_arrives_exactly_when_a_packet_carrying_it_arrives
@@ -1919,7 +1920,7 @@ add_test(NAME a_client_flies_the_servers_weather_and_every_change_of_it_not_its_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_weather -DPORT=24713 -DSAME_M=1 -DOWN_M=1.5
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_weather -DPORT=24713 -DSAME_M=1 -DOWN_M=1.2
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_weather.cmake)
 set_tests_properties(a_client_flies_the_servers_weather_and_every_change_of_it_not_its_own
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
