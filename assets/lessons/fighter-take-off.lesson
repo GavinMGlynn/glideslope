@@ -35,7 +35,7 @@ do Line up, then set take-off thrust smoothly and evenly
 do Hold her straight on the rudder down the centreline
 do Let the speed build to the rotation speed. Do not hurry her off
 hold lesson/turned-deg -20 20 Keep her straight on the take-off roll
-hold lesson/airframe-down 0 0 Keep her tail off the runway: do not rotate past the take-off attitude
+hold lesson/airframe-down 0 0 Keep the airframe off the runway: something other than the wheels struck it
 need fcs/throttle-cmd-norm >= 0.90 Set take-off thrust with the throttles
 need velocities/vc-kts >= rotate-5 Let her reach the rotation speed before easing the nose up
 until position/h-agl-ft >= 15
@@ -44,7 +44,7 @@ stage The initial climb
 do Rotate smoothly to the take-off attitude and hold it
 do Gear up once there is no runway left to land on
 hold attitude/theta-deg 3.0 30.0 Hold the climbing attitude
-hold lesson/airframe-down 0 0 Keep her tail off the runway: do not rotate past the take-off attitude
+hold lesson/airframe-down 0 0 Keep the airframe off the runway: something other than the wheels struck it
 until position/h-agl-ft >= 200
 
 stage Climbing away
