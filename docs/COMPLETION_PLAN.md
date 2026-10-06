@@ -810,6 +810,11 @@ Found while implementing something else. Added when found, not when remembered.
       958 ft/min. *Verification: every aeroplane given back in a balloon
       lands within what its gear takes or goes around.* Done 2026-10-06: the
       Mosquito goes around to 500 ft and the other twelve land.
+- [ ] **The AI cannot land in gusts**: in moderate turbulence ten of
+      fourteen aeroplanes balloon, bounce or come down hard, and the flying
+      boat is lifted into a go-around; at her light loading the 737-300
+      balloons, and the Mosquito at her heaviest. *Verification: every
+      aeroplane lands light, heavy and in gusts with none named.*
 - [ ] **A go-around ends in a straight climb**: at 500 ft the plain
       autopilot holds it, with the landing flap still down, and nothing
       flies her round to another approach. Nor does the AI go around from a
