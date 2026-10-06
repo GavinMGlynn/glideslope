@@ -43,15 +43,18 @@ using glideslope::world::RunwaySurfaces;
 namespace {
 
 constexpr double feet_per_metre = 3.280839895013123;
-// The most one runway may pull another's surface off its line, anywhere in
-// the world, by the measurement below, and how many may be pulled more than
-// 0.3 m and 0.1 m: under rules 2, 0.61 m, 12 and 262; under rules 1 they were
-// 0.68 m, 38 and 572. What remains is where two pavements overlap - a
-// crossing, or the first metres of a V - where their two lines cannot agree
-// over an area and the mean of the two pulls each by half their difference.
-constexpr double worldwide_pull_bound_m = 0.62;
-constexpr std::ptrdiff_t worldwide_over_0_3_m = 12;
-constexpr std::ptrdiff_t worldwide_over_0_1_m = 270;
+// **How far one runway may pull another's surface off its line**, anywhere in
+// the world, by the measurement below (the owner's decision of 2026-10-07,
+// REQUIREMENTS.md section 9): off the overlaps - wherever no other runway's
+// pavement, or the `runway_overlap_band_m` round it, covers the place - 0.1 m.
+// On the overlaps, where two lines sloping differently cannot agree over an
+// area and the ground is their mean, what it is is measured and held: under
+// rules 2 the worst 0.61 m, 12 runways over 0.3 m and 262 over 0.1 m; under
+// rules 1, everywhere, they were 0.68 m, 38 and 572.
+constexpr double off_overlap_pull_bound_m = 0.1;
+constexpr double overlap_pull_bound_m = 0.62;
+constexpr std::ptrdiff_t overlap_over_0_3_m = 12;
+constexpr std::ptrdiff_t overlap_over_0_1_m = 262;
 
 std::filesystem::path data() {
     return std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
@@ -825,6 +828,11 @@ struct Pull {
     double worst_m = 0.0;
     double where_t = 0.0;
     int reached = 0;
+    // Of those, where another runway's pavement overlaps this one's - the
+    // other's rectangle covers the place - and the worst there; `worst_m` is
+    // the worst everywhere else.
+    int overlapped = 0;
+    double overlap_worst_m = 0.0;
 };
 
 Pull pull_on(CollisionGround& ground, std::size_t i, double step_m = 10.0) {
@@ -838,9 +846,14 @@ Pull pull_on(CollisionGround& ground, std::size_t i, double step_m = 10.0) {
         for (const double across : {-0.9, 0.0, 0.9}) {
             const glideslope::world::Geodetic g = on_runway(runways, i, t, across * r.half_width_m);
             bool others = false;
+            bool overlap = false;
             for (const std::uint32_t j : runways.reaching(g.latitude_deg, g.longitude_deg)) {
-                others = others ||
-                         (j != i && runways.place(j, g.latitude_deg, g.longitude_deg).weight > 0.0);
+                if (j == i) {
+                    continue;
+                }
+                const RunwaySurfaces::Placed o = runways.place(j, g.latitude_deg, g.longitude_deg);
+                others = others || o.weight > 0.0;
+                overlap = overlap || o.outside_m < glideslope::world::runway_overlap_band_m;
             }
             if (!others) {
                 continue;
@@ -848,6 +861,11 @@ Pull pull_on(CollisionGround& ground, std::size_t i, double step_m = 10.0) {
             ++p.reached;
             const double off = std::abs(ground.height_above_geoid(g.latitude_deg, g.longitude_deg) -
                                         (s.le_m + t * (s.he_m - s.le_m)));
+            if (overlap) {
+                ++p.overlapped;
+                p.overlap_worst_m = std::max(p.overlap_worst_m, off);
+                continue;
+            }
             if (off > p.worst_m) {
                 p.worst_m = off;
                 p.where_t = t;
@@ -989,8 +1007,8 @@ GLIDESLOPE_TEST(a_runway_across_the_antimeridian_or_near_a_pole_is_its_own_line)
 // every runway in the strips that gives both its ends' elevations, believed
 // as the file gives them, laid on the sea so that no fit to the DEM enters,
 // and sampled every 20 m along it and three places across, wherever another
-// runway with both elevations reaches it. What remains after the ties is
-// stated and bounded.
+// runway with both elevations reaches it. Off the overlaps it is held to
+// 0.1 m; on them, what remains is stated and bounded.
 GLIDESLOPE_TEST(no_runway_in_the_world_is_pulled_off_its_line_beyond_a_bound) {
     std::vector<RunwayStrip> strips;
     for (const RunwayStrip& s : glideslope::world::read_runway_strips([] {
@@ -1009,7 +1027,10 @@ GLIDESLOPE_TEST(no_runway_in_the_world_is_pulled_off_its_line_beyond_a_bound) {
         std::size_t i;
     };
     std::vector<Worst> pulled;
+    std::vector<Worst> overlaps;
     std::size_t reached = 0;
+    std::size_t places = 0;
+    std::size_t overlapped_places = 0;
     std::size_t moved_over_1m = 0;
     double most_moved_m = 0.0;
     std::size_t most_moved = 0;
@@ -1026,22 +1047,37 @@ GLIDESLOPE_TEST(no_runway_in_the_world_is_pulled_off_its_line_beyond_a_bound) {
         const Pull p = pull_on(ground, i, 20.0);
         if (p.reached > 0) {
             ++reached;
+            places += static_cast<std::size_t>(p.reached);
+            overlapped_places += static_cast<std::size_t>(p.overlapped);
             pulled.push_back({p.worst_m, i});
+            if (p.overlapped > 0) {
+                overlaps.push_back({p.overlap_worst_m, i});
+            }
         }
     }
-    std::sort(pulled.begin(), pulled.end(),
-              [](const Worst& a, const Worst& b) { return a.m > b.m; });
-    const auto over = [&](double m) {
-        return std::count_if(pulled.begin(), pulled.end(), [m](const Worst& w) { return w.m > m; });
+    const auto worst_first = [](const Worst& a, const Worst& b) { return a.m > b.m; };
+    std::sort(pulled.begin(), pulled.end(), worst_first);
+    std::sort(overlaps.begin(), overlaps.end(), worst_first);
+    const auto count_over = [](const std::vector<Worst>& list, double m) {
+        return std::count_if(list.begin(), list.end(), [m](const Worst& w) { return w.m > m; });
     };
-    std::printf("%zu runways with both elevations; %zu reached by another; pulled more than "
-                "0.1 m: %td, 0.3 m: %td, 1 m: %td\n",
-                runways.size(), reached, over(0.1), over(0.3), over(1.0));
-    for (std::size_t k = 0; k < pulled.size() && k < 12; ++k) {
-        const RunwayStrip& s = runways.at(pulled[k].i).strip;
-        std::printf("  %.2f m  %s %s/%s\n", pulled[k].m, s.airport.c_str(), s.le_ident.c_str(),
-                    s.he_ident.c_str());
-    }
+    const auto over = [&](double m) { return count_over(pulled, m); };
+    const auto list = [&](const std::vector<Worst>& worst) {
+        for (std::size_t k = 0; k < worst.size() && k < 8; ++k) {
+            const RunwayStrip& s = runways.at(worst[k].i).strip;
+            std::printf("  %.3f m  %s %s/%s\n", worst[k].m, s.airport.c_str(),
+                        s.le_ident.c_str(), s.he_ident.c_str());
+        }
+    };
+    std::printf("%zu runways with both elevations; %zu reached by another, at %zu places, "
+                "%zu of them where another's pavement overlaps\n",
+                runways.size(), reached, places, overlapped_places);
+    std::printf("off the overlaps, pulled more than 0.1 m: %td, 0.3 m: %td, 1 m: %td\n",
+                over(0.1), over(0.3), over(1.0));
+    list(pulled);
+    std::printf("on the overlaps (%zu runways), pulled more than 0.1 m: %td, 0.3 m: %td\n",
+                overlaps.size(), count_over(overlaps, 0.1), count_over(overlaps, 0.3));
+    list(overlaps);
     std::printf("the ties moved %zu runways' ends more than 1 m from the file's elevations; "
                 "most, %s %s/%s, by %.2f m\n",
                 moved_over_1m, runways.at(most_moved).strip.airport.c_str(),
@@ -1053,12 +1089,16 @@ GLIDESLOPE_TEST(no_runway_in_the_world_is_pulled_off_its_line_beyond_a_bound) {
     check(runways.size() == 11201 && reached == 3619,
           "11,201 runways measured, 3,619 of them reached by another: " +
               std::to_string(runways.size()) + " and " + std::to_string(reached));
-    check(over(0.3) <= worldwide_over_0_3_m && over(0.1) <= worldwide_over_0_1_m,
-          "pulled more than 0.3 m: " + std::to_string(over(0.3)) + ", more than 0.1 m: " +
-              std::to_string(over(0.1)));
-    check(!pulled.empty() && pulled.front().m <= worldwide_pull_bound_m,
-          "the worst pull is " + std::to_string(pulled.empty() ? 0.0 : pulled.front().m) +
-              " m");
+    check(!pulled.empty() && pulled.front().m <= off_overlap_pull_bound_m,
+          "off the overlaps, the worst pull is " +
+              std::to_string(pulled.empty() ? 0.0 : pulled.front().m) + " m");
+    check(overlapped_places > 0 && count_over(overlaps, 0.3) <= overlap_over_0_3_m &&
+              count_over(overlaps, 0.1) <= overlap_over_0_1_m,
+          "on the overlaps, pulled more than 0.3 m: " + std::to_string(count_over(overlaps, 0.3)) +
+              ", more than 0.1 m: " + std::to_string(count_over(overlaps, 0.1)));
+    check(!overlaps.empty() && overlaps.front().m <= overlap_pull_bound_m,
+          "on the overlaps, the worst pull is " +
+              std::to_string(overlaps.empty() ? 0.0 : overlaps.front().m) + " m");
 }
 
 // **A group its ties would move too far is made from the fits instead.** On
