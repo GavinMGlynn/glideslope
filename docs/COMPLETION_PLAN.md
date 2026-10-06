@@ -472,13 +472,14 @@ Found while implementing something else. Added when found, not when remembered.
       and the server dropped them - fixed. *Verification: a client refused by a
       forger while its session is merely quiet goes back to that session, and
       the server makes no second player - both clients.*
-- [ ] **A client goes back to a session already let go** when an update the
+- [x] **A client goes back to a session already let go** when an update the
       server sent before letting it go arrives while it joins again: the
       server has admitted its new initiation, so a ghost session holds a slot
       and an aircraft until its timeout, and the client is lost for about 13 s.
       *Verification: a client whose session was let go, with the server's last
       updates held until it tries to join again, joins again without going
-      back, and is admitted once.*
+      back, and is admitted once.* Done 2026-10-06: it goes back only on the
+      old session's answer to a knock of its own.
 - [x] **The client with the window builds its flight without reading its
       socket**, so a slow build can outlast the server's timeout and be let
       go. Its session is now kept from a thread of its own whenever it is
@@ -487,7 +488,8 @@ Found while implementing something else. Added when found, not when remembered.
       flight is not let go, nor one whose frames take longer.*
 - [ ] **The client's half of a session is written twice** - the command-line
       client's own and the shared one the window client uses - and a bug was
-      found in one and not the other. *Verification: both clients use one
+      found in one and not the other. Joining again is one piece now; the
+      rest - knocking, believing a refusal, reading updates - is still two. *Verification: both clients use one
       session, and every rejoin and going-back test passes through it.*
 - [x] **Nothing tests the client with the window refused `DROPPED`** when every
       one of the server's goodbyes was lost. *Verification: a window client

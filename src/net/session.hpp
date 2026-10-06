@@ -31,6 +31,7 @@
 #include "net/handshake.hpp"
 #include "net/keys.hpp"
 #include "net/messages.hpp"
+#include "net/rejoin.hpp"
 #include "net/reliable.hpp"
 #include "net/sealing.hpp"
 #include "net/state.hpp"
@@ -78,6 +79,10 @@ public:
     int joined_again() const { return joined_again_; }
     double quiet_when_let_go_s() const { return quiet_when_let_go_s_; }
     int went_back() const { return went_back_; }
+    // How many datagrams opened under the old session while joining again
+    // that were not its answer to a knock - held from before it was let go,
+    // and not gone back for (net::Rejoin).
+    int stale_while_joining_again() const { return stale_; }
 
     // **How long a session may go without anything opening under it before
     // a refusal is believed**: the server knocks once a second and this end
@@ -87,7 +92,7 @@ public:
     static constexpr double quiet_before_believing_s = 3.0;
     static constexpr double knock_after_quiet_s = 1.0;
     // Initiations again every quarter of a second, for a minute at most.
-    static constexpr double join_again_every_s = 0.25;
+    static constexpr double join_again_every_s = Rejoin::every_s;
     static constexpr double give_up_joining_again_s = 60.0;
 
     // **A test flag's work** (`glideslope --stall-after`): from now, as a
@@ -184,12 +189,11 @@ private:
     int joined_again_ = 0;
     int went_back_ = 0;
     double quiet_when_let_go_s_ = 0.0;
-    // Joining again: the new handshake, when it began and last went out,
-    // and the old session's keys, to go back to.
-    std::unique_ptr<Initiator> initiator_;
-    std::vector<std::uint8_t> again_;
+    // Joining again (net::Rejoin): when it began, and the old session's
+    // keys, to go back to if the old session answers.
+    std::unique_ptr<Rejoin> rejoin_;
     double again_began_s_ = 0.0;
-    double again_sent_s_ = -1.0e9;
+    int stale_ = 0;
     std::unique_ptr<Sealer> old_sealing_;
     std::unique_ptr<Unsealer> old_opening_;
     bool stalling_ = false;

@@ -2,7 +2,8 @@
 
 set(GLIDESLOPE_EXPECT_RUN "${CMAKE_CURRENT_SOURCE_DIR}/cmake/expect_run.cmake")
 
-# **The block every fixed test port comes from: 24700 to 24799.** A fixed
+# **The block every fixed test port comes from: 24700 to 24899** (widened
+# from 24799 on 2026-10-06, when the hundred was nearly all taken). A fixed
 # port inside the range a system hands out to sockets that ask for none can be
 # taken by a client before its test's server listens on it ("cannot listen on
 # port 47853" on CI, 2026-09-26). Linux hands out 32768 to 60999, macOS and
@@ -16,7 +17,7 @@ set(GLIDESLOPE_EXPECT_RUN "${CMAKE_CURRENT_SOURCE_DIR}/cmake/expect_run.cmake")
 # `netsh int ipv4 show excludedportrange protocol=udp`) can land anywhere,
 # this block included.
 set(GLIDESLOPE_TEST_PORTS_FIRST 24700)
-set(GLIDESLOPE_TEST_PORTS_LAST 24799)
+set(GLIDESLOPE_TEST_PORTS_LAST 24899)
 add_test(NAME every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two_tests_share_one
     COMMAND ${CMAKE_COMMAND} -DCTEST=${CMAKE_CTEST_COMMAND} -DBUILD=${CMAKE_BINARY_DIR}
         -DCONFIG=$<CONFIG> -DFIRST=${GLIDESLOPE_TEST_PORTS_FIRST}
@@ -48,6 +49,7 @@ add_executable(glideslope_tests
     unit/test_handshake.cpp
     unit/test_keys.cpp
     unit/test_sealing.cpp
+    unit/test_rejoin.cpp
     unit/test_session_over_a_socket.cpp
     unit/test_interpolation.cpp
     unit/test_shown.cpp
@@ -294,6 +296,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_stranger_on_the_port_cannot_complete_a_session
     a_client_whose_first_sealed_datagram_is_lost_still_proves_its_session
     a_session_joined_again_hands_up_nothing_of_the_one_let_go
+    joining_again_goes_back_only_on_the_old_sessions_answer_to_its_own_knock
     slots_are_the_same_whatever_order_the_players_connect_in
     a_players_slot_is_their_keys_rank_among_those_in_the_session
     a_session_is_full_at_its_player_count_and_the_next_is_refused
@@ -1904,6 +1907,19 @@ add_test(NAME a_client_refused_by_a_forger_while_its_session_is_quiet_goes_back_
 set_tests_properties(a_client_refused_by_a_forger_while_its_session_is_quiet_goes_back_to_it
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_forged_refusal)
+
+# **A client let go for real, its last updates held on the way, joins a new
+# session rather than going back to the dead one.** See
+# cmake/server_stale_rejoin.cmake.
+add_test(NAME a_client_let_go_with_its_last_updates_held_joins_again_without_going_back
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stale_rejoin -DPORT=24800
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stale_rejoin.cmake)
+set_tests_properties(a_client_let_go_with_its_last_updates_held_joins_again_without_going_back
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stale_rejoin)
 
 # **A player the operator drops stays dropped**: told, not back by itself,
 # and refused DROPPED when started again. See cmake/server_drop_keeps_out.cmake.
