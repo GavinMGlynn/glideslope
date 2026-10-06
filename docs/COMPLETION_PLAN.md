@@ -980,6 +980,11 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       for a predicting client. *Verification: a client predicting over hills
       in a strong wind is within the same bound as over the sea, the lift
       flown on both ends.*
+- [ ] **A client joining while a weather blends in flies the new one whole**:
+      the server sends only the newest weather, not the one it blends from,
+      so until the blend ends the joining client's air is not the server's.
+      *Verification: a client joining mid-blend predicts within the same
+      bound as one there before it.*
 - [ ] **Nothing tests the client with the window in the server's weather.**
       *Verification: the window client on a server with a METAR says it flies
       it, and its prediction error is within the headless client's bound.*

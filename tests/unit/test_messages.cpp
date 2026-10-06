@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iterator>
 #include <functional>
+#include <limits>
 #include <span>
 #include <string>
 #include <utility>
@@ -877,6 +878,17 @@ struct WithNumbers {
     std::function<bool(std::span<const std::uint8_t>)> reads;
 };
 
+// **The fields with a range of their own**, by the value each holds below,
+// and the range: a `WEATHER`'s latitude and longitude, when it changed (not
+// below nought, with no top) and its blend (0 to a day). A number outside
+// is refused; inside, it reads.
+struct Ranged {
+    double value;
+    double lowest;
+    double highest;
+};
+std::vector<Ranged> ranged_fields;
+
 std::vector<WithNumbers> every_kind_that_carries_a_number() {
     std::vector<WithNumbers> out;
     std::size_t k = 0;
@@ -900,6 +912,7 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
     Weather weather = a_weather();
     weather.latitude_deg = next();
     weather.longitude_deg = next();
+    ranged_fields = {{weather.latitude_deg, -90.0, 90.0}, {weather.longitude_deg, -180.0, 180.0}};
     weather.elevation_m = next();
     Microburst burst;
     burst.latitude_deg = next();
@@ -911,6 +924,8 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
     weather.microbursts = {burst};
     weather.changed_at_s = next();
     weather.blend_s = next();
+    ranged_fields.push_back({weather.changed_at_s, 0.0, std::numeric_limits<double>::max()});
+    ranged_fields.push_back({weather.blend_s, 0.0, glideslope::net::most_blend_s});
     out.push_back({"weather", glideslope::net::write(weather), fields,
                    [](std::span<const std::uint8_t> b) {
                        Weather got;
@@ -993,7 +1008,11 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
 //
 // Each of the twenty-seven is overwritten with six bit patterns that are not
 // a number and must be refused, and five that are numbers however extreme and
-// must still read: 162 refusals and 135 readings, each counted.
+// must still read - except in the four fields with a range of their own (a
+// `WEATHER`'s place, when it changed and its blend), where the largest and
+// most negative doubles are outside (the most negative alone, for when it
+// changed, which has no top) and must be refused: 162 refusals of NaN and
+// infinity, 128 readings and 7 refusals out of range, each counted.
 GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an_infinity) {
     // The bit patterns that are not a number. Both infinities, and NaNs
     // quiet and signalling, signed and with a payload, because a reader that
@@ -1024,6 +1043,8 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
     std::size_t walked = 0;
     std::size_t refused = 0;
     std::size_t accepted = 0;
+    std::size_t out_of_range = 0;
+    check(ranged_fields.size() == 4, "four fields have ranges of their own");
     for (const WithNumbers& k : kinds) {
         check(k.reads(k.bytes), k.name + " reads as it stands");
         for (const double field : k.fields) {
@@ -1039,9 +1060,22 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
                           " must be refused");
                 ++refused;
             }
+            const auto range = std::find_if(ranged_fields.begin(), ranged_fields.end(),
+                                            [&](const Ranged& r) { return r.value == field; });
+            const bool ranged = k.name == "weather" && range != ranged_fields.end();
             for (const auto& [bits, what] : a_number) {
                 std::vector<std::uint8_t> changed = k.bytes;
                 put_bits(changed, at[0], bits);
+                double v = 0.0;
+                std::memcpy(&v, &bits, sizeof(v));
+                const bool outside = ranged && (v < range->lowest || v > range->highest);
+                if (outside) {
+                    check(!k.reads(changed), k.name + " with " + what + " at byte " +
+                                                 std::to_string(at[0]) +
+                                                 " is outside its range and must be refused");
+                    ++out_of_range;
+                    continue;
+                }
                 check(k.reads(changed),
                       k.name + " with " + what + " at byte " + std::to_string(at[0]) +
                           " is a number and must still read");
@@ -1054,17 +1088,23 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
                             std::to_string(walked));
     check(refused == 27 * 6, "162 numbers that are not numbers were refused, not " +
                                  std::to_string(refused));
-    check(accepted == 27 * 5, "135 extreme numbers still read, not " +
-                                  std::to_string(accepted));
-    std::printf("  27 floating-point fields: %zu refused, %zu still read\n", refused,
-                accepted);
+    // Outside: both extremes for the place and the blend, the most negative
+    // alone for when it changed.
+    check(accepted == 27 * 5 - 7, "128 extreme numbers still read, not " +
+                                      std::to_string(accepted));
+    check(out_of_range == 7, "7 outside a ranged field's range were refused, not " +
+                                 std::to_string(out_of_range));
+    std::printf("  27 floating-point fields: %zu refused, %zu still read, %zu out of range\n",
+                refused, accepted, out_of_range);
 }
 
 // **Every refusal `docs/TRANSPORT.md` names for a `WEATHER`**, each built
 // on purpose: still air - an empty METAR - carrying a place (each of its
 // three numbers), a turbulence severity, an air seed, a microburst or a
-// forecast to follow; and a forecast flag that is neither `00` nor `01`.
-// Eight cases, each refused, and still air bare, and a full weather, read.
+// forecast to follow; a forecast flag that is neither `00` nor `01`; a
+// station past either pole or past 180 degrees either way; a change before
+// nought; and a blend below nought or over a day. Fifteen cases, each
+// refused; and still air bare, a full weather and one at every edge, read.
 GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_weather_is_refused) {
     const auto reads = [](const std::vector<std::uint8_t>& body) {
         Weather got;
@@ -1091,12 +1131,32 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_weather_is_refused) {
     std::vector<std::uint8_t> flag = glideslope::net::write(a_weather());
     flag.back() = 2;
     refused.emplace_back("a forecast flag of 02", flag);
+    const auto full = [&](const std::string& what, const auto& change) {
+        Weather w = a_weather();
+        change(w);
+        refused.emplace_back(what, glideslope::net::write(w));
+    };
+    full("a latitude past the north pole", [](Weather& w) { w.latitude_deg = 90.5; });
+    full("a latitude past the south pole", [](Weather& w) { w.latitude_deg = -90.5; });
+    full("a longitude past 180 east", [](Weather& w) { w.longitude_deg = 180.5; });
+    full("a longitude past 180 west", [](Weather& w) { w.longitude_deg = -180.5; });
+    full("a change before the session began", [](Weather& w) { w.changed_at_s = -1.0; });
+    full("a blend below nought", [](Weather& w) { w.blend_s = -1.0; });
+    full("a blend over a day", [](Weather& w) { w.blend_s = 86400.5; });
+    {
+        Weather edge = a_weather();
+        edge.latitude_deg = -90.0;
+        edge.longitude_deg = 180.0;
+        edge.blend_s = 86400.0;
+        edge.changed_at_s = 0.0;
+        check(reads(glideslope::net::write(edge)), "a weather at the very edges reads");
+    }
     std::size_t walked = 0;
     for (const auto& [what, body] : refused) {
         check(!reads(body), what + " must be refused");
         ++walked;
     }
-    check(walked == 8, "every refusal named was built: " + std::to_string(walked));
+    check(walked == 15, "every refusal named was built: " + std::to_string(walked));
 }
 
 // **Every refusal `docs/TRANSPORT.md` names for a `COPILOT_ROUTE`**, each

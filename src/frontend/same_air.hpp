@@ -95,8 +95,11 @@ public:
     HeardAir(const world::Geoid* geoid, world::GroundAt ground, std::function<double()> clock)
         : geoid_(geoid), ground_(std::move(ground)), clock_(std::move(clock)) {}
 
-    // Throws world::MetarError for a METAR these rules cannot read.
-    void heard(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft);
+    // **A METAR these rules cannot read is refused**, and the air flown
+    // before it kept: false, with why. A server of this version never sends
+    // one, and a client is not to be ended by one that does.
+    bool heard(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft,
+               std::string* why = nullptr);
 
     // What an aircraft is to fly: null for still air from the start.
     const std::shared_ptr<sim::Weather>& air() const { return air_; }

@@ -19,6 +19,7 @@ double how_far_apart_m(const AircraftState& a, const AircraftState& b) {
 
 void Prediction::step(std::uint32_t sequence, const Controls& controls) {
     aircraft_.set_controls(controls);
+    flying_step_ = steps_;
     aircraft_.step();
     // **Where an input began here**, known only where the sequence changes
     // after a step of another: the first input a prediction flies may have
@@ -56,6 +57,7 @@ Prediction::Correction Prediction::reconcile(const AircraftSnapshot& server,
     Correction out;
     for (const Applied& a : held_) {
         aircraft_.set_controls(a.controls);
+        flying_step_ = a.step;
         aircraft_.step();
         ++out.replayed;
     }
@@ -91,6 +93,7 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     aircraft_.set_motion(server);
     for (const Applied& a : held_) {
         aircraft_.set_controls(a.controls);
+        flying_step_ = a.step;
         aircraft_.step();
         ++out.replayed;
     }
@@ -115,6 +118,15 @@ void Prediction::hear_clock(std::uint32_t last_applied, std::size_t steps_into,
     }
 }
 
+std::optional<double> Prediction::session_time_s() const {
+    if (offsets_.empty()) {
+        return std::nullopt;
+    }
+    const std::int64_t offset = *std::min_element(offsets_.begin(), offsets_.end());
+    return static_cast<double>(static_cast<std::int64_t>(flying_step_) + offset + 1) /
+           static_cast<double>(steps_per_second);
+}
+
 std::size_t Prediction::adopt(const Motion& motion, std::uint64_t server_steps) {
     if (offsets_.empty()) {
         held_.clear();
@@ -129,6 +141,7 @@ std::size_t Prediction::adopt(const Motion& motion, std::uint64_t server_steps) 
     aircraft_.set_motion(motion);
     for (const Applied& a : held_) {
         aircraft_.set_controls(a.controls);
+        flying_step_ = a.step;
         aircraft_.step();
     }
     return held_.size();

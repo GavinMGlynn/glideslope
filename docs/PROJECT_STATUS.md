@@ -304,7 +304,23 @@ unit tests `the_weather_a_server_sends_is_flown_to_the_last_bit_by_its_clients`
 `a_metar_too_long_to_send_is_cut_to_whole_words_and_flown_as_cut`,
 `the_collision_ground_said_is_the_builds_coverage_strips_and_rules`,
 `every_refusal_the_document_names_for_a_weather_is_refused`; the message,
-NaN (27 fields) and limit tests extended. Seen to fail: the conversion
+NaN (27 fields) and limit tests extended.
+
+From the review, the same day: **the air a predicted step flies is the air at
+the moment the server flies that step**, replays included
+(`sim::Prediction::session_time_s`, the clocks' difference applied to the
+step); the test's weathers gust (30G45, then 35G50), and on the old clock -
+one moment for every step of a frame - the client was out by 1.6 m against
+0.57 m now. A METAR a client cannot read is refused and the air before it
+kept (`a_weather_whose_metar_cannot_be_read_is_refused_and_the_air_before_it_kept`);
+a `WEATHER` with a station past either pole or 180 degrees, a change before
+nought or a blend outside 0 to a day is refused (seven more cases in the
+refusal test; the NaN test counts 7 numbers out of range). The window client
+counts weathers by the session they came in, so one joined again is never
+left flying the old session's, and flies none before its ground is compared
+or on other ground. A joining client mid-blend flies the new weather whole -
+a tail. `glideslope_cli selftest`: hash 30ac70b84cab7d7c; it flies no weather.
+Seen to fail: the conversion
 dropping the turbulence severity, the server not resending a changed
 weather, and every ground compared equal each turned their test red.
 

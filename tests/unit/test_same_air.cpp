@@ -275,3 +275,26 @@ GLIDESLOPE_TEST(the_collision_ground_said_is_the_builds_coverage_strips_and_rule
     std::filesystem::remove_all(copy);
     std::printf("  %s\n", glideslope::frontend::describe(ours).c_str());
 }
+
+// **A METAR a client cannot read is refused, and the air before it kept**:
+// a server of this version never sends one, and one that does must not end
+// the client - parse_metar throws, and nothing above the air would catch it.
+GLIDESLOPE_TEST(a_weather_whose_metar_cannot_be_read_is_refused_and_the_air_before_it_kept) {
+    glideslope::frontend::HeardAir air(nullptr, {}, [] { return 0.0; });
+    glideslope::net::Told told;
+    send(a_full_report("YSSY 020600Z 27030KT 9999 24/12 Q1012"), 0.0, 0.0, told, air);
+    const double east = air.air()->at(-33.9, 151.2, 500.0, 0.0).wind_east_mps;
+    check(east > 10.0, "the first weather is flown");
+    glideslope::net::Weather bad;
+    bad.metar = "not a report at all";
+    bad.latitude_deg = -33.9;
+    bad.longitude_deg = 151.2;
+    std::string why;
+    check(!air.heard(bad, std::nullopt, &why), "a METAR that cannot be read is refused");
+    check(!why.empty(), "with why: " + why);
+    check(air.air()->at(-33.9, 151.2, 500.0, 0.0).wind_east_mps == east,
+          "and the weather before it is still flown");
+    glideslope::frontend::HeardAir fresh(nullptr, {}, [] { return 0.0; });
+    check(!fresh.heard(bad, std::nullopt) && fresh.air() == nullptr,
+          "refused first, there is no weather at all");
+}

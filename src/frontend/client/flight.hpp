@@ -243,9 +243,11 @@ public:
     // flight fetches no weather of its own.
     // `count` is the server's count of its weathers (net::Told::weathers),
     // which `server_weathers` gives back: nought before any.
-    void heard_weather(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft,
-                       std::function<double()> clock, int count);
-    int server_weathers() const { return server_weathers_; }
+    // False, with why, for one refused (frontend::HeardAir::heard): the
+    // weather flown before it is kept.
+    bool heard_weather(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft,
+                       std::function<double()> clock, std::int64_t count, std::string& why);
+    std::int64_t server_weathers() const { return server_weathers_; }
     gfx::Station weather_station() const;
 
     // Simulation time, seconds.
@@ -313,7 +315,7 @@ private:
     std::shared_ptr<world::ReportedWeather> weather_;
     // The server's air, once it has said any (`heard_weather`).
     std::optional<frontend::HeardAir> heard_air_;
-    int server_weathers_ = 0;
+    std::int64_t server_weathers_ = 0;
     double weather_fetched_at_s_ = 0.0;
     // Last, so that a fetch still under way is given up, and waited for,
     // before anything it could reach is destroyed.
