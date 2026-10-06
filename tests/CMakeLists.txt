@@ -297,6 +297,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_stranger_on_the_port_cannot_complete_a_session
     a_client_whose_first_sealed_datagram_is_lost_still_proves_its_session
     a_session_joined_again_hands_up_nothing_of_the_one_let_go
+    the_aeroplane_asked_for_reads_back_and_a_malformed_ask_reads_as_none
     joining_again_goes_back_only_on_the_old_sessions_answer_to_its_own_knock
     slots_are_the_same_whatever_order_the_players_connect_in
     a_players_slot_is_their_keys_rank_among_those_in_the_session
@@ -1946,6 +1947,18 @@ add_test(NAME a_client_predicting_its_aircraft_stops_its_engine_when_the_server_
 set_tests_properties(a_client_predicting_its_aircraft_stops_its_engine_when_the_server_says_and_is_put_right_no_more
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction)
+
+# **A player asks for an aeroplane as they join, and flies it.** See
+# cmake/server_aircraft_choice.cmake.
+add_test(NAME a_player_who_asks_for_an_aeroplane_when_joining_flies_it_and_every_client_is_told_so
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_aircraft_choice -DPORT=24805
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_aircraft_choice.cmake)
+set_tests_properties(a_player_who_asks_for_an_aeroplane_when_joining_flies_it_and_every_client_is_told_so
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_aircraft_choice)
 
 # **A player the operator drops stays dropped**: told, not back by itself,
 # and refused DROPPED when started again. See cmake/server_drop_keeps_out.cmake.

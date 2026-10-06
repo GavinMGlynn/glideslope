@@ -1235,3 +1235,31 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_copilot_route_is_refused)
     check(walked == 12 && refused.size() == 12, "all 12 refusals were tried, not " +
                                                     std::to_string(walked));
 }
+
+// **The aeroplane asked for, in the initiation's payload, reads back as
+// itself, and every malformed one as none**: empty, a length of 0 or past 32,
+// a length that is not the bytes', a byte outside the id's, a path. Every
+// rule of `read_asked_aircraft` is here.
+GLIDESLOPE_TEST(the_aeroplane_asked_for_reads_back_and_a_malformed_ask_reads_as_none) {
+    using glideslope::net::read_asked_aircraft;
+    using glideslope::net::write_asked_aircraft;
+    const auto read = [](const std::vector<std::uint8_t>& v) {
+        return read_asked_aircraft(std::span<const std::uint8_t>(v.data(), v.size()));
+    };
+    for (const std::string& id : std::vector<std::string>{"pa28", "737-300", "mosquito-fb6", "a_b",
+                                 std::string(32, 'z')}) {
+        check(read(write_asked_aircraft(id)) == id, "asked for " + id + ", read as it");
+    }
+    for (const std::string& id :
+         std::vector<std::string>{"", "PA28", "../c172p", "pa 28", std::string(33, 'z')}) {
+        check(write_asked_aircraft(id).empty(), "'" + id + "' is not written");
+    }
+    check(!read({}), "an empty payload asks for nothing");
+    check(!read({0}), "a length of 0 is none");
+    check(!read({3, 'p', 'a'}), "fewer bytes than the length is none");
+    check(!read({2, 'p', 'a', '2'}), "a byte trailing is none");
+    check(!read({4, 'p', 'a', '/', '8'}), "a byte outside an id's is none");
+    std::vector<std::uint8_t> long_one{33};
+    long_one.insert(long_one.end(), 33, 'z');
+    check(!read(long_one), "past 32 bytes is none");
+}

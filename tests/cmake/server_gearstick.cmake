@@ -9,7 +9,7 @@
 # of a running glideslope server. The two transports are one design with
 # different magics, so that each refuses the other at the first four bytes:
 # the answer must be a glideslope `REFUSAL` saying `NOT_THIS_PROTOCOL` -
-# `47 4c 44 53`, version `03`, type `04`, reason `01` - and nothing else, not a
+# `47 4c 44 53`, version `04`, type `04`, reason `01` - and nothing else, not a
 # handshake answer and not silence.
 
 cmake_minimum_required(VERSION 3.28)
@@ -22,9 +22,9 @@ if(NOT _out MATCHES "answer ([0-9a-f]+)")
     message(FATAL_ERROR "the server said nothing to a gearstick client:\n${_out}\n${_err}")
 endif()
 set(_answer "${CMAKE_MATCH_1}")
-if(NOT _answer STREQUAL "474c4453030401")
+if(NOT _answer STREQUAL "474c4453040401")
     message(FATAL_ERROR "a gearstick client's first datagram was answered with "
                         "${_answer}, not a REFUSAL saying NOT_THIS_PROTOCOL "
-                        "(474c4453030401)")
+                        "(474c4453040401)")
 endif()
 message(STATUS "a gearstick client was refused: ${_answer}")

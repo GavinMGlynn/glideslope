@@ -114,6 +114,9 @@ struct Options {
     bool autopilot = false;
     std::string plan;
     std::string aircraft = "c172p";
+    // Given on the command line, rather than the default: on a server it is
+    // the aeroplane asked for (net::write_asked_aircraft).
+    bool aircraft_given = false;
     std::string view = "cockpit";
     // The phase whose checklist is on screen; empty shows none.
     std::string checklist;
@@ -451,6 +454,7 @@ static int run_program(int argc, char** argv) {
             }
         } else if (a == "--aircraft" && has_value) {
             o.aircraft = std::string(args[++i]);
+            o.aircraft_given = true;
         } else if (a == "--mismatch" && has_value) {
             o.mismatch = std::string(args[++i]);
         } else if (a == "--terrain" && has_value) {
@@ -802,7 +806,8 @@ static int run_program(int argc, char** argv) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(20));
                 }
             }
-            if (auto made = glideslope::net::ClientSession::connect(where, key)) {
+            if (auto made = glideslope::net::ClientSession::connect(
+                    where, key, 5.0, 0.25, o.aircraft_given ? o.aircraft : std::string())) {
                 session.emplace(std::move(*made));
             }
             if (!session) {

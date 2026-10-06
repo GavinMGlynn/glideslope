@@ -55,10 +55,15 @@ public:
     //
     // `resend_every_s` is how often the initiation goes out again while
     // nothing has come back.
+    //
+    // `aircraft` is the aeroplane asked for, by its catalogue id, in the
+    // initiation (net::write_asked_aircraft) and every one joining again;
+    // empty, the server's plan's.
     static std::optional<ClientSession> connect(const std::string& where,
                                                 const std::string& key_hex,
                                                 double give_up_after_s = 5.0,
-                                                double resend_every_s = 0.25);
+                                                double resend_every_s = 0.25,
+                                                const std::string& aircraft = "");
 
     // Read whatever has arrived: answer the server's knocking, and take in
     // any state update. `now_s` is the client's own clock, in seconds.
@@ -178,8 +183,10 @@ private:
     std::unique_ptr<platform::UdpSocket> socket_;
     platform::Address server_;
     PublicKey theirs_;
-    // This end's static key, which a session joined again is under too.
+    // This end's static key, which a session joined again is under too, and
+    // the initiation's payload, which it asks with too.
     KeyPair mine_key_;
+    std::vector<std::uint8_t> asked_;
     Standing standing_ = Standing::joined;
     // By this end's clock: when anything last opened, and it last knocked.
     std::optional<double> last_opened_s_;
