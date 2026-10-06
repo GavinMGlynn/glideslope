@@ -341,18 +341,25 @@ passes 19 (the F-35B at 204 kt). **Round** is once round, or half way where
   protection only, and a copilot's glide is kept off the ground by its
   route, as before.
 
-**Verified**: `every_light_aeroplane_`, `every_airliner_and_business_jet_`,
-`every_fighter_and_bomber_` and `every_warbird_and_flying_boat_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling`
-(test_navigator.cpp, split by the tightest-orbit groups, every class once):
-every aircraft, every 5 kt from its slowest glide and at its fastest, both
-ways, round and unstalled; and each file's slowest glide pinned - never
-below the slowest a route may fly, and where above it, 5 kt slower does not
-glide round unstalled. The F-22 is named, and its name turns the test red
-once it glides everywhere it may. 5, 92, 16 and 13 s (linux-release); their
-CI costs in tests/ci_costs/ are those times scaled by the median ratio of
-each preset to linux-release over the tests of 30 s or more there - an
-estimate until CI measures them - and the airliners' has a TIMEOUT of
-1,800 s. `the_slowest_a_glide_may_fly_an_aircraft_at_is_read_and_refused_where_it_is_wrong`
+**Verified**: `the_<aircraft>_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling`,
+one for each aircraft (test_navigator.cpp) - and for the A320 and 787-8 one
+each way round, `..._turning_left_...` and `..._turning_right_...` - with
+`every_aircraft_has_its_own_test_of_its_glides_round_its_tightest_orbit`
+asserting every aircraft in the catalogue flown both ways, each once:
+every aircraft, every 5 kt from its slowest glide and at its fastest, round
+and unstalled; and each file's slowest glide pinned - never below the
+slowest a route may fly, and where above it, 5 kt slower does not glide
+round unstalled. The F-22 is named, and its name turns its test red once it
+glides everywhere it may. First written as four tests by class, the
+airliners' and business jets' took 1,661 s in CI's linux-debug and was
+cancelled at the job's limit; split, the longest here in linux-debug, four
+at once, is 238 s (the A380), the A320 each way 216, the 787-8 193, the
+737-300 236, the Learjet 235, the B-2 119, the F-15C 93, the S.23 87, and
+the rest under 40. Those times are in tests/ci_costs/linux-debug.txt as
+measured; every other preset's are them scaled by that preset's median
+ratio to linux-release, over its tests of 30 s or more there, against
+linux-debug's (3.18) - estimates until CI measures them.
+`the_slowest_a_glide_may_fly_an_aircraft_at_is_read_and_refused_where_it_is_wrong`
 (test_figures.cpp). Each seen red: the approach speed put back as the
 slowest, the 737-300 stalls at 137 to 162 kt; the sink put back to 2,500
 ft/min, the F-15C at 170 to 200 and the F-35B at 204 stall; the alpha
