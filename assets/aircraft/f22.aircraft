@@ -16,3 +16,8 @@ class fighter
 start 300 0.40
 # The speedbrake lever works its speedbrakes or spoilers (src/sim/catalogue.hpp).
 speedbrakes
+# The autopilot's yaw damper at three times every other aircraft's, and its
+# rudder integral at a tenth: at the defaults it swung her in a 20 kt
+# crosswind up to 245 kt, and at either change alone up to 190
+# (src/sim/autopilot.cpp).
+yaw-damper 0.15 0.005

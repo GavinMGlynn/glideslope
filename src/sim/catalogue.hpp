@@ -21,6 +21,12 @@
 //   speedbrakes                  its flight model has speedbrakes or spoilers
 //                                that the speedbrake lever works; a test flies
 //                                every aircraft to hold this to its model
+//   yaw-damper PER_DEGPS INTEGRAL_RATE
+//                                the autopilot's rudder for this aircraft:
+//                                its yaw damper's travel per degree a second
+//                                of yaw rate, and its sideslip integral's
+//                                travel a second per degree; 0.05 and 0.05
+//                                where it says none (sim/autopilot.cpp)
 //
 // with `#` beginning a comment. Its published figures, if it has them, are
 // data/figures/MODEL.xml, and its selftest's log data/selftest/MODEL.log.
@@ -69,6 +75,10 @@ struct CatalogueEntry {
     bool mixture_lever = false;
     double full_rich_below_ft = 0.0; // with a mixture lever
     bool speedbrakes = false;
+    // The autopilot's rudder: its yaw damper's travel per degree a second of
+    // yaw rate, and its integral's rate on the sideslip (sim/autopilot.cpp).
+    double yaw_damper_per_degps = 0.05;
+    double rudder_integral_rate = 0.05;
     AircraftClass aircraft_class = AircraftClass::light_aircraft;
 };
 

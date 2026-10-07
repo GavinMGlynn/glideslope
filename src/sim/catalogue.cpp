@@ -135,6 +135,12 @@ CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view tex
                 throw wrong("speedbrakes, alone");
             }
             e.speedbrakes = true;
+        } else if (w[0] == "yaw-damper") {
+            if (w.size() != 3) {
+                throw wrong("yaw-damper PER_DEGPS INTEGRAL_RATE");
+            }
+            e.yaw_damper_per_degps = number(w[1], "the yaw damper's gain", 0.0, 1.0);
+            e.rudder_integral_rate = number(w[2], "the rudder integral's rate", 0.0, 1.0);
         } else {
             throw wrong("no command \"" + w[0] + "\"");
         }

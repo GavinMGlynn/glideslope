@@ -70,7 +70,17 @@ constexpr double most_aileron_trim = 0.25;
 constexpr double offset_fade_s = 2.0;
 // The ball to rudder.
 constexpr double rudder_per_degree = 0.1;
-constexpr double rudder_integral_rate = 0.05;
+// **The sideslip's integral** holds the rudder a steady sideslip needs, at
+// 0.05 of travel a second per degree (Aircraft::rudder_integral_rate, the
+// catalogue's `yaw-damper`). **Slow, the B-2A takes a fifth of that and the
+// F-22A a tenth**: the integral lags the sideslip and feeds a swing that
+// their rudders there cannot damp - in a 20 kt crosswind the B-2A swung 7.3
+// degrees either way at 159 kt and the F-22A 7.8 at 220. At a fifth the B-2A
+// holds within 0.6 from 154 kt (at a third, 0.66 at 159); the F-22A, a tenth
+// with three times the yaw damper (below), within 0.3 from 135, where with
+// either alone she still swung up to 190. Not every aircraft's: at a third
+// within two degrees of sideslip (2026-10-02) it spun the S.23 in her stall
+// lesson.
 // **And a yaw damper: the rudder against the yaw rate, washed out over a
 // second**, so a steady turn's rate asks nothing of it (the washout of
 // Stevens, Lewis and Johnson, Aircraft Control and Simulation, 3rd ed.,
@@ -85,8 +95,10 @@ constexpr double rudder_integral_rate = 0.05;
 // The Cub's rudder turns it 2.4 times as hard as the 172's, a travel for a
 // travel, and the Cherokee's 1.7 times, so for them the swing came soonest.
 // 0.03 of travel per degree a second was the least that settled all four;
-// this is 0.05, and 0.1 settles them as well.
-constexpr double rudder_per_degps_of_yaw = 0.05;
+// this is 0.05 (Aircraft::yaw_damper_per_degps, the catalogue's `yaw-damper`
+// where an aircraft says otherwise), and 0.1 settles them as well. The F-22A
+// takes 0.15; more does not help the B-2A slow: at 0.15 she swung 8.7
+// degrees and at 0.3 13.9.
 constexpr double yaw_washout_s = 1.0;
 // Altitude to vertical speed: 3 ft/min for each foot off.
 constexpr double fpm_per_foot = 3.0;
@@ -511,12 +523,12 @@ Controls Autopilot::fly() {
     // The ball, to rudder.
     const double beta = a_.property("aero/beta-deg");
     rudder_integral_ =
-        std::clamp(rudder_integral_ - rudder_integral_rate * beta * dt, -1.0, 1.0);
+        std::clamp(rudder_integral_ - a_.rudder_integral_rate() * beta * dt, -1.0, 1.0);
     // And the yaw damper: the yaw rate, its steady part washed out.
     const double r_degps = degrees(a_.property("velocities/r-rad_sec"));
     steady_yaw_rate_degps_ += (r_degps - steady_yaw_rate_degps_) * dt / yaw_washout_s;
     c.rudder = -rudder_per_degree * beta + rudder_integral_ +
-               rudder_per_degps_of_yaw * (r_degps - steady_yaw_rate_degps_);
+               a_.yaw_damper_per_degps() * (r_degps - steady_yaw_rate_degps_);
 
     // Vertical speed, through pitch, to elevator.
     const double climb_off = climb_wanted - climb_fpm;

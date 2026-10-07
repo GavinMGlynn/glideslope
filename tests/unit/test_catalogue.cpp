@@ -431,6 +431,19 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
                    "x", "name A\nmodel m\nclass light-aircraft\nstart 90 0.6\n")
                    .seaplane,
           "an aircraft is a seaplane only if its file says so");
+    // The autopilot's rudder gains: both numbers, each 0 to 1, or the
+    // defaults where the file says nothing.
+    const std::string gains = "name A\nmodel m\nclass bomber\nstart 90 0.6\n";
+    const CatalogueEntry given = glideslope::sim::parse_catalogue_entry(
+        "x", gains + "yaw-damper 0.07 0.01\n");
+    const CatalogueEntry not_given = glideslope::sim::parse_catalogue_entry("x", gains);
+    check(given.yaw_damper_per_degps == 0.07 && given.rudder_integral_rate == 0.01 &&
+              not_given.yaw_damper_per_degps == 0.05 && not_given.rudder_integral_rate == 0.05,
+          "a yaw-damper line gives both gains, and none gives 0.05 and 0.05");
+    check(refused(gains + "yaw-damper 0.05\n", "line 5: yaw-damper PER_DEGPS INTEGRAL_RATE"),
+          "a yaw-damper line with one number");
+    check(refused(gains + "yaw-damper 0.05 2\n", "rudder integral"),
+          "a yaw-damper line whose integral rate is past 1");
     check(glideslope::sim::parse_catalogue_entry("x",
                                                  "name Two  Words # a comment\nmodel "
                                                  "m\nclass light-aircraft\nstart 90 0.6\n")

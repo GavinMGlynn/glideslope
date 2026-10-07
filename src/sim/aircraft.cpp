@@ -161,6 +161,8 @@ CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::stri
             found.full_rich_below_ft = e.full_rich_below_ft;
         }
         found.speedbrakes = found.speedbrakes || e.speedbrakes;
+        found.yaw_damper_per_degps = e.yaw_damper_per_degps;
+        found.rudder_integral_rate = e.rudder_integral_rate;
     }
     return found;
 }
@@ -174,6 +176,8 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
                    const CatalogueFacts& catalogue)
     : climb_floor_kts_(catalogue.climb_floor_kts), mixture_lever_(catalogue.mixture_lever),
       full_rich_below_ft_(catalogue.full_rich_below_ft), speedbrakes_(catalogue.speedbrakes),
+      yaw_damper_per_degps_(catalogue.yaw_damper_per_degps),
+      rudder_integral_rate_(catalogue.rudder_integral_rate),
       model_(model),
       exec_(quiet_exec()) {
     const std::u8string utf8 = jsbsim_root.u8string();
