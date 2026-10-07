@@ -36,7 +36,7 @@ replays that prove a result, no deterministic simulation.
 > **Status, 2026-10-07.** Every numbered phase of the
 > [completion plan](docs/COMPLETION_PLAN.md) - 95 of 95 items - is ticked,
 > each against a named verification. What is left are the tails found along
-> the way: 94 done, 36 open. The biggest gaps, named first: **the ground is
+> the way: 95 done, 37 open. The biggest gaps, named first: **the ground is
 > drawn only around where a flight starts** (fly far enough and there is sky
 > beneath you); on a server **you can ask for your aircraft as you join, but
 > no test yet shows a windowed client drawing another player's choice**;
@@ -52,17 +52,19 @@ replays that prove a result, no deterministic simulation.
 | | |
 |---|---|
 | ![Riding along in an AI-flown Cessna on a server, following the coast](docs/images/server-ride-along-ai.jpg) | ![An F-22A Raptor seen from ahead over the Blue Mountains at 4,800 ft](docs/images/f22-blue-mountains.jpg) |
-| **On a server, riding along with the AI.** A client joined a local server and rode along in one of its four AI aircraft, flying the Sydney Harbour plan up the coast. The HUD says *FLYING AI* and shows the stick and throttle as the AI moves them; press T to take it over. | **An F-22A over the Blue Mountains**, seen from ahead. Fast jets get Mach on the HUD. |
+| **On a server, riding along with the AI.** A client joined a local server and rode along in one of its four AI aircraft, flying the Sydney Harbour plan up the coast. The HUD says *FLYING AI* and shows the stick and throttle as the AI moves them; press T to take it over. | **An F-22A over the Blue Mountains**, seen from ahead. Fast jets get Mach on the HUD, and aircraft with speedbrakes show their setting. |
 | ![Google Photorealistic 3D Tiles: Sydney's CBD across the harbour](docs/images/google-photorealistic-sydney.jpg) | ![The Short S.23 Empire flying boat afloat in Rose Bay](docs/images/empire-flying-boat-rose-bay.jpg) |
 | **Google's Photorealistic 3D Tiles**, with the owner's own key: Sydney's CBD across the harbour, with Google's attribution on screen. Whatever is drawn, the aircraft still meets the open DEM. | **The Short S.23 Empire flying boat afloat in Rose Bay.** Water is where the DEM's water mask puts it: the S.23 takes off from and alights on it, and a landplane ditches. |
 | ![Taranaki under a METAR of broken cloud at 1,500 ft and light rain](docs/images/taranaki-rain.jpg) | ![The take-off checklist on screen, items ticking themselves, at Sydney airport](docs/images/checklist-take-off.jpg) |
 | **Weather you can see.** Taranaki, New Zealand, under a METAR of 6 km visibility, light rain and broken cloud at 1,500 ft: the cloud base, haze and rain come from the report. | **Checklists that tick themselves.** The Cessna's take-off checklist, standing at Sydney airport: items the aircraft shows done are ticked (X); the rest wait to be flown, or for the pilot to confirm what the simulation cannot see. |
-| ![The view from a Boeing 737-300's cockpit over Sydney at 2,200 ft](docs/images/737-cockpit-view.jpg) | ![A de Havilland Mosquito FB Mk VI seen from the orbit camera over Sydney's suburbs](docs/images/mosquito-orbit-view.jpg) |
-| **From the cockpit of a 737-300** at 2,200 ft over Sydney's north shore, harbour ahead. | **A Mosquito FB Mk VI**, from the free orbit camera. Its flight model was written for this project from its 1943-44 trials and Pilot's Notes. |
+| ![The view from a Boeing 737-300's cockpit over Sydney at 2,200 ft](docs/images/737-cockpit-view.jpg) | ![A de Havilland Mosquito FB Mk VI seen from the orbit camera over Sydney airport](docs/images/mosquito-orbit-view.jpg) |
+| **From the cockpit of a 737-300** at 2,200 ft over Sydney's north shore, harbour ahead. The HUD's SPEEDBRAKE line is the lever a pilot now works from a key, a stick button or a quadrant. | **A Mosquito FB Mk VI**, from the free orbit camera, over Sydney airport. Its flight model was written for this project from its 1943-44 trials and Pilot's Notes. |
 
-What the frames also show, honestly: the HUD's horizon line in them is the old
-one, off the horizon drawn behind it (it has since been put on the drawn
-horizon, and these frames have not been re-shot); the imagery blurs close to the ground; and the
+What the frames also show, honestly: the HUD's horizon line is the aircraft's
+own - it lies on the drawn horizon from the cockpit, and from an outside view
+sits a little off it, as the camera does from the pilot's eye (the frames were
+re-shot on 2026-10-07 with that line corrected; the Google and Taranaki frames
+show no HUD); the imagery blurs close to the ground; and the
 look is a simulator's instruments over plain-shaded models - no liveries,
 moving control surfaces or cockpit interiors yet.
 
@@ -85,8 +87,8 @@ progress** means much of it runs and the missing part is named.
 | Thermals, ridge lift, microbursts | In progress - thermals rise over the sea as over land; no rotor or trapped waves behind a ridge |
 | Weather you can see - cloud, haze, rain | In progress - cloud is a flat sheet; no storm towers; rain falls only close by |
 | A choice of sixteen aircraft | In progress - on a server you can ask for an aircraft as you join and fly it, but no test yet shows a windowed client drawing another player's choice; the Learjet is not drawn |
-| Joysticks, HOTAS and yokes | **Done** |
-| A head-up display | Its horizon line now lies on the drawn horizon, held at every pitch and bank tested; the menu has not yet re-tagged it |
+| Joysticks, HOTAS and yokes | **Done** - and a pilot works the speedbrakes from a key, a stick button or a quadrant lever on eight aircraft; the F-15C's lever draws no drag, and nothing on screen lists the controls yet |
+| A head-up display | Its horizon line now lies on the drawn horizon, held at every pitch and bank tested, and it shows the speedbrakes where an aircraft has them; the menu has not yet re-tagged it |
 | Views: cockpit, ahead, behind, sides, above, free orbit | **Done** |
 
 ### The world
@@ -105,7 +107,7 @@ progress** means much of it runs and the missing part is named.
 | Feature | State |
 |---|---|
 | Checklists for every aircraft, ticking themselves | **Done** |
-| Lessons - take-off, circuit, climbs, turns, stalls, landing - for each of seven classes, with a debrief | In progress - 42 lessons fly; the Learjet's take-off lesson cannot catch an early rotation |
+| Lessons - take-off, circuit, climbs, turns, stalls, landing - for each of seven classes, with a debrief | In progress - 42 lessons fly, and the bomber's can be flown by hand; the Learjet's take-off lesson cannot catch an early rotation |
 | An instructor who demonstrates, then hands over | In progress - some stall demonstrations lose more height than the lesson allows |
 
 ### AI pilots
@@ -236,15 +238,15 @@ flowchart LR
 ## The scale of it
 
 Figures taken from the repository on **2026-10-07**, at `origin/main`
-(`2912f34`). The first commit was on 2026-09-17.
+(`87f4dd3`). The first commit was on 2026-09-17.
 
 | | |
 |---|---|
-| Commits on `main` | **570** (`git rev-list --count`) |
-| Pull requests merged | **109** (`gh pr list --state merged`) |
-| First-party code | **~126,000 lines**: `src/` 51,300, `tests/` 64,100, `tools/` 10,500 (`wc -l` of tracked source; `ext/` excluded) |
-| Tests | **969** registered with ctest (`ctest -N` at 2912f34, 2026-10-07): 68 unit-test files, 109 scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
-| Completion plan | **95 of 95** phase items ticked across 12 phases; **94** tails done, **36** open; 12 items set aside for later (`docs/COMPLETION_PLAN.md`) |
+| Commits on `main` | **575** (`git rev-list --count`) |
+| Pull requests merged | **112** (`gh pr list --state merged`) |
+| First-party code | **~126,000 lines**: `src/` 51,300, `tests/` 64,500, `tools/` 10,500 (`wc -l` of tracked source; `ext/` excluded) |
+| Tests | **972** registered with ctest (`ctest -N` at 87f4dd3, 2026-10-07): 68 unit-test files, 109 scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
+| Completion plan | **95 of 95** phase items ticked across 12 phases; **95** tails done, **37** open; 12 items set aside for later (`docs/COMPLETION_PLAN.md`) |
 | CI, on every pull request | Ubuntu (debug, release), Rocky Linux 9, macOS 15 (debug, release), Windows (MSVC debug and release, clang-cl) - plus cross-platform flight agreement, the server's container image, and packages run in stock containers. A nightly run repeats the multi-process tests |
 | Living documents | ~26,000 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~20,000 |
 | Aircraft, lessons | 16 aircraft, 15 drawn; a checklist for each, nine phases of flight; 42 lessons across 7 classes |
