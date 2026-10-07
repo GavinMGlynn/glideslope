@@ -40,7 +40,8 @@ std::vector<std::pair<const char*, double>> fields(const Controls& c) {
             {"rudder", c.rudder},         {"throttle", c.throttle},
             {"mixture", c.mixture},       {"propeller", c.propeller},
             {"flaps", c.flaps},           {"left_brake", c.left_brake},
-            {"right_brake", c.right_brake}, {"pitch_trim", c.pitch_trim}};
+            {"right_brake", c.right_brake}, {"pitch_trim", c.pitch_trim},
+            {"speedbrake", c.speedbrake}};
 }
 
 std::string differences(const Controls& a, const Controls& b) {
@@ -138,6 +139,7 @@ GLIDESLOPE_TEST(
             controls.throttle = 0.5;
             controls.mixture = 0.5;
             controls.propeller = 0.5; // and here: it rests at 1, with no room up
+            controls.speedbrake = 0.5; // and here: it rests at 0, with no room in
             mapper.apply(joysticks.read(), controls);
             const Controls before = controls;
             press();

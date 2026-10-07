@@ -91,7 +91,9 @@ GLIDESLOPE_TEST(the_keyboard_moves_every_lever_it_names_and_leaves_it_where_it_i
         {"throttle", &Controls::throttle, SDL_SCANCODE_PAGEDOWN, SDL_SCANCODE_PAGEUP},
         {"mixture", &Controls::mixture, SDL_SCANCODE_COMMA, SDL_SCANCODE_PERIOD},
         {"propeller", &Controls::propeller, SDL_SCANCODE_LEFTBRACKET,
-         SDL_SCANCODE_RIGHTBRACKET}};
+         SDL_SCANCODE_RIGHTBRACKET},
+        {"speedbrake", &Controls::speedbrake, SDL_SCANCODE_SEMICOLON,
+         SDL_SCANCODE_APOSTROPHE}};
 
     std::size_t walked = 0;
     for (const Lever& lever : levers) {
@@ -128,11 +130,12 @@ GLIDESLOPE_TEST(the_keyboard_moves_every_lever_it_names_and_leaves_it_where_it_i
         ++walked;
     }
     check(walked == levers.size(), "every lever the keyboard names was walked");
-    check(walked == 3, "there are three of them, not " + std::to_string(walked));
+    check(walked == 4, "there are four of them, not " + std::to_string(walked));
 }
 
-// **And a binding moves each of them too.** The propeller is the one that had
-// none at all; this holds the whole set, so that losing one is noticed.
+// **And a binding moves each of them too.** The propeller and the speedbrake
+// lever are the ones that had none at all; this holds the whole set, so that
+// losing one is noticed.
 GLIDESLOPE_TEST(a_binding_moves_every_lever_the_controls_have) {
     std::ifstream in(data() / "input" / "bindings.txt", std::ios::binary);
     check(in.good(), "the bindings file is there");
@@ -143,7 +146,8 @@ GLIDESLOPE_TEST(a_binding_moves_every_lever_the_controls_have) {
     const std::vector<std::pair<Control, std::string>> levers{
         {Control::throttle, "throttle"},
         {Control::mixture, "mixture"},
-        {Control::propeller, "propeller"}};
+        {Control::propeller, "propeller"},
+        {Control::speedbrake, "speedbrake"}};
     std::size_t walked = 0;
     for (const auto& [control, name] : levers) {
         std::size_t bound = 0;
@@ -153,7 +157,7 @@ GLIDESLOPE_TEST(a_binding_moves_every_lever_the_controls_have) {
         check(bound > 0, name + " is bound to something");
         ++walked;
     }
-    check(walked == 3, "every lever was looked for");
+    check(walked == 4, "every lever was looked for");
 
     // And the binding actually reaches the control: the quadrant's second
     // lever is the propeller, as the file says.
@@ -173,6 +177,59 @@ GLIDESLOPE_TEST(a_binding_moves_every_lever_the_controls_have) {
     mapper.apply({quadrant}, c);
     check(std::abs(c.propeller) < 1e-9,
           "and back puts it at nought, not " + std::to_string(c.propeller));
+
+    // **The speedbrake lever, from a quadrant and from a stick.** The
+    // quadrant's last lever pulled back opens them, as an airliner's does;
+    // forward stows them.
+    quadrant.axes[7] = 1.0;
+    mapper.apply({quadrant}, c);
+    check(std::abs(c.speedbrake - 1.0) < 1e-9,
+          "the quadrant's last lever back puts the speedbrakes fully out, not " +
+              std::to_string(c.speedbrake));
+    quadrant.axes[7] = -1.0;
+    mapper.apply({quadrant}, c);
+    check(std::abs(c.speedbrake) < 1e-9,
+          "and forward stows them, not " + std::to_string(c.speedbrake));
+    // Its buttons step a quarter at a press, out and in.
+    const auto press = [&](glideslope::platform::DeviceState& device, std::size_t button) {
+        device.buttons[button] = true;
+        mapper.apply({device}, c);
+        device.buttons[button] = false;
+        mapper.apply({device}, c);
+    };
+    press(quadrant, 14);
+    press(quadrant, 14);
+    check(std::abs(c.speedbrake - 0.5) < 1e-9,
+          "two presses of the quadrant's button put them half out, as a B-2A's approach "
+          "wants, not " +
+              std::to_string(c.speedbrake));
+    press(quadrant, 13);
+    check(std::abs(c.speedbrake - 0.25) < 1e-9,
+          "and one of the other brings them a quarter in, not " +
+              std::to_string(c.speedbrake));
+
+    ControlMapper stick_mapper(bindings);
+    glideslope::platform::DeviceState stick;
+    stick.kind = glideslope::platform::DeviceKind::flight_stick;
+    stick.axes.assign(8, 0.0);
+    stick.buttons.assign(16, false);
+    stick.hats.assign(1, 0);
+    Controls s;
+    stick_mapper.apply({stick}, s);
+    const double before = s.speedbrake;
+    for (int i = 0; i < 4; ++i) {
+        stick.buttons[14] = true;
+        stick_mapper.apply({stick}, s);
+        stick.buttons[14] = false;
+        stick_mapper.apply({stick}, s);
+    }
+    check(before == 0.0 && std::abs(s.speedbrake - 1.0) < 1e-9,
+          "four presses of the stick's button put them fully out from stowed, not " +
+              std::to_string(s.speedbrake));
+    stick.buttons[13] = true;
+    stick_mapper.apply({stick}, s);
+    check(std::abs(s.speedbrake - 0.75) < 1e-9,
+          "and its other button brings them in, to " + std::to_string(s.speedbrake));
 }
 
 // **The Short S.23's airscrews in coarse pitch keep its engines inside their

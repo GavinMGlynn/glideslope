@@ -621,6 +621,9 @@ std::optional<net::Watched> Online::watched_controls(double local_s) const {
     out.rudder = mix(before->second.rudder, after->second.rudder);
     out.throttle = mix(before->second.throttle, after->second.throttle);
     out.flaps = mix(before->second.flaps, after->second.flaps);
+    if (before->second.speedbrake && after->second.speedbrake) {
+        out.speedbrake = mix(*before->second.speedbrake, *after->second.speedbrake);
+    }
     return out;
 }
 

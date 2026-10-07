@@ -106,6 +106,8 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
             w.u16(static_cast<std::uint16_t>(quantise(v)));
         }
         w.u16(static_cast<std::uint16_t>(c.gear ? quantise(*c.gear) : gear_fixed));
+        w.u16(static_cast<std::uint16_t>(c.speedbrake ? quantise(*c.speedbrake)
+                                                      : no_speedbrakes));
     }
     return w.take();
 }
@@ -225,11 +227,15 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
             return std::nullopt;
         }
         const auto gear = static_cast<std::int16_t>(r.u16());
+        const auto speedbrake = static_cast<std::int16_t>(r.u16());
         if (!r.ok()) {
             return std::nullopt;
         }
         if (gear != gear_fixed) {
             c.gear = unquantise(gear);
+        }
+        if (speedbrake != no_speedbrakes) {
+            c.speedbrake = unquantise(speedbrake);
         }
         out.watched = c;
     }

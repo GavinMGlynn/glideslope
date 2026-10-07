@@ -141,8 +141,9 @@ namespace {
 
 // What the catalogue in `data` says of the model that the aircraft keeps,
 // read once for both: a light aeroplane's published best-climb speed, from its
-// figures (none for any other class), and whether its engines have a mixture
-// lever. None of it where there is no catalogue.
+// figures (none for any other class), whether its engines have a mixture
+// lever, and whether it has speedbrakes. None of it where there is no
+// catalogue.
 CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::string& model) {
     CatalogueFacts found;
     if (!std::filesystem::is_directory(data / "aircraft")) {
@@ -159,6 +160,7 @@ CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::stri
             found.mixture_lever = true;
             found.full_rich_below_ft = e.full_rich_below_ft;
         }
+        found.speedbrakes = found.speedbrakes || e.speedbrakes;
     }
     return found;
 }
@@ -171,7 +173,7 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
 Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model,
                    const CatalogueFacts& catalogue)
     : climb_floor_kts_(catalogue.climb_floor_kts), mixture_lever_(catalogue.mixture_lever),
-      full_rich_below_ft_(catalogue.full_rich_below_ft),
+      full_rich_below_ft_(catalogue.full_rich_below_ft), speedbrakes_(catalogue.speedbrakes),
       model_(model),
       exec_(quiet_exec()) {
     const std::u8string utf8 = jsbsim_root.u8string();

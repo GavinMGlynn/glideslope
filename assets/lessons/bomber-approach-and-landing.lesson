@@ -21,10 +21,13 @@
 # **The bands are measured, not guessed**: the B-2A, started with its drag
 # rudders already half open as the AI pilot flies the approach, flies it
 # between on the speed and two over, and crosses the threshold on it. With
-# them shut it flew the glidepath fourteen fast with its throttles closed,
-# and **a pilot flying by hand has no control yet that opens them** (a tail in
-# docs/COMPLETION_PLAN.md), so the band still reaches `vref+20` until one
-# does.
+# them shut it flew the glidepath fourteen fast with its throttles closed, so
+# the lesson tells the pilot to open them: the speedbrake lever, which a
+# stick, a throttle quadrant and the keyboard all move. The band is a light
+# aircraft's, `vref-8` to `vref+12`, ten knots of room over what the AI
+# flies; until a pilot could open them by hand it reached `vref+20`. A test
+# flies it by hand, the lever half out, inside it - and with the lever
+# stowed, outside it.
 
 # **The approach watches the descent as well as the speed**, because every
 # stage of this lesson ends on a height, and a crash reaches a height as surely
@@ -43,14 +46,15 @@ teaches bomber
 
 stage The approach
 do Join the approach on the runway heading, wheels down: she has no flap
+do Open the speedbrakes half way: her drag rudders are what slows her
 do Hold the approach speed and let her come down the glidepath
-hold velocities/vc-kts vref-8 vref+20 Hold the approach speed
+hold velocities/vc-kts vref-8 vref+12 Hold the approach speed
 need velocities/h-dot-fps >= -30 Arrive over the threshold coming down the glidepath, not falling
 until position/h-agl-ft <= 50
 
 stage Over the threshold
 do Cross the threshold at the approach speed, on the centreline
-hold velocities/vc-kts vref-8 vref+20 Cross the threshold on speed
+hold velocities/vc-kts vref-8 vref+12 Cross the threshold on speed
 until position/h-agl-ft <= 40
 
 stage The flare and the landing roll

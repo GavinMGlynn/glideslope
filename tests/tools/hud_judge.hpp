@@ -180,6 +180,12 @@ inline std::string judge_hud(const gfx::Frame& frame, const std::map<std::string
         }
         ++next;
     }
+    // The speedbrake lever, where there is one: an aircraft without
+    // speedbrakes is traced at -1.
+    if (state.at("speedbrake") >= 0.0) {
+        control("SPEEDBRAKE", 1, "speedbrake");
+        ++next;
+    }
     // **Nothing more of the HUD's**: every HUD line begins at its margin, in
     // the first column. What begins further in is the scene behind the text -
     // the horizon line, which on a frame too narrow for the text to be kept

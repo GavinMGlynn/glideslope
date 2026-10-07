@@ -40,7 +40,7 @@ std::shared_ptr<glideslope::sim::Terrain> flat_ground() {
         [](double, double) { return 0.0; }, [](double, double) { return false; });
 }
 
-void set_up(Aircraft& a) {
+void set_up(Aircraft& a, double airspeed_kts = 110.0) {
     a.set_terrain(flat_ground());
     InitialConditions ic;
     ic.latitude_deg = -33.9;
@@ -48,7 +48,7 @@ void set_up(Aircraft& a) {
     ic.terrain_elevation_ft = 0.0;
     ic.altitude_ft = 6000.0;
     ic.heading_deg = 90.0;
-    ic.airspeed_kts = 110.0;
+    ic.airspeed_kts = airspeed_kts;
     ic.engine_running = true;
     ic.gear = 0.0;
     a.initialize(ic);
@@ -80,11 +80,15 @@ struct Flight {
 // JSBSim at 120 Hz. The client flies each input as it is made; the server
 // sees it `one_way` frames later, and its state comes back `one_way` frames
 // after that, which is the round trip.
-Flight fly(int frames, int one_way, int snapshot_every, bool by_motion = false) {
-    Aircraft server_aircraft(data() / "jsbsim", "c172p");
-    Aircraft client_aircraft(data() / "jsbsim", "c172p");
-    set_up(server_aircraft);
-    set_up(client_aircraft);
+//
+// `model`, begun at `airspeed_kts`, is flown on `inputs`.
+Flight fly(int frames, int one_way, int snapshot_every, bool by_motion = false,
+           const std::string& model = "c172p", double airspeed_kts = 110.0,
+           const std::function<Controls(int)>& inputs = flying) {
+    Aircraft server_aircraft(data() / "jsbsim", model);
+    Aircraft client_aircraft(data() / "jsbsim", model);
+    set_up(server_aircraft, airspeed_kts);
+    set_up(client_aircraft, airspeed_kts);
     Prediction client(client_aircraft);
 
     struct Posted {
@@ -99,13 +103,14 @@ Flight fly(int frames, int one_way, int snapshot_every, bool by_motion = false) 
     for (int frame = 0; frame < frames; ++frame) {
         // The client flies its own input at once: that is the whole point of
         // predicting.
-        client.step(static_cast<std::uint32_t>(frame + 1), flying(frame));
+        client.step(static_cast<std::uint32_t>(frame + 1),
+                    inputs(frame));
 
         // The server applies the input that left the client `one_way` frames
         // ago, which is the only one it has.
         const int theirs = frame - one_way;
         if (theirs >= 0) {
-            server_aircraft.set_controls(flying(theirs));
+            server_aircraft.set_controls(inputs(theirs));
             server_aircraft.step();
             if (theirs % snapshot_every == 0) {
                 post.push_back({frame + one_way,
@@ -1121,4 +1126,60 @@ GLIDESLOPE_TEST(a_prediction_stops_its_engine_on_the_servers_word_and_starts_it_
     check(!own.hear_engine_stopped(0), "one stopped here already is not stopped again");
     (void)own.hear_engine_stopped(std::nullopt);
     check(dry.any_engine_stopped(), "and one stopped here by itself is not started for the word");
+}
+
+// **A client working the speedbrakes is predicted as the server flies them**,
+// in every aircraft that has them: the lever run out and in again over six
+// seconds, on top of the turn, the climb and the throttle the other tests
+// fly, at 200 ms and put right from the motion alone, as a state update
+// carries it. The lever is an input like any other, so the client and the
+// server move the same surfaces, and the worst correction is held to a quarter over
+// the same flight's with the lever left stowed: working it costs the
+// prediction nothing it did not already have. **What this does not show**:
+// a client flying the lever stowed while sending it out. Put right every
+// 50 ms, such a client was put right by no more than its own drift in five
+// of the eight (the A320's 0.0400 m stowed either way, the 737's 0.0935
+// against 0.0373 the one plain catch), because what the server's word puts
+// right is what one round trip flown wrongly moves her, millimetres.
+GLIDESLOPE_TEST(a_client_working_the_speedbrakes_is_predicted_as_the_server_flies_them_in_every_aircraft_with_them) {
+    const int one_way = 200 * steps_per_second / 2000;
+    const auto catalogue = glideslope::sim::read_catalogue(data());
+    std::size_t walked = 0;
+    std::size_t with = 0;
+    for (const auto& entry : catalogue) {
+        if (!entry.speedbrakes) {
+            continue;
+        }
+        ++with;
+        const auto lever = [&entry](int frame, bool worked) {
+            Controls c = flying(frame);
+            c.throttle = entry.start_throttle;
+            const double t = static_cast<double>(frame) / steps_per_second;
+            // Out over the first two seconds, held, and in over the last two.
+            c.speedbrake = worked ? std::clamp(std::min(t, 6.0 - t) / 2.0, 0.0, 1.0) : 0.0;
+            return c;
+        };
+        const auto worked = [&lever](int frame) { return lever(frame, true); };
+        const auto stowed = [&lever](int frame) { return lever(frame, false); };
+        const auto flown = [&](const std::function<Controls(int)>& sent) {
+            return fly(6 * steps_per_second, one_way, steps_per_second / 20, true, entry.model,
+                       entry.start_airspeed_kts, sent);
+        };
+        const Flight still = flown(stowed);
+        const Flight f = flown(worked);
+        const double bound_m = 1.25 * still.worst_correction_m;
+        std::printf("  %-11s at 200 ms: worst correction %.4f m with the lever worked (bound "
+                    "%.4f), %.4f m stowed\n",
+                    entry.id.c_str(), f.worst_correction_m, bound_m, still.worst_correction_m);
+        check(f.reconciliations > 50, entry.id + " was heard from " +
+                                          std::to_string(f.reconciliations) + " times");
+        check(f.snapped == 0, entry.id + ": no correction was too large to hide");
+        check(f.worst_correction_m <= bound_m,
+              entry.id + ": the worst correction was " + std::to_string(f.worst_correction_m) +
+                  " m, over the bound of " + std::to_string(bound_m) + " m");
+        ++walked;
+    }
+    check(walked == with && with == 8,
+          "the eight aircraft with speedbrakes were flown: " + std::to_string(walked) + " of " +
+              std::to_string(with));
 }

@@ -12,6 +12,7 @@
 #include "sim/lesson.hpp"
 #include "sim/lesson_run.hpp"
 #include "sim/plan.hpp"
+#include "sim/test_pilot.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
 
@@ -3176,9 +3177,10 @@ const char* control_name(std::size_t i) {
         "elevator",   "aileron",     "rudder",        "throttle",
         "mixture",    "flaps",       "left brake",    "right brake",
         "pitch trim", "propeller",   "gear",          "supercharger",
-        "throttle offset 0",         "throttle offset 1",
-        "cooling flap 0",            "cooling flap 1",
-        "speedbrake"};
+        "speedbrake", "throttle offset 0",            "throttle offset 1",
+        "cooling flap 0",            "cooling flap 1"};
+    // As many as there are controls.
+    static_assert(std::size(names) == glideslope::sim::Controls::control_count);
     return i < std::size(names) ? names[i] : "?";
 }
 
@@ -5254,4 +5256,105 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_circuit_and_hands_it_over) {
     check(walked == flown.size(), "every aeroplane taught the circuit demonstrated it: " +
                                       std::to_string(walked) + " of " +
                                       std::to_string(flown.size()));
+}
+
+namespace {
+
+struct ByHand {
+    std::vector<std::string> debrief; // what the approach's two stages said
+    std::size_t completed = 0;
+    double least_kts = 1e9;
+    double most_kts = -1e9;
+    double vref_kts = 0.0;
+};
+
+// **The B-2A flown down the glidepath by hand**, the speedbrake lever where
+// the pilot has put it: two miles out, as the AI pilot's approach begins, and
+// flown to the end of the lesson's second stage, over the threshold. The
+// hands are a test pilot's (sim/test_pilot.hpp), not the AI's: the elevator
+// holds the glidepath's height - led by the sink the path asks, as a pilot
+// leads a moving target - the wings level, the ball in the middle, and the
+// throttle is worked for the reference speed, more when slow and less when
+// fast, a twentieth of its travel a second for each knot off, and no faster
+// than full travel in two seconds.
+ByHand fly_the_b2a_approach_by_hand(double speedbrake) {
+    const auto entry = glideslope::sim::find_aircraft(data(), "b2");
+    const glideslope::sim::Runway runway = a_runway();
+    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    put_on_final(aircraft, entry, runway, published);
+    const auto found = lesson_for(entry, "approach-and-landing");
+    check(found.has_value(), "the B-2A has an approach lesson");
+    LessonRun run(*found, glideslope::sim::LessonSpeeds{0.0, 0.0, published.vref_kts,
+                                                        published.stall_kts});
+    glideslope::sim::TestPilot pilot(aircraft);
+    glideslope::sim::Controls c;
+    c.gear = 1.0;
+    c.speedbrake = speedbrake;
+    c.throttle = aircraft.property("fcs/throttle-cmd-norm[0]");
+    const double heading = runway.heading_deg / degrees;
+    const double dt = 1.0 / steps_per_second;
+    ByHand out;
+    out.vref_kts = published.vref_kts;
+    for (int tick = 0; tick < 300 * steps_per_second && run.stage() < 2; ++tick) {
+        // How far short of the aim point she is along the runway's line, and
+        // the glidepath's height there.
+        const glideslope::sim::AircraftState s = aircraft.state();
+        const double north_m = (s.latitude_deg - runway.threshold_lat_deg) *
+                               metres_per_degree_latitude(runway.threshold_lat_deg);
+        const double east_m = (s.longitude_deg - runway.threshold_lon_deg) *
+                              metres_per_degree_longitude(runway.threshold_lat_deg);
+        const double short_m =
+            published.aim_m - (north_m * std::cos(heading) + east_m * std::sin(heading));
+        const double path_ft =
+            runway.elevation_ft + short_m * std::tan(3.0 / degrees) * feet_per_metre;
+        const double sink_fps = aircraft.property("velocities/vg-fps") * std::tan(3.0 / degrees);
+        c.elevator = pilot.pitch_to(pilot.pitch_for_altitude(path_ft - 8.0 * sink_fps));
+        c.aileron = pilot.roll_to(0.0);
+        c.rudder = pilot.coordinate();
+        const double fast_kts = s.airspeed_kts - published.vref_kts;
+        c.throttle = std::clamp(c.throttle + std::clamp(-0.05 * fast_kts, -0.5, 0.5) * dt, 0.0,
+                                1.0);
+        aircraft.set_controls(c);
+        aircraft.step();
+        run.update(aircraft, tick);
+        if (run.stage() < 2) {
+            out.least_kts = std::min(out.least_kts, aircraft.state().airspeed_kts);
+            out.most_kts = std::max(out.most_kts, aircraft.state().airspeed_kts);
+        }
+    }
+    out.debrief = run.debrief_lines();
+    out.completed = run.completed();
+    return out;
+}
+
+} // namespace
+
+// **A pilot can now fly the B-2A's approach lesson by hand, as the AI flies
+// it**: with the speedbrake lever half out, as the lesson tells her pilot, she
+// comes down the glidepath and over the threshold inside its band - the
+// light aircraft's `vref-8` to `vref+12`, where until a pilot had the lever
+// it reached `vref+20`. With the lever stowed, the same hands with the
+// throttles closed cannot hold her to it: the band is one only the lever
+// meets. Both flights are flown, and each must say so.
+GLIDESLOPE_TEST(a_pilot_flies_the_b2a_approach_lesson_by_hand_inside_its_band_only_with_her_speedbrakes_out) {
+    const ByHand out = fly_the_b2a_approach_by_hand(0.5);
+    const ByHand stowed = fly_the_b2a_approach_by_hand(0.0);
+    for (const auto& [what, f] : {std::pair{"half out", &out}, std::pair{"stowed", &stowed}}) {
+        std::printf("  speedbrakes %-8s vref %.1f: %zu stages, %.1f to %.1f kt (%+.1f to %+.1f)\n",
+                    what, f->vref_kts, f->completed, f->least_kts, f->most_kts,
+                    f->least_kts - f->vref_kts, f->most_kts - f->vref_kts);
+        for (const std::string& said : f->debrief) {
+            std::printf("      %s\n", said.c_str());
+        }
+    }
+    check(out.completed >= 2, "half out, she was flown over the threshold: " +
+                                  std::to_string(out.completed) + " stages");
+    check(out.debrief.empty(), "half out, the lesson had nothing to say: " +
+                                   std::to_string(out.debrief.size()) + " things");
+    check(stowed.completed >= 2, "stowed, she was flown over the threshold too: " +
+                                     std::to_string(stowed.completed) + " stages");
+    check(!stowed.debrief.empty() && stowed.most_kts > stowed.vref_kts + 12.0,
+          "stowed, she ran past the band, and the lesson said so: " +
+              std::to_string(stowed.most_kts - stowed.vref_kts) + " kt over");
 }

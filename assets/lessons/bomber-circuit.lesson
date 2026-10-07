@@ -24,14 +24,14 @@
 # vref+10. The downwind band is 150 ft either side, half as much again as
 # the FAA's Airline Transport Pilot ACS allows (100 ft) and inside the 250 ft
 # the fault is flown with.
-# **Final reaches 20 knots over, for a pilot flying her by hand.** The AI
-# pilot flies final with her drag rudders half open (assets/figures/b2.xml),
-# at vref-4 to vref+10; with them shut, as it flew from 2026-09-26, at vref-4
-# to vref+15. A pilot has no control yet that opens them - no binding moves
-# the speedbrake lever (a tail in docs/COMPLETION_PLAN.md) - and flying by
-# hand she cannot slow on final, so the band stays where it was until one
-# does. The pattern above is a jet's with the flap left out: the B-2A has
-# none.
+# **Final is flown with the drag rudders half open.** The AI pilot flies it
+# so (assets/figures/b2.xml), at vref-4 to vref+10; with them shut, as it flew
+# from 2026-09-26, at vref-4 to vref+15. A pilot opens them with the
+# speedbrake lever, which a stick, a throttle quadrant and the keyboard all
+# move, and the band is the airliners' and fighters', vref-10 to vref+15;
+# until a pilot could open them by hand it reached vref+20. The pattern above
+# is a jet's with the flap left out: the B-2A has none, and her speedbrakes
+# do its work.
 
 name The circuit in a bomber
 teaches bomber
@@ -67,11 +67,12 @@ until lesson/turned-deg <= -50
 stage Base, and the turn on to final
 do Gear down, power back, turn left on to base and start down
 do Turn left on to final to line up with the runway: she has no flap to set
+do Open the speedbrakes half way: her drag rudders are what slows her
 until lesson/turned-deg <= -110
 
 stage Final
 do Hold the approach speed down to the threshold
-hold velocities/vc-kts vref-10 vref+20 Hold the approach speed on final
+hold velocities/vc-kts vref-10 vref+15 Hold the approach speed on final
 until position/h-agl-ft <= 40
 
 stage The landing

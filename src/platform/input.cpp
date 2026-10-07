@@ -23,7 +23,8 @@ const std::map<std::string, Control>& control_names() {
         {"flaps", Control::flaps},
         {"left_brake", Control::left_brake},
         {"right_brake", Control::right_brake},
-        {"brakes", Control::brakes}};
+        {"brakes", Control::brakes},
+        {"speedbrake", Control::speedbrake}};
     return names;
 }
 
@@ -52,6 +53,7 @@ std::vector<double*> fields(Control c, sim::Controls& controls) {
     case Control::left_brake: return {&controls.left_brake};
     case Control::right_brake: return {&controls.right_brake};
     case Control::brakes: return {&controls.left_brake, &controls.right_brake};
+    case Control::speedbrake: return {&controls.speedbrake};
     }
     return {};
 }
@@ -352,6 +354,7 @@ void KeyboardControls::apply(sim::Controls& controls, double seconds,
     lever(controls.throttle, SDL_SCANCODE_PAGEDOWN, SDL_SCANCODE_PAGEUP);
     lever(controls.mixture, SDL_SCANCODE_COMMA, SDL_SCANCODE_PERIOD);
     lever(controls.propeller, SDL_SCANCODE_LEFTBRACKET, SDL_SCANCODE_RIGHTBRACKET);
+    lever(controls.speedbrake, SDL_SCANCODE_SEMICOLON, SDL_SCANCODE_APOSTROPHE);
 
     if (down(SDL_SCANCODE_B) || brakes_) {
         controls.left_brake = controls.right_brake = down(SDL_SCANCODE_B) ? 1.0 : 0.0;

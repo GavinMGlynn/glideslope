@@ -20,7 +20,9 @@
 //
 // **Frames**: for every case the HUD's lines can be in - the pilot flying,
 // the AI holding, the AI flying to a waypoint; with and without the Mach
-// number and flight level; the gear fixed, up and down - on landscape, square
+// number and flight level; the gear fixed, up and down, and the speedbrake
+// lever where there is none, stowed, half out and fully out, each value of
+// each met at least once in four pairings - on landscape, square
 // and portrait frames, the narrowest the text is clear at and two narrower,
 // and for each HUD row of that case, it pitches and banks the aircraft so
 // that the horizon meets the middle of the row's height at its left end, its
@@ -161,6 +163,7 @@ struct Regime {
 struct Gear {
     const char* what;
     std::optional<double> position;
+    std::optional<double> speedbrake; // none: it has no speedbrakes
 };
 
 } // namespace
@@ -185,8 +188,13 @@ int run() {
         {"the AI flying to a waypoint", true, "NAV THE_HEADS", "FLYING AI NAV THE HEADS"}};
     const std::vector<Regime> regimes{{"slow and low", 0.15, 3000.0},
                                       {"with Mach and flight level", 0.82, 35000.0}};
-    const std::vector<Gear> gears{{"gear fixed", std::nullopt}, {"gear up", 0.0},
-                                  {"gear down", 1.0}};
+    // The gear and the speedbrake lever, which follows it on the HUD: every
+    // state of each, and the lever after the gear and after the flaps.
+    const std::vector<Gear> gears{
+        {"gear fixed, no speedbrakes", std::nullopt, std::nullopt},
+        {"gear up, speedbrakes stowed", 0.0, 0.0},
+        {"gear down, speedbrakes half out", 1.0, 0.5},
+        {"gear fixed, speedbrakes out", std::nullopt, 1.0}};
     // Landscape, square and portrait; the narrowest clear, and four too
     // narrow.
     const std::vector<std::pair<int, int>> sizes{{640, 480},  {1280, 720}, {800, 800},
@@ -244,15 +252,17 @@ int run() {
                     controls.throttle = 0.7;
                     controls.flaps = 0.33;
                     controls.gear = gear.position;
+                    controls.speedbrake = gear.speedbrake;
                     r.controls = controls;
                     r.credits = credits;
                     const auto layout = glideslope::gfx::hud_layout(width, height);
                     const std::size_t lines = glideslope::gfx::hud_lines(r).size();
                     // The six of the flight, Mach and flight level where they
-                    // apply, who is flying, four controls, and the gear where
-                    // it retracts.
+                    // apply, who is flying, four controls, the gear where
+                    // it retracts, and the speedbrake lever where there is one.
                     const std::size_t rows_expected = 6u + (regime.mach >= 0.4 ? 2u : 0u) + 1u + 4u +
-                                                      (gear.position ? 1u : 0u);
+                                                      (gear.position ? 1u : 0u) +
+                                                      (gear.speedbrake ? 1u : 0u);
                     if (lines != rows_expected) {
                         fail(std::string(flying.what) + ", " + regime.what + ", " + gear.what +
                              ": " + std::to_string(lines) + " HUD rows, not " +
@@ -362,7 +372,9 @@ int run() {
                                     {"rudder", controls.rudder},
                                     {"throttle", controls.throttle},
                                     {"flaps", controls.flaps},
-                                    {"gear", gear.position ? *gear.position : -1.0}};
+                                    {"gear", gear.position ? *gear.position : -1.0},
+                                    {"speedbrake",
+                                     gear.speedbrake ? *gear.speedbrake : -1.0}};
                                 std::string said;
                                 try {
                                     said = glideslope::test::judge_hud(

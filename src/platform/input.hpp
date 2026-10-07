@@ -41,6 +41,9 @@ enum class Control {
     left_brake,
     right_brake,
     brakes, // both
+    // The speedbrake lever: 0 stowed, 1 fully out. An aircraft without
+    // speedbrakes ignores it.
+    speedbrake,
 };
 
 enum class Source { axis, button, hat };
@@ -101,14 +104,14 @@ private:
 
 // **The keyboard, beside any flight controller.** The arrows fly it, Z and X
 // work the rudder, Page Up and Page Down the throttle, the comma and full
-// stop the mixture, and the square brackets the propeller; B holds the
-// brakes.
+// stop the mixture, the square brackets the propeller, and the semicolon and
+// apostrophe the speedbrake lever, in and out; B holds the brakes.
 //
 // A key moves its control while held and lets it go when released, so a stick
 // left alone is not overridden every frame. **The levers hold where they are
 // left**, as the throttle does: a mixture that sprang back to rich the moment
 // the key came up would be no use for leaning. An aeroplane with no propeller
-// lever or no mixture ignores them.
+// lever, no mixture or no speedbrakes ignores them.
 //
 // It is given the key state rather than asking for it, so that it can be
 // worked without a window - which is how it is tested.

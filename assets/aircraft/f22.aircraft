@@ -14,3 +14,5 @@ name Lockheed Martin F-22A Raptor
 model f22
 class fighter
 start 300 0.40
+# The speedbrake lever works its speedbrakes or spoilers (src/sim/catalogue.hpp).
+speedbrakes
