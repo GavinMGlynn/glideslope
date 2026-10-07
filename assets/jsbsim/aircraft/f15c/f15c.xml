@@ -431,8 +431,14 @@
             </kinematic>
         </channel>
         <channel name="Speedbrake">
+            <switch name="fcs/speedbrake-allowed-norm">
+                <default value="0"/>
+                <test value="fcs/speedbrake-cmd-norm">
+                    aero/alpha-deg le 15.0
+                </test>
+            </switch>
             <kinematic name="Speedbrake Control">
-                <input>fcs/speedbrake-cmd-norm</input>
+                <input>fcs/speedbrake-allowed-norm</input>
                 <traverse>
                     <setting>
                         <position>0</position>
@@ -677,6 +683,15 @@
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/mag-elevator-pos-rad</property>
                     <value>0.0438</value>
+                </product>
+            </function>
+            <function name="aero/coefficient/CDsb">
+                <description>Drag_due_to_speedbrake</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <property>fcs/speedbrake-pos-norm</property>
+                    <value>0.0436</value>
                 </product>
             </function>
         </axis>

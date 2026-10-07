@@ -14,3 +14,5 @@ name McDonnell Douglas F-15C Eagle
 model f15c
 class fighter
 start 300 0.49
+# The speedbrake lever works its speedbrake (src/sim/catalogue.hpp).
+speedbrakes

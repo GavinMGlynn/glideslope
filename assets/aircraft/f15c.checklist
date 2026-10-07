@@ -22,10 +22,9 @@
 #
 # The model has no flap channel, so nothing here reads a flap setting even
 # though the manual's drills turn on one: "Flaps - CHECK DOWN" before take-off
-# and "Flaps - UP" after landing are the pilot's to confirm here. It does have
-# a speedbrake lever, and the lever moves the surface, but the aerodynamics
-# draws no drag from it yet, so the speedbrake items below say only where the
-# lever is. Its two F100s light their reheat above a throttle of 0.99, which
+# and "Flaps - UP" after landing are the pilot's to confirm here. Its
+# speedbrake draws the F-15 aerobase's drag (tools/make_f15c.py), and the
+# items below read the lever, as the manual's drills name it. Its two F100s light their reheat above a throttle of 0.99, which
 # is what "into reheat" and "no reheat" mean here.
 #
 # **The manual has no angle-of-attack channel here to read.** Its approach is

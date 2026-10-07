@@ -87,7 +87,7 @@ progress** means much of it runs and the missing part is named.
 | Thermals, ridge lift, microbursts | In progress - thermals rise over the sea as over land; no rotor or trapped waves behind a ridge |
 | Weather you can see - cloud, haze, rain | In progress - cloud is a flat sheet; no storm towers; rain falls only close by |
 | A choice of sixteen aircraft | In progress - on a server you can ask for an aircraft as you join and fly it, but no test yet shows a windowed client drawing another player's choice; the Learjet is not drawn |
-| Joysticks, HOTAS and yokes | **Done** - and a pilot works the speedbrakes from a key, a stick button or a quadrant lever on eight aircraft; the F-15C's lever draws no drag, and nothing on screen lists the controls yet |
+| Joysticks, HOTAS and yokes | **Done** - and a pilot works the speedbrakes from a key, a stick button or a quadrant lever on nine aircraft; nothing on screen lists the controls yet |
 | A head-up display | Its horizon line now lies on the drawn horizon, held at every pitch and bank tested, and it shows the speedbrakes where an aircraft has them; the menu has not yet re-tagged it |
 | Views: cockpit, ahead, behind, sides, above, free orbit | **Done** |
 

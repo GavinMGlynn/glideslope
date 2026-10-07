@@ -874,10 +874,12 @@ Found while implementing something else. Added when found, not when remembered.
       only in the README and the bindings file, not in `glideslope --help`
       or on screen. *Verification: the client shows every control's key and
       button, held to the bindings by a test.*
-- [ ] **The F-15C's speedbrake draws no drag.** Her model moves the surface
+- [x] **The F-15C's speedbrake draws no drag.** Her model moves the surface
       but its aerodynamics ignores it, so the lever does nothing in her.
       *Verification: with the lever out she slows, held level, as the
-      airliners do.*
+      airliners do.* Done 2026-10-07: the F-15 aerodynamic database's drag,
+      31 knots slower in ten seconds from 300; and as there, it stays in
+      past 15 degrees of alpha.
 - [x] **The Learjet's stabilizer cannot trim her in cruise**, so a pilot
       flying by hand holds the stick forward. *Verification: the Learjet
       cruises from 250 to 350 knots with its elevator near neutral.* Done

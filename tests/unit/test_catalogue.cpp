@@ -680,3 +680,61 @@ GLIDESLOPE_TEST(every_aircraft_with_speedbrakes_slows_on_its_lever_held_level_an
           "all sixteen were flown: " + std::to_string(with) + " with speedbrakes and " +
               std::to_string(without) + " without");
 }
+
+// **The F-15C's speedbrake does not deploy past 15 degrees of alpha**, as the
+// 1988 F-15 aerobase has it (AFIT/GAE/ENY/90D-16, page 81; tools/make_f15c.py).
+// She is flown at 300 knots at 5,000 ft by a test pilot, the lever fully out
+// throughout: held level for five seconds, under the limit, the surface runs
+// out; then pulled with the stick fully back until she has been past the
+// limit for three seconds - longer than the surface's two to run in - it is
+// in, with the lever still out. Both sides of the limit are built, and the
+// alpha each is flown at checked.
+GLIDESLOPE_TEST(the_f15cs_speedbrake_stays_in_past_fifteen_degrees_of_alpha_with_the_lever_out) {
+    const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "f15c");
+    const auto fly = [&](bool pulled) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 5000.0;
+        ic.airspeed_kts = 300.0;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        aircraft.initialize(ic);
+        glideslope::sim::TestPilot pilot(aircraft);
+        glideslope::sim::Controls c;
+        c.throttle = e.start_throttle;
+        c.gear = 0.0;
+        c.speedbrake = 1.0;
+        for (int i = 0; i < 5 * steps_per_second; ++i) {
+            c.elevator = pilot.pitch_to(pilot.pitch_for_altitude(5000.0));
+            c.aileron = pilot.roll_to(0.0);
+            c.rudder = pilot.coordinate();
+            aircraft.set_controls(c);
+            aircraft.step();
+        }
+        // Past the limit for three seconds on end, or ten seconds pulling.
+        int past = 0;
+        for (int i = 0; pulled && past < 3 * steps_per_second && i < 10 * steps_per_second;
+             ++i) {
+            c.elevator = 1.0;
+            c.aileron = pilot.roll_to(0.0);
+            c.rudder = pilot.coordinate();
+            aircraft.set_controls(c);
+            aircraft.step();
+            past = aircraft.property("aero/alpha-deg") > 15.0 ? past + 1 : 0;
+        }
+        const double alpha = aircraft.property("aero/alpha-deg");
+        const double out = aircraft.property("fcs/speedbrake-pos-norm");
+        std::printf("  %s: alpha %.1f, speedbrake %.2f out with the lever at %.2f\n",
+                    pulled ? "pulled" : "level", alpha, out,
+                    aircraft.property("fcs/speedbrake-cmd-norm"));
+        return std::pair{alpha, out};
+    };
+    const auto [level_alpha, level_out] = fly(false);
+    check(level_alpha < 15.0, "level at 300 kt she flies under 15 degrees of alpha");
+    check(level_out > 0.99, "and her speedbrake is out");
+    const auto [pulled_alpha, pulled_out] = fly(true);
+    check(pulled_alpha > 15.0, "pulled, she has been past 15 degrees of alpha three seconds");
+    check(pulled_out < 0.01, "and her speedbrake is in, the lever still out");
+}
