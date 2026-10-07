@@ -36,11 +36,12 @@ replays that prove a result, no deterministic simulation.
 > **Status, 2026-10-07.** Every numbered phase of the
 > [completion plan](docs/COMPLETION_PLAN.md) - 95 of 95 items - is ticked,
 > each against a named verification. What is left are the tails found along
-> the way: 88 done, 42 open. The biggest gaps, named first: **the ground is
+> the way: 94 done, 36 open. The biggest gaps, named first: **the ground is
 > drawn only around where a flight starts** (fly far enough and there is sky
-> beneath you); on a server **you fly the aircraft the server gives you**, not
-> one you choose; **cloud is a flat sheet**, not a volume; the Learjet has no
-> visual model; and no public server is running yet.
+> beneath you); on a server **you can ask for your aircraft as you join, but
+> no test yet shows a windowed client drawing another player's choice**;
+> **cloud is a flat sheet**, not a volume; the Learjet has no visual model;
+> and no public server is running yet.
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the single source of
 > truth.
 
@@ -59,8 +60,9 @@ replays that prove a result, no deterministic simulation.
 | ![The view from a Boeing 737-300's cockpit over Sydney at 2,200 ft](docs/images/737-cockpit-view.jpg) | ![A de Havilland Mosquito FB Mk VI seen from the orbit camera over Sydney's suburbs](docs/images/mosquito-orbit-view.jpg) |
 | **From the cockpit of a 737-300** at 2,200 ft over Sydney's north shore, harbour ahead. | **A Mosquito FB Mk VI**, from the free orbit camera. Its flight model was written for this project from its 1943-44 trials and Pilot's Notes. |
 
-What the frames also show, honestly: the HUD's horizon line does not yet lie on
-the horizon drawn behind it; the imagery blurs close to the ground; and the
+What the frames also show, honestly: the HUD's horizon line in them is the old
+one, off the horizon drawn behind it (it has since been put on the drawn
+horizon, and these frames have not been re-shot); the imagery blurs close to the ground; and the
 look is a simulator's instruments over plain-shaded models - no liveries,
 moving control surfaces or cockpit interiors yet.
 
@@ -82,9 +84,9 @@ progress** means much of it runs and the missing part is named.
 | Live weather from the airfield's report | In progress - a flight keeps its starting airfield's weather wherever it goes |
 | Thermals, ridge lift, microbursts | In progress - thermals rise over the sea as over land; no rotor or trapped waves behind a ridge |
 | Weather you can see - cloud, haze, rain | In progress - cloud is a flat sheet; no storm towers; rain falls only close by |
-| A choice of sixteen aircraft | In progress - on a server you fly what the server gives; the Learjet is not drawn |
+| A choice of sixteen aircraft | In progress - on a server you can ask for an aircraft as you join and fly it, but no test yet shows a windowed client drawing another player's choice; the Learjet is not drawn |
 | Joysticks, HOTAS and yokes | In progress - nothing yet opens the speedbrakes |
-| A head-up display | In progress - its horizon line is not on the drawn horizon |
+| A head-up display | Its horizon line now lies on the drawn horizon, held at every pitch and bank tested; the menu has not yet re-tagged it |
 | Views: cockpit, ahead, behind, sides, above, free orbit | **Done** |
 
 ### The world
@@ -96,7 +98,7 @@ progress** means much of it runs and the missing part is named.
 | Google photorealistic cities, with your own key | **Done** |
 | The scenery's makers credited on screen | **Done** |
 | Anywhere on Earth | In progress - the server flies anywhere; the client draws only around the start |
-| Every runway in the world smooth to roll on | In progress - where two runways cross at different slopes, each nudges the other's surface |
+| Every runway in the world smooth to roll on | In progress - where runways overlap the nearest wins, and elsewhere each is held to 0.1 m of its own line; on the overlaps themselves a runway can still sit up to 0.6 m off |
 
 ### Learning to fly
 
@@ -122,9 +124,9 @@ progress** means much of it runs and the missing part is named.
 
 | Feature | State |
 |---|---|
-| Up to four players | In progress - four machines have flown together; one old fault not yet shown gone on Windows |
+| Up to four players | In progress - four machines have flown together; one old fault not yet shown gone on Windows; joining again no longer goes back to a dead session |
 | The same air for everyone | In progress - on a server the air does not yet rise over hills |
-| Controls that answer immediately (prediction) | In progress - the windowed client does not yet smooth the server's corrections |
+| Controls that answer immediately (prediction) | In progress - the windowed client does not yet smooth the server's corrections; a client is held to its send rates and predicts a stopped engine |
 | Crashes cost a flight, not the session | **Done** |
 | Leaving does not crash the aircraft | **Done** |
 | Run your own server - terminal dashboard, or a window | **Done** |
@@ -234,17 +236,17 @@ flowchart LR
 ## The scale of it
 
 Figures taken from the repository on **2026-10-07**, at `origin/main`
-(`388ed9b`). The first commit was on 2026-09-17.
+(`2912f34`). The first commit was on 2026-09-17.
 
 | | |
 |---|---|
-| Commits on `main` | **553** (`git rev-list --count`) |
-| Pull requests merged | **104** (`gh pr list --state merged`) |
-| First-party code | **~121,000 lines**: `src/` 50,100, `tests/` 60,500, `tools/` 10,500 (`wc -l` of tracked source; `ext/` excluded). Of that, ~90,000 C++ and ~9,600 Python |
-| Tests | **803** registered with ctest (`ctest -N`, linux-debug build of 2026-10-06): 67 unit-test files, 104 scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
-| Completion plan | **95 of 95** phase items ticked across 12 phases; **88** tails done, **42** open; 12 items set aside for later (`docs/COMPLETION_PLAN.md`) |
+| Commits on `main` | **570** (`git rev-list --count`) |
+| Pull requests merged | **109** (`gh pr list --state merged`) |
+| First-party code | **~126,000 lines**: `src/` 51,300, `tests/` 64,100, `tools/` 10,500 (`wc -l` of tracked source; `ext/` excluded) |
+| Tests | **about 930** registered with ctest (803 by `ctest -N` at the last full count, plus the glide, rate-limit, rejoin, aircraft-choice and horizon tests since, counted from the CMake lists): 68 unit-test files, 109 scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
+| Completion plan | **95 of 95** phase items ticked across 12 phases; **94** tails done, **36** open; 12 items set aside for later (`docs/COMPLETION_PLAN.md`) |
 | CI, on every pull request | Ubuntu (debug, release), Rocky Linux 9, macOS 15 (debug, release), Windows (MSVC debug and release, clang-cl) - plus cross-platform flight agreement, the server's container image, and packages run in stock containers. A nightly run repeats the multi-process tests |
-| Living documents | ~25,000 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~19,500 |
+| Living documents | ~26,000 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~20,000 |
 | Aircraft, lessons | 16 aircraft, 15 drawn; a checklist for each, nine phases of flight; 42 lessons across 7 classes |
 
 Some of the discipline behind those numbers (see [`CLAUDE.md`](CLAUDE.md)):
