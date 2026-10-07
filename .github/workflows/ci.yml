@@ -67,7 +67,9 @@ env:
 #     (tools/ci_shard.cmake, from tests/ci_costs/, measured by
 #     tools/ci_test_costs.py), longest first, not by number: dealt by number
 #     (`-I k,,n`) one Linux debug shard took 25 minutes and another 18. Every
-#     shard's job is to stay under two thirds of its 30-minute limit.
+#     shard's job is to stay under two thirds of its 30-minute limit. Linux
+#     debug went from seven shards to ten on 2026-10-07: with the costs
+#     estimated for the newest tests, shards of seven ran past 30 minutes.
 #   - Build and test are separate steps, so each one's time is in plain view.
 #
 # A shard cannot finish sooner than its longest test, which is why no test may
@@ -199,13 +201,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-debug, shard: 1, of: 7 }
-          - { preset: linux-debug, shard: 2, of: 7 }
-          - { preset: linux-debug, shard: 3, of: 7 }
-          - { preset: linux-debug, shard: 4, of: 7 }
-          - { preset: linux-debug, shard: 5, of: 7 }
-          - { preset: linux-debug, shard: 6, of: 7 }
-          - { preset: linux-debug, shard: 7, of: 7 }
+          - { preset: linux-debug, shard: 1, of: 10 }
+          - { preset: linux-debug, shard: 2, of: 10 }
+          - { preset: linux-debug, shard: 3, of: 10 }
+          - { preset: linux-debug, shard: 4, of: 10 }
+          - { preset: linux-debug, shard: 5, of: 10 }
+          - { preset: linux-debug, shard: 6, of: 10 }
+          - { preset: linux-debug, shard: 7, of: 10 }
+          - { preset: linux-debug, shard: 8, of: 10 }
+          - { preset: linux-debug, shard: 9, of: 10 }
+          - { preset: linux-debug, shard: 10, of: 10 }
           - { preset: linux-release, shard: 1, of: 2 }
           - { preset: linux-release, shard: 2, of: 2 }
     env:
