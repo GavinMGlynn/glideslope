@@ -409,7 +409,8 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **Offer the learnt landing in a session.** A player's 172 on final
       is handed to it at its gate on a server and landed (L in the window
       client). Still missing: the server's own AI aircraft are never landed
-      by it, and no test has seen the window client's L or its HUD.
+      by it, and no test has seen the window client's L or its HUD (the
+      tail below stops a keyboard pilot reaching the gate).
       *Verification: an AI aircraft on a server is landed by it when asked,
       and a client's aircraft handed over at the gate is too.*
 - [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
@@ -1159,3 +1160,9 @@ outside resource or a larger project.
       picks the nearest station. *Verification: a flight from one station to
       another flies the nearer's weather, changing between them with no step
       in the wind.*
+- [ ] **The keyboard has no flaps, and a window client joining forgets the
+      server's.** A keyboard pilot cannot set the landing flap, and a client
+      joining starts with the flaps up whatever its aircraft has - so it
+      cannot reach the learnt landing's gate. *Verification: a window client
+      started on final keeps full flap, sets it from the keyboard, and is
+      handed to the learnt landing.*
