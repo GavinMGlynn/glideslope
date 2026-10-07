@@ -28,6 +28,14 @@
 # twelve times too far to hide, before its words were heard after its ticks
 # and once a frame (PROJECT_STATUS.md, 2026-09-30). The same bound holds.
 #
+# **Another player's choice, drawn**, with `-DOTHER_PLAYER=ON -DCLI=<glideslope_cli>`:
+# a second player joins with the command-line client asking for the Piper
+# PA-28 (`connect --aircraft pa28`), and stays until the shot has been
+# written (`--until-exists`): the event, not a time. The client with the
+# window must say it drew two others - the AI's Cessna and the other
+# player's PA-28, each under a number not its own - and drawn means made
+# from that aeroplane's model, since a model is chosen by the id it says.
+#
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
 
@@ -68,14 +76,25 @@ endif()
 # The client connects once the server is flying (client.cmake says why).
 set(_ready "${WORK}/flying")
 file(REMOVE "${_ready}")
+set(_other_player)
+if(OTHER_PLAYER)
+    # Its words go down the pipe; the window client's are what is read. It
+    # joins on the server's own port, not one derived from it.
+    list(APPEND _other_player COMMAND "${CLI}" connect "127.0.0.1:${PORT}" "${_key}" 300
+        --aircraft pa28 --after-ready "${_ready}" --until-exists "${_shot}"
+        --key 9a47cf83f2e50ebb1bb176f4072fa4ad962b89d8cf09527d1ce6abd308f89ba2)
+endif()
 execute_process(
     # Until the client has gone.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
+    ${_other_player}
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1200 --view behind --aircraft f15c --slow-start 5
             ${_slow} --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
-    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+# The window client's is the last.
+list(GET _rcs -1 _rc)
 
 if(NOT EXISTS "${_shot}")
     if(_err MATCHES "no GPU|could not|device")
@@ -102,7 +121,24 @@ endif()
 
 string(REGEX MATCHALL "drew aircraft [0-9]+, the [a-z0-9_-]+, [0-9]+ m away" _drew "${_out}")
 list(LENGTH _drew _drawn)
-if(NOT _drawn EQUAL 1)
+if(OTHER_PLAYER)
+    if(NOT _rcs MATCHES "^0;0;")
+        message(FATAL_ERROR "the server and the other player exited ${_rcs}:\n${_err}")
+    endif()
+    if(NOT _drawn EQUAL 2)
+        message(FATAL_ERROR "the client drew ${_drawn} other aircraft, and there are two - "
+                            "the AI's and the other player's:\n${_out}")
+    endif()
+    if(NOT _out MATCHES "drew aircraft ([0-9]+), the pa28, ([0-9]+) m away")
+        message(FATAL_ERROR "the client did not draw the other player's PA-28:\n${_out}")
+    endif()
+    if(CMAKE_MATCH_1 EQUAL _mine)
+        message(FATAL_ERROR "it drew its own aircraft as the PA-28:\n${_out}")
+    endif()
+    set(_pa28 "${CMAKE_MATCH_1}")
+    list(FILTER _drew EXCLUDE REGEX "the pa28")
+endif()
+if(NOT _drawn EQUAL 1 AND NOT OTHER_PLAYER)
     message(FATAL_ERROR "the client drew ${_drawn} other aircraft, and there is one:\n${_out}")
 endif()
 if(NOT _drew MATCHES "drew aircraft ([0-9]+), the c172p, ([0-9]+) m away")

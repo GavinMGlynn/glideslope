@@ -1177,6 +1177,7 @@ static int run_program(int argc, char** argv) {
         // Each with where its reference point and its pilot's eye are, and
         // only for an aeroplane the catalogue knows.
         struct OtherModel {
+            std::string id; // the catalogue's, which it was read for
             bool known = false;
             std::optional<glideslope::client::Visual> visual;
             glideslope::client::ModelGeometry geometry;
@@ -1186,6 +1187,7 @@ static int run_program(int argc, char** argv) {
             auto found = models.find(id);
             if (found == models.end()) {
                 OtherModel m;
+                m.id = id;
                 if (const auto entry = glideslope::sim::known_aircraft(
                         glideslope::platform::data_directory(), id)) {
                     m.known = true;
@@ -2202,7 +2204,7 @@ static int run_program(int argc, char** argv) {
                     const bool moved = mesh.made && sun.x * mesh.lit_by.x + sun.y * mesh.lit_by.y +
                                                             sun.z * mesh.lit_by.z <
                                                         0.9962;
-                    if (!mesh.made || moved || mesh.aircraft_id != other.aircraft_id) {
+                    if (!mesh.made || moved || mesh.aircraft_id != model.id) {
                         if (mesh.made) {
                             renderer.remove_mesh(mesh.id);
                         }
@@ -2210,7 +2212,8 @@ static int run_program(int argc, char** argv) {
                             glideslope::gfx::mesh_from_model(model.visual->model, sun));
                         mesh.made = true;
                         mesh.lit_by = sun;
-                        mesh.aircraft_id = other.aircraft_id;
+                        // What it was made from, which the shot says.
+                        mesh.aircraft_id = model.id;
                     }
                     glideslope::gfx::Draw draw;
                     draw.mesh = mesh.id;
@@ -2368,14 +2371,21 @@ static int run_program(int argc, char** argv) {
                 // **What it drew of the server's sky, and how its own was
                 // flown**: for a test to read, and for anybody to believe.
                 const glideslope::world::Ecef me = flight->model_placement().origin;
+                // **As the model its mesh was made from**, not as the id it
+                // was told: what is on screen.
                 for (const glideslope::client::Other& other : others_now) {
                     const double away = std::hypot(other.centre.x - me.x, other.centre.y - me.y,
                                                    other.centre.z - me.z);
+                    const auto mesh = other_meshes.find(other.number);
+                    const std::string as =
+                        mesh != other_meshes.end() && mesh->second.made
+                            ? mesh->second.aircraft_id
+                            : (other.aircraft_id.empty() ? std::string("(not yet said)")
+                                                         : "(no model of the " +
+                                                               other.aircraft_id + ")");
                     std::printf("glideslope: drew aircraft %u, the %s, %.0f m away%s\n",
-                                static_cast<unsigned>(other.number),
-                                other.aircraft_id.empty() ? "(not yet said)"
-                                                          : other.aircraft_id.c_str(),
-                                away, other.wrecked ? ", a wreck" : "");
+                                static_cast<unsigned>(other.number), as.c_str(), away,
+                                other.wrecked ? ", a wreck" : "");
                 }
                 std::printf("glideslope: predicted: %zu corrections, the worst %.3f m, "
                             "%zu too large to hide\n",

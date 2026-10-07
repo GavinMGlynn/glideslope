@@ -1071,12 +1071,12 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
 - [ ] **Nothing tests the client with the window in the server's weather.**
       *Verification: the window client on a server with a METAR says it flies
       it, and its prediction error is within the headless client's bound.*
-- [ ] **A player cannot choose an aeroplane on a server**: a player flies
+- [x] **A player cannot choose an aeroplane on a server**: a player flies
       what the server's plan flies. *Verification: a player asks for an
       aeroplane when joining and flies it, and every other client draws it
-      as that aeroplane.* Asking and flying it are done (protocol version
-      04), and every client is told what it is; still missing: a window
-      client shown drawing another player's chosen aeroplane.
+      as that aeroplane.* Done 2026-10-07: asking and flying it (protocol
+      version 04), every client told what it is, and the window client draws
+      another player's PA-28 from the PA-28's model.
 - [x] **Nothing limits how often a client sends**, where REQUIREMENTS 6.2
       asks for rate limits on its inputs and requests. *Verification: a
       client sending faster than a stated rate is held to it, and
