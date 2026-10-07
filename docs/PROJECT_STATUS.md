@@ -319,6 +319,13 @@ to 1,736 steps in 20 s, median nought, worst 0.34 to 0.84 m in five runs.
 1,386 mm, worst 4,024 mm; reverted, it passes. The engine-stop test still
 passes here (14 mm after, 43 mm before).
 
+**From CI (run 37593355936)**: the worst is no longer held - Windows
+release and clang measured 2.8 and 4.2 m with the median 1 mm, the clocks'
+estimate's excursions named above - only said; and the client now stays
+until 300 updates are compared (`connect --until-compared 300`, new), not
+20 s, which compared only 59 and 86 on macOS. The server must end 240 steps
+behind and more. Here: 778 behind, median nought, worst 0.41 m over 300.
+
 ### The window client draws another player's chosen aeroplane as that aeroplane, 2026-10-07 — tail done
 
 **What was missing.** A player could ask for an aeroplane and fly it, and

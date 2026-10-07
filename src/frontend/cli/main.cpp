@@ -152,6 +152,9 @@ ConnectFlood connect_flood;
 // engine had stopped - the event a test of predicting a stopped engine
 // waits for, not a time.
 std::size_t connect_until_engine_compared = 0;
+// **And (`--until-compared N`)**: with `--predict`, stay until N updates have
+// been compared with what was predicted, whatever the engine.
+std::size_t connect_until_compared = 0;
 
 // **The aeroplane asked for** (`connect --aircraft ID`), by its catalogue id,
 // in the initiation's payload (net::write_asked_aircraft) - the first and any
@@ -392,7 +395,8 @@ void print_usage(std::FILE* out) {
         "                            by its catalogue id, as it joins\n"
         "                            --until-engine-compared N (with --predict) stays\n"
         "                            until N updates are compared after the server\n"
-        "                            says its engine has stopped\n"
+        "                            says its engine has stopped; --until-compared N\n"
+        "                            until N updates are compared at all\n"
         "                            --flood (with --fly), once flown, sends 1,000\n"
         "                            pings at 1,000 a second and 50 requests at once,\n"
         "                            says how many pings were answered, and leaves\n"
@@ -1952,6 +1956,7 @@ public:
     // How many updates have been compared since the server said its engine
     // had stopped (`--until-engine-compared`).
     std::size_t compared_engine_stopped() const { return compared_engine_stopped_; }
+    std::size_t compared() const { return compared_; }
 
     std::vector<std::string> report() const {
         std::vector<std::string> lines;
@@ -2453,6 +2458,10 @@ int stay(glideslope::platform::UdpSocket& socket,
         // stopped** (`--until-engine-compared`).
         if (connect_until_engine_compared > 0 && predicting &&
             predicting->compared_engine_stopped() >= connect_until_engine_compared) {
+            break;
+        }
+        if (connect_until_compared > 0 && predicting &&
+            predicting->compared() >= connect_until_compared) {
             break;
         }
         // **Stay until told the ground** (`--until-told-ground`) - and, with
@@ -4045,6 +4054,11 @@ static int run_program(int argc, char** argv) {
                                      glideslope::net::most_asked_aircraft_bytes);
                         return 2;
                     }
+                    continue;
+                }
+                if (args[i] == "--until-compared" && i + 1 < args.size()) {
+                    connect_until_compared =
+                        static_cast<std::size_t>(std::stoul(std::string(args[++i])));
                     continue;
                 }
                 if (args[i] == "--until-engine-compared" && i + 1 < args.size()) {
