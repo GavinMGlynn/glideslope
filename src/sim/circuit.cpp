@@ -1,4 +1,5 @@
 #include "sim/circuit.hpp"
+#include "sim/terrain.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -34,10 +35,40 @@ GoAroundCircuit::GoAroundCircuit(const Aircraft& aircraft, const Runway& runway,
     // where a three-degree glidepath passes through it, a third of a mile
     // more to be a little above the path at the hand-over.
     circuit_ft_ = std::clamp(1000.0 + (speeds_.vref_kts - 60.0) * 8.0, 1000.0, 1500.0);
-    leave_downwind_nm_ = circuit_ft_ / 318.0 + 0.33;
     // Her turn at the downwind speed and a twenty-five-degree bank.
     const double downwind_mps = (speeds_.vref_kts + 20.0) * 0.514444;
     turn_radius_m_ = downwind_mps * downwind_mps / (9.80665 * std::tan(25.0 / degrees));
+    // **Circuit height over the ground it is flown over**, not only over the
+    // runway: the highest ground of her terrain - the collision DEM, on a
+    // server or a client - over the whole of the circuit, sampled every
+    // 250 m from eight miles before the threshold to four past the runway's
+    // end and from 500 m right of the centreline to two turns and two
+    // kilometres left of it, and the circuit raised to be its height over
+    // that where the ground rises above the runway. The downwind leg is then
+    // left further out, where the glidepath meets the raised height.
+    if (const auto& terrain = a_.terrain()) {
+        constexpr double feet_per_metre = 3.280839895013123;
+        constexpr double spacing_m = 250.0;
+        const double h = runway_.heading_deg / degrees;
+        const double lat_m = metres_per_degree_latitude(runway_.threshold_lat_deg);
+        const double lon_m = metres_per_degree_longitude(runway_.threshold_lat_deg);
+        double highest_ft = runway_.elevation_ft;
+        for (double along = -8.0 * metres_per_nm;
+             along <= std::max(runway_.length_m, 3000.0) + 4.0 * metres_per_nm;
+             along += spacing_m) {
+            for (double across = 500.0; across >= -(4.0 * turn_radius_m_ + 2000.0);
+                 across -= spacing_m) {
+                const double north = along * std::cos(h) - across * std::sin(h);
+                const double east = along * std::sin(h) + across * std::cos(h);
+                highest_ft = std::max(highest_ft,
+                                      terrain->height_m(runway_.threshold_lat_deg + north / lat_m,
+                                                        runway_.threshold_lon_deg + east / lon_m) *
+                                          feet_per_metre);
+            }
+        }
+        circuit_ft_ += highest_ft - runway_.elevation_ft;
+    }
+    leave_downwind_nm_ = circuit_ft_ / 318.0 + 0.33;
 }
 
 double GoAroundCircuit::along_nm() const {

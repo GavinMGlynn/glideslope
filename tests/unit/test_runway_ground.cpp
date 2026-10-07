@@ -1128,7 +1128,12 @@ GLIDESLOPE_TEST(a_group_its_ties_would_move_too_far_is_made_from_the_fits_instea
 // hand and handed to the AI on its roll. At Sydney, a C172P rolling at forty
 // knots: down 16R and up it (34L), down 16L beside it, along 07 and back
 // (25); where 07/25 crosses 16R/34L, the one she is rolling along of the two;
-// across 16R, none; and on the grass between the parallels, none.
+// across 16R, none; on the grass between the parallels, none; and 40 m off
+// 16R's centreline towards 16L - off its pavement but on its shoulder, which
+// the index reaches - none. **The crossing is built as a pair**: the place is
+// on both runways' rectangles, so the one she rolls along must be chosen of
+// the two; **and the parallels as a pair**: 16L's place is off 16R's
+// rectangle, and the shoulder's on neither.
 GLIDESLOPE_TEST(an_aircraft_rolling_on_a_runway_of_the_worlds_is_given_that_runway_towards_where_she_rolls_and_off_one_none) {
     const auto surfaces = glideslope::world::runway_surfaces(data());
     struct End {
@@ -1160,6 +1165,22 @@ GLIDESLOPE_TEST(an_aircraft_rolling_on_a_runway_of_the_worlds_is_given_that_runw
     const double t =
         ((c.lat - a.lat) * (d.lon - c.lon) - (c.lon - a.lon) * (d.lat - c.lat)) / denominator;
     const End crossing = between(a, b, t);
+    std::size_t sixteen_right = surfaces->size();
+    std::size_t oh_seven = surfaces->size();
+    std::size_t sixteen_left = surfaces->size();
+    for (std::size_t i = 0; i < surfaces->size(); ++i) {
+        const RunwayStrip& r = surfaces->at(i).strip;
+        if (r.airport == "YSSY") {
+            (r.le_ident == "16R" ? sixteen_right
+             : r.le_ident == "07" ? oh_seven
+                                  : sixteen_left) = i;
+        }
+    }
+    const auto on = [&](std::size_t i, const End& at) {
+        return surfaces->place(i, at.lat, at.lon).outside_m <= 0.0;
+    };
+    check(on(sixteen_right, crossing) && on(oh_seven, crossing),
+          "the crossing is on both 16R/34L's rectangle and 07/25's");
     struct Case {
         std::string where;
         End at;
@@ -1168,6 +1189,25 @@ GLIDESLOPE_TEST(an_aircraft_rolling_on_a_runway_of_the_worlds_is_given_that_runw
     };
     const End middle_16r = between(a, b, 0.5);
     const End middle_16l = between(ends["16L"], ends["34R"], 0.5);
+    // Forty metres from 16R's centreline square to it, towards 16L (east,
+    // on its left looking down it).
+    const double towards_16l = (heading(a, b) - 90.0) * 3.14159265358979 / 180.0;
+    const End shoulder_16r{
+        middle_16r.lat + 40.0 * std::cos(towards_16l) / 111132.0,
+        middle_16r.lon + 40.0 * std::sin(towards_16l) /
+                             (111320.0 * std::cos(middle_16r.lat * 3.14159265358979 / 180.0))};
+    std::printf("  16R at 16L's middle %.1f m out, 16L at 16R's %.1f, the shoulder %.1f and %.1f, "
+                "16L's middle %.1f\n",
+                surfaces->place(sixteen_right, middle_16l.lat, middle_16l.lon).outside_m,
+                surfaces->place(sixteen_left, middle_16r.lat, middle_16r.lon).outside_m,
+                surfaces->place(sixteen_right, shoulder_16r.lat, shoulder_16r.lon).outside_m,
+                surfaces->place(sixteen_left, shoulder_16r.lat, shoulder_16r.lon).outside_m,
+                surfaces->place(sixteen_left, middle_16l.lat, middle_16l.lon).outside_m);
+    check(!on(sixteen_right, middle_16l) && !on(sixteen_left, middle_16r) &&
+              !on(sixteen_right, shoulder_16r) && !on(sixteen_left, shoulder_16r) &&
+              on(sixteen_left, middle_16l),
+          "the parallels are a pair: each place on its own rectangle and off the other's, "
+          "and 16R's shoulder on neither");
     const std::vector<Case> cases{
         {"down 16R", between(a, b, 0.3), heading(a, b), "YSSY 16R"},
         {"up 34L", between(a, b, 0.7), heading(b, a), "YSSY 34L"},
@@ -1178,6 +1218,7 @@ GLIDESLOPE_TEST(an_aircraft_rolling_on_a_runway_of_the_worlds_is_given_that_runw
         {"along 07 at the crossing", crossing, heading(c, d), "YSSY 07"},
         {"across 16R", middle_16r, std::fmod(heading(a, b) + 90.0, 360.0), ""},
         {"between the parallels", between(middle_16r, middle_16l, 0.5), heading(a, b), ""},
+        {"on 16R's shoulder", shoulder_16r, heading(a, b), ""},
     };
     const auto ground = [](double, double) { return 6.0; };
     std::size_t walked = 0;
@@ -1207,5 +1248,5 @@ GLIDESLOPE_TEST(an_aircraft_rolling_on_a_runway_of_the_worlds_is_given_that_runw
         }
         ++walked;
     }
-    check(walked == 9 && cases.size() == 9, "nine cases walked of nine");
+    check(walked == 10 && cases.size() == 10, "ten cases walked of ten");
 }

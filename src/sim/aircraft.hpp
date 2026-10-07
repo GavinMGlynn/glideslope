@@ -322,6 +322,8 @@ public:
     // not ditch: before every step its water is put where the terrain's is,
     // and out of its reach over land. The aircraft keeps the terrain alive.
     void set_terrain(std::shared_ptr<Terrain> terrain);
+    // The terrain she stands on, or none before one is set.
+    const std::shared_ptr<Terrain>& terrain() const { return terrain_; }
 
     // Flies the aircraft in `weather` from now on: before every step, JSBSim's
     // wind, temperature, pressure and turbulence are set from the conditions

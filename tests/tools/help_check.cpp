@@ -140,9 +140,10 @@ int check_layout() {
                         c.layout.left + static_cast<int>(c.columns) * c.layout.cell_width();
                     const int foot = c.layout.top +
                                      static_cast<int>(c.lines.size()) * c.layout.cell_height();
-                    if (c.layout.left < right_before || right > width || foot > bottom - c.layout.cell_height()) {
-                        fail(where + ": a column is outside the frame, less than a line above the bottom or "
-                                     "over the one before");
+                    if (c.layout.left < right_before || right > width ||
+                        foot > bottom - c.layout.cell_height()) {
+                        fail(where + ": a column is outside the frame, less than a line "
+                                     "above the bottom or over the one before");
                     }
                     right_before = right;
                     drawn += c.lines.size();
@@ -166,7 +167,8 @@ int check_layout() {
                         }
                     }
                 }
-                if (said_cut ? in_order != drawn - 1 : (drawn != help.size() || in_order != drawn)) {
+                const bool all_drawn = drawn == help.size() && in_order == drawn;
+                if (said_cut ? in_order != drawn - 1 : !all_drawn) {
                     fail(where + ": " + std::to_string(drawn) + " lines drawn, " +
                          std::to_string(in_order) + " of them the help's in order, " +
                          (said_cut ? "and it says it is cut" : "and it does not say it is cut"));

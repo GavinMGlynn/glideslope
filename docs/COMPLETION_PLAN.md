@@ -856,11 +856,27 @@ Found while implementing something else. Added when found, not when remembered.
       aeroplane lands light, heavy and in gusts with none named, and a
       gust on an approach flown well makes no go-around.*
 - [ ] **The AI does not go around from a landing that is only long or
-      fast.** Since 2026-10-08 a go-around is cleaned up and flown round a
-      circuit to land again, and the AI can be told to go around; but only a
-      balloon makes it go around by itself. *Verification: an aeroplane that
-      goes around is flown round and landed (done), and one arriving long or
-      fast goes around.*
+      fast, and its circuit knows no traffic.** Since 2026-10-08 a go-around
+      is cleaned up and flown round a circuit, at its height over the
+      highest ground of it, to land again; but only a balloon makes it go
+      around by itself, and nothing sequences it with other aircraft in the
+      circuit beyond the separation monitor's height limits. *Verification:
+      an aeroplane that goes around is flown round and landed (done), one
+      arriving long or fast goes around, and two going around together are
+      kept apart and both land.*
+- [ ] **The F-35B climbs away on a raised go-around circuit**: over ground
+      rising beside the runway, on the downwind leg at 2,900 ft she climbs
+      to 6,000 ft and flies on past base. *Verification: she flies the
+      rising-ground go-around and lands, as the other twelve do.*
+- [ ] **The circuit's rules are written twice**: the go-around's circuit
+      and the circuit lessons' AI fly the same legs from separate code, and
+      the metres in a degree are worked out in three places. *Verification:
+      the circuit lessons are flown by the go-around's circuit, with their
+      figures unchanged.*
+- [ ] **A landing taken over on its roll is braked for a dry runway**: a
+      wet or contaminated one, which needs more, is not known.
+      *Verification: on a wet short runway an aeroplane handed over on its
+      roll still stops on it.*
 - [x] **The B-2A cannot slow down on the approach.** *Verification: the
       B-2A crosses the threshold within five knots of its reference speed,
       and rises less than half a foot after it first touches.* Done
