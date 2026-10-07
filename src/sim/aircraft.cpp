@@ -8,6 +8,8 @@
 
 #include <FGFDMExec.h>
 #include <input_output/FGGroundCallback.h>
+#include <input_output/FGXMLElement.h>
+#include <input_output/FGXMLFileRead.h>
 #include <initialization/FGInitialCondition.h>
 #include <initialization/FGTrim.h>
 #include <input_output/FGPropertyManager.h>
@@ -33,6 +35,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <sstream>
 #include <functional>
 #include <stdexcept>
 #include <string>
@@ -169,6 +173,128 @@ CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::stri
 
 } // namespace
 
+namespace {
+
+// **The angles of attack and sideslip the model's aerodynamics has data
+// for**: the widest breakpoints of every table in its <aerodynamics> keyed on
+// aero/alpha-rad or -deg, and on aero/beta-rad or -deg (aero/mag-beta-rad
+// either way). Past them every table holds its last value - and a departure
+// there has been seen to carry the state to a NaN, which a debug JSBSim
+// asserts on in a table lookup (MSVC's, the F-22A at 130 kt, 2026-10-07).
+struct Tabulated {
+    double alpha_low = std::numeric_limits<double>::infinity();
+    double alpha_high = -std::numeric_limits<double>::infinity();
+    double beta_low = std::numeric_limits<double>::infinity();
+    double beta_high = -std::numeric_limits<double>::infinity();
+};
+
+std::vector<double> numbers_in(const std::string& line) {
+    std::istringstream in(line);
+    std::vector<double> out;
+    double v = 0.0;
+    while (in >> v) {
+        out.push_back(v);
+    }
+    return out;
+}
+
+void read_tables(JSBSim::Element* el, Tabulated& t) {
+    if (el->GetName() == "table") {
+        // Each axis's property, and the keys of each: the row's the first
+        // number of every line (after the column keys' line, if any), the
+        // column's that first line, the table's each tableData's breakPoint.
+        std::string row;
+        std::string column;
+        std::string layer;
+        for (unsigned int i = 0; i < el->GetNumElements(); ++i) {
+            JSBSim::Element* c = el->GetElement(i);
+            if (c->GetName() != "independentVar") {
+                continue;
+            }
+            const std::string lookup = c->GetAttributeValue("lookup");
+            const std::string name = c->GetDataLine();
+            if (lookup == "column" || lookup == "axis2") {
+                column = name;
+            } else if (lookup == "table" || lookup == "axis3") {
+                layer = name;
+            } else {
+                row = name;
+            }
+        }
+        const auto take = [&](const std::string& property, double key) {
+            double k = key;
+            if (property.find("-deg") != std::string::npos) {
+                k = key * 3.14159265358979323846 / 180.0;
+            }
+            if (property.rfind("aero/alpha-", 0) == 0) {
+                t.alpha_low = std::min(t.alpha_low, k);
+                t.alpha_high = std::max(t.alpha_high, k);
+            } else if (property.rfind("aero/beta-", 0) == 0) {
+                t.beta_low = std::min(t.beta_low, k);
+                t.beta_high = std::max(t.beta_high, k);
+            } else if (property.rfind("aero/mag-beta-", 0) == 0) {
+                t.beta_low = std::min(t.beta_low, -std::abs(k));
+                t.beta_high = std::max(t.beta_high, std::abs(k));
+            }
+        };
+        for (unsigned int i = 0; i < el->GetNumElements(); ++i) {
+            JSBSim::Element* data = el->GetElement(i);
+            if (data->GetName() != "tableData") {
+                continue;
+            }
+            if (!layer.empty() && data->HasAttribute("breakPoint")) {
+                take(layer, std::stod(data->GetAttributeValue("breakPoint")));
+            }
+            const unsigned int first = column.empty() ? 0u : 1u;
+            if (!column.empty() && data->GetNumDataLines() > 0) {
+                for (const double k : numbers_in(data->GetDataLine(0))) {
+                    take(column, k);
+                }
+            }
+            for (unsigned int l = first; l < data->GetNumDataLines(); ++l) {
+                const std::vector<double> n = numbers_in(data->GetDataLine(l));
+                if (!n.empty()) {
+                    take(row, n.front());
+                }
+            }
+        }
+        return;
+    }
+    for (unsigned int i = 0; i < el->GetNumElements(); ++i) {
+        read_tables(el->GetElement(i), t);
+    }
+}
+
+Tabulated tabulated(const std::filesystem::path& file) {
+    Tabulated t;
+    JSBSim::FGXMLFileRead reader;
+    const std::u8string utf8 = file.u8string();
+    JSBSim::Element* root =
+        reader.LoadXMLDocument(SGPath::fromUtf8(std::string(utf8.begin(), utf8.end())), false);
+    if (root == nullptr) {
+        return t;
+    }
+    for (JSBSim::Element* aero = root->FindElement("aerodynamics"); aero != nullptr;
+         aero = root->FindNextElement("aerodynamics")) {
+        // Its aerodynamics may be a file of its own, beside the model's.
+        const std::string other = aero->GetAttributeValue("file");
+        if (other.empty()) {
+            read_tables(aero, t);
+            continue;
+        }
+        JSBSim::FGXMLFileRead other_reader;
+        const std::u8string path = (file.parent_path() / other).u8string();
+        JSBSim::Element* in_its_file = other_reader.LoadXMLDocument(
+            SGPath::fromUtf8(std::string(path.begin(), path.end())), false);
+        if (in_its_file != nullptr) {
+            read_tables(in_its_file, t);
+        }
+    }
+    return t;
+}
+
+} // namespace
+
 Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model)
     : Aircraft(jsbsim_root, model, from_catalogue(jsbsim_root.parent_path(), model)) {}
 
@@ -195,6 +321,13 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
     // A flying boat on JSBSim's own ground, which is land, has no water within
     // reach until a terrain says where water is (apply_ground).
     hydrodynamics_ = exec_->GetPropertyManager()->HasNode(water_level);
+    const Tabulated t = tabulated(jsbsim_root / "aircraft" / model / (model + ".xml"));
+    if (t.alpha_low <= t.alpha_high) {
+        alpha_range_rad_ = {t.alpha_low, t.alpha_high};
+    }
+    if (t.beta_low <= t.beta_high) {
+        beta_range_rad_ = {t.beta_low, t.beta_high};
+    }
     if (hydrodynamics_) {
         exec_->SetPropertyValue(water_level, out_of_reach_ft);
     }
@@ -1030,6 +1163,13 @@ double Aircraft::value(const std::string& name) const {
 
 bool Aircraft::has_property(const std::string& name) const {
     return node(name) != nullptr;
+}
+
+bool Aircraft::outside_its_tables() const {
+    const double alpha = property("aero/alpha-rad");
+    const double beta = property("aero/beta-rad");
+    return !(alpha >= alpha_range_rad_.first && alpha <= alpha_range_rad_.second) ||
+           !(beta >= beta_range_rad_.first && beta <= beta_range_rad_.second);
 }
 
 double Aircraft::property(const std::string& name) const {

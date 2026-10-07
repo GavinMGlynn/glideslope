@@ -2,6 +2,7 @@
 
 #include <array>
 #include <filesystem>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -427,6 +428,20 @@ public:
     // propeller. Throws std::out_of_range for a property the model does not
     // have.
     double property(const std::string& name) const;
+
+    // **Whether its angle of attack or sideslip is past what its
+    // aerodynamics' tables hold** - the widest breakpoints of any table keyed
+    // on either, read from the model when it loads - or is not a number. A
+    // trial stops a flight there and judges it not held: past them the model
+    // only holds its tables' last values, and a departure has carried the
+    // state to a NaN that a debug JSBSim asserts on.
+    bool outside_its_tables() const;
+    std::pair<double, double> alpha_range_rad() const {
+        return alpha_range_rad_;
+    }
+    std::pair<double, double> beta_range_rad() const {
+        return beta_range_rad_;
+    }
     // Whether this model has the property at all.
     bool has_property(const std::string& name) const;
     // Whether any of its gear retracts. JSBSim has a gear command for every
@@ -457,6 +472,10 @@ private:
     bool mixture_lever_ = false;
     double full_rich_below_ft_ = 0.0;
     bool speedbrakes_ = false;
+    std::pair<double, double> alpha_range_rad_{-std::numeric_limits<double>::infinity(),
+                                               std::numeric_limits<double>::infinity()};
+    std::pair<double, double> beta_range_rad_{-std::numeric_limits<double>::infinity(),
+                                              std::numeric_limits<double>::infinity()};
     double yaw_damper_per_degps_ = 0.05;
     double rudder_integral_rate_ = 0.05;
     std::string model_;

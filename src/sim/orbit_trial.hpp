@@ -41,10 +41,14 @@ struct OrbitFlown {
     double worst_height_ft = 0.0; // off the orbit's height, either way
     double slowest_kts = 0.0;     // calibrated
     double fastest_kts = 0.0;
+    // **Past its tables**: its alpha or sideslip left what its aerodynamics'
+    // tables hold (Aircraft::outside_its_tables), and the flight was stopped
+    // there - not held, whatever else it did.
+    bool left_tables = false;
 
     // Its height within 50 ft and its speed within 5 kt of what was asked.
     bool held(double asked_kts) const {
-        return passed_on && worst_height_ft <= 50.0 && slowest_kts >= asked_kts - 5.0 &&
+        return !left_tables && passed_on && worst_height_ft <= 50.0 && slowest_kts >= asked_kts - 5.0 &&
                fastest_kts <= asked_kts + 5.0;
     }
 };
@@ -63,10 +67,14 @@ struct CrosswindFlown {
     double slowest_kts = 0.0;
     // From the start:
     double most_sideslip_ever_deg = 0.0;
+    // **Past its tables**: its alpha or sideslip left what its aerodynamics'
+    // tables hold (Aircraft::outside_its_tables), and the flight was stopped
+    // there - not held, whatever else it did.
+    bool left_tables = false;
 
     // Its sideslip within a degree and its heading within two.
     bool held() const {
-        return -least_sideslip_deg <= 1.0 && most_sideslip_deg <= 1.0 &&
+        return !left_tables && -least_sideslip_deg <= 1.0 && most_sideslip_deg <= 1.0 &&
                worst_heading_deg <= 2.0;
     }
 };
@@ -104,8 +112,12 @@ struct GlideOrbitFlown {
     // a deep stall (the F-15C's peaked at 35.7 degrees as she settled at 43).
     // No glide flown unstalled in the roster passes 19 (the F-35B at 204 kt).
     static constexpr double alpha_ceiling_deg = 25.0;
+    // **Past its tables**: its alpha or sideslip left what its aerodynamics'
+    // tables hold (Aircraft::outside_its_tables), and the flight was stopped
+    // there - not held, whatever else it did.
+    bool left_tables = false;
     bool stalled() const {
-        return most_alpha_deg > alpha_at_most_lift_deg + 0.5 ||
+        return left_tables || most_alpha_deg > alpha_at_most_lift_deg + 0.5 ||
                most_alpha_deg > alpha_ceiling_deg;
     }
     // Round once, or stopped at 1,000 ft before it was (a fast glide on a
@@ -122,7 +134,8 @@ GlideOrbitFlown glide_tightest_orbit(const std::filesystem::path& data,
 // over Sydney in calm air, heading north, from `from_kts`, the autopilot
 // holding the height and asked for far more speed than it has, until the
 // speed settles - its average over thirty seconds moving less than 0.1 kt
-// from the thirty before - or fifteen minutes have gone.
+// from the thirty before - or fifteen minutes have gone. 0 where its alpha
+// or sideslip leaves what its tables hold first (Aircraft::outside_its_tables).
 double full_throttle_level_kts(const std::filesystem::path& data, const CatalogueEntry& entry,
                                double from_kts);
 

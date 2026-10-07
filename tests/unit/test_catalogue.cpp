@@ -3,6 +3,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/orbit_trial.hpp"
 #include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
 
@@ -750,4 +751,64 @@ GLIDESLOPE_TEST(the_f15cs_speedbrake_stays_in_past_fifteen_degrees_of_alpha_with
     const auto [pulled_alpha, pulled_out] = fly(true);
     check(pulled_alpha > 15.0, "pulled, she has been past 15 degrees of alpha three seconds");
     check(pulled_out < 0.01, "and her speedbrake is in, the lever still out");
+}
+
+// **Every aircraft knows the angles of attack and sideslip its aerodynamics'
+// tables hold** (Aircraft::alpha_range_rad, beta_range_rad), read from its
+// model: finite, and holding level flight's - 0 to 10 degrees of alpha and
+// either side of no sideslip - for all sixteen. A trial stops a flight past
+// them (sim/orbit_trial.hpp). A model with no table keyed on sideslip has no
+// bound on it, and is named.
+GLIDESLOPE_TEST(every_aircraft_knows_the_alpha_and_sideslip_its_tables_hold) {
+    const std::vector<std::string> no_sideslip_table = {
+        "a380", "b2", "f15c", "f35b", "learjet35a", "mosquito-fb6", "pa28", "short_s23"};
+    const auto roster = glideslope::sim::read_catalogue(data());
+    std::size_t read = 0;
+    std::size_t unbounded = 0;
+    std::string failures;
+    constexpr double deg = 180.0 / 3.14159265358979323846;
+    for (const CatalogueEntry& e : roster) {
+        const glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        const auto [alpha_low, alpha_high] = aircraft.alpha_range_rad();
+        const auto [beta_low, beta_high] = aircraft.beta_range_rad();
+        std::printf("  %-13s alpha %7.1f to %6.1f, sideslip %7.1f to %6.1f degrees\n",
+                    e.id.c_str(), alpha_low * deg, alpha_high * deg, beta_low * deg,
+                    beta_high * deg);
+        if (!(std::isfinite(alpha_low) && std::isfinite(alpha_high) && alpha_low <= 0.0 &&
+              alpha_high >= 10.0 / deg)) {
+            failures += "\n  " + e.id + "'s alpha tables do not hold 0 to 10 degrees";
+        }
+        if (std::find(no_sideslip_table.begin(), no_sideslip_table.end(), e.id) !=
+            no_sideslip_table.end()) {
+            if (!(std::isinf(beta_low) && std::isinf(beta_high))) {
+                failures += "\n  " + e.id + " is named without a sideslip table and has one";
+            }
+            ++unbounded;
+        } else {
+            if (!(std::isfinite(beta_low) && std::isfinite(beta_high) && beta_low < 0.0 &&
+                  beta_high > 0.0)) {
+                failures += "\n  " + e.id + "'s sideslip tables do not hold either side of none";
+            }
+        }
+        ++read;
+    }
+    check(failures.empty(), "each as stated:" + failures);
+    check(read == roster.size() && read == 16 && unbounded == no_sideslip_table.size(),
+          "all sixteen read, and each named without a sideslip table is one");
+}
+
+// **A trial stops a flight that leaves its tables, and judges it not held**:
+// the F-22A at 130 kt in calm air, clean at 3,000 ft on the autopilot -
+// 10 kt under her slowest - departs, her alpha past the 90 degrees her
+// tables hold, her sideslip 10 by then. Flown on, MSVC's debug JSBSim asserted in a table lookup
+// (CI run 37609045925); stopped there, nothing is looked up past them.
+GLIDESLOPE_TEST(a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables_and_judges_it_not_held) {
+    const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "f22");
+    const glideslope::sim::CrosswindFlown f =
+        glideslope::sim::fly_heading_in_crosswind(data(), e, 130.0, false);
+    std::printf("  f22 at 130 kt in calm air: left its tables %s, sideslip at most %.1f\n",
+                f.left_tables ? "yes" : "no", f.most_sideslip_ever_deg);
+    check(f.left_tables, "she left her tables, and the flight was stopped");
+    check(f.most_sideslip_ever_deg <= 90.0, "no step was looked up past them");
+    check(!f.held(), "and it is not held");
 }

@@ -351,14 +351,32 @@ aircraft (a third, within two degrees) had spun the S.23 in her stall lesson
   estimates - each one's linux-release time here, times 30 for linux-debug,
   25 windows-debug, 10 macos-debug, 1.2 the releases - and the B-2A's glide
   bands at the old bands', until `tools/ci_test_costs.py` measures them.
-- **Open, found on CI (run 37609045925): windows-debug fails
+- **Found on CI (run 37609045925), fixed: windows-debug failed
   `the_f22a_holds_nothing_a_plan_asks_one_step_past_its_slowest`** on a
   JSBSim debug assertion (`FGTable.cpp` line 618, `Factor >= 0.0 && Factor
   <= 1.0`). One step past her new slowest is 130 kt, where in calm air she
-  departs (sideslip -81 to +90 degrees here, on Linux, where it passes); on
-  MSVC's debug build the departure reaches a table lookup out of range.
-  Her old step past, 245 kt, never departed. Not yet fixed: why her state
-  leaves a table's range there is not found.
+  departs: her alpha passes the 90 degrees her aerodynamics' tables hold.
+  A key past a table's ends does not trip that assertion - `GetValue` holds
+  the end value - so what it caught is a key that is not a number: flown on
+  past its tables, the departure carried MSVC's state to a NaN (GCC's
+  stayed finite, and Linux debug passed). **Every trial now stops a flight
+  whose alpha or sideslip leaves its tables, and judges it not held**
+  (`Aircraft::outside_its_tables`, in `fly_heading_in_crosswind`,
+  `fly_tightest_orbit`, `glide_tightest_orbit` and `full_throttle_level_kts`;
+  `left_tables` in their results). The ranges are read from each model when
+  it loads: the widest breakpoints of every table in its `<aerodynamics>` -
+  or the file that names - keyed on alpha or sideslip. Most hold -90 to 90
+  degrees of both; the A320's and the Cessnas' alpha -5.2 to 20.6, the
+  Cherokee's -10 to 20, the Mosquito's -10 to 50, the S.23's -16 to 24; eight
+  have no table keyed on sideslip and so no bound on it (named in the test).
+  - `every_aircraft_knows_the_alpha_and_sideslip_its_tables_hold` (new): all
+    sixteen, each holding 0 to 10 degrees of alpha and either side of no
+    sideslip, the eight without a sideslip table named.
+  - `a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables_and_judges_it_not_held`
+    (new): the F-22A at 130 kt in calm air is stopped with her sideslip at
+    10.4 degrees, not held. **Seen to fail** with `outside_its_tables`
+    always false: flown on, her sideslip reached 89.7.
+  - On Windows debug (`tools/windows_build.sh`): see the verification below.
 
 ### The F-15C's speedbrake draws drag, and stays in past 15 degrees of alpha, 2026-10-07 — tail done
 
