@@ -230,6 +230,7 @@ struct CatalogueFacts {
     std::optional<double> climb_floor_kts;
     bool mixture_lever = false;
     double full_rich_below_ft = 0.0;
+    bool speedbrakes = false;
 };
 
 // One aircraft: a JSBSim instance loaded from model files.
@@ -277,6 +278,15 @@ public:
     // `mixture-lever FULL_RICH_BELOW_FT`.
     double full_rich_below_ft() const {
         return full_rich_below_ft_;
+    }
+
+    // **Whether the speedbrake lever does anything**: the catalogue's
+    // `speedbrakes`, held to the flight model by a test that flies every
+    // aircraft with the lever in and out. What the HUD and a state update
+    // read to show the lever only where there is one. False for a model
+    // loaded where there is no catalogue.
+    bool speedbrakes() const {
+        return speedbrakes_;
     }
 
     // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
@@ -433,6 +443,7 @@ private:
     std::optional<double> climb_floor_kts_;
     bool mixture_lever_ = false;
     double full_rich_below_ft_ = 0.0;
+    bool speedbrakes_ = false;
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;

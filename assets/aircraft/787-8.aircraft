@@ -13,3 +13,5 @@ name Boeing 787-8
 model 787-8
 class airliner
 start 250 0.46
+# The speedbrake lever works its speedbrakes or spoilers (src/sim/catalogue.hpp).
+speedbrakes

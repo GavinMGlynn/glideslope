@@ -830,13 +830,21 @@ Found while implementing something else. Added when found, not when remembered.
       and rises less than half a foot after it first touches.* Done
       2026-10-02: flown down with her drag rudders half open she crosses at
       124.1 knots against 124.0, and flared to her wheels she rises 0.0 ft.
-      A pilot still cannot open them by hand (the speedbrake item below).
-- [ ] **A pilot has no control for the speedbrakes.** No stick, throttle or
+      A pilot opens them by hand since the speedbrake item below.
+- [x] **A pilot has no control for the speedbrakes.** No stick, throttle or
       key binding moves the speedbrake lever, so by hand the B-2A cannot open
       its drag rudders and an airliner cannot use its spoilers.
       *Verification: the speedbrake lever is moved from a stick, a throttle
       quadrant and the keyboard, and the bomber lessons' bands come back to
-      what the AI flies.*
+      what the AI flies.* Done 2026-10-07: a stick's and a quadrant's buttons,
+      the quadrant's last lever, and the semicolon and apostrophe keys move
+      it; the HUD shows it where there are speedbrakes; the bomber lessons'
+      bands are `vref+12` and `vref+15` again, and flown by hand with the
+      lever half out the B-2A stays inside, and stowed she does not.
+- [ ] **The F-15C's speedbrake draws no drag.** Her model moves the surface
+      but its aerodynamics ignores it, so the lever does nothing in her.
+      *Verification: with the lever out she slows, held level, as the
+      airliners do.*
 - [x] **The Learjet's stabilizer cannot trim her in cruise**, so a pilot
       flying by hand holds the stick forward. *Verification: the Learjet
       cruises from 250 to 350 knots with its elevator near neutral.* Done

@@ -50,8 +50,9 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // Version 4: the same ground, rules 1, and the aeroplane a player asks for
 // and the engine stopped named. Version 5: the same strips, rules 2 - where
 // runways overlap the nearest wins, so that one's shoulder no longer pulls
-// another's pavement.
-inline constexpr std::uint8_t protocol_version = 5;
+// another's pavement. Version 6: the same ground, and a watched aircraft's
+// speedbrake lever in a state update.
+inline constexpr std::uint8_t protocol_version = 6;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.

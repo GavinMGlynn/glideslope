@@ -2230,6 +2230,7 @@ static int run_program(int argc, char** argv) {
                         shown.throttle = c->throttle;
                         shown.flaps = c->flaps;
                         shown.gear = c->gear;
+                        shown.speedbrake = c->speedbrake;
                         r.controls = shown;
                     }
                     readings = r;

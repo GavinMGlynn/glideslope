@@ -2357,6 +2357,9 @@ public:
             if (m.gear_retracts()) {
                 w.gear = m.property("gear/gear-cmd-norm");
             }
+            if (m.speedbrakes()) {
+                w.speedbrake = m.property("fcs/speedbrake-cmd-norm");
+            }
             return w;
         }
         return std::nullopt;

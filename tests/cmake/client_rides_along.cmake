@@ -193,9 +193,13 @@ foreach(_line IN ITEMS "FLYING AI" "STICK [-+][0-9]\\.[0-9][0-9] [-+][0-9]\\.[0-
         message(FATAL_ERROR "the HUD did not read \"${_line}\" riding along:\n${_out}")
     endif()
 endforeach()
-# A Cessna's gear does not retract, and the HUD says nothing of it.
+# A Cessna's gear does not retract, and the HUD says nothing of it; nor of
+# speedbrakes, which she has none of.
 if(_out MATCHES "the HUD reads GEAR")
     message(FATAL_ERROR "the HUD showed a gear the Cessna does not have:\n${_out}")
+endif()
+if(_out MATCHES "the HUD reads SPEEDBRAKE")
+    message(FATAL_ERROR "the HUD showed speedbrakes the Cessna does not have:\n${_out}")
 endif()
 message(STATUS "rode along in the AI's Cessna, the camera ${_away} m from its centre, "
                "its instruments and controls on the HUD")

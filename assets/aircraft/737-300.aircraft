@@ -13,3 +13,5 @@ name Boeing 737-300
 model 737-300
 class airliner
 start 250 0.53
+# The speedbrake lever works its speedbrakes or spoilers (src/sim/catalogue.hpp).
+speedbrakes

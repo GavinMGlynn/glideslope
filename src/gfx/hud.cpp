@@ -191,6 +191,10 @@ std::vector<std::string> hud_lines(const HudReadings& r) {
         if (c.gear) {
             lines.emplace_back(*c.gear >= 0.5 ? "GEAR DOWN" : "GEAR UP");
         }
+        if (c.speedbrake) {
+            std::snprintf(buffer, sizeof buffer, "SPEEDBRAKE %.2f", *c.speedbrake);
+            lines.emplace_back(buffer);
+        }
     }
     return lines;
 }

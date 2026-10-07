@@ -14,3 +14,5 @@ name Airbus A380-841
 model a380
 class airliner
 start 250 0.57
+# The speedbrake lever works its speedbrakes or spoilers (src/sim/catalogue.hpp).
+speedbrakes

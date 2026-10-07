@@ -338,8 +338,9 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_clients_own_motion) {
 
 // **A state packet carries the controls of the aircraft its client watches**,
 // and reads them back as they went, to the wire's 16-bit fraction: gear that
-// retracts and gear that does not, the flag walked, and the value that means
-// "fixed" refused in every control but the gear.
+// retracts and gear that does not, speedbrakes and none (since version 06),
+// the flag walked, and the value that means "fixed" refused in every control
+// but the gear and the speedbrake lever.
 GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_watches) {
     StatePacket s = a_packet(3);
     glideslope::net::Watched w;
@@ -350,6 +351,7 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_w
     w.throttle = 0.75;
     w.flaps = 0.33;
     w.gear = 1.0;
+    w.speedbrake = 0.5;
     s.watched = w;
     const auto with = write_state(s);
     check(with.has_value() && with->size() == glideslope::net::state_bytes(3, false, true),
@@ -362,13 +364,25 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_w
     const glideslope::net::Watched& got = *back->watched;
     check(near(got.aileron, 0.25) && near(got.elevator, -0.5) && near(got.rudder, 1.0) &&
               near(got.throttle, 0.75) && near(got.flaps, 0.33) && got.gear &&
-              near(*got.gear, 1.0),
-          "every control to the wire's fraction");
+              near(*got.gear, 1.0) && got.speedbrake && near(*got.speedbrake, 0.5),
+          "every control to the wire's fraction, the speedbrake lever with them");
 
     // Gear that does not retract is said to, and read back as none.
     s.watched->gear.reset();
     const auto fixed = read_state(all_of(*write_state(s)));
     check(fixed && fixed->watched && !fixed->watched->gear, "fixed gear is read back as none");
+    // And an aircraft without speedbrakes is said to have none, and read
+    // back so: not as a lever stowed.
+    s.watched->speedbrake.reset();
+    const auto unbraked = read_state(all_of(*write_state(s)));
+    check(unbraked && unbraked->watched && !unbraked->watched->speedbrake &&
+              !unbraked->watched->gear,
+          "no speedbrakes are read back as none");
+    s.watched->speedbrake = 0.0;
+    const auto stowed = read_state(all_of(*write_state(s)));
+    check(stowed && stowed->watched && stowed->watched->speedbrake &&
+              *stowed->watched->speedbrake == 0.0,
+          "and speedbrakes stowed as stowed");
 
     // The flag: nought and one, and nothing else.
     const auto without = write_state(a_packet(3));
@@ -384,7 +398,7 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_w
                               std::to_string(refused) + " of 254");
 
     // "Fixed" in any of the five controls that are not the gear.
-    const std::size_t first = glideslope::net::state_bytes(3, false, true) - 12;
+    const std::size_t first = glideslope::net::state_bytes(3, false, true) - 14;
     std::size_t controls = 0;
     for (std::size_t i = 0; i < 5; ++i) {
         auto bytes = *with;

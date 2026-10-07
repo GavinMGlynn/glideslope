@@ -6,7 +6,8 @@
 // The frame tests read the HUD back out of a shot and hold it to the flight
 // model, but a shot only has what its flight had: the flaps up, and the gear
 // down or fixed. This walks what they cannot reach - flaps part and all the
-// way down, the gear up, down and fixed, and each way of saying who is flying -
+// way down, the gear up, down and fixed, the speedbrakes none, stowed, half
+// and fully out, and each way of saying who is flying -
 // through gfx::hud_lines, and holds every line to what it must say. Every case
 // is counted, and the count held to the number there are. Exits 0 if all is
 // well, 1 with the first case wrong.
@@ -48,6 +49,14 @@ int main() {
     glideslope::gfx::ControlsShown fixed = cruise;
     fixed.flaps = 0.33;
     fixed.gear.reset();
+    // Speedbrakes stowed, half out and fully out, after the gear and with no
+    // gear to follow.
+    glideslope::gfx::ControlsShown braked_up = cruise;
+    braked_up.speedbrake = 0.0;
+    glideslope::gfx::ControlsShown braked_down = landing;
+    braked_down.speedbrake = 0.5;
+    glideslope::gfx::ControlsShown braked_fixed = fixed;
+    braked_fixed.speedbrake = 1.0;
 
     const std::vector<Case> cases = {
         {"the pilot, gear up", false, "", cruise,
@@ -68,6 +77,15 @@ int main() {
         {"the AI to a waypoint whose name is cut at a space", true, "NAV NORTH_HEA_POINT", fixed,
          {"FLYING AI NAV NORTH HEA", "STICK +0.30 -0.05", "RUDDER +0.00", "THROTTLE 0.70",
           "FLAPS 0.33"}},
+        {"the pilot, gear up, speedbrakes stowed", false, "", braked_up,
+         {"FLYING PILOT", "STICK +0.30 -0.05", "RUDDER +0.00", "THROTTLE 0.70", "FLAPS 0.00",
+          "GEAR UP", "SPEEDBRAKE 0.00"}},
+        {"the AI holding, gear down, speedbrakes half out", true, "HOLD", braked_down,
+         {"FLYING AI HOLD", "STICK -1.00 +1.00", "RUDDER -0.25", "THROTTLE 0.00",
+          "FLAPS 1.00", "GEAR DOWN", "SPEEDBRAKE 0.50"}},
+        {"the pilot, fixed gear, speedbrakes out", false, "", braked_fixed,
+         {"FLYING PILOT", "STICK +0.30 -0.05", "RUDDER +0.00", "THROTTLE 0.70", "FLAPS 0.33",
+          "SPEEDBRAKE 1.00"}},
     };
     std::size_t walked = 0;
     for (const Case& c : cases) {

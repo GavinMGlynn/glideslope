@@ -598,3 +598,146 @@ GLIDESLOPE_TEST(an_aircraft_says_its_gear_retracts_only_where_its_model_has_it) 
           "all sixteen were asked: " + std::to_string(retracting) + " retracting and " +
               std::to_string(fixed) + " fixed");
 }
+
+// **Every aircraft with speedbrakes slows when the lever comes out, and every
+// other ignores it** - every one in the catalogue, against its flight model.
+// Each is flown twice for ten seconds from its catalogue start, level at
+// 5,000 ft with its gear up: once with the lever stowed and once fully out.
+// One whose catalogue says `speedbrakes` must be at least 3 knots slower with
+// them out; one whose catalogue says nothing must fly exactly the same flight
+// both times, to the last bit of its state. So the catalogue, which the HUD
+// and a state update read to show the lever only where there is one, is held
+// to the flight model in both directions.
+GLIDESLOPE_TEST(every_aircraft_with_speedbrakes_slows_on_its_lever_and_every_other_ignores_it) {
+    constexpr int steps_per_second = 120;
+    const auto roster = glideslope::sim::read_catalogue(data());
+    const auto fly = [&](const CatalogueEntry& e, double lever) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        check(aircraft.speedbrakes() == e.speedbrakes,
+              e.id + ": the aircraft has from the catalogue what the catalogue says");
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 5000.0;
+        ic.airspeed_kts = e.start_airspeed_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        aircraft.initialize(ic);
+        glideslope::sim::Controls c;
+        c.throttle = e.start_throttle;
+        c.gear = 0.0;
+        c.speedbrake = lever;
+        for (int i = 0; i < 10 * steps_per_second; ++i) {
+            aircraft.set_controls(c);
+            aircraft.step();
+        }
+        return aircraft.state();
+    };
+    std::size_t with = 0;
+    std::size_t without = 0;
+    for (const CatalogueEntry& e : roster) {
+        const auto stowed = fly(e, 0.0);
+        const auto out = fly(e, 1.0);
+        const double slower_kts = stowed.airspeed_kts - out.airspeed_kts;
+        std::printf("  %-13s %-11s %6.1f kt stowed, %6.1f out: %+.2f kt\n", e.id.c_str(),
+                    e.speedbrakes ? "speedbrakes" : "none", stowed.airspeed_kts,
+                    out.airspeed_kts, -slower_kts);
+        if (e.speedbrakes) {
+            check(slower_kts >= 3.0, e.id + " has speedbrakes, and with them out is " +
+                                         std::to_string(slower_kts) +
+                                         " kt slower after ten seconds, not 2 or more");
+            ++with;
+        } else {
+            check(stowed == out, e.id + " has no speedbrakes, and the lever changed its "
+                                        "flight by " +
+                                     std::to_string(slower_kts) + " kt");
+            ++without;
+        }
+    }
+    check(with + without == roster.size() && roster.size() == 16,
+          "all sixteen were flown: " + std::to_string(with) + " with speedbrakes and " +
+              std::to_string(without) + " without");
+}
+
+// **Every aircraft with speedbrakes slows on its lever, and every other
+// ignores it** - every one in the catalogue, against its flight model. Each
+// is flown twice for ten seconds from its catalogue start at 5,000 ft, its
+// gear up, held level by a test pilot (sim/test_pilot.hpp) on the throttle it
+// starts with: once with the lever stowed and once fully out, which every
+// model's surfaces reach in two seconds. Held level, because an airliner's
+// spoilers dump lift as well as adding drag: left alone she sinks and gathers
+// speed, and the Learjet, whose spoilers take 0.15 of lift and add only 80% of
+// her zero-lift drag, gained energy so. One whose catalogue says
+// `speedbrakes` must then be at least 2 knots slower with them out - the
+// 747-400 is the least, at 3.1, and the B-2A the most, at 30 - and one whose
+// catalogue says nothing must fly exactly the same flight both times, to the
+// last bit of its state. So the catalogue, which the HUD and a state update
+// read to show the lever only where there is one, is held to the flight
+// model in both directions.
+GLIDESLOPE_TEST(every_aircraft_with_speedbrakes_slows_on_its_lever_held_level_and_every_other_ignores_it) {
+    constexpr int steps_per_second = 120;
+    const auto roster = glideslope::sim::read_catalogue(data());
+    struct Flown {
+        glideslope::sim::AircraftState state;
+        bool told = false; // the aircraft says what the catalogue says
+    };
+    const auto fly = [&](const CatalogueEntry& e, double lever) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 5000.0;
+        ic.airspeed_kts = e.start_airspeed_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        aircraft.initialize(ic);
+        glideslope::sim::TestPilot pilot(aircraft);
+        glideslope::sim::Controls c;
+        c.throttle = e.start_throttle;
+        c.gear = 0.0;
+        c.speedbrake = lever;
+        for (int i = 0; i < 10 * steps_per_second; ++i) {
+            c.elevator = pilot.pitch_to(pilot.pitch_for_altitude(5000.0));
+            c.aileron = pilot.roll_to(0.0);
+            c.rudder = pilot.coordinate();
+            aircraft.set_controls(c);
+            aircraft.step();
+        }
+        return Flown{aircraft.state(), aircraft.speedbrakes() == e.speedbrakes};
+    };
+    std::size_t with = 0;
+    std::size_t without = 0;
+    std::vector<std::string> wrong;
+    for (const CatalogueEntry& e : roster) {
+        const Flown stowed = fly(e, 0.0);
+        const Flown out = fly(e, 1.0);
+        const double slower_kts = stowed.state.airspeed_kts - out.state.airspeed_kts;
+        std::printf("  %-13s %-11s %6.1f kt stowed, %6.1f out: %+6.2f kt; %+5.0f ft\n",
+                    e.id.c_str(), e.speedbrakes ? "speedbrakes" : "none",
+                    stowed.state.airspeed_kts, out.state.airspeed_kts, -slower_kts,
+                    out.state.altitude_ft - stowed.state.altitude_ft);
+        if (!stowed.told || !out.told) {
+            wrong.push_back(e.id + ": the aircraft does not say what its catalogue says");
+        }
+        if (e.speedbrakes) {
+            if (!(slower_kts >= 2.0)) {
+                wrong.push_back(e.id + " has speedbrakes, and with them out is " +
+                                std::to_string(slower_kts) +
+                                " kt slower after ten seconds, not 2 or more");
+            }
+            ++with;
+        } else {
+            if (!(stowed.state == out.state)) {
+                wrong.push_back(e.id + " has no speedbrakes, and the lever changed its flight");
+            }
+            ++without;
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " aircraft are not as the catalogue says");
+    check(with + without == roster.size() && roster.size() == 16,
+          "all sixteen were flown: " + std::to_string(with) + " with speedbrakes and " +
+              std::to_string(without) + " without");
+}

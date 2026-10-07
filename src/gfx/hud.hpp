@@ -30,8 +30,9 @@ struct ChecklistOnScreen {
 
 // **Where the controls are**, as the flight model has them: the stick's
 // aileron (right positive) and elevator (back positive), the rudder (right
-// positive), the throttle and the flaps from nought to one, and the gear -
-// down at one - where it retracts.
+// positive), the throttle and the flaps from nought to one, the gear - down
+// at one - where it retracts, and the speedbrake lever - out at one - where
+// there are speedbrakes.
 struct ControlsShown {
     double aileron = 0.0;
     double elevator = 0.0;
@@ -39,6 +40,7 @@ struct ControlsShown {
     double throttle = 0.0;
     double flaps = 0.0;
     std::optional<double> gear; // none: it does not retract
+    std::optional<double> speedbrake; // none: it has no speedbrakes
 };
 
 struct HudReadings {
@@ -91,6 +93,7 @@ struct HudReadings {
 //   THROTTLE 0.70              from 0 to 1
 //   FLAPS 0.33                 from 0 to 1
 //   GEAR DOWN                  or UP, and only where it retracts
+//   SPEEDBRAKE 0.50            from 0 to 1, and only where it has them
 // Speeds, altitudes, headings and vertical speeds to the nearest whole unit;
 // pitch and bank to a tenth of a degree; the Mach number to a hundredth; the
 // flight level to the nearest hundred feet of pressure altitude.

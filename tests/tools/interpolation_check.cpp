@@ -54,10 +54,11 @@ struct At {
     std::string rest; // whatever the line said after its position
 };
 
-// The watched controls at a moment: aileron, elevator, rudder, throttle, flaps.
+// The watched controls at a moment: aileron, elevator, rudder, throttle,
+// flaps, and the speedbrake lever - -1 where the aircraft has none.
 struct Controls {
     double t = 0.0;
-    std::array<double, 5> v{};
+    std::array<double, 6> v{};
 };
 
 std::vector<Controls> read_controls(const std::string& file, const std::string& kind) {
@@ -69,7 +70,8 @@ std::vector<Controls> read_controls(const std::string& file, const std::string& 
         std::string what;
         unsigned index = 0;
         Controls c;
-        if (words >> what >> c.t >> index >> c.v[0] >> c.v[1] >> c.v[2] >> c.v[3] >> c.v[4] &&
+        if (words >> what >> c.t >> index >> c.v[0] >> c.v[1] >> c.v[2] >> c.v[3] >> c.v[4] >>
+                c.v[5] &&
             what == kind) {
             out.push_back(c);
         }
@@ -231,7 +233,7 @@ int main(int argc, char** argv) {
                     if (span > widest_s) break;
                     const double k = span > 0.0 ? (f.t - heard[i - 1].t) / span : 0.0;
                     double worst_here = 0.0;
-                    for (std::size_t j = 0; j < 5; ++j) {
+                    for (std::size_t j = 0; j < 6; ++j) {
                         const double then =
                             heard[i - 1].v[j] + k * (heard[i].v[j] - heard[i - 1].v[j]);
                         worst_here = std::max(worst_here, std::abs(f.v[j] - then));

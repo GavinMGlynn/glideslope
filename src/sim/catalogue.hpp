@@ -18,6 +18,9 @@
 //                                leans, and the autopilot leans it for best
 //                                power (sim/leaner.hpp) - but full rich below
 //                                the pressure altitude, as its handbook says
+//   speedbrakes                  its flight model has speedbrakes or spoilers
+//                                that the speedbrake lever works; a test flies
+//                                every aircraft to hold this to its model
 //
 // with `#` beginning a comment. Its published figures, if it has them, are
 // data/figures/MODEL.xml, and its selftest's log data/selftest/MODEL.log.
@@ -65,6 +68,7 @@ struct CatalogueEntry {
     bool seaplane = false;
     bool mixture_lever = false;
     double full_rich_below_ft = 0.0; // with a mixture lever
+    bool speedbrakes = false;
     AircraftClass aircraft_class = AircraftClass::light_aircraft;
 };
 

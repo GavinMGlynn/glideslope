@@ -81,9 +81,8 @@ the controls to an AI pilot whenever you like, then take them back.
   not one they choose; the Learjet is not drawn at all; and no aircraft wears
   a livery or moves its control surfaces.
 
-- **Joysticks, HOTAS and yokes.** `CORE`
+- **Joysticks, HOTAS and yokes.** `DONE`
   Proper flight controls on every platform, not only a keyboard.
-  *Not yet:* nothing a pilot holds, and no key, opens the speedbrakes.
 
 - **A head-up display.** `CORE`
   Airspeed, altitude, heading, vertical speed and attitude at a glance.
@@ -142,8 +141,7 @@ the controls to an AI pilot whenever you like, then take them back.
   stage, as you fly it, and afterwards what to do differently. A debrief, not
   a score.
   *Not yet:* the Learjet's take-off lesson cannot catch an early rotation or a
-  tail strike, and without speedbrakes the bomber's lessons cannot be flown by
-  hand as the AI flies them.
+  tail strike.
 
 - **An instructor who shows you first.** `WANTED`
   The AI pilot flies the lesson while you watch, then hands you the controls,

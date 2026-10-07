@@ -24,13 +24,15 @@ namespace {
 
 constexpr int steps_per_second = 120;
 
+// The largest step in any control: every one the controls have.
 double largest_step(const Controls& a, const Controls& b) {
-    return std::max({std::abs(a.aileron - b.aileron), std::abs(a.elevator - b.elevator),
-                     std::abs(a.rudder - b.rudder), std::abs(a.throttle - b.throttle),
-                     std::abs(a.mixture - b.mixture), std::abs(a.flaps - b.flaps),
-                     std::abs(a.left_brake - b.left_brake),
-                     std::abs(a.right_brake - b.right_brake),
-                     std::abs(a.pitch_trim - b.pitch_trim)});
+    const auto x = a.as_list();
+    const auto y = b.as_list();
+    double worst = 0.0;
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        worst = std::max(worst, std::abs(x[i] - y[i]));
+    }
+    return worst;
 }
 
 struct Phase {
@@ -38,6 +40,7 @@ struct Phase {
     glideslope::sim::InitialConditions ic;
     // What the pilot's hands do each step: the test pilot flying the phase.
     std::function<Controls(TestPilot&)> hands;
+    std::string model = "c172p";
 };
 
 } // namespace
@@ -114,15 +117,38 @@ GLIDESLOPE_TEST(handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_p
              c.rudder = p.coordinate();
              return c;
          }},
+        // **The speedbrakes, in an aeroplane that has them**: a B-2A coming
+        // down with her drag rudders stowed, which her pilot runs fully out
+        // while the AI has her - so that at the take-back the lever is a
+        // whole travel from where the AI holds it, and must come to the
+        // pilot's at a hand's pace, not in a step.
+        {"the B-2A's descent, her speedbrakes run out while the AI has her",
+         [&] {
+             glideslope::sim::InitialConditions wheels_up = airborne(8000.0, 220.0);
+             wheels_up.gear = 0.0;
+             return wheels_up;
+         }(),
+         [step = 0](TestPilot& p) mutable {
+             Controls c;
+             c.throttle = 0.15;
+             c.gear = 0.0;
+             c.speedbrake = step++ < 22 * steps_per_second ? 0.0 : 1.0;
+             c.elevator = p.pitch_to(p.pitch_for_speed(220.0));
+             c.aileron = p.roll_to(0.0);
+             c.rudder = p.coordinate();
+             return c;
+         },
+         "b2"},
     };
 
     // A pilot's hand: full travel in a second.
     constexpr double hand = 1.0 / steps_per_second;
     for (const Phase& phase : phases) {
-        Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+        Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, phase.model);
         aircraft.initialize(phase.ic);
         TestPilot pilot(aircraft);
-        Controls hands = phase.hands(pilot);
+        Phase flown = phase; // its hands keep their own count of steps
+        Controls hands = flown.hands(pilot);
         Controller controller(aircraft, hands);
         Controls before = hands;
         double load_before = aircraft.property("accelerations/n-pilot-z-norm");
@@ -144,7 +170,7 @@ GLIDESLOPE_TEST(handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_p
             } else if (i == 30 * second) {
                 controller.to_pilot();
             }
-            hands = phase.hands(pilot);
+            hands = flown.hands(pilot);
             controller.set_pilot(hands);
             const Controls c = controller.fly();
             aircraft.set_controls(c);

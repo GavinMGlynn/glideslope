@@ -57,7 +57,9 @@ Said first, because a transport's limits matter more than its features.
   whose state update names the engine stopped (below, "State updates").
   Version `05` is on the same strips by rules 2: where runways overlap, the
   nearest runway's surface wins, so one runway's shoulder no longer pulls
-  another's pavement.
+  another's pavement. Version `06` is on the same ground, and is the first
+  whose state update carries the watched aircraft's speedbrake lever (below,
+  "State updates").
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -68,7 +70,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `05` |
+| 4 | 1 | version | `06` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -114,7 +116,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `05`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `06`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -1017,9 +1019,10 @@ client is told of the one it watches.
 | `i16` | the first engine's throttle, 0 to 1 |
 | `i16` | the flaps, 0 to 1 |
 | `i16` | the gear, down at 1 - or `-32768` where it does not retract |
+| `i16` | the speedbrake lever, out at 1 - or `-32768` where it has no speedbrakes (since `06`) |
 
-A flag other than `00` or `01`, or `-32768` in any control but the gear,
-makes the packet unreadable.
+A flag other than `00` or `01`, or `-32768` in any control but the gear and
+the speedbrake lever, makes the packet unreadable.
 
 **Two of the fields are meant for one client and not for the others**, which
 is why a state update is sealed to each connection separately rather than
@@ -1036,7 +1039,7 @@ the server's to hand out.
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
 full, with the client's own motion and a watched aircraft's controls, is
-1,136 bytes, and 1,166 with the
+1,138 bytes, and 1,168 with the
 envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 

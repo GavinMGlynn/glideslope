@@ -604,6 +604,9 @@ gfx::ControlsShown Flight::controls_shown() const {
     if (aircraft_->gear_retracts()) {
         c.gear = aircraft_->property("gear/gear-cmd-norm");
     }
+    if (aircraft_->speedbrakes()) {
+        c.speedbrake = aircraft_->property("fcs/speedbrake-cmd-norm");
+    }
     return c;
 }
 
@@ -616,7 +619,7 @@ std::string Flight::trace() const {
                   "agl_ft %.3f kcas %.3f heading %.3f vs_fpm %.3f pitch %.3f roll %.3f "
                   "wind_north_fps %.3f wind_east_fps %.3f wind_down_fps %.3f "
                   "mach %.4f pa_ft %.3f ai %d aileron %.4f elevator %.4f rudder %.4f "
-                  "throttle %.4f flaps %.4f gear %.4f",
+                  "throttle %.4f flaps %.4f gear %.4f speedbrake %.4f",
                   static_cast<long long>(tick_), s.sim_time_s, s.latitude_deg,
                   s.longitude_deg, sea_level_ft(), s.altitude_ft,
                   s.height_above_ground_ft, s.airspeed_kts, s.heading_deg,
@@ -627,7 +630,7 @@ std::string Flight::trace() const {
                   aircraft_->property("velocities/mach"),
                   aircraft_->property("atmosphere/pressure-altitude"), ai_flying() ? 1 : 0,
                   c.aileron, c.elevator, c.rudder, c.throttle, c.flaps,
-                  c.gear ? *c.gear : -1.0);
+                  c.gear ? *c.gear : -1.0, c.speedbrake ? *c.speedbrake : -1.0);
     return line;
 }
 

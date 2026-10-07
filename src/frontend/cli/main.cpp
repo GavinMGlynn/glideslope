@@ -1807,7 +1807,10 @@ public:
                         << ' ' << mix(a.aileron, b.aileron) << ' '
                         << mix(a.elevator, b.elevator) << ' ' << mix(a.rudder, b.rudder)
                         << ' ' << mix(a.throttle, b.throttle) << ' '
-                        << mix(a.flaps, b.flaps) << '\n';
+                        << mix(a.flaps, b.flaps) << ' '
+                        << (a.speedbrake && b.speedbrake ? mix(*a.speedbrake, *b.speedbrake)
+                                                         : -1.0)
+                        << '\n';
                 ++controls_shown_;
             }
         }
@@ -2818,7 +2821,8 @@ int stay(glideslope::platform::UdpSocket& socket,
                     track_out << "watched " << state->simulation_time_s << ' '
                               << static_cast<unsigned>(w.aircraft) << ' ' << w.aileron << ' '
                               << w.elevator << ' ' << w.rudder << ' ' << w.throttle << ' '
-                              << w.flaps << '\n';
+                              << w.flaps << ' ' << (w.speedbrake ? *w.speedbrake : -1.0)
+                              << '\n';
                 }
             }
             // **Riding along** (`--watch-ai`): once it knows the aircraft,
