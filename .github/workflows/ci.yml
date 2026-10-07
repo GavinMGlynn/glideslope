@@ -67,7 +67,10 @@ env:
 #     (tools/ci_shard.cmake, from tests/ci_costs/, measured by
 #     tools/ci_test_costs.py), longest first, not by number: dealt by number
 #     (`-I k,,n`) one Linux debug shard took 25 minutes and another 18. Every
-#     shard's job is to stay under two thirds of its 30-minute limit. Linux
+#     shard's job is to stay under 20 minutes (two thirds of 30); the test
+#     jobs' limit is 45 minutes (since 2026-10-08) so that one new test whose
+#     cost is still an estimate - a 627 s circuit lesson cancelled a shard -
+#     slows a run rather than cancelling it. Linux
 #     debug went from seven shards to ten on 2026-10-07: with the costs
 #     estimated for the newest tests, shards of seven ran past 30 minutes.
 #     Later that day every table was measured again from three green runs
@@ -208,7 +211,7 @@ jobs:
     needs: ubuntu-build
     if: ${{ github.event_name != 'push' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -554,7 +557,7 @@ jobs:
     needs: macos-build
     if: ${{ github.event_name != 'push' }}
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -740,7 +743,7 @@ jobs:
     needs: windows-build
     if: ${{ github.event_name != 'push' }}
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
