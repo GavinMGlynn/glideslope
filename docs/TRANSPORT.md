@@ -676,8 +676,6 @@ controls from the AI's to the pilot's at the pace of a hand - full travel in a
 second - rather than jumping them, so for that second the pilot's inputs are
 not yet all it flies.
 
-| written as | field |
-| --- | --- |
 **The learnt landing** (since `08`). A client asks for its own aircraft to
 go to `LEARNT_LANDING` (`03`), with the time written as nought. The server
 honours it only for that client's own aircraft, only where the server has a
@@ -686,11 +684,12 @@ landing's gate on the final approach to a runway: 1.6 to 2.4 nautical miles
 before the threshold, within 60 m of the extended centreline and 20 m of a
 3-degree glidepath aimed 300 m past the threshold, within 5 degrees of the
 runway's heading, from 3 kt under the landing's reference speed to 8 kt over
-it, and with the landing flap out (the numbers are the learnt landing's file's
-and the simulation's, not the wire's). Honoured, it says so to every client
+it, with the landing flap out and not moving, and in a wind of no more than
+15 kt across, 8 kt ahead and 5 kt behind (the numbers are the learnt
+landing's file's and the simulation's, not the wire's). Honoured, it says so to every client
 with `LEARNT_LANDING` and the time it took effect; from then a state update
 gives the aircraft's controller as `AI`. Otherwise it is acknowledged and
-nothing more. Taking it back is `PERSON` (`01`), as from any AI.
+nothing more: **the client is not told why** - the server's log says. Taking it back is `PERSON` (`01`), as from any AI.
 
 | written as | field |
 | --- | --- |

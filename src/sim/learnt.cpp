@@ -419,6 +419,34 @@ std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
     const LandingReadings r = LandingReadings::of(aircraft);
     const Where w = where(r, runway);
     constexpr double metres_per_nm = 1852.0;
+    // The wind as the instruments estimate it, as the policy sees it: the
+    // ground velocity less the true airspeed along the heading turned by
+    // the sideslip.
+    {
+        constexpr double kts_per_mps = 1.0 / 0.514444;
+        const double hr = runway.heading_deg / degrees;
+        const double vt = r.values[16] * mps_per_fps;
+        const double air = r.values[5] + r.values[14];
+        const double wind_n = r.values[10] * mps_per_fps - vt * std::cos(air);
+        const double wind_e = r.values[11] * mps_per_fps - vt * std::sin(air);
+        const double across_kts = (wind_e * std::cos(hr) - wind_n * std::sin(hr)) * kts_per_mps;
+        const double behind_kts = (wind_e * std::sin(hr) + wind_n * std::cos(hr)) * kts_per_mps;
+        if (std::abs(across_kts) > LearntGate::most_crosswind_kts + 0.05) {
+            std::snprintf(text, sizeof text, "%.0f kt of crosswind; the gate is within %.0f",
+                          std::abs(across_kts), LearntGate::most_crosswind_kts);
+            return text;
+        }
+        if (behind_kts > LearntGate::most_tailwind_kts + 0.05) {
+            std::snprintf(text, sizeof text, "%.0f kt of tailwind; the gate is within %.0f",
+                          behind_kts, LearntGate::most_tailwind_kts);
+            return text;
+        }
+        if (-behind_kts > LearntGate::most_headwind_kts + 0.05) {
+            std::snprintf(text, sizeof text, "%.0f kt of headwind; the gate is within %.0f",
+                          -behind_kts, LearntGate::most_headwind_kts);
+            return text;
+        }
+    }
     if (w.along_m < LearntGate::nearest_m || w.along_m > LearntGate::furthest_m) {
         std::snprintf(text, sizeof text, "%.1f miles %s; the gate is %.1f to %.1f miles out",
                       std::abs(w.along_m) / metres_per_nm, w.along_m < 0.0 ? "past" : "out",
