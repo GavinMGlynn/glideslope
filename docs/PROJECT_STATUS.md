@@ -324,7 +324,9 @@ release and clang measured 2.8 and 4.2 m with the median 1 mm, the clocks'
 estimate's excursions named above - only said; and the client now stays
 until 300 updates are compared (`connect --until-compared 300`, new), not
 20 s, which compared only 59 and 86 on macOS. The server must end 240 steps
-behind and more. Here: 778 behind, median nought, worst 0.41 m over 300.
+behind and more. Here: 778 behind, median nought, worst 0.41 m over 300. **Seen to fail as changed**: unpaced, 865 steps behind, "the median
+prediction error was 1343 mm (the worst 3985 mm), the bound 100"; reverted,
+it passes (827 behind, median nought, worst 0.97 m).
 
 ### The window client draws another player's chosen aeroplane as that aeroplane, 2026-10-07 — tail done
 
