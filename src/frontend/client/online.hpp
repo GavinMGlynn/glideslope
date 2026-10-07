@@ -193,7 +193,17 @@ public:
     // **Taking over** the aircraft numbered `number`, an AI's: asked of the
     // server, which may refuse. When it is done, the next update gives this
     // client that aircraft as its own, and `taken_over` says which.
-    void take_over(std::uint8_t number);
+    // False, and nothing asked, for its own aircraft - which is not a
+    // take-over, and the server would answer it with nothing - or outside a
+    // session.
+    bool take_over(std::uint8_t number);
+    // **A take-over unanswered for too long is given up** (the caller counts
+    // the simulated steps): the server answers every one it reads, but an
+    // answer can be lost with a session let go, or never queued.
+    void give_up_take_over() {
+        const auto lock = held();
+        taking_over_.reset();
+    }
     // **A take-over asked for and not yet answered**: the aircraft asked
     // for, until the server has given it (`taken_over`) or refused it
     // (`TAKE_OVER_REFUSED`, `refused_take_overs`) - or the session was let

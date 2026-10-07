@@ -3629,42 +3629,51 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             // else is acknowledged and let go: a client flies its own
             // aircraft, or one the AI was flying, and no player's.
             for (const std::vector<std::uint8_t>& message : c.reliable.received(inside.subspan(1))) {
+                const std::span<const std::uint8_t> request(message.data(), message.size());
+                glideslope::net::ControllerSwap swap;
+                const bool is_swap = glideslope::net::read(request, swap);
+                // **A take-over asked for**: another aircraft than its own, to
+                // a person. **Every one is answered** - made, which the state
+                // updates say, or refused (`TAKE_OVER_REFUSED`), to the client
+                // that asked - so that a client can tell a take-over refused
+                // from one still on its way, whatever refused it.
+                const bool take_over_asked = is_swap && swap.aircraft != c.aircraft &&
+                                             swap.to == glideslope::net::Controller::person;
+                const auto refuse = [&](const std::string& reason) {
+                    const std::vector<std::uint8_t> refusal =
+                        glideslope::net::write(glideslope::net::TakeOverRefused{swap.aircraft});
+                    const bool said = c.reliable.send(
+                        std::span<const std::uint8_t>(refusal.data(), refusal.size()));
+                    std::printf("aircraft %u not taken over: %s%s\n",
+                                static_cast<unsigned>(swap.aircraft), reason.c_str(),
+                                said ? "" : " (and the refusal could not be queued)");
+                    std::fflush(stdout);
+                };
                 // **Held to its rate** (net/budget.hpp): past
                 // `session_requests_per_second`, a request is acknowledged -
-                // the stream needs it - and ignored.
+                // the stream needs it - and ignored; a take-over, refused.
                 ++c.requests;
                 if (!c.request_budget.take(now_s)) {
                     ++c.requests_past_budget;
+                    if (take_over_asked) {
+                        refuse("past this client's rate of requests");
+                    }
                     continue;
                 }
                 // Which aircraft it rides along in: any, or none. It changes
                 // only what this client is told.
                 glideslope::net::Watch watch;
-                if (glideslope::net::read(
-                        std::span<const std::uint8_t>(message.data(), message.size()), watch)) {
+                if (glideslope::net::read(request, watch)) {
                     c.watching = watch.aircraft;
                     continue;
                 }
-                glideslope::net::ControllerSwap swap;
                 // **Another aircraft asked for**: taking over an AI's, if the
                 // server allows it, and never a player's.
-                if (fleet != nullptr && c.aircraft != glideslope::net::no_aircraft &&
-                    glideslope::net::read(
-                        std::span<const std::uint8_t>(message.data(), message.size()), swap) &&
-                    swap.aircraft != c.aircraft &&
-                    swap.to == glideslope::net::Controller::person) {
-                    // **A refusal is said, to the client that asked**
-                    // (`TAKE_OVER_REFUSED`), so that it can tell a take-over
-                    // refused from one still on its way.
-                    const auto refuse = [&](const std::string& reason) {
-                        std::printf("aircraft %u not taken over: %s\n",
-                                    static_cast<unsigned>(swap.aircraft), reason.c_str());
-                        std::fflush(stdout);
-                        const std::vector<std::uint8_t> refusal =
-                            glideslope::net::write(glideslope::net::TakeOverRefused{swap.aircraft});
-                        (void)c.reliable.send(
-                            std::span<const std::uint8_t>(refusal.data(), refusal.size()));
-                    };
+                if (take_over_asked) {
+                    if (fleet == nullptr || c.aircraft == glideslope::net::no_aircraft) {
+                        refuse("this client has no aircraft to leave");
+                        continue;
+                    }
                     if (!o.take_over) {
                         refuse("this server does not allow it");
                         continue;

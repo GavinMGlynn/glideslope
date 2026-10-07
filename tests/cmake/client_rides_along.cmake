@@ -46,6 +46,16 @@
 # once for the aircraft it had, the first A goes to the one being left, and
 # the server - which has made another aircraft the client's own - does nothing
 # with it; without the refusal said, the second waits for ever.
+# A_DURING=OVER_BUDGET, on a server that allows take-overs: twelve rides
+# along asked first (`--watches-before-take-over 12`) put the take-over past
+# the server's eight requests a second, and it must be refused, said, as any
+# other - not left unanswered, for A to wait out the five seconds of flight
+# after which the client gives an unanswered take-over up. (The hand-over A
+# then asks is in the same second, past the rate too, and the server ignores
+# it: what is pinned is that A was let go for the refusal.) A_DURING=OWN: the
+# take-over asks for the client's own aircraft (`--take-over-own`), which is
+# not a take-over and which the server would answer with nothing: it must
+# not be asked, A not held, and A hand the client's own to the AI at once.
 #
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
@@ -86,6 +96,10 @@ if(DEFINED A_DURING)
     set(_take_over --take-over-after 4 --press-a-with-take-over)
     if(A_DURING STREQUAL "REFUSED")
         set(_server_take_over --no-take-over)
+    elseif(A_DURING STREQUAL "OVER_BUDGET")
+        list(APPEND _take_over --watches-before-take-over 12)
+    elseif(A_DURING STREQUAL "OWN")
+        list(APPEND _take_over --take-over-own)
     endif()
 endif()
 set(_slow)
@@ -120,6 +134,23 @@ if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the client exited ${_rc}:\n${_out}\n${_err}")
 endif()
 
+if(A_DURING STREQUAL "OWN")
+    if(NOT _out MATCHES "aircraft ([0-9]+) not asked for: it is this client's own")
+        message(FATAL_ERROR "the client asked for its own aircraft as a take-over:\n${_out}")
+    endif()
+    set(_own "${CMAKE_MATCH_1}")
+    if(_out MATCHES "A held")
+        message(FATAL_ERROR "A was held for a take-over of the client's own aircraft:\n${_out}")
+    endif()
+    if(NOT _out MATCHES "asked for aircraft ${_own} to be handed to the AI\n")
+        message(FATAL_ERROR "A did not ask for aircraft ${_own} to go to the AI:\n${_out}")
+    endif()
+    if(NOT _out MATCHES "the server says the AI has aircraft ${_own}\n")
+        message(FATAL_ERROR "the server did not hand aircraft ${_own} to the AI:\n${_out}")
+    endif()
+    message(STATUS "a take-over of its own aircraft, ${_own}, was not asked; A handed it over")
+    return()
+endif()
 if(DEFINED A_DURING)
     if(NOT _out MATCHES "asked to take over aircraft ([0-9]+)\nglideslope: A held until the server answers the take-over of aircraft ([0-9]+)\n")
         message(FATAL_ERROR "A, pressed as the take-over was asked, was not held for "
@@ -133,7 +164,7 @@ if(DEFINED A_DURING)
         set(_for "${_asked}")
     else()
         if(_out MATCHES "took over aircraft")
-            message(FATAL_ERROR "a server started --no-take-over let it be taken:\n${_out}")
+            message(FATAL_ERROR "a take-over to be refused was made:\n${_out}")
         endif()
         if(NOT _out MATCHES "the server refused to take over aircraft ${_asked}\n")
             message(FATAL_ERROR "the client was not told the take-over of aircraft "
@@ -150,8 +181,11 @@ if(DEFINED A_DURING)
     if(NOT _out MATCHES "A, held, is for aircraft ${_for}\nglideslope: asked for aircraft ${_for} to be handed to the AI\n")
         message(FATAL_ERROR "A, held, did not ask for aircraft ${_for} to go to the AI:\n${_out}")
     endif()
-    # What the server decides, not what the client asked: the AI has it.
-    if(NOT _out MATCHES "the server says the AI has aircraft ${_for}\n")
+    # What the server decides, not what the client asked: the AI has it -
+    # except past the rate, where the hand-over, sent in the same second, is
+    # past it too, and ignored as any request past it is.
+    if(NOT A_DURING STREQUAL "OVER_BUDGET" AND
+       NOT _out MATCHES "the server says the AI has aircraft ${_for}\n")
         message(FATAL_ERROR "the server did not hand aircraft ${_for} to the AI:\n${_out}")
     endif()
     string(REGEX MATCHALL "asked for aircraft [0-9]+ to be handed" _asks "${_out}")

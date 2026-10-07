@@ -370,6 +370,24 @@ because a refused take-over had none: the server said nothing.
   refusal is said: `the server refused to take over aircraft N`.
 - `--press-a-with-take-over`, a test flag: A in the frame
   `--take-over-after` asks.
+- **From the review of #117: A can no longer be held for ever.** The server
+  answers every take-over it reads: past the client's rate of requests, and
+  from a client with no aircraft, it now refuses with `TAKE_OVER_REFUSED`
+  where it said nothing, and says when a refusal could not be queued. The
+  window client never asks for its own aircraft as a take-over
+  (`Online::take_over` returns false; T on its own was a take-back
+  already), and gives up a take-over unanswered after five seconds of flight
+  (600 steps, counted in ticks flown), saying so. Tests:
+  `a_take_over_past_the_servers_rate_of_requests_is_refused_and_said`
+  (twelve `WATCH`es first, `--watches-before-take-over 12`) and
+  `the_client_never_asks_to_take_over_its_own_aircraft_and_a_is_not_held`
+  (`--take-over-own`). Seen to fail: with the server silent past the rate,
+  "the client was not told the take-over of aircraft 4 was refused"; with
+  the client asking for its own, "the client asked for its own aircraft as
+  a take-over"; both reverted, both pass.
+- **The selftest was run again** after these changes (linux-debug): hash
+  `30ac70b84cab7d7c`, unchanged - nothing here touches a flight without a
+  server.
 
 **Verification**:
 `a_pressed_during_a_take_over_hands_the_aircraft_taken_to_the_ai` and
