@@ -260,7 +260,15 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### CI's cost tables measured, every one; the shards re-counted, 2026-10-07 — tails in progress (PR "CI: measured costs...")
+### CI's cost tables measured, every one; the shards re-counted; Windows' compiler cache measured; caches pruned as they are saved, 2026-10-07 — two tails done, three still open, two found
+
+**What is still wrong first.** One test, the AI aircraft kept 500 ft or
+1.5 nm apart, takes 882 to 1,295 s in Linux debug, so its shard ran 26.1
+minutes of its 30 (run 37570543750) whatever the dealing: a new tail. The
+cache pruning below runs only on main, so it is not yet seen working. A
+Windows configure still takes 3-6 minutes now and then (below). No new
+Windows compiler came this week, so vcpkg's one-rebuild-per-image is not
+yet seen. The rate-limit test failed once on Windows debug (a new tail).
 
 **Before** (run 37561340650, green, 80 minutes from push to result with two
 other pull requests' runs beside it): the tables still held 60 s estimates
@@ -283,6 +291,47 @@ that: Linux debug 10 to 11, Windows debug 6 to 7, Windows release and
 clang-cl 2 to 3, macOS debug 4 to 5; Linux and macOS release stay at 2.
 The longest single tests set a floor: the AI separation test, 882 s in
 Linux debug.
+
+**Seen on CI, run 37570543750** (this pull request's first push; four other
+runs queued beside it, so 66 minutes before macOS's tests could start). No
+shard warned of an unmeasured test. Test jobs: Linux debug 9.5 to 21.1
+minutes but one at 26.1 (the AI separation test, 1,295 s that run); Linux
+release 13.2 and 15.5; Windows debug 11.1 to 19.4; Windows release 11.9 to
+14.5; clang-cl 13.5 to 14.2. Before (run 37561340650): Linux debug up to
+28.6, Windows release 21.9 and 23.9, Windows debug up to 23.1, macOS
+release 20.5.
+
+**Windows' compiler cache, measured cold and warm.** Warm, in this run:
+MSVC debug 3.9 and release 3.4 minutes a job. clang-cl with a pull
+request's changes: 722 of 824 compiles hit, a 7.2-minute job (run
+37561340650); cold, 0 of 824, 17.4 minutes (run 37570543750). That closes
+"CI's Windows builds have no compiler cache".
+
+**Why clang-cl was cold: two generations of caches at once.** Main's run
+37569407795 saved `ccache-windows-windows-clang-a2257bf...` at 04:17; when
+its prune job ran at 04:47 the entry was gone - GitHub had evicted it. One
+generation of main's ccaches is about 4.2 GB and the downloads 3 GB, and
+each merge saved a whole new generation (downloads included, though nothing
+they pin had changed) while the old one stood until the run's end: over the
+repository's 10 GB. Now:
+- `.github/actions/prune-cache` deletes main's older entries of a kind as
+  soon as the build job has saved its new one (curl and jq; Rocky's
+  container installs jq), and the build jobs have `actions: write` for it.
+  The run-end prune job stays, for the downloads.
+- Rocky's job saves the downloads on a push to main only when what it
+  restored was not of the same pinned lists; the nightly run saves them
+  every night still.
+Not verifiable on a pull request (only main saves); to be seen in the
+first main run after this lands: each build's log saying "deleting" its
+older entry, and the next pull request's builds all restoring.
+
+**The Windows configure, counted over a week of main** (163 configures,
+2026-09-30 to 2026-10-07, `ci.yml` runs on main): after the two rebuilds
+of 2026-09-30 (21-24 minutes, the new image's compiler), none rebuilt;
+every one inspected restored 39 packages from NuGet in 25-60 s. But 8 took
+3.0 to 6.0 minutes, all after vcpkg had finished: in SDL's `try_compile`
+checks, one of them (`CAN_PRESEED`) 61 s (job 110340482569). The item's
+3-minute bound is not met, so it stays open with that named.
 
 ### A pilot works the speedbrakes from the stick, the quadrant and the keyboard; the HUD shows them; protocol version 6, 2026-10-07 — tail done, one found
 

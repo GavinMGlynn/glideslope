@@ -104,6 +104,8 @@ jobs:
   # ---------------------------------------------------------------------------
   ubuntu-build:
     name: Ubuntu ${{ matrix.preset }} - build
+    # actions: write, to prune main's older ccache once this one is saved.
+    permissions: { contents: read, actions: write }
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -171,6 +173,12 @@ jobs:
         with:
           path: .ccache
           key: ccache-ubuntu-${{ matrix.preset }}-${{ github.sha }}
+      - uses: ./.github/actions/prune-cache
+        if: ${{ github.event_name != 'pull_request' && !cancelled() }}
+        with:
+          prefix: ccache-ubuntu-${{ matrix.preset }}-
+          keep: ccache-ubuntu-${{ matrix.preset }}-${{ github.sha }}
+          token: ${{ github.token }}
 
       - name: Pack what the tests need
         run: |
@@ -269,6 +277,8 @@ jobs:
   # ---------------------------------------------------------------------------
   rocky:
     name: Rocky 9 linux-release - build, tests
+    # actions: write, to prune main's older ccache once this one is saved.
+    permissions: { contents: read, actions: write }
     runs-on: ubuntu-latest
     timeout-minutes: 60
     container: rockylinux/rockylinux:9
@@ -302,7 +312,7 @@ jobs:
           # recompiles one file.
           dnf_run --enablerepo=crb install git cmake ninja-build gcc-c++ \
             autoconf autoconf-archive automake libtool ccache \
-            gcc-toolset-14-gcc-c++ \
+            gcc-toolset-14-gcc-c++ jq \
             libX11-devel libXext-devel libXrandr-devel libXi-devel \
             libXcursor-devel libXfixes-devel libXScrnSaver-devel libXtst-devel \
             libxkbcommon-devel \
@@ -318,6 +328,7 @@ jobs:
         with: { submodules: true }
 
       - uses: actions/cache/restore@v6
+        id: downloads
         with:
           path: |
             .downloads/*
@@ -397,6 +408,12 @@ jobs:
         with:
           path: .ccache
           key: ccache-rocky9-linux-release-${{ github.sha }}
+      - uses: ./.github/actions/prune-cache
+        if: ${{ github.event_name != 'pull_request' && !cancelled() }}
+        with:
+          prefix: ccache-rocky9-linux-release-
+          keep: ccache-rocky9-linux-release-${{ github.sha }}
+          token: ${{ github.token }}
 
       - name: linux-release - tests
         run: |
@@ -418,8 +435,14 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: frames-rocky, path: build/linux-release/tests/frames/*.bmp, if-no-files-found: ignore }
+      # **3 GB saved once per pinned list on a merge, not on every merge.** On
+      # a push to main this saves only when what was restored was not of these
+      # lists: every merge saved another 3 GB beside the last though nothing
+      # it pins had changed (run 37569407795 beside 37560605889's), and the
+      # two stood together until the run's end. The nightly run still saves
+      # it, so a file the tests fetch beyond the lists is kept within a day.
       - uses: actions/cache/save@v6
-        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && (github.event_name != 'push' || !startsWith(steps.downloads.outputs.cache-matched-key, format('downloads-{0}-', hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp')))) }}
         with:
           path: |
             .downloads/*
@@ -433,6 +456,8 @@ jobs:
   # ---------------------------------------------------------------------------
   macos-build:
     name: macOS ${{ matrix.preset }} - build
+    # actions: write, to prune main's older ccache once this one is saved.
+    permissions: { contents: read, actions: write }
     runs-on: macos-15
     timeout-minutes: 45
     strategy:
@@ -496,6 +521,12 @@ jobs:
         with:
           path: .ccache
           key: ccache-macos-${{ matrix.preset }}-${{ github.sha }}
+      - uses: ./.github/actions/prune-cache
+        if: ${{ github.event_name != 'pull_request' && !cancelled() }}
+        with:
+          prefix: ccache-macos-${{ matrix.preset }}-
+          keep: ccache-macos-${{ matrix.preset }}-${{ github.sha }}
+          token: ${{ github.token }}
 
       - name: Pack what the tests need
         run: |
@@ -576,6 +607,8 @@ jobs:
   # ---------------------------------------------------------------------------
   windows-build:
     name: Windows ${{ matrix.preset }} - build
+    # actions: write, to prune main's older ccache once this one is saved.
+    permissions: { contents: read, actions: write }
     runs-on: windows-latest
     # For whether it may upload vcpkg's packages.
     needs: changes
@@ -663,6 +696,12 @@ jobs:
         with:
           path: .ccache
           key: ccache-windows-${{ matrix.preset }}-${{ github.sha }}
+      - uses: ./.github/actions/prune-cache
+        if: ${{ github.event_name != 'pull_request' && !cancelled() }}
+        with:
+          prefix: ccache-windows-${{ matrix.preset }}-
+          keep: ccache-windows-${{ matrix.preset }}-${{ github.sha }}
+          token: ${{ github.token }}
 
       # Programs and test data, not objects or import libraries - and of the
       # symbols, only the programs' own PDBs, so that a crash in a test prints
