@@ -832,12 +832,16 @@ Found while implementing something else. Added when found, not when remembered.
       737-300, A380 and Mosquito did; the flare now judges the sink a moment
       ahead, and none climbs in either lesson.
 - [ ] **The F-35B lands on her power**: her model flies the glidepath at
-      19.5 degrees of incidence and its flare runs out of nose. *Verification:
-      the F-35B flies her approach at her published incidence and flares
-      with her throttle closing.*
+      19.5 degrees of incidence and its flare runs out of nose. Missing
+      first: a published approach incidence for the F-35B - the one found
+      is an F-35A's, about 13 degrees (2026-10-07). *Verification: the F-35B
+      flies her approach at her published incidence and flares with her
+      throttle closing.*
 - [ ] **The touchdown sink the AI flares to is set, not published** (200
-      ft/min for jets, 40 otherwise). *Verification: each aeroplane's comes
-      from a source the figures file names.*
+      ft/min for jets, 40 otherwise). Missing: a source for every one of
+      the sixteen - none was found for any but in forums (2026-10-07).
+      *Verification: each aeroplane's comes from a source the figures file
+      names.*
 - [x] **The AI does not go around from a balloon**: a Mosquito given back
       from a pilot's over-pulled flare zooms to fifty feet and comes down at
       958 ft/min. *Verification: every aeroplane given back in a balloon

@@ -260,6 +260,22 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Two landing tails looked into and left open: the F-35B's incidence and the touchdown sink, 2026-10-07 — no change
+
+- **The F-35B lands on her power** stays open, its missing part first: no
+  published approach incidence for the F-35B was found. The nearest is the
+  F-35A's: the Air Force's accident report on the Eglin loss of 19 May 2020,
+  as The Aviationist reported it (6 October 2020), has her touching at 5.2
+  degrees of alpha, about 8 degrees shallower than normal - about 13. That is another variant's, and
+  re-fitting her lift to it is a flight-model change not to be made on a
+  sister's figure.
+- **The touchdown sink the AI flares to** stays set, 200 ft/min for jets
+  and 40 otherwise: no primary source was found for any of the sixteen.
+  What turns up - about 200 ft/min "normal" for a 737 (b737.org.uk,
+  forums) - is not a source a figures file can name; the 600 ft/min (10
+  ft/s) a gear is designed to (14 CFR 25.473) is a limit, not a flare's
+  aim.
+
 ### The B-2A and the F-22A hold a heading in a crosswind slow: their own yaw damper and rudder integral; their plans fly from 159 and 140 kt, 2026-10-07 — tail done
 
 **What was wrong.** On the autopilot in a 20 kt crosswind the B-2A swung her
