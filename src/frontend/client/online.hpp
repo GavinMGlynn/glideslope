@@ -483,6 +483,13 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
                             if (state.watched && state.watched->aircraft == mine_) {
                                 joined->levers = state.watched;
                             }
+                            // Where it is, from the newest word, not the
+                            // first: the flight starts there.
+                            if (auto newer = joined_by(state);
+                                newer && newer->number == mine_) {
+                                joined->motion = newer->motion;
+                                joined->server_steps = newer->server_steps;
+                            }
                         }
                         if (!joined->levers) {
                             std::this_thread::sleep_for(std::chrono::milliseconds(5));
