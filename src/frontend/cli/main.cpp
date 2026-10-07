@@ -152,9 +152,6 @@ ConnectFlood connect_flood;
 // engine had stopped - the event a test of predicting a stopped engine
 // waits for, not a time.
 std::size_t connect_until_engine_compared = 0;
-// **And (`--until-compared N`)**: with `--predict`, stay until N updates have
-// been compared with what was predicted, whatever the engine.
-std::size_t connect_until_compared = 0;
 
 // **The aeroplane asked for** (`connect --aircraft ID`), by its catalogue id,
 // in the initiation's payload (net::write_asked_aircraft) - the first and any
@@ -395,8 +392,7 @@ void print_usage(std::FILE* out) {
         "                            by its catalogue id, as it joins\n"
         "                            --until-engine-compared N (with --predict) stays\n"
         "                            until N updates are compared after the server\n"
-        "                            says its engine has stopped; --until-compared N\n"
-        "                            until N updates are compared at all\n"
+        "                            says its engine has stopped\n"
         "                            --flood (with --fly), once flown, sends 1,000\n"
         "                            pings at 1,000 a second and 50 requests at once,\n"
         "                            says how many pings were answered, and leaves\n"
@@ -1523,18 +1519,7 @@ public:
         if (clock_.known()) {
             session_now_s_ = clock_.now(local_s);
         }
-        // **At the session's pace, not this machine's**: a server behind
-        // real time flies each input for fewer steps than this machine's
-        // clock would, and flown at this machine's pace its own aircraft
-        // was put right by metres for it - 2.3 m the median, 5.6 m the
-        // worst, at half of real time (PROJECT_STATUS.md, 2026-10-07).
-        if (paced_from_s_ >= 0.0) {
-            paced_s_ += (local_s - paced_from_s_) * (clock_.known() ? clock_.rate() : 1.0);
-        } else {
-            paced_s_ = local_s;
-        }
-        paced_from_s_ = local_s;
-        const auto due = static_cast<long long>(paced_s_ *
+        const auto due = static_cast<long long>(local_s *
                                                 static_cast<double>(glideslope::sim::steps_per_second));
         if (ai_flying_) {
             // The AI pilot flies it, on the server: nothing is flown here.
@@ -1956,7 +1941,6 @@ public:
     // How many updates have been compared since the server said its engine
     // had stopped (`--until-engine-compared`).
     std::size_t compared_engine_stopped() const { return compared_engine_stopped_; }
-    std::size_t compared() const { return compared_; }
 
     std::vector<std::string> report() const {
         std::vector<std::string> lines;
@@ -2136,8 +2120,6 @@ private:
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
-    double paced_s_ = 0.0;
-    double paced_from_s_ = -1.0;
     std::deque<std::pair<std::uint32_t, glideslope::sim::Controls>> before_;
     glideslope::net::SessionClock clock_;
     double rendered_s_ = -1.0;
@@ -2458,10 +2440,6 @@ int stay(glideslope::platform::UdpSocket& socket,
         // stopped** (`--until-engine-compared`).
         if (connect_until_engine_compared > 0 && predicting &&
             predicting->compared_engine_stopped() >= connect_until_engine_compared) {
-            break;
-        }
-        if (connect_until_compared > 0 && predicting &&
-            predicting->compared() >= connect_until_compared) {
             break;
         }
         // **Stay until told the ground** (`--until-told-ground`) - and, with
@@ -4054,11 +4032,6 @@ static int run_program(int argc, char** argv) {
                                      glideslope::net::most_asked_aircraft_bytes);
                         return 2;
                     }
-                    continue;
-                }
-                if (args[i] == "--until-compared" && i + 1 < args.size()) {
-                    connect_until_compared =
-                        static_cast<std::size_t>(std::stoul(std::string(args[++i])));
                     continue;
                 }
                 if (args[i] == "--until-engine-compared" && i + 1 < args.size()) {
