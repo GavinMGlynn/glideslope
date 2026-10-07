@@ -36,7 +36,7 @@ replays that prove a result, no deterministic simulation.
 > **Status, 2026-10-08.** Every numbered phase of the
 > [completion plan](docs/COMPLETION_PLAN.md) - 95 of 95 items - is ticked,
 > each against a named verification. What is left are the tails found along
-> the way: 101 done, 36 open. The biggest gaps, named first: **the ground is
+> the way: 103 done, 38 open. The biggest gaps, named first: **the ground is
 > drawn only around where a flight starts** (fly far enough and there is sky
 > beneath you); **cloud is a flat sheet**, not a volume; the Learjet has no
 > visual model; **the learnt landing is the Cessna 172's alone**, and
@@ -87,7 +87,7 @@ progress** means much of it runs and the missing part is named.
 | Thermals, ridge lift, microbursts | In progress - thermals rise over the sea as over land; no rotor or trapped waves behind a ridge |
 | Weather you can see - cloud, haze, rain | In progress - cloud is a flat sheet; no storm towers; rain falls only close by |
 | A choice of sixteen aircraft | In progress - on a server you can ask for an aircraft as you join and fly it, and a windowed client draws another player's choice as that aircraft; the Learjet is not drawn |
-| Joysticks, HOTAS and yokes | **Done** - and a pilot works the speedbrakes from a key, a stick button or a quadrant lever on nine aircraft; nothing on screen lists the controls yet |
+| Joysticks, HOTAS and yokes | **Done** - a pilot works the speedbrakes and the flaps from a key, a stick button or a quadrant lever, and F1 shows every key and button and what it does |
 | A head-up display | Its horizon line now lies on the drawn horizon, held at every pitch and bank tested, and it shows the speedbrakes where an aircraft has them; the menu has not yet re-tagged it |
 | Views: cockpit, ahead, behind, sides, above, free orbit | **Done** |
 
@@ -115,13 +115,13 @@ progress** means much of it runs and the missing part is named.
 | Feature | State |
 |---|---|
 | An autopilot: heading, altitude, airspeed, climb rate | **Done** |
-| Flight plans: routes of waypoints | **Done** |
+| Flight plans: routes of waypoints | **Done** - and a plan can end in a landing |
 | See who is flying, and the controls as they move | **Done** |
 | Hand over the controls and take them back | **Done** - a take-over the server refuses is now told to the client, and A during a take-over waits for the answer and hands over the right aircraft |
 | Ride along in an AI aircraft, then take it over | In progress - one unexplained take-over in testing was not refused; a month of clean nightly runs is owed before it is closed |
 | AI traffic that keeps flying with nobody connected | In progress - nothing yet stops you flying into an AI aircraft |
-| A copilot you talk to, and a different model on each AI aircraft | In progress - Claude and ChatGPT plan routes and change them as the flight goes, and the autopilot flies them; the AI knows no runway for a landing flown by hand |
-| A pilot that learned to fly (a learnt landing) | In progress - only the Cessna 172 has one. On a server a player's 172 on final is handed to it at its gate with L (told why not on the HUD), and an AI 172 whose flight plan ends in a landing is handed to it there too; its limits measured from 160 landings. Nothing clears a runway after a landing |
+| A copilot you talk to, and a different model on each AI aircraft | In progress - Claude and ChatGPT plan routes and change them as the flight goes, and the autopilot flies them; the AI is given the runway when it takes a hand-flown landing on the roll, and flies a go-around round a circuit above the ground and lands |
+| A pilot that learned to fly (a learnt landing) | In progress - only the Cessna 172 has one. On a server a player's 172 on final is handed to it at its gate with L (a refusal is told on the HUD, with the reason), and an AI 172 whose flight plan ends in a landing is handed to it there too; its limits measured from 160 landings. Nothing clears a runway after a landing |
 
 ### Flying together
 
@@ -239,17 +239,17 @@ flowchart LR
 ## The scale of it
 
 Figures taken from the repository on **2026-10-08**, at `origin/main`
-(`c8a46be`). The first commit was on 2026-09-17.
+(`c1aeb4e1`). The first commit was on 2026-09-17.
 
 | | |
 |---|---|
-| Commits on `main` | **599** (`git rev-list --count`) |
-| Pull requests merged | **117** (`gh pr list --state merged`) |
-| First-party code | **~129,000 lines**: `src/` 52,400, `tests/` 66,000, `tools/` 10,600 (`wc -l` of tracked source; `ext/` excluded) |
-| Tests | **1,005** registered with ctest (`ctest -N` at c8a46be, 2026-10-08): unit tests and scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
-| Completion plan | **95 of 95** phase items ticked across 12 phases; **100** tails done, **35** open; 13 items set aside for later (`docs/COMPLETION_PLAN.md`) |
+| Commits on `main` | **611** (`git rev-list --count`) |
+| Pull requests merged | **121** (`gh pr list --state merged`) |
+| First-party code | **~133,600 lines**: `src/` 54,200, `tests/` 68,900, `tools/` 10,600 (`wc -l` of tracked source; `ext/` excluded) |
+| Tests | **1,022** registered with ctest (`ctest -N` at c1aeb4e1, 2026-10-08): unit tests and scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
+| Completion plan | **95 of 95** phase items ticked across 12 phases; **103** tails done, **38** open; 13 items set aside for later (`docs/COMPLETION_PLAN.md`) |
 | CI, on every pull request | Ubuntu (debug, release), Rocky Linux 9, macOS 15 (debug, release), Windows (MSVC debug and release, clang-cl) - plus cross-platform flight agreement, the server's container image, and packages run in stock containers; measured test costs, more shards and a Windows compiler cache bring a run to about 63 minutes, from about 80. A nightly run repeats the multi-process tests |
-| Living documents | ~26,600 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~20,600 |
+| Living documents | ~27,100 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~21,000 |
 | Aircraft, lessons | 16 aircraft, 15 drawn; a checklist for each, nine phases of flight; 42 lessons across 7 classes |
 
 Some of the discipline behind those numbers (see [`CLAUDE.md`](CLAUDE.md)):
@@ -290,7 +290,7 @@ glideslope --checklist take-off --on-ground --at -33.9461,151.1772,0
 glideslope --terrain google                  # Google's 3D Tiles (needs a key)
 ```
 
-In flight, **A** hands the aircraft to the AI and takes it back, **V** steps
+In flight, **F1** shows every control (`--show-help` starts with it on), **A** hands the aircraft to the AI and takes it back, **V** steps
 through the views, and **M** chooses which model plans for your aircraft once
 it is handed over. On a server, **L** hands a Cessna 172 on final - two
 miles out, lined up, at its approach speed with full flap - to the landing
@@ -308,6 +308,12 @@ on a throttle quadrant the speedbrake is the last lever, pulled back to open
 them, and buttons 13 and 14 of a stick or a quadrant close and open them a
 quarter at a press. The HUD shows the speedbrakes on aircraft that have
 them.
+
+![F1 in the client: every key, and every stick and throttle-quadrant axis and button, with what it does](docs/images/controls-help-f1.jpg)
+
+*F1 (or `--show-help`): the controls help, listing the keys and the stick's
+and the quadrant's axes and buttons from `bindings.txt`, over the cockpit
+view. A frame written by `--shot`, headless on Vulkan.*
 
 **Fly together:**
 
