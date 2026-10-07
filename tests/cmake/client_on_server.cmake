@@ -76,6 +76,12 @@ endif()
 # The client connects once the server is flying (client.cmake says why).
 set(_ready "${WORK}/flying")
 file(REMOVE "${_ready}")
+# **A server behind real time by a set factor**, built on purpose with
+# `-DSERVER_PACE=<fraction>` (the server's `--test-pace`).
+set(_pace)
+if(DEFINED SERVER_PACE)
+    set(_pace --test-pace ${SERVER_PACE})
+endif()
 set(_other_player)
 if(OTHER_PLAYER)
     # Its words go down the pipe; the window client's are what is read. It
@@ -87,7 +93,7 @@ endif()
 execute_process(
     # Until the client has gone.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
+            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}" ${_pace}
     ${_other_player}
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1200 --view behind --aircraft f15c --slow-start 5

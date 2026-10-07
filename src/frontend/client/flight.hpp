@@ -11,6 +11,7 @@
 #include "sim/checklist_run.hpp"
 #include "sim/controller.hpp"
 #include "sim/navigator.hpp"
+#include "sim/pacing.hpp"
 #include "sim/prediction.hpp"
 #include "gfx/sky.hpp"
 #include "frontend/same_air.hpp"
@@ -171,6 +172,13 @@ public:
     // (sim::Prediction::hear_clock).
     void hear_clock(std::uint32_t last_applied, std::size_t steps_into,
                     std::uint64_t server_steps);
+    // **The pace its ticks are flown at, steered to the server's**
+    // (sim::Pacing) by the prediction's clocks' difference once it is known,
+    // and before then at `rate`, the session clock's fit, when there is one.
+    // `local_s` is this machine's clock as the word was heard.
+    void pace_by_clocks(double local_s, std::optional<double> rate);
+    // As a fraction of this machine's clock: what the frame loop flies by.
+    double pace() const { return pacing_.pace(); }
 
     // Hands the aircraft to the AI - flying what is left of the plan, if any
     // is - or back to the pilot (sim/controller.hpp).
@@ -303,6 +311,7 @@ private:
     std::optional<sim::ApproachSpeeds> lands_with_;
     // On a server: the prediction, and the sequence of the inputs being flown.
     std::unique_ptr<sim::Prediction> prediction_;
+    sim::Pacing pacing_;
     std::uint32_t sequence_ = 0;
     bool start_with_ai_ = false;
     // The plan, its altitudes above the ellipsoid as the aircraft's are, and
