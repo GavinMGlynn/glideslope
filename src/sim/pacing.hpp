@@ -42,6 +42,11 @@ public:
     // The slowest and fastest it flies, as fractions of this machine's clock.
     static constexpr double slowest = 0.1;
     static constexpr double fastest = 2.0;
+    // **The most two paces are taken to part by**, as a fraction of real
+    // time: the difference moving faster than this between two words is a
+    // jump - a starved server catching up four steps a look, all at once -
+    // and what it is held to moves with it, rather than the pace chasing it.
+    static constexpr double most_parting = 0.5;
 
     // **This machine's clock, paced**: where the client's flying should have
     // got to at `local_s`, advanced at the pace since the last call. The
@@ -83,6 +88,7 @@ public:
 
 private:
     std::optional<std::int64_t> held_;
+    std::int64_t last_difference_ = 0;
     bool ever_held_ = false;
     double integral_ = 0.0;
     std::optional<double> heard_at_s_;

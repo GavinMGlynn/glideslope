@@ -1243,9 +1243,15 @@ struct AtPace {
     std::int64_t worst_late_off = 0;
     // Where the difference was at the end against where it began, in steps.
     std::int64_t drifted = 0;
+    // The furthest the pace was from the server's from the jump on.
+    double worst_pace_off_after_jump = 0.0;
 };
 
-AtPace fly_at_pace(double rate, double seconds, bool paced) {
+// `jump` steps more on the server's clock from `jump_at_s` on: a server that
+// had fallen behind catching up all at once, as a starved one does four steps
+// a look.
+AtPace fly_at_pace(double rate, double seconds, bool paced, std::int64_t jump = 0,
+                   double jump_at_s = 0.0) {
     constexpr double delay_s = 0.1;
     constexpr double frame_s = 1.0 / 60.0;
     glideslope::sim::Pacing pacing;
@@ -1262,8 +1268,9 @@ AtPace fly_at_pace(double rate, double seconds, bool paced) {
     std::optional<std::int64_t> first;
     AtPace out;
     double late_flown_s = 0.0, late_t = 0.0, last_flown_s = 0.0, last_t = 1.0;
-    const auto server_step = [rate](double real_s) {
-        return static_cast<std::int64_t>(real_s * rate * 120.0);
+    const auto server_step = [rate, jump, jump_at_s](double real_s) {
+        return static_cast<std::int64_t>(real_s * rate * 120.0) +
+               (jump != 0 && real_s >= jump_at_s ? jump : 0);
     };
     for (int frame = 0; static_cast<double>(frame) * frame_s < seconds; ++frame) {
         const double t = static_cast<double>(frame) * frame_s;
@@ -1287,7 +1294,8 @@ AtPace fly_at_pace(double rate, double seconds, bool paced) {
         }
         // A word every twenty-fifth of the server's second, heard a delay
         // later.
-        const double server_s_heard = (t - delay_s) * rate;
+        const double server_s_heard =
+            static_cast<double>(server_step(t - delay_s)) / 120.0;
         while (applied_began >= 0 && server_s_heard >= next_word_s) {
             next_word_s += 1.0 / 25.0;
             offsets.push_back(applied_at - applied_began);
@@ -1305,6 +1313,10 @@ AtPace fly_at_pace(double rate, double seconds, bool paced) {
             }
             out.drifted = least - *first;
             pacing.heard(least, t);
+            if (jump != 0 && t >= jump_at_s) {
+                out.worst_pace_off_after_jump =
+                    std::max(out.worst_pace_off_after_jump, std::abs(pacing.pace() - rate));
+            }
             if (t >= seconds - 10.0 && std::llabs(pacing.off()) > std::llabs(out.worst_late_off)) {
                 out.worst_late_off = pacing.off();
             }
@@ -1338,7 +1350,20 @@ GLIDESLOPE_TEST(a_client_paced_by_its_clocks_difference_flies_at_the_servers_pac
                   " steps from the one held in the last ten seconds");
         ++rates;
     }
-    check(rates == 9, "nine server rates were flown against: " + std::to_string(rates));
+    // **A server catching up at once is not chased** - its clock jumped,
+    // its pace did not change. Held to the difference from before, a client
+    // flew at 1.25 to take back 36 steps the server had caught up, and was
+    // off by 1.4 m all the while (CI's Windows clang-cl, job 112958941087).
+    for (const std::int64_t jump : {36, -36, 120}) {
+        const AtPace p = fly_at_pace(1.0, 60.0, true, jump, 30.0);
+        check(p.worst_pace_off_after_jump <= 0.05,
+              "the server's clock jumping " + std::to_string(jump) +
+                  " steps, the client's pace went " +
+                  std::to_string(p.worst_pace_off_after_jump) + " from the server's");
+        ++rates;
+    }
+    check(rates == 12, "nine server rates and three jumps were flown against: " +
+                           std::to_string(rates));
     const AtPace unpaced = fly_at_pace(0.6, 60.0, false);
     check(unpaced.drifted < -1000,
           "unpaced against a server at 0.6 the clocks' difference fell by " +
