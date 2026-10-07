@@ -102,13 +102,19 @@ Controls landing_controls(const std::array<double, LearntPolicy::actions>& actio
 // tools/rl/landing.py's `remember`.
 double remember_drift(double integral, double across_m, const LearntPolicy& policy);
 
-// **The gate the learnt landing is offered at**: where it was trained to take
-// her from and chosen on - tools/rl/landing.py's held-out starts, and its
-// training's airspeeds. Between 1.6 and 2.4 miles before the threshold, no
-// more than 60 m either side of the extended centreline, 20 m above or below
-// the glidepath and 5 degrees off the runway's heading; from 3 kt under the
-// policy's reference speed to 8 kt over it; with the landing flap out. The
-// CLI's start (`glideslope_cli land --learnt`: two miles out on the
+// **The gate the learnt landing is offered at**: a box the policy has been
+// flown from, at every one of its corners, and landed within its own limits
+// - 5 m of the centreline, under 300 ft/min, stopped on the runway - in every
+// wind the box admits (the_learnt_policy_lands_within_its_limits_from_every_
+// corner_of_its_gate_in_every_wind_it_admits: 160 landings, worst 3.90 m and
+// 277 ft/min). Between 1.6 and 2.4 miles before the threshold, no more than
+// 60 m either side of the extended centreline, 20 m above or below the
+// glidepath and 5 degrees off the runway's heading; from 3 kt under the
+// policy's reference speed to 8 kt over it; the landing flap out and not
+// moving; and the wind as the instruments estimate it no more than 15 kt
+// across, 8 kt ahead and 5 kt behind. A 15-knot headwind is not admitted:
+// from every corner at that speed she bounced 7 ft, and at 10 kt once 3 ft.
+// The CLI's start (`glideslope_cli land --learnt`: two miles out on the
 // centreline and the glidepath, at the reference speed) is its middle.
 // Outside it she is not offered: nothing says the policy lands from there.
 struct LearntGate {
@@ -119,12 +125,17 @@ struct LearntGate {
     static constexpr double most_off_heading_deg = 5.0;
     static constexpr double most_under_vref_kts = 3.0;
     static constexpr double most_over_vref_kts = 8.0;
-    static constexpr double most_off_flap = 0.05; // of the flaps' travel, 0 to 1
+    static constexpr double most_off_flap = 0.01; // of the flaps' travel: out, not moving
+    // The wind, as the instruments estimate it (landing_observation's).
+    static constexpr double most_crosswind_kts = 15.0;
+    static constexpr double most_headwind_kts = 8.0;
+    static constexpr double most_tailwind_kts = 5.0;
 };
 
 // **Why `aircraft` is not at `runway`'s gate for `policy`**, in words a pilot
 // reads - "4.1 miles out; the gate is 1.6 to 2.4" - the first reason found,
-// the aircraft first and then in LearntGate's order; empty when she is at it.
+// the aircraft first, then the wind, then the rest in LearntGate's order; empty
+// when she is at it.
 std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
                                 const LearntPolicy& policy);
 

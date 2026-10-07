@@ -949,7 +949,8 @@ std::unique_ptr<glideslope::sim::Aircraft> placed(const std::string& model, cons
                                                   const LearntPolicy& policy, double out_m,
                                                   double across_m, double high_m,
                                                   double heading_off_deg, double kts,
-                                                  double flaps) {
+                                                  double flaps,
+                                                  std::shared_ptr<glideslope::sim::Weather> weather = nullptr) {
     auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", model);
     const double ground_m = runway.elevation_ft / feet_per_metre;
     aircraft->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
@@ -963,6 +964,9 @@ std::unique_ptr<glideslope::sim::Aircraft> placed(const std::string& model, cons
         across_m * std::cos(h) / metres_per_degree_longitude(runway.threshold_lat_deg);
     ic.altitude_ft += high_m * feet_per_metre;
     ic.heading_deg = runway.heading_deg + heading_off_deg;
+    if (weather) {
+        aircraft->set_weather(std::move(weather));
+    }
     aircraft->initialize(ic);
     return aircraft;
 }
@@ -1028,6 +1032,8 @@ GLIDESLOPE_TEST(an_aeroplane_is_at_the_learnt_landings_gate_only_inside_it_and_i
         std::string model;
         double out_m, across_m, high_m, heading_deg, kts, flaps;
         std::string why; // empty: at the gate
+        double cross_kts = 0.0; // the wind: from the left, positive
+        double head_kts = 0.0;  // and from ahead
     };
     const std::vector<Case> cases{
         {"the CLI's start", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, ""},
@@ -1049,15 +1055,31 @@ GLIDESLOPE_TEST(an_aeroplane_is_at_the_learnt_landings_gate_only_inside_it_and_i
         {"too fast", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref + 9.0, f, "69 kt; the gate is"},
         {"the flaps up", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, 0.0, "flaps at 0%"},
         {"another aeroplane", "c182", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "this is the c182"},
+        {"the flaps a little short", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f - 0.03, "flaps at 97%"},
+        {"too much crosswind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "17 kt of crosswind", 17.0, 0.0},
+        {"too much headwind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "10 kt of headwind", 0.0, 10.0},
+        {"too much tailwind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "7 kt of tailwind", 0.0, -7.0},
     };
     // Every refusal outside_learnt_gate gives, each way it gives it: two in
     // distance, two across, two in height, two in heading, two in speed, the
-    // flaps and the aeroplane - twelve - and three inside.
+    // flaps short and up, the aeroplane, and the wind across, ahead and
+    // behind - sixteen - and three inside.
     std::size_t inside = 0;
     std::size_t outside = 0;
     for (const Case& c : cases) {
-        const auto aircraft = placed(c.model, runway, *policy, c.out_m, c.across_m, c.high_m,
-                                     c.heading_deg, c.kts, c.flaps);
+        const double h = runway.heading_deg / degrees;
+        glideslope::sim::Conditions wind;
+        wind.wind_north_mps = (c.cross_kts * std::cos(h + 3.14159265358979323846 / 2.0) -
+                               c.head_kts * std::cos(h)) * 0.514444;
+        wind.wind_east_mps = (c.cross_kts * std::sin(h + 3.14159265358979323846 / 2.0) -
+                              c.head_kts * std::sin(h)) * 0.514444;
+        const auto aircraft =
+            placed(c.model, runway, *policy, c.out_m, c.across_m, c.high_m, c.heading_deg, c.kts,
+                   c.flaps, std::make_shared<glideslope::sim::SteadyWeather>(wind));
+        // A second flown, so that the instruments have the wind.
+        for (int tick = 0; tick < steps_per_second; ++tick) {
+            aircraft->step();
+        }
         const std::string why = glideslope::sim::outside_learnt_gate(*aircraft, runway, *policy);
         std::printf("  %s: %s\n", c.name.c_str(), why.empty() ? "at the gate" : why.c_str());
         if (c.why.empty()) {
@@ -1069,7 +1091,7 @@ GLIDESLOPE_TEST(an_aeroplane_is_at_the_learnt_landings_gate_only_inside_it_and_i
             ++outside;
         }
     }
-    check(inside == 3 && outside == 12, "three inside and twelve refusals walked: " +
+    check(inside == 3 && outside == 16, "three inside and sixteen refusals walked: " +
                                             std::to_string(inside) + " and " +
                                             std::to_string(outside));
 }
@@ -1233,4 +1255,109 @@ GLIDESLOPE_TEST(an_aeroplane_taken_back_from_the_learnt_landing_moves_no_control
     check(gap > 10.0 * hand, "there was a gap to close, so the take-back was tested");
     check(worst <= hand + 1e-12,
           "no control moved more than a hand's step: " + std::to_string(worst));
+}
+
+// **From every corner of the gate, in every wind it admits, the policy lands
+// within its limits.** The gate (sim::LearntGate) is a box in five things -
+// how far out, how far across, how far off the glidepath, how far off the
+// heading, how fast - and every one of its 32 corners, all five at their
+// edges at once, is flown in each of the winds at its own edges: calm, the
+// most crosswind it admits from either side, the most headwind and the most
+// tailwind - 160 landings, counted. Each must touch down within 5 m of the
+// centreline under 300 ft/min, down and upright, and be stopped on the
+// runway: the policy's own verification, from the gate's worst.
+GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_every_wind_it_admits) {
+    using Gate = glideslope::sim::LearntGate;
+    const auto policy = the_policy();
+    const Runway runway = a_runway();
+    struct Wind {
+        std::string name;
+        double across_kts; // from the left, positive
+        double head_kts;   // down the runway towards her, positive
+    };
+    const std::vector<Wind> winds{{"calm", 0.0, 0.0},
+                                  {"across from the left", Gate::most_crosswind_kts, 0.0},
+                                  {"across from the right", -Gate::most_crosswind_kts, 0.0},
+                                  {"ahead", 0.0, Gate::most_headwind_kts},
+                                  {"behind", 0.0, -Gate::most_tailwind_kts}};
+    std::size_t flown = 0;
+    std::vector<std::string> failures;
+    double worst_across = 0.0;
+    double worst_sink = 0.0;
+    for (int corner = 0; corner < 32; ++corner) {
+        const auto edge = [&](int bit, double low, double high) {
+            return (corner & (1 << bit)) != 0 ? high : low;
+        };
+        // A whisker inside each edge, so that rounding does not put it out.
+        const double out_m = edge(0, Gate::nearest_m + 5.0, Gate::furthest_m - 5.0);
+        const double across_m = edge(1, 0.5 - Gate::most_across_m, Gate::most_across_m - 0.5);
+        const double high_m =
+            edge(2, 0.5 - Gate::most_off_glidepath_m, Gate::most_off_glidepath_m - 0.5);
+        const double heading =
+            edge(3, 0.1 - Gate::most_off_heading_deg, Gate::most_off_heading_deg - 0.1);
+        const double kts = edge(4, policy->vref_kts - Gate::most_under_vref_kts + 0.2,
+                                policy->vref_kts + Gate::most_over_vref_kts - 0.2);
+        for (const Wind& w : winds) {
+            // Blowing towards the right of the landing direction, and
+            // towards the aeroplane from ahead.
+            const double h = runway.heading_deg / degrees;
+            const double cross = w.across_kts * 0.514444;
+            const double head = w.head_kts * 0.514444;
+            glideslope::sim::Conditions conditions;
+            conditions.wind_north_mps =
+                cross * std::cos(h + 3.14159265358979323846 / 2.0) - head * std::cos(h);
+            conditions.wind_east_mps =
+                cross * std::sin(h + 3.14159265358979323846 / 2.0) - head * std::sin(h);
+            auto aircraft = placed("c172p", runway, *policy, out_m, across_m, high_m, heading, kts,
+                                   policy->flaps,
+                                   std::make_shared<glideslope::sim::SteadyWeather>(conditions));
+            const std::string why =
+                glideslope::sim::outside_learnt_gate(*aircraft, runway, *policy);
+            char name[200];
+            std::snprintf(name, sizeof name,
+                          "%.2f nm, %+.0f m across, %+.0f m high, %+.0f deg, %.1f kt, %s",
+                          out_m / metres_per_nm, across_m, high_m, heading, kts, w.name.c_str());
+            check(why.empty(), std::string(name) + " is at the gate: " + why);
+            LearntLander lander(*aircraft, runway, policy, speeds());
+            Landing l;
+            AfterTouch after;
+            for (long tick = 0; tick < 420L * steps_per_second; ++tick) {
+                aircraft->set_controls(lander.fly());
+                aircraft->step();
+                if (lander.touched()) {
+                    after.see(*aircraft, tick, l);
+                }
+                if (lander.stage() == LearntLander::Stage::stopped) {
+                    l.stopped = true;
+                    l.stopped_along_m = -lander.rollout().along_m();
+                    l.stopped_across_m = lander.rollout().across_m();
+                    break;
+                }
+            }
+            l.touched = lander.touched();
+            l.sink_fpm = lander.touchdown_sink_fpm();
+            l.across_m = lander.touchdown_across_m();
+            l.along_m = lander.touchdown_along_m();
+            ++flown;
+            worst_across = std::max(worst_across, std::abs(l.across_m));
+            worst_sink = std::max(worst_sink, l.sink_fpm);
+            std::vector<std::string> wrong = short_of_the_limits(l);
+            for (const std::string& s : not_stopped_on_the_runway(l)) {
+                wrong.push_back(s);
+            }
+            if (!wrong.empty()) {
+                std::string text = name;
+                for (const std::string& s : wrong) {
+                    text += "; " + s;
+                }
+                failures.push_back(text);
+                std::printf("  SHORT %s\n", text.c_str());
+            }
+        }
+    }
+    std::printf("  %zu landings from the gate's corners: worst %.2f m across, %.0f ft/min; %zu "
+                "short\n",
+                flown, worst_across, worst_sink, failures.size());
+    check(flown == 32 * winds.size(), "every corner flown in every wind: " + std::to_string(flown));
+    none_wrong(failures, flown, "landings from the gate's corners fell short");
 }

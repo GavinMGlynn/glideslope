@@ -280,6 +280,28 @@ aircraft while the learnt landing has it (as with any AI), and the gate's
 runway is the server's to find; the client is told only that it was handed
 over.
 
+**A client refused the learnt landing is not told why**: the server says
+why in its log, and the client hears nothing - no refusal reason travels.
+
+**From the review of #119.** The gate was the held-out starts' box with the
+training's airspeeds, but the held-out starts were all at the reference
+speed, and the gate ignored the wind. Now every one of the box's 32 corners -
+all five limits at their edges at once - is flown in calm air, 15 kt across
+from either side, the most headwind and 5 kt behind, through
+`LearntLander`: with 15 kt ahead all 32 corners bounced (7.0 to 7.5 ft back
+into the air, past the 3 ft limit); with 10 kt ahead one did (3.008 ft, 1.6
+miles out, 60 m right, 20 m low, 5 degrees right, 57 kt); with 8 kt ahead all
+160 land - worst 3.90 m across and 277 ft/min - and stop on the runway. So
+the gate admits the wind as the instruments estimate it - the policy's own
+estimate - to 15 kt across, 8 ahead and 5 behind, asks it before the
+aeroplane's place, and holds the landing flap to within 1% (out, not
+moving) rather than 5%. A crab into a crosswind of more than 5 degrees is
+refused by the heading limit, as the policy was never started so.
+`the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_every_wind_it_admits`
+(160 landings, counted) was seen red with the headwind limit at 15 and at
+10; the gate test now walks sixteen refusals, the wind three of them and
+the flaps 3% short one. A stray table header in TRANSPORT.md is gone.
+
 **What works.** A player whose aeroplane has a learnt landing (today the
 C172P alone) asks for it - `CONTROLLER_SWAP` to the new `LEARNT_LANDING`,
 `03`; L in the window client, `--learnt-landing-after S` for tests;
@@ -289,7 +311,7 @@ world's: `sim::LearntGate`, the CLI's start at its middle and the policy's
 held-out starts' room around it - 1.6 to 2.4 miles before the threshold,
 within 60 m of the centreline, 20 m of the glidepath and 5 degrees of the
 runway's heading, from 3 kt under the reference speed to 8 over, with the
-landing flap out. `world::learnt_gate_runway` walks every end of every runway
+landing flap out, in no more than 15 kt across, 8 ahead and 5 behind. `world::learnt_gate_runway` walks every end of every runway
 in the strips the collision ground is made from, takes the threshold's
 elevation from that ground, and says why not for the end she is most nearly
 lined up on ("YSSY 16R: 2.9 miles out; the gate is 1.6 to 2.4 miles out").

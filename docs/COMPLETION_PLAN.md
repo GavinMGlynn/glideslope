@@ -409,8 +409,9 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **Offer the learnt landing in a session.** A player's 172 on final
       is handed to it at its gate on a server and landed (L in the window
       client). Still missing: the server's own AI aircraft are never landed
-      by it, and no test has seen the window client's L or its HUD (the
-      tail below stops a keyboard pilot reaching the gate).
+      by it, no test has seen the window client's L or its HUD (the tail
+      below stops a keyboard pilot reaching the gate), and a client refused
+      is not told why - only the server's log says.
       *Verification: an AI aircraft on a server is landed by it when asked,
       and a client's aircraft handed over at the gate is too.*
 - [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
