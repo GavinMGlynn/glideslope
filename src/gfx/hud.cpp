@@ -508,6 +508,76 @@ double hud_pitch_for(double centre_y, double roll_deg, int height, double vertic
     return std::atan((centre_y - height / 2.0) * std::cos(roll_deg / degrees) / f) * degrees;
 }
 
+std::vector<HelpColumn> help_columns(const std::vector<std::string>& lines, int width,
+                                     int bottom) {
+    TextLayout first;
+    first.scale = 1;
+    first.left = 2 * first.cell_width();
+    first.top = 2 * first.cell_height();
+    const auto rows = static_cast<std::size_t>(
+        std::max(1, (bottom - first.cell_height() - first.top) / first.cell_height()));
+    std::vector<HelpColumn> columns;
+    int left = first.left;
+    for (std::size_t at = 0; at < lines.size();) {
+        HelpColumn column;
+        column.layout = first;
+        column.layout.left = left;
+        const std::size_t end = std::min(lines.size(), at + rows);
+        column.lines.assign(lines.begin() + static_cast<std::ptrdiff_t>(at),
+                            lines.begin() + static_cast<std::ptrdiff_t>(end));
+        for (const std::string& line : column.lines) {
+            column.columns = std::max(column.columns, line.size());
+        }
+        const int right = left + static_cast<int>(column.columns) * first.cell_width();
+        if (right > width - first.cell_width()) {
+            // It does not fit: the last column that has room for it ends
+            // saying so - in place of its last line - or, with none, the
+            // first is that line alone; on a frame too narrow even for that,
+            // nothing is drawn.
+            const std::size_t cut_size = std::string(help_cut_line).size();
+            const auto fits = [&](const HelpColumn& c) {
+                return c.layout.left +
+                           static_cast<int>(std::max(c.columns, cut_size)) * first.cell_width() <=
+                       width - first.cell_width();
+            };
+            while (!columns.empty() && !fits(columns.back())) {
+                columns.pop_back();
+            }
+            if (columns.empty()) {
+                column.layout.left = first.left;
+                column.lines = {help_cut_line};
+                column.columns = cut_size;
+                if (fits(column)) {
+                    columns.push_back(std::move(column));
+                }
+                return columns;
+            }
+            columns.back().lines.back() = help_cut_line;
+            columns.back().columns = std::max(columns.back().columns, cut_size);
+            return columns;
+        }
+        left = right + 2 * first.cell_width();
+        at = end;
+        columns.push_back(std::move(column));
+    }
+    return columns;
+}
+
+PixelBox help_panel(int width, int bottom) {
+    TextLayout layout;
+    PixelBox box;
+    box.left = 0.0;
+    box.top = layout.cell_height();
+    box.right = width;
+    box.bottom = bottom;
+    return box;
+}
+
+int help_bottom(const std::vector<std::string>& credits, int width, int height) {
+    const std::vector<std::string> lines = credit_lines(credits, width);
+    return lines.empty() ? height : credit_layout(width, height, lines.size()).top;
+}
+
 Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     Mesh mesh;
     const TextLayout layout = hud_layout(width, height);
@@ -535,6 +605,16 @@ Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     if (!checklist.empty()) {
         add_text(mesh, checklist, checklist_layout(width, height, checklist.size()),
                  width, height);
+    }
+    if (!readings.help.empty()) {
+        // Over everything but the credits, which stay on screen.
+        const int bottom = help_bottom(readings.credits, width, height);
+        const PixelBox panel = help_panel(width, bottom);
+        add_rect(mesh, panel.left, panel.top, panel.right, panel.bottom, width, height,
+                 {0.0f, 0.0f, 0.0f, 0.8f});
+        for (const HelpColumn& column : help_columns(readings.help, width, bottom)) {
+            add_text(mesh, column.lines, column.layout, width, height);
+        }
     }
     // Last, over the horizon wherever it runs.
     add_credits(mesh, credit_lines(readings.credits, width), width, height);

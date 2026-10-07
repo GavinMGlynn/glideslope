@@ -810,10 +810,12 @@ Found while implementing something else. Added when found, not when remembered.
       hand and taken back on the roll is landed to a stop.* Done 2026-10-06:
       every landplane so handed over stops on the runway, held to the line
       she rolls along and braked at autobrake 3.
-- [ ] **The AI knows no runway for a landing flown by hand**: taken over on
+- [x] **The AI knows no runway for a landing flown by hand**: taken over on
       the roll it holds her track and brakes at a fixed rate, not for the
       runway left. *Verification: a landing flown by hand on a short runway
-      is stopped on it by the AI.*
+      is stopped on it by the AI.* Done 2026-10-08: she is given the world's
+      runway she rolls on and braked for what is left of it; every landplane
+      stops on a 1,500 m runway, where six ran off it.
 - [x] **An A320 taken at the touch by a pilot who lets the stick go rises
       4.1 ft after the AI takes her back**, against three for everything
       else. *Verification: every landplane taken back at the touch rises
@@ -874,10 +876,12 @@ Found while implementing something else. Added when found, not when remembered.
       it; the HUD shows it where there are speedbrakes; the bomber lessons'
       bands are `vref+12` and `vref+15` again, and flown by hand with the
       lever half out the B-2A stays inside, and stowed she does not.
-- [ ] **No in-client help lists the controls.** The keys and buttons are
+- [x] **No in-client help lists the controls.** The keys and buttons are
       only in the README and the bindings file, not in `glideslope --help`
       or on screen. *Verification: the client shows every control's key and
-      button, held to the bindings by a test.*
+      button, held to the bindings by a test.* Done 2026-10-08: F1 shows
+      every key and every binding, made from the bindings file and the
+      keyboard's own table, and read back off a real frame.
 - [x] **The F-15C's speedbrake draws no drag.** Her model moves the surface
       but its aerodynamics ignores it, so the lever does nothing in her.
       *Verification: with the lever out she slows, held level, as the

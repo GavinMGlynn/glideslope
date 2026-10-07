@@ -467,6 +467,39 @@ LearntGateFound learnt_gate_runway(const RunwaySurfaces& surfaces, const sim::Ai
     return found;
 }
 
+std::optional<sim::Runway> runway_rolled_on(const RunwaySurfaces& surfaces,
+                                            const sim::Aircraft& aircraft,
+                                            const std::function<double(double, double)>& ground_m) {
+    constexpr double feet_per_metre = 1.0 / metres_per_foot;
+    constexpr double most_off_deg = 30.0;
+    const sim::AircraftState s = aircraft.state();
+    const double v_north = aircraft.property("velocities/v-north-fps");
+    const double v_east = aircraft.property("velocities/v-east-fps");
+    const double track_deg =
+        std::hypot(v_north, v_east) > 1.0 ? std::atan2(v_east, v_north) * to_deg : s.heading_deg;
+    std::optional<sim::Runway> found;
+    double least_off_deg = most_off_deg;
+    for (const std::uint32_t i : surfaces.reaching(s.latitude_deg, s.longitude_deg)) {
+        if (surfaces.place(i, s.latitude_deg, s.longitude_deg).outside_m > 0.0) {
+            continue;
+        }
+        const RunwayStrip& strip = surfaces.at(i).strip;
+        for (const bool he : {false, true}) {
+            const sim::Runway end = runway_end(surfaces, i, he, 0.0);
+            const double off_deg = std::abs(std::remainder(track_deg - end.heading_deg, 360.0));
+            if (off_deg <= least_off_deg) {
+                least_off_deg = off_deg;
+                found = runway_end(
+                    surfaces, i, he,
+                    ground_m(he ? strip.he_latitude_deg : strip.le_latitude_deg,
+                             he ? strip.he_longitude_deg : strip.le_longitude_deg) *
+                        feet_per_metre);
+            }
+        }
+    }
+    return found;
+}
+
 CollisionGround::CollisionGround(std::shared_ptr<Dem> dem,
                                  std::shared_ptr<const RunwaySurfaces> runways,
                                  double tolerance_m)

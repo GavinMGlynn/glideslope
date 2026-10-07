@@ -82,7 +82,8 @@ the controls to an AI pilot whenever you like, then take them back.
   a livery or moves its control surfaces.
 
 - **Joysticks, HOTAS and yokes.** `DONE`
-  Proper flight controls on every platform, not only a keyboard.
+  Proper flight controls on every platform, not only a keyboard. F1 shows
+  every key and button and what it does.
 
 - **A head-up display.** `CORE`
   Airspeed, altitude, heading, vertical speed and attitude at a glance.

@@ -5,7 +5,9 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -262,4 +264,88 @@ GLIDESLOPE_TEST(a_bindings_file_that_cannot_be_read_is_refused_by_line) {
           "extra words");
     check(glideslope::platform::parse_bindings("# only a comment\n\n").empty(),
           "comments and blank lines are nothing");
+}
+
+// **The help on screen names every binding in the bindings file, every key
+// and every one of the client's own keys** (platform::controls_help), from
+// the bindings as read, so that it cannot say other than what they do: each
+// binding as an input on its control's line under its device's heading, each
+// key pair or held key with its control, and each command key with what it
+// does. Every line in the font's characters - capitals, digits and a little
+// punctuation - so that none is drawn as a gap.
+GLIDESLOPE_TEST(the_help_on_screen_names_every_binding_in_the_bindings_file_every_key_and_every_command) {
+    const std::vector<Binding> bindings = committed_bindings();
+    const std::vector<std::string> help = glideslope::platform::controls_help(bindings);
+    for (const std::string& line : help) {
+        std::printf("  |%s\n", line.c_str());
+    }
+    const std::string font = " ()+,-./0123456789:;ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    for (const std::string& line : help) {
+        check(line.find_first_not_of(font) == std::string::npos,
+              "every character of '" + line + "' is the font's");
+    }
+    // A heading's section: the lines after it up to the next heading, which
+    // begins with no space.
+    const auto section = [&](const std::string& heading) {
+        const auto at = std::find(help.begin(), help.end(), heading);
+        check(at != help.end(), "the help has a " + heading + " heading");
+        const auto end = std::find_if(std::next(at), help.end(), [](const std::string& l) {
+            return !l.empty() && l.front() != ' ';
+        });
+        return std::vector<std::string>(std::next(at), end);
+    };
+    std::size_t found = 0;
+    for (const Binding& b : bindings) {
+        const std::string name = glideslope::platform::help_name(b);
+        bool on_its_line = false;
+        for (const std::string& line : section(glideslope::platform::help_name(b.device))) {
+            if (line.rfind(" " + glideslope::platform::help_name(b.control) + " ", 0) != 0) {
+                continue;
+            }
+            // A whole item of the line's list, not the start of another:
+            // "BUTTON 1" is not "BUTTON 13".
+            for (std::size_t at = line.find(name); at != std::string::npos;
+                 at = line.find(name, at + 1)) {
+                const bool starts =
+                    at >= 2 && (line.compare(at - 2, 2, ", ") == 0 || line[at - 1] == ' ');
+                const bool ends = at + name.size() == line.size() ||
+                                  line.compare(at + name.size(), 2, ", ") == 0;
+                on_its_line = on_its_line || (starts && ends);
+            }
+        }
+        check(on_its_line, name + " (" + glideslope::platform::help_name(b.device) + ", " +
+                               glideslope::platform::help_name(b.control) +
+                               ") is on the help's line for its control");
+        found += on_its_line ? 1U : 0U;
+    }
+    std::size_t keys = 0;
+    for (const auto& k : glideslope::platform::keyboard_bindings()) {
+        const std::string names = k.mode == glideslope::platform::Mode::hold
+                                      ? std::string(k.more_name)
+                                      : std::string(k.less_name) + " " + k.more_name;
+        const auto it = std::find_if(help.begin(), help.end(), [&](const std::string& l) {
+            return l.rfind(" " + names + " ", 0) == 0 &&
+                   l.find(glideslope::platform::help_name(k.control)) != std::string::npos;
+        });
+        check(it != help.end(), "the keys " + names + " are in the help with their control");
+        keys += it != help.end() ? 1U : 0U;
+    }
+    std::size_t commands = 0;
+    for (const auto& [command, key] : glideslope::platform::command_keys()) {
+        const std::string name = key.name;
+        const std::string does = key.does;
+        const auto it = std::find_if(help.begin(), help.end(), [&](const std::string& l) {
+            return l.rfind(" " + name + " ", 0) == 0 && l.find(does) != std::string::npos;
+        });
+        check(it != help.end(), "the key " + name + " is in the help");
+        commands += it != help.end() ? 1U : 0U;
+    }
+    std::printf("  %zu of %zu bindings, %zu of %zu keys, %zu of %zu commands\n", found,
+                bindings.size(), keys, glideslope::platform::keyboard_bindings().size(),
+                commands, glideslope::platform::command_keys().size());
+    check(bindings.size() == 2 * (8 + 16 + 4) && found == bindings.size(),
+          "all 56 bindings of the file are in the help: " + std::to_string(found));
+    check(keys == glideslope::platform::keyboard_bindings().size() && keys == 9 &&
+              commands == glideslope::platform::command_keys().size() && commands == 8,
+          "the keyboard's nine key bindings and the client's eight keys are in the help");
 }

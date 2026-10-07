@@ -1122,3 +1122,90 @@ GLIDESLOPE_TEST(a_group_its_ties_would_move_too_far_is_made_from_the_fits_instea
               name + ": in its group, the fit to the DEM - the sea");
     }
 }
+
+// **The runway an aircraft is rolling on is the world's runway under her, the
+// end she is rolling towards** (`runway_rolled_on`), for a landing flown by
+// hand and handed to the AI on its roll. At Sydney, a C172P rolling at forty
+// knots: down 16R and up it (34L), down 16L beside it, along 07 and back
+// (25); where 07/25 crosses 16R/34L, the one she is rolling along of the two;
+// across 16R, none; and on the grass between the parallels, none.
+GLIDESLOPE_TEST(an_aircraft_rolling_on_a_runway_of_the_worlds_is_given_that_runway_towards_where_she_rolls_and_off_one_none) {
+    const auto surfaces = glideslope::world::runway_surfaces(data());
+    struct End {
+        double lat = 0.0;
+        double lon = 0.0;
+    };
+    std::map<std::string, End> ends;
+    for (std::size_t i = 0; i < surfaces->size(); ++i) {
+        const RunwayStrip& s = surfaces->at(i).strip;
+        if (s.airport == "YSSY") {
+            ends[s.le_ident] = {s.le_latitude_deg, s.le_longitude_deg};
+            ends[s.he_ident] = {s.he_latitude_deg, s.he_longitude_deg};
+        }
+    }
+    check(ends.size() == 6, "Sydney's three runways, six ends");
+    const auto between = [](const End& a, const End& b, double t) {
+        return End{a.lat + t * (b.lat - a.lat), a.lon + t * (b.lon - a.lon)};
+    };
+    const auto heading = [](const End& from, const End& to) {
+        const double north = to.lat - from.lat;
+        const double east = (to.lon - from.lon) * std::cos(from.lat * 3.14159265358979 / 180.0);
+        return std::fmod(std::atan2(east, north) * 180.0 / 3.14159265358979 + 360.0, 360.0);
+    };
+    // Where 07/25 crosses 16R/34L, on the flat in degrees: near enough for
+    // the middle of two 45 m runways.
+    const End a = ends["16R"], b = ends["34L"], c = ends["07"], d = ends["25"];
+    const double denominator =
+        (b.lat - a.lat) * (d.lon - c.lon) - (b.lon - a.lon) * (d.lat - c.lat);
+    const double t =
+        ((c.lat - a.lat) * (d.lon - c.lon) - (c.lon - a.lon) * (d.lat - c.lat)) / denominator;
+    const End crossing = between(a, b, t);
+    struct Case {
+        std::string where;
+        End at;
+        double heading_deg;
+        std::string expected; // "" for none
+    };
+    const End middle_16r = between(a, b, 0.5);
+    const End middle_16l = between(ends["16L"], ends["34R"], 0.5);
+    const std::vector<Case> cases{
+        {"down 16R", between(a, b, 0.3), heading(a, b), "YSSY 16R"},
+        {"up 34L", between(a, b, 0.7), heading(b, a), "YSSY 34L"},
+        {"down 16L", middle_16l, heading(ends["16L"], ends["34R"]), "YSSY 16L"},
+        {"along 07", between(c, d, 0.8), heading(c, d), "YSSY 07"},
+        {"along 25", between(c, d, 0.8), heading(d, c), "YSSY 25"},
+        {"down 16R at the crossing", crossing, heading(a, b), "YSSY 16R"},
+        {"along 07 at the crossing", crossing, heading(c, d), "YSSY 07"},
+        {"across 16R", middle_16r, std::fmod(heading(a, b) + 90.0, 360.0), ""},
+        {"between the parallels", between(middle_16r, middle_16l, 0.5), heading(a, b), ""},
+    };
+    const auto ground = [](double, double) { return 6.0; };
+    std::size_t walked = 0;
+    for (const Case& k : cases) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", "c172p");
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 6.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = k.at.lat;
+        ic.longitude_deg = k.at.lon;
+        ic.altitude_ft = 6.0 * feet_per_metre;
+        ic.terrain_elevation_ft = ic.altitude_ft;
+        ic.heading_deg = k.heading_deg;
+        ic.airspeed_kts = 40.0;
+        ic.gear = 1.0;
+        aircraft.initialize(ic);
+        const auto found = glideslope::world::runway_rolled_on(*surfaces, aircraft, ground);
+        const std::string got = found ? found->name : "";
+        std::printf("  %-26s heading %5.1f: %s\n", k.where.c_str(), k.heading_deg,
+                    found ? got.c_str() : "none");
+        check(got == k.expected, k.where + ": given '" + got + "', not '" + k.expected + "'");
+        if (found) {
+            check(std::abs(found->elevation_ft - 6.0 * feet_per_metre) < 1e-9 &&
+                      found->length_m > 1000.0,
+                  k.where + ": the runway's elevation is the ground's at its threshold, and "
+                            "its length the runway's");
+        }
+        ++walked;
+    }
+    check(walked == 9 && cases.size() == 9, "nine cases walked of nine");
+}

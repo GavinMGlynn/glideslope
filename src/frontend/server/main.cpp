@@ -2933,6 +2933,15 @@ private:
         // And the learnt landing, where she has one, for a plan that ends in
         // a landing (`land`).
         controller->lands_learnt(learnt_for(model));
+        // **And on which runway**, from the world's (the collision ground's
+        // own), braked for what is left of it.
+        controller->finds_runways_with(
+            [this](const glideslope::sim::Aircraft& rolling) {
+                return glideslope::world::runway_rolled_on(
+                    collision_->runways(), rolling, [this](double lat, double lon) {
+                        return collision_->height_above_ellipsoid(lat, lon);
+                    });
+            });
         return controller;
     }
 
