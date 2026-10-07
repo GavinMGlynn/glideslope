@@ -62,9 +62,9 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // aeroplane asked for and a state update began naming the engine stopped; and
 // on 2026-10-07 to 05, with the collision ground's rules 2, and the same day
 // to 06, when a state update's watched controls took the speedbrake lever: the
-// document gives the envelope's version as `06`. A test reads this line to keep the
+// document gives the envelope's version as `07`. A test reads this line to keep the
 // two together (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x06;
+constexpr std::uint8_t kVersion = 0x07;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;

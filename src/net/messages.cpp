@@ -123,6 +123,7 @@ bool known_message(std::uint8_t kind) {
     case Message::controller_swap:
     case Message::weather_aloft:
     case Message::copilot_route:
+    case Message::take_over_refused:
         return true;
     }
     return false;
@@ -431,6 +432,29 @@ bool read(std::span<const std::uint8_t> body, Watch& out) {
         return false;
     }
     Watch got;
+    got.aircraft = r.u8();
+    if (!r.done()) {
+        return false;
+    }
+    out = got;
+    return true;
+}
+
+// ---- a take-over refused ---------------------------------------------------
+
+std::vector<std::uint8_t> write(const TakeOverRefused& m) {
+    Writer w = begin_message(Message::take_over_refused);
+    w.u8(m.aircraft);
+    return w.take();
+}
+
+bool read(std::span<const std::uint8_t> body, TakeOverRefused& out) {
+    bool is_kind = false;
+    MessageReader r = after_kind(body, Message::take_over_refused, is_kind);
+    if (!is_kind) {
+        return false;
+    }
+    TakeOverRefused got;
     got.aircraft = r.u8();
     if (!r.done()) {
         return false;

@@ -64,6 +64,7 @@ Told::Heard Told::hear(std::span<const std::uint8_t> body) {
     case Message::controller_swap:
     case Message::watch:
     case Message::copilot_route:
+    case Message::take_over_refused:
         return Heard::nothing;
     }
     return Heard::nothing;

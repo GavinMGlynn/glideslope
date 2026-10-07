@@ -5,7 +5,7 @@
 // **Six things must each arrive, exactly once, in order**: the lobby, the
 // session, the weather, an aircraft's definition, the terrain dataset and a
 // controller swap - and, since, which aircraft a client watches and a
-// copilot's route. They go as **nine kinds of message**, because the
+// copilot's route, and a take-over refused. They go as **ten kinds of message**, because the
 // weather is two of them - see below. `net/reliable.hpp` makes delivery true
 // of an opaque body; this says what those bodies are.
 //
@@ -59,6 +59,7 @@ enum class Message : std::uint8_t {
     weather_aloft = 7,
     watch = 8,
     copilot_route = 9,
+    take_over_refused = 10,
 };
 
 // Whether `kind` is one this version knows.
@@ -202,6 +203,15 @@ struct Watch {
     std::uint8_t aircraft = 0;
 };
 
+// **A take-over refused** (protocol version 7), sent by the server to the
+// client that asked and to no other: the aircraft it asked for, as it asked.
+// Without it a client could not tell a take-over still on its way from one
+// the server had refused, and a hand-over asked for meanwhile went for the
+// aircraft it was about to leave (PROJECT_STATUS.md, 2026-10-07).
+struct TakeOverRefused {
+    std::uint8_t aircraft = 0;
+};
+
 // **A copilot's route for a client's own aircraft** (REQUIREMENTS.md section
 // 5, decided 2026-09-30): the player's own client asks the language model,
 // with the player's key, which never leaves it, and sends only what came of
@@ -280,6 +290,7 @@ std::vector<std::uint8_t> write(const TerrainDataset& m);
 std::vector<std::uint8_t> write(const ControllerSwap& m);
 std::vector<std::uint8_t> write(const Watch& m);
 std::vector<std::uint8_t> write(const CopilotRoute& m);
+std::vector<std::uint8_t> write(const TakeOverRefused& m);
 
 // Which kind a body is, or nothing if it is empty or a kind this version
 // does not know.
@@ -298,6 +309,7 @@ bool read(std::span<const std::uint8_t> body, AircraftDefinition& out);
 bool read(std::span<const std::uint8_t> body, TerrainDataset& out);
 bool read(std::span<const std::uint8_t> body, ControllerSwap& out);
 bool read(std::span<const std::uint8_t> body, Watch& out);
+bool read(std::span<const std::uint8_t> body, TakeOverRefused& out);
 bool read(std::span<const std::uint8_t> body, CopilotRoute& out);
 
 // **The aeroplane a player asks for when joining** (REQUIREMENTS 4.2, decided

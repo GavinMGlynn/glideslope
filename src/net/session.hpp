@@ -132,6 +132,13 @@ public:
     // it collides on, the session, the lobby and the weather it flies. A
     // session joined again is told afresh.
     const Told& told() const { return told_; }
+    // **The take-overs the server has refused since last asked**, by the
+    // aircraft each asked for (`TAKE_OVER_REFUSED`), oldest first.
+    std::vector<std::uint8_t> take_refusals() {
+        std::vector<std::uint8_t> out;
+        out.swap(refusals_);
+        return out;
+    }
     std::uint8_t your_aircraft() const { return mine_; }
     double simulation_time_s() const { return clock_s_; }
 
@@ -218,6 +225,7 @@ private:
     Reliable reliable_;
     std::map<std::uint8_t, AircraftDefinition> roster_;
     Told told_;
+    std::vector<std::uint8_t> refusals_;
     // **Until anything has opened under this session, it knocks**: a sealed
     // `PING` every `prove_every_s` from the first `poll()`. A server sends a
     // session nothing but its handshake answer until something sealed under

@@ -146,6 +146,9 @@ struct Options {
     // For a test: the last update from before a take-over heard again just
     // after it, as the network reorders them.
     bool late_update_after_take_over = false;
+    // For a test: A pressed in the frame the take-over is asked, while the
+    // server has yet to answer it.
+    bool press_a_with_take_over = false;
     // On a server, hand its own aircraft to the AI this many seconds of
     // flight in, and take it back this many in, as A does; below nought, never.
     double hand_over_after_s = -1.0;
@@ -251,6 +254,8 @@ void usage(std::FILE* out) {
         "  --late-update-after-take-over  for a test: hear the last update from\n"
         "                before a take-over again just after it, as a network\n"
         "                reordering them would\n"
+        "  --press-a-with-take-over  for a test: press A in the frame\n"
+        "                --take-over-after asks, before the server has answered\n"
         "  --copilot TASK  on a server, C asks a language model - with your own\n"
         "                key, on this machine - to fly TASK, and then again each\n"
         "                minute; only its route goes to the server, which checks\n"
@@ -508,6 +513,8 @@ static int run_program(int argc, char** argv) {
             o.ride_along = true;
         } else if (a == "--late-update-after-take-over") {
             o.late_update_after_take_over = true;
+        } else if (a == "--press-a-with-take-over") {
+            o.press_a_with_take_over = true;
         } else if (a == "--take-over-after" && has_value) {
             o.take_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--copilot" && has_value) {
@@ -1319,6 +1326,12 @@ static int run_program(int argc, char** argv) {
             }
             copilot->ask();
         };
+        // **A pressed while a take-over is unanswered waits for the answer**:
+        // until then the server may have made another aircraft this
+        // client's own, and a hand-over sent for the one it has would go to
+        // the one it is leaving. Taken, A is for the aircraft taken; refused
+        // (`TAKE_OVER_REFUSED`), for the one it kept.
+        bool a_held = false;
         const auto hand_over = [&](bool to_ai) {
             online->hand_over(to_ai);
             std::printf("glideslope: asked for aircraft %u to be handed to %s\n",
@@ -1342,6 +1355,16 @@ static int run_program(int argc, char** argv) {
                                 copilot_refused.c_str());
                 }
             }
+        };
+        const auto press_a = [&] {
+            if (const auto asked = online->taking_over()) {
+                a_held = true;
+                std::printf("glideslope: A held until the server answers the take-over of "
+                            "aircraft %u\n",
+                            static_cast<unsigned>(*asked));
+                return;
+            }
+            hand_over(!online->own_ai_flying());
         };
         struct OtherMesh {
             glideslope::gfx::MeshId id = 0;
@@ -1516,7 +1539,7 @@ static int run_program(int argc, char** argv) {
                     // Without one - no server, or one that has given this
                     // client no aircraft yet - the flight's own pilot swaps.
                     if (online && joined) {
-                        hand_over(!online->own_ai_flying());
+                        press_a();
                     } else {
                         flight->swap_pilot();
                     }
@@ -1689,6 +1712,9 @@ static int run_program(int argc, char** argv) {
                     online->take_over(online->watching());
                     std::printf("glideslope: asked to take over aircraft %u\n",
                                 static_cast<unsigned>(online->watching()));
+                    if (o.press_a_with_take_over) {
+                        press_a();
+                    }
                 }
                 const double joined_s =
                     static_cast<double>(ticks) /
@@ -1813,6 +1839,18 @@ static int run_program(int argc, char** argv) {
                                         static_cast<double>(glideslope::sim::steps_per_second),
                                     *online->old_session_s());
                     }
+                }
+                for (const std::uint8_t refused : online->refused_take_overs()) {
+                    std::printf("glideslope: the server refused to take over aircraft %u\n",
+                                static_cast<unsigned>(refused));
+                }
+                // **A held for the answer**, which has come: for whichever
+                // aircraft is its own now.
+                if (a_held && !online->taking_over()) {
+                    a_held = false;
+                    std::printf("glideslope: A, held, is for aircraft %u\n",
+                                static_cast<unsigned>(online->mine()));
+                    hand_over(!online->own_ai_flying());
                 }
             }
             // **Who flies its own, as the server said**: at a switch a frame

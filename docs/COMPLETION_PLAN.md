@@ -584,13 +584,13 @@ Found while implementing something else. Added when found, not when remembered.
       every aircraft's id is known by the catalogue and eight hostile ones are
       not.* Done 2026-09-25.
 
-- [ ] **The client with the window does not hand over on a server**: pressing A
+- [x] **The client with the window does not hand over on a server**: pressing A
       online does nothing. *Verification: the client with the window hands its
       aircraft to the AI and takes it back on a server, and what it shows does
-      not step.* The hand-over and take-back work, and what it shows no
-      longer steps at either (2026-09-27); still missing: A pressed during a
-      take-over's round trip can hand back the aircraft just left rather
-      than the one taken (a narrow race).
+      not step; A pressed during a take-over's round trip hands over the
+      aircraft taken, or, the take-over refused, the one kept.* Done
+      2026-10-07: the server says when it refuses a take-over (protocol
+      version 7), and A waits for the answer.
 
 - [ ] **The client with the window does not blend corrections to its
       prediction**, as the command-line client does. *Verification:
