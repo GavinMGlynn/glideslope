@@ -80,13 +80,19 @@ foreach(AWAY IN LISTS _cases)
     endif()
     set(_shot "${WORK}/away-${AWAY}.bmp")
     file(REMOVE "${_shot}")
+    # **The client connects once the server is flying** (client.cmake says
+    # why): started at once, on a loaded Windows debug runner the client's
+    # five-second handshake gave up before the server was listening -
+    # "cannot reach", then "listening" (run 37596019954, twice).
+    set(_ready "${WORK}/flying-${AWAY}")
+    file(REMOVE "${_ready}")
     execute_process(
         COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-                --data "${DATA}" --timeout ${_timeout} --store "${_store}"
+                --data "${DATA}" --timeout ${_timeout} --store "${_store}" --ready-file "${_ready}"
         COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
                 --seed 1 --until-input-ends --seconds 290
         COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
-                --shot "${_shot}" --view cockpit --shot-at 1200 ${_away}
+                --shot "${_shot}" --view cockpit --shot-at 1200 ${_away} --after-ready "${_ready}"
                 --server 127.0.0.1 ${_relay} --server-key ${_key}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
     list(GET _rcs -1 _rc)
