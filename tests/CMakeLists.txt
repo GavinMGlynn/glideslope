@@ -242,6 +242,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_approach_taken_back_at_half_speed_is_landed_to_a_stop
     an_approach_the_pilot_puts_down_from_the_flare_and_hands_back_is_landed_to_a_stop
     an_aeroplane_landed_by_hand_and_handed_over_on_its_roll_is_landed_to_a_stop
+    a_landing_flown_by_hand_on_a_short_runway_is_stopped_on_it_by_the_ai
     a_pilot_taxiing_at_no_more_than_half_throttle_who_hands_over_is_stopped_and_above_it_is_not
     how_she_lands_is_what_her_approach_is_flown_at_or_none_without_a_stall_speed
     every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce_or_a_go_around
@@ -645,6 +646,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_axis_button_and_hat_of_a_virtual_stick_and_throttle_moves_the_controls
     bound_inputs_set_the_controls_they_name_and_the_aircraft_receives_them
     a_bindings_file_that_cannot_be_read_is_refused_by_line
+    the_help_on_screen_names_every_binding_in_the_bindings_file_every_key_and_every_command
     json_documents_rfc_8259_allows_are_read_into_their_values
     json_documents_rfc_8259_does_not_allow_are_refused
     a_json_value_is_written_as_rfc_8259_has_it_and_reads_back_the_same
@@ -811,6 +813,7 @@ set(GLIDESLOPE_UNIT_TESTS
     reference_runways_roll_with_no_bump_beyond_a_bound
     runways_that_meet_in_a_v_a_t_end_to_end_or_side_by_side_are_made_to_meet
     a_runways_shoulder_does_not_pull_the_pavement_of_another_beside_it
+    an_aircraft_rolling_on_a_runway_of_the_worlds_is_given_that_runway_towards_where_she_rolls_and_off_one_none
     a_runway_across_the_antimeridian_or_near_a_pole_is_its_own_line
     a_group_its_ties_would_move_too_far_is_made_from_the_fits_instead
     no_runway_in_the_world_is_pulled_off_its_line_beyond_a_bound
@@ -1165,6 +1168,13 @@ if(WIN32)
     target_link_libraries(glideslope_ion_stall PRIVATE ws2_32)
 endif()
 glideslope_configure(glideslope_ion_stall)
+add_executable(glideslope_help_check tools/help_check.cpp)
+target_link_libraries(glideslope_help_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_help_check)
+# **The controls' help is laid out inside every frame**, cut and saying so
+# where it does not fit.
+add_test(NAME the_controls_help_is_laid_out_inside_every_frame_size_and_says_so_where_it_is_cut
+    COMMAND glideslope_help_check layout)
 add_executable(glideslope_hud_check tools/hud_check.cpp)
 target_link_libraries(glideslope_hud_check PRIVATE glideslope_gfx)
 add_executable(glideslope_hud_lines_check tools/hud_lines_check.cpp)
@@ -1365,6 +1375,14 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_checklist.cmake)
     set_tests_properties(the_checklist_on_screen_is_the_one_the_flight_is_working_through_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    add_test(NAME the_controls_help_on_screen_reads_back_as_every_line_the_client_drew_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_help_check>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_help.cmake)
+    set_tests_properties(the_controls_help_on_screen_reads_back_as_every_line_the_client_drew_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     add_test(NAME the_hud_shows_a_jets_mach_and_flight_level_at_the_tick_it_was_shot_on_${_driver}
         COMMAND ${CMAKE_COMMAND}

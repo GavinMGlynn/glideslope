@@ -206,6 +206,13 @@ void Flight::step(const sim::Controls& controls) {
         if (lands_with_) {
             controller_->lands_with(*lands_with_);
         }
+        // On which runway, as the server's controllers are told.
+        controller_->finds_runways_with([ground = collision_](const sim::Aircraft& rolling) {
+            return world::runway_rolled_on(ground->runways(), rolling,
+                                           [&ground](double lat, double lon) {
+                                               return ground->height_above_ellipsoid(lat, lon);
+                                           });
+        });
         if (start_with_ai_) {
             swap_pilot();
         }

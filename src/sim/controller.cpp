@@ -118,7 +118,9 @@ void Controller::to_ai() {
     // would never stop her.
     if (landing_speeds_ && a_.property("gear/wow") > 0.5 && !a_.in_water() &&
         std::abs(a_.property("velocities/vg-fps")) >= 1.0 && pilot_.throttle <= 0.5) {
-        lander_.emplace(Lander::on_its_roll(a_, *landing_speeds_));
+        const std::optional<Runway> under = runway_under_ ? runway_under_(a_) : std::nullopt;
+        lander_.emplace(under ? Lander::on_its_roll(a_, *landing_speeds_, *under)
+                              : Lander::on_its_roll(a_, *landing_speeds_));
         lander_->resume(applied_.throttle);
         lander_->hand_mixture(applied_.mixture);
         easing_in_ = true;

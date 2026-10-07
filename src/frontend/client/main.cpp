@@ -120,6 +120,8 @@ struct Options {
     std::string view = "cockpit";
     // The phase whose checklist is on screen; empty shows none.
     std::string checklist;
+    // The controls' help on screen from the start, as F1 shows it.
+    bool show_help = false;
     // A test flag, as --shot and --trace are: the same frame shot with the
     // aeroplane and without it differ in exactly its pixels, which is how a
     // test finds the outline it draws.
@@ -205,7 +207,7 @@ void usage(std::FILE* out) {
         "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
         "                  [--toward LAT,LON,HEIGHT] [--imagery on|off]\n"
         "                  [--terrain open|ion|google] [--mismatch FILE]\n"
-        "                  [--checklist PHASE]\n"
+        "                  [--checklist PHASE] [--show-help]\n"
         "                  [--weather STATION [--microburst LAT,LON]...]\n"
         "                  [--metar REPORT [--station LAT,LON]]\n"
         "                  [--aircraft ID] [--on-ground] [--autopilot] [--plan PLAN]\n"
@@ -230,6 +232,8 @@ void usage(std::FILE* out) {
         "                default, or Cesium ion or Google's Photorealistic 3D Tiles\n"
         "                with your own token or key. The ground the aircraft meets\n"
         "                is the open DEM whichever is drawn\n"
+        "  --show-help   start with every control's key and button on screen, as\n"
+        "                F1 shows and hides them in flight\n"
         "  --checklist   show this phase of flight's checklist, which ticks itself\n"
         "                as the aeroplane flies: before-start, taxi, take-off,\n"
         "                climb, cruise, descent, approach, landing, after-landing\n"
@@ -495,6 +499,8 @@ static int run_program(int argc, char** argv) {
             o.terrain_provider = std::string(args[++i]);
         } else if (a == "--view" && has_value) {
             o.view = std::string(args[++i]);
+        } else if (a == "--show-help") {
+            o.show_help = true;
         } else if (a == "--checklist" && has_value) {
             o.checklist = std::string(args[++i]);
         } else if (a == "--draw-aircraft" && has_value) {
@@ -1523,8 +1529,14 @@ static int run_program(int argc, char** argv) {
         if (!bindings_file) {
             throw std::runtime_error("cannot read " + bindings_path.string());
         }
-        glideslope::platform::ControlMapper mapper(glideslope::platform::parse_bindings(
-            std::string(std::istreambuf_iterator<char>(bindings_file), {})));
+        const std::vector<glideslope::platform::Binding> bindings =
+            glideslope::platform::parse_bindings(
+                std::string(std::istreambuf_iterator<char>(bindings_file), {}));
+        glideslope::platform::ControlMapper mapper(bindings);
+        // **The controls' help**, from the bindings read, so it says what
+        // they do; F1 shows and hides it.
+        const std::vector<std::string> help = glideslope::platform::controls_help(bindings);
+        bool showing_help = o.show_help;
         glideslope::platform::Joysticks joysticks;
         glideslope::platform::KeyboardControls keys;
         glideslope::sim::FixedStep clock;
@@ -1635,10 +1647,18 @@ static int run_program(int argc, char** argv) {
             }
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
+                using glideslope::platform::Command;
+                const auto key = [](Command command) {
+                    return static_cast<SDL_Scancode>(
+                        glideslope::platform::command_key(command).scancode);
+                };
                 if (event.type == SDL_EVENT_QUIT) {
                     running = false;
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
-                           event.key.scancode == SDL_SCANCODE_A && flight) {
+                           event.key.scancode == key(Command::help)) {
+                    showing_help = !showing_help;
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == key(Command::swap_pilot) && flight) {
                     // On a server the server owns the aircraft: A asks it.
                     // Without one - no server, or one that has given this
                     // client no aircraft yet - the flight's own pilot swaps.
@@ -1648,19 +1668,19 @@ static int run_program(int argc, char** argv) {
                         flight->swap_pilot();
                     }
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
-                           event.key.scancode == SDL_SCANCODE_L && online && joined) {
+                           event.key.scancode == key(Command::learnt_landing) && online && joined) {
                     // **L asks for the learnt landing**: the server hands
                     // her over only where her model has one and she is at
                     // its gate on final, and says why not in its log.
                     ask_for_learnt();
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
-                           event.key.scancode == SDL_SCANCODE_M && online && joined) {
+                           event.key.scancode == key(Command::next_model) && online && joined) {
                     next_model();
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
-                           event.key.scancode == SDL_SCANCODE_C && online && joined) {
+                           event.key.scancode == key(Command::copilot) && online && joined) {
                     ask_the_copilot();
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
-                           event.key.scancode == SDL_SCANCODE_T && online && joined &&
+                           event.key.scancode == key(Command::take_over) && online && joined &&
                            online->watching() != glideslope::net::no_aircraft) {
                     // **Take the controls** of the aircraft ridden in, if the
                     // AI is flying it: a player's is never taken, and the
@@ -1683,10 +1703,10 @@ static int run_program(int argc, char** argv) {
                                     static_cast<unsigned>(online->watching()));
                     }
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
-                           event.key.scancode == SDL_SCANCODE_W && online && joined) {
+                           event.key.scancode == key(Command::ride_next) && online && joined) {
                     ride_next();
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
-                           event.key.scancode == SDL_SCANCODE_V && flight) {
+                           event.key.scancode == key(Command::view) && flight) {
                     // Round the views, and round again. Nothing about the
                     // flight moves: the camera is worked out afresh each
                     // frame from the aircraft's state.
@@ -2456,6 +2476,8 @@ static int run_program(int argc, char** argv) {
             // from Cesium Native as its tiles load, which is how ion's and
             // Google's terms are met.
             std::vector<std::string> credits;
+            // Where the help's columns end: above the credits drawn.
+            int help_ends_at = o.height;
             if (terrain) {
                 if (terrain->provider() == glideslope::gfx::Provider::open) {
                     credits.emplace_back(glideslope::world::copernicus_dem_notice);
@@ -2473,6 +2495,9 @@ static int run_program(int argc, char** argv) {
             pass_part(pass_times.draws);
             if (flight) {
                 glideslope::gfx::HudReadings readings = flight->hud();
+                if (showing_help) {
+                    readings.help = help;
+                }
                 if (online && joined) {
                     // Who flies it is the server's to say - and what with,
                     // where it is the learnt landing.
@@ -2569,6 +2594,7 @@ static int run_program(int argc, char** argv) {
                 }
                 readings.credits.insert(readings.credits.begin(), credits.begin(),
                                         credits.end());
+                help_ends_at = glideslope::gfx::help_bottom(readings.credits, o.width, o.height);
                 {
                     // **The horizon line on the horizon drawn**: the sky - up
                     // from the ellipsoid under the eye - in the axes of the
@@ -2718,6 +2744,22 @@ static int run_program(int argc, char** argv) {
                         std::printf(" %.9f", v);
                     }
                     std::printf("\n");
+                }
+                // **What the help says, column by column**, so a test can
+                // read it back off the frame.
+                if (flight && showing_help) {
+                    std::size_t drawn_lines = 0;
+                    for (const glideslope::gfx::HelpColumn& column :
+                         glideslope::gfx::help_columns(help, o.width, help_ends_at)) {
+                        std::printf("help column %d %d %zu\n", column.layout.left,
+                                    column.layout.top, column.lines.size());
+                        for (const std::string& line : column.lines) {
+                            std::printf("help: %s\n", line.c_str());
+                        }
+                        drawn_lines += column.lines.size();
+                    }
+                    std::printf("glideslope: the help drew %zu lines of %zu\n", drawn_lines,
+                                help.size());
                 }
                 // What the checklist block says, so a test can hold what is
                 // on the frame to what the flight believes it drew.

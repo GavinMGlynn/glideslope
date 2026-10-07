@@ -9,12 +9,14 @@
 
 #include "sim/aircraft.hpp"
 
+#include <array>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace glideslope::platform {
@@ -126,13 +128,63 @@ public:
                int count);
 
 private:
-    bool elevator_ = false;
-    bool aileron_ = false;
-    bool rudder_ = false;
+    // Whether each `centred` pair of keyboard_bindings() was held last call,
+    // in its order; and whether the held key was.
+    std::array<bool, 3> centred_held_{};
     bool brakes_ = false;
     bool flaps_down_ = false;
     bool flaps_up_ = false;
 };
+
+// **The keys the keyboard flies with, as a table**, which KeyboardControls
+// works from and the help on screen lists, so the two cannot disagree. A
+// `centred` pair moves its control to -0.5 (`less`) or +0.5 (`more`) while
+// held; a `lever` pair moves it down or up at half its travel a second; a
+// `step` pair (the flaps) moves it a notch, a third, at each press; a `hold`
+// key (`more` alone) holds it at 1. Scancodes are SDL's.
+struct KeyboardBinding {
+    Control control = Control::aileron;
+    Mode mode = Mode::centred;
+    int less = 0; // none for `hold`
+    int more = 0;
+    const char* less_name = ""; // as the help spells it: the font's capitals
+    const char* more_name = "";
+};
+const std::vector<KeyboardBinding>& keyboard_bindings();
+
+// **The client's own keys**, which fly nothing: what each does, for the help.
+// The client's event loop asks for these by name (`command_key`).
+struct CommandKey {
+    int scancode = 0;
+    const char* name = ""; // as the help spells it
+    const char* does = "";
+};
+enum class Command {
+    help,
+    swap_pilot,
+    learnt_landing,
+    next_model,
+    copilot,
+    take_over,
+    ride_next,
+    view
+};
+const CommandKey& command_key(Command command);
+const std::vector<std::pair<Command, CommandKey>>& command_keys();
+
+// **What works every control, for the help on screen**: the client's keys,
+// the keyboard's, and every binding in `bindings` (the bindings file, read as
+// the client reads it) - under each kind of device, a line for each control
+// with every input bound to it, in the order the file binds them. In the
+// font's capitals and punctuation.
+std::vector<std::string> controls_help(const std::vector<Binding>& bindings);
+// How `controls_help` names one binding's input: "AXIS 3", "BUTTON 0 HELD",
+// "BUTTON 5 +0.1", "HAT 0 LEFT -0.1".
+std::string help_name(const Binding& binding);
+// How `controls_help` names a control: "PITCH TRIM".
+std::string help_name(Control control);
+// The heading `controls_help` puts a device's lines under: "STICK", "THROTTLE".
+std::string help_name(DeviceKind device);
 
 // Every flight controller SDL can see, opened as they appear. Needs SDL's
 // joystick subsystem.

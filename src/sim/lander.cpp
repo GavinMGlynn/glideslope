@@ -264,6 +264,23 @@ Lander Lander::on_its_roll(const Aircraft& aircraft, const ApproachSpeeds& speed
     return l;
 }
 
+Lander Lander::on_its_roll(const Aircraft& aircraft, const ApproachSpeeds& speeds,
+                           const Runway& runway) {
+    const AircraftState s = aircraft.state();
+    Lander l(aircraft, runway, speeds);
+    l.touched_ = true;
+    l.stage_ = Stage::rollout;
+    l.touchdown_pitch_deg_ = s.pitch_deg;
+    l.lowering_pitch_deg_ = l.jet_ ? s.pitch_deg - 2.0 : s.pitch_deg;
+    l.touchdown_above_m_ = l.above_m_;
+    l.touchdown_agl_ft_ = aircraft.property("position/h-agl-ft");
+    // Touched, for the runway, where she is: the autobrake is set at the
+    // rollout's first step from the length left past here.
+    l.touchdown_along_m_ = -l.along_m_;
+    l.touchdown_across_m_ = l.across_m_;
+    return l;
+}
+
 bool Lander::gone_around() const {
     return stage_ == Stage::go_around && above_m_ * feet_per_metre >= go_around_ft;
 }

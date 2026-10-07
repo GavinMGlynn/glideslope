@@ -212,6 +212,16 @@ LearntGateFound learnt_gate_runway(const RunwaySurfaces& surfaces, const sim::Ai
                                    const sim::LearntPolicy& policy,
                                    const std::function<double(double, double)>& ground_m);
 
+// **The runway an aircraft is rolling on** (sim::Controller::finds_runways_with),
+// for a landing flown by hand and handed to the AI on its roll: of the
+// runways whose rectangle she is on, the end whose heading her track over the
+// ground - her heading, barely moving - is nearest, within 30 degrees, its
+// elevation the ground's at that end (`ground_m`, metres). None where she is
+// on no runway's rectangle, or rolling across them all.
+std::optional<sim::Runway> runway_rolled_on(const RunwaySurfaces& surfaces,
+                                            const sim::Aircraft& aircraft,
+                                            const std::function<double(double, double)>& ground_m);
+
 // One end of runway `i` of `surfaces`, as the landing autopilots have a
 // runway: `he` for its `he_` end. Its elevation is `elevation_ft`.
 sim::Runway runway_end(const RunwaySurfaces& surfaces, std::size_t i, bool he,

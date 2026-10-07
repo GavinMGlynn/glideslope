@@ -72,6 +72,9 @@ struct HudReadings {
     std::vector<std::string> credits;
     // The checklist being worked through, if one is showing.
     ChecklistOnScreen checklist;
+    // **The controls' help**, if it is showing: its lines (platform's
+    // `controls_help`), drawn over everything but the credits.
+    std::vector<std::string> help;
     // **Where the horizon is, for the line drawn on it**: the sky's direction
     // - straight up from the Earth's surface under the eye - in the camera's
     // axes (right, up, back), and the camera's vertical field of view. With
@@ -201,6 +204,29 @@ TextLayout checklist_layout(int width, int height, std::size_t lines);
 // side, a line above its first line and a line below its last - an empty line
 // that reads as one, so a reader can tell that nothing is drawn under it.
 PixelBox checklist_panel(int width, int height, std::size_t lines);
+
+// **The controls' help** is drawn small, as the checklist is, in columns down
+// from two cells under the frame's top to a line above the credits' strip
+// (`bottom`, pixels: the frame's height where there are no credits), left to
+// right, each as wide as its longest line and two cells more, over a panel
+// across the frame that darkens what is behind it to a fifth - the HUD's
+// numbers and the checklist included - so the help reads whole. What does
+// not fit the frame's width is not drawn, and the last line drawn says so:
+// `help_cut_line`, in place of the last line of the last column with room
+// for it; on a frame too narrow even for that line alone, nothing is.
+struct HelpColumn {
+    TextLayout layout;
+    std::vector<std::string> lines;
+    std::size_t columns = 0; // characters, the longest line's
+};
+inline constexpr const char* help_cut_line = "WIDEN THE WINDOW FOR THE REST";
+std::vector<HelpColumn> help_columns(const std::vector<std::string>& lines, int width,
+                                     int bottom);
+// Where the help's panel is: the frame's width, from a line above the
+// columns' top to `bottom`.
+PixelBox help_panel(int width, int bottom);
+// The bottom `help_columns` is given on a frame with `credits`.
+int help_bottom(const std::vector<std::string>& credits, int width, int height);
 
 // The glyph for `c`: seven rows, the top first, each five bits with the
 // leftmost pixel the highest. Null for a character the font lacks.

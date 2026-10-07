@@ -107,6 +107,11 @@ public:
     // set to autobrake 3's deceleration, with the runway's length unknown.
     // To be `resume`d with the pilot's throttle, as a landing given back is.
     static Lander on_its_roll(const Aircraft& aircraft, const ApproachSpeeds& speeds);
+    // **And on a runway known**, the one she is rolling on: its centreline
+    // held, and braked - as her own landing would be - for what is left of
+    // it past where she is, keeping the 300 m that leaves.
+    static Lander on_its_roll(const Aircraft& aircraft, const ApproachSpeeds& speeds,
+                              const Runway& runway);
     // Autobrake 3's deceleration on the 737, feet a second squared: what a
     // landing taken over on its roll is braked to.
     static constexpr double roll_autobrake_fps2 = 7.2;

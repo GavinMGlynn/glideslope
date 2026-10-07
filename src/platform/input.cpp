@@ -3,7 +3,9 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <set>
 #include <sstream>
@@ -325,55 +327,204 @@ std::vector<DeviceState> Joysticks::read() {
     return states;
 }
 
+const std::vector<KeyboardBinding>& keyboard_bindings() {
+    static const std::vector<KeyboardBinding> keys{
+        {Control::elevator, Mode::centred, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, "UP", "DOWN"},
+        {Control::aileron, Mode::centred, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, "LEFT",
+         "RIGHT"},
+        {Control::rudder, Mode::centred, SDL_SCANCODE_Z, SDL_SCANCODE_X, "Z", "X"},
+        {Control::throttle, Mode::lever, SDL_SCANCODE_PAGEDOWN, SDL_SCANCODE_PAGEUP,
+         "PAGE DOWN", "PAGE UP"},
+        {Control::mixture, Mode::lever, SDL_SCANCODE_COMMA, SDL_SCANCODE_PERIOD, ",", "."},
+        {Control::propeller, Mode::lever, SDL_SCANCODE_LEFTBRACKET, SDL_SCANCODE_RIGHTBRACKET,
+         "LEFT BRACKET", "RIGHT BRACKET"},
+        {Control::speedbrake, Mode::lever, SDL_SCANCODE_SEMICOLON, SDL_SCANCODE_APOSTROPHE, ";",
+         "APOSTROPHE"},
+        {Control::flaps, Mode::step, SDL_SCANCODE_R, SDL_SCANCODE_F, "R", "F"},
+        {Control::brakes, Mode::hold, SDL_SCANCODE_UNKNOWN, SDL_SCANCODE_B, "", "B"},
+    };
+    return keys;
+}
+
+const std::vector<std::pair<Command, CommandKey>>& command_keys() {
+    static const std::vector<std::pair<Command, CommandKey>> keys{
+        {Command::help, {SDL_SCANCODE_F1, "F1", "THESE CONTROLS, SHOWN OR HIDDEN"}},
+        {Command::swap_pilot, {SDL_SCANCODE_A, "A", "THE AI FLIES, OR YOU DO"}},
+        {Command::learnt_landing, {SDL_SCANCODE_L, "L", "THE LEARNT LANDING (SERVER)"}},
+        {Command::next_model, {SDL_SCANCODE_M, "M", "THE NEXT LANGUAGE MODEL (SERVER)"}},
+        {Command::copilot, {SDL_SCANCODE_C, "C", "ASK THE COPILOT (SERVER)"}},
+        {Command::take_over, {SDL_SCANCODE_T, "T", "TAKE OVER THE AIRCRAFT RIDDEN IN (SERVER)"}},
+        {Command::ride_next, {SDL_SCANCODE_W, "W", "RIDE IN THE NEXT AIRCRAFT (SERVER)"}},
+        {Command::view, {SDL_SCANCODE_V, "V", "THE NEXT VIEW"}},
+    };
+    return keys;
+}
+
+const CommandKey& command_key(Command command) {
+    for (const auto& [c, key] : command_keys()) {
+        if (c == command) {
+            return key;
+        }
+    }
+    throw InputError("no key for a command");
+}
+
+std::string help_name(Control control) {
+    for (const auto& [name, c] : control_names()) {
+        if (c == control) {
+            std::string out;
+            for (const char ch : name) {
+                out.push_back(ch == '_' ? ' '
+                                        : static_cast<char>(
+                                              std::toupper(static_cast<unsigned char>(ch))));
+            }
+            return out;
+        }
+    }
+    return "?";
+}
+
+std::string help_name(DeviceKind device) {
+    return device == DeviceKind::throttle ? "THROTTLE" : "STICK";
+}
+
+std::string help_name(const Binding& b) {
+    std::string out;
+    switch (b.source) {
+    case Source::axis:
+        out = "AXIS " + std::to_string(b.index);
+        break;
+    case Source::button:
+        out = "BUTTON " + std::to_string(b.index);
+        break;
+    case Source::hat:
+        out = "HAT " + std::to_string(b.index) + " " + hat_name(b.hat_direction);
+        break;
+    }
+    if (b.mode == Mode::hold) {
+        out += " HELD";
+    } else if (b.mode == Mode::step) {
+        // The step to two places, its trailing noughts dropped: +0.1, -0.33.
+        char text[32];
+        std::snprintf(text, sizeof text, "%+.2f", b.amount);
+        std::string step = text;
+        while (step.back() == '0') {
+            step.pop_back();
+        }
+        if (step.back() == '.') {
+            step.pop_back();
+        }
+        out += " " + step;
+    }
+    for (char& c : out) {
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    }
+    return out;
+}
+
+std::vector<std::string> controls_help(const std::vector<Binding>& bindings) {
+    const auto padded = [](std::string text, std::size_t width) {
+        text.resize(std::max(text.size() + 1, width), ' ');
+        return text;
+    };
+    std::vector<std::string> lines;
+    lines.push_back("KEYS");
+    for (const auto& [command, key] : command_keys()) {
+        lines.push_back(" " + padded(key.name, 28) + key.does);
+    }
+    for (const KeyboardBinding& k : keyboard_bindings()) {
+        const std::string keys = k.mode == Mode::hold
+                                     ? std::string(k.more_name)
+                                     : std::string(k.less_name) + " " + k.more_name;
+        lines.push_back(" " + padded(keys, 28) + help_name(k.control) +
+                        (k.mode == Mode::hold   ? " HELD"
+                         : k.mode == Mode::step ? " A NOTCH A PRESS"
+                                                : ""));
+    }
+    for (const DeviceKind device : {DeviceKind::flight_stick, DeviceKind::throttle}) {
+        lines.push_back(help_name(device));
+        // A line a control, in the order the file first binds it.
+        std::vector<Control> order;
+        for (const Binding& b : bindings) {
+            if (b.device == device &&
+                std::find(order.begin(), order.end(), b.control) == order.end()) {
+                order.push_back(b.control);
+            }
+        }
+        for (const Control control : order) {
+            std::string line = " " + padded(help_name(control), 13);
+            bool first = true;
+            for (const Binding& b : bindings) {
+                if (b.device == device && b.control == control) {
+                    line += (first ? "" : ", ") + help_name(b);
+                    first = false;
+                }
+            }
+            lines.push_back(line);
+        }
+    }
+    return lines;
+}
+
 void KeyboardControls::apply(sim::Controls& controls, double seconds,
                              const bool* keys, int count) {
     if (keys == nullptr) {
         return;
     }
-    const auto down = [&](SDL_Scancode code) {
-        const int at = static_cast<int>(code);
-        return at >= 0 && at < count && keys[at];
-    };
-    const auto axis = [&](double& control, SDL_Scancode minus, SDL_Scancode plus,
-                          bool& was) {
-        const double v = (down(plus) ? 0.5 : 0.0) - (down(minus) ? 0.5 : 0.0);
-        const bool held = down(plus) || down(minus);
-        if (held || was) {
-            control = v;
+    const auto down = [&](int at) { return at > 0 && at < count && keys[at]; };
+    std::size_t centred = 0;
+    for (const KeyboardBinding& k : keyboard_bindings()) {
+        const std::vector<double*> moved = fields(k.control, controls);
+        switch (k.mode) {
+        case Mode::centred: {
+            // Moved while held, and to the middle when let go - but only
+            // then, not every call, so a stick left alone is not overridden.
+            const double v = (down(k.more) ? 0.5 : 0.0) - (down(k.less) ? 0.5 : 0.0);
+            const bool held = down(k.more) || down(k.less);
+            bool& was = centred_held_.at(centred++);
+            if (held || was) {
+                for (double* f : moved) {
+                    *f = v;
+                }
+            }
+            was = held;
+            break;
         }
-        was = held;
-    };
-    axis(controls.elevator, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, elevator_);
-    axis(controls.aileron, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, aileron_);
-    axis(controls.rudder, SDL_SCANCODE_Z, SDL_SCANCODE_X, rudder_);
-
-    // The levers, moved while held and left where they are put.
-    const auto lever = [&](double& control, SDL_Scancode less, SDL_Scancode more) {
-        const double v = (down(more) ? 1.0 : 0.0) - (down(less) ? 1.0 : 0.0);
-        control = std::clamp(control + 0.5 * seconds * v, 0.0, 1.0);
-    };
-    lever(controls.throttle, SDL_SCANCODE_PAGEDOWN, SDL_SCANCODE_PAGEUP);
-    lever(controls.mixture, SDL_SCANCODE_COMMA, SDL_SCANCODE_PERIOD);
-    lever(controls.propeller, SDL_SCANCODE_LEFTBRACKET, SDL_SCANCODE_RIGHTBRACKET);
-    lever(controls.speedbrake, SDL_SCANCODE_SEMICOLON, SDL_SCANCODE_APOSTROPHE);
-
-    // The flaps, a notch a press - on the key going down, not while held -
-    // from the notch nearest where they are, so that a lever a stick left
-    // between notches steps to one.
-    const auto notch = [&](SDL_Scancode key, bool& was, double by) {
-        const bool now = down(key);
-        if (now && !was) {
-            controls.flaps = std::clamp(std::round(controls.flaps * 3.0) + by, 0.0, 3.0) / 3.0;
+        case Mode::lever: {
+            // Moved while held and left where they are put.
+            const double v = (down(k.more) ? 1.0 : 0.0) - (down(k.less) ? 1.0 : 0.0);
+            for (double* f : moved) {
+                *f = std::clamp(*f + 0.5 * seconds * v, 0.0, 1.0);
+            }
+            break;
         }
-        was = now;
-    };
-    notch(SDL_SCANCODE_F, flaps_down_, 1.0);
-    notch(SDL_SCANCODE_R, flaps_up_, -1.0);
-
-    if (down(SDL_SCANCODE_B) || brakes_) {
-        controls.left_brake = controls.right_brake = down(SDL_SCANCODE_B) ? 1.0 : 0.0;
+        case Mode::step: {
+            // A notch a press - on the key going down, not while held - from
+            // the notch nearest where they are, so that a lever a stick left
+            // between notches steps to one.
+            const auto notch = [&](int key, bool& was, double by) {
+                const bool now = down(key);
+                if (now && !was) {
+                    for (double* f : moved) {
+                        *f = std::clamp(std::round(*f * 3.0) + by, 0.0, 3.0) / 3.0;
+                    }
+                }
+                was = now;
+            };
+            notch(k.more, flaps_down_, 1.0);
+            notch(k.less, flaps_up_, -1.0);
+            break;
+        }
+        case Mode::hold:
+            if (down(k.more) || brakes_) {
+                for (double* f : moved) {
+                    *f = down(k.more) ? 1.0 : 0.0;
+                }
+            }
+            brakes_ = down(k.more);
+            break;
+        }
     }
-    brakes_ = down(SDL_SCANCODE_B);
 }
 
 } // namespace glideslope::platform

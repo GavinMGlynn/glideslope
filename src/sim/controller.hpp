@@ -39,6 +39,7 @@
 #include "sim/learnt.hpp"
 #include "sim/navigator.hpp"
 
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -87,6 +88,14 @@ public:
     const Runway* learnt_runway() const {
         return learnt_ && gate_runway_ ? &*gate_runway_ : nullptr;
     }
+    // **Which runway she is rolling on**, for that same take-back: asked once,
+    // as she is handed over, it gives the runway under her wheels - the
+    // world's runways are not the simulation's to know (world/runway_ground.hpp
+    // has `runway_rolled_on`) - and she is braked for what is left of it.
+    // Without one, or where it finds none, the runway is her track and the
+    // brakes are set to autobrake 3.
+    using RunwayUnder = std::function<std::optional<Runway>(const Aircraft&)>;
+    void finds_runways_with(RunwayUnder runway_under) { runway_under_ = std::move(runway_under); }
     void to_ai(FlightPlan plan);
 
     // **The AI pilot can take off and land, not only hold and navigate.**
@@ -214,6 +223,7 @@ private:
     // Flying a plan's way on to its final approach (`land`): six and four
     // miles out on the centreline.
     bool on_final_legs_ = false;
+    RunwayUnder runway_under_;
     // The lander's controls, reached from the pilot's at a hand's pace after
     // a take-back on the roll.
     bool easing_in_ = false;

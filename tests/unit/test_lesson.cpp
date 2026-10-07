@@ -3733,7 +3733,23 @@ namespace {
 // and given back half a second after the pilot's own touch; and landed by
 // the pilot from the start, no approach given to the AI, and given to it half
 // a second after the touch.
-enum class OnTheRoll { at_the_touch, half_her_speed_gone, after_the_pilots_touch, landed_by_hand };
+enum class OnTheRoll {
+    at_the_touch,
+    half_her_speed_gone,
+    after_the_pilots_touch,
+    landed_by_hand,
+    landed_by_hand_on_a_short_runway
+};
+
+// **A short runway**: the same threshold, 1,500 m long. Braked at autobrake
+// 3 for no runway known, the 737-300 stopped 1,518 m past the threshold and
+// the F-15C 1,805 m.
+glideslope::sim::Runway a_short_runway() {
+    glideslope::sim::Runway r = a_runway();
+    r.name = "the short runway";
+    r.length_m = 1500.0;
+    return r;
+}
 
 const char* name_of(OnTheRoll when) {
     switch (when) {
@@ -3745,6 +3761,8 @@ const char* name_of(OnTheRoll when) {
         return "from the flare";
     case OnTheRoll::landed_by_hand:
         return "landed by hand";
+    case OnTheRoll::landed_by_hand_on_a_short_runway:
+        return "landed by hand on a short runway";
     }
     return "?";
 }
@@ -3789,7 +3807,15 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
     flying.throttle = 0.4;
     flying.gear = 1.0;
     glideslope::sim::Controller controller(aircraft, flying);
-    const bool by_hand = when == OnTheRoll::landed_by_hand;
+    const bool by_hand =
+        when == OnTheRoll::landed_by_hand || when == OnTheRoll::landed_by_hand_on_a_short_runway;
+    if (when == OnTheRoll::landed_by_hand_on_a_short_runway) {
+        // Told the runway she rolls on, as the server and the client tell
+        // theirs from the world's (world::runway_rolled_on).
+        controller.finds_runways_with([](const glideslope::sim::Aircraft&) {
+            return std::optional<glideslope::sim::Runway>(a_short_runway());
+        });
+    }
     if (by_hand) {
         // The pilot has her from the start, and the AI is told only how
         // she lands, from what the server and the client both tell theirs.
@@ -3968,6 +3994,7 @@ void every_landplane_taken_back(OnTheRoll when) {
         if (!r.lander_given) {
             wrong.push_back(where + " was not given her landing back");
         } else if (when != OnTheRoll::landed_by_hand &&
+                   when != OnTheRoll::landed_by_hand_on_a_short_runway &&
                    std::abs(r.lander_touched_past_m - r.touched_past_m) > 5.0) {
             // (Landed by hand, no approach was given: the AI's runway is the
             // line she rolls along from where it took her, and she touched,
@@ -3982,7 +4009,10 @@ void every_landplane_taken_back(OnTheRoll when) {
         if (!r.stopped) {
             wrong.push_back(where + " did not stop");
         }
-        if (r.stopped_past_m < 0.0 || r.stopped_past_m > a_runway().length_m ||
+        const double length_m = when == OnTheRoll::landed_by_hand_on_a_short_runway
+                                    ? a_short_runway().length_m
+                                    : a_runway().length_m;
+        if (r.stopped_past_m < 0.0 || r.stopped_past_m > length_m ||
             std::abs(r.stopped_across_m) > half_width_m) {
             wrong.push_back(where + " stopped off the runway, " +
                             std::to_string(r.stopped_past_m) + " m past the threshold and " +
@@ -4052,6 +4082,14 @@ GLIDESLOPE_TEST(an_approach_the_pilot_puts_down_from_the_flare_and_hands_back_is
 // central; the AI is told only how she lands (`Controller::lands_with`).
 GLIDESLOPE_TEST(an_aeroplane_landed_by_hand_and_handed_over_on_its_roll_is_landed_to_a_stop) {
     every_landplane_taken_back(OnTheRoll::landed_by_hand);
+}
+
+// **And told the runway she is rolling on, she is stopped on it, however
+// short**: every landplane landed by hand on a 1,500 m runway and handed over
+// half a second after the touch is braked for what is left of it, not at
+// autobrake 3, which ran the 737-300 and the F-15C off its end.
+GLIDESLOPE_TEST(a_landing_flown_by_hand_on_a_short_runway_is_stopped_on_it_by_the_ai) {
+    every_landplane_taken_back(OnTheRoll::landed_by_hand_on_a_short_runway);
 }
 
 // **Handed over taxiing, she is stopped with the throttle no more than half
