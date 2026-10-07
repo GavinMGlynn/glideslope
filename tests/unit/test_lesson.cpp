@@ -5,6 +5,7 @@
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
 #include "sim/autopilot.hpp"
+#include "sim/circuit.hpp"
 #include "sim/controller.hpp"
 #include "sim/crash.hpp"
 #include "sim/lander.hpp"
@@ -4180,6 +4181,122 @@ GLIDESLOPE_TEST(a_pilot_taxiing_at_no_more_than_half_throttle_who_hands_over_is_
     check(flown == 2 * (taught.size() - left_out) && left_out == 1,
           "every landplane handed over at both throttles: " + std::to_string(flown) + " of " +
               std::to_string(2 * (taught.size() - left_out)));
+}
+
+// **An aeroplane that goes around is flown round and landed.** Every
+// landplane taught the approach (the flying boat named), flown down the
+// approach by the AI from two miles out and told to go around at 200 ft: she
+// climbs away, cleans up - the flap to half the landing flap and the gear up
+// where it retracts, both by the downwind leg - flies the circuit's every leg
+// and the approach again, and stops on the runway, the right way up and
+// unwrecked, within fifteen minutes. Before, at 500 ft the plain autopilot
+// held her climb at the landing flap, and nothing flew her round.
+GLIDESLOPE_TEST(an_aeroplane_that_goes_around_is_flown_round_and_landed) {
+    using Leg = glideslope::sim::GoAroundCircuit::Leg;
+    const auto taught = everyone_taught("approach-and-landing");
+    std::size_t flown = 0;
+    std::size_t left_out = 0;
+    std::vector<std::string> wrong;
+    const glideslope::sim::Runway runway = a_runway();
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat has no runway to fly round to\n",
+                        id.c_str());
+            ++left_out;
+            continue;
+        }
+        const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        put_on_final(aircraft, entry, runway, published);
+        glideslope::sim::Controls flying;
+        flying.throttle = 0.4;
+        flying.gear = 1.0;
+        glideslope::sim::Controller controller(aircraft, flying);
+        controller.to_ai_approach(runway, published);
+        glideslope::sim::GroundJudge judge(false);
+        bool told = false;
+        bool circuit_seen = false;
+        std::vector<Leg> legs;
+        double downwind_flap = -1.0;
+        double downwind_gear = -1.0;
+        double highest_ft = 0.0;
+        bool stopped = false;
+        std::string wreck;
+        for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
+            const double agl = aircraft.property("position/h-agl-ft");
+            if (!told && agl <= 200.0) {
+                controller.go_around();
+                told = true;
+            }
+            const glideslope::sim::Controls c = controller.fly();
+            if (const auto* circuit = controller.circuit()) {
+                circuit_seen = true;
+                if (legs.empty() || legs.back() != circuit->leg()) {
+                    legs.push_back(circuit->leg());
+                }
+                if (circuit->leg() == Leg::downwind) {
+                    downwind_flap = c.flaps;
+                    downwind_gear = c.gear;
+                }
+            }
+            aircraft.set_controls(c);
+            aircraft.step();
+            highest_ft = std::max(highest_ft, agl);
+            if (const auto what = judge.judge(aircraft)) {
+                wreck = *what;
+                break;
+            }
+            if (circuit_seen && controller.circuit() == nullptr && controller.lander() &&
+                controller.lander()->stage() == glideslope::sim::Lander::Stage::stopped) {
+                stopped = true;
+                break;
+            }
+        }
+        const glideslope::sim::AircraftState s = aircraft.state();
+        const double north_m = (s.latitude_deg - runway.threshold_lat_deg) *
+                               metres_per_degree_latitude(runway.threshold_lat_deg);
+        const double east_m = (s.longitude_deg - runway.threshold_lon_deg) *
+                              metres_per_degree_longitude(runway.threshold_lat_deg);
+        const double h = runway.heading_deg / degrees;
+        const double past_m = east_m * std::sin(h) + north_m * std::cos(h);
+        const double across_m = east_m * std::cos(h) - north_m * std::sin(h);
+        std::printf("  %-13s legs %zu, highest %4.0f ft, downwind flap %.2f gear %.0f: %s "
+                    "%5.0f m past, %5.1f m across%s%s\n",
+                    id.c_str(), legs.size(), highest_ft, downwind_flap, downwind_gear,
+                    stopped ? "stopped" : "NOT STOPPED", past_m, across_m,
+                    wreck.empty() ? "" : ", wrecked: ", wreck.c_str());
+        ++flown;
+        const std::vector<Leg> every{Leg::upwind, Leg::crosswind, Leg::downwind,
+                                     Leg::base,   Leg::intercept, Leg::final};
+        if (legs != every) {
+            wrong.push_back(id + " did not fly every leg of the circuit in order: " +
+                            std::to_string(legs.size()) + " legs");
+        }
+        if (std::abs(downwind_flap - 0.5 * published.flap) > 1e-9) {
+            wrong.push_back(id + " flew downwind at flap " + std::to_string(downwind_flap));
+        }
+        if (aircraft.gear_retracts() != (downwind_gear == 0.0)) {
+            wrong.push_back(id + "'s gear on the downwind leg was " +
+                            std::to_string(downwind_gear));
+        }
+        if (!wreck.empty()) {
+            wrong.push_back(id + " was wrecked: " + wreck);
+        }
+        if (!stopped || past_m < 0.0 || past_m > runway.length_m ||
+            std::abs(across_m) > glideslope::sim::Lander::runway_half_width_m) {
+            wrong.push_back(id + " was not stopped on the runway: " + std::to_string(past_m) +
+                            " m past, " + std::to_string(across_m) + " m across");
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(flown + left_out == taught.size() && left_out == 1,
+          "every landplane taught the approach went around, the flying boat named: " +
+              std::to_string(flown) + " of " + std::to_string(taught.size() - left_out));
 }
 
 // **The server and the client tell a controller how she lands from the same

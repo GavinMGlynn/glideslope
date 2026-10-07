@@ -263,6 +263,45 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A go-around is flown round a circuit and landed, 2026-10-08 — tail still open
+
+**What is missing first.** The AI still goes around by itself only from a
+balloon: an approach arriving long (past the touchdown zone in the air) or
+fast (more than the stabilised approach's 20 knots over the reference) is
+landed anyway. And the circuit is a fixed left-hand one: no traffic, no
+wind correction to its legs beyond the autopilot's heading hold, no
+right-hand pattern where a runway's side asks for one.
+
+**What changed.** At the go-around's 500 ft the controller no longer hands
+her to the plain autopilot: `sim::GoAroundCircuit` (`sim/circuit.hpp`) flies
+the climb straight ahead on the runway's heading and a left-hand circuit
+through the plain autopilot - upwind, crosswind, downwind, base and a
+thirty-degree intercept - and gives her to a fresh `Lander` on the same
+runway on the intercept, which puts the landing flap and gear out again.
+The configuration is cleaned up in order: half the landing flap from the
+go-around on, and the gear up at a positive climb where it retracts. Its
+sizes are the circuit lessons' (`fly_a_circuit` in `test_lesson.cpp`):
+1,000 to 1,500 ft by the reference speed, the downwind leg left where the
+glidepath meets that height, base at 1.4 times the landing stall; the climb
+about ten feet a minute a knot of the reference speed (500 to 1,500).
+`Lander::go_around()` and `Controller::go_around()` tell the AI to go
+around now, from the approach or the flare; the go-around is flown as one
+from a balloon is. The lessons' circuit code is not yet moved onto this
+class; the two are the same rules written twice.
+
+**Verification.**
+`an_aeroplane_that_goes_around_is_flown_round_and_landed`: every landplane
+taught the approach (13; the flying boat named, having no runway), flown
+down the approach and told to go around at 200 ft, flies all six legs in
+order, has half its landing flap and its gear up (where it retracts) on the
+downwind leg, and stops on the runway unwrecked: the C172P 631 m past the
+threshold, the F-35B 2,628, none more than 3.4 m off the centreline.
+**Seen to fail** with the circuit not started (as before): 48 things wrong,
+every one "did not fly every leg", the A380 not stopped 62 km on; and with
+the flap not cleaned up: "737-300 flew downwind at flap 1.0". Every lesson,
+landing, take-back, flare and gust test, the learnt landing's and the
+selftest pass (95 tests, linux-release).
+
 ### A landing flown by hand is braked for the runway she is on; every control's key and button on screen with F1, 2026-10-08 — two tails done
 
 **What is still missing first.** A landing handed over on its roll off any

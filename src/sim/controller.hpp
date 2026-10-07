@@ -34,6 +34,7 @@
 
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
+#include "sim/circuit.hpp"
 #include "sim/departure.hpp"
 #include "sim/lander.hpp"
 #include "sim/learnt.hpp"
@@ -162,6 +163,15 @@ public:
     // is not flying one.
     const Departure* departure() const { return departure_ ? &*departure_ : nullptr; }
     const Lander* lander() const { return lander_ ? &*lander_ : nullptr; }
+    // **Go around**, where the AI is flying an approach: it climbs away and
+    // flies round to the same runway again (sim/circuit.hpp).
+    void go_around() {
+        if (lander_) {
+            lander_->go_around();
+        }
+    }
+    // The circuit a go-around is being flown round, if one is.
+    const GoAroundCircuit* circuit() const { return circuit_ ? &*circuit_ : nullptr; }
     const LearntLander* learnt() const { return learnt_ ? &*learnt_ : nullptr; }
     // Hands it back to the pilot.
     void to_pilot();
@@ -207,6 +217,8 @@ private:
     std::optional<Navigator> navigator_;
     std::optional<Departure> departure_;
     std::optional<Lander> lander_;
+    // A go-around flown round to the approach again.
+    std::optional<GoAroundCircuit> circuit_;
     std::optional<LearntLander> learnt_;
     // The learnt landing an approach is handed to at its gate, while it is
     // still to be met: with the runway and speeds it lands with.

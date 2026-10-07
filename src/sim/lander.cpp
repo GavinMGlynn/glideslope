@@ -281,6 +281,16 @@ Lander Lander::on_its_roll(const Aircraft& aircraft, const ApproachSpeeds& speed
     return l;
 }
 
+void Lander::go_around() {
+    if (touched_ || (stage_ != Stage::approach && stage_ != Stage::flare)) {
+        return;
+    }
+    stage_ = Stage::go_around;
+    // From the attitude and the power she has, so that nothing steps.
+    flare_pitch_ = a_.state().pitch_deg;
+    last_throttle_ = a_.property("fcs/throttle-cmd-norm[0]");
+}
+
 bool Lander::gone_around() const {
     return stage_ == Stage::go_around && above_m_ * feet_per_metre >= go_around_ft;
 }
