@@ -85,7 +85,7 @@ progress** means much of it runs and the missing part is named.
 | Thermals, ridge lift, microbursts | In progress - thermals rise over the sea as over land; no rotor or trapped waves behind a ridge |
 | Weather you can see - cloud, haze, rain | In progress - cloud is a flat sheet; no storm towers; rain falls only close by |
 | A choice of sixteen aircraft | In progress - on a server you can ask for an aircraft as you join and fly it, but no test yet shows a windowed client drawing another player's choice; the Learjet is not drawn |
-| Joysticks, HOTAS and yokes | In progress - nothing yet opens the speedbrakes |
+| Joysticks, HOTAS and yokes | **Done** |
 | A head-up display | Its horizon line now lies on the drawn horizon, held at every pitch and bank tested; the menu has not yet re-tagged it |
 | Views: cockpit, ahead, behind, sides, above, free orbit | **Done** |
 
@@ -290,6 +290,15 @@ glideslope --terrain google                  # Google's 3D Tiles (needs a key)
 In flight, **A** hands the aircraft to the AI and takes it back, **V** steps
 through the views, and **M** chooses which model plans for your aircraft once
 it is handed over.
+
+**The flying controls.** On the keyboard the arrow keys are the stick, **Z**
+and **X** the rudder, **Page Up** and **Page Down** the throttle, **,** and
+**.** the mixture, **[** and **]** the propeller, **;** and **'** the
+speedbrakes (in and out), and **B** holds the brakes. A joystick or HOTAS
+works as `data/input/bindings.txt` says - on a throttle quadrant the
+speedbrake is the last lever, pulled back to open them, and buttons 13 and
+14 of a stick or a quadrant close and open them a quarter at a press. The HUD
+shows the speedbrakes on aircraft that have them.
 
 **Fly together:**
 

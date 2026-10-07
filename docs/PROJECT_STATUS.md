@@ -324,9 +324,14 @@ lessons' speed bands stayed at `vref+20` for her pilot.
 - `a_client_working_the_speedbrakes_is_predicted_as_the_server_flies_them_in_every_aircraft_with_them`:
   the eight at 200 ms, the lever run out and in, corrected by no more than a
   quarter over the same flight stowed (worst: F-22A 0.137 m either way).
-  **What it does not catch**: a client flying the lever stowed while sending
-  it out - put right every 50 ms, five of the eight were put right by no
-  more than their own drift; only the 737 plainly (0.094 m against 0.037).
+  From the review: each side's flight model is read back at every step
+  (`fcs/speedbrake-cmd-norm`) and must hold the lever sent - zero steps off
+  in all eight; a client flying it stowed while sending it out is caught,
+  in-test, at every step it was out. The correction alone shows that only
+  in the 737 (0.094 m against 0.037), which is held as an assertion.
+- From the review too: README's Getting started lists the flying keys and
+  the speedbrake's buttons and quadrant lever; the client's `--help` lists
+  no controls at all, a new tail.
 - `a_state_packet_carries_the_controls_of_the_aircraft_its_client_watches`
   (half out, stowed and none read back), the HUD line checks
   (`hud_lines_check`, three new cases; `hud_horizon_check`, gear and lever

@@ -9,7 +9,7 @@
 # of a running glideslope server. The two transports are one design with
 # different magics, so that each refuses the other at the first four bytes:
 # the answer must be a glideslope `REFUSAL` saying `NOT_THIS_PROTOCOL` -
-# `47 4c 44 53`, version `05`, type `04`, reason `01` - and nothing else, not a
+# `47 4c 44 53`, version `06`, type `04`, reason `01` - and nothing else, not a
 # handshake answer and not silence.
 
 cmake_minimum_required(VERSION 3.28)
