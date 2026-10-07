@@ -2611,8 +2611,13 @@ add_test(NAME the_client_with_the_window_flies_the_servers_aircraft_and_draws_th
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_server -DPORT=24784 -DDRIVER=vulkan
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
+# **RUN_SERIAL, both**: the client predicts against a debug server that must
+# keep real time, and beside the heaviest tests of a CI shard it did not -
+# put right 20.6 m against 20 m, twice, on Linux debug (run 37587492168).
+# tools/ci_shard.cmake weighs a serial test at its time times the jobs it
+# holds.
 set_tests_properties(the_client_with_the_window_flies_the_servers_aircraft_and_draws_the_others
-    PROPERTIES SKIP_RETURN_CODE 77)
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server)
 # **The same, with its frames held 0.7 s**, as a slow machine's are: it hears
 # the server after the ticks those frames were owed, and is put right once a
@@ -2629,7 +2634,7 @@ add_test(NAME a_client_whose_frames_are_held_most_of_a_second_is_never_put_right
         -DSLOW_FRAMES=700
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
 set_tests_properties(a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide
-    PROPERTIES SKIP_RETURN_CODE 77 LABELS timing)
+    PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_slow)
 
 # **A flight plan that takes off and orbits is flown over the DEM** by
