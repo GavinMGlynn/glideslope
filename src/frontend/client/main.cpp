@@ -156,6 +156,7 @@ struct Options {
     // On a server, hand its own aircraft to the AI this many seconds of
     // flight in, and take it back this many in, as A does; below nought, never.
     double hand_over_after_s = -1.0;
+    double learnt_landing_after_s = -1.0;
     // **Its copilot** (`--copilot TASK`), asked with the player's own key on
     // this machine when C is pressed; only its route goes to the server.
     std::string copilot_task;
@@ -275,6 +276,9 @@ void usage(std::FILE* out) {
         "  --hand-over-after S, --take-back-after S  on a server, hand your own\n"
         "                aircraft to the AI S seconds after joining, and take it\n"
         "                back, as A does (for tests)\n"
+        "  --learnt-landing-after S  on a server, ask for your own aircraft to be\n"
+        "                handed to the learnt landing S seconds after joining, as L\n"
+        "                does (for tests)\n"
         "  --stall-after S  on a server, S seconds after joining, send and answer\n"
         "                nothing, as a stopped process, until the server has let\n"
         "                this client go; it then joins again by itself (for tests)\n"
@@ -547,6 +551,8 @@ static int run_program(int argc, char** argv) {
             o.copilot_playback = std::string(args[++i]);
         } else if (a == "--copilot-after" && has_value) {
             o.copilot_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--learnt-landing-after" && has_value) {
+            o.learnt_landing_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--hand-over-after" && has_value) {
             o.hand_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--stall-after" && has_value) {
@@ -1224,6 +1230,10 @@ static int run_program(int argc, char** argv) {
         bool rode_along = false;
         bool asked_to_take_over = false;
         bool asked_to_hand_over = false;
+        bool asked_for_learnt = false;
+        // Whether the learnt landing had its own aircraft at the last look:
+        // said when it changes.
+        bool learnt_had_it = false;
         bool asked_to_take_back = false;
         bool asked_to_stall = false;
         int let_go_said = 0;
@@ -1346,6 +1356,12 @@ static int run_program(int argc, char** argv) {
         // (`TAKE_OVER_REFUSED`), for the one it kept.
         bool a_held = false;
         std::int64_t take_over_asked_at = 0;
+        const auto ask_for_learnt = [&]() {
+            online->hand_to_learnt();
+            std::printf("glideslope: asked for aircraft %u to be handed to the learnt landing\n",
+                        static_cast<unsigned>(online->mine()));
+            std::fflush(stdout);
+        };
         const auto hand_over = [&](bool to_ai) {
             online->hand_over(to_ai);
             std::printf("glideslope: asked for aircraft %u to be handed to %s\n",
@@ -1557,6 +1573,12 @@ static int run_program(int argc, char** argv) {
                     } else {
                         flight->swap_pilot();
                     }
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == SDL_SCANCODE_L && online && joined) {
+                    // **L asks for the learnt landing**: the server hands
+                    // her over only where her model has one and she is at
+                    // its gate on final, and says why not in its log.
+                    ask_for_learnt();
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == SDL_SCANCODE_M && online && joined) {
                     next_model();
@@ -1781,6 +1803,18 @@ static int run_program(int argc, char** argv) {
                     for (const std::string& line : copilot->said()) {
                         std::printf("glideslope: %s\n", line.c_str());
                     }
+                }
+                if (o.learnt_landing_after_s >= 0.0 && !asked_for_learnt &&
+                    joined_s >= o.learnt_landing_after_s) {
+                    asked_for_learnt = true;
+                    ask_for_learnt();
+                }
+                if (const bool learnt = online->own_learnt_landing(); learnt != learnt_had_it) {
+                    learnt_had_it = learnt;
+                    std::printf("glideslope: %s\n",
+                                learnt ? "the server says the learnt landing has this aircraft"
+                                       : "the learnt landing no longer has this aircraft");
+                    std::fflush(stdout);
                 }
                 if (o.hand_over_after_s >= 0.0 && !asked_to_hand_over &&
                     joined_s >= o.hand_over_after_s) {
@@ -2278,8 +2312,12 @@ static int run_program(int argc, char** argv) {
             if (flight) {
                 glideslope::gfx::HudReadings readings = flight->hud();
                 if (online && joined) {
-                    // Who flies it is the server's to say.
+                    // Who flies it is the server's to say - and what with,
+                    // where it is the learnt landing.
                     readings.ai_flying = online->own_ai_flying();
+                    if (online->own_learnt_landing()) {
+                        readings.autopilot = "LEARNT LANDING";
+                    }
                 }
                 if (ridden) {
                     // **What the aircraft ridden in is doing**, as the updates

@@ -291,7 +291,9 @@ glideslope --terrain google                  # Google's 3D Tiles (needs a key)
 
 In flight, **A** hands the aircraft to the AI and takes it back, **V** steps
 through the views, and **M** chooses which model plans for your aircraft once
-it is handed over.
+it is handed over. On a server, **L** hands a Cessna 172 on final - two
+miles out, lined up, at its approach speed with full flap - to the landing
+learnt by reinforcement learning; **A** takes it back.
 
 **The flying controls.** On the keyboard the arrow keys are the stick, **Z**
 and **X** the rudder, **Page Up** and **Page Down** the throttle, **,** and

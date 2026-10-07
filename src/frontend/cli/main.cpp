@@ -147,6 +147,20 @@ struct ConnectFlood {
 };
 ConnectFlood connect_flood;
 
+// **The learnt landing asked for** (`--learnt-landing-at S`): S seconds in,
+// its own aircraft is asked to be handed to the landing learnt by
+// reinforcement learning; with `--until-landed`, it leaves once the server
+// has said the learnt landing has it and an update shows it at rest.
+struct ConnectLearnt {
+    double at_s = -1.0;
+    bool asked = false;
+    bool until_landed = false;
+    bool handed = false; // the server said so
+    bool landed = false; // and updates showed it at rest since, two seconds
+    double rest_from_s = -1.0; // when they began to, on the session's clock
+};
+ConnectLearnt connect_learnt;
+
 // **A test flag's work (`--until-engine-compared N`)**: with `--predict`, stay
 // until N updates have been compared since the server said this client's
 // engine had stopped - the event a test of predicting a stopped engine
@@ -344,7 +358,10 @@ void print_usage(std::FILE* out) {
         "                            behind, and says how far its own was put right\n"
         "                            --hand-over-at S asks, S seconds in, for its own\n"
         "                            aircraft to be handed to the AI pilot, and\n"
-        "                            --take-back-at S for it back; with\n"
+        "                            --take-back-at S for it back;\n"
+        "                            --learnt-landing-at S, S seconds in, for it to be\n"
+        "                            handed to the learnt landing, and with\n"
+        "                            --until-landed leaves once that has it at rest; with\n"
         "                            --hand-over-model P, anthropic or openai (each\n"
         "                            with :MODEL if wanted) or none,\n"
         "                            the hand-over is planned by that model, asked\n"
@@ -681,13 +698,12 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
     }
     std::shared_ptr<const glideslope::sim::LearntPolicy> policy;
     if (learnt) {
-        const auto file = data / "rl" / (entry.model + "-landing.txt");
-        if (!std::filesystem::exists(file)) {
-            throw std::runtime_error("land: " + entry.model +
-                                     " has no learnt landing (" + file.string() + ")");
+        policy = glideslope::sim::learnt_landing(data, entry.model);
+        if (!policy) {
+            throw std::runtime_error("land: " + entry.model + " has no learnt landing (" +
+                                     (data / "rl" / (entry.model + "-landing.txt")).string() +
+                                     ")");
         }
-        policy = std::make_shared<const glideslope::sim::LearntPolicy>(
-            glideslope::sim::LearntPolicy::read(file));
     }
     const glideslope::sim::ApproachSpeeds speeds =
         glideslope::sim::approach_speeds(data, entry.model);
@@ -2427,6 +2443,10 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (until_flying_again > 0 && flown_again >= until_flying_again) {
             break;
         }
+        // **Landed by the learnt landing, and at rest** (`--until-landed`).
+        if (connect_learnt.until_landed && connect_learnt.landed) {
+            break;
+        }
         // **On other ground, it leaves**, saying goodbye below.
         if (refused_ground) {
             break;
@@ -2616,6 +2636,12 @@ int stay(glideslope::platform::UdpSocket& socket,
                                    : " (" + hc.hand_over_refused + ")") +
                               ": the AI holds its course");
                 }
+            }
+            if (connect_learnt.at_s >= 0.0 && up_s >= connect_learnt.at_s &&
+                !connect_learnt.asked) {
+                connect_learnt.asked = true;
+                ask(glideslope::net::Controller::learnt_landing);
+                say_heard("asked for the learnt landing");
             }
             if (take_back_at_s >= 0.0 && up_s >= take_back_at_s && !asked_to_take_back) {
                 asked_to_take_back = true;
@@ -2961,6 +2987,33 @@ int stay(glideslope::platform::UdpSocket& socket,
                     }
                 }
             }
+            // **At rest under the learnt landing** (`--until-landed`): its
+            // own, handed to it, flown by the AI and still.
+            // At rest is under 0.1 m/s - a third of the 1 ft/s the
+            // approach autopilot calls stopped - for two seconds on the
+            // session's clock, so the server has said its landing before
+            // this client goes and takes the aircraft with it.
+            if (connect_learnt.handed && !connect_learnt.landed) {
+                for (const glideslope::net::AircraftState& a : state->aircraft) {
+                    if (a.index != mine) {
+                        continue;
+                    }
+                    if (a.controller == glideslope::net::Controller::ai &&
+                        a.condition == glideslope::net::Condition::flying &&
+                        std::hypot(a.vx_mps, a.vy_mps, a.vz_mps) < 0.1F) {
+                        if (connect_learnt.rest_from_s < 0.0) {
+                            connect_learnt.rest_from_s = state->simulation_time_s;
+                        }
+                        if (state->simulation_time_s - connect_learnt.rest_from_s >= 2.0) {
+                            connect_learnt.landed = true;
+                            say_heard("aircraft " + std::to_string(mine) +
+                                      " is at rest, landed by the learnt landing");
+                        }
+                    } else {
+                        connect_learnt.rest_from_s = -1.0;
+                    }
+                }
+            }
             // The AI aircraft it would take over: the one it watches, or else
             // the first the AI flies - or the one it is told, whoever's.
             if (take_over_aircraft >= 0) {
@@ -3115,9 +3168,16 @@ int stay(glideslope::platform::UdpSocket& socket,
                 glideslope::net::ControllerSwap swap;
                 if (glideslope::net::read(
                         std::span<const std::uint8_t>(message.data(), message.size()), swap)) {
-                    const bool to_ai = swap.to == glideslope::net::Controller::ai;
+                    // The learnt landing is the AI flying it too.
+                    const bool learnt =
+                        swap.to == glideslope::net::Controller::learnt_landing;
+                    const bool to_ai = swap.to == glideslope::net::Controller::ai || learnt;
                     say_heard("aircraft " + std::to_string(swap.aircraft) +
-                              (to_ai ? " handed to the AI" : " handed to its pilot"));
+                              (learnt ? " handed to the learnt landing"
+                                      : to_ai ? " handed to the AI" : " handed to its pilot"));
+                    if (swap.aircraft == mine) {
+                        connect_learnt.handed = learnt;
+                    }
                     if (predicting && swap.aircraft == mine) {
                         predicting->handed(to_ai, sequence);
                     }
@@ -4148,6 +4208,15 @@ static int run_program(int argc, char** argv) {
                 if (args[i] == "--send-route" && i + 1 < args.size()) {
                     connect_copilot.route_file = std::string(args[i + 1]);
                     ++i;
+                    continue;
+                }
+                if (args[i] == "--learnt-landing-at" && i + 1 < args.size()) {
+                    connect_learnt.at_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
+                    ++i;
+                    continue;
+                }
+                if (args[i] == "--until-landed") {
+                    connect_learnt.until_landed = true;
                     continue;
                 }
                 if (args[i] == "--hand-over-at" && i + 1 < args.size()) {

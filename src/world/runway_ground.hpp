@@ -84,10 +84,13 @@
 
 #include "world/dem.hpp"
 #include "world/runways.hpp"
+#include "sim/learnt.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
+#include <optional>
 #include <limits>
 #include <memory>
 #include <span>
@@ -192,6 +195,27 @@ private:
 // indexed the first time it is asked for, and the same surfaces handed to
 // every caller after. Throws RunwayError if it cannot be read.
 std::shared_ptr<const RunwaySurfaces> runway_surfaces(const std::filesystem::path& data);
+
+// **The runway whose learnt-landing gate an aircraft is at** (sim::LearntGate),
+// of every end of every runway in `surfaces` - the threshold its end, the
+// heading from it to the other end, its elevation the ground's there
+// (`ground_m`, metres, as the aircraft's own terrain has it, so that the
+// glidepath is flown to the ground she will touch) - named "YSSY 16R".
+// None found, `why` says why not: for the end she is pointing most nearly
+// down, what keeps her outside its gate, or that no threshold is near
+// enough.
+struct LearntGateFound {
+    std::optional<sim::Runway> runway;
+    std::string why;
+};
+LearntGateFound learnt_gate_runway(const RunwaySurfaces& surfaces, const sim::Aircraft& aircraft,
+                                   const sim::LearntPolicy& policy,
+                                   const std::function<double(double, double)>& ground_m);
+
+// One end of runway `i` of `surfaces`, as the landing autopilots have a
+// runway: `he` for its `he_` end. Its elevation is `elevation_ft`.
+sim::Runway runway_end(const RunwaySurfaces& surfaces, std::size_t i, bool he,
+                       double elevation_ft);
 
 // **The collision ground**: a Dem with every runway made its own surface. Not
 // thread-safe, as a Dem is not.

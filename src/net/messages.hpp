@@ -66,13 +66,23 @@ enum class Message : std::uint8_t {
 bool known_message(std::uint8_t kind);
 
 // Who is flying an aircraft. A slot with `nobody` is open.
+//
+// **`learnt_landing` is said only in a `CONTROLLER_SWAP`** (since version 8):
+// asked for, an aircraft is handed to the landing learnt by reinforcement
+// learning, if it has one and is at its gate; announced, it has been. It is
+// the AI flying it, and everywhere else - a state update, the lobby - it is
+// `ai`, and a `learnt_landing` there makes the message unreadable.
 enum class Controller : std::uint8_t {
     nobody = 0,
     person = 1,
     ai = 2,
+    learnt_landing = 3,
 };
 
+// Whether `controller` is one a state update or the lobby may carry.
 bool known_controller(std::uint8_t controller);
+// Whether it is one a `CONTROLLER_SWAP` may carry: those and `learnt_landing`.
+bool known_swap_controller(std::uint8_t controller);
 
 // **The lobby**: every slot the server has, and who is in it. Sent whole
 // rather than as changes, because it is small and a whole one cannot be

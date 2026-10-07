@@ -210,8 +210,10 @@ the controls to an AI pilot whenever you like, then take them back.
 - **Pilots that learned to fly.** `CANDIDATE`
   AI trained to land or fly aerobatics rather than programmed to. A stretch
   goal.
-  *Not yet:* only the Cessna 172 has a learnt landing, and only the
-  command-line program offers it, not a session.
+  In a session, a Cessna 172 on final can be handed to its learnt landing
+  (L) two miles out, lined up and at its approach speed with full flap.
+  *Not yet:* only the Cessna 172 has a learnt landing, and the server's own
+  AI aircraft never use it.
 
 ## Flying together
 

@@ -233,6 +233,13 @@ public:
     // is; taken back, the flight is put where the next update says and
     // predicted again from there.
     void hand_over(bool to_ai);
+    // Asks for its own aircraft to be handed to the learnt landing, which
+    // the server does only where it has one and the aircraft is at its gate.
+    void hand_to_learnt();
+    // **Whether the learnt landing has its own aircraft**: the AI flies it,
+    // and the last swap the server announced for it was to the learnt
+    // landing.
+    bool own_learnt_landing();
     // **Its copilot's route** (`COPILOT_ROUTE`) for its own aircraft: the
     // model was asked on this machine, with the player's key; only the route
     // goes. The server checks it, and flies it with its AI - handing the

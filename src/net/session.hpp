@@ -128,6 +128,13 @@ public:
     // messages said. An aircraft said to be somewhere before it has been
     // introduced is not in here yet.
     const std::map<std::uint8_t, AircraftDefinition>& roster() const { return roster_; }
+    // **Who the last `CONTROLLER_SWAP` for an aircraft handed it to**, by its
+    // number, or `nobody` if none has been heard: what says the learnt
+    // landing has it, which a state update gives only as the AI.
+    Controller last_swap(std::uint8_t aircraft) const {
+        const auto it = swaps_.find(aircraft);
+        return it == swaps_.end() ? Controller::nobody : it->second;
+    }
     // **What the server has said the session is** (net::Told): the ground
     // it collides on, the session, the lobby and the weather it flies. A
     // session joined again is told afresh.
@@ -224,6 +231,7 @@ private:
     std::vector<StatePacket> fresh_;
     Reliable reliable_;
     std::map<std::uint8_t, AircraftDefinition> roster_;
+    std::map<std::uint8_t, Controller> swaps_;
     Told told_;
     std::vector<std::uint8_t> refusals_;
     // **Until anything has opened under this session, it knocks**: a sealed
