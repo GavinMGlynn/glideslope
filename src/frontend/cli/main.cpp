@@ -2018,8 +2018,8 @@ public:
         // the worst is what one slow frame made it (server_weather.cmake).
         if (!errors_m_.empty()) {
             std::vector<double> sorted = errors_m_;
+            std::sort(sorted.begin(), sorted.end());
             const auto middle = sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2);
-            std::nth_element(sorted.begin(), middle, sorted.end());
             std::snprintf(line, sizeof line, "prediction error median: %.3f m over %zu updates",
                           *middle, sorted.size());
             lines.emplace_back(line);
@@ -2027,7 +2027,6 @@ public:
             // hundred was within. The worst is one moment's; on CI's Windows
             // a single update of 600 was off by 1.1 m where the median was
             // 5 mm (server_paced_prediction.cmake).
-            std::sort(sorted.begin(), sorted.end());
             const std::size_t at = std::min(
                 sorted.size() - 1, static_cast<std::size_t>(std::ceil(
                                        0.99 * static_cast<double>(sorted.size()))) - 1);

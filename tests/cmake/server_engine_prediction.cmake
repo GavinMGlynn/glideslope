@@ -24,10 +24,11 @@
 # **What must hold**: the client stopped one engine for the server's word,
 # compared 300 updates after, and its median prediction error after the stop
 # is no more than 2 cm over its median before - "as small as with it
-# running". **Over, not the larger of**: on Windows both medians are 50 to 60
-# mm, a millimetre or four apart either way from run to run (five runs here,
-# 2026-10-08, and CI's 47 against 43 mm), and the larger-of bound failed on
-# that alone; the engine run on put the median after 0.2 m against 0.03. **The median, not the worst**: half a second at a time, every few
+# running". **Over, not the larger of**: on Windows both medians are 50 to
+# 60 mm, a millimetre or four apart either way from run to run (five runs
+# here, 2026-10-08, and CI's 47 against 43 mm), and the larger-of bound
+# failed on that alone; the engine run on put the median after 0.2 m against
+# 0.03. **The median, not the worst**: half a second at a time, every few
 # seconds, the prediction is put right by a metre or more whether an engine
 # has stopped or not (1.6 m in 40 s of this flight with none, 2026-10-06) -
 # the clock's estimate, an open tail - and the worst is what that made it.
@@ -38,9 +39,9 @@
 # fell behind when this failed there. The relative bound above did not
 # catch that: flown at its own pace (`--unpaced`) the client's medians were
 # 20.2 m after and 20.5 m before, and after was the less. So slowed, both
-# medians must also be under 5 cm: paced, they were 4 and 23 mm (4 and 21 with the
-# server slowed by sleeping). `-DUNPACED=ON` flies the client unpaced, which
-# must fail.
+# medians must also be under 5 cm: paced, they were 4 and 23 mm (4 and 21
+# with the server slowed by sleeping). `-DUNPACED=ON` flies the client
+# unpaced, which must fail.
 #
 # `-DSERVER_EXTRA=...` adds to the server's arguments - `--test-step-ms 15`
 # puts it behind real time, as a loaded runner does, to reproduce one.
