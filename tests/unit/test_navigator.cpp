@@ -1130,10 +1130,12 @@ const std::vector<GlideBand> glide_bands = {
     {"learjet35a", Ways::right, 170, 195},
     {"learjet35a", Ways::right, 200, 225},
     {"learjet35a", Ways::right, 230, 240},
-    {"b2", Ways::left, 194, 214},
-    {"b2", Ways::left, 219, 230},
-    {"b2", Ways::right, 194, 214},
-    {"b2", Ways::right, 219, 230},
+    {"b2", Ways::left, 159, 179},
+    {"b2", Ways::left, 184, 204},
+    {"b2", Ways::left, 209, 230},
+    {"b2", Ways::right, 159, 179},
+    {"b2", Ways::right, 184, 204},
+    {"b2", Ways::right, 209, 230},
     {"f15c", Ways::left, 170, 185},
     {"f15c", Ways::left, 190, 200},
     {"f15c", Ways::right, 170, 185},
@@ -1528,20 +1530,28 @@ GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_right_fr
     glides_in_band("learjet35a", Ways::right, 230);
 }
 
-GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_left_from_194_to_214_kt_without_stalling) {
-    glides_in_band("b2", Ways::left, 194);
+GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_left_from_159_to_179_kt_without_stalling) {
+    glides_in_band("b2", Ways::left, 159);
 }
 
-GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_left_from_219_to_230_kt_without_stalling) {
-    glides_in_band("b2", Ways::left, 219);
+GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_left_from_184_to_204_kt_without_stalling) {
+    glides_in_band("b2", Ways::left, 184);
 }
 
-GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_right_from_194_to_214_kt_without_stalling) {
-    glides_in_band("b2", Ways::right, 194);
+GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_left_from_209_to_230_kt_without_stalling) {
+    glides_in_band("b2", Ways::left, 209);
 }
 
-GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_right_from_219_to_230_kt_without_stalling) {
-    glides_in_band("b2", Ways::right, 219);
+GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_right_from_159_to_179_kt_without_stalling) {
+    glides_in_band("b2", Ways::right, 159);
+}
+
+GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_right_from_184_to_204_kt_without_stalling) {
+    glides_in_band("b2", Ways::right, 184);
+}
+
+GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_right_from_209_to_230_kt_without_stalling) {
+    glides_in_band("b2", Ways::right, 209);
 }
 
 GLIDESLOPE_TEST(the_f15c_glides_round_its_tightest_orbit_turning_left_from_170_to_185_kt_without_stalling) {
@@ -1560,10 +1570,12 @@ GLIDESLOPE_TEST(the_f15c_glides_round_its_tightest_orbit_turning_right_from_190_
     glides_in_band("f15c", Ways::right, 190);
 }
 
-// **The F-22 glides nowhere, and why is not found**: from 255 kt, its slowest
-// under power, to 335 it departs past 95 degrees of alpha before it is a
-// fifth of the way round, and at 340 it is a third of the way round at
-// 1,000 ft. Not a floor to raise: it is named, and the tail stays open.
+// **The F-22 glides nowhere, and why is not found**: from 140 kt, its slowest
+// under power, to 275 it stalls before it is half way round - to 265 departing
+// past 95 degrees of alpha - and from 280 to 360 it is less than half way
+// round at 1,000 ft (2026-10-07). Its file keeps 255, its slowest under power
+// before, as its slowest glide. Not a floor to raise: it is named, and the
+// tail stays open.
 GLIDESLOPE_TEST(the_f22a_glides_round_its_tightest_orbit_at_255_kt_without_stalling) {
     glides_in_band("f22", Ways::both, 255,
                    "departs at every glide from 255 to 335 kt, why not found");

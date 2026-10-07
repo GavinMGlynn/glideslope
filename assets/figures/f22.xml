@@ -77,7 +77,7 @@
     ceiling.
   </figure>
   <!-- **The speeds a plan may fly her at**, measured by `glideslope_cli
-       plan-speeds f22` on 2026-10-02 (linux-release): the tightest orbit a
+       plan-speeds f22 120` on 2026-10-07 (linux-release): the tightest orbit a
        plan may ask at each speed (sim/orbit_trial.hpp), flown clean by the
        navigator and autopilot at 3,000 ft, both ways round, in calm air and
        in a 10 kt wind, each to hold its height within 50 ft and its speed
@@ -86,23 +86,25 @@
        the slowest sought up from its approach speed (or where said) in 5 kt steps,
        the fastest down from a fifth over its start speed, and written by
        the command's one rule (src/frontend/cli/main.cpp, plan_speeds). -->
-  <plan_speeds slowest_kcas="255" fastest_kcas="360">
-    The slowest, 255 kt, is 5 kt over the first that held, 250: she
+  <plan_speeds slowest_kcas="140" fastest_kcas="360">
+    The slowest, 140 kt, is 5 kt over the first that held, 135: she
     publishes no stall speed, so has no approach speed, and the sweep began
-    at 150 kt (`plan-speeds f22 150`); at 215 kt she lost 46 ft and slowed
-    to 211 kt round her 6,689 m circle, and below that came down 500 ft
-    before reaching it; from 220 kt she held the orbit all four ways, but in
-    the crosswind she swung her sideslip 6.0 degrees either way at 230 kt,
-    3.5 at 235, 2.4 at 240 and 1.6 at 245. The fastest, 360 kt, a fifth over its start speed, held all four ways.
+    at 120 kt; below 135 she came down 500 ft before reaching her circle. At
+    135 she held the orbit all four ways and, on her own yaw damper and
+    rudder integral (her catalogue's `yaw-damper`), her sideslip in the
+    crosswind within 0.23 degree. On 2026-10-02, before them, she held her
+    orbit only from 220 kt and swung her sideslip 6.0 degrees either way at
+    230 in the crosswind, and her slowest was 255. The fastest, 360 kt, a
+    fifth over its start speed, held all four ways.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
-       glide-speeds f22` on 2026-10-06 (linux-release): from the slowest a
+       glide-speeds f22` on 2026-10-07 (linux-release): from the slowest a
        route may fly it up in 5 kt steps, each glided round the tightest
        orbit allowed from 30,000 ft, every engine stopped, clean, both ways
        round (sim::glide_tightest_orbit), until one went round without its
        wing passing the angle its lift peaked at, nor 25 degrees. -->
   <glide_speeds slowest_kcas="255">
-    None was found: from 255 to 335 kt it departs, past 95 degrees of alpha, before it is a fifth of the way round - why is not found - and at 340 it is only a third of the way round at 1,000 ft. Its slowest under power is given, and the glide tests name it.
+    None was found: from 140 kt, her slowest under power since 2026-10-07, to 275 it stalls before it is half way round - to 265 departing past 95 degrees of alpha, why is not found - and from 280 to 360 it is less than half way round at 1,000 ft. 255 kt, her slowest under power before, is kept, so that a copilot asks no glide of her she was not asked before; the glide tests name it.
   </glide_speeds>
   <!-- **Her take-off speeds, measured from her model, not published**: she
        publishes neither a rotation nor a climb speed. Measured by

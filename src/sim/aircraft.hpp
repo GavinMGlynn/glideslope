@@ -231,6 +231,8 @@ struct CatalogueFacts {
     bool mixture_lever = false;
     double full_rich_below_ft = 0.0;
     bool speedbrakes = false;
+    double yaw_damper_per_degps = 0.05;
+    double rudder_integral_rate = 0.05;
 };
 
 // One aircraft: a JSBSim instance loaded from model files.
@@ -287,6 +289,17 @@ public:
     // loaded where there is no catalogue.
     bool speedbrakes() const {
         return speedbrakes_;
+    }
+
+    // **The autopilot's rudder gains**: its yaw damper's travel per degree a
+    // second of yaw rate, and its sideslip integral's rate - the catalogue's
+    // `yaw-damper PER_DEGPS INTEGRAL_RATE`, 0.05 and 0.05 where it says none
+    // (sim/autopilot.cpp says why).
+    double yaw_damper_per_degps() const {
+        return yaw_damper_per_degps_;
+    }
+    double rudder_integral_rate() const {
+        return rudder_integral_rate_;
     }
 
     // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
@@ -444,6 +457,8 @@ private:
     bool mixture_lever_ = false;
     double full_rich_below_ft_ = 0.0;
     bool speedbrakes_ = false;
+    double yaw_damper_per_degps_ = 0.05;
+    double rudder_integral_rate_ = 0.05;
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;

@@ -386,15 +386,15 @@ Found while implementing something else. Added when found, not when remembered.
       height but strayed up to 460 m off 7 and 9 km circles, against the
       60 m a Cessna holds. *Verification: each jet flies a model's orbit
       within 60 m of its circle.*
-- [ ] **The B-2 and the F-22 yaw from side to side in a crosswind when
+- [x] **The B-2 and the F-22 yaw from side to side in a crosswind when
       slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
       of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is
-      kept above 194 and 255 kt for it, but the autopilot itself is not
-      fixed. The cause is found - the rudder's integral, which feeds the
-      swing - but a slower one that held the B-2 at 159 kt sent the S.23
-      into a spin in its stall lesson, so it is not in. *Verification:
-      every aircraft holds a heading in a 20 kt crosswind from its approach
-      speed up, its sideslip within a stated bound.*
+      kept above 194 and 255 kt for it. *Verification: every aircraft holds
+      a heading in a 20 kt crosswind at every speed a plan may fly it, and
+      the B-2's and F-22's plans fly as slow as their orbits hold* (it read
+      "from its approach speed up", but below their orbits' floors the jets
+      do not fly clean at all). Done 2026-10-07: each has its own yaw
+      damper and rudder integral, and their plans fly from 159 and 140 kt.
 
 - [x] **In wind the Cub and the Cherokee yaw from side to side.** Holding
       a heading in a 10 kt crosswind, with no plan, the autopilot's J-3 Cub

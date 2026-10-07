@@ -17,3 +17,7 @@ class bomber
 start 250 0.48
 # The speedbrake lever works its speedbrakes or spoilers (src/sim/catalogue.hpp).
 speedbrakes
+# The autopilot's rudder integral at a fifth of every other aircraft's: at
+# the default it swung her in a 20 kt crosswind up to 184 kt, though she holds
+# her orbits from 154 (src/sim/autopilot.cpp).
+yaw-damper 0.05 0.01

@@ -260,6 +260,78 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The B-2A and the F-22A hold a heading in a crosswind slow: their own yaw damper and rudder integral; their plans fly from 159 and 140 kt, 2026-10-07 — tail done
+
+**What was wrong.** On the autopilot in a 20 kt crosswind the B-2A swung her
+sideslip 7.3 degrees either way at 159 kt and held it only from 189; the
+F-22A 7.8 at 220 and held only from 250. Their plans were kept above 194 and
+255 kt for that alone. The sideslip's integral, at 0.05 of rudder a second
+per degree, lags the sideslip and feeds the swing; a slower one for every
+aircraft (a third, within two degrees) had spun the S.23 in her stall lesson
+(2026-10-02), so it was not in.
+
+**What changed.**
+- **The gains are each aircraft's, as data**: the catalogue's new
+  `yaw-damper PER_DEGPS INTEGRAL_RATE` (`sim/catalogue.hpp`), read into
+  `Aircraft::yaw_damper_per_degps()` and `rudder_integral_rate()`, 0.05 and
+  0.05 where it says none - every other aircraft flies as before. The B-2A
+  says `0.05 0.01`, the F-22A `0.15 0.005`. Tried at 159 kt (B-2A) and 170
+  to 220 (F-22A): the B-2A at a third of the integral held to 0.66, a
+  fifth 0.35, a tenth 0.22; a larger damper made her worse (0.15: 8.7
+  degrees, 0.3: 13.9). The F-22A at a fifth of the integral alone still
+  swung 6.7 degrees at 170, at twice the damper alone 11.8; with 0.1 or
+  more of damper and a fifth or less of the integral she held from 170.
+- **Their plans' floors measured again** (`glideslope_cli plan-speeds b2`,
+  `plan-speeds f22 120`): the yaw had spoiled their orbits too. The B-2A
+  now holds everything from 154 (below it she comes down 500 ft before
+  her circle): slowest **159**, from 194. The F-22A from 135, the sweep
+  begun at 120 as she has no approach speed: slowest **140**, from 255.
+  Fastest unchanged, 300 and 360.
+- **Their glides**: the B-2A's slowest glide measured again
+  (`glide-speeds b2`), 159 kt, round unstalled at 13.6 and 13.7 degrees
+  where her lift peaks at 13.5 and 13.7; her glide tests are re-banded,
+  159-179, 184-204 and 209-230 each way. The F-22A still glides nowhere
+  (140 to 275 kt stalls before half way round, to 265 departing past 95
+  degrees of alpha; 280 to 360 is less than half way round at 1,000 ft):
+  her file keeps 255, her old slowest under power, as her slowest glide,
+  so a copilot asks no glide it did not ask before; the open tail "A glide
+  may still be asked of a jet at its approach speed" stands.
+- The F-22A's recorded Claude plan of the CBD orbit was recorded again with
+  the owner's key (`tests/data/copilot/cbd-orbit-f22-anthropic.jsonl`; the
+  brief carries her speeds, and the old recording was refused as for
+  another request; scanned, no key): the model asked a 3,500 m orbit at
+  220 kt, was refused (at least 7,003 m) and took 7,003; flown off 16R.
+- **The verification is restated**: it asked a heading held "from its
+  approach speed up", but below their orbits' floors the jets do not fly
+  clean at all - from their approach speeds the F-22A at 150 to 210 and the
+  B-2A at 124 to 154 departed or came down, and the 737-300, 747-400, A380
+  and Learjet held no heading - which no yaw damper puts right. It now asks
+  every speed a plan may fly, and the B-2A's and F-22A's plans as slow as
+  their orbits hold.
+
+**Verification** (linux-release, locally):
+- `every_aircraft_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it`
+  (new): every aircraft from its plan floor to its start speed in 5 kt
+  steps, 262 of 262 cases; the most sideslip anywhere 0.35 degree (B-2A at
+  159), the F-22A 0.12 at 140. **Seen to fail** with the two catalogue lines
+  removed from the build's data: the B-2A 7.3 degrees at 159, the F-22A
+  departing at 140.
+- The catalogue's parse test now reads a `yaw-damper` line, the defaults
+  without one, and refuses one number and an integral past 1.
+- The B-2A's and F-22A's one-step-past tests (149 and 130 kt hold nothing),
+  their tightest orbits at their new slowest and fastest, the six new B-2A
+  glide bands and the F-22A's, and every test matching b2, f22, crosswind,
+  heading, lesson, catalogue, land, stall, orbit, glide, engine,
+  instructor, hand, take, plan, copilot, route or speed (464): green. Before
+  the floors came down, the one-step-past tests were the two red (each held
+  10 kt under its old floor).
+- **The selftest hash does not move** (`d36123c1eecc3e23`, linux-release):
+  it flies the Cessna on the default gains.
+- CI's cost tables (`tests/ci_costs/`) carry the new tests at estimates -
+  the sweep at 34 s scaled by each preset's ratio to linux-release, the
+  B-2A's bands at the old bands' - until `tools/ci_test_costs.py` measures
+  them again.
+
 ### The F-15C's speedbrake draws drag, and stays in past 15 degrees of alpha, 2026-10-07 — tail done
 
 **What was missing.** Her model's speedbrake channel moved
