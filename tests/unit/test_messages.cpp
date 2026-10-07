@@ -318,6 +318,19 @@ std::vector<Kind> every_kind() {
                        CopilotRoute got;
                        return glideslope::net::read(b, got);
                    }});
+
+    glideslope::net::TakeOverRefused refused;
+    refused.aircraft = 3;
+    out.push_back({Message::take_over_refused, "take_over_refused",
+                   glideslope::net::write(refused),
+                   [refused](std::span<const std::uint8_t> b) {
+                       glideslope::net::TakeOverRefused got;
+                       return glideslope::net::read(b, got) && got.aircraft == refused.aircraft;
+                   },
+                   [](std::span<const std::uint8_t> b) {
+                       glideslope::net::TakeOverRefused got;
+                       return glideslope::net::read(b, got);
+                   }});
     return out;
 }
 
@@ -352,8 +365,9 @@ GLIDESLOPE_TEST(every_message_writes_and_reads_back_what_went_into_it) {
         ++walked;
     }
     // **The space this walked, stated**: the six kinds the item names, the
-    // forecast, which aircraft a client watches, and a copilot's route.
-    check(walked == 9, "nine kinds were walked, not " + std::to_string(walked));
+    // forecast, which aircraft a client watches, a copilot's route, and a
+    // take-over refused.
+    check(walked == 10, "ten kinds were walked, not " + std::to_string(walked));
 }
 
 // **A body of one kind is never read as another.** All eighty-one pairs are
@@ -375,8 +389,8 @@ GLIDESLOPE_TEST(no_message_reads_as_a_kind_it_is_not) {
             ++pairs;
         }
     }
-    check(pairs == 81, "all eighty-one pairs were tried, not " + std::to_string(pairs));
-    check(refused == 72, "seventy-two of them are refused, not " + std::to_string(refused));
+    check(pairs == 100, "all hundred pairs were tried, not " + std::to_string(pairs));
+    check(refused == 90, "ninety of them are refused, not " + std::to_string(refused));
 }
 
 // **Every truncation of every message is refused.** A datagram can arrive
@@ -406,7 +420,7 @@ GLIDESLOPE_TEST(every_message_with_anything_trailing_is_refused) {
         check(!k.reads(longer), k.name + " with a byte after it must be refused");
         ++walked;
     }
-    check(walked == 9, "every kind was tried");
+    check(walked == 10, "every kind was tried");
 }
 
 // **Every single-byte change to every message either reads or is refused,
@@ -458,7 +472,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++kinds;
         }
     }
-    check(kinds == 9, "nine kinds are known, not " + std::to_string(kinds));
+    check(kinds == 10, "ten kinds are known, not " + std::to_string(kinds));
 
     std::size_t controllers = 0;
     for (int v = 0; v < 256; ++v) {
@@ -477,7 +491,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++not_a_kind;
         }
     }
-    check(not_a_kind == 247, "two hundred and forty-seven first bytes are no kind, not " +
+    check(not_a_kind == 246, "two hundred and forty-six first bytes are no kind, not " +
                                  std::to_string(not_a_kind));
     check(!glideslope::net::kind_of({}).has_value(), "and an empty body is none");
 }
@@ -494,7 +508,8 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
 // exchange finishes and the test can say what came out.
 GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_loss) {
     const std::vector<Kind> kinds = every_kind();
-    check(kinds.size() == 9, "the six the item names, the forecast, a watch and a route");
+    check(kinds.size() == 10,
+          "the six the item names, the forecast, a watch, a route and a refusal");
 
     constexpr int mask_width = 12;
     constexpr std::uint32_t patterns = 1u << mask_width;
@@ -550,7 +565,7 @@ GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_l
         if (!finished || arrived.size() != kinds.size()) {
             glideslope::test::fail(
                 "with loss pattern " + std::to_string(lose) + ", " +
-                std::to_string(arrived.size()) + " of nine messages arrived" +
+                std::to_string(arrived.size()) + " of ten messages arrived" +
                 (finished ? "" : " and it never finished"));
         }
         // In order, once each, and each one still itself: the bytes are not
@@ -575,13 +590,13 @@ GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_l
                                   std::to_string(walked) + " of " +
                                   std::to_string(patterns));
     check(patterns == 4096, "there are 4,096 patterns over twelve datagrams");
-    // Nine messages with nothing lost are over in ten datagrams - nine out
+    // Ten messages with nothing lost are over in eleven datagrams - ten out
     // and one acknowledgement back - so a pattern whose set bits all lie at
-    // 10 and 11 never touches anything. There are 2^2 = 4 of those,
-    // including the empty one, which leaves 4,092 that do lose something.
-    check(with_loss == 4092, "4,092 of the patterns lost something, not " +
+    // 11 never touches anything. There are 2 of those, including the empty
+    // one, which leaves 4,094 that do lose something.
+    check(with_loss == 4094, "4,094 of the patterns lost something, not " +
                                  std::to_string(with_loss));
-    std::printf("  9 messages through 4,096 loss patterns; worst took %llu datagrams\n",
+    std::printf("  10 messages through 4,096 loss patterns; worst took %llu datagrams\n",
                 static_cast<unsigned long long>(worst_datagrams));
 }
 
@@ -611,7 +626,8 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
         {Message::controller_swap, "CONTROLLER_SWAP"},
         {Message::weather_aloft, "WEATHER_ALOFT"},
         {Message::watch, "WATCH"},
-        {Message::copilot_route, "COPILOT_ROUTE"}};
+        {Message::copilot_route, "COPILOT_ROUTE"},
+        {Message::take_over_refused, "TAKE_OVER_REFUSED"}};
     std::size_t walked = 0;
     for (const auto& [kind, name] : kinds) {
         char buf[8];
@@ -622,7 +638,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
               name + " is a kind the code knows");
         ++walked;
     }
-    check(walked == 9, "every kind was walked");
+    check(walked == 10, "every kind was walked");
 
     // Every controller, by value and by name.
     const std::vector<std::pair<Controller, std::string>> controllers{
@@ -661,7 +677,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
         ++held;
     }
     check(held == 10, "every limit was walked");
-    std::printf("  the document holds 9 kinds, 3 controllers and 10 limits\n");
+    std::printf("  the document holds 10 kinds, 3 controllers and 10 limits\n");
 }
 
 // **Every message, filled to its limits, fits in one datagram.** Nothing
@@ -800,7 +816,8 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
         {Message::controller_swap, "CONTROLLER_SWAP"},
         {Message::weather_aloft, "WEATHER_ALOFT"},
         {Message::watch, "WATCH"},
-        {Message::copilot_route, "COPILOT_ROUTE"}};
+        {Message::copilot_route, "COPILOT_ROUTE"},
+        {Message::take_over_refused, "TAKE_OVER_REFUSED"}};
     std::size_t named = 0;
     for (const auto& [kind, name] : kinds) {
         check(glideslope::net::known_message(static_cast<std::uint8_t>(kind)),
@@ -818,7 +835,7 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
     }
     check(named == known, "every kind the code knows was looked for: " +
                               std::to_string(named) + " of " + std::to_string(known));
-    check(named == 9, "nine kinds, not " + std::to_string(named));
+    check(named == 10, "ten kinds, not " + std::to_string(named));
 
     // **It says what it does not defend.** A threats document that only
     // listed defences would be the more dangerous for it.
@@ -1037,7 +1054,7 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
 
     const std::vector<WithNumbers> kinds = every_kind_that_carries_a_number();
     check(kinds.size() == 5,
-          "five of the nine kinds carry a floating-point field, not " +
+          "five of the ten kinds carry a floating-point field, not " +
               std::to_string(kinds.size()));
 
     std::size_t walked = 0;

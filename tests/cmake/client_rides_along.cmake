@@ -36,6 +36,17 @@
 # step of its speed over those 100 ms whatever the network - 5.1 m for the
 # AI's Cessna, at the network checks' bound and not past it.
 #
+# With A_DURING, A is pressed in the frame the take-over is asked
+# (`--press-a-with-take-over`), before the server has answered: A must wait
+# for the answer, and then hand to the AI whichever aircraft is the client's
+# own by then. A_DURING=TAKEN, on a server that allows the take-over: the
+# aircraft taken, and the server must say the AI has it. A_DURING=REFUSED,
+# on one started `--no-take-over`: the server must say it refused
+# (`TAKE_OVER_REFUSED`), and A then hands over the aircraft kept. Sent at
+# once for the aircraft it had, the first A goes to the one being left, and
+# the server - which has made another aircraft the client's own - does nothing
+# with it; without the refusal said, the second waits for ever.
+#
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
 
@@ -70,6 +81,13 @@ set(_take_over)
 if(TAKE_OVER)
     set(_take_over --take-over-after 4 --late-update-after-take-over)
 endif()
+set(_server_take_over)
+if(DEFINED A_DURING)
+    set(_take_over --take-over-after 4 --press-a-with-take-over)
+    if(A_DURING STREQUAL "REFUSED")
+        set(_server_take_over --no-take-over)
+    endif()
+endif()
 set(_slow)
 if(DEFINED SLOW_FRAMES)
     set(_slow --slow-frames ${SLOW_FRAMES})
@@ -83,6 +101,7 @@ file(REMOVE "${_ready}")
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
+            ${_server_take_over}
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1200 --view cockpit --ride-along --slow-start 5
             ${_take_over} ${_slow} --after-ready "${_ready}"
@@ -101,6 +120,49 @@ if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the client exited ${_rc}:\n${_out}\n${_err}")
 endif()
 
+if(DEFINED A_DURING)
+    if(NOT _out MATCHES "asked to take over aircraft ([0-9]+)\nglideslope: A held until the server answers the take-over of aircraft ([0-9]+)\n")
+        message(FATAL_ERROR "A, pressed as the take-over was asked, was not held for "
+                            "its answer:\n${_out}")
+    endif()
+    set(_asked "${CMAKE_MATCH_1}")
+    if(A_DURING STREQUAL "TAKEN")
+        if(NOT _out MATCHES "took over aircraft ${_asked}, the c172p")
+            message(FATAL_ERROR "the client did not take aircraft ${_asked} over:\n${_out}")
+        endif()
+        set(_for "${_asked}")
+    else()
+        if(_out MATCHES "took over aircraft")
+            message(FATAL_ERROR "a server started --no-take-over let it be taken:\n${_out}")
+        endif()
+        if(NOT _out MATCHES "the server refused to take over aircraft ${_asked}\n")
+            message(FATAL_ERROR "the client was not told the take-over of aircraft "
+                                "${_asked} was refused:\n${_out}")
+        endif()
+        if(NOT _out MATCHES "A, held, is for aircraft ([0-9]+)\n")
+            message(FATAL_ERROR "A, held, was never let go:\n${_out}")
+        endif()
+        set(_for "${CMAKE_MATCH_1}")
+        if(_for EQUAL _asked)
+            message(FATAL_ERROR "refused, A went to the aircraft asked for, ${_asked}:\n${_out}")
+        endif()
+    endif()
+    if(NOT _out MATCHES "A, held, is for aircraft ${_for}\nglideslope: asked for aircraft ${_for} to be handed to the AI\n")
+        message(FATAL_ERROR "A, held, did not ask for aircraft ${_for} to go to the AI:\n${_out}")
+    endif()
+    # What the server decides, not what the client asked: the AI has it.
+    if(NOT _out MATCHES "the server says the AI has aircraft ${_for}\n")
+        message(FATAL_ERROR "the server did not hand aircraft ${_for} to the AI:\n${_out}")
+    endif()
+    string(REGEX MATCHALL "asked for aircraft [0-9]+ to be handed" _asks "${_out}")
+    list(LENGTH _asks _ask_count)
+    if(NOT _ask_count EQUAL 1)
+        message(FATAL_ERROR "the client asked ${_ask_count} hand-overs, not the one:\n${_out}")
+    endif()
+    message(STATUS "A pressed during the take-over of aircraft ${_asked} (${A_DURING}) "
+                   "handed aircraft ${_for} to the AI")
+    return()
+endif()
 if(TAKE_OVER)
     if(NOT _out MATCHES "took over aircraft ([0-9]+), the c172p")
         message(FATAL_ERROR "the client did not take the AI's Cessna over:\n${_out}")

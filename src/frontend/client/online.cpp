@@ -300,6 +300,13 @@ void Online::hear(Flight& flight) {
 }
 
 void Online::noticed() {
+    // **A take-over refused** is answered: its own is the one it had.
+    for (const std::uint8_t refused : session_.take_refusals()) {
+        refused_.push_back(refused);
+        if (taking_over_ == refused) {
+            taking_over_.reset();
+        }
+    }
     // **Gone back to the old session**: nothing to start again - the same
     // keys, the same aircraft, the server's count of this client's inputs
     // where it was - only the input sent last, for `flown_since_going_back`.
@@ -314,6 +321,8 @@ void Online::noticed() {
     rejoining_ = true;
     mine_ = net::no_aircraft;
     taken_.reset();
+    // A take-over asked of the old session is lost with it.
+    taking_over_.reset();
     taken_at_.reset();
     applied_ = 0;
     own_ai_flying_ = false;
@@ -403,6 +412,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             taken_at_ = sequence_;
             taken_back_ = false;
             rejoined_ = false;
+            taking_over_.reset();
             resuming_ = false;
             reconciled_s_ = state.simulation_time_s;
             own_word_.reset();
@@ -633,7 +643,9 @@ void Online::take_over(std::uint8_t number) {
     swap.aircraft = number;
     swap.to = net::Controller::person;
     const std::vector<std::uint8_t> body = net::write(swap);
-    session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
+    if (session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()))) {
+        taking_over_ = number;
+    }
 }
 
 void Online::send_route(net::CopilotRoute route) {

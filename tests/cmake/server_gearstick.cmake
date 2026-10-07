@@ -22,9 +22,9 @@ if(NOT _out MATCHES "answer ([0-9a-f]+)")
     message(FATAL_ERROR "the server said nothing to a gearstick client:\n${_out}\n${_err}")
 endif()
 set(_answer "${CMAKE_MATCH_1}")
-if(NOT _answer STREQUAL "474c4453060401")
+if(NOT _answer STREQUAL "474c4453070401")
     message(FATAL_ERROR "a gearstick client's first datagram was answered with "
                         "${_answer}, not a REFUSAL saying NOT_THIS_PROTOCOL "
-                        "(474c4453060401)")
+                        "(474c4453070401)")
 endif()
 message(STATUS "a gearstick client was refused: ${_answer}")

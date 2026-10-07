@@ -299,6 +299,7 @@ void ClientSession::keep_joining_again(double now_s) {
             // aircraft.
             fresh_.clear();
             roster_.clear();
+            refusals_.clear();
             told_ = Told{};
             mine_ = no_aircraft;
             applied_ = 0;
@@ -387,6 +388,10 @@ void ClientSession::read_what_arrived(double now_s) {
                 AircraftDefinition d;
                 if (read(all_of(message), d)) {
                     roster_[d.aircraft] = d;
+                }
+                TakeOverRefused refused;
+                if (read(all_of(message), refused)) {
+                    refusals_.push_back(refused.aircraft);
                 }
                 (void)told_.hear(all_of(message));
             }

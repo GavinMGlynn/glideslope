@@ -2795,6 +2795,29 @@ set_tests_properties(the_client_with_the_window_takes_over_the_ai_aircraft_it_ri
     PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/takes_over)
 
+# **A pressed while a take-over is unanswered waits for the answer**, and
+# then hands over whichever aircraft is the client's own: the one taken, or,
+# refused (`TAKE_OVER_REFUSED`), the one kept. See
+# cmake/client_rides_along.cmake.
+add_test(NAME a_pressed_during_a_take_over_hands_the_aircraft_taken_to_the_ai
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/a_during_taken -DPORT=24823 -DDRIVER=vulkan
+        -DA_DURING=TAKEN -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_rides_along.cmake)
+set_tests_properties(a_pressed_during_a_take_over_hands_the_aircraft_taken_to_the_ai
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/a_during_taken)
+add_test(NAME a_pressed_during_a_refused_take_over_hands_the_aircraft_kept_to_the_ai
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/a_during_refused -DPORT=24825 -DDRIVER=vulkan
+        -DA_DURING=REFUSED -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_rides_along.cmake)
+set_tests_properties(a_pressed_during_a_refused_take_over_hands_the_aircraft_kept_to_the_ai
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/a_during_refused)
+
 # **The client with the window hands its own aircraft to the AI on a
 # server, and takes it back**: the server says the AI has it, then the pilot,
 # and the HUD says so each time. See cmake/client_hands_over.cmake.

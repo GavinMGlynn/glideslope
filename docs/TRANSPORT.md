@@ -59,7 +59,8 @@ Said first, because a transport's limits matter more than its features.
   nearest runway's surface wins, so one runway's shoulder no longer pulls
   another's pavement. Version `06` is on the same ground, and is the first
   whose state update carries the watched aircraft's speedbrake lever (below,
-  "State updates").
+  "State updates"). Version `07` is on the same ground, and is the first
+  whose server says when it refuses a take-over (`TAKE_OVER_REFUSED`, below).
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -70,7 +71,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `06` |
+| 4 | 1 | version | `07` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -116,7 +117,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `06`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `07`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -386,11 +387,11 @@ must not trust a length it has not checked.
 
 ## Reliable messages
 
-Eight things must each arrive, exactly once, in the order they were sent: the
+Nine things must each arrive, exactly once, in the order they were sent: the
 lobby, the session, the weather, an aircraft's definition, the terrain
-dataset, a controller swap, which aircraft a client is watching and a
-copilot's route. They go as **nine kinds of message**, because the weather is
-two of them. They ride the reliable layer below,
+dataset, a controller swap, which aircraft a client is watching, a
+copilot's route and a take-over refused. They go as **ten kinds of message**,
+because the weather is two of them. They ride the reliable layer below,
 which numbers them and repeats them until they are acknowledged.
 
 **An acknowledgement of a message that was never sent is not believed.** That
@@ -428,6 +429,7 @@ is that kind's fields in the order given here.
 | `07` | `WEATHER_ALOFT` |
 | `08` | `WATCH` |
 | `09` | `COPILOT_ROUTE` |
+| `0A` | `TAKE_OVER_REFUSED` |
 
 A kind this version does not know is not a message, and is refused rather
 than skipped.
@@ -656,7 +658,8 @@ again, and may be given to a player who joins later. Numbers are used again,
 lowest first: an aircraft's number is unique while it flies, and no longer. The server announces both to every client, the one taken over to
 `PERSON` and the one left, under its new number, to `AI`. A request for a
 player's aircraft, one the AI is not flying, a wreck, or on a server that
-forbids it is acknowledged and nothing more.
+forbids it is acknowledged, and answered to that client alone with a
+`TAKE_OVER_REFUSED` (since `07`).
 
 While the AI flies an aircraft, the server applies none of its client's
 inputs, and a state update gives its controller as `AI`. A client whose
@@ -742,6 +745,21 @@ but `A`-`Z`, `a`-`z`, `0`-`9` and `_` - a newline would add a plan's line, a
 `#` comment one out, and an escape reach the operator's terminal - a flag
 other than `00` or `01` in any of its three places, and a glide airspeed
 other than nought with the flag `00` are refused.
+
+### `TAKE_OVER_REFUSED`
+
+**A take-over the server will not make**, sent by the server to the client
+that asked for it and to no other (since `07`): the aircraft's number as the
+request gave it. A take-over made is said by the state updates, which name
+the aircraft taken as the client's own; this says the other answer, so that
+a client can tell a take-over refused from one still on its way, and need
+not guess which of its aircraft a request sent meanwhile - a hand-over, say -
+would reach. It says nothing of why; the server's own log does.
+
+| written as | field |
+| --- | --- |
+| `u8` | `0A`, the kind |
+| `u8` | the aircraft's number, as the take-over asked for it |
 
 ### What a reader must refuse
 

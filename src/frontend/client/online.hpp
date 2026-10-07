@@ -194,6 +194,23 @@ public:
     // server, which may refuse. When it is done, the next update gives this
     // client that aircraft as its own, and `taken_over` says which.
     void take_over(std::uint8_t number);
+    // **A take-over asked for and not yet answered**: the aircraft asked
+    // for, until the server has given it (`taken_over`) or refused it
+    // (`TAKE_OVER_REFUSED`, `refused_take_overs`) - or the session was let
+    // go, which loses the question. While one is, which aircraft is this
+    // client's own is not known, and nothing asked of its own is sent.
+    std::optional<std::uint8_t> taking_over() const {
+        const auto lock = held();
+        return taking_over_;
+    }
+    // The take-overs the server has refused since last asked, by the
+    // aircraft each asked for.
+    std::vector<std::uint8_t> refused_take_overs() {
+        const auto lock = held();
+        std::vector<std::uint8_t> out;
+        out.swap(refused_);
+        return out;
+    }
     // The aircraft taken over since last asked - or given by joining again,
     // which may be under its old number - and what it is, or nothing:
     // the caller's flight becomes it (Flight::adopt, or a new Flight where it
@@ -326,6 +343,8 @@ private:
     sim::Controls sent_;
     std::uint8_t mine_ = net::no_aircraft;
     std::optional<Joined> taken_;
+    std::optional<std::uint8_t> taking_over_;
+    std::vector<std::uint8_t> refused_;
     // The input sent last when the take-over was heard, and the last the
     // server has applied.
     std::optional<std::uint32_t> taken_at_;

@@ -3653,10 +3653,20 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                         std::span<const std::uint8_t>(message.data(), message.size()), swap) &&
                     swap.aircraft != c.aircraft &&
                     swap.to == glideslope::net::Controller::person) {
-                    if (!o.take_over) {
-                        std::printf("aircraft %u not taken over: this server does not allow it\n",
-                                    static_cast<unsigned>(swap.aircraft));
+                    // **A refusal is said, to the client that asked**
+                    // (`TAKE_OVER_REFUSED`), so that it can tell a take-over
+                    // refused from one still on its way.
+                    const auto refuse = [&](const std::string& reason) {
+                        std::printf("aircraft %u not taken over: %s\n",
+                                    static_cast<unsigned>(swap.aircraft), reason.c_str());
                         std::fflush(stdout);
+                        const std::vector<std::uint8_t> refusal =
+                            glideslope::net::write(glideslope::net::TakeOverRefused{swap.aircraft});
+                        (void)c.reliable.send(
+                            std::span<const std::uint8_t>(refusal.data(), refusal.size()));
+                    };
+                    if (!o.take_over) {
+                        refuse("this server does not allow it");
                         continue;
                     }
                     // What this client had sent is flown by the aircraft it
@@ -3671,10 +3681,7 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                             }
                         }
                     } else {
-                        std::printf("aircraft %u not taken over: %s\n",
-                                    static_cast<unsigned>(swap.aircraft),
-                                    std::get<std::string>(result).c_str());
-                        std::fflush(stdout);
+                        refuse(std::get<std::string>(result));
                     }
                     continue;
                 }
