@@ -74,6 +74,11 @@ struct Flight {
     std::size_t reconciliations = 0;
     std::size_t snapped = 0;
     std::size_t worst_replayed = 0;
+    // Steps where the speedbrake lever a side's flight model was given was not
+    // the one in the input that side flew: the client's, against what it
+    // sent, and the server's, against what it was sent.
+    std::size_t client_lever_off = 0;
+    std::size_t server_lever_off = 0;
 };
 
 // **Client and server, with the wire between them.** Both fly the same
@@ -81,10 +86,13 @@ struct Flight {
 // sees it `one_way` frames later, and its state comes back `one_way` frames
 // after that, which is the round trip.
 //
-// `model`, begun at `airspeed_kts`, is flown on `inputs`.
+// `model`, begun at `airspeed_kts`, is flown on `inputs`; the client predicts
+// with `predicted` instead if it is given - a client that flies other inputs
+// than it sends, made so that a test can be seen to catch one.
 Flight fly(int frames, int one_way, int snapshot_every, bool by_motion = false,
            const std::string& model = "c172p", double airspeed_kts = 110.0,
-           const std::function<Controls(int)>& inputs = flying) {
+           const std::function<Controls(int)>& inputs = flying,
+           const std::function<Controls(int)>& predicted = {}) {
     Aircraft server_aircraft(data() / "jsbsim", model);
     Aircraft client_aircraft(data() / "jsbsim", model);
     set_up(server_aircraft, airspeed_kts);
@@ -104,7 +112,12 @@ Flight fly(int frames, int one_way, int snapshot_every, bool by_motion = false,
         // The client flies its own input at once: that is the whole point of
         // predicting.
         client.step(static_cast<std::uint32_t>(frame + 1),
-                    inputs(frame));
+                    predicted ? predicted(frame) : inputs(frame));
+        // **The lever the prediction's model was given is the one sent**,
+        // read back from the model itself (Aircraft::set_controls).
+        if (client_aircraft.property("fcs/speedbrake-cmd-norm") != inputs(frame).speedbrake) {
+            ++out.client_lever_off;
+        }
 
         // The server applies the input that left the client `one_way` frames
         // ago, which is the only one it has.
@@ -112,6 +125,10 @@ Flight fly(int frames, int one_way, int snapshot_every, bool by_motion = false,
         if (theirs >= 0) {
             server_aircraft.set_controls(inputs(theirs));
             server_aircraft.step();
+            if (server_aircraft.property("fcs/speedbrake-cmd-norm") !=
+                inputs(theirs).speedbrake) {
+                ++out.server_lever_off;
+            }
             if (theirs % snapshot_every == 0) {
                 post.push_back({frame + one_way,
                                 by_motion ? AircraftSnapshot{} : server_aircraft.capture(),
@@ -1135,12 +1152,13 @@ GLIDESLOPE_TEST(a_prediction_stops_its_engine_on_the_servers_word_and_starts_it_
 // carries it. The lever is an input like any other, so the client and the
 // server move the same surfaces, and the worst correction is held to a quarter over
 // the same flight's with the lever left stowed: working it costs the
-// prediction nothing it did not already have. **What this does not show**:
-// a client flying the lever stowed while sending it out. Put right every
-// 50 ms, such a client was put right by no more than its own drift in five
-// of the eight (the A320's 0.0400 m stowed either way, the 737's 0.0935
-// against 0.0373 the one plain catch), because what the server's word puts
-// right is what one round trip flown wrongly moves her, millimetres.
+// prediction nothing it did not already have. **And the lever each side's
+// flight model is given is the one sent, at every step**, read back from the
+// model - which catches a client flying the lever stowed while sending it
+// out in every one of the eight. The correction alone does not: put right
+// every 50 ms, such a client was put right by no more than its own drift in
+// five of them, because one round trip flown wrongly moves her millimetres;
+// only the 737's shows it plainly (0.094 m against 0.037), and that is held.
 GLIDESLOPE_TEST(a_client_working_the_speedbrakes_is_predicted_as_the_server_flies_them_in_every_aircraft_with_them) {
     const int one_way = 200 * steps_per_second / 2000;
     const auto catalogue = glideslope::sim::read_catalogue(data());
@@ -1161,12 +1179,32 @@ GLIDESLOPE_TEST(a_client_working_the_speedbrakes_is_predicted_as_the_server_flie
         };
         const auto worked = [&lever](int frame) { return lever(frame, true); };
         const auto stowed = [&lever](int frame) { return lever(frame, false); };
-        const auto flown = [&](const std::function<Controls(int)>& sent) {
+        const auto flown = [&](const std::function<Controls(int)>& sent,
+                               const std::function<Controls(int)>& predicted) {
             return fly(6 * steps_per_second, one_way, steps_per_second / 20, true, entry.model,
-                       entry.start_airspeed_kts, sent);
+                       entry.start_airspeed_kts, sent, predicted);
         };
-        const Flight still = flown(stowed);
-        const Flight f = flown(worked);
+        const Flight still = flown(stowed, {});
+        const Flight f = flown(worked, {});
+        // **Both sides fly the lever sent, at every step**, and a client
+        // that flew it stowed while sending it out is caught at every step it
+        // was out.
+        const Flight wrong = flown(worked, stowed);
+        check(f.client_lever_off == 0 && f.server_lever_off == 0,
+              entry.id + ": the lever flown was not the lever sent at " +
+                  std::to_string(f.client_lever_off) + " of the client's steps and " +
+                  std::to_string(f.server_lever_off) + " of the server's");
+        check(wrong.client_lever_off > 0 && wrong.server_lever_off == 0,
+              entry.id + ": a client flying the lever stowed while sending it out was not "
+                         "caught: " +
+                  std::to_string(wrong.client_lever_off) + " steps off");
+        // And where it shows in the correction, the 737's, it is held there.
+        if (entry.id == "737-300") {
+            check(wrong.worst_correction_m > 2.0 * f.worst_correction_m,
+                  "737-300: flown stowed while sent out, she was put right by " +
+                      std::to_string(wrong.worst_correction_m) + " m, not more than twice " +
+                      std::to_string(f.worst_correction_m) + " m");
+        }
         const double bound_m = 1.25 * still.worst_correction_m;
         std::printf("  %-11s at 200 ms: worst correction %.4f m with the lever worked (bound "
                     "%.4f), %.4f m stowed\n",

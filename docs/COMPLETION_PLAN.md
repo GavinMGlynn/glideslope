@@ -841,6 +841,10 @@ Found while implementing something else. Added when found, not when remembered.
       it; the HUD shows it where there are speedbrakes; the bomber lessons'
       bands are `vref+12` and `vref+15` again, and flown by hand with the
       lever half out the B-2A stays inside, and stowed she does not.
+- [ ] **No in-client help lists the controls.** The keys and buttons are
+      only in the README and the bindings file, not in `glideslope --help`
+      or on screen. *Verification: the client shows every control's key and
+      button, held to the bindings by a test.*
 - [ ] **The F-15C's speedbrake draws no drag.** Her model moves the surface
       but its aerodynamics ignores it, so the lever does nothing in her.
       *Verification: with the lever out she slows, held level, as the
