@@ -745,8 +745,9 @@ Found while implementing something else. Added when found, not when remembered.
       (0 hits, 17 min), because two generations of main's caches stood
       together until a run ended. Each build now prunes its older entry as
       soon as it saves, and a merge no longer saves the 3 GB downloads
-      again. Not yet seen on main, and macOS's five runners still set the
-      run's length.
+      again. Not yet seen on main. Run 37577077798: 63 minutes from push
+      to result, all but macOS done in 37; macOS's five runners, shared
+      with other runs, set the rest.
 - [x] **CI's Windows builds have no compiler cache**, so each compiles
       everything on every push (build jobs 14-17 minutes). *Verification: on
       CI, a Windows build after a saved cache hits most of its compiles, and
