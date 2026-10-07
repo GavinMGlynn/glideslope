@@ -260,6 +260,30 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### CI's cost tables measured, every one; the shards re-counted, 2026-10-07 — tails in progress (PR "CI: measured costs...")
+
+**Before** (run 37561340650, green, 80 minutes from push to result with two
+other pull requests' runs beside it): the tables still held 60 s estimates
+for the newest tests, and the shards came out uneven - Linux debug's from
+9.3 to 27.4 minutes of tests, Windows release's two 20.0 and 21.7, Windows
+debug's 10.0 to 21.6, macOS release's 11.9 and 19.3. Six shards were over
+two thirds of the 30-minute limit.
+
+**Now.** `tools/ci_test_costs.py 37561340650 37561317531 37561187175` - the
+three green runs of 2026-10-07, between them every test on main - wrote
+every table again, each test's longest of the three. Every test a shard
+runs is now in its table; the only names a debug table lacks are the three
+`timing` tests, which the debug presets never run (`-LE timing`), and
+`tools/ci_shard.cmake` now counts a timing test as costing nothing in a
+`-debug` preset rather than warning of it at 60 s. Measured work, at four
+tests at a time (three on macOS): Linux debug 164 min, Windows debug 108,
+macOS debug 77, Windows release 42, clang-cl 37, Linux release 31, macOS
+release 32. The counts are set so that each shard holds about 15 minutes of
+that: Linux debug 10 to 11, Windows debug 6 to 7, Windows release and
+clang-cl 2 to 3, macOS debug 4 to 5; Linux and macOS release stay at 2.
+The longest single tests set a floor: the AI separation test, 882 s in
+Linux debug.
+
 ### A pilot works the speedbrakes from the stick, the quadrant and the keyboard; the HUD shows them; protocol version 6, 2026-10-07 — tail done, one found
 
 **What was missing.** `Controls::speedbrake` was flown, sent and predicted
