@@ -661,21 +661,12 @@ Found while implementing something else. Added when found, not when remembered.
       with built jitter and loss holds a metre on every machine (1 cm at
       200 ms); the network checks measured 0.26 and 0.39 m at 200 ms.
 - [ ] **A server that falls behind real time puts its clients' prediction off
-      by metres**: flying fewer steps than the client does, it flies each input
-      for fewer. One 200 ms take-over run on WSL missed its 10 m bound at 24 m
-      while its server ran at under half speed (2026-09-27). *Verification: a
-      server slowed on purpose keeps a predicting client's error under a metre.*
-      Part of it is the client's clock estimate lagging the server's catch-up.
-      Merged in from the window client being put right 20 to 31 m after a
-      long frame (frames of 140 to 730 ms; its cause fixed 2026-10-02).
-      2026-10-08: both clients now fly at the server's pace, steered by the
-      prediction's own clocks' difference; the command-line client against a
-      server at 0.6 of real time is off by 0.56 m at worst (7.9 m unpaced).
-      Still missing: the window client, paced, is still put right 6 to 9 m
-      against that server (15 to 23 m unpaced) and 10 to 13 m against one
-      keeping real time, unexplained, with no test of it paced; and the
-      prediction tests' 20 m bound unchanged (the month of CI runs is
-      counted under the nightly item below).
+      by metres**: it flies each input for fewer steps than the client does.
+      *Verification: a server slowed on purpose keeps a predicting client's
+      error under a metre.* Both clients now fly at the server's pace
+      (2026-10-08); the command-line client holds it. Still missing: the
+      window client is still put right 6 to 9 m against a slowed server, and
+      10 to 13 m against one keeping time, untested and unexplained.
 - [x] **Two server tests counted wall-clock seconds on slow runners**: one
       counted inputs still in flight, and a late client arrived before a slow
       server was flying. *Verification: the client waits for its last input to
@@ -785,28 +776,19 @@ Found while implementing something else. Added when found, not when remembered.
       kept 500 ft or 1.5 nm apart, 882 s and 1,295 s, so its shard ran 26
       minutes of a 30-minute limit whatever the dealing. *Verification:
       every test under 10 minutes on CI's Linux debug.*
-- [ ] **The rate-limit test failed once on Windows debug**: "the server
-      took 10 of 50 requests sent at once, not 8 or 9" (run 37570543750),
-      the budget refilling while a slow runner sent its burst.
-      *Verification: its bound holds however slowly the burst is sent, and
-      a month of CI runs without it failing.* 2026-10-08: the cause found
-      (requests sent into an emptied datagram budget, dropped and read a
-      quarter-second later), the burst now sent into a full one and the
-      bound the bucket's own rule over the time the server says it read
-      them; 50 runs under load green. Still missing: the month of CI runs.
-- [ ] **The ground test's two clients raced** ("1;1;0", macOS release,
-      2026-10-07): the client on other ground left before the other's
-      first word was read, and the server, empty, stopped. Each now waits
-      on the one before. *Verification: green 50 times under load and in
-      every staggered start, and a month of CI runs without it failing* -
-      the month still missing.
-- [ ] **The engine-stop prediction test failed twice on Windows** (run
-      37583810544, debug and clang-cl): the median error with the engine
-      stopped 47 and 429 mm against 43 and 51 mm before it. *Verification:
-      its bound holds on a loaded runner, and a month of CI runs without it
-      failing.* 2026-10-08: its server slowed by sleeping, the paced client
-      held medians of 4 and 21 mm, where unpaced they were 20 m; the month
-      of CI runs still missing.
+- [ ] **The rate-limit test failed once on Windows debug**: "took 10 of
+      50 requests". *Verification: its bound holds however slowly the burst
+      is sent, and a month of CI runs without it failing.* Cause found and
+      fixed 2026-10-08; still missing: the month of CI runs.
+- [ ] **The ground test's two clients raced** ("1;1;0", macOS).
+      *Verification: green 50 times under load and in every staggered start,
+      and a month of CI runs without it failing.* Fixed 2026-10-08; still
+      missing: the month of CI runs.
+- [ ] **The engine-stop prediction test failed twice on Windows**, its
+      server behind real time. *Verification: its bound holds on a loaded
+      runner, and a month of CI runs without it failing.* 2026-10-08: a
+      variant against a slowed server holds both medians under 5 cm; still
+      missing: the month of CI runs.
 - [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of

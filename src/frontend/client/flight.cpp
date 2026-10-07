@@ -158,14 +158,7 @@ void Flight::pace_by_clocks(double local_s, std::optional<double> rate) {
     if (!prediction_) {
         return;
     }
-    if (rate) {
-        pacing_.before_held(*rate);
-    }
-    if (prediction_->settled()) {
-        if (const auto difference = prediction_->recent_clocks_difference()) {
-            pacing_.heard(*difference, local_s, rate);
-        }
-    }
+    pacing_.follow(*prediction_, local_s, rate);
 }
 
 void Flight::adopt(const sim::Motion& motion, std::uint64_t server_steps) {

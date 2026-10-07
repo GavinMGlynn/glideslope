@@ -205,6 +205,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_seconds_frame_heard_at_once_is_put_right_once_from_its_newest_word
     a_long_frame_puts_a_client_right_by_little_whether_or_not_its_clocks_difference_is_known_yet
     a_client_paced_by_its_clocks_difference_flies_at_the_servers_pace_and_holds_it
+    a_client_paces_itself_by_its_words_before_and_after_its_clocks_difference_is_known_and_after_starting_again
     three_seconds_of_unacknowledged_inputs_are_held
     no_more_than_four_seconds_of_unacknowledged_inputs_are_held
     a_lesson_written_down_and_read_back_is_the_one_that_was_written
@@ -1997,6 +1998,17 @@ add_test(NAME a_client_predicting_its_aircraft_stops_its_engine_when_the_server_
 set_tests_properties(a_client_predicting_its_aircraft_stops_its_engine_when_the_server_says_and_is_put_right_no_more
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction)
+# **And against a server behind real time, by centimetres**: its clock at a
+# set 0.6 of real time. Serial: a busy runner would slow it further.
+add_test(NAME a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction_slowed -DPORT=24868
+        -DSLOWED=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_engine_prediction.cmake)
+set_tests_properties(a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction_slowed)
 
 # **A client predicting against a server behind real time flies at its pace
 # and is off by centimetres.** See cmake/server_paced_prediction.cmake. Serial:

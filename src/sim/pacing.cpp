@@ -1,6 +1,7 @@
 #include "sim/pacing.hpp"
 
 #include "sim/fixed_step.hpp"
+#include "sim/prediction.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -50,6 +51,17 @@ void Pacing::heard(std::int64_t difference, double local_s, std::optional<double
 void Pacing::before_held(double rate) {
     if (!ever_held_) {
         pace_ = std::clamp(rate, slowest, 1.0);
+    }
+}
+
+void Pacing::follow(const Prediction& prediction, double local_s, std::optional<double> rate) {
+    if (rate) {
+        before_held(*rate);
+    }
+    if (prediction.settled()) {
+        if (const auto difference = prediction.recent_clocks_difference()) {
+            heard(*difference, local_s, rate);
+        }
     }
 }
 

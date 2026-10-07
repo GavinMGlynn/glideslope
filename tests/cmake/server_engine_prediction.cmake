@@ -30,6 +30,15 @@
 # the clock's estimate, an open tail - and the worst is what that made it.
 # With the engine run on, the median after was 0.2 m against 0.03 before.
 #
+# **And against a server behind real time** (`-DSLOWED=ON`): its clock at a
+# set 0.6 of real time (`--test-pace 0.6`), as CI's Windows debug runners'
+# fell behind when this failed there. The relative bound above did not
+# catch that: flown at its own pace (`--unpaced`) the client's medians were
+# 20.2 m after and 20.5 m before, and after was the less. So slowed, both
+# medians must also be under 5 cm: paced, they were 4 and 23 mm (4 and 21 with the
+# server slowed by sleeping). `-DUNPACED=ON` flies the client unpaced, which
+# must fail.
+#
 # `-DSERVER_EXTRA=...` adds to the server's arguments - `--test-step-ms 15`
 # puts it behind real time, as a loaded runner does, to reproduce one.
 #
@@ -59,12 +68,21 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
+set(_slowed)
+if(SLOWED)
+    set(_slowed --test-pace 0.6)
+endif()
+set(_unpaced)
+if(UNPACED)
+    set(_unpaced --unpaced)
+endif()
 math(EXPR _relay "${PORT} + 1")
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 280 --after 1
-            --predict --until-engine-compared 300 --heard "${_heard}"
+            --predict --until-engine-compared 300 --heard "${_heard}" ${_unpaced}
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}" --fail-engine-at 20 ${SERVER_EXTRA}
+            --data "${DATA}" --timeout 5 --store "${_store}" --fail-engine-at 20 ${_slowed}
+            ${SERVER_EXTRA}
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 250 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 290
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -97,6 +115,11 @@ if(_after_mm GREATER _bound_mm)
     message(FATAL_ERROR "with the engine stopped the median prediction error was "
                         "${_after_mm} mm, more than the ${_before_mm} mm before it or 2 cm:\n"
                         "${_said}")
+endif()
+if(SLOWED AND (_after_mm GREATER 50 OR _before_mm GREATER 50))
+    message(FATAL_ERROR "against a server at 0.6 of real time the median prediction "
+                        "errors were ${_after_mm} mm after the stop and ${_before_mm} mm "
+                        "before, not both under 5 cm:\n${_said}")
 endif()
 if(NOT _stopped_here EQUAL 1)
     message(FATAL_ERROR "the client stopped ${_stopped_here} engines for the server's word, "
