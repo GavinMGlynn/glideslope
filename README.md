@@ -243,7 +243,7 @@ Figures taken from the repository on **2026-10-07**, at `origin/main`
 | Commits on `main` | **570** (`git rev-list --count`) |
 | Pull requests merged | **109** (`gh pr list --state merged`) |
 | First-party code | **~126,000 lines**: `src/` 51,300, `tests/` 64,100, `tools/` 10,500 (`wc -l` of tracked source; `ext/` excluded) |
-| Tests | **about 930** registered with ctest (803 by `ctest -N` at the last full count, plus the glide, rate-limit, rejoin, aircraft-choice and horizon tests since, counted from the CMake lists): 68 unit-test files, 109 scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
+| Tests | **969** registered with ctest (`ctest -N` at 2912f34, 2026-10-07): 68 unit-test files, 109 scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
 | Completion plan | **95 of 95** phase items ticked across 12 phases; **94** tails done, **36** open; 12 items set aside for later (`docs/COMPLETION_PLAN.md`) |
 | CI, on every pull request | Ubuntu (debug, release), Rocky Linux 9, macOS 15 (debug, release), Windows (MSVC debug and release, clang-cl) - plus cross-platform flight agreement, the server's container image, and packages run in stock containers. A nightly run repeats the multi-process tests |
 | Living documents | ~26,000 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~20,000 |
