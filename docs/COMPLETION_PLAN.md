@@ -406,14 +406,15 @@ Found while implementing something else. Added when found, not when remembered.
       light aeroplane holds a heading in a 20 kt crosswind with its sideslip
       within a stated bound.*
 
-- [ ] **Offer the learnt landing in a session.** A player's 172 on final
-      is handed to it at its gate on a server and landed (L in the window
-      client). Still missing: the server's own AI aircraft are never landed
-      by it, no test has seen the window client's L or its HUD (the tail
-      below stops a keyboard pilot reaching the gate), and a client refused
-      is not told why - only the server's log says.
-      *Verification: an AI aircraft on a server is landed by it when asked,
-      and a client's aircraft handed over at the gate is too.*
+- [x] **Offer the learnt landing in a session.** A player's 172 on final
+      is handed to it at its gate on a server and landed - L in the window
+      client, which says why on its HUD when refused - and an AI 172 the
+      server is told to put on final (`--ai-on-final`) is flown into the gate
+      and handed to it there. *Verification: an AI aircraft on a server is
+      landed by it when asked, and a client's aircraft handed over at the
+      gate is too.* Done 2026-10-08: both landed within 5 m and 300 ft/min
+      and stopped on the runway; the window client refused with its flaps
+      moving, told why, and handed over by L.
 - [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
       *Verification: each light aircraft's policy lands within the
       autopilot's limits from the same starts, in calm air and a 10-knot
@@ -1117,6 +1118,18 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       - The window client put right 20 to 31 m after a long frame (owed: a month of CI runs, 20 m bound unchanged)
       *Verification: 30 consecutive nightly runs with none of these failing,
       or each failure's cause found and fixed under its own item.*
+- [ ] **No flight plan can end in a landing.** The server's AI aircraft are
+      landed - by the learnt landing, for a 172 - only when the operator puts
+      one on final with `--ai-on-final`, and only one, since nothing clears a
+      runway for the next. *Verification: an AI aircraft flying a plan that
+      ends at a runway flies the approach and lands, and a second behind it
+      lands once the first has left the runway.*
+- [ ] **A 172 a window client joins on final leaves the gate in seconds**:
+      left alone, it is 8 degrees off the runway's heading six seconds in. The
+      client keeps the server's flaps and throttle but not its pitch trim,
+      which no update carries; whether that is why is not yet measured.
+      *Verification: a window client joining on final and touching nothing is
+      still at the gate thirty seconds later.*
 
 ---
 
@@ -1157,9 +1170,8 @@ outside resource or a larger project.
       picks the nearest station. *Verification: a flight from one station to
       another flies the nearer's weather, changing between them with no step
       in the wind.*
-- [ ] **The keyboard has no flaps, and a window client joining forgets the
-      server's.** A keyboard pilot cannot set the landing flap, and a client
-      joining starts with the flaps up whatever its aircraft has - so it
-      cannot reach the learnt landing's gate. *Verification: a window client
-      started on final keeps full flap, sets it from the keyboard, and is
-      handed to the learnt landing.*
+- [x] **The keyboard has no flaps, and a window client joining forgets the
+      server's.** F and R now work the flaps a notch a press, and a client
+      joining keeps the server's flaps and throttle. *Verification: a window
+      client started on final keeps full flap, sets it from the keyboard, and
+      is handed to the learnt landing.* Done 2026-10-08.

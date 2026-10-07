@@ -180,6 +180,9 @@ struct Options {
     // On a server, hold the shot until it has gone back to its old session
     // after a refusal it believed, and been flown in it by an input sent since.
     bool shot_once_back = false;
+    // For a test: hold the shot, up to five minutes of the flight past its
+    // tick, until the learnt landing has its own aircraft at rest.
+    bool shot_once_landed = false;
     // On a server, hold the shot until it has joined again - let go, or its
     // server restarted under it - and been flown by an input sent since.
     bool shot_once_joined_again = false;
@@ -289,6 +292,9 @@ void usage(std::FILE* out) {
         "  --stall-after S  on a server, S seconds after joining, send and answer\n"
         "                nothing, as a stopped process, until the server has let\n"
         "                this client go; it then joins again by itself (for tests)\n"
+        "  --shot-once-landed  on a server, hold the shot, up to five minutes of\n"
+        "                the flight past its tick, until the learnt landing has this\n"
+        "                client's aircraft at rest (for tests)\n"
         "  --shot-once-back  on a server, hold the shot, up to a minute of the\n"
         "                flight past its tick, until this client has gone back to\n"
         "                its old session after a refusal it believed, and the\n"
@@ -576,6 +582,8 @@ static int run_program(int argc, char** argv) {
             o.shot_once_joined_again = true;
         } else if (a == "--shot-once-back") {
             o.shot_once_back = true;
+        } else if (a == "--shot-once-landed") {
+            o.shot_once_landed = true;
         } else if (a == "--take-back-after" && has_value) {
             o.take_back_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--next-model-after" && has_value) {
@@ -669,6 +677,10 @@ static int run_program(int argc, char** argv) {
     } const done_when_gone{o.done};
     if (o.shot_frame > 0 && (o.shot.empty() || o.online || !o.server.empty())) {
         std::fputs("glideslope: --shot-frame is a frame of a --shot flown alone\n", stderr);
+        return 2;
+    }
+    if (o.shot_once_landed && (o.shot.empty() || (o.server.empty() && !o.online))) {
+        std::fputs("glideslope: --shot-once-landed holds a --shot flown on a server\n", stderr);
         return 2;
     }
     if (o.shot_once_back && (o.shot.empty() || (o.server.empty() && !o.online))) {
@@ -1269,6 +1281,11 @@ static int run_program(int argc, char** argv) {
         // of one key are two presses.
         std::int64_t key_passes = 0;
         std::int64_t pressed_in_pass = -2;
+        // **Landed by the learnt landing**: its own at rest under it - under
+        // 0.1 m/s for two seconds on the session's clock, as the
+        // command-line client's --until-landed has it - and since when.
+        bool learnt_landed = false;
+        double at_rest_from_s = -1.0;
         bool asked_to_take_back = false;
         bool asked_to_stall = false;
         int let_go_said = 0;
@@ -1900,6 +1917,24 @@ static int run_program(int argc, char** argv) {
                         notice.clear();
                     }
                 }
+                if (learnt_had_it && !learnt_landed && online->own_heard()) {
+                    const auto& [heard_s, own] = *online->own_heard();
+                    if (std::hypot(own.vx_mps, own.vy_mps, own.vz_mps) < 0.1F) {
+                        if (at_rest_from_s < 0.0) {
+                            at_rest_from_s = heard_s;
+                        }
+                        if (heard_s - at_rest_from_s >= 2.0) {
+                            learnt_landed = true;
+                            std::printf("glideslope: aircraft %u is at rest, landed by the "
+                                        "learnt landing\n",
+                                        static_cast<unsigned>(online->mine()));
+                            std::fflush(stdout);
+                            say_the_hud = true;
+                        }
+                    } else {
+                        at_rest_from_s = -1.0;
+                    }
+                }
                 // **Refused, the player is told why**, on the HUD for ten
                 // seconds of flight and here.
                 for (const std::string& why : online->refused_learnt_landings()) {
@@ -2109,6 +2144,20 @@ static int run_program(int argc, char** argv) {
                     (!online->gone_back() || !online->flown_since_going_back());
                 if (shot_now && back_in_old_unheard && !waited_long) {
                     shot_now = false;
+                }
+                // **Asked to, the shot waits for the learnt landing to have
+                // her at rest**: events, the landing taking two minutes and
+                // more; five minutes of the flight past its tick bound it.
+                if (shot_now && o.shot_once_landed && !learnt_landed &&
+                    ticks < o.shot_at + 300 * glideslope::sim::steps_per_second) {
+                    shot_now = false;
+                }
+                if (shot_now && o.shot_once_landed) {
+                    std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",
+                                static_cast<double>(ticks - o.shot_at) /
+                                    static_cast<double>(glideslope::sim::steps_per_second),
+                                learnt_landed ? "landed by the learnt landing, at rest"
+                                              : "not landed by the learnt landing");
                 }
                 // **Handed over and not taken back, the shot waits for the
                 // server to have said the AI has it**: the same minute.
