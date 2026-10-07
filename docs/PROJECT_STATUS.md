@@ -301,6 +301,22 @@ release 13.2 and 15.5; Windows debug 11.1 to 19.4; Windows release 11.9 to
 28.6, Windows release 21.9 and 23.9, Windows debug up to 23.1, macOS
 release 20.5.
 
+Tests that land after these three runs - the speedbrake pull request's,
+rebased under this one - count 60 s until the tables are measured again;
+each shard's log names them.
+
+**Run 37577077798** (the second push): 63 minutes from push to result.
+Every job but macOS's had finished at 37 minutes; macOS's builds waited 24
+minutes for a runner (the account has five macOS runners, and other runs'
+jobs held them) and its seven test jobs ran in two waves. Test jobs: Linux
+debug 8.2 to 18.9 minutes and the AI separation test's shard 26.4; Linux
+release 14.1 and 15.9; Windows debug 12.3 to 19.3; Windows release 13.7 to
+15.0; clang-cl 10.3 to 14.2; macOS debug 13.6 to 17.2; macOS release 14.7
+and 15.8. Red on one test, the known one -
+`the_client_with_the_window_flies_the_servers_aircraft_and_draws_the_others`,
+"its own aircraft was put right too far to hide" (the open tail "A server
+that falls behind real time puts its clients' prediction off by metres").
+
 **Windows' compiler cache, measured cold and warm.** Warm, in this run:
 MSVC debug 3.9 and release 3.4 minutes a job. clang-cl with a pull
 request's changes: 722 of 824 compiles hit, a 7.2-minute job (run
@@ -321,8 +337,12 @@ repository's 10 GB. Now:
 - Rocky's job saves the downloads on a push to main only when what it
   restored was not of the same pinned lists; the nightly run saves them
   every night still.
-Not verifiable on a pull request (only main saves); to be seen in the
-first main run after this lands: each build's log saying "deleting" its
+The script was run by hand against the real cache API with its DELETE
+replaced by an echo: with a prefix two entries shared it named the other
+for deletion, with only this run's entry it named none, and with this
+run's entry missing it kept everything. Not otherwise verifiable on a pull
+request (only main saves); to be seen in the first main run after this
+lands: each build's log saying "deleting" its
 older entry, and the next pull request's builds all restoring.
 
 **The Windows configure, counted over a week of main** (163 configures,
