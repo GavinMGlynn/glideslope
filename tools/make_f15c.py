@@ -147,6 +147,21 @@ The changes, and what each is for:
                         tools/ground.py (ground.flanks), 49 in above the
                         wheels' contact, and it rests on them.
 
+    The speedbrake's drag
+                        The model moved its speedbrake but no coefficient read
+                        it, so the lever slowed nothing. Its drag is now the
+                        1988 F-15 aerodynamic database's, as McDonnell's AFIT
+                        thesis gives it (Investigation of the High Angle of
+                        Attack Dynamics of the F-15B Using Bifurcation
+                        Analysis, AFIT/GAE/ENY/90D-16, December 1990, page
+                        81): CXDSPD, a drag coefficient of 0.0436 on the
+                        wing's area with the speedbrake out (SPEEDBRAKE_DRAG).
+                        The same page says it will not deploy past 15 degrees
+                        of alpha, and the thesis's characteristics (page 75)
+                        give its 31.5 sq ft and 45 degrees; so past 15 degrees
+                        (SPEEDBRAKE_MOST_ALPHA_DEG) its command is taken as
+                        stowed, and it comes in.
+
   Engines (engine/F100-PW-220.xml, from JSBSim's F100-PW-229.xml)
     The F-15C's engine  The Standard Aircraft Characteristics' F100-PW-220,
                         uninstalled at sea level: 23,450 lb with afterburner,
@@ -176,6 +191,7 @@ import sys
 import airliner
 import fighter
 import ground
+import written
 from airliner import OUT, PINNED
 
 SCRIPT = "make_f15c"
@@ -236,6 +252,11 @@ HIGH_ALPHA_RAD = 0.40
 HIGH_ALPHA_SCALE = 0.45
 STABILATOR_NOSE_UP_DEG = 26.0
 CHORD_IN = 15.95 * 12.0
+# The speedbrake's drag coefficient, out, on the wing's area, and the alpha
+# past which it does not deploy: the 1988 F-15 aerobase's CXDSPD and its
+# limit, from AFIT/GAE/ENY/90D-16 page 81.
+SPEEDBRAKE_DRAG = 0.0436
+SPEEDBRAKE_MOST_ALPHA_DEG = 15.0
 FIGURES = OUT.parent / "figures" / f"{MODEL}.xml"
 # The main wheels this far behind the centre of gravity, seen from the ground
 # (Raymer's tipback angle); the model's own centre of gravity, aerodynamic
@@ -356,7 +377,30 @@ def airframe():
     if n != 2:
         raise SystemExit(f"{SCRIPT}: found {n} engines, not 2 - has the pinned model changed?")
     text = with_nasa_pitch(with_mach_lift(over_its_wheels(text)))
-    return with_flanks(scraping_airframe(with_mach_drag(text)))
+    return with_speedbrake(with_flanks(scraping_airframe(with_mach_drag(text))))
+
+
+def with_speedbrake(text):
+    """The speedbrake's drag, which the model had none of, and its command
+    taken as stowed past the alpha it does not deploy at."""
+    text = replace_once(
+        text,
+        r"(            <kinematic name=\"Speedbrake Control\">\n                <input>)fcs/speedbrake-cmd-norm(</input>)",
+        lambda m: ('            <switch name="fcs/speedbrake-allowed-norm">\n'
+                   '                <default value="0"/>\n'
+                   '                <test value="fcs/speedbrake-cmd-norm">\n'
+                   f'                    aero/alpha-deg le {SPEEDBRAKE_MOST_ALPHA_DEG:.1f}\n'
+                   '                </test>\n'
+                   '            </switch>\n'
+                   + m.group(1) + "fcs/speedbrake-allowed-norm" + m.group(2)),
+        "the speedbrake's command")
+    return replace_once(
+        text,
+        r"(            <function name=\"aero/coefficient/CDDe\">.*?</function>\n)",
+        lambda m: m.group(1) + written.coefficient(
+            "CDsb", "Drag_due_to_speedbrake",
+            ["aero/qbar-psf", "metrics/Sw-sqft", "fcs/speedbrake-pos-norm", SPEEDBRAKE_DRAG]),
+        "the drag due to the stabilator")
 
 
 def with_flanks(text):

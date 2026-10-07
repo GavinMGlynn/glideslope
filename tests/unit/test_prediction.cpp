@@ -1155,7 +1155,7 @@ GLIDESLOPE_TEST(a_prediction_stops_its_engine_on_the_servers_word_and_starts_it_
 // prediction nothing it did not already have. **And the lever each side's
 // flight model is given is the one sent, at every step**, read back from the
 // model - which catches a client flying the lever stowed while sending it
-// out in every one of the eight. The correction alone does not: put right
+// out in every one of the nine. The correction alone does not: put right
 // every 50 ms, such a client was put right by no more than its own drift in
 // five of them, because one round trip flown wrongly moves her millimetres;
 // only the 737's shows it plainly (0.094 m against 0.037), and that is held.
@@ -1217,7 +1217,7 @@ GLIDESLOPE_TEST(a_client_working_the_speedbrakes_is_predicted_as_the_server_flie
                   " m, over the bound of " + std::to_string(bound_m) + " m");
         ++walked;
     }
-    check(walked == with && with == 8,
-          "the eight aircraft with speedbrakes were flown: " + std::to_string(walked) + " of " +
+    check(walked == with && with == 9,
+          "the nine aircraft with speedbrakes were flown: " + std::to_string(walked) + " of " +
               std::to_string(with));
 }
