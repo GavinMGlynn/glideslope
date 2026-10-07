@@ -14,10 +14,6 @@
 # 2.7 m on CI's macOS and 16 m at 500 ms here (2026-10-06). That moment is
 # held exactly by a test of its own
 # (every_step_a_client_flies_meets_the_air_at_the_moment_the_server_flies_it).
-# **-DGUSTS=ON flies them gusting** to the same bounds: with the client paced
-# on its clocks' difference (sim::Pacing) the medians were 0.049 and 0.051 m
-# (2026-10-08), the steady ones' 0.047 and 0.050; a client flying them without
-# their gusts was 0.33 m.
 # (`--metar-then`, `--weather-blend`: a change of weather as a fetch again
 # would bring, mid-flight.) Two players join
 # it, each predicting its own aircraft and flying the same changing controls,
@@ -77,13 +73,6 @@ endif()
 set(_station -33.9461,151.1772,6)
 set(_west "YSSY 020600Z 27035KT 9999 FEW030 20/10 Q1012")
 set(_south_west "YSSY 020630Z 23040KT 9999 FEW030 19/10 Q1010")
-# **-DGUSTS=ON: the same winds gusting**, 15 kt over each, held to the same
-# bounds as the steady ones (a client's gusts are the server's, the clocks'
-# difference settling or not).
-if(GUSTS)
-    set(_west "YSSY 020600Z 27030G45KT 9999 FEW030 20/10 Q1012")
-    set(_south_west "YSSY 020630Z 23035G50KT 9999 FEW030 19/10 Q1010")
-endif()
 
 set(_same "${WORK}/same.txt")
 set(_own "${WORK}/own.txt")

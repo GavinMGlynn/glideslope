@@ -4389,7 +4389,17 @@ int run(const Options& o) {
             metar_then_done = true;
             fleet->weather_changes(metar_report(o.metar_then));
             if (!o.changed_file.empty()) {
-                std::ofstream(o.changed_file) << "changed\n";
+                // **Unwritten, said and stopped**: a test's client waiting on
+                // it would otherwise wait its five minutes and fail for
+                // another reason.
+                std::ofstream changed(o.changed_file);
+                changed << "changed\n";
+                changed.flush();
+                if (!changed) {
+                    std::fprintf(stderr, "glideslope_server: cannot write --changed-file %s\n",
+                                 o.changed_file.c_str());
+                    std::exit(1);
+                }
             }
             say_weather(fleet->weather(), fleet->now_s());
         }

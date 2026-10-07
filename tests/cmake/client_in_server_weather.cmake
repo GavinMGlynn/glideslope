@@ -15,7 +15,9 @@
 # the server's weather, that METAR, and at its shot twenty seconds in
 # (`--shot-at 2400`) have compared at least 300 updates, with the median of
 # its prediction error - measured as glideslope_cli measures it - within
-# SAME_M, the headless client's bound there.
+# SAME_M: 0.1 m, inside the headless client's 0.25 there, thirty times the
+# 0.003 m measured (2026-10-08) for a slower machine's margin, and a quarter
+# of the 0.42 m it was flying still air.
 #
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
@@ -94,6 +96,6 @@ if(_compared LESS 300)
 endif()
 if(_median GREATER SAME_M)
     message(FATAL_ERROR "in the server's weather the client with the window predicted with "
-                        "a median error of ${_median} m, more than the headless client's "
+                        "a median error of ${_median} m, more than "
                         "${SAME_M}:\n${_out}")
 endif()

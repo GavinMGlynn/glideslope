@@ -1088,13 +1088,15 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
 - [ ] **A client's gusts are not the server's while its clocks' difference
       settles**, a step or two out, metres in a strong gust. *Verification: a
       client predicting in gusting air stays within the steady air's bound.*
-      2026-10-08: its median is within it (0.05 m against 0.25 m); still
-      missing: the cause of a worst of up to 4 m in a weather's change, where
-      the steady air's is 0.4 m.
+      2026-10-08: at the server's moment the client's gusts are the
+      server's exactly, and a step out they are not; still missing: an
+      end-to-end test that tells a wrong gust clock (the steady bound passed
+      one five seconds out), and the cause of a worst of up to 4 m in a
+      weather's change, where the steady air's is 0.4 m.
 - [x] **Nothing tests the client with the window in the server's weather.**
       *Verification: the window client on a server with a METAR says it flies
       it, and its prediction error is within the headless client's bound.*
-      Done 2026-10-08: median 0.003 m against 0.25 m.
+      Done 2026-10-08: median 0.003 m, held to 0.1 m.
 - [x] **A player cannot choose an aeroplane on a server**: a player flies
       what the server's plan flies. *Verification: a player asks for an
       aeroplane when joining and flies it, and every other client draws it

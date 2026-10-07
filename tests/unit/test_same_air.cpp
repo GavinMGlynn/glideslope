@@ -6,10 +6,12 @@
 #include "frontend/same_air.hpp"
 #include "net/messages.hpp"
 #include "net/told.hpp"
+#include "sim/fixed_step.hpp"
 #include "world/digest.hpp"
 #include "world/metar.hpp"
 #include "world/weather.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -233,6 +235,85 @@ GLIDESLOPE_TEST(a_client_joining_mid_blend_is_told_what_it_blends_from_and_flies
     std::printf("  %zu points of the air joined mid-blend, each the server's to the last bit; "
                 "the newest alone differs at %zu of the 72 inside the blend\n",
                 compared, newest_alone_differs);
+}
+
+// **A client's gusts are the server's at the server's moment, and only
+// then.** A server flies 30 kt gusting 45; the client hears it through the
+// wire's bytes. At 4 places, 4 heights under the 610 m the gusts fade by,
+// and 41 moments half a second apart, the client's air at the server's
+// moment is the server's to the last bit; and its air at a moment skewed by
+// one step, two steps and five seconds - a clock as wrong as a clocks'
+// difference settling, and as one not settled at all - differs at every one
+// of the 656 points, by more than 1 m/s somewhere at five seconds. So what
+// decides whether a predicting client meets the server's gusts is only the
+// moment it asks for (sim::Prediction::session_time_s, held by
+// every_step_a_client_flies_meets_the_air_at_the_moment_the_server_flies_it).
+GLIDESLOPE_TEST(a_clients_gusts_are_the_servers_at_the_servers_moment_and_differ_at_a_skewed_one) {
+    double now_s = 0.0;
+    const auto server_clock = [&now_s] { return now_s; };
+    double skew_s = 0.0;
+    const auto client_clock = [&now_s, &skew_s] { return now_s + skew_s; };
+    const auto server_air = std::make_shared<glideslope::world::ReportedWeather>(
+        a_full_report("YSSY 020600Z 27030G45KT 9999 FEW030 20/10 Q1012"), nullptr, 300.0,
+        hills);
+    glideslope::frontend::SessionClocked server(server_air, server_clock);
+    glideslope::net::Told told;
+    glideslope::frontend::HeardAir client(nullptr, hills, client_clock);
+    send(server_air->report(), 0.0, 300.0, told, client);
+
+    const std::vector<std::array<double, 2>> places{
+        {-33.9461, 151.1772}, {-33.95, 151.18}, {-33.90, 151.10}, {-33.80, 151.30}};
+    const std::vector<double> heights{9.0, 60.0, 200.0, 450.0};
+    const double step = 1.0 / static_cast<double>(glideslope::sim::steps_per_second);
+    struct Skew {
+        double s;
+        const char* what;
+    };
+    const std::vector<Skew> skews{{0.0, "the server's moment"},
+                                  {step, "one step out"},
+                                  {2.0 * step, "two steps out"},
+                                  {5.0, "five seconds out"}};
+    std::size_t walked = 0;
+    for (const Skew& k : skews) {
+        skew_s = k.s;
+        std::size_t points = 0;
+        std::size_t differ = 0;
+        double largest_mps = 0.0;
+        for (int i = 0; i <= 40; ++i) {
+            now_s = 600.0 + 0.5 * i;
+            for (const auto& p : places) {
+                for (const double h : heights) {
+                    const glideslope::sim::Conditions a = server.at(p[0], p[1], h, 0.0);
+                    const glideslope::sim::Conditions b = client.air()->at(p[0], p[1], h, 0.0);
+                    const double d = std::hypot(a.wind_north_mps - b.wind_north_mps,
+                                                a.wind_east_mps - b.wind_east_mps,
+                                                a.wind_down_mps - b.wind_down_mps);
+                    largest_mps = std::max(largest_mps, d);
+                    if (d > 0.0) {
+                        ++differ;
+                    }
+                    ++points;
+                }
+            }
+        }
+        check(points == 41 * 4 * 4, std::string(k.what) + ": every point was walked");
+        walked += points;
+        if (k.s == 0.0) {
+            check(differ == 0, "at the server's moment the client's gusts are the server's: " +
+                                   std::to_string(differ) + " points differ");
+        } else {
+            check(differ == points, std::string(k.what) + ", the gusts differ at " +
+                                        std::to_string(differ) + " of " +
+                                        std::to_string(points) + " points, not all");
+        }
+        if (k.s >= 5.0) {
+            check(largest_mps > 1.0, "five seconds out the wind differs by at most " +
+                                         std::to_string(largest_mps) + " m/s, not over 1");
+        }
+        std::printf("  %s: %zu of %zu points differ, by %.4f m/s at most\n", k.what, differ,
+                    points, largest_mps);
+    }
+    check(walked == 4 * 656, "four clocks of 656 points: " + std::to_string(walked));
 }
 
 // **Still air is said, and flown as none.** A server with no weather sends an
