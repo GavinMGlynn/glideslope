@@ -317,6 +317,14 @@ and 15.8. Red on one test, the known one -
 "its own aircraft was put right too far to hide" (the open tail "A server
 that falls behind real time puts its clients' prediction off by metres").
 
+**Run 37583810544** (rebased onto main's speedbrake work): red on Windows
+debug and clang-cl, both on
+`a_client_predicting_its_aircraft_stops_its_engine_when_the_server_says_and_is_put_right_no_more`
+- "with the engine stopped the median prediction error was 47 mm (429 mm),
+more than the 43 mm (51 mm) before it or 2 cm". A test that measures
+prediction against a loaded runner; nothing here changes what it runs, only
+which tests run beside it. A new tail.
+
 **Windows' compiler cache, measured cold and warm.** Warm, in this run:
 MSVC debug 3.9 and release 3.4 minutes a job. clang-cl with a pull
 request's changes: 722 of 824 compiles hit, a 7.2-minute job (run

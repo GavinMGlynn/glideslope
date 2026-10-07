@@ -779,6 +779,11 @@ Found while implementing something else. Added when found, not when remembered.
       the budget refilling while a slow runner sent its burst.
       *Verification: its bound holds however slowly the burst is sent, and
       a month of CI runs without it failing.*
+- [ ] **The engine-stop prediction test failed twice on Windows** (run
+      37583810544, debug and clang-cl): the median error with the engine
+      stopped 47 and 429 mm against 43 and 51 mm before it. *Verification:
+      its bound holds on a loaded runner, and a month of CI runs without it
+      failing.*
 - [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of
