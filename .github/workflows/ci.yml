@@ -70,6 +70,10 @@ env:
 #     shard's job is to stay under two thirds of its 30-minute limit. Linux
 #     debug went from seven shards to ten on 2026-10-07: with the costs
 #     estimated for the newest tests, shards of seven ran past 30 minutes.
+#     Later that day every table was measured again from three green runs
+#     and the counts set so that each shard holds about 15 minutes of
+#     measured work: Linux debug 11, Windows debug 7, Windows release and
+#     clang-cl 3, macOS debug 5.
 #   - Build and test are separate steps, so each one's time is in plain view.
 #
 # A shard cannot finish sooner than its longest test, which is why no test may
@@ -201,16 +205,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-debug, shard: 1, of: 10 }
-          - { preset: linux-debug, shard: 2, of: 10 }
-          - { preset: linux-debug, shard: 3, of: 10 }
-          - { preset: linux-debug, shard: 4, of: 10 }
-          - { preset: linux-debug, shard: 5, of: 10 }
-          - { preset: linux-debug, shard: 6, of: 10 }
-          - { preset: linux-debug, shard: 7, of: 10 }
-          - { preset: linux-debug, shard: 8, of: 10 }
-          - { preset: linux-debug, shard: 9, of: 10 }
-          - { preset: linux-debug, shard: 10, of: 10 }
+          - { preset: linux-debug, shard: 1, of: 11 }
+          - { preset: linux-debug, shard: 2, of: 11 }
+          - { preset: linux-debug, shard: 3, of: 11 }
+          - { preset: linux-debug, shard: 4, of: 11 }
+          - { preset: linux-debug, shard: 5, of: 11 }
+          - { preset: linux-debug, shard: 6, of: 11 }
+          - { preset: linux-debug, shard: 7, of: 11 }
+          - { preset: linux-debug, shard: 8, of: 11 }
+          - { preset: linux-debug, shard: 9, of: 11 }
+          - { preset: linux-debug, shard: 10, of: 11 }
+          - { preset: linux-debug, shard: 11, of: 11 }
           - { preset: linux-release, shard: 1, of: 2 }
           - { preset: linux-release, shard: 2, of: 2 }
     env:
@@ -523,10 +528,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: macos-debug, shard: 1, of: 4 }
-          - { preset: macos-debug, shard: 2, of: 4 }
-          - { preset: macos-debug, shard: 3, of: 4 }
-          - { preset: macos-debug, shard: 4, of: 4 }
+          - { preset: macos-debug, shard: 1, of: 5 }
+          - { preset: macos-debug, shard: 2, of: 5 }
+          - { preset: macos-debug, shard: 3, of: 5 }
+          - { preset: macos-debug, shard: 4, of: 5 }
+          - { preset: macos-debug, shard: 5, of: 5 }
           - { preset: macos-release, shard: 1, of: 2 }
           - { preset: macos-release, shard: 2, of: 2 }
     steps:
@@ -700,16 +706,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-debug, shard: 1, of: 6 }
-          - { preset: windows-debug, shard: 2, of: 6 }
-          - { preset: windows-debug, shard: 3, of: 6 }
-          - { preset: windows-debug, shard: 4, of: 6 }
-          - { preset: windows-debug, shard: 5, of: 6 }
-          - { preset: windows-debug, shard: 6, of: 6 }
-          - { preset: windows-release, shard: 1, of: 2 }
-          - { preset: windows-release, shard: 2, of: 2 }
-          - { preset: windows-clang, shard: 1, of: 2 }
-          - { preset: windows-clang, shard: 2, of: 2 }
+          - { preset: windows-debug, shard: 1, of: 7 }
+          - { preset: windows-debug, shard: 2, of: 7 }
+          - { preset: windows-debug, shard: 3, of: 7 }
+          - { preset: windows-debug, shard: 4, of: 7 }
+          - { preset: windows-debug, shard: 5, of: 7 }
+          - { preset: windows-debug, shard: 6, of: 7 }
+          - { preset: windows-debug, shard: 7, of: 7 }
+          - { preset: windows-release, shard: 1, of: 3 }
+          - { preset: windows-release, shard: 2, of: 3 }
+          - { preset: windows-release, shard: 3, of: 3 }
+          - { preset: windows-clang, shard: 1, of: 3 }
+          - { preset: windows-clang, shard: 2, of: 3 }
+          - { preset: windows-clang, shard: 3, of: 3 }
     env:
       SDL_LOGGING: gpu=debug
     steps:
