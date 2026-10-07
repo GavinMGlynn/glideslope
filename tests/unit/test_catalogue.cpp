@@ -16,6 +16,7 @@
 #include <iterator>
 #include <regex>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -766,7 +767,7 @@ GLIDESLOPE_TEST(every_aircraft_knows_the_alpha_and_sideslip_its_tables_hold) {
     std::size_t read = 0;
     std::size_t unbounded = 0;
     std::string failures;
-    constexpr double deg = 180.0 / 3.14159265358979323846;
+    constexpr double deg = 180.0 / std::numbers::pi;
     for (const CatalogueEntry& e : roster) {
         const glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
         const auto [alpha_low, alpha_high] = aircraft.alpha_range_rad();

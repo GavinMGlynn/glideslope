@@ -260,23 +260,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Two landing tails looked into and left open: the F-35B's incidence and the touchdown sink, 2026-10-07 — no change
-
-- **The F-35B lands on her power** stays open, its missing part first: no
-  published approach incidence for the F-35B was found. The nearest is the
-  F-35A's: the Air Force's accident report on the Eglin loss of 19 May 2020,
-  as The Aviationist reported it (6 October 2020), has her touching at 5.2
-  degrees of alpha, about 8 degrees shallower than normal - about 13. That is another variant's, and
-  re-fitting her lift to it is a flight-model change not to be made on a
-  sister's figure.
-- **The touchdown sink the AI flares to** stays set, 200 ft/min for jets
-  and 40 otherwise: no primary source was found for any of the sixteen.
-  What turns up - about 200 ft/min "normal" for a 737 (b737.org.uk,
-  forums) - is not a source a figures file can name; the 600 ft/min (10
-  ft/s) a gear is designed to (14 CFR 25.473) is a limit, not a flare's
-  aim.
-
-### The B-2A and the F-22A hold a heading in a crosswind slow: their own yaw damper and rudder integral; their plans fly from 159 and 140 kt, 2026-10-07 — tail done
+### The B-2A and the F-22A hold a heading in a crosswind slow: their own yaw damper and rudder integral; their plans fly from 159 and 140 kt, 2026-10-07 — tail not done
 
 **What was wrong.** On the autopilot in a 20 kt crosswind the B-2A swung her
 sideslip 7.3 degrees either way at 159 kt and held it only from 189; the
@@ -317,13 +301,22 @@ aircraft (a third, within two degrees) had spun the S.23 in her stall lesson
   brief carries her speeds, and the old recording was refused as for
   another request; scanned, no key): the model asked a 3,500 m orbit at
   220 kt, was refused (at least 7,003 m) and took 7,003; flown off 16R.
-- **The verification is restated**: it asked a heading held "from its
-  approach speed up", but below their orbits' floors the jets do not fly
-  clean at all - from their approach speeds the F-22A at 150 to 210 and the
-  B-2A at 124 to 154 departed or came down, and the 737-300, 747-400, A380
-  and Learjet held no heading - which no yaw damper puts right. It now asks
-  every speed a plan may fly, and the B-2A's and F-22A's plans as slow as
-  their orbits hold.
+- **What is not done: the item's verification, from each approach speed
+  up.** Measured on these gains (2026-10-07, linux-release), every aircraft
+  with an approach speed in the 20 kt crosswind from it up in 5 kt steps
+  (the 747-400 and F-22A have none): eleven hold at every speed; five do
+  not, all below their plan floors -
+  - **737-300** (vref 137): 137, 142 and 157 kt swing 11 to 20 degrees of
+    sideslip, heading 84 to 100 off; at 147 and 152 her alpha leaves her
+    tables and the flight is stopped;
+  - **A380** (vref 136): every speed from 136 to 186 kt, sideslip -12 to
+    -16 one way and up to 13 the other, heading 68 to 85 off;
+  - **B-2A** (vref 124): at 124, 129 and 139 kt she leaves her tables; at
+    134, 77 degrees of sideslip; at 144, 15; at 149, 1.2 (heading 2.3);
+  - **Learjet 35A** (vref 125): at 125 kt, 8.5 degrees, heading 12.7 off;
+  - **F-35B** (vref 159): 3.1, 2.4 and 1.7 degrees at 159, 164 and 169 kt.
+  Why each - the yaw loop, or a wing that will not hold the height clean
+  at a flaps-down speed - is not found. The tail stays open with them.
 
 **Verification** (linux-release, locally):
 - `the_<id>_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it`

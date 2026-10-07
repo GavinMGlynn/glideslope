@@ -386,15 +386,17 @@ Found while implementing something else. Added when found, not when remembered.
       height but strayed up to 460 m off 7 and 9 km circles, against the
       60 m a Cessna holds. *Verification: each jet flies a model's orbit
       within 60 m of its circle.*
-- [x] **The B-2 and the F-22 yaw from side to side in a crosswind when
+- [ ] **The B-2 and the F-22 yaw from side to side in a crosswind when
       slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
       of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is
-      kept above 194 and 255 kt for it. *Verification: every aircraft holds
-      a heading in a 20 kt crosswind at every speed a plan may fly it, and
-      the B-2's and F-22's plans fly as slow as their orbits hold* (it read
-      "from its approach speed up", but below their orbits' floors the jets
-      do not fly clean at all). Done 2026-10-07: each has its own yaw
-      damper and rudder integral, and their plans fly from 159 and 140 kt.
+      kept above 194 and 255 kt for it. Since 2026-10-07 each has its own
+      yaw damper and their plans fly from 159 and 140 kt, every plan speed
+      of every aircraft held. Missing: below their plan floors, from their
+      approach speeds, the 737-300 (137-157 kt), A380 (136-186), B-2
+      (124-149), Learjet (125) and F-35B (159-169) still swing or leave
+      their models' tables. *Verification: every aircraft holds a heading
+      in a 20 kt crosswind from its approach speed up, its sideslip within a
+      stated bound.*
 
 - [x] **In wind the Cub and the Cherokee yaw from side to side.** Holding
       a heading in a 10 kt crosswind, with no plan, the autopilot's J-3 Cub
@@ -832,16 +834,12 @@ Found while implementing something else. Added when found, not when remembered.
       737-300, A380 and Mosquito did; the flare now judges the sink a moment
       ahead, and none climbs in either lesson.
 - [ ] **The F-35B lands on her power**: her model flies the glidepath at
-      19.5 degrees of incidence and its flare runs out of nose. Missing
-      first: a published approach incidence for the F-35B - the one found
-      is an F-35A's, about 13 degrees (2026-10-07). *Verification: the F-35B
-      flies her approach at her published incidence and flares with her
-      throttle closing.*
+      19.5 degrees of incidence and its flare runs out of nose. *Verification:
+      the F-35B flies her approach at her published incidence and flares
+      with her throttle closing.*
 - [ ] **The touchdown sink the AI flares to is set, not published** (200
-      ft/min for jets, 40 otherwise). Missing: a source for every one of
-      the sixteen - none was found for any but in forums (2026-10-07).
-      *Verification: each aeroplane's comes from a source the figures file
-      names.*
+      ft/min for jets, 40 otherwise). *Verification: each aeroplane's comes
+      from a source the figures file names.*
 - [x] **The AI does not go around from a balloon**: a Mosquito given back
       from a pilot's over-pulled flare zooms to fifty feet and comes down at
       958 ft/min. *Verification: every aeroplane given back in a balloon
