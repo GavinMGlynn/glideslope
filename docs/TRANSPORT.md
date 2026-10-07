@@ -750,7 +750,17 @@ other than nought with the flag `00` are refused.
 
 **A take-over the server will not make**, sent by the server to the client
 that asked for it and to no other (since `07`): the aircraft's number as the
-request gave it. A take-over made is said by the state updates, which name
+request gave it. **The server answers every take-over it reads** - a
+`CONTROLLER_SWAP` to `PERSON` for an aircraft not the client's own: made,
+which the state updates say, or refused with this, whatever refused it - a
+server that forbids it, a player's aircraft, one the AI is not flying, a
+wreck, a client with no aircraft to leave, or a request past the client's
+rate (`THREATS.md`). The one answer that can still go missing is one the
+server could not queue, or one lost with a session let go; so a client
+gives up a take-over unanswered after a while of its own choosing (the
+client with the window: five seconds of flight). A request for the
+client's own aircraft to `PERSON` is not a take-over but a take-back, and is
+answered as a take-back is: by a `CONTROLLER_SWAP` if anything changed. A take-over made is said by the state updates, which name
 the aircraft taken as the client's own; this says the other answer, so that
 a client can tell a take-over refused from one still on its way, and need
 not guess which of its aircraft a request sent meanwhile - a hand-over, say -

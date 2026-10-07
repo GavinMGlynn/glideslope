@@ -2841,6 +2841,24 @@ add_test(NAME a_pressed_during_a_refused_take_over_hands_the_aircraft_kept_to_th
 set_tests_properties(a_pressed_during_a_refused_take_over_hands_the_aircraft_kept_to_the_ai
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/a_during_refused)
+add_test(NAME a_take_over_past_the_servers_rate_of_requests_is_refused_and_said
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/a_during_over_budget -DPORT=24858 -DDRIVER=vulkan
+        -DA_DURING=OVER_BUDGET -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_rides_along.cmake)
+set_tests_properties(a_take_over_past_the_servers_rate_of_requests_is_refused_and_said
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/a_during_over_budget)
+add_test(NAME the_client_never_asks_to_take_over_its_own_aircraft_and_a_is_not_held
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/a_during_own -DPORT=24859 -DDRIVER=vulkan
+        -DA_DURING=OWN -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_rides_along.cmake)
+set_tests_properties(the_client_never_asks_to_take_over_its_own_aircraft_and_a_is_not_held
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/a_during_own)
 
 # **The client with the window hands its own aircraft to the AI on a
 # server, and takes it back**: the server says the AI has it, then the pilot,

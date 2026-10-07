@@ -2,10 +2,10 @@
 
 // The messages that go through the reliable layer.
 //
-// **Six things must each arrive, exactly once, in order**: the lobby, the
-// session, the weather, an aircraft's definition, the terrain dataset and a
-// controller swap - and, since, which aircraft a client watches and a
-// copilot's route, and a take-over refused. They go as **ten kinds of message**, because the
+// **Nine things must each arrive, exactly once, in order**: the lobby, the
+// session, the weather, an aircraft's definition, the terrain dataset, a
+// controller swap, which aircraft a client watches, a copilot's route and a
+// take-over refused. They go as **ten kinds of message**, because the
 // weather is two of them - see below. `net/reliable.hpp` makes delivery true
 // of an opaque body; this says what those bodies are.
 //

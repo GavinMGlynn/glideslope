@@ -637,15 +637,20 @@ std::optional<net::Watched> Online::watched_controls(double local_s) const {
     return out;
 }
 
-void Online::take_over(std::uint8_t number) {
+bool Online::take_over(std::uint8_t number) {
     const auto lock = held();
+    if (number == mine_) {
+        return false;
+    }
     net::ControllerSwap swap;
     swap.aircraft = number;
     swap.to = net::Controller::person;
     const std::vector<std::uint8_t> body = net::write(swap);
-    if (session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()))) {
-        taking_over_ = number;
+    if (!session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()))) {
+        return false;
     }
+    taking_over_ = number;
+    return true;
 }
 
 void Online::send_route(net::CopilotRoute route) {
