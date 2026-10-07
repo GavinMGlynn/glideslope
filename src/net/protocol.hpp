@@ -54,8 +54,10 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // speedbrake lever in a state update. Version 7: the same ground, and a
 // take-over the server refuses said to the client that asked (`TAKE_OVER_REFUSED`).
 // Version 8: the same ground, and `CONTROLLER_SWAP` asking for, and
-// announcing, the learnt landing.
-inline constexpr std::uint8_t protocol_version = 8;
+// announcing, the learnt landing. Version 9: the same ground, and the learnt
+// landing refused said to the client that asked, and why
+// (`LEARNT_LANDING_REFUSED`).
+inline constexpr std::uint8_t protocol_version = 9;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.

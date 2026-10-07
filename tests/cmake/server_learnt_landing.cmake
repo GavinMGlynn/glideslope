@@ -20,7 +20,9 @@
 # refuse the second, saying the c182 has none - and the second client must
 # never hear its aircraft handed over. The third flies a C172P too, started
 # three miles out, and asks two seconds after joining: outside the gate, it
-# is refused, the runway named and how far out it is.
+# is refused, the runway named and how far out it is. **Each refused client
+# is told why** (`LEARNT_LANDING_REFUSED`, since protocol version 9), in the
+# server's own words, and the one landed is told nothing of the kind.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
@@ -102,6 +104,9 @@ file(READ "${_second}" _second_said)
 if(_second_said MATCHES "aircraft ${_second_number} handed to")
     message(FATAL_ERROR "the C182S was handed over:\n${_second_said}")
 endif()
+if(NOT _second_said MATCHES "aircraft ${_second_number} refused the learnt landing: the c182 has no learnt landing")
+    message(FATAL_ERROR "the C182S's client was not told why it was refused:\n${_second_said}")
+endif()
 
 # **Outside the gate, refused**: the third, a C172P three miles out.
 if(NOT _out MATCHES "aircraft ([0-9]+) not handed to the learnt landing: not at the learnt landing's gate: YSSY 16R: [23]\\.[0-9] miles out")
@@ -111,6 +116,12 @@ set(_third_number "${CMAKE_MATCH_1}")
 file(READ "${_third}" _third_said)
 if(_third_said MATCHES "aircraft ${_third_number} handed to")
     message(FATAL_ERROR "the C172P outside the gate was handed over:\n${_third_said}")
+endif()
+if(NOT _third_said MATCHES "aircraft ${_third_number} refused the learnt landing: not at the learnt landing's gate: YSSY 16R: [23]\\.[0-9] miles out")
+    message(FATAL_ERROR "the client outside the gate was not told why it was refused:\n${_third_said}")
+endif()
+if(_first_said MATCHES "refused the learnt landing")
+    message(FATAL_ERROR "the client landed was told it was refused:\n${_first_said}")
 endif()
 message(STATUS "the C172P landed by the learnt landing on YSSY 16R: ${_sink} ft/min, ${_across} m "
                "across, stopped ${_along} m along, ${_stopped_across} m across; the C182S "

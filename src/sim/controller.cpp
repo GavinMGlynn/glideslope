@@ -60,6 +60,7 @@ void Controller::engage() {
     departure_.reset();
     lander_.reset();
     learnt_.reset();
+    at_gate_.reset();
     landing_.reset();
     // A glide is for the route it came with, and ends with it.
     glide_kts_.reset();
@@ -192,6 +193,15 @@ void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& spee
     lander_->hand_mixture(applied_.mixture);
 }
 
+void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
+                                std::shared_ptr<const LearntPolicy> learnt_at_gate,
+                                double glidepath_deg) {
+    to_ai_approach(runway, speeds, glidepath_deg);
+    at_gate_ = std::move(learnt_at_gate);
+    gate_runway_ = runway;
+    gate_speeds_ = speeds;
+}
+
 void Controller::to_ai_learnt_approach(const Runway& runway, const ApproachSpeeds& speeds,
                                        std::shared_ptr<const LearntPolicy> policy) {
     // Made first, so that a policy for another aircraft is refused before
@@ -217,6 +227,7 @@ void Controller::to_pilot() {
     navigator_.reset();
     departure_.reset();
     learnt_.reset();
+    at_gate_.reset();
     // An approach not yet landed to the stop is kept, for a take-back on its
     // roll to finish.
     landing_.reset();
@@ -256,6 +267,20 @@ Controls Controller::fly() {
             }
             learnt_.reset();
             autopilot_.emplace(a_, applied_);
+        }
+        if (lander_ && at_gate_) {
+            // **At the learnt landing's gate, handed to it**; past it
+            // unmet, left to the approach autopilot.
+            if (lander_->stage() != Lander::Stage::approach) {
+                at_gate_.reset();
+            } else if (outside_learnt_gate(a_, *gate_runway_, *at_gate_).empty()) {
+                LearntLander landing(a_, *gate_runway_, std::move(at_gate_), *gate_speeds_);
+                at_gate_.reset();
+                lander_.reset();
+                learnt_.emplace(std::move(landing));
+                easing_in_ = true;
+                return fly();
+            }
         }
         if (lander_) {
             if (lander_->stage() != Lander::Stage::stopped && !lander_->gone_around()) {

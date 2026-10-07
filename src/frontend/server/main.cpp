@@ -153,6 +153,7 @@ struct Options {
     std::filesystem::path data;
     std::vector<Flown> fly;
     std::string on_final; // AIRPORT/RUNWAY, or empty
+    std::string ai_on_final; // AIRPORT/RUNWAY, or empty
     int ai = default_ai;
     std::filesystem::path plan;
     // Which AI aircraft, numbered from 1, are planned by a model, and by which;
@@ -254,6 +255,11 @@ void print_usage(std::FILE* out) {
         "                     the aeroplane's approach speed with the landing flap:\n"
         "                     the first two miles out, the gate the learnt landing\n"
         "                     is offered at, and each after half a mile further\n"
+        "  --ai-on-final AIRPORT/RUNWAY  the first AI aircraft flying the plan file\n"
+        "                     starts on final to that runway end instead, three\n"
+        "                     miles out, and is landed: handed to the learnt landing\n"
+        "                     at its gate if its aeroplane has one, or else by the\n"
+        "                     approach autopilot. The rest fly the plan\n"
         "  --ai N             how many AI aircraft the server runs (default 4)\n"
         "  --plan FILE        the flight plan they fly (default plans/ in the data)\n"
         "  --ai-planner N=WHO[:MODEL]  AI aircraft N, from 1, is planned by WHO:\n"
@@ -739,6 +745,15 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
                 return std::nullopt;
             }
             o.on_final = spec;
+        } else if (a == "--ai-on-final") {
+            if (!next(value)) return std::nullopt;
+            const std::string spec(value);
+            const std::size_t slash = spec.find('/');
+            if (slash == std::string::npos || slash == 0 || slash + 1 == spec.size()) {
+                why = "--ai-on-final wants AIRPORT/RUNWAY, 'YSSY/16R', not '" + spec + "'";
+                return std::nullopt;
+            }
+            o.ai_on_final = spec;
         } else if (a == "--fly") {
             if (!next(value)) return std::nullopt;
             // ID@LAT,LON[,HEADING] - the aircraft, where it starts, and which
@@ -819,6 +834,8 @@ void print_settings(const Options& o, std::FILE* out) {
     std::fprintf(out, "on final  %s\n",
                  o.on_final.empty() ? "(no: players start where the plan does)"
                                     : o.on_final.c_str());
+    std::fprintf(out, "ai final  %s\n",
+                 o.ai_on_final.empty() ? "(no: the AI flies its plan)" : o.ai_on_final.c_str());
     std::fprintf(out, "ai        %d aircraft\n", o.ai);
     std::fprintf(out, "plan      %s\n",
                  o.plan.empty() ? "(the data's plans/sydney-harbour.plan)"
@@ -1642,6 +1659,95 @@ public:
     // landing's gate - and each after half a mile further out, so that no
     // two are put in one place. Why not, or nothing.
     std::string players_on_final(const std::string& spec) {
+        std::string why;
+        on_final_ = runway_end_named(spec, why);
+        if (!on_final_) {
+            return why;
+        }
+        std::printf("players start on final to %s, heading %.0f, threshold %.0f ft\n",
+                    on_final_->name.c_str(), on_final_->heading_deg, on_final_->elevation_ft);
+        std::fflush(stdout);
+        return {};
+    }
+
+    // **The first plan-file AI aircraft on the final approach to `spec`'s
+    // runway end, landed** (`--ai-on-final AIRPORT/RUNWAY`): three miles out
+    // on the centreline and the glidepath - outside the learnt landing's gate
+    // - trimmed at its approach speed with the landing flap, and flown down
+    // by the approach autopilot; if its model has a learnt landing it is
+    // handed to it at its gate (sim::Controller::to_ai_approach with the
+    // policy), and otherwise landed by the approach autopilot. **One, not
+    // all**: nothing clears a runway, so a second landing behind it would
+    // land into it; the rest fly their plan. An aeroplane whose figures give
+    // no approach speed flies its plan, said. Why not, or nothing.
+    std::string ai_on_final(const std::string& spec) {
+        std::string why;
+        const std::optional<glideslope::sim::Runway> runway = runway_end_named(spec, why);
+        if (!runway) {
+            return why;
+        }
+        const double out_nm = 3.0;
+        for (Aircraft& a : flown_) {
+            if (a.ai_number <= 0 || !a.on_plan) {
+                continue;
+            }
+            std::optional<glideslope::sim::ApproachSpeeds> speeds;
+            try {
+                speeds = glideslope::sim::landing_speeds(data_, a.model);
+            } catch (const std::exception&) {
+                speeds.reset();
+            }
+            if (!speeds) {
+                std::printf("aircraft %u's %s has no approach speed: it flies its plan, not "
+                            "on final\n", static_cast<unsigned>(a.index), a.model.c_str());
+                continue;
+            }
+            glideslope::sim::InitialConditions ic = glideslope::sim::final_approach_start(
+                *runway, out_nm * 1852.0, speeds->vref_kts, speeds->flap, speeds->aim_m, 3.0);
+            ic.terrain_elevation_ft =
+                collision_->height_above_ellipsoid(ic.latitude_deg, ic.longitude_deg) *
+                feet_per_metre;
+            a.aircraft->initialize(ic);
+            remember_start(a, ic, player_seaplane_);
+            a.on_plan = false;
+            a.on_final_to = *runway;
+            land_on_final(a);
+            std::printf("aircraft %u, an AI's %s, starts on final to %s %.1f miles out, %s\n",
+                        static_cast<unsigned>(a.index), a.model.c_str(), runway->name.c_str(),
+                        out_nm,
+                        learnt_for(a.model) ? "to be handed to the learnt landing at its gate"
+                                            : "landed by the approach autopilot");
+            break;
+        }
+        std::fflush(stdout);
+        return {};
+    }
+
+    // An AI aircraft on final (`--ai-on-final`), flown down from where it
+    // is: by the approach autopilot, handing her to the learnt landing at
+    // its gate where her model has one.
+    void land_on_final(Aircraft& a) {
+        a.controller = controller_for(*a.aircraft, a.model, trimmed_controls(*a.aircraft));
+        const auto speeds = lands_with_.find(a.model);
+        if (speeds == lands_with_.end() || !speeds->second) {
+            hold_course(a);
+            return;
+        }
+        if (const auto policy = learnt_for(a.model)) {
+            a.controller->to_ai_approach(*a.on_final_to, *speeds->second, policy);
+        } else {
+            a.controller->to_ai_approach(*a.on_final_to, *speeds->second);
+        }
+        a.learnt_runway = a.on_final_to->name;
+        a.learnt_said = false;
+        a.learnt_announced = false;
+    }
+
+    // **A runway end by `AIRPORT/RUNWAY`** - 'YSSY/16R' - from the strips
+    // the collision ground is made from, its threshold's elevation that
+    // ground's; or none, with why.
+    std::optional<glideslope::sim::Runway> runway_end_named(const std::string& spec,
+                                                            std::string& why) {
         const std::size_t slash = spec.find('/');
         const std::string airport = spec.substr(0, slash);
         const std::string ident = spec.substr(slash + 1);
@@ -1657,16 +1763,12 @@ public:
                 }
                 const double lat = he ? strip.he_latitude_deg : strip.le_latitude_deg;
                 const double lon = he ? strip.he_longitude_deg : strip.le_longitude_deg;
-                on_final_ = glideslope::world::runway_end(
+                return glideslope::world::runway_end(
                     *surfaces, i, he, collision_->height_above_ellipsoid(lat, lon) * feet_per_metre);
-                std::printf("players start on final to %s, heading %.0f, threshold %.0f ft\n",
-                            on_final_->name.c_str(), on_final_->heading_deg,
-                            on_final_->elevation_ft);
-                std::fflush(stdout);
-                return {};
             }
         }
-        return "no runway " + ident + " at " + airport + " in the runways the ground is made from";
+        why = "no runway " + ident + " at " + airport + " in the runways the ground is made from";
+        return std::nullopt;
     }
 
     // **A player's aircraft handed to the learnt landing** (`CONTROLLER_SWAP`
@@ -1745,6 +1847,23 @@ public:
             it = learnt_.emplace(model, std::move(policy)).first;
         }
         return it->second;
+    }
+
+    // **An AI's approach handed to the learnt landing at its gate**
+    // (`--ai-on-final`): its controller did it, the step she was inside it;
+    // said here and announced to every client, once, as a player's is.
+    void learnt_at_gate(Aircraft& a) {
+        if (!a.on_final_to || a.learnt_announced || !a.controller || !a.controller->learnt()) {
+            return;
+        }
+        a.learnt_announced = true;
+        announced_.push_back({a.index, glideslope::net::Controller::learnt_landing,
+                              static_cast<double>(steps_) /
+                                  static_cast<double>(glideslope::sim::steps_per_second)});
+        std::printf("aircraft %u, an AI's, handed to the learnt landing at its gate, on final "
+                    "to %s\n",
+                    static_cast<unsigned>(a.index), a.on_final_to->name.c_str());
+        std::fflush(stdout);
     }
 
     // **What the learnt landing did**, said once when it has stopped her:
@@ -2315,6 +2434,7 @@ public:
             if (a.own_plan && a.on_plan) {
                 follow(a);
             }
+            learnt_at_gate(a);
             learnt_landed(a, happened);
         }
         // What the hand-overs' models have answered, if they have.
@@ -2440,6 +2560,12 @@ public:
         // whether how it landed has been said.
         std::string learnt_runway{};
         bool learnt_said = false;
+        // An AI's approach handed to the learnt landing at its gate, said
+        // and announced once (`--ai-on-final`).
+        bool learnt_announced = false;
+        // **Put on final by the operator** (`--ai-on-final`): the runway it
+        // lands on, and is flown down to again if it flies again.
+        std::optional<glideslope::sim::Runway> on_final_to{};
     };
 
     void fail_engines_at(double s) {
@@ -3078,6 +3204,8 @@ private:
         if (a.on_plan) {
             a.controller = controller_for(*a.aircraft, a.model, glideslope::sim::Controls{});
             fly_plan(a);
+        } else if (a.on_final_to && a.slot < 0) {
+            land_on_final(a);
         } else if (ai_flying(a)) {
             hold_course(a);
         } else {
@@ -3959,12 +4087,18 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                            swap.to == glideslope::net::Controller::learnt_landing) {
                     // **The learnt landing**, for this client's own aircraft
                     // and no other: handed over at its gate, or refused,
-                    // saying why here.
+                    // saying why here and to the client that asked
+                    // (`LEARNT_LANDING_REFUSED`).
                     apply_input(c, *fleet);
                     const std::string refused = fleet->hand_to_learnt(c.aircraft);
                     if (!refused.empty()) {
-                        std::printf("aircraft %u not handed to the learnt landing: %s\n",
-                                    static_cast<unsigned>(c.aircraft), refused.c_str());
+                        const std::vector<std::uint8_t> refusal = glideslope::net::write(
+                            glideslope::net::LearntLandingRefused{c.aircraft, refused});
+                        const bool said = c.reliable.send(
+                            std::span<const std::uint8_t>(refusal.data(), refusal.size()));
+                        std::printf("aircraft %u not handed to the learnt landing: %s%s\n",
+                                    static_cast<unsigned>(c.aircraft), refused.c_str(),
+                                    said ? "" : " (and the refusal could not be queued)");
                         std::fflush(stdout);
                     }
                 }
@@ -4117,6 +4251,14 @@ int run(const Options& o) {
         fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task, o.ai_spacing_s,
                       o.hand_over_planner);
         fleet->fail_engines_at(o.fail_engine_at_s);
+        if (!o.ai_on_final.empty()) {
+            const std::string refused = fleet->ai_on_final(o.ai_on_final);
+            if (!refused.empty()) {
+                std::fprintf(stderr, "glideslope_server: --ai-on-final %s: %s\n",
+                             o.ai_on_final.c_str(), refused.c_str());
+                return 2;
+            }
+        }
         if (!o.on_final.empty()) {
             const std::string refused = fleet->players_on_final(o.on_final);
             if (!refused.empty()) {

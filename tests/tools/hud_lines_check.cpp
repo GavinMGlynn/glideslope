@@ -27,6 +27,7 @@ struct Case {
     std::string autopilot;
     glideslope::gfx::ControlsShown controls;
     std::vector<std::string> said; // the lines after the flight's own six
+    std::string notice{};
 };
 
 } // namespace
@@ -86,6 +87,25 @@ int main() {
         {"the pilot, fixed gear, speedbrakes out", false, "", braked_fixed,
          {"FLYING PILOT", "STICK +0.30 -0.05", "RUDDER +0.00", "THROTTLE 0.70", "FLAPS 0.33",
           "SPEEDBRAKE 1.00"}},
+        // **The learnt landing**, flying her; and refused her, why - in
+        // capitals, what the font has not got (an apostrophe) left out,
+        // wrapped at the text block's 24 columns, under who is flying.
+        {"the learnt landing flying", true, "LEARNT LANDING", fixed,
+         {"FLYING AI LEARNT LANDING", "STICK +0.30 -0.05", "RUDDER +0.00", "THROTTLE 0.70",
+          "FLAPS 0.33"}},
+        {"the pilot, refused the learnt landing", false, "", fixed,
+         {"FLYING PILOT", "REFUSED: NOT AT THE", "LEARNT LANDINGS GATE:",
+          "YSSY 16R: 2.9 MILES OUT;", "THE GATE IS 1.6 TO 2.4", "MILES OUT",
+          "STICK +0.30 -0.05", "RUDDER +0.00", "THROTTLE 0.70", "FLAPS 0.33"},
+         "refused: not at the learnt landing's gate: YSSY 16R: 2.9 miles out; the gate is 1.6 "
+         "to 2.4 miles out"},
+        // Past five lines a notice is cut: the text block stays sixteen rows.
+        {"the pilot, refused at length", false, "", fixed,
+         {"FLYING PILOT", "AAAA BBBB CCCC DDDD EEEE", "AAAA BBBB CCCC DDDD EEEE",
+          "AAAA BBBB CCCC DDDD EEEE", "AAAA BBBB CCCC DDDD EEEE", "AAAA BBBB CCCC DDDD EEEE",
+          "STICK +0.30 -0.05", "RUDDER +0.00", "THROTTLE 0.70", "FLAPS 0.33"},
+         "aaaa bbbb cccc dddd eeee aaaa bbbb cccc dddd eeee aaaa bbbb cccc dddd eeee aaaa bbbb "
+         "cccc dddd eeee aaaa bbbb cccc dddd eeee aaaa bbbb cccc dddd eeee"},
     };
     std::size_t walked = 0;
     for (const Case& c : cases) {
@@ -93,6 +113,7 @@ int main() {
         r.ai_flying = c.ai;
         r.autopilot = c.autopilot;
         r.controls = c.controls;
+        r.notice = c.notice;
         const std::vector<std::string> lines = glideslope::gfx::hud_lines(r);
         // The flight's six first - speed, altitude, heading, climb, pitch,
         // bank - then who is flying and the controls, and nothing more.

@@ -135,6 +135,34 @@ long nearest(double v) {
 
 } // namespace
 
+std::vector<std::string> hud_notice_lines(const std::string& notice) {
+    // Capitals, and nothing the font has not got, as a checklist's words.
+    std::vector<std::string> words;
+    std::string word;
+    for (const char c : notice + " ") {
+        const char up = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        if (up == ' ') {
+            if (!word.empty()) {
+                words.push_back(word.substr(0, hud_columns));
+                word.clear();
+            }
+        } else if (glyph(up) != nullptr) {
+            word.push_back(up);
+        }
+    }
+    std::vector<std::string> lines;
+    for (const std::string& w : words) {
+        if (!lines.empty() && lines.back().size() + 1 + w.size() <= hud_columns) {
+            lines.back() += " " + w;
+        } else if (lines.size() == hud_notice_rows) {
+            break;
+        } else {
+            lines.push_back(w);
+        }
+    }
+    return lines;
+}
+
 std::vector<std::string> hud_lines(const HudReadings& r) {
     char buffer[64];
     std::vector<std::string> lines;
@@ -177,6 +205,10 @@ std::vector<std::string> hud_lines(const HudReadings& r) {
         flying.pop_back();
     }
     lines.push_back(flying);
+    // **What the server said no to**, under who has it.
+    for (std::string& line : hud_notice_lines(r.notice)) {
+        lines.push_back(std::move(line));
+    }
     // **And where the controls are**, whoever is moving them.
     if (r.controls) {
         const ControlsShown& c = *r.controls;

@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <set>
 #include <sstream>
@@ -355,6 +356,19 @@ void KeyboardControls::apply(sim::Controls& controls, double seconds,
     lever(controls.mixture, SDL_SCANCODE_COMMA, SDL_SCANCODE_PERIOD);
     lever(controls.propeller, SDL_SCANCODE_LEFTBRACKET, SDL_SCANCODE_RIGHTBRACKET);
     lever(controls.speedbrake, SDL_SCANCODE_SEMICOLON, SDL_SCANCODE_APOSTROPHE);
+
+    // The flaps, a notch a press - on the key going down, not while held -
+    // from the notch nearest where they are, so that a lever a stick left
+    // between notches steps to one.
+    const auto notch = [&](SDL_Scancode key, bool& was, double by) {
+        const bool now = down(key);
+        if (now && !was) {
+            controls.flaps = std::clamp(std::round(controls.flaps * 3.0) + by, 0.0, 3.0) / 3.0;
+        }
+        was = now;
+    };
+    notch(SDL_SCANCODE_F, flaps_down_, 1.0);
+    notch(SDL_SCANCODE_R, flaps_up_, -1.0);
 
     if (down(SDL_SCANCODE_B) || brakes_) {
         controls.left_brake = controls.right_brake = down(SDL_SCANCODE_B) ? 1.0 : 0.0;

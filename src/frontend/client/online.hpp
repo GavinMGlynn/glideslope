@@ -50,6 +50,12 @@ struct Joined {
     // Given by joining again after the server let this client go, not by a
     // take-over.
     bool again = false;
+    // **The levers the server's aircraft holds**, asked for at joining
+    // (`WATCH` of its own, until an update says them): a client that began
+    // with its own - the flaps up - sent them with its first input, and ran
+    // in the landing flap of an aircraft started on final. None if the server
+    // said nothing of them in the time joining had left.
+    std::optional<net::Watched> levers;
 };
 
 // Another aircraft, where it is to be drawn now.
@@ -240,6 +246,14 @@ public:
     // and the last swap the server announced for it was to the learnt
     // landing.
     bool own_learnt_landing();
+    // **Why the server refused it the learnt landing**, each time since last
+    // asked, oldest first (`LEARNT_LANDING_REFUSED`).
+    std::vector<std::string> refused_learnt_landings() {
+        const auto lock = held();
+        std::vector<std::string> out;
+        out.swap(learnt_refused_);
+        return out;
+    }
     // **Its copilot's route** (`COPILOT_ROUTE`) for its own aircraft: the
     // model was asked on this machine, with the player's key; only the route
     // goes. The server checks it, and flies it with its AI - handing the
@@ -362,6 +376,7 @@ private:
     std::optional<Joined> taken_;
     std::optional<std::uint8_t> taking_over_;
     std::vector<std::uint8_t> refused_;
+    std::vector<std::string> learnt_refused_;
     // The input sent last when the take-over was heard, and the last the
     // server has applied.
     std::optional<std::uint32_t> taken_at_;
@@ -457,6 +472,23 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
             if (newest) {
                 if (auto joined = joined_by(*newest)) {
                     mine_ = joined->number;
+                    // Its levers, before any input of this client's has
+                    // moved them: asked by riding along in its own, and
+                    // riding in nothing again once said.
+                    send_watch(mine_);
+                    newest.reset();
+                    while (local_s() - began < give_up_after_s && !joined->levers) {
+                        poll_here(local_s());
+                        for (net::StatePacket& state : session_.take_states()) {
+                            if (state.watched && state.watched->aircraft == mine_) {
+                                joined->levers = state.watched;
+                            }
+                        }
+                        if (!joined->levers) {
+                            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                        }
+                    }
+                    send_watch(net::no_aircraft);
                     return joined;
                 }
             }

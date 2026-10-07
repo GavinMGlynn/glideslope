@@ -429,9 +429,10 @@ that is handed one has been handed something with no meaning.
 | `WATCH` | a client | **yes** |
 | `COPILOT_ROUTE` | a client | **yes** |
 | `TAKE_OVER_REFUSED` | server | no |
+| `LEARNT_LANDING_REFUSED` | server | no |
 
 **So `CONTROLLER_SWAP`, `WATCH` and `COPILOT_ROUTE` are the three with a
-client-to-server threat surface**, and the readers for the other seven matter in the opposite
+client-to-server threat surface**, and the readers for the other eight matter in the opposite
 direction: they are what defends a client against a server that is hostile,
 broken or a different version. That direction is not hypothetical - a client
 is told a server's host, port and key by whoever ran the server: on a command

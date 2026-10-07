@@ -60,6 +60,7 @@ enum class Message : std::uint8_t {
     watch = 8,
     copilot_route = 9,
     take_over_refused = 10,
+    learnt_landing_refused = 11,
 };
 
 // Whether `kind` is one this version knows.
@@ -222,6 +223,17 @@ struct TakeOverRefused {
     std::uint8_t aircraft = 0;
 };
 
+// **The learnt landing refused** (protocol version 9), sent by the server to
+// the client that asked for it for its own aircraft and to no other: the
+// aircraft, and why, in the words the server's log says it in - "not at the
+// learnt landing's gate: YSSY 16R: 2.9 miles out; the gate is 1.6 to 2.4
+// miles out". Without it a player pressing L heard nothing, and only the
+// server's operator knew why (PROJECT_STATUS.md, 2026-10-08).
+struct LearntLandingRefused {
+    std::uint8_t aircraft = 0;
+    std::string why; // up to most_reason_bytes; cut there by whoever writes it
+};
+
 // **A copilot's route for a client's own aircraft** (REQUIREMENTS.md section
 // 5, decided 2026-09-30): the player's own client asks the language model,
 // with the player's key, which never leaves it, and sends only what came of
@@ -273,6 +285,8 @@ inline constexpr std::size_t most_route_waypoints = 12;
 // The longest a weather may blend in over, seconds: a day.
 inline constexpr double most_blend_s = 86400.0;
 inline constexpr std::size_t most_waypoint_name_bytes = 32;
+// The longest reason a refusal gives.
+inline constexpr std::size_t most_reason_bytes = 160;
 
 // **The most a message body may be**: a datagram, less the envelope in front
 // of it and the reliable layer's number and acknowledgement. Nothing
@@ -301,6 +315,7 @@ std::vector<std::uint8_t> write(const ControllerSwap& m);
 std::vector<std::uint8_t> write(const Watch& m);
 std::vector<std::uint8_t> write(const CopilotRoute& m);
 std::vector<std::uint8_t> write(const TakeOverRefused& m);
+std::vector<std::uint8_t> write(const LearntLandingRefused& m);
 
 // Which kind a body is, or nothing if it is empty or a kind this version
 // does not know.
@@ -320,6 +335,7 @@ bool read(std::span<const std::uint8_t> body, TerrainDataset& out);
 bool read(std::span<const std::uint8_t> body, ControllerSwap& out);
 bool read(std::span<const std::uint8_t> body, Watch& out);
 bool read(std::span<const std::uint8_t> body, TakeOverRefused& out);
+bool read(std::span<const std::uint8_t> body, LearntLandingRefused& out);
 bool read(std::span<const std::uint8_t> body, CopilotRoute& out);
 
 // **The aeroplane a player asks for when joining** (REQUIREMENTS 4.2, decided

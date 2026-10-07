@@ -48,6 +48,9 @@ struct FlightStart {
     // Standing on the ground at the latitude and longitude, its wheels down,
     // rather than flying - the height is then the ground's.
     bool on_ground = false;
+    // The flaps it starts with, 0 up to 1 fully down: a server's aircraft's,
+    // joined on final with the landing flap out.
+    double flaps = 0.0;
     // The attitude it starts at in the air, degrees: level by default.
     double pitch_deg = 0.0;
     double roll_deg = 0.0;

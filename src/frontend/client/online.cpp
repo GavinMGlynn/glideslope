@@ -304,6 +304,12 @@ void Online::hear(Flight& flight) {
 }
 
 void Online::noticed() {
+    // **The learnt landing refused** its own, and why.
+    for (net::LearntLandingRefused& refused : session_.take_learnt_refusals()) {
+        if (refused.aircraft == mine_) {
+            learnt_refused_.push_back(std::move(refused.why));
+        }
+    }
     // **A take-over refused** is answered: its own is the one it had.
     for (const std::uint8_t refused : session_.take_refusals()) {
         refused_.push_back(refused);

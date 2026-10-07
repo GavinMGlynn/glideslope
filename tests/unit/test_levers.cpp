@@ -6,6 +6,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
@@ -284,4 +285,67 @@ GLIDESLOPE_TEST(the_mosquitos_rpm_follows_its_propeller_lever) {
     check(high > low + 100.0,
           "the lever forward turns the airscrew faster: " + std::to_string(high) +
               " against " + std::to_string(low));
+}
+
+// **The flaps from the keyboard**: F lowers them a notch a press and R
+// raises them one, a third of their travel - up, 10, 20 and the landing flap,
+// which is exactly full, as the learnt landing's gate asks - stopping at
+// either end; a key held is one press, not one a frame. Every press from
+// every notch is walked: four notches, two keys, eight presses. And a stick
+// and a quadrant can each set them, so that no way of flying lacks them.
+GLIDESLOPE_TEST(the_keyboard_sets_the_flaps_a_notch_a_press_to_exactly_full_and_back_up) {
+    const auto press = [](double from, SDL_Scancode key, int frames_held) {
+        KeyboardControls keyboard;
+        Controls c;
+        c.flaps = from;
+        Keys keys;
+        keys.down(key);
+        for (int i = 0; i < frames_held; ++i) {
+            keyboard.apply(c, 1.0 / steps_per_second, keys.held, key_count);
+        }
+        keys.up(key);
+        keyboard.apply(c, 1.0 / steps_per_second, keys.held, key_count);
+        return c.flaps;
+    };
+    std::size_t walked = 0;
+    for (int notch = 0; notch <= 3; ++notch) {
+        const double at = notch / 3.0;
+        for (const auto& [key, by] : {std::pair{SDL_SCANCODE_F, 1}, std::pair{SDL_SCANCODE_R, -1}}) {
+            const double want = std::clamp(notch + by, 0, 3) / 3.0;
+            // Held for two seconds, still one notch.
+            const double got = press(at, key, 2 * steps_per_second);
+            check(got == want, std::string(key == SDL_SCANCODE_F ? "F" : "R") + " from " +
+                                   std::to_string(at) + " put the flaps at " +
+                                   std::to_string(got) + ", not " + std::to_string(want));
+            ++walked;
+        }
+    }
+    check(walked == 8, "every press from every notch was walked: " + std::to_string(walked));
+    // Three presses from up is the landing flap, exactly.
+    KeyboardControls keyboard;
+    Controls c;
+    Keys keys;
+    for (int i = 0; i < 3; ++i) {
+        keys.down(SDL_SCANCODE_F);
+        keyboard.apply(c, 1.0 / steps_per_second, keys.held, key_count);
+        keys.up(SDL_SCANCODE_F);
+        keyboard.apply(c, 1.0 / steps_per_second, keys.held, key_count);
+    }
+    check(c.flaps == 1.0, "three presses of F put the flaps at " + std::to_string(c.flaps));
+
+    std::ifstream in(data() / "input" / "bindings.txt", std::ios::binary);
+    const auto bindings = glideslope::platform::parse_bindings(
+        std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>()));
+    std::size_t kinds = 0;
+    for (const auto kind : {glideslope::platform::DeviceKind::flight_stick,
+                            glideslope::platform::DeviceKind::throttle}) {
+        const bool bound = std::any_of(bindings.begin(), bindings.end(), [&](const auto& b) {
+            return b.device == kind && b.control == Control::flaps;
+        });
+        check(bound, std::string(kind == glideslope::platform::DeviceKind::throttle ? "a quadrant"
+                                                                                    : "a stick") +
+                         " has the flaps bound");
+        ++kinds;
+    }
+    check(kinds == 2, "both kinds of device were looked at");
 }

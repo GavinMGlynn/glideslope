@@ -105,7 +105,11 @@ private:
 // **The keyboard, beside any flight controller.** The arrows fly it, Z and X
 // work the rudder, Page Up and Page Down the throttle, the comma and full
 // stop the mixture, the square brackets the propeller, and the semicolon and
-// apostrophe the speedbrake lever, in and out; B holds the brakes.
+// apostrophe the speedbrake lever, in and out; B holds the brakes. **F lowers
+// the flaps a notch and R raises them one**, a third of their travel a press
+// as a stick's flap buttons do (assets/input/bindings.txt): the landing flap
+// is three presses, and exactly full, which is what the learnt landing's gate
+// asks for.
 //
 // A key moves its control while held and lets it go when released, so a stick
 // left alone is not overridden every frame. **The levers hold where they are
@@ -126,6 +130,8 @@ private:
     bool aileron_ = false;
     bool rudder_ = false;
     bool brakes_ = false;
+    bool flaps_down_ = false;
+    bool flaps_up_ = false;
 };
 
 // Every flight controller SDL can see, opened as they appear. Needs SDL's
