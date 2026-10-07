@@ -1344,3 +1344,80 @@ GLIDESLOPE_TEST(a_client_paced_by_its_clocks_difference_flies_at_the_servers_pac
           "unpaced against a server at 0.6 the clocks' difference fell by " +
               std::to_string(-unpaced.drifted) + " steps, not over a thousand");
 }
+
+namespace {
+
+// Flies `inputs` inputs of four steps each, the first numbered `first`, and
+// then says of each from the second on that the server applied it `offset`
+// steps after this client began it - a word each, as the clocks' difference.
+void words_at(Prediction& p, std::uint32_t first, std::uint32_t inputs, std::int64_t offset) {
+    Controls c;
+    c.throttle = 0.7;
+    c.mixture = 1.0;
+    const std::uint64_t began_at = p.steps();
+    for (std::uint32_t i = 0; i < inputs; ++i) {
+        for (int s = 0; s < 4; ++s) {
+            p.step(first + i, c);
+        }
+    }
+    for (std::uint32_t i = 1; i < inputs; ++i) {
+        const auto began = static_cast<std::int64_t>(began_at + 4 * i);
+        p.hear_clock(first + i, 0, static_cast<std::uint64_t>(began + offset));
+    }
+}
+
+} // namespace
+
+// **What both clients do with a word, in every state the pacing can be in**
+// (sim::Pacing::follow - client::Flight::pace_by_clocks and the command
+// line's Predicting both call it and nothing else): before the clocks'
+// difference is known, with no rate it flies at this machine's pace and with
+// one at that rate, never above real time; once known it is held, from the
+// rate; a difference fallen since flies it slower; and a prediction begun
+// again (`hold`, as a take-over's or take-back's adopt does) is held anew
+// from its own first word, at the pace flown then, the rate no longer taken.
+// Six states, asserted.
+GLIDESLOPE_TEST(a_client_paces_itself_by_its_words_before_and_after_its_clocks_difference_is_known_and_after_starting_again) {
+    std::size_t states = 0;
+    Aircraft a(data() / "jsbsim", "c172p");
+    set_up(a);
+    glideslope::sim::Pacing pacing;
+    {
+        Prediction p(a);
+        words_at(p, 1, 10, 500);
+        check(!p.settled(), "nine words do not settle it");
+        pacing.follow(p, 1.0, std::nullopt);
+        check(pacing.pace() == 1.0 && !pacing.holding(),
+              "unknown, with no rate: this machine's pace, not held");
+        ++states;
+        pacing.follow(p, 1.1, 0.6);
+        check(pacing.pace() == 0.6 && !pacing.holding(), "unknown, with a rate: at it");
+        ++states;
+        pacing.follow(p, 1.2, 1.7);
+        check(pacing.pace() == 1.0 && !pacing.holding(), "and never above real time");
+        ++states;
+        pacing.follow(p, 1.25, 0.6);
+        words_at(p, 10, 30, 500);
+        check(p.settled(), "thirty words more settle it");
+        pacing.follow(p, 2.0, 0.9);
+        check(pacing.holding() && pacing.off() == 0 && pacing.pace() == 0.9,
+              "known: held, from the rate");
+        ++states;
+        // Every newest word twelve steps less: the server fell behind.
+        words_at(p, 40, 12, 488);
+        pacing.follow(p, 2.5, 0.9);
+        check(pacing.off() == -12 && pacing.pace() < 0.9,
+              "fallen twelve steps: " + std::to_string(pacing.off()) + ", flown slower, at " +
+                  std::to_string(pacing.pace()));
+        ++states;
+    }
+    const double was = pacing.pace();
+    pacing.hold();
+    Prediction again(a);
+    words_at(again, 1, 30, 9000);
+    pacing.follow(again, 3.0, 0.3);
+    check(pacing.holding() && pacing.off() == 0 && pacing.pace() == was,
+          "begun again: held anew at the pace flown, not the rate");
+    ++states;
+    check(states == 6, "six states were paced in: " + std::to_string(states));
+}

@@ -29,6 +29,8 @@
 
 namespace glideslope::sim {
 
+class Prediction;
+
 class Pacing {
 public:
     // **The loop's gains**, on the difference in seconds (steps over
@@ -61,6 +63,12 @@ public:
     // window client's first fit, from words heard in a burst after a slow
     // start, said 2.0 - the loop then spent ten seconds coming back from it.
     void before_held(double rate);
+
+    // **What both clients do with a word of the server's**, once the
+    // prediction has been put right by it: at `rate` while the prediction's
+    // clocks' difference is not yet known, if there is a rate; once it is,
+    // steered by the newest words' (Prediction::recent_clocks_difference).
+    void follow(const Prediction& prediction, double local_s, std::optional<double> rate);
 
     // **Held anew from the next difference heard** - a prediction started
     // again, whose steps are numbered from nought - at the pace it has now.

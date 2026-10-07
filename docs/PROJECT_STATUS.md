@@ -321,6 +321,27 @@ starts - flown on it alone, open loop, the client drifted (the entry below).
   with `--unpaced`), 20.2 and 20.5 m - which its relative bound let pass.
   That bound is not changed here.
 
+**From the review of #121.** The engine-stop test let a client off by 20 m
+pass, its bound being relative: now
+`a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres`
+(the same script, `-DSLOWED=ON`, port 24868, RUN_SERIAL) runs its server at
+`--test-pace 0.6` and holds both medians under 5 cm: 4 mm after the stop and
+23 mm before here. **Seen to fail** unpaced (`-DUNPACED=ON`): medians 13.1 m
+after, 11.8 m over all. Both clients' handling of a word is now one function,
+`sim::Pacing::follow` (the window client's `Flight::pace_by_clocks` and the
+command line's `Predicting` call it and nothing else), pinned by
+`a_client_paces_itself_by_its_words_before_and_after_its_clocks_difference_is_known_and_after_starting_again`
+in all six states it can be in - unknown with no rate, with a rate, with a
+rate above 1; held from the rate; fallen twelve steps and flown slower; begun
+again after a take-over's `hold`, held anew at the pace flown. **Seen to
+fail** with the rate not taken before the hold: "unknown, with a rate: at
+it". The window client's frame loop itself is still tested by nothing paced
+(the 6 to 9 m above). The completion plan's items were cut back to summaries;
+from them: part of the server-behind error was once the client's clock
+estimate lagging the server's catch-up (2026-09-27), and the prediction
+tests' 20 m bound is unchanged, its month of CI counted under the nightly
+item.
+
 ### Two network tests that failed on slow runners: the ground test's clients race no more, and the rate test's burst is read at once, 2026-10-08 — tails left open for their month of CI
 
 **What is still missing first**: both tails' verifications ask for a month of

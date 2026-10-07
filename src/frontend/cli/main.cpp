@@ -1686,12 +1686,10 @@ public:
                         static_cast<double>(glideslope::sim::steps_per_second))));
                 // The pace steered by the clocks' difference, once it is
                 // known; from the session clock's fitted rate the first time.
-                if (paced_ && prediction_->settled()) {
-                    if (const auto difference = prediction_->recent_clocks_difference()) {
-                        pacing_.heard(*difference, local_s,
-                                      clock_.known() ? std::optional<double>(clock_.rate())
-                                                     : std::nullopt);
-                    }
+                if (paced_) {
+                    pacing_.follow(*prediction_, local_s,
+                                   clock_.known() ? std::optional<double>(clock_.rate())
+                                                  : std::nullopt);
                 }
                 const Predicted* at = nullptr;
                 if (c.at_step && *c.at_step > 0) {
