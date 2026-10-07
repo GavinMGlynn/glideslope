@@ -23,8 +23,11 @@
 #
 # **What must hold**: the client stopped one engine for the server's word,
 # compared 300 updates after, and its median prediction error after the stop
-# is no more than its median before, or 2 cm - "as small as with it
-# running". **The median, not the worst**: half a second at a time, every few
+# is no more than 2 cm over its median before - "as small as with it
+# running". **Over, not the larger of**: on Windows both medians are 50 to 60
+# mm, a millimetre or four apart either way from run to run (five runs here,
+# 2026-10-08, and CI's 47 against 43 mm), and the larger-of bound failed on
+# that alone; the engine run on put the median after 0.2 m against 0.03. **The median, not the worst**: half a second at a time, every few
 # seconds, the prediction is put right by a metre or more whether an engine
 # has stopped or not (1.6 m in 40 s of this flight with none, 2026-10-06) -
 # the clock's estimate, an open tail - and the worst is what that made it.
@@ -107,14 +110,11 @@ endif()
 # In millimetres, as CMake's arithmetic has no fractions.
 math(EXPR _after_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
 math(EXPR _before_mm "${CMAKE_MATCH_3} * 1000 + ${CMAKE_MATCH_4}")
-set(_bound_mm ${_before_mm})
-if(_bound_mm LESS 20)
-    set(_bound_mm 20)
-endif()
+math(EXPR _bound_mm "${_before_mm} + 20")
 if(_after_mm GREATER _bound_mm)
     message(FATAL_ERROR "with the engine stopped the median prediction error was "
-                        "${_after_mm} mm, more than the ${_before_mm} mm before it or 2 cm:\n"
-                        "${_said}")
+                        "${_after_mm} mm, more than 2 cm over the ${_before_mm} mm before "
+                        "it:\n${_said}")
 endif()
 if(SLOWED AND (_after_mm GREATER 50 OR _before_mm GREATER 50))
     message(FATAL_ERROR "against a server at 0.6 of real time the median prediction "
