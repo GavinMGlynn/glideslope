@@ -807,7 +807,8 @@ person to read, not for a program to parse: its wording is not part of the
 protocol. A server cuts a longer one at 160 bytes; a reader refuses one
 longer than that, and one with any byte outside printable ASCII (`20` to
 `7E`) - it is printed on the player's terminal, where an escape would reach -
-and an empty one is allowed. A request for another
+and an empty one is allowed. The server writes any other byte as `?`, so
+it never sends what a reader refuses. A request for another
 client's aircraft is neither honoured nor answered, and one the server could
 not queue an answer for is said in its log.
 

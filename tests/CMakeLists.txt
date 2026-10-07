@@ -741,6 +741,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_cessna_climbing_through_another_or_meeting_one_head_on_is_kept_apart_by_the_monitor_and_without_it_is_not
     an_autopilot_holding_a_climb_stops_at_its_ceiling_and_one_holding_a_descent_at_its_floor
     an_orbit_and_a_take_off_are_read_from_a_plan_and_refused_where_they_are_wrong
+    a_landing_is_read_from_a_plan_and_refused_where_it_is_wrong
     the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind_down_to_the_tightest_allowed
     an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_circle
     every_aircraft_has_its_own_tests_of_its_tightest_orbits_and_one_step_past_them
@@ -2582,14 +2583,15 @@ set_tests_properties(a_players_c172p_handed_to_the_learnt_landing_on_final_is_la
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
 
-# **The server's own AI C172P, put on final outside the gate, is flown into
-# it, handed to the learnt landing there, and landed.** See
+# **The server's own AI C172P, flying a plan that ends in a landing - or put
+# on final by the operator - is flown into the gate, handed to the learnt
+# landing there, and landed.** See
 # cmake/server_ai_learnt_landing.cmake.
-add_test(NAME the_servers_ai_c172p_on_final_is_handed_to_the_learnt_landing_at_its_gate_and_landed
+add_test(NAME the_servers_ai_c172p_flying_a_plan_that_ends_in_a_landing_is_handed_to_the_learnt_landing_at_its_gate_and_landed
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ai_learnt_landing.cmake)
-set_tests_properties(the_servers_ai_c172p_on_final_is_handed_to_the_learnt_landing_at_its_gate_and_landed
+set_tests_properties(the_servers_ai_c172p_flying_a_plan_that_ends_in_a_landing_is_handed_to_the_learnt_landing_at_its_gate_and_landed
     PROPERTIES SKIP_RETURN_CODE 77)
 
 # **The pre-commit hook refuses what it says it refuses**, and nothing else.

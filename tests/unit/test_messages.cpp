@@ -1375,4 +1375,20 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_learnt_landing_refusal_is
                                 got) &&
               got.why.size() == glideslope::net::most_reason_bytes,
           "a reason too long is cut to 160 bytes by the writer");
+    // **The writer never writes what the reader refuses**: every byte there
+    // is, in a reason, reads back - printable as itself, the rest as '?'.
+    std::size_t bytes = 0;
+    for (int c = 0; c < 256; ++c) {
+        glideslope::net::LearntLandingRefused m;
+        m.why = std::string("gate ") + static_cast<char>(c);
+        const std::vector<std::uint8_t> body = glideslope::net::write(m);
+        glideslope::net::LearntLandingRefused back;
+        const bool read = glideslope::net::read(
+            std::span<const std::uint8_t>(body.data(), body.size()), back);
+        const char want = c >= 0x20 && c <= 0x7E ? static_cast<char>(c) : '?';
+        check(read && back.why == std::string("gate ") + want,
+              "byte " + std::to_string(c) + " written reads back as " + std::string(1, want));
+        ++bytes;
+    }
+    check(bytes == 256, "every byte was written: " + std::to_string(bytes));
 }

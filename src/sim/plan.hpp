@@ -15,6 +15,7 @@
 //   takeoff HEIGHT_FT                   or on that runway's threshold, to go
 //   waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT
 //   orbit NAME LATITUDE LONGITUDE RADIUS_M ALTITUDE_FT AIRSPEED_KT TURNS left|right
+//   land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M  after the last
 //
 // with `#` beginning a comment. Degrees are WGS84's, altitudes above sea
 // level, airspeeds calibrated.
@@ -30,6 +31,15 @@
 // joined at a tangent and steered along it with the bank the circle needs,
 // turned in towards it by 90 degrees for each kilometre outside it and out
 // for each inside, up to 45 (sim/navigator.cpp).
+//
+// **A plan may end in a landing**: `land` names the runway - its landing
+// threshold, as `runway` does - and once the last waypoint is passed the AI
+// flies to the final approach, six and then four miles out on the extended
+// centreline and the glidepath, and down it with the approach autopilot,
+// handed to the learnt landing at its gate where the aircraft has one
+// (sim::Controller). Where a plan's runway lies is the plan's to say; a
+// caller that knows the ground better - the server, from the ground it
+// collides on - may put its elevation right.
 
 #include <optional>
 #include <stdexcept>
@@ -128,6 +138,9 @@ struct FlightPlan {
     };
     std::optional<TakeOff> takeoff;
     std::vector<Waypoint> waypoints;
+    // **Landed on, after the last waypoint** (`land`), or none: the plan's
+    // last leg then goes on flying the autopilot's last waypoint.
+    std::optional<Runway> landing;
 };
 
 // Throws FlightPlanError naming the line of anything it cannot read, and for a

@@ -45,6 +45,37 @@ bool towards(Controls& from, const Controls& to) {
     return met;
 }
 
+// **The way on to a plan's final approach**: six and then four miles out on
+// `runway`'s extended centreline, on the glidepath the approach autopilot
+// flies - aimed `aim_m` past the threshold - at ten knots over the reference
+// speed. Joined at four miles, she is lined up and on the glidepath, and the
+// approach autopilot has two miles to put the landing flap out and slow her
+// before the learnt landing's gate. The landing itself kept, so that the
+// controller knows what these legs are for.
+FlightPlan final_legs(const Runway& runway, const ApproachSpeeds& speeds) {
+    FlightPlan legs;
+    legs.aircraft = "final";
+    legs.landing = runway;
+    constexpr double metres_per_nm = 1852.0;
+    constexpr double metres_per_degree = 111320.0;
+    const double heading = runway.heading_deg * std::numbers::pi / 180.0;
+    const double lat = runway.threshold_lat_deg * std::numbers::pi / 180.0;
+    for (const double out_nm : {6.0, 4.0}) {
+        const double out_m = out_nm * metres_per_nm;
+        Waypoint w;
+        w.name = out_nm > 5.0 ? "FINAL_6NM" : "FINAL_4NM";
+        w.latitude_deg = runway.threshold_lat_deg - out_m * std::cos(heading) / metres_per_degree;
+        w.longitude_deg = runway.threshold_lon_deg -
+                          out_m * std::sin(heading) / (metres_per_degree * std::cos(lat));
+        w.altitude_ft = runway.elevation_ft + (out_m + speeds.aim_m) *
+                                                  std::tan(3.0 * std::numbers::pi / 180.0) /
+                                                  0.3048;
+        w.airspeed_kts = speeds.vref_kts + 10.0;
+        legs.waypoints.push_back(w);
+    }
+    return legs;
+}
+
 } // namespace
 
 Controller::Controller(const Aircraft& aircraft, const Controls& controls)
@@ -61,6 +92,7 @@ void Controller::engage() {
     lander_.reset();
     learnt_.reset();
     at_gate_.reset();
+    on_final_legs_ = false;
     landing_.reset();
     // A glide is for the route it came with, and ends with it.
     glide_kts_.reset();
@@ -105,6 +137,7 @@ void Controller::replan(FlightPlan plan) {
         to_ai(std::move(plan));
         return;
     }
+    on_final_legs_ = false;
     navigator_.emplace(a_, std::move(plan));
 }
 
@@ -294,6 +327,23 @@ Controls Controller::fly() {
             }
             lander_.reset();
             autopilot_.emplace(a_, applied_);
+        }
+        // **A plan that ends in a landing**: its waypoints passed, the way on
+        // to the final approach; that passed, the approach - and the learnt
+        // landing at its gate, if she has one.
+        if (navigator_ && navigator_->finished() && navigator_->plan().landing &&
+            landing_speeds_ && !glide_kts_) {
+            const Runway runway = *navigator_->plan().landing;
+            if (!on_final_legs_) {
+                navigator_.emplace(a_, final_legs(runway, *landing_speeds_));
+                on_final_legs_ = true;
+            } else if (landing_policy_) {
+                to_ai_approach(runway, *landing_speeds_, landing_policy_);
+                return fly();
+            } else {
+                to_ai_approach(runway, *landing_speeds_);
+                return fly();
+            }
         }
         if (navigator_) {
             AutopilotModes modes = navigator_->steer();

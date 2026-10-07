@@ -474,7 +474,15 @@ bool read(std::span<const std::uint8_t> body, TakeOverRefused& out) {
 std::vector<std::uint8_t> write(const LearntLandingRefused& m) {
     Writer w = begin_message(Message::learnt_landing_refused);
     w.u8(m.aircraft);
-    w.text(m.why.substr(0, most_reason_bytes));
+    // What a reader refuses is never written: past the limit cut, and a
+    // byte outside printable ASCII written as '?'.
+    std::string why = m.why.substr(0, most_reason_bytes);
+    for (char& c : why) {
+        if (c < 0x20 || c > 0x7E) {
+            c = '?';
+        }
+    }
+    w.text(why);
     return w.take();
 }
 

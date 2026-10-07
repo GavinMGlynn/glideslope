@@ -39,9 +39,9 @@ replays that prove a result, no deterministic simulation.
 > the way: 101 done, 36 open. The biggest gaps, named first: **the ground is
 > drawn only around where a flight starts** (fly far enough and there is sky
 > beneath you); **cloud is a flat sheet**, not a volume; the Learjet has no
-> visual model; **the learnt landing is the Cessna 172's alone**, and no
-> flight plan can end in a landing (an AI aircraft is landed by it only when
-> the server puts one on final); and no public server is running yet.
+> visual model; **the learnt landing is the Cessna 172's alone**, and
+> nothing clears a runway after a landing; and no public server is running
+> yet.
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the single source of
 > truth.
 
@@ -121,7 +121,7 @@ progress** means much of it runs and the missing part is named.
 | Ride along in an AI aircraft, then take it over | In progress - one unexplained take-over in testing was not refused; a month of clean nightly runs is owed before it is closed |
 | AI traffic that keeps flying with nobody connected | In progress - nothing yet stops you flying into an AI aircraft |
 | A copilot you talk to, and a different model on each AI aircraft | In progress - Claude and ChatGPT plan routes and change them as the flight goes, and the autopilot flies them; the AI knows no runway for a landing flown by hand |
-| A pilot that learned to fly (a learnt landing) | In progress - only the Cessna 172 has one. On a server a player's 172 on final is handed to it at its gate with L (told why not on the HUD), and an AI 172 the server puts on final is handed to it there too; its limits measured from 160 landings. No flight plan can yet end in a landing |
+| A pilot that learned to fly (a learnt landing) | In progress - only the Cessna 172 has one. On a server a player's 172 on final is handed to it at its gate with L (told why not on the HUD), and an AI 172 whose flight plan ends in a landing is handed to it there too; its limits measured from 160 landings. Nothing clears a runway after a landing |
 
 ### Flying together
 

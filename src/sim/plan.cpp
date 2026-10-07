@@ -56,7 +56,8 @@ FlightPlan parse_flight_plan(std::string_view text) {
         };
         // **Each of these once**: a second would quietly replace the first.
         if ((w[0] == "aircraft" && !plan.aircraft.empty()) || (w[0] == "start" && plan.start) ||
-            (w[0] == "runway" && runway) || (w[0] == "takeoff" && takeoff_to_ft)) {
+            (w[0] == "runway" && runway) || (w[0] == "takeoff" && takeoff_to_ft) ||
+            (w[0] == "land" && plan.landing)) {
             throw wrong("a second " + w[0] + " line");
         }
         if (w[0] == "aircraft") {
@@ -130,6 +131,18 @@ FlightPlan parse_flight_plan(std::string_view text) {
             r.heading_deg = number(w[5], line_number, "the heading", 0.0, 360.0);
             r.length_m = number(w[6], line_number, "the length", 100.0, 10000.0);
             runway = r;
+        } else if (w[0] == "land") {
+            if (w.size() != 7) {
+                throw wrong("land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M");
+            }
+            Runway r;
+            r.name = w[1];
+            r.threshold_lat_deg = number(w[2], line_number, "the latitude", -90.0, 90.0);
+            r.threshold_lon_deg = number(w[3], line_number, "the longitude", -180.0, 180.0);
+            r.elevation_ft = number(w[4], line_number, "the elevation", -1500.0, 20000.0);
+            r.heading_deg = number(w[5], line_number, "the heading", 0.0, 360.0);
+            r.length_m = number(w[6], line_number, "the length", 100.0, 10000.0);
+            plan.landing = r;
         } else if (w[0] == "takeoff") {
             if (w.size() != 2) {
                 throw wrong("takeoff HEIGHT_FT");
