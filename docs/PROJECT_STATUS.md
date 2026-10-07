@@ -260,6 +260,65 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The command-line client flies its own aircraft at the server's pace; the engine-stop test's Windows failures explained, 2026-10-07 — progress on a tail, which stays open
+
+**What is still missing first.** **The client with the window is not paced**:
+tried the same way, it was put right by 12 to 18 m against a server keeping
+real time, where unpaced it is 1.7 m - its session clock is fitted to the
+moment a frame reads each update, and a frame back from a long one (the
+test's `--slow-start 5`) reads seconds of them at one moment, which made the
+fitted rate a burst's. Taking the updates read together as one arrival (the
+newest) brought it back to 1.65 m, but moved the unit test's fitted rate at
+125% of real time from within 1% (1.235), so neither was kept: it needs the
+session to say when each update arrived, not when a frame read it. **The
+worst error is not under a metre**: against a server slowed on purpose it
+is 0.34 to 0.84 m in five runs, and at real time 0.29 to 0.46 m - the
+clocks' estimate's half-second excursions, the open part of the tail. **The
+session clock's rate is held to a half and more** (`net::SessionClock`), so
+a server under half of real time is still flown too fast: at 35% the median
+stayed 1.46 m. Lowering the floor to a quarter fixed that (0.435 m worst),
+but would let the window client's burst-fitted rate fall further too, so it
+was not kept.
+
+**What was wrong.** A server behind real time flies fewer steps a second
+than its clients, so it flies each input for fewer steps than the client
+that sent it flew it - and the client's prediction, flown at its own
+machine's pace, ran ahead of the server's aircraft by the difference. Built
+here with `--test-step-ms 12` (a server at half of real time, debug): the
+command-line client's prediction error was 2.3 m at the median and 5.6 m at
+worst, where at real time it is nought and 0.46 m.
+
+**What changed.** `glideslope_cli connect --predict` flies its own aircraft
+at the session's pace: the steps due are this machine's elapsed time times
+the session clock's fitted rate (`net::SessionClock::rate`, which the
+interpolation already fitted). Against the half-speed server: nought at the
+median, 0.30 to 0.45 m at worst; at 35%, clamped at a half, 1.46 m median.
+
+**The engine-stop test on Windows** (CI run 37583810544, PR #114's branch):
+`a_client_predicting_its_aircraft_stops_its_engine_when_the_server_says_and_is_put_right_no_more`
+failed on windows-debug (median after 47 mm against 43 before) and
+windows-clang (429 mm against 51 mm, the worst 16.9 m). The medians before
+the stop - 43 and 51 mm, where Linux has nought to 35 - and a worst of
+16.9 m are a server behind real time: CI's Windows debug servers, under a
+relay. Built here: the same test with its server slowed (`--test-step-ms
+12`, not kept) failed unpaced - median after the stop 16.2 m - and passed
+paced, 11 mm after against 35 mm before. Not platform drift, and not a
+wall-clock wait (it waits on 300 updates compared); the cause is the one
+above, and its fix is this. Its next Windows runs say whether it holds there.
+
+**Verification**:
+`a_client_predicting_against_a_server_behind_real_time_is_off_by_centimetres_not_metres`
+(`tests/cmake/server_slowed_prediction.cmake`): a server whose every step
+takes 10 ms (`--test-step-ms 10`; 57% of real time in the sanitized build,
+about 80% in a release one) and a client predicting its own aircraft for
+20 s. The server must end behind and the client's updates span under 85% of
+real time's steps, or the situation was not built; then the median
+prediction error must be under 10 cm and the worst under 2 m. Here: 1,572
+to 1,736 steps in 20 s, median nought, worst 0.34 to 0.84 m in five runs.
+**Seen to fail** with the client flown at its machine's pace: median
+1,386 mm, worst 4,024 mm; reverted, it passes. The engine-stop test still
+passes here (14 mm after, 43 mm before).
+
 ### The window client draws another player's chosen aeroplane as that aeroplane, 2026-10-07 — tail done
 
 **What was missing.** A player could ask for an aeroplane and fly it, and

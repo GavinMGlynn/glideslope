@@ -1970,6 +1970,19 @@ set_tests_properties(a_client_predicting_its_aircraft_stops_its_engine_when_the_
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction)
 
+# **A client predicting its own aircraft against a server behind real time
+# is off by centimetres, not metres**: it flies at the session's pace. See
+# cmake/server_slowed_prediction.cmake.
+add_test(NAME a_client_predicting_against_a_server_behind_real_time_is_off_by_centimetres_not_metres
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_slowed_prediction -DPORT=24854
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_slowed_prediction.cmake)
+set_tests_properties(a_client_predicting_against_a_server_behind_real_time_is_off_by_centimetres_not_metres
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_slowed_prediction)
+
 # **A player asks for an aeroplane as they join, and flies it.** See
 # cmake/server_aircraft_choice.cmake.
 add_test(NAME a_player_who_asks_for_an_aeroplane_when_joining_flies_it_and_every_client_is_told_so
