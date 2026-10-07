@@ -266,10 +266,16 @@ are the risks the phase order is built around:
 **What it is not, first.** **The server's own AI aircraft are never landed by
 it**: nothing in a plan or a model's route asks for the learnt landing, and
 no AI aircraft flies a final approach to be handed over at - the item's
-verification asks for that and it is not built. **The window client's L and
-its HUD are seen by no test**: the key asks and the HUD reads FLYING AI
-LEARNT LANDING by the code, not by a frame or a run - only the command-line
-client's asking is tested end to end. The client does not predict its
+verification asks for that and it is not built. **The window client cannot
+fly a 172 into the gate from the keyboard**: the keyboard has no flap key,
+and a window client joining starts its controls with the flaps up whatever
+the server's aircraft has - started on final with full flap, its own inputs
+ran them in, and asked two seconds after joining it was refused, "YSSY
+16R: flaps at 33%; the gate is the landing flap, 100%" (a window test,
+written and dropped for it). With a stick's or a quadrant's flap lever it
+can; **so its L and its HUD's FLYING AI LEARNT LANDING are seen by no
+test** - only the command-line client's asking is tested end to end. The
+client does not predict its
 aircraft while the learnt landing has it (as with any AI), and the gate's
 runway is the server's to find; the client is told only that it was handed
 over.

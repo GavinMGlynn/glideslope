@@ -212,8 +212,8 @@ the controls to an AI pilot whenever you like, then take them back.
   goal.
   In a session, a Cessna 172 on final can be handed to its learnt landing
   (L) two miles out, lined up and at its approach speed with full flap.
-  *Not yet:* only the Cessna 172 has a learnt landing, and the server's own
-  AI aircraft never use it.
+  *Not yet:* only the Cessna 172 has a learnt landing, the server's own AI
+  aircraft never use it, and from the keyboard the flaps cannot be set.
 
 ## Flying together
 
