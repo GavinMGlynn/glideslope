@@ -36,12 +36,12 @@ replays that prove a result, no deterministic simulation.
 > **Status, 2026-10-08.** Every numbered phase of the
 > [completion plan](docs/COMPLETION_PLAN.md) - 95 of 95 items - is ticked,
 > each against a named verification. What is left are the tails found along
-> the way: 100 done, 35 open. The biggest gaps, named first: **the ground is
+> the way: 101 done, 36 open. The biggest gaps, named first: **the ground is
 > drawn only around where a flight starts** (fly far enough and there is sky
 > beneath you); **cloud is a flat sheet**, not a volume; the Learjet has no
-> visual model; **the learnt landing is the Cessna 172's alone** - on a server
-> it works, but the window client's L key has not been tested and the AI
-> aircraft never use it; and no public server is running yet.
+> visual model; **the learnt landing is the Cessna 172's alone**, and no
+> flight plan can end in a landing (an AI aircraft is landed by it only when
+> the server puts one on final); and no public server is running yet.
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the single source of
 > truth.
 
@@ -121,7 +121,7 @@ progress** means much of it runs and the missing part is named.
 | Ride along in an AI aircraft, then take it over | In progress - one unexplained take-over in testing was not refused; a month of clean nightly runs is owed before it is closed |
 | AI traffic that keeps flying with nobody connected | In progress - nothing yet stops you flying into an AI aircraft |
 | A copilot you talk to, and a different model on each AI aircraft | In progress - Claude and ChatGPT plan routes and change them as the flight goes, and the autopilot flies them; the AI knows no runway for a landing flown by hand |
-| A pilot that learned to fly (a learnt landing) | In progress - on a server a Cessna 172 on final can be handed to the learnt landing at its gate (two miles out, lined up, at approach speed with full flap), its limits measured from 160 landings; the window client's L key is untested, the keyboard cannot set flaps, and AI aircraft do not use it |
+| A pilot that learned to fly (a learnt landing) | In progress - only the Cessna 172 has one. On a server a player's 172 on final is handed to it at its gate with L (told why not on the HUD), and an AI 172 the server puts on final is handed to it there too; its limits measured from 160 landings. No flight plan can yet end in a landing |
 
 ### Flying together
 
@@ -293,18 +293,21 @@ glideslope --terrain google                  # Google's 3D Tiles (needs a key)
 In flight, **A** hands the aircraft to the AI and takes it back, **V** steps
 through the views, and **M** chooses which model plans for your aircraft once
 it is handed over. On a server, **L** hands a Cessna 172 on final - two
-miles out, lined up, at its approach speed with full flap (from a stick or a
-quadrant: the keyboard has no flaps yet) - to the landing learnt by
-reinforcement learning; **A** takes it back.
+miles out, lined up, at its approach speed with full flap - to the landing
+learnt by reinforcement learning, and if it is not there the HUD says why;
+**A** takes it back.
 
 **The flying controls.** On the keyboard the arrow keys are the stick, **Z**
 and **X** the rudder, **Page Up** and **Page Down** the throttle, **,** and
 **.** the mixture, **[** and **]** the propeller, **;** and **'** the
-speedbrakes (in and out), and **B** holds the brakes. A joystick or HOTAS
-works as `data/input/bindings.txt` says - on a throttle quadrant the
-speedbrake is the last lever, pulled back to open them, and buttons 13 and
-14 of a stick or a quadrant close and open them a quarter at a press. The HUD
-shows the speedbrakes on aircraft that have them.
+speedbrakes (in and out), **F** and **R** the flaps (down and up a notch, a
+third at a press), and **B** holds the brakes. A joystick or HOTAS works as
+`data/input/bindings.txt` says - the flaps are a stick's sixth axis and
+buttons 1 and 2, or a quadrant's fourth lever, buttons 1 and 2 and its hat;
+on a throttle quadrant the speedbrake is the last lever, pulled back to open
+them, and buttons 13 and 14 of a stick or a quadrant close and open them a
+quarter at a press. The HUD shows the speedbrakes on aircraft that have
+them.
 
 **Fly together:**
 
