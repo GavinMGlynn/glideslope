@@ -8,11 +8,11 @@
 
 #include <FGFDMExec.h>
 #include <input_output/FGGroundCallback.h>
-#include <input_output/FGXMLElement.h>
-#include <input_output/FGXMLFileRead.h>
 #include <initialization/FGInitialCondition.h>
 #include <initialization/FGTrim.h>
 #include <input_output/FGPropertyManager.h>
+#include <input_output/FGXMLElement.h>
+#include <input_output/FGXMLFileRead.h>
 #include <math/FGColumnVector3.h>
 #include <math/FGLocation.h>
 #include <math/FGMatrix33.h>
@@ -35,9 +35,10 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
-#include <sstream>
 #include <functional>
+#include <limits>
+#include <numbers>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -171,10 +172,6 @@ CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::stri
     return found;
 }
 
-} // namespace
-
-namespace {
-
 // **The angles of attack and sideslip the model's aerodynamics has data
 // for**: the widest breakpoints of every table in its <aerodynamics> keyed on
 // aero/alpha-rad or -deg, and on aero/beta-rad or -deg (aero/mag-beta-rad
@@ -224,7 +221,7 @@ void read_tables(JSBSim::Element* el, Tabulated& t) {
         const auto take = [&](const std::string& property, double key) {
             double k = key;
             if (property.find("-deg") != std::string::npos) {
-                k = key * 3.14159265358979323846 / 180.0;
+                k = key * std::numbers::pi / 180.0;
             }
             if (property.rfind("aero/alpha-", 0) == 0) {
                 t.alpha_low = std::min(t.alpha_low, k);

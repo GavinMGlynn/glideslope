@@ -1176,10 +1176,9 @@ GLIDESLOPE_TEST(every_aircraft_but_the_light_aeroplanes_holds_a_heading_in_a_20_
 // rudder integral (their catalogue's `yaw-damper`), the B-2A swung 7.3
 // degrees of sideslip either way at 159 kt and 1.5 at 179, and the F-22A 7.8
 // at 220 and 2.4 at 240, and their plans were kept above 194 and 255 kt for
-// it. Below the slowest the jets do not fly clean at all: from their approach
-// speeds the F-22A at 120 to 130 kt and the B-2A at 124 to 149 came down 500
-// ft before reaching their orbits, and the 737-300, 747-400, A380 and Learjet
-// held no heading - which is no yaw damper's to put right. The space is every
+// it. Below the slowest some do not hold it: flown from their approach speeds
+// on these gains (2026-10-07) the 737-300, A380, B-2A, Learjet and F-35B
+// swing or leave their tables (PROJECT_STATUS.md; an open tail). The space is every
 // aircraft at every step, counted; none is left out. **Each aircraft in a test
 // of its own**: all sixteen in one ran past 900 s in CI's linux-debug.
 namespace {
