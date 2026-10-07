@@ -341,24 +341,25 @@ passes 19 (the F-35B at 204 kt). **Round** is once round, or half way where
   protection only, and a copilot's glide is kept off the ground by its
   route, as before.
 
-**Verified**: `the_<aircraft>_glides_round_its_tightest_orbit_at_every_speed_a_glide_may_be_asked_without_stalling`,
-one for each aircraft (test_navigator.cpp) - and for the A320 and 787-8 one
-each way round, `..._turning_left_...` and `..._turning_right_...` - with
-`every_aircraft_has_its_own_test_of_its_glides_round_its_tightest_orbit`
-asserting every aircraft in the catalogue flown both ways, each once:
-every aircraft, every 5 kt from its slowest glide and at its fastest, round
-and unstalled; and each file's slowest glide pinned - never below the
-slowest a route may fly, and where above it, 5 kt slower does not glide
-round unstalled. The F-22 is named, and its name turns its test red once it
-glides everywhere it may. First written as four tests by class, the
-airliners' and business jets' took 1,661 s in CI's linux-debug and was
-cancelled at the job's limit; split, the longest here in linux-debug, four
-at once, is 238 s (the A380), the A320 each way 216, the 787-8 193, the
-737-300 236, the Learjet 235, the B-2 119, the F-15C 93, the S.23 87, and
-the rest under 40. Those times are in tests/ci_costs/linux-debug.txt as
-measured; every other preset's are them scaled by that preset's median
-ratio to linux-release, over its tests of 30 s or more there, against
-linux-debug's (3.18) - estimates until CI measures them.
+**Verified**: 68 band tests (test_navigator.cpp,
+`the_<aircraft>_glides_round_its_tightest_orbit_[turning_left_|turning_right_]from_<a>_to_<b>_kt_without_stalling`,
+or `at_<a>_kt` for one speed): every 5 kt from its slowest glide and at its
+fastest, round and unstalled; and the band that begins at its slowest pins
+the file's figure - never below the slowest a route may fly, and where
+above it, 5 kt slower does not glide round unstalled.
+`every_glide_of_every_aircraft_each_way_round_is_flown_by_exactly_one_glide_test`
+asserts the bands tile the space - 292 glides, each in exactly one of 68
+bands, and no band empty - seen red with the C172P's band cut short at 70
+kt. The F-22 is named, and its name turns its tests red once it glides.
+First written as four tests by class, the airliners' and business jets'
+took 1,661 s in CI's linux-debug and was cancelled at the job's limit; one
+to an aircraft, the A380's was 238 s here, about 1,000 on CI at the 4.19
+times this machine that CI's linux-debug measured on the one-step-past
+test. In bands, the longest here, four at once, is 32 s (the Mosquito's),
+about 133 on CI. tests/ci_costs/linux-debug.txt has these times times 4.19,
+and every other preset's are those scaled by its median ratio to
+linux-release over its tests of 30 s or more, against linux-debug's 3.18 -
+estimates until CI measures them.
 `the_slowest_a_glide_may_fly_an_aircraft_at_is_read_and_refused_where_it_is_wrong`
 (test_figures.cpp). Each seen red: the approach speed put back as the
 slowest, the 737-300 stalls at 137 to 162 kt; the sink put back to 2,500
