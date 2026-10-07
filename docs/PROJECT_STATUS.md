@@ -376,7 +376,9 @@ aircraft (a third, within two degrees) had spun the S.23 in her stall lesson
     (new): the F-22A at 130 kt in calm air is stopped with her sideslip at
     10.4 degrees, not held. **Seen to fail** with `outside_its_tables`
     always false: flown on, her sideslip reached 89.7.
-  - On Windows debug (`tools/windows_build.sh`): see the verification below.
+  - On Windows debug (`tools/windows_build.sh windows-debug`, commit
+    7abcbc8): every aircraft's one-step-past test, the F-22A's at 130 kt
+    among them, and both new tests - 18 of 18 green, no assertion.
 
 ### The F-15C's speedbrake draws drag, and stays in past 15 degrees of alpha, 2026-10-07 — tail done
 
