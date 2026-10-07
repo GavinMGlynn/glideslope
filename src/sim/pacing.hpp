@@ -46,6 +46,15 @@ public:
     // time: the difference moving faster than this between two words is a
     // jump - a starved server catching up four steps a look, all at once -
     // and what it is held to moves with it, rather than the pace chasing it.
+    // **Why a half**: it is not the 0.1 to 2 the pace may be flown at - those
+    // bound what the loop may ask for; this bounds what it believes. Once
+    // held, the client flies within a few percent of the server's pace, so a
+    // real parting is small; a server slowing all at once parts by more (0.7
+    // from real time to 0.3), and a half still steers by most of it while the
+    // rest is forgiven, so it is followed in under 20 s (the unit test: 0.05
+    // took 34). A catch-up of four steps a look, 30 ms apart, is a parting of
+    // over 1, and is forgiven as a jump; between them, a half. Plus a step,
+    // for the difference being counted in whole steps.
     static constexpr double most_parting = 0.5;
 
     // **This machine's clock, paced**: where the client's flying should have

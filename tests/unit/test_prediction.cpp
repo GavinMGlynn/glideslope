@@ -1245,13 +1245,23 @@ struct AtPace {
     std::int64_t drifted = 0;
     // The furthest the pace was from the server's from the jump on.
     double worst_pace_off_after_jump = 0.0;
+    // The difference from the one held at the end, in steps.
+    std::int64_t end_off = 0;
+    // The furthest the difference went from the one held after the server's
+    // pace changed, and when it last was more than two steps from it or the
+    // pace more than 0.01 from the server's, in seconds after the change.
+    std::int64_t worst_off_after_change = 0;
+    double followed_after_s = 0.0;
 };
 
 // `jump` steps more on the server's clock from `jump_at_s` on: a server that
 // had fallen behind catching up all at once, as a starved one does four steps
 // a look.
+// And `rate_after` of real time from `change_at_s` on, if it is given: a
+// server slowed all of a sudden, its clock running on from where it was.
 AtPace fly_at_pace(double rate, double seconds, bool paced, std::int64_t jump = 0,
-                   double jump_at_s = 0.0) {
+                   double jump_at_s = 0.0, double rate_after = -1.0,
+                   double change_at_s = 0.0) {
     constexpr double delay_s = 0.1;
     constexpr double frame_s = 1.0 / 60.0;
     glideslope::sim::Pacing pacing;
@@ -1268,10 +1278,15 @@ AtPace fly_at_pace(double rate, double seconds, bool paced, std::int64_t jump = 
     std::optional<std::int64_t> first;
     AtPace out;
     double late_flown_s = 0.0, late_t = 0.0, last_flown_s = 0.0, last_t = 1.0;
-    const auto server_step = [rate, jump, jump_at_s](double real_s) {
-        return static_cast<std::int64_t>(real_s * rate * 120.0) +
+    const bool changes = rate_after > 0.0;
+    const auto server_step = [=](double real_s) {
+        const double server_s = changes && real_s >= change_at_s
+                                    ? change_at_s * rate + (real_s - change_at_s) * rate_after
+                                    : real_s * rate;
+        return static_cast<std::int64_t>(server_s * 120.0) +
                (jump != 0 && real_s >= jump_at_s ? jump : 0);
     };
+    const double final_rate = changes ? rate_after : rate;
     for (int frame = 0; static_cast<double>(frame) * frame_s < seconds; ++frame) {
         const double t = static_cast<double>(frame) * frame_s;
         const double flown_s = paced ? pacing.at(t) : t;
@@ -1313,6 +1328,14 @@ AtPace fly_at_pace(double rate, double seconds, bool paced, std::int64_t jump = 
             }
             out.drifted = least - *first;
             pacing.heard(least, t);
+            if (changes && t >= change_at_s) {
+                if (std::llabs(pacing.off()) > std::llabs(out.worst_off_after_change)) {
+                    out.worst_off_after_change = pacing.off();
+                }
+                if (std::llabs(pacing.off()) > 2 || std::abs(pacing.pace() - rate_after) > 0.01) {
+                    out.followed_after_s = t - change_at_s;
+                }
+            }
             if (jump != 0 && t >= jump_at_s) {
                 out.worst_pace_off_after_jump =
                     std::max(out.worst_pace_off_after_jump, std::abs(pacing.pace() - rate));
@@ -1323,6 +1346,8 @@ AtPace fly_at_pace(double rate, double seconds, bool paced, std::int64_t jump = 
         }
     }
     out.pace = (last_flown_s - late_flown_s) / (last_t - late_t);
+    out.end_off = pacing.off();
+    (void)final_rate;
     return out;
 }
 
@@ -1360,9 +1385,39 @@ GLIDESLOPE_TEST(a_client_paced_by_its_clocks_difference_flies_at_the_servers_pac
               "the server's clock jumping " + std::to_string(jump) +
                   " steps, the client's pace went " +
                   std::to_string(p.worst_pace_off_after_jump) + " from the server's");
+        // And what it is held to went with the jump: the difference from it
+        // small again, and held there over the last ten seconds.
+        check(std::llabs(p.end_off) <= 2 && std::llabs(p.worst_late_off) <= 2,
+              "the server's clock jumping " + std::to_string(jump) +
+                  " steps, the difference ended " + std::to_string(p.end_off) +
+                  " steps from the one held, " + std::to_string(p.worst_late_off) +
+                  " at worst in the last ten seconds");
         ++rates;
     }
-    check(rates == 12, "nine server rates and three jumps were flown against: " +
+    // **A server slowed all of a sudden is followed** - a pace, not a jump,
+    // however abrupt: from real time to 0.3 of it, the difference falls 84
+    // steps a second, more than the 0.5 a pace may part by (`most_parting`).
+    // What is past that is taken as a jump and forgiven, the rest steered on;
+    // as the pace comes down the parting falls under the half, and from
+    // then all of it is steered. Within 20 s the pace is within 0.01 of the
+    // server's and the difference within two steps of the one held, and it
+    // never went more than 80 steps from it: 17.1 s and 66 steps to 0.3, 10.9 s
+    // and 37 to 0.6. **Seen to fail** with `most_parting` 0.05, nearly all of
+    // the slowing swallowed as a jump: followed only 33.9 s after.
+    for (const double after : {0.3, 0.6}) {
+        const AtPace p = fly_at_pace(1.0, 60.0, true, 0, 0.0, after, 20.0);
+        check(p.followed_after_s <= 20.0,
+              "slowed from real time to " + std::to_string(after) + ", it followed only " +
+                  std::to_string(p.followed_after_s) + " s after");
+        check(std::llabs(p.worst_off_after_change) <= 80,
+              "slowed from real time to " + std::to_string(after) +
+                  ", the difference went " + std::to_string(p.worst_off_after_change) +
+                  " steps from the one held");
+        check(std::abs(p.pace - after) <= 0.002,
+              "slowed to " + std::to_string(after) + ", it flew at " + std::to_string(p.pace));
+        ++rates;
+    }
+    check(rates == 14, "nine server rates, three jumps and two slowings were flown against: " +
                            std::to_string(rates));
     const AtPace unpaced = fly_at_pace(0.6, 60.0, false);
     check(unpaced.drifted < -1000,

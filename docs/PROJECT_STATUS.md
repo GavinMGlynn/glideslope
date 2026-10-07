@@ -301,6 +301,15 @@ before.
   is bounded at 2 m (under five steps); the median's 5 cm is unchanged.
   **Seen to fail** unpaced: 99th percentile 7.849 m.
 
+**From the review of #125.** The unit test also slows the server all at
+once, from real time to 0.3 and to 0.6 of it, 20 s in: followed - the pace
+within 0.01 of the server's, the difference within two steps of the one
+held - 17.1 and 10.9 s after, never more than 66 and 37 steps off (bounds 20
+s and 80 steps). **Seen to fail** with `most_parting` 0.05, nearly all of
+the slowing forgiven as a jump: followed only 33.9 s after. Why a half is in
+`sim/pacing.hpp`. The jumps' cases also hold the difference within two steps
+of the one held at the end and over the last ten seconds.
+
 Not done: Windows' timer resolution (`timeBeginPeriod`) for the server, the
 relay or the client - it would be a change to what the programs do, not to
 the tests, and the jitter it makes is the kind a real network has anyway.
