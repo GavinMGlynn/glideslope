@@ -49,35 +49,63 @@ file(WRITE "${_other}/runways/strips.csv" "${_strips}\n")
 set(_refused "${WORK}/refused.txt")
 set(_kept "${WORK}/kept.txt")
 set(_ready "${WORK}/ready.txt")
+set(_told "${WORK}/told.txt")
 set(_done "${WORK}/done.txt")
-file(REMOVE "${_refused}" "${_kept}" "${_ready}" "${_done}")
+file(REMOVE "${_refused}" "${_kept}" "${_ready}" "${_told}" "${_done}")
+# **Each step waits on the one before, so the server is never empty until
+# both have been**: the server flies (--ready-file); the client on the same
+# ground joins, is told the ground and answers a knock (--told-file); only
+# then does the client on other ground join, refuse it and leave (--done);
+# and only then does the first leave, emptying the server, which stops
+# (--until-empty).
+#
+# - Joining once the server flies, not a second after it started: a debug
+#   server on CI's macOS was not yet answering.
+# - The client on the same ground stays until told the ground and answering a
+#   knock (`--until-told-ground`), not five seconds: a slow server had said
+#   nothing by then (reproduced with `--test-step-ms 3000`).
+# - And until the client on other ground is done (`--until-exists`): leaving
+#   as soon as it was told, it emptied the server before the other's
+#   initiation was read (CI's macOS debug, 2026-10-07; reproduced by starting
+#   that client two seconds late).
+# - **And the client on other ground joins only once the other is in**
+#   (`--told-file`): started with it, it joined, refused and left in 50 ms,
+#   emptying the server before the same-ground client's initiation was read,
+#   and that client was answered nothing - exit codes 1;1;0, "no answer from"
+#   (CI's macOS release, 2026-10-07; reproduced by starting the same-ground
+#   client two seconds late, `-DSAME_AFTER=2`).
+#
+# `-DSAME_AFTER=S` and `-DOTHER_AFTER=S` start either client S seconds late,
+# and `-DSERVER_EXTRA=...` adds to the server's arguments (`--test-step-ms`),
+# to stagger the three when reproducing a failure; neither may turn it red.
+if(NOT DEFINED SAME_AFTER)
+    set(SAME_AFTER 0)
+endif()
+if(NOT DEFINED OTHER_AFTER)
+    set(OTHER_AFTER 0)
+endif()
 execute_process(
-    # Each joins once the server is flying (--ready-file), not a second after
-    # it was started: a debug server on CI's macOS was not yet answering, and
-    # the client on the same ground, staying three seconds, left unanswered.
     COMMAND "${CLIENT}" --data "${_other}" connect "127.0.0.1:${PORT}" "${_key}" 60
-            --after 0 --after-ready "${_ready}" --heard "${_refused}" --done "${_done}"
-    # **And the one on the same ground stays until it has been told the ground
-    # and answered a knock** (`--until-told-ground`), not five seconds: a
-    # server slow on CI's macOS had said nothing by then, and the client left
-    # untold, or having answered nothing, exit 1 (reproduced with the server
-    # held to three seconds a step, `--test-step-ms 3000`). **And until the
-    # client on other ground is done** (`--until-exists`): leaving as soon as
-    # it was told, it emptied the server, which stopped (--until-empty)
-    # before the other's initiation was read - "no answer from" on CI's
-    # macOS debug (2026-10-07), reproduced by starting that client two
-    # seconds late.
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 280 --after 0
+            --after ${OTHER_AFTER} --after-ready "${_told}" --heard "${_refused}"
+            --done "${_done}"
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 280 --after ${SAME_AFTER}
             --after-ready "${_ready}" --heard "${_kept}" --until-told-ground
-            --until-exists "${_done}"
+            --told-file "${_told}" --until-exists "${_done}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --ready-file "${_ready}"
-            --players 2 --data "${DATA}" --timeout 5 --store "${_store}"
+            --players 2 --data "${DATA}" --timeout 5 --store "${_store}" ${SERVER_EXTRA}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rcs STREQUAL "1;0;0")
     # Each client's own words with it, which its exit code alone does not say.
-    file(READ "${_refused}" _refused_said)
-    file(READ "${_kept}" _kept_said)
+    # A client that never got as far as its file has said nothing into it.
+    set(_refused_said "(nothing: it never began)")
+    set(_kept_said "(nothing: it never began)")
+    if(EXISTS "${_refused}")
+        file(READ "${_refused}" _refused_said)
+    endif()
+    if(EXISTS "${_kept}")
+        file(READ "${_kept}" _kept_said)
+    endif()
     message(FATAL_ERROR "the exit codes were ${_rcs}, not 1 for the client on other "
                         "ground and 0 for the rest:\n${_out}\n${_err}\n"
                         "the client on other ground said:\n${_refused_said}\n"

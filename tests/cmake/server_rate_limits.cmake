@@ -12,17 +12,23 @@
 # dropped unread and a request acknowledged and ignored.
 #
 # **The situation is built**: `glideslope_cli connect --fly --flood`, once the
-# server is flying its inputs, sends 1,000 sealed pings at 1,000 a second and
-# then 50 requests at once (`WATCH`), knocks once more until the server has
-# answered - it has read everything before - and leaves when its requests are
-# all acknowledged. The events, not a time.
+# server is flying its inputs, sends 1,000 sealed pings at 1,000 a second,
+# knocks once more until the server has answered - it has read everything
+# before - and a second later, its datagram budget full again, sends 50
+# requests at once (`WATCH`); it leaves when they are all acknowledged. The
+# events, not a time.
 #
 # **What must hold**: some of the client's pings went unanswered, and the
 # server said it held the session to its rates, dropping some datagrams and
-# taking a second's worth of the requests (one more for what refills while
-# they are read). The rates themselves are pinned exactly by a unit test on a
-# clock it sets: here the server's reading lags its sending by however long a
-# loaded machine takes, and a bound on the client's own time flaked.
+# taking a second's worth of the requests, and at most the rate's worth more
+# of the time it read them over, which it says. That is the token bucket's
+# rule exactly, whenever the requests were read: sent while the pings had
+# emptied the datagram budget, some were dropped and read a quarter of a
+# second later, and the server took 10 against a fixed bound of 9 (CI's
+# Windows, 2026-10-07). The rates are also pinned on a clock a unit test sets.
+#
+# `-DSERVER_EXTRA=...` adds arguments to the server's command line, to put it
+# behind real time (`--test-step-ms`) when reproducing a failure.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
@@ -89,12 +95,13 @@ endif()
 if(_answered LESS 1)
     message(FATAL_ERROR "none of the pings was answered:\n${_out}\n${_err}")
 endif()
-if(NOT _out MATCHES "was held to its rates: ([0-9]+) of ([0-9]+) sealed datagrams dropped past ([0-9]+) a second, ([0-9]+) of ([0-9]+) requests ignored past ([0-9]+) a second")
+if(NOT _out MATCHES "was held to its rates: ([0-9]+) of ([0-9]+) sealed datagrams dropped past ([0-9]+) a second, ([0-9]+) of ([0-9]+) requests ignored past ([0-9]+) a second, read over ([0-9]+)\\.([0-9][0-9][0-9]) s")
     message(FATAL_ERROR "the server did not say it held the client to its rates:\n${_out}")
 endif()
 set(_dropped "${CMAKE_MATCH_1}")
 set(_ignored "${CMAKE_MATCH_4}")
 set(_asked "${CMAKE_MATCH_5}")
+math(EXPR _over_ms "${CMAKE_MATCH_7} * 1000 + ${CMAKE_MATCH_8}")
 if(NOT CMAKE_MATCH_3 EQUAL _datagrams_per_s OR NOT CMAKE_MATCH_6 EQUAL _requests_per_s)
     message(FATAL_ERROR "the server held the client to other rates than budget.hpp states "
                         "(${CMAKE_MATCH_3} and ${CMAKE_MATCH_6}):\n${_err}")
@@ -106,10 +113,14 @@ if(NOT _asked EQUAL _requests)
     message(FATAL_ERROR "the server read ${_asked} requests, not the ${_requests} sent:\n${_err}")
 endif()
 math(EXPR _taken "${_asked} - ${_ignored}")
-math(EXPR _most_taken "${_requests_per_s} + 1")
-if(_taken GREATER _most_taken OR _taken LESS _requests_per_s)
-    message(FATAL_ERROR "the server took ${_taken} of ${_asked} requests sent at once, not "
-                        "${_requests_per_s} or ${_most_taken}:\n${_out}")
+# **A second's worth at once, and the rate's worth of the time between the
+# first read and the last more** - the bucket's rule, whenever they were read.
+# The time is said to the millisecond, so a millisecond more is allowed.
+math(EXPR _most_taken "${_requests_per_s} + ${_requests_per_s} * (${_over_ms} + 1) / 1000")
+if(_taken GREATER _most_taken OR _taken LESS _requests_per_s OR NOT _taken LESS _asked)
+    message(FATAL_ERROR "the server took ${_taken} of ${_asked} requests read over ${_over_ms} "
+                        "ms, not from ${_requests_per_s} to ${_most_taken}, and fewer than "
+                        "all:\n${_out}")
 endif()
 list(GET _rcs 1 _server_rc)
 list(GET _rcs 0 _client_rc)
@@ -117,4 +128,4 @@ if(NOT _server_rc EQUAL 0 OR NOT _client_rc EQUAL 0)
     message(FATAL_ERROR "the server or the client failed (${_rcs}):\n${_out}\n${_err}")
 endif()
 message(STATUS "held to its rates: ${_answered} of ${_pings} pings answered over ${_took_ms} "
-               "ms, ${_taken} of ${_asked} requests taken")
+               "ms, ${_taken} of ${_asked} requests taken, read over ${_over_ms} ms")

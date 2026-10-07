@@ -873,6 +873,11 @@ struct Connection {
     std::uint64_t datagrams_past_budget = 0;
     std::uint64_t requests_past_budget = 0;
     std::uint64_t requests = 0;
+    // When its first and last requests were read, on the server's clock: a
+    // second's worth may be taken at once, and the rate's worth of the time
+    // between them more - what a test of the rate holds it to.
+    double first_request_s = -1.0;
+    double last_request_s = -1.0;
     // What the dashboard shows. Bytes are whole datagrams, envelope and all,
     // because that is what the link carries.
     std::uint64_t bytes_in = 0;
@@ -3375,14 +3380,18 @@ std::map<std::string, Connection>::iterator let_go(
     // **What it sent past its rates**, said when there was any.
     if (it->second.datagrams_past_budget > 0 || it->second.requests_past_budget > 0) {
         std::printf("%s was held to its rates: %llu of %llu sealed datagrams dropped past %.0f "
-                    "a second, %llu of %llu requests ignored past %.0f a second\n",
+                    "a second, %llu of %llu requests ignored past %.0f a second, read over "
+                    "%.3f s\n",
                     it->first.c_str(),
                     static_cast<unsigned long long>(it->second.datagrams_past_budget),
                     static_cast<unsigned long long>(it->second.datagrams),
                     glideslope::net::session_datagrams_per_second,
                     static_cast<unsigned long long>(it->second.requests_past_budget),
                     static_cast<unsigned long long>(it->second.requests),
-                    glideslope::net::session_requests_per_second);
+                    glideslope::net::session_requests_per_second,
+                    it->second.requests > 0
+                        ? it->second.last_request_s - it->second.first_request_s
+                        : 0.0);
         std::fflush(stdout);
     }
     const std::uint8_t aircraft = it->second.aircraft;
@@ -3840,6 +3849,10 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                 // `session_requests_per_second`, a request is acknowledged -
                 // the stream needs it - and ignored; a take-over, refused.
                 ++c.requests;
+                if (c.first_request_s < 0.0) {
+                    c.first_request_s = now_s;
+                }
+                c.last_request_s = now_s;
                 if (!c.request_budget.take(now_s)) {
                     ++c.requests_past_budget;
                     if (take_over_asked) {

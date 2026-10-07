@@ -787,7 +787,17 @@ Found while implementing something else. Added when found, not when remembered.
       took 10 of 50 requests sent at once, not 8 or 9" (run 37570543750),
       the budget refilling while a slow runner sent its burst.
       *Verification: its bound holds however slowly the burst is sent, and
-      a month of CI runs without it failing.*
+      a month of CI runs without it failing.* 2026-10-08: the cause found
+      (requests sent into an emptied datagram budget, dropped and read a
+      quarter-second later), the burst now sent into a full one and the
+      bound the bucket's own rule over the time the server says it read
+      them; 50 runs under load green. Still missing: the month of CI runs.
+- [ ] **The ground test's two clients raced** ("1;1;0", macOS release,
+      2026-10-07): the client on other ground left before the other's
+      first word was read, and the server, empty, stopped. Each now waits
+      on the one before. *Verification: green 50 times under load and in
+      every staggered start, and a month of CI runs without it failing* -
+      the month still missing.
 - [ ] **The engine-stop prediction test failed twice on Windows** (run
       37583810544, debug and clang-cl): the median error with the engine
       stopped 47 and 429 mm against 43 and 51 mm before it. *Verification:
