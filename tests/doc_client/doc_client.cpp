@@ -59,8 +59,9 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // version moved to 02 with the collision ground under runways, and on
 // 2026-10-06 to 03, when the server began telling each client the session and
 // its weather, and the same day to 04, when the initiation's payload became the
-// aeroplane asked for and a state update began naming the engine stopped: the
-// document gives the envelope's version as `04`. A test reads this line to keep the
+// aeroplane asked for and a state update began naming the engine stopped; and
+// on 2026-10-07 to 05, with the collision ground's rules 2: the document gives
+// the envelope's version as `05`. A test reads this line to keep the
 // two together (the_protocol_version_moves_with_the_collision_ground).
 constexpr std::uint8_t kVersion = 0x05;
 
