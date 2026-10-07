@@ -123,10 +123,10 @@ ConnectCopilot connect_copilot;
 // **A test flag's work (`--flood`)**: a client sending faster than the
 // server's stated rates (net/budget.hpp), to be held to them. Once the server
 // has applied an input of its own - it is in a session, flying - it sends
-// `pings` sealed `PING`s at `pings_per_second`, then `requests` requests at
-// once (`WATCH`, the cheapest), then knocks with one more token every
-// quarter of a second until that is answered - the server has read
-// everything before it - and its requests are all acknowledged; then it
+// `pings` sealed `PING`s at `pings_per_second`, then knocks with one more
+// token every quarter of a second until that is answered - the server has
+// read everything before it - and a second after that sends `requests`
+// requests at once (`WATCH`, the cheapest); once they are all acknowledged it
 // leaves. It says how many of the pings were answered, and over how long
 // they went.
 struct ConnectFlood {
@@ -143,6 +143,7 @@ struct ConnectFlood {
     bool asked = false;
     double knocked_s = -1.0;
     bool last_answered = false;
+    std::optional<double> answered_at_s;
     bool done = false;
 };
 ConnectFlood connect_flood;
@@ -179,6 +180,13 @@ std::vector<std::uint8_t> connect_asked_aircraft;
 // most. Its stay had been five seconds, which a server slow on CI's macOS
 // outlasted before it said anything (2026-10-06).
 bool connect_until_told_ground = false;
+// **And says so** (`--told-file FILE`): FILE is written once this client has
+// been told the ground, its own, and has answered a knock - it is in the
+// session - so that a test can start a second client only then. Started at
+// once, a client on other ground joined, refused and left before this one's
+// initiation was read, emptying a server run `--until-empty`, which stopped
+// and answered this one nothing (CI's macOS release, 2026-10-07).
+std::string connect_told_file;
 
 // **What the server says the session is** (REQUIREMENTS.md 6.3), as a
 // connecting client takes it: its own collision ground, from the data it
@@ -411,7 +419,8 @@ void print_usage(std::FILE* out) {
         "                            until N updates are compared after the server\n"
         "                            says its engine has stopped\n"
         "                            --flood (with --fly), once flown, sends 1,000\n"
-        "                            pings at 1,000 a second and 50 requests at once,\n"
+        "                            pings at 1,000 a second and, once they are read,\n"
+        "                            50 requests at once,\n"
         "                            says how many pings were answered, and leaves\n"
         "                            --forge-leaving tries, as a forger would, to\n"
         "                            end sessions with goodbyes from the wrong\n"
@@ -2465,6 +2474,10 @@ int stay(glideslope::platform::UdpSocket& socket,
         // **Stay until told the ground** (`--until-told-ground`) - and, with
         // `--until-exists`, until that file has appeared too: both events.
         const bool told_and_in = told_same_ground && answered > 0;
+        if (told_and_in && !connect_told_file.empty() &&
+            !std::filesystem::exists(connect_told_file)) {
+            std::ofstream(connect_told_file) << "told and in\n";
+        }
         if (connect_until_told_ground && told_and_in && until_exists.empty()) {
             break;
         }
@@ -2690,7 +2703,23 @@ int stay(glideslope::platform::UdpSocket& socket,
             }
             flood.took_s = up_s - *flood.began_s;
         }
-        if (flood.began_s && flood.sent == ConnectFlood::pings && !flood.asked) {
+        // The pings sent, a knock until the server has read them all.
+        const bool pinged = flood.began_s && flood.sent == ConnectFlood::pings;
+        if (pinged && !flood.last_answered && up_s - flood.knocked_s >= 0.25) {
+            flood.knocked_s = up_s;
+            knock_with(ConnectFlood::last_token);
+        }
+        if (flood.last_answered && !flood.answered_at_s) {
+            flood.answered_at_s = up_s;
+        }
+        // **The requests at once, into a datagram budget full again**: a
+        // second after the server has read the pings it has a second's worth
+        // of datagrams, far more than the requests, so it reads all of them
+        // as they come. Sent while the pings had emptied it, some were dropped
+        // and read when sent again a quarter of a second later, by when two
+        // more requests were due (CI's Windows, 10 taken; reproduced by
+        // sending them 50 ms after the pings).
+        if (flood.answered_at_s && up_s - *flood.answered_at_s >= 1.0 && !flood.asked) {
             flood.asked = true;
             for (int i = 0; i < ConnectFlood::requests; ++i) {
                 glideslope::net::Watch watch;
@@ -2699,11 +2728,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                 (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
             }
         }
-        if (flood.asked && !flood.last_answered && up_s - flood.knocked_s >= 0.25) {
-            flood.knocked_s = up_s;
-            knock_with(ConnectFlood::last_token);
-        }
-        if (flood.asked && flood.last_answered && reliable.in_flight() == 0 && !flood.done) {
+        if (flood.asked && reliable.in_flight() == 0 && !flood.done) {
             flood.done = true;
             // On standard error, which a test reads whatever order its
             // pipeline is in.
@@ -4064,6 +4089,11 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--until-told-ground") {
                     connect_until_told_ground = true;
+                    continue;
+                }
+                if (args[i] == "--told-file" && i + 1 < args.size()) {
+                    connect_told_file = std::string(args[i + 1]);
+                    ++i;
                     continue;
                 }
                 if (args[i] == "--flood") {
