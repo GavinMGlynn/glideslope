@@ -325,6 +325,17 @@ more than the 43 mm (51 mm) before it or 2 cm". A test that measures
 prediction against a loaded runner; nothing here changes what it runs, only
 which tests run beside it. A new tail.
 
+**Run 37587492168**: red twice (with its rerun) on Linux debug shard 10 of
+11, `the_client_with_the_window_flies_the_servers_aircraft_and_draws_the_others`
+put right 20.6 m against its 20 m, 19.5 m of it while the clocks were
+learnt; main's runs pass it. The new dealing put it beside heavy tests, and
+the debug server fell behind real time (the open "server behind real time"
+item). It and `a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide`
+(the same script, slow frames; release only) are now RUN_SERIAL: nothing
+runs beside them. `tools/ci_shard.cmake` already weighs a serial test at
+its time times the jobs it holds, so the shard that gets it is dealt that
+much less.
+
 **Windows' compiler cache, measured cold and warm.** Warm, in this run:
 MSVC debug 3.9 and release 3.4 minutes a job. clang-cl with a pull
 request's changes: 722 of 824 compiles hit, a 7.2-minute job (run
