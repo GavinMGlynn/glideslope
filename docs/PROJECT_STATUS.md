@@ -326,7 +326,7 @@ aircraft (a third, within two degrees) had spun the S.23 in her stall lesson
   their orbits hold.
 
 **Verification** (linux-release, locally):
-- `every_aircraft_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it`
+- `the_<id>_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it`
   (new): every aircraft from its plan floor to its start speed in 5 kt
   steps, 262 of 262 cases; the most sideslip anywhere 0.35 degree (B-2A at
   159), the F-22A 0.12 at 140. **Seen to fail** with the two catalogue lines
@@ -343,10 +343,22 @@ aircraft (a third, within two degrees) had spun the S.23 in her stall lesson
   10 kt under its old floor).
 - **The selftest hash does not move** (`d36123c1eecc3e23`, linux-release):
   it flies the Cessna on the default gains.
-- CI's cost tables (`tests/ci_costs/`) carry the new tests at estimates -
-  the sweep at 34 s scaled by each preset's ratio to linux-release, the
-  B-2A's bands at the old bands' - until `tools/ci_test_costs.py` measures
-  them again.
+- **Each aircraft's sweep is a test of its own**
+  (`the_<id>_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it`,
+  sixteen, and `every_aircraft_has_its_own_test_of_...` asserting one each):
+  all sixteen in one test, 34 s here in linux-release, ran past CI's 900 s
+  in linux-debug. CI's cost tables (`tests/ci_costs/`) carry them at
+  estimates - each one's linux-release time here, times 30 for linux-debug,
+  25 windows-debug, 10 macos-debug, 1.2 the releases - and the B-2A's glide
+  bands at the old bands', until `tools/ci_test_costs.py` measures them.
+- **Open, found on CI (run 37609045925): windows-debug fails
+  `the_f22a_holds_nothing_a_plan_asks_one_step_past_its_slowest`** on a
+  JSBSim debug assertion (`FGTable.cpp` line 618, `Factor >= 0.0 && Factor
+  <= 1.0`). One step past her new slowest is 130 kt, where in calm air she
+  departs (sideslip -81 to +90 degrees here, on Linux, where it passes); on
+  MSVC's debug build the departure reaches a table lookup out of range.
+  Her old step past, 245 kt, never departed. Not yet fixed: why her state
+  leaves a table's range there is not found.
 
 ### The F-15C's speedbrake draws drag, and stays in past 15 degrees of alpha, 2026-10-07 — tail done
 

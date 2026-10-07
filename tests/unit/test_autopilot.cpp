@@ -1180,49 +1180,143 @@ GLIDESLOPE_TEST(every_aircraft_but_the_light_aeroplanes_holds_a_heading_in_a_20_
 // speeds the F-22A at 120 to 130 kt and the B-2A at 124 to 149 came down 500
 // ft before reaching their orbits, and the 737-300, 747-400, A380 and Learjet
 // held no heading - which is no yaw damper's to put right. The space is every
-// aircraft at every step, counted; none is left out.
-GLIDESLOPE_TEST(every_aircraft_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
-    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+// aircraft at every step, counted; none is left out. **Each aircraft in a test
+// of its own**: all sixteen in one ran past 900 s in CI's linux-debug.
+namespace {
+
+const std::vector<std::string> crosswind_swept = {
+    "c172p",
+    "c182",
+    "pa28",
+    "j3cub",
+    "short_s23",
+    "mosquito-fb6",
+    "737-300",
+    "747-400",
+    "787-8",
+    "a320",
+    "a380",
+    "learjet35a",
+    "b2",
+    "f15c",
+    "f22",
+    "f35b",
+};
+
+void holds_a_heading_at_every_plan_speed(const std::string& id) {
+    const CatalogueEntry e = glideslope::sim::find_aircraft(data(), id);
+    const double low_kts = glideslope::sim::plan_speeds(data(), e.model).slowest_kts;
+    std::vector<double> speeds;
+    for (double kts = low_kts; kts < e.start_airspeed_kts; kts += 5.0) {
+        speeds.push_back(kts);
+    }
+    speeds.push_back(e.start_airspeed_kts);
     std::string failures;
     std::size_t flown = 0;
-    std::size_t wanted = 0;
-    for (const CatalogueEntry& e : catalogue) {
-        const double low_kts = glideslope::sim::plan_speeds(data(), e.model).slowest_kts;
-        std::vector<double> speeds;
-        for (double kts = low_kts; kts < e.start_airspeed_kts; kts += 5.0) {
-            speeds.push_back(kts);
+    std::string worst;
+    double worst_beta = 0.0;
+    for (const double kts : speeds) {
+        const glideslope::sim::CrosswindFlown f =
+            glideslope::sim::fly_heading_in_crosswind(data(), e, kts, true);
+        ++flown;
+        const double beta = std::max(-f.least_sideslip_deg, f.most_sideslip_deg);
+        char line[200];
+        std::snprintf(line, sizeof line, "%s at %.0f kt: sideslip %+.2f to %+.2f, heading within %.2f",
+                      e.id.c_str(), kts, f.least_sideslip_deg, f.most_sideslip_deg,
+                      f.worst_heading_deg);
+        std::printf("%s\n", line);
+        if (!f.held()) {
+            failures += std::string("\n  ") + line;
         }
-        speeds.push_back(e.start_airspeed_kts);
-        wanted += speeds.size();
-        std::string worst;
-        double worst_beta = 0.0;
-        for (const double kts : speeds) {
-            const glideslope::sim::CrosswindFlown f =
-                glideslope::sim::fly_heading_in_crosswind(data(), e, kts, true);
-            ++flown;
-            const double beta = std::max(-f.least_sideslip_deg, f.most_sideslip_deg);
-            char line[200];
-            std::snprintf(line, sizeof line,
-                          "%s at %.0f kt: sideslip %+.2f to %+.2f, heading within %.2f",
-                          e.id.c_str(), kts, f.least_sideslip_deg, f.most_sideslip_deg,
-                          f.worst_heading_deg);
-            if (!f.held()) {
-                failures += std::string("\n  ") + line;
-            }
-            if (beta >= worst_beta) {
-                worst_beta = beta;
-                worst = line;
-            }
+        if (beta >= worst_beta) {
+            worst_beta = beta;
+            worst = line;
         }
-        std::printf("%s: %zu speeds from %.0f to %.0f kt; the most sideslip: %s\n", e.id.c_str(),
-                    speeds.size(), low_kts, e.start_airspeed_kts, worst.c_str());
     }
-    std::printf("%zu aircraft: %zu of %zu speeds flown\n", catalogue.size(), flown, wanted);
-    check(catalogue.size() == 16 && flown == wanted && flown > 0,
-          "every aircraft at every speed: " + std::to_string(flown) + " of " +
-              std::to_string(wanted));
+    std::printf("%s: %zu of %zu speeds from %.0f to %.0f kt flown; the most sideslip: %s\n",
+                e.id.c_str(), flown, speeds.size(), low_kts, e.start_airspeed_kts, worst.c_str());
+    check(flown == speeds.size() && flown > 0, "every speed flown");
     check(failures.empty(), "each holds its sideslip within a degree and its heading within two:" +
                                 failures);
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(every_aircraft_has_its_own_test_of_a_heading_in_a_crosswind_at_every_speed_a_plan_may_fly_it) {
+    std::vector<std::string> catalogue;
+    for (const CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
+        catalogue.push_back(e.id);
+    }
+    std::vector<std::string> tested = crosswind_swept;
+    std::sort(catalogue.begin(), catalogue.end());
+    std::sort(tested.begin(), tested.end());
+    check(tested == catalogue && std::adjacent_find(tested.begin(), tested.end()) == tested.end(),
+          "each of the " + std::to_string(catalogue.size()) +
+              " aircraft has its own test, once: " + std::to_string(tested.size()));
+}
+
+GLIDESLOPE_TEST(the_c172p_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("c172p");
+}
+
+GLIDESLOPE_TEST(the_c182_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("c182");
+}
+
+GLIDESLOPE_TEST(the_pa28_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("pa28");
+}
+
+GLIDESLOPE_TEST(the_j3cub_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("j3cub");
+}
+
+GLIDESLOPE_TEST(the_short_s23_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("short_s23");
+}
+
+GLIDESLOPE_TEST(the_mosquito_fb6_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("mosquito-fb6");
+}
+
+GLIDESLOPE_TEST(the_boeing_737_300_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("737-300");
+}
+
+GLIDESLOPE_TEST(the_boeing_747_400_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("747-400");
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("787-8");
+}
+
+GLIDESLOPE_TEST(the_a320_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("a320");
+}
+
+GLIDESLOPE_TEST(the_a380_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("a380");
+}
+
+GLIDESLOPE_TEST(the_learjet35a_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("learjet35a");
+}
+
+GLIDESLOPE_TEST(the_b2_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("b2");
+}
+
+GLIDESLOPE_TEST(the_f15c_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("f15c");
+}
+
+GLIDESLOPE_TEST(the_f22_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("f22");
+}
+
+GLIDESLOPE_TEST(the_f35b_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_plan_may_fly_it) {
+    holds_a_heading_at_every_plan_speed("f35b");
 }
 
 // **Which aircraft have a speed floor, and which have none, said by name.**
