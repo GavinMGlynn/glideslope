@@ -2,8 +2,9 @@
 
 set(GLIDESLOPE_EXPECT_RUN "${CMAKE_CURRENT_SOURCE_DIR}/cmake/expect_run.cmake")
 
-# **The block every fixed test port comes from: 24700 to 24899** (widened
-# from 24799 on 2026-10-06, when the hundred was nearly all taken). A fixed
+# **The block every fixed test port comes from: 24700 to 24999** (widened
+# from 24799 on 2026-10-06 and from 24899 on 2026-10-08, each time the block
+# was nearly all taken). A fixed
 # port inside the range a system hands out to sockets that ask for none can be
 # taken by a client before its test's server listens on it ("cannot listen on
 # port 47853" on CI, 2026-09-26). Linux hands out 32768 to 60999, macOS and
@@ -17,7 +18,7 @@ set(GLIDESLOPE_EXPECT_RUN "${CMAKE_CURRENT_SOURCE_DIR}/cmake/expect_run.cmake")
 # `netsh int ipv4 show excludedportrange protocol=udp`) can land anywhere,
 # this block included.
 set(GLIDESLOPE_TEST_PORTS_FIRST 24700)
-set(GLIDESLOPE_TEST_PORTS_LAST 24899)
+set(GLIDESLOPE_TEST_PORTS_LAST 24999)
 add_test(NAME every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two_tests_share_one
     COMMAND ${CMAKE_COMMAND} -DCTEST=${CMAKE_CTEST_COMMAND} -DBUILD=${CMAKE_BINARY_DIR}
         -DCONFIG=$<CONFIG> -DFIRST=${GLIDESLOPE_TEST_PORTS_FIRST}
