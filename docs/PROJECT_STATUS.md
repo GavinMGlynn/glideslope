@@ -336,6 +336,18 @@ runs beside them. `tools/ci_shard.cmake` already weighs a serial test at
 its time times the jobs it holds, so the shard that gets it is dealt that
 much less.
 
+**Run 37596019954**: red twice (with its rerun) on Windows debug,
+`the_client_with_the_window_away_past_the_servers_timeout_building_its_flight_or_in_a_frame_is_not_let_go`:
+"the client was given no aircraft", its log "cannot reach 127.0.0.1:24773"
+before the server's "listening on port 24772". Not load needing
+RUN_SERIAL but a start-up race: the test started server, relay and client
+at once and the client's five-second handshake gave up before a slow
+debug server listened - the race other server tests closed on 2026-10-02.
+`tests/cmake/client_kept_while_away.cmake` now has the server write
+`--ready-file` and the client wait on it (`--after-ready`), each case its
+own file. Passed locally (Linux debug, both cases kept 2295 and 2081
+times). The rate-limit test failed once more, on clang-cl - its open tail.
+
 **Windows' compiler cache, measured cold and warm.** Warm, in this run:
 MSVC debug 3.9 and release 3.4 minutes a job. clang-cl with a pull
 request's changes: 722 of 824 compiles hit, a 7.2-minute job (run
