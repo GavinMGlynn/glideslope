@@ -300,6 +300,7 @@ void ClientSession::keep_joining_again(double now_s) {
             fresh_.clear();
             roster_.clear();
             refusals_.clear();
+            learnt_refusals_.clear();
             told_ = Told{};
             mine_ = no_aircraft;
             applied_ = 0;
@@ -392,6 +393,10 @@ void ClientSession::read_what_arrived(double now_s) {
                 TakeOverRefused refused;
                 if (read(all_of(message), refused)) {
                     refusals_.push_back(refused.aircraft);
+                }
+                LearntLandingRefused learnt_refused;
+                if (read(all_of(message), learnt_refused)) {
+                    learnt_refusals_.push_back(std::move(learnt_refused));
                 }
                 ControllerSwap swap;
                 if (read(all_of(message), swap)) {

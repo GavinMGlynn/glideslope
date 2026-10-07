@@ -111,6 +111,16 @@ public:
     // and hands nothing over.
     void to_ai_learnt_approach(const Runway& runway, const ApproachSpeeds& speeds,
                                std::shared_ptr<const LearntPolicy> policy);
+    // **An approach handed to the learnt landing at its gate**: the approach
+    // autopilot flies her down the glidepath, and the first step she is at
+    // `policy`'s gate (sim::outside_learnt_gate) the policy takes her from
+    // there, as to_ai_learnt_approach does - eased in, no step. Past the
+    // gate without meeting it - flared, or under 1.6 miles out - she is left
+    // to the approach autopilot, which lands her as to_ai_approach does.
+    // How the server's own AI aircraft are landed by it.
+    void to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
+                        std::shared_ptr<const LearntPolicy> learnt_at_gate,
+                        double glidepath_deg = 3.0);
 
     // **A new plan while the AI flies**, from where the aircraft is: the
     // navigator is replaced and the autopilot kept, so nothing it holds is
@@ -178,6 +188,11 @@ private:
     std::optional<Departure> departure_;
     std::optional<Lander> lander_;
     std::optional<LearntLander> learnt_;
+    // The learnt landing an approach is handed to at its gate, while it is
+    // still to be met: with the runway and speeds it lands with.
+    std::shared_ptr<const LearntPolicy> at_gate_;
+    std::optional<Runway> gate_runway_;
+    std::optional<ApproachSpeeds> gate_speeds_;
     // The approach's lander while the pilot has her, kept from the hand-over
     // so a take-back on its landing roll can finish it; dropped the first
     // step she is not still landing, and when the AI is given her again, for

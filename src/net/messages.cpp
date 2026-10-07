@@ -124,6 +124,7 @@ bool known_message(std::uint8_t kind) {
     case Message::weather_aloft:
     case Message::copilot_route:
     case Message::take_over_refused:
+    case Message::learnt_landing_refused:
         return true;
     }
     return false;
@@ -467,6 +468,33 @@ bool read(std::span<const std::uint8_t> body, TakeOverRefused& out) {
         return false;
     }
     out = got;
+    return true;
+}
+
+std::vector<std::uint8_t> write(const LearntLandingRefused& m) {
+    Writer w = begin_message(Message::learnt_landing_refused);
+    w.u8(m.aircraft);
+    w.text(m.why.substr(0, most_reason_bytes));
+    return w.take();
+}
+
+bool read(std::span<const std::uint8_t> body, LearntLandingRefused& out) {
+    bool is_kind = false;
+    MessageReader r = after_kind(body, Message::learnt_landing_refused, is_kind);
+    if (!is_kind) {
+        return false;
+    }
+    LearntLandingRefused got;
+    got.aircraft = r.u8();
+    got.why = r.text(most_reason_bytes);
+    // **Printable ASCII and nothing else**: it is printed on the player's
+    // terminal and drawn on the HUD, and an escape from a hostile server
+    // would reach the terminal.
+    if (!r.done() || std::any_of(got.why.begin(), got.why.end(),
+                                 [](char c) { return c < 0x20 || c > 0x7E; })) {
+        return false;
+    }
+    out = std::move(got);
     return true;
 }
 

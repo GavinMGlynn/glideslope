@@ -136,6 +136,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_landplane_on_water_is_wrecked_and_a_flying_boat_afloat_is_not
     two_aircraft_within_their_wingspans_have_collided_and_none_can_pass_between_steps
     the_keyboard_moves_every_lever_it_names_and_leaves_it_where_it_is_put
+    the_keyboard_sets_the_flaps_a_notch_a_press_to_exactly_full_and_back_up
     a_binding_moves_every_lever_the_controls_have
     the_short_s23_in_coarse_pitch_at_normal_boost_turns_within_its_rated_rpm
     the_mosquitos_rpm_follows_its_propeller_lever
@@ -329,6 +330,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_policy_file_that_does_not_fit_the_simulation_is_refused
     a_learnt_landing_handed_another_aircraft_is_refused_and_the_pilot_keeps_her
     the_learnt_landing_is_offered_for_every_aircraft_that_has_one_and_for_no_other
+    an_ai_approach_is_handed_to_the_learnt_landing_inside_its_gate_and_landed_within_its_limits
     the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_every_wind_it_admits
     an_aeroplane_is_at_the_learnt_landings_gate_only_inside_it_and_is_told_why_not
     a_c172p_on_final_to_a_runway_of_the_worlds_is_found_at_its_gate_and_landed_on_it
@@ -654,6 +656,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_copilots_answer_is_read_as_keep_or_a_route_and_refused_wherever_it_cannot_be_flown
     a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_refused_and_the_model_told_them
     every_refusal_the_document_names_for_a_copilot_route_is_refused
+    every_refusal_the_document_names_for_a_learnt_landing_refusal_is_refused
     a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown
     the_copilot_asks_on_a_thread_of_its_own_and_the_step_never_waits_for_the_model
     a_copilot_going_away_gives_up_its_question_at_once
@@ -2578,6 +2581,16 @@ add_test(NAME a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by
 set_tests_properties(a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by_the_server_and_a_c182_and_one_outside_the_gate_are_refused
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
+
+# **The server's own AI C172P, put on final outside the gate, is flown into
+# it, handed to the learnt landing there, and landed.** See
+# cmake/server_ai_learnt_landing.cmake.
+add_test(NAME the_servers_ai_c172p_on_final_is_handed_to_the_learnt_landing_at_its_gate_and_landed
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ai_learnt_landing.cmake)
+set_tests_properties(the_servers_ai_c172p_on_final_is_handed_to_the_learnt_landing_at_its_gate_and_landed
+    PROPERTIES SKIP_RETURN_CODE 77)
 
 # **The pre-commit hook refuses what it says it refuses**, and nothing else.
 # See cmake/githooks.cmake.

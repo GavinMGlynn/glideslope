@@ -3259,6 +3259,13 @@ int stay(glideslope::platform::UdpSocket& socket,
                         predicting->handed(to_ai, sequence);
                     }
                 }
+                glideslope::net::LearntLandingRefused refused;
+                if (glideslope::net::read(
+                        std::span<const std::uint8_t>(message.data(), message.size()),
+                        refused)) {
+                    say_heard("aircraft " + std::to_string(refused.aircraft) +
+                              " refused the learnt landing: " + refused.why);
+                }
             }
             continue;
         }

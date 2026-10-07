@@ -1361,3 +1361,101 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_i
     check(flown == 32 * winds.size(), "every corner flown in every wind: " + std::to_string(flown));
     none_wrong(failures, flown, "landings from the gate's corners fell short");
 }
+
+// **An AI's approach is handed to the learnt landing at its gate, and only
+// there**: the C172P started three miles out on final - outside the gate -
+// trimmed at its approach speed, given to the approach autopilot with the
+// learnt landing to hand to (`Controller::to_ai_approach` with a policy, how
+// the server's own AI aircraft are landed). The approach autopilot must fly
+// her into the gate and hand her over inside it - between 1.6 and 2.4 miles
+// out - and the learnt landing must touch her down within its limits and
+// stop her on the runway. The same approach given no policy is never handed
+// over: the approach autopilot lands her itself.
+GLIDESLOPE_TEST(an_ai_approach_is_handed_to_the_learnt_landing_inside_its_gate_and_landed_within_its_limits) {
+    const auto policy = the_policy();
+    const Runway runway = a_runway();
+    std::size_t flown = 0;
+    for (const bool offered : {true, false}) {
+        auto aircraft =
+            std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", policy->aircraft);
+        aircraft->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        aircraft->initialize(glideslope::sim::final_approach_start(
+            runway, 3.0 * metres_per_nm, speeds().vref_kts, speeds().flap, speeds().aim_m, 3.0));
+        glideslope::sim::Controller controller(*aircraft,
+                                               glideslope::sim::trimmed_controls(*aircraft));
+        if (offered) {
+            controller.to_ai_approach(runway, speeds(), policy);
+        } else {
+            controller.to_ai_approach(runway, speeds());
+        }
+        std::optional<double> handed_out_m;
+        Landing out;
+        AfterTouch after;
+        bool stopped = false;
+        for (long tick = 0; tick < 420L * steps_per_second && !stopped; ++tick) {
+            aircraft->set_controls(controller.fly());
+            aircraft->step();
+            const LearntLander* l = controller.learnt();
+            if (l != nullptr && !handed_out_m) {
+                const glideslope::sim::AircraftState s = aircraft->state();
+                const double north = (s.latitude_deg - runway.threshold_lat_deg) *
+                                     metres_per_degree_latitude(runway.threshold_lat_deg);
+                const double east = (s.longitude_deg - runway.threshold_lon_deg) *
+                                    metres_per_degree_longitude(runway.threshold_lat_deg);
+                const double h = runway.heading_deg / degrees;
+                handed_out_m = -(north * std::cos(h) + east * std::sin(h));
+                check(tick > 0, "she was not handed over on the first step, outside the gate");
+            }
+            if (l != nullptr && l->touched()) {
+                after.see(*aircraft, tick, out);
+                out.touched = true;
+                out.sink_fpm = l->touchdown_sink_fpm();
+                out.across_m = l->touchdown_across_m();
+                out.along_m = l->touchdown_along_m();
+            }
+            if (l != nullptr && l->stage() == LearntLander::Stage::stopped) {
+                stopped = true;
+                out.stopped = true;
+                out.stopped_along_m = -l->rollout().along_m();
+                out.stopped_across_m = l->rollout().across_m();
+                out.decisions = l->decisions();
+            }
+            if (!offered && controller.lander() != nullptr &&
+                controller.lander()->stage() == glideslope::sim::Lander::Stage::stopped) {
+                stopped = true;
+            }
+        }
+        ++flown;
+        if (!offered) {
+            check(!handed_out_m, "an approach given no learnt landing is never handed to one");
+            check(stopped, "and the approach autopilot stopped her itself");
+            continue;
+        }
+        check(handed_out_m.has_value(), "the approach was handed to the learnt landing");
+        if (!handed_out_m) {
+            continue;
+        }
+        std::printf("  handed over %.2f miles out\n", *handed_out_m / metres_per_nm);
+        check(*handed_out_m <= glideslope::sim::LearntGate::furthest_m + 1.0 &&
+                  *handed_out_m >= glideslope::sim::LearntGate::nearest_m,
+              "handed over inside the gate, not " +
+                  std::to_string(*handed_out_m / metres_per_nm) + " miles out");
+        print("an AI's approach handed over at the gate", out);
+        check(stopped, "the learnt landing stopped her");
+        std::vector<std::string> wrong = short_of_the_limits(out);
+        for (const std::string& w : not_stopped_on_the_runway(out)) {
+            wrong.push_back(w);
+        }
+        std::vector<std::string> failures;
+        if (!wrong.empty()) {
+            std::string text = "an AI's approach handed over at the gate:";
+            for (const std::string& w : wrong) {
+                text += " " + w + ";";
+            }
+            failures.push_back(text);
+        }
+        none_wrong(failures, 1, "landings fell short");
+    }
+    check(flown == 2, "both approaches were flown, offered the learnt landing and not");
+}

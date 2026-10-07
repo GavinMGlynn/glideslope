@@ -60,6 +60,11 @@ struct HudReadings {
     std::string autopilot;
     // Whether the AI pilot has the aircraft: the HUD says who is flying, always.
     bool ai_flying = false;
+    // **Something the player asked for and was refused**, and why -
+    // "REFUSED: NOT AT THE LEARNT LANDINGS GATE..." - or empty for nothing to say:
+    // drawn under who is flying, in capitals, wrapped at the text block's
+    // width to at most hud_notice_rows lines (hud_notice_lines).
+    std::string notice;
     // The controls, when there is an aircraft to read them from.
     std::optional<ControlsShown> controls;
     // Whose data is on screen - each a credit its source asks for - shown
@@ -88,6 +93,8 @@ struct HudReadings {
 //   FLYING PILOT               who has the aircraft, always: PILOT, or AI
 //   FLYING AI NAV THE HEADS    and what the AI is flying - HOLD, or NAV and
 //                              the waypoint it is flying to
+//   REFUSED: NOT AT THE        a notice, if there is one: up to five lines
+//   LEARNT LANDINGS GATE:
 //   STICK +0.30 -0.05          aileron and elevator, from -1 to 1
 //   RUDDER +0.00
 //   THROTTLE 0.70              from 0 to 1
@@ -98,6 +105,12 @@ struct HudReadings {
 // pitch and bank to a tenth of a degree; the Mach number to a hundredth; the
 // flight level to the nearest hundred feet of pressure altitude.
 std::vector<std::string> hud_lines(const HudReadings& readings);
+// A notice as the HUD draws it: in capitals, with what the font has not got
+// left out, wrapped at its spaces to hud_columns, and cut after
+// hud_notice_rows lines - the text block is kept clear of the horizon, and
+// sixteen rows tall at most.
+std::vector<std::string> hud_notice_lines(const std::string& notice);
+inline constexpr std::size_t hud_notice_rows = 5;
 
 // Where the Mach number and flight level apply: from Mach 0.40, where
 // airliners' displays show it, and from 18,000 ft of pressure altitude, the

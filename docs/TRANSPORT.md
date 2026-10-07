@@ -63,6 +63,9 @@ Said first, because a transport's limits matter more than its features.
   whose server says when it refuses a take-over (`TAKE_OVER_REFUSED`, below).
   Version `08` is on the same ground, and is the first whose
   `CONTROLLER_SWAP` may ask for, and announce, the learnt landing (below).
+  Version `09` is on the same ground, and is the first whose server says to
+  the client that asked when it refuses the learnt landing, and why
+  (`LEARNT_LANDING_REFUSED`, below).
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -73,7 +76,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `08` |
+| 4 | 1 | version | `09` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -119,7 +122,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `08`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `09`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -432,6 +435,7 @@ is that kind's fields in the order given here.
 | `08` | `WATCH` |
 | `09` | `COPILOT_ROUTE` |
 | `0A` | `TAKE_OVER_REFUSED` |
+| `0B` | `LEARNT_LANDING_REFUSED` |
 
 A kind this version does not know is not a message, and is refused rather
 than skipped.
@@ -688,8 +692,9 @@ it, with the landing flap out and not moving, and in a wind of no more than
 15 kt across, 8 kt ahead and 5 kt behind (the numbers are the learnt
 landing's file's and the simulation's, not the wire's). Honoured, it says so to every client
 with `LEARNT_LANDING` and the time it took effect; from then a state update
-gives the aircraft's controller as `AI`. Otherwise it is acknowledged and
-nothing more: **the client is not told why** - the server's log says. Taking it back is `PERSON` (`01`), as from any AI.
+gives the aircraft's controller as `AI`. Otherwise it is acknowledged, and
+answered to that client alone with a `LEARNT_LANDING_REFUSED` saying why
+(since `09`; before it the client was told nothing). Taking it back is `PERSON` (`01`), as from any AI.
 
 | written as | field |
 | --- | --- |
@@ -790,6 +795,27 @@ would reach. It says nothing of why; the server's own log does.
 | --- | --- |
 | `u8` | `0A`, the kind |
 | `u8` | the aircraft's number, as the take-over asked for it |
+
+### `LEARNT_LANDING_REFUSED`
+
+**The learnt landing the server will not give**, sent by the server to the
+client that asked for it for its own aircraft and to no other (since `09`):
+the aircraft's number, and why, in the words the server's own log uses -
+`not at the learnt landing's gate: YSSY 16R: 2.9 miles out; the gate is 1.6
+to 2.4 miles out`, `the c182 has no learnt landing`. The reason is for a
+person to read, not for a program to parse: its wording is not part of the
+protocol. A server cuts a longer one at 160 bytes; a reader refuses one
+longer than that, and one with any byte outside printable ASCII (`20` to
+`7E`) - it is printed on the player's terminal, where an escape would reach -
+and an empty one is allowed. A request for another
+client's aircraft is neither honoured nor answered, and one the server could
+not queue an answer for is said in its log.
+
+| written as | field |
+| --- | --- |
+| `u8` | `0B`, the kind |
+| `u8` | the aircraft's number, as the request gave it |
+| text | why, 0 to 160 bytes |
 
 ### What a reader must refuse
 

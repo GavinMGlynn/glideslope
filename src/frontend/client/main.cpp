@@ -157,6 +157,10 @@ struct Options {
     // flight in, and take it back this many in, as A does; below nought, never.
     double hand_over_after_s = -1.0;
     double learnt_landing_after_s = -1.0;
+    // **For a test: keys pressed**, each S seconds after joining, as a
+    // player's finger would - the key's event, and the key held for one
+    // pass of the frame loop (`--press-after S KEY`, KEY a letter).
+    std::vector<std::pair<double, SDL_Scancode>> presses;
     // **Its copilot** (`--copilot TASK`), asked with the player's own key on
     // this machine when C is pressed; only its route goes to the server.
     std::string copilot_task;
@@ -279,6 +283,9 @@ void usage(std::FILE* out) {
         "  --learnt-landing-after S  on a server, ask for your own aircraft to be\n"
         "                handed to the learnt landing S seconds after joining, as L\n"
         "                does (for tests)\n"
+        "  --press-after S KEY  on a server, press the letter KEY S seconds after\n"
+        "                joining - its key's event, and the key held for one pass\n"
+        "                of the frame loop; may be given again (for tests)\n"
         "  --stall-after S  on a server, S seconds after joining, send and answer\n"
         "                nothing, as a stopped process, until the server has let\n"
         "                this client go; it then joins again by itself (for tests)\n"
@@ -553,6 +560,14 @@ static int run_program(int argc, char** argv) {
             o.copilot_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--learnt-landing-after" && has_value) {
             o.learnt_landing_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--press-after" && i + 2 < args.size()) {
+            const double at_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+            const std::string key(args[++i]);
+            if (key.size() != 1 || key[0] < 'A' || key[0] > 'Z') {
+                std::fprintf(stderr, "glideslope: --press-after S KEY: KEY is a letter, A to Z\n");
+                return 2;
+            }
+            o.presses.emplace_back(at_s, static_cast<SDL_Scancode>(SDL_SCANCODE_A + (key[0] - 'A')));
         } else if (a == "--hand-over-after" && has_value) {
             o.hand_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--stall-after" && has_value) {
@@ -944,6 +959,10 @@ static int run_program(int argc, char** argv) {
                 start.on_ground = false;
                 start.autopilot = false;
                 start.plan.reset();
+                // Its flaps where the server's are, not run in from up.
+                if (joined->levers) {
+                    start.flaps = joined->levers->flaps;
+                }
             }
             flight = std::make_unique<glideslope::client::Flight>(
                 glideslope::platform::data_directory(),
@@ -1234,6 +1253,22 @@ static int run_program(int argc, char** argv) {
         // Whether the learnt landing had its own aircraft at the last look:
         // said when it changes.
         bool learnt_had_it = false;
+        // **What the server refused, on the HUD**: the notice, and the tick
+        // it is shown until - ten seconds of flight.
+        std::string notice;
+        std::int64_t notice_until = 0;
+        // Said with what the HUD reads, once it is drawn: the learnt landing
+        // given or refused.
+        bool say_the_hud = false;
+        // --press-after: the presses made, and the key held for the next
+        // pass's keyboard, if any.
+        std::size_t presses_made = 0;
+        std::optional<SDL_Scancode> test_key_held;
+        // The keyboard's passes, and the one the last press was held in: a
+        // press waits for a pass with its key up after the last, so that two
+        // of one key are two presses.
+        std::int64_t key_passes = 0;
+        std::int64_t pressed_in_pass = -2;
         bool asked_to_take_back = false;
         bool asked_to_stall = false;
         int let_go_said = 0;
@@ -1442,6 +1477,28 @@ static int run_program(int argc, char** argv) {
             // the flight begins in the air, its wheels up.
             controls.throttle = flight ? flight->aircraft().start_throttle : 0.65;
             controls.gear = 0.0;
+        }
+        // **On a server, the levers are where the server's aircraft has
+        // them** - its throttle, flaps, gear and speedbrake lever - and move
+        // from there: begun at this client's own, the first input sent ran
+        // the landing flap of an aircraft started on final back in, and it
+        // could never be at the learnt landing's gate.
+        if (joined && joined->levers) {
+            const glideslope::net::Watched& l = *joined->levers;
+            controls.throttle = l.throttle;
+            controls.flaps = l.flaps;
+            if (l.gear) {
+                controls.gear = *l.gear;
+            }
+            if (l.speedbrake) {
+                controls.speedbrake = *l.speedbrake;
+            }
+            std::printf("glideslope: the server's levers kept: throttle %.2f, flaps %.2f\n",
+                        controls.throttle, controls.flaps);
+            std::fflush(stdout);
+        } else if (joined) {
+            std::printf("glideslope: the server did not say its levers; this client's own\n");
+            std::fflush(stdout);
         }
         const std::filesystem::path bindings_path =
             glideslope::platform::data_directory() / "input" / "bindings.txt";
@@ -1660,9 +1717,26 @@ static int run_program(int argc, char** argv) {
                         (now - last) * pace)),
                     online.has_value());
                 last = now;
+                // The keyboard - with a test's key held (--press-after), as a
+                // player's finger holds it.
                 int key_count = 0;
                 const bool* key_state = SDL_GetKeyboardState(&key_count);
+                std::unique_ptr<bool[]> with_test_key;
+                if (test_key_held) {
+                    const int at = static_cast<int>(*test_key_held);
+                    const int count = std::max(key_count, at + 1);
+                    with_test_key = std::make_unique<bool[]>(static_cast<std::size_t>(count));
+                    for (int k = 0; k < key_count; ++k) {
+                        with_test_key[static_cast<std::size_t>(k)] = key_state[k];
+                    }
+                    with_test_key[static_cast<std::size_t>(at)] = true;
+                    key_state = with_test_key.get();
+                    key_count = count;
+                    test_key_held.reset();
+                    pressed_in_pass = key_passes;
+                }
                 keys.apply(controls, glideslope::sim::key_seconds(due), key_state, key_count);
+                ++key_passes;
             }
             mapper.apply(joysticks.read(), controls);
             // Whether its own was predicted up to this pass - flown here on
@@ -1821,6 +1895,39 @@ static int run_program(int argc, char** argv) {
                                 learnt ? "the server says the learnt landing has this aircraft"
                                        : "the learnt landing no longer has this aircraft");
                     std::fflush(stdout);
+                    say_the_hud = learnt;
+                    if (learnt) {
+                        notice.clear();
+                    }
+                }
+                // **Refused, the player is told why**, on the HUD for ten
+                // seconds of flight and here.
+                for (const std::string& why : online->refused_learnt_landings()) {
+                    std::printf("glideslope: the server refused the learnt landing: %s\n",
+                                why.c_str());
+                    std::fflush(stdout);
+                    notice = "refused: " + why;
+                    notice_until = ticks + 10 * glideslope::sim::steps_per_second;
+                    say_the_hud = true;
+                }
+                // --press-after: each key at its time, its event and the key
+                // held for the next pass's keyboard, as a finger would.
+                while (presses_made < o.presses.size() && !test_key_held &&
+                       key_passes > pressed_in_pass + 1 &&
+                       joined_s >= o.presses[presses_made].first) {
+                    const SDL_Scancode key = o.presses[presses_made].second;
+                    ++presses_made;
+                    SDL_Event press{};
+                    press.type = SDL_EVENT_KEY_DOWN;
+                    press.key.scancode = key;
+                    press.key.down = true;
+                    press.key.repeat = false;
+                    SDL_PushEvent(&press);
+                    test_key_held = key;
+                    std::printf("glideslope: pressed %s, %.1f s in\n", SDL_GetScancodeName(key),
+                                joined_s);
+                    std::fflush(stdout);
+                    break; // one a pass, so that each is a press of its own
                 }
                 if (o.hand_over_after_s >= 0.0 && !asked_to_hand_over &&
                     joined_s >= o.hand_over_after_s) {
@@ -2095,7 +2202,7 @@ static int run_program(int argc, char** argv) {
             bool own_predicted = false;
             if (online && joined && flight) {
                 const bool drawing =
-                    !(shooting && !shot_now && !switched_now && !said_the_view);
+                    !(shooting && !shot_now && !switched_now && !said_the_view && !say_the_hud);
                 const double local_s = seconds_since_start();
                 if (drawing || local_s - own_framed_s >= 1.0 / 60.0) {
                     own_framed_s = local_s;
@@ -2132,7 +2239,7 @@ static int run_program(int argc, char** argv) {
                     }
                 }
             }
-            if (shooting && joined && !shot_now && !switched_now && !said_the_view) {
+            if (shooting && joined && !shot_now && !switched_now && !said_the_view && !say_the_hud) {
                 pass_done();
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
@@ -2325,6 +2432,9 @@ static int run_program(int argc, char** argv) {
                         readings.autopilot = "LEARNT LANDING";
                     }
                 }
+                if (ticks < notice_until) {
+                    readings.notice = notice;
+                }
                 if (ridden) {
                     // **What the aircraft ridden in is doing**, as the updates
                     // say: its ground speed - airspeed is not sent - its
@@ -2341,6 +2451,12 @@ static int run_program(int argc, char** argv) {
                     r.pitch_deg = ridden->pitch_deg;
                     r.roll_deg = ridden->roll_deg;
                     r.ai_flying = ridden->ai_flying;
+                    // Its own, which the learnt landing flies, says so as
+                    // the flight's own HUD would.
+                    if (ridden->number == online->mine() && online->own_learnt_landing()) {
+                        r.autopilot = "LEARNT LANDING";
+                    }
+                    r.notice = readings.notice;
                     if (const auto c = online->watched_controls(seconds_since_start())) {
                         glideslope::gfx::ControlsShown shown;
                         shown.aileron = c->aileron;
@@ -2374,6 +2490,14 @@ static int run_program(int argc, char** argv) {
                     std::printf("glideslope: the server says %s has aircraft %u\n",
                                 online->own_ai_flying() ? "the AI" : "the pilot",
                                 static_cast<unsigned>(online->mine()));
+                    for (const std::string& line : glideslope::gfx::hud_lines(readings)) {
+                        std::printf("glideslope: the HUD reads %s\n", line.c_str());
+                    }
+                }
+                // The learnt landing given or refused: what the HUD says of it.
+                if (say_the_hud) {
+                    say_the_hud = false;
+                    std::printf("glideslope: the HUD, of the learnt landing:\n");
                     for (const std::string& line : glideslope::gfx::hud_lines(readings)) {
                         std::printf("glideslope: the HUD reads %s\n", line.c_str());
                     }
