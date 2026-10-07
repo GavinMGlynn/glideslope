@@ -1703,3 +1703,40 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
     check(!light.empty() && flown == light.size(),
           "every light aeroplane in the catalogue flown: " + std::to_string(flown));
 }
+
+// **A plan that ends in a landing** (`land`): read - the runway whole, as a
+// take-off's is - and refused wherever it is wrong, each way built.
+GLIDESLOPE_TEST(a_landing_is_read_from_a_plan_and_refused_where_it_is_wrong) {
+    const FlightPlan plan = parse_flight_plan(
+        "aircraft c172p\n"
+        "start -33.75 151.12 2500 168 90\n"
+        "waypoint A -33.8 151.14 2200 80\n"
+        "land YSSY_16R -33.929401 151.171997 8 167.9 3962\n");
+    check(plan.landing && plan.landing->name == "YSSY_16R" &&
+              plan.landing->threshold_lat_deg == -33.929401 &&
+              plan.landing->threshold_lon_deg == 151.171997 &&
+              plan.landing->elevation_ft == 8.0 && plan.landing->heading_deg == 167.9 &&
+              plan.landing->length_m == 3962.0 && plan.waypoints.size() == 1,
+          "the runway landed on, after the waypoints");
+    check(!parse_flight_plan("aircraft c172p\nwaypoint A -33 151 3000 100\n").landing,
+          "a plan without one lands nowhere");
+
+    const std::string head = "aircraft c172p\nwaypoint A -33 151 3000 100\n";
+    const std::string land = "land R -33.9 151.2 8 168 3962\n";
+    const std::vector<std::pair<std::string, std::string>> wrong{
+        {head + "land R -33.9 151.2 8 168\n", "land NAME"},
+        {head + "land R -33.9 151.2 8 168 3962 more\n", "land NAME"},
+        {head + "land R -95 151.2 8 168 3962\n", "the latitude must be a number"},
+        {head + "land R -33.9 151.2 8 400 3962\n", "the heading must be a number"},
+        {head + "land R -33.9 151.2 8 168 50\n", "the length must be a number"},
+        {head + "land R -33.9 151.2 30000 168 3962\n", "the elevation must be a number"},
+        {head + land + land, "a second land line"},
+        {"aircraft c172p\n" + land, "no waypoints"},
+    };
+    std::size_t refusals = 0;
+    for (const auto& [text, says] : wrong) {
+        check(refused(text, says), "refused, saying \"" + says + "\":\n" + text);
+        ++refusals;
+    }
+    check(refusals == 8, "eight ways wrong, and every one refused");
+}

@@ -1,0 +1,23 @@
+# A flight plan that ends in a landing: the Cessna from over Chatswood, down
+# the extended centreline of Sydney airport's 16R, landed on it - by the
+# landing learnt by reinforcement learning, which the AI hands her to at its
+# gate two miles out, where the aircraft has one, and by the approach
+# autopilot otherwise.
+#
+#   aircraft NAME
+#   start LATITUDE LONGITUDE ALTITUDE_FT HEADING_DEG AIRSPEED_KT     in the air
+#   waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT
+#   land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M
+#
+# Degrees are WGS84's, altitudes above sea level, airspeeds calibrated. The
+# runway is 16R's landing threshold and its true heading and length, from
+# assets/runways/strips.csv (OurAirports); the server takes the threshold's
+# elevation from the ground it collides on. After the last waypoint the AI
+# flies to six and then four miles out on the centreline, on the glidepath,
+# and down it (src/sim/plan.hpp).
+
+aircraft c172p
+start -33.75045 151.12585 2500 168 90
+
+waypoint CENTRELINE_8NM -33.79925 151.13843 2200 80
+land YSSY_16R -33.929401 151.171997 8 167.9 3962

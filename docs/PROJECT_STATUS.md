@@ -181,7 +181,8 @@ surface; and a landing learnt by reinforcement learning lands the Cessna
 172P on the centreline in a crosswind. The learnt landing is offered for one
 aircraft, by the CLI, to a player at its gate on a server (L in the window
 client, told why when refused), and to an AI aircraft the server is told to
-put on final - but no flight plan can end in a landing (a tail). Everything a model answered is recorded,
+flying a plan that ends in a landing - but nothing clears a runway after
+one (a tail). Everything a model answered is recorded,
 and CI flies it again with no key.
 
 ## Gaps
@@ -264,11 +265,13 @@ are the risks the phase order is built around:
 
 ### The learnt landing from the window, for the AI, and told when refused; flaps from the keyboard; protocol version 9, 2026-10-08
 
-**What it is not, first.** **No flight plan can end in a landing**: the
-server's own AI aircraft are landed by the learnt landing only when its
-operator puts one on final (`--ai-on-final AIRPORT/RUNWAY`), and only the
-first plan-file AI aircraft, because nothing clears a runway - a second
-landing behind it would land into it (a tail). **A 172 a window client
+**What it is not, first.** **Nothing clears a runway**: an aircraft landed
+stops on it and stays, so two AI aircraft on plans ending at one runway
+would land into each other (a tail), and `--ai-on-final` puts only the first
+plan-file AI aircraft on final for the same reason. **A copilot's route
+cannot end in a landing**: `COPILOT_ROUTE` carries waypoints only, and is
+left as it was; a model's plan text that says `land` would be read, but no
+prompt asks for one. **A 172 a window client
 joins on final leaves the gate in seconds if nobody flies it**: left alone
 it was 8 degrees off the runway's heading six seconds in, and refused for
 it. The client now keeps the server's throttle, flaps, gear and speedbrake
@@ -302,6 +305,17 @@ prints them.
   along in one's own aircraft, which is what the client does while the AI
   flies it (the ridden aircraft's readings replaced the flight's); now it is
   kept there.
+- **A flight plan can end in a landing** (`land NAME LATITUDE LONGITUDE
+  ELEVATION_FT HEADING_DEG LENGTH_M`, read and refused as `runway` is, once):
+  past the last waypoint the controller flies on to six and four miles out
+  on the centreline and the glidepath at ten knots over the reference
+  speed, then the approach - handed to the learnt landing at its gate where
+  the server gave it one (`Controller::lands_learnt`, from every
+  controller it makes), the approach autopilot alone otherwise. The server
+  takes the threshold's elevation from the ground it collides on, as for a
+  take-off. `assets/plans/sydney-arrival.plan` flies from over Chatswood
+  down 16R's centreline and lands; the server says when an AI is handed
+  over and announces it to every client.
 - **An AI's approach handed to the learnt landing at its gate**:
   `sim::Controller::to_ai_approach(runway, speeds, policy)` - the approach
   autopilot flies, and the first step she is inside the gate
@@ -326,10 +340,17 @@ seen red with a deliberate bug, then the bug reverted):
   FLYING AI LEARNT LANDING; seen at rest, the shot held for it; the server's
   landing 214 ft/min, +1.37 m across, stopped 463 m along, -2.51 m across.
   264 s. Red with the server's flaps not kept.
-- `the_servers_ai_c172p_on_final_is_handed_to_the_learnt_landing_at_its_gate_and_landed`:
-  36,000 steps as fast as they go; handed over at the gate, 216 ft/min,
-  +1.23 m across, stopped 476 m along, -2.49 m across. Red with the policy
-  not given to the approach.
+- `the_servers_ai_c172p_flying_a_plan_that_ends_in_a_landing_is_handed_to_the_learnt_landing_at_its_gate_and_landed`:
+  the server with `--plan sydney-arrival.plan` and no other option, 90,000
+  steps as fast as they go: handed over at the gate, 216 ft/min, +1.26 m
+  across, stopped 477 m along, -2.51 m across; then `--ai-on-final`, 216
+  ft/min, +1.23 m across. Red with the plan's landing skipped, and earlier
+  with the policy not given to the approach.
+- `a_landing_is_read_from_a_plan_and_refused_where_it_is_wrong`: read
+  whole; eight ways wrong refused. Red with a second `land` let through.
+- The `LEARNT_LANDING_REFUSED` writer puts `?` for any byte outside 20 to
+  7E, and the refusal test writes all 256 and reads each back: red with the
+  bytes written as they came.
 - `an_ai_approach_is_handed_to_the_learnt_landing_inside_its_gate_and_landed_within_its_limits`:
   from three miles out, handed over 2.40 miles out, 214 ft/min, +1.34 m
   across, stopped 477 m along; the same approach with no policy never handed

@@ -408,13 +408,14 @@ Found while implementing something else. Added when found, not when remembered.
 
 - [x] **Offer the learnt landing in a session.** A player's 172 on final
       is handed to it at its gate on a server and landed - L in the window
-      client, which says why on its HUD when refused - and an AI 172 the
-      server is told to put on final (`--ai-on-final`) is flown into the gate
-      and handed to it there. *Verification: an AI aircraft on a server is
+      client, which says why on its HUD when refused - and an AI 172 whose
+      flight plan ends in a landing (`land`) is flown on to the final approach
+      and handed to it at the gate. *Verification: an AI aircraft on a server is
       landed by it when asked, and a client's aircraft handed over at the
-      gate is too.* Done 2026-10-08: both landed within 5 m and 300 ft/min
-      and stopped on the runway; the window client refused with its flaps
-      moving, told why, and handed over by L.
+      gate is too.* Done 2026-10-08: the AI flying `sydney-arrival.plan` and
+      the window client's 172 both landed within 5 m and 300 ft/min and
+      stopped on the runway; the window client refused with its flaps moving,
+      told why, and handed over by L.
 - [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
       *Verification: each light aircraft's policy lands within the
       autopilot's limits from the same starts, in calm air and a 10-knot
@@ -1118,12 +1119,11 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       - The window client put right 20 to 31 m after a long frame (owed: a month of CI runs, 20 m bound unchanged)
       *Verification: 30 consecutive nightly runs with none of these failing,
       or each failure's cause found and fixed under its own item.*
-- [ ] **No flight plan can end in a landing.** The server's AI aircraft are
-      landed - by the learnt landing, for a 172 - only when the operator puts
-      one on final with `--ai-on-final`, and only one, since nothing clears a
-      runway for the next. *Verification: an AI aircraft flying a plan that
-      ends at a runway flies the approach and lands, and a second behind it
-      lands once the first has left the runway.*
+- [ ] **Nothing clears a runway**: an aircraft landed stops on it and stays,
+      so a second AI landing there lands into it, and a model's or a
+      copilot's route cannot end in a landing. *Verification: two AI aircraft
+      on plans ending at one runway both land, the second once the first has
+      left it.*
 - [ ] **A 172 a window client joins on final leaves the gate in seconds**:
       left alone, it is 8 degrees off the runway's heading six seconds in. The
       client keeps the server's flaps and throttle but not its pitch trim,

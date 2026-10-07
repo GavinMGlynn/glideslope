@@ -76,6 +76,17 @@ public:
     // (`approach_speeds`). Without them - an aeroplane that publishes no
     // stall speed - such a take-back is the plain autopilot.
     void lands_with(const ApproachSpeeds& speeds) { landing_speeds_ = speeds; }
+    // **And the learnt landing she is handed to at its gate**, for a plan
+    // that ends in a landing (`land`): none lands her with the approach
+    // autopilot alone. A plan's landing needs `lands_with`: without approach
+    // speeds the plan's last waypoint is flown on, as with no landing.
+    void lands_learnt(std::shared_ptr<const LearntPolicy> policy) {
+        landing_policy_ = std::move(policy);
+    }
+    // The runway the learnt landing was handed her for, if it has been.
+    const Runway* learnt_runway() const {
+        return learnt_ && gate_runway_ ? &*gate_runway_ : nullptr;
+    }
     void to_ai(FlightPlan plan);
 
     // **The AI pilot can take off and land, not only hold and navigate.**
@@ -199,6 +210,10 @@ private:
     // this or for anything else.
     std::optional<Lander> landing_;
     std::optional<ApproachSpeeds> landing_speeds_;
+    std::shared_ptr<const LearntPolicy> landing_policy_;
+    // Flying a plan's way on to its final approach (`land`): six and four
+    // miles out on the centreline.
+    bool on_final_legs_ = false;
     // The lander's controls, reached from the pilot's at a hand's pace after
     // a take-back on the roll.
     bool easing_in_ = false;

@@ -1294,9 +1294,9 @@ public:
                 throw std::runtime_error("cannot read the flight plan " +
                                          where.string());
             }
-            const glideslope::sim::FlightPlan plan =
-                glideslope::sim::parse_flight_plan(
-                    std::string(std::istreambuf_iterator<char>(in), {}));
+            glideslope::sim::FlightPlan plan = glideslope::sim::parse_flight_plan(
+                std::string(std::istreambuf_iterator<char>(in), {}));
+            ground_the_landing(plan);
             const glideslope::sim::CatalogueEntry entry =
                 glideslope::sim::find_aircraft(data, plan.aircraft);
             // Held to its aircraft's speeds, as a model's plan is.
@@ -1849,20 +1849,35 @@ public:
         return it->second;
     }
 
+    // **A plan's landing on the ground it is flown over** (`land`): its
+    // threshold's elevation the collision ground's, as a take-off's runway's
+    // is - what the wheels meet, so that the flare is flown to it.
+    void ground_the_landing(glideslope::sim::FlightPlan& plan) {
+        if (plan.landing) {
+            plan.landing->elevation_ft =
+                collision_->height_above_ellipsoid(plan.landing->threshold_lat_deg,
+                                                   plan.landing->threshold_lon_deg) *
+                feet_per_metre;
+        }
+    }
+
     // **An AI's approach handed to the learnt landing at its gate**
     // (`--ai-on-final`): its controller did it, the step she was inside it;
     // said here and announced to every client, once, as a player's is.
     void learnt_at_gate(Aircraft& a) {
-        if (!a.on_final_to || a.learnt_announced || !a.controller || !a.controller->learnt()) {
+        if (a.slot >= 0 || a.learnt_announced || !a.controller || !a.controller->learnt() ||
+            !a.controller->learnt_runway()) {
             return;
         }
         a.learnt_announced = true;
+        a.learnt_runway = a.controller->learnt_runway()->name;
+        a.learnt_said = false;
         announced_.push_back({a.index, glideslope::net::Controller::learnt_landing,
                               static_cast<double>(steps_) /
                                   static_cast<double>(glideslope::sim::steps_per_second)});
         std::printf("aircraft %u, an AI's, handed to the learnt landing at its gate, on final "
                     "to %s\n",
-                    static_cast<unsigned>(a.index), a.on_final_to->name.c_str());
+                    static_cast<unsigned>(a.index), a.learnt_runway.c_str());
         std::fflush(stdout);
     }
 
@@ -2769,6 +2784,7 @@ private:
         for (glideslope::sim::Waypoint& w : plan.waypoints) {
             w.altitude_ft += geoid_.undulation(w.latitude_deg, w.longitude_deg) * feet_per_metre;
         }
+        ground_the_landing(plan);
         auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data_ / "jsbsim", entry.model);
         aircraft->set_terrain(ground_);
         if (session_air_) {
@@ -2914,6 +2930,9 @@ private:
         if (it->second) {
             controller->lands_with(*it->second);
         }
+        // And the learnt landing, where she has one, for a plan that ends in
+        // a landing (`land`).
+        controller->lands_learnt(learnt_for(model));
         return controller;
     }
 
@@ -3201,6 +3220,7 @@ private:
         a.judge.reset();
         a.wrecked_at_s = -1.0;
         a.held_clear_of = -1;
+        a.learnt_announced = false;
         if (a.on_plan) {
             a.controller = controller_for(*a.aircraft, a.model, glideslope::sim::Controls{});
             fly_plan(a);
