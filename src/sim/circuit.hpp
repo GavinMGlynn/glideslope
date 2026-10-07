@@ -22,7 +22,11 @@
 // to a sim::Lander on the same runway, which puts the landing flap and the
 // gear where the landing needs them. The circuit's sizes are the ones the
 // circuit lessons' AI flies (tests/unit/test_lesson.cpp, fly_a_circuit): a
-// faster aeroplane's is higher and wider.
+// faster aeroplane's is higher and wider. **It is flown that high over the
+// highest ground of the circuit**, where the ground rises above the runway,
+// as her terrain has it. **It knows no traffic**: nothing keeps it clear of
+// another aircraft in the circuit but what the separation monitor puts on
+// the autopilot's height (sim/separation.hpp).
 //
 // It flies through the plain autopilot: what it gives is the modes to hold,
 // and the flap and gear to set over what the autopilot flies.
@@ -50,7 +54,8 @@ public:
     bool on_final() const { return leg_ == Leg::final; }
     const Runway& runway() const { return runway_; }
     const ApproachSpeeds& speeds() const { return speeds_; }
-    // Feet over the runway the circuit is flown at.
+    // Feet over the runway the circuit is flown at: over the highest ground
+    // of the circuit, where that rises above the runway.
     double circuit_ft() const { return circuit_ft_; }
 
 private:

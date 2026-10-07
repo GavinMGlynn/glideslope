@@ -268,9 +268,32 @@ are the risks the phase order is built around:
 **What is missing first.** The AI still goes around by itself only from a
 balloon: an approach arriving long (past the touchdown zone in the air) or
 fast (more than the stabilised approach's 20 knots over the reference) is
-landed anyway. And the circuit is a fixed left-hand one: no traffic, no
-wind correction to its legs beyond the autopilot's heading hold, no
-right-hand pattern where a runway's side asks for one.
+landed anyway. **The circuit knows no traffic**: nothing sequences it with
+another aircraft in the circuit or on the runway; only the separation
+monitor's floor or ceiling on the autopilot's height (sim/separation.hpp)
+acts, and no run measures two going around together. It is a fixed
+left-hand circuit, with no wind correction to its legs beyond the
+autopilot's heading hold and no right-hand pattern where a runway's side
+asks for one. Its terrain is a height, not a path: it is flown over the
+highest ground of the circuit's box, and the final approach from the raised
+height is not checked against the ground under it. The circuit lessons'
+AI still flies its own copy of these rules (a tail).
+
+**Over the ground** (from #123's review): the circuit samples her terrain -
+the collision DEM, on a server or a client - every 250 m over a box from
+eight miles before the threshold to four past the runway and from 500 m
+right of the centreline to two turns and 2 km left, and is raised by the
+highest ground there above the runway; the downwind leg is then left where
+the glidepath meets the raised height. `Aircraft::terrain()` gives the
+terrain to it. `an_aeroplane_going_around_beside_rising_ground_flies_its_circuit_height_over_it_and_lands`:
+every landplane but the F-35B over ground rising six metres in a hundred
+from 400 m left of the centreline flies downwind at least 0.85 of its
+circuit height over the ground (1,264 to 2,016 ft) and lands, within thirty
+minutes. **The F-35B is named and left out**: on the raised downwind leg
+she climbs from 2,900 to 6,000 ft and flies on past base, cause not found
+(a tail). On flat ground the bound is the same; she settles to 1,309 ft of
+her 1,500. **Seen to fail** with the circuit not raised:
+13 wrong, the 737-300 downwind 538 ft over the ground, the A380 532.
 
 **What changed.** At the go-around's 500 ft the controller no longer hands
 her to the plain autopilot: `sim::GoAroundCircuit` (`sim/circuit.hpp`) flies
@@ -337,9 +360,16 @@ her track and autobrake 3, as on 2026-10-06.
 - `an_aircraft_rolling_on_a_runway_of_the_worlds_is_given_that_runway_towards_where_she_rolls_and_off_one_none`:
   a C172P at Sydney rolling at 40 kt, nine cases walked of nine - down 16R,
   up 34L, down 16L, along 07 and 25, each way at the crossing of 07/25 and
-  16R/34L, across 16R (none) and between the parallels (none); elevation the
-  ground's, length the runway's. **Seen to fail** with the 30-degree limit
-  taken off: "across 16R: given 'YSSY 34L', not ''".
+  16R/34L, across 16R (none), between the parallels (none) and 40 m off
+  16R's centreline on its shoulder (none) - ten of ten; elevation the
+  ground's, length the runway's. The crossing is asserted to be on both
+  runways' rectangles, and the parallels' places each on its own and off
+  the other's. **Seen to fail** with the 30-degree limit taken off:
+  "across 16R: given 'YSSY 34L', not ''"; with the first end within 120
+  degrees taken rather than the best: "down 16R at the crossing: given
+  'YSSY 07'"; and with the rectangle not asked: "across 16R: given 'YSSY
+  25'". A wet or contaminated runway's longer stop is not known: it is
+  braked for a dry one (a tail).
 - `an_aeroplane_landed_by_hand_and_handed_over_on_its_roll_is_landed_to_a_stop`
   and the taxiing test pass unchanged (no runway given).
 
