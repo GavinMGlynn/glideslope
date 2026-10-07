@@ -4,6 +4,7 @@
 #include "sim/prediction.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 
 namespace glideslope::sim {
@@ -30,15 +31,26 @@ void Pacing::heard(std::int64_t difference, double local_s, std::optional<double
         heard_at_s_ = local_s;
         off_ = 0;
         worst_off_ = 0;
+        last_difference_ = difference;
         return;
     }
+    const double dt = heard_at_s_ ? std::max(0.0, local_s - *heard_at_s_) : 0.0;
+    heard_at_s_ = local_s;
+    // **A jump is not a pace**: the difference moves by no more than the
+    // most two paces can part by over the time since the last word, and a
+    // step one past that - a starved server catching up at once - moves
+    // what it is held to by the excess, rather than being chased.
+    const std::int64_t moved = difference - last_difference_;
+    last_difference_ = difference;
+    const auto most = static_cast<std::int64_t>(
+        std::ceil(most_parting * static_cast<double>(steps_per_second) * dt)) + 1;
+    const std::int64_t taken = std::clamp(moved, -most, most);
+    *held_ += moved - taken;
     off_ = difference - *held_;
     if (std::llabs(off_) > std::llabs(worst_off_)) {
         worst_off_ = off_;
     }
     const double error_s = static_cast<double>(off_) / static_cast<double>(steps_per_second);
-    const double dt = heard_at_s_ ? std::max(0.0, local_s - *heard_at_s_) : 0.0;
-    heard_at_s_ = local_s;
     const double integral = integral_ + error_s * dt;
     const double wanted = 1.0 + proportional_per_s * error_s + integral_per_s2 * integral;
     pace_ = std::clamp(wanted, slowest, fastest);
