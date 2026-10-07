@@ -855,11 +855,12 @@ Found while implementing something else. Added when found, not when remembered.
       balloons, and the Mosquito at her heaviest. *Verification: every
       aeroplane lands light, heavy and in gusts with none named, and a
       gust on an approach flown well makes no go-around.*
-- [ ] **A go-around ends in a straight climb**: at 500 ft the plain
-      autopilot holds it, with the landing flap still down, and nothing
-      flies her round to another approach. Nor does the AI go around from a
-      landing that is only long or fast. *Verification: an aeroplane that
-      goes around is flown round and landed.*
+- [ ] **The AI does not go around from a landing that is only long or
+      fast.** Since 2026-10-08 a go-around is cleaned up and flown round a
+      circuit to land again, and the AI can be told to go around; but only a
+      balloon makes it go around by itself. *Verification: an aeroplane that
+      goes around is flown round and landed (done), and one arriving long or
+      fast goes around.*
 - [x] **The B-2A cannot slow down on the approach.** *Verification: the
       B-2A crosses the threshold within five knots of its reference speed,
       and rises less than half a foot after it first touches.* Done

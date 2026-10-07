@@ -90,6 +90,7 @@ void Controller::engage() {
     navigator_.reset();
     departure_.reset();
     lander_.reset();
+    circuit_.reset();
     learnt_.reset();
     at_gate_.reset();
     on_final_legs_ = false;
@@ -270,6 +271,7 @@ void Controller::to_pilot() {
         landing_.emplace(std::move(*lander_));
     }
     lander_.reset();
+    circuit_.reset();
 }
 
 Controls Controller::fly() {
@@ -327,8 +329,27 @@ Controls Controller::fly() {
                 }
                 return applied_;
             }
+            // **Gone around, she is flown round again** to the same runway
+            // (sim/circuit.hpp), not left climbing on the plain autopilot.
+            if (lander_->gone_around()) {
+                circuit_.emplace(a_, lander_->runway(), lander_->speeds());
+            }
             lander_.reset();
             autopilot_.emplace(a_, applied_);
+        }
+        if (circuit_) {
+            if (circuit_->on_final()) {
+                lander_.emplace(a_, circuit_->runway(), circuit_->speeds());
+                lander_->hand_mixture(applied_.mixture);
+                circuit_.reset();
+                applied_ = lander_->fly();
+                return applied_;
+            }
+            autopilot_->set(circuit_->modes());
+            autopilot_->limit_height(floor_ft_, ceiling_ft_);
+            applied_ = autopilot_->fly();
+            circuit_->configure(applied_);
+            return applied_;
         }
         // **A plan that ends in a landing**: its waypoints passed, the way on
         // to the final approach; that passed, the approach - and the learnt

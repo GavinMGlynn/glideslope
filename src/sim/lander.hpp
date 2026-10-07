@@ -96,6 +96,10 @@ public:
     static constexpr double go_around_ft = 500.0;
     // Whether a go-around has climbed to `go_around_ft`: the landing is over.
     bool gone_around() const;
+    // **Go around now**, as told to - by a controller, or the runway not
+    // clear: from the approach or the flare, not once she has touched. The
+    // go-around is flown as one from a balloon is.
+    void go_around();
 
     Lander(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
            double glidepath_deg = 3.0);
@@ -123,6 +127,10 @@ public:
     void hand_mixture(double mixture);
 
     Stage stage() const { return stage_; }
+    // The runway and the speeds it lands with: what a go-around is flown
+    // round to again (sim/circuit.hpp).
+    const Runway& runway() const { return runway_; }
+    const ApproachSpeeds& speeds() const { return speeds_; }
 
     // **The most incidence the flare raises the nose to**: twelve degrees,
     // or four over what she flew the glidepath at, short of the stall
