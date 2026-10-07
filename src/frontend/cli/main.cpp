@@ -1519,7 +1519,18 @@ public:
         if (clock_.known()) {
             session_now_s_ = clock_.now(local_s);
         }
-        const auto due = static_cast<long long>(local_s *
+        // **At the session's pace, not this machine's**: a server behind
+        // real time flies each input for fewer steps than this machine's
+        // clock would, and flown at this machine's pace its own aircraft
+        // was put right by metres for it - 2.3 m the median, 5.6 m the
+        // worst, at half of real time (PROJECT_STATUS.md, 2026-10-07).
+        if (paced_from_s_ >= 0.0) {
+            paced_s_ += (local_s - paced_from_s_) * (clock_.known() ? clock_.rate() : 1.0);
+        } else {
+            paced_s_ = local_s;
+        }
+        paced_from_s_ = local_s;
+        const auto due = static_cast<long long>(paced_s_ *
                                                 static_cast<double>(glideslope::sim::steps_per_second));
         if (ai_flying_) {
             // The AI pilot flies it, on the server: nothing is flown here.
@@ -2120,6 +2131,8 @@ private:
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
+    double paced_s_ = 0.0;
+    double paced_from_s_ = -1.0;
     std::deque<std::pair<std::uint32_t, glideslope::sim::Controls>> before_;
     glideslope::net::SessionClock clock_;
     double rendered_s_ = -1.0;

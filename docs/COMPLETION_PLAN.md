@@ -661,10 +661,15 @@ Found while implementing something else. Added when found, not when remembered.
       server slowed on purpose keeps a predicting client's error under a metre.*
       Part of it is the client's clock estimate lagging the server's catch-up.
       Merged in from the window client being put right 20 to 31 m after a
-      long frame (frames of 140 to 730 ms; its cause fixed 2026-10-02). Still
-      missing: an explanation of loaded local runs put right 9 to 13 m since,
-      and the prediction tests' 20 m bound unchanged (the month of CI runs is
-      counted under the nightly item below).
+      long frame (frames of 140 to 730 ms; its cause fixed 2026-10-02). The
+      command-line client flies its own at the server's pace since
+      2026-10-07: off by nought at the median, not 1.3 m, against a server
+      slowed on purpose. Still missing: the client with the window paced
+      the same way (its clock is fitted to when frames read updates, which a
+      long frame bunches), its worst error under a metre (the clocks'
+      estimate), an explanation of loaded local runs put right 9 to 13 m,
+      and the prediction tests' 20 m bound unchanged (the month of CI runs
+      is counted under the nightly item below).
 - [x] **Two server tests counted wall-clock seconds on slow runners**: one
       counted inputs still in flight, and a late client arrived before a slow
       server was flying. *Verification: the client waits for its last input to
