@@ -72,7 +72,8 @@ constexpr double join_outside = 0.20;
 constexpr double join_least_m = 150.0;
 // The space is every case of every aircraft in it, and every one is flown.
 void fly_the_tightest_orbits(const std::vector<glideslope::sim::CatalogueEntry>& space, End end,
-                             double within_m, double within_fraction = 0.0) {
+                             double within_m, double within_fraction = 0.0,
+                             const std::vector<bool>& ways = {false, true}) {
     const std::filesystem::path data =
         std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     std::size_t flown = 0;
@@ -82,7 +83,7 @@ void fly_the_tightest_orbits(const std::vector<glideslope::sim::CatalogueEntry>&
             glideslope::sim::plan_speeds(data, entry.model);
         const double kts = end == End::slowest ? speeds.slowest_kts : speeds.fastest_kts;
         check(kts == std::round(kts), entry.id + "'s speeds are whole knots, as a plan writes them");
-        for (const bool right : {false, true}) {
+        for (const bool right : ways) {
         for (const bool windy : {false, true}) {
             glideslope::sim::OrbitTrial trial;
             trial.airspeed_kts = kts;
@@ -117,11 +118,11 @@ void fly_the_tightest_orbits(const std::vector<glideslope::sim::CatalogueEntry>&
         }
         }
     }
-    std::fprintf(stderr, "%zu aircraft x 2 ways round x 2 airs = %zu orbits: %zu flown\n",
-                 space.size(), space.size() * 4, flown);
-    check(flown == space.size() * 4 && flown > 0,
-          "every case flown: " + std::to_string(flown) + " of " +
-              std::to_string(space.size() * 4));
+    const std::size_t cases = space.size() * ways.size() * 2;
+    std::fprintf(stderr, "%zu aircraft x %zu ways round x 2 airs = %zu orbits: %zu flown\n",
+                 space.size(), ways.size(), cases, flown);
+    check(flown == cases && flown > 0,
+          "every case flown: " + std::to_string(flown) + " of " + std::to_string(cases));
     check(failures.empty(),
           "each twice round and on, its height within 50 ft, its speed within 5 kt and its "
           "circle within " +
@@ -513,19 +514,6 @@ const std::vector<std::vector<AircraftClass>> tightest_orbit_groups = {
     {AircraftClass::second_world_war, AircraftClass::seaplane},
 };
 
-// Every aircraft in the catalogue of one of `classes`.
-std::vector<glideslope::sim::CatalogueEntry> of_classes(const std::vector<AircraftClass>& classes) {
-    const std::filesystem::path data =
-        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
-    std::vector<glideslope::sim::CatalogueEntry> out;
-    for (const auto& e : glideslope::sim::read_catalogue(data)) {
-        if (std::find(classes.begin(), classes.end(), e.aircraft_class) != classes.end()) {
-            out.push_back(e);
-        }
-    }
-    return out;
-}
-
 } // namespace
 
 // **What a plan may ask of each aircraft is in its figures file**, and the
@@ -649,49 +637,91 @@ GLIDESLOPE_TEST(a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_ref
 // speed: none may hold what a plan asks (sim::holds_plan_speed - the orbit
 // four ways, a heading in calm air and a crosswind). The rest are at the
 // bound plans were held to before, which nothing is asked past.
-GLIDESLOPE_TEST(no_aircraft_holds_what_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+namespace {
+
+// One aircraft of the test below: its slowest tried 10 kt slower where it is
+// above its approach speed (or it has none), its fastest 10 kt faster where
+// it is below a fifth over its start speed; each bound tried or at the old
+// bound, and none held.
+enum class Bounds { both, slowest, fastest };
+void holds_nothing_one_step_past(const std::string& id, Bounds bounds = Bounds::both) {
     const std::filesystem::path data =
         std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto e = glideslope::sim::find_aircraft(data, id);
     std::string failures;
     std::size_t tried = 0;
     std::size_t at_the_old_bound = 0;
-    const auto catalogue = glideslope::sim::read_catalogue(data);
-    for (const auto& e : catalogue) {
-        const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, e.model);
-        double approach = 0.0;
-        try {
-            approach = std::round(glideslope::sim::approach_speeds(data, e.model).vref_kts);
-        } catch (const std::runtime_error&) {
-            // The 747-400 and the F-22 have none: their slowest was sought.
-        }
-        const auto past = [&](double kts, const char* which) {
-            const bool held = glideslope::sim::holds_plan_speed(
-                data, e, kts, [](const std::string& line) { std::printf("  %s\n", line.c_str()); });
-            std::printf("%s 10 kt past its %s, at %.0f kt: %s\n", e.id.c_str(), which, kts,
-                        held ? "held" : "not held");
-            if (held) {
-                failures += "\n  " + e.id + " holds " + std::to_string(kts) + " kt, 10 past its " +
-                            which;
-            }
-            ++tried;
-        };
-        if (speeds.slowest_kts > approach) {
-            past(speeds.slowest_kts - 10.0, "slowest");
-        } else {
-            ++at_the_old_bound;
-        }
-        if (speeds.fastest_kts < std::round(1.2 * e.start_airspeed_kts)) {
-            past(speeds.fastest_kts + 10.0, "fastest");
-        } else {
-            ++at_the_old_bound;
-        }
+    const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, e.model);
+    double approach = 0.0;
+    try {
+        approach = std::round(glideslope::sim::approach_speeds(data, e.model).vref_kts);
+    } catch (const std::runtime_error&) {
+        // The 747-400 and the F-22 have none: their slowest was sought.
     }
-    std::printf("%zu bounds tried 10 kt past, %zu at the old bound, of %zu\n", tried,
-                at_the_old_bound, 2 * catalogue.size());
-    check(tried + at_the_old_bound == 2 * catalogue.size() && tried > 0,
-          "every aircraft's slowest and fastest tried or at the old bound");
-    check(failures.empty(), "none holds 10 kt past what its file gives:" + failures);
+    const auto past = [&](double kts, const char* which) {
+        // **Past the fastest, power in hand is asked first**: it is the last
+        // and cheapest of what holds_plan_speed asks, and where it fails
+        // nothing else need be flown - the S.23 at 151 kt held its orbits and
+        // its heading, 108 s in linux-debug, and then had 151.9 kt level.
+        bool held = false;
+        if (kts > speeds.fastest_kts) {
+            const double level = glideslope::sim::full_throttle_level_kts(data, e, kts);
+            std::printf("  %s %.0f kt: %.1f kt level at full throttle\n", e.id.c_str(), kts,
+                        level);
+            held = level >= kts + glideslope::sim::plan_speed_power_margin_kts &&
+                   glideslope::sim::holds_plan_speed(data, e, kts, [](const std::string& line) {
+                       std::printf("  %s\n", line.c_str());
+                   });
+        } else {
+            // **Below the slowest, the heading in a crosswind is asked
+            // first**, two minutes each where the orbits are many: the F-22
+            // at 245 kt held its four orbits, 69 s in linux-debug, and then
+            // swung 1.6 degrees of sideslip in the crosswind.
+            held = true;
+            for (const bool windy : {false, true}) {
+                const auto f = glideslope::sim::fly_heading_in_crosswind(data, e, kts, windy);
+                std::printf("  %s %.0f kt heading north, %s: sideslip %+.2f to %+.2f, heading "
+                            "within %.2f\n",
+                            e.id.c_str(), kts, windy ? "20 kt crosswind" : "calm",
+                            f.least_sideslip_deg, f.most_sideslip_deg, f.worst_heading_deg);
+                held = held && f.held();
+            }
+            held = held && glideslope::sim::holds_plan_speed(data, e, kts,
+                                                             [](const std::string& line) {
+                                                                 std::printf("  %s\n",
+                                                                             line.c_str());
+                                                             });
+        }
+        std::printf("%s 10 kt past its %s, at %.0f kt: %s\n", e.id.c_str(), which, kts,
+                    held ? "held" : "not held");
+        if (held) {
+            failures += "\n  " + e.id + " holds " + std::to_string(kts) + " kt, 10 past its " +
+                        which;
+        }
+        ++tried;
+    };
+    if (bounds == Bounds::fastest) {
+        ++at_the_old_bound; // its own test's
+    } else if (speeds.slowest_kts > approach) {
+        past(speeds.slowest_kts - 10.0, "slowest");
+    } else {
+        ++at_the_old_bound;
+        std::printf("%s's slowest is at the old bound, its approach speed\n", e.id.c_str());
+    }
+    if (bounds == Bounds::slowest) {
+        ++at_the_old_bound; // its own test's
+    } else if (speeds.fastest_kts < std::round(1.2 * e.start_airspeed_kts)) {
+        past(speeds.fastest_kts + 10.0, "fastest");
+    } else {
+        ++at_the_old_bound;
+        std::printf("%s's fastest is at the old bound, a fifth over its start speed\n",
+                    e.id.c_str());
+    }
+    check(tried + at_the_old_bound == 2, e.id + "'s slowest and fastest tried or at the old bound");
+    check(failures.empty(), "none held 10 kt past what its file gives:" + failures);
 }
+
+} // namespace
 
 // **The fastest a plan may ask leaves power in hand**: every aircraft flies
 // level at full throttle at least 5 kt faster than its figures file's
@@ -720,13 +750,69 @@ GLIDESLOPE_TEST(every_aircrafts_fastest_plan_speed_leaves_5_kt_in_hand_at_full_t
     check(failures.empty(), "each leaves 5 kt in hand:" + failures);
 }
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_light_aeroplane) {
-    // Claude's plan for the Cessna, 521 m at 60 kt, was flown 94 to 127 m
-    // inside its circle: the navigator led the tangent by five seconds, more
-    // than the autopilot needs ahead of it to bank for so tight a circle.
-    // Every light aeroplane in the catalogue, so that one added is flown.
-    // Stated from what was measured (PROJECT_STATUS.md): at worst 50 m off;
-    // held to 60.
+namespace {
+
+// **Each aircraft's tightest orbits are flown in a test of its own**, and so
+// is one step past its slowest and fastest, so that none flies long on CI:
+// by class, the airliners' and business jets' fastest orbits ran past 900 s
+// in CI's linux-debug, and every aircraft one step past took 1,282 s. Every
+// aircraft in the catalogue has its three, which this list and the test
+// below assert. The S.23's and the F-22's, the slowest of them, are split
+// again: each orbit each way round, and each bound one step past on its own.
+const std::vector<std::string> orbit_tested = {
+    "c172p",
+    "c182",
+    "pa28",
+    "j3cub",
+    "short_s23",
+    "mosquito-fb6",
+    "737-300",
+    "747-400",
+    "787-8",
+    "a320",
+    "a380",
+    "learjet35a",
+    "b2",
+    "f15c",
+    "f22",
+    "f35b",
+};
+
+// **How near its circle each must stay**, by its tightest-orbit group: the
+// light aeroplanes, the Mosquito and the S.23 within 60 m, at either end
+// (at worst 50 and 36 m measured, PROJECT_STATUS.md); the jets within 5% of
+// the radius at their slowest and 2% at their fastest (at worst 1.3%, the
+// A380's 172 m of 13 km at 300 kt, and the fighters' 0.9%).
+void fly_its_tightest_orbits(const std::string& id, End end,
+                             const std::vector<bool>& ways = {false, true}) {
+    const auto entry = glideslope::sim::find_aircraft(
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path(), id);
+    const auto in = [&](const std::vector<AircraftClass>& group) {
+        return std::find(group.begin(), group.end(), entry.aircraft_class) != group.end();
+    };
+    if (in(tightest_orbit_groups[1]) || in(tightest_orbit_groups[2])) {
+        fly_the_tightest_orbits({entry}, end, 0.0, end == End::slowest ? 0.05 : 0.02, ways);
+    } else {
+        check(in(tightest_orbit_groups[0]) || in(tightest_orbit_groups[3]),
+              id + " is in a tightest-orbit group");
+        fly_the_tightest_orbits({entry}, end, 60.0, 0.0, ways);
+    }
+}
+
+} // namespace
+
+// Claude's plan for the Cessna, 521 m at 60 kt, was flown 94 to 127 m inside
+// its circle: the navigator led the tangent by five seconds, more than the
+// autopilot needs ahead of it to bank for so tight a circle. Until each had
+// its own slowest, a plan could fly a jet clean at its approach speed, a
+// flaps-down figure: five of the six airliners and business jets came down
+// to the ground round this orbit, and the A320 lost 600 ft; the F-35B came
+// down too, and the B-2 stalled turning towards it. At the fastest, the
+// navigator turned in towards the circle by 90 degrees a kilometre whatever
+// the speed, and the jets swung through their 13 to 19 km circles by up to
+// 18% of the radius (3.3 km, the F-15C at 360 kt); it now turns in by what
+// brings it back in twelve seconds at its airspeed (sim/navigator.cpp).
+GLIDESLOPE_TEST(every_aircraft_has_its_own_tests_of_its_tightest_orbits_and_one_step_past_them) {
     std::vector<AircraftClass> grouped;
     for (const auto& group : tightest_orbit_groups) {
         grouped.insert(grouped.end(), group.begin(), group.end());
@@ -734,58 +820,236 @@ GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_
     std::sort(grouped.begin(), grouped.end());
     check(grouped.size() == glideslope::sim::aircraft_class_count &&
               std::adjacent_find(grouped.begin(), grouped.end()) == grouped.end(),
-          "the tightest-orbit tests take every class of aircraft, each once: " +
+          "the tightest-orbit groups take every class of aircraft, each once: " +
               std::to_string(grouped.size()) + " of " +
               std::to_string(glideslope::sim::aircraft_class_count));
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[0]), End::slowest, 60.0);
+    std::vector<std::string> catalogue;
+    for (const auto& e : glideslope::sim::read_catalogue(
+             std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path())) {
+        catalogue.push_back(e.id);
+    }
+    std::vector<std::string> tested = orbit_tested;
+    std::sort(catalogue.begin(), catalogue.end());
+    std::sort(tested.begin(), tested.end());
+    check(tested == catalogue && std::adjacent_find(tested.begin(), tested.end()) == tested.end(),
+          "each of the " + std::to_string(catalogue.size()) +
+              " aircraft has its own tests, once: " + std::to_string(tested.size()));
 }
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_airliner_and_business_jet) {
-    // Until each had its own slowest, a plan could fly a jet clean at its
-    // approach speed, a flaps-down figure: five of the six came down to the
-    // ground round this orbit, and the A320 lost 600 ft. Stated from what was
-    // measured (PROJECT_STATUS.md).
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[1]), End::slowest, 0.0, 0.05);
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_cessna_172p) {
+    fly_its_tightest_orbits("c172p", End::slowest);
 }
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_fighter_and_bomber) {
-    // Until each had its own slowest, the F-35B came down to the ground round
-    // this orbit at its approach speed, and the B-2 stalled turning towards
-    // it; the F-22 had no approach speed to fly. Stated from what was
-    // measured (PROJECT_STATUS.md).
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[2]), End::slowest, 0.0, 0.05);
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_cessna_172p) {
+    fly_its_tightest_orbits("c172p", End::fastest);
 }
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_every_warbird_and_flying_boat) {
-    // Stated from what was measured (PROJECT_STATUS.md): at worst 36 m off;
-    // held to 60, as the light aeroplanes are.
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[3]), End::slowest, 60.0);
+GLIDESLOPE_TEST(the_cessna_172p_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("c172p");
 }
 
-// **At the fastest a plan may ask**, the height and speed are held as at the
-// slowest, and so is the circle: the light aeroplanes', the Mosquito's and
-// the S.23's to 60 m, the jets' to a share of the radius stated from what was
-// measured (PROJECT_STATUS.md): at worst 1.3%, the A380's 172 m of 13 km at
-// 300 kt, and the fighters' 0.9%, held to 2%. The navigator turned in
-// towards the circle by
-// 90 degrees a kilometre whatever the speed, and the jets swung through their
-// 13 to 19 km circles by up to 18% of the radius (3.3 km, the F-15C at 360
-// kt); it now turns in by what brings it back in twelve seconds at its
-// airspeed (sim/navigator.cpp).
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_light_aeroplane) {
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[0]), End::fastest, 60.0);
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_cessna_182s) {
+    fly_its_tightest_orbits("c182", End::slowest);
 }
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_airliner_and_business_jet) {
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[1]), End::fastest, 0.0, 0.02);
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_cessna_182s) {
+    fly_its_tightest_orbits("c182", End::fastest);
 }
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_fighter_and_bomber) {
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[2]), End::fastest, 0.0, 0.02);
+GLIDESLOPE_TEST(the_cessna_182s_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("c182");
 }
 
-GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_every_warbird_and_flying_boat) {
-    fly_the_tightest_orbits(of_classes(tightest_orbit_groups[3]), End::fastest, 60.0);
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_piper_pa28) {
+    fly_its_tightest_orbits("pa28", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_piper_pa28) {
+    fly_its_tightest_orbits("pa28", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_piper_pa28_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("pa28");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_piper_j3_cub) {
+    fly_its_tightest_orbits("j3cub", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_piper_j3_cub) {
+    fly_its_tightest_orbits("j3cub", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_piper_j3_cub_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("j3cub");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_turning_left_by_the_short_s23) {
+    fly_its_tightest_orbits("short_s23", End::slowest, {false});
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_turning_right_by_the_short_s23) {
+    fly_its_tightest_orbits("short_s23", End::slowest, {true});
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_turning_left_by_the_short_s23) {
+    fly_its_tightest_orbits("short_s23", End::fastest, {false});
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_turning_right_by_the_short_s23) {
+    fly_its_tightest_orbits("short_s23", End::fastest, {true});
+}
+
+GLIDESLOPE_TEST(the_short_s23_holds_nothing_a_plan_asks_one_step_past_its_slowest) {
+    holds_nothing_one_step_past("short_s23", Bounds::slowest);
+}
+
+GLIDESLOPE_TEST(the_short_s23_holds_nothing_a_plan_asks_one_step_past_its_fastest) {
+    holds_nothing_one_step_past("short_s23", Bounds::fastest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_mosquito_fb6) {
+    fly_its_tightest_orbits("mosquito-fb6", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_mosquito_fb6) {
+    fly_its_tightest_orbits("mosquito-fb6", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_mosquito_fb6_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("mosquito-fb6");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_boeing_737_300) {
+    fly_its_tightest_orbits("737-300", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_boeing_737_300) {
+    fly_its_tightest_orbits("737-300", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_boeing_737_300_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("737-300");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_boeing_747_400) {
+    fly_its_tightest_orbits("747-400", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_boeing_747_400) {
+    fly_its_tightest_orbits("747-400", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_boeing_747_400_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("747-400");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_boeing_787_8) {
+    fly_its_tightest_orbits("787-8", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_boeing_787_8) {
+    fly_its_tightest_orbits("787-8", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_boeing_787_8_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("787-8");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_airbus_a320) {
+    fly_its_tightest_orbits("a320", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_airbus_a320) {
+    fly_its_tightest_orbits("a320", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_airbus_a320_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("a320");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_airbus_a380) {
+    fly_its_tightest_orbits("a380", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_airbus_a380) {
+    fly_its_tightest_orbits("a380", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_airbus_a380_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("a380");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_learjet_35a) {
+    fly_its_tightest_orbits("learjet35a", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_learjet_35a) {
+    fly_its_tightest_orbits("learjet35a", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_learjet_35a_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("learjet35a");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_b2a) {
+    fly_its_tightest_orbits("b2", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_b2a) {
+    fly_its_tightest_orbits("b2", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_b2a_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("b2");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_f15c) {
+    fly_its_tightest_orbits("f15c", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_f15c) {
+    fly_its_tightest_orbits("f15c", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_f15c_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("f15c");
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_turning_left_by_the_f22a) {
+    fly_its_tightest_orbits("f22", End::slowest, {false});
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_turning_right_by_the_f22a) {
+    fly_its_tightest_orbits("f22", End::slowest, {true});
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_turning_left_by_the_f22a) {
+    fly_its_tightest_orbits("f22", End::fastest, {false});
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_turning_right_by_the_f22a) {
+    fly_its_tightest_orbits("f22", End::fastest, {true});
+}
+
+GLIDESLOPE_TEST(the_f22a_holds_nothing_a_plan_asks_one_step_past_its_slowest) {
+    holds_nothing_one_step_past("f22", Bounds::slowest);
+}
+
+GLIDESLOPE_TEST(the_f22a_holds_nothing_a_plan_asks_one_step_past_its_fastest) {
+    holds_nothing_one_step_past("f22", Bounds::fastest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_f35b) {
+    fly_its_tightest_orbits("f35b", End::slowest);
+}
+
+GLIDESLOPE_TEST(the_tightest_orbit_at_the_fastest_speed_a_plan_may_ask_is_flown_by_the_f35b) {
+    fly_its_tightest_orbits("f35b", End::fastest);
+}
+
+GLIDESLOPE_TEST(the_f35b_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest) {
+    holds_nothing_one_step_past("f35b");
 }
 
 GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane) {
