@@ -517,9 +517,14 @@ At its limits this is 1,079 bytes.
 stepped to: every value moving linearly, over the blend, from what the old
 report gives to what this one gives, and the turbulence changing halfway. The
 receiver blends from when the sender says and over as long, so the air is the
-same while it changes as well as before and after. A first weather - or the
-first a client hears, joining while one blends in - has nothing to blend from
-and is flown whole.
+same while it changes as well as before and after. A first weather has
+nothing to blend from and is flown whole. **A client joining while one blends
+in is told first the weather it blends from**, with when that one took over,
+and then the new one: so it blends from the same weather as the server, and
+does not fly the new one whole until the blend ends. A receiver making its air
+afresh - a client's flight made since - makes it from those two, in that
+order, the same way. No byte of either message changed with this, nor the
+version: a client that keeps only the newest flies it whole, as before.
 
 **The air is on the simulation's clock**, not on each aircraft's own: gusts,
 turbulence, a microburst's start and the blend are all of the session's time,
@@ -630,7 +635,8 @@ another build or has other data, and its remedy is the matching release.
 must arrive, in this order, once the session is proven (it has opened
 something sealed under it) and on the update after: `TERRAIN_DATASET`, then
 `SESSION` - its clock as it was when sent - then `LOBBY`, then `WEATHER`, and
-`WEATHER_ALOFT` after it where the weather has a forecast; then each
+`WEATHER_ALOFT` after it where the weather has a forecast (and, while a
+weather blends in, the one it blends from before it, the same way); then each
 `AIRCRAFT`. After that:
 
 - **the lobby again, whole, whenever it is not what was last sent** - a

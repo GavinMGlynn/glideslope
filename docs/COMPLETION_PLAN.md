@@ -778,19 +778,6 @@ Found while implementing something else. Added when found, not when remembered.
       kept 500 ft or 1.5 nm apart, 882 s and 1,295 s, so its shard ran 26
       minutes of a 30-minute limit whatever the dealing. *Verification:
       every test under 10 minutes on CI's Linux debug.*
-- [ ] **The rate-limit test failed once on Windows debug**: "took 10 of
-      50 requests". *Verification: its bound holds however slowly the burst
-      is sent, and a month of CI runs without it failing.* Cause found and
-      fixed 2026-10-08; still missing: the month of CI runs.
-- [ ] **The ground test's two clients raced** ("1;1;0", macOS).
-      *Verification: green 50 times under load and in every staggered start,
-      and a month of CI runs without it failing.* Fixed 2026-10-08; still
-      missing: the month of CI runs.
-- [ ] **The engine-stop prediction test failed twice on Windows**, its
-      server behind real time. *Verification: its bound holds on a loaded
-      runner, and a month of CI runs without it failing.* 2026-10-08: a
-      variant against a slowed server holds both medians under 5 cm; still
-      missing: the month of CI runs.
 - [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of
@@ -1089,18 +1076,25 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       clients fly the weather over no ground, because the lift is too costly
       for a predicting client. *Verification: a client predicting over hills
       in a strong wind is within the same bound as over the sea, the lift
-      flown on both ends.*
-- [ ] **A client joining while a weather blends in flies the new one whole**:
+      flown on both ends.* Still missing, found 2026-10-08: the headless
+      predicting client flies over no ground at all, so it needs the
+      collision DEM first.
+- [x] **A client joining while a weather blends in flies the new one whole**:
       the server sends only the newest weather, not the one it blends from,
       so until the blend ends the joining client's air is not the server's.
       *Verification: a client joining mid-blend predicts within the same
-      bound as one there before it.*
+      bound as one there before it.* Done 2026-10-08: told what it blends
+      from first, 0.043 m against 0.046 m.
 - [ ] **A client's gusts are not the server's while its clocks' difference
       settles**, a step or two out, metres in a strong gust. *Verification: a
       client predicting in gusting air stays within the steady air's bound.*
-- [ ] **Nothing tests the client with the window in the server's weather.**
+      2026-10-08: its median is within it (0.05 m against 0.25 m); still
+      missing: the cause of a worst of up to 4 m in a weather's change, where
+      the steady air's is 0.4 m.
+- [x] **Nothing tests the client with the window in the server's weather.**
       *Verification: the window client on a server with a METAR says it flies
       it, and its prediction error is within the headless client's bound.*
+      Done 2026-10-08: median 0.003 m against 0.25 m.
 - [x] **A player cannot choose an aeroplane on a server**: a player flies
       what the server's plan flies. *Verification: a player asks for an
       aeroplane when joining and flies it, and every other client draws it
@@ -1138,6 +1132,9 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       - Two window clients on one cold Cesium cache can stall for over fifteen minutes (owed: both finishing in the time of one, Linux and Windows)
       - CI fails more often than it passes, on tests that time the machine (owed: a month of runs counted)
       - The window client put right 20 to 31 m after a long frame (owed: a month of CI runs, 20 m bound unchanged)
+      - The rate-limit test once took 10 of 50 requests on Windows debug, fixed at cause 2026-10-08 (owed: a month of CI runs)
+      - The ground test's two clients raced on macOS, fixed at cause 2026-10-08 (owed: a month of CI runs)
+      - The engine-stop prediction test failed twice on Windows, fixed at cause 2026-10-08 (owed: a month of CI runs)
       *Verification: 30 consecutive nightly runs with none of these failing,
       or each failure's cause found and fixed under its own item.*
 - [ ] **Nothing clears a runway**: an aircraft landed stops on it and stays,

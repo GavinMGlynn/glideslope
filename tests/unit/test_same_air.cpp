@@ -156,6 +156,85 @@ GLIDESLOPE_TEST(the_weather_a_server_sends_is_flown_to_the_last_bit_by_its_clien
     std::printf("  %zu points of the air, each the server's to the last bit\n", compared);
 }
 
+// **A client joining mid-blend blends from the same weather.** The server
+// blends a second report in over 300 s from 900 s; at 1000 s a client joins.
+// It is told what the server blends from (world::ReportedWeather::
+// blending_from) and then the new one, and a flight made from those two -
+// the weather before the newest (net::Told::before), then the newest - flies
+// the server's air to the last bit at every one of 3 places, 6 heights and 5
+// times through the rest of the blend and after it. One made from the newest
+// alone does not, which is what made this a tail. Past the blend, nothing is
+// blended from.
+GLIDESLOPE_TEST(a_client_joining_mid_blend_is_told_what_it_blends_from_and_flies_the_servers_air) {
+    double now_s = 0.0;
+    const auto clock = [&now_s] { return now_s; };
+    const glideslope::world::WeatherReport first =
+        a_full_report("YSSY 020600Z 34018G30KT 9999 FEW030 24/12 Q1012 WS R34L");
+    const auto server_air =
+        std::make_shared<glideslope::world::ReportedWeather>(first, nullptr, 300.0, hills);
+    glideslope::frontend::SessionClocked server(server_air, clock);
+    check(server_air->blending_from(10.0) == nullptr, "a first weather blends from nothing");
+    now_s = 900.0;
+    server_air->update(a_full_report("YSSY 020630Z 20025KT 9999 BKN020 19/15 Q1004"), now_s);
+    now_s = 1000.0;
+    const glideslope::world::WeatherReport* from = server_air->blending_from(now_s);
+    check(from != nullptr && from->surface.metar.raw == first.surface.metar.raw,
+          "mid-blend, the server blends from the first weather");
+    check(server_air->blending_from(1200.0) == nullptr, "and past the blend, from none");
+
+    glideslope::net::Told told;
+    glideslope::frontend::HeardAir as_told(nullptr, hills, clock);
+    send(*from, 0.0, 300.0, told, as_told);
+    send(server_air->report(), 900.0, 300.0, told, as_told);
+    check(told.before() && told.before()->metar == first.surface.metar.raw,
+          "the weather before the newest is kept");
+    // A flight made since, from what was kept: the one before, then the newest.
+    glideslope::frontend::HeardAir made_since(nullptr, hills, clock);
+    made_since.heard(*told.before(), told.before_aloft());
+    made_since.heard(*told.weather(), told.aloft());
+    glideslope::frontend::HeardAir newest_alone(nullptr, hills, clock);
+    newest_alone.heard(*told.weather(), told.aloft());
+
+    std::size_t compared = 0;
+    std::size_t newest_alone_differs = 0;
+    const auto same = [](const glideslope::sim::Conditions& a,
+                         const glideslope::sim::Conditions& b) {
+        return a.wind_north_mps == b.wind_north_mps && a.wind_east_mps == b.wind_east_mps &&
+               a.wind_down_mps == b.wind_down_mps &&
+               a.temperature_offset_c == b.temperature_offset_c &&
+               a.sea_level_pressure_hpa == b.sea_level_pressure_hpa &&
+               a.turbulence_severity == b.turbulence_severity &&
+               a.wind_at_20ft_mps == b.wind_at_20ft_mps;
+    };
+    const std::vector<std::array<double, 2>> places{
+        {-33.9461, 151.1772}, {-33.95, 151.18}, {-33.80, 151.30}};
+    for (const double t : {1000.0, 1050.0, 1100.0, 1199.0, 1300.0}) {
+        now_s = t;
+        for (const auto& p : places) {
+            for (const double h : {2.0, 9.0, 60.0, 300.0, 1200.0, 2800.0}) {
+                const glideslope::sim::Conditions a = server.at(p[0], p[1], h, 0.0);
+                const std::string where =
+                    " at " + std::to_string(h) + " m, " + std::to_string(t) + " s";
+                check(same(a, as_told.air()->at(p[0], p[1], h, 0.0)),
+                      "the joining client's air is the server's" + where);
+                check(same(a, made_since.air()->at(p[0], p[1], h, 0.0)),
+                      "a flight made since flies the server's air" + where);
+                if (t < 1200.0 && !same(a, newest_alone.air()->at(p[0], p[1], h, 0.0))) {
+                    ++newest_alone_differs;
+                }
+                ++compared;
+            }
+        }
+    }
+    check(compared == 3 * 6 * 5, "every point was compared: " + std::to_string(compared));
+    check(newest_alone_differs == 3 * 6 * 4,
+          "the newest alone is other air at every point inside the blend: " +
+              std::to_string(newest_alone_differs) + " of 72");
+    std::printf("  %zu points of the air joined mid-blend, each the server's to the last bit; "
+                "the newest alone differs at %zu of the 72 inside the blend\n",
+                compared, newest_alone_differs);
+}
+
 // **Still air is said, and flown as none.** A server with no weather sends an
 // empty METAR and nothing else; a client hearing it flies no weather - as the
 // server does - and a client that had a weather flies the standard atmosphere

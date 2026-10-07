@@ -256,6 +256,17 @@ void Online::hear(Flight& flight) {
         if (told.weather() && ground_compared_ && other_ground_.empty() &&
             key != flight.server_weathers()) {
             std::string why;
+            // **One that has not flown the weather before the newest flies
+            // it first** - joined mid-blend, or a flight made since - so
+            // that the newest blends in from it as on the server, and is not
+            // flown whole until the blend ends. Past its blend it changes
+            // nothing.
+            if (told.before() && key - 1 != flight.server_weathers()) {
+                std::string before_why;
+                (void)flight.heard_weather(*told.before(), told.before_aloft(),
+                                           [this] { return session_now_s_; }, key - 1,
+                                           before_why);
+            }
             if (flight.heard_weather(*told.weather(), told.aloft(),
                                      [this] { return session_now_s_; }, key, why)) {
                 weathers_flown_ = told.weathers();

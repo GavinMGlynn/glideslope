@@ -41,6 +41,12 @@ public:
     // How many whole weathers have been heard: one on joining, and one more
     // for each change.
     int weathers() const { return weathers_; }
+    // **The whole weather heard before the newest**, and its forecast: what
+    // the newest blends from, if it still blends. A server tells a client
+    // joining mid-blend this first, so that one making its air from the
+    // newest alone - a flight made since - can blend from it too.
+    const std::optional<Weather>& before() const { return before_; }
+    const std::optional<WeatherAloft>& before_aloft() const { return before_aloft_; }
 
 private:
     std::optional<Session> session_;
@@ -49,6 +55,8 @@ private:
     std::optional<Weather> weather_;
     std::optional<WeatherAloft> aloft_;
     std::optional<Weather> waiting_for_aloft_;
+    std::optional<Weather> before_;
+    std::optional<WeatherAloft> before_aloft_;
     int weathers_ = 0;
 };
 

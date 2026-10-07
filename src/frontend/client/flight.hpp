@@ -24,6 +24,7 @@
 
 #include <array>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <limits>
@@ -171,6 +172,11 @@ public:
                                           std::size_t steps_into,
                                           std::uint64_t server_steps,
                                           std::optional<int> engine_stopped = std::nullopt);
+    // **The prediction error**, as glideslope_cli measures it: where the
+    // server says the aircraft was at a step against where this client had
+    // flown it to by then, for each word heard once the clocks' difference
+    // was known. One a word, oldest first.
+    const std::vector<double>& prediction_errors_m() const { return prediction_errors_m_; }
     // The clocks' difference alone, from a word not reconciled from
     // (sim::Prediction::hear_clock).
     void hear_clock(std::uint32_t last_applied, std::size_t steps_into,
@@ -314,6 +320,15 @@ private:
     std::optional<sim::ApproachSpeeds> lands_with_;
     // On a server: the prediction, and the sequence of the inputs being flown.
     std::unique_ptr<sim::Prediction> prediction_;
+    // Where each step flown forward left the aircraft, and whether the
+    // clocks' difference was known then (`prediction_errors_m`).
+    struct Predicted {
+        std::uint64_t step = 0;
+        std::array<double, 3> where{};
+        bool counted = false;
+    };
+    std::deque<Predicted> predicted_at_;
+    std::vector<double> prediction_errors_m_;
     sim::Pacing pacing_;
     std::uint32_t sequence_ = 0;
     bool start_with_ai_ = false;

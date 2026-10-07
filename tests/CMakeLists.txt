@@ -168,6 +168,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_message_the_server_accepts_is_named_in_the_threats_document
     every_refusal_the_document_names_for_a_weather_is_refused
     the_weather_a_server_sends_is_flown_to_the_last_bit_by_its_clients
+    a_client_joining_mid_blend_is_told_what_it_blends_from_and_flies_the_servers_air
     still_air_is_said_as_an_empty_metar_and_flown_as_no_weather
     a_weather_is_taken_whole_or_not_at_all
     a_metar_too_long_to_send_is_cut_to_whole_words_and_flown_as_cut
@@ -2213,6 +2214,29 @@ add_test(NAME a_client_flies_the_servers_weather_and_every_change_of_it_not_its_
 set_tests_properties(a_client_flies_the_servers_weather_and_every_change_of_it_not_its_own
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_weather)
+# **And in gusting air, within the steady air's bound**: the same winds
+# gusting 15 kt over each.
+add_test(NAME a_client_predicting_in_gusting_air_stays_within_the_steady_airs_bound
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_weather_gusts -DPORT=24930 -DSAME_M=0.25
+        -DOWN_M=0.4 -DGUSTS=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_weather.cmake)
+set_tests_properties(a_client_predicting_in_gusting_air_stays_within_the_steady_airs_bound
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_weather_gusts)
+# **A client joining while a weather blends in predicts within the same bound
+# as one there before it** (REQUIREMENTS.md 6.3). See
+# cmake/server_weather_join.cmake.
+add_test(NAME a_client_joining_while_a_weather_blends_in_blends_from_the_same_weather
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_weather_join -DPORT=24910 -DSAME_M=0.25
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_weather_join.cmake)
+set_tests_properties(a_client_joining_while_a_weather_blends_in_blends_from_the_same_weather
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_weather_join)
 # **A client told the server's collision ground refuses other ground and
 # leaves** (REQUIREMENTS.md 6.3). See cmake/server_ground.cmake.
 add_test(NAME a_client_told_the_servers_collision_ground_refuses_other_ground_and_leaves
@@ -3056,6 +3080,20 @@ if("vulkan" IN_LIST GLIDESLOPE_GPU_DRIVERS)
     set_tests_properties(the_client_with_the_window_away_past_the_servers_timeout_building_its_flight_or_in_a_frame_is_not_let_go
         PROPERTIES SKIP_RETURN_CODE 77)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_away)
+    # **In the server's weather it says it flies it, and predicts within the
+    # headless client's bound** (cmake/server_weather.cmake's SAME_M), through
+    # a relay holding 250 ms each way. RUN_SERIAL: it predicts against a
+    # server that must keep real time. See cmake/client_in_server_weather.cmake.
+    add_test(NAME the_client_with_the_window_flies_the_servers_weather_within_the_headless_clients_bound
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_weather -DPORT=24920
+            -DDRIVER=vulkan -DSAME_M=0.25
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_in_server_weather.cmake)
+    set_tests_properties(the_client_with_the_window_flies_the_servers_weather_within_the_headless_clients_bound
+        PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_weather)
 endif()
 
 # **A client started with --online reaches the server server.txt names.** See
