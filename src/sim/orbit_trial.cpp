@@ -48,6 +48,10 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
     for (int i = 0; i < 120 * steps_per_second; ++i) {
         aircraft.set_controls(autopilot.fly());
         aircraft.step();
+        if (aircraft.outside_its_tables()) {
+            out.left_tables = true;
+            break;
+        }
         const double beta = aircraft.property("aero/beta-deg");
         out.most_sideslip_ever_deg = std::max(out.most_sideslip_ever_deg, std::abs(beta));
         if (i >= settled) {
@@ -108,6 +112,10 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
         aircraft.set_controls(autopilot.fly());
         aircraft.step();
         ++steps;
+        if (aircraft.outside_its_tables()) {
+            out.left_tables = true;
+            return out;
+        }
         // Fallen 500 ft on the way to the circle, it will not hold it.
         if (trial.stop_when_lost &&
             std::abs(aircraft.property("position/h-sl-ft") - centre.altitude_ft) > 500.0) {
@@ -186,6 +194,10 @@ GlideOrbitFlown glide_tightest_orbit(const std::filesystem::path& data,
     for (int step = 0; step < 30 * 60 * steps_per_second; ++step) {
         aircraft.set_controls(controller.fly());
         aircraft.step();
+        if (aircraft.outside_its_tables()) {
+            out.left_tables = true;
+            break;
+        }
         const double feet = aircraft.property("position/h-sl-ft");
         out.lowest_ft = std::min(out.lowest_ft, feet);
         if (feet < 1000.0) {
@@ -247,6 +259,9 @@ double full_throttle_level_kts(const std::filesystem::path& data, const Catalogu
     for (int i = 1; i <= 15 * 60 * steps_per_second; ++i) {
         aircraft.set_controls(autopilot.fly());
         aircraft.step();
+        if (aircraft.outside_its_tables()) {
+            return 0.0;
+        }
         sum += aircraft.property("velocities/vc-kts");
         if (i % window == 0) {
             const double average = sum / window;
