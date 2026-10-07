@@ -150,6 +150,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
 void Flight::adopt(const sim::Motion& motion) {
     aircraft_->set_motion(motion);
     prediction_ = std::make_unique<sim::Prediction>(*aircraft_);
+    predicted_at_.clear();
     // A prediction begun again numbers its steps from nought: its clocks'
     // difference is held anew, at the pace flown now.
     pacing_.hold();
@@ -168,6 +169,8 @@ void Flight::adopt(const sim::Motion& motion, std::uint64_t server_steps) {
         return;
     }
     (void)prediction_->adopt(motion, server_steps);
+    // Where the aircraft left behind was flown is not this one's error.
+    predicted_at_.clear();
 }
 
 sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
@@ -179,7 +182,27 @@ sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
         return {};
     }
     (void)prediction_->hear_engine_stopped(engine_stopped);
-    return prediction_->reconcile(motion, last_applied, steps_into, server_steps);
+    const sim::Prediction::Correction c =
+        prediction_->reconcile(motion, last_applied, steps_into, server_steps);
+    // Held against where this client had flown it by the step the word is
+    // placed at (glideslope_cli's measure), then forgotten up to there.
+    if (c.at_step && *c.at_step > 0) {
+        for (const Predicted& p : predicted_at_) {
+            if (p.step + 1 == *c.at_step) {
+                if (p.counted) {
+                    prediction_errors_m_.push_back(
+                        std::hypot(p.where[0] - motion.location_ecef_m[0],
+                                   p.where[1] - motion.location_ecef_m[1],
+                                   p.where[2] - motion.location_ecef_m[2]));
+                }
+                break;
+            }
+        }
+        while (!predicted_at_.empty() && predicted_at_.front().step + 1 < *c.at_step) {
+            predicted_at_.pop_front();
+        }
+    }
+    return c;
 }
 
 void Flight::hear_clock(std::uint32_t last_applied, std::size_t steps_into,
@@ -191,7 +214,13 @@ void Flight::hear_clock(std::uint32_t last_applied, std::size_t steps_into,
 
 void Flight::step(const sim::Controls& controls) {
     if (prediction_) {
+        const std::uint64_t step = prediction_->steps();
+        const bool counted = prediction_->settled() && sequence_ > 0;
         prediction_->step(sequence_, controls);
+        predicted_at_.push_back({step, aircraft_->motion().location_ecef_m, counted});
+        if (predicted_at_.size() > sim::most_unacknowledged) {
+            predicted_at_.pop_front();
+        }
         ++tick_;
         if (checklist_) {
             checklist_->update(*aircraft_, tick_);

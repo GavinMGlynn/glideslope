@@ -226,6 +226,9 @@ struct Options {
     // instead, as a fetch again would bring (`--metar-then S REPORT`).
     double metar_then_s = -1.0;
     std::string metar_then;
+    // For a test: written once that METAR has taken over, so that a client
+    // can join while it blends in (`--changed-file FILE`).
+    std::string changed_file;
     double weather_blend_s = default_weather_blend_s;
     double weather_refresh_s = default_weather_refresh_s;
 };
@@ -298,6 +301,8 @@ void print_usage(std::FILE* out) {
         "  --metar-then S REPORT  with --metar: at S seconds on the session's clock,\n"
         "                     this METAR instead, as a fetch again would bring\n"
         "                     (for tests). Without --weather or --metar, still air\n"
+        "  --changed-file FILE  write FILE once --metar-then's METAR has taken\n"
+        "                     over - for a test that joins while it blends in\n"
         "  --seconds N        stop after N seconds instead of running until killed\n"
         "  --until-empty      stop once every client that joined has gone and been\n"
         "                     let go - for a test, which then waits on its clients\n"
@@ -522,6 +527,9 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         } else if (a == "--ready-file") {
             if (!next(value)) return std::nullopt;
             o.ready_file = std::string(value);
+        } else if (a == "--changed-file") {
+            if (!next(value)) return std::nullopt;
+            o.changed_file = std::string(value);
         } else if (a == "--test-step-ms") {
             if (!next(value)) return std::nullopt;
             const auto n = number(value);
@@ -2054,6 +2062,7 @@ public:
     // **A new report, blended in from now** over the blend `fly_in` was given.
     void weather_changes(glideslope::world::WeatherReport report) {
         air_->update(std::move(report), now_s());
+        previous_changed_at_s_ = weather_changed_at_s_;
         weather_changed_at_s_ = now_s();
         ++weathers_;
     }
@@ -2062,6 +2071,14 @@ public:
         return air_ ? &air_->report() : nullptr;
     }
     double weather_changed_at_s() const { return weather_changed_at_s_; }
+    // **What the weather blends from while it does**, and when that one
+    // changed: told first to a client joining mid-blend, which flew the new
+    // one whole until the blend ended when told only it. Null when nothing
+    // blends.
+    const glideslope::world::WeatherReport* weather_blending_from() const {
+        return air_ ? air_->blending_from(now_s()) : nullptr;
+    }
+    double previous_weather_changed_at_s() const { return previous_changed_at_s_; }
     double weather_blend_s() const { return weather_blend_s_; }
     // How many weathers there have been: a client told an older count is told again.
     int weathers() const { return weathers_; }
@@ -3297,6 +3314,7 @@ private:
     std::shared_ptr<glideslope::world::ReportedWeather> air_;
     std::shared_ptr<glideslope::sim::Weather> session_air_;
     double weather_changed_at_s_ = 0.0;
+    double previous_changed_at_s_ = 0.0;
     double weather_blend_s_ = 0.0;
     int weathers_ = 0;
     std::shared_ptr<glideslope::sim::FunctionTerrain> ground_;
@@ -4370,6 +4388,9 @@ int run(const Options& o) {
         if (!metar_then_done && fleet->now_s() >= o.metar_then_s) {
             metar_then_done = true;
             fleet->weather_changes(metar_report(o.metar_then));
+            if (!o.changed_file.empty()) {
+                std::ofstream(o.changed_file) << "changed\n";
+            }
             say_weather(fleet->weather(), fleet->now_s());
         }
         if (o.weather_station.empty()) {
@@ -4585,6 +4606,21 @@ int run(const Options& o) {
                 // **The weather it flies**, on joining and at every change,
                 // with the forecast above it after it where there is one.
                 if (c.weathers_told != fleet->weathers()) {
+                    // **Joining mid-blend, first what it blends from**: told
+                    // the newest alone, a client flew it whole until the
+                    // blend ended, and its air was not the server's.
+                    const glideslope::world::WeatherReport* from =
+                        c.weathers_told < 0 ? fleet->weather_blending_from() : nullptr;
+                    if (from != nullptr) {
+                        const glideslope::frontend::WeatherSaid said_from =
+                            glideslope::frontend::weather_said(
+                                from, fleet->previous_weather_changed_at_s(),
+                                fleet->weather_blend_s());
+                        send(glideslope::net::write(said_from.weather));
+                        if (said_from.aloft) {
+                            send(glideslope::net::write(*said_from.aloft));
+                        }
+                    }
                     c.weathers_told = fleet->weathers();
                     const glideslope::frontend::WeatherSaid said_air =
                         glideslope::frontend::weather_said(fleet->weather(),

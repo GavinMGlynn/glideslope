@@ -69,7 +69,9 @@ list(LENGTH _flags _count)
 # them (server_hand_over_planner.cmake). --weather flies a station's weather,
 # fetched again every --weather-refresh; --metar a METAR given, observed at
 # --station, and --metar-then another at a time, each blended in over
-# --weather-blend - the weather every client is sent (server_weather.cmake).
+# --weather-blend - the weather every client is sent (server_weather.cmake);
+# --changed-file is written once --metar-then's has taken over, for a client
+# to join while it blends in (server_weather_join.cmake).
 # --players-on-final starts every player on final to a runway, at the learnt
 # landing's gate (server_learnt_landing.cmake), and --ai-on-final the AI
 # aircraft, outside it, to be landed (server_ai_learnt_landing.cmake).
@@ -80,7 +82,7 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --drop-once-flown --lose-goodbyes --stop-once-flown
               --ai-planner --ai-task --ai-playback --ai-spacing
               --steps --fail-engine-at --hand-over-planner --hand-over-playback
-              --hand-over-record --weather --metar --station --metar-then
+              --hand-over-record --weather --metar --station --metar-then --changed-file
               --weather-blend --weather-refresh --players-on-final --ai-on-final)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)

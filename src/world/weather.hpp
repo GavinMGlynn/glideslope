@@ -192,6 +192,15 @@ public:
     const WeatherReport& report() const {
         return current_;
     }
+    // **What it blends from**, and from when: the report before the latest,
+    // until the blend that took it over ends - after which it is flown no
+    // more, and this is null. A client joining mid-blend is told it first, so
+    // that it blends as the server does (frontend::weather_said).
+    const WeatherReport* blending_from(double now_s) const {
+        return previous_ && blend_seconds_ > 0.0 && now_s < changed_at_s_ + blend_seconds_
+                   ? &*previous_
+                   : nullptr;
+    }
 
     sim::Conditions at(double latitude_deg, double longitude_deg, double height_m,
                        double time_s) override;

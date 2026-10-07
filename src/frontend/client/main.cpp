@@ -2671,6 +2671,16 @@ static int run_program(int argc, char** argv) {
                 std::printf("glideslope: the worst while its clocks' difference was learnt "
                             "%.3f m, and once it was known %.3f m\n",
                             online->worst_learning_m(), online->worst_known_m());
+                // **Its prediction error**, as glideslope_cli measures and
+                // says it, so that the two clients are held to one bound.
+                {
+                    std::vector<double> errors = flight->prediction_errors_m();
+                    std::sort(errors.begin(), errors.end());
+                    std::printf("glideslope: prediction error: %zu updates compared, the "
+                                "median %.3f m, the worst %.3f m\n",
+                                errors.size(), errors.empty() ? 0.0 : errors[errors.size() / 2],
+                                errors.empty() ? 0.0 : errors.back());
+                }
                 std::printf("glideslope: heard %zu words on its own aircraft over %.2f s of "
                             "the server's time, in %zu frames\n",
                             online->own_words_heard(), online->own_words_span_s(),

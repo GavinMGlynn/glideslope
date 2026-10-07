@@ -3191,7 +3191,9 @@ int stay(glideslope::platform::UdpSocket& socket,
                 case glideslope::net::Told::Heard::session:
                     say_heard("told the session: " + told.session()->name + ", " +
                               std::to_string(told.session()->id) + ", begun at " +
-                              std::to_string(told.session()->began_unix_ms) + " ms");
+                              std::to_string(told.session()->began_unix_ms) + " ms, " +
+                              std::to_string(told.session()->simulation_time_s) +
+                              " s on its clock");
                     break;
                 case glideslope::net::Told::Heard::lobby: {
                     std::string line = "told the lobby: " +

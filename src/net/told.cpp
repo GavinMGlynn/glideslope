@@ -44,6 +44,8 @@ Told::Heard Told::hear(std::span<const std::uint8_t> body) {
             return Heard::nothing;
         }
         waiting_for_aloft_.reset();
+        before_ = std::move(weather_);
+        before_aloft_ = std::move(aloft_);
         weather_ = std::move(m);
         aloft_.reset();
         ++weathers_;
@@ -54,6 +56,8 @@ Told::Heard Told::hear(std::span<const std::uint8_t> body) {
         if (!waiting_for_aloft_ || !read(body, m)) {
             return Heard::nothing;
         }
+        before_ = std::move(weather_);
+        before_aloft_ = std::move(aloft_);
         weather_ = std::move(*waiting_for_aloft_);
         waiting_for_aloft_.reset();
         aloft_ = std::move(m);

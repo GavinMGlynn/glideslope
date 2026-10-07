@@ -230,7 +230,8 @@ are the risks the phase order is built around:
 - **Weather is one station's.** A flight flies in the weather of the airfield
   it names, everywhere it goes; nothing picks the nearest station - a tail in
   `COMPLETION_PLAN.md`. On a server the server's weather travels and every
-  client flies it, but over no ground: no ridge or wave lift there, a tail.
+  client flies it - one joining mid-blend blended from the same weather - but
+  over no ground: no ridge or wave lift there, a tail.
 - **Summits are low in the DEM.** A 30 m grid does not hold a peak: at five
   surveyed summits the DEM is 8 to 35 m below the survey. Runway ends and
   coastlines are within the dataset's stated 4 m.
@@ -262,6 +263,72 @@ are the risks the phase order is built around:
 ---
 
 ## Log, newest first
+
+### Weather on a server: a client joining mid-blend blends from the same weather; the window client measured in it; gusts measured, 2026-10-08 — two tails done, two open
+
+**What is still missing first.** **The ground's lift is still off on a
+server**, and was not retried: the headless predicting client
+(`glideslope_cli connect --predict`) flies over no ground at all - flat
+terrain at 0 m - so it has no DEM to fly the lift over, and giving it the
+collision DEM comes before the lift can be flown on both ends. **Gusts are
+not wholly the server's**: in gusting air the median prediction error is the
+steady air's (below), but the worst was 0.40, 1.56 and 3.98 m over three runs
+against the steady air's 0.09 and 0.38, the 3.98 at 12.8 s, inside the change
+of weather's blend; while its clocks' difference moved, the pacing said it
+was 15 steps from the one held at worst. Its cause is not found. Both stay
+`[ ]`.
+
+- **A client joining while a weather blends in is told first what it blends
+  from** (`world::ReportedWeather::blending_from`, the server's
+  `Fleet::weather_blending_from`), with when that one took over, and then the
+  new one - so it blends as the server does. Told only the newest, it flew
+  that whole until the blend ended. `net::Told` keeps the weather before the
+  newest (`before`, `before_aloft`), and the window client, making its air
+  afresh - joined mid-blend, or a flight made since - hears that first.
+  **No protocol version change**: no byte of `WEATHER` or `WEATHER_ALOFT`
+  changed; a client that keeps only the newest flies it whole as before.
+  `docs/TRANSPORT.md` says the order.
+- **The server's `--changed-file FILE`** is written once `--metar-then`'s
+  METAR has taken over, so that a test's client joins mid-blend on that
+  event, not on the clock. `glideslope_cli connect` says the server's clock
+  when told the session (", N s on its clock").
+- **The window client measures its prediction error** as `glideslope_cli`
+  does - where the server says the aircraft was at a step against where this
+  client had flown it by then, once the clocks' difference is known - and
+  says it at its shot (`glideslope: prediction error: N updates compared, the
+  median M m, the worst W m`).
+
+Verification: `a_client_joining_while_a_weather_blends_in_blends_from_the_same_weather`
+(35 kt west, then 40 kt south-west from 6 s over 120 s; two predicting
+clients behind 250 ms relays, one joining at 0.77 s on the server's clock,
+the other two seconds after the change at 8.8 s; both told both weathers;
+medians 0.046 and 0.043 m against SAME_M 0.25; seen red with the server
+sending only the newest: the joiner was told one weather, and its median was
+0.757 m); unit test
+`a_client_joining_mid_blend_is_told_what_it_blends_from_and_flies_the_servers_air`
+(90 points to the last bit, joined at 1000 s of a 300 s blend from 900 s; the
+newest alone other air at all 72 inside the blend; seen red with
+`blending_from` ending at the change);
+`the_client_with_the_window_flies_the_servers_weather_within_the_headless_clients_bound`
+(the window client through a 250 ms relay in 35 kt from the west: says it
+flies the server's METAR, median 0.003 m, worst 0.007 m over 449 updates,
+against the headless client's 0.25 m; seen red, 0.422 m, with the window
+client ignoring the server's weather);
+`a_client_predicting_in_gusting_air_stays_within_the_steady_airs_bound`
+(server_weather.cmake with `-DGUSTS=ON`, 30G45 and 35G50: medians 0.048,
+0.049 and 0.051 m, the steady test's 0.047 and 0.050 the same day; seen red,
+0.331 m, with the client flying the weather without its gusts). The gust
+clock barely shows at 250 ms: two steps out the median was 0.050 m, five
+seconds out 0.150 m - the moment is held exactly by
+`every_step_a_client_flies_meets_the_air_at_the_moment_the_server_flies_it`.
+`every_flag_the_server_prints_in_its_usage_is_one_it_takes` counts
+`--changed-file`. The selftest's hash does not move: it flies no weather and
+no server.
+
+Housekeeping: the three items fixed at cause on 2026-10-08 and owed only CI
+runs - the rate-limit test on Windows debug, the ground test's two clients
+racing, the engine-stop prediction test on Windows - are now lines under
+"A month of clean nightly runs" in `COMPLETION_PLAN.md`.
 
 ### A go-around is flown round a circuit and landed, 2026-10-08 — tail still open
 
