@@ -11,6 +11,7 @@
 #include <mutex>
 #include <string>
 #include <cmath>
+#include <cstdio>
 #include <map>
 #include <numbers>
 #include <set>
@@ -389,6 +390,81 @@ std::shared_ptr<const RunwaySurfaces> runway_surfaces(const std::filesystem::pat
             read_runway_strips(std::string(std::istreambuf_iterator<char>(in), {})));
     }
     return surfaces;
+}
+
+sim::Runway runway_end(const RunwaySurfaces& surfaces, std::size_t i, bool he,
+                       double elevation_ft) {
+    const RunwaySurfaces::Runway& r = surfaces.at(i);
+    sim::Runway out;
+    out.name = r.strip.airport + " " + (he ? r.strip.he_ident : r.strip.le_ident);
+    out.threshold_lat_deg = he ? r.strip.he_latitude_deg : r.strip.le_latitude_deg;
+    out.threshold_lon_deg = he ? r.strip.he_longitude_deg : r.strip.le_longitude_deg;
+    out.elevation_ft = elevation_ft;
+    // True, in the frame at the runway's middle: east is x, north y.
+    double heading = std::atan2(r.along_x, r.along_y) * to_deg;
+    if (he) {
+        heading += 180.0;
+    }
+    out.heading_deg = std::fmod(heading + 360.0, 360.0);
+    out.length_m = r.length_m;
+    return out;
+}
+
+LearntGateFound learnt_gate_runway(const RunwaySurfaces& surfaces, const sim::Aircraft& aircraft,
+                                   const sim::LearntPolicy& policy,
+                                   const std::function<double(double, double)>& ground_m) {
+    constexpr double feet_per_metre = 1.0 / metres_per_foot;
+    const sim::AircraftState s = aircraft.state();
+    const Ecef here = to_ecef({s.latitude_deg, s.longitude_deg, 0.0});
+    LearntGateFound found;
+    // The end said why not for: the one she is most nearly lined up on -
+    // pointing within 30 degrees of it, then the least off its heading and
+    // its centreline.
+    double best = std::numeric_limits<double>::infinity();
+    // Ends whose threshold is up to two miles beyond the gate are said why
+    // not for; further than that, none is near.
+    constexpr double nearby_m = sim::LearntGate::furthest_m + 2.0 * 1852.0;
+    for (std::size_t i = 0; i < surfaces.size(); ++i) {
+        const RunwayStrip& strip = surfaces.at(i).strip;
+        for (const bool he : {false, true}) {
+            const double lat = he ? strip.he_latitude_deg : strip.le_latitude_deg;
+            const double lon = he ? strip.he_longitude_deg : strip.le_longitude_deg;
+            const Ecef there = to_ecef({lat, lon, 0.0});
+            const double apart_m =
+                std::hypot(here.x - there.x, here.y - there.y, here.z - there.z);
+            if (apart_m > nearby_m) {
+                continue;
+            }
+            const sim::Runway end =
+                runway_end(surfaces, i, he, ground_m(lat, lon) * feet_per_metre);
+            const std::string why = sim::outside_learnt_gate(aircraft, end, policy);
+            if (why.empty()) {
+                found.runway = end;
+                found.why.clear();
+                return found;
+            }
+            const double off_deg =
+                std::abs(std::remainder(s.heading_deg - end.heading_deg, 360.0));
+            // Across its centreline, near enough: a mile or two from the
+            // threshold, the flat Earth is good to a metre.
+            const double h = end.heading_deg * to_rad;
+            const double north_m = (s.latitude_deg - lat) * 111132.92;
+            const double east_m = (s.longitude_deg - lon) * 111412.84 * std::cos(lat * to_rad);
+            const double across_m = std::abs(east_m * std::cos(h) - north_m * std::sin(h));
+            const double score = (off_deg > 30.0 ? 1e9 : 0.0) + off_deg * 100.0 + across_m;
+            if (score < best) {
+                best = score;
+                found.why = end.name + ": " + why;
+            }
+        }
+    }
+    if (found.why.empty()) {
+        char text[96];
+        std::snprintf(text, sizeof text, "no runway's threshold is within %.1f miles",
+                      nearby_m / 1852.0);
+        found.why = text;
+    }
+    return found;
 }
 
 CollisionGround::CollisionGround(std::shared_ptr<Dem> dem,

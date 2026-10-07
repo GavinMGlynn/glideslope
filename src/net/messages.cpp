@@ -135,8 +135,15 @@ bool known_controller(std::uint8_t controller) {
     case Controller::person:
     case Controller::ai:
         return true;
+    case Controller::learnt_landing:
+        return false;
     }
     return false;
+}
+
+bool known_swap_controller(std::uint8_t controller) {
+    return known_controller(controller) ||
+           controller == static_cast<std::uint8_t>(Controller::learnt_landing);
 }
 
 std::optional<Message> kind_of(std::span<const std::uint8_t> body) {
@@ -485,7 +492,7 @@ bool read(std::span<const std::uint8_t> body, ControllerSwap& out) {
         return false;
     }
     const std::uint8_t to = r.u8();
-    if (!r.ok() || !known_controller(to)) {
+    if (!r.ok() || !known_swap_controller(to)) {
         return false;
     }
     got.to = static_cast<Controller>(to);

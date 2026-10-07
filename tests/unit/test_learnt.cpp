@@ -7,6 +7,8 @@
 #include "sim/plan.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
+#include "sim/catalogue.hpp"
+#include "world/runway_ground.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -15,6 +17,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -932,4 +935,302 @@ GLIDESLOPE_TEST(a_copilots_route_during_a_learnt_landing_replaces_it_with_no_ste
           "no control moved more than a hand's step at the switch: " + std::to_string(worst_step));
     check(away_then - away_now > 500.0, "and the route is flown: " +
                                            std::to_string(away_then - away_now) + " m nearer");
+}
+
+// ---- the learnt landing offered in a session --------------------------------
+
+namespace {
+
+// **An aeroplane put somewhere about `runway`'s final**: `out_m` before the
+// threshold, `across_m` right of the centreline, `high_m` above the policy's
+// glidepath, `heading_off_deg` right of the runway's heading, at `kts` with
+// `flaps` out - over level ground at the threshold's elevation.
+std::unique_ptr<glideslope::sim::Aircraft> placed(const std::string& model, const Runway& runway,
+                                                  const LearntPolicy& policy, double out_m,
+                                                  double across_m, double high_m,
+                                                  double heading_off_deg, double kts,
+                                                  double flaps) {
+    auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", model);
+    const double ground_m = runway.elevation_ft / feet_per_metre;
+    aircraft->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [ground_m](double, double) { return ground_m; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic = glideslope::sim::final_approach_start(
+        runway, out_m, kts, flaps, policy.aim_m, policy.glidepath_deg);
+    const double h = runway.heading_deg / degrees;
+    ic.latitude_deg +=
+        -across_m * std::sin(h) / metres_per_degree_latitude(runway.threshold_lat_deg);
+    ic.longitude_deg +=
+        across_m * std::cos(h) / metres_per_degree_longitude(runway.threshold_lat_deg);
+    ic.altitude_ft += high_m * feet_per_metre;
+    ic.heading_deg = runway.heading_deg + heading_off_deg;
+    aircraft->initialize(ic);
+    return aircraft;
+}
+
+} // namespace
+
+// **Every aircraft that has a learnt landing is offered it, and no other**:
+// the catalogue walked whole, each aircraft's landing looked for as a
+// session looks for it. Only the Cessna 172P has one; every other is offered
+// none - and every learnt landing in the data is some catalogue aircraft's.
+GLIDESLOPE_TEST(the_learnt_landing_is_offered_for_every_aircraft_that_has_one_and_for_no_other) {
+    const std::vector<glideslope::sim::CatalogueEntry> catalogue =
+        glideslope::sim::read_catalogue(data());
+    std::size_t walked = 0;
+    std::vector<std::string> offered;
+    std::vector<std::string> models;
+    for (const glideslope::sim::CatalogueEntry& entry : catalogue) {
+        ++walked;
+        models.push_back(entry.model);
+        const auto policy = glideslope::sim::learnt_landing(data(), entry.model);
+        if (policy) {
+            check(policy->aircraft == entry.model,
+                  entry.id + "'s learnt landing is its own model's");
+            offered.push_back(entry.id);
+        }
+    }
+    std::printf("  %zu aircraft walked of %zu; offered the learnt landing: %zu\n", walked,
+                catalogue.size(), offered.size());
+    check(walked == catalogue.size() && walked == 16,
+          "every one of the catalogue's sixteen aircraft was walked: " + std::to_string(walked));
+    check(offered == std::vector<std::string>{"c172p"},
+          "the Cessna 172P is offered it, and no other aircraft");
+    std::size_t files = 0;
+    for (const auto& file : std::filesystem::directory_iterator(data() / "rl")) {
+        const std::string name = file.path().filename().string();
+        const std::string suffix = "-landing.txt";
+        if (name.size() > suffix.size() &&
+            name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0) {
+            ++files;
+            const std::string model = name.substr(0, name.size() - suffix.size());
+            check(std::find(models.begin(), models.end(), model) != models.end(),
+                  name + " is the learnt landing of an aircraft in the catalogue");
+        }
+    }
+    check(files == offered.size(),
+          "one learnt landing in the data for each offered: " + std::to_string(files));
+}
+
+// **Offered at its gate, and refused outside it saying why**: the CLI's start
+// - two miles out on the centreline and the glidepath at the reference speed
+// with the landing flap - and two opposite corners of the gate just inside
+// it, are at it; each condition just outside it - too far, too near, either
+// side, above and below, turned either way, too slow and too fast, the flaps
+// up, and another aeroplane - is refused, with that condition named.
+GLIDESLOPE_TEST(an_aeroplane_is_at_the_learnt_landings_gate_only_inside_it_and_is_told_why_not) {
+    const auto policy = the_policy();
+    const Runway runway = a_runway();
+    const double vref = policy->vref_kts;
+    const double nm = metres_per_nm;
+    const double f = policy->flaps;
+    struct Case {
+        std::string name;
+        std::string model;
+        double out_m, across_m, high_m, heading_deg, kts, flaps;
+        std::string why; // empty: at the gate
+    };
+    const std::vector<Case> cases{
+        {"the CLI's start", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, ""},
+        {"near, left, low, turned left, slow", "c172p", 1.65 * nm, -55.0, -18.0, -4.5,
+         vref - 2.5, f, ""},
+        {"far, right, high, turned right, fast", "c172p", 2.35 * nm, 55.0, 18.0, 4.5,
+         vref + 7.5, f, ""},
+        {"too far", "c172p", 2.5 * nm, 0.0, 0.0, 0.0, vref, f, "2.5 miles out"},
+        {"too near", "c172p", 1.5 * nm, 0.0, 0.0, 0.0, vref, f, "1.5 miles out"},
+        {"too far right", "c172p", 2.0 * nm, 65.0, 0.0, 0.0, vref, f, "right of the centreline"},
+        {"too far left", "c172p", 2.0 * nm, -65.0, 0.0, 0.0, vref, f, "left of the centreline"},
+        {"too high", "c172p", 2.0 * nm, 0.0, 25.0, 0.0, vref, f, "above the glidepath"},
+        {"too low", "c172p", 2.0 * nm, 0.0, -25.0, 0.0, vref, f, "below the glidepath"},
+        {"turned too far right", "c172p", 2.0 * nm, 0.0, 0.0, 6.0, vref, f,
+         "right of the runway's"},
+        {"turned too far left", "c172p", 2.0 * nm, 0.0, 0.0, -6.0, vref, f,
+         "left of the runway's"},
+        {"too slow", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref - 4.0, f, "56 kt; the gate is"},
+        {"too fast", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref + 9.0, f, "69 kt; the gate is"},
+        {"the flaps up", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, 0.0, "flaps at 0%"},
+        {"another aeroplane", "c182", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "this is the c182"},
+    };
+    // Every refusal outside_learnt_gate gives, each way it gives it: two in
+    // distance, two across, two in height, two in heading, two in speed, the
+    // flaps and the aeroplane - twelve - and three inside.
+    std::size_t inside = 0;
+    std::size_t outside = 0;
+    for (const Case& c : cases) {
+        const auto aircraft = placed(c.model, runway, *policy, c.out_m, c.across_m, c.high_m,
+                                     c.heading_deg, c.kts, c.flaps);
+        const std::string why = glideslope::sim::outside_learnt_gate(*aircraft, runway, *policy);
+        std::printf("  %s: %s\n", c.name.c_str(), why.empty() ? "at the gate" : why.c_str());
+        if (c.why.empty()) {
+            check(why.empty(), c.name + " is at the gate, not refused: " + why);
+            ++inside;
+        } else {
+            check(why.find(c.why) != std::string::npos,
+                  c.name + " is refused for that, '" + c.why + "', not: '" + why + "'");
+            ++outside;
+        }
+    }
+    check(inside == 3 && outside == 12, "three inside and twelve refusals walked: " +
+                                            std::to_string(inside) + " and " +
+                                            std::to_string(outside));
+}
+
+// **A runway of the world's found at its gate, and landed on**: a Cessna 172P
+// put two miles out on Sydney's 16R, over ground at its threshold's height,
+// is found at the gate of 16R and of no other runway - not 16L beside it, nor
+// 34L at its far end - with the heading from that end to the other; handed
+// to the learnt landing there, the policy lands her on it within the
+// verification's limits and stops her. 2.6 miles out she is refused, the
+// runway named and why, and four miles out; in mid-Pacific no runway is near.
+GLIDESLOPE_TEST(a_c172p_on_final_to_a_runway_of_the_worlds_is_found_at_its_gate_and_landed_on_it) {
+    const auto policy = the_policy();
+    const auto surfaces = glideslope::world::runway_surfaces(data());
+    // 16R and its other end, 34L: the file's two ends of one runway, so
+    // that each end's heading is held, the `le_` and the `he_`.
+    std::optional<Runway> sixteen_right;
+    std::optional<Runway> thirty_four_left;
+    for (std::size_t i = 0; i < surfaces->size(); ++i) {
+        const auto& strip = surfaces->at(i).strip;
+        if (strip.airport == "YSSY") {
+            for (const bool he : {false, true}) {
+                const std::string ident = he ? strip.he_ident : strip.le_ident;
+                if (ident == "16R") {
+                    sixteen_right = glideslope::world::runway_end(*surfaces, i, he, 21.0);
+                } else if (ident == "34L") {
+                    thirty_four_left = glideslope::world::runway_end(*surfaces, i, he, 21.0);
+                }
+            }
+        }
+    }
+    check(sixteen_right.has_value() && thirty_four_left.has_value(),
+          "Sydney's 16R and 34L are among the world's runways");
+    std::printf("  YSSY 34L: heading %.1f\n", thirty_four_left->heading_deg);
+    check(std::abs(std::remainder(thirty_four_left->heading_deg - sixteen_right->heading_deg -
+                                      180.0,
+                                  360.0)) < 0.1,
+          "34L points the other way from 16R");
+    const Runway runway = *sixteen_right;
+    std::printf("  %s: heading %.1f, %.0f m long\n", runway.name.c_str(), runway.heading_deg,
+                runway.length_m);
+    check(std::abs(std::remainder(runway.heading_deg - 168.0, 360.0)) < 2.0,
+          "16R points about 168 degrees true - 155 magnetic - from its threshold to its far end");
+    const auto ground = [](double, double) { return 21.0 / feet_per_metre; };
+
+    const auto far = placed("c172p", runway, *policy, 4.0 * metres_per_nm, 30.0, 0.0, 0.0,
+                            policy->vref_kts, policy->flaps);
+    const glideslope::world::LearntGateFound refused =
+        glideslope::world::learnt_gate_runway(*surfaces, *far, *policy, ground);
+    std::printf("  four miles out: %s\n", refused.why.c_str());
+    check(!refused.runway && refused.why.find("YSSY 16R: 4.0 miles out") == 0,
+          "four miles out and 30 m right, 16R is named, not 16L beside it: " + refused.why);
+    const auto out = placed("c172p", runway, *policy, 2.6 * metres_per_nm, 0.0, 0.0, 0.0,
+                            policy->vref_kts, policy->flaps);
+    const glideslope::world::LearntGateFound short_of =
+        glideslope::world::learnt_gate_runway(*surfaces, *out, *policy, ground);
+    std::printf("  2.6 miles out: %s\n", short_of.why.c_str());
+    check(!short_of.runway && short_of.why.find("YSSY 16R: 2.6 miles out") == 0,
+          "2.6 miles out, 16R is named and how far out she is: " + short_of.why);
+    Runway pacific = runway;
+    pacific.threshold_lat_deg = 0.0;
+    pacific.threshold_lon_deg = -150.0;
+    const auto nowhere = placed("c172p", pacific, *policy, 2.0 * metres_per_nm, 0.0, 0.0, 0.0,
+                                policy->vref_kts, policy->flaps);
+    check(glideslope::world::learnt_gate_runway(*surfaces, *nowhere, *policy, ground).why ==
+              "no runway's threshold is within 4.4 miles",
+          "in mid-Pacific, no runway is near");
+
+    auto aircraft = placed("c172p", runway, *policy, 2.0 * metres_per_nm, 0.0, 0.0, 0.0,
+                           policy->vref_kts, policy->flaps);
+    const glideslope::world::LearntGateFound found =
+        glideslope::world::learnt_gate_runway(*surfaces, *aircraft, *policy, ground);
+    check(found.runway.has_value() && found.runway->name == "YSSY 16R",
+          "at 16R's gate, 16R is found: " + (found.runway ? found.runway->name : found.why));
+    check(std::abs(found.runway->heading_deg - runway.heading_deg) < 1e-9 &&
+              found.runway->threshold_lat_deg == runway.threshold_lat_deg,
+          "its threshold and heading are 16R's");
+
+    Controls pilot = glideslope::sim::trimmed_controls(*aircraft);
+    glideslope::sim::Controller controller(*aircraft, pilot);
+    controller.to_ai_learnt_approach(*found.runway, speeds(), policy);
+    Landing landed;
+    for (long tick = 0; tick < 420L * steps_per_second; ++tick) {
+        aircraft->set_controls(controller.fly());
+        aircraft->step();
+        const LearntLander* l = controller.learnt();
+        check(l != nullptr, "the learnt landing has her throughout");
+        if (l->touched() && !landed.touched) {
+            landed.touched = true;
+            landed.sink_fpm = l->touchdown_sink_fpm();
+            landed.across_m = l->touchdown_across_m();
+            landed.along_m = l->touchdown_along_m();
+        }
+        if (l->stage() == LearntLander::Stage::stopped) {
+            landed.stopped = true;
+            landed.stopped_along_m = -l->rollout().along_m();
+            landed.stopped_across_m = l->rollout().across_m();
+            landed.decisions = l->decisions();
+            break;
+        }
+    }
+    print("on final to YSSY 16R", landed);
+    check(landed.touched && landed.stopped, "she touched down and was stopped");
+    check(landed.sink_fpm < 300.0 && std::abs(landed.across_m) < 5.0,
+          "within 5 m of 16R's centreline and under 300 ft/min");
+    check(landed.along_m > 0.0 && landed.stopped_along_m < runway.length_m &&
+              std::abs(landed.stopped_across_m) < runway_half_width_m,
+          "touched past the threshold and stopped on the runway");
+}
+
+// **Taken back from the learnt landing, no control steps**: handed over at
+// the gate and flown ten seconds, then taken back by a pilot whose controls
+// are far from the policy's, every control moves at most a hand's step for
+// the next two seconds - and the pilot has her, the learnt landing gone.
+GLIDESLOPE_TEST(an_aeroplane_taken_back_from_the_learnt_landing_moves_no_control_more_than_a_hand_in_a_step) {
+    const auto policy = the_policy();
+    auto aircraft = at(*policy, Start{0.0, 0.0, 0.0});
+    Controls pilot = glideslope::sim::trimmed_controls(*aircraft);
+    glideslope::sim::Controller controller(*aircraft, pilot);
+    controller.to_ai_learnt_approach(a_runway(), speeds(), policy);
+    Controls before;
+    for (int tick = 0; tick < 10 * steps_per_second; ++tick) {
+        before = controller.fly();
+        aircraft->set_controls(before);
+        aircraft->step();
+    }
+    check(controller.learnt() != nullptr, "the learnt landing has her before the take-back");
+    pilot.elevator = 0.6;
+    pilot.aileron = 0.5;
+    pilot.rudder = -0.5;
+    pilot.throttle = 1.0;
+    pilot.flaps = 0.0;
+    controller.set_pilot(pilot);
+    controller.to_pilot();
+    check(controller.flying() == glideslope::sim::Controller::Flying::pilot &&
+              controller.learnt() == nullptr,
+          "the pilot has her, and the learnt landing does not");
+    constexpr double hand = 1.0 / steps_per_second;
+    double gap = 0.0;
+    {
+        const auto a = before.as_list();
+        const auto b = pilot.as_list();
+        for (std::size_t k = 0; k < a.size(); ++k) {
+            gap = std::max(gap, std::abs(b[k] - a[k]));
+        }
+    }
+    double worst = 0.0;
+    for (int tick = 0; tick < 2 * steps_per_second; ++tick) {
+        const Controls now = controller.fly();
+        const auto a = before.as_list();
+        const auto b = now.as_list();
+        for (std::size_t k = 0; k < a.size(); ++k) {
+            worst = std::max(worst, std::abs(b[k] - a[k]));
+        }
+        before = now;
+        aircraft->set_controls(now);
+        aircraft->step();
+    }
+    std::printf("  the gap to the pilot's controls %.3f; the most any moved in a step %.5f\n",
+                gap, worst);
+    check(gap > 10.0 * hand, "there was a gap to close, so the take-back was tested");
+    check(worst <= hand + 1e-12,
+          "no control moved more than a hand's step: " + std::to_string(worst));
 }

@@ -393,6 +393,10 @@ void ClientSession::read_what_arrived(double now_s) {
                 if (read(all_of(message), refused)) {
                     refusals_.push_back(refused.aircraft);
                 }
+                ControllerSwap swap;
+                if (read(all_of(message), swap)) {
+                    swaps_[swap.aircraft] = swap.to;
+                }
                 (void)told_.hear(all_of(message));
             }
             continue;

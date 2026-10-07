@@ -406,10 +406,12 @@ Found while implementing something else. Added when found, not when remembered.
       light aeroplane holds a heading in a 20 kt crosswind with its sideslip
       within a stated bound.*
 
-- [ ] **Offer the learnt landing in a session.** Only the CLI hands an
-      aircraft to it; no client or server does. *Verification: an AI
-      aircraft on a server is landed by it when asked, and a client's
-      aircraft handed over at the gate is too.*
+- [ ] **Offer the learnt landing in a session.** A player's 172 on final
+      is handed to it at its gate on a server and landed (L in the window
+      client). Still missing: the server's own AI aircraft are never landed
+      by it, and no test has seen the window client's L or its HUD.
+      *Verification: an AI aircraft on a server is landed by it when asked,
+      and a client's aircraft handed over at the gate is too.*
 - [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
       *Verification: each light aircraft's policy lands within the
       autopilot's limits from the same starts, in calm air and a 10-knot

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -406,6 +407,110 @@ Controls LearntLander::fly() {
     }
     ++steps_;
     return held_;
+}
+
+std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
+                                const LearntPolicy& policy) {
+    char text[160];
+    if (policy.aircraft != aircraft.figures().model) {
+        return "the learnt landing is the " + policy.aircraft + "'s, and this is the " +
+               aircraft.figures().model;
+    }
+    const LandingReadings r = LandingReadings::of(aircraft);
+    const Where w = where(r, runway);
+    constexpr double metres_per_nm = 1852.0;
+    if (w.along_m < LearntGate::nearest_m || w.along_m > LearntGate::furthest_m) {
+        std::snprintf(text, sizeof text, "%.1f miles %s; the gate is %.1f to %.1f miles out",
+                      std::abs(w.along_m) / metres_per_nm, w.along_m < 0.0 ? "past" : "out",
+                      LearntGate::nearest_m / metres_per_nm,
+                      LearntGate::furthest_m / metres_per_nm);
+        return text;
+    }
+    if (std::abs(w.across_m) > LearntGate::most_across_m) {
+        std::snprintf(text, sizeof text, "%.0f m %s of the centreline; the gate is within %.0f",
+                      std::abs(w.across_m), w.across_m > 0.0 ? "right" : "left",
+                      LearntGate::most_across_m);
+        return text;
+    }
+    const double glidepath_m =
+        (w.along_m + policy.aim_m) * std::tan(policy.glidepath_deg / degrees);
+    const double off_m = w.above_m - glidepath_m;
+    if (std::abs(off_m) > LearntGate::most_off_glidepath_m) {
+        std::snprintf(text, sizeof text, "%.0f m %s the glidepath; the gate is within %.0f",
+                      std::abs(off_m), off_m > 0.0 ? "above" : "below",
+                      LearntGate::most_off_glidepath_m);
+        return text;
+    }
+    const double off_deg =
+        std::remainder(r.values[5] - runway.heading_deg / degrees, 2.0 * pi) * degrees;
+    if (std::abs(off_deg) > LearntGate::most_off_heading_deg) {
+        std::snprintf(text, sizeof text,
+                      "heading %.0f degrees %s the runway's; the gate is within %.0f",
+                      std::abs(off_deg), off_deg > 0.0 ? "right of" : "left of",
+                      LearntGate::most_off_heading_deg);
+        return text;
+    }
+    const double kts = r.values[9];
+    if (kts < policy.vref_kts - LearntGate::most_under_vref_kts ||
+        kts > policy.vref_kts + LearntGate::most_over_vref_kts) {
+        std::snprintf(text, sizeof text, "%.0f kt; the gate is %.0f to %.0f", kts,
+                      policy.vref_kts - LearntGate::most_under_vref_kts,
+                      policy.vref_kts + LearntGate::most_over_vref_kts);
+        return text;
+    }
+    const double flap = aircraft.property("fcs/flap-pos-norm");
+    if (std::abs(flap - policy.flaps) > LearntGate::most_off_flap) {
+        std::snprintf(text, sizeof text, "flaps at %.0f%%; the gate is the landing flap, %.0f%%",
+                      flap * 100.0, policy.flaps * 100.0);
+        return text;
+    }
+    return {};
+}
+
+InitialConditions final_approach_start(const Runway& runway, double out_m, double airspeed_kts,
+                                       double flaps, double aim_m, double glidepath_deg) {
+    const double h = runway.heading_deg / degrees;
+    const double north_m = -out_m * std::cos(h);
+    const double east_m = -out_m * std::sin(h);
+    InitialConditions ic;
+    ic.latitude_deg =
+        runway.threshold_lat_deg + north_m / metres_per_degree_latitude(runway.threshold_lat_deg);
+    ic.longitude_deg = runway.threshold_lon_deg +
+                       east_m / metres_per_degree_longitude(runway.threshold_lat_deg);
+    ic.altitude_ft =
+        runway.elevation_ft + (out_m + aim_m) * std::tan(glidepath_deg / degrees) * feet_per_metre;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = airspeed_kts;
+    ic.engine_running = true;
+    ic.flaps = flaps;
+    ic.gear = 1.0;
+    ic.flight_path_deg = -glidepath_deg;
+    ic.trim = true;
+    return ic;
+}
+
+Controls trimmed_controls(const Aircraft& aircraft) {
+    Controls c;
+    c.elevator = aircraft.property("fcs/elevator-cmd-norm");
+    c.throttle = aircraft.property("fcs/throttle-cmd-norm[0]");
+    c.flaps = aircraft.property("fcs/flap-cmd-norm");
+    c.pitch_trim = -aircraft.property("fcs/pitch-trim-cmd-norm");
+    return c;
+}
+
+std::shared_ptr<const LearntPolicy> learnt_landing(const std::filesystem::path& data,
+                                                   const std::string& model) {
+    const std::filesystem::path file = data / "rl" / (model + "-landing.txt");
+    if (!std::filesystem::exists(file)) {
+        return nullptr;
+    }
+    auto policy = std::make_shared<const LearntPolicy>(LearntPolicy::read(file));
+    if (policy->aircraft != model) {
+        throw std::runtime_error(file.string() + " is the " + policy->aircraft +
+                                 "'s learnt landing, not the " + model + "'s");
+    }
+    return policy;
 }
 
 } // namespace glideslope::sim

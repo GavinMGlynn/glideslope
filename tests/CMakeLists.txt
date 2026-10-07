@@ -326,6 +326,10 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aeroplane_handed_to_the_learnt_landing_at_the_gate_lands_within_5_m_of_the_centreline_with_no_step_in_its_controls
     a_policy_file_that_does_not_fit_the_simulation_is_refused
     a_learnt_landing_handed_another_aircraft_is_refused_and_the_pilot_keeps_her
+    the_learnt_landing_is_offered_for_every_aircraft_that_has_one_and_for_no_other
+    an_aeroplane_is_at_the_learnt_landings_gate_only_inside_it_and_is_told_why_not
+    a_c172p_on_final_to_a_runway_of_the_worlds_is_found_at_its_gate_and_landed_on_it
+    an_aeroplane_taken_back_from_the_learnt_landing_moves_no_control_more_than_a_hand_in_a_step
     a_copilots_route_during_a_learnt_landing_replaces_it_with_no_step_in_its_controls
     the_wind_the_learnt_landing_estimates_is_the_steady_wind_blowing
     every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_crosswind
@@ -2534,6 +2538,19 @@ add_test(NAME an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_
 set_tests_properties(an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/swap_wreck)
+
+# **A player's C172P on final is handed to the learnt landing and landed by
+# the server; a C182S, and a C172P outside the gate, are refused it.** See
+# cmake/server_learnt_landing.cmake.
+add_test(NAME a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by_the_server_and_a_c182_and_one_outside_the_gate_are_refused
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/learnt_landing -DPORT=24806
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_learnt_landing.cmake)
+set_tests_properties(a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by_the_server_and_a_c182_and_one_outside_the_gate_are_refused
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
 
 # **The pre-commit hook refuses what it says it refuses**, and nothing else.
 # See cmake/githooks.cmake.

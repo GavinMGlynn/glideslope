@@ -102,6 +102,53 @@ Controls landing_controls(const std::array<double, LearntPolicy::actions>& actio
 // tools/rl/landing.py's `remember`.
 double remember_drift(double integral, double across_m, const LearntPolicy& policy);
 
+// **The gate the learnt landing is offered at**: where it was trained to take
+// her from and chosen on - tools/rl/landing.py's held-out starts, and its
+// training's airspeeds. Between 1.6 and 2.4 miles before the threshold, no
+// more than 60 m either side of the extended centreline, 20 m above or below
+// the glidepath and 5 degrees off the runway's heading; from 3 kt under the
+// policy's reference speed to 8 kt over it; with the landing flap out. The
+// CLI's start (`glideslope_cli land --learnt`: two miles out on the
+// centreline and the glidepath, at the reference speed) is its middle.
+// Outside it she is not offered: nothing says the policy lands from there.
+struct LearntGate {
+    static constexpr double nearest_m = 1.6 * 1852.0;
+    static constexpr double furthest_m = 2.4 * 1852.0;
+    static constexpr double most_across_m = 60.0;
+    static constexpr double most_off_glidepath_m = 20.0;
+    static constexpr double most_off_heading_deg = 5.0;
+    static constexpr double most_under_vref_kts = 3.0;
+    static constexpr double most_over_vref_kts = 8.0;
+    static constexpr double most_off_flap = 0.05; // of the flaps' travel, 0 to 1
+};
+
+// **Why `aircraft` is not at `runway`'s gate for `policy`**, in words a pilot
+// reads - "4.1 miles out; the gate is 1.6 to 2.4" - the first reason found,
+// the aircraft first and then in LearntGate's order; empty when she is at it.
+std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
+                                const LearntPolicy& policy);
+
+// **On final to `runway`**, as the CLI's landings and the learnt landing's
+// training start: `out_m` before the threshold on the extended centreline,
+// on a `glidepath_deg` glidepath aimed `aim_m` past it, pointing down the
+// runway at `airspeed_kts` with `flaps` out and the gear down, the engine
+// running, trimmed down the glidepath.
+InitialConditions final_approach_start(const Runway& runway, double out_m, double airspeed_kts,
+                                       double flaps, double aim_m, double glidepath_deg);
+
+// **The controls JSBSim has her at now** - after a trim, what it found: the
+// elevator, the first engine's throttle for every engine, the flaps and the
+// pitch trim, and the rest as Controls has them. What a player's aircraft
+// started trimmed holds until its player moves anything.
+Controls trimmed_controls(const Aircraft& aircraft);
+
+// **The learnt landing for `model`**, `data`/rl/`model`-landing.txt: null
+// when there is none, which is how an aircraft is known not to have one.
+// Throws std::runtime_error for a file that cannot be read or was trained on
+// another model.
+std::shared_ptr<const LearntPolicy> learnt_landing(const std::filesystem::path& data,
+                                                   const std::string& model);
+
 // Flies `aircraft` down to `runway` with `policy`, as sim::Lander does with
 // its own laws: call `fly` once a step for that step's controls.
 //

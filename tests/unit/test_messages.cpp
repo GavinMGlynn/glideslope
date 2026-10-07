@@ -482,6 +482,20 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
     }
     check(controllers == 3, "three controllers are known, not " +
                                 std::to_string(controllers));
+    // And a swap knows one more: the learnt landing (since version 8).
+    std::size_t swap_controllers = 0;
+    for (int v = 0; v < 256; ++v) {
+        if (glideslope::net::known_swap_controller(static_cast<std::uint8_t>(v))) {
+            ++swap_controllers;
+        }
+    }
+    check(swap_controllers == 4 &&
+              glideslope::net::known_swap_controller(
+                  static_cast<std::uint8_t>(Controller::learnt_landing)) &&
+              !glideslope::net::known_controller(
+                  static_cast<std::uint8_t>(Controller::learnt_landing)),
+          "a swap knows four controllers, the learnt landing the fourth, not " +
+              std::to_string(swap_controllers));
 
     // A body whose first byte is not a kind is not a message at all.
     std::size_t not_a_kind = 0;
@@ -644,18 +658,19 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
     const std::vector<std::pair<Controller, std::string>> controllers{
         {Controller::nobody, "NOBODY"},
         {Controller::person, "PERSON"},
-        {Controller::ai, "AI"}};
+        {Controller::ai, "AI"},
+        {Controller::learnt_landing, "LEARNT_LANDING"}};
     std::size_t said = 0;
     for (const auto& [controller, name] : controllers) {
         char buf[8];
         std::snprintf(buf, sizeof(buf), "`%02X`", static_cast<unsigned>(controller));
         check(says(std::string("| ") + buf + " | `" + name + "` |"),
               "the document gives " + name + " as " + buf);
-        check(glideslope::net::known_controller(static_cast<std::uint8_t>(controller)),
+        check(glideslope::net::known_swap_controller(static_cast<std::uint8_t>(controller)),
               name + " is a controller the code knows");
         ++said;
     }
-    check(said == 3, "every controller was walked");
+    check(said == 4, "every controller was walked");
 
     // Every limit the code enforces is a number the document states.
     const std::vector<std::pair<std::size_t, std::string>> limits{

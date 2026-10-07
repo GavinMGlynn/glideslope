@@ -61,6 +61,8 @@ Said first, because a transport's limits matter more than its features.
   whose state update carries the watched aircraft's speedbrake lever (below,
   "State updates"). Version `07` is on the same ground, and is the first
   whose server says when it refuses a take-over (`TAKE_OVER_REFUSED`, below).
+  Version `08` is on the same ground, and is the first whose
+  `CONTROLLER_SWAP` may ask for, and announce, the learnt landing (below).
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -71,7 +73,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `07` |
+| 4 | 1 | version | `08` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -117,7 +119,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `07`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `08`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -443,8 +445,11 @@ Several messages carry one byte saying who is flying an aircraft.
 | `00` | `NOBODY` | the slot is open |
 | `01` | `PERSON` | a person's input |
 | `02` | `AI` | an AI pilot |
+| `03` | `LEARNT_LANDING` | the AI pilot, flying the landing learnt by reinforcement learning (since `08`); in a `CONTROLLER_SWAP` only |
 
-A value this version does not know makes the message it is in unreadable.
+A value this version does not know makes the message it is in unreadable, and
+so does `LEARNT_LANDING` anywhere but a `CONTROLLER_SWAP`: everywhere else an
+aircraft the learnt landing flies is flown by `AI`.
 
 ### `LOBBY`
 
@@ -670,6 +675,22 @@ since, it knows nothing of how it is being flown. The server brings the
 controls from the AI's to the pilot's at the pace of a hand - full travel in a
 second - rather than jumping them, so for that second the pilot's inputs are
 not yet all it flies.
+
+| written as | field |
+| --- | --- |
+**The learnt landing** (since `08`). A client asks for its own aircraft to
+go to `LEARNT_LANDING` (`03`), with the time written as nought. The server
+honours it only for that client's own aircraft, only where the server has a
+learnt landing for its model, and only where the aircraft is at that
+landing's gate on the final approach to a runway: 1.6 to 2.4 nautical miles
+before the threshold, within 60 m of the extended centreline and 20 m of a
+3-degree glidepath aimed 300 m past the threshold, within 5 degrees of the
+runway's heading, from 3 kt under the landing's reference speed to 8 kt over
+it, and with the landing flap out (the numbers are the learnt landing's file's
+and the simulation's, not the wire's). Honoured, it says so to every client
+with `LEARNT_LANDING` and the time it took effect; from then a state update
+gives the aircraft's controller as `AI`. Otherwise it is acknowledged and
+nothing more. Taking it back is `PERSON` (`01`), as from any AI.
 
 | written as | field |
 | --- | --- |

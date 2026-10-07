@@ -669,6 +669,20 @@ void Online::hand_over(bool to_ai) {
     session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
 }
 
+void Online::hand_to_learnt() {
+    const auto lock = held();
+    net::ControllerSwap swap;
+    swap.aircraft = mine_;
+    swap.to = net::Controller::learnt_landing;
+    const std::vector<std::uint8_t> body = net::write(swap);
+    session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
+}
+
+bool Online::own_learnt_landing() {
+    const auto lock = held();
+    return own_ai_flying_ && session_.last_swap(mine_) == net::Controller::learnt_landing;
+}
+
 std::optional<Joined> Online::taken_over() {
     std::optional<Joined> out;
     out.swap(taken_);
