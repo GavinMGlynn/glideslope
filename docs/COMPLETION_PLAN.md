@@ -734,30 +734,50 @@ Found while implementing something else. Added when found, not when remembered.
       costs one rebuild, saved, not one per run.* Windows restores from public
       GitHub Packages, which pull requests may now write to; no pull
       request's upload is seen yet. Linux and macOS use a cache keyed on the
-      image.
+      image. No new Windows compiler came in the week to 2026-10-07 (every
+      configure restored all 39 packages), so the rebuild is not yet seen.
 - [ ] **A CI run takes 90-120 minutes where its jobs need about 40**: the
       Actions caches overflowed their 10 GB and builds compiled from nothing.
       *Verification: pull requests' builds restore main's ccache with most
       compiles hits, and a run's time from push to result is measured and
-      stated.* Only main saves caches now; not yet measured after landing.
-- [ ] **CI's Windows builds have no compiler cache**, so each compiles
+      stated.* Run 37570543750 (2026-10-07, four other runs queued beside
+      it): warm builds 2.6-3.9 min, but clang-cl's ccache had been evicted
+      (0 hits, 17 min), because two generations of main's caches stood
+      together until a run ended. Each build now prunes its older entry as
+      soon as it saves, and a merge no longer saves the 3 GB downloads
+      again. Not yet seen on main, and macOS's five runners still set the
+      run's length.
+- [x] **CI's Windows builds have no compiler cache**, so each compiles
       everything on every push (build jobs 14-17 minutes). *Verification: on
       CI, a Windows build after a saved cache hits most of its compiles, and
-      its build job's time is measured cold and warm.* MSVC's debug and
-      release builds now hit 791 of 792 compiles and take 4 minutes;
-      clang-cl's compiles are all cacheable, but its fully warm build is not
-      yet measured.
-- [ ] **CI's cost tables do not know the plan-speed tests.** The eight
+      its build job's time is measured cold and warm.* Done 2026-10-07:
+      MSVC's builds hit 791 of 792 compiles, 4 minutes; clang-cl's 722 of
+      824 with a pull request's changes, a 7-minute job (run 37561340650),
+      against 17 minutes cold (run 37570543750).
+- [x] **CI's cost tables do not know the plan-speed tests.** The eight
       tightest-orbit tests, renamed or new, and the one-step-past test
       (2026-10-02) count 60 s each in tests/ci_costs until a green run is
       measured with tools/ci_test_costs.py. *Verification: every test in
-      the tables, from a green run.*
+      the tables, from a green run.* Done 2026-10-07: every table from three
+      green runs, no shard warning of an unmeasured test; the shard counts
+      raised to about 15 minutes of measured work each.
 - [ ] **A Windows configure on CI sometimes takes 30 minutes in vcpkg**,
       even after an exact hit on its binary cache. *Verification: every
       Windows configure whose vcpkg cache hit takes under 3 minutes, over a
       week of runs on main.* Found 2026-09-30: a rebuild on a newer image's
       compiler, repeated by every pull request; pull requests may upload now.
-      The week on main is not yet counted.
+      Counted 2026-10-07: no rebuild since 2026-09-30, vcpkg's restore under
+      a minute every time, but 8 of 163 configures took 3-6 minutes, in
+      SDL's compiler checks after vcpkg had finished - still over the bound.
+- [ ] **One test takes 15-22 minutes in Linux debug**: the AI aircraft
+      kept 500 ft or 1.5 nm apart, 882 s and 1,295 s, so its shard ran 26
+      minutes of a 30-minute limit whatever the dealing. *Verification:
+      every test under 10 minutes on CI's Linux debug.*
+- [ ] **The rate-limit test failed once on Windows debug**: "the server
+      took 10 of 50 requests sent at once, not 8 or 9" (run 37570543750),
+      the budget refilling while a slow runner sent its burst.
+      *Verification: its bound holds however slowly the burst is sent, and
+      a month of CI runs without it failing.*
 - [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of

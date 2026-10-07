@@ -1,0 +1,44 @@
+name: Prune main's older caches of one kind
+description: >
+  Once this job's cache entry is saved on main, deletes main's other entries
+  whose keys begin with the same prefix.
+
+# **A kind's older entry goes as soon as its newer one is saved**, in the job
+# that saved it, not at the end of the run. The repository's caches share
+# 10 GB; one generation of main's ccaches is about 4.2 GB, and the downloads
+# 3 GB. Pruned only once a run had finished (the prune-caches job), two
+# generations stood side by side for the half hour between, over 10 GB, and
+# GitHub evicted what it chose: on 2026-10-07 clang-cl's new ccache, saved at
+# 04:17 and gone by 04:47, so the next pull request compiled clang-cl from
+# nothing (0 of 824 hits, run 37570543750).
+#
+# curl and jq, which every runner has (Rocky's container installs jq), not gh,
+# which the Rocky container does not. If this run's entry is not there - its
+# save failed, which is a warning, not a red job - nothing is deleted.
+inputs:
+  prefix: { description: 'The kind: every key beginning with this', required: true }
+  keep: { description: "This run's entry, which stays", required: true }
+  token: { description: 'A token with actions: write', required: true }
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PREFIX: ${{ inputs.prefix }}
+        KEEP: ${{ inputs.keep }}
+        TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        api="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/caches"
+        auth=(-H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json")
+        list=$(curl -fsS "${auth[@]}" "$api?ref=refs/heads/main&per_page=100&key=$PREFIX")
+        if ! jq -e --arg k "$KEEP" '.actions_caches | any(.key == $k)' <<< "$list" > /dev/null; then
+          echo "keeping every $PREFIX entry: $KEEP is not there"
+          exit 0
+        fi
+        jq -r --arg k "$KEEP" --arg p "$PREFIX" \
+            '.actions_caches[] | select(.key != $k and (.key | startswith($p))) | "\(.id) \(.key)"' <<< "$list" |
+        while read -r id key; do
+          echo "deleting $key"
+          curl -fsS -X DELETE "${auth[@]}" "$api/$id" > /dev/null || echo "::warning::could not delete $key"
+        done
