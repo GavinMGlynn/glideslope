@@ -2619,6 +2619,17 @@ add_test(NAME the_client_with_the_window_flies_the_servers_aircraft_and_draws_th
 set_tests_properties(the_client_with_the_window_flies_the_servers_aircraft_and_draws_the_others
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server)
+# **And draws another player's chosen aeroplane as that aeroplane**: a
+# second player, the command-line client, asks for the PA-28.
+add_test(NAME the_client_with_the_window_draws_another_players_chosen_aeroplane_as_that_aeroplane
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DCLI=$<TARGET_FILE:glideslope_cli>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_server_chosen -DPORT=24841 -DDRIVER=vulkan
+        -DOTHER_PLAYER=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
+set_tests_properties(the_client_with_the_window_draws_another_players_chosen_aeroplane_as_that_aeroplane
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_chosen)
 # **The same, with its frames held 0.7 s**, as a slow machine's are: it hears
 # the server after the ticks those frames were owed, and is put right once a
 # frame - never too far to hide (cmake/client_on_server.cmake). LABELS timing,
