@@ -208,6 +208,11 @@ struct Options {
     // For a test: the least wall time each step takes, so that a server can
     // be put behind real time on any machine, as a loaded runner puts one.
     double test_step_ms = 0.0;
+    // For a test: how fast the simulation's clock runs against real time,
+    // set - a server behind real time by a fixed factor, the same on every
+    // machine fast enough to keep up with it, where one put behind by
+    // sleeping (`test_step_ms`) is as far behind as the machine is slow.
+    double test_pace = 1.0;
     // Whether a player may take over an aircraft the AI is flying.
     bool take_over = true;
     // **The weather the server flies, and sends every client** (REQUIREMENTS
@@ -323,6 +328,8 @@ void print_usage(std::FILE* out) {
         "                     then stop - simulated time, for a test\n"
         "  --test-step-ms MS  make every step take at least MS milliseconds, so\n"
         "                     that a test can put the server behind real time\n"
+        "  --test-pace F      run the simulation's clock at F (0 to 1) of real\n"
+        "                     time, a server behind by a set factor, for tests\n"
         "  --dry-run          print the settings and exit without binding\n"
         "  --version          print the version\n"
         "  --help             print this\n"
@@ -518,6 +525,15 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
                 return std::nullopt;
             }
             o.test_step_ms = *n;
+        } else if (a == "--test-pace") {
+            if (!next(value)) return std::nullopt;
+            const auto n = number(value);
+            if (!n || !(*n > 0.0) || *n > 1.0) {
+                why = "--test-pace wants a fraction of real time above 0 and at most 1, not '" +
+                      std::string(value) + "'";
+                return std::nullopt;
+            }
+            o.test_pace = *n;
         } else if (a == "--window-dump") {
             o.window_dump = true;
         } else if (a == "--window-shot") {
@@ -4332,8 +4348,9 @@ int run(const Options& o) {
         // become due is taken, and the aircraft are stepped together so that
         // they share one clock.
         if (fleet) {
-            owed += clock.advance(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(now - last));
+            // At a set fraction of real time, for a test (`--test-pace`).
+            owed += clock.advance(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                (now - last) * o.test_pace));
             const std::int64_t n = std::min(owed, most_steps_between_looks);
             for (std::int64_t i = 0; i < n; ++i) {
                 weather_due();

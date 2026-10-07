@@ -668,11 +668,13 @@ Found while implementing something else. Added when found, not when remembered.
       Part of it is the client's clock estimate lagging the server's catch-up.
       Merged in from the window client being put right 20 to 31 m after a
       long frame (frames of 140 to 730 ms; its cause fixed 2026-10-02).
-      Flying the client at the server's fitted rate was tried and taken out
-      (2026-10-07: open-loop, it drifts); a pace steered by the prediction's
-      own clocks' difference is untried. Still
-      missing: an explanation of loaded local runs put right 9 to 13 m since,
-      and the prediction tests' 20 m bound unchanged (the month of CI runs is
+      2026-10-08: both clients now fly at the server's pace, steered by the
+      prediction's own clocks' difference; the command-line client against a
+      server at 0.6 of real time is off by 0.56 m at worst (7.9 m unpaced).
+      Still missing: the window client, paced, is still put right 6 to 9 m
+      against that server (15 to 23 m unpaced) and 10 to 13 m against one
+      keeping real time, unexplained, with no test of it paced; and the
+      prediction tests' 20 m bound unchanged (the month of CI runs is
       counted under the nightly item below).
 - [x] **Two server tests counted wall-clock seconds on slow runners**: one
       counted inputs still in flight, and a late client arrived before a slow
@@ -802,7 +804,9 @@ Found while implementing something else. Added when found, not when remembered.
       37583810544, debug and clang-cl): the median error with the engine
       stopped 47 and 429 mm against 43 and 51 mm before it. *Verification:
       its bound holds on a loaded runner, and a month of CI runs without it
-      failing.*
+      failing.* 2026-10-08: its server slowed by sleeping, the paced client
+      held medians of 4 and 21 mm, where unpaced they were 20 m; the month
+      of CI runs still missing.
 - [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
       43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
       *Verification: every shard's longest run on CI stays under two thirds of

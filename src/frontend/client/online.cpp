@@ -287,6 +287,10 @@ void Online::hear(Flight& flight) {
     const auto c =
         flight.reconcile(word.motion, word.last_applied, word.steps_into, word.server_steps,
                          word.engine_stopped);
+    // **At the server's pace** (sim::Pacing): what its ticks are flown at
+    // from here on.
+    flight.pace_by_clocks(arrived_s_, clock_.known() ? std::optional<double>(clock_.rate())
+                                                     : std::nullopt);
     double& worst = known ? worst_known_m_ : worst_learning_m_;
     worst = std::max(worst, c.moved_m);
     ++corrections_;

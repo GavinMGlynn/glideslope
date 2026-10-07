@@ -4,12 +4,14 @@
 #include "frontend/same_air.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/pacing.hpp"
 #include "sim/prediction.hpp"
 #include "sim/terrain.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <deque>
 #include <filesystem>
 #include <functional>
@@ -1220,4 +1222,125 @@ GLIDESLOPE_TEST(a_client_working_the_speedbrakes_is_predicted_as_the_server_flie
     check(walked == with && with == 9,
           "the nine aircraft with speedbrakes were flown: " + std::to_string(walked) + " of " +
               std::to_string(with));
+}
+
+namespace {
+
+// **A client and a server on clocks the test sets**: the server's runs at
+// `rate` of real time, as one behind real time does, and the client paces
+// its own flying by the clocks' difference its prediction would measure
+// (sim::Pacing). The client sends an input every thirtieth of a second, begun
+// at the step it has flown to; the server applies each `delay_s` later, at
+// the step its clock has reached, and says so in a word every twenty-fifth of
+// a simulated second, heard `delay_s` after that. The pace is steered by the
+// least of the last ten words' differences (sim::pace_window), once there
+// are twenty-five (sim::offset_settled), as the client does.
+struct AtPace {
+    // How fast it flew over the last ten seconds, as a fraction of real time.
+    double pace = 1.0;
+    // The most the difference moved from the one held over the last ten
+    // seconds, in steps.
+    std::int64_t worst_late_off = 0;
+    // Where the difference was at the end against where it began, in steps.
+    std::int64_t drifted = 0;
+};
+
+AtPace fly_at_pace(double rate, double seconds, bool paced) {
+    constexpr double delay_s = 0.1;
+    constexpr double frame_s = 1.0 / 60.0;
+    glideslope::sim::Pacing pacing;
+    struct Sent {
+        double at_s;
+        std::int64_t began;
+    };
+    std::deque<Sent> sent;
+    std::deque<std::int64_t> offsets;
+    std::int64_t applied_at = 0;
+    std::int64_t applied_began = -1;
+    double next_send_s = 0.0;
+    double next_word_s = 0.0; // on the server's clock
+    std::optional<std::int64_t> first;
+    AtPace out;
+    double late_flown_s = 0.0, late_t = 0.0, last_flown_s = 0.0, last_t = 1.0;
+    const auto server_step = [rate](double real_s) {
+        return static_cast<std::int64_t>(real_s * rate * 120.0);
+    };
+    for (int frame = 0; static_cast<double>(frame) * frame_s < seconds; ++frame) {
+        const double t = static_cast<double>(frame) * frame_s;
+        const double flown_s = paced ? pacing.at(t) : t;
+        if (t < seconds - 10.0) {
+            late_flown_s = flown_s;
+            late_t = t;
+        }
+        last_flown_s = flown_s;
+        last_t = t;
+        const auto flown = static_cast<std::int64_t>(flown_s * 120.0);
+        if (t >= next_send_s) {
+            sent.push_back({t, flown});
+            next_send_s += 1.0 / 30.0;
+        }
+        // Applied on the server once arrived, at the step its clock is at.
+        while (!sent.empty() && sent.front().at_s + delay_s <= t) {
+            applied_at = server_step(sent.front().at_s + delay_s);
+            applied_began = sent.front().began;
+            sent.pop_front();
+        }
+        // A word every twenty-fifth of the server's second, heard a delay
+        // later.
+        const double server_s_heard = (t - delay_s) * rate;
+        while (applied_began >= 0 && server_s_heard >= next_word_s) {
+            next_word_s += 1.0 / 25.0;
+            offsets.push_back(applied_at - applied_began);
+            while (offsets.size() > glideslope::sim::offset_window) {
+                offsets.pop_front();
+            }
+            if (offsets.size() < glideslope::sim::offset_settled) {
+                continue;
+            }
+            const std::int64_t least = *std::min_element(
+                offsets.end() - static_cast<std::ptrdiff_t>(std::min(offsets.size(), glideslope::sim::pace_window)),
+                offsets.end());
+            if (!first) {
+                first = least;
+            }
+            out.drifted = least - *first;
+            pacing.heard(least, t);
+            if (t >= seconds - 10.0 && std::llabs(pacing.off()) > std::llabs(out.worst_late_off)) {
+                out.worst_late_off = pacing.off();
+            }
+        }
+    }
+    out.pace = (last_flown_s - late_flown_s) / (last_t - late_t);
+    return out;
+}
+
+} // namespace
+
+// **A client paced by its clocks' difference flies at the server's pace and
+// holds the difference**, whatever the server's pace: every server rate from
+// a fifth of real time to real time, in tenths, with no fitted rate to start
+// from - the loop alone. Over the last ten of 60 s it flew within 0.002 of
+// real time of the server's pace, and the difference stayed within two
+// steps of the one held. Unpaced against a server at 0.6, the difference ran
+// away by the server's lag - which is what put a client off by metres.
+GLIDESLOPE_TEST(a_client_paced_by_its_clocks_difference_flies_at_the_servers_pace_and_holds_it) {
+    std::size_t rates = 0;
+    for (int tenths = 2; tenths <= 10; ++tenths) {
+        const double rate = tenths / 10.0;
+        const AtPace p = fly_at_pace(rate, 60.0, true);
+        check(std::abs(p.pace - rate) <= 0.002,
+              "against a server at " + std::to_string(rate) + " of real time it flew at " +
+                  std::to_string(p.pace));
+        check(std::llabs(p.worst_late_off) <= 2,
+              "against a server at " + std::to_string(rate) +
+                  " of real time the clocks' difference moved " +
+                  std::to_string(p.worst_late_off) +
+                  " steps from the one held in the last ten seconds");
+        ++rates;
+    }
+    check(rates == 9, "nine server rates were flown against: " + std::to_string(rates));
+    const AtPace unpaced = fly_at_pace(0.6, 60.0, false);
+    check(unpaced.drifted < -1000,
+          "unpaced against a server at 0.6 the clocks' difference fell by " +
+              std::to_string(-unpaced.drifted) + " steps, not over a thousand");
 }

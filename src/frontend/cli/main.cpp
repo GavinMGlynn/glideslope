@@ -19,6 +19,7 @@
 #include "net/inputs.hpp"
 #include "net/interpolation.hpp"
 #include "sim/terrain.hpp"
+#include "sim/pacing.hpp"
 #include "sim/prediction.hpp"
 #include "net/inside.hpp"
 #include "net/keys.hpp"
@@ -167,6 +168,13 @@ ConnectLearnt connect_learnt;
 // engine had stopped - the event a test of predicting a stopped engine
 // waits for, not a time.
 std::size_t connect_until_engine_compared = 0;
+// **And (`--until-compared N`)** until N updates have been compared at all,
+// once the clocks' difference is known - what a test of the prediction's
+// error waits for.
+std::size_t connect_until_compared = 0;
+// **(`--unpaced`)**: with `--predict`, fly at this machine's pace, not
+// steered to the server's (sim::Pacing) - what a test shows going wrong.
+bool connect_unpaced = false;
 
 // **The aeroplane asked for** (`connect --aircraft ID`), by its catalogue id,
 // in the initiation's payload (net::write_asked_aircraft) - the first and any
@@ -395,6 +403,10 @@ void print_usage(std::FILE* out) {
         "                            --own-air (with --predict) flies its own in\n"
         "                            still air, whatever weather the server says it\n"
         "                            flies, to show what the server's is worth\n"
+        "                            --until-compared N (with --predict) stays until\n"
+        "                            N updates are compared\n"
+        "                            --unpaced (with --predict) flies at this\n"
+        "                            machine's pace, not steered to the server's\n"
         "                            --track FILE writes where every aircraft was\n"
         "                            heard to be, and, predicting, where each other\n"
         "                            one was drawn, to FILE\n"
@@ -1544,7 +1556,14 @@ public:
         if (clock_.known()) {
             session_now_s_ = clock_.now(local_s);
         }
-        const auto due = static_cast<long long>(local_s *
+        // **At the server's pace** (sim::Pacing), steered by the clocks'
+        // difference the prediction measures: a server behind real time
+        // flies each input for fewer steps, and so, then, does this.
+        if (paced_ && clock_.known()) {
+            pacing_.before_held(clock_.rate());
+        }
+        const double flown_s = paced_ ? pacing_.at(local_s) : local_s;
+        const auto due = static_cast<long long>(flown_s *
                                                 static_cast<double>(glideslope::sim::steps_per_second));
         if (ai_flying_) {
             // The AI pilot flies it, on the server: nothing is flown here.
@@ -1665,6 +1684,15 @@ public:
                     static_cast<std::uint64_t>(std::llround(
                         state.simulation_time_s *
                         static_cast<double>(glideslope::sim::steps_per_second))));
+                // The pace steered by the clocks' difference, once it is
+                // known; from the session clock's fitted rate the first time.
+                if (paced_ && prediction_->settled()) {
+                    if (const auto difference = prediction_->recent_clocks_difference()) {
+                        pacing_.heard(*difference, local_s,
+                                      clock_.known() ? std::optional<double>(clock_.rate())
+                                                     : std::nullopt);
+                    }
+                }
                 const Predicted* at = nullptr;
                 if (c.at_step && *c.at_step > 0) {
                     const auto found = std::find_if(
@@ -1776,6 +1804,7 @@ public:
         aircraft_.reset();
         before_.clear();
         predicted_at_.clear();
+        pacing_.hold();
     }
 
     // **Its own aircraft handed to the AI pilot, or taken back**, as the
@@ -1801,6 +1830,7 @@ public:
             aircraft_.reset();
             before_.clear();
             predicted_at_.clear();
+            pacing_.hold();
         }
         display_.switching();
     }
@@ -1877,6 +1907,9 @@ public:
 
     void track_to(std::ostream& out) { track_ = &out; }
     void long_frame_after_switch() { long_frame_after_switch_ = true; }
+    // **Flown at this machine's pace, not the server's** (`--unpaced`): what
+    // a test shows going wrong against a server behind real time.
+    void unpaced() { paced_ = false; }
 
     // **Where its own aircraft is shown this frame**: predicted while this
     // client flies it, drawn from the updates while the AI does, and blended
@@ -1966,6 +1999,8 @@ public:
     // How many updates have been compared since the server said its engine
     // had stopped (`--until-engine-compared`).
     std::size_t compared_engine_stopped() const { return compared_engine_stopped_; }
+    // How many updates have been compared at all (`--until-compared`).
+    std::size_t compared() const { return compared_; }
 
     std::vector<std::string> report() const {
         std::vector<std::string> lines;
@@ -1991,6 +2026,16 @@ public:
                           *middle, sorted.size());
             lines.emplace_back(line);
         }
+        // **The pace it flew at** (sim::Pacing), and how far the clocks'
+        // difference moved from the one it was held to.
+        std::snprintf(line, sizeof line,
+                      "paced: %s at %.3f of this machine's clock at the end; the clocks' "
+                      "difference %lld steps from the one held then, %lld at worst",
+                      paced_ ? (pacing_.holding() ? "flown" : "not yet steered, flown")
+                             : "unpaced (--unpaced), flown",
+                      paced_ ? pacing_.pace() : 1.0, static_cast<long long>(pacing_.off()),
+                      static_cast<long long>(pacing_.worst_off()));
+        lines.emplace_back(line);
         if (engine_stopped_at_s_) {
             std::snprintf(line, sizeof line,
                           "engine stopped for the server's word (%d stopped here): %zu updates "
@@ -2145,6 +2190,8 @@ private:
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
+    glideslope::sim::Pacing pacing_;
+    bool paced_ = true;
     std::deque<std::pair<std::uint32_t, glideslope::sim::Controls>> before_;
     glideslope::net::SessionClock clock_;
     double rendered_s_ = -1.0;
@@ -2340,6 +2387,9 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (long_frame_after_switch) {
             predicting->long_frame_after_switch();
         }
+        if (connect_unpaced) {
+            predicting->unpaced();
+        }
         fly = true;
     }
     // **What must arrive**: the server's reliable messages, acknowledged,
@@ -2467,6 +2517,10 @@ int stay(glideslope::platform::UdpSocket& socket,
         }
         // **Stay until enough updates have been compared with the engine
         // stopped** (`--until-engine-compared`).
+        if (connect_until_compared > 0 && predicting &&
+            predicting->compared() >= connect_until_compared) {
+            break;
+        }
         if (connect_until_engine_compared > 0 && predicting &&
             predicting->compared_engine_stopped() >= connect_until_engine_compared) {
             break;
@@ -4122,6 +4176,15 @@ static int run_program(int argc, char** argv) {
                                      glideslope::net::most_asked_aircraft_bytes);
                         return 2;
                     }
+                    continue;
+                }
+                if (args[i] == "--until-compared" && i + 1 < args.size()) {
+                    connect_until_compared =
+                        static_cast<std::size_t>(std::stoul(std::string(args[++i])));
+                    continue;
+                }
+                if (args[i] == "--unpaced") {
+                    connect_unpaced = true;
                     continue;
                 }
                 if (args[i] == "--until-engine-compared" && i + 1 < args.size()) {

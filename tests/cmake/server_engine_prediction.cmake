@@ -30,6 +30,9 @@
 # the clock's estimate, an open tail - and the worst is what that made it.
 # With the engine run on, the median after was 0.2 m against 0.03 before.
 #
+# `-DSERVER_EXTRA=...` adds to the server's arguments - `--test-step-ms 15`
+# puts it behind real time, as a loaded runner does, to reproduce one.
+#
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
 
@@ -61,7 +64,7 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 280 --after 1
             --predict --until-engine-compared 300 --heard "${_heard}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}" --fail-engine-at 20
+            --data "${DATA}" --timeout 5 --store "${_store}" --fail-engine-at 20 ${SERVER_EXTRA}
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 250 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 290
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)

@@ -149,6 +149,23 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
 void Flight::adopt(const sim::Motion& motion) {
     aircraft_->set_motion(motion);
     prediction_ = std::make_unique<sim::Prediction>(*aircraft_);
+    // A prediction begun again numbers its steps from nought: its clocks'
+    // difference is held anew, at the pace flown now.
+    pacing_.hold();
+}
+
+void Flight::pace_by_clocks(double local_s, std::optional<double> rate) {
+    if (!prediction_) {
+        return;
+    }
+    if (rate) {
+        pacing_.before_held(*rate);
+    }
+    if (prediction_->settled()) {
+        if (const auto difference = prediction_->recent_clocks_difference()) {
+            pacing_.heard(*difference, local_s, rate);
+        }
+    }
 }
 
 void Flight::adopt(const sim::Motion& motion, std::uint64_t server_steps) {

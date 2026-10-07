@@ -1651,8 +1651,14 @@ static int run_program(int argc, char** argv) {
                 // server's clock unflagged, and CI's sanitized software
                 // Vulkan draws a frame in 250 ms and more (PROJECT_STATUS.md,
                 // 2026-09-30).
-                due = glideslope::sim::steps_to_fly(clock.advance(now - last),
-                                                    online.has_value());
+                // **At the server's pace** on a server (sim::Pacing): one
+                // behind real time flies each input for fewer ticks, and so,
+                // then, does this.
+                const double pace = online && flight ? flight->pace() : 1.0;
+                due = glideslope::sim::steps_to_fly(
+                    clock.advance(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        (now - last) * pace)),
+                    online.has_value());
                 last = now;
                 int key_count = 0;
                 const bool* key_state = SDL_GetKeyboardState(&key_count);
