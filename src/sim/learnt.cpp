@@ -17,19 +17,6 @@ constexpr double degrees = 180.0 / pi;
 constexpr double feet_per_metre = 3.280839895013123;
 constexpr double mps_per_fps = 0.3048;
 
-// As sim::Lander's, and tools/rl/landing.py's: the metres in a degree at the
-// threshold.
-double metres_per_degree_latitude(double latitude_deg) {
-    const double lat = latitude_deg / degrees;
-    return 111132.92 - 559.82 * std::cos(2.0 * lat) + 1.175 * std::cos(4.0 * lat) -
-           0.0023 * std::cos(6.0 * lat);
-}
-
-double metres_per_degree_longitude(double latitude_deg) {
-    const double lat = latitude_deg / degrees;
-    return 111412.84 * std::cos(lat) - 93.5 * std::cos(3.0 * lat) +
-           0.118 * std::cos(5.0 * lat);
-}
 
 struct Where {
     double along_m;  // before the threshold, positive

@@ -398,6 +398,7 @@ Controls Controller::fly() {
             }
             autopilot_->set(circuit_->modes());
             autopilot_->limit_height(floor_ft_, ceiling_ft_);
+            autopilot_->limit_speed(fastest_kts_);
             applied_ = autopilot_->fly();
             circuit_->configure(applied_);
             return applied_;
@@ -427,6 +428,7 @@ Controls Controller::fly() {
             autopilot_->set(modes);
         }
         autopilot_->limit_height(floor_ft_, ceiling_ft_);
+        autopilot_->limit_speed(fastest_kts_);
         applied_ = autopilot_->fly();
         return applied_;
     }

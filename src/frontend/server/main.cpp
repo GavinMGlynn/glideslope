@@ -2964,12 +2964,21 @@ private:
                         return collision_->height_above_ellipsoid(lat, lon);
                     });
             });
+        // **No faster than her fastest a plan may ask**, whatever a climb
+        // the nose cannot give asks of the autopilot (Autopilot::limit_speed).
+        try {
+            controller->limit_speed(glideslope::sim::plan_speeds(data_, model).fastest_kts);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "  %s: no plan speeds, so no speed raised for a climb (%s)\n",
+                         model.c_str(), e.what());
+        }
         // **Landed, off the runway; and on to it only when it is clear**
         // (sim/vacate.hpp): an AI landing goes around from short final if
         // anything else the server flies is on its runway.
         controller->vacates_runways(
-            [this, &aircraft](const glideslope::sim::Runway& runway, double along_m) {
-                return spot_free_of_others(runway, along_m, aircraft);
+            [this, &aircraft](const glideslope::sim::Runway& runway, double along_m,
+                              double side) {
+                return spot_free_of_others(runway, along_m, side, aircraft);
             });
         controller->clears_with([this, &aircraft](const glideslope::sim::Runway& runway) {
             return runway_clear_of_others(runway, aircraft);
@@ -2997,17 +3006,17 @@ private:
 
     // **Whether the ground beside `runway` is free abeam `along_m`** for
     // `self` to turn off on to: no other aircraft the server flies, wrecks
-    // aside, on the ground to its right within Vacate::spot_along_m along
-    // it (sim::Vacate::SpotFree).
+    // aside, on the ground on that side within Vacate::spot_along_m along
+    // it (sim::Vacate::SpotFree) - every aircraft it flies, each looked at.
     bool spot_free_of_others(const glideslope::sim::Runway& runway, double along_m,
-                             const glideslope::sim::Aircraft& self) const {
+                             double side, const glideslope::sim::Aircraft& self) const {
         for (const Aircraft& b : flown_) {
             if (b.aircraft.get() == &self || b.wrecked_at_s >= 0.0) {
                 continue;
             }
             const glideslope::sim::AircraftState s = b.aircraft->state();
             if (glideslope::sim::beside_runway(runway, s.latitude_deg, s.longitude_deg,
-                                               s.height_above_ground_ft, along_m)) {
+                                               s.height_above_ground_ft, along_m, side)) {
                 return false;
             }
         }

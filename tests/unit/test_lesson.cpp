@@ -4237,6 +4237,8 @@ void every_landplane_goes_around(bool rising) {
         flying.gear = 1.0;
         glideslope::sim::Controller controller(aircraft, flying);
         controller.to_ai_approach(runway, published);
+        // As a server's are: no faster than her fastest a plan may ask.
+        controller.limit_speed(glideslope::sim::plan_speeds(data(), entry.model).fastest_kts);
         glideslope::sim::GroundJudge judge(false);
         // The circuit height the flat runway alone would give, and the
         // least height over the ground beneath on the downwind leg.
@@ -4349,6 +4351,67 @@ GLIDESLOPE_TEST(an_aeroplane_that_goes_around_is_flown_round_and_landed) {
 // height over the slope and lands.
 GLIDESLOPE_TEST(an_aeroplane_going_around_beside_rising_ground_flies_its_circuit_height_over_it_and_lands) {
     every_landplane_goes_around(true);
+}
+
+// **The speed raised for a climb is never raised past the fastest she may
+// hold** (Autopilot::limit_speed). Built where it is raised: the F-35B, the
+// aeroplane whose nose reaches its stop short of the climb round a
+// go-around's circuit, told to go around over rising ground at 200 ft with
+// her fastest set 11 kt over the speed her circuit is flown at. Round the
+// circuit's first four minutes the raise must reach the 11 kt - the clamp
+// is what stops it - and never pass it, nor her speed pass that fastest and
+// 5 kt in hand after the go-around's own first minute at full power.
+GLIDESLOPE_TEST(the_speed_the_autopilot_raises_for_a_climb_never_passes_the_fastest_she_may_hold) {
+    const auto entry = glideslope::sim::find_aircraft(data(), "f35b");
+    const glideslope::sim::Runway runway = a_runway();
+    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    put_on_final(aircraft, entry, runway, published);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [&runway](double lat, double lon) { return rising_left_of(runway, lat, lon); },
+        [](double, double) { return false; }));
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.4;
+    flying.gear = 1.0;
+    glideslope::sim::Controller controller(aircraft, flying);
+    controller.to_ai_approach(runway, published);
+    const double circuit_kts = published.vref_kts + 20.0;
+    const double fastest_kts = circuit_kts + 11.0;
+    controller.limit_speed(fastest_kts);
+    bool told = false;
+    int circling = 0;
+    double most_raise_kts = 0.0;
+    double fastest_seen_kts = 0.0;
+    for (int tick = 0; tick < 900 * steps_per_second && circling < 240 * steps_per_second;
+         ++tick) {
+        if (!told && aircraft.property("position/h-agl-ft") <= 200.0) {
+            controller.go_around();
+            told = true;
+        }
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        if (controller.circuit() != nullptr) {
+            ++circling;
+            if (circling > 60 * steps_per_second) {
+                fastest_seen_kts =
+                    std::max(fastest_seen_kts, aircraft.property("velocities/vc-kts"));
+            }
+            if (auto* ap = controller.autopilot()) {
+                most_raise_kts = std::max(most_raise_kts, ap->climb_speed_kts());
+            }
+        }
+    }
+    std::printf("  f35b: circuit at %.0f kt, fastest set %.0f kt: raised at most %.2f kt, "
+                "flew at most %.1f kt after the first minute, %d s of circuit\n",
+                circuit_kts, fastest_kts, most_raise_kts, fastest_seen_kts,
+                circling / static_cast<int>(steps_per_second));
+    check(circling >= 240 * steps_per_second, "she flew four minutes of her circuit");
+    check(most_raise_kts > 10.9,
+          "the raise reached the fastest: " + std::to_string(most_raise_kts));
+    check(most_raise_kts <= 11.0 + 1e-9,
+          "the raise never passed the fastest: " + std::to_string(most_raise_kts));
+    check(fastest_seen_kts <= fastest_kts + 5.0,
+          "her speed never passed the fastest and 5 kt: " + std::to_string(fastest_seen_kts));
 }
 
 namespace {
@@ -4469,13 +4532,12 @@ namespace {
 // lower than 200 ft over the first within 500 m of it while it was on the
 // runway. `learnt`: the second is handed to the learnt landing at its gate,
 // as a server's are.
-void second_lands_once_the_first_has_left(bool learnt) {
-    const std::string id = "c172p";
+void second_lands_once_the_first_has_left(const std::string& id, bool learnt) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     const glideslope::sim::Runway runway = a_runway();
     const auto published = glideslope::sim::approach_speeds(data(), entry.model);
     const auto policy = glideslope::sim::learnt_landing(data(), entry.model);
-    check(policy != nullptr, "the C172P has a learnt landing");
+    check(!learnt || policy != nullptr, id + " has a learnt landing");
 
     glideslope::sim::Aircraft first(data() / "jsbsim", entry.model);
     put_on_final(first, entry, runway, published);
@@ -4504,11 +4566,13 @@ void second_lands_once_the_first_has_left(bool learnt) {
     } else {
         second_c.to_ai_approach(runway, published);
     }
-    second_c.vacates_runways([&first](const glideslope::sim::Runway& r, double along_m) {
-        const glideslope::sim::AircraftState f = first.state();
-        return !glideslope::sim::beside_runway(r, f.latitude_deg, f.longitude_deg,
-                                               f.altitude_ft - r.elevation_ft, along_m);
-    });
+    second_c.vacates_runways(
+        [&first](const glideslope::sim::Runway& r, double along_m, double side) {
+            const glideslope::sim::AircraftState f = first.state();
+            return !glideslope::sim::beside_runway(r, f.latitude_deg, f.longitude_deg,
+                                                   f.altitude_ft - r.elevation_ft, along_m,
+                                                   side);
+        });
     second_c.clears_with([&first](const glideslope::sim::Runway& r) {
         const glideslope::sim::AircraftState s = first.state();
         return !glideslope::sim::on_runway(r, s.latitude_deg, s.longitude_deg,
@@ -4575,11 +4639,17 @@ void second_lands_once_the_first_has_left(bool learnt) {
     } else {
         std::snprintf(over, sizeof over, "never");
     }
-    std::printf("  %s: %d go-around(s), %s, the first %s at its touch; %s within 500 m of the "
-                "first while it was on the runway; landed, %.0f m from it at the closest%s%s\n",
-                learnt ? "handed to the learnt landing" : "the approach autopilot", circuits,
+    const glideslope::sim::AircraftState parked = second.state();
+    const auto parked_at =
+        glideslope::sim::on_runway_frame(runway, parked.latitude_deg, parked.longitude_deg);
+    std::printf("  %s %s: %d go-around(s), %s, the first %s at its touch; %s within 500 m of the "
+                "first while it was on the runway; landed, %.0f m from it at the closest, "
+                "stopped %.0f m along%s%s\n",
+                id.c_str(), learnt ? "handed to the learnt landing" : "the approach autopilot",
+                circuits,
                 touched ? "landed" : "NEVER LANDED",
                 first_clear_at_touch ? "clear" : "STILL ON THE RUNWAY", over, closest_m,
+                parked_at.along_m,
                 wreck.empty() ? "" : ", wrecked: ", wreck.c_str());
     check(wreck.empty(), "nothing was wrecked: " + wreck);
     check(!learnt || learnt_seen, "the learnt landing had the second at its gate");
@@ -4591,6 +4661,11 @@ void second_lands_once_the_first_has_left(bool learnt) {
     // **And stopped clear of the first**, which turned off where she would
     // have: never within 100 m of it - a little over the 70 m either side of
     // the centreline a runway's traffic is kept off.
+    // **And off the runway's side before its end**, the A380's long turn
+    // too (Vacate::turn_by_end_m).
+    check(parked_at.along_m <= runway.length_m,
+          id + ": the second stopped before the runway's end: " +
+              std::to_string(parked_at.along_m) + " m along");
     check(closest_m >= 100.0,
           "the second stopped clear of the first: " + std::to_string(closest_m) + " m");
 }
@@ -4600,11 +4675,15 @@ void second_lands_once_the_first_has_left(bool learnt) {
 // **An aeroplane landing on a runway another is on goes around, and lands
 // once it has left**: both ways a landing is flown to the touch - by the
 // approach autopilot, and handed to the learnt landing at its gate - with
-// the one aeroplane that has both. The go-around itself is every
-// landplane's (an_aeroplane_that_goes_around_is_flown_round_and_landed).
+// the one aeroplane that has both; and the A380, whose roll-out and turn
+// off are the longest, forced to turn off before the 3,000 m runway's end
+// beside the first. The go-around itself is every landplane's
+// (an_aeroplane_that_goes_around_is_flown_round_and_landed), and the
+// vacating every landplane's (every_aeroplane_the_ai_lands_taxis_off_...).
 GLIDESLOPE_TEST(an_aeroplane_landing_on_a_runway_another_is_on_goes_around_and_lands_once_it_has_left) {
-    second_lands_once_the_first_has_left(false);
-    second_lands_once_the_first_has_left(true);
+    second_lands_once_the_first_has_left("c172p", false);
+    second_lands_once_the_first_has_left("c172p", true);
+    second_lands_once_the_first_has_left("a380", false);
 }
 
 // **The server and the client tell a controller how she lands from the same

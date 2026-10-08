@@ -169,6 +169,13 @@ struct PlanSpeeds {
 // and plan files are all held to.
 bool within_plan_speeds(const PlanSpeeds& speeds, double kts);
 
+// **Metres in a degree of latitude and of longitude** at `latitude_deg`, on
+// the WGS84 ellipsoid: what a runway's own frame, near its threshold, is
+// measured in - by the lander, the take-off, the learnt landing, the
+// go-around's circuit and the vacating alike.
+double metres_per_degree_latitude(double latitude_deg);
+double metres_per_degree_longitude(double latitude_deg);
+
 // Great-circle distance and initial bearing between two places, metres and
 // degrees true.
 double distance_m(double latitude_1, double longitude_1, double latitude_2,

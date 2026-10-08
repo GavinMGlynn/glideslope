@@ -652,12 +652,19 @@ Controls Autopilot::fly() {
         // fast once the nose comes down or the climb comes. Only from the
         // speed asked, not on the way down to it: a stall demonstrated by
         // asking for ten knots under the stall is still a stall.
+        // **And never past the fastest it may hold** (`limit_speed`): with
+        // none given it is not raised at all.
+        const double may_raise_kts =
+            fastest_kts_ ? std::clamp(*fastest_kts_ - *modes_.airspeed_kts, 0.0,
+                                      most_climb_speed_kts)
+                         : 0.0;
         const double held_kts = *modes_.airspeed_kts + climb_speed_kts_;
         if (nose_at_stop_ && std::abs(held_kts - kts) < 5.0) {
-            climb_speed_kts_ = std::min(climb_speed_kts_ + dt, most_climb_speed_kts);
+            climb_speed_kts_ = std::min(climb_speed_kts_ + dt, may_raise_kts);
         } else {
             climb_speed_kts_ = std::max(climb_speed_kts_ - dt, 0.0);
         }
+        climb_speed_kts_ = std::min(climb_speed_kts_, may_raise_kts);
         const double speed_off =
             *modes_.airspeed_kts + climb_speed_kts_ - a_.property("velocities/vc-kts");
         // **Short of speed for the height asked, the throttle opens.** While

@@ -32,6 +32,18 @@ double normalised(double degrees) {
 
 } // namespace
 
+double metres_per_degree_latitude(double latitude_deg) {
+    const double lat = latitude_deg / (180.0 / std::numbers::pi);
+    return 111132.92 - 559.82 * std::cos(2.0 * lat) + 1.175 * std::cos(4.0 * lat) -
+           0.0023 * std::cos(6.0 * lat);
+}
+
+double metres_per_degree_longitude(double latitude_deg) {
+    const double lat = latitude_deg / (180.0 / std::numbers::pi);
+    return 111412.84 * std::cos(lat) - 93.5 * std::cos(3.0 * lat) +
+           0.118 * std::cos(5.0 * lat);
+}
+
 FlightPlan parse_flight_plan(std::string_view text) {
     FlightPlan plan;
     std::optional<Runway> runway;

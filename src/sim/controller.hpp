@@ -205,6 +205,12 @@ public:
         floor_ft_ = floor_ft;
         ceiling_ft_ = ceiling_ft;
     }
+    // **The fastest the AI's autopilot may hold** (Autopilot::limit_speed),
+    // kept through whatever it flies: her fastest a plan may ask. Only the
+    // plain autopilot - holding, navigating, or round a go-around's circuit
+    // - raises its speed for a climb; the take-off, the approach, the flare,
+    // the roll-out, the learnt landing and the vacating fly their own laws.
+    void limit_speed(std::optional<double> fastest_kts) { fastest_kts_ = fastest_kts; }
     // Whether the AI's autopilot is flying it now - not a take-off, a
     // landing, a glide or its pilot - so that a limit on its height can be
     // flown. A glide cannot climb to a floor: it is given way to instead.
@@ -234,6 +240,7 @@ private:
     // Off the runway after landing, and stopped beside it.
     std::optional<Vacate> vacate_;
     bool vacates_ = false;
+    std::optional<double> fastest_kts_;
     Vacate::SpotFree spot_free_;
     RunwayClearQuery runway_clear_;
     bool runway_not_clear(const Runway& runway) const;
