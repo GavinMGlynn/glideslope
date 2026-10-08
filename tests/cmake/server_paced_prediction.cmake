@@ -21,8 +21,8 @@
 # (`--until-compared 600`) - 40 s of the server's updates at 15 a second - the
 # event, not a time.
 #
-# **What must hold**: the client said it flew at the server's pace, within
-# 2 percent, and its prediction error was under a metre for 95 updates in a
+# **What must hold**: the client flew as many steps as the server, within
+# 1 percent, between the first update compared and the last, and its prediction error was under a metre for 95 updates in a
 # hundred, under 3 m at worst, and its median under 5 cm. `-DUNPACED=ON` flies
 # the client at its own pace (`--unpaced`): that is what fails, by metres.
 #
@@ -112,10 +112,21 @@ if(NOT _said MATCHES "paced: [^\n]* at ([0-9]+)\\.([0-9][0-9][0-9]) of this mach
     message(FATAL_ERROR "the client did not say its pace:\n${_said}")
 endif()
 math(EXPR _pace_thousandths "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
+if(NOT _said MATCHES "paced in steps: ([0-9]+) flown here while the server flew ([0-9]+),")
+    message(FATAL_ERROR "the client did not say the steps it flew:\n${_said}")
+endif()
+set(_steps_here "${CMAKE_MATCH_1}")
+set(_steps_there "${CMAKE_MATCH_2}")
+math(EXPR _steps_apart "${_steps_here} - ${_steps_there}")
+if(_steps_apart LESS 0)
+    math(EXPR _steps_apart "0 - ${_steps_apart}")
+endif()
+math(EXPR _steps_allowed "${_steps_there} / 100")
 string(CONCAT _line "${_compared} updates compared, the worst error ${_worst_mm} mm, the "
           "95th and 99th percentiles ${_p95_mm} and ${_p99_mm} mm and the median "
           "${_median_mm} mm, flown at ${_pace_thousandths} thousandths of real time against a "
-          "server at ${_pace}; the clocks' difference ${CMAKE_MATCH_4} steps off at worst")
+          "server at ${_pace} (${_steps_here} steps flown here to the server's "
+          "${_steps_there})")
 if(_compared LESS 600)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()
@@ -123,7 +134,12 @@ if(_p95_mm GREATER 1000 OR _worst_mm GREATER 3000 OR _median_mm GREATER 50)
     message(FATAL_ERROR "against a server behind real time the prediction was off: "
                         "${_line}:\n${_said}")
 endif()
-if(_pace_thousandths LESS 588 OR _pace_thousandths GREATER 612)
+# **The pace in steps, counted, not timed**: the pace at the end is a real
+# time's, which Windows' 15.6 ms timers moved to 0.583 once on CI's Windows
+# debug (run 37729451368) with the steps held; the steps flown here and on
+# the server between the first update compared and the last are the same
+# whatever the clocks do. Within 1 percent; unpaced they part by 40.
+if(_steps_apart GREATER _steps_allowed)
     message(FATAL_ERROR "the client did not fly at the server's pace: ${_line}:\n${_said}")
 endif()
 message(STATUS "${_line}")
