@@ -9,6 +9,7 @@
 #include "sim/terrain.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -17,6 +18,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -1147,13 +1149,181 @@ GLIDESLOPE_TEST(a_prediction_stops_its_engine_on_the_servers_word_and_starts_it_
     check(dry.any_engine_stopped(), "and one stopped here by itself is not started for the word");
 }
 
+namespace {
+
+// How far apart two aircraft's engines turn, the worst over every engine: in
+// rpm for the propellers and rotors, in percentage points for the spools.
+struct SpinApart {
+    double rpm = 0.0;
+    double spool = 0.0;
+};
+
+SpinApart spin_apart(const glideslope::sim::ReplayState& a, const glideslope::sim::ReplayState& b) {
+    SpinApart out;
+    for (std::size_t i = 0; i < a.thruster_rpm.size(); ++i) {
+        out.rpm = std::max(out.rpm, std::abs(a.thruster_rpm[i] - b.thruster_rpm[i]));
+        for (const auto& spool : {a.n1[i] - b.n1[i], a.n2[i] - b.n2[i]}) {
+            // NaN where the engine has no such spool, on both.
+            if (!std::isnan(spool)) {
+                out.spool = std::max(out.spool, std::abs(spool));
+            }
+        }
+    }
+    return out;
+}
+
+// The surfaces a replay moved on again: what the levers move, read back.
+constexpr std::array<const char*, 3> moved_by_levers = {
+    "fcs/flap-pos-norm", "fcs/speedbrake-pos-norm", "gear/gear-pos-norm"};
+
+} // namespace
+
+// **An engine stopped on the server winds down in a prediction put right as
+// it does flown once**, every engine of every aircraft. A word puts back the
+// motion alone and the steps since are flown again; an engine's spin - a
+// propeller's rpm, a turbine's spools - is not in the motion, and was left as
+// it was at the newest step, so every replay wound a stopping engine down
+// again: the Cessna's propeller, stopped by the server, took six seconds to
+// stop there and under two in a client half a second ahead
+// (PROJECT_STATUS.md, 2026-10-09). **And the flaps, the speedbrakes and the
+// gear moving are where they are flown once**: their actuators, moved on by
+// every replay the same way, are put back too (sim::ReplayState).
+// **Built, not timed**: two of each aircraft, the same engine of each
+// stopped at the same step; one flown once, the other predicted and put
+// right ten times a second by words that agree with it exactly - its own
+// motion half a second back - so that whatever is apart is what the replays
+// did. The throttle moves, so the running engines' spin changes too; the
+// flaps run out, the speedbrake lever is out for a second and the gear goes
+// down.
+//
+// **What must hold**: the engines apart by no more than a tenth of how far
+// they wound flown once (2 rpm, 0.1 points of a spool, at the least), and
+// each surface within a hundredth of its travel. Measured (linux-release):
+// see PROJECT_STATUS.md, 2026-10-09. With nothing put back the jets were 17
+// to 27 points apart and the propellers 600 to 1500 rpm - all but the
+// Mosquito's, whose stopped propeller windmills at what the air gives it
+// within a replay, so it holds either way (1.6 rpm); held, not a witness.
+// With the jets' spools put where the throttle settles them after every
+// correction (Aircraft::set_motion), 7.6 points.
+GLIDESLOPE_TEST(an_engine_stopped_on_the_server_winds_down_in_a_prediction_put_right_as_it_does_flown_once_in_every_aircraft) {
+    constexpr int flown_steps = 2 * steps_per_second;
+    constexpr int behind = steps_per_second / 2;
+    constexpr int every = steps_per_second / 10;
+    constexpr double share = 0.1;
+    constexpr double rpm_floor = 2.0;
+    constexpr double spool_floor = 0.1;
+    constexpr double surface_bound = 0.01;
+    const auto catalogue = glideslope::sim::read_catalogue(data());
+    std::size_t flown = 0;
+    std::size_t engines = 0;
+    std::set<std::string> left_out;
+    for (const auto& entry : catalogue) {
+        int count = 1;
+        for (int engine = 0; engine < count; ++engine) {
+            Aircraft once(data() / "jsbsim", entry.model);
+            Aircraft predicted(data() / "jsbsim", entry.model);
+            count = once.engine_count();
+            if (engine == 0) {
+                engines += static_cast<std::size_t>(count);
+            }
+            set_up(once, entry.start_airspeed_kts);
+            set_up(predicted, entry.start_airspeed_kts);
+            once.fail_engine(engine, false);
+            Prediction client(predicted);
+            check(client.hear_engine_stopped(engine),
+                  entry.id + ": the client stopped engine " + std::to_string(engine));
+            const auto controls = [&entry](int step) {
+                Controls c = flying(step);
+                c.throttle =
+                    std::clamp(entry.start_throttle + 0.2 * std::sin(step * 0.02), 0.0, 1.0);
+                const double t = static_cast<double>(step) / steps_per_second;
+                c.flaps = std::min(1.0, t / 1.5);
+                c.speedbrake = t >= 0.25 && t < 1.25 ? 1.0 : 0.0;
+                c.gear = t >= 0.5 ? 1.0 : 0.0;
+                return c;
+            };
+            std::vector<glideslope::sim::Motion> after;
+            std::size_t words = 0;
+            // How it turned after its first step, against which how far it
+            // wound in the flight is measured.
+            glideslope::sim::ReplayState began;
+            double surfaces_apart = 0.0;
+            std::string worst_surface;
+            for (int step = 0; step < flown_steps; ++step) {
+                once.set_controls(controls(step));
+                once.step();
+                if (step == 0) {
+                    began = once.replay_state();
+                }
+                client.step(static_cast<std::uint32_t>(step + 1), controls(step));
+                after.push_back(predicted.motion());
+                // The word about step k: its motion after it, the server's
+                // steps then k + 1, one step into input k + 1.
+                if (step >= behind && step % every == 0) {
+                    const int k = step - behind;
+                    (void)client.reconcile(after[static_cast<std::size_t>(k)],
+                                           static_cast<std::uint32_t>(k + 1), 1,
+                                           static_cast<std::uint64_t>(k + 1));
+                    ++words;
+                }
+                for (const char* surface : moved_by_levers) {
+                    // **Left out**: the Short S.23's flaps, wound by a motor
+                    // through an integrator, whose state JSBSim keeps in a
+                    // member with no setter (sim::ReplayState) - 0.13 of
+                    // their travel apart here, a minute's travel end to end.
+                    if (entry.id == "short_s23" && std::string(surface) == "fcs/flap-pos-norm") {
+                        left_out.insert(entry.id + " " + surface);
+                        continue;
+                    }
+                    const double apart =
+                        std::abs(once.property(surface) - predicted.property(surface));
+                    if (apart > surfaces_apart) {
+                        surfaces_apart = apart;
+                        worst_surface = surface;
+                    }
+                }
+            }
+            const SpinApart apart =
+                spin_apart(once.replay_state(), predicted.replay_state());
+            const SpinApart wound = spin_apart(began, once.replay_state());
+            const double rpm_bound = std::max(rpm_floor, share * wound.rpm);
+            const double spool_bound = std::max(spool_floor, share * wound.spool);
+            std::printf("  %-12s engine %d, %zu words; flown once, wound %8.2f rpm and %6.3f "
+                        "points; put right, apart by %7.3f rpm and %6.3f points, surfaces "
+                        "%.4f\n",
+                        entry.id.c_str(), engine, words, wound.rpm, wound.spool, apart.rpm,
+                        apart.spool, surfaces_apart);
+            const std::string which = entry.id + " engine " + std::to_string(engine);
+            check(words == 15, which + ": put right " + std::to_string(words) + " times, not 15");
+            check(apart.rpm <= rpm_bound,
+                  which + ": put right, its engines turned " + std::to_string(apart.rpm) +
+                      " rpm from flown once, over the " + std::to_string(rpm_bound) + " bound");
+            check(apart.spool <= spool_bound,
+                  which + ": put right, its spools were " + std::to_string(apart.spool) +
+                      " points from flown once, over the " + std::to_string(spool_bound) +
+                      " bound");
+            check(surfaces_apart <= surface_bound,
+                  which + ": put right, " + worst_surface + " was " +
+                      std::to_string(surfaces_apart) + " from flown once, over " +
+                      std::to_string(surface_bound));
+            ++flown;
+        }
+    }
+    check(left_out.size() == 1, "one surface was left out, the S.23's flaps, not " +
+                                    std::to_string(left_out.size()));
+    check(catalogue.size() == 16 && engines == 35 && flown == engines,
+          "every engine of every aircraft was stopped: " + std::to_string(flown) + " of " +
+              std::to_string(engines) + " engines, in " + std::to_string(catalogue.size()) +
+              " aircraft, not the 35 in 16");
+}
+
 // **A client working the speedbrakes is predicted as the server flies them**,
 // in every aircraft that has them: the lever run out and in again over six
 // seconds, on top of the turn, the climb and the throttle the other tests
 // fly, at 200 ms and put right from the motion alone, as a state update
 // carries it. The lever is an input like any other, so the client and the
-// server move the same surfaces, and the worst correction is held to a quarter over
-// the same flight's with the lever left stowed: working it costs the
+// server move the same surfaces, and the worst correction is held to a quarter
+// over the same flight's with the lever left stowed: working it costs the
 // prediction nothing it did not already have. **And the lever each side's
 // flight model is given is the one sent, at every step**, read back from the
 // model - which catches a client flying the lever stowed while sending it
@@ -1207,6 +1377,9 @@ GLIDESLOPE_TEST(a_client_working_the_speedbrakes_is_predicted_as_the_server_flie
                       std::to_string(wrong.worst_correction_m) + " m, not more than twice " +
                       std::to_string(f.worst_correction_m) + " m");
         }
+        // Since the actuators are put back for every replay (2026-10-09),
+        // the lever costs nothing: the F-22's cost her 11 cm before, hidden
+        // until then under her spools' error (sim::ReplayState).
         const double bound_m = 1.25 * still.worst_correction_m;
         std::printf("  %-11s at 200 ms: worst correction %.4f m with the lever worked (bound "
                     "%.4f), %.4f m stowed\n",

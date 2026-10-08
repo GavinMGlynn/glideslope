@@ -30,6 +30,7 @@
 #include <models/propulsion/FGTank.h>
 #include <models/propulsion/FGThruster.h>
 #include <models/propulsion/FGTurbine.h>
+#include <models/propulsion/FGTurboProp.h>
 #include <simgear/misc/sg_path.hxx>
 #include <simgear/props/props.hxx>
 
@@ -1121,11 +1122,118 @@ void Aircraft::set_motion(const Motion& m) {
                                    omega * vs.vInertialPosition);
     // Recompute everything that follows from the state - the forces, the
     // ground under it - without advancing the clock, and forget the old
-    // derivatives, which belong to where it was.
+    // derivatives, which belong to where it was. **A turbine is kept in the
+    // phase it was in**: JSBSim takes a run that does not advance the clock
+    // for a trim, and the step after a trim puts a running turbine's spools
+    // where its throttle would settle them, so every correction of a jet put
+    // its N1 there (PROJECT_STATUS.md, 2026-10-09).
+    const auto propulsion = exec_->GetPropulsion();
+    std::vector<std::pair<std::shared_ptr<JSBSim::FGTurbine>, JSBSim::FGTurbine::phaseType>>
+        turbines;
+    std::vector<std::pair<std::shared_ptr<JSBSim::FGTurboProp>, JSBSim::FGTurboProp::phaseType>>
+        turboprops;
+    for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
+        const auto e = propulsion->GetEngine(i);
+        if (const auto turbine = std::dynamic_pointer_cast<JSBSim::FGTurbine>(e)) {
+            turbines.emplace_back(turbine, turbine->GetPhase());
+        }
+        if (const auto turboprop = std::dynamic_pointer_cast<JSBSim::FGTurboProp>(e)) {
+            turboprops.emplace_back(turboprop, turboprop->GetPhase());
+        }
+    }
     exec_->SuspendIntegration();
     exec_->Run();
     exec_->ResumeIntegration();
     propagate->InitializeDerivatives();
+    for (const auto& [turbine, phase] : turbines) {
+        turbine->SetPhase(phase);
+    }
+    for (const auto& [turboprop, phase] : turboprops) {
+        turboprop->SetPhase(phase);
+    }
+}
+
+void Aircraft::find_replay_nodes() {
+    if (!replay_nodes_.empty()) {
+        return;
+    }
+    SGPropertyNode* base = exec_->GetPropertyManager()->GetNode();
+    const auto keep = [&](const std::string& name, SGPropertyNode* node) {
+        replay_names_.push_back(name);
+        replay_nodes_.push_back(node);
+    };
+    if (SGPropertyNode* fcs = base->getNode("fcs")) {
+        for_each_property(base, fcs, [&](const std::string& name, SGPropertyNode* node) {
+            // The commands are the controls', set before every step.
+            if (name.find("cmd") == std::string::npos) {
+                keep(name, node);
+            }
+        });
+    }
+    if (SGPropertyNode* gear = base->getNode("gear/gear-pos-norm");
+        gear != nullptr && gear->getAttribute(SGPropertyNode::WRITE)) {
+        keep("gear/gear-pos-norm", gear);
+    }
+}
+
+std::vector<std::string> Aircraft::replay_properties() const {
+    const_cast<Aircraft*>(this)->find_replay_nodes();
+    return replay_names_;
+}
+
+ReplayState Aircraft::replay_state() const {
+    const_cast<Aircraft*>(this)->find_replay_nodes();
+    ReplayState out;
+    const auto propulsion = exec_->GetPropulsion();
+    for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
+        const auto e = propulsion->GetEngine(i);
+        out.thruster_rpm.push_back(e->GetThruster()->GetRPM());
+        const std::string n = "propulsion/engine[" + std::to_string(i) + "]/";
+        out.n1.push_back(has_property(n + "n1") ? value(n + "n1") : std::nan(""));
+        out.n2.push_back(has_property(n + "n2") ? value(n + "n2") : std::nan(""));
+        if (const auto turbine = std::dynamic_pointer_cast<JSBSim::FGTurbine>(e)) {
+            out.phase.push_back(static_cast<int>(turbine->GetPhase()));
+        } else if (const auto turboprop = std::dynamic_pointer_cast<JSBSim::FGTurboProp>(e)) {
+            out.phase.push_back(static_cast<int>(turboprop->GetPhase()));
+        } else {
+            out.phase.push_back(-1);
+        }
+    }
+    out.controls.reserve(replay_nodes_.size());
+    for (const SGPropertyNode* node : replay_nodes_) {
+        out.controls.push_back(node->getDoubleValue());
+    }
+    return out;
+}
+
+void Aircraft::set_replay_state(const ReplayState& state) {
+    find_replay_nodes();
+    const auto propulsion = exec_->GetPropulsion();
+    const std::size_t engines = propulsion->GetNumEngines();
+    if (state.thruster_rpm.size() != engines || state.n1.size() != engines ||
+        state.n2.size() != engines || state.phase.size() != engines ||
+        state.controls.size() != replay_nodes_.size()) {
+        throw std::invalid_argument("the replay state is of another model");
+    }
+    for (unsigned i = 0; i < engines; ++i) {
+        const auto e = propulsion->GetEngine(i);
+        e->GetThruster()->SetRPM(state.thruster_rpm[i]);
+        const std::string n = "propulsion/engine[" + std::to_string(i) + "]/";
+        if (!std::isnan(state.n1[i])) {
+            set(n + "n1", state.n1[i]);
+        }
+        if (!std::isnan(state.n2[i])) {
+            set(n + "n2", state.n2[i]);
+        }
+        if (const auto turbine = std::dynamic_pointer_cast<JSBSim::FGTurbine>(e)) {
+            turbine->SetPhase(static_cast<JSBSim::FGTurbine::phaseType>(state.phase[i]));
+        } else if (const auto turboprop = std::dynamic_pointer_cast<JSBSim::FGTurboProp>(e)) {
+            turboprop->SetPhase(static_cast<JSBSim::FGTurboProp::phaseType>(state.phase[i]));
+        }
+    }
+    for (std::size_t i = 0; i < replay_nodes_.size(); ++i) {
+        replay_nodes_[i]->setDoubleValue(state.controls[i]);
+    }
 }
 
 bool Aircraft::gear_retracts() const {
