@@ -350,6 +350,15 @@ The 172P's other nine figures: static 2,339 rpm, take-off 922 ft, climb
   JSBSim's curve, 9.79 to 10.03 - red.
 - `every_light_aeroplane_is_climbed_to_its_published_ceiling_or_named_with_its_reason`:
   three climbed, the 182S named.
+- `the_cross_platform_check_accepts_platforms_that_agree_and_refuses_one_that_does_not`:
+  `cross_platform_flights.cmake` counts ten 172P figures now, the ceiling
+  among them, each held to 1% across the platforms; counting nine it was
+  red on eight CI jobs (run 37732259070) and here.
+- `a_client_predicting_its_aircraft_stops_its_engine_when_the_server_says_and_is_put_right_no_more`
+  was red on windows-release and one windows-clang shard in that run (median
+  after the stop 495 and 1,529 mm against 59 before); here, 11 mm against
+  40. It is the open Windows tail of 2026-10-07 (429 mm then); whether the
+  carburettor's channel widens it on Windows is not yet known.
 
 **Verified** in linux-release: 370 tests - every learnt-landing, figures,
 engine, ceiling, climb, leaner, stall, landing, lesson, circuit, orbit,
