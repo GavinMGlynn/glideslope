@@ -75,6 +75,8 @@ list(LENGTH _flags _count)
 # --players-on-final starts every player on final to a runway, at the learnt
 # landing's gate (server_learnt_landing.cmake), and --ai-on-final the AI
 # aircraft, outside it, to be landed (server_ai_learnt_landing.cmake).
+# --ai-route gives the first AI aircraft a route file as a copilot's route
+# is, flown in simulated time (server_route_landing.cmake).
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
@@ -83,7 +85,8 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --ai-planner --ai-task --ai-playback --ai-spacing
               --steps --fail-engine-at --hand-over-planner --hand-over-playback
               --hand-over-record --weather --metar --station --metar-then --changed-file
-              --weather-blend --weather-refresh --players-on-final --ai-on-final)
+              --weather-blend --weather-refresh --players-on-final --ai-on-final
+              --ai-route)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)

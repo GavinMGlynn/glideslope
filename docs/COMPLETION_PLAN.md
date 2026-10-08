@@ -1163,6 +1163,10 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       *Verification: two AI aircraft on plans ending at one runway both land,
       the second once the first has left it; and a copilot's route that ends
       in a landing is landed and leaves the runway.* Done 2026-10-08.
+- [ ] **No model has yet been seen to answer with a landing**: the copilot
+      may end a route in one since 2026-10-08, but no recorded live answer
+      does. *Verification: a recording of a model asked to land at a runway
+      nearby answers with a landing the server flies.*
 - [ ] **A model's flight plan cannot end in a landing**: the planner, which
       plans a flight from the ground, is not offered `land` as the copilot
       now is. *Verification: a plan asked to end at a runway is landed there.*

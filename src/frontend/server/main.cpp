@@ -2489,11 +2489,15 @@ public:
                               static_cast<unsigned>(a.index), a.copilot_route.size());
             } else {
                 const glideslope::sim::Waypoint& to = n.plan().waypoints[n.next()];
-                // **An orbit's radius said too**: an aircraft on its circle
-                // comes no nearer its centre, and is where it was sent.
-                char round[64] = "";
+                // **An orbit's radius said too, and where round it she is**
+                // - the bearing of her from its centre: an aircraft flying
+                // its circle comes no nearer the centre, but goes round it.
+                char round[96] = "";
                 if (to.orbit) {
-                    std::snprintf(round, sizeof round, ", an orbit of %.0f m", to.orbit->radius_m);
+                    std::snprintf(round, sizeof round, ", an orbit of %.0f m, %.0f degrees round",
+                                  to.orbit->radius_m,
+                                  glideslope::sim::bearing_deg(to.latitude_deg, to.longitude_deg,
+                                                               lat, lon));
                 }
                 std::snprintf(line, sizeof line,
                               "aircraft %u on its copilot's route: to %s, %zu of %zu, %.0f m "
