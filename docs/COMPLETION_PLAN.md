@@ -1143,7 +1143,7 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       - The four-player test once counted five players' aircraft (owed: the hundred Windows debug runs)
       - The command-line forger test once failing after 300 s (owed: the cause found, or the test repeated under load on every platform)
       - A take-over at 100 ms not refused once (owed: repeated nightly runs on every platform)
-      - A take-over at 100 ms put off 14.9 m on macOS debug by a server held up, fixed at cause 2026-10-08: inputs flown from the step due when they came (owed: a stall built into the test, and a month of CI runs)
+      - A take-over at 100 ms put off 14.9 m on macOS debug by a server held up, fixed at cause 2026-10-08: inputs flown from the step due when they came (owed: a stall built into the multi-process test - the rule has a unit test - and a month of CI runs)
       - The window client stepping over 2.5 m at a take-over on a slow machine (owed: a pass on windows-release)
       - Windows debug test programs crash on their way out on the development machine (owed: a hundred runs on the development machine)
       - The client with the window can crash on Windows as it exits (owed: a hundred argument refusals on Windows)
