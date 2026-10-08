@@ -970,8 +970,9 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The Cherokee's engine makes most power far too rich**, at 9.9 parts
       of air to one of fuel against the FAA's 12 to 13.8; the other three
       light aeroplanes are fixed (PROJECT_STATUS, 2026-10-08). On the FAA's
-      curve its stall at the warning is never recovered; waits on the
-      stall recovery of PR #136 (PROJECT_STATUS, 2026-10-09). *Verification:
+      curve its stall at the warning is never recovered, with #136's
+      recovery too: it cannot be level at the lesson's recovery speed with
+      40 degrees of flap (PROJECT_STATUS, 2026-10-09). *Verification:
       leaned for best power, each engine sits between 12 and 13.8 to 1, and
       every figure stays in range.*
 - [x] **The Cub's carburettor runs too rich to climb past about 8,000 ft.**
@@ -985,8 +986,9 @@ Found while implementing something else. Added when found, not when remembered.
       full rich.** Held full rich there, its stall recovered at 4,950 ft
       loses 328 ft against its lesson's 300; on the FAA's mixture curve it
       is not recovered at all: with 40 degrees of flap at the recovery's
-      speed it sinks 190 ft/min at full power, though slower it climbs;
-      waits on PR #136. *Verification: the Cherokee full
+      speed it sinks 190 ft/min at full power, though slower it climbs; the
+      least-sink recovery of #136 does not change that - the lesson's
+      recovery would have to raise the flap or ask a speed she can hold. *Verification: the Cherokee full
       rich below 5,000 ft, and its stall recovery within its lesson.*
 - [x] **Cesium ion on Windows, where a body arrives compressed unasked.**
       *Verification: a Windows machine fetches and reads ion's layer.json, and
