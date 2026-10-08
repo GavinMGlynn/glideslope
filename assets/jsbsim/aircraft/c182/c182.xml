@@ -430,7 +430,7 @@
                 <product>
                     <property>aero/qbar-psf</property>
                     <property>metrics/Sw-sqft</property>
-                    <value>0.027</value>
+                    <value>0.030</value>
                 </product>
             </function>
             <function name="aero/coefficient/CDalpha">
@@ -441,32 +441,32 @@
                       <table>
                           <independentVar>aero/alpha-rad</independentVar>
                           <tableData>
-                              -0.0873	0.0047
-                              -0.0698	0.0015
+                              -0.0873	0.0031
+                              -0.0698	0.0010
                               -0.0524	0.0001
-                              -0.0349	0.0003
-                              -0.0175	0.0023
-                              0.0000	0.0060
-                              0.0175	0.0114
-                              0.0349	0.0186
-                              0.0524	0.0276
-                              0.0698	0.0384
-                              0.0873	0.0508
-                              0.1047	0.0651
-                              0.1222	0.0812
-                              0.1396	0.0989
-                              0.1571	0.1106
-                              0.1745	0.1229
-                              0.1920	0.1357
-                              0.2094	0.1493
-                              0.2269	0.1638
-                              0.2443	0.1800
-                              0.2618	0.1986
-                              0.2793	0.2049
-                              0.2967	0.1973
-                              0.3142	0.1861
-                              0.3316	0.1696
-                              0.3491	0.1262
+                              -0.0349	0.0002
+                              -0.0175	0.0015
+                              0.0000	0.0039
+                              0.0175	0.0074
+                              0.0349	0.0121
+                              0.0524	0.0180
+                              0.0698	0.0250
+                              0.0873	0.0331
+                              0.1047	0.0425
+                              0.1222	0.0529
+                              0.1396	0.0645
+                              0.1571	0.0721
+                              0.1745	0.0802
+                              0.1920	0.0885
+                              0.2094	0.0973
+                              0.2269	0.1068
+                              0.2443	0.1174
+                              0.2618	0.1295
+                              0.2793	0.1336
+                              0.2967	0.1287
+                              0.3142	0.1213
+                              0.3316	0.1106
+                              0.3491	0.0823
                           </tableData>
                       </table>
                 </product>
@@ -518,6 +518,19 @@
                               0.3491	0.0000	0.0485	0.0767	0.0950	0.1096
                           </tableData>
                       </table>
+                </product>
+            </function>
+            <function name="aero/coefficient/CDwindmill">
+                <!-- glideslope: see tools/make_c182.py -->
+                <description>Drag_of_the_windmilling_propeller</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <difference>
+                        <value>1</value>
+                        <property>propulsion/engine[0]/set-running</property>
+                    </difference>
+                    <value>0.0210</value>
                 </product>
             </function>
             <function name="aero/coefficient/CDDe">

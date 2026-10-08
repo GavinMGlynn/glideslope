@@ -16,11 +16,6 @@
   tolerances are this project's, stated with each figure, as the Cessna
   172P's are; see docs/PROJECT_STATUS.md for what the model measured.
 
-  Not flown: the service ceiling, 18,100 ft. The AI, leaning the mixture for
-  best power (src/sim/leaner.hpp), climbs this model to only about 13,600 ft
-  at the best-climb speed: its climb falls away with height far faster than
-  the handbook's, which is a tail of its own (docs/COMPLETION_PLAN.md).
-
   The handbook's speeds are "based on airplane with optional speed fairings
   which increase speeds by approximately 3 knots" (page ii); the model is the
   aircraft with them.
@@ -70,6 +65,21 @@
     Page ii: rate of climb at sea level 924 FPM, 3,100 lb, standard day;
     figure 5-7 gives it flaps up, 2,400 rpm, full throttle, at 80 KIAS,
     which is 82 KCAS by figure 5-1.
+  </figure>
+
+  <figure name="service_ceiling" flight="ceiling_on_the_autopilot" unit="ft"
+          value="18100" tolerance_percent="10" speed_kcas="82"
+          speed_falls_kt_per_1000_ft="0.51" rate_fpm="100" altitude_ft="6000">
+    Page ii: service ceiling 18,100 ft, 3,100 lb. Figure 5-7, maximum rate
+    of climb, flaps up, 2,400 rpm, full throttle, mixture leaned above 3,000
+    ft: the climb speed falls from 82 KCAS at sea level (80 KIAS by figure
+    5-1) by 0.51 kt a thousand feet, to 74.8 at 14,000 ft, and the rate from
+    925 ft/min to 285 there. The ceiling is the height
+    at which the best climb has fallen to 100 ft/min. Flown by the
+    autopilot, as the AI climbs, at figure 5-7's speeds, leaning as it goes.
+    The tolerance is this project's, as the climb rate's is: the two figures
+    between them ask for almost no drag due to lift, and the model's polar
+    holds both inside 10% (tools/make_c182.py).
   </figure>
 
   <figure name="cruise_speed_6000_ft" flight="level_speed" unit="KTAS" value="140"
@@ -124,7 +134,7 @@
        the fastest down from a fifth over its start speed, and written by
        the command's one rule (src/frontend/cli/main.cpp, plan_speeds). -->
   <plan_speeds slowest_kcas="64" fastest_kcas="129">
-    The slowest, 64 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 593 m circle. The fastest, 129 kt, is 5 kt under the fastest that held with 5 kt of power in hand: she flies level at 144 kt at full throttle at 3,000 ft, so 134 kt is the most a plan may ask that leaves her that (sim::holds_plan_speed, 2026-10-06; it was 144).
+    The slowest, 64 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 593 m circle. The fastest, 129 kt, is 5 kt under the fastest that held with 5 kt of power in hand: she flies level at 140 kt at full throttle at 3,000 ft, so 134 kt is the most a plan may ask that leaves her that (sim::holds_plan_speed, 2026-10-06; it was 144).
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
        glide-speeds c182` on 2026-10-06 (linux-release): from the slowest a
