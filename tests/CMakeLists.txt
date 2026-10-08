@@ -249,6 +249,8 @@ set(GLIDESLOPE_UNIT_TESTS
     a_pilot_taxiing_at_no_more_than_half_throttle_who_hands_over_is_stopped_and_above_it_is_not
     an_aeroplane_that_goes_around_is_flown_round_and_landed
     an_aeroplane_going_around_beside_rising_ground_flies_its_circuit_height_over_it_and_lands
+    every_aeroplane_the_ai_lands_taxis_off_the_runway_and_stops_clear_of_it
+    an_aeroplane_landing_on_a_runway_another_is_on_goes_around_and_lands_once_it_has_left
     how_she_lands_is_what_her_approach_is_flown_at_or_none_without_a_stall_speed
     every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce_or_a_go_around
     every_aeroplane_flown_down_in_gusts_reaches_the_runway_or_goes_around
@@ -2605,6 +2607,18 @@ set_tests_properties(an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/swap_wreck)
 
+# **An aircraft its player hands to the AI is measured against every other
+# AI aircraft, and kept apart from them.** See cmake/server_handed_kept_apart.cmake.
+add_test(NAME an_aircraft_handed_to_the_ai_is_measured_against_every_other_ai_aircraft_and_kept_apart_from_them
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/handed_kept_apart -DPORT=24930
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_handed_kept_apart.cmake)
+set_tests_properties(an_aircraft_handed_to_the_ai_is_measured_against_every_other_ai_aircraft_and_kept_apart_from_them
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/handed_kept_apart)
+
 # **A player's C172P on final is handed to the learnt landing and landed by
 # the server; a C182S, and a C172P outside the gate, are refused it.** See
 # cmake/server_learnt_landing.cmake.
@@ -2628,6 +2642,15 @@ add_test(NAME the_servers_ai_c172p_flying_a_plan_that_ends_in_a_landing_is_hande
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ai_learnt_landing.cmake)
 set_tests_properties(the_servers_ai_c172p_flying_a_plan_that_ends_in_a_landing_is_handed_to_the_learnt_landing_at_its_gate_and_landed
     PROPERTIES SKIP_RETURN_CODE 77)
+
+# **Two AI aircraft on plans ending at one runway both land, the second once
+# the first has left it.** See cmake/server_two_land_on_one_runway.cmake.
+add_test(NAME two_ai_aircraft_on_plans_ending_at_one_runway_both_land_the_second_once_the_first_has_left_it
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DSTEPS=120000
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_two_land_on_one_runway.cmake)
+set_tests_properties(two_ai_aircraft_on_plans_ending_at_one_runway_both_land_the_second_once_the_first_has_left_it
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800)
 
 # **The pre-commit hook refuses what it says it refuses**, and nothing else.
 # See cmake/githooks.cmake.

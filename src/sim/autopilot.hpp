@@ -105,6 +105,10 @@ private:
     bool spent_ = false;
     double pitch_command_deg_ = 0.0;
     double pitch_integral_deg_ = 0.0;
+    // The nose at the envelope's highest pitch and the climb short of what
+    // is asked; and the knots the speed asked has risen by for it.
+    bool nose_at_stop_ = false;
+    double climb_speed_kts_ = 0.0;
     // The airspeed on the elevator (AutopilotModes::speed_on_elevator): the
     // pitch it holds the speed at, found by an integral.
     bool was_on_speed_ = false;

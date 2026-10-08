@@ -420,13 +420,16 @@ Found while implementing something else. Added when found, not when remembered.
       *Verification: each light aircraft's policy lands within the
       autopilot's limits from the same starts, in calm air and a 10-knot
       crosswind.*
-- [ ] **AI aircraft are kept apart along their routes; an aircraft handed
-      to the AI is not yet measured.** Since 2026-10-02 the server keeps its
+- [ ] **AI aircraft are kept apart along their routes; one handed to the
+      AI between two layers is not.** Since 2026-10-02 the server keeps its
       own AI aircraft, planned and plan-file, 500 ft or 1.5 nm apart - on
       1,000 ft layers, and held above or below one another through their
-      autopilots - measured over a 15-minute run with none lost. Aircraft
-      handed over or flying a copilot's route get the same limits, but no
-      run measures them, and nothing keeps a person's aircraft clear.
+      autopilots - measured over a 15-minute run with none lost. Since
+      2026-10-08 an aircraft handed to the AI is measured too, and one handed
+      over level above the layers is kept apart; but one its player had
+      rolled into a spiral came down between two layers 1,000 ft apart,
+      where no height is 700 ft from both, and lost separation for 70 s.
+      Nothing keeps a person's aircraft clear.
       *Verification: every AI aircraft a server runs, planned or not, stays a
       stated distance from every other along the whole of its route,
       measured over a whole run.*
@@ -851,13 +854,17 @@ Found while implementing something else. Added when found, not when remembered.
       an aeroplane that goes around is flown round and landed (done), one
       arriving long or fast goes around, and two going around together are
       kept apart and both land.*
-- [ ] **The F-35B climbs away on a raised go-around circuit**: over ground
+- [x] **The F-35B climbs away on a raised go-around circuit**: over ground
       rising beside the runway, on the downwind leg at 2,900 ft she climbs
       to 6,000 ft and flies on past base. *Verification: she flies the
-      rising-ground go-around and lands, as the other twelve do.*
+      rising-ground go-around and lands, as the other twelve do.* Done
+      2026-10-08: at her highest pitch she could not climb at the speed
+      asked, and the autopilot never asked for more; now it does, and she
+      climbs to her circuit, flies every leg and lands with the other twelve.
 - [ ] **The circuit's rules are written twice**: the go-around's circuit
       and the circuit lessons' AI fly the same legs from separate code, and
-      the metres in a degree are worked out in three places. *Verification:
+      the metres in a degree are worked out in five places in the
+      simulation (the fifth, leaving a runway, since 2026-10-08). *Verification:
       the circuit lessons are flown by the go-around's circuit, with their
       figures unchanged.*
 - [ ] **A landing taken over on its roll is braked for a dry runway**: a
@@ -1139,11 +1146,13 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       - The engine-stop prediction test failed twice on Windows, fixed at cause 2026-10-08 (owed: a month of CI runs)
       *Verification: 30 consecutive nightly runs with none of these failing,
       or each failure's cause found and fixed under its own item.*
-- [ ] **Nothing clears a runway**: an aircraft landed stops on it and stays,
-      so a second AI landing there lands into it, and a model's or a
-      copilot's route cannot end in a landing. *Verification: two AI aircraft
-      on plans ending at one runway both land, the second once the first has
-      left it.*
+- [ ] **Nothing clears a runway for a copilot's route**: since 2026-10-08
+      an AI aircraft landed taxis off the runway and stops beside it, and
+      one landing on a runway that is not clear goes around; but a copilot's
+      route carries waypoints only, so it cannot end in a landing.
+      *Verification: two AI aircraft on plans ending at one runway both land,
+      the second once the first has left it (done); and a copilot's route
+      that ends in a landing is landed and leaves the runway.*
 - [ ] **A 172 a window client joins on final leaves the gate in seconds**:
       left alone, it is 8 degrees off the runway's heading six seconds in. The
       client keeps the server's flaps and throttle but not its pitch trim,
