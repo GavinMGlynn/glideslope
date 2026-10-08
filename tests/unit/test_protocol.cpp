@@ -352,16 +352,16 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_byte_for_byte) {
     const std::string ascii(glideslope::net::magic.begin(), glideslope::net::magic.end());
     check(says("`" + ascii + "`"), "and as the ASCII " + ascii);
 
-    // The version and the envelope's size.
-    check(says("| 4 | 1 | version | `0" +
-               std::to_string(glideslope::net::protocol_version) + "` |"),
-          "the document gives the version as " +
-              std::to_string(glideslope::net::protocol_version));
+    // The version and the envelope's size: a byte, in two hex digits.
+    char version[4];
+    std::snprintf(version, sizeof(version), "%02X",
+                  static_cast<unsigned>(glideslope::net::protocol_version));
+    check(says("| 4 | 1 | version | `" + std::string(version) + "` |"),
+          "the document gives the version as " + std::string(version));
     // And a refusal's envelope, which carries the same version.
-    check(says("A `REFUSAL` is always 7 bytes - the envelope, with this version, `0" +
-               std::to_string(glideslope::net::protocol_version) + "`"),
-          "the document gives a refusal's version as " +
-              std::to_string(glideslope::net::protocol_version));
+    check(says("A `REFUSAL` is always 7 bytes - the envelope, with this version, `" +
+               std::string(version) + "`"),
+          "the document gives a refusal's version as " + std::string(version));
     check(says(std::to_string(glideslope::net::envelope_size) + " bytes"),
           "and says the envelope is " + std::to_string(glideslope::net::envelope_size) +
               " bytes");
