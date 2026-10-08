@@ -87,7 +87,7 @@ struct PublishedFigures {
     std::string approach_loading;
     // **The lift-off speed worked from its flight manual's**, KCAS, where the file
     // has a `<takeoff kcas="..." loading="...">`: what `departure_speeds`
-    // takes off at, in place of 1.15 times a stall that, at the F-15C's 32
+    // takes off at, in place of 1.15 times a stall that, at the F-15C's 40
     // degrees of alpha, cannot be reached on a runway. 0 where it gives none.
     double takeoff_kcas = 0.0;
     std::string takeoff_loading;

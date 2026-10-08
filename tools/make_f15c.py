@@ -40,7 +40,7 @@ The changes, and what each is for:
                         drag the 3/8-scale F-15 drop model flew at, from -24
                         to 40 degrees, at a Reynolds number of 4 million, its
                         inlets drooped 11 degrees and blocked. From 20 to 40
-                        degrees the model's lift was 6 to 11 per cent under
+                        degrees the model's lift was 5 to 10 per cent under
                         it, and its peak at 32 degrees, where the flight data
                         go on rising to 40. Its rows from 16 to 40 degrees
                         are now the flight data (RPRV_LIFT): the 57 points
@@ -155,8 +155,8 @@ The changes, and what each is for:
                         it. Full aft stick now settles at 41.9 degrees, at
                         110.1 knots with TN D-8052's lift (above; 116.6
                         before it) - not the manual's "100 knots or less",
-                        which needs about a fifth more lift and drag there
-                        than the model's tables give. The
+                        which needs 21 per cent more lift and drag there than
+                        the model makes as she settles. The
                         stabilator's lift and pitching moment are NASA's.
                         On the approach she flies at 10 to 11.5 degrees with
                         a seventh of the nose-up travel; the nose wheel comes

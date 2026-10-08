@@ -144,8 +144,9 @@
     (tools/make_f15c.py). It was 151.06 until the pitching moment was made
     NASA's, the speed where the stabilator ran out at 18 degrees; 112.26,
     at the pinned table's peak at 32 degrees, until the lift was made TN
-    D-8052's; measured again from 200 knots by `glideslope_cli figures
-    f15c` on 2026-10-09 (linux-debug), 108.40. What it asserts is that the
+    D-8052's; measured again by `glideslope_cli figures f15c` on 2026-10-09
+    (linux-debug) from entry speeds of 160, 200 and 240 knots: 108.22,
+    108.40 and 108.21. What it asserts is that the
     model still does what it did, not that the aeroplane does it.
   </figure>
 

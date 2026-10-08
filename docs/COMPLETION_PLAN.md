@@ -937,8 +937,8 @@ Found while implementing something else. Added when found, not when remembered.
       angle of attack is reported, not judged, as no primary source turns
       the manual's units into degrees. Her lift is now NASA's flight data
       for the 3/8-scale F-15 to 40 degrees. Missing: that speed - she
-      settles at 110.1 knots, and 100 needs about a fifth more lift and drag
-      than any source here gives at the angle she settles at. *Verification:
+      settles at 110.1 knots, and 100 needs 21 per cent more lift and drag
+      than she makes at the angle she settles at. *Verification:
       held at full aft stick, the F-15C settles at 100 knots or less.*
 - [x] **The autopilot banks to its limit even when the aeroplane cannot sustain
       the turn.** *Verification: a light aeroplane near its ceiling holds its
