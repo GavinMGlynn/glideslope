@@ -84,6 +84,7 @@ math(EXPR _relay "${PORT} + 1")
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 280 --after 1
             --predict --until-engine-compared 300 --heard "${_heard}" ${_unpaced}
+            --track "${WORK}/track.txt"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 5 --store "${_store}" --fail-engine-at 20 ${_slowed}
             ${SERVER_EXTRA}

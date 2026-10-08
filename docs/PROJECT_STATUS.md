@@ -265,6 +265,30 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Three tests that failed by chance on CI, 2026-10-08 — in progress
+
+**What is still open, first.** The engine-stop prediction test on Windows
+and the take-over test on macOS debug are not yet fixed; this entry says
+what was found as each lands.
+
+**The learnt policy's 160 corner landings timed out on CI's Ubuntu debug**
+(900 s, run 37759639784 and before), and so tested nothing there. Split
+into one test a wind - `the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_{calm_air,the_most_crosswind_from_the_left,the_most_crosswind_from_the_right,the_most_headwind,the_most_tailwind}`
+- each flying all 32 corners and failing on fewer, and
+`the_corner_landings_are_flown_in_the_five_winds_at_the_gates_edges_and_no_other`
+pinning that the five winds are the gate's edges: calm, the most crosswind
+from either side, the most headwind and the most tailwind. Measured in
+linux-debug here: 49.7, 50.2, 50.7, 51.1 and 36.0 s; in `tests/ci_costs`
+at 4.2 times that on CI's Ubuntu debug (152 to 215 s), and the other
+presets scaled by their own cost of the fuel tests against Ubuntu debug's.
+**Seen to fail**: a corner left out, "every corner flown: 31 of 32"; the
+tailwind a knot inside its edge, "behind is at an edge"; reverted.
+
+**Kept for the two still open**: the engine-stop test keeps the client's
+track (`--track`), and the take-over test the taking client's; the client
+says the median speed error before and after the engine stopped beside
+the median distance, and writes each comparison's speed error to its track.
+
 ### Knocking and believing a refusal are one piece for both clients, 2026-10-08 — narrows a tail, does not close it
 
 **What is still two, first.** `glideslope_cli`'s `stay()` and

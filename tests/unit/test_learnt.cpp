@@ -1266,20 +1266,37 @@ GLIDESLOPE_TEST(an_aeroplane_taken_back_from_the_learnt_landing_moves_no_control
 // tailwind - 160 landings, counted. Each must touch down within 5 m of the
 // centreline under 300 ft/min, down and upright, and be stopped on the
 // runway: the policy's own verification, from the gate's worst.
-GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_every_wind_it_admits) {
+//
+// **One test a wind**, 32 landings each: the 160 in one test took over 900 s
+// on CI's Ubuntu debug runners, and were stopped there (run 37759639784).
+// `the_corner_landings_are_flown_in_the_five_winds_at_the_gates_edges_and_no_other`
+// pins that the five winds are the gate's edges, each with its test.
+namespace {
+
+struct CornerWind {
+    const char* name;
+    double across_kts; // from the left, positive
+    double head_kts;   // down the runway towards her, positive
+};
+
+std::vector<CornerWind> corner_winds() {
+    using Gate = glideslope::sim::LearntGate;
+    return {{"calm", 0.0, 0.0},
+            {"across from the left", Gate::most_crosswind_kts, 0.0},
+            {"across from the right", -Gate::most_crosswind_kts, 0.0},
+            {"ahead", 0.0, Gate::most_headwind_kts},
+            {"behind", 0.0, -Gate::most_tailwind_kts}};
+}
+
+void lands_from_every_corner_in(const std::string& wind) {
     using Gate = glideslope::sim::LearntGate;
     const auto policy = the_policy();
     const Runway runway = a_runway();
-    struct Wind {
-        std::string name;
-        double across_kts; // from the left, positive
-        double head_kts;   // down the runway towards her, positive
-    };
-    const std::vector<Wind> winds{{"calm", 0.0, 0.0},
-                                  {"across from the left", Gate::most_crosswind_kts, 0.0},
-                                  {"across from the right", -Gate::most_crosswind_kts, 0.0},
-                                  {"ahead", 0.0, Gate::most_headwind_kts},
-                                  {"behind", 0.0, -Gate::most_tailwind_kts}};
+    const std::vector<CornerWind> all = corner_winds();
+    std::vector<CornerWind> winds;
+    std::copy_if(all.begin(), all.end(), std::back_inserter(winds),
+                 [&](const CornerWind& w) { return w.name == wind; });
+    check(winds.size() == 1, "the wind " + wind + " is one of the gate's");
     std::size_t flown = 0;
     std::vector<std::string> failures;
     double worst_across = 0.0;
@@ -1297,7 +1314,7 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_i
             edge(3, 0.1 - Gate::most_off_heading_deg, Gate::most_off_heading_deg - 0.1);
         const double kts = edge(4, policy->vref_kts - Gate::most_under_vref_kts + 0.2,
                                 policy->vref_kts + Gate::most_over_vref_kts - 0.2);
-        for (const Wind& w : winds) {
+        for (const CornerWind& w : winds) {
             // Blowing towards the right of the landing direction, and
             // towards the aeroplane from ahead.
             const double h = runway.heading_deg / degrees;
@@ -1316,7 +1333,7 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_i
             char name[200];
             std::snprintf(name, sizeof name,
                           "%.2f nm, %+.0f m across, %+.0f m high, %+.0f deg, %.1f kt, %s",
-                          out_m / metres_per_nm, across_m, high_m, heading, kts, w.name.c_str());
+                          out_m / metres_per_nm, across_m, high_m, heading, kts, w.name);
             check(why.empty(), std::string(name) + " is at the gate: " + why);
             LearntLander lander(*aircraft, runway, policy, speeds());
             Landing l;
@@ -1355,11 +1372,52 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_i
             }
         }
     }
-    std::printf("  %zu landings from the gate's corners: worst %.2f m across, %.0f ft/min; %zu "
-                "short\n",
-                flown, worst_across, worst_sink, failures.size());
-    check(flown == 32 * winds.size(), "every corner flown in every wind: " + std::to_string(flown));
+    std::printf("  %zu landings from the gate's corners, %s: worst %.2f m across, %.0f ft/min; "
+                "%zu short\n",
+                flown, wind.c_str(), worst_across, worst_sink, failures.size());
+    check(flown == 32, "every corner flown: " + std::to_string(flown) + " of 32");
     none_wrong(failures, flown, "landings from the gate's corners fell short");
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(the_corner_landings_are_flown_in_the_five_winds_at_the_gates_edges_and_no_other) {
+    using Gate = glideslope::sim::LearntGate;
+    const std::vector<CornerWind> winds = corner_winds();
+    // Each wind and the test that flies it: the five below.
+    check(winds.size() == 5, "five winds: " + std::to_string(winds.size()));
+    std::size_t edges = 0;
+    for (const CornerWind& w : winds) {
+        const bool calm = w.across_kts == 0.0 && w.head_kts == 0.0;
+        const bool across = std::abs(w.across_kts) == Gate::most_crosswind_kts && w.head_kts == 0.0;
+        const bool ahead = w.across_kts == 0.0 && w.head_kts == Gate::most_headwind_kts;
+        const bool behind = w.across_kts == 0.0 && w.head_kts == -Gate::most_tailwind_kts;
+        check(calm || across || ahead || behind, std::string(w.name) + " is at an edge");
+        edges += calm || across || ahead || behind ? 1 : 0;
+    }
+    check(winds[1].across_kts == -winds[2].across_kts && winds[1].across_kts > 0.0,
+          "the crosswind from both sides");
+    check(edges == 5, "every wind at an edge: " + std::to_string(edges) + " of 5");
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_calm_air) {
+    lands_from_every_corner_in("calm");
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_left) {
+    lands_from_every_corner_in("across from the left");
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_right) {
+    lands_from_every_corner_in("across from the right");
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_headwind) {
+    lands_from_every_corner_in("ahead");
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_tailwind) {
+    lands_from_every_corner_in("behind");
 }
 
 // **An AI's approach is handed to the learnt landing at its gate, and only
