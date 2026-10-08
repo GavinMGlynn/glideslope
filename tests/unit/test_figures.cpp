@@ -468,8 +468,8 @@ GLIDESLOPE_TEST(the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_t
 // **Every aircraft's flare touches down within NASA's criterion.** Zaal et
 // al., "Go-Around Criteria Refinement for Transport Category Aircraft"
 // (AIAA Journal of Air Transportation, NTRS 20205010611), take a touchdown
-// sink of 6 ft/s, 360 ft/min, as the most a landing may come down at; a
-// normal one is 100 to 300. Every aircraft in the catalogue is walked: its
+// sink of 6 ft/s, 360 ft/min, as the most a landing may come down at - an
+// upper bound, not a typical figure. Every aircraft in the catalogue is walked: its
 // target is its figures' `touchdown_fpm`, or the approach autopilot's own
 // where they give none, and where it is landed by the AI (`landing_speeds`)
 // that is the sink it is told.
