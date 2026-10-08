@@ -561,8 +561,32 @@ std::vector<std::uint8_t> write(const CopilotRoute& m) {
             w.u8(p.orbit->right ? 1u : 0u);
         }
     }
+    w.u8(m.landing ? 1u : 0u);
+    if (m.landing) {
+        w.text(m.landing->name);
+        w.f64(m.landing->latitude_deg);
+        w.f64(m.landing->longitude_deg);
+        w.f64(m.landing->elevation_ft);
+        w.f64(m.landing->heading_deg);
+        w.f64(m.landing->length_m);
+    }
     return w.take();
 }
+
+namespace {
+
+// **A name is letters, digits and underscores, and something**: it becomes a
+// word on a flight plan's line and in the operator's log, so a newline would
+// smuggle in lines past the waypoint limit, a `#` would comment out the
+// rest, and a control byte would reach the operator's terminal.
+bool a_route_name(const std::string& name) {
+    return !name.empty() && std::all_of(name.begin(), name.end(), [](char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+               c == '_';
+    });
+}
+
+} // namespace
 
 bool read(std::span<const std::uint8_t> body, CopilotRoute& out) {
     bool is_kind = false;
@@ -590,16 +614,7 @@ bool read(std::span<const std::uint8_t> body, CopilotRoute& out) {
     for (std::size_t i = 0; i < n; ++i) {
         RouteWaypoint p;
         p.name = r.text(most_waypoint_name_bytes);
-        // **A name is letters, digits and underscores, and something**: it
-        // becomes a word on a flight plan's line and in the operator's log,
-        // so a newline would smuggle in lines past the waypoint limit, a `#`
-        // would comment out the rest, and a control byte would reach the
-        // operator's terminal.
-        if (!r.ok() || p.name.empty() ||
-            !std::all_of(p.name.begin(), p.name.end(), [](char c) {
-                return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
-                       c == '_';
-            })) {
+        if (!r.ok() || !a_route_name(p.name)) {
             return false;
         }
         p.latitude_deg = r.f64();
@@ -622,6 +637,23 @@ bool read(std::span<const std::uint8_t> body, CopilotRoute& out) {
             p.orbit = o;
         }
         got.waypoints.push_back(std::move(p));
+    }
+    const std::uint8_t landing = r.u8();
+    if (!r.ok() || landing > 1) {
+        return false;
+    }
+    if (landing == 1) {
+        RouteLanding l;
+        l.name = r.text(most_waypoint_name_bytes);
+        if (!r.ok() || !a_route_name(l.name)) {
+            return false;
+        }
+        l.latitude_deg = r.f64();
+        l.longitude_deg = r.f64();
+        l.elevation_ft = r.f64();
+        l.heading_deg = r.f64();
+        l.length_m = r.f64();
+        got.landing = std::move(l);
     }
     if (!r.done()) {
         return false;

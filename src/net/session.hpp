@@ -90,11 +90,8 @@ public:
     int stale_while_joining_again() const { return stale_; }
 
     // **How long a session may go without anything opening under it before
-    // a refusal is believed**: the server knocks once a second and this end
-    // once a second after one of nothing, so three of the server's knocks
-    // and two of its own gone unanswered - a session that is not working,
-    // whatever the refusal says. A forged one while it works moves nothing.
-    static constexpr double quiet_before_believing_s = 3.0;
+    // a refusal is believed** (net::lets_go, the rule both clients keep).
+    static constexpr double quiet_before_believing_s = net::quiet_before_believing_s;
     static constexpr double knock_after_quiet_s = 1.0;
     // Initiations again every quarter of a second, for a minute at most.
     static constexpr double join_again_every_s = Rejoin::every_s;

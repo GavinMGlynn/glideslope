@@ -8,6 +8,7 @@
 #include "frontend/cli/fly_copilot.hpp"
 #include "frontend/briefs.hpp"
 #include "frontend/players_copilot.hpp"
+#include "frontend/route_file.hpp"
 #include "frontend/same_air.hpp"
 #include "frontend/shown.hpp"
 #include "net/told.hpp"
@@ -207,38 +208,6 @@ struct ConnectAir {
     bool own_air = false;
 };
 ConnectAir connect_air;
-
-// A route written as a plan's `waypoint` and `orbit` lines, with `glide KT`
-// first if it glides, read as it is - checked by nothing on this side.
-glideslope::net::CopilotRoute route_from_file(const std::string& file) {
-    std::ifstream in(file, std::ios::binary);
-    if (!in) {
-        throw std::runtime_error("cannot read " + file);
-    }
-    std::string text(std::istreambuf_iterator<char>(in), {});
-    glideslope::net::CopilotRoute route;
-    if (text.rfind("glide ", 0) == 0) {
-        const auto end = text.find('\n');
-        route.glide_kts = std::strtod(text.substr(6, end - 6).c_str(), nullptr);
-        text = end == std::string::npos ? std::string() : text.substr(end + 1);
-    }
-    const glideslope::sim::FlightPlan plan =
-        glideslope::sim::parse_flight_plan("aircraft any\nstart 0 0 0 0 1\n" + text);
-    for (const glideslope::sim::Waypoint& w : plan.waypoints) {
-        glideslope::net::RouteWaypoint p;
-        p.name = w.name;
-        p.latitude_deg = w.latitude_deg;
-        p.longitude_deg = w.longitude_deg;
-        p.altitude_ft = w.altitude_ft;
-        p.airspeed_kts = w.airspeed_kts;
-        if (w.orbit) {
-            p.orbit = glideslope::net::RouteWaypoint::Orbit{
-                w.orbit->radius_m, static_cast<std::uint8_t>(w.orbit->turns), w.orbit->right};
-        }
-        route.waypoints.push_back(p);
-    }
-    return route;
-}
 
 void print_usage(std::FILE* out) {
     std::fputs(
@@ -2308,11 +2277,8 @@ private:
 };
 
 // **How long a session may go without anything opening under it before a
-// refusal is believed.** The server knocks once a second, and a client that
-// has heard nothing for a second knocks too (`stay()`), so three seconds of
-// nothing is three of the server's knocks and two of this client's own gone
-// unanswered: a session that is not working, whatever the refusal says.
-constexpr double quiet_before_believing_s = 3.0;
+// refusal is believed** (net::lets_go, the rule both clients keep).
+using glideslope::net::quiet_before_believing_s;
 
 // **How a stay ended**: it stayed its time, or the server let it go (and it
 // may join again), or the operator dropped it (and it may not).
@@ -2326,11 +2292,7 @@ using glideslope::net::refusal_from;
 void knock_on(glideslope::platform::UdpSocket& socket,
               const glideslope::platform::Address& server, glideslope::net::Sealer& sealer,
               std::uint64_t token) {
-    const std::vector<std::uint8_t> ping =
-        glideslope::net::knock(glideslope::net::Inside::ping, token);
-    glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::sealed);
-    w.bytes(sealer.seal(std::span<const std::uint8_t>(ping.data(), ping.size())));
-    const std::vector<std::uint8_t> out = w.take();
+    const std::vector<std::uint8_t> out = glideslope::net::sealed_knock(sealer, token);
     (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
 }
 
@@ -2899,9 +2861,10 @@ int stay(glideslope::platform::UdpSocket& socket,
             // server's knocks and this client's own unanswered - says what
             // the silence already did. Not while finishing: a client leaving
             // has no use for another session.
-            if (!finishing && up_s - last_opened_s >= quiet_before_believing_s &&
-                refusal_from(server, from, std::span<const std::uint8_t>(into.data(), got)) ==
-                    glideslope::net::Refusal::bad_handshake) {
+            if (!finishing &&
+                glideslope::net::lets_go(server, from,
+                                         std::span<const std::uint8_t>(into.data(), got),
+                                         up_s - last_opened_s)) {
                 std::printf("let go by the server: refused BAD_HANDSHAKE after %.1f s of "
                             "nothing\n",
                             up_s - last_opened_s);
@@ -3023,7 +2986,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                     if (!cc.route_file.empty() && !cc.route_sent &&
                         (!cc.route_when_wrecked ||
                          a.condition == glideslope::net::Condition::wrecked)) {
-                        glideslope::net::CopilotRoute route = route_from_file(cc.route_file);
+                        glideslope::net::CopilotRoute route = glideslope::frontend::route_from_file(cc.route_file);
                         std::uint8_t to = mine;
                         if (cc.route_for_another) {
                             // Another player's: an AI's is refused anyway,

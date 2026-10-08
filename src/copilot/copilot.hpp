@@ -19,7 +19,10 @@
 //   - `glide` only with the engine stopped, at an airspeed from the approach
 //     speed to the best climb; and with the engine stopped, only a glide. A
 //     glide flies neither its waypoints' heights nor their airspeeds, so
-//     neither is checked, but its orbits must be wide enough for its airspeed.
+//     neither is checked, but its orbits must be wide enough for its airspeed;
+//   - `land`, last, only on one of the runways nearby it was told of, under
+//     power, by an aircraft with an approach speed, and after no orbit flown
+//     for ever.
 //
 // **It never slows the step.** A question is asked on a thread of its own,
 // and the answer, checked there, is picked up by whoever steps the
@@ -152,6 +155,14 @@ std::string situation_text(const Brief& brief, const Situation& now);
 Change read_change(const Brief& brief, const Situation& now, const std::string& answer);
 // Why `change` may not be flown now, or empty if it may.
 std::string change_refusal(const Brief& brief, const Situation& now, const Change& change);
+
+// **The runway a landing is on**, of the ones `now` was told of: the one whose
+// threshold is within `landing_within_m` of the landing's and whose heading
+// is within `landing_within_deg` of it, the nearest; none if none is. What a
+// route's landing is held to, and what a server lands it on.
+inline constexpr double landing_within_m = 100.0;
+inline constexpr double landing_within_deg = 5.0;
+const world::RunwayEnd* landing_field(const Situation& now, const sim::Runway& landing);
 
 // Asks `provider` what to do now, and checks what it says: waits for the
 // model, so it is for a thread of its own. Throws ProviderError when the

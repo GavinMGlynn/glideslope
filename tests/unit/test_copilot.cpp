@@ -515,7 +515,7 @@ GLIDESLOPE_TEST(a_copilots_answer_is_read_as_keep_or_a_route_and_refused_whereve
     };
     const std::vector<Refusal> refusals{
         {&running, "", "empty"},
-        {&running, "turn left now", "none of keep, glide, waypoint or orbit"},
+        {&running, "turn left now", "none of keep, glide, waypoint, orbit or land"},
         {&running, "keep\nwaypoint A -33.80 151.30 2000 100", "an answer alone"},
         {&stopped, "waypoint A -33.80 151.30 2000 68\nglide 68", "the first line"},
         {&stopped, "glide sixty\nwaypoint A -33.80 151.30 2000 68", "the first line"},
@@ -544,6 +544,85 @@ GLIDESLOPE_TEST(a_copilots_answer_is_read_as_keep_or_a_route_and_refused_whereve
         ++covered;
     }
     check(covered == 17 && refusals.size() == 17, "all 17 ways an answer is refused were tried");
+}
+
+// **A copilot's route may end in a landing** (`land`, last), on a runway it
+// was told of - within 100 m of its threshold and 5 degrees of its heading -
+// under power, by an aircraft with an approach speed, after no orbit flown
+// for ever; and on nothing else. The space is the one taken and these eight.
+GLIDESLOPE_TEST(a_copilots_route_may_end_in_a_landing_on_a_runway_it_was_told_of_and_on_no_other) {
+    const auto brief = cessna_brief();
+    auto no_approach = brief;
+    no_approach.approach_kts = 0;
+    auto running = off_bondi(true);
+    glideslope::world::RunwayEnd yssy;
+    yssy.airport = "YSSY";
+    yssy.ident = "16R";
+    yssy.latitude_deg = -33.929401;
+    yssy.longitude_deg = 151.171997;
+    yssy.elevation_ft = 8;
+    yssy.heading_deg = 168;
+    yssy.length_m = 3962;
+    running.fields = {yssy};
+    auto stopped = off_bondi(false);
+    stopped.fields = running.fields;
+    const auto told = glideslope::copilot::situation_text(brief, running);
+    check(told.find("YSSY runway 16R") != std::string::npos,
+          "the copilot is told the runway it may land on");
+    check(glideslope::copilot::copilot_instructions().find(
+              "land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M") !=
+              std::string::npos,
+          "and how to land on it");
+
+    const std::string to_16r = "land YSSY_16R -33.929401 151.171997 8 168 3962\n";
+    const auto landing = glideslope::copilot::read_change(
+        brief, running, "waypoint NORTH_HEAD -33.82 151.29 2000 90\n" + to_16r);
+    check(landing.plan.landing && landing.plan.landing->name == "YSSY_16R" &&
+              landing.plan.landing->heading_deg == 168.0 &&
+              glideslope::copilot::change_refusal(brief, running, landing).empty(),
+          "a route ending in a landing on a runway it was told of is flown");
+    check(glideslope::copilot::landing_field(running, *landing.plan.landing) ==
+              &running.fields.front(),
+          "and the runway it lands on is that one");
+
+    const auto verdict = [&](const glideslope::copilot::Brief& b,
+                             const glideslope::copilot::Situation& now, const std::string& answer) {
+        try {
+            const auto change = glideslope::copilot::read_change(b, now, answer);
+            return glideslope::copilot::change_refusal(b, now, change);
+        } catch (const glideslope::sim::FlightPlanError& e) {
+            return std::string(e.what());
+        }
+    };
+    struct Refusal {
+        const glideslope::copilot::Brief* brief;
+        const glideslope::copilot::Situation* now;
+        std::string answer;
+        std::string says;
+    };
+    const std::string north = "waypoint NORTH_HEAD -33.82 151.29 2000 90\n";
+    const std::vector<Refusal> refusals{
+        {&brief, &running, to_16r + north, "the last line"},
+        {&brief, &running, north + "land YSSY_16R -33.939 151.172 8 168 3962", "none of the runways"},
+        {&brief, &running, north + "land YSSY_34L -33.929401 151.171997 8 348 3962",
+         "none of the runways"},
+        {&brief, &stopped, "glide 68\n" + north + to_16r, "a glide does not land"},
+        {&brief, &running, "orbit ROUND -33.82 151.29 2000 2000 90 0 left\n" + to_16r,
+         "goes round for ever"},
+        {&no_approach, &running, north + to_16r, "no approach speed"},
+        {&brief, &running, north + "land YSSY-16R -33.929401 151.171997 8 168 3962",
+         "letters, digits and underscores"},
+        {&brief, &running, north + "land YSSY_16R -33.929401 151.171997 8 168", "land NAME"},
+    };
+    std::size_t covered = 0;
+    for (const Refusal& r : refusals) {
+        const std::string why = verdict(*r.brief, *r.now, r.answer);
+        check(why.find(r.says) != std::string::npos,
+              "\"" + r.answer + "\" is refused, saying \"" + r.says + "\": " +
+                  (why.empty() ? "it was taken" : why));
+        ++covered;
+    }
+    check(covered == 8 && refusals.size() == 8, "all 8 ways a landing is refused were tried");
 }
 
 GLIDESLOPE_TEST(a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown) {

@@ -427,6 +427,7 @@ add_executable(glideslope_cli
     src/frontend/cli/fly_copilot.cpp
     src/frontend/briefs.cpp
     src/frontend/players_copilot.cpp
+    src/frontend/route_file.cpp
     src/frontend/same_air.cpp
     src/frontend/shown.cpp)
 target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_net glideslope_world
@@ -444,6 +445,7 @@ add_executable(glideslope_server
     src/frontend/server/dashboard.cpp
     src/frontend/briefs.cpp
     src/frontend/players_copilot.cpp
+    src/frontend/route_file.cpp
     src/frontend/same_air.cpp)
 # The copilot plans the AI aircraft a server's owner gives a model to
 # (--ai-planner): what it answers is only ever a flight plan.

@@ -21,6 +21,19 @@ std::optional<Refusal> refusal_from(const platform::Address& server,
     return static_cast<Refusal>(datagram[envelope_size]);
 }
 
+bool lets_go(const platform::Address& server, const platform::Address& from,
+             std::span<const std::uint8_t> datagram, double quiet_s) {
+    return quiet_s >= quiet_before_believing_s &&
+           refusal_from(server, from, datagram) == Refusal::bad_handshake;
+}
+
+std::vector<std::uint8_t> sealed_knock(Sealer& sealing, std::uint64_t token) {
+    const std::vector<std::uint8_t> ping = knock(Inside::ping, token);
+    Writer w = begin(Type::sealed);
+    w.bytes(sealing.seal(std::span<const std::uint8_t>(ping.data(), ping.size())));
+    return w.take();
+}
+
 Rejoin::Rejoin(const KeyPair& mine, const PublicKey& theirs, Sealer& old_sealing,
                Unsealer& old_opening, std::span<const std::uint8_t> payload)
     : initiator_(mine, theirs), old_sealing_(old_sealing), old_opening_(old_opening) {

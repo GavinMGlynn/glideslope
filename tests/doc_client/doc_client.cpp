@@ -64,10 +64,11 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // to 06, when a state update's watched controls took the speedbrake lever, the
 // same day to 07, when a refused take-over was said to the client, and to 08,
 // when a swap could ask for the learnt landing, and on 2026-10-08 to 09,
-// when the learnt landing refused was said to the client: the
-// document gives the envelope's version as `09`. A test reads this line to keep the
-// two together (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x09;
+// when the learnt landing refused was said to the client, and the same day to
+// 0A, when a copilot's route could end in a landing: the document gives the
+// envelope's version as `0A`. A test reads this line to keep the two together
+// (the_protocol_version_moves_with_the_collision_ground).
+constexpr std::uint8_t kVersion = 0x0A;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;

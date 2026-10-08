@@ -262,7 +262,7 @@ if(_served MATCHES "copilot's route refused")
     message(FATAL_ERROR "the server refused the hand-over's route:\n${_served}")
 endif()
 # Its progress, each half minute: the first line and the last.
-string(REGEX MATCHALL "on its copilot's route: to [A-Za-z0-9_]+, [0-9]+ of [0-9]+, [0-9]+ m"
+string(REGEX MATCHALL "on its copilot's route: to [A-Za-z0-9_]+, [0-9]+ of [0-9]+, [0-9]+ m[^\n]*"
        _progress "${_served}")
 list(LENGTH _progress _n)
 if(_n LESS 2)
@@ -279,7 +279,22 @@ string(REGEX MATCH "to ([A-Za-z0-9_]+), ([0-9]+) of [0-9]+, ([0-9]+) m" _m "${_l
 set(_last_to "${CMAKE_MATCH_1}")
 set(_last_leg "${CMAKE_MATCH_2}")
 set(_last_m "${CMAKE_MATCH_3}")
-if(_last_to STREQUAL _first_to AND _last_leg EQUAL _first_leg AND NOT _last_m LESS _first_m)
+# **Or she is on its circle**: an orbit's centre comes no nearer once she
+# is round it, within a quarter of its radius of the circle.
+set(_on_circle FALSE)
+if(_last MATCHES "an orbit of ([0-9]+) m")
+    set(_radius "${CMAKE_MATCH_1}")
+    math(EXPR _off "${_last_m} - ${_radius}")
+    if(_off LESS 0)
+        math(EXPR _off "0 - ${_off}")
+    endif()
+    math(EXPR _quarter "${_radius} / 4")
+    if(NOT _off GREATER _quarter)
+        set(_on_circle TRUE)
+    endif()
+endif()
+if(_last_to STREQUAL _first_to AND _last_leg EQUAL _first_leg AND NOT _last_m LESS _first_m
+   AND NOT _on_circle)
     message(FATAL_ERROR "the aircraft came no nearer its waypoint: ${_first}, then ${_last}\n"
                         "${_served}")
 endif()

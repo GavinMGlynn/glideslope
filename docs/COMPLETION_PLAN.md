@@ -500,9 +500,10 @@ Found while implementing something else. Added when found, not when remembered.
       flight is not let go, nor one whose frames take longer.*
 - [ ] **The client's half of a session is written twice** - the command-line
       client's own and the shared one the window client uses - and a bug was
-      found in one and not the other. Joining again is one piece now; the
-      rest - knocking, believing a refusal, reading updates - is still two. *Verification: both clients use one
-      session, and every rejoin and going-back test passes through it.*
+      found in one and not the other. Joining again, knocking and believing
+      a refusal are one piece now; the rest - the handshake, reading updates,
+      the stall and the goodbye - is still two. *Verification: both clients
+      use one session, and every rejoin and going-back test passes through it.*
 - [x] **Nothing tests the client with the window refused `DROPPED`** when every
       one of the server's goodbyes was lost. *Verification: a window client
       dropped with its goodbyes lost tries to join again, is refused, and stops
@@ -1155,15 +1156,16 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       - The engine-stop prediction test failed twice on Windows, fixed at cause 2026-10-08 (owed: a month of CI runs)
       *Verification: 30 consecutive nightly runs with none of these failing,
       or each failure's cause found and fixed under its own item.*
-- [ ] **Nothing clears a runway for a copilot's route**: since 2026-10-08
-      an AI aircraft landed taxis off the runway and stops beside it, and
-      one landing on a runway that is not clear goes around (measured in
-      the simulation; no server run yet holds a runway occupied as one
-      arrives); but a copilot's route carries waypoints only, so it cannot
-      end in a landing.
+- [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
+      landed now leaves the runway, one arriving at a runway not clear goes
+      around, and a copilot's route may end in a landing on a runway the
+      server knows (protocol 10).
       *Verification: two AI aircraft on plans ending at one runway both land,
-      the second once the first has left it (done); and a copilot's route
-      that ends in a landing is landed and leaves the runway.*
+      the second once the first has left it; and a copilot's route that ends
+      in a landing is landed and leaves the runway.* Done 2026-10-08.
+- [ ] **A model's flight plan cannot end in a landing**: the planner, which
+      plans a flight from the ground, is not offered `land` as the copilot
+      now is. *Verification: a plan asked to end at a runway is landed there.*
 - [ ] **A 172 a window client joins on final leaves the gate in seconds**:
       left alone, it is 8 degrees off the runway's heading six seconds in. The
       client keeps the server's flaps and throttle but not its pitch trim,

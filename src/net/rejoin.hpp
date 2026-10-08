@@ -3,6 +3,8 @@
 // **Joining again, as a client the server has let go**: one piece both
 // clients use - `net::ClientSession` and `glideslope_cli connect` - so that
 // a rule here is kept by both, rather than fixed in one and not the other.
+// With it, the two rules before it: when a refusal is believed (`lets_go`),
+// and what a knock is (`sealed_knock`).
 //
 // A fresh initiation under the same static key - a new ephemeral key, so not
 // a copy of the one the server took from this address, which it drops - is
@@ -43,6 +45,25 @@ namespace glideslope::net {
 std::optional<Refusal> refusal_from(const platform::Address& server,
                                     const platform::Address& from,
                                     std::span<const std::uint8_t> datagram);
+
+// **How long a session may go without anything opening under it before a
+// refusal is believed**: the server knocks once a second and a client once a
+// second after one of nothing, so three of the server's knocks and two of the
+// client's own gone unanswered - a session that is not working, whatever the
+// refusal says. A forged one while it works moves nothing.
+inline constexpr double quiet_before_believing_s = 3.0;
+
+// **Whether a datagram lets the session go** - the one rule both clients keep:
+// the server's own `BAD_HANDSHAKE` ("no session here"), from its address, after
+// `quiet_s` of nothing opening under the session (at least
+// `quiet_before_believing_s`). It is sent in the clear, so anybody can forge
+// one; heard while the session works, it is nothing.
+bool lets_go(const platform::Address& server, const platform::Address& from,
+             std::span<const std::uint8_t> datagram, double quiet_s);
+
+// **A knock on a session**: a sealed `PING` carrying `token`, sealed under
+// `sealing` - the whole datagram, envelope and all, ready to send.
+std::vector<std::uint8_t> sealed_knock(Sealer& sealing, std::uint64_t token);
 
 class Rejoin {
 public:

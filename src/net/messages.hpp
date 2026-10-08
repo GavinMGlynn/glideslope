@@ -256,12 +256,27 @@ struct RouteWaypoint {
     std::optional<Orbit> orbit;
 };
 
+// **The runway a route ends on** (protocol version 10), landed on after
+// its last waypoint as a plan's `land` is: the landing threshold, and the
+// runway from it. The server lands only on a runway of its own collision
+// ground's that this one names (frontend/server, fly_route_on).
+struct RouteLanding {
+    std::string name; // letters, digits and underscores, as a waypoint's
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+    double elevation_ft = 0.0; // above sea level
+    double heading_deg = 0.0;  // true, the direction of landing
+    double length_m = 0.0;
+};
+
 struct CopilotRoute {
     std::uint8_t aircraft = 0;
     // The airspeed to glide at, for an engine that has stopped; none flies
     // the route's heights and airspeeds.
     std::optional<double> glide_kts;
     std::vector<RouteWaypoint> waypoints; // 1 to most_route_waypoints
+    // Landed on after the last waypoint, or none.
+    std::optional<RouteLanding> landing;
 };
 
 // **The most of each variable-length thing a message may carry.** A reader

@@ -66,6 +66,8 @@ Said first, because a transport's limits matter more than its features.
   Version `09` is on the same ground, and is the first whose server says to
   the client that asked when it refuses the learnt landing, and why
   (`LEARNT_LANDING_REFUSED`, below).
+  Version `0A` is on the same ground, and is the first whose
+  `COPILOT_ROUTE` may end in a landing (below).
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -76,7 +78,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `09` |
+| 4 | 1 | version | `0A` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -122,7 +124,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `09`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `0A`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -727,8 +729,9 @@ any aircraft, its own and other players' among them.
 **A route for the client's own aircraft, from its copilot**, sent by a
 client (the project owner, 2026-09-30; `REQUIREMENTS.md` section 5). The
 player's client asks a language model with the player's own key and sends
-only what came of it: waypoints and orbits, and a glide airspeed for an
-engine that has stopped. **The key is never sent.**
+only what came of it: waypoints and orbits, a glide airspeed for an
+engine that has stopped, and since `0A` a runway to land on after the last
+waypoint. **The key is never sent.**
 
 **It is an input, not an order.** The server honours it only for that
 client's own aircraft, and a wreck's not at all. It reads the route as a
@@ -741,7 +744,13 @@ tight turn - never below its approach speed (none of these for a glide,
 which flies neither), every orbit wide enough for its airspeed,
 a glide only with the engine stopped and from the approach speed to the best
 climb (with no approach speed, between its climb-away speed and its slowest
-plan speed), and with the engine stopped nothing but a glide. **A route that fails
+plan speed), and with the engine stopped nothing but a glide. **A landing**
+is flown only on a runway of the server's own collision ground (the runway
+strips the build carries): one end whose threshold is within 100 m of the
+landing's and whose heading is within 5 degrees of it - and then on that
+end's threshold, heading and length and the ground's elevation there, not
+the route's numbers - and only under power, by an aircraft with an approach
+speed, after no orbit flown for ever. **A route that fails
 is refused, and nothing changes**: the aircraft goes on as it was. The server
 says nothing back; a client learns what its aircraft does from the state
 updates, like any other. A route that passes is flown by the server's AI
@@ -767,15 +776,24 @@ any hand-over is, and the client stops predicting it.
 | `f64` | its radius, metres |
 | `u8` | how many times round, `00` for round and round |
 | `u8` | `01` turning right, `00` turning left |
+| `u8` | `01` if the route ends in a landing, `00` if not (since `0A`) |
+| | and only for a landing: |
+| text | the runway's name, at most 32 bytes: letters, digits and underscores |
+| `f64` | its landing threshold's latitude, degrees |
+| `f64` | its landing threshold's longitude, degrees |
+| `f64` | its elevation, feet above mean sea level |
+| `f64` | its heading, degrees true, the direction of landing |
+| `f64` | its length from the threshold, metres |
 
-At its limits this is 936 bytes: 12 before the waypoints, and 78 for each
-of twelve orbits with 32-byte names - a text's two-byte length, 32 bytes, four
-`f64`s, the flag, the radius, the turns and the direction. A count of none or
-more than 12, a name longer than 32 bytes, an empty name or one with any byte
-but `A`-`Z`, `a`-`z`, `0`-`9` and `_` - a newline would add a plan's line, a
-`#` comment one out, and an escape reach the operator's terminal - a flag
-other than `00` or `01` in any of its three places, and a glide airspeed
-other than nought with the flag `00` are refused.
+At its limits this is 1,011 bytes: 12 before the waypoints, 78 for each of
+twelve orbits with 32-byte names - a text's two-byte length, 32 bytes, four
+`f64`s, the flag, the radius, the turns and the direction - and 75 for the
+landing flag and a landing with a 32-byte name. A count of none or more than
+12, a name - a waypoint's or the landing's - longer than 32 bytes, empty or
+with any byte but `A`-`Z`, `a`-`z`, `0`-`9` and `_` - a newline would add a
+plan's line, a `#` comment one out, and an escape reach the operator's
+terminal - a flag other than `00` or `01` in any of its four places, and a
+glide airspeed other than nought with the flag `00` are refused.
 
 ### `TAKE_OVER_REFUSED`
 
