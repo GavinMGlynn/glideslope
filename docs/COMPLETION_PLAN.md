@@ -1154,6 +1154,7 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       - The rate-limit test once took 10 of 50 requests on Windows debug, fixed at cause 2026-10-08 (owed: a month of CI runs)
       - The ground test's two clients raced on macOS, fixed at cause 2026-10-08 (owed: a month of CI runs)
       - The engine-stop prediction test failed twice on Windows, fixed at cause 2026-10-08 (owed: a month of CI runs)
+      - The learnt policy's 160 corner landings timed out on CI's Ubuntu debug, split one test a wind 2026-10-08 (owed: a month of CI runs)
       *Verification: 30 consecutive nightly runs with none of these failing,
       or each failure's cause found and fixed under its own item.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft

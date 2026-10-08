@@ -72,6 +72,7 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 22 --after 2
             --predict --watch-ai --take-over-at 14 --heard "${_taker}"
             --long-frame-after-switch --late-update-after-take-over
+            --track "${WORK}/taker-track.txt"
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 22 --after 5
             --hand-over-at 5 --take-over-at 6 --take-over-aircraft 1 --heard "${_third}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 28 --after 1

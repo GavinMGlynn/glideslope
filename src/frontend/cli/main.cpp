@@ -1570,8 +1570,11 @@ public:
         for (; stepped_ < due; ++stepped_) {
             const std::uint64_t step = prediction_->steps();
             prediction_->step(sequence, c);
-            predicted_at_.push_back(
-                {step, aircraft_->motion().location_ecef_m, counted && sequence > 0});
+            const glideslope::sim::Motion flown = aircraft_->motion();
+            predicted_at_.push_back({step, flown.location_ecef_m,
+                                     std::hypot(flown.uvw_mps[0], flown.uvw_mps[1],
+                                                flown.uvw_mps[2]),
+                                     counted && sequence > 0});
             if (predicted_at_.size() > glideslope::sim::most_unacknowledged) {
                 predicted_at_.pop_front();
             }
@@ -1688,6 +1691,11 @@ public:
                     }
                     last_compared_ = std::make_pair(*c.at_step, server_step);
                     errors_m_.push_back(error);
+                    // **The speed's error**: the server's word against what
+                    // this client had flown it to, as the distance is.
+                    const double speed_error = std::abs(
+                        at->speed_mps -
+                        std::hypot(m.uvw_mps[0], m.uvw_mps[1], m.uvw_mps[2]));
                     // **Each comparison, for a test to read the series**:
                     // when, the error, the step it was placed at, the input
                     // and how far into it, the clocks' difference over all
@@ -1697,7 +1705,8 @@ public:
                                 << ' ' << applied << ' ' << state.yours->steps_into_input
                                 << ' ' << prediction_->clocks_difference().value_or(0) << ' '
                                 << prediction_->recent_clocks_difference().value_or(0) << ' '
-                                << (paced_ ? pacing_.pace() : 1.0) << '\n';
+                                << (paced_ ? pacing_.pace() : 1.0) << ' ' << speed_error
+                                << '\n';
                     }
                     // **Before and after an engine stopped**, apart.
                     if (engine_stopped_at_s_) {
@@ -1705,10 +1714,12 @@ public:
                             std::max(worst_error_engine_stopped_m_, error);
                         ++compared_engine_stopped_;
                         errors_engine_stopped_m_.push_back(error);
+                        speed_errors_engine_stopped_mps_.push_back(speed_error);
                     } else {
                         worst_error_engine_running_m_ =
                             std::max(worst_error_engine_running_m_, error);
                         errors_engine_running_m_.push_back(error);
+                        speed_errors_engine_running_mps_.push_back(speed_error);
                     }
                     // **After a take-over, apart**: updates the server can
                     // only have sent if it is flying the aircraft taken over
@@ -2079,6 +2090,16 @@ public:
                           "engine stopped: the median error after %.3f m, before %.3f m",
                           median(errors_engine_stopped_m_), median(errors_engine_running_m_));
             lines.emplace_back(line);
+            // **And in speed**, which placing the server's word a step or
+            // two off - Windows' sleeps of 15.6 ms do, for seconds at a time
+            // (server_engine_prediction.cmake) - moves by a step's change in
+            // speed, millimetres a second, where an engine run on moves it by
+            // its thrust over the round trip.
+            std::snprintf(line, sizeof line,
+                          "engine stopped: the median speed error after %.4f m/s, before %.4f m/s",
+                          median(speed_errors_engine_stopped_mps_),
+                          median(speed_errors_engine_running_mps_));
+            lines.emplace_back(line);
         }
         if (handed_over_ + taken_back_ + taken_over_ > 0) {
             std::snprintf(line, sizeof line,
@@ -2247,6 +2268,9 @@ private:
     struct Predicted {
         std::uint64_t step = 0; // sim::Prediction::steps() before it
         std::array<double, 3> where{};
+        // Its speed over the ground, what an engine run on changes and a
+        // step's misplacing hardly does.
+        double speed_mps = 0.0;
         bool counted = false;
     };
     std::deque<Predicted> predicted_at_;
@@ -2264,6 +2288,9 @@ private:
     double worst_error_engine_stopped_m_ = 0.0;
     std::vector<double> errors_engine_stopped_m_;
     std::vector<double> errors_engine_running_m_;
+    // **And in speed**, apart (`report`).
+    std::vector<double> speed_errors_engine_stopped_mps_;
+    std::vector<double> speed_errors_engine_running_mps_;
     double worst_error_engine_running_m_ = 0.0;
     double worst_correction_engine_stopped_m_ = 0.0;
     double worst_correction_engine_running_m_ = 0.0;
