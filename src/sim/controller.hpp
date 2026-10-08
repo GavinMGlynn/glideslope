@@ -35,6 +35,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/circuit.hpp"
+#include "sim/vacate.hpp"
 #include "sim/departure.hpp"
 #include "sim/lander.hpp"
 #include "sim/learnt.hpp"
@@ -165,11 +166,22 @@ public:
     const Lander* lander() const { return lander_ ? &*lander_ : nullptr; }
     // **Go around**, where the AI is flying an approach: it climbs away and
     // flies round to the same runway again (sim/circuit.hpp).
-    void go_around() {
-        if (lander_) {
-            lander_->go_around();
-        }
+    // From the learnt landing too, while she is in the air.
+    void go_around();
+    // **Whether the runway she is landing on is clear**, asked of the
+    // caller - the other aircraft are not the controller's to know - once
+    // a step on an approach below RunwayClear::decide_ft (sim/vacate.hpp):
+    // not clear, she goes around. Without it, nothing is asked.
+    using RunwayClearQuery = std::function<bool(const Runway&)>;
+    void clears_with(RunwayClearQuery clear) { runway_clear_ = std::move(clear); }
+    // **Landed and stopped, she taxis off the runway** (sim::Vacate) and
+    // stops beside it, rather than holding where she stopped.
+    // Where she may stop, if told (sim::Vacate::SpotFree).
+    void vacates_runways(Vacate::SpotFree spot_free = {}) {
+        vacates_ = true;
+        spot_free_ = std::move(spot_free);
     }
+    const Vacate* vacate() const { return vacate_ ? &*vacate_ : nullptr; }
     // The circuit a go-around is being flown round, if one is.
     const GoAroundCircuit* circuit() const { return circuit_ ? &*circuit_ : nullptr; }
     const LearntLander* learnt() const { return learnt_ ? &*learnt_ : nullptr; }
@@ -198,7 +210,7 @@ public:
     // flown. A glide cannot climb to a floor: it is given way to instead.
     bool autopilot_flying() const {
         return flying_ == Flying::ai && autopilot_ && !departure_ && !lander_ && !learnt_ &&
-               !glide_kts_;
+               !vacate_ && !glide_kts_;
     }
 
     // The aircraft's controls for the next step. Call it once a step.
@@ -219,6 +231,12 @@ private:
     std::optional<Lander> lander_;
     // A go-around flown round to the approach again.
     std::optional<GoAroundCircuit> circuit_;
+    // Off the runway after landing, and stopped beside it.
+    std::optional<Vacate> vacate_;
+    bool vacates_ = false;
+    Vacate::SpotFree spot_free_;
+    RunwayClearQuery runway_clear_;
+    bool runway_not_clear(const Runway& runway) const;
     std::optional<LearntLander> learnt_;
     // The learnt landing an approach is handed to at its gate, while it is
     // still to be met: with the runway and speeds it lands with.

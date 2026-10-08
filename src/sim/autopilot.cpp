@@ -109,6 +109,10 @@ constexpr double pitch_integral_per_fpm = 0.002;
 constexpr double pitch_rate_degps = 3.0;
 constexpr double least_pitch_deg = -10.0;
 constexpr double most_pitch_deg = 15.0;
+// How far short of the climb asked, feet a minute, with the nose at its
+// highest, before the speed asked rises for the climb; and how far it may.
+constexpr double nose_at_stop_short_fpm = 200.0;
+constexpr double most_climb_speed_kts = 40.0;
 // **The airspeed on the elevator** (AutopilotModes::speed_on_elevator): half a
 // degree of nose down for each knot short, an integral, and the speed's trend
 // to damp it, at full power.
@@ -607,6 +611,10 @@ Controls Autopilot::fly() {
         }
         pitch_command_deg_ = pitch_next;
     }
+    // **The nose at its highest and the climb still short**: the pitch can
+    // give no more of the climb, so the speed must - see the throttle.
+    nose_at_stop_ = !on_speed && pitch_command_deg_ >= most_pitch_deg &&
+                    climb_off > nose_at_stop_short_fpm;
     was_on_speed_ = on_speed;
     const double theta_off = pitch_command_deg_ - a_.property("attitude/theta-deg");
     const double q = degrees(a_.property("velocities/q-rad_sec"));
@@ -637,8 +645,21 @@ Controls Autopilot::fly() {
 
     // Airspeed, to throttle.
     if (modes_.airspeed_kts) {
+        // **With the nose at its highest and the climb short, the speed
+        // asked for rises**, a knot a second up to `most_climb_speed_kts`
+        // over it, while she holds it: the throttle opens to the faster
+        // speed, and the wing climbs on less incidence. It falls back as
+        // fast once the nose comes down or the climb comes. Only from the
+        // speed asked, not on the way down to it: a stall demonstrated by
+        // asking for ten knots under the stall is still a stall.
+        const double held_kts = *modes_.airspeed_kts + climb_speed_kts_;
+        if (nose_at_stop_ && std::abs(held_kts - kts) < 5.0) {
+            climb_speed_kts_ = std::min(climb_speed_kts_ + dt, most_climb_speed_kts);
+        } else {
+            climb_speed_kts_ = std::max(climb_speed_kts_ - dt, 0.0);
+        }
         const double speed_off =
-            *modes_.airspeed_kts - a_.property("velocities/vc-kts");
+            *modes_.airspeed_kts + climb_speed_kts_ - a_.property("velocities/vc-kts");
         // **Short of speed for the height asked, the throttle opens.** While
         // the climb is held back for the speed, the aeroplane wants all the
         // power it has, whatever the airspeed loop makes of a speed that is

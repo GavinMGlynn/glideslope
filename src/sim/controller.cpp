@@ -91,6 +91,7 @@ void Controller::engage() {
     departure_.reset();
     lander_.reset();
     circuit_.reset();
+    vacate_.reset();
     learnt_.reset();
     at_gate_.reset();
     on_final_legs_ = false;
@@ -272,10 +273,38 @@ void Controller::to_pilot() {
     }
     lander_.reset();
     circuit_.reset();
+    vacate_.reset();
+}
+
+void Controller::go_around() {
+    // **From the learnt landing too**, while it is still in the air: an
+    // approach lander takes her from where she is and flies the go-around,
+    // as from a balloon.
+    if (learnt_ && learnt_->stage() == LearntLander::Stage::flying && !learnt_->touched() &&
+        gate_runway_ && gate_speeds_) {
+        lander_.emplace(a_, *gate_runway_, *gate_speeds_);
+        lander_->hand_mixture(applied_.mixture);
+        learnt_.reset();
+        easing_in_ = true;
+    }
+    if (lander_) {
+        lander_->go_around();
+    }
+}
+
+bool Controller::runway_not_clear(const Runway& runway) const {
+    return runway_clear_ && a_.state().height_above_ground_ft < RunwayClear::decide_ft &&
+           !runway_clear_(runway);
 }
 
 Controls Controller::fly() {
     if (flying_ == Flying::ai) {
+        // **Landed, she taxis off the runway** and stops beside it, where
+        // she is told to (`vacates_runways`).
+        if (vacate_) {
+            applied_ = vacate_->fly();
+            return applied_;
+        }
         // **A take-off or an approach flies itself until it is over**, and
         // then the plain autopilot holds what the aeroplane is doing. The
         // autopilot is engaged from the controls the departure or the landing
@@ -292,6 +321,12 @@ Controls Controller::fly() {
                 navigator_->begin_here();
             }
         }
+        if (learnt_ && learnt_->stage() == LearntLander::Stage::flying && !learnt_->touched() &&
+            gate_runway_ && runway_not_clear(*gate_runway_)) {
+            // **The runway not clear on short final: go around.**
+            go_around();
+            return fly();
+        }
         if (learnt_) {
             if (learnt_->stage() != LearntLander::Stage::stopped) {
                 const Controls landing = learnt_->fly();
@@ -301,6 +336,11 @@ Controls Controller::fly() {
                     applied_ = landing;
                 }
                 return applied_;
+            }
+            if (vacates_ && gate_runway_) {
+                vacate_.emplace(a_, *gate_runway_, applied_, spot_free_);
+                learnt_.reset();
+                return fly();
             }
             learnt_.reset();
             autopilot_.emplace(a_, applied_);
@@ -319,7 +359,18 @@ Controls Controller::fly() {
                 return fly();
             }
         }
+        if (lander_ && !lander_->touched() &&
+            (lander_->stage() == Lander::Stage::approach ||
+             lander_->stage() == Lander::Stage::flare) &&
+            runway_not_clear(lander_->runway())) {
+            lander_->go_around();
+        }
         if (lander_) {
+            if (lander_->stage() == Lander::Stage::stopped && vacates_) {
+                vacate_.emplace(a_, lander_->runway(), applied_, spot_free_);
+                lander_.reset();
+                return fly();
+            }
             if (lander_->stage() != Lander::Stage::stopped && !lander_->gone_around()) {
                 const Controls landing = lander_->fly();
                 if (easing_in_) {

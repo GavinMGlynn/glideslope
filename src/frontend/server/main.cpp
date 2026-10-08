@@ -1685,8 +1685,9 @@ public:
     // by the approach autopilot; if its model has a learnt landing it is
     // handed to it at its gate (sim::Controller::to_ai_approach with the
     // policy), and otherwise landed by the approach autopilot. **One, not
-    // all**: nothing clears a runway, so a second landing behind it would
-    // land into it; the rest fly their plan. An aeroplane whose figures give
+    // all**: put on one point, two would be put into each other; the rest
+    // fly their plan, and a plan that ends at the same runway lands once
+    // this one has left it (`runway_clear_of_others`). An aeroplane whose figures give
     // no approach speed flies its plan, said. Why not, or nothing.
     std::string ai_on_final(const std::string& spec) {
         std::string why;
@@ -2468,6 +2469,7 @@ public:
             }
             learnt_at_gate(a);
             learnt_landed(a, happened);
+            runway_news(a, happened);
         }
         // What the hand-overs' models have answered, if they have.
         hand_over_answers(happened);
@@ -2598,6 +2600,9 @@ public:
         // **Put on final by the operator** (`--ai-on-final`): the runway it
         // lands on, and is flown down to again if it flies again.
         std::optional<glideslope::sim::Runway> on_final_to{};
+        // Going around, and off the runway after landing, as last said.
+        bool circling = false;
+        bool vacated = false;
     };
 
     void fail_engines_at(double s) {
@@ -2959,7 +2964,87 @@ private:
                         return collision_->height_above_ellipsoid(lat, lon);
                     });
             });
+        // **Landed, off the runway; and on to it only when it is clear**
+        // (sim/vacate.hpp): an AI landing goes around from short final if
+        // anything else the server flies is on its runway.
+        controller->vacates_runways(
+            [this, &aircraft](const glideslope::sim::Runway& runway, double along_m) {
+                return spot_free_of_others(runway, along_m, aircraft);
+            });
+        controller->clears_with([this, &aircraft](const glideslope::sim::Runway& runway) {
+            return runway_clear_of_others(runway, aircraft);
+        });
         return controller;
+    }
+
+    // **Whether nothing but `self` is on `runway`**: no other aircraft the
+    // server flies, wrecks aside - one is put back where it flies from in
+    // `wreck_s` - within its length and width, on it or low over it.
+    bool runway_clear_of_others(const glideslope::sim::Runway& runway,
+                                const glideslope::sim::Aircraft& self) const {
+        for (const Aircraft& b : flown_) {
+            if (b.aircraft.get() == &self || b.wrecked_at_s >= 0.0) {
+                continue;
+            }
+            const glideslope::sim::AircraftState s = b.aircraft->state();
+            if (glideslope::sim::on_runway(runway, s.latitude_deg, s.longitude_deg,
+                                           s.height_above_ground_ft)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // **Whether the ground beside `runway` is free abeam `along_m`** for
+    // `self` to turn off on to: no other aircraft the server flies, wrecks
+    // aside, on the ground to its right within Vacate::spot_along_m along
+    // it (sim::Vacate::SpotFree).
+    bool spot_free_of_others(const glideslope::sim::Runway& runway, double along_m,
+                             const glideslope::sim::Aircraft& self) const {
+        for (const Aircraft& b : flown_) {
+            if (b.aircraft.get() == &self || b.wrecked_at_s >= 0.0) {
+                continue;
+            }
+            const glideslope::sim::AircraftState s = b.aircraft->state();
+            if (glideslope::sim::beside_runway(runway, s.latitude_deg, s.longitude_deg,
+                                               s.height_above_ground_ft, along_m)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // **Landed: on the ground after a landing the AI flew**, rolling out,
+    // taxiing off or stopped beside the runway. Not traffic for the monitor,
+    // nor for a departure waiting for clear sky: the runway has its own rule
+    // (`runway_clear_of_others`).
+    static bool landed(const Aircraft& a) {
+        if (!a.controller || !ai_flying(a)) {
+            return false;
+        }
+        const glideslope::sim::Controller& c = *a.controller;
+        return c.vacate() != nullptr || (c.lander() != nullptr && c.lander()->touched()) ||
+               (c.learnt() != nullptr && c.learnt()->touched());
+    }
+
+    // **A go-around, and a runway left**, said once each as they happen.
+    void runway_news(Aircraft& a, std::vector<std::string>& happened) {
+        if (!a.controller) {
+            return;
+        }
+        const glideslope::sim::GoAroundCircuit* circuit = a.controller->circuit();
+        if (circuit != nullptr && !a.circling) {
+            happened.push_back("aircraft " + std::to_string(a.index) + ", " + a.id +
+                               ", goes around from " + circuit->runway().name);
+        }
+        a.circling = circuit != nullptr;
+        const glideslope::sim::Vacate* off = a.controller->vacate();
+        const bool clear = off != nullptr && off->clear();
+        if (clear && !a.vacated) {
+            happened.push_back("aircraft " + std::to_string(a.index) + ", " + a.id +
+                               ", has left " + off->runway().name + ", stopped beside it");
+        }
+        a.vacated = clear;
     }
 
     // **An aircraft's speeds, worked out once** as it is made, and kept by
@@ -3016,7 +3101,7 @@ private:
         std::vector<glideslope::sim::Traffic> traffic;
         std::vector<Aircraft*> who;
         for (Aircraft& a : flown_) {
-            if (a.wrecked_at_s >= 0.0) {
+            if (a.wrecked_at_s >= 0.0 || landed(a)) {
                 continue;
             }
             const glideslope::sim::AircraftState s = a.aircraft->state();
@@ -3084,7 +3169,10 @@ private:
     // **How close every two AI aircraft have come**, a step at a time: in a
     // straight line, in height while within the horizontal minimum, and for
     // how long within both minima at once - separation lost. A person's
-    // aircraft is not measured: nothing keeps a person clear.
+    // aircraft is not measured: nothing keeps a person clear. **One handed
+    // to the AI is**, every step the AI flies it while it is still in its
+    // player's slot - holding its course, or flying a copilot's route - as
+    // the monitor has it give way (`keep_apart`).
     void measure_apart() {
         ++measured_steps_;
         const double now = now_s();
@@ -3092,7 +3180,8 @@ private:
             for (std::size_t j = i + 1; j < flown_.size(); ++j) {
                 const Aircraft& a = flown_[i];
                 const Aircraft& b = flown_[j];
-                if (a.slot >= 0 || b.slot >= 0 || a.operators_course || b.operators_course ||
+                if ((a.slot >= 0 && !ai_flying(a)) || (b.slot >= 0 && !ai_flying(b)) ||
+                    a.operators_course || b.operators_course ||
                     a.wrecked_at_s >= 0.0 || b.wrecked_at_s >= 0.0) {
                     continue;
                 }
@@ -3113,7 +3202,11 @@ private:
                     ap.closest_m, std::hypot(pa.x - pb.x, pa.y - pb.y, pa.z - pb.z));
                 const double over_ground_m = glideslope::sim::distance_m(
                     sa.latitude_deg, sa.longitude_deg, sb.latitude_deg, sb.longitude_deg);
-                if (over_ground_m < glideslope::sim::Separation::minimum_m) {
+                // **Landed is not lost**: one rolling out, taxiing off or
+                // stopped beside the runway is kept clear of by the
+                // runway's rule, not by 500 ft (`runway_clear_of_others`).
+                if (over_ground_m < glideslope::sim::Separation::minimum_m && !landed(a) &&
+                    !landed(b)) {
                     const double height_ft = std::abs(sa.altitude_ft - sb.altitude_ft);
                     ap.least_ft_within = std::min(ap.least_ft_within, height_ft);
                     if (height_ft < glideslope::sim::Separation::minimum_ft) {
@@ -3134,7 +3227,7 @@ private:
     bool clear_to_depart(Aircraft& a, std::size_t flying, std::vector<std::string>& happened) {
         for (std::size_t k = 0; k < flying && k < flown_.size(); ++k) {
             const Aircraft& b = flown_[k];
-            if (b.wrecked_at_s >= 0.0) {
+            if (b.wrecked_at_s >= 0.0 || landed(b)) {
                 continue;
             }
             const glideslope::sim::AircraftState s = b.aircraft->state();
@@ -3214,7 +3307,7 @@ private:
             glideslope::world::to_ecef(glideslope::world::Geodetic{
                 a.start.latitude_deg, a.start.longitude_deg, a.start.altitude_ft / feet_per_metre});
         for (const Aircraft& b : flown_) {
-            if (&b == &a || b.wrecked_at_s >= 0.0) {
+            if (&b == &a || b.wrecked_at_s >= 0.0 || landed(b)) {
                 continue;
             }
             const glideslope::world::Ecef at = where(b);

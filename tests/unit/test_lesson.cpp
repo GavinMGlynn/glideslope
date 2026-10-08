@@ -13,7 +13,9 @@
 #include "sim/lesson.hpp"
 #include "sim/lesson_run.hpp"
 #include "sim/plan.hpp"
+#include "sim/learnt.hpp"
 #include "sim/test_pilot.hpp"
+#include "sim/vacate.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
 
@@ -4222,15 +4224,6 @@ void every_landplane_goes_around(bool rising) {
             ++left_out;
             continue;
         }
-        // **Named, over rising ground**: on the raised downwind leg the
-        // F-35B climbs from 2,900 ft to 6,000 ft and flies on past where she
-        // turns base, the cause not yet found (a tail in the plan).
-        if (rising && id == "f35b") {
-            std::printf("  left out - f35b: over rising ground she climbs away on the "
-                        "raised downwind leg\n");
-            ++left_out;
-            continue;
-        }
         const auto published = glideslope::sim::approach_speeds(data(), entry.model);
         glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
         put_on_final(aircraft, entry, runway, published);
@@ -4339,7 +4332,7 @@ void every_landplane_goes_around(bool rising) {
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(flown + left_out == taught.size() && left_out == (rising ? 2U : 1U),
+    check(flown + left_out == taught.size() && left_out == 1,
           "every landplane taught the approach went around, the flying boat named: " +
               std::to_string(flown) + " of " + std::to_string(taught.size() - left_out));
 }
@@ -4356,6 +4349,262 @@ GLIDESLOPE_TEST(an_aeroplane_that_goes_around_is_flown_round_and_landed) {
 // height over the slope and lands.
 GLIDESLOPE_TEST(an_aeroplane_going_around_beside_rising_ground_flies_its_circuit_height_over_it_and_lands) {
     every_landplane_goes_around(true);
+}
+
+namespace {
+
+// **Landed by the AI and told to vacate**: what became of her.
+struct Vacated {
+    bool clear = false;
+    bool landed = false; // stopped on the runway first
+    std::string wreck;
+    double along_m = 0.0;
+    double across_m = 0.0;
+    double fastest_taxi_kts = 0.0; // from the stop
+    double vacate_s = 0.0;         // from the stop to clear
+};
+
+} // namespace
+
+// **Every aeroplane the AI lands taxis off the runway and stops clear of it**
+// (sim/vacate.hpp): every landplane taught the approach (the flying boat
+// named, having no runway to leave), landed by the approach autopilot from
+// two miles out and told to vacate, turns off to the right, taxis no faster
+// than twice the taxi speed, and stops beside the runway - at least
+// RunwayClear::clear_m from the centreline and no more than 200 m past that,
+// within the runway's length, and no longer on it - unwrecked, within ten
+// minutes. Before, she stopped on it and stayed.
+GLIDESLOPE_TEST(every_aeroplane_the_ai_lands_taxis_off_the_runway_and_stops_clear_of_it) {
+    const auto taught = everyone_taught("approach-and-landing");
+    const glideslope::sim::Runway runway = a_runway();
+    std::size_t flown = 0;
+    std::size_t left_out = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat has no runway to leave\n", id.c_str());
+            ++left_out;
+            continue;
+        }
+        const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        put_on_final(aircraft, entry, runway, published);
+        glideslope::sim::Controls flying;
+        flying.throttle = 0.4;
+        flying.gear = 1.0;
+        glideslope::sim::Controller controller(aircraft, flying);
+        controller.to_ai_approach(runway, published);
+        controller.vacates_runways();
+        glideslope::sim::GroundJudge judge(false);
+        Vacated v;
+        int stopped_at = -1;
+        for (int tick = 0; tick < 600 * steps_per_second; ++tick) {
+            aircraft.set_controls(controller.fly());
+            aircraft.step();
+            if (const auto what = judge.judge(aircraft)) {
+                v.wreck = *what;
+                break;
+            }
+            if (const auto* off = controller.vacate()) {
+                if (stopped_at < 0) {
+                    stopped_at = tick;
+                    v.landed = true;
+                }
+                v.fastest_taxi_kts = std::max(v.fastest_taxi_kts,
+                                              aircraft.property("velocities/vg-fps") / 1.68781);
+                if (off->clear()) {
+                    v.clear = true;
+                    v.vacate_s = static_cast<double>(tick - stopped_at) / steps_per_second;
+                    break;
+                }
+            }
+        }
+        const glideslope::sim::AircraftState s = aircraft.state();
+        const auto at = glideslope::sim::on_runway_frame(runway, s.latitude_deg, s.longitude_deg);
+        v.along_m = at.along_m;
+        v.across_m = at.across_m;
+        ++flown;
+        std::printf("  %-13s %s in %5.1f s, %6.0f m along, %5.1f m right, taxied at most "
+                    "%4.1f kt%s%s\n",
+                    id.c_str(), v.clear ? "clear" : "NOT CLEAR", v.vacate_s, v.along_m,
+                    v.across_m, v.fastest_taxi_kts, v.wreck.empty() ? "" : ", wrecked: ",
+                    v.wreck.c_str());
+        if (!v.wreck.empty()) {
+            wrong.push_back(id + " was wrecked: " + v.wreck);
+        }
+        if (!v.landed || !v.clear) {
+            wrong.push_back(id + " did not land and vacate the runway");
+        }
+        if (v.across_m < glideslope::sim::RunwayClear::clear_m ||
+            v.across_m > glideslope::sim::RunwayClear::clear_m + 200.0 || v.along_m < 0.0 ||
+            v.along_m > runway.length_m ||
+            glideslope::sim::on_runway(runway, s.latitude_deg, s.longitude_deg,
+                                       s.altitude_ft - runway.elevation_ft)) {
+            wrong.push_back(id + " stopped " + std::to_string(v.along_m) + " m along, " +
+                            std::to_string(v.across_m) + " m right of the centreline");
+        }
+        if (v.fastest_taxi_kts > 2.0 * glideslope::sim::Vacate::taxi_kts) {
+            wrong.push_back(id + " taxied at " + std::to_string(v.fastest_taxi_kts) + " kt");
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(flown + left_out == taught.size() && left_out == 1,
+          "every landplane taught the approach landed and vacated, the flying boat named: " +
+              std::to_string(flown) + " of " + std::to_string(taught.size() - left_out));
+}
+
+namespace {
+
+// **A second Cessna landing on a runway the first is stopped on.** The first
+// is landed and stopped, and held there - not stepped - until the second,
+// coming down the same approach from two miles out and asking whether the
+// runway is clear (`Controller::clears_with`), has gone around; then the
+// first is let vacate it. The second must go around once, fly round, and
+// land, touching down only once the first is clear of the runway, and never
+// lower than 200 ft over the first within 500 m of it while it was on the
+// runway. `learnt`: the second is handed to the learnt landing at its gate,
+// as a server's are.
+void second_lands_once_the_first_has_left(bool learnt) {
+    const std::string id = "c172p";
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const glideslope::sim::Runway runway = a_runway();
+    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+    const auto policy = glideslope::sim::learnt_landing(data(), entry.model);
+    check(policy != nullptr, "the C172P has a learnt landing");
+
+    glideslope::sim::Aircraft first(data() / "jsbsim", entry.model);
+    put_on_final(first, entry, runway, published);
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.4;
+    flying.gear = 1.0;
+    glideslope::sim::Controller first_c(first, flying);
+    first_c.to_ai_approach(runway, published);
+    first_c.vacates_runways();
+    // Landed and stopped: the first step the vacate has her.
+    for (int tick = 0; tick < 600 * steps_per_second && first_c.vacate() == nullptr; ++tick) {
+        first.set_controls(first_c.fly());
+        first.step();
+    }
+    check(first_c.vacate() != nullptr, "the first landed and stopped");
+    const glideslope::sim::AircraftState stopped = first.state();
+    check(glideslope::sim::on_runway(runway, stopped.latitude_deg, stopped.longitude_deg,
+                                     stopped.altitude_ft - runway.elevation_ft),
+          "the first stopped on the runway");
+
+    glideslope::sim::Aircraft second(data() / "jsbsim", entry.model);
+    put_on_final(second, entry, runway, published);
+    glideslope::sim::Controller second_c(second, flying);
+    if (learnt) {
+        second_c.to_ai_approach(runway, published, policy);
+    } else {
+        second_c.to_ai_approach(runway, published);
+    }
+    second_c.vacates_runways([&first](const glideslope::sim::Runway& r, double along_m) {
+        const glideslope::sim::AircraftState f = first.state();
+        return !glideslope::sim::beside_runway(r, f.latitude_deg, f.longitude_deg,
+                                               f.altitude_ft - r.elevation_ft, along_m);
+    });
+    second_c.clears_with([&first](const glideslope::sim::Runway& r) {
+        const glideslope::sim::AircraftState s = first.state();
+        return !glideslope::sim::on_runway(r, s.latitude_deg, s.longitude_deg,
+                                           s.altitude_ft - r.elevation_ft);
+    });
+    glideslope::sim::GroundJudge judge_first(false);
+    glideslope::sim::GroundJudge judge_second(false);
+    bool released = false;
+    bool learnt_seen = false;
+    int circuits = 0;
+    bool in_circuit = false;
+    bool touched = false;
+    bool first_clear_at_touch = false;
+    double lowest_over_first_ft = 1e9;
+    double closest_m = 1e9; // from the second's touch on
+    std::string wreck;
+    for (int t = 0; t < 1800 * steps_per_second; ++t) {
+        if (released) {
+            first.set_controls(first_c.fly());
+            first.step();
+            if (const auto what = judge_first.judge(first)) {
+                wreck = "the first: " + *what;
+                break;
+            }
+        }
+        second.set_controls(second_c.fly());
+        second.step();
+        if (const auto what = judge_second.judge(second)) {
+            wreck = "the second: " + *what;
+            break;
+        }
+        learnt_seen = learnt_seen || second_c.learnt() != nullptr;
+        const bool circling = second_c.circuit() != nullptr;
+        if (circling && !in_circuit) {
+            ++circuits;
+            // Gone around: the first is let vacate.
+            released = true;
+        }
+        in_circuit = circling;
+        const glideslope::sim::AircraftState f = first.state();
+        const glideslope::sim::AircraftState s = second.state();
+        const bool first_on = glideslope::sim::on_runway(runway, f.latitude_deg, f.longitude_deg,
+                                                         f.altitude_ft - runway.elevation_ft);
+        if (first_on && glideslope::sim::distance_m(f.latitude_deg, f.longitude_deg,
+                                                    s.latitude_deg, s.longitude_deg) < 500.0) {
+            lowest_over_first_ft = std::min(lowest_over_first_ft, s.altitude_ft - f.altitude_ft);
+        }
+        if (!touched && second.property("gear/wow") > 0.5) {
+            touched = true;
+            first_clear_at_touch = !first_on;
+        }
+        if (touched) {
+            closest_m = std::min(closest_m, glideslope::sim::distance_m(
+                                                f.latitude_deg, f.longitude_deg,
+                                                s.latitude_deg, s.longitude_deg));
+        }
+        if (second_c.vacate() != nullptr && second_c.vacate()->clear()) {
+            break;
+        }
+    }
+    char over[96];
+    if (lowest_over_first_ft < 1e8) {
+        std::snprintf(over, sizeof over, "at least %.0f ft over the first", lowest_over_first_ft);
+    } else {
+        std::snprintf(over, sizeof over, "never");
+    }
+    std::printf("  %s: %d go-around(s), %s, the first %s at its touch; %s within 500 m of the "
+                "first while it was on the runway; landed, %.0f m from it at the closest%s%s\n",
+                learnt ? "handed to the learnt landing" : "the approach autopilot", circuits,
+                touched ? "landed" : "NEVER LANDED",
+                first_clear_at_touch ? "clear" : "STILL ON THE RUNWAY", over, closest_m,
+                wreck.empty() ? "" : ", wrecked: ", wreck.c_str());
+    check(wreck.empty(), "nothing was wrecked: " + wreck);
+    check(!learnt || learnt_seen, "the learnt landing had the second at its gate");
+    check(circuits == 1, "the second went around once, not " + std::to_string(circuits));
+    check(touched && first_clear_at_touch, "the second landed once the first had left");
+    check(lowest_over_first_ft >= 200.0, "the second came no lower than 200 ft over the first");
+    check(second_c.vacate() != nullptr && second_c.vacate()->clear(),
+          "the second, landed, vacated too");
+    // **And stopped clear of the first**, which turned off where she would
+    // have: never within 100 m of it - a little over the 70 m either side of
+    // the centreline a runway's traffic is kept off.
+    check(closest_m >= 100.0,
+          "the second stopped clear of the first: " + std::to_string(closest_m) + " m");
+}
+
+} // namespace
+
+// **An aeroplane landing on a runway another is on goes around, and lands
+// once it has left**: both ways a landing is flown to the touch - by the
+// approach autopilot, and handed to the learnt landing at its gate - with
+// the one aeroplane that has both. The go-around itself is every
+// landplane's (an_aeroplane_that_goes_around_is_flown_round_and_landed).
+GLIDESLOPE_TEST(an_aeroplane_landing_on_a_runway_another_is_on_goes_around_and_lands_once_it_has_left) {
+    second_lands_once_the_first_has_left(false);
+    second_lands_once_the_first_has_left(true);
 }
 
 // **The server and the client tell a controller how she lands from the same
