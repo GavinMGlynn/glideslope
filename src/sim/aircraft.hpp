@@ -217,13 +217,43 @@ struct AircraftSnapshot {
 // second. Not a snapshot: nothing of the engines, the actuators or the fuel,
 // which a client flying the same inputs already has, and which a restore
 // settles for two simulated seconds to write back - far too slow to do at
-// the rate state updates arrive.
+// the rate state updates arrive. (What a replay would otherwise fly on from
+// where the newest step left it, a prediction keeps for itself: ReplayState.)
 struct Motion {
     std::array<double, 3> location_ecef_m{}; // Earth-centred, Earth-fixed
     // A quaternion, north-east-down to the body (JSBSim's qAttitudeLocal).
     std::array<double, 4> attitude_local{};
     std::array<double, 3> uvw_mps{};         // body-axis velocity relative to the Earth
     std::array<double, 3> pqr_radps{};       // body-axis rates relative to the Earth
+};
+
+// **What a replay must start from besides the motion**: the state that is
+// integrated step by step rather than set by the controls. A prediction
+// flying the same steps again from the server's word flies them from this
+// as it was at that step, not as the newest step left it: an engine winding
+// down was otherwise wound down again by every replay, and a speedbrake
+// moving moved on again (sim::Prediction).
+//
+// **Kept**: each engine's propeller or rotor rpm; a turbine's N1 and N2, and
+// a turbine's or turboprop's phase (off, starting, running...); and every
+// readable and writable value of the flight controls (`fcs/`, but for the
+// commands, which the controls set) and the gear's position - which holds
+// each kinematic actuator's position (flaps, speedbrakes, gear), read back by
+// JSBSim from its output at every step.
+// **Not kept**, as JSBSim holds them in members with no setter: a lag
+// filter's or an actuator's own history (its lag, rate limit, hysteresis);
+// a turbine's fuel flow, EGT, oil temperature and EPR, and a piston's
+// temperatures; the fuel in the tanks. None moves the flight more than a
+// step's worth between the server and a client flying the same inputs.
+struct ReplayState {
+    std::vector<double> thruster_rpm;
+    // N1 and N2 in percent; NaN for an engine without that spool.
+    std::vector<double> n1;
+    std::vector<double> n2;
+    // A turbine's or turboprop's phase as JSBSim numbers it; -1 for another.
+    std::vector<int> phase;
+    // The flight controls' values, in Aircraft::replay_properties' order.
+    std::vector<double> controls;
 };
 
 // What an aircraft keeps from the catalogue, read once when its model loads.
@@ -424,6 +454,13 @@ public:
     // nothing settled: the integrator starts afresh from the new state.
     Motion motion() const;
     void set_motion(const Motion& m);
+    // What a replay must start from besides the motion, and that set -
+    // nothing else touched. set_replay_state throws std::invalid_argument for
+    // a state of another model (a different number of engines or values).
+    ReplayState replay_state() const;
+    void set_replay_state(const ReplayState& state);
+    // The flight controls' properties ReplayState::controls holds, by name.
+    std::vector<std::string> replay_properties() const;
 
     // Any JSBSim property by name, for code that needs more than state()
     // reports - the published-figure checks read the gear, the flaps and the
@@ -465,6 +502,10 @@ private:
     double value(const std::string& name) const;
     void set(const std::string& name, double v);
     mutable std::unordered_map<std::string, SGPropertyNode*> nodes_;
+    // ReplayState's flight-control nodes, found once, and their names.
+    std::vector<SGPropertyNode*> replay_nodes_;
+    std::vector<std::string> replay_names_;
+    void find_replay_nodes();
 
     void apply_weather();
     void apply_ground(double latitude_deg, double longitude_deg);

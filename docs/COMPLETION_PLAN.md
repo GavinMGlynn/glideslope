@@ -1154,7 +1154,7 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       - The window client put right 20 to 31 m after a long frame (owed: a month of CI runs, 20 m bound unchanged)
       - The rate-limit test once took 10 of 50 requests on Windows debug, fixed at cause 2026-10-08 (owed: a month of CI runs)
       - The ground test's two clients raced on macOS, fixed at cause 2026-10-08 (owed: a month of CI runs)
-      - The engine-stop prediction test failed on Windows, judged in speed since 2026-10-08, which Windows' step-off placing does not move (owed: a month of CI runs)
+      - The engine-stop prediction test failed on Windows, judged in speed since 2026-10-08; replays keep the engines' spin and the actuators since 2026-10-09 (owed: a month of CI runs)
       - The learnt policy's 160 corner landings timed out on CI's Ubuntu debug, split one test a wind 2026-10-08 (owed: a month of CI runs)
       *Verification: 30 consecutive nightly runs with none of these failing,
       or each failure's cause found and fixed under its own item.*

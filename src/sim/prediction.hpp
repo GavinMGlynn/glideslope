@@ -191,7 +191,14 @@ private:
         Controls controls;
         // Which step of this client's this was, counted from its first.
         std::uint64_t step = 0;
+        // What the motion does not carry, as the step began: flown again from
+        // the server's word, the step is flown from this (ReplayState).
+        ReplayState before;
     };
+
+    // What the motion does not carry put back to the first step held, before
+    // it is flown again.
+    void as_at_first_held();
 
     Aircraft& aircraft_;
     std::deque<Applied> held_;

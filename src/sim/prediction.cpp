@@ -18,6 +18,7 @@ double how_far_apart_m(const AircraftState& a, const AircraftState& b) {
 }
 
 void Prediction::step(std::uint32_t sequence, const Controls& controls) {
+    ReplayState before = aircraft_.replay_state();
     aircraft_.set_controls(controls);
     flying_step_ = steps_;
     aircraft_.step();
@@ -31,7 +32,7 @@ void Prediction::step(std::uint32_t sequence, const Controls& controls) {
         began_.try_emplace(sequence, steps_);
     }
     flying_ = sequence;
-    held_.push_back({sequence, controls, steps_});
+    held_.push_back({sequence, controls, steps_, std::move(before)});
     ++steps_;
     // A client this far behind has a problem this layer cannot solve; the
     // oldest inputs are dropped rather than held for ever.
@@ -107,6 +108,7 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     // Kept from `last_applied` on: a later word may say more of it.
     began_.erase(began_.begin(), began_.lower_bound(last_applied));
     aircraft_.set_motion(server);
+    as_at_first_held();
     for (const Applied& a : held_) {
         aircraft_.set_controls(a.controls);
         flying_step_ = a.step;
@@ -116,6 +118,21 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     out.moved_m = how_far_apart_m(was, aircraft_.state());
     out.snapped = out.moved_m > snap_beyond_m;
     return out;
+}
+
+void Prediction::as_at_first_held() {
+    // **As it was at the first step flown again**: the motion is the
+    // server's at that step and the steps since are flown again from it, and
+    // what the motion does not carry is put back with it (ReplayState). Left
+    // as the newest step had it, an engine winding down was wound down again
+    // by every replay: the Cessna's propeller, stopped on the server, took six
+    // seconds to stop there and under two here, and for those seconds the
+    // client was put right at every word by the drag it did not have
+    // (PROJECT_STATUS.md, 2026-10-09). A speedbrake moving moved on the same
+    // way.
+    if (!held_.empty()) {
+        aircraft_.set_replay_state(held_.front().before);
+    }
 }
 
 void Prediction::hear_clock(std::uint32_t last_applied, std::size_t steps_into,
@@ -155,6 +172,7 @@ std::size_t Prediction::adopt(const Motion& motion, std::uint64_t server_steps) 
         held_.pop_front();
     }
     aircraft_.set_motion(motion);
+    as_at_first_held();
     for (const Applied& a : held_) {
         aircraft_.set_controls(a.controls);
         flying_step_ = a.step;
