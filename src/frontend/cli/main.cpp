@@ -1707,6 +1707,17 @@ public:
                         worst_error_at_s_ = local_s;
                     }
                     ++compared_;
+                    // **The steps each flew between the first update
+                    // compared and the last**, counted, not timed: this
+                    // client's, from the step each was placed at, and the
+                    // server's, from the update's own step.
+                    const auto server_step = static_cast<std::uint64_t>(std::llround(
+                        state.simulation_time_s *
+                        static_cast<double>(glideslope::sim::steps_per_second)));
+                    if (!first_compared_) {
+                        first_compared_ = std::make_pair(*c.at_step, server_step);
+                    }
+                    last_compared_ = std::make_pair(*c.at_step, server_step);
                     errors_m_.push_back(error);
                     // **Each comparison, for a test to read the series**:
                     // when, the error, the step it was placed at, the input
@@ -2061,6 +2072,18 @@ public:
                       paced_ ? pacing_.pace() : 1.0, static_cast<long long>(pacing_.off()),
                       static_cast<long long>(pacing_.worst_off()));
         lines.emplace_back(line);
+        // **And in steps**, which no clock's granularity moves: as many as
+        // the server's, flown at its pace.
+        if (first_compared_ && last_compared_) {
+            std::snprintf(line, sizeof line,
+                          "paced in steps: %llu flown here while the server flew %llu, from the "
+                          "first update compared to the last",
+                          static_cast<unsigned long long>(last_compared_->first -
+                                                          first_compared_->first),
+                          static_cast<unsigned long long>(last_compared_->second -
+                                                          first_compared_->second));
+            lines.emplace_back(line);
+        }
         if (engine_stopped_at_s_) {
             std::snprintf(line, sizeof line,
                           "engine stopped for the server's word (%d stopped here): %zu updates "
@@ -2216,6 +2239,10 @@ private:
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
     glideslope::sim::Pacing pacing_;
+    // This client's step and the server's at the first update compared and
+    // the last.
+    std::optional<std::pair<std::uint64_t, std::uint64_t>> first_compared_;
+    std::optional<std::pair<std::uint64_t, std::uint64_t>> last_compared_;
     bool paced_ = true;
     std::deque<std::pair<std::uint32_t, glideslope::sim::Controls>> before_;
     glideslope::net::SessionClock clock_;
