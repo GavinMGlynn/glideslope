@@ -267,9 +267,8 @@ are the risks the phase order is built around:
 
 ### Three tests that failed by chance on CI, 2026-10-08 — in progress
 
-**What is still open, first.** The engine-stop prediction test on Windows
-and the take-over test on macOS debug are not yet fixed; this entry says
-what was found as each lands.
+**What is still open, first.** The take-over test on macOS debug is not yet
+fixed; this entry says what was found as it lands.
 
 **The learnt policy's 160 corner landings timed out on CI's Ubuntu debug**
 (900 s, run 37759639784 and before), and so tested nothing there. Split
@@ -284,7 +283,27 @@ presets scaled by their own cost of the fuel tests against Ubuntu debug's.
 **Seen to fail**: a corner left out, "every corner flown: 31 of 32"; the
 tailwind a knot inside its edge, "behind is at an edge"; reverted.
 
-**Kept for the two still open**: the engine-stop test keeps the client's
+**The engine-stop prediction test failed on Windows** (release, debug and
+clang): medians of 0.4 to 1.5 m after the stop against about 0.05 m before
+(0.428 against 0.077 on windows-release, run 37759639784). **The cause**: the
+distance compared is the server's word against where the client had flown
+to at the step the clocks' difference places the word at, and on Windows
+that placing is a step off for seconds at a time (the paced test's
+excursions, below) - 0.45 m at the Cessna's speed, the median in the failed
+run. Which half of the run the steps off fall in is chance, so the test
+judged the clock, not the engine. **Judged now in speed**: the client says
+the median speed error before and after the stop, and the test holds after
+to no more than before. A step's misplacing moves the speed by a 120th of a
+second's change in it, an engine run on by its thrust over the round trip.
+Measured (linux-debug): 0.015 to 0.018 m/s after against 0.135 before (the
+throttle's changes flown a step or two apart are most of before's); against
+the server at 0.6 of real time, 0.009 after. On the Windows copy (release),
+0.011, 0.012 and 0.013 after against 0.127 to 0.135 before, three runs.
+**Seen to fail** with the prediction not told the engine had stopped:
+0.487 m/s after against 0.136, red; reverted. (The distance's medians were
+then 0.183 against 0.042 m.)
+
+**Kept for the one still open**: the engine-stop test keeps the client's
 track (`--track`), and the take-over test the taking client's; the client
 says the median speed error before and after the engine stopped beside
 the median distance, and writes each comparison's speed error to its track.
