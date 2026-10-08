@@ -858,9 +858,10 @@ The replacement:
 - **The touchdown sink the AI flares to is sourced.** NASA's go-around
   criteria study (Zaal et al., "Go-Around Criteria Refinement for Transport
   Category Aircraft", AIAA Journal of Air Transportation, NTRS 20205010611)
-  takes a touchdown sink of 6 ft/s, 360 ft/min, as its criterion, and a
-  normal touchdown is 100 to 300 ft/min. The AI's 200 ft/min for jets, and
-  every aircraft's target, is held within that criterion.
+  takes a touchdown sink of 6 ft/s, 360 ft/min, as its criterion. It is an
+  upper bound from a transport-category study, not a typical figure; the
+  often-quoted 100 to 300 ft/min has no primary source we found. The AI's
+  200 ft/min for jets, and every aircraft's target, is held within it.
 - **Learnt landings for other aircraft move to Later.** Each needs its own
   reinforcement-learning training; the Cessna 172P's is retrained first.
 - **The Learjet's centre-of-gravity height and the F-35B's approach angle of
