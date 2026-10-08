@@ -71,6 +71,7 @@
 #include <future>
 #include <iterator>
 #include <memory>
+#include <deque>
 #include <map>
 #include <optional>
 #include <random>
@@ -963,14 +964,24 @@ struct Connection {
     // does, and the client places the server's word on its own clock by it
     // (sim::Prediction).
     std::int64_t steps_into_input = 0;
-    // **The newest input heard and not yet applied**, and its number. It is
-    // applied after the steps taken in the pass it was read in (apply_input):
-    // the time those stand for had passed before it arrived. Applied as it
-    // was read, a server held up for 50 ms flew six steps of a new input
-    // early, and put its clients off by two metres (2026-09-27). A pass takes
-    // at most `most_steps_between_looks`, so a server further behind than
-    // that still flies the rest of what it owes on the new input.
-    std::optional<std::pair<std::uint32_t, glideslope::sim::Controls>> input_heard;
+    // **The inputs heard and not yet applied**, oldest first, each with the
+    // step it is flown from: **the step that was due when it was read**
+    // (`due`, -1 until the pass that read it steps). The time the steps owed
+    // then stand for had passed before it arrived. Applied as it was read, a
+    // server held up for 50 ms flew six steps of a new input early, and put
+    // its clients off by two metres (2026-09-27); applied once the pass's
+    // steps were flown but not the rest owed, a server held up 200 ms flew
+    // the inputs that came in meanwhile 24 steps early - the client's clocks'
+    // difference fell by those 24 for the two seconds it remembers, and its
+    // prediction was put right by 14.9 m (macOS debug, run 37759639784). At
+    // most `most_steps_held` after the step being flown, so that a server
+    // that never catches up still flies what it is sent.
+    struct HeldInput {
+        std::uint32_t sequence = 0;
+        glideslope::sim::Controls controls;
+        std::int64_t due = -1;
+    };
+    std::deque<HeldInput> inputs_heard;
     // **What must arrive**: the reliable messages to this client, and what
     // each aircraft has been introduced to it as - its model, by number - so
     // that one is introduced once, and again if its number comes to mean
@@ -1096,6 +1107,12 @@ constexpr std::int64_t states_per_second = 25;
 // real time catches up over the passes after, answering its clients all the
 // while, rather than going quiet for as long as the catching up takes.
 constexpr std::int64_t most_steps_between_looks = 4;
+
+// **The most steps an input heard is held before it is flown** (Connection::
+// inputs_heard): a quarter of a second. A server held up for longer flies
+// the inputs that came in meanwhile that much less early than it would, and
+// one that never catches up flies each this long after it came.
+constexpr std::int64_t most_steps_held = glideslope::sim::steps_per_second / 4;
 static_assert(most_steps_between_looks * states_per_second <
                   glideslope::sim::steps_per_second,
               "a pass must not cross two state updates");
@@ -3899,15 +3916,33 @@ void drop(glideslope::platform::UdpSocket& socket,
 // **The newest input a client sent, applied**, if one is waiting: what its
 // aircraft is flown by from the next step. Not if an AI pilot flies it: the
 // input is let go, and the client told nothing has been applied.
+// **The newest input heard, flown now** whenever it was due - before a
+// switch, so that what the client sent is flown by the aircraft it sent it
+// for - and every older one let go.
 void apply_input(Connection& c, Fleet& fleet) {
-    if (!c.input_heard) {
+    if (c.inputs_heard.empty()) {
         return;
     }
-    if (fleet.fly(c.aircraft, c.input_heard->second)) {
-        c.last_input_applied = c.input_heard->first;
+    if (fleet.fly(c.aircraft, c.inputs_heard.back().controls)) {
+        c.last_input_applied = c.inputs_heard.back().sequence;
         c.steps_into_input = 0;
     }
-    c.input_heard.reset();
+    c.inputs_heard.clear();
+}
+
+// **The inputs due by step `stepped`**: the newest of them flown from it,
+// the older ones it overtook let go.
+void apply_due(Connection& c, Fleet& fleet, std::int64_t stepped) {
+    std::optional<Connection::HeldInput> due;
+    while (!c.inputs_heard.empty() && c.inputs_heard.front().due >= 0 &&
+           c.inputs_heard.front().due <= stepped) {
+        due = c.inputs_heard.front();
+        c.inputs_heard.pop_front();
+    }
+    if (due && fleet.fly(c.aircraft, due->controls)) {
+        c.last_input_applied = due->sequence;
+        c.steps_into_input = 0;
+    }
 }
 
 void refuse(glideslope::platform::UdpSocket& socket,
@@ -4219,15 +4254,21 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             if (fleet == nullptr || c.aircraft == glideslope::net::no_aircraft) {
                 return;
             }
-            // Only the newest is kept, and applied once this pass's steps -
-            // at most `most_steps_between_looks` - are flown (apply_input).
+            // Each newer than the last kept, and flown from the step due
+            // when it was read (Connection::inputs_heard). More than a
+            // second of them waiting is a flood: the oldest are let go.
             const auto frames = c.inputs.received(inside.subspan(1));
             for (const glideslope::net::InputFrame& frame : frames) {
-                const std::uint32_t newest =
-                    c.input_heard ? c.input_heard->first : c.last_input_applied;
+                const std::uint32_t newest = c.inputs_heard.empty()
+                                                 ? c.last_input_applied
+                                                 : c.inputs_heard.back().sequence;
                 if (frame.sequence > newest) {
-                    c.input_heard.emplace(frame.sequence,
-                                          glideslope::sim::Controls::from_list(frame.controls));
+                    c.inputs_heard.push_back(
+                        {frame.sequence, glideslope::sim::Controls::from_list(frame.controls), -1});
+                    if (c.inputs_heard.size() >
+                        static_cast<std::size_t>(glideslope::sim::steps_per_second)) {
+                        c.inputs_heard.pop_front();
+                    }
                 }
             }
             return;
@@ -4783,7 +4824,18 @@ int run(const Options& o) {
             owed += clock.advance(std::chrono::duration_cast<std::chrono::nanoseconds>(
                 (now - last) * o.test_pace));
             const std::int64_t n = std::min(owed, most_steps_between_looks);
+            // The inputs read in this pass are due at the step due now.
+            for (auto& connection : connections) {
+                for (Connection::HeldInput& held : connection.second.inputs_heard) {
+                    if (held.due < 0) {
+                        held.due = stepped + std::min(owed, most_steps_held);
+                    }
+                }
+            }
             for (std::int64_t i = 0; i < n; ++i) {
+                for (auto& connection : connections) {
+                    apply_due(connection.second, *fleet, stepped + i);
+                }
                 weather_due();
                 for (const std::string& line : fleet->step()) {
                     std::printf("%s\n", line.c_str());
@@ -4794,13 +4846,15 @@ int run(const Options& o) {
                     std::this_thread::sleep_for(
                         std::chrono::duration<double, std::milli>(o.test_step_ms));
                 }
+                for (auto& connection : connections) {
+                    ++connection.second.steps_into_input;
+                }
             }
             owed -= n;
             stepped += n;
             for (auto& connection : connections) {
-                connection.second.steps_into_input += n;
-                // Heard in this pass: flown from the next step.
-                apply_input(connection.second, *fleet);
+                // Due by the next step: flown from it.
+                apply_due(connection.second, *fleet, stepped);
             }
         }
         last = now;
