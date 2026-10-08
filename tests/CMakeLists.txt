@@ -583,6 +583,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_engine_leaned_high_up_that_stops_below_the_full_rich_height_is_given_full_rich
     the_ai_climbs_a_cherokee_180_to_its_published_service_ceiling
     the_ai_climbs_a_cub_flown_solo_to_its_published_service_ceiling
+    the_ai_climbs_a_cessna_182s_at_its_handbooks_speeds_to_its_published_service_ceiling
     the_ai_climbs_a_cessna_172p_at_its_handbooks_speeds_to_its_published_service_ceiling
     the_cessna_182ss_engine_makes_230_hp_at_2400_rpm
     the_cherokee_180s_engine_makes_180_hp_at_2700_rpm

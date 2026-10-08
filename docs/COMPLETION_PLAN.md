@@ -960,13 +960,18 @@ Found while implementing something else. Added when found, not when remembered.
       needs training again (PROJECT_STATUS, 2026-10-08). *Verification: the
       engine makes 160 hp, and its figures and the learnt landing stay
       within theirs.*
-- [ ] **The Cessna 182S's climb falls away high up**: leaned, it reaches
+- [x] **The Cessna 182S's climb falls away high up**: leaned, it reaches
       about 13,000 ft against its handbook's 18,100. Its engine and
       propeller check out; the chart needs much less drag high up than the
       model has, which is the owner's call (PROJECT_STATUS, 2026-10-09).
       *Verification: the AI
       climbs it to within 10% of 18,100 ft, and its other figures stay
-      within theirs.*
+      within theirs.* Done 2026-10-09: its wing's drag due to lift was a
+      third too high for its shape; corrected, and the windmilling
+      propeller's drag charged only in the glide, it climbs to 17,039 ft
+      and all eleven figures are in range. The handbook's sea-level climb
+      and ceiling cannot both be met closely by any drag polar; both are
+      inside 10%, at +8% and -6%.
 - [ ] **The Cherokee's engine makes most power far too rich**, at 9.9 parts
       of air to one of fuel against the FAA's 12 to 13.8; the other three
       light aeroplanes are fixed (PROJECT_STATUS, 2026-10-08). On the FAA's

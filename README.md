@@ -83,7 +83,7 @@ progress** means much of it runs and the missing part is named.
 
 | Feature | State |
 |---|---|
-| Real flight dynamics, six degrees of freedom | In progress - the 172 now climbs to within 1% of its handbook's ceiling, but the 182 reaches about 12,900 ft against 18,100 and the Cherokee's engine is still leaned at every height; the F-15 does not stall as her manual describes (her speedbrake now makes drag, and stays in past 15 degrees of alpha); the B-2 and F-22 hold a heading in a crosswind at much lower speeds; the F-35B cannot hover or land vertically |
+| Real flight dynamics, six degrees of freedom | In progress - the 172 climbs to within 1% of its handbook's ceiling and the 182 to within 6%, but the Cherokee's engine is still leaned at every height; the F-15 does not stall as her manual describes (her speedbrake now makes drag, and stays in past 15 degrees of alpha); the B-2 and F-22 hold a heading in a crosswind at much lower speeds; the F-35B cannot hover or land vertically |
 | Wind and turbulence | **Done** |
 | Wind that shears and gusts, as the report gives | **Done** |
 | Live weather from the airfield's report | In progress - a flight keeps its starting airfield's weather wherever it goes; a client that joins while the weather is blending in flies the same air as the others |

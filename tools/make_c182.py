@@ -51,14 +51,54 @@ The changes, and what each is for:
                          there. The elevator's own profile drag over that
                          deflection is a seventh of that; with the tailplane's
                          induced drag from the load it carries in trim, 0.02.
-    Drag_due_to_alpha x1.15
-                         The glide was too flat (9.9:1, against 8.9). The
-                         handbook's glide is flown with the propeller
-                         windmilling, and in JSBSim the propeller of an engine
-                         that has stopped stops too - its tables end where it
-                         would begin to windmill - so the drag at the glide's
-                         angle of attack stands in for the windmilling
-                         propeller's, as the 172's does (tools/make_c172p.py).
+    The drag polar: induced drag x0.75, zero-lift drag 0.027 -> 0.030
+                         The handbook's climb holds up high far better than
+                         the model's did: leaned at figure 5-7's speeds it
+                         stopped climbing at 12,886 ft against the service
+                         ceiling's 18,100. Its engine (137 hp at 14,000 ft,
+                         Gagg and Ferrar's lapse) and propeller (0.74 to
+                         0.77) were not the cause (docs/PROJECT_STATUS.md,
+                         2026-10-09); its drag due to lift was. The pinned
+                         Drag_due_to_alpha table is k CL^2 with k = 0.083
+                         through the climb's lift coefficients, 0.5 to 1.0:
+                         an Oswald efficiency of 0.52 on this wing's aspect
+                         ratio of 7.37, and 0.45 once it carried the glide's
+                         x1.15. A strut-braced wing of that aspect ratio has
+                         0.7 to 0.83: Raymer's estimate for a straight wing,
+                         1.78 (1 - 0.045 A^0.68) - 0.64, gives 0.83; Virginia
+                         Tech's AOE 3104 (2000) gives the 182 0.80 with a
+                         zero-lift drag of 0.025; a drag build-up of the
+                         172S, the same wing and struts, gives 0.70 and
+                         0.028 (T. G. Harada, "Validation of Classical
+                         Aircraft Performance Methods Using Flight Test Data
+                         from a Cessna 172S", MS thesis, Ohio State, 2026).
+                         x0.75 makes it 0.69, the lowest of those; the
+                         zero-lift drag rises from 0.027 to 0.030 so that
+                         cruise and top speed stay where they were, the
+                         drag moving from lift to the airframe. A higher
+                         efficiency does not fit: at 0.77 (x0.65) the
+                         sea-level climb is 1,140 ft/min or more, out of
+                         range, wherever the zero-lift drag leaves top speed
+                         in range. 0.69 is the efficiency at which the
+                         sea-level climb (+8%) and the ceiling (-6%) are
+                         both in range: the handbook's two figures between
+                         them ask for almost no drag due to lift at all
+                         (PROJECT_STATUS, 2026-10-09), which no polar gives.
+    The windmilling propeller's drag, 0.021 with the engine stopped
+                         The handbook glides with the propeller windmilling
+                         (8.9:1, figure 3-1), and in JSBSim the propeller of
+                         an engine that has stopped stops too - its tables
+                         end where it would begin to windmill. The glide's
+                         extra drag was charged as x1.15 on the drag due to
+                         lift, in every flight; it is now a drag coefficient
+                         of its own, charged only while the engine is
+                         stopped (propulsion/engine[0]/set-running = 0): 72
+                         lb at the glide's 77.5 KCAS, a drag coefficient of
+                         0.1 on the propeller's disc. That is about the
+                         power the engine's own friction (below) absorbs at
+                         1,300 rpm - a dead engine turned over by a
+                         fine-pitch propeller - at the glide's speed. Its
+                         size is set to the glide figure.
     A stopped engine's friction
                          JSBSim charges a running engine its friction (its
                          mean effective pressure, about 50 hp at 2,400 rpm
@@ -67,11 +107,16 @@ The changes, and what each is for:
                          an engine that fails in flight stops as it should.
 
   Propeller (engine/prop_81in2v.xml)
-    C_THRUST x1.12 at advance ratio <= 0.3, fading to x1.0 at 0.8
+    C_THRUST x1.12 at advance ratio <= 0.3, fading to x1.0 at 0.5
                          The take-off ran 13% long (897 ft, against 795):
-                         the static thrust was 3.3 lb a horsepower. The climb
-                         (advance ratio about 0.5) gains 4%; cruise and top
-                         speed run above 0.85 and are untouched.
+                         the static thrust was 3.3 lb a horsepower. The
+                         take-off lifts off at an advance ratio of 0.36. The
+                         fade ended at 0.8, which gave the climb (0.53 at
+                         sea level, 0.59 at 18,000 ft) 6% more thrust than
+                         the propeller's tables for a figure that was not
+                         the climb's; it ends at 0.5, where the take-off's
+                         thrust is all it answers. The propeller's
+                         efficiency in the sea-level climb is then 0.70.
 
   Engine (engine/engIO540AB1A5.xml)
     maxrpm 2575 -> 2400  The handbook's (section 1) and type certificate data
@@ -83,9 +128,7 @@ The changes, and what each is for:
                          its mixture, for JSBSim's own, which made most power
                          at 9.9 to 1 - 6.6% more than full rich at sea level,
                          found by leaning high up; see tools/piston_mixture.py.
-                         Every figure stays in range with both; the ceiling on
-                         the autopilot, leaned, is 13,612 ft against the
-                         handbook's 18,100, which is still a tail.
+                         Every figure stays in range with both.
 """
 
 import pathlib
@@ -107,8 +150,11 @@ LIFT_DUE_TO_ALPHA = {
 }
 FULL_FLAP_LIFT = 0.44
 ELEVATOR_DRAG = "0.02"
-DRAG_DUE_TO_ALPHA_SCALE = 1.15
+DRAG_DUE_TO_ALPHA_SCALE = 0.75
+ZERO_LIFT_DRAG = "0.030"
+WINDMILLING_DRAG = 0.021
 LOW_J_THRUST = 1.12
+LOW_J_THRUST_ENDS = 0.5
 
 
 def replace_once(text, pattern, replacement, what):
@@ -224,11 +270,33 @@ def airframe():
     text = with_rows(text, m, rows)
 
     text = replace_once(
+        text, r"(<description>Drag_at_zero_lift</description>.*?<value>)0\.027(</value>)",
+        r"\g<1>" + ZERO_LIFT_DRAG + r"\2", "the drag at zero lift")
+    text = replace_once(text, r"(\n)(            <function name=\"aero/coefficient/CDDe\">)",
+                        r"\1" + WINDMILLING_PROPELLER.format(cd=WINDMILLING_DRAG) + r"\2",
+                        "the elevator's drag function")
+    text = replace_once(
         text, r"(<description>Drag_due_to_Elevator_Deflection</description>.*?<value>)0\.06(</value>)",
         r"\g<1>" + ELEVATOR_DRAG + r"\2", "the elevator's drag")
     text = replace_once(text, r"(\n)(    </flight_control>)", r"\1" + STOPPED_ENGINE_FRICTION + r"\2",
                         "the end of the flight controls")
     return text
+
+
+WINDMILLING_PROPELLER = """            <function name="aero/coefficient/CDwindmill">
+                <!-- glideslope: see tools/make_c182.py -->
+                <description>Drag_of_the_windmilling_propeller</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <difference>
+                        <value>1</value>
+                        <property>propulsion/engine[0]/set-running</property>
+                    </difference>
+                    <value>{cd:.4f}</value>
+                </product>
+            </function>
+"""
 
 
 # JSBSim's friction mean effective pressure, (18,400 x mean piston speed in m/s
@@ -267,9 +335,9 @@ STOPPED_ENGINE_FRICTION = """        <channel name="Stopped engine friction">
 def low_advance_thrust(advance):
     if advance <= 0.3:
         return LOW_J_THRUST
-    if advance >= 0.8:
+    if advance >= LOW_J_THRUST_ENDS:
         return 1.0
-    return LOW_J_THRUST + (1.0 - LOW_J_THRUST) * (advance - 0.3) / 0.5
+    return LOW_J_THRUST + (1.0 - LOW_J_THRUST) * (advance - 0.3) / (LOW_J_THRUST_ENDS - 0.3)
 
 
 def propeller():

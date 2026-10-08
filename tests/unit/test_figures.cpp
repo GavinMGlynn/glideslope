@@ -684,6 +684,16 @@ GLIDESLOPE_TEST(the_ai_climbs_a_cub_flown_solo_to_its_published_service_ceiling)
     expect_figure("j3cub", "service_ceiling");
 }
 
+// **The Cessna 182S, climbed at its handbook's speeds**: figure 5-7's best
+// climb falls from 82 KCAS at sea level by 0.51 kt a thousand feet, leaned
+// above 3,000 ft. With JSBSim's drag due to lift (an Oswald efficiency of
+// 0.45 with the glide's share) it stopped at 12,886 ft against 18,100; with
+// the wing's 0.69 and the windmilling propeller's drag charged only in the
+// glide (tools/make_c182.py), about 17,000.
+GLIDESLOPE_TEST(the_ai_climbs_a_cessna_182s_at_its_handbooks_speeds_to_its_published_service_ceiling) {
+    expect_figure("c182", "service_ceiling");
+}
+
 // **The Cessna 172P, climbed at its handbook's speeds**: figure 5-6's best
 // climb falls from 76 KIAS at sea level to 70 at 12,000 ft, and the AI is
 // asked for that speed at each height, leaning as it climbs. Held at its
@@ -712,18 +722,12 @@ GLIDESLOPE_TEST(the_cubs_engine_makes_65_hp_at_2300_rpm) {
 // the tests above, or named here with the reason it is not.** The light
 // aeroplanes are counted from the catalogue, so a fifth one added without a
 // ceiling, or without being named, turns this red.
-//
-// Left out, with the reason:
-//   c182 - rated at its 2,400 rpm and on the FAA's mixture curve, the AI
-//     climbs its model to only 13,600 ft against the handbook's 18,100: its
-//     climb falls away with height faster than the handbook's. A tail.
+// None is left out.
 //
 // The Cub is climbed with no mixture lever: its carburettor meters its
 // mixture (tools/piston_mixture.py), and is the one named in `no_lever`.
 GLIDESLOPE_TEST(every_light_aeroplane_is_climbed_to_its_published_ceiling_or_named_with_its_reason) {
-    const std::map<std::string, std::string> left_out = {
-        {"c182", "its model climbs to 13,600 ft against 18,100"},
-    };
+    const std::map<std::string, std::string> left_out = {};
     const std::set<std::string> no_lever = {"j3cub"};
     const auto catalogue =
         glideslope::sim::read_catalogue(std::filesystem::path(data_dir).parent_path());
