@@ -61,8 +61,10 @@ foreach(_p IN LISTS _platforms)
 endforeach()
 
 list(LENGTH _figure_names _n_figures)
-if(NOT _n_figures EQUAL 9)
-    string(APPEND _failures "\n  expected 9 figures, found ${_n_figures}: ${_figure_names}")
+# Ten: the nine of 2026-09 and the service ceiling, flown on the autopilot
+# at the handbook's climb speeds (2026-10-08).
+if(NOT _n_figures EQUAL 10)
+    string(APPEND _failures "\n  expected 10 figures, found ${_n_figures}: ${_figure_names}")
 endif()
 
 # CMake's math() is integer-only, so the comparisons go through a tiny helper
