@@ -265,10 +265,14 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Three tests that failed by chance on CI, 2026-10-08 — in progress
+### Three tests that failed by chance on CI, 2026-10-08 — two made deterministic, the third's cause fixed
 
-**What is still open, first.** The take-over test on macOS debug is not yet
-fixed; this entry says what was found as it lands.
+**What is still open, first.** The take-over test's server stall is built
+by hand (below), not by the test: the test still meets a stall only when
+the machine makes one. A stall longer than a quarter of a second still
+moves the clocks' difference by what is over. The "not refused once" of
+2026-09-29 was a line split by another writer, fixed then in
+`glideslope_impair`; it stays a watched item.
 
 **The learnt policy's 160 corner landings timed out on CI's Ubuntu debug**
 (900 s, run 37759639784 and before), and so tested nothing there. Split
@@ -298,12 +302,36 @@ second's change in it, an engine run on by its thrust over the round trip.
 Measured (linux-debug): 0.015 to 0.018 m/s after against 0.135 before (the
 throttle's changes flown a step or two apart are most of before's); against
 the server at 0.6 of real time, 0.009 after. On the Windows copy (release),
-0.011, 0.012 and 0.013 after against 0.127 to 0.135 before, three runs.
+ten runs in a row passed, 0.016 to 0.023 m/s after against 0.123 to 0.144
+before (and three earlier runs, 0.011 to 0.013).
 **Seen to fail** with the prediction not told the engine had stopped:
 0.487 m/s after against 0.136, red; reverted. (The distance's medians were
 then 0.183 against 0.042 m.)
 
-**Kept for the one still open**: the engine-stop test keeps the client's
+**The take-over test failed on macOS debug** (run 37759639784): "the
+prediction error was 14.915 m, the bound 8", 12.9 s in - before the
+take-over - with the clocks' difference 23 steps off at worst. **The
+cause**, read from the taking client's track: the server held up. Inputs
+that came in while it was were flown once it went on, at the step it had
+got to and not the one due when they came - so they arrived, as the client
+reckons it, that many steps early; the least of the clocks' difference over
+the fifty words it remembers fell by those steps, and for the two seconds
+it remembered them the server's word was placed that far off. Built by
+hand on linux-debug - the test's own server paused (SIGSTOP by its pid)
+200 ms, 12 s in: the difference fell from 214 to 198 for two seconds and
+the prediction was off by 4.2 m (0.4 m in the same run unpaused). Under
+the Windows build beside it, a server falling a second behind put it off
+22 m. **The fix** (`glideslope_server`): an input is flown from **the step
+that was due when it was read**, not the step the server had flown to -
+what the server already did within a pass, now across the steps it owes,
+at most a quarter of a second (`most_steps_held`) so that a server that
+never catches up still flies what it is sent. With it, the same 200 ms
+pause: the difference held at 231-232, the prediction off by 0.43 m at
+worst. With it, 20 runs in a row on two cores (taskset) passed, and the
+137 network tests (prediction, take-over, impaired, paced, behind, hand-over)
+pass in linux-debug.
+
+**Kept**: the engine-stop test keeps the client's
 track (`--track`), and the take-over test the taking client's; the client
 says the median speed error before and after the engine stopped beside
 the median distance, and writes each comparison's speed error to its track.
