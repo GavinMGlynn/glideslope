@@ -357,8 +357,14 @@ any) and played back green. Two needed more: **take_back**'s second answer
 was `keep` again, written in as a route as before, its `note` saying so;
 and **ChatGPT's hand-over** answered an orbit of Bondi round which she
 already flew, so `server_hand_over_model.cmake`'s "came no nearer its
-waypoint" now also takes an aircraft within a quarter of an orbit's radius
-of its circle - the server's half-minute line says an orbit's radius. The
+waypoint" now also takes an aircraft flying the circle: both half-minute
+lines within a quarter of the orbit's radius of it and ten degrees or more
+further round it - the server's line says an orbit's radius and the bearing
+of her from its centre. **Seen to fail** with that bearing held at nought,
+as an aircraft held still would be: "the aircraft came no nearer its
+waypoint"; reverted. **Every recording was scanned for a key** (`sk-`,
+`x-api-key`, `Bearer`, and the first characters of each key in
+~/.config/glideslope): none holds one; a recording writes no header. The
 first try with the new instructions had Claude, its engine stopped, answer
 a glide ending in `land`, refused three times; the instructions now say a
 glide never ends in `land`, and the second recording did not.
@@ -384,8 +390,8 @@ one function each, used by the class and the lesson test.
 
 **Verification.** `the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief`
 now also holds that each of the fourteen flew all five of the circuit's legs
-from crosswind to final, in order; its bands are unchanged and every
-aeroplane is inside them. `a_circuit_flown_low_downwind_is_named_in_the_debrief`,
+from crosswind to final, in order; **its bands are unchanged** - no limit in
+the lesson files or the test was moved - and every aeroplane is inside them. `a_circuit_flown_low_downwind_is_named_in_the_debrief`,
 `an_instructor_demonstrates_a_circuit_and_hands_it_over`, both go-around
 circuit tests, the runway-occupied go-around and the gusts test pass (7
 tests, linux-debug). **Seen to fail** with the circuit's downwind leg never
