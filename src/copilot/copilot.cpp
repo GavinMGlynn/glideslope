@@ -36,6 +36,16 @@ std::string waypoint_line(const sim::Waypoint& w) {
     return out;
 }
 
+// A name a route may carry: letters, digits and underscores, and at most so
+// many of them.
+bool a_route_word(const std::string& name) {
+    return !name.empty() && name.size() <= most_waypoint_name_bytes &&
+           std::all_of(name.begin(), name.end(), [](char c) {
+               return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                      (c >= '0' && c <= '9') || c == '_';
+           });
+}
+
 constexpr double least_height_ft = 500.0;
 constexpr double farthest_m = 200000.0;
 
@@ -67,6 +77,7 @@ std::string copilot_instructions() {
            "  glide AIRSPEED_KT\n"
            "  waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT\n"
            "  orbit NAME LATITUDE LONGITUDE RADIUS_M ALTITUDE_FT AIRSPEED_KT TURNS left|right\n"
+           "  land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M\n"
            "\n"
            "- Waypoints are flown in order. A waypoint is flown to and passed. An orbit is flown "
            "to and then round, TURNS times (whole; 0 means round and round until told "
@@ -80,11 +91,15 @@ std::string copilot_instructions() {
            "aircraft glides about 1.5 km for each 1,000 ft it is above the ground - and orbit "
            "over it to lose the height left. A glide's waypoints' altitudes and airspeeds are "
            "not flown: give each the field's elevation and the glide's airspeed, and an orbit "
-           "a radius wide enough for the glide's airspeed.\n"
+           "a radius wide enough for the glide's airspeed. A glide never ends in `land`.\n"
            "- Latitudes and longitudes are WGS84 decimal degrees, south and west negative. Use "
            "what you know of where places are.\n"
            "- Altitudes are feet above mean sea level; airspeeds are knots, calibrated, within "
            "the aircraft's speeds as given.\n"
+           "- `land`, last, only with the engine running, to land on one of the runways nearby "
+           "as given: copy its runway line, with `land` for `runway`. After the last waypoint "
+           "the autopilot flies to the final approach and lands, so no orbit before it may go "
+           "round for ever.\n"
            "- Names are one word each, letters, digits and underscores.\n"
            "\n"
            "An example of a new route, for a different flight:\n"
@@ -188,11 +203,17 @@ Change read_change(const Brief& b, const Situation& now, const std::string& answ
             out.glide_kts = kts;
         } else if (word == "waypoint" || word == "orbit") {
             route += lines[i] + "\n";
+        } else if (word == "land") {
+            if (i + 1 != lines.size()) {
+                throw sim::FlightPlanError("`land` is the last line of a route: `" + lines[i] +
+                                           "`");
+            }
+            route += lines[i] + "\n";
         } else if (word == "keep") {
             throw sim::FlightPlanError("`keep` is an answer alone, not part of a route");
         } else {
             throw sim::FlightPlanError("`" + lines[i] +
-                                       "` is none of keep, glide, waypoint or orbit");
+                                       "` is none of keep, glide, waypoint, orbit or land");
         }
     }
     // The route as a plan flown from where the aircraft is: the plan's own
@@ -208,12 +229,7 @@ Change read_change(const Brief& b, const Situation& now, const std::string& answ
                                    std::to_string(most_route_waypoints));
     }
     for (const sim::Waypoint& w : out.plan.waypoints) {
-        const bool word =
-            !w.name.empty() && std::all_of(w.name.begin(), w.name.end(), [](char c) {
-                return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-                       (c >= '0' && c <= '9') || c == '_';
-            });
-        if (!word || w.name.size() > most_waypoint_name_bytes) {
+        if (!a_route_word(w.name)) {
             throw sim::FlightPlanError("the name `" + w.name + "` is not " +
                                        std::to_string(most_waypoint_name_bytes) +
                                        " letters, digits and underscores or fewer");
@@ -224,7 +240,27 @@ Change read_change(const Brief& b, const Situation& now, const std::string& answ
                                        std::to_string(most_orbit_turns) + ", or 0 for ever");
         }
     }
+    if (out.plan.landing && !a_route_word(out.plan.landing->name)) {
+        throw sim::FlightPlanError("the name `" + out.plan.landing->name + "` is not " +
+                                   std::to_string(most_waypoint_name_bytes) +
+                                   " letters, digits and underscores or fewer");
+    }
     return out;
+}
+
+const world::RunwayEnd* landing_field(const Situation& now, const sim::Runway& landing) {
+    const world::RunwayEnd* found = nullptr;
+    double nearest = landing_within_m;
+    for (const world::RunwayEnd& end : now.fields) {
+        const double d = sim::distance_m(landing.threshold_lat_deg, landing.threshold_lon_deg,
+                                         end.latitude_deg, end.longitude_deg);
+        const double off = std::abs(std::remainder(landing.heading_deg - end.heading_deg, 360.0));
+        if (d <= nearest && off <= landing_within_deg) {
+            nearest = d;
+            found = &end;
+        }
+    }
+    return found;
 }
 
 std::string change_refusal(const Brief& b, const Situation& now, const Change& change) {
@@ -275,6 +311,27 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
         if (away > farthest_m) {
             return w.name + " is " + whole(away / 1000.0) + " km from the aircraft, more than " +
                    whole(farthest_m / 1000.0);
+        }
+    }
+    // **A landing is on a runway it was told of**, flown under power, by an
+    // aircraft with an approach speed to fly it at, and reached: no orbit
+    // before it goes round for ever.
+    if (const auto& landing = change.plan.landing) {
+        if (change.glide_kts) {
+            return "a glide does not land: it ends over its field";
+        }
+        if (b.approach_kts <= 0.0) {
+            return "the aircraft has no approach speed to land at";
+        }
+        for (const sim::Waypoint& w : change.plan.waypoints) {
+            if (w.orbit && w.orbit->turns == 0) {
+                return "the orbit " + w.name + " goes round for ever, so the landing after it "
+                       "is never flown";
+            }
+        }
+        if (landing_field(now, *landing) == nullptr) {
+            return "the landing " + landing->name + " is on none of the runways nearby: copy "
+                   "one's runway line, with `land` for `runway`";
         }
     }
     return {};

@@ -223,10 +223,7 @@ void ClientSession::prove_at_once() {
 }
 
 void ClientSession::knock_on(std::uint64_t token) {
-    const std::vector<std::uint8_t> ping = knock(Inside::ping, token);
-    Writer w = begin(Type::sealed);
-    w.bytes(sealing_->seal(all_of(ping)));
-    const std::vector<std::uint8_t> out = w.take();
+    const std::vector<std::uint8_t> out = sealed_knock(*sealing_, token);
     (void)socket_->send(server_, all_of(out));
 }
 
@@ -335,8 +332,7 @@ void ClientSession::read_what_arrived(double now_s) {
         // the server's address, and only for `BAD_HANDSHAKE` - "no session
         // here". It is sent in the clear, so anybody can forge one; heard
         // while the session works, it is nothing.
-        if (now_s - *last_opened_s_ >= quiet_before_believing_s &&
-            refusal_from(server_, from, datagram) == Refusal::bad_handshake) {
+        if (lets_go(server_, from, datagram, now_s - *last_opened_s_)) {
             let_go_at(now_s);
             return;
         }

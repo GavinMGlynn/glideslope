@@ -8,7 +8,10 @@
 #include "net/sealing.hpp"
 #include "platform/socket.hpp"
 
+#include <optional>
 #include <span>
+#include <string>
+#include <utility>
 #include <vector>
 
 using glideslope::net::Rejoin;
@@ -106,4 +109,55 @@ GLIDESLOPE_TEST(joining_again_goes_back_only_on_the_old_sessions_answer_to_its_o
           "the answer to the initiation is a new session");
     check(again.keys().receiving == answer->session.sending,
           "the new session's keys are the server's");
+}
+
+// **A refusal is believed only of a session gone quiet, only from the server,
+// and only for "no session here"** (net::lets_go), and a knock is a sealed
+// `PING` carrying its token (net::sealed_knock): the two rules both clients
+// keep, from this one piece. The space: the one believed, and the six that
+// differ from it by one thing - a tenth of a second too soon, another
+// address, `SERVER_FULL`, `DROPPED`, a datagram that is not a refusal, and a
+// refusal a byte too long.
+GLIDESLOPE_TEST(a_refusal_lets_a_session_go_only_from_the_server_for_no_session_after_three_quiet_seconds) {
+    const auto server = glideslope::platform::address_of("192.0.2.1:9");
+    const auto other = glideslope::platform::address_of("192.0.2.2:9");
+    check(server.has_value() && other.has_value(), "addresses for the server and another");
+    const auto refusal = [](glideslope::net::Refusal why) {
+        glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::refusal);
+        w.u8(static_cast<std::uint8_t>(why));
+        return w.take();
+    };
+    const std::vector<std::uint8_t> no_session = refusal(glideslope::net::Refusal::bad_handshake);
+    check(glideslope::net::lets_go(*server, *server, all_of(no_session), 3.0),
+          "the server's BAD_HANDSHAKE after three quiet seconds lets the session go");
+    std::vector<std::uint8_t> longer = no_session;
+    longer.push_back(0);
+    const std::vector<std::uint8_t> full = refusal(glideslope::net::Refusal::server_full);
+    const std::vector<std::uint8_t> dropped = refusal(glideslope::net::Refusal::dropped);
+    const std::vector<std::uint8_t> sealed_one(40, 0);
+    const std::vector<std::pair<std::string, bool>> not_believed{
+        {"after 2.9 quiet seconds", glideslope::net::lets_go(*server, *server, all_of(no_session), 2.9)},
+        {"from another address", glideslope::net::lets_go(*server, *other, all_of(no_session), 9.0)},
+        {"for SERVER_FULL", glideslope::net::lets_go(*server, *server, all_of(full), 9.0)},
+        {"for DROPPED", glideslope::net::lets_go(*server, *server, all_of(dropped), 9.0)},
+        {"in a datagram that is none", glideslope::net::lets_go(*server, *server, all_of(sealed_one), 9.0)},
+        {"a byte too long", glideslope::net::lets_go(*server, *server, all_of(longer), 9.0)},
+    };
+    std::size_t walked = 0;
+    for (const auto& [what, believed] : not_believed) {
+        check(!believed, "a refusal is not believed " + what);
+        ++walked;
+    }
+    check(walked == 6 && not_believed.size() == 6, "all six were tried");
+
+    glideslope::net::TrafficKey key;
+    key.bytes.fill(3);
+    glideslope::net::Sealer sealing(key);
+    glideslope::net::Unsealer opening(key);
+    const std::vector<std::uint8_t> knock = glideslope::net::sealed_knock(sealing, 42);
+    const auto opened = opening.open(all_of(knock).subspan(glideslope::net::envelope_size));
+    check(opened.has_value(), "a knock opens under the session it was sealed for");
+    check(opened && glideslope::net::knock_token(glideslope::net::Inside::ping, all_of(*opened)) ==
+                        std::optional<std::uint64_t>(42),
+          "and is a PING carrying its token");
 }

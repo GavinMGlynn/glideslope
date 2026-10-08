@@ -12,6 +12,7 @@
 #include "copilot/copilot.hpp"
 #include "frontend/briefs.hpp"
 #include "frontend/players_copilot.hpp"
+#include "frontend/route_file.hpp"
 #include "frontend/same_air.hpp"
 #include "frontend/server/dashboard.hpp"
 #include "frontend/server/window.hpp"
@@ -154,6 +155,7 @@ struct Options {
     std::vector<Flown> fly;
     std::string on_final; // AIRPORT/RUNWAY, or empty
     std::string ai_on_final; // AIRPORT/RUNWAY, or empty
+    std::string ai_route;    // a route file for the first AI aircraft, or empty
     int ai = default_ai;
     std::filesystem::path plan;
     // Which AI aircraft, numbered from 1, are planned by a model, and by which;
@@ -258,6 +260,10 @@ void print_usage(std::FILE* out) {
         "                     the aeroplane's approach speed with the landing flap:\n"
         "                     the first two miles out, the gate the learnt landing\n"
         "                     is offered at, and each after half a mile further\n"
+        "  --ai-route FILE    the first AI aircraft flying the plan file is given\n"
+        "                     this route at once, as a player's copilot's route\n"
+        "                     is: checked against it and flown, or refused and\n"
+        "                     said (for tests; glideslope_cli --send-route's file)\n"
         "  --ai-on-final AIRPORT/RUNWAY  the first AI aircraft flying the plan file\n"
         "                     starts on final to that runway end instead, three\n"
         "                     miles out, and is landed: handed to the learnt landing\n"
@@ -753,6 +759,9 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
                 return std::nullopt;
             }
             o.on_final = spec;
+        } else if (a == "--ai-route") {
+            if (!next(value)) return std::nullopt;
+            o.ai_route = value;
         } else if (a == "--ai-on-final") {
             if (!next(value)) return std::nullopt;
             const std::string spec(value);
@@ -844,6 +853,8 @@ void print_settings(const Options& o, std::FILE* out) {
                                     : o.on_final.c_str());
     std::fprintf(out, "ai final  %s\n",
                  o.ai_on_final.empty() ? "(no: the AI flies its plan)" : o.ai_on_final.c_str());
+    std::fprintf(out, "ai route  %s\n",
+                 o.ai_route.empty() ? "(no: the AI flies its plan)" : o.ai_route.c_str());
     std::fprintf(out, "ai        %d aircraft\n", o.ai);
     std::fprintf(out, "plan      %s\n",
                  o.plan.empty() ? "(the data's plans/sydney-harbour.plan)"
@@ -1732,6 +1743,43 @@ public:
         return {};
     }
 
+    // **A route given to the first AI aircraft flying its plan, as a
+    // player's copilot's is** (`--ai-route FILE`, for tests): checked against
+    // it as it is and flown (fly_route_on), or refused - and either way said.
+    // A server stepping by itself (`--steps`) flies it in simulated time.
+    void ai_route(const std::string& file) {
+        for (Aircraft& a : flown_) {
+            if (a.ai_number <= 0 || !a.on_plan) {
+                continue;
+            }
+            std::string refused;
+            glideslope::net::CopilotRoute route;
+            try {
+                route = glideslope::frontend::route_from_file(file);
+                refused = fly_route_on(a, route);
+            } catch (const std::exception& e) {
+                refused = e.what();
+            }
+            if (refused.empty()) {
+                std::string names;
+                for (const glideslope::net::RouteWaypoint& w : route.waypoints) {
+                    names += " " + w.name;
+                }
+                if (route.landing) {
+                    names += ", landing on " + route.landing->name;
+                }
+                std::printf("aircraft %u, an AI's, flies the route of %zu:%s\n",
+                            static_cast<unsigned>(a.index), route.waypoints.size(),
+                            names.c_str());
+            } else {
+                std::printf("aircraft %u, an AI's, is refused the route: %s\n",
+                            static_cast<unsigned>(a.index), refused.c_str());
+            }
+            break;
+        }
+        std::fflush(stdout);
+    }
+
     // An AI aircraft on final (`--ai-on-final`), flown down from where it
     // is: by the approach autopilot, handing her to the learnt landing at
     // its gate where her model has one.
@@ -1992,6 +2040,17 @@ public:
                 text += "waypoint " + w.name + line;
             }
         }
+        if (route.landing) {
+            const glideslope::net::RouteLanding& l = *route.landing;
+            std::snprintf(line, sizeof line, " %.7f %.7f %.1f %.1f %.1f\n", l.latitude_deg,
+                          l.longitude_deg, l.elevation_ft, l.heading_deg, l.length_m);
+            text += "land " + l.name + line;
+            // **Landed only on a runway of this server's own ground**: the
+            // runways of the collision ground near the landing's threshold
+            // are what it is held to (copilot::landing_field), and what it is
+            // landed on, not the route's numbers for it.
+            now.fields = ends_near(l.latitude_deg, l.longitude_deg);
+        }
         glideslope::copilot::Change change;
         change.keep = false;
         change.glide_kts = route.glide_kts;
@@ -2003,12 +2062,24 @@ public:
         if (std::string why = glideslope::copilot::change_refusal(brief, now, change); !why.empty()) {
             return why;
         }
+        // The runway it lands on, the server's own: never none past the check
+        // above, and refused, not followed, if it ever were.
+        const glideslope::world::RunwayEnd* landing_end =
+            change.plan.landing ? glideslope::copilot::landing_field(now, *change.plan.landing)
+                                : nullptr;
+        if (change.plan.landing && landing_end == nullptr) {
+            return "its landing is on none of this server's runways";
+        }
         if (!ai_flying(a)) {
             (void)hand(index, true);
         }
         glideslope::sim::FlightPlan plan = change.plan;
         for (glideslope::sim::Waypoint& w : plan.waypoints) {
             w.altitude_ft += geoid_.undulation(w.latitude_deg, w.longitude_deg) * feet_per_metre;
+        }
+        if (landing_end != nullptr) {
+            plan.landing = glideslope::world::as_runway(*landing_end, 0.0);
+            ground_the_landing(plan);
         }
         a.controller->replan(std::move(plan));
         a.controller->set_glide(route.glide_kts);
@@ -2025,6 +2096,39 @@ public:
             a.copilot_route.push_back(w.name);
         }
         return {};
+    }
+
+    // **The runway ends of the collision ground near a place**, within a
+    // kilometre of it - both ends of every runway there, each its threshold,
+    // its heading and length along the runway to the other end, and the
+    // ground's elevation there above the sea - as a copilot is told the
+    // runways near it.
+    std::vector<glideslope::world::RunwayEnd> ends_near(double lat, double lon) {
+        std::vector<glideslope::world::RunwayEnd> out;
+        const glideslope::world::RunwaySurfaces& surfaces = collision_->runways();
+        for (std::size_t i = 0; i < surfaces.size(); ++i) {
+            const glideslope::world::RunwayStrip& strip = surfaces.at(i).strip;
+            for (const bool he : {false, true}) {
+                const double end_lat = he ? strip.he_latitude_deg : strip.le_latitude_deg;
+                const double end_lon = he ? strip.he_longitude_deg : strip.le_longitude_deg;
+                if (glideslope::sim::distance_m(lat, lon, end_lat, end_lon) > 1000.0) {
+                    continue;
+                }
+                const glideslope::sim::Runway r = glideslope::world::runway_end(
+                    surfaces, i, he,
+                    collision_->height_above_geoid(end_lat, end_lon) * feet_per_metre);
+                glideslope::world::RunwayEnd e;
+                e.airport = strip.airport;
+                e.ident = he ? strip.he_ident : strip.le_ident;
+                e.latitude_deg = r.threshold_lat_deg;
+                e.longitude_deg = r.threshold_lon_deg;
+                e.elevation_ft = r.elevation_ft;
+                e.heading_deg = r.heading_deg;
+                e.length_m = r.length_m;
+                out.push_back(std::move(e));
+            }
+        }
+        return out;
     }
 
     // The simulation's clock.
@@ -2322,6 +2426,12 @@ public:
                 route.waypoints.push_back(std::move(r));
                 names += " " + w.name;
             }
+            if (const auto& l = change->plan.landing) {
+                route.landing = glideslope::net::RouteLanding{
+                    l->name, l->threshold_lat_deg, l->threshold_lon_deg, l->elevation_ft,
+                    l->heading_deg, l->length_m};
+                names += ", landing on " + l->name;
+            }
             std::string refused;
             try {
                 refused = fly_route_on(a, route);
@@ -2379,14 +2489,20 @@ public:
                               static_cast<unsigned>(a.index), a.copilot_route.size());
             } else {
                 const glideslope::sim::Waypoint& to = n.plan().waypoints[n.next()];
+                // **An orbit's radius said too**: an aircraft on its circle
+                // comes no nearer its centre, and is where it was sent.
+                char round[64] = "";
+                if (to.orbit) {
+                    std::snprintf(round, sizeof round, ", an orbit of %.0f m", to.orbit->radius_m);
+                }
                 std::snprintf(line, sizeof line,
                               "aircraft %u on its copilot's route: to %s, %zu of %zu, %.0f m "
-                              "from it at %.0f kt, %.0f s in",
+                              "from it at %.0f kt, %.0f s in%s",
                               static_cast<unsigned>(a.index), to.name.c_str(), n.next() + 1,
                               a.copilot_route.size(),
                               glideslope::sim::distance_m(lat, lon, to.latitude_deg,
                                                           to.longitude_deg),
-                              a.aircraft->property("velocities/vc-kts"), now_s());
+                              a.aircraft->property("velocities/vc-kts"), now_s(), round);
             }
             out.emplace_back(line);
             ++a.planned_route_seen;
@@ -4206,6 +4322,9 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                         for (const glideslope::net::RouteWaypoint& w : route.waypoints) {
                             names += " " + w.name;
                         }
+                        if (route.landing) {
+                            names += ", landing on " + route.landing->name;
+                        }
                         std::printf("aircraft %u flies its copilot's route of %zu:%s%s, %.0f s in\n",
                                     static_cast<unsigned>(c.aircraft), route.waypoints.size(),
                                     names.c_str(),
@@ -4407,6 +4526,9 @@ int run(const Options& o) {
                              o.ai_on_final.c_str(), refused.c_str());
                 return 2;
             }
+        }
+        if (!o.ai_route.empty()) {
+            fleet->ai_route(o.ai_route);
         }
         if (!o.on_final.empty()) {
             const std::string refused = fleet->players_on_final(o.on_final);

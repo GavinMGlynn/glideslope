@@ -127,12 +127,22 @@ CopilotRoute a_route() {
     round.airspeed_kts = 68.0;
     round.orbit = RouteWaypoint::Orbit{1500.0, 2, true};
     m.waypoints = {to, round};
+    m.landing = glideslope::net::RouteLanding{"YSSY_16R", -33.929401, 151.171997, 8.0, 167.9,
+                                              3962.0};
     return m;
 }
 
 bool same_route(const CopilotRoute& a, const CopilotRoute& b) {
     if (a.aircraft != b.aircraft || a.glide_kts != b.glide_kts ||
-        a.waypoints.size() != b.waypoints.size()) {
+        a.waypoints.size() != b.waypoints.size() || a.landing.has_value() != b.landing.has_value()) {
+        return false;
+    }
+    if (a.landing && (a.landing->name != b.landing->name ||
+                      a.landing->latitude_deg != b.landing->latitude_deg ||
+                      a.landing->longitude_deg != b.landing->longitude_deg ||
+                      a.landing->elevation_ft != b.landing->elevation_ft ||
+                      a.landing->heading_deg != b.landing->heading_deg ||
+                      a.landing->length_m != b.landing->length_m)) {
         return false;
     }
     for (std::size_t i = 0; i < a.waypoints.size(); ++i) {
@@ -793,6 +803,8 @@ GLIDESLOPE_TEST(every_message_filled_to_its_limits_fits_in_one_datagram) {
     longest.name = std::string(glideslope::net::most_waypoint_name_bytes, 'W');
     longest.orbit = RouteWaypoint::Orbit{};
     route.waypoints.assign(glideslope::net::most_route_waypoints, longest);
+    route.landing = glideslope::net::RouteLanding{
+        std::string(glideslope::net::most_waypoint_name_bytes, 'L'), 0.0, 0.0, 0.0, 0.0, 0.0};
     hold("copilot_route", glideslope::net::write(route));
 
     glideslope::net::LearntLandingRefused learnt;
@@ -1027,6 +1039,11 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
     w.airspeed_kts = next();
     w.orbit->radius_m = next();
     route.waypoints = {w};
+    route.landing->latitude_deg = next();
+    route.landing->longitude_deg = next();
+    route.landing->elevation_ft = next();
+    route.landing->heading_deg = next();
+    route.landing->length_m = next();
     out.push_back({"copilot_route", glideslope::net::write(route), fields,
                    [](std::span<const std::uint8_t> b) {
                        CopilotRoute got;
@@ -1044,7 +1061,7 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
 // infinite duration never ends. A number that is not one is refused exactly
 // as a bad count or a trailing byte is.
 //
-// **The space, stated.** Five kinds of message carry twenty-seven
+// **The space, stated.** Five kinds of message carry thirty-two
 // floating-point fields between them:
 //
 //   - `SESSION`, one - the simulation's clock;
@@ -1053,20 +1070,20 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
 //     wind;
 //   - `CONTROLLER_SWAP`, one;
 //   - `COPILOT_ROUTE`, the glide's airspeed, four per waypoint and one more
-//     per orbit.
+//     per orbit, and five for its landing.
 //
 // **The four kinds left out are named**: `LOBBY`, `AIRCRAFT`,
 // `TERRAIN_DATASET` and `WATCH` carry no floating-point field at all - slot
 // indices, names, a hash and a number - so there is nothing in them for this
 // to walk.
 //
-// Each of the twenty-seven is overwritten with six bit patterns that are not
+// Each of the thirty-two is overwritten with six bit patterns that are not
 // a number and must be refused, and five that are numbers however extreme and
 // must still read - except in the four fields with a range of their own (a
 // `WEATHER`'s place, when it changed and its blend), where the largest and
 // most negative doubles are outside (the most negative alone, for when it
-// changed, which has no top) and must be refused: 162 refusals of NaN and
-// infinity, 128 readings and 7 refusals out of range, each counted.
+// changed, which has no top) and must be refused: 192 refusals of NaN and
+// infinity, 153 readings and 7 refusals out of range, each counted.
 GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an_infinity) {
     // The bit patterns that are not a number. Both infinities, and NaNs
     // quiet and signalling, signed and with a payload, because a reader that
@@ -1138,17 +1155,17 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
             ++walked;
         }
     }
-    check(walked == 27, "twenty-seven floating-point fields were walked, not " +
+    check(walked == 32, "thirty-two floating-point fields were walked, not " +
                             std::to_string(walked));
-    check(refused == 27 * 6, "162 numbers that are not numbers were refused, not " +
+    check(refused == 32 * 6, "192 numbers that are not numbers were refused, not " +
                                  std::to_string(refused));
     // Outside: both extremes for the place and the blend, the most negative
     // alone for when it changed.
-    check(accepted == 27 * 5 - 7, "128 extreme numbers still read, not " +
+    check(accepted == 32 * 5 - 7, "153 extreme numbers still read, not " +
                                       std::to_string(accepted));
     check(out_of_range == 7, "7 outside a ranged field's range were refused, not " +
                                  std::to_string(out_of_range));
-    std::printf("  27 floating-point fields: %zu refused, %zu still read, %zu out of range\n",
+    std::printf("  32 floating-point fields: %zu refused, %zu still read, %zu out of range\n",
                 refused, accepted, out_of_range);
 }
 
@@ -1219,8 +1236,9 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_weather_is_refused) {
 // anything but letters, digits and underscores - a newline, which would
 // smuggle in plan lines, a `#`, which would comment one out, an escape, which
 // would reach the operator's terminal, and a space - a flag that is neither
-// `00` nor `01` in each of its three places, and a glide airspeed that is not
-// nought with no glide. And the one they are all changed from reads.
+// `00` nor `01` in each of its four places, a glide airspeed that is not
+// nought with no glide, and a landing's name empty or with a space. And the
+// one they are all changed from reads.
 GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_copilot_route_is_refused) {
     const auto reads = [](const std::vector<std::uint8_t>& body) {
         CopilotRoute got;
@@ -1259,16 +1277,23 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_copilot_route_is_refused)
     with("a name with a hash", [](CopilotRoute& r) { r.waypoints[0].name = "A#B"; });
     with("a name with an escape", [](CopilotRoute& r) { r.waypoints[0].name = "A\x1b[2J"; });
     with("a name with a space", [](CopilotRoute& r) { r.waypoints[0].name = "A B"; });
+    with("a landing named with a space", [](CopilotRoute& r) {
+        r.landing = glideslope::net::RouteLanding{"YSSY 16R", -33.9, 151.2, 8.0, 168.0, 3962.0};
+    });
+    with("a landing with an empty name", [](CopilotRoute& r) {
+        r.landing = glideslope::net::RouteLanding{"", -33.9, 151.2, 8.0, 168.0, 3962.0};
+    });
     // The flags, by their place: the glide's is byte 2; the first waypoint's
-    // orbit flag follows its name and four f64s; the last byte is the
-    // second's direction.
+    // orbit flag follows its name and four f64s; the last byte but one is
+    // the second's direction, and the last the landing's flag.
     const std::vector<std::uint8_t> bytes = glideslope::net::write(good);
     const std::size_t glide_flag = 2;
     const std::size_t first_orbit_flag = 12 + 2 + plain.name.size() + 4 * 8;
     for (const auto& [what, at] :
          std::vector<std::pair<std::string, std::size_t>>{{"a glide flag of 2", glide_flag},
                                                           {"an orbit flag of 2", first_orbit_flag},
-                                                          {"a direction of 2", bytes.size() - 1}}) {
+                                                          {"a direction of 2", bytes.size() - 2},
+                                                          {"a landing flag of 2", bytes.size() - 1}}) {
         std::vector<std::uint8_t> b = bytes;
         check(b[at] <= 1, what + ": the byte changed is a flag");
         b[at] = 2;
@@ -1286,7 +1311,7 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_copilot_route_is_refused)
         check(!reads(body), "a route with " + what + " is refused");
         ++walked;
     }
-    check(walked == 12 && refused.size() == 12, "all 12 refusals were tried, not " +
+    check(walked == 15 && refused.size() == 15, "all 15 refusals were tried, not " +
                                                     std::to_string(walked));
 }
 

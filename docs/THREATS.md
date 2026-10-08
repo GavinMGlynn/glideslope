@@ -649,7 +649,12 @@ a wreck. **The ground along the route is not checked**: every height must be 500
 above the ground beneath the aircraft as the route is read, and nothing
 looks at the ground between there and each waypoint, so a route at 3,000 ft
 over rising ground is taken and flown into it - as the server's own plans
-and a player's hands can be. What it cannot stop is a route that is flyable
+and a player's hands can be. **A landing** (since version `0A`) is landed
+only on a runway of the server's own collision ground within 100 m and 5
+degrees of the one named, and on the server's numbers for it, so a route
+cannot put an aircraft down on a made-up runway in a field or at a made-up
+elevation; finding those ends walks every runway the server has, once per
+route read. What it cannot stop is a route that is flyable
 and foolish - over
 the sea until the fuel runs out, say - which is no more than a player
 flying their own aircraft badly. It is a request, held to eight a second as

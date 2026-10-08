@@ -351,6 +351,11 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
         route.waypoints.push_back(std::move(p));
         names += " " + w.name;
     }
+    if (const auto& l = change->plan.landing) {
+        route.landing = net::RouteLanding{l->name, l->threshold_lat_deg, l->threshold_lon_deg,
+                                          l->elevation_ft, l->heading_deg, l->length_m};
+        names += ", landing on " + l->name;
+    }
     route_ = change->plan.waypoints;
     said_.push_back("its copilot answered with a route of " +
                     std::to_string(route.waypoints.size()) + ":" + names);

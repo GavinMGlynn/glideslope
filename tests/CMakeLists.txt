@@ -311,6 +311,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_session_joined_again_hands_up_nothing_of_the_one_let_go
     the_aeroplane_asked_for_reads_back_and_a_malformed_ask_reads_as_none
     joining_again_goes_back_only_on_the_old_sessions_answer_to_its_own_knock
+    a_refusal_lets_a_session_go_only_from_the_server_for_no_session_after_three_quiet_seconds
     slots_are_the_same_whatever_order_the_players_connect_in
     a_players_slot_is_their_keys_rank_among_those_in_the_session
     a_session_is_full_at_its_player_count_and_the_next_is_refused
@@ -666,6 +667,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_plan_from_words_is_checked_and_refused_back_to_the_model_until_it_can_be_flown
     a_task_file_names_its_aircraft_airport_and_words_and_anything_else_is_refused
     a_copilots_answer_is_read_as_keep_or_a_route_and_refused_wherever_it_cannot_be_flown
+    a_copilots_route_may_end_in_a_landing_on_a_runway_it_was_told_of_and_on_no_other
     a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_refused_and_the_model_told_them
     every_refusal_the_document_names_for_a_copilot_route_is_refused
     every_refusal_the_document_names_for_a_learnt_landing_refusal_is_refused
@@ -2654,6 +2656,25 @@ add_test(NAME two_ai_aircraft_on_plans_ending_at_one_runway_both_land_the_second
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_two_land_on_one_runway.cmake)
 set_tests_properties(two_ai_aircraft_on_plans_ending_at_one_runway_both_land_the_second_once_the_first_has_left_it
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800)
+
+# **A copilot's route that ends in a landing is landed and leaves the
+# runway; one landing on no runway is refused.** See
+# cmake/server_route_landing.cmake.
+add_test(NAME a_copilots_route_that_ends_in_a_landing_is_landed_and_leaves_the_runway
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DSTEPS=90000
+        -DROUTE=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/route-landing-on-16r.txt
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_route_landing.cmake)
+set_tests_properties(a_copilots_route_that_ends_in_a_landing_is_landed_and_leaves_the_runway
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800)
+add_test(NAME a_copilots_route_landing_on_no_runway_the_server_has_is_refused
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DSTEPS=10
+        -DROUTE=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/route-landing-on-no-runway.txt
+        "-DREFUSED=the landing NOWHERE is on none of the runways nearby"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_route_landing.cmake)
+set_tests_properties(a_copilots_route_landing_on_no_runway_the_server_has_is_refused
+    PROPERTIES SKIP_RETURN_CODE 77)
 
 # **The pre-commit hook refuses what it says it refuses**, and nothing else.
 # See cmake/githooks.cmake.
