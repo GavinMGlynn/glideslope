@@ -2034,18 +2034,22 @@ public:
             std::snprintf(line, sizeof line, "prediction error median: %.3f m over %zu updates",
                           *middle, sorted.size());
             lines.emplace_back(line);
-            // **And the 99th percentile**: what all but one update in a
-            // hundred was within. The worst is one moment's; on CI's Windows
-            // a single update of 600 was off by 1.1 m where the median was
-            // 5 mm (server_paced_prediction.cmake).
-            const std::size_t at = std::min(
-                sorted.size() - 1, static_cast<std::size_t>(std::ceil(
-                                       0.99 * static_cast<double>(sorted.size()))) - 1);
-            std::snprintf(line, sizeof line,
-                          "prediction error 99th percentile: %.3f m over %zu updates, the "
-                          "%zu worst above it",
-                          sorted[at], sorted.size(), sorted.size() - 1 - at);
-            lines.emplace_back(line);
+            // **And the 95th and 99th percentiles**: what all but five and
+            // one update in a hundred were within. On Windows about one in a
+            // hundred is put right by two steps' travel as the clocks'
+            // difference is learnt again (server_paced_prediction.cmake).
+            for (const int percent : {95, 99}) {
+                const std::size_t at = std::min(
+                    sorted.size() - 1,
+                    static_cast<std::size_t>(std::ceil(static_cast<double>(percent) / 100.0 *
+                                                       static_cast<double>(sorted.size()))) -
+                        1);
+                std::snprintf(line, sizeof line,
+                              "prediction error %dth percentile: %.3f m over %zu updates, the "
+                              "%zu worst above it",
+                              percent, sorted[at], sorted.size(), sorted.size() - 1 - at);
+                lines.emplace_back(line);
+            }
         }
         // **The pace it flew at** (sim::Pacing), and how far the clocks'
         // difference moved from the one it was held to.
