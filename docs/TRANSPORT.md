@@ -1064,7 +1064,7 @@ of order.
 | --- | --- |
 | `u8` | `03`, the kind |
 | `f64` | the simulation's clock, seconds since the session began |
-| `u32` | the newest input sequence from this client the server has applied |
+| `u32` | the newest input sequence from this client the server has applied - flown from the step that was due when it arrived; see "Where the server's word falls on the client's clock" |
 | `u8` | `your_aircraft`: the number, as below, of this client's own aircraft, or `FF` for none - its number, not its place in the list |
 | `u8` | how many aircraft follow, at most 20 |
 
@@ -1210,9 +1210,16 @@ flew the aircraft for that trip on no input of the client's, and the client
 cannot know how.
 
 **Where the server's word falls on the client's clock.** The server flies
-an input from the first step after it is read until the next input is, so an
-input that jitter makes late is flown late, and for longer or shorter than the
-client flew it. The update says how many steps the server had flown on the
+an input from **the step that was due when it was read** - the steps it had
+flown, and those it owed real time, up to 30 more (a quarter of a second) -
+until the next input is, so an input that jitter makes late is flown late,
+and for longer or shorter than the client flew it. A server held up does not
+fly the inputs that came in meanwhile early: before 2026-10-08 it flew them
+from the step it had got to, and a stall of 24 steps put its clients'
+clocks' difference 24 steps low for two seconds. A server held up for longer
+than 30 steps flies them early by what is over; one that never catches up
+flies each 30 steps after it came. At a switch of controller the newest
+input is flown at once. The wire did not change, so the version did not. The update says how many steps the server had flown on the
 input it names, and its clock says how many steps it had flown in all (the
 clock times 120): so the input began at the server's step `clock x 120 -
 steps into it`. Less the step at which the client began flying that input, that

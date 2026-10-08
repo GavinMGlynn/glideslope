@@ -331,6 +331,21 @@ worst. With it, 20 runs in a row on two cores (taskset) passed, and the
 137 network tests (prediction, take-over, impaired, paced, behind, hand-over)
 pass in linux-debug.
 
+**From the review of #133**: the rule is `net::HeldInputs`
+(`src/net/held_inputs.hpp`), the server's `Connection` holding one, and
+`an_input_heard_while_the_server_owes_steps_is_flown_from_the_step_due_when_it_came`
+pins it: every amount owed - none, a pass's 4, a 200 ms stall's 24, the
+most held (30) and past it (200, held 30) - flown from its due step; two
+read in passes apart each from its own; two in one pass, the newer; a
+switch flies the newest at once (flown early by what is owed - a switch is
+a moment of its own); a flood keeps the newest 120. **Seen to fail** with
+the old rule (`stepped + min(owed, 4)`): "owing 24 steps, flown from 104,
+not 124"; reverted. `docs/TRANSPORT.md` says when an input is flown; the
+wire is unchanged, so the version is. The engine-stop test also holds the
+median speed error after the stop under 5 cm/s (0.023 the most measured;
+an engine run on, 0.487); the distance's medians are not held, a step's
+misplacing being chance on Windows.
+
 **Kept**: the engine-stop test keeps the client's
 track (`--track`), and the take-over test the taking client's; the client
 says the median speed error before and after the engine stopped beside

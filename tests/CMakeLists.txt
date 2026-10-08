@@ -45,6 +45,7 @@ add_executable(glideslope_tests
     unit/test_leaner.cpp
     unit/test_departure.cpp
     unit/test_fuzz.cpp
+    unit/test_held_inputs.cpp
     unit/test_inputs.cpp
     unit/test_inside.cpp
     unit/test_handshake.cpp
@@ -178,6 +179,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_weather_whose_metar_cannot_be_read_is_refused_and_the_air_before_it_kept
     every_step_a_client_flies_meets_the_air_at_the_moment_the_server_flies_it
     every_control_goes_on_the_wire_and_comes_back_within_one_step
+    an_input_heard_while_the_server_owes_steps_is_flown_from_the_step_due_when_it_came
     with_nothing_lost_every_input_frame_arrives_once_and_in_order
     an_input_frame_arrives_exactly_when_a_packet_carrying_it_arrives
     losing_a_whole_packets_worth_of_datagrams_in_a_row_does_lose_an_input

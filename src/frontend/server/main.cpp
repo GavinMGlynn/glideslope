@@ -21,6 +21,7 @@
 #include "platform/end_process.hpp"
 #include "platform/closed_pipes.hpp"
 #include "platform/no_crash_dialogs.hpp"
+#include "net/held_inputs.hpp"
 #include "net/inputs.hpp"
 #include "net/inside.hpp"
 #include "net/keys.hpp"
@@ -71,7 +72,6 @@
 #include <future>
 #include <iterator>
 #include <memory>
-#include <deque>
 #include <map>
 #include <optional>
 #include <random>
@@ -964,24 +964,15 @@ struct Connection {
     // does, and the client places the server's word on its own clock by it
     // (sim::Prediction).
     std::int64_t steps_into_input = 0;
-    // **The inputs heard and not yet applied**, oldest first, each with the
-    // step it is flown from: **the step that was due when it was read**
-    // (`due`, -1 until the pass that read it steps). The time the steps owed
-    // then stand for had passed before it arrived. Applied as it was read, a
-    // server held up for 50 ms flew six steps of a new input early, and put
-    // its clients off by two metres (2026-09-27); applied once the pass's
-    // steps were flown but not the rest owed, a server held up 200 ms flew
-    // the inputs that came in meanwhile 24 steps early - the client's clocks'
-    // difference fell by those 24 for the two seconds it remembers, and its
-    // prediction was put right by 14.9 m (macOS debug, run 37759639784). At
-    // most `most_steps_held` after the step being flown, so that a server
-    // that never catches up still flies what it is sent.
-    struct HeldInput {
-        std::uint32_t sequence = 0;
-        glideslope::sim::Controls controls;
-        std::int64_t due = -1;
-    };
-    std::deque<HeldInput> inputs_heard;
+    // **The inputs heard and not yet applied**, oldest first, each flown
+    // from **the step that was due when it was read** (net::HeldInputs),
+    // at most `net::most_steps_held` on. Applied as it was read, a server
+    // held up for 50 ms flew six steps of a new input early, and put its
+    // clients off by two metres (2026-09-27); applied once the pass's steps
+    // were flown but not the rest owed, a server held up flew the inputs that
+    // came in meanwhile early by the steps owed, and its clients' prediction
+    // was put right by 14.9 m (macOS debug, run 37759639784).
+    glideslope::net::HeldInputs inputs_heard;
     // **What must arrive**: the reliable messages to this client, and what
     // each aircraft has been introduced to it as - its model, by number - so
     // that one is introduced once, and again if its number comes to mean
@@ -1108,11 +1099,8 @@ constexpr std::int64_t states_per_second = 25;
 // while, rather than going quiet for as long as the catching up takes.
 constexpr std::int64_t most_steps_between_looks = 4;
 
-// **The most steps an input heard is held before it is flown** (Connection::
-// inputs_heard): a quarter of a second. A server held up for longer flies
-// the inputs that came in meanwhile that much less early than it would, and
-// one that never catches up flies each this long after it came.
-constexpr std::int64_t most_steps_held = glideslope::sim::steps_per_second / 4;
+static_assert(glideslope::net::most_steps_held * 4 == glideslope::sim::steps_per_second,
+              "an input is held at most a quarter of a second");
 static_assert(most_steps_between_looks * states_per_second <
                   glideslope::sim::steps_per_second,
               "a pass must not cross two state updates");
@@ -3913,33 +3901,25 @@ void drop(glideslope::platform::UdpSocket& socket,
     }
 }
 
-// **The newest input a client sent, applied**, if one is waiting: what its
-// aircraft is flown by from the next step. Not if an AI pilot flies it: the
-// input is let go, and the client told nothing has been applied.
-// **The newest input heard, flown now** whenever it was due - before a
-// switch, so that what the client sent is flown by the aircraft it sent it
-// for - and every older one let go.
+// **The newest input heard, flown now** whenever it was due, and every
+// older one let go: before a switch, so that what the client sent is flown
+// by the aircraft it sent it for. One held for steps the server owes is
+// flown that much early (net::HeldInputs::take_newest). Not if an AI pilot
+// flies it: the input is let go, and the client told nothing has been
+// applied.
 void apply_input(Connection& c, Fleet& fleet) {
-    if (c.inputs_heard.empty()) {
-        return;
-    }
-    if (fleet.fly(c.aircraft, c.inputs_heard.back().controls)) {
-        c.last_input_applied = c.inputs_heard.back().sequence;
+    const auto newest = c.inputs_heard.take_newest();
+    if (newest && fleet.fly(c.aircraft, glideslope::sim::Controls::from_list(newest->controls))) {
+        c.last_input_applied = newest->sequence;
         c.steps_into_input = 0;
     }
-    c.inputs_heard.clear();
 }
 
 // **The inputs due by step `stepped`**: the newest of them flown from it,
 // the older ones it overtook let go.
 void apply_due(Connection& c, Fleet& fleet, std::int64_t stepped) {
-    std::optional<Connection::HeldInput> due;
-    while (!c.inputs_heard.empty() && c.inputs_heard.front().due >= 0 &&
-           c.inputs_heard.front().due <= stepped) {
-        due = c.inputs_heard.front();
-        c.inputs_heard.pop_front();
-    }
-    if (due && fleet.fly(c.aircraft, due->controls)) {
+    const auto due = c.inputs_heard.due_by(stepped);
+    if (due && fleet.fly(c.aircraft, glideslope::sim::Controls::from_list(due->controls))) {
         c.last_input_applied = due->sequence;
         c.steps_into_input = 0;
     }
@@ -4259,16 +4239,12 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             // second of them waiting is a flood: the oldest are let go.
             const auto frames = c.inputs.received(inside.subspan(1));
             for (const glideslope::net::InputFrame& frame : frames) {
-                const std::uint32_t newest = c.inputs_heard.empty()
-                                                 ? c.last_input_applied
-                                                 : c.inputs_heard.back().sequence;
+                const std::uint32_t newest =
+                    c.inputs_heard.newest().value_or(c.last_input_applied);
                 if (frame.sequence > newest) {
-                    c.inputs_heard.push_back(
-                        {frame.sequence, glideslope::sim::Controls::from_list(frame.controls), -1});
-                    if (c.inputs_heard.size() >
-                        static_cast<std::size_t>(glideslope::sim::steps_per_second)) {
-                        c.inputs_heard.pop_front();
-                    }
+                    c.inputs_heard.heard(
+                        frame.sequence, frame.controls,
+                        static_cast<std::size_t>(glideslope::sim::steps_per_second));
                 }
             }
             return;
@@ -4826,11 +4802,7 @@ int run(const Options& o) {
             const std::int64_t n = std::min(owed, most_steps_between_looks);
             // The inputs read in this pass are due at the step due now.
             for (auto& connection : connections) {
-                for (Connection::HeldInput& held : connection.second.inputs_heard) {
-                    if (held.due < 0) {
-                        held.due = stepped + std::min(owed, most_steps_held);
-                    }
-                }
+                connection.second.inputs_heard.stamp(stepped, owed);
             }
             for (std::int64_t i = 0; i < n; ++i) {
                 for (auto& connection : connections) {
