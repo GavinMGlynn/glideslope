@@ -319,9 +319,12 @@ horizontal tail 136 at 120, fin 96 at 85, gear 357 at -5 to -8, power plant
 855 at 48, systems and items 1,411 at 25. **WL 30.5**, near the fuselage's
 centreline, as a low-wing aeroplane's with her engines on her fuselage is;
 28.5 to 32.3 as the systems go from WL 18 to the centreline. The sum, 5,090
-kg, is 10% over her 4,614 empty. The aerodynamic reference point goes to
-the same height (was WL -5): her pitching moments are NASA's, identified
-about her own centre of gravity. Loaded, her centre of gravity is WL 25.8
+kg, is 10% over her 4,614 empty. **The aerodynamic reference point moved from WL -5
+to WL 30.5**, the same height: her pitching moments are NASA's, identified
+about her own centre of gravity. Raymer's general-aviation column instead
+would put the whole at WL 29.8 (its sum 2,909 kg, 37% short of her empty
+weight; the transport column is used, as she is certificated under part
+25). Loaded, her centre of gravity is WL 25.8
 (maximum) to 29.6 (light).
 
 **Why the rotation hardly moved.** Raised 26 in, the thrust's nose-down
@@ -330,19 +333,29 @@ acceleration's nose-up moment at the centre of gravity grew by about
 14,300. They nearly cancel, as they must when both rise with the fuselage.
 
 **Test.** `the_learjet_35a_carries_her_weight_and_thrust_at_the_heights_her_drawings_give`
-(new): at each of her figures' four loadings, counted, her centre of
-gravity lies between WL 14.5 and 31.5, no tank is below the fuselage's
-bottom, and each engine's thrust is within 2 in of WL 48, BL 47.5. **Seen to
-fail** three ways: on the old model ("landing: her centre of gravity at WL
--0.85"); with the engines alone put back at WL 22; with a wing tank alone
-put back at WL -4.
+(new): empty (no fuel, no payload) her centre of gravity is WL 28.0 to
+32.5, the estimate's own range (it is 30.5); at each of her figures' four
+loadings, counted, WL 24.0 to 31.0 (25.8 to 29.6); every tank between WL 7
+and 31.5, her two tip tanks at WL 19 within 2 in; each engine's thrust
+within 2 in of WL 48, BL 47.5. **Seen to fail** five ways: on the old model
+("empty, her centre of gravity at WL 0.0"); with the engines alone put back
+at WL 22; with a wing tank alone put back at WL -4; with the tip tanks
+alone at WL 10; with the empty centre of gravity alone at WL 26.
 
 **Unchanged**: the selftest's hash, be036519d2c19ea0. The committed Learjet
-is what its script writes. Passed in linux-release: every Learjet test (her
-figures, the cruise trim on her stabilizer - so the cruise still trims - the
-engine-out climb, orbits, crosswind), every take-off, rotation, over-rotation
-(she strikes at 14.3 degrees against 14.0 by her contacts) and lesson test,
-and the approach, landing, circuit and stall tests. The comments that gave
+is what its script writes. **Not the full suite**: two targeted runs in
+linux-release, 78 and 286 tests, all passed - every test whose name says
+Learjet (her figures, the cruise trim on her stabilizer - so the cruise still
+trims - her stalls, orbits both ways, and the plan-speed tests), every
+take-off, rotation, over-rotation (she strikes at 14.3 degrees against 14.0
+by her contacts), lesson and selftest test, and every approach, landing,
+circuit, crosswind, stall, orbit and committed-asset test. **Lateral and
+directional, for the engines' 5.5 in wider butt line and the tip tanks'
+contacts 15 in higher**: rerun were her engine-out climb, her heading in a
+20 kt crosswind at every plan speed, her orbits turning left and right, and
+the landing and approach tests that judge a wing-tip strike; not rerun were
+the multi-process tests that stop an engine on a server, and no test flies
+her with an engine stopped on the take-off roll. The comments that gave
 her early-rotation figures (the script, the two take-off tests, the
 business-jet take-off lesson) give the new ones.
 

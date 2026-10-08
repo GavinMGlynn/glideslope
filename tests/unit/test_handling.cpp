@@ -347,14 +347,41 @@ GLIDESLOPE_TEST(the_speedbrake_lever_moves_the_spoilers) {
 // it) put her nacelles' centreline at WL 48 and BL 47.5 and her tip tanks at
 // WL 19, and the empty aircraft's centre of gravity is estimated from them
 // at WL 30.5 (tools/make_learjet35a.py says how). What JSBSim reads is held
-// to that: at every loading her figures name - all of them, counted - her
-// centre of gravity lies between the wing's depth at its root, WL 14.5, and
-// the fuselage's centreline, WL 31.5; and, loaded or not, no tank of hers is
-// below the fuselage's bottom, and each engine's thrust acts within two
-// inches of the nacelle's centreline.
+// to that. Empty - no fuel, no payload - her centre of gravity is within the
+// estimate's own uncertainty, WL 28.0 to 32.5 (28.5 to 32.3 as her systems'
+// height is taken from WL 18 to the centreline, and Scholz's general-aviation
+// column's 29.8). At every loading her figures name - all of them, counted -
+// fuel in her wings and tip tanks (WL 16 and 19) and people on her floor
+// can only lower it: WL 24.0 to 31.0. Her tip tanks' fuel is at their centres
+// as drawn, WL 19 within 2 in; no tank of hers is below the tip tanks'
+// bottoms, WL 7, or above the fuselage's centreline; and each engine's
+// thrust acts within two inches of the nacelle's centreline.
 GLIDESLOPE_TEST(the_learjet_35a_carries_her_weight_and_thrust_at_the_heights_her_drawings_give) {
     const auto figures = glideslope::sim::read_published_figures(
         std::string(GLIDESLOPE_TEST_FIGURES_DIR) + "/learjet35a.xml");
+    {
+        Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "learjet35a");
+        glideslope::sim::Loading empty;
+        empty.pointmass_lbs[0] = 0.0;
+        for (std::size_t tank = 0; tank < a.tank_capacities_lbs().size(); ++tank) {
+            empty.tank_lbs[static_cast<int>(tank)] = 0.0;
+        }
+        a.load(empty);
+        InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 5000.0;
+        ic.terrain_elevation_ft = 0.0;
+        ic.airspeed_kts = 200.0;
+        ic.gear = 0.0;
+        a.initialize(ic);
+        const double cg = a.property("inertia/cg-z-in");
+        std::printf("  empty          %6.0f lb, centre of gravity WL %.1f\n",
+                    a.property("inertia/weight-lbs"), cg);
+        check(a.tank_capacities_lbs().size() == 5, "five tanks, all emptied");
+        check(cg >= 28.0 && cg <= 32.5, "empty, her centre of gravity at WL " + std::to_string(cg) +
+                                            ", not within the estimate's WL 28.0 to 32.5");
+    }
     std::size_t walked = 0;
     for (const auto& [name, loading] : figures.loadings) {
         Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "learjet35a");
@@ -371,15 +398,25 @@ GLIDESLOPE_TEST(the_learjet_35a_carries_her_weight_and_thrust_at_the_heights_her
         const double cg = a.property("inertia/cg-z-in");
         std::printf("  %-14s %6.0f lb, centre of gravity WL %.1f\n", name.c_str(),
                     a.property("inertia/weight-lbs"), cg);
-        check(cg >= 14.5 && cg <= 31.5,
+        check(cg >= 24.0 && cg <= 31.0,
               name + ": her centre of gravity at WL " + std::to_string(cg) +
-                  ", not between the wing's root, WL 14.5, and the fuselage's centreline, WL 31.5");
+                  ", not WL 24.0 to 31.0, lowered from empty by her fuel and payload");
+        int tips = 0;
         for (int tank = 0; a.has_property("propulsion/tank[" + std::to_string(tank) + "]/z-position");
              ++tank) {
-            const double z = a.property("propulsion/tank[" + std::to_string(tank) + "]/z-position");
-            check(z >= 0.0, name + ": tank " + std::to_string(tank) + " at WL " + std::to_string(z) +
-                                ", below the fuselage's bottom");
+            const std::string at = "propulsion/tank[" + std::to_string(tank) + "]/";
+            const double z = a.property(at + "z-position");
+            check(z >= 7.0 && z <= 31.5, name + ": tank " + std::to_string(tank) + " at WL " +
+                                             std::to_string(z) + ", not between WL 7 and 31.5");
+            // The tip tanks, at the wing's tips (a 38 ft 1 in span between
+            // their centres): WL 19 as drawn.
+            if (std::abs(a.property(at + "y-position")) > 200.0) {
+                ++tips;
+                check(std::abs(z - 19.0) <= 2.0, name + ": tip tank " + std::to_string(tank) +
+                                                     " at WL " + std::to_string(z) + ", not WL 19");
+            }
         }
+        check(tips == 2, name + ": two tip tanks, not " + std::to_string(tips));
         int engines = 0;
         for (; a.has_property("propulsion/engine[" + std::to_string(engines) + "]/z-reference-position");
              ++engines) {
