@@ -11,17 +11,22 @@
 # and never takes back. Handed over, it stays in its player's slot - the one
 # way of giving the AI an aircraft that keeps it there (a player who leaves,
 # or takes over another, gives it a number of the AI's, measured already).
-# The server runs until the client has gone (`--until-empty`); what it says
-# is what is read (the client's account goes to its `--heard` file). The
+# **The run is counted in steps the AI has the aircraft**: the server stops
+# once it has flown it for HANDED steps (`--steps-after-hand-over`) -
+# whenever on the machine's clock that comes -
+# and writes its `--stopped-file`, by which the client leaves
+# (`--until-exists`). A run of fixed length on the clock measured fewer
+# steps of the hand-over on a slow runner, which hands over later in it.
+# What the server says is what is read (the client's account goes to its
+# `--heard` file). The
 # client's aircraft is put a thousand feet over the two AI aircraft's
 # layers, so the one handed over is near both from the start.
 #
 # **What is checked**: the server's account of every two AI aircraft at the
 # end of the run. **Coverage is asserted**: three aircraft the AI flew make
 # three pairs - the two plan-file aircraft, and each of them with the handed
-# one - and each pair with the handed one is measured over at least the
-# steps from the hand-over to the client's leaving, less five seconds for
-# joining and going. Before, the handed one was never measured: one pair.
+# one - and each pair with the handed one is measured over exactly the
+# HANDED steps asked. Before, the handed one was never measured: one pair.
 # Separation lost for no step of any pair.
 #
 # Without the DEM's tiles it reports itself skipped (exit 77).
@@ -33,7 +38,8 @@ if(DEFINED CACHE)
 endif()
 set(_store "${WORK}/handed-kept-apart.sqlite")
 set(_heard "${WORK}/heard.txt")
-file(REMOVE "${_store}" "${_heard}")
+set(_stopped "${WORK}/stopped.txt")
+file(REMOVE "${_store}" "${_heard}" "${_stopped}")
 
 execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 0.05 --ai 0 --store "${_store}"
@@ -51,12 +57,15 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
-set(_stay 30)
+# Thirty simulated seconds of the hand-over; the client stays at most ten
+# minutes waiting for them.
+set(_handed 3600)
 execute_process(
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" ${_stay} --after 1
-            --hand-over-at 2 --heard "${_heard}"
-    COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 2 --headless
-            --data "${DATA}" --store "${_store}"
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 600 --after 1
+            --hand-over-at 2 --heard "${_heard}" --until-exists "${_stopped}"
+    COMMAND "${SERVER}" --port ${PORT} --seconds 900 --ai 2 --headless
+            --data "${DATA}" --store "${_store}" --steps-after-hand-over ${_handed}
+            --stopped-file "${_stopped}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT EXISTS "${_heard}")
     message(FATAL_ERROR "the client heard nothing:\n${_out}\n${_err}")
@@ -83,14 +92,16 @@ if(NOT _pairs EQUAL 3)
 endif()
 string(REGEX MATCHALL "\napart: [^\n]*" _lines "${_out}")
 list(TRANSFORM _lines STRIP)
-math(EXPR _least "(${_stay} - 2 - 5) * 120")
+if(NOT _out MATCHES "stopped after ${_handed} steps of a player's aircraft with the AI")
+    message(FATAL_ERROR "the server did not stop ${_handed} steps after the hand-over:\n${_out}")
+endif()
 set(_with_handed 0)
 foreach(_line IN LISTS _lines)
     message(STATUS "${_line}")
     if(_line MATCHES "\\(slot [0-9]+\\)")
         math(EXPR _with_handed "${_with_handed} + 1")
-        if(NOT _line MATCHES ", over ([0-9]+) steps, " OR CMAKE_MATCH_1 LESS _least)
-            message(FATAL_ERROR "the handed aircraft was measured over fewer than ${_least} "
+        if(NOT _line MATCHES ", over ([0-9]+) steps, " OR NOT CMAKE_MATCH_1 EQUAL _handed)
+            message(FATAL_ERROR "the handed aircraft was measured over other than ${_handed} "
                                 "steps: ${_line}")
         endif()
     endif()
@@ -105,4 +116,4 @@ if(NOT _lost EQUAL 0)
     message(FATAL_ERROR "separation lost for ${_lost} steps")
 endif()
 message(STATUS "the aircraft handed to the AI measured against both AI aircraft, "
-               "over at least ${_least} steps each; separation never lost")
+               "over ${_handed} steps each, as asked; separation never lost")
