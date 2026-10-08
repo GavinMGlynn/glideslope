@@ -2,6 +2,7 @@
 
 #include "sim/catalogue.hpp"
 #include "sim/figures.hpp"
+#include "sim/lander.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -462,6 +463,45 @@ GLIDESLOPE_TEST(the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_t
     std::filesystem::remove(file);
     check(refused == std::size(wrong), "all four sinks outside 0 to 600 were refused, not " +
                                            std::to_string(refused));
+}
+
+// **Every aircraft's flare touches down within NASA's criterion.** Zaal et
+// al., "Go-Around Criteria Refinement for Transport Category Aircraft"
+// (AIAA Journal of Air Transportation, NTRS 20205010611), take a touchdown
+// sink of 6 ft/s, 360 ft/min, as the most a landing may come down at; a
+// normal one is 100 to 300. Every aircraft in the catalogue is walked: its
+// target is its figures' `touchdown_fpm`, or the approach autopilot's own
+// where they give none, and where it is landed by the AI (`landing_speeds`)
+// that is the sink it is told.
+GLIDESLOPE_TEST(every_aircrafts_touchdown_sink_is_within_nasas_go_around_criterion) {
+    const double criterion_fpm = 6.0 * 60.0;
+    const auto data = std::filesystem::path(data_dir).parent_path();
+    const auto catalogue = glideslope::sim::read_catalogue(data);
+    std::size_t walked = 0;
+    std::size_t landed = 0;
+    for (const auto& e : catalogue) {
+        ++walked;
+        const PublishedFigures figures = read_published_figures(figures_file(e.model));
+        const double target = figures.touchdown_fpm > 0.0
+                                  ? figures.touchdown_fpm
+                                  : glideslope::sim::ApproachSpeeds{}.touchdown_fpm;
+        check(target > 0.0 && target <= criterion_fpm,
+              e.id + "'s flare touches down at " + std::to_string(target) +
+                  " ft/min, not within NASA's " + std::to_string(criterion_fpm));
+        const auto speeds = glideslope::sim::landing_speeds(data, e.model);
+        if (speeds) {
+            check(speeds->touchdown_fpm == target,
+                  e.id + " is landed at " + std::to_string(speeds->touchdown_fpm) +
+                      " ft/min, not its target " + std::to_string(target));
+            ++landed;
+        }
+        std::printf("  %-14s %4.0f ft/min%s\n", e.id.c_str(), target,
+                    speeds ? "" : " (no stall speed: not landed by the AI)");
+    }
+    std::printf("%zu aircraft walked, %zu of them landed by the AI\n", walked, landed);
+    check(walked == catalogue.size() && walked == figured_models().size(),
+          "every aircraft walked: " + std::to_string(walked) + " of " +
+              std::to_string(figured_models().size()));
 }
 
 // A figure that asks for flaps of an aircraft without them - the Cub has none,
