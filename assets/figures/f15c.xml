@@ -131,7 +131,7 @@
   </figure>
 
   <figure name="stall_speed_landing" flight="stall_speed" from="measured"
-          loading="clean" unit="KCAS" value="112.26" tolerance="3"
+          loading="clean" unit="KCAS" value="108.40" tolerance="3"
           flaps_deg="0" entry_kcas="200" gear="1" clmax="1">
     **Measured, not published.** The F-15's flight manual, T.O. 1F-15A-1,
     gives no stall speed: its section VI has the angle of attack settle at 45
@@ -139,13 +139,14 @@
     never breaks. So this is the speed at which the model's lift coefficient
     is first a maximum in a deceleration of a knot a second, as 14 CFR
     25.103(b) defines a stall speed for an aeroplane that has no break. That
-    maximum is where the model's lift table peaks, at 32 degrees of alpha -
-    the table's, from JSBSim's f15, not a published one. It was 151.06 until
-    the pitching moment was made NASA's (tools/make_f15c.py), the speed where
-    the stabilator ran out at 18 degrees. Measured on 2026-10-02 from entry
-    speeds of 160, 200 and 240 knots: 112.13, 112.26 and 112.15. What it
-    asserts is that the model still does what it did, not that the
-    aeroplane does it.
+    maximum is where the model's lift table peaks, at 40 degrees of alpha,
+    where NASA TN D-8052's flight data for the 3/8-scale F-15 end
+    (tools/make_f15c.py). It was 151.06 until the pitching moment was made
+    NASA's, the speed where the stabilator ran out at 18 degrees; 112.26,
+    at the pinned table's peak at 32 degrees, until the lift was made TN
+    D-8052's; measured again from 200 knots by `glideslope_cli figures
+    f15c` on 2026-10-09 (linux-debug), 108.40. What it asserts is that the
+    model still does what it did, not that the aeroplane does it.
   </figure>
 
   <figure name="climb_rate" from="measured" loading="clean" unit="ft/min"
@@ -154,12 +155,13 @@
     Characteristics nor the flight manual gives a climbing speed, or a rate
     of climb at this loading and speed. Both are the model's own, taken on
     2026-09-23, and the rate measured again, 24,556, on 2026-10-02 with the
-    pitching moment made NASA's. The curve is still flat here, so the speed
+    pitching moment made NASA's, and 24,555 on 2026-10-09 with NASA TN
+    D-8052's lift. The curve is still flat here, so the speed
     is not what the ninety-five per cent test picked but the floor under it
     then: **1.3 times the stall speed measured then, 151.1 knots**. The stall
-    is now measured at 112, whose floor would be 146. **200 is kept by
+    is now measured at 108.4, whose floor would be 141. **200 is kept by
     decision, not by that rule**: it is where the take-off and climb lessons
-    were measured, and a climb taught at 146 knots is not one the manual
+    were measured, and a climb taught at 141 knots is not one the manual
     flies. A fighter has so much thrust to spare that it climbs
     within a few per cent of its best rate over hundreds of knots, and taking
     the peak would have taught a climb at 522 knots.

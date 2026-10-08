@@ -935,10 +935,11 @@ Found while implementing something else. Added when found, not when remembered.
 - [ ] **The F-15C's stall, held to her flight manual's speed** (owner,
       2026-10-09): at full aft stick she settles at 100 knots or less; her
       angle of attack is reported, not judged, as no primary source turns
-      the manual's units into degrees. Missing: that speed - she settles at
-      116.6 knots, and her model's lift and drag give 100 only past the end
-      of their tables. *Verification: held at full aft stick, the F-15C
-      settles at 100 knots or less.*
+      the manual's units into degrees. Her lift is now NASA's flight data
+      for the 3/8-scale F-15 to 40 degrees. Missing: that speed - she
+      settles at 110.1 knots, and 100 needs about a fifth more lift and drag
+      than any source here gives at the angle she settles at. *Verification:
+      held at full aft stick, the F-15C settles at 100 knots or less.*
 - [x] **The autopilot banks to its limit even when the aeroplane cannot sustain
       the turn.** *Verification: a light aeroplane near its ceiling holds its
       height through a 90-degree turn as it does at 3,000 ft.* Done

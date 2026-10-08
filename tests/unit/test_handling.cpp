@@ -150,7 +150,7 @@ GLIDESLOPE_TEST(a_failed_jet_engine_stays_failed) {
     check(live > 5000.0, "the other still runs: " + std::to_string(live) + " lb");
 }
 
-// **Held at full aft stick, the F-15C settles - for now at 117 knots, not
+// **Held at full aft stick, the F-15C settles - for now at 112 knots, not
 // her manual's 100.** T.O. 1F-15A-1, section VI, 1 g stalls: "With full aft
 // stick, AOA stabilizes at 45 units or above with airspeed 100 knots or
 // less". The owner decided on 2026-10-09 that she is held to that speed
@@ -160,12 +160,14 @@ GLIDESLOPE_TEST(a_failed_jet_engine_stays_failed) {
 // clean 36,946 lb, throttles idle, wings held level, the stick full aft for
 // ninety seconds; over the last twenty her speed must hold within four
 // knots - settled - and be no faster than `held_kcas`. **That is not yet
-// the manual's**: she settles at 116.6 knots, and 100 needs about a third
-// more lift and drag than her model's tables give, which end at 50 degrees
-// (docs/PROJECT_STATUS.md). `held_kcas` is lowered to 100 when she meets it.
-GLIDESLOPE_TEST(the_f15c_held_at_full_aft_stick_settles_no_faster_than_117_knots_against_her_manuals_100) {
+// the manual's**: with NASA TN D-8052's lift (tools/make_f15c.py) she
+// settles at 110.1 knots, 1.9 under `held_kcas` for other platforms'
+// arithmetic, and 100 needs about a fifth more lift and drag than her
+// model's tables give at the alpha she settles at (docs/PROJECT_STATUS.md).
+// `held_kcas` is lowered to 100 when she meets it.
+GLIDESLOPE_TEST(the_f15c_held_at_full_aft_stick_settles_no_faster_than_112_knots_against_her_manuals_100) {
     const double manual_kcas = 100.0;
-    const double held_kcas = 117.0;
+    const double held_kcas = 112.0;
     const auto figures = glideslope::sim::read_published_figures(
         std::filesystem::path(GLIDESLOPE_TEST_FIGURES_DIR) / "f15c.xml");
     Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "f15c");
