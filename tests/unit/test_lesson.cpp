@@ -827,10 +827,11 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
         // but not judged. With her stabilizer set for take-off where her
         // maintenance manual's travel puts it, the stick fully back from 85
         // percent of the speed the book rotates her at lifts her nose only at
-        // about 115 knots, and she leaves at her rotation speed, not before
-        // it - a tail, "The Learjet cannot be rotated early"; the moment
-        // budget is in docs/PROJECT_STATUS.md. Her book take-off is judged
-        // as everyone's.
+        // about 113 knots, and she leaves at 124, a knot short of her
+        // rotation speed and inside the five the lesson allows - a tail, "The
+        // Learjet cannot be rotated early"; the moment budget is in
+        // docs/PROJECT_STATUS.md (her heights from her drawings, 2026-10-09,
+        // moved it 1.6 knots). Her book take-off is judged as everyone's.
         if (entry.id == "learjet35a") {
             early_left_out.push_back(entry.id + ": rotated early she leaves at " +
                                      std::to_string(early.kts) + " knots, her rotation speed " +
@@ -1135,7 +1136,7 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
         // set for take-off where her maintenance manual's travel puts it
         // (tools/make_learjet35a.py), the stick held fully back from 85
         // percent of the speed the book rotates her at lifts her nose wheel
-        // only at about 115 knots, and she is five feet up past her rotation
+        // only at about 113 knots, and she is five feet up past her rotation
         // speed less five, so the lesson rightly finds nothing early in it.
         // Nothing published says she could come off sooner; the moment
         // budget is in PROJECT_STATUS, and the tail is "The Learjet cannot

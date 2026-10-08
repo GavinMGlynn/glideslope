@@ -338,6 +338,65 @@ GLIDESLOPE_TEST(the_speedbrake_lever_moves_the_spoilers) {
               std::to_string(a.property("fcs/spoiler-pos-norm")));
 }
 
+// **The Learjet 35A's weight and thrust are where her drawings put them.**
+// Her model's frame is her flight manual's, whose water line 0 is the bottom
+// of her fuselage, 63 in across (her maintenance manual, 6-00-01 and
+// 6-00-02). Until 2026-10-09 her centre of gravity stood at that bottom, her
+// fuel tanks four inches below it and her engines' thrust at WL 22, all
+// estimated; her drawings (MM 6-00-00 figure 1, as the NTSB's docket prints
+// it) put her nacelles' centreline at WL 48 and BL 47.5 and her tip tanks at
+// WL 19, and the empty aircraft's centre of gravity is estimated from them
+// at WL 30.5 (tools/make_learjet35a.py says how). What JSBSim reads is held
+// to that: at every loading her figures name - all of them, counted - her
+// centre of gravity lies between the wing's depth at its root, WL 14.5, and
+// the fuselage's centreline, WL 31.5; and, loaded or not, no tank of hers is
+// below the fuselage's bottom, and each engine's thrust acts within two
+// inches of the nacelle's centreline.
+GLIDESLOPE_TEST(the_learjet_35a_carries_her_weight_and_thrust_at_the_heights_her_drawings_give) {
+    const auto figures = glideslope::sim::read_published_figures(
+        std::string(GLIDESLOPE_TEST_FIGURES_DIR) + "/learjet35a.xml");
+    std::size_t walked = 0;
+    for (const auto& [name, loading] : figures.loadings) {
+        Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "learjet35a");
+        a.load(loading.loading);
+        InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 5000.0;
+        ic.terrain_elevation_ft = 0.0;
+        ic.airspeed_kts = 200.0;
+        ic.gear = 0.0;
+        a.initialize(ic);
+        ++walked;
+        const double cg = a.property("inertia/cg-z-in");
+        std::printf("  %-14s %6.0f lb, centre of gravity WL %.1f\n", name.c_str(),
+                    a.property("inertia/weight-lbs"), cg);
+        check(cg >= 14.5 && cg <= 31.5,
+              name + ": her centre of gravity at WL " + std::to_string(cg) +
+                  ", not between the wing's root, WL 14.5, and the fuselage's centreline, WL 31.5");
+        for (int tank = 0; a.has_property("propulsion/tank[" + std::to_string(tank) + "]/z-position");
+             ++tank) {
+            const double z = a.property("propulsion/tank[" + std::to_string(tank) + "]/z-position");
+            check(z >= 0.0, name + ": tank " + std::to_string(tank) + " at WL " + std::to_string(z) +
+                                ", below the fuselage's bottom");
+        }
+        int engines = 0;
+        for (; a.has_property("propulsion/engine[" + std::to_string(engines) + "]/z-reference-position");
+             ++engines) {
+            const std::string at = "propulsion/engine[" + std::to_string(engines) + "]/";
+            const double z = a.property(at + "z-reference-position");
+            const double y = std::abs(a.property(at + "y-reference-position"));
+            check(std::abs(z - 48.0) <= 2.0 && std::abs(y - 47.5) <= 2.0,
+                  name + ": engine " + std::to_string(engines) + "'s thrust at WL " + std::to_string(z) +
+                      ", BL " + std::to_string(y) + ", not her nacelle's WL 48, BL 47.5");
+        }
+        check(engines == 2, name + ": two engines, not " + std::to_string(engines));
+    }
+    std::printf("  %zu of her figures' %zu loadings\n", walked, figures.loadings.size());
+    check(walked == figures.loadings.size() && walked == 4,
+          "every one of her figures' four loadings, not " + std::to_string(walked));
+}
+
 // **The Learjet 35A trims in cruise on her stabilizer**, the elevator left at
 // neutral. She trims by moving the whole horizontal stabilizer, and her
 // maintenance manual gives its travel (27-40-00): from 1 deg 30' to 1 deg 55'

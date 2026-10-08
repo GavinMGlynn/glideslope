@@ -77,10 +77,20 @@ Where each number comes from:
     The side view, by which the ventral fin's lower aft edge - what her tail
     strikes the runway with, pivoting on the main wheels - is placed (below,
     TAIL_AFT_IN); the model had nothing behind its main wheels to strike.
+  The same figure, both sheets, as the NTSB's docket for DCA00MA005 prints
+  it (Airworthiness 13, attachment 2, Configuration Drawings, Learjet Model
+  35), and MM 6-00-01's fuselage diameter, 5 ft 3 in
+    The heights of the nacelles, the tip tanks and the wing above the
+    fuselage's bottom, WL 0, and the nacelles' butt line (below, "Heights").
+  Raymer's class I mass groups, as Scholz's Aircraft Design lecture notes
+  (HAW Hamburg, chapter 10, table 10.2) tabulate them
+    The weights by which the empty aircraft's centre of gravity's height is
+    estimated from those heights (below, EMPTY_CG_WL).
 
 Estimated, as no source gives them, each named below with its number: the
-empty aircraft's centre of gravity, its inertias, the positions of the
-engines and the payload, the damping in roll and yaw and the side force, the
+empty aircraft's centre of gravity - its height from the drawings and
+Raymer's mass groups - its inertias, the stations of the engines and the
+payload's place, the damping in roll and yaw and the side force, the
 engines' thrust with height and speed, the drag rise's Mach, the gear's
 springs and the wheels' size, the fan's, for a stopped engine's drag, and
 where the stabilizer's rigging neutral lies on the flight model's scale.
@@ -134,9 +144,68 @@ LAPSE_EXPONENT = 0.0
 LAPSE_THROTTLE_RATIO = 1.0
 LAPSE_FALL = 3.8
 ENGINE_STATION = 470.0
-ENGINE_BUTT = 42.0
-ENGINE_WATER = 22.0
+# The nacelles' centreline, measured off MM 6-00-00 figure 1 (below,
+# "Heights"): BL 47.5 and WL 48.
+ENGINE_BUTT = 47.5
+ENGINE_WATER = 48.0
 FAN_IN = 27.3
+
+# **Heights, from her drawings.** The model's frame is the AFM's, whose WL 0
+# is the bottom of the fuselage (MM 6-00-02 figure 1, frames 9 to 15), and
+# the fuselage's constant section is 63 in across outside (MM 6-00-01,
+# "Outside diameter 5 ft 3 in"): its centreline is WL 31.5. The rest is
+# measured off MM 6-00-00 figure 1 sheet 2 - the front and side views, as the
+# NTSB's copy prints them (DCA00MA005, Airworthiness 13, attachment 2), at
+# 200 dpi - each view scaled by its own published dimensions: the front view
+# by its 8 ft 3 in tread (1.54 px/in), which puts its fuselage 63.0 in
+# across, as the text says; the side view by its 48 ft 7 in length and 20 ft
+# 2 in wheelbase (1.56 and 1.55 px/in), which put its fuselage 62.5 in deep.
+# Each height is taken from the fuselage, not from the drawn ground: the
+# drawn main wheel is 13 in across and its axle 14.7 in under the fuselage,
+# where the tyre is 17.5 in and the AFM's axle WL -16.72, so the drawn ground
+# is some 4.5 in high - which is also why the drawing's 12 ft 3 in height
+# reads 2 to 4 in short. The model's ground stays the AFM's axles' and the
+# tyres'.
+#   - The nacelles' centreline: in the front view 17.2 in above the
+#     fuselage's centre and 47.6 in out from it; in the side view 15 in below
+#     the fuselage's top, 48 in above its bottom. WL 48, BL 47.5. MM 6-00-03's
+#     engine beams, which carry the pylons, are at WL 40, below it.
+#   - The tip tanks: 24 in across, their centres 12.5 in below the fuselage's
+#     centre in the front view - WL 19, their bottoms WL 7.
+#   - The wing, at the fuselage's side, WL 14.5 at the middle of its depth;
+#     its tip, at the tip tank's centre, WL 19; its fuel taken at WL 16.
+TIP_TANK_WL = 19.0
+TIP_TANK_RADIUS_IN = 12.0
+WING_TANK_WL = 16.0
+# The fuselage tank, at FS 440.2 aft of the baggage compartment, below the
+# engine beams: estimated in the fuselage's lower half, WL 20.
+FUSELAGE_TANK_WL = 20.0
+# The payload: seated on the cabin's floorboards, WL 5.87 (MM 6-00-02), a
+# seated person's weight some 20 in above them - estimated, WL 26.
+PAYLOAD_WL = 26.0
+# **The empty aircraft's centre of gravity's height - an estimate, as no
+# document prints it**, made the way a designer makes it before one is
+# weighed: each mass group's weight by Raymer's class I factors for
+# transports (Raymer, Aircraft Design: A Conceptual Approach, 1989, as
+# tabulated by Scholz, Aircraft Design lecture notes, HAW Hamburg, chapter
+# 10, table 10.2), at its height from the drawings above. At her maximum
+# take-off weight, 8,301 kg:
+#   wing, 49 kg/m2 of 19.15 m2 exposed (253.3 sq ft less 63 in by the 108 in
+#     root chord inside the fuselage), 938 kg at WL 16.5 (root 14.5, tip 19);
+#   fuselage, 24 kg/m2 of some 54 m2 wetted, 1,296 kg at WL 31.5;
+#   horizontal tail, 27 kg/m2 of 5.02 m2, 136 kg at WL 120, atop the fin;
+#   vertical tail, 27 kg/m2 of 3.56 m2, 96 kg at WL 85 (its spars WL 55 to
+#     95, MM 6-00-02 figure 5);
+#   nose and main gear, 0.006 and 0.037 of the take-off mass, 50 kg at WL -8
+#     and 307 kg at WL -5, extended (axles WL -18 and -17, the AFM's);
+#   power plant, 1.3 times two 329 kg TFE731-2s, 855 kg at WL 48;
+#   systems and items, 0.17 of the take-off mass, 1,411 kg at WL 25 - under
+#     the fuselage's centreline: floorboards WL 5.87, baggage floor 24.8.
+# 5,090 kg in all against her 4,614 empty, and WL 30.5: the fuselage's
+# centreline, near enough, as a low-wing aeroplane's with its engines on its
+# fuselage is. Its uncertainty is mostly the systems': at WL 18 or at the
+# centreline the whole is WL 28.5 or 32.3.
+EMPTY_CG_WL = 30.5
 
 # The lift: at no incidence and its slope (TN D-7647); the flaps' lift by
 # TN D-6573's per-degree effectiveness; and each setting's greatest, from the
@@ -168,10 +237,14 @@ FLAP_PITCH = -0.03           # at 40 degrees
 # setting, the elevator alone had to lift the nose wheel, and could not until
 # 132 knots with the stick fully back - its rotation speed is 125 - so she
 # left the runway at 152 by the book, and pulled early no sooner. Set as the
-# AFM sets it, on the manual's travel (below), she leaves at 128.9 by the
-# book and 125.7 pulled early from 91 knots: the nose wheel comes off at
-# about 115 with the stick fully back, and she cannot be rotated early (a
-# tail; the moment budget is in docs/PROJECT_STATUS.md).
+# AFM sets it, on the manual's travel (below), she leaves at 128.8 by the
+# book and 124.1 pulled early from 91 knots: the nose wheel comes off at
+# about 113 with the stick fully back, and she cannot be rotated early (a
+# tail; the moment budget is in docs/PROJECT_STATUS.md). The heights from her
+# drawings (below) changed that little: raised to WL 48, the thrust's
+# nose-down moment about the main wheels grew by about as much as raising
+# the centre of gravity to WL 30.5 grew the acceleration's nose-up one, and
+# the nose wheel came off 1.5 knots sooner than at WL 22 and WL 0.
 CM_STAB = -2.11
 CL_STAB = CL_DE * CM_STAB / CM_DE
 STAB_TRAVEL_S = 16.0
@@ -238,6 +311,14 @@ BRAKING_FRICTION = "0.50"
 # it. The drawing's 12 ft 3 in height reads 3% short on the same scale, so
 # the height is good to about 1.5 in, a third of a degree. On the model's
 # struts, extended as they are when she rotates, she strikes at 14.0.
+# **Measured from the drawn wheel, not the fuselage**, unlike the heights
+# above: from the fuselage's bottom the fin's edge is WL 27.6 (the NTSB's
+# copy, 42 px over 1.53 px/in), 6 in higher than here, because the drawn
+# ground is some 4.5 in high of the AFM's axles and tyres. Which to believe
+# the drawing does not settle - its 12 ft 3 in height reads 2 in short from
+# its drawn ground and 3 in over from the AFM's - so the angle the airframe
+# allows is 14.0 to 15.6 degrees, and the lower, the drawing's as drawn, is
+# kept.
 TAIL_AFT_IN, TAIL_UP_IN = 199.4, 47.3
 
 
@@ -246,7 +327,7 @@ def metrics():
             f"        <wingarea unit=\"FT2\"> {AREA:.1f} </wingarea>\n"
             f"        <wingspan unit=\"FT\"> {SPAN_FT:.2f} </wingspan>\n"
             f"        <chord unit=\"FT\"> {MAC_IN / 12.0:.3f} </chord>\n"
-            + written.location(mac(0.25), 0.0, -5.0, "        ", "AERORP")
+            + written.location(mac(0.25), 0.0, EMPTY_CG_WL, "        ", "AERORP")
             + written.location(150.0, -12.0, 30.0, "        ", "EYEPOINT")
             + written.location(86.75, 0.0, 0.0, "        ", "VRP") +
             "    </metrics>\n")
@@ -264,10 +345,10 @@ def mass_balance():
             f"        <izz unit=\"SLUG*FT2\"> {izz:.0f} </izz>\n"
             f"        <ixz unit=\"SLUG*FT2\"> {0.05 * izz:.0f} </ixz>\n"
             f"        <emptywt unit=\"LBS\"> {EMPTY_LBS:.0f} </emptywt>\n"
-            + written.location(mac(EMPTY_CG), 0.0, 0.0, "        ", "CG") +
+            + written.location(mac(EMPTY_CG), 0.0, EMPTY_CG_WL, "        ", "CG") +
             "        <pointmass name=\"Payload\">\n"
             "            <weight unit=\"LBS\"> 0 </weight>\n"
-            + written.location(PAYLOAD_STATION, 0.0, 0.0, "            ") +
+            + written.location(PAYLOAD_STATION, 0.0, PAYLOAD_WL, "            ") +
             "        </pointmass>\n"
             "    </mass_balance>\n")
 
@@ -287,7 +368,7 @@ def ground_reactions():
                              (1.0 - nose_share) / 2.0 * weight / 0.21, (1.0 - nose_share) / 2.0 * weight / 0.8,
                              0, side, BRAKING_FRICTION)
     for name, y in (("LEFT_TIP_TANK", -SPAN_FT * 6.0), ("RIGHT_TIP_TANK", SPAN_FT * 6.0)):
-        out += written.structure(name, 385.6, y, -8.0, weight, weight / 5.0)
+        out += written.structure(name, 385.6, y, TIP_TANK_WL - TIP_TANK_RADIUS_IN, weight, weight / 5.0)
     # The ventral fin, what her tail strikes the runway with (MM 6-00-00,
     # figure 1 sheet 2; the docstring says how it was measured).
     out += written.structure("VENTRAL_FIN", 396.83 + TAIL_AFT_IN, 0.0,
@@ -304,11 +385,12 @@ def propulsion():
                 + written.location(ENGINE_STATION, y, ENGINE_WATER, "                ") +
                 "            </thruster>\n"
                 "        </engine>\n")
-    tanks = [(-SPAN_FT * 6.0, 385.6, TIP_LBS), (SPAN_FT * 6.0, 385.6, TIP_LBS),
-             (-90.0, 385.8, WING_LBS), (90.0, 385.8, WING_LBS), (0.0, 440.2, FUSELAGE_LBS)]
-    for y, x, lbs in tanks:
+    tanks = [(-SPAN_FT * 6.0, 385.6, TIP_TANK_WL, TIP_LBS), (SPAN_FT * 6.0, 385.6, TIP_TANK_WL, TIP_LBS),
+             (-90.0, 385.8, WING_TANK_WL, WING_LBS), (90.0, 385.8, WING_TANK_WL, WING_LBS),
+             (0.0, 440.2, FUSELAGE_TANK_WL, FUSELAGE_LBS)]
+    for y, x, z, lbs in tanks:
         out += ("        <tank type=\"FUEL\">\n"
-                + written.location(x, y, -4.0, "            ") +
+                + written.location(x, y, z, "            ") +
                 f"            <capacity unit=\"LBS\"> {lbs:.0f} </capacity>\n"
                 f"            <contents unit=\"LBS\"> {lbs:.0f} </contents>\n"
                 "        </tank>\n")

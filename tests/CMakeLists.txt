@@ -553,6 +553,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_f15c_lifts_its_nose_wheel_near_its_flight_manuals_speed_at_each_weight
     frozen_fuel_is_not_burned
     the_speedbrake_lever_moves_the_spoilers
+    the_learjet_35a_carries_her_weight_and_thrust_at_the_heights_her_drawings_give
     the_learjet_35a_trims_level_from_250_to_350_knots_with_her_elevator_at_neutral
     the_boeing_737_300_stalls_where_its_own_model_said_it_would
     the_boeing_787_8_stalls_where_its_own_model_said_it_would
