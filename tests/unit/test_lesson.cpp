@@ -2244,6 +2244,11 @@ struct Result {
     // recovery speed is there, in ft/s: what the height bound is worked from.
     double handed_over_tas_fps = 0.0;
     double recovered_tas_fps = 0.0;
+    // The most the elevator, ailerons or rudder moved on the step the
+    // recovery was engaged, and on the step it was let go once recovered
+    // (negative where it was not let go).
+    double engaged_step = 0.0;
+    double let_go_step = -1.0;
 };
 
 // **A turn, flown by the autopilot.** `sink_fpm` other than zero makes her
@@ -2587,7 +2592,8 @@ struct RecoveryWatch {
 // `until_recovered` flies on past the lesson's end until the aeroplane is
 // recovered (RecoveryWatch); otherwise the flight ends with the lesson.
 Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = false,
-                   bool until_recovered = true, bool at_the_warning = false) {
+                   bool until_recovered = true, bool at_the_warning = false,
+                   bool let_go = false) {
     const auto stall_entry = glideslope::sim::find_aircraft(data(), id);
     // **A stall is practised where its aeroplane practises it.** A light
     // aeroplane decelerates to the stall in a few hundred feet; a clean jet
@@ -2637,8 +2643,17 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
     const glideslope::sim::LessonStage& recovery_stage = lesson.stages.back();
     RecoveryWatch watch(out, recovery_stage.until_property,
                         recovery_ends_at_kts(lesson, f.speeds));
+    // `let_go`: once recovered, the recovery is let go for the altitude hold
+    // at the height it is at, and the flight flown one step more.
+    bool letting_go = false;
     const auto flying = [&] {
-        return !run.finished() || (until_recovered && !out.recovered);
+        return !run.finished() || (until_recovered && !out.recovered) ||
+               (let_go && out.let_go_step < 0.0);
+    };
+    const auto moved = [](const glideslope::sim::Controls& a,
+                          const glideslope::sim::Controls& b) {
+        return std::max({std::abs(a.elevator - b.elevator), std::abs(a.aileron - b.aileron),
+                         std::abs(a.rudder - b.rudder)});
     };
     glideslope::sim::Controls last_controls = controls;
     for (int tick = 0; tick < 600 * steps_per_second && flying(); ++tick) {
@@ -2654,6 +2669,14 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
             autopilot->set(modes);
         }
         const auto& a = *f.aircraft;
+        bool engaging = false;
+        if (let_go && out.recovered && !letting_go) {
+            letting_go = true;
+            modes.speed_on_elevator = false;
+            modes.airspeed_kts = a.property("velocities/vc-kts");
+            modes.altitude_ft = a.property("position/h-sl-ft");
+            autopilot->set(modes);
+        }
         if (tick >= settling && !recovering) {
             watch.entering(a);
             bool now = false;
@@ -2676,9 +2699,15 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
                 }
                 ask_for_the_stall_recovery(modes, watch.recovered_kts);
                 autopilot->set(modes);
+                engaging = true;
             }
         }
         glideslope::sim::Controls c = autopilot->fly();
+        if (engaging) {
+            out.engaged_step = moved(c, last_controls);
+        } else if (letting_go && out.let_go_step < 0.0) {
+            out.let_go_step = moved(c, last_controls);
+        }
         if (tick >= settling) {
             // Throttle closed for the entry: the autopilot holds the height by
             // raising the nose, and she slows towards the stall of her own
@@ -3027,21 +3056,75 @@ GLIDESLOPE_TEST(every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_
         // The Mosquito, at 20,000 ft with its flaps and gear down, cannot be
         // level at its recovery speed on full power, and is never called
         // recovered; it is held to the height it lost by the flight's end.
-        {{"b2", Fault::height, 414.0},
-         {"f15c", Fault::height, 590.0},
-         {"f35b", Fault::height, 932.0},
-         {"learjet35a", Fault::height, 589.0},
-         {"mosquito-fb6", Fault::not_recovered, 3462.0},
-         {"short_s23", Fault::height, 329.0}});
+        {{"f15c", Fault::height, 543.0},
+         {"f35b", Fault::height, 773.0},
+         {"learjet35a", Fault::height, 409.0},
+         {"mosquito-fb6", Fault::not_recovered, 3095.0},
+         {"short_s23", Fault::height, 184.0}});
 }
 
 GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_within_2_g_and_the_height_its_speed_and_sink_need) {
     every_stall_recovered_within(
         false, 30.0, "left thirty seconds in the stall",
         [](const Result& r, double) { return height_bound_ft(r); },
-        {{"a320", Fault::height, 1535.0},
-         {"a320", Fault::load, 2.18},
-         {"mosquito-fb6", Fault::load, 2.23}});
+        {{"a320", Fault::load, 1.95},
+         {"mosquito-fb6", Fault::load, 2.22}});
+}
+
+// **Engaging the stall recovery and letting it go steps no control.** Every
+// aeroplane taught a stall, handed to the recovery at its stall warning and
+// left thirty seconds in the stall, and let go for the altitude hold once
+// recovered: on neither step does the elevator, the ailerons or the rudder
+// move more than a hand's pace, its full travel in a second (sim/autopilot.cpp).
+// The throttle, flaps and gear are the flight's, not the autopilot's, here.
+// The recovery brings its pitch command down to the nose at once when the wing
+// is stalled, which without that pace would move the elevator by tenths of
+// its travel in a step. **The Mosquito at her warning is never let go**: at
+// 20,000 ft with her flaps and gear down she cannot be level at her recovery
+// speed, and is never called recovered (the warning test names her for it);
+// her engaging is judged, and her name turns this red once she is let go.
+GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_faster_than_a_hand) {
+    constexpr double a_hands_pace = 1.0 / static_cast<double>(steps_per_second);
+    const Taught taught = taught_for("stalls");
+    const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
+    std::size_t walked = 0;
+    std::size_t flights = 0;
+    std::vector<std::string> faults;
+    for (const std::string& id : taught.able) {
+        for (const bool at_the_warning : {true, false}) {
+            const Result r = fly_a_stall(id, at_the_warning ? 0.0 : 30.0, false, true,
+                                         at_the_warning, true);
+            const char* when = at_the_warning ? "at its warning" : "left thirty seconds";
+            std::printf("  %-13s %-19s engaged moving %.5f, let go moving %.5f\n", id.c_str(),
+                        when, r.engaged_step, r.let_go_step);
+            const bool named_never_let_go = at_the_warning && id == "mosquito-fb6";
+            if (named_never_let_go && r.let_go_step >= 0.0) {
+                faults.push_back(id + " " + when + " is named as never let go, and was: take "
+                                                   "its name off");
+            } else if (r.let_go_step < 0.0 && !named_never_let_go) {
+                faults.push_back(id + " " + when + " was never let go: not recovered");
+            } else if (std::max(r.engaged_step, r.let_go_step) > a_hands_pace + 1e-12) {
+                faults.push_back(id + " " + when + " moved a control " +
+                                 std::to_string(std::max(r.engaged_step, r.let_go_step)) +
+                                 " in a step, against " + std::to_string(a_hands_pace));
+            }
+            ++flights;
+        }
+        ++walked;
+    }
+    std::printf("  of the %zu aeroplanes, %zu flown twice (%zu flights) and %zu left out\n",
+                roster, walked, flights, taught.left_out.size());
+    for (const std::string& said : taught.left_out) {
+        std::printf("      left out - %s\n", said.c_str());
+    }
+    for (const std::string& fault : faults) {
+        std::printf("  %s\n", fault.c_str());
+    }
+    check(faults.empty(), std::to_string(faults.size()) + " flights stepped a control or were "
+                          "not let go; the first: " + (faults.empty() ? "" : faults.front()));
+    check(flights == 2 * taught.able.size(), "every aeroplane taught a stall was flown twice");
+    check(walked + taught.left_out.size() == roster,
+          "every aeroplane in the roster was flown or left out with its reason");
 }
 
 // **An autopilot engaged on an aeroplane already stalled recovers it.** The

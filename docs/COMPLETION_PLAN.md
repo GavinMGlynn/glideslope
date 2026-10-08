@@ -626,13 +626,13 @@ Found while implementing something else. Added when found, not when remembered.
       every aeroplane taught a stall is recovered within 2 g both handed over
       at its stall warning, within its lesson's height with no exceptions,
       and left thirty seconds in it, within a height worked out for it from
-      its speed and sink.* Both checks exist and the instructor flies the
-      recovery. Still missing: the A320 and Mosquito over 2 g (the A320's
-      is its wing's lift returning, not its pull-out); the A320 past
-      its bound left thirty seconds; at the warning the B-2A, F-15C, F-35B,
-      Learjet and S.23 past their lesson's height and the Mosquito never
-      level again; the AI pilot noticing a stall; and a test that engaging
-      the recovery steps no control.
+      its speed and sink.* Both checks exist, the instructor flies the
+      recovery, and engaging or letting it go steps no control (that test
+      not yet seen to fail). Still missing: left thirty seconds, the A320
+      (1.95 g) and Mosquito (2.22 g) over 2 g, their wings passing their
+      lift's peak at speed; at the warning the F-15C, F-35B, Learjet and
+      S.23 past their lesson's height and the Mosquito never level again;
+      and the AI pilot noticing a stall.
 - [x] **A client assumed the server's clock keeps real time**, and drew other
       aircraft from guesses when a slow server's clock ran behind. *Verification:
       against servers at 80%, 100% and 125% of real time, with jitter and loss,
@@ -932,7 +932,7 @@ Found while implementing something else. Added when found, not when remembered.
       2026-10-02): at full aft stick her angle of attack settles at 45 units
       or more, at 100 knots or less. She settles at 42.4 degrees but at 117
       knots; still missing are that speed, and a source turning the manual's
-      units into degrees. *Verification: held at full aft stick, the F-15C
+      units into degrees (her manual gives none; 2026-10-09). *Verification: held at full aft stick, the F-15C
       settles at 45 units or more and 100 knots or less.*
 - [x] **The autopilot banks to its limit even when the aeroplane cannot sustain
       the turn.** *Verification: a light aeroplane near its ceiling holds its
