@@ -113,9 +113,20 @@ constexpr double most_pitch_deg = 15.0;
 // highest, before the speed asked rises for the climb; and how far it may.
 constexpr double nose_at_stop_short_fpm = 200.0;
 constexpr double most_climb_speed_kts = 40.0;
-// **The airspeed on the elevator** (AutopilotModes::speed_on_elevator): half a
-// degree of nose down for each knot short, an integral, and the speed's trend
-// to damp it, at full power.
+// **The airspeed on the elevator** (AutopilotModes::speed_on_elevator): at
+// full power, the wing held below its stall and the aeroplane asked to sink
+// no more than 20 ft/min for each knot it is short of the speed, by the
+// vertical speed's own gains. **The speed comes from the engine and from as
+// little height as that sink allows**, not from the nose: half a degree of
+// nose down for each knot short, which this was until 2026-10-09, dived for
+// the speed - a Learjet 35A recovered at her stall warning lost 589 ft
+// against her lesson's 350, the B-2A 414 against 300. Held to the sink, the
+// B-2A loses 112 and the Learjet 410. **Where the speed will not come so,
+// more sink is asked**: 50 ft/min more each second for each knot a second
+// the speed gains slower than 0.3 a second, for as long as it does. A
+// Mosquito at 20,000 ft with her flaps and gear down, handed over at the
+// lesson's entry's end, otherwise settled short of her speed, sinking, and
+// never ended the lesson; with it she loses 504 ft.
 //
 // **It is how a stall is recovered.** Asked for a vertical speed, an aeroplane
 // mushing in a stall sinks faster than it is asked to, and the vertical speed
@@ -137,19 +148,44 @@ constexpr double most_climb_speed_kts = 40.0;
 // The nose goes down at 8 degrees a second and comes up at the 3 every mode
 // uses; the elevator still moves no faster than a hand.
 //
-// **The wing is kept below the angle it stalled at**, which the autopilot
-// learns by watching where the lift stopped rising (`stall_alpha_deg_`),
-// because a speed alone does not unload a wing that is diving fast enough:
-// an A320 past its speed at 27 degrees of alpha was held there.
+// **The wing is kept a tenth below the angle it stalled at**, which the
+// autopilot learns by watching where the lift stopped rising
+// (`stall_alpha_deg_`), because a speed alone does not unload a wing that is
+// diving fast enough: an A320 past its speed at 27 degrees of alpha was held
+// there. A tenth, because what the autopilot learns is a little past what a
+// steady stall gives: a Cessna 172P's was 17.2 degrees where the stall test
+// measures 16.0, and held at 16.3 she mushed there, short of her speed.
+//
+// **And below the angle that would pull 1.6 g at the speed it is doing**,
+// which is a schedule on the angle of attack, not on the load: the lift
+// answers the angle at once, where the load the nose is pulled to lags it.
+// The angle is the one now moved by what the lift coefficient is short of
+// or over 1.6 g's, along the lift's mean slope up to its peak. An F-15C
+// left thirty seconds in her stall, held at 34 degrees of alpha as her speed
+// came, pulled 1.90 g without it, and 1.66 with it.
+//
+// **A pitch above the nose, asked of a stalled wing, is no longer asked**:
+// the pitch command comes down to the nose at once while the wing is past
+// its stall, where it used to walk down from wherever the entry left it. An
+// A320 left thirty seconds in her stall was handed over with the command 16
+// degrees above her nose and her elevator full nose-up, and kept it there two
+// seconds while she dived from 156 to 166 knots; her wing came back through
+// its lift's peak at 178 knots, at 2.18 g. The elevator still moves at a
+// hand's pace, so nothing steps.
 //
 // **The pull-out is held under 1.6 g**, below the 2 g the airworthiness rules
 // require with the flaps out (14 CFR 23.345, 25.345): past it the nose goes
 // down 10 degrees below where it is for each g over. The aeroplane's response
-// lags the command, so what is measured is a little more - up to 2.23 g in
-// the Mosquito, which the stall test names.
-constexpr double pitch_per_knot_short = 0.5;
-constexpr double pitch_integral_per_knot_short = 0.05;
-constexpr double pitch_per_kts_per_s = 0.5;
+// lags the command, so what is measured is a little more.
+//
+// **Once at its speed and unstalled, the nose goes down no faster than any
+// mode's 3 degrees a second**: at 8 an F-15C recovered at her warning, 60
+// knots past her speed in a zoom, was pushed to less than nothing and lost
+// as much height again.
+constexpr double sink_per_knot_short_fpm = 20.0;
+constexpr double least_gain_kts_per_s = 0.3;
+constexpr double sink_per_slow_gain = 50.0; // ft/min a second, for each knot a second slow
+constexpr double stall_alpha_kept_below = 0.1;
 constexpr double steepest_unload_deg = -30.0;
 constexpr double unload_rate_degps = 8.0;
 constexpr double pull_out_most_g = 1.6;
@@ -549,12 +585,25 @@ Controls Autopilot::fly() {
         const double theta_deg = a_.property("attitude/theta-deg");
         const double alpha_deg = a_.property("aero/alpha-deg");
         const double path_deg = theta_deg - alpha_deg;
+        const bool stalled = alpha_deg >= stall_alpha_deg_;
+        if (stalled) {
+            pitch_command_deg_ = std::min(pitch_command_deg_, theta_deg);
+        }
         if (!was_on_speed_) {
             // Engaged from the pitch commanded now, which is the pitch that
             // was holding the aeroplane: short of the speed, the law asks for
             // less at once, and the command walks there at the pitch rate.
             speed_integral_deg_ = pitch_command_deg_;
+            sink_integral_fpm_ = 0.0;
         }
+        // Short of the speed and gaining it slower than it should, more sink
+        // is asked, as long as that lasts; at the speed, none.
+        sink_integral_fpm_ =
+            short_kts > 0.0
+                ? std::max(sink_integral_fpm_ +
+                               sink_per_slow_gain * (least_gain_kts_per_s - kts_per_s_) * dt,
+                           0.0)
+                : 0.0;
         // **The wing is kept below the angle it stalled at**: the pitch may
         // be no more than the pitch now less the angle of attack past that
         // angle. A speed alone does not
@@ -562,7 +611,18 @@ Controls Autopilot::fly() {
         // the speed it was asked for, was held at 27 degrees of alpha with
         // the elevator full up, still stalled and sinking 10,000 ft/min.
         const double wing_limit_deg = theta_deg - (alpha_deg - stall_alpha_deg_);
-        const bool stalled = alpha_deg >= stall_alpha_deg_;
+        // The angle the wing is held below: a tenth under its stall, and
+        // under the angle that pulls the pull-out's load at this speed.
+        const double qs = std::max(a_.property("aero/qbar-psf") * a_.property("metrics/Sw-sqft"),
+                                   1.0);
+        const double lift_now = a_.property("forces/fwz-aero-lbs") / qs;
+        const double lift_at_most_g = pull_out_most_g * a_.property("inertia/weight-lbs") / qs;
+        const double lift_per_degree =
+            std::max(most_lift_, 0.1) / std::max(stall_alpha_deg_, 1.0);
+        const double held_below_deg =
+            std::min(stall_alpha_deg_ * (1.0 - stall_alpha_kept_below),
+                     alpha_deg + (lift_at_most_g - lift_now) / lift_per_degree);
+        const double held_limit_deg = theta_deg - (alpha_deg - held_below_deg);
         // The floor is lowered only while the aeroplane is short of its
         // speed or its wing is stalled - while it is recovering; otherwise
         // the envelope is the one every mode keeps.
@@ -571,9 +631,10 @@ Controls Autopilot::fly() {
                 ? std::max(std::min({least_pitch_deg, path_deg, wing_limit_deg}),
                            steepest_unload_deg)
                 : least_pitch_deg;
-        const double pitch_law = speed_integral_deg_ - pitch_per_knot_short * short_kts +
-                                 pitch_per_kts_per_s * kts_per_s_;
-        double pitch_wanted = std::clamp(std::min(pitch_law, wing_limit_deg), floor_deg,
+        const double sink_off_fpm =
+            -sink_per_knot_short_fpm * std::max(short_kts, 0.0) - sink_integral_fpm_ - climb_fpm;
+        const double pitch_law = speed_integral_deg_ + pitch_per_fpm * sink_off_fpm;
+        double pitch_wanted = std::clamp(std::min(pitch_law, held_limit_deg), floor_deg,
                                          most_pitch_deg);
         // **The pull-out is gentle**: the nose comes up no faster than any
         // mode raises it, and not at all past the load the aeroplane is
@@ -585,15 +646,17 @@ Controls Autopilot::fly() {
                                    theta_deg - pitch_per_g_over * (load_g - pull_out_most_g)}),
                          steepest_unload_deg);
         }
+        const double down_rate_degps =
+            short_kts > 0.0 || stalled ? unload_rate_degps : pitch_rate_degps;
         const double pitch_next = std::clamp(pitch_wanted,
-                                             pitch_command_deg_ - unload_rate_degps * dt,
+                                             pitch_command_deg_ - down_rate_degps * dt,
                                              pitch_command_deg_ + pitch_rate_degps * dt);
         // **The integral winds only while the law's pitch is the pitch
         // given**: not while the command is still walking there, and not
         // while the law asks for more than the envelope allows at either end,
         // where winding would leave it to unwind before the nose could move.
         if (pitch_next == pitch_wanted && pitch_law == pitch_wanted) {
-            speed_integral_deg_ -= pitch_integral_per_knot_short * short_kts * dt;
+            speed_integral_deg_ += pitch_integral_per_fpm * sink_off_fpm * dt;
         }
         pitch_command_deg_ = pitch_next;
         // The vertical speed loop follows, so that letting go of the speed

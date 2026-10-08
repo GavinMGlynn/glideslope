@@ -21,8 +21,9 @@
 //   and, where the aircraft has a mixture lever, the mixture leaned for best
 //     power by the engine's answer (sim/leaner.hpp);
 //
-// or, when asked to recover from a stall, airspeed -> pitch, with an
-// integral, and the throttle to its stop, until the caller lets it go.
+// or, when asked to recover from a stall, the throttle to its stop and the
+// sink a speed short allows -> pitch, the wing held below its stall and below
+// the angle that pulls 1.6 g, until the caller lets it go.
 //
 // **Asked for a height it cannot hold, it gives up height, not airspeed.**
 // When the climb asked for would take the airspeed below the aeroplane's
@@ -119,9 +120,11 @@ private:
     bool nose_at_stop_ = false;
     double climb_speed_kts_ = 0.0;
     // The airspeed on the elevator (AutopilotModes::speed_on_elevator): the
-    // pitch it holds the speed at, found by an integral.
+    // pitch it holds the sink it allows at, found by an integral; and the
+    // sink it has added while the speed came too slowly.
     bool was_on_speed_ = false;
     double speed_integral_deg_ = 0.0;
+    double sink_integral_fpm_ = 0.0;
     // Where the wing's lift has been seen to peak in this configuration: the
     // greatest lift coefficient, the angle of attack it came at, and the
     // flaps and gear it was seen with.
