@@ -368,6 +368,20 @@ not cited. The conversions found (degrees = (units - 3.715)/1.089; units =
 0.7728 × degrees + 12.22) are forum posts with no source, and disagree.
 Nothing was changed.
 
+**The Cherokee on the FAA's curve, full rich below 5,000 ft, tried with this
+law and not kept.** `make_pa28.py` given the float carburettor and the FAA's
+mixture curve (as the 172P's) and the catalogue's `mixture-lever 5000`: by
+the book she ends the lesson (213 ft), but recovered at her warning she
+loses 1,223 ft against 300, and left thirty seconds 722 against her bound of
+515. The least sink does not help her: "recovered" asks for level at the
+lesson's recovery speed, and at that speed with 40 degrees of flap and full
+power she cannot be level (the entry below); slower she climbs, but is
+short of the speed. What is missing is a recovery the lesson can count -
+the flap brought up to an intermediate setting as the FAA's recovery does,
+or a recovery speed she can hold level - which is the lesson's, not the
+engine's or the autopilot's. Both Cherokee items stay open; nothing of hers
+is committed.
+
 **Verified** (linux-release): every test matching stall, lesson, autopilot,
 figure, committed, selftest or instructor (167, the new one among them):
 none failed. **Seen to fail**: the two stall tests with their old names,
