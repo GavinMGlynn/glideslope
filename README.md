@@ -33,14 +33,14 @@ client's `--shot` option, rendered headless on Vulkan.*
 It is deliberately **not** a scored or competitive game: no leaderboards, no
 replays that prove a result, no deterministic simulation.
 
-> **Status, 2026-10-08.** Every numbered phase of the
+> **Status, 2026-10-09.** Every numbered phase of the
 > [completion plan](docs/COMPLETION_PLAN.md) - 95 of 95 items - is ticked,
 > each against a named verification. What is left are the tails found along
-> the way: 103 done, 38 open. The biggest gaps, named first: **the ground is
+> the way: 106 done, 32 open. The biggest gaps, named first: **the ground is
 > drawn only around where a flight starts** (fly far enough and there is sky
 > beneath you); **cloud is a flat sheet**, not a volume; the Learjet has no
-> visual model; **the learnt landing is the Cessna 172's alone**, and
-> nothing clears a runway after a landing; and no public server is running
+> visual model; **the learnt landing is the Cessna 172's alone**, and a
+> copilot's route cannot yet end in a landing; and no public server is running
 > yet.
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the single source of
 > truth.
@@ -83,7 +83,7 @@ progress** means much of it runs and the missing part is named.
 | Real flight dynamics, six degrees of freedom | In progress - the 172, 182 and Cub do not reach their handbooks' ceilings; the F-15 does not stall as her manual describes (her speedbrake now makes drag, and stays in past 15 degrees of alpha); the B-2 and F-22 hold a heading in a crosswind at much lower speeds; the F-35B cannot hover or land vertically |
 | Wind and turbulence | **Done** |
 | Wind that shears and gusts, as the report gives | **Done** |
-| Live weather from the airfield's report | In progress - a flight keeps its starting airfield's weather wherever it goes |
+| Live weather from the airfield's report | In progress - a flight keeps its starting airfield's weather wherever it goes; a client that joins while the weather is blending in flies the same air as the others |
 | Thermals, ridge lift, microbursts | In progress - thermals rise over the sea as over land; no rotor or trapped waves behind a ridge |
 | Weather you can see - cloud, haze, rain | In progress - cloud is a flat sheet; no storm towers; rain falls only close by |
 | A choice of sixteen aircraft | In progress - on a server you can ask for an aircraft as you join and fly it, and a windowed client draws another player's choice as that aircraft; the Learjet is not drawn |
@@ -119,17 +119,17 @@ progress** means much of it runs and the missing part is named.
 | See who is flying, and the controls as they move | **Done** |
 | Hand over the controls and take them back | **Done** - a take-over the server refuses is now told to the client, and A during a take-over waits for the answer and hands over the right aircraft |
 | Ride along in an AI aircraft, then take it over | In progress - one unexplained take-over in testing was not refused; a month of clean nightly runs is owed before it is closed |
-| AI traffic that keeps flying with nobody connected | In progress - nothing yet stops you flying into an AI aircraft |
-| A copilot you talk to, and a different model on each AI aircraft | In progress - Claude and ChatGPT plan routes and change them as the flight goes, and the autopilot flies them; the AI is given the runway when it takes a hand-flown landing on the roll, and flies a go-around round a circuit above the ground and lands |
-| A pilot that learned to fly (a learnt landing) | In progress - only the Cessna 172 has one. On a server a player's 172 on final is handed to it at its gate with L (a refusal is told on the HUD, with the reason), and an AI 172 whose flight plan ends in a landing is handed to it there too; its limits measured from 160 landings. Nothing clears a runway after a landing |
+| AI traffic that keeps flying with nobody connected | In progress - AI aircraft now land, taxi off the runway and park; two can land on one runway, and one arriving on an occupied runway goes around; an aircraft you hand over is measured for separation like the rest. Nothing yet stops you flying into an AI aircraft |
+| A copilot you talk to, and a different model on each AI aircraft | In progress - Claude and ChatGPT plan routes and change them as the flight goes, and the autopilot flies them; the AI is given the runway when it takes a hand-flown landing on the roll, and flies a go-around round a circuit above the ground and lands (the F-35B too); a copilot's route cannot yet end in a landing |
+| A pilot that learned to fly (a learnt landing) | In progress - only the Cessna 172 has one. On a server a player's 172 on final is handed to it at its gate with L (a refusal is told on the HUD, with the reason), and an AI 172 whose flight plan ends in a landing is handed to it there too; its limits measured from 160 landings. An AI 172 that has landed taxis off the runway; a landing taken over by hand is not yet braked to a stop |
 
 ### Flying together
 
 | Feature | State |
 |---|---|
 | Up to four players | In progress - four machines have flown together; one old fault not yet shown gone on Windows; joining again no longer goes back to a dead session |
-| The same air for everyone | In progress - on a server the air does not yet rise over hills |
-| Controls that answer immediately (prediction) | In progress - the windowed client does not yet smooth the server's corrections; a client is held to its send rates and predicts a stopped engine |
+| The same air for everyone | In progress - everyone, including a client joining mid-blend, flies the same wind, gusts and shear; on a server the air does not yet rise over hills |
+| Controls that answer immediately (prediction) | In progress - the windowed client does not yet smooth the server's corrections; a client is held to its send rates and predicts a stopped engine; it keeps pace with a lagging server, including across catch-up jumps |
 | Crashes cost a flight, not the session | **Done** |
 | Leaving does not crash the aircraft | **Done** |
 | Run your own server - terminal dashboard, or a window | **Done** |
@@ -238,18 +238,18 @@ flowchart LR
 
 ## The scale of it
 
-Figures taken from the repository on **2026-10-08**, at `origin/main`
-(`c1aeb4e1`). The first commit was on 2026-09-17.
+Figures taken from the repository on **2026-10-09**, at `origin/main`
+(`b8f58ab2`). The first commit was on 2026-09-17.
 
 | | |
 |---|---|
-| Commits on `main` | **611** (`git rev-list --count`) |
-| Pull requests merged | **121** (`gh pr list --state merged`) |
-| First-party code | **~133,600 lines**: `src/` 54,200, `tests/` 68,900, `tools/` 10,600 (`wc -l` of tracked source; `ext/` excluded) |
-| Tests | **1,022** registered with ctest (`ctest -N` at c1aeb4e1, 2026-10-08): unit tests and scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
-| Completion plan | **95 of 95** phase items ticked across 12 phases; **103** tails done, **38** open; 13 items set aside for later (`docs/COMPLETION_PLAN.md`) |
-| CI, on every pull request | Ubuntu (debug, release), Rocky Linux 9, macOS 15 (debug, release), Windows (MSVC debug and release, clang-cl) - plus cross-platform flight agreement, the server's container image, and packages run in stock containers; measured test costs, more shards and a Windows compiler cache bring a run to about 63 minutes, from about 80. A nightly run repeats the multi-process tests |
-| Living documents | ~27,100 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~21,000 |
+| Commits on `main` | **621** (`git rev-list --count`) |
+| Pull requests merged | **125** (`gh pr list --state merged`) |
+| First-party code | **~135,300 lines**: `src/` 54,800, `tests/` 70,000, `tools/` 10,600 (`wc -l` of tracked source; `ext/` excluded) |
+| Tests | **1,031** registered with ctest (`ctest -N` at b8f58ab2, 2026-10-09): unit tests and scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
+| Completion plan | **95 of 95** phase items ticked across 12 phases; **106** tails done, **32** open; 13 items set aside for later (12 open) (`docs/COMPLETION_PLAN.md`) |
+| CI, on every pull request | Ubuntu (debug, release), Rocky Linux 9, macOS 15 (debug, release), Windows (MSVC debug and release, clang-cl) - plus cross-platform flight agreement, the server's container image, and packages run in stock containers; measured test costs, more shards and a Windows compiler cache bring a run to about 63 minutes, from about 80; test jobs are given 45 minutes. A nightly run repeats the multi-process tests |
+| Living documents | ~27,400 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~21,300 |
 | Aircraft, lessons | 16 aircraft, 15 drawn; a checklist for each, nine phases of flight; 42 lessons across 7 classes |
 
 Some of the discipline behind those numbers (see [`CLAUDE.md`](CLAUDE.md)):
