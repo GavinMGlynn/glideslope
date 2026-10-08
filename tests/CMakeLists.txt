@@ -551,7 +551,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_mosquito_drops_its_nose_at_the_stall_as_its_pilots_notes_say
     fixed_gear_stays_down_when_the_lever_is_raised
     a_failed_jet_engine_stays_failed
-    the_f15c_held_at_full_aft_stick_settles_no_faster_than_117_knots_against_her_manuals_100
+    the_f15c_held_at_full_aft_stick_settles_no_faster_than_112_knots_against_her_manuals_100
     the_f15c_lifts_its_nose_wheel_near_its_flight_manuals_speed_at_each_weight
     frozen_fuel_is_not_burned
     the_speedbrake_lever_moves_the_spoilers

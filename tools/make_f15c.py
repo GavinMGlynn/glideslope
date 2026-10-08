@@ -32,6 +32,50 @@ The changes, and what each is for:
                         carried across the Mach range in proportion to the
                         lift slope (fighter.lift_slope): DATCOM's subsonic,
                         linear theory's supersonic.
+    Lift at high alpha, NASA's flight data
+                        NASA TN D-8052 (Summary of Flight Tests to Determine
+                        the Spin and Controllability Characteristics of a
+                        Remotely Piloted, Large-Scale (3/8) Fighter Airplane
+                        Model, 1976, figures 12 and 13) gives the lift and
+                        drag the 3/8-scale F-15 drop model flew at, from -24
+                        to 40 degrees, at a Reynolds number of 4 million, its
+                        inlets drooped 11 degrees and blocked. From 20 to 40
+                        degrees the model's lift was 6 to 11 per cent under
+                        it, and its peak at 32 degrees, where the flight data
+                        go on rising to 40. Its rows from 16 to 40 degrees
+                        are now the flight data (RPRV_LIFT): the 57 points
+                        read off figure 12 at 300 dpi, faired by a local
+                        straight line weighted over 2.5 degrees, 0.89 at 16,
+                        1.035 at 20, 1.13 at 24, 1.18 at 28, 1.215 at 32
+                        and 1.25 at 40. They are taken at Mach 0.2
+                        (RPRV_MACH) - the report flew "at low speed" and did
+                        not consider Mach - and the Mach 0.5 curve the table
+                        is carried from is them over Mach 0.2's share of the
+                        lift slope, so every Mach column moves by the same
+                        proportion as the Mach 0.2 one. Past 40 degrees,
+                        where the report has nothing, the model's own rows
+                        at 45 and 50 are scaled by what the flight data
+                        raised its 40 degree row by, 1.11: its fall-off is
+                        the only F-15 source there, and scaled it meets the
+                        flight data without a step. Below 16 degrees the
+                        model is kept: the drop model's lift there is up to
+                        15 per cent under it (0.48 at 8 degrees against
+                        0.56), and that range is held by the full-size
+                        F-15's approach, which NASA TM-4604 (below) has at
+                        about 10 degrees and the model flies at 10 to 11.5;
+                        the drop model's inlets were blocked, its Reynolds
+                        number a tenth of the full-size aeroplane's. The
+                        drag (Drag with Mach, below) was not changed: past
+                        the flow separating it is the drag at zero lift and
+                        the lift times the tangent of alpha, and with this
+                        lift that is within 0.035 of figure 13's flight
+                        data from 16 to 32 degrees (0.03 under at 16, 0.02
+                        over at 24 and 28, 0.03 at 32), 0.04 over at 36 and
+                        0.07 at 40 - where the report's four points from 38
+                        to 40 degrees scatter over 0.09. They show the drag
+                        a force normal to the wing would make, the lift
+                        times the tangent of alpha, with no drag at zero
+                        lift on top; the model adds 0.025.
     Drag with Mach      The model's drag due to alpha and induced drag, tables
                         of alpha with two Mach columns, halved the drag at zero
                         lift past Mach 1 and made the F-15 far too fast. They
@@ -108,10 +152,11 @@ The changes, and what each is for:
                         degrees, as the manual's goes on past its wing rock
                         at 30 units to 45: at 0.468 or more full aft stick
                         balances below 24 degrees, and the script refuses
-                        it. Full aft stick now settles at 42.4 degrees, at
-                        116.6 knots - not the manual's "100 knots or less",
-                        which the model would reach only past 60 degrees,
-                        beyond the end of its lift and drag tables. The
+                        it. Full aft stick now settles at 41.9 degrees, at
+                        110.1 knots with TN D-8052's lift (above; 116.6
+                        before it) - not the manual's "100 knots or less",
+                        which needs about a fifth more lift and drag there
+                        than the model's tables give. The
                         stabilator's lift and pitching moment are NASA's.
                         On the approach she flies at 10 to 11.5 degrees with
                         a seventh of the nose-up travel; the nose wheel comes
@@ -228,6 +273,16 @@ WAVE_DRAG = 0.026
 WAVE_DECAY = 1.13
 SPAN_EFFICIENCY = 0.487
 SUPERSONIC_LIFT_DRAG = 0.63
+# NASA TN D-8052's lift (figure 12), flown by the 3/8-scale F-15 drop model
+# at a Reynolds number of 4 million, inlets drooped 11 degrees and blocked:
+# faired through its flight points, read from the figure, at the lift
+# table's rows from 16 to 40 degrees (radians, as the table has them). The
+# report flew them "at low speed" and did not consider Mach; they are taken
+# at Mach 0.2, about where she settles at full aft stick.
+RPRV_MACH = 0.2
+RPRV_LIFT_FROM_RAD = 0.279
+RPRV_LIFT_TO_RAD = 0.698
+RPRV_LIFT = {0.279: 0.89, 0.349: 1.035, 0.419: 1.13, 0.489: 1.18, 0.559: 1.215, 0.698: 1.25}
 # Where the lift curve leaves its straight line, and the flow the wing.
 SEPARATION_ALPHA = 0.21
 # NASA TM-4604's derivatives for the F-15 on its approach, from the NASA
@@ -534,8 +589,10 @@ def with_nasa_pitch(text):
 
 
 def with_mach_lift(text):
-    """The model's lift curve at Mach 0.5, carried across the Mach range in
-    proportion to the lift slope (fighter.lift_slope)."""
+    """The model's lift curve at Mach 0.5, from 16 to 40 degrees TN D-8052's
+    flight data (RPRV_LIFT, taken at RPRV_MACH) and past 40 its own scaled
+    to meet them, carried across the Mach range in proportion to the lift
+    slope (fighter.lift_slope)."""
     m = re.search(r"(<description>Lift_due_to_alpha</description>.*?<tableData>\s*\n)(.*?)(\n\s*</tableData>)", text, re.S)
     if not m:
         raise SystemExit(f"{SCRIPT}: no lift table - has the pinned model changed?")
@@ -544,9 +601,24 @@ def with_mach_lift(text):
         raise SystemExit(f"{SCRIPT}: the lift table's Mach columns have changed")
     base = fighter.lift_slope(0.5, ASPECT, SWEEP_QUARTER_CHORD)
     scale = [fighter.lift_slope(mach, ASPECT, SWEEP_QUARTER_CHORD) / base for mach in fighter.MACHS]
+    # The flight data are at RPRV_MACH; the Mach 0.5 curve that gives them
+    # there is theirs over that column's share of the lift slope.
+    at_rprv = fighter.lift_slope(RPRV_MACH, ASPECT, SWEEP_QUARTER_CHORD) / base
+    pinned = [tuple(float(v) for v in row.split()[:2]) for row in rows]
+    alphas = [round(a, 4) for a, _ in pinned]
+    if sorted(RPRV_LIFT) != [a for a in alphas if RPRV_LIFT_FROM_RAD <= a <= RPRV_LIFT_TO_RAD]:
+        raise SystemExit(f"{SCRIPT}: the lift table's rows from {RPRV_LIFT_FROM_RAD} to "
+                         f"{RPRV_LIFT_TO_RAD} rad are not TN D-8052's - has the pinned model changed?")
+    # Past the flight data's end, the model's own fall-off, scaled by what
+    # the flight data raised it by at their last row.
+    beyond = RPRV_LIFT[RPRV_LIFT_TO_RAD] / (dict(zip(alphas, (low for _, low in pinned)))[RPRV_LIFT_TO_RAD] * at_rprv)
     lines = ["                              " + "\t".join(f"{mach:.2f}" for mach in fighter.MACHS)]
-    for row in rows:
-        alpha, low = (float(v) for v in row.split()[:2])
+    for alpha, low in pinned:
+        key = round(alpha, 4)
+        if key in RPRV_LIFT:
+            low = RPRV_LIFT[key] / at_rprv
+        elif key > RPRV_LIFT_TO_RAD:
+            low *= beyond
         lines.append(f"                              {alpha:.4f}\t" + "\t".join(f"{low * k:.4f}" for k in scale))
     return text[:m.start(2)] + "\n".join(lines) + text[m.end(2):]
 
