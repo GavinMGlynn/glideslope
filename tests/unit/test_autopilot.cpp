@@ -206,10 +206,11 @@ GLIDESLOPE_TEST(the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb
     // held to its band once it is in it, and to twice the band after a minute.
     const Limit heading_rough{5.0, 5.0, 40.0};
     const Limit altitude_rough{50.0, 50.0, 70.0};
-    // The climb, at 100 kt and 4,000 ft, has the throttle at its stop for
-    // most of it: on the FAA's mixture curve (tools/piston_mixture.py) the
-    // 172P leaned makes 190 hp there, where JSBSim's own curve gave it 205
-    // that no engine has, and it settles in 38 s, not 21.
+    // The climb's 45 s is a measured margin, not a handbook figure: it
+    // settles in 38.2 s. At 100 kt and 4,000 ft the throttle is at its stop
+    // for most of it, and on the FAA's mixture curve (tools/piston_mixture.py)
+    // the 172P leaned makes 190 hp there against 205 on JSBSim's; on
+    // JSBSim's it settled in 21 s.
     const Limit climb_rough{200.0, 150.0, 45.0};
     meets("heading 0 to 90 in moderate turbulence",
           measure(after_a_step([](AutopilotModes& m) { m.heading_deg = 90.0; }, heading,
