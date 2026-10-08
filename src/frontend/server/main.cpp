@@ -194,6 +194,12 @@ struct Options {
     bool until_empty = false;
     // Written once the aircraft are flying, for a test that joins late.
     std::string ready_file;
+    // For a test that counts a hand-over in steps (`--steps-after-hand-over`):
+    // stop once the AI has flown an aircraft in a player's slot for this many
+    // steps, and write `stopped_file` as the run ends, for its clients to
+    // leave by. Below nought, never.
+    std::int64_t steps_after_hand_over = -1;
+    std::string stopped_file;
     bool window_dump = false;
     std::string window_shot;
     std::string window_press;
@@ -343,6 +349,9 @@ void print_usage(std::FILE* out) {
         "  --stop-once-flown S  stop, telling nobody, once a player's input has\n"
         "                     been flown and S seconds of the simulation have gone,\n"
         "                     as a server restarted under its players, for tests\n"
+        "  --steps-after-hand-over N  stop once the AI has flown a player's\n"
+        "                     aircraft for N steps, for tests\n"
+        "  --stopped-file FILE  write FILE as the run ends, for tests\n"
         "  --steps N          take N steps as fast as they go, with nobody joining,\n"
         "                     then stop - simulated time, for a test\n"
         "  --test-step-ms MS  make every step take at least MS milliseconds, so\n"
@@ -535,6 +544,18 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         } else if (a == "--ready-file") {
             if (!next(value)) return std::nullopt;
             o.ready_file = std::string(value);
+        } else if (a == "--steps-after-hand-over") {
+            if (!next(value)) return std::nullopt;
+            const auto n = whole(value);
+            if (!n) {
+                why = "--steps-after-hand-over wants a whole number, not '" +
+                      std::string(value) + "'";
+                return std::nullopt;
+            }
+            o.steps_after_hand_over = static_cast<std::int64_t>(*n);
+        } else if (a == "--stopped-file") {
+            if (!next(value)) return std::nullopt;
+            o.stopped_file = std::string(value);
         } else if (a == "--changed-file") {
             if (!next(value)) return std::nullopt;
             o.changed_file = std::string(value);
@@ -2526,6 +2547,11 @@ public:
     // still flying against each other. A wreck stays where it hit, not
     // stepped, for `wreck_s` of simulated time, then flies again from where it
     // started. What happened is returned, a line each, for the log.
+public:
+    // **Steps measured with an aircraft in a player's slot flown by the
+    // AI** (`measure_apart`): what a test counts a hand-over in.
+    std::int64_t handed_steps() const { return handed_steps_; }
+
     std::vector<std::string> step() {
         ++steps_;
         const double now_s =
@@ -3310,6 +3336,11 @@ private:
     // the monitor has it give way (`keep_apart`).
     void measure_apart() {
         ++measured_steps_;
+        if (std::any_of(flown_.begin(), flown_.end(), [](const Aircraft& a) {
+                return a.slot >= 0 && ai_flying(a) && a.wrecked_at_s < 0.0;
+            })) {
+            ++handed_steps_;
+        }
         const double now = now_s();
         for (std::size_t i = 0; i < flown_.size(); ++i) {
             for (std::size_t j = i + 1; j < flown_.size(); ++j) {
@@ -3566,6 +3597,8 @@ private:
     double player_airspeed_kts_ = 0.0;
     bool player_seaplane_ = false;
     std::int64_t steps_ = 0;
+    // Steps measured with an aircraft in a player's slot flown by the AI.
+    std::int64_t handed_steps_ = 0;
     struct Speeds {
         std::optional<glideslope::copilot::Brief> brief;
         std::string why;
@@ -4760,6 +4793,20 @@ int run(const Options& o) {
             }
         }
 
+        // **A test's measured hand-over** (`--steps-after-hand-over`): the
+        // run ends as many steps after a player's aircraft was first handed
+        // to the AI as asked, whatever the machine's speed.
+        if (o.steps_after_hand_over >= 0 && fleet &&
+            fleet->handed_steps() >= o.steps_after_hand_over) {
+            std::printf("stopped after %lld steps of a player's aircraft with the AI, "
+                        "%.1f s in\n",
+                        static_cast<long long>(fleet->handed_steps()), up_s);
+            std::fflush(stdout);
+            // Not the steps a slow machine still owes: they are past the count.
+            owed = 0;
+            break;
+        }
+
         // **A test's restart** (`--stop-once-flown`): once a player's input
         // has been flown, the server stops where it is, saying nothing to
         // anybody, as one that falls over or is restarted under its players
@@ -4799,12 +4846,20 @@ int run(const Options& o) {
             // At a set fraction of real time, for a test (`--test-pace`).
             owed += clock.advance(std::chrono::duration_cast<std::chrono::nanoseconds>(
                 (now - last) * o.test_pace));
-            const std::int64_t n = std::min(owed, most_steps_between_looks);
+            std::int64_t n = std::min(owed, most_steps_between_looks);
             // The inputs read in this pass are due at the step due now.
             for (auto& connection : connections) {
                 connection.second.inputs_heard.stamp(stepped, owed);
             }
             for (std::int64_t i = 0; i < n; ++i) {
+                // **Counted in steps the AI has a player's aircraft**, not
+                // by the clock: a slow machine hands over later in its run,
+                // and a run of fixed length then measured fewer of them.
+                if (o.steps_after_hand_over >= 0 &&
+                    fleet->handed_steps() >= o.steps_after_hand_over) {
+                    n = i;
+                    break;
+                }
                 for (auto& connection : connections) {
                     apply_due(connection.second, *fleet, stepped + i);
                 }
@@ -5104,10 +5159,14 @@ int run(const Options& o) {
         for (const std::string& line : fleet->apart_report()) {
             std::printf("%s\n", line.c_str());
         }
+        std::fflush(stdout);
         std::printf("fetched %d terrain tile%s\n", fleet->tiles_fetched(),
                     fleet->tiles_fetched() == 1 ? "" : "s");
     }
     std::fflush(stdout);
+    if (!o.stopped_file.empty()) {
+        std::ofstream(o.stopped_file) << "stopped\n";
+    }
     return 0;
 }
 
