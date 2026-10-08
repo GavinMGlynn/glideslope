@@ -13,7 +13,6 @@
   each figure; see docs/PROJECT_STATUS.md for how the model was tuned towards
   these numbers and what each measured before and after.
 
-
   Not flown: the engine's rated power, section 1's "160 rated BHP at 2700
   RPM". The model's engine makes 222 hp there, and its propeller is made to
   absorb it; corrected, the learnt landing, trained on it, lands harder

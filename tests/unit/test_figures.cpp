@@ -696,7 +696,6 @@ GLIDESLOPE_TEST(the_ai_climbs_a_cessna_172p_at_its_handbooks_speeds_to_its_publi
 // full throttle and full rich at sea level, as its handbook or type
 // certificate rates it. Not the Cessna 172P's: its engine makes 222 hp at
 // 2,700 rpm, and the learnt landing was trained on it (docs/COMPLETION_PLAN.md).
-
 GLIDESLOPE_TEST(the_cessna_182ss_engine_makes_230_hp_at_2400_rpm) {
     expect_figure("c182", "rated_power");
 }
