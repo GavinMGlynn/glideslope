@@ -162,8 +162,8 @@ GLIDESLOPE_TEST(a_failed_jet_engine_stays_failed) {
 // knots - settled - and be no faster than `held_kcas`. **That is not yet
 // the manual's**: with NASA TN D-8052's lift (tools/make_f15c.py) she
 // settles at 110.1 knots, 1.9 under `held_kcas` for other platforms'
-// arithmetic, and 100 needs about a fifth more lift and drag than her
-// model's tables give at the alpha she settles at (docs/PROJECT_STATUS.md).
+// arithmetic, and 100 needs 21 per cent more lift and drag than
+// she makes at the alpha she settles at (docs/PROJECT_STATUS.md).
 // `held_kcas` is lowered to 100 when she meets it.
 GLIDESLOPE_TEST(the_f15c_held_at_full_aft_stick_settles_no_faster_than_112_knots_against_her_manuals_100) {
     const double manual_kcas = 100.0;

@@ -75,7 +75,7 @@ struct DepartureSpeeds {
 // the flaps up is below the speed a clean airliner flies at. **A lift-off
 // speed worked from the flight manual's** (`PublishedFigures::takeoff_kcas`)
 // comes after a flying boat's water take-off and before the rest: the
-// F-15C's, whose stall is at 32 degrees of incidence. Throws
+// F-15C's, whose stall is at 40 degrees of incidence. Throws
 // std::runtime_error where the aircraft publishes neither a climb speed nor
 // anything to work a rotation speed from.
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
