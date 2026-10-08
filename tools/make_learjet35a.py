@@ -201,6 +201,10 @@ PAYLOAD_WL = 26.0
 #   power plant, 1.3 times two 329 kg TFE731-2s, 855 kg at WL 48;
 #   systems and items, 0.17 of the take-off mass, 1,411 kg at WL 25 - under
 #     the fuselage's centreline: floorboards WL 5.87, baggage floor 24.8.
+# The transport column, not the general-aviation one, because she is
+# certificated as a transport (14 CFR part 25) and its sum is within 10% of
+# her empty weight, where the general-aviation column's, 2,909 kg, is 37%
+# short; that column puts the whole at WL 29.8, 0.7 in lower.
 # 5,090 kg in all against her 4,614 empty, and WL 30.5: the fuselage's
 # centreline, near enough, as a low-wing aeroplane's with its engines on its
 # fuselage is. Its uncertainty is mostly the systems': at WL 18 or at the
