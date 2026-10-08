@@ -416,10 +416,6 @@ Found while implementing something else. Added when found, not when remembered.
       the window client's 172 both landed within 5 m and 300 ft/min and
       stopped on the runway; the window client refused with its flaps moving,
       told why, and handed over by L.
-- [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
-      *Verification: each light aircraft's policy lands within the
-      autopilot's limits from the same starts, in calm air and a 10-knot
-      crosswind.*
 - [ ] **AI aircraft are kept apart along their routes; one handed to the
       AI between two layers is not.** Since 2026-10-02 the server keeps its
       own AI aircraft, planned and plan-file, 500 ft or 1.5 nm apart - on
@@ -842,9 +838,12 @@ Found while implementing something else. Added when found, not when remembered.
       19.5 degrees of incidence and its flare runs out of nose. *Verification:
       the F-35B flies her approach at her published incidence and flares
       with her throttle closing.*
-- [ ] **The touchdown sink the AI flares to is set, not published** (200
+- [x] **The touchdown sink the AI flares to is set, not published** (200
       ft/min for jets, 40 otherwise). *Verification: each aeroplane's comes
-      from a source the figures file names.*
+      from a source the figures file names.* Done 2026-10-09 (owner's
+      decision): the figures files cite NASA's go-around criteria study,
+      whose touchdown criterion is 360 ft/min, and every aircraft's target
+      is held within it.
 - [x] **The AI does not go around from a balloon**: a Mosquito given back
       from a pilot's over-pulled flare zooms to fifty feet and comes down at
       958 ft/min. *Verification: every aeroplane given back in a balloon
@@ -928,12 +927,13 @@ Found while implementing something else. Added when found, not when remembered.
       2026-09-26: against a stand-in ion that never finishes sending, a run
       told to stop is gone within a second or two, one left alone ends when
       its frame is written, and either way the cache takes a write at once.
-- [ ] **The F-15C's stall, held to her flight manual's** (decided
-      2026-10-02): at full aft stick her angle of attack settles at 45 units
-      or more, at 100 knots or less. She settles at 42.4 degrees but at 117
-      knots; still missing are that speed, and a source turning the manual's
-      units into degrees (her manual gives none; 2026-10-09). *Verification: held at full aft stick, the F-15C
-      settles at 45 units or more and 100 knots or less.*
+- [ ] **The F-15C's stall, held to her flight manual's speed** (owner,
+      2026-10-09): at full aft stick she settles at 100 knots or less; her
+      angle of attack is reported, not judged, as no primary source turns
+      the manual's units into degrees. Missing: that speed - she settles at
+      116.6 knots, and her model's lift and drag give 100 only past the end
+      of their tables. *Verification: held at full aft stick, the F-15C
+      settles at 100 knots or less.*
 - [x] **The autopilot banks to its limit even when the aeroplane cannot sustain
       the turn.** *Verification: a light aeroplane near its ceiling holds its
       height through a 90-degree turn as it does at 3,000 ft.* Done
@@ -1200,6 +1200,11 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
 
+- [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
+      *Verification: each light aircraft's policy lands within the
+      autopilot's limits from the same starts, in calm air and a 10-knot
+      crosswind.* Owner 2026-10-09: needs RL training per aircraft; the
+      172P's is retrained first.
 - [ ] **Terrain over the whole Earth, streamed as an aircraft flies.**
       *Verification: a Sydney-to-Melbourne flight draws terrain the whole way,
       with tiles in memory under a bound.*

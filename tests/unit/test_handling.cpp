@@ -150,20 +150,22 @@ GLIDESLOPE_TEST(a_failed_jet_engine_stays_failed) {
     check(live > 5000.0, "the other still runs: " + std::to_string(live) + " lb");
 }
 
-// **Held at full aft stick, the F-15C's nose settles, past the peak of her
-// lift.** T.O. 1F-15A-1, section VI, 1 g stalls: "With full aft stick, AOA
-// stabilizes at 45 units or above with airspeed 100 knots or less", the
-// vertical velocity "probably pegged going down", after wing rock above 30
-// units. From 200 knots at 10,000 ft, throttles idle, wings held level, the
-// stick full aft for ninety seconds; over the last twenty the angle of
-// attack must hold within four degrees - settled, not still rising, as it
-// went on to 80 degrees when her whole pitching moment was scaled to NASA's
-// - and beyond 32 degrees, where her lift peaks. **What it does not meet,
-// recorded and not asserted:** she settles at 116.6 knots, not 100 or
-// less. The manual's units are not degrees and it gives no conversion, and
-// for 100 knots the model's lift and drag tables, which end at 50 degrees,
-// would need her settled past 60 (docs/PROJECT_STATUS.md).
-GLIDESLOPE_TEST(the_f15c_held_at_full_aft_stick_settles_past_the_peak_of_her_lift) {
+// **Held at full aft stick, the F-15C settles - for now at 117 knots, not
+// her manual's 100.** T.O. 1F-15A-1, section VI, 1 g stalls: "With full aft
+// stick, AOA stabilizes at 45 units or above with airspeed 100 knots or
+// less". The owner decided on 2026-10-09 that she is held to that speed
+// alone: no primary source turns the manual's units into degrees (NASA
+// TM-72861 and the F-15 high-angle-of-attack papers do not), so her angle
+// of attack is reported and not judged. From 200 knots at 10,000 ft at her
+// clean 36,946 lb, throttles idle, wings held level, the stick full aft for
+// ninety seconds; over the last twenty her speed must hold within four
+// knots - settled - and be no faster than `held_kcas`. **That is not yet
+// the manual's**: she settles at 116.6 knots, and 100 needs about a third
+// more lift and drag than her model's tables give, which end at 50 degrees
+// (docs/PROJECT_STATUS.md). `held_kcas` is lowered to 100 when she meets it.
+GLIDESLOPE_TEST(the_f15c_held_at_full_aft_stick_settles_no_faster_than_117_knots_against_her_manuals_100) {
+    const double manual_kcas = 100.0;
+    const double held_kcas = 117.0;
     const auto figures = glideslope::sim::read_published_figures(
         std::filesystem::path(GLIDESLOPE_TEST_FIGURES_DIR) / "f15c.xml");
     Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "f15c");
@@ -183,6 +185,7 @@ GLIDESLOPE_TEST(the_f15c_held_at_full_aft_stick_settles_past_the_peak_of_her_lif
     c.elevator = 1.0; // full aft
     double least_alpha = 1e9;
     double most_alpha = -1e9;
+    double least_kcas = 1e9;
     double most_kcas = 0.0;
     double sink_fpm = 0.0;
     for (int i = 0; i < 90 * steps_per_second; ++i) {
@@ -192,22 +195,23 @@ GLIDESLOPE_TEST(the_f15c_held_at_full_aft_stick_settles_past_the_peak_of_her_lif
         a.step();
         if (i >= 70 * steps_per_second) {
             const double alpha = a.property("aero/alpha-deg");
+            const double kcas = a.property("velocities/vc-kts");
             least_alpha = std::min(least_alpha, alpha);
             most_alpha = std::max(most_alpha, alpha);
-            most_kcas = std::max(most_kcas, a.property("velocities/vc-kts"));
+            least_kcas = std::min(least_kcas, kcas);
+            most_kcas = std::max(most_kcas, kcas);
             sink_fpm = -a.property("velocities/h-dot-fps") * 60.0;
         }
     }
-    std::printf("  full aft stick, the last 20 s: alpha %.1f to %.1f, at most %.1f KCAS, "
-                "sinking %.0f ft/min, stabilator %.2f of its nose-up travel\n",
-                least_alpha, most_alpha, most_kcas, sink_fpm,
-                -a.property("fcs/elevator-pos-norm"));
-    check(most_alpha - least_alpha <= 4.0,
-          "the angle of attack settled: it moved " + std::to_string(most_alpha - least_alpha) +
-              " degrees in the last 20 s");
-    check(least_alpha > 32.0,
-          "past the peak of her lift, 32 degrees, not at " + std::to_string(least_alpha));
-    std::printf("  the manual's: 100 knots or less; hers: %.1f\n", most_kcas);
+    std::printf("  full aft stick, the last 20 s: %.1f to %.1f KCAS (the manual's: %.0f or "
+                "less), sinking %.0f ft/min; alpha %.1f to %.1f degrees, reported, not judged\n",
+                least_kcas, most_kcas, manual_kcas, sink_fpm, least_alpha, most_alpha);
+    check(most_kcas - least_kcas <= 4.0,
+          "her speed settled: it moved " + std::to_string(most_kcas - least_kcas) +
+              " knots in the last 20 s");
+    check(most_kcas <= held_kcas, "she settles at " + std::to_string(most_kcas) +
+                                      " knots, faster than the " + std::to_string(held_kcas) +
+                                      " she is held to");
 }
 
 // **The F-15C's nose wheel comes off where its flight manual's does.** T.O.

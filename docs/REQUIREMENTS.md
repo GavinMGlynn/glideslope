@@ -848,6 +848,27 @@ The replacement:
   many runways are pulled more than 0.1 m and 0.3 m are measured and held
   (`PROJECT_STATUS.md`).
 
+**Closed 2026-10-09** (the project owner):
+
+- **The F-15C's stall is held to her flight manual's speed only.** At full
+  aft stick she settles at 100 knots or less (T.O. 1F-15A-1, section VI);
+  her angle of attack is reported and not judged, because no primary source
+  turns the manual's units into degrees - NASA TM-72861 and the F-15
+  high-angle-of-attack papers do not; only forum posts do.
+- **The touchdown sink the AI flares to is sourced.** NASA's go-around
+  criteria study (Zaal et al., "Go-Around Criteria Refinement for Transport
+  Category Aircraft", AIAA Journal of Air Transportation, NTRS 20205010611)
+  takes a touchdown sink of 6 ft/s, 360 ft/min, as its criterion, and a
+  normal touchdown is 100 to 300 ft/min. The AI's 200 ft/min for jets, and
+  every aircraft's target, is held within that criterion.
+- **Learnt landings for other aircraft move to Later.** Each needs its own
+  reinforcement-learning training; the Cessna 172P's is retrained first.
+- **The Learjet's centre-of-gravity height and the F-35B's approach angle of
+  attack stay in the goal**, though no public source for either has been
+  found.
+- **The Cherokee's stall recovery raises her flaps to her handbook's
+  go-around setting.**
+
 **Open:**
 
 - **Buildings:** how OpenStreetMap buildings arrive without a Cesium ion

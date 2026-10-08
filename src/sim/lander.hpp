@@ -58,7 +58,10 @@ struct ApproachSpeeds {
     // minute: forty, a light aeroplane held off to touch gently, unless her
     // figures give `touchdown_fpm` - a jet's give two hundred, flown on to
     // the runway rather than held off to float. Under the 600 her gear is
-    // judged to take (sim/crash.hpp), or refused.
+    // judged to take (sim/crash.hpp), or refused; and every aircraft's is
+    // within the 6 ft/s, 360 ft/min, NASA's go-around criteria study takes
+    // as its touchdown criterion (Zaal et al., AIAA Journal of Air
+    // Transportation, NTRS 20205010611), which a test holds them to.
     double touchdown_fpm = 40.0;
     // **The glidepath aims past the threshold, not at it.** An approach flown
     // at the threshold puts the flare before it and the wheels on the grass;

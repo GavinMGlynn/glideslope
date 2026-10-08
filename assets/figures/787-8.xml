@@ -18,10 +18,13 @@
 -->
 <!--
   **touchdown_fpm** is the sink the AI's flare brings the wheels to the
-  runway at, not a published figure. A jet is flown on to the runway rather
-  than held off it to float (the FAA's Airplane Flying Handbook,
-  FAA-H-8083-3C, chapter 16): two hundred feet a minute, a third of the
-  600 the server judges any gear to take (sim/crash.hpp). Held off to the
+  runway at. A jet is flown on to the runway rather than held off it to
+  float (the FAA's Airplane Flying Handbook, FAA-H-8083-3C, chapter 16):
+  two hundred feet a minute, inside the normal 100 to 300 ft/min, and
+  under the 6 ft/s (360 ft/min) NASA's go-around criteria study takes as
+  its touchdown criterion - Zaal et al., "Go-Around Criteria Refinement for
+  Transport Category Aircraft", AIAA Journal of Air Transportation, NTRS
+  20205010611. A test holds every aircraft's to that. Held off to the
   forty a light aeroplane is, a B-2A in ground effect floated two
   kilometres down the runway.
 -->

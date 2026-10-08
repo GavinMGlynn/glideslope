@@ -409,6 +409,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_figure_asking_for_flaps_the_aircraft_does_not_have_is_refused
     the_speedbrake_an_approach_is_flown_with_is_read_and_refused_outside_its_travel
     the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_the_gear_takes
+    every_aircrafts_touchdown_sink_is_within_nasas_go_around_criterion
     the_speeds_a_plan_may_fly_an_aircraft_at_are_read_and_refused_where_they_are_wrong
     every_glide_of_every_aircraft_each_way_round_is_flown_by_exactly_one_glide_test
     the_cessna_172p_glides_round_its_tightest_orbit_from_60_to_75_kt_without_stalling
@@ -548,7 +549,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_mosquito_drops_its_nose_at_the_stall_as_its_pilots_notes_say
     fixed_gear_stays_down_when_the_lever_is_raised
     a_failed_jet_engine_stays_failed
-    the_f15c_held_at_full_aft_stick_settles_past_the_peak_of_her_lift
+    the_f15c_held_at_full_aft_stick_settles_no_faster_than_117_knots_against_her_manuals_100
     the_f15c_lifts_its_nose_wheel_near_its_flight_manuals_speed_at_each_weight
     frozen_fuel_is_not_burned
     the_speedbrake_lever_moves_the_spoilers
