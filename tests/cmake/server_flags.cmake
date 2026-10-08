@@ -77,6 +77,8 @@ list(LENGTH _flags _count)
 # aircraft, outside it, to be landed (server_ai_learnt_landing.cmake).
 # --ai-route gives the first AI aircraft a route file as a copilot's route
 # is, flown in simulated time (server_route_landing.cmake).
+# --steps-after-hand-over stops a run that many steps after its first hand-over
+# (server_handed_kept_apart.cmake), and --stopped-file is written as it stops.
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
@@ -86,7 +88,7 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --steps --fail-engine-at --hand-over-planner --hand-over-playback
               --hand-over-record --weather --metar --station --metar-then --changed-file
               --weather-blend --weather-refresh --players-on-final --ai-on-final
-              --ai-route)
+              --ai-route --steps-after-hand-over --stopped-file)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)
