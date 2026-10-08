@@ -32,17 +32,6 @@ constexpr double self_rotated_deg = 2.0;
 // wheels, degrees.
 constexpr double strike_margin_deg = 2.0;
 
-double metres_per_degree_latitude(double latitude_deg) {
-    const double lat = latitude_deg / degrees;
-    return 111132.92 - 559.82 * std::cos(2.0 * lat) + 1.175 * std::cos(4.0 * lat) -
-           0.0023 * std::cos(6.0 * lat);
-}
-
-double metres_per_degree_longitude(double latitude_deg) {
-    const double lat = latitude_deg / degrees;
-    return 111412.84 * std::cos(lat) - 93.5 * std::cos(3.0 * lat) +
-           0.118 * std::cos(5.0 * lat);
-}
 
 // A figure by the flight that measures it, or null.
 const FigureSpec* by_flight(const PublishedFigures& figures, const std::string& flight) {

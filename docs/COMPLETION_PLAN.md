@@ -863,8 +863,8 @@ Found while implementing something else. Added when found, not when remembered.
       climbs to her circuit, flies every leg and lands with the other twelve.
 - [ ] **The circuit's rules are written twice**: the go-around's circuit
       and the circuit lessons' AI fly the same legs from separate code, and
-      the metres in a degree are worked out in five places in the
-      simulation (the fifth, leaving a runway, since 2026-10-08). *Verification:
+      the metres in a degree, once in five places, are in one since
+      2026-10-08. *Verification:
       the circuit lessons are flown by the go-around's circuit, with their
       figures unchanged.*
 - [ ] **A landing taken over on its roll is braked for a dry runway**: a
@@ -1148,8 +1148,10 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       or each failure's cause found and fixed under its own item.*
 - [ ] **Nothing clears a runway for a copilot's route**: since 2026-10-08
       an AI aircraft landed taxis off the runway and stops beside it, and
-      one landing on a runway that is not clear goes around; but a copilot's
-      route carries waypoints only, so it cannot end in a landing.
+      one landing on a runway that is not clear goes around (measured in
+      the simulation; no server run yet holds a runway occupied as one
+      arrives); but a copilot's route carries waypoints only, so it cannot
+      end in a landing.
       *Verification: two AI aircraft on plans ending at one runway both land,
       the second once the first has left it (done); and a copilot's route
       that ends in a landing is landed and leaves the runway.*

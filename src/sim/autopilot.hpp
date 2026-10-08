@@ -72,6 +72,14 @@ public:
         floor_ft_ = floor_ft;
         ceiling_ft_ = ceiling_ft;
     }
+    // **The fastest it may hold**: the most the speed asked may be raised
+    // to for a climb the nose cannot give (autopilot.cpp: with the nose at
+    // its highest and the climb short), the aircraft's fastest a plan may
+    // ask (sim::plan_speeds). None: never raised. No model here gives a
+    // flap or gear speed, so this is the only bound beside 40 kt.
+    void limit_speed(std::optional<double> fastest_kts) { fastest_kts_ = fastest_kts; }
+    // How far the speed asked has been raised for a climb now, knots.
+    double climb_speed_kts() const { return climb_speed_kts_; }
     // The height it is flying to, within its limits, or none when it holds
     // a vertical speed.
     std::optional<double> height_flown_to_ft() const;
@@ -85,6 +93,7 @@ private:
     AutopilotModes modes_;
     std::optional<double> floor_ft_;
     std::optional<double> ceiling_ft_;
+    std::optional<double> fastest_kts_;
     Controls last_;
     // Holding the speed rather than the height: the most climb the altitude
     // hold may ask for, found by an integral on the airspeed, while it binds.

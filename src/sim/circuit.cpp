@@ -11,18 +11,6 @@ namespace {
 constexpr double degrees = 180.0 / 3.14159265358979323846;
 constexpr double metres_per_nm = 1852.0;
 
-// As sim::Lander measures a runway, on the WGS84 ellipsoid near its threshold.
-double metres_per_degree_latitude(double latitude_deg) {
-    const double lat = latitude_deg / degrees;
-    return 111132.92 - 559.82 * std::cos(2.0 * lat) + 1.175 * std::cos(4.0 * lat) -
-           0.0023 * std::cos(6.0 * lat);
-}
-
-double metres_per_degree_longitude(double latitude_deg) {
-    const double lat = latitude_deg / degrees;
-    return 111412.84 * std::cos(lat) - 93.5 * std::cos(3.0 * lat) +
-           0.118 * std::cos(5.0 * lat);
-}
 
 } // namespace
 

@@ -45,11 +45,11 @@ bool on_runway(const Runway& runway, double latitude_deg, double longitude_deg,
                double height_ft);
 
 // Whether something at this place, `height_ft` over the runway, is on the
-// ground beside it on its right - off it, within `Vacate::spot_along_m`
-// along of `along_m` and 500 m of its centreline: where a vacated aeroplane
-// stops.
+// ground beside it on its right (`side` 1) or left (-1) - off it, within
+// `Vacate::spot_along_m` along of `along_m` and 500 m of its centreline:
+// where a vacated aeroplane stops.
 bool beside_runway(const Runway& runway, double latitude_deg, double longitude_deg,
-                   double height_ft, double along_m);
+                   double height_ft, double along_m, double side);
 
 struct RunwayClear {
     // Half the widest runway (Lander::runway_half_width_m) and half an
@@ -68,17 +68,21 @@ class Vacate {
 public:
     enum class Stage { rolling_on, turning_off, stopping, clear };
 
-    // Whether the ground beside `runway`, on its right, is free within
-    // `spot_along_m` either way of `along_m` from its threshold: nothing
-    // stopped there. None: free everywhere.
-    using SpotFree = std::function<bool(const Runway& runway, double along_m)>;
+    // Whether the ground beside `runway`, on its right (`side` 1) or left
+    // (-1), is free within `spot_along_m` either way of `along_m` from its
+    // threshold: nothing stopped there. None: free everywhere.
+    using SpotFree = std::function<bool(const Runway& runway, double along_m, double side)>;
     // How far along the runway another aeroplane stopped beside it keeps
     // her rolling on: turning off at a walking pace an A380 rolls 560 m on
-    // before she is clear, and stopped, should be no nearer than that to
-    // the next.
-    static constexpr double spot_along_m = 600.0;
-    // Turned off by then, free or not.
-    static constexpr double turn_by_end_m = 400.0;
+    // before she is clear, so one stopped further than this along from
+    // where she turns is at least 240 m along from where she stops - the
+    // window is all that need be looked at.
+    static constexpr double spot_along_m = 800.0;
+    // **Turned off by then, free or not**: the A380's 560 m and some, so
+    // that every aeroplane is clear before the runway's end. The right
+    // taken here, she turns off to the left if that is free, and to the
+    // right if neither is - the one case she may stop near another.
+    static constexpr double turn_by_end_m = 800.0;
 
     // `aircraft` stopped on `runway`, its controls now `controls`.
     Vacate(const Aircraft& aircraft, const Runway& runway, const Controls& controls,
@@ -107,6 +111,7 @@ private:
     Stage stage_ = Stage::rolling_on;
     double throttle_integral_ = 0.0;
     double led_deg_ = 0.0; // off the runway's heading, steered to now
+    double side_ = 1.0;    // turning off to the right, or -1 the left
 };
 
 } // namespace glideslope::sim

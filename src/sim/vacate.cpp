@@ -13,18 +13,6 @@ namespace {
 constexpr double degrees = 180.0 / 3.14159265358979323846;
 constexpr double fps_per_kt = 1.68781;
 
-// As sim::Lander measures a runway, on the WGS84 ellipsoid near its threshold.
-double metres_per_degree_latitude(double latitude_deg) {
-    const double lat = latitude_deg / degrees;
-    return 111132.92 - 559.82 * std::cos(2.0 * lat) + 1.175 * std::cos(4.0 * lat) -
-           0.0023 * std::cos(6.0 * lat);
-}
-
-double metres_per_degree_longitude(double latitude_deg) {
-    const double lat = latitude_deg / degrees;
-    return 111412.84 * std::cos(lat) - 93.5 * std::cos(3.0 * lat) +
-           0.118 * std::cos(5.0 * lat);
-}
 
 } // namespace
 
@@ -47,10 +35,11 @@ bool on_runway(const Runway& runway, double latitude_deg, double longitude_deg,
 }
 
 bool beside_runway(const Runway& runway, double latitude_deg, double longitude_deg,
-                   double height_ft, double along_m) {
+                   double height_ft, double along_m, double side) {
     const OnRunway at = on_runway_frame(runway, latitude_deg, longitude_deg);
+    const double out_m = side * at.across_m;
     return height_ft <= RunwayClear::occupied_ft &&
-           at.across_m > RunwayClear::occupied_half_width_m && at.across_m < 500.0 &&
+           out_m > RunwayClear::occupied_half_width_m && out_m < 500.0 &&
            std::abs(at.along_m - along_m) < Vacate::spot_along_m;
 }
 
@@ -69,12 +58,19 @@ Controls Vacate::fly() {
     const OnRunway at = on_runway_frame(runway_, s.latitude_deg, s.longitude_deg);
     constexpr double dt = 1.0 / static_cast<double>(steps_per_second);
 
-    if (stage_ == Stage::rolling_on &&
-        (!spot_free_ || spot_free_(runway_, at.along_m) ||
-         at.along_m >= runway_.length_m - turn_by_end_m)) {
-        stage_ = Stage::turning_off;
+    if (stage_ == Stage::rolling_on) {
+        if (!spot_free_ || spot_free_(runway_, at.along_m, 1.0)) {
+            stage_ = Stage::turning_off;
+        } else if (at.along_m >= runway_.length_m - turn_by_end_m) {
+            // **Out of runway with the right side taken: the left**, if it
+            // is free; if neither is, the right all the same.
+            if (spot_free_(runway_, at.along_m, -1.0)) {
+                side_ = -1.0;
+            }
+            stage_ = Stage::turning_off;
+        }
     }
-    if (stage_ == Stage::turning_off && at.across_m >= RunwayClear::clear_m) {
+    if (stage_ == Stage::turning_off && side_ * at.across_m >= RunwayClear::clear_m) {
         stage_ = Stage::stopping;
     }
     if (stage_ == Stage::stopping && rolling_kts < 0.3) {
@@ -104,7 +100,8 @@ Controls Vacate::fly() {
     // And never more than `lead_deg` ahead of where her nose is: at a
     // walking pace a light aeroplane's nosewheel turns her slowly, and a
     // heading run on ahead had the inside brake on until she stopped again.
-    const double turned_deg = std::remainder(s.heading_deg - runway_.heading_deg, 360.0);
+    const double turned_deg =
+        side_ * std::remainder(s.heading_deg - runway_.heading_deg, 360.0);
     if (stage_ == Stage::turning_off && rolling_kts > 2.0) {
         led_deg_ = std::min({led_deg_ + turn_degps * dt, turn_off_deg, turned_deg + lead_deg});
     }
@@ -113,7 +110,7 @@ Controls Vacate::fly() {
     const double want_deg =
         stage_ == Stage::rolling_on
             ? runway_.heading_deg - std::clamp(std::atan(at.across_m / 30.0) * degrees, -10.0, 10.0)
-            : runway_.heading_deg + led_deg_;
+            : runway_.heading_deg + side_ * led_deg_;
     const double error = std::remainder(want_deg - s.heading_deg, 360.0);
     const double r_degps = s.r_radps * degrees;
     c_.rudder = -std::clamp(0.10 * error - 0.30 * r_degps, -1.0, 1.0);
