@@ -5332,33 +5332,18 @@ GLIDESLOPE_TEST(an_instructor_demonstrating_a_stall_recovers_a_b2_left_thirty_se
 
 namespace {
 
-// Where she is along the runway, in nautical miles: positive beyond the
-// threshold in the landing direction, negative before it. A circuit has to
-// know this and the aeroplane's own state cannot say it.
+// Where she is along the runway and across it, in the runway's own frame,
+// as the circuit (sim/circuit.hpp) has it.
 double along_the_runway_nm(const glideslope::sim::Runway& r,
                            const glideslope::sim::Aircraft& a) {
-    const double north_m = (a.property("position/lat-geod-deg") - r.threshold_lat_deg) *
-                           metres_per_degree_latitude(r.threshold_lat_deg);
-    const double east_m = (a.property("position/long-gc-deg") - r.threshold_lon_deg) *
-                          metres_per_degree_longitude(r.threshold_lat_deg);
-    const double h = r.heading_deg / degrees;
-    return (north_m * std::cos(h) + east_m * std::sin(h)) / metres_per_nm;
+    return glideslope::sim::along_runway_nm(r, a.property("position/lat-geod-deg"),
+                                            a.property("position/long-gc-deg"));
 }
 
-// And how far to the right of its centreline, in metres.
 double across_the_runway_m(const glideslope::sim::Runway& r,
                            const glideslope::sim::Aircraft& a) {
-    const double north_m = (a.property("position/lat-geod-deg") - r.threshold_lat_deg) *
-                           metres_per_degree_latitude(r.threshold_lat_deg);
-    const double east_m = (a.property("position/long-gc-deg") - r.threshold_lon_deg) *
-                          metres_per_degree_longitude(r.threshold_lat_deg);
-    const double h = r.heading_deg / degrees;
-    return east_m * std::cos(h) - north_m * std::sin(h);
-}
-
-bool pointing_at(const glideslope::sim::Aircraft& a, double heading_deg) {
-    return std::abs(std::remainder(heading_deg - a.property("attitude/psi-deg"), 360.0)) <
-           10.0;
+    return glideslope::sim::across_runway_m(r, a.property("position/lat-geod-deg"),
+                                            a.property("position/long-gc-deg"));
 }
 
 struct Circuit {
@@ -5373,6 +5358,9 @@ struct Circuit {
     std::vector<std::string> debrief;
     std::size_t completed = 0;
     std::size_t stages = 0;
+    // The go-around's circuit's legs she flew, in order, from the take-off:
+    // crosswind, downwind, base, the intercept and final - five.
+    std::size_t circuit_legs = 0;
     bool stopped = false;
     double highest_agl_ft = 0.0;
     // **What the bands are set from, rather than guessed at.** The speed
@@ -5443,33 +5431,43 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     constexpr double turn_crosswind_ft = 650.0;
     controller.to_ai_take_off(runway, dep, turn_crosswind_ft);
 
-    // **A faster aeroplane flies a bigger circuit, and the two numbers that
-    // make it are one number.** The downwind leg is left at the distance
-    // where a three-degree glidepath passes through circuit height, so the
-    // approach autopilot is handed an aeroplane on its path rather than
-    // above or below it. A Mosquito flown round the Cessna's thousand-foot
-    // circuit and handed the approach at the Cessna's distance arrived low,
-    // still turning, and put itself into the ground.
-    const double circuit_ft =
-        std::clamp(1000.0 + (app.vref_kts - 60.0) * 8.0, 1000.0, 1500.0);
-    // A three-degree slope rises about 318 feet in a nautical mile, and the
-    // extra third of a mile leaves her a little above the path at the hand
-    // over, which is the side to be on.
-    const double leave_downwind_nm = circuit_ft / 318.0 + 0.33;
-    // **Base and the intercept are flown, and the approach is handed over on
-    // an intercept, as an approach mode is.** Handed the approach at the end
-    // of the downwind leg - two miles to the side and flying the other way -
-    // the approach autopilot had the whole turn to make and the capture as
-    // well, and the jets touched down 43 to 70 metres off the centreline. A
-    // pilot flies base and a thirty-degree intercept, and the approach
-    // captures the final course from there; so does this. How far out each
-    // turn is begun is the aeroplane's own turn radius, at the downwind speed
-    // and a twenty-five-degree bank.
-    const double downwind_mps = (app.vref_kts + 20.0) * 0.514444;
-    const double turn_radius_m =
-        downwind_mps * downwind_mps / (9.80665 * std::tan(25.0 / degrees));
-    enum class Leg { climbing_out, crosswind, downwind, base, intercept, approach };
-    Leg leg = Leg::climbing_out;
+    // **The pattern is the go-around's circuit** (sim/circuit.hpp), joined
+    // from the take-off: one set of rules for both. Its sizes, its legs and
+    // where each ends are there; what the take-off brings to it is here.
+    //
+    // What the take-off climbs away at: the climbing speed for a light
+    // aeroplane, V2 and ten for a jet, whose best climb speed is an en-route
+    // one. **Seven tenths of the climb she has, up to two thousand feet a
+    // minute.** `a_climb_it_can_manage` stops at six hundred, which suits a
+    // demonstration and not a jet's circuit: at 175 knots and six hundred
+    // feet a minute an A380 flew three miles of crosswind leg to reach
+    // circuit height, turned downwind far wider than the two miles abeam
+    // Boeing's circuit is flown at, and could not line up with the runway
+    // before she touched - 186 metres to the left of it. For the light
+    // aircraft seven tenths of their climb is below six hundred anyway.
+    // **The take-off flap stays out round the pattern**, as a jet's
+    // downwind leg is flown with it.
+    glideslope::sim::CircuitEntry joined;
+    joined.from_take_off = true;
+    joined.climb_kts = dep.initial_climb_kts;
+    joined.climb_fpm = [&] {
+        try {
+            const auto figures = glideslope::sim::read_published_figures(
+                data() / "figures" / (entry.model + ".xml"));
+            for (const auto& spec : figures.figures) {
+                if (spec.flight == "climb_rate" && spec.published > 0.0) {
+                    return std::min(2000.0, 0.7 * spec.published);
+                }
+            }
+        } catch (const std::exception&) {
+        }
+        return 600.0;
+    }();
+    joined.flaps = dep.flap;
+    std::optional<glideslope::sim::GoAroundCircuit> pattern;
+    using Leg = glideslope::sim::GoAroundCircuit::Leg;
+    bool climbing_out = true;
+    bool approach = false;
     bool sank = false;
 
     Circuit out;
@@ -5507,92 +5505,42 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
         }
         const double agl = aircraft.property("position/h-agl-ft");
         const double along = along_the_runway_nm(runway, aircraft);
-        if (leg == Leg::climbing_out && agl >= turn_crosswind_ft) {
-            leg = Leg::crosswind;
+        if (climbing_out && agl >= turn_crosswind_ft) {
+            climbing_out = false;
             controller.to_ai();
-            glideslope::sim::AutopilotModes m = controller.autopilot()->modes();
-            m.heading_deg = runway.heading_deg - 90.0;
-            m.altitude_ft = runway.elevation_ft + circuit_ft;
-            // What the take-off climbs away at: the climbing speed for a
-            // light aeroplane, V2 and ten for a jet, whose best climb speed
-            // is an en-route one.
-            m.airspeed_kts = dep.initial_climb_kts;
-            // **Seven tenths of the climb she has, up to two thousand feet a
-            // minute.** `a_climb_it_can_manage` stops at six hundred, which
-            // suits a demonstration and not a jet's circuit: at 175 knots and
-            // six hundred feet a minute an A380 flew three miles of
-            // crosswind leg to reach circuit height, turned downwind far
-            // wider than the two miles abeam Boeing's circuit is flown at,
-            // and could not line up with the runway before she touched -
-            // 186 metres to the left of it. For the light aircraft seven
-            // tenths of their climb is below six hundred anyway.
-            m.vertical_speed_fpm = [&] {
-                try {
-                    const auto figures = glideslope::sim::read_published_figures(
-                        data() / "figures" / (entry.model + ".xml"));
-                    for (const auto& spec : figures.figures) {
-                        if (spec.flight == "climb_rate" && spec.published > 0.0) {
-                            return std::min(2000.0, 0.7 * spec.published);
-                        }
-                    }
-                } catch (const std::exception&) {
+            pattern.emplace(aircraft, runway, app, joined);
+            out.circuit_legs = 1;
+        }
+        if (pattern && !pattern->on_final()) {
+            const Leg was = pattern->leg();
+            glideslope::sim::AutopilotModes m = pattern->modes();
+            if (pattern->leg() != was &&
+                static_cast<int>(pattern->leg()) == static_cast<int>(was) + 1) {
+                ++out.circuit_legs;
+            }
+            if (pattern->on_final()) {
+                approach = true;
+                controller.to_ai_approach(runway, app);
+            } else {
+                if (pattern->leg() == Leg::downwind && sink_downwind_ft > 0.0 && along <= -1.0 &&
+                    !sank) {
+                    // **The fault: she sinks along the downwind leg.** Not a
+                    // low circuit - that is a different fault and the band
+                    // is measured from where the leg began, on purpose - but
+                    // a leg begun at circuit height and not held there.
+                    sank = true;
+                    std::printf("      sinking %.0f ft at %.2f nm, stage %zu, agl %.0f\n",
+                                sink_downwind_ft, along, run.stage(), agl);
                 }
-                return 600.0;
-            }();
-            controller.autopilot()->set(m);
-        } else if (leg == Leg::crosswind &&
-                   pointing_at(aircraft, runway.heading_deg - 90.0) &&
-                   agl >= circuit_ft - 100.0) {
-            leg = Leg::downwind;
-            glideslope::sim::AutopilotModes m = controller.autopilot()->modes();
-            m.heading_deg = runway.heading_deg - 180.0;
-            m.airspeed_kts = app.vref_kts + 20.0;
-            controller.autopilot()->set(m);
-        } else if (leg == Leg::downwind && sink_downwind_ft > 0.0 && along <= -1.0 &&
-                   !sank) {
-            // **The fault: she sinks along the downwind leg.** Not a low
-            // circuit - that is a different fault and the band is measured
-            // from where the leg began, on purpose - but a leg begun at
-            // circuit height and not held there.
-            sank = true;
-            std::printf("      sinking %.0f ft at %.2f nm, stage %zu, agl %.0f\n",
-                        sink_downwind_ft, along, run.stage(), agl);
-            glideslope::sim::AutopilotModes m = controller.autopilot()->modes();
-            m.altitude_ft = *m.altitude_ft - sink_downwind_ft;
-            controller.autopilot()->set(m);
-        } else if (leg == Leg::downwind && along <= -leave_downwind_nm) {
-            // Base: left, square to the runway.
-            leg = Leg::base;
-            glideslope::sim::AutopilotModes m = controller.autopilot()->modes();
-            m.heading_deg = runway.heading_deg + 90.0;
-            // **And slowing, as a pilot does on base:** the FAA's Airplane
-            // Flying Handbook (FAA-H-8083-3C, chapter 9) has base flown at
-            // about 1.4 times the landing stall, final at 1.3. Kept at the
-            // downwind speed, twenty knots over the reference, the C172P was
-            // still at 81 knots when the turn on to final ended once the
-            // approach autopilot flew its intercept by L1 guidance.
-            m.airspeed_kts = app.stall_kts * 1.4;
-            controller.autopilot()->set(m);
-        } else if (leg == Leg::base &&
-                   across_the_runway_m(runway, aircraft) >= -(2.0 * turn_radius_m + 200.0)) {
-            // Left again on to a thirty-degree intercept of the final course.
-            leg = Leg::intercept;
-            glideslope::sim::AutopilotModes m = controller.autopilot()->modes();
-            m.heading_deg = runway.heading_deg + 30.0;
-            controller.autopilot()->set(m);
-        } else if (leg == Leg::intercept &&
-                   across_the_runway_m(runway, aircraft) >= -turn_radius_m) {
-            leg = Leg::approach;
-            controller.to_ai_approach(runway, app);
+                if (sank) {
+                    m.altitude_ft = *m.altitude_ft - sink_downwind_ft;
+                }
+                controller.autopilot()->set(m);
+            }
         }
         glideslope::sim::Controls flown = controller.fly();
-        // **The take-off flap stays out round the pattern**, as a jet's
-        // downwind leg is flown with it: the take-off autopilot brings it in
-        // above two hundred feet, and the autopilot holds what it was handed.
-        // The approach autopilot sets the landing flap itself.
-        if (leg == Leg::crosswind || leg == Leg::downwind || leg == Leg::base ||
-            leg == Leg::intercept) {
-            flown.flaps = dep.flap;
+        if (pattern && !approach) {
+            pattern->configure(flown);
         }
         if (demo != nullptr) {
             if (!first && tick == hand_over) {
@@ -5609,11 +5557,11 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
             run.update(aircraft, tick);
         }
         out.highest_agl_ft = std::max(out.highest_agl_ft, agl);
-        if (leg == Leg::approach) {
+        if (approach) {
             out.after.watch(aircraft);
             out.flare.watch(controller.lander(), aircraft);
         }
-        if (out.touch_across_m > 1e8 && leg == Leg::approach &&
+        if (out.touch_across_m > 1e8 && approach &&
             (aircraft.property("gear/wow") > 0.5 || aircraft.in_water())) {
             out.touch_across_m = across_the_runway_m(runway, aircraft);
             out.touch_along_m = along_the_runway_nm(runway, aircraft) * metres_per_nm;
@@ -5635,7 +5583,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
             std::printf("      %6.1f s  stage %zu  leg %d  agl %5.0f  along %+5.2f nm  "
                         "hdg %3.0f  %3.0f kt\n",
                         static_cast<double>(tick) / steps_per_second, run.stage(),
-                        static_cast<int>(leg), agl, along,
+                        pattern ? static_cast<int>(pattern->leg()) : -1, agl, along,
                         aircraft.property("attitude/psi-deg"),
                         aircraft.property("velocities/vc-kts"));
         }
@@ -5701,6 +5649,11 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
               id + " flew every stage of the circuit: " +
                   std::to_string(flown.completed) + " of " +
                   std::to_string(flown.stages));
+        // **Flown by the go-around's circuit** (sim/circuit.hpp): one set of
+        // rules for both, every leg of it from crosswind to final in order.
+        check(flown.circuit_legs == 5,
+              id + " flew " + std::to_string(flown.circuit_legs) +
+                  " of the go-around's circuit's five legs from the take-off, in order");
         check(flown.stopped, id + " finished the circuit stopped on the runway");
         // **And touched down on it**, not beside it and steered back: the
         // F-15C once touched 109 metres right of the centreline and still

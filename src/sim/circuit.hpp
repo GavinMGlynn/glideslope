@@ -20,9 +20,14 @@
 //
 // and then she is the approach's: `on_final` says so, and the caller hands her
 // to a sim::Lander on the same runway, which puts the landing flap and the
-// gear where the landing needs them. The circuit's sizes are the ones the
-// circuit lessons' AI flies (tests/unit/test_lesson.cpp, fly_a_circuit): a
-// faster aeroplane's is higher and wider. **It is flown that high over the
+// gear where the landing needs them. A faster aeroplane's circuit is higher
+// and wider.
+//
+// **The circuit lessons' AI flies this circuit too** (tests/unit/
+// test_lesson.cpp, fly_a_circuit), joined from a take-off rather than a
+// go-around - one set of rules, two ways in (`CircuitEntry`): from the
+// take-off on to crosswind at the take-off's turn height, climbing at its
+// climb speed and rate with the take-off flap out. **It is flown that high over the
 // highest ground of the circuit**, where the ground rises above the runway,
 // as her terrain has it. **It knows no traffic**: nothing keeps it clear of
 // another aircraft in the circuit but what the separation monitor puts on
@@ -35,13 +40,33 @@
 #include "sim/lander.hpp"
 #include "sim/plan.hpp"
 
+#include <optional>
+
 namespace glideslope::sim {
+
+// Where she is from a runway's threshold, in its own frame: along the
+// landing direction in nautical miles (negative before the threshold), and
+// right of the centreline in metres.
+double along_runway_nm(const Runway& runway, double latitude_deg, double longitude_deg);
+double across_runway_m(const Runway& runway, double latitude_deg, double longitude_deg);
+
+// **How she comes to the circuit.** From a go-around (the default): on the
+// upwind leg, climbing at twenty knots over the reference speed at about ten
+// feet a minute a knot of it, with half the landing flap. From a take-off:
+// on to the crosswind leg, at the climb speed and rate and the flap given.
+struct CircuitEntry {
+    bool from_take_off = false;
+    std::optional<double> climb_kts;  // none: twenty knots over the reference
+    std::optional<double> climb_fpm;  // none: ten a knot of the reference, 500 to 1,500
+    std::optional<double> flaps;      // none: half the landing flap
+};
 
 class GoAroundCircuit {
 public:
     enum class Leg { upwind, crosswind, downwind, base, intercept, final };
 
-    GoAroundCircuit(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds);
+    GoAroundCircuit(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
+                    const CircuitEntry& entry = {});
 
     // This step's modes for the autopilot, the leg moved on first where she
     // has reached the end of hers.
@@ -65,6 +90,7 @@ private:
     const Aircraft& a_;
     Runway runway_;
     ApproachSpeeds speeds_;
+    CircuitEntry entry_;
     Leg leg_ = Leg::upwind;
     double circuit_ft_ = 1000.0;
     double turn_radius_m_ = 0.0;

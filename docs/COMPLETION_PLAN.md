@@ -871,12 +871,11 @@ Found while implementing something else. Added when found, not when remembered.
       2026-10-08: at her highest pitch she could not climb at the speed
       asked, and the autopilot never asked for more; now it does, and she
       climbs to her circuit, flies every leg and lands with the other twelve.
-- [ ] **The circuit's rules are written twice**: the go-around's circuit
-      and the circuit lessons' AI fly the same legs from separate code, and
-      the metres in a degree, once in five places, are in one since
-      2026-10-08. *Verification:
-      the circuit lessons are flown by the go-around's circuit, with their
-      figures unchanged.*
+- [x] **The circuit's rules are written twice**: the go-around's circuit
+      and the circuit lessons' AI fly the same legs from separate code.
+      *Verification: the circuit lessons are flown by the go-around's
+      circuit, with their figures unchanged.* Done 2026-10-08: the lessons
+      join it from the take-off, every aeroplane inside the same bands.
 - [ ] **A landing taken over on its roll is braked for a dry runway**: a
       wet or contaminated one, which needs more, is not known.
       *Verification: on a wet short runway an aeroplane handed over on its
