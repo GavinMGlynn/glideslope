@@ -684,10 +684,19 @@ GLIDESLOPE_TEST(the_ai_climbs_a_cub_flown_solo_to_its_published_service_ceiling)
     expect_figure("j3cub", "service_ceiling");
 }
 
+// **The Cessna 172P, climbed at its handbook's speeds**: figure 5-6's best
+// climb falls from 76 KIAS at sea level to 70 at 12,000 ft, and the AI is
+// asked for that speed at each height, leaning as it climbs. Held at its
+// sea-level speed on JSBSim's mixture curve it climbed to 17,200 ft.
+GLIDESLOPE_TEST(the_ai_climbs_a_cessna_172p_at_its_handbooks_speeds_to_its_published_service_ceiling) {
+    expect_figure("c172p", "service_ceiling");
+}
+
 // **Each light aeroplane's engine makes its rated power at its rated rpm**,
 // full throttle and full rich at sea level, as its handbook or type
-// certificate rates it. Not the Cessna 172P's: its engine makes 209 hp, and
-// what fixing it moves is a tail of its own (docs/COMPLETION_PLAN.md).
+// certificate rates it. Not the Cessna 172P's: its engine makes 222 hp at
+// 2,700 rpm, and the learnt landing was trained on it (docs/COMPLETION_PLAN.md).
+
 GLIDESLOPE_TEST(the_cessna_182ss_engine_makes_230_hp_at_2400_rpm) {
     expect_figure("c182", "rated_power");
 }
@@ -706,9 +715,6 @@ GLIDESLOPE_TEST(the_cubs_engine_makes_65_hp_at_2300_rpm) {
 // ceiling, or without being named, turns this red.
 //
 // Left out, with the reason:
-//   c172p - leaned for best power, the AI climbs its model to 17,200 ft
-//     against the handbook's 13,000: the model's engine and propeller keep
-//     too much of their climb with height. A flight model tail.
 //   c182 - rated at its 2,400 rpm and on the FAA's mixture curve, the AI
 //     climbs its model to only 13,600 ft against the handbook's 18,100: its
 //     climb falls away with height faster than the handbook's. A tail.
@@ -717,7 +723,6 @@ GLIDESLOPE_TEST(the_cubs_engine_makes_65_hp_at_2300_rpm) {
 // mixture (tools/piston_mixture.py), and is the one named in `no_lever`.
 GLIDESLOPE_TEST(every_light_aeroplane_is_climbed_to_its_published_ceiling_or_named_with_its_reason) {
     const std::map<std::string, std::string> left_out = {
-        {"c172p", "its model climbs to 17,200 ft against 13,000"},
         {"c182", "its model climbs to 13,600 ft against 18,100"},
     };
     const std::set<std::string> no_lever = {"j3cub"};
@@ -796,8 +801,10 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // climbs to it, on 2026-09-27.
     // A hundred and nineteen: the Cessna 182S's, the Cherokee's and the Cub's
     // rated power at their rated rpm, and the Cub's ceiling, on 2026-10-06.
-    check(figures_in_files == 119,
-          "a hundred and nineteen figures, one test each above; found " +
+    // A hundred and twenty: the Cessna 172P's ceiling, as the AI climbs to
+    // it at its handbook's speeds, on 2026-10-08.
+    check(figures_in_files == 120,
+          "a hundred and twenty figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 

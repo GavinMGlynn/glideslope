@@ -339,3 +339,37 @@ GLIDESLOPE_TEST(an_engine_leaned_high_up_that_stops_below_the_full_rich_height_i
     }
     check(flown == lever_aircraft_count, "every lever aircraft flown: " + std::to_string(flown));
 }
+
+// **Leaned for best power, every engine sits where the FAA puts best
+// power**: between 12 and 13.8 parts of air to one of fuel (FAA-H-8083-32,
+// volume 1, page 2-4: best power at "approximately 12 parts of air to 1 part
+// of gasoline", the power "essentially constant" from 0.0725 to 0.080 fuel
+// to air). Each aeroplane with a mixture lever, level at full throttle at
+// 8,000 ft, handed over full rich and leaned for two minutes; over the
+// minute after, its ratio never leaves that band. On JSBSim's own mixture
+// curve the leaner settled near 9.9 to 1. The Cub has no lever, and is not
+// leaned. Left out: the Cherokee, still on JSBSim's curve - on the FAA's
+// its stall at 4,950 ft was not recovered (docs/COMPLETION_PLAN.md).
+GLIDESLOPE_TEST(every_engine_the_leaner_leans_sits_between_12_and_13_8_parts_of_air_to_one_of_fuel) {
+    std::size_t flown = 0;
+    std::printf("%zu aeroplanes with a mixture lever leaned; left out: pa28, on JSBSim's curve\n",
+                lever_aircraft_count);
+    for (const char* model : lever_aircraft) {
+        ++flown;
+        LeverFlight f(model, 8000.0, 100.0, 1.0);
+        f.fly(120.0);
+        double least = 1e9;
+        double most = 0.0;
+        for (int i = 0; i < 60 * steps_per_second; ++i) {
+            f.step(false, false);
+            least = std::min(least, afr(f.aircraft));
+            most = std::max(most, afr(f.aircraft));
+        }
+        std::printf("%s at %.0f ft, leaned: %.2f to %.2f parts of air to one of fuel\n", model,
+                    f.height(), least, most);
+        check(least >= 12.0 && most <= 13.8,
+              std::string(model) + " leaned sits between 12 and 13.8 to 1: " +
+                  std::to_string(least) + " to " + std::to_string(most));
+    }
+    check(flown == lever_aircraft_count, "every lever aircraft flown: " + std::to_string(flown));
+}

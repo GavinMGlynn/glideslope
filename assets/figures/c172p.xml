@@ -13,11 +13,11 @@
   each figure; see docs/PROJECT_STATUS.md for how the model was tuned towards
   these numbers and what each measured before and after.
 
-  Not flown: the service ceiling, 13,000 ft. The AI, leaning the mixture for
-  best power (src/sim/leaner.hpp), climbs this model to about 17,200 ft at
-  the best-climb speed: its engine and propeller keep too much of their climb
-  with height, which is a tail of its own (docs/COMPLETION_PLAN.md).
 
+  Not flown: the engine's rated power, section 1's "160 rated BHP at 2700
+  RPM". The model's engine makes 222 hp there, and its propeller is made to
+  absorb it; corrected, the learnt landing, trained on it, lands harder
+  than its limits (docs/COMPLETION_PLAN.md).
   The turn is the one figure not from the handbook, which publishes none: a
   coordinated level turn has to turn at g tan(bank) / true airspeed, and that
   is checked instead.
@@ -57,6 +57,19 @@
     by figure 5-1.
   </figure>
 
+  <figure name="service_ceiling" flight="ceiling_on_the_autopilot" unit="ft"
+          value="13000" tolerance_percent="10" speed_kcas="75.4"
+          speed_falls_kt_per_1000_ft="0.45" rate_fpm="100" altitude_ft="6000">
+    Section 1, performance specifications: service ceiling 13,000 ft. Figure
+    5-6, maximum rate of climb, 2400 lb, flaps up, full throttle, "mixture
+    leaned above 3000 feet for maximum RPM": the climb speed falls from 76
+    KIAS at sea level to 70 at 12,000 ft, 75.4 to 70 KCAS by figure 5-1, so
+    0.45 kt a thousand feet; the rate at the standard temperature is about
+    150 ft/min at 12,000 ft, 100 near 13,000. The ceiling is the height at
+    which the best climb has fallen to 100 ft/min. Flown by the autopilot, as
+    the AI climbs, at figure 5-6's speeds, leaning as it goes. The tolerance
+    is this project's, as the climb rate's is.
+  </figure>
   <figure name="cruise_speed" unit="KTAS" value="121" tolerance="3"
           altitude_ft="8000" rpm="2650">
     Figure 5-8, cruise performance: 121 KTAS at 8000 ft, standard temperature,

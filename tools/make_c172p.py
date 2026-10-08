@@ -56,12 +56,22 @@ measurements with every change except that one, against all of them together
     Delta_lift_due_to_flap_deflection 0.20/0.30/0.35 -> 0.25/0.38/0.42
                          For the stalls with 10 and 30 degrees of flap.
 
-The engine file (engine/eng_io320.xml) is copied unchanged.
+  Engine (engine/eng_io320.xml)
+    MIXTURE table        The FAA's mixture curve, for JSBSim's own, which made
+                         most power at 9.9 parts of air to one of fuel, found
+                         by leaning high up; see tools/piston_mixture.py.
+
+  Carburettor (aircraft/c172p/c172p.xml)
+    Float carburettor    The O-320-D2J is carburetted (section 1), so its
+                         mixture richens with height as the square root of the
+                         density, not as the pressure; see tools/piston_mixture.py.
 """
 
 import pathlib
 import re
 import sys
+
+from piston_mixture import with_best_power_mixture, with_float_carburettor
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = ROOT / "ext" / "jsbsim"
@@ -163,14 +173,19 @@ def airframe():
         r"\1\n        <!-- glideslope: this is JSBSim's c172p with the changes listed in\n"
         r"             tools/make_c172p.py, which made it. Do not edit it by hand. -->",
         "the file header")
-    return text
+    return with_float_carburettor(text, "make_c172p")
+
+
+def engine():
+    text = (PINNED / "engine" / "eng_io320.xml").read_text()
+    return with_best_power_mixture(text, "make_c172p")
 
 
 def outputs():
     return {
         OUT / "aircraft" / "c172p" / "c172p.xml": airframe(),
         OUT / "engine" / "prop_75in2f.xml": propeller(),
-        OUT / "engine" / "eng_io320.xml": (PINNED / "engine" / "eng_io320.xml").read_text(),
+        OUT / "engine" / "eng_io320.xml": engine(),
     }
 
 

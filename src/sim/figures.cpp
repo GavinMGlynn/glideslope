@@ -1417,11 +1417,21 @@ double service_ceiling(const std::filesystem::path& root, const PublishedFigures
 // the middles of the last two minutes at which the rate, drawn straight
 // between them, is `rate_fpm`. The first two minutes are the autopilot
 // settling into the climb, and are not counted.
+//
+// **A best-climb speed that falls with height**, where the handbook gives
+// one (`speed_falls_kt_per_1000_ft`: both Cessnas' maximum rate of climb
+// tables, whose speed falls about half a knot a thousand feet): `speed_kcas`
+// is then the speed at sea level, and the autopilot is asked, every step,
+// for the speed the handbook gives at the height it is at - as a pilot
+// climbing by the table flies it.
 double ceiling_on_the_autopilot(const std::filesystem::path& root,
                                 const PublishedFigures& figures, const FigureSpec& spec) {
-    const double kcas = condition(spec, "speed_kcas");
+    const double sea_level_kcas = condition(spec, "speed_kcas");
+    const double falls = condition_or(spec, "speed_falls_kt_per_1000_ft", 0.0);
+    const auto kcas_at = [&](double h_ft) { return sea_level_kcas - falls * h_ft / 1000.0; };
     const double rate = condition(spec, "rate_fpm");
     const double from_ft = condition(spec, "altitude_ft");
+    const double kcas = kcas_at(from_ft);
     Flight f(root, figures, spec, airborne(from_ft, kcas, true));
     Controls c;
     c.throttle = 1.0;
@@ -1444,6 +1454,10 @@ double ceiling_on_the_autopilot(const std::filesystem::path& root,
     // Two hours is far longer than any of these takes; reaching it says the
     // climb never slowed, which is a flight model fault and not a ceiling.
     for (int i = 1; i <= 120 * minute; ++i) {
+        if (falls != 0.0) {
+            modes.airspeed_kts = kcas_at(f.aircraft.property("position/h-sl-ft"));
+            autopilot.set(modes);
+        }
         f.fly(autopilot.fly());
         if (i % minute == 0) {
             for (int e = 0; e < engines; ++e) {
@@ -1755,7 +1769,8 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
               "radiators_open", "gear_change_boost_drop", "manifold_inhg", "lean",
               "takeoff_pitch_deg", "mach", "throttle", "from_kcas", "to_kcas", "rate_fpm",
               "mach_to", "fuel_frozen", "altitude_to_ft", "propeller_lever",
-              "running_pitch_deg", "rotate_kcas", "keel_aft_ft", "keel_below_ft", "clmax"}) {
+              "running_pitch_deg", "rotate_kcas", "keel_aft_ft", "keel_below_ft", "clmax",
+              "speed_falls_kt_per_1000_ft"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }

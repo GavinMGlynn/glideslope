@@ -945,19 +945,24 @@ Found while implementing something else. Added when found, not when remembered.
       flight, is richened and runs again.* Done 2026-10-06: at 7,000 and
       12,000 ft. Richened to full rich, as it was, at 12,000 ft it never ran
       again; it is now given back the mixture it was leaned to.
-- [ ] **The Cessna 172P's engine makes 209 hp from 160**, and leaned it
-      climbs to 17,200 ft against 13,000; corrected, it climbs too high still
-      and two other tests move (PROJECT_STATUS, 2026-10-06). *Verification:
-      the AI climbs it to within 10% of 13,000 ft, and its other figures stay
-      within theirs.*
+- [ ] **The Cessna 172P's engine makes 209 hp from 160.** Climbed at its
+      handbook's speeds it now reaches 13,100 ft. Corrected to 160 hp, every
+      figure is in range, but the learnt landing, trained on the old engine,
+      lands 22 of its 160 hardest starts too hard: the policy needs training
+      again (PROJECT_STATUS, 2026-10-08). *Verification: the engine makes
+      160 hp, the AI climbs it to within 10% of 13,000 ft, and its other
+      figures and the learnt landing stay within theirs.*
 - [ ] **The Cessna 182S's climb falls away high up.** Now rated right, at
       2,400 rpm, leaned it still reaches only 13,600 ft against its
-      handbook's 18,100. *Verification: the AI climbs it to within 10% of
+      handbook's 18,100, and 12,900 at its handbook's falling climb speeds;
+      the handbook's figures want a propeller that gains efficiency with
+      height, where the model's loses it. *Verification: the AI climbs it to within 10% of
       18,100 ft, and its other figures stay within theirs.*
 - [ ] **The light aeroplanes' engines make most power far too rich**, at
-      9.9 parts of air to one of fuel against the FAA's 12 to 13.8. The 182S
-      and the Cub are on the FAA's curve; the 172P and the Cherokee are not
-      yet (PROJECT_STATUS, 2026-10-06). *Verification: leaned for best power,
+      9.9 parts of air to one of fuel against the FAA's 12 to 13.8. The
+      182S, the Cub and the 172P are on the FAA's curve, and the Cessnas
+      leaned sit at 12.8 to 13.2; the Cherokee is not yet: on it, its stall
+      at 4,950 ft was not recovered (PROJECT_STATUS, 2026-10-08). *Verification: leaned for best power,
       each engine sits between 12 and 13.8 to 1, and every figure stays in
       range.*
 - [x] **The Cub's carburettor runs too rich to climb past about 8,000 ft.**
@@ -969,7 +974,8 @@ Found while implementing something else. Added when found, not when remembered.
       metering, and the FAA's mixture curve; solo it climbs to 13,637 ft.
 - [ ] **The Cherokee is leaned below 5,000 ft, where its handbook has it
       full rich.** Held full rich there, its stall recovered at 4,950 ft
-      loses 328 ft against its lesson's 300. *Verification: the Cherokee full
+      loses 328 ft against its lesson's 300; on the FAA's mixture curve it
+      is not recovered at all. *Verification: the Cherokee full
       rich below 5,000 ft, and its stall recovery within its lesson.*
 - [x] **Cesium ion on Windows, where a body arrives compressed unasked.**
       *Verification: a Windows machine fetches and reads ion's layer.json, and
