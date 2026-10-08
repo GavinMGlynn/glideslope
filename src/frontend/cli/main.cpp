@@ -1708,6 +1708,17 @@ public:
                     }
                     ++compared_;
                     errors_m_.push_back(error);
+                    // **Each comparison, for a test to read the series**:
+                    // when, the error, the step it was placed at, the input
+                    // and how far into it, the clocks' difference over all
+                    // the words and the newest, and the pace.
+                    if (track_) {
+                        *track_ << "compared " << local_s << ' ' << error << ' ' << *c.at_step
+                                << ' ' << applied << ' ' << state.yours->steps_into_input
+                                << ' ' << prediction_->clocks_difference().value_or(0) << ' '
+                                << prediction_->recent_clocks_difference().value_or(0) << ' '
+                                << (paced_ ? pacing_.pace() : 1.0) << '\n';
+                    }
                     // **Before and after an engine stopped**, apart.
                     if (engine_stopped_at_s_) {
                         worst_error_engine_stopped_m_ =
