@@ -671,7 +671,17 @@ Found while implementing something else. Added when found, not when remembered.
       error under a metre.* Both clients now fly at the server's pace
       (2026-10-08); the command-line client holds it. Still missing: the
       window client is still put right 6 to 9 m against a slowed server, and
-      10 to 13 m against one keeping time, untested and unexplained.
+      10 to 13 m against one keeping time, untested and unexplained; and on
+      Windows one update in a hundred is off by two steps (1.1 m) - a named
+      limit, its cause found (2026-10-08), not fixed.
+- [ ] **On Windows the server's word is placed two steps off now and then**:
+      Windows' 15.6 ms timers spread the clocks' difference, and the least of
+      it moves. *Verification: on Windows debug the paced test's 99th
+      percentile under a metre in ten runs.*
+- [ ] **The window copilot test's copilot never answered once** (Windows
+      release): asked, then nothing in five minutes, the aircraft on the
+      ground. *Verification: the cause named, and a month of CI runs without
+      it failing.*
 - [x] **Two server tests counted wall-clock seconds on slow runners**: one
       counted inputs still in flight, and a late client arrived before a slow
       server was flying. *Verification: the client waits for its last input to
