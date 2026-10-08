@@ -14,7 +14,7 @@
         <location name="AERORP" unit="IN">
             <x> 382.9 </x>
             <y> 0.0 </y>
-            <z> -5.0 </z>
+            <z> 30.5 </z>
         </location>
         <location name="EYEPOINT" unit="IN">
             <x> 150.0 </x>
@@ -36,14 +36,14 @@
         <location name="CG" unit="IN">
             <x> 388.7 </x>
             <y> 0.0 </y>
-            <z> 0.0 </z>
+            <z> 30.5 </z>
         </location>
         <pointmass name="Payload">
             <weight unit="LBS"> 0 </weight>
             <location unit="IN">
                 <x> 300.0 </x>
                 <y> 0.0 </y>
-                <z> 0.0 </z>
+                <z> 26.0 </z>
             </location>
         </pointmass>
     </mass_balance>
@@ -97,7 +97,7 @@
             <location unit="IN">
                 <x> 385.6 </x>
                 <y> -228.5 </y>
-                <z> -8.0 </z>
+                <z> 7.0 </z>
             </location>
             <static_friction> 1.0 </static_friction>
             <dynamic_friction> 1.0 </dynamic_friction>
@@ -108,7 +108,7 @@
             <location unit="IN">
                 <x> 385.6 </x>
                 <y> 228.5 </y>
-                <z> -8.0 </z>
+                <z> 7.0 </z>
             </location>
             <static_friction> 1.0 </static_friction>
             <dynamic_friction> 1.0 </dynamic_friction>
@@ -137,8 +137,8 @@
             <thruster file="direct">
                 <location unit="IN">
                     <x> 470.0 </x>
-                    <y> -42.0 </y>
-                    <z> 22.0 </z>
+                    <y> -47.5 </y>
+                    <z> 48.0 </z>
                 </location>
             </thruster>
         </engine>
@@ -151,8 +151,8 @@
             <thruster file="direct">
                 <location unit="IN">
                     <x> 470.0 </x>
-                    <y> 42.0 </y>
-                    <z> 22.0 </z>
+                    <y> 47.5 </y>
+                    <z> 48.0 </z>
                 </location>
             </thruster>
         </engine>
@@ -160,7 +160,7 @@
             <location unit="IN">
                 <x> 385.6 </x>
                 <y> -228.5 </y>
-                <z> -4.0 </z>
+                <z> 19.0 </z>
             </location>
             <capacity unit="LBS"> 1196 </capacity>
             <contents unit="LBS"> 1196 </contents>
@@ -169,7 +169,7 @@
             <location unit="IN">
                 <x> 385.6 </x>
                 <y> 228.5 </y>
-                <z> -4.0 </z>
+                <z> 19.0 </z>
             </location>
             <capacity unit="LBS"> 1196 </capacity>
             <contents unit="LBS"> 1196 </contents>
@@ -178,7 +178,7 @@
             <location unit="IN">
                 <x> 385.8 </x>
                 <y> -90.0 </y>
-                <z> -4.0 </z>
+                <z> 16.0 </z>
             </location>
             <capacity unit="LBS"> 1253 </capacity>
             <contents unit="LBS"> 1253 </contents>
@@ -187,7 +187,7 @@
             <location unit="IN">
                 <x> 385.8 </x>
                 <y> 90.0 </y>
-                <z> -4.0 </z>
+                <z> 16.0 </z>
             </location>
             <capacity unit="LBS"> 1253 </capacity>
             <contents unit="LBS"> 1253 </contents>
@@ -196,7 +196,7 @@
             <location unit="IN">
                 <x> 440.2 </x>
                 <y> 0.0 </y>
-                <z> -4.0 </z>
+                <z> 20.0 </z>
             </location>
             <capacity unit="LBS"> 1340 </capacity>
             <contents unit="LBS"> 1340 </contents>

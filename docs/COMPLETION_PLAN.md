@@ -913,13 +913,18 @@ Found while implementing something else. Added when found, not when remembered.
       cruises from 250 to 350 knots with its elevator near neutral.* Done
       2026-09-30: her stabilizer's travel is her maintenance manual's.
 - [ ] **The Learjet cannot be rotated early**: full back stick lifts her
-      nose only near her rotation speed. Missing: a source for her centre of
-      gravity's height. *Verification: the Learjet held fully back from 85
-      percent of her rotation speed leaves the runway before it.*
+      nose only near her rotation speed. Her heights now come from her
+      drawings (2026-10-09) and were not the cause: she leaves at 124 knots
+      against 125, too late for the lesson to call early. Missing: a source
+      tying her stabilizer's take-off setting to the flight model's, or her
+      elevator's power. *Verification: the Learjet held fully back from 85
+      percent of her rotation speed leaves the runway before it, and her
+      take-off lesson calls it early.*
 - [ ] **Not every nose-wheel aeroplane can strike its tail.** The Learjet
       now can, and the take-off lessons name a strike; missing are the
       F-15C's, the A380's and the F-35B's tails, and a check against
-      published strike attitudes. *Verification: every nose-wheel
+      published strike attitudes (none found for the Learjet: her drawings
+      allow 14.0 to 15.6 degrees). *Verification: every nose-wheel
       aeroplane's tail strikes the runway where its airframe would, and is
       judged a strike.*
 - [x] **A `--terrain ion` run can hang for ever, past its own timeout.**
