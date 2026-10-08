@@ -14,9 +14,28 @@ constexpr double metres_per_nm = 1852.0;
 
 } // namespace
 
+double along_runway_nm(const Runway& r, double latitude_deg, double longitude_deg) {
+    const double north_m = (latitude_deg - r.threshold_lat_deg) *
+                           metres_per_degree_latitude(r.threshold_lat_deg);
+    const double east_m = (longitude_deg - r.threshold_lon_deg) *
+                          metres_per_degree_longitude(r.threshold_lat_deg);
+    const double h = r.heading_deg / degrees;
+    return (north_m * std::cos(h) + east_m * std::sin(h)) / metres_per_nm;
+}
+
+double across_runway_m(const Runway& r, double latitude_deg, double longitude_deg) {
+    const double north_m = (latitude_deg - r.threshold_lat_deg) *
+                           metres_per_degree_latitude(r.threshold_lat_deg);
+    const double east_m = (longitude_deg - r.threshold_lon_deg) *
+                          metres_per_degree_longitude(r.threshold_lat_deg);
+    const double h = r.heading_deg / degrees;
+    return east_m * std::cos(h) - north_m * std::sin(h);
+}
+
 GoAroundCircuit::GoAroundCircuit(const Aircraft& aircraft, const Runway& runway,
-                                 const ApproachSpeeds& speeds)
-    : a_(aircraft), runway_(runway), speeds_(speeds) {
+                                 const ApproachSpeeds& speeds, const CircuitEntry& entry)
+    : a_(aircraft), runway_(runway), speeds_(speeds), entry_(entry),
+      leg_(entry.from_take_off ? Leg::crosswind : Leg::upwind) {
     // **A faster aeroplane flies a bigger circuit, and the two numbers that
     // make it are one number**: circuit height from a thousand feet for a
     // light aeroplane to fifteen hundred for a jet, and the downwind leg left
@@ -61,22 +80,12 @@ GoAroundCircuit::GoAroundCircuit(const Aircraft& aircraft, const Runway& runway,
 
 double GoAroundCircuit::along_nm() const {
     const AircraftState s = a_.state();
-    const double north_m = (s.latitude_deg - runway_.threshold_lat_deg) *
-                           metres_per_degree_latitude(runway_.threshold_lat_deg);
-    const double east_m = (s.longitude_deg - runway_.threshold_lon_deg) *
-                          metres_per_degree_longitude(runway_.threshold_lat_deg);
-    const double h = runway_.heading_deg / degrees;
-    return (north_m * std::cos(h) + east_m * std::sin(h)) / metres_per_nm;
+    return along_runway_nm(runway_, s.latitude_deg, s.longitude_deg);
 }
 
 double GoAroundCircuit::across_m() const {
     const AircraftState s = a_.state();
-    const double north_m = (s.latitude_deg - runway_.threshold_lat_deg) *
-                           metres_per_degree_latitude(runway_.threshold_lat_deg);
-    const double east_m = (s.longitude_deg - runway_.threshold_lon_deg) *
-                          metres_per_degree_longitude(runway_.threshold_lat_deg);
-    const double h = runway_.heading_deg / degrees;
-    return east_m * std::cos(h) - north_m * std::sin(h);
+    return across_runway_m(runway_, s.latitude_deg, s.longitude_deg);
 }
 
 AutopilotModes GoAroundCircuit::modes() {
@@ -84,7 +93,10 @@ AutopilotModes GoAroundCircuit::modes() {
     // Moved on a leg where she has reached the end of hers.
     if (leg_ == Leg::upwind && agl_ft >= circuit_ft_ - 300.0 && along_nm() > 0.0) {
         leg_ = Leg::crosswind;
-    } else if (leg_ == Leg::crosswind && across_m() <= -(2.0 * turn_radius_m_ + 600.0)) {
+    } else if (leg_ == Leg::crosswind && across_m() <= -(2.0 * turn_radius_m_ + 600.0) &&
+               agl_ft >= circuit_ft_ - 100.0) {
+        // Far enough out to turn base and final from, and at circuit height:
+        // downwind is flown level.
         leg_ = Leg::downwind;
     } else if (leg_ == Leg::downwind && along_nm() <= -leave_downwind_nm_) {
         leg_ = Leg::base;
@@ -102,14 +114,18 @@ AutopilotModes GoAroundCircuit::modes() {
     m.altitude_ft = runway_.elevation_ft + circuit_ft_;
     // A climb she can make: about ten feet a minute a knot of her reference
     // speed - 500 for a Cub, 1,500 for a jet.
-    m.vertical_speed_fpm = std::clamp(speeds_.vref_kts * 10.0, 500.0, 1500.0);
+    // Or the take-off's, joined from one.
+    m.vertical_speed_fpm =
+        entry_.climb_fpm.value_or(std::clamp(speeds_.vref_kts * 10.0, 500.0, 1500.0));
     m.airspeed_kts = speeds_.vref_kts + 20.0;
     switch (leg_) {
     case Leg::upwind:
         m.heading_deg = runway_.heading_deg;
+        m.airspeed_kts = entry_.climb_kts.value_or(*m.airspeed_kts);
         break;
     case Leg::crosswind:
         m.heading_deg = runway_.heading_deg - 90.0;
+        m.airspeed_kts = entry_.climb_kts.value_or(*m.airspeed_kts);
         break;
     case Leg::downwind:
         m.heading_deg = runway_.heading_deg - 180.0;
@@ -134,7 +150,9 @@ AutopilotModes GoAroundCircuit::modes() {
 void GoAroundCircuit::configure(Controls& controls) const {
     // The flap to its go-around setting, half the landing flap, round the
     // whole circuit; the approach puts the landing flap out again.
-    controls.flaps = 0.5 * speeds_.flap;
+    // Joined from a take-off, the take-off flap stays out round the
+    // pattern, as a jet's downwind leg is flown with it.
+    controls.flaps = entry_.flaps.value_or(0.5 * speeds_.flap);
     controls.speedbrake = 0.0;
     if (gear_up_) {
         controls.gear = 0.0;
