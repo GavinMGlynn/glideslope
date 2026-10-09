@@ -3,6 +3,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/controller.hpp"
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
 #include "sim/lander.hpp"
@@ -1482,4 +1483,121 @@ GLIDESLOPE_TEST(a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_fl
     check(failures.empty(),
           "with the flaps out the throttle comes off its stop within two minutes:" +
               failures);
+}
+
+namespace {
+
+// **The upset rule, alone**: the Cessna rolled with full left aileron past
+// 65 degrees of bank at 6,000 ft, held there with its nose let fall past 20
+// degrees down, then
+// handed to the AI - `on_elevator`, the airspeed held on the elevator (an
+// approach, a glide, a stall recovery), or not (the plain holds). What is
+// measured from the hand-over until the wings are within 45 degrees.
+struct Upset {
+    double bank_at_handover_deg = 0.0;
+    double pitch_at_handover_deg = 0.0;
+    double to_45_s = -1.0;
+    double most_pitch_rise_deg = 0.0; // the pitch asked, above where it was
+    double trim_moved = 0.0;          // the elevator's trim, while past 45
+    double most_control_step = 0.0;   // aileron, elevator, rudder, a step
+    double bank_after_20_s = 0.0;
+};
+
+Upset handed_an_upset(bool on_elevator) {
+    Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 6000.0;
+    ic.heading_deg = 0.0;
+    ic.airspeed_kts = 110.0;
+    ic.gear = 0.0;
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    glideslope::sim::Controls pilot;
+    pilot.throttle = 0.7;
+    pilot.aileron = -1.0;
+    int rolled = 0;
+    while (aircraft.property("attitude/phi-deg") > -65.0 && rolled < 30 * steps_per_second) {
+        aircraft.set_controls(pilot);
+        aircraft.step();
+        ++rolled;
+    }
+    // Held there, the nose let fall past 20 degrees down.
+    pilot.aileron = 0.0;
+    for (int i = 0; i < 20 * steps_per_second && aircraft.property("attitude/theta-deg") > -20.0;
+         ++i) {
+        pilot.aileron = aircraft.property("attitude/phi-deg") > -70.0 ? -0.3 : 0.0;
+        aircraft.set_controls(pilot);
+        aircraft.step();
+    }
+    Upset out;
+    out.bank_at_handover_deg = aircraft.property("attitude/phi-deg");
+    out.pitch_at_handover_deg = aircraft.property("attitude/theta-deg");
+    glideslope::sim::Controller controller(aircraft, pilot);
+    controller.to_ai();
+    AutopilotModes m = controller.autopilot()->modes();
+    // On the elevator, a speed slower than hers - a glide's, an approach's -
+    // so that its law would raise the nose at once.
+    m.airspeed_kts = on_elevator ? 60.0 : 100.0;
+    m.speed_on_elevator = on_elevator;
+    controller.autopilot()->set(m);
+    const double pitch0 = controller.autopilot()->pitch_asked_deg();
+    const double trim0 = controller.autopilot()->elevator_trim();
+    glideslope::sim::Controls last = pilot;
+    for (int step = 0; step < 20 * steps_per_second; ++step) {
+        const glideslope::sim::Controls c = controller.fly();
+        out.most_control_step =
+            std::max({out.most_control_step, std::abs(c.aileron - last.aileron),
+                      std::abs(c.elevator - last.elevator), std::abs(c.rudder - last.rudder)});
+        last = c;
+        aircraft.set_controls(c);
+        aircraft.step();
+        if (out.to_45_s < 0.0) {
+            out.most_pitch_rise_deg = std::max(
+                out.most_pitch_rise_deg, controller.autopilot()->pitch_asked_deg() - pitch0);
+            out.trim_moved =
+                std::max(out.trim_moved, std::abs(controller.autopilot()->elevator_trim() - trim0));
+            if (std::abs(aircraft.property("attitude/phi-deg")) <= 45.0) {
+                out.to_45_s = static_cast<double>(step + 1) / steps_per_second;
+            }
+        }
+    }
+    out.bank_after_20_s = aircraft.property("attitude/phi-deg");
+    return out;
+}
+
+} // namespace
+
+// **Handed an upset, the AI rolls level before it pulls** - unload, roll,
+// then pull, AC 120-111's nose-low recovery, past its 45 degrees of bank -
+// in both of the autopilot's pitch laws: the bank comes back at about the
+// upset's 15 degrees a second, the pitch asked does not rise and the trim
+// does not wind until the wings are within 45 degrees, and no control moves
+// faster than a hand (full travel in a second: 1/120 a step).
+GLIDESLOPE_TEST(an_autopilot_handed_a_spiral_rolls_its_wings_level_before_it_raises_the_nose_in_both_its_pitch_laws) {
+    int flown = 0;
+    for (const bool on_elevator : {false, true}) {
+        const Upset u = handed_an_upset(on_elevator);
+        const std::string law = on_elevator ? "the airspeed on the elevator" : "the plain holds";
+        const double rate =
+            u.to_45_s > 0.0 ? (std::abs(u.bank_at_handover_deg) - 45.0) / u.to_45_s : 0.0;
+        std::fprintf(stderr,
+                     "%s: handed over at %.0f deg of bank, %.0f pitch; within 45 deg in %.2f s "
+                     "(%.1f deg/s); pitch asked rose %.2f deg, trim moved %.4f, meanwhile; most "
+                     "control step %.5f; bank after 20 s %.1f\n",
+                     law.c_str(), u.bank_at_handover_deg, u.pitch_at_handover_deg, u.to_45_s, rate,
+                     u.most_pitch_rise_deg, u.trim_moved, u.most_control_step, u.bank_after_20_s);
+        check(u.bank_at_handover_deg <= -65.0 && u.pitch_at_handover_deg < -10.0,
+              law + ": handed over banked past 65 degrees, nose down - the upset is built");
+        check(u.to_45_s > 0.0 && rate >= 10.0 && rate <= 20.0,
+              law + ": the bank comes back at about 15 degrees a second");
+        check(u.most_pitch_rise_deg <= 1e-9, law + ": the nose is not raised past 45 degrees");
+        check(u.trim_moved <= 1e-12, law + ": the trim is not wound past 45 degrees");
+        check(u.most_control_step <= 1.0 / steps_per_second + 1e-9,
+              law + ": no control moves faster than a hand");
+        check(std::abs(u.bank_after_20_s) < 30.0, law + ": recovered within 20 s");
+        ++flown;
+    }
+    check(flown == 2, "both pitch laws were flown");
 }

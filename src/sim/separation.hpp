@@ -73,6 +73,23 @@ struct Separation {
     static constexpr double lookahead_s = 90.0;
     // Never held this close to the ground under it.
     static constexpr double least_above_ground_ft = 500.0;
+    // Squeezed and clear, it stays clear until this close to one it passes
+    // through (1.3 nm): 370 m of hysteresis, so a distance that dips back
+    // under 1.5 nm mid-climb does not send it back to the middle.
+    static constexpr double clear_again_m = 2408.0;
+};
+
+// **Squeezed between two**: which way it is taken - above them all, or
+// below - the heading it is turned to, and whether it is clear (1.5 nm from
+// every one it would pass through) and so taken past them. Latched: the
+// caller hands back what `separate` gave it last step (`Traffic::squeezed`),
+// so the side and the heading are chosen once, not again every step - two
+// layers equally far could otherwise flip it - and clear stays clear until
+// it is under `Separation::clear_again_m`.
+struct Squeeze {
+    bool up = false;
+    double away_deg = 0.0;
+    bool clear = false;
 };
 
 // One aircraft, as the monitor sees it. Heights are in one frame - the
@@ -90,6 +107,8 @@ struct Traffic {
     // Whether it gives way: an AI aircraft whose autopilot is flying it.
     bool gives_way = false;
     double ground_ft = 0.0;
+    // What `separate` gave it last step, if it was squeezed (`Squeeze`).
+    std::optional<Squeeze> squeezed;
 };
 
 // A limit on the height an aircraft's autopilot flies to, and which aircraft
@@ -100,6 +119,8 @@ struct HeightLimit {
     std::optional<double> ceiling_ft;
     std::optional<double> heading_deg;
     std::optional<std::size_t> clear_of;
+    // Squeezed between two: what is latched for next step.
+    std::optional<Squeeze> squeezed;
 };
 
 // **The limits, one for each aircraft**, in order. One that does not give way

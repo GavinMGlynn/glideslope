@@ -146,6 +146,36 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
               "still turned away");
         check(!l[0].heading_deg && !l[1].heading_deg, "nothing is turned that is not squeezed");
     }
+    // **Latched**: clear once, it stays clear until under 1.3 nm, so a
+    // distance that dips back under 1.5 nm mid-climb does not send it back
+    // to the middle; and the side and the heading chosen are kept.
+    {
+        // 2,600 m (1.40 nm) behind the one it passes, below a second.
+        auto build = [](std::optional<glideslope::sim::Squeeze> was, double behind_m) {
+            std::vector<Traffic> t{at(0, 3000, 100, true, 3000),
+                                   at(500, 3800, 100, true, 3800),
+                                   at(-behind_m, 3300, 100, true, 3300)};
+            t[2].squeezed = was;
+            return glideslope::sim::separate(t);
+        };
+        const auto fresh = build(std::nullopt, 2600.0);
+        check(about(fresh[2].floor_ft, 3400) && about(fresh[2].ceiling_ft, 3400) &&
+                  fresh[2].squeezed && !fresh[2].squeezed->clear,
+              "under 1.5 nm and never clear: held in the middle");
+        const auto kept = build(glideslope::sim::Squeeze{false, 200.0, true}, 2600.0);
+        check(about(kept[2].ceiling_ft, 3000 - apart_ft) && !kept[2].floor_ft &&
+                  kept[2].squeezed && kept[2].squeezed->clear,
+              "clear before, dipped to 1.4 nm: still clear, still taken below them all");
+        check(kept[2].heading_deg && about(kept[2].heading_deg, 200.0),
+              "the heading it was turned to is kept, not chosen again");
+        const auto lost = build(glideslope::sim::Squeeze{false, 200.0, true}, 2300.0);
+        check(about(lost[2].floor_ft, 3400) && about(lost[2].ceiling_ft, 3400) &&
+                  lost[2].squeezed && !lost[2].squeezed->clear,
+              "clear before, now under 1.3 nm: back to the middle");
+        const auto side = build(glideslope::sim::Squeeze{true, 200.0, true}, 3000.0);
+        check(about(side[2].floor_ft, 3800 + apart_ft) && !side[2].ceiling_ft,
+              "the side chosen is kept: above them all, though below asks less");
+    }
     // A later one keeps clear of the height an earlier one is held to, not
     // the one it would have flown to.
     {
@@ -294,6 +324,9 @@ struct Between {
     double last_lost_s = 0.0;
     double most_control_step = 0.0;
     double turned_s = 0.0;
+    double at_middle_s = -1.0; // first within 20 ft of 3,500, the gap's middle
+    double highest_ft = 0.0;   // the highest it climbed before 1.5 nm from the lower
+    double opened_s = -1.0;    // first 1.5 nm from the lower
     int steps = 0;
 };
 
@@ -328,6 +361,7 @@ Between fly_between_layers(bool monitor, double seconds) {
         three.push_back(std::move(one));
     }
     Between out;
+    std::vector<std::optional<glideslope::sim::Squeeze>> latched(three.size());
     std::optional<glideslope::sim::Controls> last;
     const int steps = static_cast<int>(seconds) * steps_per_second;
     for (int step = 0; step < steps; ++step) {
@@ -343,6 +377,7 @@ Between fly_between_layers(bool monitor, double seconds) {
             t.climb_fpm = s.climb_rate_fpm;
             t.gives_way = true;
             t.held_ft = one->controller->autopilot()->modes().altitude_ft;
+            t.squeezed = latched[traffic.size()];
             traffic.push_back(t);
         }
         if (monitor) {
@@ -350,6 +385,7 @@ Between fly_between_layers(bool monitor, double seconds) {
             for (std::size_t i = 0; i < three.size(); ++i) {
                 three[i]->controller->limit_height(limits[i].floor_ft, limits[i].ceiling_ft);
                 three[i]->controller->turn_away(limits[i].heading_deg);
+                latched[i] = limits[i].squeezed;
             }
             if (limits[2].heading_deg) {
                 out.turned_s += 1.0 / steps_per_second;
@@ -367,6 +403,17 @@ Between fly_between_layers(bool monitor, double seconds) {
             }
             three[i]->aircraft.set_controls(c);
             three[i]->aircraft.step();
+        }
+        const double now_s = static_cast<double>(step) / steps_per_second;
+        if (out.at_middle_s < 0.0 && std::abs(traffic[2].altitude_ft - 3500.0) <= 20.0) {
+            out.at_middle_s = now_s;
+        }
+        if (out.opened_s < 0.0) {
+            out.highest_ft = std::max(out.highest_ft, traffic[2].altitude_ft);
+        }
+        if (out.opened_s < 0.0 &&
+            glideslope::sim::horizontal_m(traffic[0], traffic[2]) >= Separation::minimum_m) {
+            out.opened_s = now_s;
         }
         for (std::size_t k = 0; k < 2; ++k) {
             if (glideslope::sim::horizontal_m(traffic[k], traffic[2]) < Separation::minimum_m) {
@@ -393,8 +440,9 @@ Between fly_between_layers(bool monitor, double seconds) {
 // minimum of the lower, and no height in a 1,000 ft gap is more than 500 ft
 // from both, so until it is 1.5 nm away it is at the minimum at best - the
 // bound is the time to turn about at the autopilot's 25 degrees of bank and
-// open 1.5 nm (38.9 s here; 50 s allowed), and nothing after the first
-// minute. Without the monitor it
+// open 1.5 nm - 38.9 s here, the climb to the gap's middle, slow while
+// banked, not done before it - and an eighth: 44 s, and nothing after 44 s.
+// Without the monitor it
 // loses separation from the lower for most of the run. Its controls move no
 // faster than a hand, full travel in a second, through all of it.
 GLIDESLOPE_TEST(an_aircraft_handed_to_the_ai_between_two_layers_is_turned_away_and_kept_apart_from_both_after_its_arrival) {
@@ -410,9 +458,11 @@ GLIDESLOPE_TEST(an_aircraft_handed_to_the_ai_between_two_layers_is_turned_away_a
                      with.least_ft_within[k], with.lost_s[k]);
     }
     std::fprintf(stderr,
-                 "with the monitor: turned away for %.1f s, last under the minimum at %.1f s, "
+                 "with the monitor: within 20 ft of the gap's middle at %.1f s (highest %.0f ft "
+                 "before 1.5 nm), 1.5 nm from the lower at %.1f s; turned away for %.1f s, last under the minimum at %.1f s, "
                  "the most a control moved in a step %.4f; %d of %d steps flown\n",
-                 with.turned_s, with.last_lost_s, with.most_control_step, with.steps,
+                 with.at_middle_s, with.highest_ft, with.opened_s, with.turned_s, with.last_lost_s,
+                 with.most_control_step, with.steps,
                  static_cast<int>(seconds) * steps_per_second);
     check(with.steps == static_cast<int>(seconds) * steps_per_second &&
               without.steps == with.steps,
@@ -420,9 +470,9 @@ GLIDESLOPE_TEST(an_aircraft_handed_to_the_ai_between_two_layers_is_turned_away_a
     check(without.lost_s[0] > 60.0,
           "without the monitor, separation from the lower is lost: the situation is built");
     check(with.turned_s > 0.0, "it was squeezed between the two, and turned away");
-    check(with.lost_s[0] + with.lost_s[1] <= 50.0,
-          "with it, separation is lost only while it turns away and opens 1.5 nm: 50 s at most");
-    check(with.last_lost_s <= 60.0, "with it, never lost after the first minute");
+    check(with.lost_s[0] + with.lost_s[1] <= 44.0,
+          "with it, separation is lost only until it has turned away and opened 1.5 nm: 44 s at most");
+    check(with.last_lost_s <= 44.0, "with it, never lost after the first 44 s");
     check(with.least_ft_within[1] >= Separation::minimum_ft,
           "with it, never within the minimum of the higher layer");
     check(with.most_control_step <= 1.0 / steps_per_second + 1e-9,

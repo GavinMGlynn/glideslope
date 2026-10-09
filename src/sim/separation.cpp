@@ -152,28 +152,40 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
                 bottom = std::min(bottom, k.band.low_ft - apart_ft);
             }
             const bool can_descend = bottom >= g.ground_ft + Separation::least_above_ground_ft;
-            const bool up = !can_descend || top - g.altitude_ft <= g.altitude_ft - bottom;
+            // The side, latched once chosen (`Squeeze`) - never into the ground.
+            const Squeeze* was = g.squeezed ? &*g.squeezed : nullptr;
+            const bool up = !can_descend ||
+                            (was ? was->up : top - g.altitude_ft <= g.altitude_ft - bottom);
             // Those it would pass through: the side it goes to.
             std::optional<std::size_t> nearest;
             double nearest_m = 1e18;
-            bool clear = true;
             for (const Near& k : near) {
                 if (k.above == up) {
                     continue;
                 }
                 const double d = horizontal_m(g, traffic[k.j]);
-                clear = clear && d >= Separation::minimum_m;
                 if (d < nearest_m) {
                     nearest_m = d;
                     nearest = k.j;
                 }
             }
-            if (nearest) {
+            // Clear at 1.5 nm, and clear until under 1.3 nm.
+            const bool clear =
+                nearest_m >= (was && was->clear ? Separation::clear_again_m : Separation::minimum_m);
+            // The heading, latched once chosen: away from the nearest then.
+            std::optional<double> away;
+            if (was) {
+                away = was->away_deg;
+            } else if (nearest) {
                 const Traffic& p = traffic[*nearest];
-                limit.heading_deg = std::fmod(
+                away = std::fmod(
                     bearing_deg(p.latitude_deg, p.longitude_deg, g.latitude_deg, g.longitude_deg) +
                         360.0,
                     360.0);
+            }
+            limit.heading_deg = away;
+            if (away) {
+                limit.squeezed = Squeeze{up, *away, clear};
             }
             if (clear) {
                 if (up) {

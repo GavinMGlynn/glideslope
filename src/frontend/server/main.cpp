@@ -2713,8 +2713,10 @@ public:
         // its closest approaches are kept by. Who gives way to whom is not
         // this but the order in the sky, `flown_`'s.
         int held_clear_of = -1;
-        // Turned away from two it is squeezed between (sim/separation.hpp).
+        // Turned away from two it is squeezed between (sim/separation.hpp),
+        // and what the monitor latched for it last step.
         bool turned_away = false;
+        std::optional<glideslope::sim::Squeeze> squeezed = std::nullopt;
         // How far above the plan file's heights it flies that plan.
         double stack_ft = 0.0;
         // **Put on a course by the operator** (`--fly`), which it holds
@@ -3282,6 +3284,7 @@ private:
         std::vector<Aircraft*> who;
         for (Aircraft& a : flown_) {
             if (a.wrecked_at_s >= 0.0 || landed(a)) {
+                a.squeezed.reset();
                 continue;
             }
             const glideslope::sim::AircraftState s = a.aircraft->state();
@@ -3297,6 +3300,7 @@ private:
                 ai_flying(a) && a.controller->autopilot_flying() && !a.operators_course;
             if (t.gives_way) {
                 t.held_ft = a.controller->autopilot()->modes().altitude_ft;
+                t.squeezed = a.squeezed;
             }
             traffic.push_back(t);
             who.push_back(&a);
@@ -3311,6 +3315,7 @@ private:
                 a.controller->limit_height(limit.floor_ft, limit.ceiling_ft);
                 a.controller->turn_away(limit.heading_deg);
             }
+            a.squeezed = limit.squeezed;
             // Whether the limit holds it off where it would go.
             bool binds = false;
             if (t.held_ft) {
@@ -3349,7 +3354,8 @@ private:
                               clear_of);
                 if (turned) {
                     std::snprintf(line + std::strlen(line), sizeof line - std::strlen(line),
-                                  ", turned away to heading %03.0f", *limit.heading_deg);
+                                  ", turned away to heading %03d",
+                                  static_cast<int>(std::lround(*limit.heading_deg)) % 360);
                 }
             }
             happened.emplace_back(line);
