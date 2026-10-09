@@ -15,6 +15,7 @@ measure is what the file flies.
     flaps 1
     glidepath_deg 3
     aim_m 300
+    trained_lbs 1730 1880      the least and most it weighed in training
     observations 21
     actions 4
     obs_mean <21 numbers>
@@ -60,6 +61,9 @@ class Policy:
     obs_clip: float = 10.0
     layers: list[Layer] = field(default_factory=list)
     header: list[str] = field(default_factory=list)
+    # The least and most the aeroplane weighed in training, pounds: outside
+    # them the simulation's gate refuses her to it (sim::outside_learnt_gate).
+    trained_lbs: tuple[float, float] = (0.0, 0.0)
 
     def act(self, obs: list[float]) -> list[float]:
         x = [
@@ -97,6 +101,7 @@ def write(path: str, p: Policy) -> None:
         f"flaps {number(ap.flaps)}",
         f"glidepath_deg {number(ap.glidepath_deg)}",
         f"aim_m {number(ap.aim_m)}",
+        f"trained_lbs {number(p.trained_lbs[0])} {number(p.trained_lbs[1])}",
         f"observations {OBSERVATIONS}",
         f"actions {ACTIONS}",
         "obs_mean " + " ".join(number(v) for v in p.obs_mean),
@@ -136,6 +141,8 @@ def read(path: str) -> Policy:
         aim_m=float(kv["aim_m"]),
         decision_steps=int(kv["decision_steps"]),
     )
+    least, most = (float(v) for v in kv["trained_lbs"].split())
+    p.trained_lbs = (least, most)
     p.obs_mean = [float(v) for v in kv["obs_mean"].split()]
     p.obs_scale = [float(v) for v in kv["obs_scale"].split()]
     p.obs_clip = float(kv["obs_clip"])

@@ -237,12 +237,13 @@ void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& spee
     // **Down to the learnt landing's gate at its policy's own speed**, not
     // the one for what she weighs (sim::for_weight): its gate admits her
     // only within -3/+8 kt of the speed it was trained at, over the weights
-    // it was trained at - the C172P's 59.8 kt from 1,680 lb to her model's
-    // 1,880 (tools/rl/landing.py), where scaled for 1,880 she would come
-    // down at 52.9 and never meet it. Gone around, or landed from past it,
-    // she is flown at the speed for her weight (`gate_speeds_`).
+    // it was trained at - the C172P's 59.8 kt from 1,730 lb to her model's
+    // 1,880 (`trained_lbs`), where scaled for 1,880 she would come down at
+    // 52.9 and never meet it. Gone around, or landed from past it, she is
+    // flown at the speed for her weight (`gate_speeds_`); and at a weight
+    // it was not trained at, which its gate refuses, from the start.
     ApproachSpeeds to_gate = speeds;
-    if (learnt_at_gate) {
+    if (learnt_at_gate && learnt_at_gate->trained_for(a_.property("inertia/weight-lbs"))) {
         to_gate.vref_kts = learnt_at_gate->vref_kts;
         to_gate.reference_lbs = 0.0;
     }

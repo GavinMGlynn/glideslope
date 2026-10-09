@@ -5,6 +5,9 @@
 #include "copilot/provider.hpp"
 #include "frontend/briefs.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/controller.hpp"
+#include "sim/learnt.hpp"
+#include "sim/terrain.hpp"
 #include "world/json.hpp"
 
 #include <atomic>
@@ -480,6 +483,66 @@ GLIDESLOPE_TEST(a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_t
     check(glideslope::copilot::planning_request(unknown_height).find("YSBK runway") ==
               std::string::npos,
           "a runway with no elevation is not offered to land on");
+}
+
+// **The brief tells the approach speed the AI will fly**, at the loading
+// she will have - her model's own, which a server flies - not her figures'
+// speed for theirs. Every aircraft: each one with an approach speed (14) is
+// put on final at her model's weight and handed to the AI as a server hands
+// her (with her learnt landing, where she has one); her brief's approach
+// speed must be what her approach autopilot is given, to the knot it is
+// told in. The two with none (the 747-400, the F-22A) are briefed none.
+GLIDESLOPE_TEST(every_aircrafts_brief_tells_the_approach_speed_the_ai_flies_her_at_for_her_models_weight) {
+    const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto catalogue = glideslope::sim::read_catalogue(data);
+    std::size_t told = 0;
+    std::size_t none = 0;
+    for (const auto& entry : catalogue) {
+        const glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, entry.id);
+        const auto speeds = glideslope::sim::landing_speeds(data, entry.model);
+        if (!speeds) {
+            check(brief.approach_kts == 0.0,
+                  entry.id + " publishes no approach speed and is briefed none");
+            ++none;
+            continue;
+        }
+        glideslope::sim::Aircraft aircraft(data / "jsbsim", entry.model);
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; },
+            [water = entry.seaplane](double, double) { return water; }));
+        glideslope::sim::Runway runway;
+        runway.name = "SYNTH_09";
+        runway.threshold_lat_deg = 0.0;
+        runway.threshold_lon_deg = 0.0;
+        runway.heading_deg = 90.0;
+        runway.length_m = 3000.0;
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = 0.0;
+        ic.longitude_deg = -0.03;
+        ic.altitude_ft = 1000.0;
+        ic.heading_deg = 90.0;
+        ic.airspeed_kts = speeds->vref_kts;
+        ic.engine_running = true;
+        ic.flaps = speeds->flap;
+        aircraft.initialize(ic);
+        glideslope::sim::Controller controller(aircraft, glideslope::sim::Controls{});
+        if (const auto policy = glideslope::sim::learnt_landing(data, entry.model)) {
+            controller.to_ai_approach(runway, *speeds, policy);
+        } else {
+            controller.to_ai_approach(runway, *speeds);
+        }
+        const double flown = controller.lander()->speeds().vref_kts;
+        std::printf("  %-13s %8.0f lb: figures %5.1f kt, flown %5.1f, briefed %3.0f\n",
+                    entry.id.c_str(), aircraft.property("inertia/weight-lbs"), speeds->vref_kts,
+                    flown, brief.approach_kts);
+        check(brief.approach_kts == std::round(flown),
+              entry.id + " is briefed " + std::to_string(brief.approach_kts) +
+                  " kt and flown at " + std::to_string(flown));
+        ++told;
+    }
+    check(told == 14 && none == 2 && told + none == catalogue.size(),
+          "every aircraft: " + std::to_string(told) + " briefed a speed and " +
+              std::to_string(none) + " none, of " + std::to_string(catalogue.size()));
 }
 
 // **Every aircraft is refused a runway just too short for it, and given one

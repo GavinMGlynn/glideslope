@@ -91,6 +91,19 @@ def from_checkpoint(path: str, header: list[str]) -> policy_file.Policy:
     return p
 
 
+def trained_lbs() -> tuple[float, float]:
+    """The least and most the C172P weighed in training: her model with no
+    fuel - the empty aeroplane and what is on board - and the fuel a start
+    puts in each tank, from the least to the most (landing.TRAINING_FUEL_LBS)."""
+    from env import JSBSIM_ROOT
+
+    fdm = L.new_fdm(JSBSIM_ROOT)
+    dry = fdm["inertia/empty-weight-lbs"] + sum(
+        fdm[f"inertia/pointmass-weight-lbs[{i}]"] for i in range(5))
+    least, most = L.TRAINING_FUEL_LBS
+    return (dry + L.TANKS * least, dry + L.TANKS * most)
+
+
 def parity(policy: policy_file.Policy) -> list[str]:
     """Readings, observations and actions from flights of the policy: every
     thirtieth decision of three of the verification's flights and of one
@@ -176,6 +189,7 @@ def main() -> None:
     ]
     header += args.note
     p = from_checkpoint(args.checkpoint, header)
+    p.trained_lbs = trained_lbs()
     os.makedirs(os.path.dirname(os.path.abspath(args.policy)), exist_ok=True)
     policy_file.write(args.policy, p)
     again = policy_file.read(args.policy)

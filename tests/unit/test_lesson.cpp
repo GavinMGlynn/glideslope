@@ -4026,15 +4026,19 @@ namespace {
 // **Two miles out on the glidepath, established**: at the weight its
 // reference speed was measured at, the landing flap down and coming down the
 // path, over a runway at sea level - or water, for a flying boat.
+// `model_weight`: at her model's own weight instead, as a server flies her,
+// at her approach speed for it (sim::for_weight).
 void put_on_final(glideslope::sim::Aircraft& aircraft,
                   const glideslope::sim::CatalogueEntry& entry,
                   const glideslope::sim::Runway& runway,
-                  const glideslope::sim::ApproachSpeeds& published) {
+                  const glideslope::sim::ApproachSpeeds& published, bool model_weight = false) {
     // At the weight its reference speed was measured at: the B-2A's is taken
     // at its light loading, and flown at the model's own weight 124 knots is
     // below its stall - it fell at 110 ft/s and was passed, because every
     // stage of an approach ends on a height.
-    load_as_its_figures_were_measured(aircraft, entry.model);
+    if (!model_weight) {
+        load_as_its_figures_were_measured(aircraft, entry.model);
+    }
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
         [](double, double) { return 0.0; },
         [water = entry.seaplane](double, double) { return water; }));
@@ -4054,7 +4058,12 @@ void put_on_final(glideslope::sim::Aircraft& aircraft,
     ic.airspeed_kts = published.vref_kts;
     ic.engine_running = true;
     ic.gear = 1.0;
-    load_for_the_approach(aircraft, entry.model);
+    if (model_weight) {
+        ic.airspeed_kts =
+            glideslope::sim::for_weight(published, aircraft.loaded_weight_lbs()).vref_kts;
+    } else {
+        load_for_the_approach(aircraft, entry.model);
+    }
     // Established on the approach: the flap it is flown with is already down,
     // and it is already coming down the glidepath rather than level on it.
     ic.flaps = published.flap;
@@ -5403,8 +5412,11 @@ void second_lands_once_the_first_has_left(const std::string& id, bool learnt) {
                                      stopped.altitude_ft - runway.elevation_ft),
           "the first stopped on the runway");
 
+    // Handed to the learnt landing, at her model's own weight, as a
+    // server's are: its gate refuses her at her figures' 2,400 lb, which it
+    // was not trained at (sim::outside_learnt_gate).
     glideslope::sim::Aircraft second(data() / "jsbsim", entry.model);
-    put_on_final(second, entry, runway, published);
+    put_on_final(second, entry, runway, published, learnt);
     glideslope::sim::Controller second_c(second, flying);
     if (learnt) {
         second_c.to_ai_approach(runway, published, policy);

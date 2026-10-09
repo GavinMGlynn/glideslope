@@ -724,8 +724,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       the square root of the weight, in the approach, the gate, the circuit
       and the go-around; all fourteen land at their models' weights and
       their figures', and a server lands a light PA-28 and a heavy B-2A and
-      A380. The C172P flies to her learnt landing's gate at the speed it was
-      trained at.
+      A380, and every brief tells the speed the AI will fly. The C172P
+      flies to her learnt landing's gate at the speed it was trained at,
+      and only at the weights it was trained at.
 
 ## Phase 11 — Traffic and separation
 
