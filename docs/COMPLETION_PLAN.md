@@ -665,6 +665,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       skip is landed to a stop.* Done 2026-10-10: every landplane handed
       over with her wheels clear of the runway, within a second and three
       feet of their last contact, is landed to a stop.
+- [ ] **A take-off handed to the AI at lift-off is not climbed away.**
+      Handed over the moment her wheels leave the runway, she is given the
+      plain autopilot, which holds the height she had: 7 of 13 landplanes
+      touch the runway again within 30 seconds. *Verification: every
+      landplane handed over at lift-off climbs away and never touches the
+      runway again.*
 - [x] **The F-35B's circuit touches down two kilometres short of the
       runway**, at 165 knots, and rolls on to it. Nothing checks where along
       the runway a circuit touches. *Verification: every circuit touches down
@@ -1326,6 +1332,14 @@ outside resource or a larger project.
       lies; Europe's runway-state group, which does, is not read. Nor is a
       runway still wet after the rain stops. *Verification: a report of
       slush or ice on a runway makes it slippery to the aircraft on it.*
+- [ ] **A wet runway does not change a rolling tyre's grip sideways.**
+      Only the brakes feel the water; a source for a wet tyre's cornering
+      grip was not found. *Verification: a wet runway's side grip from a
+      published source, and a crosswind roll-out held to it.*
+- [ ] **The AI cannot land the J-3 Cub in a 15 kt crosswind**: she
+      ground-loops after the touch, dry or wet. No crosswind limit is
+      published for her. *Verification: a published limit, and the Cub
+      landed within it.*
 - [ ] **Wet runways judged with one tyre for every aircraft.** The wet
       grip is the FAA's curve for a 100 psi tyre with anti-skid; a Cessna's
       tyres are softer and grip more, an airliner's harder and grip less, and

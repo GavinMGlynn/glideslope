@@ -684,7 +684,14 @@ Controls Lander::fly_laws() {
         // her weight on the wheels. Waiting for nine tenths of the reference
         // speed, an F-15C with her nose down - no longer braking on her
         // wing's drag - took twenty seconds to get there and ran 3.4 km.
-        if (jet_ || slippery || vg_kts < 0.9 * speeds_.vref_kts) {
+        if (slippery) {
+            // All of the pedals, at a hand's pace - half a second from none
+            // to full - and the anti-skid (Aircraft) lets through what the
+            // runway takes. Found by the deceleration as on a dry runway,
+            // the brakes took two seconds to come fully on, and an A320
+            // ran 3 m off a wet 1,725 m runway.
+            brake_ = std::min(1.0, brake_ + 2.0 / steps_per_second);
+        } else if (jet_ || vg_kts < 0.9 * speeds_.vref_kts) {
             brake_ = std::clamp(brake_ + 0.1 * (autobrake_fps2 - decel_fps2_) / steps_per_second,
                                 0.0, 1.0);
         }

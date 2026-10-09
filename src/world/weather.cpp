@@ -1,5 +1,6 @@
 #include "world/weather.hpp"
 
+#include "sim/plan.hpp"
 #include "sim/runway_condition.hpp"
 #include "world/air_motion.hpp"
 #include "world/json.hpp"
@@ -302,6 +303,12 @@ sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
                                 const GroundAt& ground, sim::Conditions mean,
                                 double latitude_deg, double longitude_deg,
                                 double height_msl_m, double time_s) {
+    // **The runway is the report's only near its station**: beyond what a
+    // METAR's present weather reaches, dry unless another report says so.
+    if (sim::distance_m(latitude_deg, longitude_deg, report.surface.latitude_deg,
+                        report.surface.longitude_deg) > metar_radius_m) {
+        mean.runway_condition = sim::dry_runway;
+    }
     constexpr double mps_per_knot = 1852.0 / 3600.0;
     constexpr double radians = 3.14159265358979323846 / 180.0;
     constexpr double metres_per_degree = 111319.49; // on the equatorial sphere

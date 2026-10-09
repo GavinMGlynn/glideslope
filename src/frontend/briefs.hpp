@@ -8,6 +8,7 @@
 // same.
 
 #include <filesystem>
+#include <optional>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -28,15 +29,17 @@ namespace glideslope::frontend {
 copilot::Brief brief_for(const std::filesystem::path& data, const std::string& catalogue_id);
 
 // The same, as a planner's request; the command, airport and runways are
-// left for the caller. On a `wet` runway its need is the wet one.
+// left for the caller; `wet`, where its runways are wet, is the planner's.
 copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
-                                      const std::string& catalogue_id, bool wet);
+                                      const std::string& catalogue_id,
+                                      std::optional<world::WetRunways> wet);
 
-// **Whether the weather flown wets the runways**: its METAR's
-// (world::runway_condition_of) any but dry; none, still air, is dry. The
-// server's and every client's copilot and planner are told it from the
-// weather they fly.
-bool runway_wet(const world::WeatherReport* report);
+// **Where the weather flown wets the runways**: within world::metar_radius_m
+// of its METAR's station, when the METAR wets a runway
+// (world::runway_condition_of); nowhere for one that does not, or for none,
+// still air. The server's and every client's copilot and planner are told
+// it from the weather they fly.
+std::optional<world::WetRunways> wet_runways(const world::WeatherReport* report);
 
 // **Where a plan from an airport may land** (copilot::PlanRequest::fields):
 // the airports of `all` within `landing_fields_m` of the first end of

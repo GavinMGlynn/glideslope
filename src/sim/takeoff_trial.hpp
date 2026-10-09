@@ -10,10 +10,12 @@
 
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
+#include "sim/weather.hpp"
 
 namespace glideslope::sim {
 
@@ -27,6 +29,7 @@ struct TakeoffFlown {
     double slowest_airborne_kts = 0.0; // the least airspeed once off the ground
     double handed_over_kts = 0.0;      // the airspeed at 500 ft
     double weight_lbs = 0.0;           // what it weighed standing on the runway
+    double widest_across_m = 0.0;      // farthest from the centreline, on the ground
     double seconds = 0.0;
 
     // **Whether the rotation held**: handed over unwrecked, off the ground
@@ -40,8 +43,10 @@ struct TakeoffFlown {
     bool held(const DepartureSpeeds& speeds) const;
 };
 
+// In still air, or in `weather` where given.
 TakeoffFlown fly_takeoff_trial(const std::filesystem::path& data, const CatalogueEntry& entry,
-                               const DepartureSpeeds& speeds);
+                               const DepartureSpeeds& speeds,
+                               std::shared_ptr<Weather> weather = nullptr);
 
 // **The take-off speeds of an aircraft that publishes none, measured** -
 // what `glideslope_cli takeoff-speeds` prints and `<takeoff_speeds>` holds -

@@ -325,14 +325,14 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
         if (change.glide_kts) {
             return "a glide does not land: it ends over its field";
         }
-        return landing_refusal(b.approach_kts,
-                               now.runway_wet ? b.wet_landing_need_m : b.landing_need_m,
-                               now.runway_wet, change.plan, now.fields);
+        return landing_refusal(b.approach_kts, b.landing_need_m, b.wet_landing_need_m,
+                               now.wet_runways, change.plan, now.fields);
     }
     return {};
 }
 
-std::string landing_refusal(double approach_kts, double need_m, bool wet,
+std::string landing_refusal(double approach_kts, double dry_need_m, double wet_need_m,
+                            const std::optional<world::WetRunways>& wet_runways,
                             const sim::FlightPlan& plan,
                             const std::vector<world::RunwayEnd>& fields) {
     const auto& landing = plan.landing;
@@ -356,6 +356,11 @@ std::string landing_refusal(double approach_kts, double need_m, bool wet,
     // **Long enough for it**, as the runway data has it, not as the line was
     // written: its length less any displaced threshold.
     const double length_m = world::landing_length_m(*field);
+    const bool wet = wet_runways && sim::distance_m(field->latitude_deg, field->longitude_deg,
+                                                    wet_runways->latitude_deg,
+                                                    wet_runways->longitude_deg) <=
+                                        wet_runways->radius_m;
+    const double need_m = wet ? wet_need_m : dry_need_m;
     if (need_m > 0.0 && length_m < need_m) {
         return "the runway " + field->airport + " " + field->ident + " has " +
                std::to_string(static_cast<long>(std::floor(length_m))) +

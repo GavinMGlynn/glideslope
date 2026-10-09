@@ -136,9 +136,10 @@ struct Situation {
     std::vector<sim::Waypoint> route;
     // Runways nearby, nearest first: where it may land.
     std::vector<world::RunwayEnd> fields;
-    // **Whether the runways are wet**, as the weather flown says
-    // (frontend::runway_wet): a landing then needs the Brief's wet need.
-    bool runway_wet = false;
+    // **Where the runways are wet**, as the weather flown says
+    // (frontend::wet_runways), or nowhere: a landing on one needs the
+    // Brief's wet need.
+    std::optional<world::WetRunways> wet_runways;
     // Why it is asked now: "the pilot has asked", "the engine has stopped",
     // "a routine look".
     std::string event;
@@ -184,9 +185,10 @@ const world::RunwayEnd* landing_field(const std::vector<world::RunwayEnd>& field
 // runway's landing length (world::landing_length_m) at least `need_m`, what
 // the aircraft needs; a `need_m` of 0, none published, refuses none for
 // length. A copilot's glide is refused a landing before this is asked. A
-// `wet` runway's need is given already lengthened (frontend::brief_for), and
+// runway within `wet`'s radius needs `wet_need_m` (frontend::brief_for), and
 // a refusal says the runway is wet.
-std::string landing_refusal(double approach_kts, double need_m, bool wet,
+std::string landing_refusal(double approach_kts, double need_m, double wet_need_m,
+                            const std::optional<world::WetRunways>& wet,
                             const sim::FlightPlan& plan,
                             const std::vector<world::RunwayEnd>& fields);
 

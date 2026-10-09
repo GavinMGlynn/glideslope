@@ -4,8 +4,10 @@
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
+#include "sim/runway_condition.hpp"
 #include "sim/takeoff_trial.hpp"
 #include "sim/terrain.hpp"
+#include "sim/weather.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -444,4 +446,49 @@ GLIDESLOPE_TEST(a_take_off_taken_over_in_the_air_never_puts_out_a_flap_it_found_
     check(most_lever == 0.0, "the lever stayed up: at most " + std::to_string(most_lever));
     check(departure.stage() == Departure::Stage::done,
           "the take-off ended: " + std::to_string(steps / steps_per_second) + " s");
+}
+
+// **A take-off on a wet runway rolls as it does on a dry one**: every
+// aircraft that takes off from a runway (the flying boat named) takes off by
+// the take-off autopilot at its own speeds, dry and on runway condition code
+// 5, and leaves the ground within 1 per cent and 2 m of where it left dry,
+// and wanders no more than 0.5 m farther from the centreline. A wet runway's
+// water (3 mm or less, AC 25-32's code 5) takes grip from a braked wheel,
+// not from a free-rolling one's rolling or its steering, which the wet
+// runway's braking coefficient is not a measure of.
+GLIDESLOPE_TEST(every_aircraft_takes_off_from_a_wet_runway_as_from_a_dry_one) {
+    const auto catalogue = glideslope::sim::read_catalogue(data());
+    std::size_t flown = 0;
+    std::size_t left_out = 0;
+    glideslope::sim::Conditions wet;
+    wet.runway_condition = glideslope::sim::wet_runway;
+    for (const auto& entry : catalogue) {
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat takes off from water\n", entry.id.c_str());
+            ++left_out;
+            continue;
+        }
+        const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), entry.model);
+        const glideslope::sim::TakeoffFlown dry =
+            glideslope::sim::fly_takeoff_trial(data(), entry, speeds);
+        const glideslope::sim::TakeoffFlown on_wet = glideslope::sim::fly_takeoff_trial(
+            data(), entry, speeds, std::make_shared<glideslope::sim::SteadyWeather>(wet));
+        std::printf("  %-13s dry: unstuck %6.1f m, %.2f m across; wet: unstuck %6.1f m, %.2f m "
+                    "across\n",
+                    entry.id.c_str(), dry.unstuck_m, dry.widest_across_m, on_wet.unstuck_m,
+                    on_wet.widest_across_m);
+        check(dry.unstuck_m > 0.0 && on_wet.unstuck_m > 0.0 && on_wet.wrecked.empty(),
+              entry.id + " left the ground dry and wet, unwrecked");
+        check(std::abs(on_wet.unstuck_m - dry.unstuck_m) <= std::max(2.0, 0.01 * dry.unstuck_m),
+              entry.id + " left a wet runway at " + std::to_string(on_wet.unstuck_m) +
+                  " m, against " + std::to_string(dry.unstuck_m) + " dry");
+        check(on_wet.widest_across_m <= dry.widest_across_m + 0.5,
+              entry.id + " wandered " + std::to_string(on_wet.widest_across_m) +
+                  " m from the centreline wet, against " + std::to_string(dry.widest_across_m) +
+                  " dry");
+        ++flown;
+    }
+    check(flown + left_out == catalogue.size() && left_out == 1,
+          "every aircraft but the flying boat taken off dry and wet: " + std::to_string(flown) +
+              " of " + std::to_string(catalogue.size() - 1));
 }

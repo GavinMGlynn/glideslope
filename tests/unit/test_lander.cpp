@@ -4,6 +4,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/lander.hpp"
+#include "sim/runway_condition.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
 
@@ -77,6 +78,7 @@ struct Landing {
     double worst_roll_after_touch_deg = 0.0;
     double least_pitch_after_touch_deg = 0.0;
     double highest_after_touch_ft = 0.0;
+    double worst_across_after_touch_m = 0.0; // from the centreline, on the roll
     // As the server judges the touch (sim/crash.hpp), and whether she
     // settled: what was wrong, one line each.
     std::vector<std::string> gear_took_it;
@@ -84,7 +86,7 @@ struct Landing {
 
 // **From five miles out, on the glidepath, down to a stop.** `crosswind_kts`
 // blows from the left across the runway; zero is calm air.
-Landing land(const std::string& id, double crosswind_kts) {
+Landing land(const std::string& id, double crosswind_kts, bool wet = false) {
     std::printf("landing the %s in %.0f knots of crosswind\n", id.c_str(),
                 crosswind_kts);
     std::fflush(stdout);
@@ -98,10 +100,12 @@ Landing land(const std::string& id, double crosswind_kts) {
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
         [](double, double) { return 0.0; }, [](double, double) { return false; }));
 
-    if (crosswind_kts != 0.0) {
+    if (crosswind_kts != 0.0 || wet) {
         // Straight across the runway from the left: the runway points 070,
         // so the wind is from 340 and blows towards 160.
         glideslope::sim::Conditions conditions;
+        conditions.runway_condition =
+            wet ? glideslope::sim::wet_runway : glideslope::sim::dry_runway;
         const double towards = (runway.heading_deg - 90.0 + 180.0) / degrees;
         const double mps = crosswind_kts * 0.514444;
         conditions.wind_north_mps = mps * std::cos(towards);
@@ -148,6 +152,8 @@ Landing land(const std::string& id, double crosswind_kts) {
             }
             out.worst_roll_after_touch_deg =
                 std::max(out.worst_roll_after_touch_deg, std::abs(s.roll_deg));
+            out.worst_across_after_touch_m =
+                std::max(out.worst_across_after_touch_m, std::abs(lander.across_m()));
             out.least_pitch_after_touch_deg =
                 std::min(out.least_pitch_after_touch_deg, s.pitch_deg);
             out.highest_after_touch_ft = std::max(
@@ -262,6 +268,49 @@ GLIDESLOPE_TEST(every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_cross
         stayed_down_and_upright(id, l, " in the crosswind");
     }
     check(walked == 4, "all four light aircraft were landed in a crosswind");
+}
+
+// **On a wet runway in a 15 kt crosswind, she stays on it as she does on a
+// dry one**: every light aircraft landed by the AI from five miles out with
+// 15 kt straight across from the left, dry and on runway condition code 5,
+// stops on the wet runway, the right way up, never farther from its
+// centreline than the runway's half-width nor than 1 m beyond the farthest
+// she went dry. Her wheels' side force is her model's on a wet runway as on
+// a dry one: the wet runway's braking coefficient is a braked wheel's, not a
+// measure of cornering.
+//
+// **The J-3 Cub is named and left out**: in 15 kt across she ground-loops
+// after the touch dry - 726 m from the centreline, on her back - and wet,
+// which is no wet runway's doing (a Later item).
+GLIDESLOPE_TEST(every_light_aircraft_landed_on_a_wet_runway_in_a_15_kt_crosswind_stays_on_it_as_on_a_dry_one) {
+    std::size_t walked = 0;
+    std::size_t compared = 0;
+    for (const std::string& id : light_aircraft()) {
+        ++walked;
+        if (id == "j3cub") {
+            std::printf("  left out - j3cub: she ground-loops in 15 kt across, dry or wet\n");
+            continue;
+        }
+        const Landing dry = land(id, 15.0);
+        const Landing wet = land(id, 15.0, true);
+        std::printf("  %s: farthest across after the touch %.2f m dry, %.2f m wet\n", id.c_str(),
+                    dry.worst_across_after_touch_m, wet.worst_across_after_touch_m);
+        check(wet.stopped && wet.stopped_along_m <= a_runway().length_m,
+              id + " stopped on the wet runway in the crosswind, " +
+                  std::to_string(wet.stopped_along_m) + " m along");
+        stayed_down_and_upright(id, wet, " on a wet runway in a 15 kt crosswind");
+        check(wet.worst_across_after_touch_m <= glideslope::sim::Lander::runway_half_width_m,
+              id + " went " + std::to_string(wet.worst_across_after_touch_m) +
+                  " m from the centreline wet in the crosswind");
+        check(dry.stopped && wet.worst_across_after_touch_m <= dry.worst_across_after_touch_m + 1.0,
+              id + " went " + std::to_string(wet.worst_across_after_touch_m) +
+                  " m from the centreline wet in the crosswind, against " +
+                  std::to_string(dry.worst_across_after_touch_m) + " dry");
+        ++compared;
+    }
+    check(walked == 4 && compared == 3,
+          "every light aircraft but the Cub, named, landed dry and wet in the crosswind: " +
+              std::to_string(walked) + " and " + std::to_string(compared));
 }
 
 // **The reference speed comes from the aeroplane's own published figures**,

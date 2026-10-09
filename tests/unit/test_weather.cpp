@@ -1320,3 +1320,57 @@ GLIDESLOPE_TEST(each_runway_condition_codes_wheel_braking_coefficient_is_ac_25_3
           "codes 1 to 5 given a coefficient and 6, 0, 7 and -1 refused: " +
               std::to_string(codes) + " and " + std::to_string(refused));
 }
+
+namespace {
+
+// A report of `metar` at a station on the equator's meridian, 0, 0.
+glideslope::world::WeatherReport reported_at_the_origin(const std::string& metar) {
+    glideslope::world::WeatherReport r;
+    r.surface.metar = parse_metar(metar);
+    return r;
+}
+
+const char* const raining_metar = "METAR XXXX 100600Z 18010KT 6000 -RA BKN015 14/12 Q1012";
+const char* const dry_metar = "METAR XXXX 100600Z 18010KT 9999 FEW030 14/08 Q1012";
+
+} // namespace
+
+// **A METAR wets the runways only near its station**: within 8 km
+// (world::metar_radius_m) - what its present weather reaches, ICAO Annex 3's
+// aerodrome and not its vicinity - and dry beyond, as the aircraft flying the
+// report is given it: 7.9 km north of a raining station the runway is code 5,
+// 8.1 km north code 6, and at the station 5.
+GLIDESLOPE_TEST(a_metars_rain_wets_the_runways_within_8_km_of_its_station_and_none_beyond) {
+    glideslope::world::ReportedWeather weather(reported_at_the_origin(raining_metar), nullptr,
+                                               0.0);
+    const auto code_at = [&](double north_m) {
+        return weather.at(north_m / 111195.0, 0.0, 10.0, 0.0).runway_condition;
+    };
+    check(glideslope::world::metar_radius_m == 8000.0, "a METAR reaches 8 km");
+    check(code_at(0.0) == glideslope::sim::wet_runway, "wet at the station");
+    check(code_at(7900.0) == glideslope::sim::wet_runway, "wet 7.9 km from it");
+    check(code_at(8100.0) == glideslope::sim::dry_runway, "dry 8.1 km from it");
+}
+
+// **A change of runway is taken halfway through the blend**, as a code cannot
+// be mixed: a dry report blended into a wet one over 300 s gives code 6 at
+// 149 s and code 5 at 151 s; and back from wet to dry the same. Coverage: both
+// directions, either side of halfway.
+GLIDESLOPE_TEST(a_runway_turning_wet_or_dry_in_a_blend_turns_halfway_through_it) {
+    std::size_t walked = 0;
+    for (const bool to_wet : {true, false}) {
+        glideslope::world::ReportedWeather weather(
+            reported_at_the_origin(to_wet ? dry_metar : raining_metar), nullptr, 300.0);
+        weather.update(reported_at_the_origin(to_wet ? raining_metar : dry_metar), 0.0);
+        const int before = to_wet ? glideslope::sim::dry_runway : glideslope::sim::wet_runway;
+        const int after = to_wet ? glideslope::sim::wet_runway : glideslope::sim::dry_runway;
+        const int at_149 = weather.at(0.0, 0.0, 10.0, 149.0).runway_condition;
+        const int at_151 = weather.at(0.0, 0.0, 10.0, 151.0).runway_condition;
+        check(at_149 == before && at_151 == after,
+              std::string(to_wet ? "dry to wet" : "wet to dry") + ": " +
+                  std::to_string(at_149) + " at 149 s and " + std::to_string(at_151) +
+                  " at 151 s");
+        ++walked;
+    }
+    check(walked == 2, "both directions walked");
+}

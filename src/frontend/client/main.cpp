@@ -1900,7 +1900,7 @@ static int run_program(int argc, char** argv) {
                             glideslope::world::to_geodetic({own.x_m, own.y_m, own.z_m});
                         if (auto route = copilot->look(
                                 heard_s, own,
-                                glideslope::frontend::runway_wet(
+                                glideslope::frontend::wet_runways(
                                     flight ? flight->weather_report() : nullptr))) {
                             const glideslope::net::RouteWaypoint& first = route->waypoints.front();
                             route_to = glideslope::sim::Waypoint{};
