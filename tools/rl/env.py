@@ -43,18 +43,29 @@ JSBSIM_ROOT = os.path.join(REPO, "assets", "jsbsim")
 GAMMA = 0.999
 
 # **The stabilized approach the speed is held to**: from `gate_ft` over the
-# runway down to `down_to_ft`, as sim::StabilizedApproach judges it (500 and
-# 50 ft, +10/-5 kt of the approach speed), each tenth of a second outside
-# `fast_kts` over or `slow_kts` under the approach speed costs `per_kt` for
-# each knot outside, to `most_kts`, and outside the gate's own band
-# `outside_gate` more. The band is narrower than the gate's, a margin for the
-# mean action and for the simulation's own flight of it. **Not yet enough**
-# (docs/PROJECT_STATUS.md, 2026-10-10): fine-tuned with it, the policy left
-# its fast approach and then began its flare at 100 ft, 10 kt slow by 50 ft -
-# the touch's softer sink paid for it - and its landings fell apart; no
-# policy trained with it is committed.
-STABILIZED = dict(gate_ft=500.0, down_to_ft=50.0, fast_kts=5.0, slow_kts=2.0, per_kt=0.05,
-                  most_kts=30.0, outside_gate=0.3, judged_fast_kts=10.0, judged_slow_kts=5.0)
+# runway down to `down_to_ft`, each tenth of a second outside `fast_kts` over
+# or `slow_kts` under the approach speed costs `per_kt` for each knot
+# outside, to `most_kts`, and outside the gate's own band (+10/-5 kt,
+# sim::StabilizedApproach) `outside_gate` more. The band is narrower than the
+# gate's, a margin for the mean action and for the simulation's own flight
+# of it.
+#
+# **Down to where the simulation's flare begins, not the gate's 50 ft**:
+# sim::Lander flares the C172P at a quarter of a foot a knot of its approach
+# speed, 15 ft, with its wheels hanging some 5 ft below where its height is
+# measured from - 20 ft. Costed only to 50 ft (tried 2026-10-10,
+# docs/PROJECT_STATUS.md), the policy learnt to flare from 100 ft and was 10
+# kt slow by 50, the gate still judging it.
+#
+# **Outside the gate's band outweighs the softest touch.** The touch's sink
+# term (`touchdown_reward`) is 40 exp(-(sink/250)^2) - sink/50: 40 at none,
+# 31 at 106 ft/min (the slow flare's), 3.5 at 300 - at most 36.5 between
+# the softest touch and the limit. The gate sends round after two seconds
+# running, twenty decisions: at 2.0 a decision those cost 40, more than any
+# touch could gain, and ten seconds of a slow flare 200.
+STABILIZED = dict(gate_ft=500.0, down_to_ft=20.0, fast_kts=5.0, slow_kts=2.0, per_kt=0.05,
+                  most_kts=30.0, outside_gate=2.0, judged_down_to_ft=50.0,
+                  judged_fast_kts=10.0, judged_slow_kts=5.0)
 
 
 def outside_band(kts: float, vref_kts: float, fast_kts: float, slow_kts: float) -> float:
@@ -217,7 +228,7 @@ class Flier:
         st = STABILIZED
         above_ft = (self.fdm["position/h-sl-ft"] - self.rw.elevation_ft)
         kts = self.fdm["velocities/vc-kts"]
-        off = (st["down_to_ft"] <= above_ft <= st["gate_ft"] and
+        off = (st["judged_down_to_ft"] <= above_ft <= st["gate_ft"] and
                outside_band(kts, self.ap.vref_kts, st["judged_fast_kts"], st["judged_slow_kts"]) > 0.0)
         self.unstable_steps = self.unstable_steps + 1 if off else 0
         f = self.flight

@@ -99,6 +99,8 @@ def main() -> None:
                     help="resuming: this learning rate, and a clip range of 0.1")
     ap.add_argument("--log-std", type=float, default=None,
                     help="resuming: hold the action noise at this log standard deviation")
+    ap.add_argument("--every", type=int, default=1_000_000,
+                    help="a checkpoint every this many decisions")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     torch.set_num_threads(1)
@@ -141,7 +143,7 @@ def main() -> None:
             device="cpu",
             verbose=0,
         )
-    cb = Landings(args.out, every=1_000_000)
+    cb = Landings(args.out, every=args.every)
     model.learn(total_timesteps=args.steps, callback=cb, reset_num_timesteps=not args.resume)
     cb.save("final")
 
