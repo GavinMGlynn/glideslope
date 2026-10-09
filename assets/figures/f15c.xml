@@ -190,8 +190,15 @@
     170 kt; from 160, the slowest a route may fly it, to 165 it stalled.
   </glide_speeds>
 
-  <no_landing_distance>
-    The Standard Aircraft Characteristics give no landing distance: no runway is
-    refused it for length.
-  </no_landing_distance>
+  <landing_distance ft="4200" basis="over_50_ft_obstacle" factor="1.67">
+    T.O. 1F-15A-1, appendix A part 8, figure A8-3, page A8-6, Landing Distance,
+    maximum anti-skid braking, idle thrust, flaps down, speed brake extended
+    (change 4, 23 August 1985, data basis flight test): total distance over a 50
+    ft obstacle at 36,946 lb, sea level, standard day (density ratio 1.0), zero
+    wind, dry runway (RCR 26) - about 4,200 ft read through its four panels, to
+    perhaps 300 ft either way; ground roll about 2,500 ft. Times 1.67, a jet's
+    margin: the landing distance within 60 per cent of the runway, 14 CFR
+    121.195(b) and 135.385(b). No regulation factors a military landing; the
+    transport's margin is used as the stricter of the two this project states.
+  </landing_distance>
 </published_figures>

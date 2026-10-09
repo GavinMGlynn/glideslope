@@ -129,7 +129,9 @@
   </glide_speeds>
 
   <no_landing_distance>
-    Neither the owner's manual nor How to Fly a Piper Cub, as read, gives a
-    landing distance: no runway is refused it for length.
+    Searched 2026-10-09: the owner's manual and How to Fly a Piper Cub, as read,
+    give none; 470 ft over 50 ft and a 290 ft roll appear only on aggregator
+    sites (pilotfriend, risingup, AOPA's guide) without a primary source, so
+    they are not used. No runway is refused it for length.
   </no_landing_distance>
 </published_figures>
