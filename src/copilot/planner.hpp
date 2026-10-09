@@ -16,7 +16,12 @@
 //     its cruise, every height at least 500 ft above the runway, and every
 //     waypoint within 200 km of it;
 //   - no orbit tighter than the aircraft turns at its airspeed, which the
-//     plan's own reading refuses (sim::least_orbit_radius_m).
+//     plan's own reading refuses (sim::least_orbit_radius_m);
+//   - `land`, last, only on one of the runways it was told it may land on,
+//     by an aircraft with an approach speed, and after no orbit flown for
+//     ever: the checks a copilot's route's landing is held to
+//     (copilot::landing_refusal). After its last waypoint the AI flies the
+//     final approach and lands (sim/plan.hpp).
 // Where places are - "the CBD" - is the model's to know. That is what it is
 // for.
 
@@ -49,6 +54,10 @@ struct PlanRequest {
     double cruise_kts = 0.0;   // a comfortable cruise
     std::string airport;       // where it stands, "YSSY"
     std::vector<world::RunwayEnd> runways; // that airport's
+    // **Where it may land**: runway ends near the airport - its own among
+    // them - nearest first, any one of which the plan may end on (`land`).
+    // None, and it is told of none, and a plan that lands is refused.
+    std::vector<world::RunwayEnd> fields;
 };
 
 inline constexpr int most_attempts = 3;

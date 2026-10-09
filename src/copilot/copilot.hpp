@@ -163,6 +163,17 @@ std::string change_refusal(const Brief& brief, const Situation& now, const Chang
 inline constexpr double landing_within_m = 100.0;
 inline constexpr double landing_within_deg = 5.0;
 const world::RunwayEnd* landing_field(const Situation& now, const sim::Runway& landing);
+// The same, of `fields`: what the planner holds a plan's landing to.
+const world::RunwayEnd* landing_field(const std::vector<world::RunwayEnd>& fields,
+                                      const sim::Runway& landing);
+
+// **Why `plan`'s landing may not be flown**, or empty if it may, or if it has
+// none: the checks a copilot's route and a planner's plan are both held to -
+// an aircraft with an approach speed to land at, no orbit before it flown for
+// ever, and a runway of `fields`, the ones the model was told of. A copilot's
+// glide is refused a landing before this is asked.
+std::string landing_refusal(double approach_kts, const sim::FlightPlan& plan,
+                            const std::vector<world::RunwayEnd>& fields);
 
 // Asks `provider` what to do now, and checks what it says: waits for the
 // model, so it is for a thread of its own. Throws ProviderError when the

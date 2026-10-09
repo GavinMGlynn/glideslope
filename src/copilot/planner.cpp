@@ -1,8 +1,11 @@
 #include "copilot/planner.hpp"
 
+#include "copilot/copilot.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <iterator>
 #include <sstream>
 
 namespace glideslope::copilot {
@@ -24,6 +27,25 @@ std::string whole(double d) {
 
 constexpr double least_height_ft = 500.0;
 constexpr double farthest_m = 200000.0;
+
+// **`land` is a plan's last line**, as it is a copilot's route's: a waypoint
+// after it would be read, and never flown.
+std::string landing_not_last(const std::string& text) {
+    std::istringstream in(text);
+    bool landed = false;
+    for (std::string line; std::getline(in, line);) {
+        std::istringstream words(line);
+        std::string word;
+        if (!(words >> word) || word[0] == '#') {
+            continue;
+        }
+        if (landed) {
+            return "`land` is the last line of a plan, and `" + line + "` follows it";
+        }
+        landed = word == "land";
+    }
+    return {};
+}
 
 } // namespace
 
@@ -60,6 +82,7 @@ std::string planning_instructions() {
            "  takeoff HEIGHT_FT\n"
            "  waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT\n"
            "  orbit NAME LATITUDE LONGITUDE RADIUS_M ALTITUDE_FT AIRSPEED_KT TURNS left|right\n"
+           "  land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M\n"
            "\n"
            "- The first line is `aircraft` with the aircraft's id as given.\n"
            "- The aircraft stands on the ground, so the plan takes off: copy exactly one of the "
@@ -70,6 +93,11 @@ std::string planning_instructions() {
            "flown to and then round, TURNS times (whole; 0 means round and round until told "
            "otherwise), turning left or right, at RADIUS_M metres from its centre - no tighter "
            "than the aircraft can turn at its airspeed, as given.\n"
+           "- `land`, last, only when the pilot asks for a landing, to end the flight landing "
+           "on one of the runways it may land on as given: copy its runway line, with `land` "
+           "for `runway`. After the last waypoint the autopilot flies to the final approach and "
+           "lands, so no orbit before it may go round for ever. Without `land` the aircraft "
+           "flies on from the last waypoint.\n"
            "- Latitudes and longitudes are WGS84 decimal degrees, south and west negative. Use "
            "what you know of where places are.\n"
            "- Altitudes are feet above mean sea level; airspeeds are knots, calibrated, within "
@@ -115,6 +143,19 @@ std::string planning_request(const PlanRequest& r) {
     for (const world::RunwayEnd& end : r.runways) {
         if (plannable(end)) {
             out += runway_line(end) + "\n";
+        }
+    }
+    // **Where it may land**, as the copilot is told the runways nearby: the
+    // airport, and the line to copy (copilot.cpp).
+    if (r.approach_kts <= 0.0) {
+        out += "\nIt has no approach speed, so a plan for it does not land.\n";
+    } else if (!r.fields.empty()) {
+        out += "\nRunways it may land on, nearest first: the airport, and a runway line - the "
+               "landing threshold, its elevation in feet, heading and length in metres:\n\n";
+        for (const world::RunwayEnd& end : r.fields) {
+            if (plannable(end)) {
+                out += end.airport + " " + runway_line(end) + "\n";
+            }
         }
     }
     out += "\nThe pilot says: " + r.command + "\n";
@@ -169,7 +210,13 @@ std::string refusal(const PlanRequest& r, const sim::FlightPlan& plan) {
                    whole(farthest_m / 1000.0);
         }
     }
-    return {};
+    // **A landing is held to what a copilot's is**, on the runways it was
+    // told it may land on: those with an elevation, as it was told them.
+    std::vector<world::RunwayEnd> told;
+    if (r.approach_kts > 0.0) {
+        std::copy_if(r.fields.begin(), r.fields.end(), std::back_inserter(told), plannable);
+    }
+    return landing_refusal(r.approach_kts, plan, told);
 }
 
 Task parse_task(const std::string& text) {
@@ -234,7 +281,10 @@ Planned plan_from_words(Provider& provider, const PlanRequest& request) {
         std::string why;
         try {
             out.plan = sim::parse_flight_plan(text);
-            why = refusal(request, out.plan);
+            why = landing_not_last(text);
+            if (why.empty()) {
+                why = refusal(request, out.plan);
+            }
         } catch (const sim::FlightPlanError& e) {
             why = e.what();
         }

@@ -1,6 +1,8 @@
 #include "frontend/briefs.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <utility>
 
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
@@ -38,6 +40,33 @@ copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
     r.climb_kts = b.climb_kts;
     r.cruise_kts = b.cruise_kts;
     return r;
+}
+
+std::vector<world::RunwayEnd> landing_fields(const std::vector<world::RunwayEnd>& all,
+                                             const std::vector<world::RunwayEnd>& airport) {
+    const auto from = std::find_if(airport.begin(), airport.end(),
+                                   [](const world::RunwayEnd& e) { return copilot::plannable(e); });
+    if (from == airport.end()) {
+        return {};
+    }
+    std::vector<std::pair<double, const world::RunwayEnd*>> near;
+    for (const world::RunwayEnd& end : all) {
+        if (!copilot::plannable(end)) {
+            continue;
+        }
+        const double d = sim::distance_m(from->latitude_deg, from->longitude_deg, end.latitude_deg,
+                                         end.longitude_deg);
+        if (d <= landing_fields_m) {
+            near.emplace_back(d, &end);
+        }
+    }
+    std::stable_sort(near.begin(), near.end(),
+                     [](const auto& x, const auto& y) { return x.first < y.first; });
+    std::vector<world::RunwayEnd> out;
+    for (std::size_t i = 0; i < near.size() && i < most_landing_fields; ++i) {
+        out.push_back(*near[i].second);
+    }
+    return out;
 }
 
 } // namespace glideslope::frontend

@@ -940,10 +940,10 @@ int plan_command(const std::filesystem::path& data, const std::vector<std::strin
         glideslope::frontend::plan_request_for(data, entry.id);
     request.command = command;
     request.airport = airport;
-    request.runways = glideslope::world::runways_at(
-        glideslope::world::world_runways(glideslope::platform::cache_directory(),
-                                         glideslope::world::http_fetch()),
-        airport);
+    const std::vector<glideslope::world::RunwayEnd> all = glideslope::world::world_runways(
+        glideslope::platform::cache_directory(), glideslope::world::http_fetch());
+    request.runways = glideslope::world::runways_at(all, airport);
+    request.fields = glideslope::frontend::landing_fields(all, request.runways);
     if (request.runways.empty()) {
         std::fprintf(stderr, "glideslope_cli: plan: OurAirports has no runways at %s\n",
                      airport.c_str());

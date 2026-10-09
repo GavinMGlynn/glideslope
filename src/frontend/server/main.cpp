@@ -1215,10 +1215,10 @@ glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
     // again): the aircraft cannot be planned, which is said, and it flies
     // the plan file. Not the server stopped.
     try {
-        request.runways = glideslope::world::runways_at(
-            glideslope::world::world_runways(glideslope::platform::cache_directory(),
-                                             glideslope::world::http_fetch()),
-            task.airport);
+        const std::vector<glideslope::world::RunwayEnd> all = glideslope::world::world_runways(
+            glideslope::platform::cache_directory(), glideslope::world::http_fetch());
+        request.runways = glideslope::world::runways_at(all, task.airport);
+        request.fields = glideslope::frontend::landing_fields(all, request.runways);
     } catch (const std::exception& e) {
         throw Unplannable(std::string("the runways cannot be read: ") + e.what());
     }
@@ -2955,6 +2955,23 @@ private:
                      int& departures) {
         const glideslope::sim::CatalogueEntry entry =
             glideslope::sim::find_aircraft(data_, plan.aircraft);
+        // **Landed only on a runway of this server's own ground**, as a
+        // copilot's route is: the planner held the landing to the runways it
+        // told the model of, and the server lands it on the collision
+        // ground's end there - its threshold, heading, length and the
+        // ground's elevation - or refuses the plan, which is said, and the
+        // aircraft flies the plan file.
+        if (plan.landing) {
+            const std::vector<glideslope::world::RunwayEnd> ends =
+                ends_near(plan.landing->threshold_lat_deg, plan.landing->threshold_lon_deg);
+            const glideslope::world::RunwayEnd* end =
+                glideslope::copilot::landing_field(ends, *plan.landing);
+            if (end == nullptr) {
+                throw Unplannable("its landing " + plan.landing->name +
+                                  " is on none of this server's runways");
+            }
+            plan.landing = glideslope::world::as_runway(*end, 0.0);
+        }
         for (glideslope::sim::Waypoint& w : plan.waypoints) {
             w.altitude_ft += geoid_.undulation(w.latitude_deg, w.longitude_deg) * feet_per_metre;
         }

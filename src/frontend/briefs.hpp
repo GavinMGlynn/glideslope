@@ -8,7 +8,9 @@
 // same.
 
 #include <filesystem>
+#include <cstddef>
 #include <string>
+#include <vector>
 
 #include "copilot/copilot.hpp"
 #include "copilot/planner.hpp"
@@ -26,5 +28,15 @@ copilot::Brief brief_for(const std::filesystem::path& data, const std::string& c
 // left for the caller.
 copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
                                       const std::string& catalogue_id);
+
+// **Where a plan from an airport may land** (copilot::PlanRequest::fields):
+// the runway ends of `all` that say their elevation within `landing_fields_m`
+// of the first such end of `airport`'s, nearest first, at most
+// `most_landing_fields` - so that the airport's own and its neighbours' are
+// among them. None where the airport has no end with an elevation.
+inline constexpr double landing_fields_m = 40000.0;
+inline constexpr std::size_t most_landing_fields = 12;
+std::vector<world::RunwayEnd> landing_fields(const std::vector<world::RunwayEnd>& all,
+                                             const std::vector<world::RunwayEnd>& airport);
 
 } // namespace glideslope::frontend

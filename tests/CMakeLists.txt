@@ -680,6 +680,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_provider_with_no_key_is_refused_and_one_played_back_needs_none
     a_recording_plays_back_only_the_requests_it_recorded_and_holds_no_key
     a_plan_from_words_is_checked_and_refused_back_to_the_model_until_it_can_be_flown
+    a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_told_of_and_on_no_other
     a_task_file_names_its_aircraft_airport_and_words_and_anything_else_is_refused
     a_copilots_answer_is_read_as_keep_or_a_route_and_refused_wherever_it_cannot_be_flown
     a_copilots_route_may_end_in_a_landing_on_a_runway_it_was_told_of_and_on_no_other
@@ -3206,6 +3207,35 @@ add_test(NAME each_ai_aircraft_is_planned_by_the_model_its_server_gives_it_and_o
 set_tests_properties(each_ai_aircraft_is_planned_by_the_model_its_server_gives_it_and_one_with_no_key_is_refused
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planned)
+
+# **A model's plan from the ground may end in a landing**: "take off, fly to
+# Bankstown airport and land there", asked of Claude for a C172P at Sydney,
+# is checked, flown by the server's AI, handed to the learnt landing at its
+# gate and landed - played back from its recording with no key, and asked
+# now (live, recorded) only with GLIDESLOPE_LIVE_MODEL=1. See
+# cmake/planned_landing.cmake.
+foreach(_how as_recorded asking_anthropic_now)
+    set(_dir ${CMAKE_CURRENT_BINARY_DIR}/planned_landing_${_how})
+    if(_how STREQUAL "as_recorded")
+        set(_answers -DPLAYBACK=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/bankstown-anthropic.jsonl)
+    else()
+        set(_answers -DRECORD=${_dir}/bankstown-anthropic.jsonl)
+    endif()
+    add_test(NAME a_flight_planned_from_the_ground_to_a_landing_is_landed_by_the_ai_${_how}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLI=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DWORK=${_dir}
+            -DTASK=${GLIDESLOPE_DATA_DIR}/tasks/sydney-to-bankstown.task
+            -DPROVIDER=anthropic -DMODEL=claude-haiku-4-5-20251001 -DSTEPS=150000 ${_answers}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/planned_landing.cmake)
+    set_tests_properties(a_flight_planned_from_the_ground_to_a_landing_is_landed_by_the_ai_${_how}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1800)
+    if(_how STREQUAL "asking_anthropic_now")
+        set_tests_properties(a_flight_planned_from_the_ground_to_a_landing_is_landed_by_the_ai_${_how}
+            PROPERTIES LABELS live)
+    endif()
+    file(MAKE_DIRECTORY ${_dir})
+endforeach()
 
 # **Every AI aircraft a server runs, planned or not, is kept apart from every
 # other along the whole of its route**: four, two planned from the recordings
