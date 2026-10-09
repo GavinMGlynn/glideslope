@@ -267,6 +267,12 @@ are the risks the phase order is built around:
 
 ### A landing on a runway too short for the aircraft is refused, for ten of the sixteen, 2026-10-09 — item open
 
+**Windows build, fixed after CI.** MSVC kept `world::landing_length_m` (an
+inline function of `world/runways.hpp`, a header the copilot may include) as
+a symbol of the copilot's archive where GCC and Clang inlined it, so the
+copilot's symbol check refused the Windows build (CI run 37882278266). It is
+added to `GLIDESLOPE_COPILOT_NAMES` with the header's other names.
+
 **What it is not, first.** **Six aircraft are refused nothing for
 length**: the J-3 Cub, Mosquito FB.VI, S.23, F-22A, F-35B and B-2A have no
 landing distance from a primary source, searched for on 2026-10-09, and
