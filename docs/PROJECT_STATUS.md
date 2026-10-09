@@ -267,6 +267,11 @@ are the risks the phase order is built around:
 
 ### One handed to the AI between two layers is turned away; one handed over in a spiral is rolled level before it is pulled, 2026-10-09 — item still open
 
+**Port, fixed after CI.** The spiral hand-over test first took port 24704,
+which the window client's stalled-rejoin test already uses as its port + 1;
+`every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two_tests_share_one`
+refused it on every platform (CI run 37891046392). It is on 24940 now.
+
 **What is missing first.** **Arriving between two layers inside 1.5 nm of
 one, an aircraft is under the minimum until it is 1.5 nm away**: no height
 in a 1,000 ft gap is more than 500 ft from both, so until it has turned
