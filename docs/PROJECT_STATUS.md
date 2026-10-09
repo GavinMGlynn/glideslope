@@ -271,6 +271,14 @@ are the risks the phase order is built around:
 only as far as measured: the same command, on this machine and these
 packages, trained the same weights twice (four million decisions each); on
 another machine or another build of PyTorch it is not claimed.
+**The policy is marginal at the gate.** From one checkpoint to the next,
+a million decisions apart, the gate's 160 corners went 121, 160, 135, 160
+within the limits (24 to 27 million). The committed checkpoint was chosen
+on the forty held-out starts, not on the gate: the gate was not looked at
+in choosing it, and that it passes all 160 at the one checkpoint chosen is
+partly luck of the draw. Its margins there are wide (190 ft/min against
+300, 2.14 m against 5), but a neighbouring checkpoint failing 25 says a
+small change to the engine or the training could fail it again.
 
 **The engine** (`tools/make_c172p.py`, owner's decision 2026-10-09):
 `eng_io320.xml`'s `<bsfc> 0.32` is taken out, so JSBSim sizes the engine to
@@ -314,14 +322,23 @@ fresh aeroplane each), at 25, 50, 75 and 100 lb a tank, out of 160:
 | **27M** | **40** | **40** | **40** | **40** | **219** |
 
 27M is the first with all 160. The gate's corners were flown in Python for
-each as well (a scratch script, not committed; it gave the old policy's 23
-short, as the C++ test did), and swing as much: 121, 160, 135, 160 of 160.
+each as well, after the scores above (a scratch script, not committed), and
+swing as much: 121, 160, 135, 160 of 160.
+
+**The old policy's shortfall, reconciled.** The C++ gate test (#130) had 22
+of 160 short: 20 at 301-311 ft/min (all but two in the crosswind from the
+right) and two touching 12 and 20 m before the threshold. The Python script
+had 23: the same 22 and one more in the crosswind from the right at 300.x
+ft/min, printed as 300: within the 0.44 ft/min by which Python and the
+simulation may differ at the touch, so the C++ test can put it under the
+limit (not flown again in C++ to see). The 311 in the
+held-out table above is the held-out starts' worst, not the gate's.
 The verification's 27 starts, flown by the export: 27 within the limits,
 worst 155 ft/min and 2.10 m across.
 
 **Exported** with `tools/rl/export.py` (the policy and the parity fixture
-together); the header records the command line and the choice. Not edited
-by hand.
+together); the header records the whole lineage - the six parts before
+and this seventh - the command line and the choice. Not edited by hand.
 
 **Verification** (linux-release, DISPLAY and WAYLAND_DISPLAY unset):
 - `the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_*`,
