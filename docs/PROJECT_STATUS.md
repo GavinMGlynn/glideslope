@@ -305,11 +305,25 @@ per-model cache is now of these) and the client's `Flight` both tell their
 controllers from it, and the take-off tests tell theirs from it too.
 
 **Tests**:
-- New: `every_landplane_handed_over_at_any_half_second_of_the_ten_after_lift_off_climbs_away_and_never_touches_the_runway`
-  - 13 landplanes, 21 hand-overs each, 273 counted: every one given the
-  climb-out, never touching, past 500 ft and the autopilot's within three
-  minutes; and each landplane's measured settling time asserted inside the
-  rule's 40 s. **Seen red** with the old one-second rule: 52 failures.
+- New: **the lift-off sweep**, 13 landplanes, 21 hand-overs each, 273:
+  every one given the climb-out, never touching, past 500 ft and the
+  autopilot's within three minutes; and each landplane's measured settling
+  time asserted inside the rule's 40 s. **Seen red** with the old
+  one-second rule: 52 failures. As one test it took 60 s in linux-release,
+  which would have passed ctest's 900 s in CI's sanitized debug build, so it
+  is seven tests by aircraft (`the_737_300_and_a320_...`,
+  `the_787_8_and_a380_...`, `the_f15c_and_f35b_...`,
+  `the_b2_and_learjet_...`, `the_cessnas_...`, `the_cub_and_pa28_...`,
+  `the_mosquito_handed_over_at_any_half_second_of_the_ten_after_lift_off_climbs_away_and_never_touches_the_runway`),
+  and `the_lift_off_sweeps_parts_hand_every_landplane_over_at_every_half_second_exactly_once`
+  asserts every landplane in exactly one part, 273 hand-overs (**seen red**
+  with the Mosquito left out of hers). Here in linux-debug, one at a time:
+  92, 124, 108, 115, 110, 90 and 53 s (linux-release 6 to 9.4 s).
+  `tests/ci_costs/` has estimates for all seven presets, scaled from these
+  by what `an_aeroplane_landed_by_hand_and_handed_over_on_its_roll_is_landed_to_a_stop`
+  costs here (1.62 s release, 18.26 debug) and on each CI runner - CI's
+  linux-debug about 4.3 times this machine's, so the longest part about
+  530 s.
 - New: `the_figures_the_server_and_client_tell_their_controllers_give_every_aircraft_how_she_takes_off`
   - all 16 aircraft told their departure speeds, 14 their approach speeds
   (the 747-400 and F-22, which publish no stall, named). **Seen red** with

@@ -5728,32 +5728,62 @@ GLIDESLOPE_TEST(every_landplane_handed_over_at_lift_off_climbs_away_through_500_
     say_wrong(wrong);
 }
 
-// **And handed over at any moment of the first ten seconds after lift-off,
-// she is climbed away too** - in ground effect, before she has a climb to
-// show: every landplane taught the approach (13; the flying boat named),
-// handed over every half second from the step her wheels leave to ten
-// seconds after, 21 hand-overs each, 273 in all, counted. Each is given the
-// climb-out, never touches the runway again, passes 500 ft and is the
-// autopilot's within three minutes. The test prints how long after lift-off
-// each first climbed at more than 100 ft/min, which the rule's time since
-// lift-off is set from (Controller::lift_off_settling_s).
-GLIDESLOPE_TEST(every_landplane_handed_over_at_any_half_second_of_the_ten_after_lift_off_climbs_away_and_never_touches_the_runway) {
-    constexpr int delays = 21;
-    constexpr double delay_step_s = 0.5;
+namespace {
+
+// **The lift-off sweep in parts**, so that none is long on CI: every
+// landplane taught the approach in exactly one, which
+// the_lift_off_sweeps_parts_hand_every_landplane_over_at_every_half_second_exactly_once
+// asserts.
+const std::vector<std::pair<std::string, std::vector<std::string>>>& lift_off_sweep_parts() {
+    static const std::vector<std::pair<std::string, std::vector<std::string>>> parts = {
+        {"the 737-300 and the A320", {"737-300", "a320"}},
+        {"the 787-8 and the A380", {"787-8", "a380"}},
+        {"the F-15C and the F-35B", {"f15c", "f35b"}},
+        {"the B-2A and the Learjet 35A", {"b2", "learjet35a"}},
+        {"the Cessnas", {"c172p", "c182"}},
+        {"the Cub and the PA-28", {"j3cub", "pa28"}},
+        {"the Mosquito", {"mosquito-fb6"}},
+    };
+    return parts;
+}
+
+constexpr int lift_off_sweep_delays = 21; // every half second, 0 to 10 s
+constexpr double lift_off_sweep_step_s = 0.5;
+
+// **Handed over at any moment of the first ten seconds after lift-off, she
+// is climbed away** - in ground effect, before she has a climb to show:
+// each landplane of the part named `part`, handed over every half second
+// from the step her wheels leave to ten seconds after, 21 hand-overs each,
+// counted. Each is given the climb-out, never touches the runway again,
+// passes 500 ft and is the autopilot's within three minutes. And each one's
+// take-off settles into its climb inside the rule's time since lift-off
+// (Controller::lift_off_settling_s), which was set from what this prints.
+void sweep_after_lift_off(const std::string& part) {
+    const auto& parts = lift_off_sweep_parts();
+    const auto found = std::find_if(parts.begin(), parts.end(),
+                                    [&](const auto& p) { return p.first == part; });
+    check(found != parts.end(), "a part of the lift-off sweep named " + part);
+    if (found == parts.end()) {
+        return;
+    }
     std::vector<std::string> wrong;
     std::size_t handed = 0;
-    std::size_t aeroplanes = 0;
-    double slowest_to_climb_s = 0.0;
-    every_landplane_taking_off([&](const std::string& id,
-                                   const glideslope::sim::CatalogueEntry& entry) {
-        ++aeroplanes;
+    for (const std::string& id : found->second) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
         // **How long her take-off takes to settle into its climb**: flown
         // by the pilot's take-off for two minutes, the last moment she was
         // below 400 ft and not climbing at more than 100 ft/min.
         const double settled_s =
             take_off_handed_over(entry, HandedOver::at_lift_off, 0.0, 120.0).last_unclimbing_s;
-        for (int i = 0; i < delays; ++i) {
-            const double delay_s = delay_step_s * i;
+        std::printf("  %-13s last below 400 ft and not climbing %.2f s after lift-off, against "
+                    "the rule's %.0f s\n",
+                    id.c_str(), settled_s, glideslope::sim::Controller::lift_off_settling_s);
+        if (settled_s >= glideslope::sim::Controller::lift_off_settling_s) {
+            wrong.push_back(id + "'s take-off settles into its climb only " +
+                            std::to_string(settled_s) + " s after lift-off");
+        }
+        for (int i = 0; i < lift_off_sweep_delays; ++i) {
+            const double delay_s = lift_off_sweep_step_s * i;
             const HandedOverTakingOff r =
                 take_off_handed_over(entry, HandedOver::at_lift_off, 180.0, delay_s);
             const std::string where =
@@ -5777,19 +5807,71 @@ GLIDESLOPE_TEST(every_landplane_handed_over_at_any_half_second_of_the_ten_after_
                 wrong.push_back(where + " was still taking off three minutes later");
             }
         }
-        slowest_to_climb_s = std::max(slowest_to_climb_s, settled_s);
-        std::printf("  %-13s last below 400 ft and not climbing %.2f s after lift-off\n",
-                    id.c_str(), settled_s);
-    });
-    std::printf("  the slowest to settle into her climb: %.2f s, against the rule's %.0f s\n",
-                slowest_to_climb_s, glideslope::sim::Controller::lift_off_settling_s);
+    }
     say_wrong(wrong);
-    check(handed == aeroplanes * delays && aeroplanes == 13,
-          "every landplane handed over at every half second: " + std::to_string(handed) + " of " +
-              std::to_string(13 * delays));
-    check(slowest_to_climb_s < glideslope::sim::Controller::lift_off_settling_s,
-          "every landplane's take-off settles into its climb inside the rule's time since "
-          "lift-off");
+    const std::size_t asked = found->second.size() * lift_off_sweep_delays;
+    check(handed == asked, part + " handed over at every half second: " +
+                               std::to_string(handed) + " of " + std::to_string(asked));
+}
+
+} // namespace
+
+// **The lift-off sweep's parts hand every landplane over at every half
+// second, once**: every landplane taught the approach (13; the flying boat,
+// which takes off from water, named) is in exactly one part and every name
+// in a part is one of them - 13 times 21, 273 hand-overs in all.
+GLIDESLOPE_TEST(the_lift_off_sweeps_parts_hand_every_landplane_over_at_every_half_second_exactly_once) {
+    std::map<std::string, int> in_parts;
+    for (const auto& part : lift_off_sweep_parts()) {
+        for (const std::string& id : part.second) {
+            ++in_parts[id];
+        }
+    }
+    std::size_t once = 0;
+    every_landplane_taking_off([&](const std::string& id, const glideslope::sim::CatalogueEntry&) {
+        const auto at = in_parts.find(id);
+        const int times = at == in_parts.end() ? 0 : at->second;
+        check(times == 1, id + " is in " + std::to_string(times) + " parts of the lift-off sweep");
+        once += times == 1 ? 1U : 0U;
+        if (at != in_parts.end()) {
+            in_parts.erase(at);
+        }
+    });
+    for (const auto& [id, times] : in_parts) {
+        check(false, id + " is in the lift-off sweep but is not a landplane taught the approach");
+    }
+    const std::size_t hand_overs = once * lift_off_sweep_delays;
+    std::printf("  %zu landplanes, each in one part: %zu hand-overs\n", once, hand_overs);
+    check(hand_overs == 273, "the lift-off sweep's parts hand over " + std::to_string(hand_overs) +
+                                 " times, 273 expected");
+}
+
+GLIDESLOPE_TEST(the_737_300_and_a320_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway) {
+    sweep_after_lift_off("the 737-300 and the A320");
+}
+
+GLIDESLOPE_TEST(the_787_8_and_a380_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway) {
+    sweep_after_lift_off("the 787-8 and the A380");
+}
+
+GLIDESLOPE_TEST(the_f15c_and_f35b_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway) {
+    sweep_after_lift_off("the F-15C and the F-35B");
+}
+
+GLIDESLOPE_TEST(the_b2_and_learjet_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway) {
+    sweep_after_lift_off("the B-2A and the Learjet 35A");
+}
+
+GLIDESLOPE_TEST(the_cessnas_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway) {
+    sweep_after_lift_off("the Cessnas");
+}
+
+GLIDESLOPE_TEST(the_cub_and_pa28_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway) {
+    sweep_after_lift_off("the Cub and the PA-28");
+}
+
+GLIDESLOPE_TEST(the_mosquito_handed_over_at_any_half_second_of_the_ten_after_lift_off_climbs_away_and_never_touches_the_runway) {
+    sweep_after_lift_off("the Mosquito");
 }
 
 // **A touch-and-go handed over as she leaves the runway again is climbed
@@ -5902,7 +5984,7 @@ GLIDESLOPE_TEST(a_touch_and_go_handed_over_as_she_leaves_the_runway_again_is_cli
 // throttle in hand pushed fully open so that only her climb tells her from
 // a take-off, is given the plain autopilot, not the climb-out. (Inside the
 // 40 s, low down and at power, she would be climbed out: there her climb
-// tells nothing, every_landplane_handed_over_at_any_half_second_... below.)
+// tells nothing, the lift-off sweep, sweep_after_lift_off, above.)
 GLIDESLOPE_TEST(a_take_off_levelled_low_down_and_handed_over_is_not_given_the_climb_out) {
     std::vector<std::string> wrong;
     every_landplane_taking_off([&](const std::string& id,
