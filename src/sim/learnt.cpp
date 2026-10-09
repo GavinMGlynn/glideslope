@@ -17,6 +17,7 @@ constexpr double pi = 3.14159265358979323846;
 constexpr double degrees = 180.0 / pi;
 constexpr double feet_per_metre = 3.280839895013123;
 constexpr double mps_per_fps = 0.3048;
+constexpr double steps_per_second = 120.0;
 
 
 struct Where {
@@ -397,6 +398,21 @@ Controls LearntLander::fly() {
         easing_ = true;
         return fly();
     }
+    // **Judged by the stabilized-approach gate**, step by step as sim::Lander
+    // is, at the speed the policy was trained to fly.
+    {
+        ApproachSpeeds flown = rollout_.speeds();
+        flown.vref_kts = policy_->vref_kts;
+        std::string why = sim::unstabilized(runway_, flown, policy_->glidepath_deg,
+                                            rollout_.along_m(), rollout_.above_m(),
+                                            a_.state().airspeed_kts);
+        unstable_steps_ = why.empty() ? 0 : unstable_steps_ + 1;
+        most_unstable_steps_ = std::max(most_unstable_steps_, unstable_steps_);
+        if (unstabilized_.empty() && static_cast<double>(unstable_steps_) >=
+                                         StabilizedApproach::sustained_s * steps_per_second) {
+            unstabilized_ = std::move(why);
+        }
+    }
     if (steps_ % policy_->decision_steps == 0) {
         integral_ = remember_drift(integral_, where(r, runway_).across_m, *policy_);
         const std::array<double, LearntPolicy::actions> action =
@@ -407,6 +423,10 @@ Controls LearntLander::fly() {
     }
     ++steps_;
     return held_;
+}
+
+double LearntLander::most_unstable_s() const {
+    return static_cast<double>(most_unstable_steps_) / steps_per_second;
 }
 
 std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,

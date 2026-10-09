@@ -377,19 +377,21 @@ void Controller::to_pilot() {
     vacate_.reset();
 }
 
-void Controller::go_around() {
+void Controller::go_around(std::string why) {
     // **From the learnt landing too**, while it is still in the air: an
     // approach lander takes her from where she is and flies the go-around,
-    // as from a balloon.
-    if (learnt_ && learnt_->stage() == LearntLander::Stage::flying && !learnt_->touched() &&
-        gate_runway_ && gate_speeds_) {
-        lander_.emplace(a_, *gate_runway_, *gate_speeds_);
+    // as from a balloon - to the gate's runway at the speed for her weight,
+    // or, handed the learnt landing directly (`to_ai_learnt_approach`), to
+    // its own runway at its own speeds.
+    if (learnt_ && learnt_->stage() == LearntLander::Stage::flying && !learnt_->touched()) {
+        lander_.emplace(a_, gate_runway_ ? *gate_runway_ : learnt_->rollout().runway(),
+                        gate_speeds_ ? *gate_speeds_ : learnt_->rollout().speeds());
         lander_->hand_mixture(applied_.mixture);
         learnt_.reset();
         easing_in_ = true;
     }
     if (lander_) {
-        lander_->go_around();
+        lander_->go_around(std::move(why));
     }
 }
 
@@ -441,11 +443,17 @@ Controls Controller::fly() {
             go_around();
             return fly();
         }
-        // **The learnt landing is not judged by the stabilized-approach
-        // gate** (StabilizedApproach): its policy was trained to land, not
-        // to hold its speed, and from all 160 corners of its own gate it
-        // passes 500 ft up to 35 kt over the reference speed - and lands
-        // within its limits. Its gate box is what admits it.
+        // **The learnt landing is judged by the stabilized-approach gate**
+        // (StabilizedApproach), as the approach autopilot is: two seconds
+        // running off its speed or bound past the touchdown zone, below
+        // 500 ft, and she goes around (LearntLander::unstabilized).
+        if (learnt_ && learnt_->stage() == LearntLander::Stage::flying && !learnt_->touched() &&
+            !learnt_->unstabilized().empty()) {
+            std::string why = learnt_->unstabilized();
+            ++unstable_go_arounds_;
+            go_around(std::move(why));
+            return fly();
+        }
         if (learnt_) {
             if (learnt_->stage() != LearntLander::Stage::stopped) {
                 const Controls landing = learnt_->fly();

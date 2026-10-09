@@ -216,6 +216,14 @@ public:
     long decisions() const { return decisions_; }
     // The rollout's lander, for where she is on the runway.
     const Lander& rollout() const { return rollout_; }
+    // **Why the stabilized-approach gate sends her round** (sim::unstabilized,
+    // at the policy's own speed): empty until, below 500 ft and before the
+    // touch, it has found her unstabilized for StabilizedApproach::sustained_s
+    // running; then the first such reason, kept. The controller goes around
+    // for it.
+    const std::string& unstabilized() const { return unstabilized_; }
+    // The longest the gate has found her unstabilized, running, seconds.
+    double most_unstable_s() const;
 
 private:
     const Aircraft& a_;
@@ -233,6 +241,9 @@ private:
     double touchdown_sink_fpm_ = 0.0;
     double touchdown_across_m_ = 0.0;
     double touchdown_along_m_ = 0.0;
+    long unstable_steps_ = 0;
+    long most_unstable_steps_ = 0;
+    std::string unstabilized_;
 };
 
 } // namespace glideslope::sim

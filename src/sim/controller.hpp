@@ -166,8 +166,10 @@ public:
     const Lander* lander() const { return lander_ ? &*lander_ : nullptr; }
     // **Go around**, where the AI is flying an approach: it climbs away and
     // flies round to the same runway again (sim/circuit.hpp).
-    // From the learnt landing too, while she is in the air.
-    void go_around();
+    // From the learnt landing too, while she is in the air. `why`, where it
+    // is the AI's own reason (an approach not stabilized), for the lander's
+    // `why_gone_around`.
+    void go_around(std::string why = {});
     // **Whether the runway she is landing on is clear**, asked of the
     // caller - the other aircraft are not the controller's to know - once
     // a step on an approach below RunwayClear::decide_ft (sim/vacate.hpp):
