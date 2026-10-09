@@ -288,4 +288,21 @@ std::string cannot_be_taught(const Lesson& lesson, const LessonSpeeds& speeds) {
     return "";
 }
 
+void fly_the_stall_entry(AutopilotModes& modes, const LessonSpeeds& speeds) {
+    modes.airspeed_kts = speeds.stall_kts - 10.0;
+    modes.hold_height_to_the_stall = true;
+}
+
+double stall_recovery_ends_at_kts(const Lesson& lesson, const LessonSpeeds& speeds) {
+    return figure_of(lesson.stages.back().until_value, speeds);
+}
+
+void fly_the_stall_recovery(AutopilotModes& modes, const Lesson& lesson,
+                            const LessonSpeeds& speeds) {
+    modes.altitude_ft.reset();
+    modes.airspeed_kts = stall_recovery_ends_at_kts(lesson, speeds) + 5.0;
+    modes.speed_on_elevator = true;
+    modes.hold_height_to_the_stall = false;
+}
+
 } // namespace glideslope::sim

@@ -192,6 +192,7 @@ constexpr double pull_out_most_g = 1.6;
 constexpr double pitch_per_g_over = 10.0;
 constexpr double past_the_peak_deg = 0.3;
 constexpr double above_the_nose_deg = 5.0;
+constexpr double stall_trend_s = 0.25;
 constexpr double configuration_moved = 0.5; // degrees of flap, or a twentieth of the gear
 // Pitch to elevator, the pitch rate's damping, and the trim the integral finds.
 constexpr double elevator_per_degree = 0.05;
@@ -481,6 +482,20 @@ Controls Autopilot::fly() {
         } else if (lift > most_lift_) {
             most_lift_ = lift;
             stall_alpha_deg_ = alpha;
+        }
+        // **Seen to stall**: past that angle with the angle rising and the
+        // lift falling, both on their trends over a quarter of a second -
+        // the lift actually going over its peak, not an angle past one a
+        // gust or a pull once set. Until the wing is back under the angle.
+        alpha_trend_ += ((alpha - last_alpha_) / dt - alpha_trend_) * dt / stall_trend_s;
+        lift_trend_ += ((lift - last_lift_) / dt - lift_trend_) * dt / stall_trend_s;
+        last_alpha_ = alpha;
+        last_lift_ = lift;
+        if (alpha <= stall_alpha_deg_) {
+            seen_to_stall_ = false;
+        } else if (alpha > stall_alpha_deg_ + past_the_peak_deg && alpha_trend_ > 0.0 &&
+                   lift_trend_ < 0.0) {
+            seen_to_stall_ = true;
         }
     }
 
@@ -791,8 +806,16 @@ Controls Autopilot::fly() {
     // seconds in her stall was handed over with the elevator +0.9 nose-up
     // and kept it there through a dive to 168 kt, pulling 1.95 g as her wing
     // came back through its peak; the Mosquito 2.22. With it, 1.81 and 1.71.
-    const bool past_its_peak =
-        a_.property("aero/alpha-deg") > stall_alpha_deg_ + past_the_peak_deg;
+    //
+    // **Only once the wing has been seen to stall** (`seen_to_stall_`): the
+    // angle past the peak, rising, with the lift falling. Read off the angle
+    // alone, a peak learnt low - a gust's or a pull's - would have refused
+    // the trim in ordinary slow flight later.
+    const bool past_its_peak = seen_to_stall_ &&
+                               a_.property("aero/alpha-deg") > stall_alpha_deg_ + past_the_peak_deg;
+    if (past_its_peak && theta_off > 0.0) {
+        ++trim_held_steps_;
+    }
     if (!upset && !(past_its_peak && theta_off > 0.0)) {
         elevator_trim_ = std::clamp(elevator_trim_ + trim_rate * theta_off * dt, -1.0, 1.0);
     }

@@ -21,6 +21,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -2023,4 +2024,136 @@ GLIDESLOPE_TEST(the_autopilot_engaged_in_a_descent_levels_off_within_half_a_g_at
         ++flown;
     }
     check(flown == 3, "a light aeroplane and two jets flown: " + std::to_string(flown));
+}
+
+namespace {
+
+// One flight for the trim's stall rule: `e` at 4,000 ft in moderate
+// turbulence, on the autopilot, either on an approach - her landing flap and
+// gear down, at her approach speed, descending at 700 ft/min - or in a climb
+// at her best-climb speed, clean, at 1,500 ft/min asked; ninety seconds.
+struct TrimFlown {
+    long held_steps = 0;
+    double mean_pitch_off_deg = 0.0;
+    double slowest_kts = 1e9;
+    double most_alpha_deg = -1e9;
+    double flown_kts = 0.0;
+};
+
+TrimFlown fly_for_the_trim(const CatalogueEntry& e, bool approach) {
+    Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+    const std::optional<glideslope::sim::ApproachSpeeds> lands =
+        glideslope::sim::landing_speeds(data(), e.model);
+    const glideslope::sim::DepartureSpeeds departs =
+        glideslope::sim::departure_speeds(data(), e.model);
+    const double kts = approach ? lands->vref_kts : departs.climb_kts;
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 4000.0;
+    ic.heading_deg = 0.0;
+    ic.airspeed_kts = kts;
+    ic.engine_running = true;
+    ic.gear = approach ? 1.0 : 0.0;
+    aircraft.initialize(ic);
+    glideslope::world::WeatherReport report;
+    report.surface.metar =
+        glideslope::world::parse_metar("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013");
+    report.surface.latitude_deg = -33.9;
+    report.surface.longitude_deg = 151.2;
+    report.turbulence_severity = 3; // moderate
+    report.air_seed = 0xa170;
+    aircraft.set_weather(
+        std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0));
+    glideslope::sim::Controls controls;
+    controls.throttle = 0.7;
+    controls.flaps = approach ? lands->flap : 0.0;
+    controls.gear = approach ? 1.0 : 0.0;
+    controls.speedbrake = approach ? lands->speedbrake : 0.0;
+    Autopilot autopilot(aircraft, controls);
+    AutopilotModes modes = autopilot.modes();
+    modes.heading_deg = 0.0;
+    modes.airspeed_kts = kts;
+    modes.altitude_ft = approach ? 2000.0 : 9000.0;
+    modes.vertical_speed_fpm = approach ? 700.0 : 1500.0;
+    autopilot.set(modes);
+    TrimFlown out;
+    out.flown_kts = kts;
+    double off_sum = 0.0;
+    const int steps = 90 * steps_per_second;
+    for (int i = 0; i < steps; ++i) {
+        aircraft.set_controls(autopilot.fly());
+        aircraft.step();
+        off_sum +=
+            std::abs(autopilot.pitch_asked_deg() - aircraft.property("attitude/theta-deg"));
+        out.slowest_kts = std::min(out.slowest_kts, aircraft.property("velocities/vc-kts"));
+        out.most_alpha_deg = std::max(out.most_alpha_deg, aircraft.property("aero/alpha-deg"));
+    }
+    out.held_steps = autopilot.trim_held_steps();
+    out.mean_pitch_off_deg = off_sum / steps;
+    return out;
+}
+
+} // namespace
+
+// **The trim is held from winding nose-up only by a wing seen to stall, never
+// in ordinary flight** (sim/autopilot.cpp). One aeroplane of each class, the
+// first in the roster that publishes how it lands, on an approach and in a
+// best-rate climb, each in moderate turbulence for ninety seconds: the rule
+// never engages, and the nose follows the pitch asked within 4 degrees on
+// average (the 737-300's approach, the worst, 3.3); the B-2A's approach is
+// named, below. Read off the angle alone, past a peak a gust had set low, it could
+// refuse the trim in just such flight. Coverage: every class flown.
+GLIDESLOPE_TEST(the_trim_is_never_held_for_a_stall_on_approaches_and_climbs_in_moderate_turbulence) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    std::set<glideslope::sim::AircraftClass> flown_classes;
+    std::vector<std::string> faults;
+    std::size_t flights = 0;
+    std::size_t left_out = 0;
+    for (const CatalogueEntry& e : roster) {
+        if (flown_classes.count(e.aircraft_class) != 0 ||
+            !glideslope::sim::landing_speeds(data(), e.model)) {
+            continue;
+        }
+        flown_classes.insert(e.aircraft_class);
+        for (const bool approach : {true, false}) {
+            if (approach && e.id == "b2") {
+                // **Left out, named**: at her approach speed on the plain
+                // autopilot in moderate turbulence the B-2A departs - 177
+                // degrees of alpha - with the rule or without it; her
+                // approaches are the approach autopilot's (sim/lander.hpp).
+                std::printf("  %-13s approach left out: departs on the plain autopilot\n",
+                            e.id.c_str());
+                ++left_out;
+                continue;
+            }
+            const TrimFlown f = fly_for_the_trim(e, approach);
+            ++flights;
+            const char* what = approach ? "approach" : "climb";
+            std::printf("  %-13s %-8s at %5.1f kt: trim held %ld steps, pitch off %.2f deg on "
+                        "average, slowest %5.1f kt, most alpha %4.1f\n",
+                        e.id.c_str(), what, f.flown_kts, f.held_steps, f.mean_pitch_off_deg,
+                        f.slowest_kts, f.most_alpha_deg);
+            if (f.held_steps != 0) {
+                faults.push_back(e.id + " " + what + ": the trim was held for a stall " +
+                                 std::to_string(f.held_steps) + " steps");
+            }
+            if (f.mean_pitch_off_deg > 4.0) {
+                faults.push_back(e.id + " " + what + ": the nose was " +
+                                 std::to_string(f.mean_pitch_off_deg) +
+                                 " deg off the pitch asked on average");
+            }
+        }
+    }
+    for (const std::string& fault : faults) {
+        std::printf("  %s\n", fault.c_str());
+    }
+    check(faults.empty(), std::to_string(faults.size()) + " flights failed; the first: " +
+                              (faults.empty() ? "" : faults.front()));
+    check(flights + left_out == 2 * flown_classes.size() && left_out == 1,
+          "every flight flown or named: " + std::to_string(flights) + " flown, " +
+              std::to_string(left_out) + " named");
+    check(flown_classes.size() == glideslope::sim::aircraft_class_count,
+          "one aeroplane of every class flown: " + std::to_string(flown_classes.size()) +
+              " of " + std::to_string(glideslope::sim::aircraft_class_count));
 }

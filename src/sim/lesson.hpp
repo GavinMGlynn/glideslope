@@ -45,6 +45,7 @@
 // and a test loads each model and asks.
 
 #include "sim/catalogue.hpp"
+#include "sim/plan.hpp"
 
 #include <filesystem>
 #include <optional>
@@ -163,5 +164,32 @@ std::vector<std::string> figures_named(const Lesson& lesson);
 // thing without throwing, so that a caller can leave an aeroplane out and say
 // which figure it was missing.
 std::string cannot_be_taught(const Lesson& lesson, const LessonSpeeds& speeds);
+
+// **How the autopilot flies a stall lesson** - its entry, and its recovery -
+// for whoever flies one on it: the instructor demonstrating it, and the
+// lesson's own checks, which fly these and nothing else.
+//
+// **The entry**: asked for ten knots under the stall, which closes the
+// throttle and holds the height by raising the nose, and the height held
+// level to the stall however far the nose must rise for it
+// (AutopilotModes::hold_height_to_the_stall) - the FAA's stall tasks hold
+// the altitude as the speed comes back. A light aeroplane's altitude hold
+// gives up height rather than fly slower than its best-climb speed or a
+// slower speed asked for, so asked for none she is held at her best-climb
+// speed and never stalls.
+void fly_the_stall_entry(AutopilotModes& modes, const LessonSpeeds& speeds);
+// **The recovery**: the autopilot's stall recovery
+// (AutopilotModes::speed_on_elevator), asked for five knots past the speed
+// the lesson's recovery ends at, the height let go and the entry's mode with
+// it. A column held forward by a fixed amount recovers a Cessna and flies a
+// Learjet into the ground; this puts each aeroplane's nose down with its own
+// controls until the wing unloads and the speed comes. Half as much again as
+// the stall, which it used to be asked for, is far past the lesson's speed
+// in the jets and the Mosquito: they dived for it, and at the entry's end the
+// 737-300 lost 878 ft getting there and levelling off, against 515.
+void fly_the_stall_recovery(AutopilotModes& modes, const Lesson& lesson,
+                            const LessonSpeeds& speeds);
+// The speed a stall lesson's recovery ends at, for this aeroplane.
+double stall_recovery_ends_at_kts(const Lesson& lesson, const LessonSpeeds& speeds);
 
 } // namespace glideslope::sim
