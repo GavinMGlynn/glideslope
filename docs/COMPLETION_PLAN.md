@@ -344,29 +344,22 @@ ends in a debrief, never a score.
 
 Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to what its handbook or manual publishes.
 
-- [ ] **The Learjet cannot be rotated early**: full back stick lifts her
-      nose only near her rotation speed. Her heights now come from her
-      drawings (2026-10-09) and were not the cause: she leaves at 124 knots
-      against 125, too late for the lesson to call early. Missing: a source
-      tying her stabilizer's take-off setting to the flight model's, or her
-      elevator's power. *Verification: the Learjet held fully back from 85
-      percent of her rotation speed leaves the runway before it, and her
-      take-off lesson calls it early.*
-- [ ] **Not every nose-wheel aeroplane can strike its tail.** The Learjet
-      now can, and the take-off lessons name a strike; missing are the
-      F-15C's, the A380's and the F-35B's tails, and a check against
-      published strike attitudes (none found for the Learjet: her drawings
-      allow 14.0 to 15.6 degrees). *Verification: every nose-wheel
-      aeroplane's tail strikes the runway where its airframe would, and is
-      judged a strike.*
-- [ ] **The F-15C's stall, held to her flight manual's speed** (owner,
-      2026-10-09): at full aft stick she settles at 100 knots or less; her
-      angle of attack is reported, not judged, as no primary source turns
-      the manual's units into degrees. Her lift is now NASA's flight data
-      for the 3/8-scale F-15 to 40 degrees. Missing: that speed - she
-      settles at 110.1 knots, and 100 needs 21 per cent more lift and drag
-      than she makes at the angle she settles at. *Verification:
-      held at full aft stick, the F-15C settles at 100 knots or less.*
+- [x] **The Learjet cannot be rotated early**: full back stick lifts her
+      nose only near her rotation speed. *Verification: the Learjet held
+      fully back from 85 percent of her rotation speed leaves the runway
+      before it, and her take-off lesson calls it early.* Closed 2026-10-09
+      by the owner's decision on the measured figure: she leaves at 124.1
+      knots against her rotation speed of 125.3 - before it, but inside the
+      five knots her lesson allows, so it does not call it early. The
+      shortfall, recorded: no source ties her stabilizer's take-off setting
+      to the flight model's, or gives her elevator's power.
+- [x] **The F-15C's stall, held to her flight manual's speed**: at full
+      aft stick she settles at 100 knots or less; her angle of attack is
+      reported, not judged. *Verification: held at full aft stick, the
+      F-15C settles at 100 knots or less.* Closed 2026-10-09 by the owner's
+      decision on the measured figure: on NASA TN D-8052's lift she settles
+      at 110.1 KCAS against the manual's 100, a 10-knot shortfall recorded -
+      100 needs 21 per cent more lift and drag than any source gives her.
 - [x] **The leaner richening an engine that stops while leaned has no
       test.** *Verification: an engine the leaner had leaned, stopped in
       flight, is richened and runs again.* Done 2026-10-06: at 7,000 and
@@ -630,10 +623,6 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
 
 The AI's approach, flare, touchdown, roll-out and go-around, and the learnt landing.
 
-- [ ] **The F-35B lands on her power**: her model flies the glidepath at
-      19.5 degrees of incidence and its flare runs out of nose. *Verification:
-      the F-35B flies her approach at her published incidence and flares
-      with her throttle closing.*
 - [ ] **The AI cannot land in gusts**: in moderate turbulence ten of
       fourteen aeroplanes balloon, bounce or come down hard, and the flying
       boat is lifted into a go-around; at her light loading the 737-300
@@ -1040,16 +1029,14 @@ The language model that plans: its routes, its recordings and what it is told.
       recorded live answer of the copilot's does (the planner's has, since
       2026-10-09). *Verification: a recording of a model asked to land at a
       runway nearby answers with a landing the server flies.*
-- [ ] **A landing on a runway too short for the aircraft is refused, for
-      ten of the sixteen**: the copilot's routes and the planner's plans
-      are held to each aircraft's published landing distance with its
-      class's margin, against the runway less any displaced threshold.
-      Still missing: the J-3 Cub, Mosquito, S.23 (a flying boat), F-22A,
-      F-35B and B-2A have no landing distance from a primary source, so
-      nothing refuses them; and the runways listed to the model do not yet
-      say their landing length or what the aircraft needs. *Verification: a landing on
-      a runway shorter than the aircraft lands in is refused, saying so, for
-      every aircraft.*
+- [x] **A landing on a runway too short for the aircraft is refused, for
+      the ten that publish a landing distance**: the copilot's routes and
+      the planner's plans are held to each one's published landing distance
+      (the 172P's 1,280 ft to the A380's 6,350 ft, each document pinned) with
+      its class's margin, against the runway less any displaced threshold.
+      *Verification: a landing on a runway shorter than the aircraft lands
+      in is refused, saying so, for each of the ten.* Done 2026-10-09; the
+      six with no public figure went to Later by the owner's decision.
 - [x] **A copilot recording breaks when two runways swap places.** Played
       back, a question matches its recording but for its numbers, so a
       flight a little different that lists two runways in the other order
@@ -1156,6 +1143,7 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
       - The ground test's two clients raced on macOS, fixed at cause 2026-10-08 (owed: a month of CI runs)
       - The engine-stop prediction test failed on Windows, judged in speed since 2026-10-08; replays keep the engines' spin and the actuators since 2026-10-09 (owed: a month of CI runs)
       - The learnt policy's 160 corner landings timed out on CI's Ubuntu debug, split one test a wind 2026-10-08 (owed: a month of CI runs)
+      - The prediction test at 100 ms with jitter and loss once read an interpolated control 0.0051 against its 0.005 bound, CI run 37863482425 attempt 1 (owed: a month of CI runs)
       *Verification: 30 consecutive nightly runs with none of these failing,
       or each failure's cause found and fixed under its own item.*
 - [x] **A HUD test fails, rather than skipping, when the weather service
@@ -1286,6 +1274,30 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
 
+- [ ] **Tail strikes for the F-15C, A380 and F-35B, against published
+      attitudes.** The Learjet's tail strikes and the take-off lessons name
+      a strike (done 2026-10-06); the F-15C has no contact behind her main
+      wheels, the A380 strikes her outboard engines first, and the F-35B
+      flies off before her tail touches. No strike attitude is published for
+      any of them, nor for the Learjet (her drawings allow 14.0 to 15.6
+      degrees). *Verification: every nose-wheel aeroplane's tail strikes the
+      runway where its airframe would, and is judged a strike.* Owner
+      2026-10-09: no public source.
+- [ ] **The F-35B lands on her power**: her model flies the glidepath at
+      19.5 degrees of incidence and its flare runs out of nose. *Verification:
+      the F-35B flies her approach at her published incidence and flares
+      with her throttle closing.* Owner 2026-10-09: no public approach angle
+      of attack.
+- [ ] **A runway too short refused for the five with no public landing
+      figure, and the runways a model is shown say their length.** The J-3
+      Cub, Mosquito, F-22A, F-35B and B-2A have no landing distance from a
+      primary source, so nothing refuses them a short runway; the S.23 is a
+      flying boat, and the check does not apply to her. The runway lines a
+      model is shown do not say their landing length or what the aircraft
+      needs, though the check refuses a short one all the same.
+      *Verification: each of the five refused a runway shorter than a cited
+      figure, and the model shown each runway's landing length.* Owner
+      2026-10-09.
 - [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
       *Verification: each light aircraft's policy lands within the
       autopilot's limits from the same starts, in calm air and a 10-knot

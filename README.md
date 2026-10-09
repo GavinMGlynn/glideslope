@@ -33,18 +33,22 @@ client's `--shot` option, rendered headless on Vulkan.*
 It is deliberately **not** a scored or competitive game: no leaderboards, no
 replays that prove a result, no deterministic simulation.
 
-> **Status, 2026-10-09.** Every numbered phase of the
-> [completion plan](docs/COMPLETION_PLAN.md) - 95 of 95 items - is ticked,
-> each against a named verification. What is left are the tails found along
-> the way: 108 done, 34 open. The biggest gaps, named first: **the ground is
-> drawn only around where a flight starts** (fly far enough and there is sky
-> beneath you); **cloud is a flat sheet**, not a volume; the Learjet has no
-> visual model; **the learnt landing is the Cessna 172's alone**, and it was
-> trained on an engine the 172 no longer has, so it needs training again;
-> **no language model has yet been seen to land an aircraft**, though a
-> copilot's route may now end in a landing; on Windows about one update in a
-> hundred is corrected by a metre or so (found, not fixed); and no public
-> server is running yet.
+> **Status, 2026-10-09.** Phases 0 to 8 of the
+> [completion plan](docs/COMPLETION_PLAN.md) - 95 of 95 items - are ticked,
+> each against a named verification. The work found along the way is now
+> Phases 9 to 14: 118 items done, 26 open. The biggest gaps, named first:
+> **the ground is drawn only around where a flight starts** (fly far enough
+> and there is sky beneath you); **cloud is a flat sheet**, not a volume; the
+> Learjet has no visual model; **the learnt landing is the Cessna 172's
+> alone** (trained again on its corrected 160 hp engine, it lands from all
+> 160 corners of its gate, but flies its approach up to 35 kt fast); **the
+> AI cannot yet land every aeroplane in gusts**; a language model has planned
+> a landing the AI flew, but **the copilot has not yet been seen to answer
+> with one**; on Windows about one update in a hundred is corrected by a
+> metre or so (found, not fixed); and no public server is running yet. Three
+> items blocked on sources were closed on today's measured figures by the
+> owner's decision, their shortfalls written down - the F-15C stalls at 110
+> knots against her manual's 100.
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the single source of
 > truth.
 
@@ -83,7 +87,7 @@ progress** means much of it runs and the missing part is named.
 
 | Feature | State |
 |---|---|
-| Real flight dynamics, six degrees of freedom | In progress - the 172 makes its rated 160 hp and climbs to within 2% of its handbook's ceiling and the 182 to within 6%, but the Cherokee's engine is still leaned at every height; the F-15 does not stall as her manual describes (her speedbrake now makes drag, and stays in past 15 degrees of alpha); the B-2 and F-22 hold a heading in a crosswind at much lower speeds; the F-35B cannot hover or land vertically |
+| Real flight dynamics, six degrees of freedom | In progress - the 172 makes its rated 160 hp and climbs to within 2% of its handbook's ceiling, the 182 to within 6% now its drag is split between lift and airframe, and the Cherokee runs full rich below 5,000 ft; the F-15C, on NASA's measured lift, stalls at 110 knots against her manual's 100 (accepted, the 10 knots recorded); the B-2 and F-22 hold a heading in a crosswind at much lower speeds; the F-35B cannot hover or land vertically |
 | Wind and turbulence | **Done** |
 | Wind that shears and gusts, as the report gives | **Done** |
 | Live weather from the airfield's report | In progress - a flight keeps its starting airfield's weather wherever it goes; a client that joins while the weather is blending in flies the same air as the others |
@@ -110,21 +114,21 @@ progress** means much of it runs and the missing part is named.
 | Feature | State |
 |---|---|
 | Checklists for every aircraft, ticking themselves | **Done** |
-| Lessons - take-off, circuit, climbs, turns, stalls, landing - for each of seven classes, with a debrief | In progress - 42 lessons fly, and the bomber's can be flown by hand; the Learjet's take-off lesson cannot catch an early rotation |
-| An instructor who demonstrates, then hands over | In progress - some stall demonstrations lose more height than the lesson allows |
+| Lessons - take-off, circuit, climbs, turns, stalls, landing - for each of seven classes, with a debrief | In progress - 42 lessons fly, and the bomber's can be flown by hand; the Learjet's take-off lesson cannot catch an early rotation (she leaves at 124 knots against 125, and no source says how to make her leave sooner) |
+| An instructor who demonstrates, then hands over | In progress - some stall demonstrations lose more height than the lesson allows; the recovery now raises the flaps to a go-around's at a hand's pace |
 
 ### AI pilots
 
 | Feature | State |
 |---|---|
 | An autopilot: heading, altitude, airspeed, climb rate | **Done** |
-| Flight plans: routes of waypoints | **Done** - and a plan can end in a landing |
+| Flight plans: routes of waypoints | **Done** - a plan can end in a landing, and the take-off flap comes up a notch at a time before the plan takes her |
 | See who is flying, and the controls as they move | **Done** |
 | Hand over the controls and take them back | **Done** - a take-over the server refuses is now told to the client, and A during a take-over waits for the answer and hands over the right aircraft |
 | Ride along in an AI aircraft, then take it over | In progress - one unexplained take-over in testing was not refused; a month of clean nightly runs is owed before it is closed |
-| AI traffic that keeps flying with nobody connected | In progress - AI aircraft now land, taxi off the runway and park; two can land on one runway, and one arriving on an occupied runway goes around; an aircraft you hand over is measured for separation like the rest. Nothing yet stops you flying into an AI aircraft |
-| A copilot you talk to, and a different model on each AI aircraft | In progress - Claude and ChatGPT plan routes and change them as the flight goes, and the autopilot flies them; the AI is given the runway when it takes a hand-flown landing on the roll, and flies a go-around round a circuit above the ground and lands (the F-35B too); a copilot's route may now end in a landing on a runway the server knows, and the circuit lessons and the go-around fly one circuit; no model has yet been seen to land one, and the flight planner is not offered it |
-| A pilot that learned to fly (a learnt landing) | In progress - only the Cessna 172 has one. On a server a player's 172 on final is handed to it at its gate with L (a refusal is told on the HUD, with the reason), and an AI 172 whose flight plan ends in a landing is handed to it there too; its limits measured from 160 landings, but the 172's engine has since been corrected and 22 of those 160 now land a little hard - it needs training again. An AI 172 that has landed taxis off the runway; a landing taken over by hand is not yet braked to a stop |
+| AI traffic that keeps flying with nobody connected | In progress - AI aircraft land, taxi off the runway and park; two can land on one runway; one arriving on an occupied runway, or long or fast by the FAA's stabilized-approach criteria, goes around and lands; an aircraft you hand over between two AI layers is turned away from them, and one handed over in a spiral is rolled level before it is pulled up. Two going around together are not yet sequenced, and nothing stops you flying into an AI aircraft |
+| A copilot you talk to, and a different model on each AI aircraft | In progress - Claude and ChatGPT plan routes and change them as the flight goes, and the autopilot flies them; the AI is given the runway when it takes a hand-flown landing on the roll, and flies a go-around round a circuit above the ground and lands (the F-35B too); a copilot's route or a planner's plan may end in a landing on a runway the server knows, and a model has planned one from the ground that the AI landed; a runway too short for the aircraft is refused, for the ten aircraft that publish a landing distance; the copilot has not yet been seen to answer with a landing |
+| A pilot that learned to fly (a learnt landing) | In progress - only the Cessna 172 has one, trained again on its corrected 160 hp engine: it lands from all 160 corners of its gate within its limits. On a server a player's 172 on final is handed to it at its gate with L (a refusal is told on the HUD, with the reason), and an AI 172 whose flight plan ends in a landing is handed to it there too. It flies its approach up to 35 kt fast, so the stabilized-approach gate does not yet judge it; a landing taken over on its roll is braked for a dry runway, not a wet one |
 
 ### Flying together
 
@@ -132,7 +136,7 @@ progress** means much of it runs and the missing part is named.
 |---|---|
 | Up to four players | In progress - four machines have flown together; one old fault not yet shown gone on Windows; joining again no longer goes back to a dead session |
 | The same air for everyone | In progress - everyone, including a client joining mid-blend, flies the same wind, gusts and shear; on a server the air does not yet rise over hills |
-| Controls that answer immediately (prediction) | In progress - the windowed client does not yet smooth the server's corrections; a client is held to its send rates and predicts a stopped engine; it keeps pace with a lagging server, including across catch-up jumps; the server flies each input from the step it was due, so a held-up server does not move its clients' clocks; on Windows about one update in a hundred is still corrected by up to 1.1 m |
+| Controls that answer immediately (prediction) | In progress - the windowed client draws the others at a clock that no longer steps, but is not yet shown to smooth large corrections; a client is held to its send rates and predicts a stopped engine; it keeps pace with a lagging server, including across catch-up jumps; the server flies each input from the step it was due, so a held-up server does not move its clients' clocks; on Windows about one update in a hundred is still corrected by up to 1.1 m |
 | Crashes cost a flight, not the session | **Done** |
 | Leaving does not crash the aircraft | **Done** |
 | Run your own server - terminal dashboard, or a window | **Done** |
@@ -158,7 +162,7 @@ licence checked.
 | Aircraft | Class | Notable |
 |---|---|---|
 | Piper J-3 Cub | Light aircraft | The slowest in the hangar; flies to its handbook |
-| Cessna 172P Skyhawk | Light aircraft | The reference aircraft: eleven handbook figures, the selftest, and a landing learnt by reinforcement learning |
+| Cessna 172P Skyhawk | Light aircraft | The reference aircraft: its rated 160 hp, eleven handbook figures, the selftest, and a landing learnt by reinforcement learning |
 | Piper PA-28-180 Cherokee | Light aircraft | Flies to its handbook |
 | Cessna 182S Skylane | Light aircraft | Flies to its handbook |
 | Short S.23 Empire | Flying boat | Takes off from and alights on the sea and lakes; held to *Flight*'s figures of 1936 |
@@ -241,18 +245,18 @@ flowchart LR
 
 ## The scale of it
 
-Figures taken from the repository on **2026-10-09**, at `origin/main`
-(`6570e193`). The first commit was on 2026-09-17.
+Figures taken from the repository on **2026-10-09**, at `c22a5821` (`main`
+with #150's CI changes on it). The first commit was on 2026-09-17.
 
 | | |
 |---|---|
-| Commits on `main` | **638** (`git rev-list --count`) |
-| Pull requests merged | **131** (`gh pr list --state merged`) |
-| First-party code | **~136,600 lines**: `src/` 55,400, `tests/` 70,600, `tools/` 10,600 (`wc -l` of tracked source; `ext/` excluded) |
-| Tests | **1,043** registered with ctest (`ctest -N` at 6570e193, 2026-10-09): unit tests and scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
-| Completion plan | **95 of 95** phase items ticked across 12 phases; **108** tails done, **34** open; 13 items set aside for later (12 open) (`docs/COMPLETION_PLAN.md`) |
+| Commits | **683** (`git rev-list --count HEAD`) |
+| Pull requests merged | **148** (`gh pr list --state merged`) |
+| First-party code | **~140,900 lines**: `src/` 56,800, `tests/` 73,200, `tools/` 10,900 (`wc -l` of tracked files; `ext/` excluded) |
+| Tests | **1,071** registered with ctest (`ctest -N` on a build of the morning of 2026-10-09, 1,044, plus the 28 registered since and less the one taken out): unit tests and scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
+| Completion plan | **95 of 95** items ticked in Phases 0 to 8; **118** done and **26** open in Phases 9 to 14, the work found along the way; 17 items set aside for later (16 open) (`docs/COMPLETION_PLAN.md`) |
 | CI, on every pull request | Ubuntu (debug, release), Rocky Linux 9, macOS 15 (debug, release), Windows (MSVC debug and release, clang-cl) - plus cross-platform flight agreement, the server's container image, and packages run in stock containers; measured test costs, more shards and a Windows compiler cache bring a run to about 63 minutes, from about 80; test jobs are given 45 minutes. A nightly run repeats the multi-process tests |
-| Living documents | ~27,900 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~21,800 |
+| Living documents | ~30,100 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~23,800 |
 | Aircraft, lessons | 16 aircraft, 15 drawn; a checklist for each, nine phases of flight; 42 lessons across 7 classes |
 
 Some of the discipline behind those numbers (see [`CLAUDE.md`](CLAUDE.md)):
