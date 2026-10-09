@@ -784,7 +784,16 @@ Controls Autopilot::fly() {
     was_on_speed_ = on_speed;
     const double theta_off = pitch_command_deg_ - a_.property("attitude/theta-deg");
     const double q = degrees(a_.property("velocities/q-rad_sec"));
-    if (!upset) {
+    // **Nor is it wound nose-up while the wing is past the angle its lift
+    // peaked at** - a pitch a stalled wing cannot have, as an upset's is.
+    // Holding the height into a stall, the integral wound the trim to its
+    // nose-up stop, and the stall recovery inherited it: an A320 left thirty
+    // seconds in her stall was handed over with the elevator +0.9 nose-up
+    // and kept it there through a dive to 168 kt, pulling 1.95 g as her wing
+    // came back through its peak; the Mosquito 2.22. With it, 1.81 and 1.71.
+    const bool past_its_peak =
+        a_.property("aero/alpha-deg") > stall_alpha_deg_ + past_the_peak_deg;
+    if (!upset && !(past_its_peak && theta_off > 0.0)) {
         elevator_trim_ = std::clamp(elevator_trim_ + trim_rate * theta_off * dt, -1.0, 1.0);
     }
     c.elevator =
