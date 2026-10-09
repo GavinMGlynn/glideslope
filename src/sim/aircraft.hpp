@@ -1,5 +1,7 @@
 #pragma once
 
+#include "sim/property_nodes.hpp"
+
 #include <array>
 #include <filesystem>
 #include <limits>
@@ -510,17 +512,13 @@ private:
     Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model,
              const CatalogueFacts& catalogue);
 
-    // **A property by name, found once.** JSBSim finds a property by
-    // walking its path through the tree, allocating as it goes; asked for
-    // by name every step - the learnt landing reads seventeen, the approach
-    // autopilot as many again - that walk was most of a flight's time in
-    // the sanitized debug build. Each node is found the first time it is
-    // asked for and kept; the tree owns it for as long as `exec_` lives.
+    // **A property by name, found once** - and one the model has not got,
+    // found absent once, until it can have come (sim/property_nodes.hpp).
     // Null for a property the model does not have.
     SGPropertyNode* node(const std::string& name) const;
     double value(const std::string& name) const;
     void set(const std::string& name, double v);
-    mutable std::unordered_map<std::string, SGPropertyNode*> nodes_;
+    PropertyNodes nodes_;
     // ReplayState's flight-control nodes, found once, and their names.
     std::vector<SGPropertyNode*> replay_nodes_;
     std::vector<std::string> replay_names_;

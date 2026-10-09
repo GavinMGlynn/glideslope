@@ -1081,9 +1081,11 @@ The pipeline: its length, its caches and what it costs a pull request.
       main after that.
 - [ ] **One test takes 15-22 minutes in Linux debug**: the AI aircraft
       kept 500 ft or 1.5 nm apart, so its shard runs 26 of its 30 minutes.
-      *Verification: every test under 10 minutes on CI's Linux debug.* Owed:
-      most of its time is the ground's height looked up afresh at every read
-      of the height above ground, a change to the simulation not yet made.
+      *Verification: every test under 10 minutes on CI's Linux debug.* The
+      ground under an aircraft is now worked out once for each place, not at
+      every read (2026-10-10): this test takes 99 s on this machine's Linux
+      debug, 393 s before, with every figure it prints the same. Owed: its
+      time on CI, from the first run after the merge.
 - [x] **A CI run takes 90-120 minutes where its jobs need about 40**.
       *Verification: pull requests' builds restore main's ccache with most
       compiles hits, and a run's time from push to result is measured and

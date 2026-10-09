@@ -199,8 +199,17 @@ private:
         Layer layer;
         auto operator<=>(const TileKey&) const = default;
     };
-    std::map<TileKey, Tile> tile_cache_;
-    std::list<TileKey> tile_order_; // most recently used first
+    // **Most recently used first, and moved there without a search**: each
+    // cached tile and block keeps its place in its order, and a use splices it
+    // to the front - nothing allocated, nothing freed. A query asks for its
+    // tile and its blocks a dozen times, and a list searched and reallocated
+    // for each was a measurable part of every step (docs/PROJECT_STATUS.md).
+    struct CachedTile {
+        Tile tile;
+        std::list<TileKey>::iterator order;
+    };
+    std::map<TileKey, CachedTile> tile_cache_;
+    std::list<TileKey> tile_order_;
     // **Tiles this Dem has taken away and had anew**, for as long as it lives:
     // one found wanting again - bad where it is fetched from - fails every
     // query of it at once, rather than being fetched again for each.
@@ -213,7 +222,11 @@ private:
         std::uint32_t index;
         auto operator<=>(const BlockKey&) const = default;
     };
-    std::map<BlockKey, std::vector<float>> block_cache_;
+    struct CachedBlock {
+        std::vector<float> values;
+        std::list<BlockKey>::iterator order;
+    };
+    std::map<BlockKey, CachedBlock> block_cache_;
     // Every block of the tile's forgotten.
     void forget_blocks(const TileKey& key);
     std::list<BlockKey> block_order_;

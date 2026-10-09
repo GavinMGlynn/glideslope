@@ -447,3 +447,75 @@ GLIDESLOPE_TEST(the_short_s23_takes_off_from_the_sea_and_from_a_lake_within_its_
               name + ": a run of " + std::to_string(yards) + " yd, Gouge's 795");
     }
 }
+
+GLIDESLOPE_TEST(the_ground_under_an_aircraft_is_worked_out_once_for_a_place_however_often_it_is_read) {
+    // Every read of the height above the ground, or of the ground's
+    // elevation, asks JSBSim's ground about the aircraft's location; asked
+    // about a place again, the ground answers from what it found there. In the
+    // air over level ground, after a few steps, a hundred reads of the state
+    // ask the terrain nothing, and read the same figures every time.
+    auto asked = std::make_shared<long>(0);
+    Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+    a.set_terrain(std::make_shared<FunctionTerrain>([asked](double, double) {
+        ++*asked;
+        return 100.0;
+    }));
+    InitialConditions ic;
+    ic.latitude_deg = 45.0;
+    ic.longitude_deg = 6.0;
+    ic.altitude_ft = 3000.0;
+    ic.airspeed_kts = 100.0;
+    a.initialize(ic);
+    for (int i = 0; i < 10; ++i) {
+        a.step();
+    }
+    const AircraftState first = a.state();
+    const long before = *asked;
+    int same = 0;
+    constexpr int reads = 100;
+    for (int i = 0; i < reads; ++i) {
+        const AircraftState s = a.state();
+        same += s.height_above_ground_ft == first.height_above_ground_ft &&
+                s.terrain_elevation_ft == first.terrain_elevation_ft;
+    }
+    check(*asked == before, std::to_string(reads) + " reads of the state asked the terrain " +
+                                std::to_string(*asked - before) + " times, not none");
+    check(same == reads, std::to_string(same) + " of " + std::to_string(reads) +
+                             " reads gave the first read's figures");
+    check(std::abs(first.terrain_elevation_ft - 100.0 * feet_per_metre) < 1e-6,
+          "the ground is the terrain's: " + std::to_string(first.terrain_elevation_ft) + " ft");
+}
+
+GLIDESLOPE_TEST(the_ground_found_at_a_place_is_the_terrains_there_however_near_a_place_found_before) {
+    // Nothing near a place stands for it: a cliff 300 m high runs along a
+    // parallel, and an aircraft put a hair south of it, then a hair north -
+    // 0.2 mm apart - finds the ground at the foot and then at the top. A
+    // ground that took a place near enough for the same would find the foot
+    // both times.
+    constexpr double edge = 45.0;
+    constexpr double hair_deg = 1e-9; // 0.1 mm of latitude
+    Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+    a.set_terrain(std::make_shared<FunctionTerrain>(
+        [](double lat, double) { return lat >= edge ? 300.0 : 0.0; }));
+    InitialConditions ic;
+    ic.longitude_deg = 6.0;
+    ic.altitude_ft = 5000.0;
+    ic.airspeed_kts = 100.0;
+    ic.latitude_deg = edge - hair_deg;
+    a.initialize(ic);
+    const AircraftState south = a.state();
+    ic.latitude_deg = edge + hair_deg;
+    a.initialize(ic);
+    const AircraftState north = a.state();
+    check(std::abs(south.terrain_elevation_ft) < 1e-6,
+          "a hair south of the cliff, the ground is at its foot: " +
+              std::to_string(south.terrain_elevation_ft) + " ft");
+    check(std::abs(north.terrain_elevation_ft - 300.0 * feet_per_metre) < 1e-6,
+          "a hair north of it, the ground is at its top: " +
+              std::to_string(north.terrain_elevation_ft) + " ft");
+    check(std::abs(north.height_above_ground_ft -
+                   (south.height_above_ground_ft - 300.0 * feet_per_metre)) < 1e-3,
+          "and the height above it is 300 m less: " +
+              std::to_string(south.height_above_ground_ft) + " ft, then " +
+              std::to_string(north.height_above_ground_ft) + " ft");
+}

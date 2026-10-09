@@ -24,7 +24,11 @@ public:
 
     // The ground's height above the WGS84 ellipsoid, in metres, at a geodetic
     // latitude and longitude in degrees. Called many times a step, from the
-    // thread stepping the aircraft.
+    // thread stepping the aircraft. **A function of position**: the same
+    // place gives the same height for as long as the aircraft has this
+    // terrain, so what was found at a place is kept rather than asked for
+    // again (TerrainGround, sim/aircraft.cpp). Ground that changes is a new
+    // Terrain, given with Aircraft::set_terrain.
     virtual double height_m(double latitude_deg, double longitude_deg) = 0;
 
     // Whether the ground there is water. Called before every step, from the
