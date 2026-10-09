@@ -817,7 +817,7 @@ void fly_its_tightest_orbits(const std::string& id, End end,
 // the speed, and the jets swung through their 13 to 19 km circles by up to
 // 18% of the radius (3.3 km, the F-15C at 360 kt); it turned in by what
 // brought it back in twelve seconds at its airspeed, and since 2026-10-09 asks
-// the autopilot for the bank of L1 guidance's loiter law (sim/navigator.cpp).
+// the autopilot for a bank from a loiter law after ArduPilot's (sim/navigator.cpp).
 GLIDESLOPE_TEST(every_aircraft_has_its_own_tests_of_its_tightest_orbits_and_one_step_past_them) {
     std::vector<AircraftClass> grouped;
     for (const auto& group : tightest_orbit_groups) {
@@ -1066,20 +1066,28 @@ namespace {
 // off them (PROJECT_STATUS.md, 2026-10-06). Each jet at the speed Claude
 // asked of both, 220 kt - or the nearest a plan may ask of it - round the
 // tightest circle a plan may ask at it, which is what the planner offers a
-// model; entered from a waypoint at its centre, half way out, on the circle
-// and two radii out, arriving at it from every eighth of the compass, both
+// model. **In calm air**, entered from a waypoint at its centre, half way
+// out, on the circle and two radii out, arriving at it from every eighth of
+// the compass, both ways round. **In a 20 kt wind from the west**, entered
+// from its centre and from on the circle arriving from each quarter, both
 // ways round. Each joins its circle going its way, holds it within the 100 m
-// it joined within from there and within 60 m - as a Cessna does - from a
-// quarter-turn, once round, and its height within 50 ft.
+// it joined within from there, within 30 m after the first quarter-turn, and
+// its height within 50 ft, once round.
+// **The 30 m**: every jet held within 9 m in calm air on Linux; the rest is
+// a margin for other platforms' floating point and for the wind, small
+// enough that a navigator that let one wander 50 m fails.
 // **Left out, by name**: a waypoint at the centre is flown at from north
-// alone - from the centre, every other arrival is the same flight turned,
-// in calm air; and wind, which the tightest-orbit tests fly through.
+// alone - from the centre, every other arrival is the same flight turned, in
+// calm air; in wind, half way out, two radii out and the diagonal arrivals,
+// which calm air covers - the wind changes the speed round, which the
+// entries from the centre and on the circle already meet in every quarter.
 const std::vector<std::string> entering_jets = {
     "737-300", "747-400", "787-8", "a320", "a380", "learjet35a", "b2", "f15c", "f22", "f35b",
 };
-constexpr double entered_within_m = 60.0;
+constexpr double entered_within_m = 30.0;
 // Joined within 100 m of it (sim/navigator.cpp), it is held to that from there.
 constexpr double joined_within_m = 100.0;
+constexpr double entry_wind_kts = 20.0;
 
 void enter_its_orbits(const std::string& id) {
     const std::filesystem::path data =
@@ -1088,60 +1096,75 @@ void enter_its_orbits(const std::string& id) {
     const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, entry.model);
     const double kts = std::clamp(220.0, speeds.slowest_kts, speeds.fastest_kts);
     const double radius_m = std::ceil(glideslope::sim::least_orbit_radius_m(kts));
-    const std::vector<double> from_centre = {0.0, 0.5, 1.0, 2.0};
+    const std::vector<double> calm_from_centre = {0.0, 0.5, 1.0, 2.0};
+    const std::vector<double> windy_from_centre = {0.0, 1.0};
     std::size_t cases = 0;
     std::size_t flown = 0;
-    double worst_m = 0.0;
-    double worst_join_m = 0.0;
+    double worst_m[2] = {0.0, 0.0};
+    double worst_join_m[2] = {0.0, 0.0};
     std::string failures;
-    for (const bool right : {false, true}) {
-        for (const double from : from_centre) {
-            for (int eighth = 0; eighth < 8; ++eighth) {
-                if (from == 0.0 && eighth > 0) {
-                    continue; // from the centre, flown from north alone (above)
-                }
-                ++cases;
-                glideslope::sim::OrbitEntry trial;
-                trial.airspeed_kts = kts;
-                trial.radius_m = radius_m;
-                trial.from_centre = from;
-                trial.arriving_deg = 45.0 * eighth;
-                trial.right = right;
-                const glideslope::sim::OrbitEntered f =
-                    glideslope::sim::fly_orbit_from_waypoint(data, entry, trial);
-                ++flown;
-                const double off_m = f.worst_off_m(radius_m);
-                const double join_off_m = f.worst_join_off_m(radius_m);
-                worst_m = std::max(worst_m, off_m);
-                worst_join_m = std::max(worst_join_m, join_off_m);
-                char which[400];
-                std::snprintf(which, sizeof which,
-                              "%s round %.0f m at %.0f kt %s, from a waypoint %.1f radii out "
-                              "arriving at %03.0f: %.2f turns, %.0f to %.0f m from joining "
-                              "(%.0f off), %.0f to %.0f m from a quarter-turn (%.0f off), "
-                              "within %.0f ft",
-                              id.c_str(), radius_m, kts, right ? "right" : "left", from,
-                              trial.arriving_deg, f.turns, f.join_nearest_m, f.join_farthest_m,
-                              join_off_m, f.nearest_m, f.farthest_m, off_m, f.worst_height_ft);
-                std::fprintf(stderr, "%s\n", which);
-                if (f.left_tables || !f.joined || f.turns < 0.99 || off_m > entered_within_m ||
-                    join_off_m > joined_within_m || f.worst_height_ft > 50.0) {
-                    failures += std::string("\n  ") + which;
+    for (const bool windy : {false, true}) {
+        const std::vector<double>& from_centre = windy ? windy_from_centre : calm_from_centre;
+        // Calm air every eighth of the compass, wind every quarter.
+        const int step = windy ? 2 : 1;
+        for (const bool right : {false, true}) {
+            for (const double from : from_centre) {
+                for (int eighth = 0; eighth < 8; eighth += step) {
+                    if (from == 0.0 && eighth > 0) {
+                        continue; // from the centre, flown from north alone (above)
+                    }
+                    ++cases;
+                    glideslope::sim::OrbitEntry trial;
+                    trial.airspeed_kts = kts;
+                    trial.radius_m = radius_m;
+                    trial.from_centre = from;
+                    trial.arriving_deg = 45.0 * eighth;
+                    trial.right = right;
+                    trial.wind_kts = windy ? entry_wind_kts : 0.0;
+                    const glideslope::sim::OrbitEntered f =
+                        glideslope::sim::fly_orbit_from_waypoint(data, entry, trial);
+                    ++flown;
+                    const double off_m = f.worst_off_m(radius_m);
+                    const double join_off_m = f.worst_join_off_m(radius_m);
+                    worst_m[windy] = std::max(worst_m[windy], off_m);
+                    worst_join_m[windy] = std::max(worst_join_m[windy], join_off_m);
+                    char which[400];
+                    std::snprintf(which, sizeof which,
+                                  "%s round %.0f m at %.0f kt %s %s, from a waypoint %.1f radii "
+                                  "out arriving at %03.0f: %.2f turns, %.0f to %.0f m from "
+                                  "joining (%.0f off), %.0f to %.0f m from a quarter-turn (%.0f "
+                                  "off), within %.0f ft",
+                                  id.c_str(), radius_m, kts, right ? "right" : "left",
+                                  windy ? "in a 20 kt wind" : "in calm air", from,
+                                  trial.arriving_deg, f.turns, f.join_nearest_m,
+                                  f.join_farthest_m, join_off_m, f.nearest_m, f.farthest_m, off_m,
+                                  f.worst_height_ft);
+                    std::fprintf(stderr, "%s\n", which);
+                    if (f.left_tables || !f.joined || f.turns < 0.99 ||
+                        off_m > entered_within_m || join_off_m > joined_within_m ||
+                        f.worst_height_ft > 50.0) {
+                        failures += std::string("\n  ") + which;
+                    }
                 }
             }
         }
     }
-    // Both ways round: the centre once, and three places from eight ways.
-    const std::size_t space = 2 * (1 + (from_centre.size() - 1) * 8);
+    // Both ways round. Calm: the centre once, and three places from eight
+    // ways. Wind: the centre once, and on the circle from four.
+    const std::size_t calm = 2 * (1 + (calm_from_centre.size() - 1) * 8);
+    const std::size_t windy = 2 * (1 + (windy_from_centre.size() - 1) * 4);
+    const std::size_t space = calm + windy;
     std::fprintf(stderr,
-                 "%s: %zu of %zu entries flown, at worst %.0f m off its circle from joining it "
-                 "and %.0f m from a quarter-turn\n",
-                 id.c_str(), flown, space, worst_join_m, worst_m);
+                 "%s: %zu of %zu entries flown (%zu calm, %zu in wind); at worst, in calm air, "
+                 "%.0f m off its circle from joining it and %.0f m from a quarter-turn; in a 20 "
+                 "kt wind, %.0f and %.0f m\n",
+                 id.c_str(), flown, space, calm, windy, worst_join_m[0], worst_m[0],
+                 worst_join_m[1], worst_m[1]);
     check(cases == space && flown == space,
           id + ": every entry flown, " + std::to_string(flown) + " of " + std::to_string(space));
     check(failures.empty(), id + " joins its circle going its way and holds it within 100 m "
-                                 "from there, within 60 m from a quarter-turn, and its height "
-                                 "within 50 ft, once round:" +
+                                 "from there, within 30 m after the first quarter-turn, and its "
+                                 "height within 50 ft, once round:" +
                                 failures);
 }
 

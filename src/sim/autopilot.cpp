@@ -574,8 +574,9 @@ Controls Autopilot::fly() {
     }
     double bank_wanted = 0.0;
     const std::optional<double> heading_deg = away_deg_ ? away_deg_ : modes_.heading_deg;
-    if (!away_deg_ && modes_.bank_deg) {
-        // A bank asked for: flown, with none of the heading's integral.
+    if (!away_deg_ && modes_.bank_deg && !modes_.heading_deg) {
+        // A bank asked for, and no heading: flown, with none of the
+        // heading's integral.
         bank_integral_deg_ = 0.0;
         bank_wanted = std::clamp(*modes_.bank_deg, -sustained_bank_deg_, sustained_bank_deg_);
     } else if (heading_deg) {
@@ -844,14 +845,6 @@ Controls Autopilot::fly() {
 
     last_ = c;
     return c;
-}
-
-// In a steady turn with the integral at its limit, most_bank_integral_deg:
-// true below about 15 degrees of bank, within which the heading stays inside
-// bank_integral_within_deg and the integral winds (autopilot.hpp).
-double heading_off_for_bank_deg(double bank_deg) {
-    const double beyond = std::max(std::abs(bank_deg) - most_bank_integral_deg, 0.0);
-    return std::copysign(beyond / bank_per_degree, bank_deg);
 }
 
 } // namespace glideslope::sim

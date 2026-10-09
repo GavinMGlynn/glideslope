@@ -23,15 +23,23 @@ constexpr double drift_average_s = 5.0;
 constexpr double least_speed_fps = 10.0;
 constexpr double gravity_mps2 = 9.80665;
 // **Round an orbit, and out to it from inside, the bank is asked for, not a
-// heading**: the loiter law of L1 guidance (Park, Deyst and How, "A New
-// Nonlinear Guidance Logic for Trajectory Tracking", AIAA GNC 2004, the law
-// ArduPilot's loiter flies) - the centripetal acceleration of the circle at
-// the speed it is gone round, and a spring and a damper on how far off it is
-// and how fast it moves off, set by a period and a damping ratio: tan bank =
-// (w^2 off + 2 zeta w outward + v_round^2 / r) / g, w = 2 pi / period. Turned
-// back in by none while going round the wrong way. Its period is the time the
-// heaviest aeroplane's bank needs: at 17 s, ArduPilot's for small aircraft,
-// the 747-400 swung 7 km off its circle, at 25 s 1.9 km, and at 40 s it held
+// heading**: a loiter law after ArduPilot's AP_L1_Control loiter (GPLv3, as
+// this project is), itself from L1 guidance (Park, Deyst and How, "A New
+// Nonlinear Guidance Logic for Trajectory Tracking", AIAA GNC 2004). Its
+// structure is ArduPilot's rather than the paper's a = 2 V^2 sin(eta) / L1:
+// the circle's centripetal acceleration, and a spring and a damper on how far
+// off it is and how fast it moves off, set by a period and a damping ratio;
+// the centripetal term's radius floored at half the circle's; and no pull
+// back in while it goes round the wrong way. tan bank = (w^2 off + 2 zeta w
+// outward + v_round^2 / (max(r / 2, d) cos crab)) / g, w = 2 pi / period:
+// the circle over the ground asks v_round^2 / r square across the ground
+// track, and the bank pulls square across the air's, the crab angle away -
+// in calm air, ArduPilot's v_round^2 / r. (v_air v_round / r, the turn rate
+// at the airspeed, was tried and measured worse: in a 20 kt wind the jets
+// held their circles within 9 to 15 m with it, within 4 to 10 with this.)
+// Its period is the time the heaviest
+// aeroplane's bank needs: at 17 s, ArduPilot's for small aircraft, the
+// 747-400 swung 7 km off its circle, at 25 s 1.9 km, and at 40 s it held
 // within 8 m (PROJECT_STATUS.md, 2026-10-09). The heading law it replaced -
 // turned in by what brought it back in twelve seconds, 45 degrees at most -
 // asked a jet to turn faster than its heading loop, whose own time is about
@@ -212,7 +220,14 @@ AutopilotModes Navigator::steer() {
             if (round_mps < 0.0) {
                 back = std::max(back, 0.0);
             }
-            const double round_mps2 = round_mps * round_mps / std::max(0.5 * r, from_centre_m);
+            // Square across the ground track, which the bank - square across
+            // the air's - meets at the crab angle between them.
+            const double cos_crab = std::clamp(
+                (air.north_fps * north + air.east_fps * east) /
+                    std::max(air_fps * std::hypot(north, east), 1.0),
+                0.5, 1.0);
+            const double round_mps2 =
+                round_mps * round_mps / (std::max(0.5 * r, from_centre_m) * cos_crab);
             modes.bank_deg = way * std::atan((back + round_mps2) / gravity_mps2) / radians;
             track = along;
             off_m = 0.0;
@@ -272,6 +287,10 @@ AutopilotModes Navigator::steer() {
             normalised(course - std::asin(std::clamp(across / air_fps, -1.0, 1.0)) / radians);
     } else {
         modes.heading_deg = normalised(course - drift_deg_);
+    }
+    if (modes.bank_deg) {
+        // Banked round an orbit: no heading, which would win over the bank.
+        modes.heading_deg.reset();
     }
     return modes;
 }

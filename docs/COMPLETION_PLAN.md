@@ -494,11 +494,13 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       Flying Claude's plan round the CBD, the 747-400 and F-22A held their
       height but strayed up to 460 m off 7 and 9 km circles, against the
       60 m a Cessna holds. *Verification: each jet flies a model's orbit
-      within 60 m of its circle.* Done 2026-10-09: entered from a waypoint
+      within 60 m of its circle after the first quarter-turn, and within the
+      100 m join band before it.* Done 2026-10-09: entered from a waypoint
       anywhere in or near it, a jet could swing 6 km off; the navigator now
-      joins the circle only going its way round and banks onto it by L1
-      guidance's loiter law. Every jet, from 50 entries each, holds within
-      9 m once a quarter round, and Claude's two plans within 7 m.
+      joins the circle only going its way round and banks onto it by a
+      loiter law after ArduPilot's. Every jet, from 60 entries each, calm
+      and in a 20 kt wind, holds within 10 m after the first quarter-turn,
+      and Claude's two plans within 7 m.
 - [ ] **The B-2 and the F-22 yaw from side to side in a crosswind when
       slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
       of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is

@@ -66,7 +66,7 @@ struct OrbitEntry {
     double from_centre = 0.0;  // the waypoint, in radii south of the centre
     double arriving_deg = 0.0; // the track flown to it, true
     bool right = false;        // the way round
-    bool windy = false;        // a 10 kt wind from the west, or calm air
+    double wind_kts = 0.0;     // from the west, or none
 };
 struct OrbitEntered {
     bool joined = false; // came within 100 m of the circle, and counted round it
