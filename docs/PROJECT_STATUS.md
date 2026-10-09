@@ -265,7 +265,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### A jet's orbit entered from a waypoint holds its circle: joined going its way, flown by L1 guidance's loiter law, 2026-10-09 — item done
+### A jet's orbit entered from a waypoint holds its circle: joined going its way, flown by a loiter law after ArduPilot's, 2026-10-09 — item done
 
 **What the item's figures were.** The 460 m was Claude's 2026-10-06 plans
 (the F-22A's on a 9.4 km circle). Flown again on this tree, both recorded
@@ -310,12 +310,17 @@ quarter-turn, and was touchy: a capture bank of 10 degrees gave the 747
 - On the circle, and out to it from inside, the navigator asks the autopilot
   for a bank, not a heading (`AutopilotModes::bank_deg`, new; the autopilot
   flies it within the bank it sustains, and a turn away from the separation
-  monitor still overrides it): the loiter law of L1 guidance (Park, Deyst
-  and How, "A New Nonlinear Guidance Logic for Trajectory Tracking", AIAA
-  GNC 2004; ArduPilot's AP_L1_Control loiter read for the details, none of
-  its code used) - tan bank = (w^2 off + 2 zeta w v_out + v_round^2 /
-  max(r/2, d)) / g, w = 2 pi / period, damping 0.75, the spring and damper
-  let go while it goes round the wrong way. It flies it inside the circle,
+  monitor still overrides it): a loiter law after ArduPilot's
+  AP_L1_Control loiter (GPLv3), itself from Park, Deyst & How 2004 ("A New
+  Nonlinear Guidance Logic for Trajectory Tracking", AIAA GNC). Its
+  structure is ArduPilot's, not the paper's a = 2 V^2 sin(eta) / L1: a
+  spring and damper on the offset, the 0.5 r floor on the centripetal
+  term's radius, and no pull back in while the speed round is negative -
+  tan bank = (w^2 off + 2 zeta w v_out + v_round^2 / (max(r/2, d) cos
+  crab)) / g, w = 2 pi / period, damping 0.75. The cos crab (review of
+  #154) is the wind's: the circle over the ground needs v_round^2 / r
+  square across the ground track, and the bank pulls square across the
+  air's. It flies it inside the circle,
   joined or not, and outside within its L1 distance (zeta period v / pi) and
   250 m going its way round; farther out, joined or not, the tangent line as
   before - L1's capture. Each limit was found by a test going red: held by
@@ -333,10 +338,36 @@ quarter-turn, and was touchy: a capture bank of 10 degrees gave the 747
   tighter (747-400 8 m, 16 at 60). 40 s it is. The heading law's 12 s
   closing, its 45-degree intercept and its trim integral are gone.
 
-**After**, linux-release, every jet's 50 entries: within 100 m from joining
-(the join band itself) and within 4 to 9 m from a quarter-turn - the
-737-300 5, 747-400 8, 787-8 9, A320 4, A380 5, Learjet 4, B-2 4, F-15C 8,
-F-22A 4, F-35B 4 - and within 50 ft of the height. Claude's two recorded plans
+**From the review of #154** (on the branch restacked onto #153):
+- The law's attribution, above, says plainly whose structure it is.
+- **Wind**: the review asked for v_air v_ground / r in place of
+  v_ground^2 / r. Measured with a new windy part of the entry test (20 kt
+  from the west; from the centre and from on the circle arriving from each
+  quarter, both ways round - 10 more entries a jet, the count asserted),
+  v_air v_ground / r held the jets within 9 to 15 m after the first
+  quarter-turn and v_ground^2 / r within 4 to 10: the turn over the ground
+  is the ground speed's, and the bank meets it across the crab angle, so
+  the exact term is v_ground^2 / (r cos crab), which is what flies (its
+  figures are v_ground^2's at 20 kt, the crab under 6 degrees).
+- `heading_off_for_bank_deg`, which only the old heading law used, is gone.
+- **A bank left behind is never flown**: the navigator sets no heading with
+  a bank, and the autopilot flies `bank_deg` only when there is no heading
+  - a heading set wins (the server's `hold_course` takes the modes and sets
+  a heading, which would otherwise have flown a stale bank).
+- **The entry test's bound is 30 m after the first quarter-turn**, not 60:
+  every jet holds within 10 m on Linux, and the rest is a margin for other
+  platforms and the wind, small enough that a navigator letting one wander
+  50 m fails.
+
+**After**, linux-release, every jet's 60 entries: within 100 m from joining
+(the join band itself) and, after the first quarter-turn, within 4 to 9 m
+in calm air - the 737-300 5, 747-400 8, 787-8 9, A320 4, A380 5, Learjet 4,
+B-2 4, F-15C 8, F-22A 4, F-35B 4 - and 4 to 10 m in a 20 kt wind - 737-300
+4, 747-400 8, 787-8 10, A320 4, A380 5, Learjet 4, B-2 4, F-15C 9, F-22A 4,
+F-35B 5 - and within 50 ft of the height. 283 orbit, navigator, plan,
+glide, autopilot, crosswind and stall tests green in linux-release after the
+review's changes (the window client's and server's not built here); the
+selftest hash is still `182dd6c996e0ee4c`. Claude's two recorded plans
 (`take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_for_the_{747-400,f22}_by_anthropic_as_recorded_and_flown`)
 are now held to the Cessna's 60 m, not 500 (`CIRCLE_M` dropped): the
 747-400 flies 6,995 to 7,001 m round its 7,003 m, the F-22A 6,999 to 7,006;

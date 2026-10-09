@@ -187,9 +187,9 @@ OrbitEntered fly_orbit_from_waypoint(const std::filesystem::path& data,
     ic.airspeed_kts = plan.start->airspeed_kts;
     ic.engine_running = true;
     aircraft.initialize(ic);
-    if (trial.windy) {
+    if (trial.wind_kts > 0.0) {
         Conditions wind;
-        wind.wind_east_mps = 10.0 * 1852.0 / 3600.0;
+        wind.wind_east_mps = trial.wind_kts * 1852.0 / 3600.0;
         aircraft.set_weather(std::make_shared<SteadyWeather>(wind));
     }
     Controls controls;

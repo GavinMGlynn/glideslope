@@ -56,10 +56,12 @@ inline constexpr double most_bank_deg = 25.0;
 struct AutopilotModes {
     // Degrees true; none holds the wings level.
     std::optional<double> heading_deg;
-    // **Or a bank, flown instead of the heading**: degrees, right wing down
-    // positive, within what the aeroplane sustains - a navigator's lateral
-    // guidance round an orbit (sim/navigator.cpp), which asks for the turn
-    // itself rather than a heading to turn to.
+    // **Or a bank, flown when there is no heading**: degrees, right wing
+    // down positive, within what the aeroplane sustains - a navigator's
+    // lateral guidance round an orbit (sim/navigator.cpp), which asks for the
+    // turn itself rather than a heading to turn to, and sets no heading with
+    // it. **A heading set wins**: whoever sets one on modes that came with a
+    // bank flies the heading, so a bank left behind is never flown.
     std::optional<double> bank_deg;
     // Feet above sea level; none holds the vertical speed instead.
     std::optional<double> altitude_ft;

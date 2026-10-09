@@ -10,8 +10,8 @@
 // wind by the drift the aircraft has - the difference between where it points
 // and where it goes, averaged over five seconds - or, flying to an orbit from
 // outside it, by the wind, found the same way; round an orbit, and out to it
-// from inside, it asks the autopilot for a bank rather than a heading (L1
-// guidance's loiter law, navigator.cpp); and it asks the autopilot for the
+// from inside, it asks the autopilot for a bank rather than a heading (a
+// loiter law after ArduPilot's, navigator.cpp); and it asks the autopilot for the
 // waypoint's altitude and airspeed. A
 // waypoint is passed when it is abeam: when the leg ahead of the aircraft is
 // gone. The Earth is a sphere of radius
