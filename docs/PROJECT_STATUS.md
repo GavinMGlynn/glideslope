@@ -267,31 +267,39 @@ are the risks the phase order is built around:
 
 ### The Cherokee full rich below 5,000 ft on the FAA's mixture curve, her stall recovery raising the flaps to a go-around's, 2026-10-09 — both Cherokee items done
 
-**What is still missing, first.** Nothing of the two items. Two failures on the
-stacked base, not from this branch, were found on the way and are not fixed
-here: `every_aeroplane_left_thirty_seconds_in_a_stall_...` is red for the
-182S at 1.82 g against 2.0 with 10% in hand (1.52 before the 182S's drag
-change; the same 1.82 with this branch's flap change taken out of the test),
-and `every_published_figure_has_a_flight_and_every_flight_a_figure` counts
-121 figures against its 120. No test was run on Windows or macOS; the flap
-law is not platform code.
+**What is still missing, first.** Nothing of the two items. Found on the way
+and not fixed here (a tail): a plan flown after the take-off keeps the
+take-off flap out, below. No test was run on Windows or macOS; the flap law
+is not platform code. The two failures the first version of this entry
+named on the stacked base (the 182S's load left thirty seconds, and the
+figures count) pass on the restacked base.
 
 **The owner's decision** (2026-10-09): the Cherokee's stall recovery raises
-the flaps to her handbook's go-around setting, as data and in the general
-recovery, not as a Cherokee special case.
+the flaps to the setting her handbook gives, as data and in the general
+recovery, not as a Cherokee special case. No Cherokee handbook gives a
+balked-landing flap; the setting is the handbooks' climb-out flap, 25
+degrees (below).
 
-**The go-around setting, looked for.** The Cherokee 180 "E" Owner's Handbook
-(the one ASSETS.md cites) gives no balked-landing procedure: section III's
-approach and landing mentions a go-around only as the reason to keep the
-carburettor heat off. Nor do the 1962 Airplane Flight Manual, the 1973
-Cherokee 180 Owner's Handbook, the PA-28-180C handbook, the Archer II's
-(1976, retyped) or the Warrior II's and Archer III's pilot's operating
-handbooks read for it. 25 degrees is what Piper's later PA-28s go around
-with - Middle Georgia State University's Warrior PA-28-161 Pilot's
-Checklist (2025): "Balked landing, go-around: maximum power, flaps 25°,
-63 KIAS", and in its procedure "Flaps - retract to 25°", then "slowly
-retract" once clear - and the setting the Cherokee's own handbook climbs
-out of a short field with (section III, take-off: "lowering flaps to 25°").
+**The setting, and what it is.** It is a climb-out setting: no Cherokee
+handbook gives a balked-landing flap. In the order the evidence carries:
+- **The Cherokee's own handbooks.** The PA-28-140 Cherokee 140 Owner's
+  Handbook, section III, take-off (NTSB docket blob 19048562): short field,
+  obstacle clearance, "Lower the flaps to 25° (second notch)", climb at the
+  best angle, then "Slowly retract the flaps when the obstacle has been
+  cleared"; the soft-field take-offs the same. The Cherokee 180 "E" Owner's
+  Handbook, section III, take-off, read again in the copy ASSETS.md cites:
+  "for short field take-offs, and for take-offs under difficult conditions
+  such as deep grass or on a soft surface, distances can be reduced
+  appreciably by lowering flaps to 25°."
+- **No balked-landing flap in any.** The "E" handbook's approach and
+  landing names a go-around only as the reason to keep the carburettor heat
+  off. The 1962 Airplane Flight Manual, the 1973 Cherokee 180 Owner's
+  Handbook, the PA-28-180C and PA-28-140 handbooks give none; nor do the
+  later Archer II (1976, retyped), Warrior II and Archer III handbooks read.
+- **Corroboration only**, from a later PA-28 and not a Piper document:
+  Middle Georgia State University's Warrior PA-28-161 Pilot's Checklist
+  (2025), "Balked landing, go-around: maximum power, flaps 25°, 63 KIAS",
+  "Flaps - retract to 25°", then "slowly retract".
 Cited in assets/figures/pa28.xml and ASSETS.md.
 
 **Done:**
@@ -302,8 +310,8 @@ Cited in assets/figures/pa28.xml and ASSETS.md.
 - **Full rich below 5,000 ft** (`assets/aircraft/pa28.aircraft`,
   `mixture-lever 5000`), quoting the handbook's section III.
 - **`go_around_flaps_deg`**, an optional attribute of `<published_figures>`
-  (src/sim/figures.cpp, refused outside 0 to the full flap): 25 for the
-  Cherokee. The aircraft reads it with its catalogue facts as a lever
+  (src/sim/figures.cpp, refused outside 0 to the full flap): the flap the
+  stall recovery raises the flaps to, 25 for the Cherokee. The aircraft reads it with its catalogue facts as a lever
   position, 25/40 = 0.625 (`Aircraft::go_around_flaps`).
 - **The stall recovery takes the flaps up to it** (src/sim/autopilot.cpp,
   whenever the airspeed is on the elevator): the lever moves toward it at a
@@ -348,11 +356,31 @@ never recovered at her warning (named), 1,258 at 2.22 g (named); Cherokee
 
 **Moved, and its bound with it**: `a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane`.
 The Cherokee's first leg after the take-off hands over strays 151 m (81 on
-the base; 79 on the new engine leaned at every height, so it is the
-full-rich climb). Its bound was 150, "stated from what was measured: at most
-81 m, where flying the leg from the threshold strays 219 to 383 m"; it is
-200 now, still short of the threshold's least. The owner may prefer
-another answer; the measurement is in the test's comment.
+the base; 79 on the new engine leaned at every height). **Traced, two
+seconds at a time, full rich against leaned on the same engine.** It is not
+a slower climb: both climb at about 700 ft/min (rich 690-720, leaned
+710-740). It is the airspeed and the time:
+- **The take-off flap stays out**: 25 degrees through the climb and the
+  cruise in both (a tail, below). With the flaps out the autopilot gives
+  the climb no floor, so the vertical-speed hold takes its climb from the
+  airspeed.
+- **Full rich the airspeed bleeds**: 58 KCAS at 800 ft falling to 51.6 at
+  1,800 ft, where leaned it rises from 60 to 66. She reaches 2,000 ft about
+  20 s later (t = 190 s against 170) and slower over the ground.
+- **The heading lags the waypoint's bearing by 2.5 to 3 degrees** on the
+  climb in both (bank 0.2 degrees, no sideslip): leaned it closes to half a
+  degree as the speed rises, full rich it does not, and the cross-track
+  grows about a metre a second until the level-off. 79 m leaned at
+  t = 152 s; 151 m full rich at t = 184 s.
+What keeps the heading off the bearing on the climb was not traced. The
+bound is now 200 m, stated in the test from this trace and still short of
+the 219 m that flying the leg from the threshold gives.
+
+**Found on the way, a tail**: the plan flown after the take-off never
+raises the take-off flap. The Cherokee's departure takes off with 25
+degrees and hands over with them still running out (6 to 8 degrees at the
+hand-over); they reach 25 and stay there to the end of the plan, at 80 KCAS
+level. The other light aeroplanes' were not looked at.
 
 **Verified**, each seen red:
 - `the_stall_recovery_raises_the_flaps_to_the_go_around_setting_at_a_hands_pace_where_the_figures_give_one`
@@ -368,13 +396,23 @@ another answer; the measurement is in the test's comment.
   the Cherokee 131 ft of 300; with the flaps left at 40, "pa28 height:
   1222.800842 ft, against 300.000000 with 10% in hand" - red.
 - `every_engine_the_leaner_leans_sits_between_12_and_13_8_parts_of_air_to_one_of_fuel`
-  with the Cherokee: 12.87 to 13.21. Not seen red with her in it (on
-  JSBSim's curve the 2026-10-08 entry measured 9.9 to 1).
+  with the Cherokee: 12.87 to 13.21. **Seen to fail** with her engine put
+  back on JSBSim's own curve (the pinned engIO360C.xml in the build's
+  data): "pa28 leaned sits between 12 and 13.8 to 1: 10.026089 to
+  10.128347"; restored, green.
+- `the_stall_recovery_never_lowers_flaps_raised_past_the_go_around_setting`
+  (new, registered): every aeroplane with a go-around setting (one, the
+  Cherokee) stalled with its lever at half that setting and handed to the
+  recovery at its warning: the lever stays at 0.3125 every step. **Seen to
+  fail** with the `std::min` taken out of the law: "pa28's flaps moved
+  from 0.312500 to 0.625000 (lowest 0.320833)"; restored, green.
 - The 111 tests matching `stall` and the 190 matching lesson, autopilot,
   figure, committed, selftest, instructor, pa28, cherokee, light, circuit,
   orbit, leaner, departure, mixture, ceiling, catalogue or recover: all pass
   but the two base failures above (four skipped, wanting a key).
   `the_committed_piper_pa28_is_what_its_tuning_script_makes` passes.
+
+**On the restacked base** (after the review): the 169 tests matching stall, leaner, figure, committed, selftest, pa28, cherokee and the first-leg test, all pass (the client tests left out).
 
 **The selftest hash does not move**: `be036519d2c19ea0` (linux-release); it
 replays a pilot's inputs on the 172P and flies no stall recovery.

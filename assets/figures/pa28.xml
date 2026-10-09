@@ -16,19 +16,19 @@
   calibrated, the flight manual's stalls being so, and converted to knots
   (1 mph = 0.869 kt). The tolerances are this project's, as the Cessnas' are.
 
-  go_around_flaps_deg, the flap a go-around (a balked landing) takes the
-  flaps up to at once, and what the autopilot's stall recovery raises them
-  to: 25 degrees, the second notch. The "E" handbook gives no balked-landing
-  procedure (section III's approach and landing speaks of a go-around only
-  as the reason to keep the carburettor heat off), nor do the 1962 flight
-  manual, the 1973 Cherokee 180 handbook or the Archer II's of 1976. 25
-  degrees is the setting the Cherokee's own handbook takes off with when
-  it must climb out short (section III, take-off: "lowering flaps to 25"),
-  and the one Piper's later PA-28s go around with: the Warrior's checklist,
-  "Balked landing, go-around: maximum power, flaps 25 degrees, 63 KIAS" and
-  "Flaps - retract to 25 degrees", then "slowly retract" once clear
-  (Middle Georgia State University's Warrior PA-28-161 pilot's checklist,
-  2025, from the PA-28-161 handbook).
+  go_around_flaps_deg, the flap the autopilot's stall recovery raises the
+  flaps to, a hand's pace at a time: 25 degrees, the second notch. It is the
+  Cherokee handbooks' climb-out setting. No Cherokee handbook gives a
+  balked-landing flap: the "E" handbook speaks of a go-around only as the
+  reason to keep the carburettor heat off (section III, approach and
+  landing), and the 1962 flight manual, the 1973 Cherokee 180 handbook and
+  the PA-28-140's give none. The Cherokee 140 Owner's Handbook (section III,
+  take-off) climbs out over an obstacle with "flaps to 25 (second notch)",
+  then "slowly retract the flaps when the obstacle has been cleared"; the
+  180 "E" handbook (section III, take-off) cuts a short or soft field's
+  take-off "appreciably by lowering flaps to 25". Corroboration only, from a
+  later PA-28: Middle Georgia State University's Warrior PA-28-161 pilot's
+  checklist (2025), "Balked landing, go-around: maximum power, flaps 25".
 -->
 <published_figures aircraft="pa28" flaps_full_deg="40" go_around_flaps_deg="25">
   <source>Piper Cherokee 180 "E" Owner's Handbook, 1969-1974</source>

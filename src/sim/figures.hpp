@@ -57,9 +57,10 @@ struct PublishedFigures {
     std::string model;
     std::string source;
     double flaps_full_deg = 0.0; // the flaps' travel at a command of 1; 0, none
-    // **The flap a go-around takes the flaps up to**, degrees, where its
-    // handbook gives one (`go_around_flaps_deg`): what the autopilot's stall
-    // recovery raises them to (sim/autopilot.cpp). None: the recovery leaves
+    // **The flap the stall recovery raises the flaps to**, degrees
+    // (`go_around_flaps_deg`), at a hand's pace and never lower
+    // (sim/autopilot.cpp): a climb-out or go-around setting from the
+    // aeroplane's handbooks, which the file cites. None: the recovery leaves
     // the flaps where they are.
     std::optional<double> go_around_flaps_deg;
     // The speedbrake lever the aeroplane is flown down an approach with, 0 to

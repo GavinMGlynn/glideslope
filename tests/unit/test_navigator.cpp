@@ -1689,11 +1689,15 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
                    "plan at " + std::to_string(handed_over_at_ft) + " ft (500 asked)");
         check(controller.navigator() != nullptr && controller.navigator()->finished(),
               id + " flew the plan to its end after taking off");
-        // Stated from what was measured: at most 81 m, where flying the leg
-        // from the threshold instead strays 219 to 383 m. The Cherokee held
-        // full rich below 5,000 ft, as her handbook has it, on the FAA's
-        // mixture curve, strays 151 m (79 leaned on the same engine): 200,
-        // still short of the threshold's least.
+        // **What strays it is the climb's airspeed.** The plan climbs each
+        // of them at about 700 ft/min with its take-off flap still out, and
+        // its heading 2.5 to 3 degrees short of the waypoint's bearing until
+        // the airspeed builds; so the slower the climb's airspeed and the
+        // longer the climb, the further off the leg. The Cherokee, full rich
+        // below 5,000 ft as her handbook has it, bleeds from 58 to 52 KCAS
+        // and strays 151 m; leaned on the same engine, gaining 60 to 66, 79
+        // m; the others at most 65. Flying the leg from the threshold
+        // instead strays 219 to 383 m, so 200 still tells the two apart.
         check(worst_off_leg_m <= 200.0,
               id + " flew its first leg from where the take-off handed over, straying " +
                   std::to_string(worst_off_leg_m) + " m from it (at most 200)");

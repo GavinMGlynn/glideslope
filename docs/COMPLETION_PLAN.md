@@ -984,9 +984,8 @@ Found while implementing something else. Added when found, not when remembered.
       recovery too: it cannot be level at the lesson's recovery speed with
       40 degrees of flap (PROJECT_STATUS, 2026-10-09). *Verification:
       leaned for best power, each engine sits between 12 and 13.8 to 1, and
-      every figure stays in range.* Done 2026-10-09: on the FAA's curve,
-      leaned she sits at 12.9 to 13.2 to 1, and her nine figures are in
-      range (her ceiling 12,279 ft against 13,000).
+      every figure stays in range.* Done 2026-10-09: on the FAA's curve she
+      leans to 12.9-13.2 to 1, and her figures are in range.
 - [x] **The Cub's carburettor runs too rich to climb past about 8,000 ft.**
       It has no mixture lever, and JSBSim enriches every engine as the air
       pressure falls, where a float carburettor enriches only as the square
@@ -1002,15 +1001,14 @@ Found while implementing something else. Added when found, not when remembered.
       least-sink recovery of #136 does not change that - the lesson's
       recovery would have to raise the flap or ask a speed she can hold. *Verification: the Cherokee full
       rich below 5,000 ft, and its stall recovery within its lesson.* Done
-      2026-10-09 (the owner's decision): the stall recovery raises the flaps,
-      at a hand's pace, to the go-around setting an aeroplane's figures
-      give - 25 degrees for the Cherokee, Piper's PA-28 balked-landing flap.
-      Full rich below 5,000 ft, she loses 131 ft of 300 at her warning.
-- [ ] **Two failures found on the stacked base, not from the Cherokee's
-      branch**: left thirty seconds in a stall the 182S pulls 1.82 g, past
-      2 g with the test's 10% in hand, since its drag changed; and the
-      figures test counts 121 figures against its 120 (PROJECT_STATUS,
-      2026-10-09). *Verification: both tests pass.*
+      2026-10-09: the recovery raises her flaps to her handbooks' 25-degree
+      climb-out setting, and she loses 131 ft of 300.
+- [ ] **A plan flown after the take-off keeps the take-off flap out.** The
+      Cherokee climbs its first leg and cruises with 25 degrees, so the
+      climb gets no floor and, full rich, its speed bleeds to 52 knots
+      (PROJECT_STATUS, 2026-10-09). *Verification: every light aeroplane's
+      flaps are up once the plan has it, and its first leg is flown at its
+      climb speed.*
 - [x] **Cesium ion on Windows, where a body arrives compressed unasked.**
       *Verification: a Windows machine fetches and reads ion's layer.json, and
       the weather still arrives.* Done 2026-10-01: Windows could not undo the

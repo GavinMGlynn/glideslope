@@ -334,9 +334,9 @@ public:
         return rudder_integral_rate_;
     }
 
-    // **The flap lever a go-around takes the flaps up to**, 0 to 1, where its
-    // published figures give one (`go_around_flaps_deg`, sim/figures.hpp):
-    // what the autopilot's stall recovery raises the flaps to. None for an
+    // **The flap lever the stall recovery raises the flaps to**, 0 to 1,
+    // where its published figures give one (`go_around_flaps_deg`,
+    // sim/figures.hpp). None for an
     // aircraft whose figures give none, or a model loaded where there is no
     // catalogue.
     std::optional<double> go_around_flaps() const {
