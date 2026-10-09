@@ -71,6 +71,21 @@ struct DepartureSpeeds {
     // they were taken from. A take-off at another weight flies them scaled
     // by the square root of the ratio. 0 where no figure names one.
     double reference_lbs = 0.0;
+    // **The climb away is flown at `initial_climb_kts` whatever she weighs**
+    // - only the rotation is scaled by `reference_lbs`. True for a light
+    // aeroplane, whose climb speed is her handbook's best rate of climb, Vy,
+    // and whose handbook gives it for any weight: the Cessna 172P's
+    // (Pilot's Operating Handbook, 1986, page 4-3, Speeds for Normal
+    // Operation), "Unless otherwise noted, the following speeds are based on
+    // a maximum weight of 2400 pounds and may be used for any lesser weight.
+    // However, to achieve the performance specified in Section 5 for takeoff
+    // distance, the speed appropriate to the particular weight must be
+    // used" - the take-off's speeds by weight, the climb's not. It is the
+    // speed the autopilot's best-climb floor holds after the hand-over
+    // (Aircraft::climb_floor_kts), so the plan is handed her at the speed it
+    // will hold. False for every other class, whose initial climb is V2 and
+    // ten, or a speed measured at one weight, and goes with her weight.
+    bool climb_for_any_weight = false;
 };
 
 // The speeds for an aircraft, from `data`/figures/MODEL.xml.
