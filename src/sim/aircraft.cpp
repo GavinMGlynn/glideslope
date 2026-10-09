@@ -4,6 +4,7 @@
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
 #include "sim/fixed_step.hpp"
+#include "sim/runway_condition.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
 
@@ -485,6 +486,25 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
         beta_range_rad_ = {t.beta_low, t.beta_high};
     }
     flap_notches_ = flap_notches_of(jsbsim_root / "aircraft" / model / (model + ".xml"));
+    // **What her braked wheels grip a dry runway with**: the most static
+    // friction among her wheels with brakes - or among all her wheels, where
+    // none has any - which a slippery runway's coefficient is a share of.
+    {
+        const auto ground = exec_->GetGroundReactions();
+        double braked = 0.0;
+        double any = 0.0;
+        for (int i = 0; i < ground->GetNumGearUnits(); ++i) {
+            const auto unit = ground->GetGearUnit(i);
+            if (!unit->IsBogey()) {
+                continue;
+            }
+            any = std::max(any, unit->GetstaticFCoeff());
+            if (unit->GetBrakeGroup() != JSBSim::FGLGear::bgNone) {
+                braked = std::max(braked, unit->GetstaticFCoeff());
+            }
+        }
+        dry_braking_friction_ = braked > 0.0 ? braked : any;
+    }
     if (hydrodynamics_) {
         exec_->SetPropertyValue(water_level, out_of_reach_ft);
     }
@@ -983,6 +1003,21 @@ void Aircraft::apply_weather() {
     }
     set("atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps",
                             c.wind_at_20ft_mps * feet_per_metre);
+    // **The runway's grip.** JSBSim brakes a wheel with its rolling friction
+    // and, as the pedal goes down, up to its static friction, both times the
+    // ground's static friction factor - its brakes never lock, as an
+    // anti-skid's do not - and scales the wheels' side force by the same
+    // factor. Dry, the factor is 1: the model's own. Otherwise it is the
+    // code's wheel braking coefficient at her groundspeed (AC 25-32) over
+    // her braked wheels' dry friction, never more than 1.
+    runway_condition_ = c.runway_condition;
+    double factor = 1.0;
+    if (c.runway_condition != dry_runway && dry_braking_friction_ > 0.0) {
+        const double kts = value("velocities/vg-fps") / 1.68781;
+        factor = std::min(
+            1.0, wheel_braking_coefficient(c.runway_condition, kts) / dry_braking_friction_);
+    }
+    set("ground/static-friction-factor", factor);
 }
 
 void Aircraft::step() {

@@ -200,6 +200,7 @@ add_library(glideslope_sim STATIC
     src/sim/takeoff_trial.cpp
     src/sim/pacing.cpp
     src/sim/prediction.cpp
+    src/sim/runway_condition.cpp
     src/sim/separation.cpp
     src/sim/test_pilot.cpp
     src/sim/version.cpp)

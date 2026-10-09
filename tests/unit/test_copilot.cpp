@@ -7,6 +7,7 @@
 #include "sim/catalogue.hpp"
 #include "sim/controller.hpp"
 #include "sim/learnt.hpp"
+#include "sim/runway_condition.hpp"
 #include "sim/terrain.hpp"
 #include "world/json.hpp"
 
@@ -551,7 +552,9 @@ GLIDESLOPE_TEST(every_aircrafts_brief_tells_the_approach_speed_the_ai_flies_her_
 // synthetic runways a metre either side of it, one with a displaced
 // threshold, so the length that counts is the one landed on. An aircraft
 // whose file publishes no landing distance is named, and refused nothing for
-// length - even a 10 m runway.
+// length - even a 10 m runway. **And wet, it needs 1.15 times as much** (14
+// CFR 121.195(d)): the runway a metre long dry is refused it wet, saying so,
+// and one a metre over 1.15 times its need is given it.
 GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land_on_and_given_a_longer_one) {
     const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     const auto catalogue = glideslope::sim::read_catalogue(data);
@@ -594,13 +597,27 @@ GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land
             plan.landing = r;
             return plan;
         };
+        // Wet, as the frontends brief it.
+        const glideslope::copilot::Brief wet_brief =
+            glideslope::frontend::brief_for(data, entry.id, glideslope::sim::wet_runway);
+        const glideslope::copilot::PlanRequest wet_request =
+            glideslope::frontend::plan_request_for(data, entry.id, glideslope::sim::wet_runway);
+        check(wet_brief.runway_wet && wet_request.runway_wet && !brief.runway_wet &&
+                  wet_request.landing_need_m == wet_brief.landing_need_m &&
+                  std::abs(wet_brief.landing_need_m -
+                           need_m * glideslope::sim::wet_landing_factor) < 1e-9,
+              entry.id + ": briefed wet, it needs 1.15 times as much, for the planner too");
+        const auto why_when = [&](const glideslope::world::RunwayEnd& end, bool wet) {
+            return glideslope::copilot::landing_refusal(
+                approach_kts, wet ? wet_brief.landing_need_m : need_m, wet, landing_on(end),
+                {end});
+        };
         const auto why = [&](const glideslope::world::RunwayEnd& end) {
-            return glideslope::copilot::landing_refusal(approach_kts, need_m, landing_on(end),
-                                                        {end});
+            return why_when(end, false);
         };
         if (need_m <= 0.0) {
             without.push_back(entry.id);
-            check(why(runway(10.0, 0.0)).empty(),
+            check(why(runway(10.0, 0.0)).empty() && why_when(runway(10.0, 0.0), true).empty(),
                   entry.id + " publishes no landing distance, and is refused nothing for length");
             continue;
         }
@@ -610,12 +627,20 @@ GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land
         const auto displaced = runway(need_m + 1.0, 2.0);
         const std::string short_why = why(short_of);
         const std::string displaced_why = why(displaced);
+        const double wet_need_m = need_m * glideslope::sim::wet_landing_factor;
+        const std::string wet_why = why_when(long_enough, true);
+        const std::string wet_long_why = why_when(runway(wet_need_m + 1.0, 0.0), true);
         const bool ok = short_why.find("to land on, and the aircraft needs") != std::string::npos &&
                         displaced_why.find("to land on") != std::string::npos &&
-                        why(long_enough).empty();
+                        why(long_enough).empty() &&
+                        wet_why.find("on a wet runway") != std::string::npos &&
+                        why_when(runway(wet_need_m - 1.0, 0.0), true).find("on a wet runway") !=
+                            std::string::npos &&
+                        wet_long_why.empty();
         check(ok, entry.id + " needs " + std::to_string(need_m) + " m: just short \"" +
                       short_why + "\", displaced \"" + displaced_why + "\", just long \"" +
-                      why(long_enough) + "\"");
+                      why(long_enough) + "\", wet \"" + wet_why + "\", wet and long \"" +
+                      wet_long_why + "\"");
         refused_and_taken += ok ? 1U : 0U;
     }
     check(without == unpublished, "the aircraft with no published landing distance are the "

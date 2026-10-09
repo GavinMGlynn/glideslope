@@ -381,6 +381,10 @@ public:
     // where the aircraft is. Without it, JSBSim's still standard atmosphere.
     // Turbulence is seeded the same every time, so a flight in it repeats.
     void set_weather(std::shared_ptr<Weather> weather);
+    // **The runway condition code she last rolled on** (sim/runway_condition.hpp),
+    // as her weather gave it before her last step: 6, dry, without weather.
+    // Her braked wheels grip as it says.
+    int runway_condition() const { return runway_condition_; }
 
     // Sets what is on board. Call before initialize(); the weight is what JSBSim
     // computes from it once the aircraft is initialised.
@@ -560,6 +564,8 @@ private:
     double applied_temperature_offset_c_ = 0.0;
     double applied_pressure_hpa_ = 1013.25;
     int applied_turbulence_ = 0;
+    double dry_braking_friction_ = 0.0;
+    int runway_condition_ = 6;
 };
 
 } // namespace glideslope::sim

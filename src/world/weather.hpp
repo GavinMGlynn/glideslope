@@ -54,6 +54,14 @@ double isa_temperature_c(double height_m);
 // unreported wind is calm; an unreported temperature or pressure standard.
 sim::Conditions surface_conditions(const SurfaceReport& report);
 
+// **The runway condition a report implies** (sim/runway_condition.hpp): wet,
+// code 5, while precipitation falls at the station - rain, drizzle, snow, snow
+// grains, ice pellets, hail, small hail or unknown precipitation, of any
+// intensity, not in the vicinity - and dry, 6, otherwise. A METAR does not say
+// how deep anything lies on a runway, so it never gives more than code 5's
+// "1/8 in or less", nor a runway still wet after the rain has stopped.
+int runway_condition_of(const Metar& metar);
+
 // What a flight's weather is made of.
 struct WeatherReport {
     SurfaceReport surface;

@@ -1,6 +1,7 @@
 #include "harness.hpp"
 
 #include "sim/aircraft.hpp"
+#include "sim/runway_condition.hpp"
 #include "sim/test_pilot.hpp"
 #include "sim/weather.hpp"
 #include "world/json.hpp"
@@ -18,6 +19,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -1211,4 +1213,105 @@ GLIDESLOPE_TEST(the_weather_may_be_asked_elsewhere_only_over_https_or_of_the_loo
         check(!weather_service_allowed(s), "should be refused: " + s);
     }
     check(allowed.size() == 8 && refused.size() == 18, "8 allowed and 18 refused");
+}
+
+// **A METAR reporting precipitation at the station wets the runway; none
+// leaves it dry.** Every precipitation a METAR names (WMO code table 4678:
+// DZ, RA, SN, SG, PL, GR, GS, UP), light, moderate and heavy, and as showers,
+// thunderstorms or freezing where a METAR may say so, is runway condition
+// code 5; showers or a thunderstorm in the vicinity only, every obscuration
+// and other phenomenon, and no weather at all, are 6. A METAR says nothing of
+// depth, so nothing worse than 5 comes from one.
+GLIDESLOPE_TEST(a_metar_reporting_precipitation_at_the_station_wets_the_runway_and_none_leaves_it_dry) {
+    const std::vector<std::string> precipitation{"DZ", "RA", "SN", "SG", "PL", "GR", "GS", "UP"};
+    const std::vector<std::string> dry{"BR", "FG", "FU", "VA", "DU", "SA", "HZ",  "PY",
+                                       "PO", "SQ", "FC", "SS", "DS", "VCSH", "VCTS"};
+    const auto code_of = [](const std::string& group) {
+        const Metar m = parse_metar("METAR YSSY 100600Z 18010KT 9999 " +
+                                    (group.empty() ? std::string() : group + " ") +
+                                    "SCT020 15/10 Q1015");
+        check(m.weather.empty() == group.empty(), "the group '" + group + "' is read");
+        return glideslope::world::runway_condition_of(m);
+    };
+    std::size_t walked = 0;
+    for (const std::string& p : precipitation) {
+        std::vector<std::string> forms{"-" + p, p, "+" + p, "TS" + p};
+        if (p != "DZ" && p != "SG") {
+            forms.push_back("SH" + p);
+        }
+        if (p == "RA" || p == "DZ" || p == "UP") {
+            forms.push_back("FZ" + p);
+        }
+        for (const std::string& form : forms) {
+            check(code_of(form) == glideslope::sim::wet_runway, form + " wets the runway");
+            ++walked;
+        }
+    }
+    for (const std::string& group : dry) {
+        check(code_of(group) == glideslope::sim::dry_runway, group + " leaves the runway dry");
+        ++walked;
+    }
+    check(code_of("") == glideslope::sim::dry_runway, "no weather leaves the runway dry");
+    ++walked;
+    // 8 precipitations in 4 forms, 6 of them as showers and 3 freezing: 41;
+    // 15 groups that are not precipitation at the station; and no weather.
+    constexpr std::size_t space = 8 * 4 + 6 + 3 + 15 + 1;
+    check(walked == space, "every form walked: " + std::to_string(walked) + " of " +
+                               std::to_string(space));
+    // And it reaches the conditions the aircraft flies in.
+    glideslope::world::SurfaceReport wet;
+    wet.metar = parse_metar("METAR YSSY 100600Z 18010KT 9999 -RA SCT020 15/10 Q1015");
+    check(glideslope::world::surface_conditions(wet).runway_condition ==
+              glideslope::sim::wet_runway,
+          "light rain at the station is a wet runway in the conditions flown");
+}
+
+// **Each runway condition code's wheel braking coefficient is AC 25-32's**
+// table 2, for a fully modulating anti-skid: code 5 is 14 CFR 25.109(c)'s
+// 100 psi curve times 0.80 - 0.643 at a standstill, 0.381 at 50 kt, 0.220 at
+// 100 kt - and 4, 3 and 1 are 0.203, 0.163 and 0.083; 2 is half code 5's,
+// no more than 0.163, below 76.5 kt (85 per cent of 9 sqrt(100)) and 0.053
+// from it. Dry is the model's own and has none here, nor has any code not
+// from 1 to 6.
+GLIDESLOPE_TEST(each_runway_condition_codes_wheel_braking_coefficient_is_ac_25_32s) {
+    using glideslope::sim::wheel_braking_coefficient;
+    const auto near3 = [](double a, double b) { return std::abs(a - b) < 0.0005; };
+    check(near3(wheel_braking_coefficient(5, 0.0), 0.8 * 0.804), "code 5 at a standstill");
+    check(near3(wheel_braking_coefficient(5, 50.0), 0.381),
+          "code 5 at 50 kt: " + std::to_string(wheel_braking_coefficient(5, 50.0)));
+    check(near3(wheel_braking_coefficient(5, 100.0), 0.220),
+          "code 5 at 100 kt: " + std::to_string(wheel_braking_coefficient(5, 100.0)));
+    check(wheel_braking_coefficient(4, 80.0) == 0.203 &&
+              wheel_braking_coefficient(3, 80.0) == 0.163 &&
+              wheel_braking_coefficient(1, 80.0) == 0.083,
+          "codes 4, 3 and 1");
+    check(wheel_braking_coefficient(2, 20.0) == 0.163 &&
+              near3(wheel_braking_coefficient(2, 76.0), 0.5 * wheel_braking_coefficient(5, 76.0)) &&
+              wheel_braking_coefficient(2, 77.0) == 0.053,
+          "code 2 either side of 85 per cent of the hydroplaning speed");
+    // Every code, from a standstill to 200 kt, grips and never grips more
+    // for going faster.
+    std::size_t codes = 0;
+    for (int code = 1; code <= 5; ++code) {
+        double last = 1.0;
+        for (int kts = 0; kts <= 200; ++kts) {
+            const double mu = wheel_braking_coefficient(code, kts);
+            check(mu > 0.0 && mu <= last + 1e-12, "code " + std::to_string(code) +
+                                                      " grips no more faster, at " +
+                                                      std::to_string(kts) + " kt");
+            last = mu;
+        }
+        ++codes;
+    }
+    std::size_t refused = 0;
+    for (const int code : {6, 0, 7, -1}) {
+        try {
+            (void)wheel_braking_coefficient(code, 50.0);
+        } catch (const std::invalid_argument&) {
+            ++refused;
+        }
+    }
+    check(codes == 5 && refused == 4,
+          "codes 1 to 5 given a coefficient and 6, 0, 7 and -1 refused: " +
+              std::to_string(codes) + " and " + std::to_string(refused));
 }

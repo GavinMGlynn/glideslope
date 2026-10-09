@@ -24,6 +24,9 @@ struct Conditions {
     // feet above the ground that scales it near the surface.
     int turbulence_severity = 0;
     double wind_at_20ft_mps = 0.0;
+    // The runway condition code of the ground beneath (sim/runway_condition.hpp):
+    // 6 dry to 1 ice. Its braked wheels grip as that code says.
+    int runway_condition = 6;
 };
 
 class Weather {

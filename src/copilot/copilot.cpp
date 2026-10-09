@@ -325,12 +325,14 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
         if (change.glide_kts) {
             return "a glide does not land: it ends over its field";
         }
-        return landing_refusal(b.approach_kts, b.landing_need_m, change.plan, now.fields);
+        return landing_refusal(b.approach_kts, b.landing_need_m, b.runway_wet, change.plan,
+                               now.fields);
     }
     return {};
 }
 
-std::string landing_refusal(double approach_kts, double need_m, const sim::FlightPlan& plan,
+std::string landing_refusal(double approach_kts, double need_m, bool wet,
+                            const sim::FlightPlan& plan,
                             const std::vector<world::RunwayEnd>& fields) {
     const auto& landing = plan.landing;
     if (!landing) {
@@ -357,7 +359,8 @@ std::string landing_refusal(double approach_kts, double need_m, const sim::Fligh
         return "the runway " + field->airport + " " + field->ident + " has " +
                std::to_string(static_cast<long>(std::floor(length_m))) +
                " m to land on, and the aircraft needs " +
-               std::to_string(static_cast<long>(std::ceil(need_m))) + " m: choose a longer one";
+               std::to_string(static_cast<long>(std::ceil(need_m))) +
+               (wet ? " m on a wet runway: choose a longer one" : " m: choose a longer one");
     }
     return {};
 }
