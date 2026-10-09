@@ -120,7 +120,10 @@
   </takeoff_speeds>
 
   <no_landing_distance>
-    Nothing public gives its landing distance: no runway is refused it for
-    length. It has no approach speed in any case, so nothing plans it a landing.
+    Searched 2026-10-09: the USAF fact sheet and the Selected Acquisition Report
+    give no landing distance; the 3,000 ft quoted elsewhere is the Advanced
+    Tactical Fighter's design requirement as retold by secondary sources, not a
+    flight manual figure. No runway is refused it for length. It has no approach
+    speed in any case, so nothing plans it a landing.
   </no_landing_distance>
 </published_figures>

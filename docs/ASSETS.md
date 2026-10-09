@@ -56,6 +56,7 @@ entertainment purposes only."
 | | |
 | --- | --- |
 | Source | Cessna Model 172P Pilot's Operating Handbook, 12 May 1981 (the Island Enterprises reprint): section 1 specifications, section 2 powerplant limitations, figures 3-1, 5-1, 5-3, 5-5, 5-6 and 5-8 |
+| Source, the landing distance | The 1985 Model 172P Pilot's Operating Handbook, section 1, Landing Performance, total distance over a 50 ft obstacle 1280 ft, and figure 5-11, as copied at <https://tx435.cap.gov/media/cms/C172PPOHwoSupplements_0A69C5AA130B9.pdf>, SHA-256 `4d17d416aa9b8a3ec69ed07b988c88399a8ab1b0015148063248040ae5c06bb4` (the 1981 printing above was not to hand) |
 | In the repository | `assets/figures/c172p.xml`: individual numbers, each with its section or figure, not the handbook's text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
@@ -73,6 +74,7 @@ entertainment purposes only."
 | | |
 | --- | --- |
 | Source | Cessna Model 182S Skylane Information Manual, P/N 182SIM, 1997 (the Pilot's Operating Handbook of 3 February 1997 with revision 4 of 1 November 2001), page ii and figures 3-1, 5-1, 5-4, 5-6, 5-7 and 5-9, as copied at <http://tssflyingclub.org/documents/C182S_POH.pdf>; FAA type certificate data sheet 3A13, revision 66, section XIII, for the static rpm and the flaps' travel |
+| Source, the landing distance | The same manual's section 1, Landing Performance, total distance over 50 ft obstacle 1350 ft, as copied at <http://tssflyingclub.org/documents/C182S_POH.pdf>, SHA-256 `6f8ecc3cda71ca2bc0f9a913872cae7c64789396c42c5683cee45dbce52d4897` |
 | In the repository | `assets/figures/c182.xml`: individual numbers, each with its page or figure, not the handbook's text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
@@ -90,6 +92,7 @@ entertainment purposes only."
 | | |
 | --- | --- |
 | Source | Piper Cherokee 180 "E" Owner's Handbook, P/N 753 806, issued October 1969, revised January 1974, sections I, III and V, as copied at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf>; the Airplane Flight Manual, Model PA-28-180, FAA approved 3 August 1962, revision 4, for the calibrated stalling speeds, as copied at <https://www.nehemiahaviation.com/files/pa28flightmanual.pdf>; FAA type certificate data sheet 2A13, revision 64, section III, for the static rpm; for the flap the stall recovery raises to, 25 degrees, the Cherokee handbooks' climb-out setting (no Cherokee handbook gives a balked-landing flap): the "E" handbook's section III, take-off, and the PA-28-140 Cherokee 140 Owner's Handbook, section III, take-off, "Lower the flaps to 25° (second notch)", as copied at <https://data.ntsb.gov/Docket/Document/docBLOB?ID=19048562&FileExtension=pdf&FileName=PA-28-140+Perf+and+charts-Rel.pdf>; and, as corroboration only, Middle Georgia State University's Warrior PA-28-161 Pilot's Checklist (2025), "Balked landing, go-around: maximum power, flaps 25°", at <https://www.mga.edu/aviation/knight-flight/aircraft-information-procedures/docs/Warrior_Checklist.pdf> |
+| Source, the landing distance | The same handbook's section I, Performance, landing roll over 50-ft barrier 1150 ft, as copied at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf>, SHA-256 `ae20fb9a8a8d88ff0638313d9dd1051519f904de54f05e50be5ec89fd318b2e9` |
 | In the repository | `assets/figures/pa28.xml`: individual numbers, each with its section, not the handbook's text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
@@ -124,6 +127,7 @@ entertainment purposes only."
 | | |
 | --- | --- |
 | Source | Airbus, A320 Aircraft Characteristics - Airport and Maintenance Planning, June 2024 edition, figure 3-3-1-991-005-A01, as published at <https://www.aircraft.airbus.com/sites/g/files/jlcbta126/files/2025-01/AC_A320_0624.pdf>; Airbus, Getting to Grips with Aircraft Performance, January 2002, page 155, as copied at <https://skybrary.aero/sites/default/files/bookshelf/2263.pdf>; FAA type certificate data sheet A28NM, revision 42, as copied at <https://downloads.regulations.gov/FAA-2021-0799-0001/attachment_3.pdf>, for the Mmo and ceiling; FAA type certificate data sheet E37NE, for the CFM56-5B4's rating |
+| Source, the landing distance | Airbus, A320 Aircraft Characteristics, revision of 15 July 2025, figure 3-4-1-991-005-A01 (page 3-4-1 2), Landing Field Length - ISA Conditions, CFM56, read at 64,500 kg at sea level, as published at <https://www.aircraft.airbus.com/sites/g/files/jlcbta126/files/2025-07/AC_A320_20250715.pdf>, SHA-256 `e1abcf7d7819eba09477416d16a85f244aede1cbe8ff3bb7b5d87772da9f0473` |
 | In the repository | `assets/figures/a320.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
@@ -141,6 +145,7 @@ entertainment purposes only."
 | | |
 | --- | --- |
 | Source | Boeing, 737 Airplane Characteristics for Airport Planning, D6-58325-6 revision E, November 2023, table 2.1.6 and figure 3.3.11, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/737CL_REV_E.pdf>; FAA type certificate data sheet A16WE, as copied at <http://www.b737.org.uk/a16we.pdf>; the cruise Mach from EUROCONTROL's Aircraft Performance Database, <https://learningzone.eurocontrol.int/ilp/customs/ATCPFDB/details.aspx?ICAO=B733>, a secondary source, Boeing publishing none |
+| Source, the landing distance | The same document's revision D, March 2023, figure 3.4.10, page 3-41, F.A.R. Landing Runway Length Requirements - Flaps 40: Model 737-300, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/737CL_REVD.pdf>, SHA-256 `087392d04c7e62aef8c5b0e37c42af697e58716612c92a34d662d6c2d28cb88e` |
 | In the repository | `assets/figures/737-300.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
@@ -158,6 +163,7 @@ entertainment purposes only."
 | | |
 | --- | --- |
 | Source | Boeing, 747-400 Airplane Characteristics for Airport Planning, D6-58326-1 revision F, December 2024, table 2.1.1 and figures 3.2.1 and 3.3.1, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/747-400_Rev_F.pdf>; FAA type certificate data sheet A20WE, revision 58, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/7478-airport-comp/A20WE.pdf> |
+| Source, the landing distance | The same document's figure 3.4.2, page 3-36, F.A.R. Landing Runway Length Requirements - Flaps 30, as published at the address above, SHA-256 `9dd5baf00f3b9e5fdaa0bdf25425e1e65c9c6ee440d5b5c547956f95ccacef08` |
 | In the repository | `assets/figures/747-400.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
@@ -175,6 +181,7 @@ entertainment purposes only."
 | | |
 | --- | --- |
 | Source | Boeing, 787 Airplane Characteristics for Airport Planning, D6-58333 revision O, February 2023, table 2.1.1 and figures 3.2.1 and 3.3.1, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/787.pdf>; FAA type certificate data sheet T00021SE, revision 32, from the FAA's regulatory and guidance library as archived by the Internet Archive; Boeing's own 787-8 page, as archived, for the cruise Mach |
+| Source, the landing distance | The same document's figure 3.4.1, page 3-29, FAA/EASA Landing Runway Length Requirements - Flaps 30, as published at the address above, SHA-256 `e7d740457ffb81e1db8f83774ae08ac16607d1224c16544c6dca3bb0a1b16ef5` |
 | In the repository | `assets/figures/787-8.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
@@ -194,6 +201,7 @@ entertainment purposes only."
 | Source | United States Air Force, Standard Aircraft Characteristics, F-15C Eagle (220 engine), AFG 2 volume 1 addendum 61, February 1992 (performance basis: the contractor's June 1986 status), pages 4 to 6 (69 to 74 of 228), as scanned in the collection at <http://alternatewars.com/SAC/F-15C_Eagle_SAC_-_February_1992.pdf>, read through the Internet Archive. A work of the United States government |
 | Source, the approach speed | The F-15's flight manual, T.O. 1F-15A-1 for the F-15A/B/C/D, appendix A part 8, figure A8-1, Landing Approach Speed (change 4; dated 23 August 1985; data basis flight test): the speed at 21 units of angle of attack by gross weight, flaps up and down, read at 36,946 lb on the flaps-up line as 160 KCAS. As scanned at <https://archive.org/details/f-15-manual>, the file `F15 Manual.pdf` (346,737,081 bytes, SHA-256 `ba3a5942ac9efd48837a760e42d97aacba0b39ccd58b8dd2c7d9a0b5f98caa87`), its page A8-3. Its section VI, "Stalls", is why there is no published stall speed: at full aft stick the angle of attack settles at 45 units or above with the airspeed 100 knots or less |
 | Source, the take-off speed | The same manual's figure A3-6, Nosewheel Lift-off Speed/Takeoff Speed (sheet 1, change 4; without conformal tanks, full flaps, gear down): the normal take-off at military thrust, 128/141 KCAS at 35,000 lb and 129/142 at 40,000, so 141.4 at 36,946 lb; made flaps-up by figure A8-1's ratio of flaps-up to flaps-down approach speed at that weight, 160.5 to 147.0, to 154.4. Its maximum performance take-off's nosewheel lift-off speeds, 91.5, 100.1 and 110.7 at the three loadings, are what a test holds the model's to |
+| Source, the landing distance | The same manual's figure A8-3, page A8-6, Landing Distance, maximum anti-skid braking (change 4; 23 August 1985; data basis flight test): total distance over a 50 ft obstacle at 36,946 lb, sea level, standard day, zero wind, dry - about 4,200 ft. Read from the same item's text PDF, <https://archive.org/download/f-15-manual/F15%20Manual_text.pdf>, SHA-256 `9978c3220bef95b0b6bc091b1ede6423c6d67b9af8a66394068b158344646c7c`, its page A8-6 |
 | In the repository | `assets/figures/f15c.xml`: individual numbers, each with its page, not the document's text or charts. `tools/make_f15c.py` names the page 6 chart its thrust and drag are fitted to, not the numbers read from it |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 
@@ -256,6 +264,7 @@ to are `assets/figures/a380.xml`.
 | Document | Copy consulted | What is taken from it |
 | --- | --- | --- |
 | Airbus, A380 Aircraft Characteristics - Airport and Maintenance Planning, revision 20, 1 December 2025 | <https://www.aircraft.airbus.com/sites/g/files/jlcbta126/files/2025-12/AC_A380_20251201.pdf>, SHA-256 `0973c3655f544f92b9a48ec83cc11f9ece7185b7efecb076919611421c59de09` | Dimensions, the gear's layout, ground clearances, fuel, the payload-range chart (for the operating empty weight), the take-off field length and the final approach speed |
+| Airbus, A380 Aircraft Characteristics - Airport and Maintenance Planning, revision of 1 November 2024 | <https://www.aircraft.airbus.com/sites/g/files/jlcbta126/files/2024-11/AC_A380_1124.pdf>, SHA-256 `bc87c23ade075900977b78e4be8965a8762da73fa743dc1f7bd1046b9dd4f3b6` | Figure 3-4-1-991-001-A01 (page 3-4-1 2), Landing Field Length, dry runway: the landing distance, read at 394,000 kg at sea level |
 | EASA type certificate data sheet A.110, issue 17, 5 August 2026 | <https://www.easa.europa.eu/en/downloads/7309/en>, SHA-256 `fca8e2e6640e0276eeaeec1c22486bf3a9d31a22ae83d585c06429b1dc9cff3c` | The certification basis, JAR 25 change 15; the weight variants and engines |
 | FAA type certificate data sheet A58NM, revision 11, 25 July 2024 | The FAA's Dynamic Regulatory System, SHA-256 `329a98798893eeb41bbe8a3e784996186b7da3a59510083d8e03df0aa21888ea` | The datum, the control surfaces' travel, the maximum operating altitude |
 | EASA type certificate data sheet E.012, RB211 Trent 900, issue 12, 16 March 2026 | <https://www.easa.europa.eu/en/downloads/7779/en>, SHA-256 `cc9b0e050db0adf2a4edcfc156b75045a2e947c21ae49169347c8c206974cdb5` | The Trent 970-84's take-off thrust and fan |
@@ -283,7 +292,7 @@ to are `assets/figures/learjet35a.xml`.
 
 | Document | Copy consulted | What is taken from it |
 | --- | --- | --- |
-| Gates Learjet 35A/36A Airplane Flight Manual, FM-108, change 23, FAA approved, with the FC-530 autopilot | A scan at <https://archive.org/details/learjet-35-36-afm-fc-530>, uploaded by a user, SHA-256 `e3e34e6b721854f12c7334b4e8911552eb857360d40bcafade87100919cd3a44` | The limitations, the weight and balance data - stations, chord, gear, fuel - and the performance charts: the stall speeds and take-off field length; and figure 2-2, the horizontal stabilizer's take-off setting by the centre of gravity |
+| Gates Learjet 35A/36A Airplane Flight Manual, FM-108, change 23, FAA approved, with the FC-530 autopilot | A scan at <https://archive.org/details/learjet-35-36-afm-fc-530>, uploaded by a user, SHA-256 `e3e34e6b721854f12c7334b4e8911552eb857360d40bcafade87100919cd3a44` | The limitations, the weight and balance data - stations, chord, gear, fuel - and the performance charts: the stall speeds and take-off field length; and figure 2-2, the horizontal stabilizer's take-off setting by the centre of gravity; and figures 5-52 and 5-53, pages 5-69 and 5-70, the actual and factored landing distances |
 | FAA type certificate data sheet A10CE, revision 67, 19 February 2015 | The FAA's regulatory library, read through the Internet Archive, SHA-256 `107c11ef1988b089d5fbf561da9a27938675f5d403d364cb9245733c98ed5114` | The engines' thrust, the controls' travel, the mean aerodynamic chord, the maximum operating altitude |
 | NTSB, operational factors group chair's factual report, WPR22FA068 (Learjet 35A N880Z) | <https://data.ntsb.gov/Docket/Document/docBLOB?ID=16325896&FileExtension=pdf&FileName=WPR22FA068+Factual+Report-Final-Rel.pdf>, SHA-256 `b3f302502c0bfba3c81518b0b9ff334d0d8dbf87c2fcd0ee6448694161ea373b` | A 35A's basic empty weight; the span between the tip tanks' centres |
 | Learjet 35/35A/36/36A Maintenance Manual (MM-99), chapters 6, 8 and 27 | <https://intaerotechamt.com/Lear/L35AMM/L35AMM-27.pdf>, SHA-256 `a482a9635e2ab6f880bad04cdcf7d4741aadbe827acf627eda90491d2d5e7c75`; <https://intaerotechamt.com/Lear/L35AMM/L35AMM-06.pdf>, SHA-256 `3ae55c96b887dc4e13b01c2683159a8ba637c6fe7f5a93088a07947d85f07f14`; <https://intaerotechamt.com/Lear/L35AMM/L35AMM-08.pdf>, SHA-256 `50e2422ac92fa224e3774eac747468980b593054584872f396df3d4f29f7689d`. A training copy | 27-40-00: the horizontal stabilizer's travel, 1 deg 30' to 1 deg 55' and 8 deg 30' to 9 deg 00' leading edge down from its rigging neutral, measured by clinometer with the aircraft levelled (8-10-00); 6-00-01: the fuselage's outside diameter, 5 ft 3 in; 6-00-02 and 6-00-03: the water lines of the fuselage's bottom, its floor and the engine beams, and the main wheels' station, checked against the model; 6-00-00 figure 1 sheet 2, the side view: where the ventral fin's lower aft edge is, which her tail strikes the runway with |

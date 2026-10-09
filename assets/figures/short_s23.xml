@@ -132,7 +132,8 @@
   </glide_speeds>
 
   <no_landing_distance>
-    A flying boat: it lands on water, and nothing published gives its landing
-    run. No runway is refused it for length.
+    A flying boat: she lands on water, never on a runway, so a runway length
+    check does not apply to her at all; and nothing published (Flight, 1936, as
+    read) gives her landing run. No runway is refused her for length.
   </no_landing_distance>
 </published_figures>

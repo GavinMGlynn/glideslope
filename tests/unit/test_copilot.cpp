@@ -494,9 +494,8 @@ GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land
     const auto catalogue = glideslope::sim::read_catalogue(data);
     // The aircraft whose files say nothing published gives a landing
     // distance (`<no_landing_distance>`), each file saying why.
-    const std::vector<std::string> unpublished{"b2",           "f15c",      "f22",  "f35b",
-                                               "j3cub",        "learjet35a", "mosquito-fb6",
-                                               "short_s23"};
+    const std::vector<std::string> unpublished{"b2",    "f22",          "f35b",
+                                               "j3cub", "mosquito-fb6", "short_s23"};
     constexpr std::size_t aircraft = 16;
     check(catalogue.size() == aircraft,
           "the catalogue holds " + std::to_string(catalogue.size()) + " aircraft, not " +
@@ -557,7 +556,7 @@ GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land
         refused_and_taken += ok ? 1U : 0U;
     }
     check(without == unpublished, "the aircraft with no published landing distance are the "
-                                  "eight named, and no others");
+                                  "six named, and no others");
     check(refused_and_taken + without.size() == aircraft &&
               refused_and_taken == aircraft - unpublished.size(),
           std::to_string(refused_and_taken) + " of " +
