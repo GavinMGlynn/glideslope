@@ -5438,19 +5438,141 @@ GLIDESLOPE_TEST(every_landplane_landed_by_hand_and_handed_over_in_a_skip_is_land
     every_landplane_taken_back(OnTheRoll::landed_by_hand_and_taken_back_in_a_skip);
 }
 
-// **And a take-off handed over at lift-off is not a skip**: every landplane
-// taught the approach (13; the flying boat named), taken off by the pilot at
-// full power - the take-off autopilot's controls as the pilot's - and handed
-// to the AI on the step her wheels leave the runway, is given the plain
-// autopilot, not a landing to stop her. (Whether the plain autopilot then
-// climbs her away is not asked here: it holds the height she was handed over
-// at, and seven of the 13 touch the runway again within 30 s - an item of
-// its own, "A take-off handed to the AI at lift-off is not climbed away".)
-GLIDESLOPE_TEST(a_take_off_handed_over_at_lift_off_is_given_the_plain_autopilot_not_a_landing) {
+namespace {
+
+// How a take-off flown by the pilot and handed to the AI went.
+struct HandedOverTakingOff {
+    bool handed = false;
+    bool given_landing = false;
+    bool given_take_off = false;
+    double throttle = 0.0;  // the pilot's, at the hand-over
+    double climb_fpm = 0.0; // and her climb then
+    double handed_ft = 0.0; // her height over the runway then
+    double since_wheels_s = 0.0; // and how long since her wheels left it
+    double highest_ft = 0.0; // the highest she was taken, before and after
+    double last_ft = 0.0;    // where she was at the end
+    bool came_down = false;  // whether her wheels touched the runway again
+    bool autopilot_flying = false; // the take-off over, at the end
+};
+
+// **When she is handed over** (`take_off_handed_over`).
+enum class HandedOver {
+    // On the step her wheels leave the runway.
+    at_lift_off,
+    // Taken off and levelled at 200 ft by an autopilot of the pilot's own,
+    // engaged at 35 ft, and handed over once she has held it within 25 ft
+    // for ten seconds, on a step she climbs or sinks at less than 100
+    // ft/min, the throttle in hand pushed fully open. (Asked to hold 100
+    // ft/min for the ten seconds, the A380 at her take-off flap swung 15 ft
+    // either side of 200 ft at up to 350 ft/min for three minutes.)
+    level_low_down,
+};
+
+// `entry`, taken off by the pilot at full power from a runway - the
+// take-off autopilot's controls as the pilot's - with her controller told
+// how she lands and takes off, handed to the AI `when` and flown `after_s`
+// seconds from then.
+HandedOverTakingOff take_off_handed_over(const glideslope::sim::CatalogueEntry& entry,
+                                         HandedOver when, double after_s) {
+    constexpr double level_ft = 200.0;
+    const glideslope::sim::Runway runway = a_runway();
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    load_as_its_figures_were_measured(aircraft, entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+    const auto departs = glideslope::sim::departure_speeds(data(), entry.model);
+    glideslope::sim::Departure takeoff(aircraft, runway, departs);
+    glideslope::sim::Controls pilot = takeoff.fly();
+    glideslope::sim::Controller controller(aircraft, pilot);
+    controller.lands_with(*glideslope::sim::landing_speeds(data(), entry.model));
+    controller.takes_off_with(departs);
+    std::optional<glideslope::sim::Autopilot> levelled;
+    HandedOverTakingOff r;
+    bool was_down = false;
+    double left_at_s = -1.0;
+    int level_steps = 0;
+    int handed_at = -1;
+    const auto height_ft = [&] { return aircraft.state().altitude_ft - runway.elevation_ft; };
+    for (int tick = 0; tick < 600 * steps_per_second; ++tick) {
+        const bool down = aircraft.property("gear/wow") > 0.5;
+        const double climb_fpm = aircraft.property("velocities/h-dot-fps") * 60.0;
+        if (was_down && !down) {
+            left_at_s = aircraft.state().sim_time_s;
+        }
+        if (!r.handed) {
+            bool hand_over = false;
+            if (when == HandedOver::at_lift_off) {
+                pilot = takeoff.fly();
+                hand_over = was_down && !down;
+            } else {
+                // Off the take-off's law at the 35 ft screen, an autopilot of
+                // the pilot's flies her on up to `level_ft` and holds it there:
+                // engaged at `level_ft` itself, a jet climbing at thousands of
+                // feet a minute ran on past 400.
+                if (!levelled && left_at_s >= 0.0 &&
+                    aircraft.property("position/h-agl-ft") >= 35.0) {
+                    levelled.emplace(aircraft, pilot);
+                    glideslope::sim::AutopilotModes modes = levelled->modes();
+                    modes.altitude_ft = runway.elevation_ft + level_ft;
+                    modes.vertical_speed_fpm = 500.0;
+                    levelled->set(modes);
+                }
+                pilot = levelled ? levelled->fly() : takeoff.fly();
+                level_steps = levelled && std::abs(height_ft() - level_ft) <= 25.0
+                                  ? level_steps + 1
+                                  : 0;
+                hand_over = level_steps >= 10 * steps_per_second && std::abs(climb_fpm) < 100.0;
+                if (hand_over) {
+                    pilot.throttle = 0.99;
+                }
+            }
+            controller.set_pilot(pilot);
+            if (hand_over) {
+                r.handed = true;
+                r.throttle = pilot.throttle;
+                r.climb_fpm = climb_fpm;
+                r.handed_ft = height_ft();
+                r.since_wheels_s = aircraft.state().sim_time_s - left_at_s;
+                controller.to_ai();
+                r.given_landing = controller.lander() != nullptr;
+                r.given_take_off = controller.departure() != nullptr;
+                handed_at = tick;
+            }
+        }
+        was_down = down;
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        r.highest_ft = std::max(r.highest_ft, height_ft());
+        if (r.handed) {
+            r.came_down = r.came_down || aircraft.property("gear/wow") > 0.5;
+            r.last_ft = height_ft();
+            if (static_cast<double>(tick - handed_at) >=
+                after_s * static_cast<double>(steps_per_second)) {
+                break;
+            }
+        }
+    }
+    r.autopilot_flying = controller.autopilot_flying();
+    return r;
+}
+
+// Every landplane taught the approach - the 13 a pilot may be handed back
+// on a runway - `each` given each, and their count asserted; the flying
+// boat, which takes off from water, named.
+void every_landplane_taking_off(
+    const std::function<void(const std::string&, const glideslope::sim::CatalogueEntry&)>& each) {
     const auto taught = everyone_taught("approach-and-landing");
     std::size_t flown = 0;
     std::size_t left_out = 0;
-    std::vector<std::string> wrong;
     for (const std::string& id : taught) {
         const auto entry = glideslope::sim::find_aircraft(data(), id);
         if (entry.seaplane) {
@@ -5458,78 +5580,119 @@ GLIDESLOPE_TEST(a_take_off_handed_over_at_lift_off_is_given_the_plain_autopilot_
             ++left_out;
             continue;
         }
-        const glideslope::sim::Runway runway = a_runway();
-        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
-        load_as_its_figures_were_measured(aircraft, entry.model);
-        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
-            [](double, double) { return 0.0; }, [](double, double) { return false; }));
-        glideslope::sim::InitialConditions ic;
-        ic.latitude_deg = runway.threshold_lat_deg;
-        ic.longitude_deg = runway.threshold_lon_deg;
-        ic.altitude_ft = runway.elevation_ft;
-        ic.terrain_elevation_ft = runway.elevation_ft;
-        ic.heading_deg = runway.heading_deg;
-        ic.engine_running = true;
-        ic.gear = 1.0;
-        aircraft.initialize(ic);
-        glideslope::sim::Departure takeoff(
-            aircraft, runway, glideslope::sim::departure_speeds(data(), entry.model));
-        glideslope::sim::Controls pilot = takeoff.fly();
-        glideslope::sim::Controller controller(aircraft, pilot);
-        controller.lands_with(*glideslope::sim::landing_speeds(data(), entry.model));
-        bool was_down = false;
-        bool handed = false;
-        double handed_ft = 0.0;
-        double highest_ft = 0.0;
-        double throttle_at_hand_over = 0.0;
-        bool given_landing = true;
-        bool came_down = false;
-        int handed_at = -1;
-        for (int tick = 0; tick < 300 * steps_per_second; ++tick) {
-            const bool down = aircraft.property("gear/wow") > 0.5;
-            if (!handed) {
-                pilot = takeoff.fly();
-                controller.set_pilot(pilot);
-                if (was_down && !down) {
-                    throttle_at_hand_over = pilot.throttle;
-                    controller.to_ai();
-                    handed = true;
-                    given_landing = controller.lander() != nullptr;
-                    handed_ft = aircraft.property("position/h-agl-ft");
-                    handed_at = tick;
-                }
-            }
-            was_down = down;
-            aircraft.set_controls(controller.fly());
-            aircraft.step();
-            if (handed) {
-                came_down = came_down || aircraft.property("gear/wow") > 0.5;
-                highest_ft = aircraft.property("position/h-agl-ft");
-                if (tick - handed_at >= 30 * steps_per_second) {
-                    break;
-                }
-            }
-        }
-        std::printf("  %-13s handed over at lift-off at %.2f throttle: %s, %.0f ft higher 30 s "
-                    "later%s\n",
-                    id.c_str(), throttle_at_hand_over,
-                    given_landing ? "given a landing" : "the plain autopilot",
-                    highest_ft - handed_ft, came_down ? ", touching the runway again" : "");
+        each(id, entry);
         ++flown;
-        if (!handed) {
-            wrong.push_back(id + " never left the ground");
-        } else if (given_landing) {
-            wrong.push_back(id + " was given a landing at lift-off");
-        }
     }
+    check(flown + left_out == taught.size() && left_out == 1 && flown == 13,
+          "every landplane taught the approach taken off: " + std::to_string(flown) + " of " +
+              std::to_string(taught.size() - left_out) + ", 13 expected");
+}
+
+void say_wrong(const std::vector<std::string>& wrong) {
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(flown + left_out == taught.size() && left_out == 1,
-          "every landplane taught the approach handed over at lift-off: " +
-              std::to_string(flown) + " of " + std::to_string(taught.size() - 1));
+}
+
+} // namespace
+
+// **And a take-off handed over at lift-off is not a skip**: every landplane
+// taught the approach (13; the flying boat named), taken off by the pilot at
+// full power - the take-off autopilot's controls as the pilot's - and handed
+// to the AI on the step her wheels leave the runway, inside the skip's
+// second and three feet, is not given a landing to stop her.
+GLIDESLOPE_TEST(a_take_off_handed_over_at_lift_off_is_not_given_a_landing) {
+    std::vector<std::string> wrong;
+    every_landplane_taking_off([&](const std::string& id,
+                                   const glideslope::sim::CatalogueEntry& entry) {
+        const HandedOverTakingOff r = take_off_handed_over(entry, HandedOver::at_lift_off, 5.0);
+        std::printf("  %-13s handed over at lift-off at %.2f throttle: %s\n", id.c_str(),
+                    r.throttle, r.given_landing ? "GIVEN A LANDING" : "not a landing");
+        if (!r.handed) {
+            wrong.push_back(id + " never left the ground");
+        } else if (r.given_landing) {
+            wrong.push_back(id + " was given a landing at lift-off");
+        }
+    });
+    say_wrong(wrong);
+}
+
+// **A take-off handed over at lift-off is climbed away**: every landplane
+// taught the approach (13; the flying boat named), handed to the AI on the
+// step her wheels leave the runway, is given the take-off's own climb-out
+// (Controller::takes_off_with), never touches the runway again, and is
+// climbed through 500 ft above it (Controller::lift_off_climb_to_ft) and
+// handed to the autopilot within three minutes. Given the plain autopilot
+// instead, which held the height she was handed over at, seven of the 13
+// touched the runway again within 30 s.
+GLIDESLOPE_TEST(every_landplane_handed_over_at_lift_off_climbs_away_through_500_ft_and_never_touches_the_runway) {
+    std::vector<std::string> wrong;
+    every_landplane_taking_off([&](const std::string& id,
+                                   const glideslope::sim::CatalogueEntry& entry) {
+        const HandedOverTakingOff r = take_off_handed_over(entry, HandedOver::at_lift_off, 180.0);
+        std::printf("  %-13s handed over %.1f ft up climbing %.0f ft/min at %.2f throttle: %s, "
+                    "%.0f ft at most, %.0f at the end%s%s\n",
+                    id.c_str(), r.handed_ft, r.climb_fpm, r.throttle,
+                    r.given_take_off ? "the climb-out" : "NOT the climb-out", r.highest_ft,
+                    r.last_ft, r.came_down ? ", TOUCHING THE RUNWAY AGAIN" : "",
+                    r.autopilot_flying ? ", the autopilot's" : ", still taking off");
+        const std::string where = id + " handed over at lift-off";
+        if (!r.handed) {
+            wrong.push_back(id + " never left the ground");
+            return;
+        }
+        if (!r.given_take_off) {
+            wrong.push_back(where + " was not given the climb-out");
+        }
+        if (r.came_down) {
+            wrong.push_back(where + " touched the runway again");
+        }
+        if (r.highest_ft < glideslope::sim::Controller::lift_off_climb_to_ft) {
+            wrong.push_back(where + " climbed to only " + std::to_string(r.highest_ft) + " ft");
+        }
+        if (!r.autopilot_flying) {
+            wrong.push_back(where + " was still taking off three minutes later");
+        }
+    });
+    say_wrong(wrong);
+}
+
+// **But levelled low down she is not taken for a take-off**: every landplane
+// taught the approach (13; the flying boat named), taken off by the pilot
+// and levelled at 200 ft by an autopilot of the pilot's own - never higher
+// than 400 ft, inside five minutes of her wheels - and handed over level,
+// with the throttle in hand pushed fully open so that only her climb tells
+// her from a take-off, is given the plain autopilot, not the climb-out.
+GLIDESLOPE_TEST(a_take_off_levelled_low_down_and_handed_over_is_not_given_the_climb_out) {
+    std::vector<std::string> wrong;
+    every_landplane_taking_off([&](const std::string& id,
+                                   const glideslope::sim::CatalogueEntry& entry) {
+        const HandedOverTakingOff r =
+            take_off_handed_over(entry, HandedOver::level_low_down, 5.0);
+        std::printf("  %-13s levelled, handed over %.0f ft up, %.0f s after her wheels, "
+                    "climbing %.0f ft/min, %.0f ft at most: %s\n",
+                    id.c_str(), r.handed_ft, r.since_wheels_s, r.climb_fpm, r.highest_ft,
+                    r.given_take_off ? "GIVEN THE CLIMB-OUT" : "the plain autopilot");
+        const std::string where = id + " levelled low down";
+        if (!r.handed) {
+            wrong.push_back(where + " never held her height for ten seconds");
+            return;
+        }
+        // The situation, built: every rule but the climb would take her.
+        if (r.highest_ft > glideslope::sim::Controller::lift_off_below_ft ||
+            r.since_wheels_s > glideslope::sim::Controller::lift_off_within_s ||
+            r.throttle <= glideslope::sim::Controller::lift_off_throttle ||
+            std::abs(r.climb_fpm) >= glideslope::sim::Controller::lift_off_climbing_fpm) {
+            wrong.push_back(where + " was not handed over low, soon, level and at full throttle");
+        }
+        if (r.given_take_off || r.given_landing) {
+            wrong.push_back(where + " was given " +
+                            (r.given_take_off ? "the climb-out" : "a landing"));
+        }
+    });
+    say_wrong(wrong);
 }
 
 // **Handed over taxiing, she is stopped with the throttle no more than half

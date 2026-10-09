@@ -300,6 +300,30 @@ Departure::Departure(const Aircraft& aircraft, const Runway& runway,
     }
 }
 
+Departure Departure::from_lift_off(const Aircraft& aircraft, const Runway& runway,
+                                   double standing_ft, const DepartureSpeeds& speeds,
+                                   const Controls& handed, double to_ft) {
+    Departure d(aircraft, runway, speeds, to_ft);
+    const AircraftState s = aircraft.state();
+    d.standing_m_ = standing_ft / feet_per_metre;
+    // Rotated and off: the rotation begun from the attitude she has, and
+    // carried on to the take-off attitude while she is in ground effect.
+    d.stage_ = Stage::rotate;
+    d.rotation_begun_ = true;
+    d.rotation_began_kts_ = s.airspeed_kts;
+    d.rotate_pitch_ = s.pitch_deg;
+    d.rotated_off_ = true;
+    d.was_on_ground_ = false;
+    d.left_at_pitch_deg_ = s.pitch_deg;
+    // Her throttle as handed, opened on to full from there.
+    d.throttle_ = handed.throttle;
+    // **The stick where the pilot held it**, as trim: the law adds to it
+    // what the attitude asks, and the pull the rotation winds on, from none.
+    d.pitch_trim_ = std::clamp(handed.elevator, -0.8, 0.8);
+    d.last_elevator_ = handed.elevator;
+    return d;
+}
+
 // **The take-off flap brought up**, a notch at a time where the model's
 // lever has notches (Aircraft::flap_notches), at a hand's pace: from the
 // height her speeds give and at her initial climb speed, and each notch only

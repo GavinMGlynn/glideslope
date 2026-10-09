@@ -98,6 +98,41 @@ public:
     // brakes are set to autobrake 3.
     using RunwayUnder = std::function<std::optional<Runway>(const Aircraft&)>;
     void finds_runways_with(RunwayUnder runway_under) { runway_under_ = std::move(runway_under); }
+    // **How she takes off**, for a take-off the pilot made and hands to the
+    // AI just after lift-off (`lifting_off`): her departure speeds, from her
+    // figures (`departure_speeds`). Handed over so, she is climbed away by
+    // the take-off's own law (sim::Departure::from_lift_off) to
+    // `lift_off_climb_to_ft` above the ground she left, her flap brought up
+    // as a take-off brings it, and then given the plan or the hold as any
+    // hand-over is - not the plain autopilot at once, which holds the height
+    // she was handed over at, and put seven of thirteen landplanes handed
+    // over on the step their wheels left back on the runway within 30 s.
+    // Without them such a hand-over is the plain autopilot.
+    void takes_off_with(const DepartureSpeeds& speeds) { takeoff_speeds_ = speeds; }
+    // **Just after lift-off**, as a hand-over now would find her: off her
+    // wheels and out of the water, with the pilot's throttle more than half
+    // open - the line the roll's hand-over draws between a landing and a
+    // take-off - and either within a second of her wheels (the skip's
+    // second, at the very lift-off, before she has a climb to show) or
+    // climbing at more than `lift_off_climbing_fpm`; never since her wheels
+    // left higher than `lift_off_below_ft` above the ground she left, and
+    // within `lift_off_within_s` of it.
+    bool lifting_off() const;
+    // **The thresholds**: 400 ft is the height below which a take-off path
+    // changes nothing of her configuration (14 CFR 25.111(c)(4)) and the
+    // highest any class raises its take-off flap from
+    // (DepartureSpeeds::flaps_up_ft) - above it the take-off's work is done
+    // but for the flap, and a hold there holds her clear of the ground. 100
+    // ft/min is what the stall recovery counts as level
+    // (`notice_a_stall`), so a level hand-over is never a climb. Five
+    // minutes is the most rated take-off power may be used for (14 CFR 1.1),
+    // where a take-off's own law ends (sim::Departure). 500 ft is where the
+    // AI's own take-off ends by default (`to_ai_take_off`).
+    static constexpr double lift_off_below_ft = 400.0;
+    static constexpr double lift_off_climbing_fpm = 100.0;
+    static constexpr double lift_off_throttle = 0.5;
+    static constexpr double lift_off_within_s = 300.0;
+    static constexpr double lift_off_climb_to_ft = 500.0;
     void to_ai(FlightPlan plan);
 
     // **The AI pilot can take off and land, not only hold and navigate.**
@@ -293,6 +328,17 @@ private:
     static constexpr double skip_ft = 3.0;
     std::optional<double> wheels_down_at_s_;
     double wheels_down_agl_ft_ = 0.0;
+    // And where they were, along which track, and how high she has been
+    // since they left: the ground a take-off left, for `lifting_off`.
+    double wheels_down_lat_deg_ = 0.0;
+    double wheels_down_lon_deg_ = 0.0;
+    double wheels_down_alt_ft_ = 0.0;
+    double wheels_down_track_deg_ = 0.0;
+    double highest_since_wheels_ft_ = 0.0;
+    std::optional<DepartureSpeeds> takeoff_speeds_;
+    // Handed over just after lift-off, the take-off's climb-out; whether it
+    // was given.
+    bool climb_out_if_lifting_off();
     std::shared_ptr<const LearntPolicy> landing_policy_;
     // Flying a plan's way on to its final approach (`land`): six and four
     // miles out on the centreline.

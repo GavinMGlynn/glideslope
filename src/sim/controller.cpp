@@ -137,12 +137,49 @@ void Controller::to_ai() {
         lander_->resume(applied_.throttle);
         lander_->hand_mixture(applied_.mixture);
         easing_in_ = true;
+        return;
     }
+    climb_out_if_lifting_off();
+}
+
+bool Controller::lifting_off() const {
+    if (!wheels_down_at_s_ || a_.property("gear/wow") > 0.5 || a_.in_water() ||
+        pilot_.throttle <= lift_off_throttle) {
+        return false;
+    }
+    const double since_s = a_.state().sim_time_s - *wheels_down_at_s_;
+    const double ground_ft = wheels_down_alt_ft_ - wheels_down_agl_ft_;
+    const bool climbing = a_.property("velocities/h-dot-fps") * 60.0 > lift_off_climbing_fpm;
+    return since_s <= lift_off_within_s && (since_s <= skip_s || climbing) &&
+           highest_since_wheels_ft_ - ground_ft <= lift_off_below_ft &&
+           a_.state().altitude_ft - ground_ft <= lift_off_below_ft;
+}
+
+bool Controller::climb_out_if_lifting_off() {
+    if (!takeoff_speeds_ || !lifting_off()) {
+        return false;
+    }
+    // The runway she left: the ground under her wheels as they last bore
+    // weight, along the track she was rolling on.
+    Runway left;
+    left.name = "her take-off";
+    left.threshold_lat_deg = wheels_down_lat_deg_;
+    left.threshold_lon_deg = wheels_down_lon_deg_;
+    left.elevation_ft = wheels_down_alt_ft_ - wheels_down_agl_ft_;
+    left.heading_deg = wheels_down_track_deg_;
+    departure_.emplace(Departure::from_lift_off(a_, left, wheels_down_agl_ft_, *takeoff_speeds_,
+                                                applied_, lift_off_climb_to_ft));
+    departure_->hand_mixture(applied_.mixture);
+    easing_in_ = true;
+    return true;
 }
 
 void Controller::to_ai(FlightPlan plan) {
     engage();
     navigator_.emplace(a_, std::move(plan));
+    // **Just after lift-off, the climb-out first**, and the plan from where
+    // it leaves her, as a plan that takes off is flown (`to_ai_flying`).
+    climb_out_if_lifting_off();
 }
 
 void Controller::replan(FlightPlan plan) {
@@ -398,8 +435,22 @@ bool Controller::runway_not_clear(const Runway& runway) const {
 
 Controls Controller::fly() {
     if (a_.property("gear/wow") > 0.5) {
-        wheels_down_at_s_ = a_.state().sim_time_s;
+        const AircraftState s = a_.state();
+        wheels_down_at_s_ = s.sim_time_s;
         wheels_down_agl_ft_ = a_.property("position/h-agl-ft");
+        wheels_down_lat_deg_ = s.latitude_deg;
+        wheels_down_lon_deg_ = s.longitude_deg;
+        wheels_down_alt_ft_ = s.altitude_ft;
+        // Her track over the ground; her heading if she is barely moving.
+        const double v_north = a_.property("velocities/v-north-fps");
+        const double v_east = a_.property("velocities/v-east-fps");
+        const double track_deg = std::hypot(v_north, v_east) > 1.0
+                                     ? std::atan2(v_east, v_north) * 180.0 / std::numbers::pi
+                                     : s.heading_deg;
+        wheels_down_track_deg_ = std::fmod(track_deg + 360.0, 360.0);
+        highest_since_wheels_ft_ = s.altitude_ft;
+    } else {
+        highest_since_wheels_ft_ = std::max(highest_since_wheels_ft_, a_.state().altitude_ft);
     }
     if (flying_ == Flying::ai) {
         // **Landed, she taxis off the runway** and stops beside it, where
@@ -415,9 +466,17 @@ Controls Controller::fly() {
         // taking off and starts flying.
         if (departure_) {
             if (departure_->stage() != Departure::Stage::done) {
-                applied_ = departure_->fly();
+                // Taken over at lift-off, its controls reached from the
+                // pilot's at a hand's pace, as a landing's are.
+                const Controls takeoff = departure_->fly();
+                if (easing_in_) {
+                    easing_in_ = !towards(applied_, takeoff);
+                } else {
+                    applied_ = takeoff;
+                }
                 return applied_;
             }
+            easing_in_ = false;
             departure_.reset();
             autopilot_.emplace(a_, applied_);
             // **A light aeroplane's climb is eased down to the plan's**

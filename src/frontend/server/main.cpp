@@ -3167,6 +3167,22 @@ private:
         if (it->second) {
             controller->lands_with(*it->second);
         }
+        // **And how she takes off**, for a take-off a player hands to the AI
+        // just after lift-off: climbed away, not held at the height she has.
+        auto departs = takes_off_with_.find(model);
+        if (departs == takes_off_with_.end()) {
+            std::optional<glideslope::sim::DepartureSpeeds> speeds;
+            try {
+                speeds = glideslope::sim::departure_speeds(data_, model);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "  %s: no departure speeds for a take-off taken over at "
+                                     "lift-off (%s)\n", model.c_str(), e.what());
+            }
+            departs = takes_off_with_.emplace(model, speeds).first;
+        }
+        if (departs->second) {
+            controller->takes_off_with(*departs->second);
+        }
         // And the learnt landing, where she has one, for a plan that ends in
         // a landing (`land`).
         controller->lands_learnt(learnt_for(model));
@@ -3686,6 +3702,7 @@ private:
     std::map<std::string, Speeds> speeds_;
     // How each model lands, for its controllers (`controller_for`).
     std::map<std::string, std::optional<glideslope::sim::ApproachSpeeds>> lands_with_;
+    std::map<std::string, std::optional<glideslope::sim::DepartureSpeeds>> takes_off_with_;
     std::map<std::string, std::shared_ptr<const glideslope::sim::LearntPolicy>> learnt_;
     // Where players start, on final (`--players-on-final`), or none.
     std::optional<glideslope::sim::Runway> on_final_;

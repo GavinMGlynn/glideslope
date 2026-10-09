@@ -318,6 +318,10 @@ private:
     // roll (`Controller::lands_with`); none where her figures publish no
     // stall speed.
     std::optional<sim::ApproachSpeeds> lands_with_;
+    // How she takes off, for a take-off flown by hand and handed to the AI
+    // just after lift-off (`Controller::takes_off_with`); none where her
+    // figures give no departure speeds.
+    std::optional<sim::DepartureSpeeds> takes_off_with_;
     // On a server: the prediction, and the sequence of the inputs being flown.
     std::unique_ptr<sim::Prediction> prediction_;
     // Where each step flown forward left the aircraft, and whether the
