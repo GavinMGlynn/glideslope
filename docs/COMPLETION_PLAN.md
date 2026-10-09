@@ -518,13 +518,13 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       lift's peak at speed; at the warning the F-15C, F-35B, Learjet and
       S.23 past their lesson's height and the Mosquito never level again;
       and the AI pilot noticing a stall.
-- [ ] **A light aeroplane's take-off hands over slower than the plan's
-      climb floor.** Since 2026-10-09 the take-off climbs her at her
+- [x] **A light aeroplane's take-off hands over slower than the plan's
+      climb floor.** Done 2026-10-09: the take-off climbs her at her
       handbook's best-climb speed whatever she weighs, as the plan does, and
-      hands her over within 0.6 kt of it; no first leg is climbed more than
-      1.9 kt under it. Missing: the 182S runs 2.04 kt over it for a few
-      seconds as the plan cuts the take-off's full-power climb to its own. *Verification: every light aeroplane's first leg is
-      climbed within 2 kt of one climb speed, from the hand-over.*
+      the autopilot takes her on without pitching up or running past it; the
+      worst, the 182S, 1.1 kt over. *Verification: every light aeroplane's
+      first leg is climbed within 2 kt of one climb speed, from the
+      hand-over.*
 - [x] **On tight, slow orbits the navigator flies inside the circle.**
       *Verification: an orbit at the tightest radius allowed, at the approach
       speed, is flown within a stated distance of its circle, measured, not
