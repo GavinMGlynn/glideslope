@@ -265,6 +265,100 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### One handed to the AI between two layers is turned away; one handed over in a spiral is rolled level before it is pulled, 2026-10-09 — item still open
+
+**What is missing first.** **Arriving between two layers inside 1.5 nm of
+one, an aircraft is under the minimum until it is 1.5 nm away**: no height
+in a 1,000 ft gap is more than 500 ft from both, so until it has turned
+away that far it is at the minimum at best - 38.9 s in the built case
+below, against a stated bound of 50 s, and never after the first minute.
+Nothing yet moves the layers' own aircraft apart to make room for it, which
+is the only way to zero. **A handed aircraft flying a copilot's route is
+not measured in a run.** And, out of this item's scope, **nothing keeps a
+person's aircraft clear**: the item is about AI aircraft, and a person's
+is given way to, not measured. So the item stays open, with those named.
+
+**The case, and what was wrong.** The 2026-10-08 run that lost separation
+for 69.6 s (`--fly`: the player's full aileron for two seconds, then the
+hand-over) was traced step by step on this branch: the AI was given the
+aircraft at 65 degrees of bank, 49 nose down, 498 ft over the higher
+layer, and it **pulled in the spiral before rolling level** - the bank
+asked walked back at a turn's 5 degrees a second, the pitch asked rose at
+3 a second, and the elevator's trim wound nose-up all the way down - so it
+spiralled down through the higher layer's height (0 ft at least, within
+1.5 nm), took 20 s to roll level, and then zoomed 400 ft back up through
+the height it was held to, to 52 kt. Between the layers the monitor's
+"squeezed between two" rule held it to whichever side asked less of it,
+which is within the minimum of the other: held there, the old monitor
+loses separation for as long as they fly together.
+
+**What changed.**
+- **Squeezed between two, turned away** (`sim::separate`,
+  `HeightLimit::heading_deg`): an aircraft that gives way and has no
+  height 700 ft from all those it gives way to is given a heading directly
+  away from the nearest it would pass through, and held in the middle of
+  the gap until it is 1.5 nm from every one of those; then it is taken
+  above them all or below, the side that asks less of it, and not into the
+  ground, still turned away until it is clear. This is what a controller's
+  safety alert does - "traffic alert, advise you turn left heading ...,
+  climb and maintain ... immediately" (FAA JO 7110.65, 2-1-6) - turning and
+  climbing at once; TCAS's resolution advisories are vertical only, and no
+  vertical manoeuvre alone keeps it apart here. The turn is the autopilot's
+  own heading loop (`Autopilot::turn_away`, through `Controller`): its
+  25 degrees of bank, rolled into at its 5 degrees a second. The server
+  says it: "aircraft 0, c172p (slot 0), is held at 3427 ft, clear of
+  aircraft 5, turned away to heading 185".
+- **An upset is rolled level before it is pulled** (`Autopilot`,
+  `upset_bank_deg`): banked past 45 degrees, no turn is asked until the
+  wings are level, the bank asked comes back at 15 degrees a second (three
+  times a turn's), the nose is not raised and the elevator's trim is not
+  wound - unload, roll, then pull, the nose-low recovery of the FAA's
+  Airplane Upset Prevention and Recovery Training Aid (AC 120-111). The
+  controls still move no faster than a hand: the most the handed Cessna's
+  aileron, elevator or rudder moved in a step was 0.0083 of full travel,
+  half a hand's (1/60).
+
+**Verification.**
+- `an_aircraft_handed_to_the_ai_between_two_layers_is_turned_away_and_kept_apart_from_both_after_its_arrival`
+  (`test_separation.cpp`): three C172Ps in JSBSim, built exactly - layers
+  at 3,000 and 4,000 ft flying north at 100 kt, the handed one 600 m behind
+  the lower at 3,400 ft holding north and 3,400 - flown 300 s (36,000 of
+  36,000 steps, asserted) without and with the monitor. Without: 400 ft at
+  least within 1.5 nm of the lower, lost 300 s. With: turned away 45.6 s,
+  lost 38.9 s from the lower (least 400 ft, its arrival), never after 38.9 s,
+  never from the higher (least 511 ft); its controls at most 0.0083 a step.
+  Bound: 50 s lost, none after the first minute, with the reason above.
+  **Seen to fail** with the old `separate` (the side that asks less):
+  "turned away for 0.0 s", at least 300 ft, lost 300 s.
+- `an_aircraft_its_player_rolled_into_a_spiral_over_two_ai_layers_handed_to_the_ai_is_rolled_level_and_never_loses_separation_from_either`
+  (`tests/cmake/server_handed_spiral_kept_apart.cmake`): the 2026-10-08
+  run, as a test - two plan-file AI aircraft, the client's aircraft a
+  thousand feet over them rolled with full aileron and handed over two
+  seconds in - measured over 14,400 steps of the hand-over (two simulated
+  minutes, asserted for both pairs with it), bound zero. Measured: the handed aircraft at least 849 ft from AI 2 within 1.5 nm (350 m at closest), 1,850 ft from AI 1 (606 m), separation lost for 0 s with either; AI 1 and AI 2 1,000 ft, never lost.
+  **Seen to fail** on the code before this branch: AI 2 and the handed
+  aircraft 0 ft at least within 1.5 nm, lost 67.6 s; AI 1 498 ft, 1.35 s.
+  And with the monitor's turn but not the upset's roll: 1 ft, lost 44.75 s
+  (and in a second run, 285 ft and 24.97 s from AI 1) - the spiral, not
+  the gap, is what this run builds, and it does not now come down between
+  the layers: which is why the unit test builds that exactly.
+- `the_monitor_holds_...`: its squeezed rule rewritten - held in the middle
+  and turned south, away from the one it passes; 1.5 nm from it, taken
+  below them all, still turned; and nothing turned that is not squeezed.
+- Re-run and green: the AI aircraft kept 500 ft or 1.5 nm apart over the 15-minute run
+  (425 s), the handed aircraft measured and kept apart, the four
+  hand-overs in the air flown as recorded or holding course, taken back at
+  once, the climb-through and head-on Cessnas, the ceiling and floor, the
+  four CBD orbits as recorded (OpenAI's, Anthropic's, the 747-400's and the
+  F-22's), and the selftest's five: 20 of 20, linux-debug.
+
+The two new tests' linux-debug costs in `tests/ci_costs/linux-debug.txt` are
+estimates - this machine's time and half again - until CI's own replace them.
+
+**The selftest hash does not move**: it flies a fixed input log through
+the test pilot, which neither the monitor nor the autopilot touches
+(`the_selftest_prints_the_same_hash_every_run` passes).
+
 ### The window client draws at a clock that does not step; the take-back test takes the aircraft back on the event, 2026-10-09 — the item stays open
 
 **What is still missing first.** No test builds a large correction through

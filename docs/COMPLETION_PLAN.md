@@ -416,16 +416,17 @@ Found while implementing something else. Added when found, not when remembered.
       the window client's 172 both landed within 5 m and 300 ft/min and
       stopped on the runway; the window client refused with its flaps moving,
       told why, and handed over by L.
-- [ ] **AI aircraft are kept apart along their routes; one handed to the
-      AI between two layers is not.** Since 2026-10-02 the server keeps its
-      own AI aircraft, planned and plan-file, 500 ft or 1.5 nm apart - on
-      1,000 ft layers, and held above or below one another through their
-      autopilots - measured over a 15-minute run with none lost. Since
-      2026-10-08 an aircraft handed to the AI is measured too, and one handed
-      over level above the layers is kept apart; but one its player had
-      rolled into a spiral came down between two layers 1,000 ft apart,
-      where no height is 700 ft from both, and lost separation for 70 s.
-      Nothing keeps a person's aircraft clear.
+- [ ] **AI aircraft are kept apart along their routes; one that arrives
+      between two layers is under the minimum until it has turned away.**
+      Since 2026-10-02 the server keeps its own AI aircraft 500 ft or
+      1.5 nm apart on 1,000 ft layers, measured over a 15-minute run with
+      none lost. Since 2026-10-09 one handed over in a spiral is rolled
+      level before it is pulled and never loses separation, and one between
+      two layers is turned away and taken past them - but arriving inside
+      1.5 nm of a layer it is under the minimum until 1.5 nm away (39 s,
+      bound 50), since nothing moves the layers apart for it; and one flying
+      a copilot's route is not measured in a run. Nothing keeps a person's
+      aircraft clear (not this item).
       *Verification: every AI aircraft a server runs, planned or not, stays a
       stated distance from every other along the whole of its route,
       measured over a whole run.*

@@ -208,6 +208,9 @@ public:
         floor_ft_ = floor_ft;
         ceiling_ft_ = ceiling_ft;
     }
+    // **A heading the AI's autopilot turns to instead of its own**
+    // (Autopilot::turn_away), kept until set again; none is its own.
+    void turn_away(std::optional<double> heading_deg) { away_deg_ = heading_deg; }
     // **The fastest the AI's autopilot may hold** (Autopilot::limit_speed),
     // kept through whatever it flies: her fastest a plan may ask. Only the
     // plain autopilot - holding, navigating, or round a go-around's circuit
@@ -271,6 +274,7 @@ private:
     std::optional<double> glide_kts_;
     std::optional<double> floor_ft_;
     std::optional<double> ceiling_ft_;
+    std::optional<double> away_deg_;
     double glide_sink_fpm_ = 0.0;
     double glide_last_kts_ = 0.0;
     double glide_trend_kts_per_s_ = 0.0;

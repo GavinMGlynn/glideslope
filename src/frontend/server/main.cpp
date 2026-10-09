@@ -2713,6 +2713,8 @@ public:
         // its closest approaches are kept by. Who gives way to whom is not
         // this but the order in the sky, `flown_`'s.
         int held_clear_of = -1;
+        // Turned away from two it is squeezed between (sim/separation.hpp).
+        bool turned_away = false;
         // How far above the plan file's heights it flies that plan.
         double stack_ft = 0.0;
         // **Put on a course by the operator** (`--fly`), which it holds
@@ -3307,6 +3309,7 @@ private:
             const glideslope::sim::HeightLimit& limit = limits[k];
             if (a.controller) {
                 a.controller->limit_height(limit.floor_ft, limit.ceiling_ft);
+                a.controller->turn_away(limit.heading_deg);
             }
             // Whether the limit holds it off where it would go.
             bool binds = false;
@@ -3317,13 +3320,16 @@ private:
             }
             binds = binds || (limit.ceiling_ft && t.altitude_ft > *limit.ceiling_ft) ||
                     (limit.floor_ft && t.altitude_ft < *limit.floor_ft);
+            binds = binds || limit.heading_deg.has_value();
             const int clear_of = binds && limit.clear_of
                                      ? static_cast<int>(who[*limit.clear_of]->index)
                                      : -1;
-            if (clear_of == a.held_clear_of) {
+            const bool turned = limit.heading_deg.has_value();
+            if (clear_of == a.held_clear_of && turned == a.turned_away) {
                 continue;
             }
             a.held_clear_of = clear_of;
+            a.turned_away = turned;
             char line[256];
             if (clear_of < 0) {
                 std::snprintf(line, sizeof line, "aircraft %u, %s, flies its own height again",
@@ -3333,12 +3339,18 @@ private:
                 const double undulation_ft =
                     geoid_.undulation(t.latitude_deg, t.longitude_deg) * feet_per_metre;
                 const bool below = limit.ceiling_ft.has_value();
+                const bool between = below && limit.floor_ft &&
+                                     std::abs(*limit.floor_ft - *limit.ceiling_ft) < 1.0;
                 std::snprintf(line, sizeof line,
                               "aircraft %u, %s, is held %s %.0f ft, clear of aircraft %d",
                               static_cast<unsigned>(a.index), a.id.c_str(),
-                              below ? "below" : "above",
+                              between ? "at" : below ? "below" : "above",
                               (below ? *limit.ceiling_ft : *limit.floor_ft) - undulation_ft,
                               clear_of);
+                if (turned) {
+                    std::snprintf(line + std::strlen(line), sizeof line - std::strlen(line),
+                                  ", turned away to heading %03.0f", *limit.heading_deg);
+                }
             }
             happened.emplace_back(line);
         }
