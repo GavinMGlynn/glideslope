@@ -3425,6 +3425,121 @@ GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_f
           "every aeroplane in the roster was flown or left out with its reason");
 }
 
+// **The AI pilot notices a stall coming, and recovers from it.** Every
+// aeroplane taught a stall, given to the AI (`Controller::to_ai`) where it is
+// practised, in its landing configuration, told how she lands
+// (`lands_with`), and asked to hold her height at ten knots under her stall -
+// a speed asked that would stall her. At her warning the AI's own recovery
+// takes over (sim/controller.cpp, `notice_a_stall`): she is never slower than
+// her stall, and within two minutes she is back at her approach speed and no
+// longer descending, holding her height again. Without the hook the altitude
+// hold flies every one of them into the stall. The height each loses is
+// printed, not judged: the lesson's own checks judge the recovery.
+//
+// **Two named, not yet**, each for that fault alone; a name whose aeroplane
+// now passes turns this red, so it is taken off. The A380 dips 0.7 kt under
+// her published stall before the speed comes (104.1 against 104.9). The
+// Mosquito at 20,000 ft with her flaps and gear down cannot be level at her
+// approach speed, as she cannot at her lesson's recovery speed.
+GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
+    const std::map<std::string, std::string> not_yet = {
+        {"a380", "slowed under her stall"},
+        {"mosquito-fb6", "not back at her approach speed and level"}};
+    std::set<std::string> named_seen;
+    const Taught taught = taught_for("stalls");
+    const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
+    std::size_t walked = 0;
+    std::vector<std::string> faults;
+    for (const std::string& id : taught.able) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        const std::optional<glideslope::sim::ApproachSpeeds> lands =
+            glideslope::sim::landing_speeds(data(), entry.model);
+        check(lands.has_value(), id + " is taught a stall and publishes how she lands");
+        InFlight f = airborne(id, stalls_are_practised_at(entry));
+        glideslope::sim::Controls held;
+        held.throttle = 0.6;
+        held.flaps = lands->flap;
+        held.gear = 1.0;
+        glideslope::sim::Controller controller(*f.aircraft, held);
+        controller.lands_with(*lands);
+        controller.to_ai();
+        glideslope::sim::AutopilotModes modes = controller.autopilot()->modes();
+        modes.heading_deg = f.start_heading_deg;
+        modes.altitude_ft = f.aircraft->property("position/h-sl-ft");
+        modes.airspeed_kts = lands->stall_kts - 10.0;
+        controller.autopilot()->set(modes);
+        double slowest = 1e9;
+        double highest = f.aircraft->property("position/h-sl-ft");
+        double lowest = highest;
+        bool noticed = false;
+        bool recovered = false;
+        int steady = 0;
+        for (int tick = 0; tick < 300 * steps_per_second; ++tick) {
+            const glideslope::sim::Controls c = controller.fly();
+            f.aircraft->set_controls(c);
+            f.aircraft->step();
+            const double kts = f.aircraft->property("velocities/vc-kts");
+            const double h = f.aircraft->property("position/h-sl-ft");
+            if (controller.recovering_from_a_stall() && !noticed) {
+                noticed = true;
+                highest = h;
+                lowest = h;
+            }
+            if (!noticed) {
+                continue;
+            }
+            slowest = std::min(slowest, kts);
+            lowest = std::min(lowest, h);
+            const bool flying =
+                !controller.recovering_from_a_stall() && kts >= lands->vref_kts - 1.0 &&
+                f.aircraft->property("velocities/h-dot-fps") * 60.0 >= -100.0;
+            steady = flying ? steady + 1 : 0;
+            if (steady >= 5 * steps_per_second) {
+                recovered = true;
+                break;
+            }
+        }
+        std::printf("  %-13s noticed %s, slowest %5.1f kt against a stall of %5.1f, lost %5.0f "
+                    "ft, %s\n",
+                    id.c_str(), noticed ? "yes" : "no", slowest, lands->stall_kts,
+                    highest - lowest, recovered ? "recovered" : "NOT RECOVERED");
+        std::string fault;
+        if (!noticed) {
+            fault = "the stall coming was not noticed";
+        } else if (slowest < lands->stall_kts) {
+            fault = "slowed under her stall";
+        } else if (!recovered) {
+            fault = "not back at her approach speed and level";
+        }
+        const auto name = not_yet.find(id);
+        if (name != not_yet.end() && name->second == fault) {
+            named_seen.insert(id);
+            std::printf("      named, not yet: %s %s\n", id.c_str(), fault.c_str());
+        } else if (name != not_yet.end()) {
+            faults.push_back(id + " is named as " + name->second + ", and is " +
+                             (fault.empty() ? "recovered: take its name off" : fault));
+        } else if (!fault.empty()) {
+            faults.push_back(id + ": " + fault);
+        }
+        ++walked;
+    }
+    std::printf("  of the %zu aeroplanes, %zu flown and %zu left out\n", roster, walked,
+                taught.left_out.size());
+    for (const std::string& said : taught.left_out) {
+        std::printf("      left out - %s\n", said.c_str());
+    }
+    for (const std::string& fault : faults) {
+        std::printf("  %s\n", fault.c_str());
+    }
+    check(faults.empty(), std::to_string(faults.size()) +
+                              " aeroplanes were not recovered by the AI; the first: " +
+                              (faults.empty() ? "" : faults.front()));
+    check(named_seen.size() == not_yet.size(), "every name was judged");
+    check(walked == taught.able.size(), "every aeroplane taught a stall was flown");
+    check(walked + taught.left_out.size() == roster,
+          "every aeroplane in the roster was flown or left out with its reason");
+}
+
 // **The stall recovery takes the flaps up to a go-around's, at a hand's pace,
 // where the aeroplane's figures give one, and leaves them where they are
 // where they give none.** Every aeroplane taught a stall, handed to the

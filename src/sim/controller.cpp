@@ -83,6 +83,7 @@ Controller::Controller(const Aircraft& aircraft, const Controls& controls)
 
 void Controller::engage() {
     flying_ = Flying::ai;
+    before_the_stall_.reset();
     mixture_held_ = false;
     catching_up_ = false;
     easing_in_ = false;
@@ -206,6 +207,67 @@ AutopilotModes Controller::gliding(AutopilotModes modes) {
     return modes;
 }
 
+// **The AI pilot notices a stall coming, and recovers from it** - at the
+// first sign of it, its warning, which the rules have sound no less than 5
+// knots or 5% above the stall, whichever is more (14 CFR 25.207(c)), the
+// same margin the stall lessons give theirs. The stall is her published one
+// with everything down (`lands_with`): the lowest she has, so in any other
+// configuration the warning comes late, never early; an aeroplane that
+// publishes none is not watched. **The recovery is the autopilot's own**
+// (AutopilotModes::speed_on_elevator): the nose down until the wing is
+// unloaded, full power, and the speed flown to her approach speed - the
+// FAA's recovery (Airplane Flying Handbook, FAA-H-8083-3C, chapter 5;
+// AC 120-109A). **Recovered** - at that speed and no longer descending, for
+// five seconds - what she was flying is flown again, from where she is, at
+// no less than that speed. Nothing is noticed on the ground or the water,
+// nor while the autopilot is already flying a stall recovery it was asked
+// for, which is a lesson's.
+void Controller::notice_a_stall() {
+    if (!landing_speeds_ || landing_speeds_->stall_kts <= 0.0) {
+        return;
+    }
+    constexpr double least_margin_kts = 5.0;
+    constexpr double margin_of_stall = 0.05;
+    constexpr double level_within_fpm = 100.0;
+    constexpr int recovered_for = 5 * steps_per_second;
+    const double stall_kts = landing_speeds_->stall_kts;
+    const double warning_kts =
+        stall_kts + std::max(least_margin_kts, margin_of_stall * stall_kts);
+    const double recovered_kts = landing_speeds_->vref_kts;
+    const double kts = a_.property("velocities/vc-kts");
+    if (!before_the_stall_) {
+        const bool airborne = a_.property("gear/wow") < 0.5 && !a_.in_water();
+        if (!airborne || autopilot_->modes().speed_on_elevator || kts > warning_kts) {
+            return;
+        }
+        before_the_stall_ = autopilot_->modes();
+        recovered_steps_ = 0;
+    }
+    const bool flying_again = kts >= recovered_kts &&
+                              a_.property("velocities/h-dot-fps") * 60.0 >= -level_within_fpm;
+    recovered_steps_ = flying_again ? recovered_steps_ + 1 : 0;
+    if (recovered_steps_ >= recovered_for) {
+        // What she was flying, from where she is: a height held is held
+        // where she has come to, and a speed asked below the one she is
+        // recovered at - what slowed her - is raised to it.
+        AutopilotModes modes = *before_the_stall_;
+        before_the_stall_.reset();
+        if (modes.altitude_ft) {
+            modes.altitude_ft = a_.property("position/h-sl-ft");
+        }
+        if (modes.airspeed_kts) {
+            modes.airspeed_kts = std::max(*modes.airspeed_kts, recovered_kts);
+        }
+        autopilot_->set(modes);
+        return;
+    }
+    AutopilotModes modes = autopilot_->modes();
+    modes.altitude_ft.reset();
+    modes.airspeed_kts = recovered_kts;
+    modes.speed_on_elevator = true;
+    autopilot_->set(modes);
+}
+
 void Controller::to_ai_take_off(const Runway& runway, const DepartureSpeeds& speeds,
                                 double to_ft) {
     engage();
@@ -265,6 +327,7 @@ void Controller::to_ai_learnt_approach(const Runway& runway, const ApproachSpeed
 
 void Controller::to_pilot() {
     flying_ = Flying::pilot;
+    before_the_stall_.reset();
     glide_kts_.reset();
     catching_up_ = true;
     // The mixture the AI left, held as the ratio it gives (JSBSim meters the
@@ -429,6 +492,7 @@ Controls Controller::fly() {
                 return applied_;
             }
             autopilot_->set(circuit_->modes());
+            notice_a_stall();
             autopilot_->limit_height(floor_ft_, ceiling_ft_);
             autopilot_->turn_away(away_deg_);
             autopilot_->limit_speed(fastest_kts_);
@@ -462,6 +526,7 @@ Controls Controller::fly() {
             }
             autopilot_->set(modes);
         }
+        notice_a_stall();
         autopilot_->limit_height(floor_ft_, ceiling_ft_);
         autopilot_->turn_away(away_deg_);
         autopilot_->limit_speed(fastest_kts_);
