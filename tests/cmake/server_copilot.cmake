@@ -6,7 +6,7 @@
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
 #         (-DPLAYBACK=<recording> | -DRECORD=<recording>
 #          | -DROUTE=<route file> -DEXPECT=<regex> [-DFOR=another|wreck|no_speeds] [-DPLAN=<plan>])
-#         [-DENGINE_AT=<s>] [-DTAKE_BACK_AT=<s>]
+#         [-DENGINE_AT=<s>] [-DTAKE_BACK_AT=<s>|looking]
 #         [-DPROVIDER=openai|anthropic -DMODEL=<model>]
 #         -P server_copilot.cmake
 #
@@ -28,9 +28,16 @@
 # its first after the failure, at the glide's airspeed within 5 kt.
 #
 # **With TAKE_BACK_AT**, the player takes the aircraft back that many seconds
-# after joining, and the copilot, asked for a routine look every 20 s, must
-# stand by from then: the answer that comes after the take-back must not be
-# sent, and the server hands the aircraft to the AI once, not again. The
+# after joining - or, with TAKE_BACK_AT=looking, as soon as its copilot, asked
+# for a routine look every 20 s, has one out - and the copilot must stand by
+# from then: the answer that comes after the take-back must not be sent, and
+# the server hands the aircraft to the AI once, not again. **Taken back on the
+# event, not the clock**: at 40 s, a first answer that came late - a slow
+# machine making its copilot's ground - put the routine look after the
+# take-back, so no answer came after it and the rule went untested (CI,
+# Windows debug, run 37866144089). A look out is answered no sooner than
+# `thinking_s`, 10 s of the session's clock, so taken back then an answer
+# always comes after. The
 # recording played back for it (data/copilot/take_back-server-anthropic.jsonl)
 # is Claude Haiku's, recorded, but for its second answer, which was `keep`
 # and is written in by hand as a route - its line says so, in a "note" the
@@ -121,7 +128,11 @@ else()
         list(APPEND _plan --fail-engine-at ${ENGINE_AT})
     endif()
     if(DEFINED TAKE_BACK_AT)
-        list(APPEND _asking --copilot-routine 20 --take-back-at ${TAKE_BACK_AT})
+        if(TAKE_BACK_AT STREQUAL "looking")
+            list(APPEND _asking --copilot-routine 20 --take-back-while-looking)
+        else()
+            list(APPEND _asking --copilot-routine 20 --take-back-at ${TAKE_BACK_AT})
+        endif()
     endif()
     if(DEFINED MODEL)
         list(APPEND _asking --copilot-model "${MODEL}")

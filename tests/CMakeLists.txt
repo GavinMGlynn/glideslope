@@ -2395,7 +2395,7 @@ set_tests_properties(a_route_the_server_cannot_fly_is_refused_by_it_though_a_cli
 # aircraft back**, from their recordings in data/copilot with no key; asked
 # now (live) only with GLIDESLOPE_LIVE_MODEL=1. See cmake/server_copilot.cmake.
 foreach(_case engine:ENGINE_AT=30:24722:24724:a_players_copilot_glides_its_aircraft_on_a_server_when_the_engine_stops
-              take_back:TAKE_BACK_AT=40:24726:24728:a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back
+              take_back:TAKE_BACK_AT=looking:24726:24728:a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back
               engine_thinking:ENGINE_AT=10:24730:24732:a_players_copilot_glides_when_the_engine_stops_while_it_is_thinking)
     string(REPLACE ":" ";" _case "${_case}")
     list(GET _case 0 _what)
