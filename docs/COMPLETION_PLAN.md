@@ -484,9 +484,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 
 The autopilot's navigator and the plans it flies: orbits, glides, the speeds a plan may ask, the take-off, and the lessons' autopilot.
 
-- [ ] **A glide may still be asked of a jet at its approach speed.** Each
-      aircraft's slowest glide is measured with its gear up - the F-22A's
-      225 kt, her one glide; the tests are not yet run on it.
+- [x] **A glide may still be asked of a jet at its approach speed.** Each
+      aircraft's slowest glide is measured with its gear up, and every
+      aircraft glides round unstalled at every speed it may be asked to
+      glide at - the F-22A at one speed, 225 kt.
       *Verification: every aircraft glides round its tightest orbit at every
       speed a glide may be asked at without stalling, measured.*
 - [x] **A jet's orbit entered from a waypoint swings 460 m off its circle.**
@@ -1282,6 +1283,12 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
 
+- [ ] **The Cherokee makes 2.2 kt less at full throttle than her figures
+      file was measured at.** 126.8 kt level at 3,000 ft against 129 on
+      2026-10-06, the same on main and on this stack; her plan's fastest,
+      117, still holds (PROJECT_STATUS, 2026-10-10). *Verification: the
+      change traced to the commit that made it, and her figure measured
+      again or the change undone.*
 - [ ] **A plan's first leg strays further since the take-off climbs at the
       published speed.** Climbing at her handbook's Vy rather than the
       slower speed for her weight, each light aeroplane strays 11 to 17 m
