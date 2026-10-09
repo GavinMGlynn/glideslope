@@ -507,7 +507,7 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       kt is named under "The F-35B lands on her power"). *Verification: every
       aircraft holds a heading in a 20 kt crosswind from its approach speed
       up, its sideslip within a stated bound.*
-- [ ] **The autopilot's stall recovery, held to what a stall lesson can
+- [x] **The autopilot's stall recovery, held to what a stall lesson can
       ask of it** (decided 2026-09-30, REQUIREMENTS 4.3). *Verification:
       every aeroplane taught a stall is recovered within 2 g both handed over
       at its stall warning, within its lesson's height with no exceptions,
@@ -518,10 +518,12 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       the 747-400 and F-22A, with no published stall, not watched; the
       warning is the landing configuration's, so late clean or banked).
       The lesson's entry holds the height level to the warning, and every
-      aeroplane left thirty seconds is recovered within 2 g. Still missing:
-      at the warning the Learjet (385 of 350 ft) and S.23 (184 of 200,
-      short of the 10% margin) are named, and the Mosquito is never level
-      again.
+      aeroplane left thirty seconds is recovered within 2 g. Closed
+      2026-10-10 by the owner's decision on the measured figures, three
+      short at the warning: the Learjet 35A loses 385 ft against 350, the
+      Short S.23 184 against 200 (named by the 10% margin only), and the
+      Mosquito is never level after her warning, from her own pitching
+      moment (a Later item).
 - [x] **A light aeroplane's take-off hands over slower than the plan's
       climb floor.** Done 2026-10-09: the take-off climbs her at her
       handbook's best-climb speed whatever she weighs, as the plan does, and
@@ -1365,6 +1367,15 @@ outside resource or a larger project.
       stick.*
 - [ ] **The aeroplane is lit by a light baked into its mesh.** *Verification:
       its lighting follows a roll with no mesh remade.*
+- [ ] **The Mosquito's model is never level after a stall warning with full
+      flap and gear: her own pitching moment.** Recovered at her stall
+      warning at 20,000 ft, 45 degrees of flap and the gear down, she loses
+      3,095 ft and is never level again; at 140 kt she pulls 2.1 g with her
+      elevator half nose-down (PROJECT_STATUS, 2026-10-10, the stall
+      recovery closed by the owner's decision). *Verification: her model
+      level at her lesson's recovery speed with full flap and gear, or her
+      lesson flown in the configuration her Pilot's Notes give, and her
+      recovery at the warning within 600 ft.*
 - [ ] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
       model. *Verification: a model whose source and licence are in
       `ASSETS.md` is held to the Learjet's size and drawn in a shot.*
