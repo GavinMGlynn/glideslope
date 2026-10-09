@@ -1047,9 +1047,7 @@ Controls Lander::fly_laws() {
         // 14 CFR 33.73(b) asks an engine for "95 percent rated takeoff power
         // or thrust in not over 5 seconds" from minimum flight idle; engines
         // meet them with an approach idle above flight idle, scheduled with
-        // the gear and the landing flap (the PW2037-powered 757 has ground,
-        // minimum flight and approach idle; the 737's approach idle is about
-        // 32% N1). Here a quarter of the throttle's travel
+        // the gear and the landing flap. Here a quarter of the throttle's travel
         // (`jet_approach_idle`) is our stand-in for that schedule - a real
         // one is an N1 floor, not a lever position - and the speed error is
         // worked at 0.1
