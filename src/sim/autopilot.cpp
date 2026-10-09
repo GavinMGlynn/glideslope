@@ -711,8 +711,8 @@ Controls Autopilot::fly() {
     // pace, and never lowers them. A Cherokee at full power and full rich at
     // 4,700 ft with her 40 degrees of landing flap, at the stall lesson's
     // recovery speed, sinks 190 ft/min for as long as she is flown, so she is
-    // never level and never recovered; her handbook's family goes around at
-    // 25 degrees (assets/figures/pa28.xml). An aeroplane whose figures give
+    // never level and never recovered; her handbooks climb out at 25 degrees
+    // (assets/figures/pa28.xml). An aeroplane whose figures give
     // none keeps the flaps it was handed, as every one did before.
     if (on_speed) {
         if (const std::optional<double> go_around = a_.go_around_flaps()) {

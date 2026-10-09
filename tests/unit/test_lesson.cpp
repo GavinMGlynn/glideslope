@@ -2601,7 +2601,7 @@ struct RecoveryWatch {
 // recovered (RecoveryWatch); otherwise the flight ends with the lesson.
 Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = false,
                    bool until_recovered = true, bool at_the_warning = false,
-                   bool let_go = false) {
+                   bool let_go = false, double handed_flaps = -1.0) {
     const auto stall_entry = glideslope::sim::find_aircraft(data(), id);
     // **A stall is practised where its aeroplane practises it.** A light
     // aeroplane decelerates to the stall in a few hundred feet; a clean jet
@@ -2623,8 +2623,11 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
     // slow to twenty-five knots above its landing stall, a clean 737 has to
     // stall to get there, and it departed - 52 degrees of alpha, 26 nose down
     // and 21,000 ft/min, with nothing to recover it.
+    // `handed_flaps`, where it is not negative, is the lever the flight is
+    // flown with in place of the landing flap.
     const double landing_flap =
-        glideslope::sim::approach_speeds(data(), stall_entry.model).flap;
+        handed_flaps >= 0.0 ? handed_flaps
+                            : glideslope::sim::approach_speeds(data(), stall_entry.model).flap;
     glideslope::sim::Controls controls;
     controls.throttle = 0.6;
     controls.flaps = landing_flap;
@@ -3206,6 +3209,49 @@ GLIDESLOPE_TEST(the_stall_recovery_raises_the_flaps_to_the_go_around_setting_at_
     check(with_a_setting > 0, "at least one aeroplane taught a stall has a go-around setting");
     check(walked + taught.left_out.size() == roster,
           "every aeroplane in the roster was flown or left out with its reason");
+}
+
+// **The stall recovery never lowers the flaps.** Every aeroplane whose
+// figures give a go-around setting, stalled and handed to the recovery at its
+// warning with its flap lever at half that setting: the lever stays where it
+// was handed over, every step. The recovery takes the flaps up to a
+// go-around's; flaps already raised past it are not put down to it.
+GLIDESLOPE_TEST(the_stall_recovery_never_lowers_flaps_raised_past_the_go_around_setting) {
+    const Taught taught = taught_for("stalls");
+    std::size_t with_a_setting = 0;
+    std::vector<std::string> faults;
+    for (const std::string& id : taught.able) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        const auto figures = glideslope::sim::read_published_figures(
+            data() / "figures" / (entry.model + ".xml"));
+        if (!figures.go_around_flaps_deg) {
+            continue;
+        }
+        ++with_a_setting;
+        const double half = 0.5 * *figures.go_around_flaps_deg / figures.flaps_full_deg;
+        const Result r = fly_a_stall(id, 0.0, false, false, true, false, half);
+        std::printf("  %-13s handed over with the lever at %.4f (half its go-around's): ended "
+                    "at %.4f, lowest %.4f, most in a step %.5f\n",
+                    id.c_str(), r.flaps_handed, r.flaps_end, r.flaps_lowest,
+                    r.flaps_most_step);
+        if (r.flaps_handed < 0.0) {
+            faults.push_back(id + " was never handed to its recovery");
+        } else if (std::abs(r.flaps_handed - half) > 1e-12 || r.flaps_most_step != 0.0 ||
+                   r.flaps_end != r.flaps_handed || r.flaps_lowest != r.flaps_handed) {
+            faults.push_back(id + "'s flaps moved from " + std::to_string(r.flaps_handed) +
+                             " to " + std::to_string(r.flaps_end) + " (lowest " +
+                             std::to_string(r.flaps_lowest) + ")");
+        }
+    }
+    std::printf("  %zu of the %zu aeroplanes taught a stall have a go-around setting\n",
+                with_a_setting, taught.able.size());
+    for (const std::string& fault : faults) {
+        std::printf("  %s\n", fault.c_str());
+    }
+    check(faults.empty(), std::to_string(faults.size()) + " recoveries moved flaps raised "
+                          "past the go-around setting; the first: " +
+                          (faults.empty() ? "" : faults.front()));
+    check(with_a_setting > 0, "at least one aeroplane taught a stall has a go-around setting");
 }
 
 // **An autopilot engaged on an aeroplane already stalled recovers it.** The
