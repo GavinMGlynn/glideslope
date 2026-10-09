@@ -519,11 +519,11 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       S.23 past their lesson's height and the Mosquito never level again;
       and the AI pilot noticing a stall.
 - [ ] **A light aeroplane's take-off hands over slower than the plan's
-      climb floor.** The take-off climbs at her climb speed for her weight
-      (the 172P 67 KCAS) and the plan's autopilot at the published one (75),
-      so she accelerates for half a minute after the hand-over; the Cub,
-      with no flap, climbs her first leg 5 kt under either (PROJECT_STATUS,
-      2026-10-09). *Verification: every light aeroplane's first leg is
+      climb floor.** Since 2026-10-09 the take-off climbs her at her
+      handbook's best-climb speed whatever she weighs, as the plan does, and
+      hands her over within 0.6 kt of it; no first leg is climbed more than
+      1.9 kt under it. Missing: the 182S runs 2.04 kt over it for a few
+      seconds as the plan cuts the take-off's full-power climb to its own. *Verification: every light aeroplane's first leg is
       climbed within 2 kt of one climb speed, from the hand-over.*
 - [x] **On tight, slow orbits the navigator flies inside the circle.**
       *Verification: an orbit at the tightest radius allowed, at the approach

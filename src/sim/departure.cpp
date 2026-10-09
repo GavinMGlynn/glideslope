@@ -226,6 +226,7 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
     for (const CatalogueEntry& e : read_catalogue(data)) {
         if (e.model == model) {
             speeds.flaps_up_ft = flaps_up_ft(e.aircraft_class);
+            speeds.climb_for_any_weight = e.aircraft_class == AircraftClass::light_aircraft;
         }
     }
     return speeds;
@@ -267,11 +268,19 @@ Departure::Departure(const Aircraft& aircraft, const Runway& runway,
     // weighs 327,000 lb against the 177,160 its rotation speed was taken
     // at, and asked to fly at the lighter aeroplane's speed it was hauled
     // on to its tail at 110 knots and left the runway at 148. On the water
-    // a published water take-off is flown as published.
+    // a published water take-off is flown as published. **A light
+    // aeroplane's climb away is not scaled** (`climb_for_any_weight`): her
+    // handbook's best-climb speed is for any weight, and it is the speed the
+    // plan's autopilot holds her at from the hand-over. Scaled, the 172P at
+    // 1,879 lb climbed away at 66.7 KCAS and was handed to a floor of 75.4,
+    // and the Cub at 751 lb at 39.7 against 47.8: 8 kt short, she sagged to
+    // 34.9 while the floor wound her climb back.
     if (speeds_.reference_lbs > 0.0 && speeds_.running_pitch_deg <= 0.0) {
         const double scale = std::sqrt(a_.property("inertia/weight-lbs") / speeds_.reference_lbs);
         speeds_.rotate_kts *= scale;
-        speeds_.initial_climb_kts *= scale;
+        if (!speeds_.climb_for_any_weight) {
+            speeds_.initial_climb_kts *= scale;
+        }
     }
 }
 
