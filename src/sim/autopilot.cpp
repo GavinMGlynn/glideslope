@@ -219,6 +219,16 @@ constexpr double a_hands_pace = 1.0 / static_cast<double>(steps_per_second);
 constexpr double throttle_per_knot = 0.08;
 constexpr double throttle_integral_per_knot = 0.02;
 constexpr double throttle_rate = 0.25;
+// **The throttle reads the speed two seconds ahead**, on its trend: the
+// speed now and its rate over the last second (`kts_per_s_`). A pilot holding
+// a speed on the throttle moves it as the needle starts to move, not once it
+// has gone past. Without it, a light aeroplane handed from the take-off's
+// full-power climb, 1,260 to 1,420 ft/min, to a plan's 700 ft/min held her
+// throttle at its stop until the speed was past the one asked: the 182S ran
+// 2.1 kt over her 82.0. Two seconds is the throttle's own pace: half its
+// travel at a quarter a second. With it, 1.2 over; the 172P, Cub and
+// Cherokee 0.3 to 0.7 over, where they were 0.9 to 1.4.
+constexpr double throttle_lead_s = 2.0;
 
 // **Asked for a height it cannot hold, the height goes and the airspeed
 // stays.** With the throttle at its stop the altitude hold can only buy
@@ -333,7 +343,6 @@ Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
     modes_.altitude_ft = a_.property("position/h-sl-ft");
     modes_.airspeed_kts = a_.property("velocities/vc-kts");
     // Each loop set to give the controls the aircraft has.
-    const double climb_fpm = a_.property("velocities/h-dot-fps") * 60.0;
     bank_command_deg_ = a_.property("attitude/phi-deg");
     {
         const double v = a_.property("velocities/vt-fps");
@@ -359,7 +368,15 @@ Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
     // first step in `fly()` now measures what the laws actually give and
     // carries the difference as an offset instead, which cannot break.
     pitch_command_deg_ = a_.property("attitude/theta-deg");
-    pitch_integral_deg_ = pitch_command_deg_ + pitch_per_fpm * climb_fpm;
+    // **The vertical speed loop's integral is the pitch she has**: the pitch
+    // that holds the climb she is in, so that the loop's proportional part
+    // acts on the climb asked from the first step. It was that pitch plus
+    // the proportional part of the climb she had, which is the pitch only
+    // for a climb asked of none; asked for any other, the nose went up by
+    // that part of it. A light aeroplane handed from her take-off at 1,025
+    // ft/min to a plan's 700 was pitched 2.5 degrees up, not down, and lost
+    // 1.8 kt before the integral wound it back.
+    pitch_integral_deg_ = pitch_command_deg_;
     elevator_trim_ = controls.elevator;
     rudder_integral_ = controls.rudder;
     steady_yaw_rate_degps_ = degrees(a_.property("velocities/r-rad_sec"));
@@ -773,8 +790,11 @@ Controls Autopilot::fly() {
             climb_speed_kts_ = std::max(climb_speed_kts_ - dt, 0.0);
         }
         climb_speed_kts_ = std::min(climb_speed_kts_, may_raise_kts);
-        const double speed_off =
-            *modes_.airspeed_kts + climb_speed_kts_ - a_.property("velocities/vc-kts");
+        // **On the speed it will have** (`throttle_lead_s`), not only the
+        // speed it has.
+        const double speed_off = *modes_.airspeed_kts + climb_speed_kts_ -
+                                 a_.property("velocities/vc-kts") -
+                                 throttle_lead_s * kts_per_s_;
         // **Short of speed for the height asked, the throttle opens.** While
         // the climb is held back for the speed, the aeroplane wants all the
         // power it has, whatever the airspeed loop makes of a speed that is

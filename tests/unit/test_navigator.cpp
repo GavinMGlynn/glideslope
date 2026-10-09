@@ -1749,18 +1749,17 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
 // (DepartureSpeeds::climb_for_any_weight): the take-off climbs her away at
 // it, and the autopilot's best-climb floor holds her at it after.
 // - **No step at the hand-over**: she is handed over within 1 kt of it.
-// - **The first leg is climbed at it**: from the hand-over until she is
-//   within 50 ft of the waypoint's height, never more than 2 kt under it,
-//   nor more than 2.5 over. Measured (linux-release), handed over at /
-//   slowest / fastest against her climb speed, KCAS: the 172P 74.8 / 73.6 /
-//   76.2 against 75.4; the 182S 81.4 / 80.6 / 84.0 against 82.0; the Cub
-//   47.5 / 45.9 / 48.9 against 47.8; the Cherokee 73.5 / 72.2 / 75.3
-//   against 73.9. **The 182S's 2.04 over is not the hand-over's**: she is
-//   handed over climbing 1,260 to 1,420 ft/min at full throttle, and the
-//   plan's climb is 700; as its pitch comes down the speed runs on, the
-//   throttle only leaving its stop at 82.4 kt and coming back at a quarter
-//   of its travel a second. 2 kt over is the item's verification, and is
-//   not met by 0.04 kt; the item stays open for it.
+// - **The first leg is climbed at it**: within 2 kt of it from the
+//   hand-over until she is within 50 ft of the waypoint's height.
+// Measured (linux-release), handed over at / slowest / fastest against her
+// climb speed, KCAS: the 172P 74.8 / 74.8 / 75.7 against 75.4; the 182S
+// 81.4 / 81.4 / 83.1 against 82.0; the Cub 47.5 / 47.5 / 48.5 against
+// 47.8; the Cherokee 73.5 / 73.4 / 74.6 against 73.9. Before the autopilot
+// seeded its climb loop with the pitch she had and read the speed's trend
+// on the throttle (sim/autopilot.cpp), she was pitched up as she was handed
+// over and ran on past her speed as the plan's 700 ft/min took over from
+// the take-off's full-power climb: the 182S 80.6 to 84.0, the 172P down to
+// 73.6.
 // Straight ahead because a turn may spend 3 kt (sim/autopilot.cpp) and this
 // is about the climb's speed, not the turn's. Before, the take-off climbed
 // her at her published speed scaled by the square root of her weight and
@@ -1790,8 +1789,7 @@ GLIDESLOPE_TEST(every_light_aeroplane_is_handed_to_its_plan_at_its_climb_speed_a
     check(named == expected,
           "the light aeroplanes are the four this test names: found" + listed);
     constexpr double handed_within_kts = 1.0;
-    constexpr double under_kts = 2.0;
-    constexpr double over_kts = 2.5;
+    constexpr double within_kts = 2.0;
     std::size_t flown = 0;
     for (const auto& entry : light) {
         const std::string& id = entry.id;
@@ -1872,10 +1870,10 @@ GLIDESLOPE_TEST(every_light_aeroplane_is_handed_to_its_plan_at_its_climb_speed_a
                   " (within 1)");
         check(reached_ft >= 1950.0, id + " climbed her first leg to " +
                                         std::to_string(reached_ft) + " ft (1,950 asked)");
-        check(slowest_kcas >= climb_kts - under_kts && fastest_kcas <= climb_kts + over_kts,
+        check(slowest_kcas >= climb_kts - within_kts && fastest_kcas <= climb_kts + within_kts,
               id + " climbed her first leg at " + std::to_string(slowest_kcas) + " to " +
                   std::to_string(fastest_kcas) + " KCAS, against her climb speed of " +
-                  std::to_string(climb_kts) + " (2 under to 2.5 over)");
+                  std::to_string(climb_kts) + " (within 2)");
         ++flown;
     }
     check(flown == expected.size(), "every light aeroplane flown: " + std::to_string(flown) +

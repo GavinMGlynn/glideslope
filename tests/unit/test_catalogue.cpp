@@ -799,15 +799,18 @@ GLIDESLOPE_TEST(every_aircraft_knows_the_alpha_and_sideslip_its_tables_hold) {
 }
 
 // **A trial stops a flight that leaves its tables, and judges it not held**:
-// the F-22A at 130 kt in calm air, clean at 3,000 ft on the autopilot -
-// 10 kt under her slowest - departs, her alpha past the 90 degrees her
-// tables hold, her sideslip 10 by then. Flown on, MSVC's debug JSBSim asserted in a table lookup
+// the F-22A at 120 kt in calm air, clean at 3,000 ft on the autopilot -
+// 20 kt under her slowest - departs, her alpha past the 90 degrees her
+// tables hold. It was 130 kt, 10 under, until the autopilot's throttle read
+// the speed's trend and its climb loop started from her pitch (2026-10-09):
+// at 130 she now holds, at 125 and 120 departs (sideslip 4.3 and 1.4 by
+// then). Flown on, MSVC's debug JSBSim asserted in a table lookup
 // (CI run 37609045925); stopped there, nothing is looked up past them.
 GLIDESLOPE_TEST(a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables_and_judges_it_not_held) {
     const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "f22");
     const glideslope::sim::CrosswindFlown f =
-        glideslope::sim::fly_heading_in_crosswind(data(), e, 130.0, false);
-    std::printf("  f22 at 130 kt in calm air: left its tables %s, sideslip at most %.1f\n",
+        glideslope::sim::fly_heading_in_crosswind(data(), e, 120.0, false);
+    std::printf("  f22 at 120 kt in calm air: left its tables %s, sideslip at most %.1f\n",
                 f.left_tables ? "yes" : "no", f.most_sideslip_ever_deg);
     check(f.left_tables, "she left her tables, and the flight was stopped");
     check(f.most_sideslip_ever_deg <= 90.0, "no step was looked up past them");
